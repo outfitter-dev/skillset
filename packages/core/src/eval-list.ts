@@ -13,8 +13,13 @@ export interface SkillsetEvalListEntry {
   readonly prompt: string;
   readonly skill: string;
   readonly skillPath: string;
+  readonly owner: SkillsetEvalOwner;
   readonly target: TargetName;
 }
+
+export type SkillsetEvalOwner =
+  | { readonly kind: "standalone" }
+  | { readonly kind: "plugin"; readonly plugin: string };
 
 /**
  * Derives the portable eval case/target matrix from source already resolved by
@@ -25,11 +30,16 @@ export async function listSkillEvals(
   options: SkillsetOptions = {}
 ): Promise<readonly SkillsetEvalListEntry[]> {
   const graph = await loadBuildGraph(rootPath, options);
-  const skills = [
-    ...graph.standaloneSkills,
-    ...graph.plugins.flatMap((plugin) => plugin.skills),
+  const entries = [
+    ...graph.standaloneSkills.flatMap((skill) =>
+      listSkillEvalEntries(graph.rootPath, skill, { kind: "standalone" })
+    ),
+    ...graph.plugins.flatMap((plugin) =>
+      plugin.skills.flatMap((skill) =>
+        listSkillEvalEntries(graph.rootPath, skill, { kind: "plugin", plugin: plugin.id })
+      )
+    ),
   ];
-  const entries = skills.flatMap((skill) => listSkillEvalEntries(graph.rootPath, skill));
   return entries.sort((left, right) =>
     compareStrings(left.skillPath, right.skillPath) ||
     left.evalId - right.evalId ||
@@ -39,7 +49,8 @@ export async function listSkillEvals(
 
 function listSkillEvalEntries(
   rootPath: string,
-  skill: SourceSkill
+  skill: SourceSkill,
+  owner: SkillsetEvalOwner
 ): readonly SkillsetEvalListEntry[] {
   const declaration = skill.evalDeclaration;
   if (declaration === undefined) return [];
@@ -57,6 +68,7 @@ function listSkillEvalEntries(
       prompt: entry.prompt,
       skill: skill.id,
       skillPath,
+      owner,
       target,
     }))
   );

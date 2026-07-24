@@ -10,7 +10,7 @@ Feature id: `tests-and-evals`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skillset implements deterministic source-root test declarations, activation probes, optional declared or ad hoc runtime tests, and portable skill-local eval declarations. Eval execution remains future and adapter-aware. Tests and evals are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals ask whether a skill, plugin, or agent helps a model do the intended work.
+Skillset implements deterministic source-root test declarations, activation probes, optional declared or ad hoc runtime tests, portable skill-local eval declarations, and opt-in ungraded eval runs. Tests and evals are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals retain provider trial evidence without judging whether a model met an expectation.
 
 ## Current Boundary
 
@@ -25,6 +25,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
 | `skillset test --target …` | `.skillset/cache/tests/ad-hoc/` logical reports backed by XDG cache storage | `implemented` | Runs an ad hoc non-interactive provider test and retains status, output, tail, and report files. |
 | `<skill>/evals/evals.json` | skill-local JSON | `implemented` / declaration | Portable case source, validation, and read-only target-matrix listing. |
+| `skillset eval run` | XDG-backed `.skillset/cache/evals/` | `implemented` / opt-in | Runs the declared case-by-target matrix through target-native local adapters without grading. |
 
 Checked-in internal fixtures use the current workspace layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/.skillset/` as the source root.
 
@@ -200,7 +201,7 @@ skillset test docs-activation
 
 The command remains credential-free when the selected declaration has no `runtime` block. Live declarations use provider credentials and binaries already available to the process; they do not install, trust, publish, or edit user-level provider configuration. Claude defaults to isolated setting sources and can explicitly select `isolated`, `user`, `project`, or `local` for a declared probe.
 
-Runtime results distinguish `render`, `binary`, `setup`, `auth`, `timeout`, `runtime`, and `assertion` failures. A provider process can therefore complete successfully while its declared expectation fails as `assertion`; missing generated units fail as `render` before provider launch, while a missing executable fails as `binary`. JSON and Markdown test reports record the target, command context, prompt provenance, normalized assertion results, and logical raw evidence paths. Raw ad hoc reports, stdout/stderr events, prompts, and final responses remain under the repo's XDG-backed `.skillset/cache/tests/ad-hoc/` bucket.
+Runtime results distinguish `render`, `binary`, `setup`, `auth`, `timeout`, `cancelled`, `runtime`, and `assertion` failures. A provider process can therefore complete successfully while its declared expectation fails as `assertion`; missing generated units fail as `render` before provider launch, while a missing executable fails as `binary`. JSON and Markdown test reports record the target, command context, prompt provenance, normalized assertion results, and logical raw evidence paths. Raw ad hoc reports, stdout/stderr events, prompts, and final responses remain under the repo's XDG-backed `.skillset/cache/tests/ad-hoc/` bucket.
 
 The promotion path is intentionally direct: use `skillset test` to refine a provider prompt, move the prompt inline or into a source-root file, add the expected rendered unit and literal response assertion to an activation probe, then run it with `skillset test`. Subjective quality evaluation remains separate work under SET-51.
 
@@ -344,15 +345,40 @@ matching `skill_name`.
 
 ### Portable Source and Machine-Local Execution
 
-The declaration above is portable authored source. Provider runs, graders,
-benchmark workspaces, token measurements, baselines, trial reports, and human
-review are machine-local evaluation concerns. They remain out of scope for
-this contract and do not fold into deterministic `skillset test` behavior.
-Provider execution conventions may differ, so a future runner must establish
-its own target-native execution and retention contract rather than treating
-this declaration as proof of runtime portability.
+The declaration above is portable authored source. Provider runs, benchmark
+workspaces, token measurements, and trial reports are machine-local evaluation
+concerns. `skillset eval run` is the opt-in execution boundary: it derives the
+same deterministic case-by-target matrix as `eval list`, stages each case's
+declared files at its authored relative path in an isolated trial workspace,
+and invokes the target-native local adapter. A completed provider trial is not
+a quality verdict: `expected_output` and `expectations` are retained as
+authored context only. Skillset does not grade, compare, score, baseline, or
+otherwise pass a model response against them.
 
-Generated eval output, if Skillset owns it later, should live under:
+```bash
+skillset eval run
+skillset eval run --timeout-ms 30000
+skillset eval status [run-id]
+skillset eval tail [run-id] --lines 80
+```
+
+Each run retains an isolated source/rendering workspace, prompt, provider
+event stream, final message when the adapter supplies one, stdout/stderr,
+and structured trial report. Reports preserve the standalone or plugin owner,
+case id, target, authored expectations, command, duration, model/token/tool
+usage when the provider supplies it, and the explicit outcome classification.
+`non_lowering` means the declared skill was not emitted for a selected target;
+`unavailable` means staged input or a local provider activation path could not
+be prepared. In particular, plugin-owned Codex trials remain unavailable until
+the Codex adapter can activate a local generated plugin bundle.
+`infrastructure_failure` distinguishes adapter/auth/binary/setup/runtime/timeout/cancel
+outcomes from a completed trial. A run that completes its infrastructure work
+has lifecycle state `completed`; this is not a quality judgment. Eval data contains no
+per-run or per-trial verdict boolean: CLI exit code describes only
+execution/infrastructure state, never whether a model response met an authored
+expectation.
+
+Generated eval evidence lives under the logical cache root:
 
 ```text
 .skillset/cache/evals/
@@ -361,20 +387,27 @@ Generated eval output, if Skillset owns it later, should live under:
   runs/<run-id>/
 ```
 
-Future execution may include baselines, graders, benchmark workspaces, token measurements, reports, and human review. Those machine-local concerns stay distinct from deterministic compile and lifecycle tests.
+Baselines, graders, comparisons, benchmark summaries, and human review remain
+future machine-local concerns. They stay distinct from deterministic compile
+and lifecycle tests.
 
-Eval execution should stay opt-in. Some target eval harnesses require credentials, write benchmark setup files, or touch target runtime configuration. Those workflows are useful, but they are not safe default checks and should not be wired into `skillset check`, `skillset check --only outputs`, or repo `bun run check` until a specific mode is proven deterministic, local, credential-free, and side-effect-free.
+Eval execution stays opt-in. It may require credentials and provider binaries,
+so it is never wired into `skillset check`, `skillset check --only outputs`,
+repo `bun run check`, or CI. Foreground cancellation is retained as a distinct
+cancelled infrastructure outcome; a durable background cancellation protocol
+is intentionally outside this slice.
 
 ## Diagnostics
 
 - `skillset test` fails on missing declarations, unsupported source selectors, failed checks, stale generated output inside the isolated run, malformed test declarations, and unsafe build/write flag combinations.
 - Test runs report what they generated, what they checked, where the retained run lives, and where the refreshed `latest/` output lives.
-- Evals should identify whether a result is structural analysis, benchmark output, model behavior, or human review.
-- Evals should distinguish read-only analysis from benchmark or runtime modes that write setup files, consume credentials, call providers, or mutate target runtime state.
+- `skillset eval run` reports read-only source analysis separately from provider
+  execution and retains explicit `non_lowering`, `unavailable`, and
+  `infrastructure_failure` classifications without inferring model quality.
 
 ## Provenance
 
-Test runs record the source selector, target set, run id, generated output paths, check results, retained run path, and refreshed latest path in `report.json`, `report.md`, and `latest.json`. Eval runs should use the equivalent logical `.skillset/cache/evals/` boundary if they become a Skillset surface later. This provenance belongs under `.skillset/cache/tests/` or `.skillset/cache/evals/` logical cache paths, not in ordinary generated target files.
+Test runs record the source selector, target set, run id, generated output paths, check results, retained run path, and refreshed latest path in `report.json`, `report.md`, and `latest.json`. Eval runs use the equivalent logical `.skillset/cache/evals/` boundary and preserve owner, case, target, staged workspace, prompts, events, provider output, and ungraded authored context in `report.json`. This provenance belongs under `.skillset/cache/tests/` or `.skillset/cache/evals/` logical cache paths, not in ordinary generated target files.
 
 ## Evidence
 

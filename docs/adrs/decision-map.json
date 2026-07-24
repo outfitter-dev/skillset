@@ -566,6 +566,11 @@
           "fromPath": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md"
         },
         {
+          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.",
+          "from": "20260723",
+          "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
+        },
+        {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
           "from": "tests-and-evals",
           "fromPath": "docs/features/tests-and-evals.md"
@@ -984,6 +989,11 @@
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outsi",
           "from": "20260723",
           "fromPath": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md"
+        },
+        {
+          "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.",
+          "from": "20260723",
+          "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
         },
         {
           "context": "The [workflow-oriented CLI ADR](../adrs/0022-workflow-oriented-cli.md) fixes the top-level commands. This document fixes the flag vocabulary those command-family implementations consume. The machine-r",

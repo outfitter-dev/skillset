@@ -66,6 +66,17 @@ Use this skill to answer fixture questions.
   expect(runs.map((run) => run.runId)).toContain(report.runId);
 });
 
+test("ad hoc retained lookups reject traversal-shaped run ids", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: runtime-fixture\ncodex: true\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo ad hoc test skill.\n---\n\nUse this skill.\n",
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+
+  await expect(readAdHocTestStatus(root, "../outside", { xdg })).rejects.toThrow("single portable path segment");
+  await expect(tailAdHocTestRun(root, "../outside", 10, { xdg })).rejects.toThrow("single portable path segment");
+});
+
 test("ad hoc test target diagnostics use the canonical target list", async () => {
   await expect(runAdHocTestCommand("/tmp", {
     background: false,
@@ -403,6 +414,80 @@ CLI fixture body.
   const retired = await runSkillsetCli(env, "runtime-tester", "run", "--target", "codex", "--prompt", "Old command.", "--root", root);
   expect(retired.exitCode).toBe(1);
   expect(retired.stderr).toContain("expected command");
+});
+
+test("SET-387: SIGTERM cancels a foreground ad hoc provider tree", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: runtime-signal-fixture
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Signal cleanup fixture.
+---
+
+Use this skill.
+`,
+  });
+  const marker = join(root, "provider-pids");
+  const bin = join(root, "bin", "signal-codex");
+  await mkdir(dirname(bin), { recursive: true });
+  await writeFile(
+    bin,
+    "#!/bin/sh\nsleep 30 &\nchild=$!\nprintf '%s %s\\n' \"$$\" \"$child\" > \"$PROVIDER_PID_MARKER\"\ncat >/dev/null\nwait \"$child\"\n",
+    "utf8"
+  );
+  await chmod(bin, 0o755);
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const proc = Bun.spawn({
+    cmd: [
+      "bun",
+      join(import.meta.dir, "..", "cli.ts"),
+      "test",
+      "--target",
+      "codex",
+      "--prompt",
+      "Wait.",
+      "--root",
+      root,
+    ],
+    env: {
+      ...process.env,
+      PROVIDER_PID_MARKER: marker,
+      SKILLSET_TEST_CODEX_BIN: bin,
+      XDG_CACHE_HOME: xdg.env.XDG_CACHE_HOME,
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const deadline = Date.now() + 2_000;
+  while (!await Bun.file(marker).exists() && Date.now() < deadline) {
+    await Bun.sleep(10);
+  }
+  expect(await Bun.file(marker).exists()).toBe(true);
+  const providerPids = (await readFile(marker, "utf8"))
+    .trim()
+    .split(/\s+/u)
+    .map(Number);
+
+  process.kill(proc.pid, "SIGTERM");
+  const [exitCode] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+
+  expect(exitCode).not.toBe(0);
+  expect(await readAdHocTestStatus(root, undefined, { xdg })).toMatchObject({
+    failureClass: "cancelled",
+    state: "failed",
+  });
+  for (const pid of providerPids) {
+    expect(() => process.kill(pid, 0)).toThrow();
+  }
 });
 
 test("ad hoc test CLI supports Claude setting source override", async () => {

@@ -52,6 +52,7 @@ export type SkillsetRuntimeState = "failed" | "passed";
 export type SkillsetRuntimeProviderFailureClass =
   | "auth"
   | "binary"
+  | "cancelled"
   | "render"
   | "runtime"
   | "setup"
@@ -593,6 +594,27 @@ export async function stageSkillsetTestWorkspace(
     workspaceLockPath,
     join(stagingWorkspacePath, "skillset.lock")
   );
+  await copyWorkspaceManagedFiles(
+    rootPath,
+    stagingWorkspacePath,
+    workspaceLockPath,
+    graph.sourceDir
+  );
+}
+
+/**
+ * Stages the complete authored source into an isolated workspace for an
+ * explicit runtime consumer. Unlike test declarations, callers retain every
+ * source unit and only use this helper for opt-in execution.
+ */
+export async function stageSkillsetSourceWorkspace(
+  rootPath: string,
+  graph: BuildGraph,
+  stagingWorkspacePath: string
+): Promise<void> {
+  const workspaceLockPath = resolveInside(rootPath, "skillset.lock");
+  await copyTestSource(graph, stagingWorkspacePath);
+  await copyIfExists(workspaceLockPath, join(stagingWorkspacePath, "skillset.lock"));
   await copyWorkspaceManagedFiles(
     rootPath,
     stagingWorkspacePath,

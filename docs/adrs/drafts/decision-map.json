@@ -189,6 +189,21 @@
       "superseded_by": null,
       "title": "Portable Skill Eval Source Contract",
       "updated": "2026-07-23"
+    },
+    {
+      "amended_by": [],
+      "amends": ["12", "22"],
+      "created": "2026-07-23",
+      "depends_on": [],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md",
+      "slug": "ungraded-cross-provider-eval-runs",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Ungraded Cross-Provider Eval Runs",
+      "updated": "2026-07-23"
     }
   ],
   "version": 1
