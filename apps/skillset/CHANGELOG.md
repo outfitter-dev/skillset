@@ -1,5 +1,11 @@
 # skillset
 
+## 0.20.0
+
+### Minor Changes
+
+- 818554d: Add canonical `skillset.listing` metadata, provider-aware lowering, compatibility diagnostics, and native plugin import normalization.
+
 ## 0.19.0
 
 ### Minor Changes
