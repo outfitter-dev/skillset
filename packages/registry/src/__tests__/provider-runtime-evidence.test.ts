@@ -44,6 +44,7 @@ describe("SET-390 provider runtime evidence", () => {
         argv: ["claude", "plugin", "list", "--json"],
         kind: "command",
         output: "json",
+        versionArgv: ["claude", "--version"],
       },
     });
     expect(getProviderRuntimeEvidence("cursor")).toMatchObject({

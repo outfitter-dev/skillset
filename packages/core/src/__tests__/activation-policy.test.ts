@@ -39,6 +39,7 @@ describe("SET-390 provider activation policy", () => {
         effect: "active",
         id: "claude.mcp.list",
         output: "text",
+        versionArgv: ["claude", "--version"],
       },
       {
         allowedClaims: ["discoverable", "enabled"],
@@ -46,6 +47,7 @@ describe("SET-390 provider activation policy", () => {
         effect: "passive",
         id: "claude.plugin.list",
         output: "json",
+        versionArgv: ["claude", "--version"],
       },
       {
         allowedClaims: ["discoverable"],
@@ -53,6 +55,7 @@ describe("SET-390 provider activation policy", () => {
         effect: "passive",
         id: "codex.mcp.list",
         output: "json",
+        versionArgv: ["codex", "--version"],
       },
       {
         allowedClaims: ["discoverable", "enabled"],
@@ -60,6 +63,7 @@ describe("SET-390 provider activation policy", () => {
         effect: "passive",
         id: "codex.plugin.list",
         output: "json",
+        versionArgv: ["codex", "--version"],
       },
       {
         allowedClaims: ["connected", "discoverable"],
@@ -67,6 +71,7 @@ describe("SET-390 provider activation policy", () => {
         effect: "active",
         id: "cursor.mcp.list",
         output: "text",
+        versionArgv: ["cursor-agent", "--version"],
       },
       {
         allowedClaims: ["authenticated"],
@@ -74,6 +79,7 @@ describe("SET-390 provider activation policy", () => {
         effect: "passive",
         id: "cursor.status",
         output: "json",
+        versionArgv: ["cursor-agent", "--version"],
       },
     ]);
   });
@@ -234,6 +240,7 @@ describe("SET-390 provider activation policy", () => {
             argv: ["sh", "-c", "codex mcp list --json"],
             kind: "command",
             output: "json",
+            versionArgv: ["sh", "--version"],
           },
         },
       ],
@@ -256,6 +263,7 @@ function commandSurfaces(): readonly Record<string, unknown>[] {
               effect: inspector.effect,
               id: inspector.id,
               output: inspector.surface.output,
+              versionArgv: inspector.surface.versionArgv,
             },
           ]
         : []

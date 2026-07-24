@@ -1,0 +1,55 @@
+{
+  "schema": "skillset.activation-provider-fixtures@1",
+  "capturedAt": "2026-07-24",
+  "captureEnvironment": "installed provider binary with isolated empty HOME and XDG roots",
+  "fixtures": [
+    {
+      "id": "claude-plugin-list",
+      "provider": "Claude Code",
+      "providerVersion": "2.1.219",
+      "command": ["claude", "plugin", "list", "--json"],
+      "source": "https://code.claude.com/docs/en/plugins-reference",
+      "output": "[]"
+    },
+    {
+      "id": "claude-mcp-list",
+      "provider": "Claude Code",
+      "providerVersion": "2.1.219",
+      "command": ["claude", "mcp", "list"],
+      "source": "https://code.claude.com/docs/en/mcp",
+      "output": "No MCP servers configured. Use `claude mcp add` to add a server."
+    },
+    {
+      "id": "codex-plugin-list",
+      "provider": "Codex",
+      "providerVersion": "0.146.0-alpha.3.1",
+      "command": ["codex", "plugin", "list", "--json"],
+      "source": "https://developers.openai.com/codex/cli/reference",
+      "output": "{\"installed\":[],\"available\":[]}"
+    },
+    {
+      "id": "codex-mcp-list",
+      "provider": "Codex",
+      "providerVersion": "0.146.0-alpha.3.1",
+      "command": ["codex", "mcp", "list", "--json"],
+      "source": "https://developers.openai.com/codex/mcp",
+      "output": "[]"
+    },
+    {
+      "id": "cursor-mcp-list",
+      "provider": "Cursor Agent",
+      "providerVersion": "2026.07.23-e383d2b",
+      "command": ["cursor-agent", "mcp", "list"],
+      "source": "https://cursor.com/docs/cli/headless",
+      "output": "No MCP servers configured (expected in .cursor/mcp.json or ~/.cursor/mcp.json)"
+    },
+    {
+      "id": "cursor-status",
+      "provider": "Cursor Agent",
+      "providerVersion": "2026.07.23-e383d2b",
+      "command": ["cursor-agent", "status", "--format", "json"],
+      "source": "https://cursor.com/docs/cli/headless",
+      "output": "{\"status\":\"unauthenticated\",\"isAuthenticated\":false,\"hasAccessToken\":false,\"hasRefreshToken\":false,\"message\":\"Not authenticated\"}"
+    }
+  ]
+}

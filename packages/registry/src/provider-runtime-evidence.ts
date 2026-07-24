@@ -14,6 +14,7 @@ export interface ProviderRuntimeCommandSurface {
   readonly argv: readonly [string, ...string[]];
   readonly kind: "command";
   readonly output: "json" | "text";
+  readonly versionArgv: readonly [string, ...string[]];
 }
 
 export interface ProviderRuntimeInspectorEvidence {
@@ -240,7 +241,12 @@ function command(
   argv: readonly [string, ...string[]],
   output: ProviderRuntimeCommandSurface["output"]
 ): ProviderRuntimeCommandSurface {
-  return { argv, kind: "command", output };
+  return {
+    argv,
+    kind: "command",
+    output,
+    versionArgv: [argv[0], "--version"],
+  };
 }
 
 function assertCommandSurface(entry: ProviderRuntimeInspectorEvidence): void {
@@ -260,6 +266,16 @@ function assertCommandSurface(entry: ProviderRuntimeInspectorEvidence): void {
         `skillset: provider runtime inspector evidence ${entry.id} has invalid argv`
       );
     }
+  }
+  const [versionExecutable, ...versionArgs] = entry.surface.versionArgv;
+  if (
+    versionExecutable !== executable ||
+    versionArgs.length !== 1 ||
+    versionArgs[0] !== "--version"
+  ) {
+    throw new Error(
+      `skillset: provider runtime inspector evidence ${entry.id} must use the matching fixed --version surface`
+    );
   }
 }
 
