@@ -47,6 +47,7 @@ import {
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
@@ -226,7 +227,7 @@ export async function loadBuildGraph(
   validateOutputRoots(rootPath, protectedRoots, outputRoots);
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
 
-  return {
+  const graph: BuildGraph = {
     adaptiveHooks,
     hookAttachments,
     instructionsDir,
@@ -247,6 +248,8 @@ export async function loadBuildGraph(
     standaloneSkills,
     warnings,
   };
+  validateProjectAgentSkills(graph);
+  return graph;
 }
 
 export async function detectWorkspaceSourceDir(

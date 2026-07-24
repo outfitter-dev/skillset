@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
@@ -26,7 +26,10 @@ import {
   pluginManifestPath,
   pluginTargetRoot,
 } from "./plugin-output";
-import { rewriteResourceLinks } from "./resources";
+import {
+  resolveDeclaredResourceReference,
+  rewriteResourceLinks,
+} from "./resources";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
@@ -39,6 +42,7 @@ import {
   preprocessText,
   readPreprocessDependencySync,
 } from "./preprocess";
+import { resolveProjectAgentSkills } from "./project-agent-skills";
 import { renderChangelogProjections, type ChangelogProjection } from "./changelog";
 import {
   renderValidatedJson,
@@ -508,8 +512,28 @@ async function renderCursorProjectAgent(
   agent: SourceProjectAgent
 ): Promise<RenderedProjectAgentFile> {
   const targetOptions = agent.targets.cursor.options;
-  const initialPrompt = readString(targetOptions, "initialPrompt") ?? readString(agent.frontmatter, "initialPrompt");
-  const skills = readStringArray(targetOptions, "skills") ?? readStringArray(agent.frontmatter, "skills");
+  const targetPath = join(targetProjectRoot(graph, "cursor"), "agents", `${agent.outputName}.md`);
+  const preprocessDependencies = new Set<string>();
+  const rawInitialPrompt =
+    readString(targetOptions, "initialPrompt") ??
+    readString(agent.frontmatter, "initialPrompt");
+  const initialPrompt =
+    rawInitialPrompt === undefined
+      ? undefined
+      : await preprocessText(rawInitialPrompt, {
+          frontmatter: agent.frontmatter,
+          preprocessDependencies,
+          rootPath: graph.rootPath,
+          sourcePath: agent.sourcePath,
+          sourceRoot: graph.sourceRoot,
+          renderPathReference: projectAgentPathReferenceRenderer(
+            graph,
+            targetPath
+          ),
+        });
+  const skills = resolveProjectAgentSkills(graph, agent, "cursor")?.map(
+    (skill) => skill.rendered
+  );
   const frontmatter = mergeRecords(
     mergeRecords(
       stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)),
@@ -525,15 +549,17 @@ async function renderCursorProjectAgent(
         : {}),
     }
   );
-  const preprocessDependencies = new Set<string>();
   const body = await preprocessText(agent.body, {
     frontmatter: agent.frontmatter,
     preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: agent.sourcePath,
     sourceRoot: graph.sourceRoot,
+    renderPathReference: projectAgentPathReferenceRenderer(
+      graph,
+      targetPath
+    ),
   });
-  const targetPath = join(targetProjectRoot(graph, "cursor"), "agents", `${agent.outputName}.md`);
   return {
     file: textFile(
       targetPath,
@@ -550,8 +576,28 @@ async function renderClaudeProjectAgent(
   agent: SourceProjectAgent
 ): Promise<RenderedProjectAgentFile> {
   const targetOptions = agent.targets.claude.options;
-  const initialPrompt = readString(targetOptions, "initialPrompt") ?? readString(agent.frontmatter, "initialPrompt");
-  const skills = readStringArray(targetOptions, "skills") ?? readStringArray(agent.frontmatter, "skills");
+  const targetPath = join(targetProjectRoot(graph, "claude"), "agents", `${agent.outputName}.md`);
+  const preprocessDependencies = new Set<string>();
+  const rawInitialPrompt =
+    readString(targetOptions, "initialPrompt") ??
+    readString(agent.frontmatter, "initialPrompt");
+  const initialPrompt =
+    rawInitialPrompt === undefined
+      ? undefined
+      : await preprocessText(rawInitialPrompt, {
+          frontmatter: agent.frontmatter,
+          preprocessDependencies,
+          rootPath: graph.rootPath,
+          sourcePath: agent.sourcePath,
+          sourceRoot: graph.sourceRoot,
+          renderPathReference: projectAgentPathReferenceRenderer(
+            graph,
+            targetPath
+          ),
+        });
+  const skills = resolveProjectAgentSkills(graph, agent, "claude")?.map(
+    (skill) => skill.rendered
+  );
   const adaptiveHooks = renderAdaptiveFrontmatterHooks(
     graph,
     { agentId: agent.outputName, kind: "agent" },
@@ -578,15 +624,17 @@ async function renderClaudeProjectAgent(
       ? { metadata: { skillset: { generated: GENERATED_BY } } }
       : {}
   );
-  const preprocessDependencies = new Set<string>();
   const body = await preprocessText(agent.body, {
     frontmatter: agent.frontmatter,
     preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: agent.sourcePath,
     sourceRoot: graph.sourceRoot,
+    renderPathReference: projectAgentPathReferenceRenderer(
+      graph,
+      targetPath
+    ),
   });
-  const targetPath = join(targetProjectRoot(graph, "claude"), "agents", `${agent.outputName}.md`);
   return {
     file: textFile(
       targetPath,
@@ -607,11 +655,20 @@ async function renderCodexProjectAgent(
   if (initialPrompt?.includes("</initial_prompt>")) {
     throw new Error(`skillset: ${relative(graph.rootPath, agent.sourcePath)} initialPrompt must not contain </initial_prompt>`);
   }
-  const sharedSkills = readStringArray(agent.frontmatter, "skills");
-  const skills = readStringArray(targetOptions, "skills") ?? sharedSkills;
-  const preprocessDependencies = new Set<string>();
-  const instructions = await renderCodexProjectAgentInstructions(graph, agent, targetOptions, skills, initialPrompt, preprocessDependencies);
+  const skills = resolveProjectAgentSkills(graph, agent, "codex")?.map(
+    (skill) => skill.rendered
+  );
   const targetPath = join(targetProjectRoot(graph, "codex"), "agents", `${agent.outputName}.toml`);
+  const preprocessDependencies = new Set<string>();
+  const instructions = await renderCodexProjectAgentInstructions(
+    graph,
+    agent,
+    targetOptions,
+    skills,
+    initialPrompt,
+    targetPath,
+    preprocessDependencies
+  );
   const value = mergeRecords(
     mergeRecords(stripAgentTargetOptions(targetOptions), {
       name: readString(targetOptions, "name") ?? agent.name,
@@ -639,6 +696,7 @@ async function renderCodexProjectAgentInstructions(
   targetOptions: JsonRecord,
   skills: readonly string[] | undefined,
   initialPrompt: string | undefined,
+  outputPath: string,
   preprocessDependencies: Set<string>
 ): Promise<string> {
   const explicitInstructions = readString(targetOptions, "developer_instructions");
@@ -648,6 +706,10 @@ async function renderCodexProjectAgentInstructions(
     rootPath: graph.rootPath,
     sourcePath: agent.sourcePath,
     sourceRoot: graph.sourceRoot,
+    renderPathReference: projectAgentPathReferenceRenderer(
+      graph,
+      outputPath
+    ),
   });
   const sections: string[] = [];
   if (skills !== undefined && skills.length > 0) {
@@ -661,6 +723,10 @@ async function renderCodexProjectAgentInstructions(
       rootPath: graph.rootPath,
       sourcePath: agent.sourcePath,
       sourceRoot: graph.sourceRoot,
+      renderPathReference: projectAgentPathReferenceRenderer(
+        graph,
+        outputPath
+      ),
     });
     if (renderedPrompt.includes("</initial_prompt>")) {
       throw new Error(`skillset: ${relative(graph.rootPath, agent.sourcePath)} initialPrompt must not contain </initial_prompt>`);
@@ -668,6 +734,17 @@ async function renderCodexProjectAgentInstructions(
     sections.push(`<initial_prompt>\n${renderedPrompt.trimEnd()}\n</initial_prompt>`);
   }
   return `${sections.filter((section) => section.trim().length > 0).join("\n\n")}\n`;
+}
+
+function projectAgentPathReferenceRenderer(
+  graph: BuildGraph,
+  outputPath: string
+): (reference: { readonly resolvedPath: string }) => string {
+  return (reference) =>
+    relative(
+      dirname(resolve(graph.rootPath, outputPath)),
+      reference.resolvedPath
+    ).replaceAll("\\", "/");
 }
 
 function projectAgentPreprocessDependencies(
@@ -1086,6 +1163,14 @@ async function renderSkillMarkdown(
     sourceRoot: graph.sourceRoot,
     target,
     promptArguments: graph.root.compile.features.promptArguments,
+    renderPathReference: (reference) =>
+      reference.scheme === undefined
+        ? reference.specifier.replaceAll("\\", "/")
+        : resolveDeclaredResourceReference(
+            reference.specifier,
+            skill.resources,
+            skill.sourcePath
+          ),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
   const notices = [
@@ -1158,10 +1243,10 @@ async function renderCodexSkillAgentFile(
 
   const label = relative(graph.rootPath, skill.sourcePath);
   const generated = renderCodexSkillAgentConfig(skill, label);
-  if (Object.keys(generated).length === 0) return undefined;
-
   const sourceOpenAiPath = join(sourceDir, "agents/openai.yaml");
   const hasSourceOpenAi = await exists(sourceOpenAiPath);
+  if (!hasSourceOpenAi && Object.keys(generated).length === 0) return undefined;
+
   const preprocessDependencies = new Set<string>();
   const source = hasSourceOpenAi
     ? parseYamlRecord(
@@ -1173,6 +1258,14 @@ async function renderCodexSkillAgentFile(
           sourceRoot: graph.sourceRoot,
           target,
           promptArguments: graph.root.compile.features.promptArguments,
+          renderPathReference: (reference) =>
+            reference.scheme === undefined
+              ? reference.specifier.replaceAll("\\", "/")
+              : resolveDeclaredResourceReference(
+                  reference.specifier,
+                  skill.resources,
+                  skill.sourcePath
+                ),
           ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
         }),
         sourceOpenAiPath

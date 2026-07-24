@@ -37,6 +37,10 @@ export {
 export { skillsetSchemaExamples } from "./examples";
 export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {
+  skillsetSourceReferenceDescriptors,
+  skillsetSourceReferenceExclusions,
+} from "./source-reference-descriptors";
+export {
   deriveSkillsetJsonSchemaArtifacts,
   getSkillsetJsonSchemaArtifact,
   skillsetAdaptiveHookJsonSchema,
@@ -73,6 +77,12 @@ export type {
   SkillsetSchemaDiagnostic,
   SkillsetSkillEvalValidationContext,
   SkillsetSchemaValidationResult,
+  SkillsetSourceReferenceContract,
+  SkillsetSourceReferenceDescriptor,
+  SkillsetSourceReferenceExclusion,
+  SkillsetSourceReferenceKind,
+  SkillsetSourceReferenceMutationPolicy,
+  SkillsetSourceReferenceScope,
 } from "./types";
 export type { SkillsetJsonSchemaArtifact } from "./artifacts";
 export type { SkillsetExampleArtifact } from "./examples";

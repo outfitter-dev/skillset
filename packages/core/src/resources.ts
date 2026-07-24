@@ -264,6 +264,34 @@ export function rewriteResourceLinks(
   });
 }
 
+export function resolveDeclaredResourceReference(
+  specifier: string,
+  resources: readonly SourceResource[],
+  label: string
+): string {
+  const normalized = canonicalResourceReference(
+    specifier.startsWith("root:")
+      ? `shared:${specifier.slice("root:".length)}`
+      : specifier
+  );
+  const replacements = new Map(
+    resources.map((resource) => [resource.from, resource.targetPath])
+  );
+  const mappings = resources.map((resource) => ({
+    from: resource.from,
+    kind: resource.kind,
+    sourcePath: resourceSourceRelativePath(resource.from) ?? "",
+    targetPath: resource.targetPath,
+  }));
+  const replacement =
+    replacements.get(normalized) ??
+    rewriteDeclaredResourceChild(normalized, mappings);
+  if (replacement !== undefined) return replacement;
+  throw new Error(
+    `skillset: ${label} references undeclared shared resource ${specifier}; declare it, e.g. ${suggestResourceEntry(normalized)}`
+  );
+}
+
 function rewriteResourceTarget(
   target: string,
   replacements: ReadonlyMap<string, string>,

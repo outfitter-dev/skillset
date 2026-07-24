@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
@@ -422,6 +422,13 @@ async function renderRuleBody(
     rootPath: graph.rootPath,
     sourcePath: rule.sourcePath,
     sourceRoot: graph.sourceRoot,
+    renderPathReference: (reference) =>
+      normalizeWorkspacePath(
+        relative(
+          dirname(resolve(graph.rootPath, outputPath)),
+          reference.resolvedPath
+        )
+      ),
     variables: ruleVariables(graph, rule, outputPath),
   });
 }

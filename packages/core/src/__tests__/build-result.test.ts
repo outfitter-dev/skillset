@@ -592,6 +592,116 @@ Body.
     ]));
   });
 
+  it("resolves marked path references for bundles and source-backed project surfaces", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: path-reference-root
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/shared/references/shared.md": "Shared guide.",
+      ".skillset/skills/guide/SKILL.md": `
+---
+name: guide
+description: Guide skill.
+resources:
+  references:
+    - from: shared:references/shared.md
+      to: references/shared-guide.md
+---
+
+Read {{@references/local.md}} and {{@shared:references/shared.md}}.
+`,
+      ".skillset/skills/guide/references/local.md": "Local guide.",
+      ".skillset/skills/guide/agents/openai.yaml": `
+interface:
+  display_name: Guide
+  short_description: Read {{@shared:references/shared.md}}.
+`,
+      ".skillset/rules/root.md": `
+Read {{@references/rule.md}}.
+`,
+      ".skillset/rules/references/rule.md": "Rule guide.",
+      ".skillset/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews project changes.
+initialPrompt: Start with {{@references/agent.md}}.
+---
+
+Read {{@references/agent.md}}.
+`,
+      ".skillset/agents/references/agent.md": "Agent guide.",
+    });
+
+    await buildSkillsetResult(root);
+
+    expect(
+      await readFile(join(root, ".claude/skills/guide/SKILL.md"), "utf8")
+    ).toContain("Read references/local.md and references/shared-guide.md.");
+    expect(
+      await readFile(
+        join(root, ".agents/skills/guide/agents/openai.yaml"),
+        "utf8"
+      )
+    ).toContain("Read references/shared-guide.md.");
+    expect(
+      await readFile(join(root, ".claude/rules/root.md"), "utf8")
+    ).toContain("../../.skillset/rules/references/rule.md");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain(
+      ".skillset/rules/references/rule.md"
+    );
+    expect(
+      await readFile(join(root, ".cursor/rules/root.mdc"), "utf8")
+    ).toContain("../../.skillset/rules/references/rule.md");
+    for (const path of [
+      ".claude/agents/reviewer.md",
+      ".codex/agents/reviewer.toml",
+      ".cursor/agents/reviewer.md",
+    ]) {
+      const generated = await readFile(join(root, path), "utf8");
+      expect(generated).toContain(
+        "../../.skillset/agents/references/agent.md"
+      );
+      expect(generated).not.toContain("{{@references/agent.md}}");
+    }
+  });
+
+  it("rejects missing and undeclared marked path references before writing", async () => {
+    const missing = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Read {{@references/missing.md}}.
+`,
+    });
+    await expect(buildSkillsetResult(missing)).rejects.toThrow(
+      "failed to resolve path reference references/missing.md"
+    );
+
+    const undeclared = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Guide.",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Read {{@shared:references/guide.md}}.
+`,
+    });
+    await expect(buildSkillsetResult(undeclared)).rejects.toThrow(
+      "references undeclared shared resource shared:references/guide.md"
+    );
+  });
+
   it("rejects invalid workspace config metadata through the shared schema", async () => {
     const root = await fixture({
       "skillset.yaml": `

@@ -133,15 +133,32 @@ it as a real dependency of the document that referenced it.
   Markdown's own label mechanism for aliasing instead of inventing a
   pipe-delimited alias syntax.
 
-### `{{@specifier}}` applies uniformly to skills, rules, and agents
+### `{{@specifier}}` validates uniformly but lowers according to artifact topology
 
 Skills, rules, and project agents already run their bodies through the same
-`preprocessText` function. `{{@specifier}}` needs no per-surface plumbing —
-it works in a rule body or an agent's prose exactly as it does in a skill,
-with resolution scoped to that same file's own location the way path
-partials already are. A rule referencing a workspace-shared file, or an
-agent describing where its own supporting doc lives, gets the identical
-build-time validation skills get.
+`preprocessText` function, so every surface gets the same containment,
+existence, and provenance checks. Their generated artifacts do not have the
+same topology, however, and the emitted path must remain truthful:
+
+- Skills are bundles. Bare references retain their skill-relative spelling,
+  while declared `shared:` and `plugin:` resources lower to their copied
+  target paths inside the generated skill.
+- Rules and project agents are individual project documents, not bundles.
+  Their companion files are not copied. Resolve-only references therefore
+  lower to a path from each generated document back to the committed
+  `.skillset/` source file.
+
+The second mode deliberately carries a same-checkout contract: a generated
+rule or project agent that points back to `.skillset/` is useful in a source
+repository, but the generated file is not independently portable without its
+source workspace. Codex instructions make this distinction especially
+important because one rule may render into multiple directory-local
+`AGENTS.md` files, each requiring a different relative path.
+
+Rules and project agents do not gain a `resources` field. Bare and `shared:`
+references are valid for them; `plugin:` remains invalid because current
+adaptive rules and project agents are workspace-owned and have no
+plugin-bound preprocessing context.
 
 ### Skill-identity references are validated, not tokenized
 
