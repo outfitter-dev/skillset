@@ -26,6 +26,7 @@ export {
   hookContract,
   instructionFrontmatterContract,
   schemaUri,
+  skillEvalContract,
   skillFrontmatterContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
@@ -44,6 +45,7 @@ export {
   skillsetHookJsonSchema,
   skillsetInstructionFrontmatterJsonSchema,
   skillsetSkillFrontmatterJsonSchema,
+  skillsetSkillEvalJsonSchema,
   skillsetSourceMetadataJsonSchema,
   skillsetTestDeclarationJsonSchema,
   skillsetWorkspaceJsonSchema,
@@ -67,6 +69,7 @@ export type {
   SkillsetCliEvent,
   SkillsetCliResult,
   SkillsetSchemaDiagnostic,
+  SkillsetSkillEvalValidationContext,
   SkillsetSchemaValidationResult,
 } from "./types";
 export type { SkillsetJsonSchemaArtifact } from "./artifacts";
@@ -81,6 +84,7 @@ export {
   validateHookAttachmentsSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
+  validateSkillEval,
   validateSourceMetadata,
   validateTestDeclaration,
   validatePluginConfig,

@@ -23,3 +23,4 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
   - depends on [ADR-0006: Agent / Subagent Source Model](../0006-agent-source-model.md), [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md), [ADR-0010: Named Partials](../0010-named-partials.md), [First-Class Sets](20260604-first-class-sets.md)
 - [Catalog-Owned Marketplace Refresh Pull Requests](20260710-catalog-owned-marketplace-refresh-pull-requests.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
+- [Portable Skill Eval Source Contract](20260723-portable-skill-eval-source-contract.md)

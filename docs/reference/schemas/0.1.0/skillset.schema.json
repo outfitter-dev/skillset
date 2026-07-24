@@ -1359,6 +1359,79 @@
       "title": "Instruction Frontmatter",
       "type": "object"
     },
+    "skill-eval": {
+      "additionalProperties": false,
+      "properties": {
+        "evals": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "expectations": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "expected_output": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "files": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "integer"
+              },
+              "prompt": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "skillset": {
+                "additionalProperties": false,
+                "properties": {
+                  "targets": {
+                    "items": {
+                      "enum": [
+                        "claude",
+                        "codex",
+                        "cursor"
+                      ],
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "prompt",
+              "expected_output"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "skill_name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "skill_name",
+        "evals"
+      ],
+      "title": "Skill Eval",
+      "type": "object"
+    },
     "skill-frontmatter": {
       "additionalProperties": true,
       "properties": {
@@ -3003,6 +3076,9 @@
     },
     {
       "$ref": "#/$defs/instruction-frontmatter"
+    },
+    {
+      "$ref": "#/$defs/skill-eval"
     },
     {
       "$ref": "#/$defs/hook"

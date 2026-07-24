@@ -3,6 +3,7 @@ import type { SchemaJsonRecord, SkillsetSchemaContractId } from "./types";
 
 export interface SkillsetSchemaExample {
   readonly description: string;
+  readonly format?: "json" | "yaml";
   readonly id: SkillsetSchemaContractId;
   readonly path: string;
   readonly value: SchemaJsonRecord;
@@ -11,12 +12,12 @@ export interface SkillsetSchemaExample {
 export interface SkillsetExampleArtifact {
   readonly contractId: SkillsetSchemaContractId;
   readonly description: string;
-  readonly format: "yaml";
+  readonly format: "json" | "yaml";
   readonly path: string;
   readonly value: SchemaJsonRecord;
 }
 
-export const skillsetSchemaExamples = [
+export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
   {
     description: "Maximal workspace manifest for Skillset repos.",
     id: "workspace-config",
@@ -400,6 +401,31 @@ export const skillsetSchemaExamples = [
     },
   },
   {
+    description: "Skill-local portable eval cases compatible with Anthropic skill-creator.",
+    format: "json",
+    id: "skill-eval",
+    path: "skill-eval.json",
+    value: {
+      evals: [
+        {
+          expected_output: "A concise summary of the supplied document.",
+          expectations: ["The response identifies the document title."],
+          files: ["evals/files/brief.txt"],
+          id: 1,
+          prompt: "Summarize evals/files/brief.txt.",
+          skillset: { targets: ["claude", "codex"] },
+        },
+        {
+          expected_output: "A summary without local input files.",
+          files: [],
+          id: 2,
+          prompt: "Summarize the guidance.",
+        },
+      ],
+      skill_name: "docs-cli",
+    },
+  },
+  {
     description: "Deterministic test with an explicit live-runtime activation assertion.",
     id: "test-declaration",
     path: "test-declaration.yaml",
@@ -429,13 +455,13 @@ export const skillsetSchemaExamples = [
       targets: ["claude", "codex", "cursor"],
     },
   },
-] as const satisfies readonly SkillsetSchemaExample[];
+];
 
 export function deriveSkillsetExampleArtifacts(): readonly SkillsetExampleArtifact[] {
   return skillsetSchemaExamples.map((example) => ({
     contractId: example.id,
     description: example.description,
-    format: "yaml",
+    format: example.format ?? "yaml",
     path: `docs/reference/examples/${example.path}`,
     value: example.value,
   }));

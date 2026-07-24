@@ -8,6 +8,20 @@ import {
 describe("workbench source contract schema checks", () => {
   test("accepts representative valid source documents", () => {
     expect(checkWorkbenchSourceContract({
+      content: JSON.stringify({
+        skill_name: "demo",
+        evals: [{
+          expected_output: "A summary.",
+          files: [],
+          id: 1,
+          prompt: "Summarize the input.",
+        }],
+      }),
+      kind: "skill-eval",
+      path: ".skillset/skills/demo/evals/evals.json",
+    })).toEqual([]);
+
+    expect(checkWorkbenchSourceContract({
       content:
         "compile:\n  targets: [claude, codex]\n  unsupportedDestination: error\nskillset:\n  name: skillset\n  schema: 1\n  version: 0.1.0\nsupports:\n  packages: []\n",
       kind: "workspace-config",
@@ -61,6 +75,35 @@ describe("workbench source contract schema checks", () => {
       kind: "hook",
       path: ".skillset/plugins/demo/hooks/hooks.json",
     })).toEqual([]);
+  });
+
+  test("reports shared portable skill eval schema diagnostics", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: JSON.stringify({
+        skill_name: "demo",
+        evals: [
+          { expected_output: "First.", id: 1, prompt: "First.", extra: true },
+          {
+            expected_output: "Second.",
+            files: ["\\brief.txt", "\\\\server\\share\\brief.txt"],
+            id: 1,
+            prompt: "Second.",
+            skillset: { target: "codex" },
+          },
+        ],
+      }, null, 2),
+      kind: "skill-eval",
+      path: ".skillset/skills/demo/evals/evals.json",
+    });
+
+    expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "duplicate eval id 1",
+      "unsupported key extra",
+      "eval file must stay inside the skill root",
+      "eval file must stay inside the skill root",
+      "unsupported key target",
+    ]);
+    expect(diagnostics.every((diagnostic) => diagnostic.ruleId === "schema/skill-eval")).toBe(true);
   });
 
   test("reports declared runtime test contract diagnostics", () => {

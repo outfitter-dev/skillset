@@ -3,6 +3,7 @@ import type { ChangeCommandRequest } from "./change-cli";
 import type { CheckCommandRequest } from "./check-cli";
 import type { CreateCommandRequest } from "./create-cli";
 import type { DevCommandRequest } from "./dev-cli";
+import type { EvalCommandRequest } from "./eval-cli";
 import type {
   DistributionCommandRequest,
   MarketplaceCommandRequest,
@@ -31,6 +32,7 @@ export type CliRequest =
   | { readonly command: "check"; readonly request: CheckCommandRequest }
   | { readonly command: "create"; readonly request: CreateCommandRequest }
   | { readonly command: "dev"; readonly request: DevCommandRequest }
+  | { readonly command: "eval"; readonly request: EvalCommandRequest }
   | { readonly command: "diff"; readonly request: DiffCommandRequest }
   | {
       readonly command: "distribute";

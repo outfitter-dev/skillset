@@ -68,7 +68,7 @@ test("SET-165: new skill separates stable id and display name in dedicated sourc
   expect(skill).toContain('title: "Docs CLI: Expert"');
   expect(await fileExists(join(root, ".skillset/skills/docs-cli/SKILL.md"))).toBe(true);
   expect(await readFile(join(root, ".skillset/skills/docs-cli/evals/evals.json"), "utf8")).toBe(
-    "{\n  \"evals\": []\n}\n"
+    "{\n  \"skill_name\": \"docs-cli\",\n  \"evals\": []\n}\n"
   );
 
   const check = await runSkillsetCli("check", "--root", root);

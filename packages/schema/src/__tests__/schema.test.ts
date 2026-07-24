@@ -13,6 +13,7 @@ import {
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
   skillFrontmatterContract,
+  skillEvalContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
   validateAgentFrontmatter,
@@ -24,6 +25,7 @@ import {
   validatePluginConfig,
   validateRootSourceManifest,
   validateSkillFrontmatter,
+  validateSkillEval,
   validateSingleFileRootConfig,
   validateSourceMetadata,
   validateSplitWorkspaceConfig,
@@ -45,6 +47,7 @@ describe("@skillset/schema contracts", () => {
       "adaptive-hook",
       "change-entry",
       "test-declaration",
+      "skill-eval",
     ]);
     expect(workspaceConfigContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json");
     expect(adaptiveHookContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/adaptive-hook.schema.json");
@@ -63,6 +66,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/adaptive-hook.schema.json",
       "docs/reference/schemas/0.1.0/change-entry.schema.json",
       "docs/reference/schemas/0.1.0/test-declaration.schema.json",
+      "docs/reference/schemas/0.1.0/skill-eval.schema.json",
       "docs/reference/schemas/0.1.0/cli-result.schema.json",
       "docs/reference/schemas/0.1.0/cli-event.schema.json",
     ]);
@@ -79,6 +83,7 @@ describe("@skillset/schema contracts", () => {
       { $ref: "#/$defs/skill-frontmatter" },
       { $ref: "#/$defs/agent-frontmatter" },
       { $ref: "#/$defs/instruction-frontmatter" },
+      { $ref: "#/$defs/skill-eval" },
       { $ref: "#/$defs/hook" },
       { $ref: "#/$defs/adaptive-hook" },
       { $ref: "#/$defs/change-entry" },
@@ -91,6 +96,7 @@ describe("@skillset/schema contracts", () => {
       "change-entry",
       "hook",
       "instruction-frontmatter",
+      "skill-eval",
       "skill-frontmatter",
       "source-metadata",
       "test-declaration",
@@ -111,6 +117,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/examples/hook.yaml",
       "docs/reference/examples/adaptive-hook.yaml",
       "docs/reference/examples/change-entry.yaml",
+      "docs/reference/examples/skill-eval.json",
       "docs/reference/examples/test-declaration.yaml",
     ]);
 
@@ -123,6 +130,76 @@ describe("@skillset/schema contracts", () => {
     expect(validateHookDefinitionSource(byId.hook).diagnostics).toEqual([]);
     expect(validateAdaptiveHookUnitSource(byId["adaptive-hook"]).diagnostics).toEqual([]);
     expect(validateChangeEntryFrontmatter(byId["change-entry"]).diagnostics).toEqual([]);
+    expect(validateSkillEval(byId["skill-eval"]).diagnostics).toEqual([]);
+  });
+
+  it("keeps skill-creator eval documents compatible while validating Skillset extensions", () => {
+    expect(validateSkillEval({
+      skill_name: "csv-analyzer",
+      evals: [{
+        expected_output: "A clean summary.",
+        expectations: [],
+        files: ["evals/files/brief.txt", "evals/files/brief.txt"],
+        id: 1,
+        prompt: "Summarize the CSV.",
+      }],
+    }, "$", {
+      files: new Set(["evals/files/brief.txt"]),
+    }).diagnostics).toEqual([]);
+
+    expect(validateSkillEval({
+      skill_name: "csv-analyzer",
+      evals: [{
+        expected_output: "A clean summary.",
+        id: 1,
+        prompt: "Summarize the CSV.",
+        skillset: { targets: ["claude", "claude"] },
+      }],
+    }).diagnostics).toEqual([{
+      code: "schema/skill-eval/targets",
+      message: "eval targets must be unique",
+      path: "$.evals[0].skillset.targets",
+    }]);
+
+    expect(validateSkillEval({
+      skill_name: "demo",
+      unexpected: true,
+      evals: [
+        {
+          expected_output: "First.",
+          id: 1,
+          prompt: "First.",
+          target: "claude",
+        },
+        {
+          expected_output: "Second.",
+          files: [
+            "evals/files/missing.txt",
+            "../outside.txt",
+            "\\brief.txt",
+            "\\\\server\\share\\brief.txt",
+          ],
+          id: 1,
+          prompt: "Second.",
+          skillset: { targets: ["codex"] },
+        },
+      ],
+    }, "$", {
+      files: new Set(["evals/files/present.txt"]),
+      skillName: "other",
+      targets: ["claude"],
+    }).diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "schema/skill-eval/key", path: "$.unexpected" }),
+      expect.objectContaining({ code: "schema/skill-eval/eval-key", path: "$.evals[0].target" }),
+      expect.objectContaining({ code: "schema/skill-eval/id-duplicate", path: "$.evals[1].id" }),
+      expect.objectContaining({ code: "schema/skill-eval/file-missing", path: "$.evals[1].files[0]" }),
+      expect.objectContaining({ code: "schema/skill-eval/file-path", path: "$.evals[1].files[1]" }),
+      expect.objectContaining({ code: "schema/skill-eval/file-path", path: "$.evals[1].files[2]" }),
+      expect.objectContaining({ code: "schema/skill-eval/file-path", path: "$.evals[1].files[3]" }),
+      expect.objectContaining({ code: "schema/skill-eval/target-unavailable", path: "$.evals[1].skillset.targets" }),
+      expect.objectContaining({ code: "schema/skill-eval/skill-name", path: "$.skill_name" }),
+    ]));
+    expect(skillEvalContract.schema.required).toEqual(["skill_name", "evals"]);
   });
 
   it("keeps descriptors aligned with active workspace and change contracts", () => {
