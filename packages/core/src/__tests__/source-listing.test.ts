@@ -47,4 +47,12 @@ describe("source listing resolution", () => {
       })
     );
   });
+
+  test("does not imply support for the provider-native ui alias", () => {
+    expect(
+      readSourceListing({
+        ui: { displayName: "Unsupported title" },
+      })
+    ).not.toHaveProperty("display_name");
+  });
 });

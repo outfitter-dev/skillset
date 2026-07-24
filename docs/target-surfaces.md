@@ -156,7 +156,10 @@ Live-doc verified against `code.claude.com/docs/en/sub-agents` (2026-06-04).
 
 ## Plugin manifest interface (Codex `.codex-plugin/plugin.json`, `interface`)
 
-Camel-cased presentation fields derived from canonical portable `skillset.listing` metadata. Legacy `presentation` / `ui` fields remain compatibility inputs during the staged cutover. Pinned by the Codex-interface golden test.
+Camel-cased presentation fields derived from canonical portable
+`skillset.listing` metadata. Legacy `presentation` remains a compatibility
+input during the staged cutover; provider-native `ui` is not part of the
+portable source contract. Pinned by the Codex-interface golden test.
 
 | Source (`skillset.listing.*`) | Codex `interface` field | Status |
 | --- | --- | --- |

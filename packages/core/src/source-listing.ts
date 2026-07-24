@@ -7,9 +7,8 @@ import {
 import type { JsonRecord } from "./types";
 
 export function readSourceListing(metadata: JsonRecord): JsonRecord {
-  const legacyPresentation = mergeRecords(
-    normalizeLegacyPresentation(readRecord(metadata, "ui") ?? {}),
-    normalizeLegacyPresentation(readRecord(metadata, "presentation") ?? {})
+  const legacyPresentation = normalizeLegacyPresentation(
+    readRecord(metadata, "presentation") ?? {}
   );
   return mergeRecords(
     mergeRecords({

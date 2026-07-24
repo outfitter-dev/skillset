@@ -325,6 +325,25 @@ test("SET-369: direct native import rejects conflicting provider versions", asyn
     "native plugin manifests disagree on version: claude=missing, codex=2.0.0"
   );
   expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+
+  await Bun.write(
+    join(root, "native/.claude-plugin/plugin.json"),
+    manifest("demo", "Demo", "latest")
+  );
+  await Bun.write(
+    join(root, "native/.codex-plugin/plugin.json"),
+    manifest("demo", "Demo", "latest")
+  );
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "expected native plugin manifest version to be a semantic version"
+  );
+  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
 });
 
 test("SET-225: malformed native manifests become structured blockers", async () => {

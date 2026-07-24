@@ -24,6 +24,7 @@ import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
 import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "@skillset/core/internal/source-unit-selector";
 import { readAuthorName } from "@skillset/core/internal/source-author";
 import type { JsonRecord, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import { validateVersionField } from "@skillset/core/internal/versioning";
 import {
   stringifyYamlSourceDocument,
   updateMarkdownSourceDocument,
@@ -898,6 +899,12 @@ async function writeImportedPluginConfig(
   }
   const version = nativeVersions.find((entry) => entry.value !== undefined)
     ?.value;
+  if (version !== undefined) {
+    validateVersionField(
+      { version },
+      "native plugin manifest version"
+    );
+  }
   const manifestAuthor = firstMetadataValue("author");
   const codexDeveloperName = readString(
     readRecord(nativeManifests.get("codex") ?? {}, "interface") ?? {},
@@ -912,10 +919,17 @@ async function writeImportedPluginConfig(
   // Lift every manifest field the generated projection round-trips. The
   // discovered version is migration input for release-state seeding, not a
   // second authority in newly synthesized source.
+  const listing = importedListing(nativeManifests, listingConflicts);
+  const description = firstMetadataValue("description");
+  const canonicalManifestDescription =
+    readString(listing ?? {}, "summary") ??
+    readString(listing ?? {}, "description") ??
+    (typeof description === "string" ? description : undefined) ??
+    name;
   const metadata: JsonRecord = {
     name,
-    description: firstMetadataValue("description"),
-    listing: importedListing(nativeManifests, listingConflicts),
+    description,
+    listing,
     author: canonicalAuthor,
     homepage: firstMetadataValue("homepage"),
     repository: firstMetadataValue("repository"),
@@ -927,7 +941,8 @@ async function writeImportedPluginConfig(
       const override = importedManifestOverride(
         provider,
         manifest,
-        listingConflicts
+        listingConflicts,
+        canonicalManifestDescription
       );
       const providerConfig: Record<string, JsonValue> = {};
       if (Object.keys(override).length > 0) providerConfig.manifest = override;
@@ -972,7 +987,8 @@ async function writeImportedPluginConfig(
 function importedManifestOverride(
   provider: TargetName,
   manifest: JsonRecord,
-  listingConflicts: readonly NativeListingMetadataConflict[]
+  listingConflicts: readonly NativeListingMetadataConflict[],
+  canonicalManifestDescription: string
 ): JsonRecord {
   const override: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(manifest)) {
@@ -992,6 +1008,13 @@ function importedManifestOverride(
     if (!hasListingConflict(listingConflicts, "listing.logo"))
       delete override.logo;
     delete override.tags;
+  }
+  const nativeDescription = readString(manifest, "description");
+  if (
+    nativeDescription !== undefined &&
+    nativeDescription !== canonicalManifestDescription
+  ) {
+    override.description = nativeDescription;
   }
   return override;
 }

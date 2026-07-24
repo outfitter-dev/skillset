@@ -1159,6 +1159,65 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
   }
 });
 
+test("SET-369: native interface descriptions do not replace manifest descriptions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const originalManifest = {
+    name: "description-roundtrip",
+    version: "1.2.3",
+    description: "Top-level native description.",
+    interface: {
+      shortDescription: "Listing summary.",
+      longDescription: "Listing detail.",
+    },
+  };
+  await Bun.write(
+    join(external, "description-roundtrip/.codex-plugin/plugin.json"),
+    JSON.stringify(originalManifest)
+  );
+  await Bun.write(
+    join(external, "description-roundtrip/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+  );
+  await Bun.write(
+    join(root, "skillset.yaml"),
+    "skillset:\n  name: description-root\nclaude: false\ncodex: true\n"
+  );
+
+  await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(external, "description-roundtrip"),
+  });
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/description-roundtrip/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("summary: Listing summary.");
+  expect(importedConfig).toContain("description: Listing detail.");
+  expect(importedConfig).toContain("description: Top-level native description.");
+
+  await buildSkillset(root);
+  const generated = JSON.parse(
+    await readFile(
+      join(
+        root,
+        "plugins/description-roundtrip/codex/.codex-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as {
+    description?: string;
+    interface?: {
+      longDescription?: string;
+      shortDescription?: string;
+    };
+  };
+  expect(generated.description).toBe("Top-level native description.");
+  expect(generated.interface?.shortDescription).toBe("Listing summary.");
+  expect(generated.interface?.longDescription).toBe("Listing detail.");
+});
+
 test("SET-10: plugin import reports native hook lift diagnostics without rewriting hooks", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
   const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
@@ -2808,6 +2867,7 @@ plugin-manifests:
 skillset:
   name: alpha
   summary: Alpha plugin.
+  author: Alpha Author
   license: MIT
   keywords:
     - alpha
@@ -2846,15 +2906,29 @@ Demo body.
   expect(markdown).toContain("Selection: plugins alpha");
   const claudeManifest = JSON.parse(
     await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8")
-  ) as { keywords?: string[]; license?: string; name?: string; version?: string };
+  ) as {
+    author?: { name?: string };
+    keywords?: string[];
+    license?: string;
+    name?: string;
+    version?: string;
+  };
   const codexManifest = JSON.parse(
     await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8")
-  ) as { keywords?: string[]; license?: string; name?: string; version?: string };
+  ) as {
+    author?: { name?: string };
+    keywords?: string[];
+    license?: string;
+    name?: string;
+    version?: string;
+  };
   expect(claudeManifest.name).toBe("alpha-claude");
+  expect(claudeManifest.author?.name).toBe("Alpha Author");
   expect(claudeManifest.version).toBe("2.3.4");
   expect(claudeManifest.license).toBe("MIT");
   expect(claudeManifest.keywords).toEqual(["alpha"]);
   expect(codexManifest.name).toBe("alpha-codex");
+  expect(codexManifest.author?.name).toBe("Alpha Author");
   expect(codexManifest.version).toBe("2.3.4");
   expect(codexManifest.license).toBe("MIT");
   expect(codexManifest.keywords).toEqual(["alpha"]);
