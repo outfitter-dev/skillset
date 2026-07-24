@@ -173,6 +173,7 @@ export function renderCodexInterface(
       titleize(plugin.id),
     shortDescription:
       readString(listing, "summary") ??
+      readString(listing, "description") ??
       readString(metadata, "description") ??
       plugin.id,
     longDescription:

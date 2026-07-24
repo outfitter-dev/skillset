@@ -981,6 +981,55 @@ Body.
   expect(cursor.license).toBeUndefined();
 });
 
+test("SET-369: Codex short description falls back to listing description", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: description-root
+codex: true
+`,
+    ".skillset/plugins/description-only/skillset.yaml": `
+skillset:
+  name: description-only
+  description: Core description.
+  listing:
+    description: Listing description.
+`,
+    ".skillset/plugins/description-only/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const manifest = JSON.parse(
+    await readFile(
+      join(
+        root,
+        "plugins/description-only/codex/.codex-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as {
+    description?: string;
+    interface?: {
+      longDescription?: string;
+      shortDescription?: string;
+    };
+  };
+  expect(manifest.description).toBe("Listing description.");
+  expect(manifest.interface?.shortDescription).toBe(
+    "Listing description."
+  );
+  expect(manifest.interface?.longDescription).toBe(
+    "Listing description."
+  );
+});
+
 test("SET-369: legacy root and plugin metadata warn without blocking canonical source", async () => {
   const legacyRoot = await contractFixture({
     "skillset.yaml": `
