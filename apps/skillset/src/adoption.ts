@@ -87,8 +87,7 @@ export async function seedReleaseBaselines(
     const scope = sourceUnitSelector(unit.id);
     if (scopeFilter !== undefined && !scopeFilter.has(scope)) continue;
     if (seedOptions.includeScope !== undefined && !seedOptions.includeScope(scope)) continue;
-    const version =
-      seedOptions.sourceVersion?.(scope) ?? sourceVersionForScope(graph, scope);
+    const version = seedBaselineVersion(graph, scope, seedOptions.sourceVersion);
     const existing = state.scopes[scope];
     if (existing?.removed === true) {
       conflicts.push({ existingVersion: existing.version, scope, sourceVersion: version });
@@ -173,6 +172,32 @@ export function sourceVersionForScope(graph: BuildGraph, rawScope: string): stri
   }
 
   return sourceRootVersion(graph);
+}
+
+function seedBaselineVersion(
+  graph: BuildGraph,
+  rawScope: string,
+  sourceVersion?: (scope: string) => string | undefined
+): string {
+  const selector = sourceUnitSelector(rawScope);
+  const pluginSkill = selector.match(/^plugin\.([^.]+)\.skill:(.+)$/);
+  if (pluginSkill !== null) {
+    const [, pluginId, skillId] = pluginSkill;
+    const plugin = pluginId === undefined ? undefined : graph.plugins.find((item) => item.id === pluginId);
+    const skill = plugin?.skills.find((item) => item.id === skillId);
+    if (plugin !== undefined && skill !== undefined) {
+      // Match sourceVersionForScope: skill frontmatter wins over a blanket
+      // sourceVersion override (used by native plugin import to supply the
+      // manifest version that is intentionally omitted from synthesized source).
+      return (
+        readString(skill.frontmatter, "version") ??
+        sourceVersion?.(selector) ??
+        sourcePluginVersion(graph, plugin)
+      );
+    }
+  }
+
+  return sourceVersion?.(selector) ?? sourceVersionForScope(graph, selector);
 }
 
 function sourceRootVersion(graph: BuildGraph): string {

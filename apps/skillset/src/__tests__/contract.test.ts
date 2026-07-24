@@ -1411,7 +1411,7 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
   );
   await Bun.write(
     join(external, "plugins/widget/skills/demo/SKILL.md"),
-    "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+    "---\nname: demo\ndescription: Demo.\nversion: 2.3.4\n---\n\nBody.\n"
   );
 
   const report = await importSources({
@@ -1426,13 +1426,16 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
   expect(config).toContain("name: widget");
   expect(config).not.toContain("version:");
   expect(config).toContain("description: Native widget plugin.");
-  expect(report.imports[0]?.baselines.map((entry) => entry.version)).toEqual([
-    "0.8.0",
-    "0.8.0",
-    "0.8.0",
+  expect(report.imports[0]?.baselines.map((entry) => [entry.scope, entry.version])).toEqual([
+    ["plugin.widget.config:root", "0.8.0"],
+    ["plugin.widget.skill:demo", "2.3.4"],
+    ["plugin:widget", "0.8.0"],
   ]);
   expect((await readReleaseState(root)).scopes["plugin:widget"]?.version).toBe(
     "0.8.0"
+  );
+  expect((await readReleaseState(root)).scopes["plugin.widget.skill:demo"]?.version).toBe(
+    "2.3.4"
   );
   expect(await Bun.file(join(root, ".skillset/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
   expect((await loadBuildGraph(root)).plugins[0]?.id).toBe("widget");
