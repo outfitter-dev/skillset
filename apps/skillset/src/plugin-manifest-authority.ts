@@ -18,6 +18,20 @@ export interface PortablePluginMetadataConflict {
   readonly providers: readonly TargetName[];
 }
 
+export const NATIVE_LISTING_METADATA_FIELDS = [
+  "listing.category",
+  "listing.display_name",
+  "listing.logo",
+] as const;
+
+export type NativeListingMetadataField =
+  (typeof NATIVE_LISTING_METADATA_FIELDS)[number];
+
+export interface NativeListingMetadataConflict {
+  readonly field: NativeListingMetadataField;
+  readonly providers: readonly TargetName[];
+}
+
 export function portablePluginMetadataConflicts(
   manifests: Iterable<ProviderPluginManifestEntry>
 ): readonly PortablePluginMetadataConflict[] {
@@ -33,6 +47,47 @@ export function portablePluginMetadataConflicts(
     }
     return values.size > 1 ? [{ field, providers: [...providers].sort() }] : [];
   });
+}
+
+export function nativeListingMetadataConflicts(
+  manifests: Iterable<ProviderPluginManifestEntry>
+): readonly NativeListingMetadataConflict[] {
+  const entries = [...manifests];
+  return NATIVE_LISTING_METADATA_FIELDS.flatMap((field) => {
+    const values = new Set<string>();
+    const providers = new Set<TargetName>();
+    for (const [provider, manifest] of entries) {
+      const value = nativeListingMetadataValue(provider, manifest, field);
+      if (value === undefined) continue;
+      values.add(stableJson(value));
+      providers.add(provider);
+    }
+    return values.size > 1 ? [{ field, providers: [...providers].sort() }] : [];
+  });
+}
+
+function nativeListingMetadataValue(
+  provider: TargetName,
+  manifest: JsonRecord,
+  field: NativeListingMetadataField
+): JsonValue | undefined {
+  const listingField = field.slice("listing.".length);
+  if (provider === "codex") {
+    const interfaceMetadata = asRecord(manifest.interface);
+    if (listingField === "display_name") return interfaceMetadata?.displayName;
+    return interfaceMetadata?.[listingField];
+  }
+  if (provider === "cursor") {
+    if (listingField === "display_name") return manifest.displayName;
+    return manifest[listingField];
+  }
+  return undefined;
+}
+
+function asRecord(value: JsonValue | undefined): JsonRecord | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value
+    : undefined;
 }
 
 export function firstPortablePluginMetadataValue(

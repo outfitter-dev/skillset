@@ -79,7 +79,11 @@ source:
 
 - frontmatter keys with portable equivalents move under the portable vocabulary (the existing import classification of recognized, target-native, and unsupported keys becomes a rewrite step instead of a report-only step where the mapping is unambiguous);
 - Claude-native dynamic constructs that have portable equivalents (`$ARGUMENTS`-style variables, substitution patterns the linter already recognizes) convert to their Skillset source forms;
-- plugin manifest fields round-trip: `author`, `homepage`, `repository`, `license`, `keywords`, and `version` survive into source metadata and back out into generated manifests.
+- plugin manifest fields round-trip: `author`, `homepage`, `repository`,
+  `license`, and `keywords` survive into source metadata and back out into
+  generated manifests; native versions seed release-state baselines and return
+  to generated manifests without becoming routine inline source metadata, as
+  established by ADR-0007.
 
 Every rewrite lands in the migration report: what changed, from what, to what, and why. Anything ambiguous stays verbatim and is reported as needing a human decision. Migration is explicit, ambiguity is not.
 

@@ -209,6 +209,80 @@
           ],
           "type": "string"
         },
+        "listing": {
+          "additionalProperties": false,
+          "properties": {
+            "capabilities": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "category": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "color": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "composer_icon": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "default_prompt": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "display_name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "keywords": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "logo": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "privacy_policy_url": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "screenshots": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "summary": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "terms_of_service_url": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "website_url": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "manifest": {
           "type": "object"
         },

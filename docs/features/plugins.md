@@ -27,6 +27,22 @@ Plugins group skills and target-native companion files while preserving provider
 
 Plugin identity derives from the directory unless `skillset.name` is present and agrees. `skillset.id` is rejected. Plugin source can configure `claude`, `codex`, and `cursor` blocks for target opt-outs, output selection, defaults, and target-native options. Plugin-local `defaults.<target>.<surface>` is shorthand for target defaults, not provider selection.
 
+```yaml
+skillset:
+  name: review-tools
+  description: Review automation and guidance.
+  author:
+    name: Example Team
+  homepage: https://example.com/review-tools
+  listing:
+    display_name: Review Tools
+    summary: Review changes with shared automation.
+    category: Developer Tools
+    keywords: [review, automation]
+```
+
+Core identity and provenance stay directly under `skillset`. Optional discovery and presentation fields use `skillset.listing` with snake_case keys. Explicit provider blocks remain the final override for target-native differences.
+
 ## Target Rendering
 
 | Source | Claude output | Codex output | Cursor output | Status | Notes |
@@ -46,8 +62,9 @@ Each generated-manifest field has exactly one writer; competing authorities are 
 | --- | --- | --- |
 | `name` | source (`skillset.name`, defaults to directory) | `manifest.name` is the explicit override. |
 | `version` | release state, with source `version` as fallback | `skillset check --only outputs` reports generated version drift; do not hand-edit generated manifests. |
-| `description` | source (`summary`, falling back to `description`) | |
-| `author`, `homepage`, `repository`, `license`, `keywords` | source metadata | Projected into generated manifests. `license` also drives managed `LICENSE.txt` generation from the supported SPDX catalog or a local source file. |
+| `description` | source (`listing.summary`, then `listing.description`, then core `description`) | Legacy `summary` and `presentation` remain compatibility inputs during the staged cutover. |
+| `author`, `homepage`, `repository`, `license` | core source metadata | Projected where the target manifest has a verified native field. `license` also drives managed `LICENSE.txt` generation from the supported SPDX catalog or a local source file. |
+| marketplace and presentation metadata | `skillset.listing` | Uses canonical snake_case fields and lowers only where the target has a verified native surface. |
 | Component wiring (`commands`, `agents`, `skills`, `hooks`, `mcpServers`, …) | compiler | Derived from source layout and feature keys; never authored in generated output. |
 | `dependencies` (Claude) | compiler, from source `dependencies` | A `claude.manifest.dependencies` override fails the build rather than competing. |
 

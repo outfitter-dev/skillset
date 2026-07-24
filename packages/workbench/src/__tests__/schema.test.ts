@@ -23,7 +23,7 @@ describe("workbench source contract schema checks", () => {
 
     expect(checkWorkbenchSourceContract({
       content:
-        "compile:\n  targets: [claude, codex]\n  unsupportedDestination: error\nskillset:\n  name: skillset\n  schema: 1\n  version: 0.1.0\nsupports:\n  packages: []\n",
+        "compile:\n  targets: [claude, codex]\n  unsupportedDestination: error\nskillset:\n  name: skillset\n  schema: 1\n  listing:\n    display_name: Skillset\nsupports:\n  packages: []\n",
       kind: "workspace-config",
       path: "skillset.yaml",
     })).toEqual([]);
@@ -75,6 +75,26 @@ describe("workbench source contract schema checks", () => {
       kind: "hook",
       path: ".skillset/plugins/demo/hooks/hooks.json",
     })).toEqual([]);
+  });
+
+  test("reports canonical source metadata migration guidance as warnings", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content:
+        "skillset:\n  name: demo\n  title: Demo\n  summary: A demo\n  version: 1.0.0\n",
+      kind: "workspace-config",
+      path: "skillset.yaml",
+    });
+
+    expect(
+      diagnostics.map(({ ruleId, severity }) => ({ ruleId, severity }))
+    ).toEqual([
+      { ruleId: "source-metadata/legacy-title", severity: "warning" },
+      { ruleId: "source-metadata/legacy-summary", severity: "warning" },
+      { ruleId: "source-metadata/legacy-version", severity: "warning" },
+    ]);
+    expect(diagnostics.every((diagnostic) => diagnostic.fix !== undefined)).toBe(
+      true
+    );
   });
 
   test("reports shared portable skill eval schema diagnostics", () => {

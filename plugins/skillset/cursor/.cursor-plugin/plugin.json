@@ -1,18 +1,15 @@
 {
-  "author": {
-    "name": "Skillset Maintainers"
-  },
+  "category": "Developer Tools",
   "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
   "displayName": "Skillset",
-  "keywords": [
+  "name": "skillset",
+  "skills": "./skills/",
+  "tags": [
     "skillset",
     "skills",
     "plugins",
     "claude",
     "codex"
   ],
-  "license": "MIT",
-  "name": "skillset",
-  "skills": "./skills/",
   "version": "0.1.1"
 }

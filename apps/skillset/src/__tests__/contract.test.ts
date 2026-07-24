@@ -823,6 +823,224 @@ Body.
   expect(manifest.interface.brandColor).toBe("#B06DFF");
 });
 
+test("SET-369: Codex interface accepts plugin and root string authors", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: author-root
+  author: Root Author
+claude: true
+codex: true
+`,
+    ".skillset/plugins/plugin-author/skillset.yaml": `
+skillset:
+  name: plugin-author
+  author: Plugin Author
+`,
+    ".skillset/plugins/plugin-author/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+    ".skillset/plugins/root-author/skillset.yaml": `
+skillset:
+  name: root-author
+`,
+    ".skillset/plugins/root-author/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  for (const [plugin, expected] of [
+    ["plugin-author", "Plugin Author"],
+    ["root-author", "Root Author"],
+  ] as const) {
+    const manifest = JSON.parse(
+      await readFile(
+        join(root, `plugins/${plugin}/codex/.codex-plugin/plugin.json`),
+        "utf8"
+      )
+    ) as {
+      author?: { name?: string };
+      interface: { developerName?: string };
+    };
+    expect(manifest.author?.name).toBe(expected);
+    expect(manifest.interface.developerName).toBe(expected);
+  }
+  const marketplace = JSON.parse(
+    await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+  ) as {
+    owner?: { name?: string };
+    plugins?: Array<{ author?: { name?: string }; name?: string }>;
+  };
+  expect(marketplace.owner?.name).toBe("Root Author");
+  expect(
+    marketplace.plugins?.find((plugin) => plugin.name === "plugin-author")
+      ?.author?.name
+  ).toBe("Plugin Author");
+  expect(
+    marketplace.plugins?.find((plugin) => plugin.name === "root-author")
+      ?.author?.name
+  ).toBe("Root Author");
+});
+
+test("SET-369: canonical listing metadata wins before provider overrides", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: listing-root
+claude: true
+codex: true
+cursor: true
+`,
+    ".skillset/plugins/listing/skillset.yaml": `
+skillset:
+  name: listing
+  description: Core description.
+  author:
+    name: Canonical developer
+  title: Legacy title
+  summary: Legacy summary.
+  category: Legacy
+  presentation:
+    display_name: Legacy presentation title
+    developer_name: Legacy developer
+  listing:
+    display_name: Canonical title
+    summary: Canonical summary.
+    description: Canonical long description.
+    category: Canonical
+    keywords: [canonical, listing]
+    logo: ./logo.png
+codex:
+  interface:
+    category: Codex override
+`,
+    ".skillset/plugins/listing/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const claude = JSON.parse(
+    await readFile(
+      join(root, "plugins/listing/claude/.claude-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as Record<string, unknown>;
+  const codex = JSON.parse(
+    await readFile(
+      join(root, "plugins/listing/codex/.codex-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as { interface: Record<string, unknown> };
+  const cursor = JSON.parse(
+    await readFile(
+      join(root, "plugins/listing/cursor/.cursor-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as Record<string, unknown>;
+
+  expect(claude.description).toBe("Canonical summary.");
+  expect(claude.keywords).toEqual(["canonical", "listing"]);
+  expect(codex.interface).toEqual(
+    expect.objectContaining({
+      category: "Codex override",
+      developerName: "Canonical developer",
+      displayName: "Canonical title",
+      longDescription: "Canonical long description.",
+      shortDescription: "Canonical summary.",
+    })
+  );
+  expect(cursor).toEqual(
+    expect.objectContaining({
+      category: "Canonical",
+      displayName: "Canonical title",
+      logo: "./logo.png",
+      tags: ["canonical", "listing"],
+    })
+  );
+  expect(cursor.author).toBeUndefined();
+  expect(cursor.keywords).toBeUndefined();
+  expect(cursor.license).toBeUndefined();
+});
+
+test("SET-369: legacy root and plugin metadata warn without blocking canonical source", async () => {
+  const legacyRoot = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: warning-root
+  title: Legacy root title
+claude: true
+`,
+    ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  summary: Legacy plugin summary.
+`,
+    ".skillset/plugins/demo/skills/example/SKILL.md": `
+---
+name: example
+description: Example.
+---
+
+Body.
+`,
+  });
+
+  const legacyGraph = await loadBuildGraph(legacyRoot);
+  expect(legacyGraph.warnings).toEqual([
+    expect.stringContaining(
+      "skillset.yaml: $.skillset.title is retained for compatibility"
+    ),
+    expect.stringContaining(
+      ".skillset/plugins/demo/skillset.yaml: $.skillset.summary is retained for compatibility"
+    ),
+  ]);
+
+  const canonicalRoot = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: canonical-root
+  author:
+    name: Example
+  listing:
+    display_name: Canonical root
+claude: true
+`,
+    ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  listing:
+    summary: Canonical plugin summary.
+`,
+    ".skillset/plugins/demo/skills/example/SKILL.md": `
+---
+name: example
+description: Example.
+---
+
+Body.
+`,
+  });
+
+  expect((await loadBuildGraph(canonicalRoot)).warnings).toEqual([]);
+});
+
 test("SET-14: Claude plugin manifest emits the documented top-level fields", async () => {
   const root = await goldenPluginFixture();
   await buildSkillset(root);
@@ -916,7 +1134,21 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
   await Bun.write(join(root, "skillset.yaml"), "claude: true\ncodex: false\n");
   await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: roundtrip-root\n");
 
-  await importSource({ kind: "plugin", rootPath: root, sourcePath: join(external, "roundtrip") });
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(external, "roundtrip"),
+  });
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/roundtrip/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).not.toContain("version:");
+  expect(report.baselines.map((entry) => entry.version)).toEqual([
+    "2.4.6",
+    "2.4.6",
+    "2.4.6",
+  ]);
   await buildSkillset(root);
 
   const generated = JSON.parse(
@@ -1133,8 +1365,16 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
   expect(report.imports[0]?.name).toBe("widget");
   const config = await readFile(join(root, ".skillset/plugins/widget/skillset.yaml"), "utf8");
   expect(config).toContain("name: widget");
-  expect(config).toContain("version: 0.8.0");
+  expect(config).not.toContain("version:");
   expect(config).toContain("description: Native widget plugin.");
+  expect(report.imports[0]?.baselines.map((entry) => entry.version)).toEqual([
+    "0.8.0",
+    "0.8.0",
+    "0.8.0",
+  ]);
+  expect((await readReleaseState(root)).scopes["plugin:widget"]?.version).toBe(
+    "0.8.0"
+  );
   expect(await Bun.file(join(root, ".skillset/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
   expect((await loadBuildGraph(root)).plugins[0]?.id).toBe("widget");
 });
@@ -8745,13 +8985,13 @@ codex: true
 skillset:
   name: widget
   version: 1.2.3
-  summary: A widget plugin.
   description: A longer widget description.
   author:
     name: Ada Lovelace
   homepage: https://example.com
-  category: Productivity
-  presentation:
+  listing:
+    summary: A widget plugin.
+    category: Productivity
     display_name: Widget Pro
     capabilities: [Read, Write]
     default_prompt: [Do the widget thing]

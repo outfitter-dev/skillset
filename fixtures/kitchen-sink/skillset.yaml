@@ -1,10 +1,10 @@
 skillset:
   name: kitchen-sink-root
-  title: Kitchen Sink
-  summary: Fixture root exercising every implemented skillset source surface.
-  version: 0.1.0
-  owner:
+  author:
     name: Fixture Owner
+  listing:
+    display_name: Kitchen Sink
+    summary: Fixture root exercising every implemented skillset source surface.
 claude:
   plugins: true
   skills: true
