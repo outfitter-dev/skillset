@@ -8,6 +8,7 @@ import {
   ACTIVATION_READINESS_SUMMARIES,
   ACTIVATION_REQUIREMENT_STAGES,
   ACTIVATION_REQUIREMENT_STATES,
+  validateActivationReadinessReport,
 } from "../activation-readiness";
 
 describe("activation readiness report contract", () => {
@@ -52,5 +53,18 @@ describe("activation readiness report contract", () => {
       "none",
       "passive",
     ]);
+  });
+
+  test("rejects malformed nested readiness requirements", () => {
+    const validation = validateActivationReadinessReport({
+      counts: {},
+      enabledTargets: ["codex", "codex"],
+      requirements: [{}],
+      schema: ACTIVATION_READINESS_SCHEMA,
+      summary: "ready",
+    });
+
+    expect(validation.ok).toBe(false);
+    expect(validation.diagnostics.length).toBeGreaterThan(10);
   });
 });

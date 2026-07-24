@@ -1,4 +1,8 @@
 import {
+  listProviderActivationDescriptors,
+  type ProviderActivationDescriptor,
+} from "./activation-policy";
+import {
   adaptiveHookContract,
   agentFrontmatterContract,
   hookContract,
@@ -33,7 +37,7 @@ import {
 } from "./tools-realization";
 import type { TargetName } from "./types";
 
-export type LookupSubject = "agent" | "hooks" | "instruction" | "plugin" | "skill" | "workspace";
+export type LookupSubject = "activation" | "agent" | "hooks" | "instruction" | "plugin" | "skill" | "workspace";
 export type LookupView = "compat" | "events" | "examples" | "fields" | "frontmatter" | "schema" | "values";
 export type LookupDiagnosticSeverity = "error" | "warning";
 
@@ -121,7 +125,10 @@ export interface LookupToolsRealization {
   readonly tier: ToolsRealizationTier;
 }
 
+export type LookupActivation = ProviderActivationDescriptor;
+
 export interface LookupReport {
+  readonly activation: readonly LookupActivation[];
   readonly aspects: readonly string[];
   readonly compatibility: readonly LookupCompatibility[];
   readonly diagnostics: readonly LookupDiagnostic[];
@@ -138,6 +145,11 @@ export interface LookupReport {
 }
 
 const SUBJECTS = [
+  {
+    defaultViews: ["compat"],
+    description: "Provider activation observability, evidence effects, claims, reasons, and manual actions.",
+    subject: "activation",
+  },
   {
     defaultViews: ["frontmatter", "fields", "schema", "examples", "compat"],
     description: "Adaptive skill source frontmatter and skill-related compatibility facts.",
@@ -251,6 +263,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
 
   if (subject === undefined) {
     return {
+      activation: [],
       aspects,
       compatibility: [],
       diagnostics,
@@ -270,6 +283,10 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
   const events: LookupEvent[] = [];
   const compatibility: LookupCompatibility[] = [];
   const examples: LookupExample[] = [];
+  const activation =
+    views.includes("compat") && subject === "activation"
+      ? lookupActivation(aspects, targets, diagnostics)
+      : [];
   let schema: SkillsetSchemaContract | undefined;
 
   for (const diagnostic of invalidCombinationDiagnostics(subject, views, query.field)) {
@@ -302,7 +319,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     events.push(...lookupHookEvents(targets));
   }
 
-  if (views.includes("compat")) {
+  if (views.includes("compat") && subject !== "activation") {
     compatibility.push(...lookupCompatibility(subject, aspects, targets, diagnostics));
   }
 
@@ -311,6 +328,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     : [];
 
   return {
+    activation,
     aspects,
     compatibility,
     diagnostics,
@@ -331,12 +349,47 @@ export function listLookupViews(subject: LookupSubject): readonly LookupView[] {
   const contract = contractForLookup(subject, []);
   return LOOKUP_VIEW_ORDER.filter((view) => {
     if (view === "events") return subject === "hooks";
-    if (view === "compat") return SUBJECT_FEATURES[subject] !== undefined;
+    if (view === "compat") return subject === "activation" || SUBJECT_FEATURES[subject] !== undefined;
     if (view === "frontmatter") {
       return subject === "agent" || subject === "instruction" || subject === "skill";
     }
     return contract !== undefined;
   });
+}
+
+function lookupActivation(
+  aspects: readonly string[],
+  targets: readonly TargetName[],
+  diagnostics: LookupDiagnostic[]
+): readonly ProviderActivationDescriptor[] {
+  const capabilities = new Set(
+    aspects.flatMap((aspect) => {
+      switch (aspect) {
+        case "app":
+        case "apps":
+          return ["app"] as const;
+        case "mcp":
+        case "mcp-server":
+          return ["mcp-server"] as const;
+        case "plugin":
+        case "plugins":
+        case "plugin-dependency":
+          return ["plugin-dependency"] as const;
+        default:
+          diagnostics.push({
+            code: "lookup/activation/aspect-not-found",
+            message: `activation lookup does not define aspect ${aspect}.`,
+            severity: "error",
+          });
+          return [];
+      }
+    })
+  );
+  return listProviderActivationDescriptors().filter(
+    (descriptor) =>
+      targets.includes(descriptor.target) &&
+      (aspects.length === 0 || capabilities.has(descriptor.capability))
+  );
 }
 
 export function listLookupSubjects(
@@ -439,6 +492,17 @@ function invalidCombinationDiagnostics(
     diagnostics.push({
       code: "lookup/events/not-applicable",
       message: `${subject} lookup does not have hook events; use subject hooks for --events.`,
+      severity: "error",
+    });
+  }
+  if (
+    subject === "activation" &&
+    views.some((view) => view !== "compat")
+  ) {
+    diagnostics.push({
+      code: "lookup/activation/view-not-applicable",
+      message:
+        "activation lookup exposes registry compatibility facts; use --compat.",
       severity: "error",
     });
   }

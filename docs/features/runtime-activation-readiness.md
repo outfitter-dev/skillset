@@ -77,6 +77,49 @@ Only allowlisted names, enabled booleans, connection tokens, safe binary version
 
 Bare build, check, status, explain, and CI remain deterministic and launch no provider process.
 
+## CLI
+
+Activation observation is explicit:
+
+```bash
+skillset status --activation
+skillset status --activation --json
+skillset explain .skillset/plugins/tools/.mcp.json --activation
+skillset lookup activation
+skillset lookup activation mcp --compat codex
+```
+
+`status --activation` combines the deterministic Core plan with only the Registry-selected provider inspectors needed by the resolved activation subjects. Human output uses **ready with unverified requirements** for the structured `ready_unverified` summary, lists required actionable findings first, and discloses every inspector's `passive` or `active` effect and outcome. Provider failures remain advisory: activation evidence does not change the existing status exit contract.
+
+`explain <path> --activation` uses source provenance before inspector selection, so unrelated capability inspectors do not run. Its receipts retain only subjects owned by the explained source or generated path and omit provider-wide byte counts and aggregate parser summaries that cannot be attributed to that source.
+
+`lookup activation` is always static. It reads Core-owned activation records joined to Registry provider evidence rather than local provider state. It exposes evidence versions, exact inspector surfaces, effect classes, supported claims, unavailable surfaces, stable reasons, and manual next actions. Capability aliases include `mcp`/`mcp-server`, `plugin`/`plugins`/`plugin-dependency`, and `app`/`apps`; `--compat` selects one or more provider lenses.
+
+Structured status and explain results carry the versioned `skillset.activation-inspection@1` report:
+
+```json
+{
+  "schema": "skillset.activation-inspection@1",
+  "readiness": {
+    "schema": "skillset.activation-readiness@1",
+    "summary": "ready_unverified",
+    "counts": {
+      "satisfied": 3,
+      "unverified": 3
+    }
+  },
+  "inspections": [
+    {
+      "inspectorId": "codex.mcp.list",
+      "effect": "passive",
+      "outcome": "ran"
+    }
+  ]
+}
+```
+
+The complete JSON also contains stable requirement ids, source paths, source-unit selectors, reasons, and next actions. Workspace status receipts include bounded byte counts and truncation flags; source-scoped explain receipts omit that provider-wide metadata. The report contract and validator are owned by `@skillset/schema` and published as `activation-inspection.schema.json`. No form contains raw provider output.
+
 ## Evidence
 
 - `packages/registry/src/provider-runtime-evidence.ts`
@@ -85,10 +128,16 @@ Bare build, check, status, explain, and CI remain deterministic and launch no pr
 - `packages/core/src/__tests__/activation-policy.test.ts`
 - `packages/core/src/runtime-readiness.ts`
 - `packages/core/src/__tests__/runtime-readiness.test.ts`
+- `packages/schema/src/activation-inspection.ts`
+- `docs/reference/schemas/0.1.0/activation-inspection.schema.json`
 - `apps/skillset/src/provider-command.ts`
 - `apps/skillset/src/activation-parsers.ts`
 - `apps/skillset/src/activation-inspection.ts`
+- `apps/skillset/src/activation-workflow.ts`
+- `apps/skillset/src/activation-presentation.ts`
+- `apps/skillset/src/__tests__/activation-cli.test.ts`
 - `apps/skillset/src/__tests__/fixtures/activation/provider-outputs.json`
 - [SET-131](https://linear.app/outfitter/issue/SET-131/research-mcp-and-app-install-or-activation-assistance-without-runtime)
 - [SET-390](https://linear.app/outfitter/issue/SET-390/define-registry-backed-activation-readiness-and-static-planning)
 - [SET-391](https://linear.app/outfitter/issue/SET-391/add-bounded-provider-activation-evidence-adapters)
+- [SET-392](https://linear.app/outfitter/issue/SET-392/expose-activation-readiness-through-status-explain-and-lookup)

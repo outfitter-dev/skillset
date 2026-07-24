@@ -531,6 +531,57 @@ export const cliResultContract = contract("cli-result", "Skillset CLI Result", "
   type: "object",
 });
 
+export const activationInspectionContract = contract(
+  "activation-inspection",
+  "Skillset Activation Inspection",
+  "Versioned observational activation readiness and bounded provider-inspection receipts.",
+  {
+    additionalProperties: false,
+    properties: {
+      inspections: arraySchema({
+        ...strictObjectSchema({
+          binaryVersion: nonEmptyStringSchema(),
+          capability: enumSchema(["app", "mcp-server", "plugin-dependency"]),
+          effect: enumSchema(["active", "none", "passive"]),
+          inspectorId: nonEmptyStringSchema(),
+          outcome: enumSchema([
+            "malformed",
+            "ran",
+            "skipped",
+            "timed_out",
+            "unavailable",
+          ]),
+          stderrBytes: { minimum: 0, type: "integer" },
+          stderrTruncated: { type: "boolean" },
+          stdoutBytes: { minimum: 0, type: "integer" },
+          stdoutTruncated: { type: "boolean" },
+          subjects: arraySchema(nonEmptyStringSchema(), {
+            uniqueItems: true,
+          }),
+          summary: nonEmptyStringSchema(),
+          target: enumSchema([...TARGET_NAMES]),
+        }),
+        required: [
+          "capability",
+          "effect",
+          "inspectorId",
+          "outcome",
+          "subjects",
+          "summary",
+          "target",
+        ],
+      }),
+      readiness: activationReadinessReportSchema(),
+      schema: {
+        const: "skillset.activation-inspection@1",
+        type: "string",
+      },
+    },
+    required: ["inspections", "readiness", "schema"],
+    type: "object",
+  }
+);
+
 export const cliEventContract = contract("cli-event", "Skillset CLI Event", "One machine-readable event in a Skillset CLI JSONL stream.", {
   additionalProperties: false,
   properties: { command: nonEmptyStringSchema(), data: { type: "object" }, event: nonEmptyStringSchema(), schemaVersion: { const: CLI_EVENT_SCHEMA_VERSION, type: "string" }, sequence: { minimum: 1, type: "integer" } },
@@ -550,6 +601,110 @@ export const skillsetSchemaContracts = [
   testDeclarationContract,
   skillEvalContract,
 ] as const satisfies readonly SkillsetSchemaContract[];
+
+function activationReadinessReportSchema(): SchemaJsonRecord {
+  return {
+    ...strictObjectSchema({
+      counts: {
+        ...strictObjectSchema({
+          blocked: { minimum: 0, type: "integer" },
+          missing: { minimum: 0, type: "integer" },
+          notApplicable: { minimum: 0, type: "integer" },
+          satisfied: { minimum: 0, type: "integer" },
+          stale: { minimum: 0, type: "integer" },
+          unverified: { minimum: 0, type: "integer" },
+        }),
+        required: [
+          "blocked",
+          "missing",
+          "notApplicable",
+          "satisfied",
+          "stale",
+          "unverified",
+        ],
+      },
+      enabledTargets: arraySchema(enumSchema([...TARGET_NAMES]), {
+        uniqueItems: true,
+      }),
+      requirements: arraySchema({
+        ...strictObjectSchema({
+          capability: enumSchema(["app", "mcp-server", "plugin-dependency"]),
+          id: nonEmptyStringSchema(),
+          nextActions: arraySchema({
+            ...strictObjectSchema({
+              id: nonEmptyStringSchema(),
+              label: nonEmptyStringSchema(),
+              mutates: { type: "boolean" },
+              url: nonEmptyStringSchema(),
+            }),
+            required: ["id", "label", "mutates", "url"],
+          }),
+          observationEffect: enumSchema(["active", "none", "passive"]),
+          origin: enumSchema(["declared", "derived", "observed", "proven"]),
+          reason: nonEmptyStringSchema(),
+          required: { type: "boolean" },
+          sourcePaths: arraySchema(nonEmptyStringSchema(), {
+            uniqueItems: true,
+          }),
+          sourceUnits: arraySchema(nonEmptyStringSchema(), {
+            uniqueItems: true,
+          }),
+          stage: enumSchema([
+            "authenticated",
+            "connected",
+            "declared",
+            "discoverable",
+            "enabled",
+            "proven",
+            "rendered",
+          ]),
+          state: enumSchema([
+            "blocked",
+            "missing",
+            "not_applicable",
+            "satisfied",
+            "stale",
+            "unverified",
+          ]),
+          subject: nonEmptyStringSchema(),
+          target: enumSchema([...TARGET_NAMES]),
+        }),
+        required: [
+          "capability",
+          "id",
+          "nextActions",
+          "observationEffect",
+          "origin",
+          "reason",
+          "required",
+          "sourcePaths",
+          "sourceUnits",
+          "stage",
+          "state",
+          "subject",
+          "target",
+        ],
+      }),
+      schema: {
+        const: "skillset.activation-readiness@1",
+        type: "string",
+      },
+      summary: enumSchema([
+        "attention",
+        "blocked",
+        "ready",
+        "ready_unverified",
+      ]),
+    }),
+    required: [
+      "counts",
+      "enabledTargets",
+      "requirements",
+      "schema",
+      "summary",
+    ],
+  };
+}
 
 export function schemaUri(id: SkillsetSchemaContract["id"], version = SKILLSET_SCHEMA_VERSION): string {
   return `${SKILLSET_SCHEMA_URI_BASE}/${version}/${id}.schema.json`;

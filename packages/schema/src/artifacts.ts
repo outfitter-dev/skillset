@@ -4,6 +4,7 @@ import {
   SKILLSET_SCHEMA_URI_BASE,
   SKILLSET_SCHEMA_VERSION,
   adaptiveHookContract,
+  activationInspectionContract,
   agentFrontmatterContract,
   changeEntryContract,
   cliEventContract,
@@ -27,6 +28,7 @@ export interface SkillsetJsonSchemaArtifact {
 const schemaFileNames = {
   "adaptive-hook": "adaptive-hook.schema.json",
   "agent-frontmatter": "agent-frontmatter.schema.json",
+  "activation-inspection": "activation-inspection.schema.json",
   "change-entry": "change-entry.schema.json",
   "cli-event": "cli-event.schema.json",
   "cli-result": "cli-result.schema.json",
@@ -47,7 +49,11 @@ export function deriveSkillsetJsonSchemaArtifacts(): readonly SkillsetJsonSchema
       path: `docs/reference/schemas/${SKILLSET_SCHEMA_VERSION}/${schemaFileNames[contract.id]}`,
       schema: contract.schema,
     })),
-    ...[cliResultContract, cliEventContract].map((contract) => ({
+    ...[
+      activationInspectionContract,
+      cliResultContract,
+      cliEventContract,
+    ].map((contract) => ({
       contractId: contract.id,
       path: `docs/reference/schemas/${SKILLSET_SCHEMA_VERSION}/${schemaFileNames[contract.id]}`,
       schema: contract.schema,
@@ -110,4 +116,6 @@ export const skillsetAdaptiveHookJsonSchema = adaptiveHookContract.schema;
 export const skillsetChangeEntryJsonSchema = changeEntryContract.schema;
 export const skillsetTestDeclarationJsonSchema = testDeclarationContract.schema;
 export const skillsetCliResultJsonSchema = cliResultContract.schema;
+export const skillsetActivationInspectionJsonSchema =
+  activationInspectionContract.schema;
 export const skillsetCliEventJsonSchema = cliEventContract.schema;

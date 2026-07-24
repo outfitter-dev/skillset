@@ -170,6 +170,7 @@ describe("SET-299 CLI request characterization", () => {
       expected: {
         command: "explain",
         request: {
+          activation: false,
           jsonOutput: false,
           options: {},
           path: "skill.md",
@@ -338,7 +339,7 @@ describe("SET-299 CLI request characterization", () => {
       args: ["status", "--root", ROOT],
       expected: {
         command: "status",
-        request: { jsonOutput: false, options: {}, rootPath: ROOT },
+        request: { activation: false, jsonOutput: false, options: {}, rootPath: ROOT },
       },
     },
     {
@@ -698,6 +699,7 @@ describe("SET-299 CLI request characterization", () => {
     ).toEqual({
       command: "explain",
       request: {
+        activation: false,
         jsonOutput: true,
         options: {},
         path: "skill.md",

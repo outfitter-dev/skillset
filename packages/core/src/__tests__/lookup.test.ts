@@ -14,6 +14,7 @@ describe("lookupSkillsetReference", () => {
 
     expect(report.subject).toBeUndefined();
     expect(report.subjects.map((subject) => subject.subject)).toEqual([
+      "activation",
       "skill",
       "agent",
       "instruction",
@@ -25,6 +26,7 @@ describe("lookupSkillsetReference", () => {
   });
 
   it("derives applicable views from the owned lookup contracts", () => {
+    expect(listLookupViews("activation")).toEqual(["compat"]);
     expect(listLookupViews("skill")).toEqual([
       "fields",
       "frontmatter",
@@ -48,6 +50,93 @@ describe("lookupSkillsetReference", () => {
       "schema",
     ]);
     expect(listLookupViews("plugin")).toEqual(["compat"]);
+  });
+
+  it("returns registry-backed activation facts with target and capability lenses", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["mcp"],
+      subject: "activation",
+      targets: ["codex"],
+    });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(report.compatibility).toEqual([]);
+    expect(report.activation).toEqual([
+      expect.objectContaining({
+        capability: "mcp-server",
+        evidence: expect.objectContaining({
+          providerName: "Codex",
+          providerVersion: "0.146.0-alpha.3.1",
+        }),
+        target: "codex",
+      }),
+    ]);
+    expect(report.activation[0]?.inspectors).toEqual([
+      expect.objectContaining({
+        effect: "passive",
+        id: "codex.mcp.list",
+        surface: expect.objectContaining({
+          argv: ["codex", "mcp", "list", "--json"],
+        }),
+      }),
+    ]);
+  });
+
+  it("keeps activation lookup static and asymmetric across every provider", () => {
+    const report = lookupSkillsetReference({ subject: "activation" });
+
+    expect(new Set(report.activation.map(({ target }) => target))).toEqual(
+      new Set(["claude", "codex", "cursor"])
+    );
+    expect(
+      report.activation.flatMap(({ inspectors, target }) =>
+        inspectors.map(({ effect }) => `${target}:${effect}`)
+      )
+    ).toEqual(
+      expect.arrayContaining([
+        "claude:active",
+        "claude:passive",
+        "codex:passive",
+        "cursor:active",
+        "cursor:none",
+        "cursor:passive",
+      ])
+    );
+  });
+
+  it("rejects unknown activation aspects without widening the result", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["unknown"],
+      subject: "activation",
+    });
+
+    expect(report.activation).toEqual([]);
+    expect(report.diagnostics).toEqual([
+      {
+        code: "lookup/activation/aspect-not-found",
+        message: "activation lookup does not define aspect unknown.",
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("rejects schema-shaped views for registry-backed activation facts", () => {
+    for (const views of [["fields"], ["schema"]] as const) {
+      const report = lookupSkillsetReference({
+        subject: "activation",
+        views,
+      });
+
+      expect(report.activation).toEqual([]);
+      expect(report.diagnostics).toEqual([
+        {
+          code: "lookup/activation/view-not-applicable",
+          message:
+            "activation lookup exposes registry compatibility facts; use --compat.",
+          severity: "error",
+        },
+      ]);
+    }
   });
 
   it("derives subjects applicable to a partial view request", () => {

@@ -89,6 +89,8 @@ export interface ActivationObservation {
 export interface PlanActivationReadinessOptions {
   readonly descriptors?: readonly ActivationReadinessDescriptor[];
   readonly graph: BuildGraph;
+  readonly includeSourcePath?: (path: string) => boolean;
+  readonly includeSubject?: (subject: ActivationSubject) => boolean;
   readonly observations?: readonly ActivationObservation[];
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly untrustedOutputPaths?: readonly string[];
@@ -97,10 +99,24 @@ export interface PlanActivationReadinessOptions {
 export function planActivationReadiness(
   options: PlanActivationReadinessOptions
 ): ActivationReadinessReport {
+  const allSubjects = deriveActivationSubjects(options.graph, {
+    ...(options.includeSourcePath === undefined
+      ? {}
+      : { includeSourcePath: options.includeSourcePath }),
+  });
+  const subjects =
+    options.includeSubject === undefined
+      ? allSubjects
+      : allSubjects.filter(options.includeSubject);
+  const scopeTargets =
+    options.includeSubject !== undefined ||
+    options.includeSourcePath !== undefined;
   const enabledTargets = targetNames().filter(
-    (target) => options.graph.root.targets[target].enabled
+    (target) =>
+      options.graph.root.targets[target].enabled &&
+      (!scopeTargets ||
+        subjects.some((subject) => subject.target === target))
   );
-  const subjects = deriveActivationSubjects(options.graph);
   const descriptors =
     options.descriptors ?? listProviderActivationDescriptors();
   assertProviderActivationDescriptors(descriptors);
@@ -143,8 +159,13 @@ export function planActivationReadiness(
   };
 }
 
+export interface DeriveActivationSubjectsOptions {
+  readonly includeSourcePath?: (path: string) => boolean;
+}
+
 export function deriveActivationSubjects(
-  graph: BuildGraph
+  graph: BuildGraph,
+  options: DeriveActivationSubjectsOptions = {}
 ): readonly ActivationSubject[] {
   const subjects: ActivationSubject[] = [];
 
@@ -234,7 +255,14 @@ export function deriveActivationSubjects(
     });
   }
 
-  return mergeSubjects(subjects);
+  const includeSourcePath = options.includeSourcePath;
+  const selected =
+    includeSourcePath === undefined
+      ? subjects
+      : subjects.filter((subject) =>
+          subject.sourcePaths.some(includeSourcePath)
+        );
+  return mergeSubjects(selected);
 }
 
 export function activationRequirementId(input: {
@@ -296,6 +324,22 @@ function pluginDependencySubjects(
   return declarations.map(({ dependency, sourceUnit }) =>
     pluginDependencySubject(plugin.id, target, dependency, sourceUnit)
   );
+}
+
+export function filterActivationReadiness(
+  report: ActivationReadinessReport,
+  include: (requirement: ActivationRequirement) => boolean
+): ActivationReadinessReport {
+  const requirements = report.requirements.filter(include);
+  return {
+    counts: countRequirementStates(requirements),
+    enabledTargets: report.enabledTargets.filter((target) =>
+      requirements.some((requirement) => requirement.target === target)
+    ),
+    requirements,
+    schema: report.schema,
+    summary: summarizeActivationReadiness(requirements),
+  };
 }
 
 function pluginDependencySubject(

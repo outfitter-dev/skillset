@@ -7,11 +7,13 @@ import {
   ACTIVATION_READINESS_SCHEMA,
   activationRequirementId,
   deriveActivationSubjects,
+  filterActivationReadiness,
   planActivationReadiness,
   summarizeActivationReadiness,
   targetRecord,
 } from "@skillset/core";
 import type {
+  ActivationReadinessReport,
   ActivationRequirement,
   SkillsetRenderResult,
 } from "@skillset/core";
@@ -179,6 +181,92 @@ compile:
         target: "codex",
       },
     ]);
+  });
+
+  it("selects source fragments before merging shared activation subjects", () => {
+    const graph = graphFixture({
+      plugins: ["alpha", "beta"].map((id) =>
+        pluginFixture({
+          features: [
+            {
+              key: "mcp",
+              origin: "conventional",
+              sourcePath: `/repo/.skillset/plugins/${id}/.mcp.json`,
+              subjects: ["shared"],
+              targetPath: ".mcp.json",
+            },
+          ],
+          id,
+        })
+      ),
+    });
+
+    expect(
+      deriveActivationSubjects(graph, {
+        includeSourcePath: (path) =>
+          path === ".skillset/plugins/alpha/.mcp.json",
+      })
+    ).toEqual([
+      {
+        capability: "mcp-server",
+        origin: "source",
+        required: true,
+        sourcePaths: [".skillset/plugins/alpha/.mcp.json"],
+        sourceUnits: ["plugin.alpha.feature:mcp"],
+        subject: "shared",
+        target: "claude",
+      },
+      {
+        capability: "mcp-server",
+        origin: "source",
+        required: true,
+        sourcePaths: [".skillset/plugins/alpha/.mcp.json"],
+        sourceUnits: ["plugin.alpha.feature:mcp"],
+        subject: "shared",
+        target: "codex",
+      },
+      {
+        capability: "mcp-server",
+        origin: "source",
+        required: true,
+        sourcePaths: [".skillset/plugins/alpha/.mcp.json"],
+        sourceUnits: ["plugin.alpha.feature:mcp"],
+        subject: "shared",
+        target: "cursor",
+      },
+    ]);
+  });
+
+  it("narrows enabled targets to a source-filtered subject projection", () => {
+    const graph = graphFixture({
+      plugins: [
+        pluginFixture({
+          features: [
+            {
+              key: "app",
+              origin: "conventional",
+              sourcePath: "/repo/.skillset/plugins/tools/.app.json",
+              targetPath: ".app.json",
+            },
+          ],
+          id: "tools",
+        }),
+      ],
+    });
+
+    const report = planActivationReadiness({
+      graph,
+      includeSourcePath: (path) =>
+        path === ".skillset/plugins/tools/.app.json",
+      renderResults: [],
+    });
+
+    expect(report.enabledTargets).toEqual(["codex"]);
+    expect(
+      report.requirements.every(
+        (requirement) => requirement.target === "codex"
+      )
+    ).toBe(true);
   });
 
   it("omits a workspace-disabled target even when a plugin enables it", () => {
@@ -618,6 +706,60 @@ compile:
         requirementFixture({ required: true, state: "satisfied" }),
       ])
     ).toBe("ready");
+  });
+
+  it("recalculates counts, targets, and summary for a scoped readiness view", () => {
+    const report: ActivationReadinessReport = {
+      counts: {
+        blocked: 1,
+        missing: 0,
+        notApplicable: 0,
+        satisfied: 1,
+        stale: 0,
+        unverified: 1,
+      },
+      enabledTargets: ["claude", "codex"],
+      requirements: [
+        requirementFixture({
+          id: "activation:claude:plugin-dependency:demo:declared",
+          state: "blocked",
+          target: "claude",
+        }),
+        requirementFixture({
+          id: "activation:codex:plugin-dependency:demo:declared",
+          state: "satisfied",
+          target: "codex",
+        }),
+        requirementFixture({
+          id: "activation:codex:plugin-dependency:demo:enabled",
+          stage: "enabled",
+          state: "unverified",
+          target: "codex",
+        }),
+      ],
+      schema: ACTIVATION_READINESS_SCHEMA,
+      summary: "blocked",
+    };
+
+    expect(
+      filterActivationReadiness(
+        report,
+        (requirement) => requirement.target === "codex"
+      )
+    ).toEqual({
+      counts: {
+        blocked: 0,
+        missing: 0,
+        notApplicable: 0,
+        satisfied: 1,
+        stale: 0,
+        unverified: 1,
+      },
+      enabledTargets: ["codex"],
+      requirements: report.requirements.slice(1),
+      schema: ACTIVATION_READINESS_SCHEMA,
+      summary: "ready_unverified",
+    });
   });
 
   it("creates injective requirement ids for delimiter-bearing subjects", () => {

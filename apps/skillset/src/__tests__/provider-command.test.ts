@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import {
   isProviderCommandMissingBinary,
+  isProviderCommandUnavailable,
   runProviderCommand,
 } from "../provider-command";
 
@@ -159,6 +160,28 @@ test("provider command classifies missing binaries without exposing spawn detail
       message: "skillset: provider command executable is unavailable",
     });
     expect(String(error)).not.toContain(missing);
+  }
+});
+
+test("provider command classifies non-executable binaries as unavailable", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-provider-command-"));
+  const path = join(root, "not-executable");
+  await writeFile(path, "#!/bin/sh\nexit 0\n", "utf8");
+  await chmod(path, 0o644);
+
+  try {
+    await runProviderCommand(
+      { cmd: [path], cwd: root },
+      { env: process.env, timeoutMs: 10_000 }
+    );
+    throw new Error("expected the provider binary to be unavailable");
+  } catch (error) {
+    expect(isProviderCommandUnavailable(error)).toBe(true);
+    expect(error).toMatchObject({
+      code: "EACCES",
+      message: "skillset: provider command executable is unavailable",
+    });
+    expect(String(error)).not.toContain(path);
   }
 });
 
