@@ -34,9 +34,11 @@ Without a shared model, each CLI route would either repeat provider-specific log
 An activation requirement is one concrete prerequisite between authored source and successful runtime behavior. Each requirement has:
 
 ```ts
+import type { ActivationTarget } from "@skillset/schema";
+
 interface ActivationRequirement {
   id: string;
-  target: "claude" | "codex" | "cursor";
+  target: ActivationTarget;
   capability: "plugin-dependency" | "mcp-server" | "app";
   subject: string;
   stage:
@@ -120,10 +122,14 @@ Ad hoc `skillset test --prompt` and eval runs remain useful exploration but
 cannot prove a named requirement. Declared runtime probes use the explicit claim
 item `{ capability, subject }` under `runtime.claims`. Core resolves each claim
 to a stable requirement id before provider execution. A persisted runtime
-receipt must carry those resolved claim ids plus deterministic
-source/rendering/target/adapter identity before it can satisfy `proven`. Overall
-run success never proves an unclaimed requirement. Runtime binary version is
-retained as evidence but does not invalidate proof in the first contract.
+receipt may carry a resolved claim id only when the provider adapter returns
+capability-specific evidence that the named subject was exercised. Generic
+process success and response-text assertions are test outcomes, not
+subject-invocation evidence. The receipt must also carry deterministic
+source/rendering/target/adapter identity before it can satisfy `proven`.
+Overall run success never proves an unclaimed requirement. Runtime binary
+version is retained as evidence but does not invalidate proof in the first
+contract.
 
 ### Explicit local inspection
 
