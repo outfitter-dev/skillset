@@ -1396,7 +1396,8 @@ for arg in "$@"; do
 done
 echo "fake-claude cwd=$(pwd)"
 echo "fake-claude prompt=$last"
-printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__github__fixture"}]}}\\n'
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_github","name":"mcp__github__fixture"}]}}\\n'
+printf '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_github","content":"fixture complete"}]}}\\n'
 `, "utf8");
   await chmod(bin, 0o755);
   return bin;

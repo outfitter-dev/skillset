@@ -22,13 +22,13 @@ export function runtimeActivationEvidence(
   stdout: string
 ): readonly ActivationProofClaim[] {
   const evidence = new Map<string, ActivationProofClaim>();
-  for (const value of jsonRecords(stdout)) {
+  const records = jsonRecords(stdout);
+  for (const value of records) {
     if (target === "codex") {
       collectCodexEvidence(value, evidence);
-    } else {
-      collectToolUseEvidence(value, evidence);
     }
   }
+  if (target !== "codex") collectToolUseEvidence(records, evidence);
   return [...evidence.values()].toSorted(compareEvidence);
 }
 
@@ -49,17 +49,39 @@ function collectCodexEvidence(
 }
 
 function collectToolUseEvidence(
-  value: Record<string, unknown>,
+  values: readonly Record<string, unknown>[],
   evidence: Map<string, ActivationProofClaim>
 ): void {
-  if (value.type !== "assistant" || !isRecord(value.message)) return;
-  const content = value.message.content;
-  if (!Array.isArray(content)) return;
-  for (const block of content) {
-    if (!isRecord(block) || block.type !== "tool_use") continue;
-    const name = readNonEmptyString(block.name);
-    if (name === undefined) continue;
-    const server = mcpServerFromToolName(name);
+  const requestedServers = new Map<string, string>();
+  const successfulResults = new Set<string>();
+
+  for (const value of values) {
+    if (!isRecord(value.message)) continue;
+    const content = value.message.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (!isRecord(block)) continue;
+      if (value.type === "assistant" && block.type === "tool_use") {
+        const id = readNonEmptyString(block.id);
+        const name = readNonEmptyString(block.name);
+        const server = name === undefined ? undefined : mcpServerFromToolName(name);
+        if (id !== undefined && server !== undefined) {
+          requestedServers.set(id, server);
+        }
+      }
+      if (
+        value.type === "user" &&
+        block.type === "tool_result" &&
+        (block.is_error === undefined || block.is_error === false)
+      ) {
+        const id = readNonEmptyString(block.tool_use_id);
+        if (id !== undefined) successfulResults.add(id);
+      }
+    }
+  }
+
+  for (const id of successfulResults) {
+    const server = requestedServers.get(id);
     if (server !== undefined) addMcpEvidence(server, evidence);
   }
 }
