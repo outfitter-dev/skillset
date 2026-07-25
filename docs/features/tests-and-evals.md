@@ -209,6 +209,11 @@ or selection makes the prior result stale. The selected rendered source
 projection is part of the receipt identity, so changing a selected source unit
 makes prior proof stale while unrelated unselected units do not.
 
+Structured runtime evidence currently corroborates only `mcp-server` claims.
+The `app` and `plugin-dependency` capability names remain valid in the shared
+activation schema, but `runtime.claims` rejects them before provider launch
+until a bounded structured adapter can establish their use.
+
 Run the declaration through the normal command:
 
 ```bash

@@ -66,6 +66,11 @@ capability and subject, not an internal requirement ID. Missing, ambiguous,
 disabled, target-incompatible, and unsupported claims fail before runtime
 execution.
 
+The current structured runtime adapters corroborate only `mcp-server` claims.
+`app` and `plugin-dependency` remain schema-valid activation vocabulary for
+readiness planning, but declared runtime proof rejects them during preflight
+until a bounded provider evidence adapter can prove those capabilities.
+
 Runs retain a versioned proof receipt only for resolved claims corroborated by
 structured provider invocation evidence for the exact capability and subject.
 Final response text, authored substring assertions, and generic process success

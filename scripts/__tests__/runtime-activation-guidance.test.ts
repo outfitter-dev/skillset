@@ -19,6 +19,9 @@ test("runtime activation guidance reserves proof claims for declared tests", asy
     expect(guidance).toContain(
       "Eval runs cannot declare activation claims or mint proof receipts."
     );
+    expect(guidance).toContain(
+      "Current structured runtime evidence supports only `mcp-server` claims"
+    );
     expect(guidance).not.toContain("eval cases can add `skillset.claims`");
   }
 
