@@ -367,6 +367,11 @@
           "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
         },
         {
+          "context": "- [ADR-0005: Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry evidence and runtime-support separation.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
           "context": "- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
@@ -559,6 +564,11 @@
           "context": "- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - external fixtures consume adoption; isolated output aligns with `skillset test` run isolation.",
           "from": "0024",
           "fromPath": "docs/adrs/0024-one-action-repo-adoption.md"
+        },
+        {
+          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - behavioral evidence boundaries.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
           "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.",
@@ -903,6 +913,11 @@
           "fromPath": "docs/adrs/0026-yaml-formatting-and-bun-native-apis.md"
         },
         {
+          "context": "- [ADR-0019: Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - render conformance is not activation.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
           "context": "- [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
           "from": "render-results",
           "fromPath": "docs/features/render-results.md"
@@ -986,6 +1001,11 @@
           "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
         },
         {
+          "context": "- [ADR-0022: Workflow-Oriented CLI](0022-workflow-oriented-cli.md) - status, explain, lookup, test, and eval ownership.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outsi",
           "from": "20260723",
           "fromPath": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md"
@@ -1016,6 +1036,11 @@
       "created": "2026-07-12",
       "depends_on": ["0", "4", "18", "19", "22"],
       "inbound": [
+        {
+          "context": "- [ADR-0023: Versioned Structured Output](0023-versioned-structured-output-for-cli-automation.md) - machine-readable command contracts.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
         {
           "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
           "from": "cli-flags",
@@ -1118,6 +1143,21 @@
       "superseded_by": null,
       "title": "YAML Formatting and Bun Native APIs",
       "updated": "2026-07-21"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-24",
+      "depends_on": ["0", "5", "12", "19", "22", "23"],
+      "inbound": [],
+      "number": "0027",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0027-runtime-activation-readiness-is-observational.md",
+      "slug": "runtime-activation-readiness-is-observational",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Runtime Activation Readiness Is Observational",
+      "updated": "2026-07-24"
     }
   ],
   "version": 1
