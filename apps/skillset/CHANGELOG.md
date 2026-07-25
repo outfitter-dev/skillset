@@ -1,5 +1,14 @@
 # skillset
 
+## 0.22.0
+
+### Minor Changes
+
+- e7a0824: Expose bounded activation readiness through status and explain, and add static Registry-backed activation lookup.
+- 3e1e308: Add bounded, registry-driven provider observation adapters for activation readiness.
+- bcf6459: Bind activation readiness to explicit declared test claims whose retained proof receipts still match the current declaration, source, rendering, projection, target, and runtime adapter.
+- 1c1e710: Add the registry-backed activation readiness model that separates declared and rendered facts from provider observation and current runtime proof.
+
 ## 0.21.0
 
 ### Minor Changes
