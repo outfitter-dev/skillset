@@ -327,6 +327,47 @@ compile:
     ).toBe(false);
   });
 
+  it("does not satisfy rendered requirements from stale generated output", () => {
+    const graph = graphFixture({
+      plugins: [
+        pluginFixture({
+          dependencies: [
+            {
+              kind: "internal",
+              name: "shared",
+              sourceLabel: ".skillset/plugins/tools/skillset.yaml",
+              unversioned: false,
+            },
+          ],
+          id: "tools",
+        }),
+        pluginFixture({ id: "shared" }),
+      ],
+    });
+    const outputPath = "plugins/tools/claude/.claude-plugin/plugin.json";
+    const report = planActivationReadiness({
+      graph,
+      renderResults: [
+        renderResult({
+          featureId: "dependencies",
+          outputs: [{ path: outputPath }],
+          sourceUnit: "plugin.tools.feature:dependencies",
+          status: "rendered",
+          target: "claude",
+        }),
+      ],
+      untrustedOutputPaths: [`./${outputPath}`],
+    });
+
+    expect(
+      requirement(report, "claude", "plugin-dependency", "shared", "rendered")
+    ).toMatchObject({
+      reason: "generated output for this requirement is missing or stale",
+      state: "missing",
+    });
+    expect(report.summary).toBe("attention");
+  });
+
   it("uses matching observations only and preserves their effect", () => {
     const graph = graphFixture({
       plugins: [
@@ -717,6 +758,7 @@ function pluginFixture(overrides: {
 
 function renderResult(overrides: {
   readonly featureId: string;
+  readonly outputs?: NonNullable<SkillsetRenderResult["outputs"]>;
   readonly reason?: string;
   readonly sourceUnit: string;
   readonly status: SkillsetRenderResult["status"];

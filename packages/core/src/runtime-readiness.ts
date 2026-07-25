@@ -91,6 +91,7 @@ export interface PlanActivationReadinessOptions {
   readonly graph: BuildGraph;
   readonly observations?: readonly ActivationObservation[];
   readonly renderResults: readonly SkillsetRenderResult[];
+  readonly untrustedOutputPaths?: readonly string[];
 }
 
 export function planActivationReadiness(
@@ -106,6 +107,9 @@ export function planActivationReadiness(
   const observations = indexObservations(
     descriptors,
     options.observations ?? []
+  );
+  const untrustedOutputPaths = new Set(
+    (options.untrustedOutputPaths ?? []).map(normalizeOutputPath)
   );
   const requirements = subjects
     .flatMap((subject) => {
@@ -123,7 +127,8 @@ export function planActivationReadiness(
           subject,
           stage,
           options.renderResults,
-          observations
+          observations,
+          untrustedOutputPaths
         )
       );
     })
@@ -320,7 +325,8 @@ function requirementFor(
   subject: ActivationSubject,
   stage: ActivationRequirementStage,
   renderResults: readonly SkillsetRenderResult[],
-  observations: ReadonlyMap<string, ActivationObservation>
+  observations: ReadonlyMap<string, ActivationObservation>,
+  untrustedOutputPaths: ReadonlySet<string>
 ): ActivationRequirement {
   const observation = observations.get(
     activationRequirementId({
@@ -353,7 +359,8 @@ function requirementFor(
     descriptor,
     subject,
     stage,
-    renderResults
+    renderResults,
+    untrustedOutputPaths
   );
   return {
     capability: subject.capability,
@@ -464,7 +471,8 @@ function staticRequirementState(
   descriptor: ActivationReadinessDescriptor,
   subject: ActivationSubject,
   stage: ActivationRequirementStage,
-  renderResults: readonly SkillsetRenderResult[]
+  renderResults: readonly SkillsetRenderResult[],
+  untrustedOutputPaths: ReadonlySet<string>
 ): Pick<ActivationRequirement, "nextActions" | "reason" | "state"> {
   if (stage === "declared") {
     return {
@@ -496,6 +504,19 @@ function staticRequirementState(
     return {
       nextActions: [],
       reason: "no current render result establishes this requirement",
+      state: "missing",
+    };
+  }
+  if (
+    candidates.some((result) =>
+      result.outputs?.some((output) =>
+        untrustedOutputPaths.has(normalizeOutputPath(output.path))
+      )
+    )
+  ) {
+    return {
+      nextActions: [],
+      reason: "generated output for this requirement is missing or stale",
       state: "missing",
     };
   }
@@ -532,6 +553,10 @@ function staticRequirementState(
     reason: "current rendering did not emit the requirement",
     state: "missing",
   };
+}
+
+function normalizeOutputPath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\.\//u, "");
 }
 
 function renderResultMatchesSubject(
