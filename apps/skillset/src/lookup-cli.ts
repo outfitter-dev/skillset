@@ -52,6 +52,7 @@ function lookupFailed(report: LookupReport): boolean {
 
 export function readLookupSubject(value: string): LookupSubject {
   if (
+    value === "activation" ||
     value === "agent" ||
     value === "hooks" ||
     value === "instruction" ||
@@ -61,7 +62,7 @@ export function readLookupSubject(value: string): LookupSubject {
   ) {
     return value;
   }
-  throw new Error("skillset: expected lookup subject skill, agent, instruction, workspace, hooks, or plugin");
+  throw new Error("skillset: expected lookup subject activation, skill, agent, instruction, workspace, hooks, or plugin");
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {
@@ -167,6 +168,41 @@ function printLookupReport(
         writer,
         `    [${item.target}] ${item.featureId}: ${item.status}${reason}${note}`
       );
+    }
+  }
+  if (report.activation.length > 0) {
+    writeLine(writer, "  activation:");
+    for (const descriptor of report.activation) {
+      writeLine(
+        writer,
+        `    [${descriptor.target}] ${descriptor.capability}: ${descriptor.observationFallback}`
+      );
+      writeLine(
+        writer,
+        `      evidence: ${descriptor.evidence.providerName} ${descriptor.evidence.providerVersion} (verified ${descriptor.evidence.verifiedAt})`
+      );
+      for (const inspector of descriptor.inspectors) {
+        const surface =
+          inspector.surface.kind === "unavailable"
+            ? "unavailable"
+            : inspector.surface.argv.join(" ");
+        writeLine(
+          writer,
+          `      ${inspector.id}: ${inspector.effect}, ${surface}; claims ${inspector.allowedClaims.join(", ") || "none"}; forbids ${inspector.forbiddenClaims.join(", ") || "none"}`
+        );
+      }
+      for (const reason of descriptor.reasons) {
+        writeLine(
+          writer,
+          `      reason [${reason.stage}] ${reason.code}: ${reason.message}`
+        );
+      }
+      for (const action of descriptor.actions) {
+        writeLine(
+          writer,
+          `      next: ${action.label}${action.mutatesProviderState ? " (changes provider state)" : ""}`
+        );
+      }
     }
   }
   if (report.realizations.length > 0) {

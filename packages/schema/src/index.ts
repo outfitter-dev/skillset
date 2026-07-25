@@ -1,4 +1,12 @@
 export {
+  ACTIVATION_INSPECTION_OUTCOMES,
+  ACTIVATION_INSPECTION_SCHEMA,
+  type ActivationInspectionOutcome,
+  type ActivationInspectionReport,
+  type ActivationInspectorReceipt,
+  validateActivationInspectionReport,
+} from "./activation-inspection";
+export {
   ACTIVATION_CAPABILITIES,
   ACTIVATION_EVIDENCE_ORIGINS,
   ACTIVATION_OBSERVATION_EFFECTS,
@@ -17,6 +25,7 @@ export {
   type ActivationRequirementStage,
   type ActivationRequirementState,
   type ActivationTarget,
+  validateActivationReadinessReport,
 } from "./activation-readiness";
 export {
   AGENT_FRONTMATTER_KEYS,
@@ -40,6 +49,7 @@ export {
   UNSUPPORTED_DESTINATION_POLICIES,
   WORKSPACE_CONFIG_KEYS,
   adaptiveHookContract,
+  activationInspectionContract,
   agentFrontmatterContract,
   changeEntryContract,
   cliEventContract,
@@ -66,6 +76,7 @@ export {
   deriveSkillsetJsonSchemaArtifacts,
   getSkillsetJsonSchemaArtifact,
   skillsetAdaptiveHookJsonSchema,
+  skillsetActivationInspectionJsonSchema,
   skillsetAgentFrontmatterJsonSchema,
   skillsetChangeEntryJsonSchema,
   skillsetCliEventJsonSchema,

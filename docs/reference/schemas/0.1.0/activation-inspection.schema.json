@@ -1,0 +1,329 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/activation-inspection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "inspections": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "binaryVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "capability": {
+            "enum": [
+              "app",
+              "mcp-server",
+              "plugin-dependency"
+            ],
+            "type": "string"
+          },
+          "effect": {
+            "enum": [
+              "active",
+              "none",
+              "passive"
+            ],
+            "type": "string"
+          },
+          "inspectorId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "malformed",
+              "ran",
+              "skipped",
+              "timed_out",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "stderrBytes": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stderrTruncated": {
+            "type": "boolean"
+          },
+          "stdoutBytes": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stdoutTruncated": {
+            "type": "boolean"
+          },
+          "subjects": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "summary": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "claude",
+              "codex",
+              "cursor"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "effect",
+          "inspectorId",
+          "outcome",
+          "subjects",
+          "summary",
+          "target"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "readiness": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "additionalProperties": false,
+          "properties": {
+            "blocked": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "missing": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "notApplicable": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "satisfied": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "stale": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unverified": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "blocked",
+            "missing",
+            "notApplicable",
+            "satisfied",
+            "stale",
+            "unverified"
+          ],
+          "type": "object"
+        },
+        "enabledTargets": {
+          "items": {
+            "enum": [
+              "claude",
+              "codex",
+              "cursor"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "requirements": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "capability": {
+                "enum": [
+                  "app",
+                  "mcp-server",
+                  "plugin-dependency"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "nextActions": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "mutates": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "mutates",
+                    "url"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "observationEffect": {
+                "enum": [
+                  "active",
+                  "none",
+                  "passive"
+                ],
+                "type": "string"
+              },
+              "origin": {
+                "enum": [
+                  "declared",
+                  "derived",
+                  "observed",
+                  "proven"
+                ],
+                "type": "string"
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "sourcePaths": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "sourceUnits": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "stage": {
+                "enum": [
+                  "authenticated",
+                  "connected",
+                  "declared",
+                  "discoverable",
+                  "enabled",
+                  "proven",
+                  "rendered"
+                ],
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "blocked",
+                  "missing",
+                  "not_applicable",
+                  "satisfied",
+                  "stale",
+                  "unverified"
+                ],
+                "type": "string"
+              },
+              "subject": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "target": {
+                "enum": [
+                  "claude",
+                  "codex",
+                  "cursor"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "capability",
+              "id",
+              "nextActions",
+              "observationEffect",
+              "origin",
+              "reason",
+              "required",
+              "sourcePaths",
+              "sourceUnits",
+              "stage",
+              "state",
+              "subject",
+              "target"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "schema": {
+          "const": "skillset.activation-readiness@1",
+          "type": "string"
+        },
+        "summary": {
+          "enum": [
+            "attention",
+            "blocked",
+            "ready",
+            "ready_unverified"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "counts",
+        "enabledTargets",
+        "requirements",
+        "schema",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "schema": {
+      "const": "skillset.activation-inspection@1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "inspections",
+    "readiness",
+    "schema"
+  ],
+  "title": "Skillset Activation Inspection",
+  "type": "object"
+}

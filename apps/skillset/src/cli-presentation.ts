@@ -151,7 +151,7 @@ const PRESENTATION = {
   explain: {
     group: "Inspect",
     summary: "Explain ownership and provenance for a path.",
-    synopses: ["explain <path> [--json] [--scope <scope>] [--root <path>]"],
+    synopses: ["explain <path> [--activation] [--json] [--scope <scope>] [--root <path>]"],
   },
   "hooks context": {
     commandSummary: "Print and run explicit hook integrations.",
@@ -296,7 +296,7 @@ const PRESENTATION = {
   status: {
     group: "Inspect",
     summary: "Summarize workspace health and generated drift.",
-    synopses: ["status [--json] [--root <path>]"],
+    synopses: ["status [--activation] [--json] [--root <path>]"],
   },
   test: {
     group: "Inspect",

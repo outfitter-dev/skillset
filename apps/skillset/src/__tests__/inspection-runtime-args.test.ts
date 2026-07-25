@@ -91,6 +91,7 @@ describe("SET-304 inspection and runtime route parsers", () => {
     expect(
       parseStatusCommandRequest(["status", "--root=nested", "--json"], CONTEXT)
     ).toEqual({
+      activation: false,
       jsonOutput: true,
       options: {},
       rootPath: "/workspace/repo/nested",
@@ -101,11 +102,21 @@ describe("SET-304 inspection and runtime route parsers", () => {
         CONTEXT
       )
     ).toEqual({
+      activation: false,
       jsonOutput: true,
       options: { scopes: ["plugins"] },
       path: "plugins/example",
       rootPath: "/workspace/repo",
     });
+    expect(
+      parseStatusCommandRequest(["status", "--activation"], CONTEXT)
+    ).toMatchObject({ activation: true, jsonOutput: false });
+    expect(
+      parseExplainCommandRequest(
+        ["explain", "plugins/example", "--activation"],
+        CONTEXT
+      )
+    ).toMatchObject({ activation: true, path: "plugins/example" });
   });
 
   test("test owns declared, ad hoc, retained, and hidden worker grammar", () => {
@@ -232,7 +243,8 @@ describe("SET-304 inspection and runtime route parsers", () => {
 
     const cases = [
       {
-        message: "skillset: status only supports --root and --json",
+        message:
+          "skillset: status only supports --activation, --root, and --json",
         run: () =>
           parseStatusCommandRequest(["status", "--scope", "plugins"], CONTEXT),
       },

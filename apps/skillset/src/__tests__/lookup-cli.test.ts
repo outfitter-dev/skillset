@@ -143,6 +143,60 @@ test("SET-220: lookup without a subject lists static reference subjects", async 
   expect(result.stdout).toContain("--frontmatter --fields --field <path>");
 });
 
+test("SET-392: lookup activation exposes registry-backed provider facts", async () => {
+  const text = await runSkillsetCli("lookup", "activation", "mcp", "--compat", "codex");
+  const json = await runSkillsetCli(
+    "lookup",
+    "activation",
+    "plugin",
+    "--compat",
+    "claude,cursor",
+    "--json"
+  );
+
+  expect(text.exitCode).toBe(0);
+  expect(text.stdout).toContain("[codex] mcp-server: unverified");
+  expect(text.stdout).toContain("codex.mcp.list: passive, codex mcp list --json");
+  expect(text.stdout).toContain("claims discoverable");
+  expect(text.stdout).toContain("forbids authenticated");
+  expect(text.stdout).toContain(
+    "reason [discoverable] codex.mcp.not-discoverable"
+  );
+
+  expect(json.exitCode).toBe(0);
+  const report = readResultData(json.stdout) as {
+    readonly activation: readonly {
+      readonly capability: string;
+      readonly evidence: { readonly providerVersion: string };
+      readonly target: string;
+    }[];
+    readonly compatibility: readonly unknown[];
+    readonly targets: readonly string[];
+  };
+  expect(report.activation.map((descriptor) => [descriptor.target, descriptor.capability])).toEqual([
+    ["claude", "plugin-dependency"],
+    ["cursor", "plugin-dependency"],
+  ]);
+  expect(report.activation[0]?.evidence.providerVersion).toBe("2.1.219");
+  expect(report.compatibility).toEqual([]);
+  expect(report.targets).toEqual(["claude", "cursor"]);
+});
+
+test("SET-392: lookup activation rejects unknown aspects without widening", async () => {
+  const result = await runSkillsetCli("lookup", "activation", "unknown", "--json");
+
+  expect(result.exitCode).toBe(1);
+  expect(readResultData(result.stdout)).toMatchObject({
+    activation: [],
+    diagnostics: [
+      {
+        code: "lookup/activation/aspect-not-found",
+        severity: "error",
+      },
+    ],
+  });
+});
+
 test("SET-220: lookup skill frontmatter renders schema-backed fields", async () => {
   const text = await runSkillsetCli("lookup", "skill", "--frontmatter");
   const json = await runSkillsetCli("lookup", "skill", "--frontmatter", "--json");
@@ -375,14 +429,19 @@ test("SET-283: lookup features rejects unrelated lookup filters", async () => {
   }
 });
 
-test("SET-283: status rejects flags outside root and JSON", async () => {
+test("SET-283: status rejects flags outside activation, root, and JSON", async () => {
   for (const flags of [["--kind", "skill"], ["--from", "claude"], ["--name", "demo"]]) {
     const result = await runSkillsetCli("status", ...flags, "--json");
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toBe("");
     expect(JSON.parse(result.stdout)).toMatchObject({
-      diagnostics: [{ message: "skillset: status only supports --root and --json" }],
+      diagnostics: [
+        {
+          message:
+            "skillset: status only supports --activation, --root, and --json",
+        },
+      ],
       exitCode: 2,
       ok: false,
     });

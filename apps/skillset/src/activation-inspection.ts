@@ -5,13 +5,18 @@ import {
 } from "@skillset/core";
 import type {
   ActivationObservation,
-  ActivationReadinessReport,
-  ProviderActivationEffect,
+  ActivationSubject,
   ProviderActivationInspector,
-  ProviderActivationTarget,
 } from "@skillset/core";
 import type { SkillsetRenderResult } from "@skillset/core/internal/render-result";
 import type { BuildGraph } from "@skillset/core/internal/types";
+import {
+  ACTIVATION_INSPECTION_SCHEMA,
+  type ActivationInspectionOutcome,
+  type ActivationInspectionReport,
+  type ActivationInspectorReceipt,
+  validateActivationInspectionReport,
+} from "@skillset/schema";
 
 import { parseActivationInspectorOutput } from "./activation-parsers";
 import {
@@ -24,49 +29,29 @@ import type {
   ProviderCommandExecutionResult,
 } from "./provider-command";
 
-export const ACTIVATION_INSPECTION_SCHEMA = "skillset.activation-inspection@1";
+export { ACTIVATION_INSPECTION_SCHEMA };
+export type {
+  ActivationInspectionOutcome,
+  ActivationInspectionReport,
+  ActivationInspectorReceipt,
+};
 
 const DEFAULT_ACTIVATION_TIMEOUT_MS = 5_000;
 const MAX_ACTIVATION_OUTPUT_BYTES = 64 * 1024;
 const MAX_VERSION_OUTPUT_BYTES = 512;
 
-export type ActivationInspectionOutcome =
-  | "malformed"
-  | "ran"
-  | "skipped"
-  | "timed_out"
-  | "unavailable";
-
-export interface ActivationInspectorReceipt {
-  readonly binaryVersion?: string;
-  readonly capability: "app" | "mcp-server" | "plugin-dependency";
-  readonly effect: ProviderActivationEffect;
-  readonly inspectorId: string;
-  readonly outcome: ActivationInspectionOutcome;
-  readonly stderrBytes: number;
-  readonly stderrTruncated: boolean;
-  readonly stdoutBytes: number;
-  readonly stdoutTruncated: boolean;
-  readonly subjects: readonly string[];
-  readonly summary: string;
-  readonly target: ProviderActivationTarget;
-}
-
-export interface ActivationInspectionReport {
-  readonly inspections: readonly ActivationInspectorReceipt[];
-  readonly readiness: ActivationReadinessReport;
-  readonly schema: typeof ACTIVATION_INSPECTION_SCHEMA;
-}
-
 export interface ActivationInspectionOptions {
   readonly allowActive: boolean;
   readonly env?: Record<string, string | undefined>;
   readonly graph: BuildGraph;
+  readonly includeSourcePath?: (path: string) => boolean;
+  readonly includeSubject?: (subject: ActivationSubject) => boolean;
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly rootPath: string;
   readonly runCommand?: ActivationProviderCommandRunner;
   readonly signal?: AbortSignal;
   readonly timeoutMs?: number;
+  readonly untrustedOutputPaths?: readonly string[];
 }
 
 export type ActivationProviderCommandRunner = (
@@ -96,7 +81,11 @@ export async function inspectActivationReadiness(
     timeoutMs: activationTimeout(options.timeoutMs),
   };
   const runner = options.runCommand ?? runProviderCommand;
-  const subjects = deriveActivationSubjects(options.graph);
+  const subjects = deriveActivationSubjects(options.graph, {
+    ...(options.includeSourcePath === undefined
+      ? {}
+      : { includeSourcePath: options.includeSourcePath }),
+  }).filter(options.includeSubject ?? (() => true));
   const versionCache = new Map<string, Promise<BinaryVersionInspection>>();
   const runs: InspectorRun[] = [];
 
@@ -125,7 +114,7 @@ export async function inspectActivationReadiness(
     }
   }
 
-  return {
+  const report: ActivationInspectionReport = {
     inspections: runs
       .map(({ receipt }) => receipt)
       .toSorted((left, right) =>
@@ -133,11 +122,29 @@ export async function inspectActivationReadiness(
       ),
     readiness: planActivationReadiness({
       graph: options.graph,
+      ...(options.includeSourcePath === undefined
+        ? {}
+        : { includeSourcePath: options.includeSourcePath }),
+      ...(options.includeSubject === undefined
+        ? {}
+        : { includeSubject: options.includeSubject }),
       observations: runs.flatMap(({ observations }) => observations),
       renderResults: options.renderResults,
+      ...(options.untrustedOutputPaths === undefined
+        ? {}
+        : { untrustedOutputPaths: options.untrustedOutputPaths }),
     }),
     schema: ACTIVATION_INSPECTION_SCHEMA,
   };
+  const validation = validateActivationInspectionReport(report);
+  if (!validation.ok) {
+    throw new Error(
+      `skillset: invalid activation inspection report: ${validation.diagnostics
+        .map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`)
+        .join("; ")}`
+    );
+  }
+  return report;
 }
 
 async function runInspector(input: {

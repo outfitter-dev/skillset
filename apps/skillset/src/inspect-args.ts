@@ -54,6 +54,7 @@ export const parseStatusCommandRequest = (
 ): StatusCommandRequest => {
   const parsed = parseInspectionOptions("status", args, 1, context);
   return {
+    activation: parsed.activation,
     jsonOutput: parsed.jsonOutput,
     options: {},
     rootPath: parsed.rootPath,
@@ -70,6 +71,7 @@ export const parseExplainCommandRequest = (
   }
   const parsed = parseInspectionOptions("explain", args, 2, context);
   return {
+    activation: parsed.activation,
     jsonOutput: parsed.jsonOutput,
     options: parsed.options,
     path,
@@ -78,6 +80,7 @@ export const parseExplainCommandRequest = (
 };
 
 interface InspectionOptions {
+  readonly activation: boolean;
   readonly details: boolean;
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
@@ -380,6 +383,7 @@ const parseInspectionOptions = (
   context: CliParseContext
 ): InspectionOptions => {
   let buildMode: "all" | "updated" | undefined;
+  let activation = false;
   let details = false;
   let jsonOutput = false;
   let rootPath: string | undefined;
@@ -396,6 +400,16 @@ const parseInspectionOptions = (
       continue;
     }
     switch (option.flag) {
+      case "--activation": {
+        assertBooleanOption(option);
+        if (route === "list") {
+          throw new Error(
+            "skillset: --activation is only supported with status or explain"
+          );
+        }
+        activation = true;
+        break;
+      }
       case "--details": {
         assertBooleanOption(option);
         if (route !== "list") {
@@ -546,10 +560,13 @@ const parseInspectionOptions = (
     route === "status" &&
     (statusUnsupported || cross.reconcile || cross.newSource)
   ) {
-    throw new Error("skillset: status only supports --root and --json");
+    throw new Error(
+      "skillset: status only supports --activation, --root, and --json"
+    );
   }
   validateInspectionLateFlags(cross);
   return {
+    activation,
     details,
     jsonOutput,
     options: {

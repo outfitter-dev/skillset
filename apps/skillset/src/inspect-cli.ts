@@ -4,6 +4,7 @@ import type {
   LookupView,
 } from "@skillset/core";
 import { targetNames } from "@skillset/core";
+import { diffSkillsetResult } from "@skillset/core/internal/build";
 import {
   doctorSkillset,
   explainPath,
@@ -17,10 +18,14 @@ import type {
 } from "@skillset/core/internal/types";
 import type { SkillsetCliDiagnostic } from "@skillset/schema";
 
+import type { ActivationProviderCommandRunner } from "./activation-inspection";
+import { printActivationInspection } from "./activation-presentation";
+import { inspectWorkspaceActivation } from "./activation-workflow";
 import {
   runFiniteCommand,
   type FiniteCommandWriter,
 } from "./cli-finite-command";
+import { withProcessSignalAbort } from "./process-signals";
 import { renderGeneratedEntryList } from "./cli-list-renderer";
 import {
   createInteractiveSession,
@@ -144,23 +149,48 @@ async function resolveWithPrompts(
 }
 
 export interface ExplainCommandRequest {
+  readonly activation: boolean;
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly path: string | undefined;
   readonly rootPath: string;
 }
 
-export async function runExplainCommand({
-  jsonOutput,
-  options,
-  path,
-  rootPath,
-}: ExplainCommandRequest): Promise<void> {
+export async function runExplainCommand(
+  { activation, jsonOutput, options, path, rootPath }: ExplainCommandRequest,
+  context: ActivationCommandContext = {}
+): Promise<void> {
   if (path === undefined) {
     throw new Error("skillset: expected a path to explain");
   }
   return runFiniteCommand({
-    execute: () => explainPath(rootPath, path, options),
+    execute: async () => {
+      const result = await explainPath(rootPath, path, options);
+      if (!activation || result.kind === "unknown") return result;
+      const drift = await diffSkillsetResult(rootPath, options, {
+        enforceRenderPolicy: false,
+      });
+      const activationReport = await withActivationSignal(context, (signal) =>
+        inspectWorkspaceActivation({
+          options,
+          renderResults: result.renderResults,
+          rootPath,
+          signal,
+          sourcePaths: [
+            result.path,
+            ...result.entries.map((entry) => entry.sourcePath),
+          ],
+          untrustedOutputPaths: outputDriftPaths(drift.data),
+          ...(context.runCommand === undefined
+            ? {}
+            : { runCommand: context.runCommand }),
+        })
+      );
+      return {
+        ...result,
+        activation: activationReport,
+      };
+    },
     exitCode: (result) => (result.kind === "unknown" ? 1 : 0),
     json: (result) => ({
       command: "explain",
@@ -189,7 +219,11 @@ function explainDiagnostics(
 }
 
 function printExplainResult(
-  result: Awaited<ReturnType<typeof explainPath>>,
+  result: Awaited<ReturnType<typeof explainPath>> & {
+    readonly activation?: Awaited<
+      ReturnType<typeof inspectWorkspaceActivation>
+    >;
+  },
   writer: FiniteCommandWriter
 ): void {
   writeLine(writer, `skillset: ${result.path} (${result.kind})`);
@@ -286,23 +320,44 @@ function printExplainResult(
   for (const note of result.notes) {
     writeLine(writer, `  note: ${note}`);
   }
+  if (result.activation !== undefined) {
+    printActivationInspection(result.activation, writer);
+  }
 }
 
 export interface StatusCommandRequest {
+  readonly activation: boolean;
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
 }
 
-export async function runStatusCommand({
-  jsonOutput,
-  options,
-  rootPath,
-}: StatusCommandRequest): Promise<void> {
+export async function runStatusCommand(
+  { activation, jsonOutput, options, rootPath }: StatusCommandRequest,
+  context: ActivationCommandContext = {}
+): Promise<void> {
   // doctorSkillset carries source warnings in the structured report; the CLI
   // renders them below instead of relying on core operations to print.
   return runFiniteCommand({
-    execute: () => doctorSkillset(rootPath, options),
+    execute: async () => {
+      const report = await doctorSkillset(rootPath, options);
+      if (!activation || report.buildError !== undefined) return report;
+      return {
+        ...report,
+        activation: await withActivationSignal(context, (signal) =>
+          inspectWorkspaceActivation({
+            options,
+            renderResults: report.renderResults,
+            rootPath,
+            signal,
+            untrustedOutputPaths: outputDriftPaths(report.drift),
+            ...(context.runCommand === undefined
+              ? {}
+              : { runCommand: context.runCommand }),
+          })
+        ),
+      };
+    },
     exitCode: (report) => (report.ok ? 0 : 1),
     json: (report) => ({
       command: "status",
@@ -314,8 +369,21 @@ export async function runStatusCommand({
   });
 }
 
+function outputDriftPaths(drift: {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly missing: readonly string[];
+  readonly removed: readonly string[];
+}): readonly string[] {
+  return [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
+}
+
 function printStatusReport(
-  report: Awaited<ReturnType<typeof doctorSkillset>>,
+  report: Awaited<ReturnType<typeof doctorSkillset>> & {
+    readonly activation?: Awaited<
+      ReturnType<typeof inspectWorkspaceActivation>
+    >;
+  },
   writer: FiniteCommandWriter
 ): void {
   for (const issue of report.lintIssues) {
@@ -377,6 +445,23 @@ function printStatusReport(
     }
     writeLine(writer, `skillset: status found ${problems.join(" and ")}`);
   }
+  if (report.activation !== undefined) {
+    printActivationInspection(report.activation, writer);
+  }
+}
+
+export interface ActivationCommandContext {
+  readonly runCommand?: ActivationProviderCommandRunner;
+  readonly signal?: AbortSignal;
+}
+
+function withActivationSignal<Result>(
+  context: ActivationCommandContext,
+  operation: (signal: AbortSignal) => Promise<Result>
+): Promise<Result> {
+  return context.signal === undefined
+    ? withProcessSignalAbort(operation)
+    : operation(context.signal);
 }
 
 function formatSourceOrigin(origin: SourceOrigin): string {

@@ -36,6 +36,12 @@ export interface CliFlagContract {
 }
 
 export const CLI_FLAGS = {
+  "--activation": {
+    family: "output",
+    meaning:
+      "Inspect bounded provider activation evidence for status or explain.",
+    value: "boolean",
+  },
   "--adopt": {
     family: "mode",
     meaning: "Select detected adoption candidates by stable id, or all.",
@@ -410,7 +416,7 @@ export const CLI_ROUTE_FLAGS = {
   "eval status": ["--json", "--root"],
   "eval tail": ["--json", "--lines", "--root"],
   "distribute plan": ["--json", "--root"],
-  explain: ["--json", "--root", "--scope"],
+  explain: ["--activation", "--json", "--root", "--scope"],
   "hooks context": ["--context-fields", "--event", "--format", "--root"],
   "hooks print": [
     "--agent-runtime",
@@ -466,7 +472,7 @@ export const CLI_ROUTE_FLAGS = {
   "release audit": ["--json", "--root"],
   "release plan": ["--json", "--root"],
   restore: ["--json", "--list", "--root", "--yes"],
-  status: ["--json", "--root"],
+  status: ["--activation", "--json", "--root"],
   test: [
     "--background",
     "--claude-setting-sources",
