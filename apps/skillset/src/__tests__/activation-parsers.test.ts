@@ -119,6 +119,27 @@ describe("activation provider output parsers", () => {
     expect(JSON.stringify([plugins, mcp])).not.toContain("must-not-survive");
   });
 
+  test("plugin inventories without allowlisted identifiers are malformed", () => {
+    for (const stdout of [
+      JSON.stringify([{ enabled: true }]),
+      JSON.stringify({ installed: [{ displayName: "trails" }] }),
+      JSON.stringify({ plugins: [{ marketplace: "outfitter" }] }),
+    ]) {
+      expect(
+        parseActivationInspectorOutput({
+          capability: "plugin-dependency",
+          inspectorId: "codex.plugin.list",
+          stdout,
+          subjects: ["trails"],
+        })
+      ).toMatchObject({
+        facts: [],
+        outcome: "malformed",
+        summary: "provider plugin inventory used an unknown shape",
+      });
+    }
+  });
+
   test("Claude and Cursor MCP text can claim only discovery and explicit connection", () => {
     const claude = parseActivationInspectorOutput({
       capability: "mcp-server",

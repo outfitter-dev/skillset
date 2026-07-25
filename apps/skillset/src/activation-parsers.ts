@@ -181,12 +181,23 @@ function isEmptyMcpInventory(line: string): boolean {
 
 function pluginEntries(value: unknown): readonly JsonRecord[] | undefined {
   if (Array.isArray(value)) {
-    return strictRecords(value);
+    return identifiedPluginEntries(value);
   }
   if (!isRecord(value)) return undefined;
-  if (Array.isArray(value.installed)) return strictRecords(value.installed);
-  if (Array.isArray(value.plugins)) return strictRecords(value.plugins);
+  if (Array.isArray(value.installed))
+    return identifiedPluginEntries(value.installed);
+  if (Array.isArray(value.plugins))
+    return identifiedPluginEntries(value.plugins);
   return undefined;
+}
+
+function identifiedPluginEntries(
+  value: readonly unknown[]
+): readonly JsonRecord[] | undefined {
+  const entries = strictRecords(value);
+  return entries?.every((entry) => pluginAliases(entry).length > 0)
+    ? entries
+    : undefined;
 }
 
 function pluginAliases(entry: JsonRecord): readonly string[] {
