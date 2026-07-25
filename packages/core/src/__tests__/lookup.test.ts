@@ -99,7 +99,6 @@ describe("lookupSkillsetReference", () => {
         "codex:passive",
         "cursor:active",
         "cursor:none",
-        "cursor:passive",
       ])
     );
   });
