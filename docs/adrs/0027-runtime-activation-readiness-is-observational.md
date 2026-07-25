@@ -161,7 +161,6 @@ observation can satisfy. The first-release matrix was verified on 2026-07-24:
 | Codex 0.146.0-alpha.3.1 | App | no authoritative local host-policy surface | none | unverified | availability, enablement, authentication, proven |
 | Cursor Agent 2026.07.23-e383d2b | Plugin | no persistent plugin inventory | none | unverified | discovery, enablement, current-session load, proven |
 | Cursor Agent 2026.07.23-e383d2b | MCP | `cursor-agent mcp list` | active | configured discovery and reported status | credentials, provider policy, proven |
-| Cursor Agent 2026.07.23-e383d2b | MCP authentication evidence | `cursor-agent status --format json` | passive | authenticated claim for requested MCP subjects only | standalone authentication requirement, plugin or MCP availability, proven |
 
 `passive` inspectors read provider-maintained inventory without intentionally
 starting configured workloads. `active` inspectors may start a configured
@@ -171,10 +170,11 @@ Skillset issues no mutation subcommand. Both are allowed only behind
 cleanup, clear human/JSON disclosure, and no ambient CI use. Unknown output
 versions and fields degrade to `unverified`.
 
-Provider-level observations need not introduce provider-level requirements. The
-Cursor status inspector fans its bounded authentication fact into only the
-requested Cursor MCP requirements, whose canonical `authenticated` claims
-remain representable in the shared requirement model.
+Provider account status does not establish subject-specific authentication.
+Cursor MCP `authenticated` requirements remain `unverified` unless a bounded
+subject-specific MCP observation or matching runtime proof establishes them.
+The Registry may catalog Cursor account-status evidence for other consumers,
+but activation inspection does not invoke it or fan it into MCP requirements.
 
 ### Safety boundary
 
