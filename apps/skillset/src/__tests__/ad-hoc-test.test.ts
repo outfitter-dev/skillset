@@ -998,6 +998,56 @@ checks:
   expect(await exists(marker)).toBe(false);
 });
 
+test("SET-393: declared claims reject unsupported proof capabilities before provider launch", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: unsupported-proof-fixture
+compile:
+  targets: [codex]
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+    ".skillset/plugins/tools/_codex/.app.json": JSON.stringify({
+      name: "tools",
+    }),
+    ".skillset/tests/unsupported-proof.yaml": `
+select:
+  plugins: [tools]
+targets: [codex]
+activation:
+  - name: app proof
+    prompt: Use the app.
+    expect:
+      plugin: tools
+    runtime:
+      claims:
+        - capability: app
+          subject: tools
+      expect:
+        contains: ready
+checks:
+  projection: true
+`,
+  });
+  const marker = join(root, "provider-launched");
+
+  await expect(
+    runSkillsetTest(root, "unsupported-proof", {
+      runtimeEnv: {
+        ...process.env,
+        SKILLSET_TEST_CODEX_BIN: await invocationMarkerBin(root, marker),
+      },
+      xdg: { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } },
+    })
+  ).rejects.toThrow(
+    "declared runtime proof cannot corroborate app:tools; supported capabilities: mcp-server"
+  );
+  expect(await exists(marker)).toBe(false);
+});
+
 test("SET-273: declared runtime render failures stop before provider invocation", async () => {
   const root = await fixture({
     "skillset.yaml": `

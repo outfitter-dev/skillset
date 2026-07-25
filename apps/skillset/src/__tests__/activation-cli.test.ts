@@ -463,6 +463,56 @@ checks:
   }
 });
 
+test("SET-393: partial runtime evidence retains the full declaration identity", async () => {
+  const root = await activationFixture();
+  await Bun.write(
+    join(root, ".skillset/tests/partial-proof.yaml"),
+    `select:
+  plugins: [alpha, beta]
+targets: [codex]
+activation:
+  - name: partial proof
+    prompt: Use alpha.
+    expect:
+      plugin: alpha
+    runtime:
+      claims:
+        - capability: mcp-server
+          subject: alpha
+        - capability: mcp-server
+          subject: beta
+      expect:
+        contains: alpha ready
+checks:
+  projection: true
+`
+  );
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const runtime = await runSkillsetTest(root, "partial-proof", {
+    runtimeEnv: {
+      ...process.env,
+      SKILLSET_TEST_CODEX_BIN: await proofCodexBin(root),
+    },
+    xdg,
+  });
+
+  expect(runtime.proofReceipts).toHaveLength(1);
+  expect(runtime.proofReceipts[0]?.claimIds).toEqual([
+    "activation:codex:mcp-server:alpha:proven",
+  ]);
+  const readiness = await activationReadiness(root, xdg);
+  expect(
+    readiness.requirements.find(
+      ({ id }) => id === "activation:codex:mcp-server:alpha:proven"
+    )
+  ).toMatchObject({ origin: "proven", state: "satisfied" });
+  expect(
+    readiness.requirements.find(
+      ({ id }) => id === "activation:codex:mcp-server:beta:proven"
+    )
+  ).toMatchObject({ state: "unverified" });
+});
+
 test("SET-393: overlapping failed claims do not stale independent current proof", async () => {
   const root = await activationFixture();
   await Bun.write(

@@ -46,6 +46,10 @@ import {
   type RetainedRunPaths,
 } from "./retained-runs";
 import {
+  RUNTIME_ACTIVATION_EVIDENCE_CAPABILITIES,
+  supportsRuntimeActivationEvidence,
+} from "./runtime-activation-evidence";
+import {
   runDeclaredRuntimeTests,
   toSkillsetRuntimeTestResult,
   type SkillsetRuntimeTestResult,
@@ -322,6 +326,14 @@ function validateDeclaredTestProofClaims(
         targets: [target],
       });
     }
+    const unsupported = probe.runtime.claims.find(
+      (claim) => !supportsRuntimeActivationEvidence(claim)
+    );
+    if (unsupported !== undefined) {
+      throw new Error(
+        `skillset: declared runtime proof cannot corroborate ${unsupported.capability}:${unsupported.subject}; supported capabilities: ${RUNTIME_ACTIVATION_EVIDENCE_CAPABILITIES.join(", ")}`
+      );
+    }
   }
 }
 
@@ -355,6 +367,12 @@ function createDeclaredTestProofReceipts(input: {
       )
     );
     if (evidencedClaims.length === 0) return [];
+    const allRequirementIds = resolveActivationProofClaims({
+      claims,
+      graph: input.graph,
+      renderResults: input.renderResults,
+      targets: [result.target],
+    }).flatMap(({ requirementIds }) => requirementIds);
     const claimIds = resolveActivationProofClaims({
       claims: evidencedClaims,
       graph: input.graph,
@@ -366,7 +384,7 @@ function createDeclaredTestProofReceipts(input: {
       declarationHash: declaredTestActivationProofHash({
         declaration: input.declaration,
         probe,
-        requirementIds: claimIds,
+        requirementIds: allRequirementIds,
         target: result.target,
       }),
       graph: input.graph,
@@ -377,7 +395,7 @@ function createDeclaredTestProofReceipts(input: {
       ),
       rendered: input.rendered,
       renderResults: input.renderResults,
-      requirementIds: claimIds,
+      requirementIds: allRequirementIds,
     });
     return [{
       claimIds,

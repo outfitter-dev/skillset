@@ -1,5 +1,17 @@
 import type { ActivationProofClaim } from "@skillset/schema";
 
+export const RUNTIME_ACTIVATION_EVIDENCE_CAPABILITIES = [
+  "mcp-server",
+] as const satisfies readonly ActivationProofClaim["capability"][];
+
+export function supportsRuntimeActivationEvidence(
+  claim: ActivationProofClaim
+): boolean {
+  return RUNTIME_ACTIVATION_EVIDENCE_CAPABILITIES.some(
+    (capability) => capability === claim.capability
+  );
+}
+
 /**
  * Extracts only provider-structured invocation evidence. Final response text
  * and authored assertions are intentionally excluded: they cannot prove that

@@ -1,6 +1,29 @@
 import { expect, test } from "bun:test";
 
-import { runtimeActivationEvidence } from "../runtime-activation-evidence";
+import {
+  RUNTIME_ACTIVATION_EVIDENCE_CAPABILITIES,
+  runtimeActivationEvidence,
+  supportsRuntimeActivationEvidence,
+} from "../runtime-activation-evidence";
+
+test("declares the proof capabilities structured runtime evidence can corroborate", () => {
+  expect(RUNTIME_ACTIVATION_EVIDENCE_CAPABILITIES).toEqual(["mcp-server"]);
+  expect(
+    supportsRuntimeActivationEvidence({
+      capability: "mcp-server",
+      subject: "github",
+    })
+  ).toBe(true);
+  expect(
+    supportsRuntimeActivationEvidence({ capability: "app", subject: "demo" })
+  ).toBe(false);
+  expect(
+    supportsRuntimeActivationEvidence({
+      capability: "plugin-dependency",
+      subject: "demo",
+    })
+  ).toBe(false);
+});
 
 test("extracts completed Codex MCP calls without trusting response text", () => {
   const stdout = [
