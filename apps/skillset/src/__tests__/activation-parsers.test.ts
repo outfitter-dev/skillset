@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { parseActivationInspectorOutput } from "../activation-parsers";
 
 describe("activation provider output parsers", () => {
-  test("keeps dated provider fixtures for every allowlisted inspector", async () => {
+  test("keeps dated fixtures for every Registry provider evidence surface", async () => {
     const captured = (await Bun.file(
       join(import.meta.dir, "fixtures/activation/provider-outputs.json")
     ).json()) as {
@@ -335,48 +335,7 @@ describe("activation provider output parsers", () => {
     );
   });
 
-  test("Cursor auth fans one provider fact out to each requested MCP subject", () => {
-    const result = parseActivationInspectorOutput({
-      capability: "mcp-server",
-      inspectorId: "cursor.status",
-      stdout: JSON.stringify({
-        authenticated: true,
-        email: "private@example.com",
-        token: "secret",
-      }),
-      subjects: ["github", "linear"],
-    });
-
-    expect(result.facts).toEqual([
-      expect.objectContaining({ claim: "authenticated", subject: "github" }),
-      expect.objectContaining({ claim: "authenticated", subject: "linear" }),
-    ]);
-    expect(JSON.stringify(result)).not.toContain("private@example.com");
-    expect(JSON.stringify(result)).not.toContain("secret");
-  });
-
-  test("Cursor unauthenticated status emits bounded missing facts", () => {
-    const result = parseActivationInspectorOutput({
-      capability: "mcp-server",
-      inspectorId: "cursor.status",
-      stdout: JSON.stringify({
-        email: "private@example.com",
-        isAuthenticated: false,
-      }),
-      subjects: ["github", "linear"],
-    });
-
-    expect(result).toMatchObject({
-      facts: [
-        { claim: "authenticated", state: "missing", subject: "github" },
-        { claim: "authenticated", state: "missing", subject: "linear" },
-      ],
-      outcome: "ran",
-    });
-    expect(JSON.stringify(result)).not.toContain("private@example.com");
-  });
-
-  test("unknown, malformed, and unauthenticated output produce no positive facts", () => {
+  test("unknown and malformed output produce no positive facts", () => {
     const cases = [
       parseActivationInspectorOutput({
         capability: "plugin-dependency",
@@ -392,12 +351,6 @@ describe("activation provider output parsers", () => {
       }),
       parseActivationInspectorOutput({
         capability: "mcp-server",
-        inspectorId: "cursor.status",
-        stdout: '{"authenticated":false}',
-        subjects: ["demo"],
-      }),
-      parseActivationInspectorOutput({
-        capability: "mcp-server",
         inspectorId: "claude.mcp.list",
         stdout: "Provider changed its output completely.",
         subjects: ["demo"],
@@ -407,20 +360,11 @@ describe("activation provider output parsers", () => {
     expect(cases.map((entry) => entry.facts)).toEqual([
       [],
       [],
-      [
-        {
-          claim: "authenticated",
-          stage: "authenticated",
-          state: "missing",
-          subject: "demo",
-        },
-      ],
       [],
     ]);
     expect(cases.map((entry) => entry.outcome)).toEqual([
       "malformed",
       "malformed",
-      "ran",
       "malformed",
     ]);
   });

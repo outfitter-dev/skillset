@@ -62,9 +62,8 @@ The accepted inspection matrix is:
 | Codex | Plugin dependency | `codex plugin list --json` | passive | discoverable, persisted enabled state |
 | Codex | MCP server | `codex mcp list --json` | passive | configured discovery |
 | Cursor | MCP server | `cursor-agent mcp list` | active | discoverable, provider-reported connection |
-| Cursor | Authentication | `cursor-agent status --format json` | passive | provider-reported authentication |
 
-Provider binaries are versioned with the Registry-owned `<binary> --version` surface. One inspector runs once per target and capability, then fans its bounded facts out to matching requirements. Provider-scoped Cursor authentication likewise runs once and cannot imply plugin or MCP availability.
+Provider binaries are versioned with the Registry-owned `<binary> --version` surface. One inspector runs once per target and capability, then fans its bounded facts out to matching requirements. Cursor account status is not treated as evidence that any particular MCP server is authenticated; that requirement remains unverified without subject-specific observation or matching runtime proof.
 
 Unsupported app state and Cursor persistent plugin inventory stay unverified. Codex MCP inventory cannot establish connection or credentials. Plugin inventory cannot establish current-session load, bundled MCP startup, hosted policy, or runtime proof.
 
@@ -74,7 +73,7 @@ Observational means Skillset issues no mutation command and writes no provider s
 
 Inspection uses literal Registry argv with no shell or arbitrary arguments. The shared provider-command runner applies timeout, cancellation, descendant cleanup, streaming UTF-8 decoding, and independent stdout and stderr byte limits. It continues draining after a capture limit so provider processes cannot block on full pipes.
 
-Only allowlisted names, enabled booleans, connection tokens, authentication booleans, safe binary version text, byte counts, truncation flags, and stable parser summaries survive. Raw provider output, stderr, environment values, tokens, credential material, provider config, and personal paths are not retained. A missing, unsupported, or unrecognized binary version skips every inspector command for that binary. Missing binaries, command failures, timeouts, truncated output, malformed JSON, and unknown shapes make no positive claim; the applicable requirement remains `unverified`.
+Only allowlisted names, enabled booleans, connection tokens, safe binary version text, byte counts, truncation flags, and stable parser summaries survive. Raw provider output, stderr, environment values, tokens, credential material, provider config, and personal paths are not retained. A missing, unsupported, or unrecognized binary version skips every inspector command for that binary. Missing binaries, command failures, timeouts, truncated output, malformed JSON, and unknown shapes make no positive claim; the applicable requirement remains `unverified`.
 
 Bare build, check, status, explain, and CI remain deterministic and launch no provider process.
 

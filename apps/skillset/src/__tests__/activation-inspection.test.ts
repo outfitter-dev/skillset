@@ -62,7 +62,6 @@ test("activation inspection consumes registry argv once per inspector and bounds
     "codex plugin list --json",
     "cursor-agent --version",
     "cursor-agent mcp list",
-    "cursor-agent status --format json",
   ]);
   expect(
     report.inspections.filter(({ effect }) => effect === "active")
@@ -84,7 +83,7 @@ test("activation inspection consumes registry argv once per inspector and bounds
   ).toMatchObject({ observationEffect: "none", state: "unverified" });
   expect(
     requirement(report, "cursor", "mcp-server", "github", "authenticated")
-  ).toMatchObject({ observationEffect: "passive", state: "satisfied" });
+  ).toMatchObject({ observationEffect: "none", state: "unverified" });
   expect(JSON.stringify(report)).not.toContain("must-not-survive");
   expect(JSON.stringify(report)).not.toContain("example.com");
 });

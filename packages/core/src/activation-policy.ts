@@ -370,7 +370,7 @@ const descriptors = [
       action(
         "cursor.mcp.authenticate",
         "cursor.mcp.authentication-unverified",
-        "Authenticate Cursor Agent",
+        "Authenticate the MCP server in Cursor",
         "https://cursor.com/docs/cli/headless",
         true
       ),
@@ -389,7 +389,7 @@ const descriptors = [
         true
       ),
     ],
-    allowedClaims: ["authenticated", "connected", "discoverable"],
+    allowedClaims: ["connected", "discoverable"],
     capability: "mcp-server",
     evidence: providerEvidence("cursor"),
     forbiddenClaims: ["credentials", "provider-policy", "proven"],
@@ -404,23 +404,12 @@ const descriptors = [
         ],
         id: "cursor.mcp.list",
       }),
-      inspector({
-        allowedClaims: ["authenticated"],
-        forbiddenClaims: [
-          "availability",
-          "connected",
-          "discoverable",
-          "proven",
-        ],
-        id: "cursor.status",
-        scope: "provider",
-      }),
     ],
     reasons: [
       reason(
         "cursor.mcp.authentication-unverified",
         "authenticated",
-        "Cursor Agent authentication could not be verified."
+        "Authentication for the required Cursor MCP server could not be verified."
       ),
       reason(
         "cursor.mcp.not-connected",

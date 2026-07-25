@@ -73,14 +73,6 @@ describe("SET-390 provider activation policy", () => {
         output: "text",
         versionArgv: ["cursor-agent", "--version"],
       },
-      {
-        allowedClaims: ["authenticated"],
-        argv: ["cursor-agent", "status", "--format", "json"],
-        effect: "passive",
-        id: "cursor.status",
-        output: "json",
-        versionArgv: ["cursor-agent", "--version"],
-      },
     ]);
   });
 

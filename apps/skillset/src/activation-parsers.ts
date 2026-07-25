@@ -41,8 +41,6 @@ export function parseActivationInspectorOutput(
       return parseTextMcpStatus(request);
     case "cursor.mcp.list":
       return parseTextMcpStatus(request);
-    case "cursor.status":
-      return parseCursorStatus(request);
     default:
       return malformed("the registry inspector has no activation parser");
   }
@@ -141,38 +139,6 @@ function parseTextMcpStatus(
   return ran(facts, `parsed ${lines.length} bounded MCP status lines`);
 }
 
-function parseCursorStatus(
-  request: ActivationParserRequest
-): ActivationParserResult {
-  const parsed = parseJson(request.stdout);
-  if (!isRecord(parsed)) {
-    return malformed("Cursor status output used an unknown shape");
-  }
-  const authenticated =
-    readBoolean(parsed, "authenticated") ??
-    readBoolean(parsed, "isAuthenticated") ??
-    (typeof parsed.status === "string"
-      ? statusAuthentication(parsed.status)
-      : undefined);
-  if (authenticated === undefined) {
-    return malformed("Cursor status did not expose an allowlisted auth field");
-  }
-  if (!authenticated) {
-    return ran(
-      request.subjects.map((subject) =>
-        fact(subject, "authenticated", "missing")
-      ),
-      "Cursor reported an unauthenticated session"
-    );
-  }
-  return ran(
-    request.subjects.map((subject) =>
-      fact(subject, "authenticated", "satisfied")
-    ),
-    "Cursor reported an authenticated session"
-  );
-}
-
 function isEmptyMcpInventory(line: string): boolean {
   return /^No MCP servers configured(?:[.!](?:\s+.*)?|\s+\([^)]*\))?$/iu.test(
     line
@@ -261,18 +227,6 @@ function connectionState(line: string): boolean | undefined {
     return false;
   }
   if (/\b(?:connected|ready|healthy|running)\b/iu.test(line)) return true;
-  return undefined;
-}
-
-function statusAuthentication(value: string): boolean | undefined {
-  if (/^(?:authenticated|logged[_ -]?in)$/iu.test(value)) return true;
-  if (
-    /^(?:unauthenticated|logged[_ -]?out|authentication required)$/iu.test(
-      value
-    )
-  ) {
-    return false;
-  }
   return undefined;
 }
 
