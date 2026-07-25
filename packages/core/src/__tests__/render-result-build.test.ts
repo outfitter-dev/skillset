@@ -248,6 +248,12 @@ describe("build render results", () => {
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "dependencies",
+        outputs: expect.arrayContaining([
+          expect.objectContaining({
+            kind: "plugin-skill",
+            path: "plugins/alpha/codex/skills/plugin-skill/SKILL.md",
+          }),
+        ]),
         reason: expect.stringContaining("Codex"),
         sourceUnit: "plugin.alpha.feature:dependencies",
         status: "degraded",

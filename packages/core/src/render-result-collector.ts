@@ -264,7 +264,8 @@ function featureOutcomesForLockItem(
         featureId: "dependencies",
         isIncluded: outputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
-        outputKind: item.kind,
+        outputKind:
+          dependencyDestination === "skill-body" ? "plugin-skill" : item.kind,
         outputPaths: dependencyOutputs,
         sourcePath: item.sourcePath,
         sourceUnit: selectorForPluginFeature(item.name, "dependencies"),
