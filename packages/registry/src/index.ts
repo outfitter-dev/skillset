@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export * from "./migrations";
 export * from "./hook-evidence";
+export * from "./provider-runtime-evidence";
 export * from "./schema-snapshots";
 
 export const PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA = "skillset-provider-destination-format@1";

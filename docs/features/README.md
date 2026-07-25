@@ -33,6 +33,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Render Results](render-results.md): structured per-build report for rendered, transformed, degraded, skipped, unsupported, and externally managed render facts.
 - [Resources](resources.md): shared resource declarations, link rewriting, executable-script linting, and lock hashing.
 - [Runtime Adapters](runtime-adapters.md): runtime, distribution, and harness support records that stay separate from `compile.targets`.
+- [Runtime Activation Readiness](runtime-activation-readiness.md): registry-backed activation requirements, deterministic summary semantics, and the boundary between rendering, observation, and proof.
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
 - [Source Suggestions](source-suggestions.md): implemented local managed-output reconciliation with source-side recovery suggestions, distinct from settings suggestions; CI writeback remains future work.

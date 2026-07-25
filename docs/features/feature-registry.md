@@ -1,9 +1,11 @@
 # Feature Registry
 
 <!-- skillset:feature-support:start -->
+
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+
 <!-- skillset:feature-support:end -->
 
 Feature id: `feature-registry`
@@ -18,7 +20,7 @@ See [Feature Reference and Schema Registry](../adrs/0005-feature-reference-and-s
 
 ## Current Boundary
 
-The current seed lives in `packages/core/src/feature-registry.ts`. It is a typed registry because the compiler already runs in TypeScript and the first goal is to keep local support claims reviewable.
+The feature-support seed lives in `packages/core/src/feature-registry.ts`. Provider-owned destination formats, schemas, hook evidence, and dated activation inspection surfaces live in `@skillset/registry`. Core consumes those provider facts and owns the Skillset activation policy when deriving build or readiness reports instead of maintaining parallel target lists.
 
 Each entry records:
 
@@ -102,5 +104,7 @@ Feature ids can appear in render results, `skillset.lock`, reports, status/expla
 - `packages/core/src/feature-registry.ts` defines the current typed registry.
 - `packages/registry/src/index.ts` stores adopted provider destination-format snapshots used as registry evidence.
 - `packages/registry/src/schema-snapshots.ts` stores adopted provider JSON Schema snapshots and manual overlays used as registry evidence.
+- `packages/registry/src/provider-runtime-evidence.ts` stores dated provider inspection commands, output shapes, observed fields, and effects.
+- `packages/core/src/activation-policy.ts` derives Skillset activation claims, stages, reasons, actions, and fallback semantics from that evidence.
 - `packages/core/src/__tests__/feature-registry.test.ts` pins registry ids, vocabulary, evidence expectations, and guard behavior.
 - [Render Results](render-results.md) explains the separate build-result report.

@@ -74,24 +74,15 @@ Stages are not a universal linear state machine. They are a vocabulary for capab
 
 `not_applicable` keeps provider differences explicit. `unverified` means the provider exposes no safe or sufficiently authoritative evidence. `stale` is reserved for prior proof whose source, rendering, target, or adapter identity no longer matches.
 
-Readiness is a derived summary, not another requirement stage. The aggregation
-algorithm is total and uses this precedence:
+Readiness is a derived summary, not another requirement stage. The aggregation algorithm is total and uses this precedence:
 
-1. Ignore disabled targets. Optional requirements remain visible but never
-   change the summary.
-2. If any required requirement has an authoritative `blocked` observation, the
-   summary is `blocked`.
-3. Otherwise, if any required requirement is `missing` or `stale`, the summary
-   is `attention`.
-4. Otherwise, if any required requirement is `unverified`, the summary is
-   `ready_unverified`, rendered as **ready with unverified requirements**.
+1. Ignore disabled targets. Optional requirements remain visible but never change the summary.
+2. If any required requirement has an authoritative `blocked` observation, the summary is `blocked`.
+3. Otherwise, if any required requirement is `missing` or `stale`, the summary is `attention`.
+4. Otherwise, if any required requirement is `unverified`, the summary is `ready_unverified`, rendered as **ready with unverified requirements**.
 5. Otherwise the summary is `ready`.
 
-An enabled target with no activation requirements is `ready` with zero counts.
-Unavailable authentication, unsupported inspection, malformed output, and
-timeouts are `unverified`, not `blocked`. A `proven` requirement is
-informational by default and does not gate readiness unless a future source
-contract explicitly makes that proof required.
+An enabled target with no activation requirements is `ready` with zero counts. Unavailable authentication, unsupported inspection, malformed output, and timeouts are `unverified`, not `blocked`. A `proven` requirement is informational by default and does not gate readiness unless a future source contract explicitly makes that proof required.
 
 ### Evidence ownership
 
@@ -148,8 +139,7 @@ Activation findings are advisory and do not change the normal `status` exit cont
 
 ### Provider posture
 
-Provider descriptors state what Skillset can inspect and the maximum claim each
-observation can satisfy. The first-release matrix was verified on 2026-07-24:
+Provider descriptors state what Skillset can inspect and the maximum claim each observation can satisfy. The first-release matrix was verified on 2026-07-24:
 
 | Provider and version | Capability | Allowlisted argv or surface | Effect | May satisfy | Must not satisfy |
 | --- | --- | --- | --- | --- | --- |
@@ -162,13 +152,7 @@ observation can satisfy. The first-release matrix was verified on 2026-07-24:
 | Cursor Agent 2026.07.23-e383d2b | Plugin | no persistent plugin inventory | none | unverified | discovery, enablement, current-session load, proven |
 | Cursor Agent 2026.07.23-e383d2b | MCP | `cursor-agent mcp list` | active | configured discovery and reported status | credentials, provider policy, proven |
 
-`passive` inspectors read provider-maintained inventory without intentionally
-starting configured workloads. `active` inspectors may start a configured
-process, make a network connection, or health-check a server even though
-Skillset issues no mutation subcommand. Both are allowed only behind
-`--activation`, with fixed argv, no shell interpolation, a timeout and child
-cleanup, clear human/JSON disclosure, and no ambient CI use. Unknown output
-versions and fields degrade to `unverified`.
+`passive` inspectors read provider-maintained inventory without intentionally starting configured workloads. `active` inspectors may start a configured process, make a network connection, or health-check a server even though Skillset issues no mutation subcommand. Both are allowed only behind `--activation`, with fixed argv, no shell interpolation, a timeout and child cleanup, clear human/JSON disclosure, and no ambient CI use. Unknown output versions and fields degrade to `unverified`.
 
 Provider account status does not establish subject-specific authentication.
 Cursor MCP `authenticated` requirements remain `unverified` unless a bounded
@@ -178,8 +162,7 @@ but activation inspection does not invoke it or fan it into MCP requirements.
 
 ### Safety boundary
 
-Every inspector is allowlisted, injectable in tests, time-bounded, and mapped
-to one fixed provider command. Inspection:
+Every inspector is allowlisted, injectable in tests, time-bounded, and mapped to one fixed provider command. Inspection:
 
 - never asks the provider to install, enable, trust, authenticate, register a marketplace, edit settings, create symlinks, or write an activation ledger;
 - discloses whether each inspector is passive, active, skipped, timed out, or unavailable;

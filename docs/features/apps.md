@@ -11,7 +11,7 @@ Feature id: `apps`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Codex plugins can include an `.app.json` app manifest. Skillset v1 treats it as target-native plugin pass-through, not as a feature-key source pointer.
+Codex plugins can include an `.app.json` app manifest. Skillset resolves the conventional file as an internal plugin feature for rendering, provenance, and activation planning; there is no user-facing feature-key source pointer.
 
 ## Authoring
 
@@ -32,7 +32,7 @@ Place `<source-root>/plugins/<plugin>/.app.json` in plugin source when an enable
 
 ## Provenance
 
-The current `.app.json` pass-through participates in plugin output hashes and generated manifest shape. It is not recorded as a `plugin-feature` lock entry until a future feature-key adapter owns it.
+The current `.app.json` pass-through participates in plugin output hashes, generated manifest shape, and the `plugin-feature` lock entry used for activation planning.
 
 ## Tests and Fixtures
 

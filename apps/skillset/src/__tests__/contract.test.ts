@@ -8841,6 +8841,7 @@ skillset:
   name: outcome-root
 claude: true
 codex: true
+cursor: false
 `,
     ".skillset/plugins/audit/skillset.yaml": `
 skillset:
@@ -8884,7 +8885,7 @@ Audit body.
   } }).data;
   expect(explainReport.renderResults).toContainEqual(
     expect.objectContaining({
-      destination: "plugin-manifest",
+      destination: "skill-body",
       featureId: "dependencies",
       status: "degraded",
       target: "codex",
@@ -8893,7 +8894,7 @@ Audit body.
 
   const doctor = await runSkillsetCli("status", "--root", root);
   expect(doctor.exitCode).toBe(0);
-  expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> plugin-manifest degraded");
+  expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> skill-body degraded");
   expect(doctor.stdout).toContain("status found 1 render result advisory");
 
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
@@ -8905,7 +8906,7 @@ Audit body.
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
   expect(doctorReport.notableRenderResults).toEqual([
     expect.objectContaining({
-      destination: "plugin-manifest",
+      destination: "skill-body",
       featureId: "dependencies",
       status: "degraded",
       target: "codex",

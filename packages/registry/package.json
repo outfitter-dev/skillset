@@ -3,8 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@skillset/schema": "workspace:*"
+  },
   "exports": {
     ".": "./src/index.ts",
-    "./provider-maintenance": "./src/provider-maintenance.ts"
+    "./provider-maintenance": "./src/provider-maintenance.ts",
+    "./provider-runtime-evidence": "./src/provider-runtime-evidence.ts"
   }
 }

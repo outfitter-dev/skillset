@@ -266,7 +266,7 @@ export function withOptionalSurfacePaths(
       withPaths.hooks = "./hooks/hooks.json";
     }
     if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
-    if (pluginHasPath(plugin, ".app.json")) withPaths.apps = "./.app.json";
+    if (pluginHasFeature(plugin, "app")) withPaths.apps = "./.app.json";
   } else {
     if (pluginHasSurfacePath(graph, plugin, target, "rules")) {
       withPaths.rules = "./rules/";

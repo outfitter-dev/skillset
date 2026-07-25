@@ -81,7 +81,13 @@ Use the plugin skill.
 
 describe("adapter conformance", () => {
   it("ties representative registry support claims to emitted render results", async () => {
-    const root = await fixture(CONFORMANCE_FIXTURE);
+    const root = await fixture({
+      ...CONFORMANCE_FIXTURE,
+      "skillset.yaml": `${CONFORMANCE_FIXTURE["skillset.yaml"]}
+compile:
+  unsupportedDestination: warn
+`,
+    });
 
     const result = await diffSkillsetResult(root);
     const report = checkAdapterConformance(result.renderResults, [
