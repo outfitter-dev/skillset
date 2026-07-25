@@ -162,6 +162,10 @@ export interface SkillsetDiff {
 
 export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff>;
 
+export interface SkillsetDiffInspectionOptions {
+  readonly enforceRenderPolicy?: boolean;
+}
+
 /**
  * Compute the generated changes a build would make, without writing anything.
  * Backs `skillset diff` and `skillset status`.
@@ -175,7 +179,8 @@ export async function diffSkillset(
 
 export async function diffSkillsetResult(
   rootPath: string,
-  options: SkillsetOptions = {}
+  options: SkillsetOptions = {},
+  inspection: SkillsetDiffInspectionOptions = {}
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
@@ -190,8 +195,10 @@ export async function diffSkillsetResult(
     scopes: options.scopes,
   });
   const policyAdjustedRenderResults = applyUnsupportedDestinationPolicy(renderResults, graph.root.compile.unsupportedDestination);
-  enforceSoftPolicyHasUsableOutput(scopedRendered, policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
-  enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  if (inspection.enforceRenderPolicy !== false) {
+    enforceSoftPolicyHasUsableOutput(scopedRendered, policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+    enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  }
   diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);

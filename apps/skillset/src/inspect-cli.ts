@@ -3,7 +3,8 @@ import type {
   LookupSubject,
   LookupView,
 } from "@skillset/core";
-import { diffSkillset, targetNames } from "@skillset/core";
+import { targetNames } from "@skillset/core";
+import { diffSkillsetResult } from "@skillset/core/internal/build";
 import {
   doctorSkillset,
   explainPath,
@@ -166,7 +167,9 @@ export async function runExplainCommand(
     execute: async () => {
       const result = await explainPath(rootPath, path, options);
       if (!activation || result.kind === "unknown") return result;
-      const drift = await diffSkillset(rootPath, options);
+      const drift = await diffSkillsetResult(rootPath, options, {
+        enforceRenderPolicy: false,
+      });
       const activationReport = await withActivationSignal(context, (signal) =>
         inspectWorkspaceActivation({
           options,
@@ -177,7 +180,7 @@ export async function runExplainCommand(
             result.path,
             ...result.entries.map((entry) => entry.sourcePath),
           ],
-          untrustedOutputPaths: outputDriftPaths(drift),
+          untrustedOutputPaths: outputDriftPaths(drift.data),
           ...(context.runCommand === undefined
             ? {}
             : { runCommand: context.runCommand }),

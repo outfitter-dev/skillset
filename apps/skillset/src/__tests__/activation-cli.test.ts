@@ -226,6 +226,22 @@ test("SET-392: explain activation keeps only matching source provenance", async 
     })}\n`
   );
   await buildSkillset(root);
+  await Bun.write(
+    join(root, ".skillset/plugins/beta/bin/tool"),
+    "#!/bin/sh\n"
+  );
+  await Bun.write(
+    join(root, ".skillset/plugins/beta/skillset.yaml"),
+    `skillset:
+  name: beta
+mcp: true
+bin: true
+dependencies:
+  plugins:
+    - name: external-beta
+      range: "^1.0.0"
+`
+  );
   const calls: string[][] = [];
   const stdout = await captureStdout(() =>
     runExplainCommand(
