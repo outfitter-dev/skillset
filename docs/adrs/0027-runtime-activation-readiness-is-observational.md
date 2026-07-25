@@ -160,6 +160,8 @@ subject-specific MCP observation or matching runtime proof establishes them.
 The Registry may catalog Cursor account-status evidence for other consumers,
 but activation inspection does not invoke it or fan it into MCP requirements.
 
+Observational means Skillset issues no mutation command and writes no provider state directly. It does not promise byte-immutable provider directories: an invoked provider binary may maintain incidental caches or bookkeeping of its own. Tests isolate HOME and XDG roots so those effects remain outside the workspace and user configuration.
+
 ### Safety boundary
 
 Every inspector is allowlisted, injectable in tests, time-bounded, and mapped to one fixed provider command. Inspection:

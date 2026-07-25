@@ -159,14 +159,14 @@ const descriptors = [
     ],
     reasons: [
       reason(
+        "claude.plugin.not-enabled",
+        "enabled",
+        "Claude reported the required plugin as disabled."
+      ),
+      reason(
         "claude.plugin.not-discoverable",
         "discoverable",
         "Claude plugin inventory did not report the required plugin."
-      ),
-      reason(
-        "claude.plugin.not-enabled",
-        "enabled",
-        "Claude plugin inventory reported the required plugin as disabled."
       ),
     ],
     target: "claude",
@@ -268,14 +268,14 @@ const descriptors = [
     ],
     reasons: [
       reason(
+        "codex.plugin.not-enabled",
+        "enabled",
+        "Codex reported the required plugin as disabled."
+      ),
+      reason(
         "codex.plugin.not-discoverable",
         "discoverable",
         "Codex plugin inventory did not report the required plugin."
-      ),
-      reason(
-        "codex.plugin.not-enabled",
-        "enabled",
-        "Codex plugin inventory reported the required plugin as disabled."
       ),
     ],
     target: "codex",
@@ -370,7 +370,7 @@ const descriptors = [
       action(
         "cursor.mcp.authenticate",
         "cursor.mcp.authentication-unverified",
-        "Authenticate Cursor Agent",
+        "Authenticate the MCP server in Cursor",
         "https://cursor.com/docs/cli/headless",
         true
       ),
@@ -389,7 +389,7 @@ const descriptors = [
         true
       ),
     ],
-    allowedClaims: ["authenticated", "connected", "discoverable"],
+    allowedClaims: ["connected", "discoverable"],
     capability: "mcp-server",
     evidence: providerEvidence("cursor"),
     forbiddenClaims: ["credentials", "provider-policy", "proven"],
@@ -404,23 +404,12 @@ const descriptors = [
         ],
         id: "cursor.mcp.list",
       }),
-      inspector({
-        allowedClaims: ["authenticated"],
-        forbiddenClaims: [
-          "availability",
-          "connected",
-          "discoverable",
-          "proven",
-        ],
-        id: "cursor.status",
-        scope: "provider",
-      }),
     ],
     reasons: [
       reason(
         "cursor.mcp.authentication-unverified",
         "authenticated",
-        "Cursor Agent authentication could not be verified."
+        "Authentication for the required Cursor MCP server could not be verified."
       ),
       reason(
         "cursor.mcp.not-connected",
@@ -697,6 +686,10 @@ function normalizeDescriptor(
             ? {
                 ...entry.surface,
                 argv: [...entry.surface.argv] as [string, ...string[]],
+                versionArgv: [...entry.surface.versionArgv] as [
+                  string,
+                  ...string[],
+                ],
               }
             : entry.surface,
       }))
@@ -846,20 +839,33 @@ function assertInspectorSurface(entry: ProviderActivationInspector): void {
       `skillset: command provider activation inspector ${entry.id} must declare passive or active effect`
     );
   }
-  const [executable, ...args] = entry.surface.argv;
+  assertSafeInspectorCommand(entry.id, entry.surface.argv);
+  assertSafeInspectorCommand(`${entry.id} version`, entry.surface.versionArgv);
+  if (entry.surface.argv[0] !== entry.surface.versionArgv[0]) {
+    throw new Error(
+      `skillset: provider activation inspector ${entry.id} must use the same executable for inspection and version evidence`
+    );
+  }
+}
+
+function assertSafeInspectorCommand(
+  id: string,
+  argv: readonly [string, ...string[]]
+): void {
+  const [executable, ...args] = argv;
   if (
     executable === undefined ||
     executable.length === 0 ||
     ["bash", "sh", "zsh"].includes(executable)
   ) {
     throw new Error(
-      `skillset: provider activation inspector ${entry.id} must use a fixed provider executable`
+      `skillset: provider activation inspector ${id} must use a fixed provider executable`
     );
   }
   for (const arg of args) {
     if (arg.length === 0 || /[\0\r\n]/u.test(arg)) {
       throw new Error(
-        `skillset: provider activation inspector ${entry.id} has invalid argv`
+        `skillset: provider activation inspector ${id} has invalid argv`
       );
     }
   }

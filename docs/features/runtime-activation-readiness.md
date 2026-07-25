@@ -51,7 +51,29 @@ Stable requirement IDs combine target, capability, canonical subject, and stage.
 
 ## Provider Observation
 
-Provider execution is deliberately outside the foundational Core planner. CLI adapters consume Core activation policy, which joins Registry-owned provider facts with Skillset-owned claims, reasons, actions, and fallback semantics. Active health checks may start configured processes or make connections; their effect must be explicit and opt-in.
+Provider execution is deliberately outside the foundational Core planner. CLI-app adapters consume Core activation policy, which joins Registry-owned provider facts with Skillset-owned claims, reasons, actions, and fallback semantics, then supply sanitized observations. Active health checks may start configured processes or make connections; their effect is explicit and opt-in.
+
+The accepted inspection matrix is:
+
+| Provider | Capability | Exact command | Effect | Maximum claims |
+| --- | --- | --- | --- | --- |
+| Claude | Plugin dependency | `claude plugin list --json` | passive | discoverable, persisted enabled state |
+| Claude | MCP server | `claude mcp list` | active | discoverable, provider-reported connection |
+| Codex | Plugin dependency | `codex plugin list --json` | passive | discoverable, persisted enabled state |
+| Codex | MCP server | `codex mcp list --json` | passive | configured discovery |
+| Cursor | MCP server | `cursor-agent mcp list` | active | discoverable, provider-reported connection |
+
+Provider binaries are versioned with the Registry-owned `<binary> --version` surface. One inspector runs once per target and capability, then fans its bounded facts out to matching requirements. Cursor account status is not treated as evidence that any particular MCP server is authenticated; that requirement remains unverified without subject-specific observation or matching runtime proof.
+
+Unsupported app state and Cursor persistent plugin inventory stay unverified. Codex MCP inventory cannot establish connection or credentials. Plugin inventory cannot establish current-session load, bundled MCP startup, hosted policy, or runtime proof.
+
+Observational means Skillset issues no mutation command and writes no provider state directly. It does not promise byte-immutable provider directories: an invoked provider binary may maintain incidental caches or bookkeeping of its own. Tests isolate HOME and XDG roots so those effects remain outside the workspace and user configuration.
+
+### Failure And Redaction Boundary
+
+Inspection uses literal Registry argv with no shell or arbitrary arguments. The shared provider-command runner applies timeout, cancellation, descendant cleanup, streaming UTF-8 decoding, and independent stdout and stderr byte limits. It continues draining after a capture limit so provider processes cannot block on full pipes.
+
+Only allowlisted names, enabled booleans, connection tokens, safe binary version text, byte counts, truncation flags, and stable parser summaries survive. Raw provider output, stderr, environment values, tokens, credential material, provider config, and personal paths are not retained. A missing, unsupported, or unrecognized binary version skips every inspector command for that binary. Missing binaries, command failures, timeouts, truncated output, malformed JSON, and unknown shapes make no positive claim; the applicable requirement remains `unverified`.
 
 Bare build, check, status, explain, and CI remain deterministic and launch no provider process.
 
@@ -63,5 +85,10 @@ Bare build, check, status, explain, and CI remain deterministic and launch no pr
 - `packages/core/src/__tests__/activation-policy.test.ts`
 - `packages/core/src/runtime-readiness.ts`
 - `packages/core/src/__tests__/runtime-readiness.test.ts`
+- `apps/skillset/src/provider-command.ts`
+- `apps/skillset/src/activation-parsers.ts`
+- `apps/skillset/src/activation-inspection.ts`
+- `apps/skillset/src/__tests__/fixtures/activation/provider-outputs.json`
 - [SET-131](https://linear.app/outfitter/issue/SET-131/research-mcp-and-app-install-or-activation-assistance-without-runtime)
 - [SET-390](https://linear.app/outfitter/issue/SET-390/define-registry-backed-activation-readiness-and-static-planning)
+- [SET-391](https://linear.app/outfitter/issue/SET-391/add-bounded-provider-activation-evidence-adapters)
