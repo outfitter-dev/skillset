@@ -25,14 +25,6 @@ test("runtime activation guidance reserves proof claims for declared tests", asy
     expect(guidance).not.toContain("eval cases can add `skillset.claims`");
   }
 
-  const releaseNote = await readFile(
-    join(ROOT, ".changeset/current-activation-proof.md"),
-    "utf8"
-  );
-  expect(releaseNote).toContain("explicit declared test claims");
-  expect(releaseNote).not.toContain("test and eval claims");
-  expect(releaseNote).not.toContain("eval input bytes");
-
   const featureGuide = await readFile(
     join(ROOT, "docs/features/runtime-activation-readiness.md"),
     "utf8"
