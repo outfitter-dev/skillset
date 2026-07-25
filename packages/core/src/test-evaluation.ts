@@ -1,7 +1,7 @@
 import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
-import { buildSkillset, diffSkillset } from "./build";
+import { buildSkillsetResult, diffSkillset } from "./build";
 import { readRecord, readString, readStringArray } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -11,6 +11,7 @@ import {
 import { loadBuildGraph } from "./resolver";
 import { readAuthorName } from "./source-author";
 import { readSourceListing } from "./source-listing";
+import type { SkillsetRenderResult } from "./render-result";
 import { targetDescriptor } from "./targets";
 import {
   type SkillsetActivationExpectation,
@@ -26,6 +27,7 @@ import type {
   BuildGraph,
   JsonRecord,
   JsonValue,
+  RenderedFile,
   SkillsetOptions,
   TargetName,
 } from "./types";
@@ -61,6 +63,7 @@ export type SkillsetRuntimeProviderFailureClass =
   | "timeout";
 
 export interface SkillsetRuntimeProbeRequest {
+  readonly captureVersion: boolean;
   readonly claudeSettingSources?: SkillsetClaudeSettingSources;
   readonly name: string;
   readonly prompt: string;
@@ -108,6 +111,8 @@ export interface SkillsetTestEvaluation {
   readonly checks: readonly SkillsetTestCheckResult[];
   readonly generatedFiles: number;
   readonly ok: boolean;
+  readonly rendered: readonly RenderedFile[];
+  readonly renderResults: readonly SkillsetRenderResult[];
 }
 
 async function runCheck(
@@ -660,8 +665,13 @@ export async function evaluateSkillsetTestWorkspace(
   const checks: SkillsetTestCheckResult[] = [];
   let generatedFiles = 0;
   let buildError: string | undefined;
+  let rendered: readonly RenderedFile[] = [];
+  let renderResults: readonly SkillsetRenderResult[] = [];
   try {
-    generatedFiles = (await buildSkillset(workspacePath, options)).length;
+    const build = await buildSkillsetResult(workspacePath, options);
+    rendered = build.data;
+    renderResults = build.renderResults;
+    generatedFiles = rendered.length;
   } catch (error) {
     buildError = messageFor(error);
   }
@@ -695,6 +705,8 @@ export async function evaluateSkillsetTestWorkspace(
     checks,
     generatedFiles,
     ok: checks.every((check) => check.ok),
+    rendered,
+    renderResults,
   };
 }
 
@@ -734,6 +746,7 @@ export async function evaluateSkillsetTestRuntime(
         continue;
       }
       const outcome = await runtimeProbe.run({
+        captureVersion: probe.runtime.claims.length > 0,
         ...(probe.runtime.claudeSettingSources === undefined
           ? {}
           : { claudeSettingSources: probe.runtime.claudeSettingSources }),

@@ -1,0 +1,78 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/activation-proof-receipt.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "claimIds": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "identity": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "declarationHash": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "projectionHash": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sourceHash": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "claude",
+            "codex",
+            "cursor"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "adapterId",
+        "declarationHash",
+        "projectionHash",
+        "sourceHash",
+        "target"
+      ],
+      "type": "object"
+    },
+    "outcome": {
+      "enum": [
+        "cancelled",
+        "failed",
+        "passed",
+        "timed_out"
+      ],
+      "type": "string"
+    },
+    "runtimeVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "const": "skillset.activation-proof-receipt@2",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claimIds",
+    "identity",
+    "outcome",
+    "schema"
+  ],
+  "title": "Skillset Activation Proof Receipt",
+  "type": "object"
+}

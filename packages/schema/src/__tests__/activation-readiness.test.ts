@@ -8,6 +8,7 @@ import {
   ACTIVATION_READINESS_SUMMARIES,
   ACTIVATION_REQUIREMENT_STAGES,
   ACTIVATION_REQUIREMENT_STATES,
+  isActivationCapability,
   validateActivationReadinessReport,
 } from "../activation-readiness";
 
@@ -19,6 +20,8 @@ describe("activation readiness report contract", () => {
       "mcp-server",
       "plugin-dependency",
     ]);
+    expect(ACTIVATION_CAPABILITIES.every(isActivationCapability)).toBe(true);
+    expect(isActivationCapability("future-capability")).toBe(false);
     expect(ACTIVATION_REQUIREMENT_STAGES).toEqual([
       "declared",
       "rendered",

@@ -1,4 +1,10 @@
 export {
+  declaredTestActivationProofHash,
+  declaredTestActivationProofSourceUnits,
+  listCurrentActivationProofDeclarations,
+  type CurrentActivationProofDeclaration,
+} from "./activation-proof-declarations";
+export {
   assertProviderActivationDescriptors,
   defineProviderActivationDescriptors,
   getProviderActivationDescriptor,
@@ -28,15 +34,20 @@ export {
   ACTIVATION_REQUIREMENT_STAGES,
   ACTIVATION_REQUIREMENT_STATES,
   activationRequirementId,
+  createActivationProofIdentity,
   deriveActivationSubjects,
+  evaluateActivationProofReceipts,
   filterActivationReadiness,
   planActivationReadiness,
+  resolveActivationProofClaims,
   summarizeActivationReadiness,
+  type ActivationProofReceiptEvaluation,
   type ActivationCapability,
   type ActivationEvidenceOrigin,
   type ActivationNextAction,
   type ActivationObservation,
   type ActivationObservationEffect,
+  type CreateActivationProofIdentityOptions,
   type ActivationReadinessCounts,
   type ActivationReadinessDescriptor,
   type ActivationReadinessReport,
@@ -47,11 +58,10 @@ export {
   type ActivationSubject,
   type ActivationSubjectOrigin,
   type PlanActivationReadinessOptions,
+  type ResolvedActivationProofClaim,
+  type ResolveActivationProofClaimsOptions,
 } from "./runtime-readiness";
-export {
-  listSkillEvals,
-  type SkillsetEvalListEntry,
-} from "./eval-list";
+export { listSkillEvals, type SkillsetEvalListEntry } from "./eval-list";
 export {
   doctorSkillset,
   explainPath,
@@ -250,11 +260,7 @@ export {
   type HookScope,
   type HookScopeSupport,
 } from "./hook-capabilities";
-export {
-  inspectSkillset,
-  lintBuildGraph,
-  lintSkillset,
-} from "./lint";
+export { inspectSkillset, lintBuildGraph, lintSkillset } from "./lint";
 export {
   checkSkillsetSourceReadiness,
   type CheckSkillsetSourceReadinessOptions,
@@ -397,9 +403,7 @@ export {
   type NormalizedTreeDifference,
   type NormalizedTreeDifferenceKind,
 } from "./normalized-output-tree";
-export {
-  SkillsetFeatureDiagnosticError,
-} from "./operation-result";
+export { SkillsetFeatureDiagnosticError } from "./operation-result";
 export type {
   SkillsetDiagnostic,
   SkillsetDiagnosticSeverity,

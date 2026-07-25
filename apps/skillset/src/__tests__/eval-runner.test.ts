@@ -88,6 +88,7 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
   const retainedReport = await readFile(cachePath(root, xdg, report.reportPath), "utf8");
   expect(retainedReport).toContain("deliberately ungraded expectation");
   expect(JSON.parse(retainedReport)).not.toHaveProperty("ok");
+  expect(JSON.parse(retainedReport)).not.toHaveProperty("proofReceipts");
 });
 
 test("SET-387: nested trial artifacts keep hyphen-colliding plugin owners distinct", async () => {

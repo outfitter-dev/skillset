@@ -10,6 +10,7 @@ import type {
   SkillsetOptions,
   TargetName,
 } from "@skillset/core/internal/types";
+import type { ActivationProofClaim } from "@skillset/schema";
 
 import {
   readAdHocTestEvidence,
@@ -17,13 +18,17 @@ import {
   startAdHocTestRun,
   type AdHocTestState,
 } from "./ad-hoc-test";
+import { runtimeProbeAdapterId } from "./runtime-probe";
 
 export interface SkillsetRuntimeTestAdapterOptions extends SkillsetOptions {
   readonly runtimeEnv?: Record<string, string | undefined>;
 }
 
 export interface SkillsetRuntimeTestResult extends JsonRecord {
+  readonly activationEvidence: RuntimeActivationEvidence[];
+  readonly adapterId: string;
   readonly assertions: CoreSkillsetRuntimeTestResult["assertions"][number][];
+  readonly binaryVersion?: string;
   readonly command: string[];
   readonly detail?: string;
   readonly failureClass?: CoreSkillsetRuntimeTestResult["failureClass"];
@@ -39,7 +44,15 @@ export interface SkillsetRuntimeTestResult extends JsonRecord {
   readonly target: TargetName;
 }
 
+interface RuntimeActivationEvidence extends JsonRecord {
+  readonly capability: ActivationProofClaim["capability"];
+  readonly subject: string;
+}
+
 interface RuntimeTestEvidence {
+  readonly activationEvidence: readonly ActivationProofClaim[];
+  readonly adapterId: string;
+  readonly binaryVersion?: string;
   readonly outputPath: string;
   readonly promptPath: string;
   readonly reportPath: string;
@@ -80,6 +93,7 @@ export async function runDeclaredRuntimeTests(
             : { env: options.runtimeEnv }),
           name: request.name,
           prompt: request.prompt,
+          captureVersion: request.captureVersion,
           target: request.target,
           ...(request.timeoutMs === undefined
             ? {}
@@ -89,6 +103,11 @@ export async function runDeclaredRuntimeTests(
         const status = await readAdHocTestStatus(rootPath, run.runId, options);
         const evidence = await readAdHocTestEvidence(rootPath, run.runId, options);
         evidenceByProbe.set(keyFor(request), {
+          activationEvidence: evidence.activationEvidence,
+          adapterId: evidence.adapterId,
+          ...(evidence.binaryVersion === undefined
+            ? {}
+            : { binaryVersion: evidence.binaryVersion }),
           outputPath: evidence.outputPath,
           promptPath: status.promptPath,
           reportPath: evidence.reportPath,
@@ -122,7 +141,16 @@ export function toSkillsetRuntimeTestResult(
   evidence?: RuntimeTestEvidence
 ): SkillsetRuntimeTestResult {
   return {
+    activationEvidence:
+      evidence?.activationEvidence.map((entry) => ({
+        capability: entry.capability,
+        subject: entry.subject,
+      })) ?? [],
+    adapterId: evidence?.adapterId ?? runtimeProbeAdapterId(result.target),
     assertions: [...result.assertions],
+    ...(evidence?.binaryVersion === undefined
+      ? {}
+      : { binaryVersion: evidence.binaryVersion }),
     command: [...result.command],
     ...(result.detail === undefined ? {} : { detail: result.detail }),
     ...(result.failureClass === undefined

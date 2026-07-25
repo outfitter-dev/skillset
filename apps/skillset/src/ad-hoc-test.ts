@@ -22,12 +22,14 @@ import { isTargetName } from "@skillset/core/internal/config";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
+import type { ActivationProofClaim } from "@skillset/schema";
 
 import {
   readClaudeSettingSources,
   type ClaudeSettingSources,
 } from "./cli-arg-values";
 import { createRuntimeProbeCommand, runRuntimeProbe, type RuntimeProbeCommand } from "./runtime-probe";
+import { runtimeActivationEvidence } from "./runtime-activation-evidence";
 
 export type AdHocTestSubcommand = "list" | "status" | "tail" | "worker";
 export type AdHocTestState = "building" | "failed" | "passed" | "queued" | "running";
@@ -37,6 +39,7 @@ export type AdHocTestFailureClass = "auth" | "binary" | "cancelled" | "render" |
 export interface AdHocTestRunOptions extends SkillsetOptions {
   readonly background?: boolean;
   readonly cacheRootPath?: string;
+  readonly captureVersion?: boolean;
   readonly claudeSettingSources?: AdHocTestClaudeSettingSources;
   readonly env?: Record<string, string | undefined>;
   readonly name?: string;
@@ -72,6 +75,9 @@ export interface AdHocTestStatus {
 }
 
 export interface AdHocTestEvidence {
+  readonly activationEvidence: readonly ActivationProofClaim[];
+  readonly adapterId: string;
+  readonly binaryVersion?: string;
   readonly finalMessage?: string;
   readonly outputPath: string;
   readonly reportPath: string;
@@ -134,6 +140,7 @@ interface AdHocTestRunPaths {
 }
 
 interface AdHocTestStoredConfig {
+  readonly captureVersion: boolean;
   readonly claudeSettingSources?: AdHocTestClaudeSettingSources;
   readonly name: string;
   readonly plugins: readonly string[];
@@ -170,6 +177,7 @@ export async function startAdHocTestRun(
 
   const config: AdHocTestStoredConfig = {
     ...(options.target === "claude" ? { claudeSettingSources: resolveClaudeSettingSources(options) } : {}),
+    captureVersion: options.captureVersion === true,
     name,
     plugins,
     prompt: options.prompt,
@@ -250,12 +258,20 @@ export async function executeAdHocTestRun(
 
   const graph = await loadBuildGraph(root, runOptions);
   let command: ReturnType<typeof runtimeCommand>;
-  let result: { readonly exitCode: number; readonly timedOut: boolean };
+  let result: Awaited<ReturnType<typeof runRuntimeProbe>>;
   try {
     command = runtimeCommand(root, graph, paths, config, env, xdg);
     await appendEvent(paths, "status", `running ${target} non-interactive prompt`);
     status = await updateRunState(paths, status, "running", { command: command.display });
-    result = await runCommand(command, config.prompt, paths, config.timeoutMs, env, signal);
+    result = await runCommand(
+      command,
+      config.prompt,
+      paths,
+      config.timeoutMs,
+      env,
+      config.captureVersion,
+      signal
+    );
   } catch (error) {
     await failRun(
       paths,
@@ -270,6 +286,10 @@ export async function executeAdHocTestRun(
   const stderr = await readOptional(join(paths.absolute.runPath, "stderr.txt")) ?? "";
   const failureClass = classifyAdHocTestFailure(result, `${stderr}\n${stdout}`);
   const report: JsonRecord = {
+    adapterId: result.adapterId,
+    ...(result.binaryVersion === undefined
+      ? {}
+      : { binaryVersion: result.binaryVersion }),
     command: [...command.display],
     endedAt: new Date().toISOString(),
     exitCode: result.exitCode,
@@ -313,7 +333,14 @@ export async function readAdHocTestEvidence(
   const stdout = await readOptional(join(paths.absolute.runPath, "stdout.txt")) ?? "";
   const stderr = await readOptional(join(paths.absolute.runPath, "stderr.txt")) ?? "";
   const status = await readStatus(paths.absolute.statusPath);
+  const report = await readJsonRecord(paths.absolute.reportPath);
   return {
+    activationEvidence: runtimeActivationEvidence(status.target, stdout),
+    adapterId:
+      typeof report.adapterId === "string" ? report.adapterId : "unknown",
+    ...(typeof report.binaryVersion === "string"
+      ? { binaryVersion: report.binaryVersion }
+      : {}),
     ...(finalMessage === undefined ? {} : { finalMessage }),
     outputPath: paths.logical.outputPath,
     reportPath: paths.logical.reportPath,
@@ -410,7 +437,7 @@ function runtimeCommand(
   config: AdHocTestStoredConfig,
   env: Record<string, string | undefined>,
   xdg: SkillsetOptions["xdg"]
-): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
+): RuntimeProbeCommand {
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   return createRuntimeProbeCommand(latestRoot, graph, {
     ...(config.claudeSettingSources === undefined ? {} : { claudeSettingSources: config.claudeSettingSources }),
@@ -419,6 +446,17 @@ function runtimeCommand(
     prompt: config.prompt,
     target: config.target,
   }, env);
+}
+
+async function readJsonRecord(path: string): Promise<JsonRecord> {
+  const raw = await readOptional(path);
+  if (raw === undefined) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return isRecord(parsed) ? parsed as JsonRecord : {};
+  } catch {
+    return {};
+  }
 }
 
 function resolveClaudeSettingSources(options: AdHocTestRunOptions): AdHocTestClaudeSettingSources {
@@ -462,9 +500,11 @@ async function runCommand(
   paths: AdHocTestRunPaths,
   timeoutMs: number,
   env: Record<string, string | undefined>,
+  captureVersion: boolean,
   signal?: AbortSignal
-): Promise<{ readonly exitCode: number; readonly timedOut: boolean }> {
+): Promise<Awaited<ReturnType<typeof runRuntimeProbe>>> {
   return runRuntimeProbe(command, prompt, {
+    captureVersion,
     env,
     onOutput: async (stream, text) => {
       await appendEvent(paths, stream, text);
@@ -625,11 +665,15 @@ async function readConfig(path: string): Promise<AdHocTestStoredConfig> {
   if (!isRecord(raw)) throw new Error("skillset: test config is malformed");
   if (!isTargetName(raw.target)) throw new Error("skillset: test config target is malformed");
   if (typeof raw.prompt !== "string") throw new Error("skillset: test config prompt is malformed");
+  if (typeof raw.captureVersion !== "boolean") {
+    throw new Error("skillset: test config captureVersion is malformed");
+  }
   const claudeSettingSources = typeof raw.claudeSettingSources === "string"
     ? readClaudeSettingSources(raw.claudeSettingSources, "test config claudeSettingSources")
     : undefined;
   return {
     ...(claudeSettingSources === undefined ? {} : { claudeSettingSources }),
+    captureVersion: raw.captureVersion,
     name: typeof raw.name === "string" ? raw.name : `runtime-${raw.target}`,
     plugins: Array.isArray(raw.plugins) ? raw.plugins.filter((item): item is string => typeof item === "string") : [],
     prompt: raw.prompt,

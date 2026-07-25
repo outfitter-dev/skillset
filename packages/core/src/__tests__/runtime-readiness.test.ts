@@ -6,9 +6,12 @@ import { join } from "node:path";
 import {
   ACTIVATION_READINESS_SCHEMA,
   activationRequirementId,
+  createActivationProofIdentity,
   deriveActivationSubjects,
+  evaluateActivationProofReceipts,
   filterActivationReadiness,
   planActivationReadiness,
+  resolveActivationProofClaims,
   summarizeActivationReadiness,
   targetRecord,
 } from "@skillset/core";
@@ -18,6 +21,8 @@ import type {
   SkillsetRenderResult,
 } from "@skillset/core";
 import { listProviderActivationDescriptors } from "../activation-policy";
+import { ACTIVATION_PROOF_RECEIPT_SCHEMA } from "@skillset/schema";
+import type { ActivationProofReceipt } from "@skillset/schema";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { loadBuildGraph } from "../resolver";
@@ -269,6 +274,238 @@ compile:
     ).toBe(true);
   });
 
+  it("resolves declared claims and applies only current proof receipts", () => {
+    const graph = graphFixture({
+      plugins: [
+        pluginFixture({
+          dependencies: [
+            {
+              kind: "internal",
+              name: "shared",
+              sourceLabel: ".skillset/plugins/tools/skillset.yaml",
+              unversioned: false,
+            },
+          ],
+          id: "tools",
+        }),
+        pluginFixture({ id: "shared" }),
+      ],
+      rootTargets: targetRecord((target) => ({
+        enabled: target === "codex",
+        options: {},
+      })),
+    });
+    const renderResults = [
+      renderResult({
+        featureId: "dependencies",
+        outputs: [{ path: "plugins/tools/codex/.codex-plugin/plugin.json" }],
+        sourceUnit: "plugin.tools.feature:dependencies",
+        status: "rendered",
+        target: "codex",
+      }),
+    ];
+    const resolved = resolveActivationProofClaims({
+      claims: [{ capability: "plugin-dependency", subject: "shared" }],
+      graph,
+      renderResults,
+      targets: ["codex"],
+    });
+    const claim = resolved[0];
+    if (claim === undefined) throw new Error("missing resolved claim");
+    expect(claim.requirementIds).toEqual([
+      "activation:codex:plugin-dependency:shared:proven",
+    ]);
+    expect(() =>
+      resolveActivationProofClaims({
+        claims: [{ capability: "plugin-dependency", subject: "missing" }],
+        graph,
+        renderResults,
+        targets: ["codex"],
+      })
+    ).toThrow("does not match the selected target/source projection");
+    expect(() =>
+      resolveActivationProofClaims({
+        claims: [
+          { capability: "plugin-dependency", subject: "shared" },
+          { capability: "plugin-dependency", subject: "shared" },
+        ],
+        graph,
+        renderResults,
+        targets: ["codex"],
+      })
+    ).toThrow("duplicate activation proof claim");
+    expect(() =>
+      resolveActivationProofClaims({
+        claims: [{ capability: "plugin-dependency", subject: "shared" }],
+        graph,
+        renderResults: [
+          renderResult({
+            featureId: "dependencies",
+            reason: "unsupported fixture",
+            sourceUnit: "plugin.tools.feature:dependencies",
+            status: "unsupported",
+            target: "codex",
+          }),
+        ],
+        targets: ["codex"],
+      })
+    ).toThrow("is unavailable for codex");
+
+    const rendered = [
+      {
+        content: new TextEncoder().encode(
+          JSON.stringify({
+            items: [
+              {
+                files: ["tools/codex/.codex-plugin/plugin.json"],
+                outputHash: "sha256:output",
+                outputPath: "tools/codex/.codex-plugin/plugin.json",
+                sourceHash: "sha256:source",
+              },
+            ],
+            target: "codex",
+          })
+        ),
+        path: "plugins/skillset.lock",
+      },
+    ];
+    const identity = createActivationProofIdentity({
+      adapterId: "codex-cli@1",
+      declarationHash: "sha256:declaration",
+      graph,
+      rendered,
+      renderResults,
+      requirementIds: claim.requirementIds,
+    });
+    expect(() =>
+      createActivationProofIdentity({
+        adapterId: "codex-cli@1",
+        declarationHash: "sha256:declaration",
+        graph,
+        rendered,
+        renderResults,
+        requirementIds: claim.requirementIds,
+        untrustedOutputPaths: [
+          "plugins/tools/codex/.codex-plugin/plugin.json",
+        ],
+      })
+    ).toThrow("requires current generated output");
+    const receipt: ActivationProofReceipt = {
+      claimIds: claim.requirementIds,
+      identity,
+      outcome: "passed" as const,
+      runtimeVersion: "1.2.3",
+      schema:
+        ACTIVATION_PROOF_RECEIPT_SCHEMA as typeof ACTIVATION_PROOF_RECEIPT_SCHEMA,
+    };
+    expect(
+      evaluateActivationProofReceipts({
+        currentIdentities: { [claim.requirementIds[0] as string]: [identity] },
+        receipts: [receipt],
+      }).get(claim.requirementIds[0] as string)?.state
+    ).toBe("proven");
+    expect(
+      requirement(
+        planActivationReadiness({
+          currentProofIdentities: {
+            [claim.requirementIds[0] as string]: [identity],
+          },
+          graph,
+          proofReceipts: [receipt],
+          renderResults,
+        }),
+        "codex",
+        "plugin-dependency",
+        "shared",
+        "proven"
+      )
+    ).toMatchObject({ origin: "proven", state: "satisfied" });
+
+    const staleIdentity = { ...identity, sourceHash: "sha256:changed" };
+    expect(
+      requirement(
+        planActivationReadiness({
+          currentProofIdentities: {
+            [claim.requirementIds[0] as string]: [staleIdentity],
+          },
+          graph,
+          proofReceipts: [receipt],
+          renderResults,
+        }),
+        "codex",
+        "plugin-dependency",
+        "shared",
+        "proven"
+      )
+    ).toMatchObject({ origin: "proven", state: "stale" });
+
+    for (const changedIdentity of [
+      { ...identity, adapterId: "codex-cli@2" },
+      { ...identity, declarationHash: "sha256:changed" },
+      { ...identity, projectionHash: "sha256:changed" },
+      { ...identity, target: "claude" as const },
+    ]) {
+      expect(
+        evaluateActivationProofReceipts({
+          currentIdentities: {
+            [claim.requirementIds[0] as string]: [changedIdentity],
+          },
+          receipts: [receipt],
+        }).get(claim.requirementIds[0] as string)?.state
+      ).toBe("stale");
+    }
+
+    expect(
+      evaluateActivationProofReceipts({
+        currentIdentities: { [claim.requirementIds[0] as string]: [identity] },
+        receipts: [{ ...receipt, runtimeVersion: "99.0.0" }],
+      }).get(claim.requirementIds[0] as string)?.state
+    ).toBe("proven");
+
+    const overlappingId = "activation:codex:mcp-server:other:proven";
+    const overlappingIdentity = {
+      ...identity,
+      projectionHash: "sha256:overlapping-projection",
+      sourceHash: "sha256:overlapping-source",
+    };
+    const overlapping = evaluateActivationProofReceipts({
+      currentIdentities: {
+        [claim.requirementIds[0] as string]: [identity, overlappingIdentity],
+        [overlappingId]: [overlappingIdentity],
+      },
+      receipts: [
+        receipt,
+        {
+          ...receipt,
+          claimIds: [claim.requirementIds[0] as string, overlappingId],
+          identity: overlappingIdentity,
+          outcome: "failed",
+        },
+      ],
+    });
+    expect(overlapping.get(claim.requirementIds[0] as string)?.state).toBe(
+      "proven"
+    );
+    expect(overlapping.get(overlappingId)?.state).toBe("unverified");
+
+    for (const outcome of ["failed", "cancelled", "timed_out"] as const) {
+      expect(
+        evaluateActivationProofReceipts({
+          currentIdentities: {
+            [claim.requirementIds[0] as string]: [identity],
+          },
+          receipts: [{ ...receipt, outcome }],
+        }).get(claim.requirementIds[0] as string)?.state
+      ).toBe("unverified");
+    }
+    expect(
+      evaluateActivationProofReceipts({
+        currentIdentities: { [claim.requirementIds[0] as string]: [identity] },
+        receipts: [],
+      }).has(claim.requirementIds[0] as string)
+    ).toBe(false);
+  });
+
   it("omits a workspace-disabled target even when a plugin enables it", () => {
     const graph = graphFixture({
       plugins: [
@@ -432,23 +669,23 @@ compile:
         pluginFixture({ id: "shared" }),
       ],
     });
-    const outputPath = "plugins/tools/claude/.claude-plugin/plugin.json";
+    const outputPath = "plugins/tools/codex/.codex-plugin/plugin.json";
     const report = planActivationReadiness({
       graph,
       renderResults: [
         renderResult({
           featureId: "dependencies",
-          outputs: [{ path: outputPath }],
+          outputs: [{ kind: "plugin-manifest", path: outputPath }],
           sourceUnit: "plugin.tools.feature:dependencies",
           status: "rendered",
-          target: "claude",
+          target: "codex",
         }),
       ],
       untrustedOutputPaths: [`./${outputPath}`],
     });
 
     expect(
-      requirement(report, "claude", "plugin-dependency", "shared", "rendered")
+      requirement(report, "codex", "plugin-dependency", "shared", "rendered")
     ).toMatchObject({
       reason: "generated output for this requirement is missing or stale",
       state: "missing",
@@ -900,7 +1137,7 @@ function pluginFixture(overrides: {
 
 function renderResult(overrides: {
   readonly featureId: string;
-  readonly outputs?: NonNullable<SkillsetRenderResult["outputs"]>;
+  readonly outputs?: SkillsetRenderResult["outputs"];
   readonly reason?: string;
   readonly sourceUnit: string;
   readonly status: SkillsetRenderResult["status"];
@@ -908,7 +1145,12 @@ function renderResult(overrides: {
 }): SkillsetRenderResult {
   return {
     schema: "skillset-render-result@1",
-    ...overrides,
+    featureId: overrides.featureId,
+    ...(overrides.outputs === undefined ? {} : { outputs: overrides.outputs }),
+    ...(overrides.reason === undefined ? {} : { reason: overrides.reason }),
+    sourceUnit: overrides.sourceUnit,
+    status: overrides.status,
+    target: overrides.target,
   };
 }
 

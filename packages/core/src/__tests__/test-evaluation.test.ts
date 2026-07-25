@@ -21,6 +21,56 @@ Demo body.
 `;
 
 describe("Core test evaluation", () => {
+  it("exposes resolved runtime claims on declared activation probes", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: claim-root
+compile:
+  targets: [codex]
+`,
+      ".skillset/plugins/tools/.mcp.json": `
+{"mcpServers":{"github":{"command":"github-mcp"}}}
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+mcp: true
+`,
+      ".skillset/tests.yaml": `
+claim:
+  checks:
+    projection: true
+  activation:
+    - prompt: Check GitHub.
+      expect:
+        plugin: tools
+      targets: [codex]
+      runtime:
+        claims:
+          - capability: mcp-server
+            subject: github
+        expect:
+          contains: github
+`,
+    });
+
+    try {
+      const { declaration } = await loadSkillsetTestDeclaration(root, "claim");
+      expect(declaration.activationProbes[0]?.runtime).toMatchObject({
+        claims: [{ capability: "mcp-server", subject: "github" }],
+        resolvedClaims: [
+          {
+            claim: { capability: "mcp-server", subject: "github" },
+            requirementIds: ["activation:codex:mcp-server:github:proven"],
+          },
+        ],
+      });
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("stages a caller-owned workspace, evaluates static checks, and normalizes fake-probe assertions", async () => {
     const root = await fixture({
       "skillset.yaml": `

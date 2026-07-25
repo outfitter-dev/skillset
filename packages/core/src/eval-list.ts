@@ -36,14 +36,18 @@ export async function listSkillEvals(
     ),
     ...graph.plugins.flatMap((plugin) =>
       plugin.skills.flatMap((skill) =>
-        listSkillEvalEntries(graph.rootPath, skill, { kind: "plugin", plugin: plugin.id })
+        listSkillEvalEntries(graph.rootPath, skill, {
+          kind: "plugin",
+          plugin: plugin.id,
+        })
       )
     ),
   ];
-  return entries.sort((left, right) =>
-    compareStrings(left.skillPath, right.skillPath) ||
-    left.evalId - right.evalId ||
-    compareStrings(left.target, right.target)
+  return entries.sort(
+    (left, right) =>
+      compareStrings(left.skillPath, right.skillPath) ||
+      left.evalId - right.evalId ||
+      compareStrings(left.target, right.target)
   );
 }
 
@@ -54,9 +58,14 @@ function listSkillEvalEntries(
 ): readonly SkillsetEvalListEntry[] {
   const declaration = skill.evalDeclaration;
   if (declaration === undefined) return [];
-  const skillPath = normalizeEvalDisplayPath(relative(rootPath, skill.sourcePath));
+  const skillPath = normalizeEvalDisplayPath(
+    relative(rootPath, skill.sourcePath)
+  );
   const evalPath = normalizeEvalDisplayPath(
-    join(relative(rootPath, dirname(skill.sourcePath)), declaration.relativePath)
+    join(
+      relative(rootPath, dirname(skill.sourcePath)),
+      declaration.relativePath
+    )
   );
   return declaration.cases.flatMap((entry) =>
     entry.targets.map((target) => ({

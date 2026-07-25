@@ -1,16 +1,21 @@
-import { relative, sep } from "node:path";
+import { createHash } from "node:crypto";
+import { dirname, join, relative, sep } from "node:path";
 
 import {
   ACTIVATION_READINESS_SCHEMA,
   ACTIVATION_READINESS_SUMMARIES,
   ACTIVATION_REQUIREMENT_STAGES,
   ACTIVATION_REQUIREMENT_STATES,
+  validateActivationProofReceipt,
 } from "@skillset/schema";
 import type {
   ActivationCapability,
   ActivationEvidenceOrigin,
   ActivationNextAction,
   ActivationObservationEffect,
+  ActivationProofClaim,
+  ActivationProofIdentity,
+  ActivationProofReceipt,
   ActivationReadinessCounts,
   ActivationReadinessReport,
   ActivationReadinessSummary,
@@ -38,7 +43,13 @@ import {
   selectorForTargetNativeIsland,
 } from "./source-unit-selector";
 import { targetNames } from "./targets";
-import type { BuildGraph, SourcePluginDependency, TargetName } from "./types";
+import type {
+  BuildGraph,
+  RenderedFile,
+  SourcePluginDependency,
+  TargetName,
+} from "./types";
+import { isJsonRecord } from "./yaml";
 
 export {
   ACTIVATION_READINESS_SCHEMA,
@@ -51,6 +62,9 @@ export type {
   ActivationEvidenceOrigin,
   ActivationNextAction,
   ActivationObservationEffect,
+  ActivationProofClaim,
+  ActivationProofIdentity,
+  ActivationProofReceipt,
   ActivationReadinessCounts,
   ActivationReadinessReport,
   ActivationReadinessSummary,
@@ -87,13 +101,47 @@ export interface ActivationObservation {
 }
 
 export interface PlanActivationReadinessOptions {
+  readonly currentProofIdentities?: Readonly<
+    Record<string, readonly ActivationProofIdentity[]>
+  >;
   readonly descriptors?: readonly ActivationReadinessDescriptor[];
   readonly graph: BuildGraph;
   readonly includeSourcePath?: (path: string) => boolean;
   readonly includeSubject?: (subject: ActivationSubject) => boolean;
   readonly observations?: readonly ActivationObservation[];
+  readonly proofReceipts?: readonly ActivationProofReceipt[];
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly untrustedOutputPaths?: readonly string[];
+}
+
+export interface ResolvedActivationProofClaim {
+  readonly claim: ActivationProofClaim;
+  readonly requirementIds: readonly string[];
+}
+
+export interface ResolveActivationProofClaimsOptions {
+  readonly claims: readonly ActivationProofClaim[];
+  readonly graph: BuildGraph;
+  readonly renderResults?: readonly SkillsetRenderResult[];
+  readonly sourceUnits?: readonly string[];
+  readonly targets: readonly TargetName[];
+}
+
+export interface CreateActivationProofIdentityOptions {
+  readonly adapterId: string;
+  readonly declarationHash: string;
+  readonly graph: BuildGraph;
+  readonly projectionSourceUnits?: readonly string[];
+  readonly rendered: readonly RenderedFile[];
+  readonly renderResults: readonly SkillsetRenderResult[];
+  readonly requirementIds: readonly string[];
+  readonly untrustedOutputPaths?: readonly string[];
+}
+
+export interface ActivationProofReceiptEvaluation {
+  readonly receipt?: ActivationProofReceipt;
+  readonly requirementId: string;
+  readonly state: "proven" | "stale" | "unverified";
 }
 
 export function planActivationReadiness(
@@ -124,8 +172,12 @@ export function planActivationReadiness(
     descriptors,
     options.observations ?? []
   );
+  const proofEvaluations = evaluateActivationProofReceipts({
+    currentIdentities: options.currentProofIdentities ?? {},
+    receipts: options.proofReceipts ?? [],
+  });
   const untrustedOutputPaths = new Set(
-    (options.untrustedOutputPaths ?? []).map(normalizeOutputPath)
+    (options.untrustedOutputPaths ?? []).map(normalizeProofOutputPath)
   );
   const requirements = subjects
     .flatMap((subject) => {
@@ -144,6 +196,7 @@ export function planActivationReadiness(
           stage,
           options.renderResults,
           observations,
+          proofEvaluations,
           untrustedOutputPaths
         )
       );
@@ -161,6 +214,260 @@ export function planActivationReadiness(
 
 export interface DeriveActivationSubjectsOptions {
   readonly includeSourcePath?: (path: string) => boolean;
+}
+
+/**
+ * Resolves author-facing capability subjects to current, stable `proven`
+ * requirement ids. Callers may scope matching to a staged source projection.
+ */
+export function resolveActivationProofClaims(
+  options: ResolveActivationProofClaimsOptions
+): readonly ResolvedActivationProofClaim[] {
+  const requestedTargets = new Set(options.targets);
+  if (requestedTargets.size === 0) {
+    throw new Error(
+      "skillset: activation proof claims require at least one target"
+    );
+  }
+  const sourceUnits =
+    options.sourceUnits === undefined
+      ? undefined
+      : new Set(options.sourceUnits);
+  const claims = normalizeActivationProofClaims(options.claims);
+  const report =
+    options.renderResults === undefined
+      ? undefined
+      : planActivationReadiness({
+          graph: options.graph,
+          renderResults: options.renderResults,
+        });
+
+  return claims.map((claim) => {
+    const subjects = deriveActivationSubjects(options.graph).filter(
+      (subject) =>
+        requestedTargets.has(subject.target) &&
+        subject.capability === claim.capability &&
+        subject.subject === claim.subject &&
+        (sourceUnits === undefined ||
+          subject.sourceUnits.some((unit) => sourceUnits.has(unit)))
+    );
+    if (subjects.length === 0) {
+      throw new Error(
+        `skillset: activation proof claim ${claim.capability}:${claim.subject} does not match the selected target/source projection`
+      );
+    }
+
+    const requirementIds = subjects
+      .map((subject) =>
+        activationRequirementId({ ...subject, stage: "proven" })
+      )
+      .toSorted(compareStrings);
+    if (report !== undefined) {
+      for (const id of requirementIds) {
+        const requirement = report.requirements.find(
+          (candidate) => candidate.id === id
+        );
+        const rendered = report.requirements.find(
+          (candidate) =>
+            candidate.target === requirement?.target &&
+            candidate.capability === requirement?.capability &&
+            candidate.subject === requirement?.subject &&
+            candidate.stage === "rendered"
+        );
+        if (rendered === undefined || rendered.state !== "satisfied") {
+          throw new Error(
+            `skillset: activation proof claim ${claim.capability}:${claim.subject} is unavailable for ${requirement?.target ?? "the selected target"}: ${rendered?.reason ?? "no current render requirement exists"}`
+          );
+        }
+      }
+    }
+    return { claim, requirementIds };
+  });
+}
+
+/**
+ * Produces a portable freshness identity from caller-supplied rendered lock
+ * data. Core never reads retained runtime-report paths or app-owned caches.
+ */
+export function createActivationProofIdentity(
+  options: CreateActivationProofIdentityOptions
+): ActivationProofIdentity {
+  if (options.adapterId.trim().length === 0) {
+    throw new Error("skillset: activation proof adapterId is required");
+  }
+  if (options.declarationHash.trim().length === 0) {
+    throw new Error(
+      "skillset: activation proof declarationHash is required"
+    );
+  }
+  const requirementIds = [...new Set(options.requirementIds)].toSorted(
+    compareStrings
+  );
+  if (requirementIds.length === 0) {
+    throw new Error(
+      "skillset: activation proof identity requires at least one requirement id"
+    );
+  }
+  const readiness = planActivationReadiness({
+    graph: options.graph,
+    renderResults: options.renderResults,
+  });
+  const requirements = readiness.requirements.filter((requirement) =>
+    requirementIds.includes(requirement.id)
+  );
+  if (requirements.length !== requirementIds.length) {
+    throw new Error(
+      "skillset: activation proof identity references an unknown requirement id"
+    );
+  }
+  const targets = [
+    ...new Set(requirements.map((requirement) => requirement.target)),
+  ];
+  if (targets.length !== 1 || targets[0] === undefined) {
+    throw new Error("skillset: activation proof identity requires one target");
+  }
+  const lockItems = collectActivationProofLockItems(options.rendered);
+  const untrustedOutputPaths = new Set(
+    (options.untrustedOutputPaths ?? []).map(normalizeProofOutputPath)
+  );
+  const sourceParts: string[] = [];
+  const projectionParts: string[] = [];
+  const appendProjection = (
+    scope: string,
+    resultOutputs: readonly string[]
+  ): void => {
+    if (
+      resultOutputs.some((path) =>
+        untrustedOutputPaths.has(normalizeProofOutputPath(path))
+      )
+    ) {
+      throw new Error(
+        `skillset: activation proof identity requires current generated output for ${scope}`
+      );
+    }
+    const items = lockItems.filter((item) =>
+      resultOutputs.some((path) => item.outputPaths.includes(path))
+    );
+    if (items.length === 0) {
+      throw new Error(
+        `skillset: activation proof identity cannot find rendered lock provenance for ${scope}`
+      );
+    }
+    for (const item of items) {
+      sourceParts.push(`${scope}\0${item.sourceHash}`);
+      projectionParts.push(
+        `${scope}\0${item.outputHash}\0${item.renderInputsHash ?? ""}`
+      );
+    }
+  };
+  for (const requirement of requirements) {
+    const renderedRequirement = readiness.requirements.find(
+      (candidate) =>
+        candidate.target === requirement.target &&
+        candidate.capability === requirement.capability &&
+        candidate.subject === requirement.subject &&
+        candidate.stage === "rendered"
+    );
+    if (
+      renderedRequirement === undefined ||
+      renderedRequirement.state !== "satisfied"
+    ) {
+      throw new Error(
+        `skillset: activation proof identity requires a current rendered projection for ${requirement.id}`
+      );
+    }
+    const resultOutputs = options.renderResults
+      .filter(
+        (result) =>
+          result.target === requirement.target &&
+          requirement.sourceUnits.includes(result.sourceUnit) &&
+          featureMatchesCapability(result.featureId, requirement.capability)
+      )
+      .flatMap((result) => result.outputs?.map((output) => output.path) ?? []);
+    appendProjection(requirement.id, resultOutputs);
+  }
+  for (const sourceUnit of [
+    ...new Set(options.projectionSourceUnits ?? []),
+  ].toSorted(compareStrings)) {
+    const resultOutputs = options.renderResults
+      .filter(
+        (result) =>
+          result.target === targets[0] && result.sourceUnit === sourceUnit
+      )
+      .flatMap((result) => result.outputs?.map((output) => output.path) ?? []);
+    appendProjection(`source-unit:${sourceUnit}`, resultOutputs);
+  }
+  return {
+    adapterId: options.adapterId,
+    declarationHash: options.declarationHash,
+    projectionHash: hashProofIdentity("projection", projectionParts),
+    sourceHash: hashProofIdentity("source", sourceParts),
+    target: targets[0],
+  };
+}
+
+function normalizeProofOutputPath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\.\//u, "");
+}
+
+/**
+ * Evaluates retained, app-supplied receipts against current identities. A
+ * receipt may only establish proof when its claimed id and every freshness
+ * component match exactly; runtime binary versions remain informational.
+ */
+export function evaluateActivationProofReceipts(input: {
+  readonly currentIdentities: Readonly<
+    Record<string, readonly ActivationProofIdentity[]>
+  >;
+  readonly receipts: readonly ActivationProofReceipt[];
+}): ReadonlyMap<string, ActivationProofReceiptEvaluation> {
+  const receiptsByRequirement = new Map<string, ActivationProofReceipt[]>();
+  for (const receipt of input.receipts) {
+    const validation = validateActivationProofReceipt(receipt);
+    if (!validation.ok) {
+      throw new Error(
+        `skillset: activation proof receipt is invalid: ${validation.diagnostics.map((diagnostic) => diagnostic.message).join("; ")}`
+      );
+    }
+    for (const id of receipt.claimIds) {
+      const matches = receiptsByRequirement.get(id) ?? [];
+      matches.push(receipt);
+      receiptsByRequirement.set(id, matches);
+    }
+  }
+
+  const evaluations = new Map<string, ActivationProofReceiptEvaluation>();
+  for (const [requirementId, receipts] of receiptsByRequirement) {
+    const current = input.currentIdentities[requirementId] ?? [];
+    const successful = receipts
+      .filter((receipt) => receipt.outcome === "passed")
+      .toSorted(compareProofReceipts);
+    const matching = successful.find(
+      (receipt) =>
+        current.some((identity) =>
+          proofIdentityEquals(receipt.identity, identity)
+        )
+    );
+    if (matching !== undefined) {
+      evaluations.set(requirementId, {
+        receipt: matching,
+        requirementId,
+        state: "proven",
+      });
+      continue;
+    }
+    const stale = successful[0];
+    if (stale !== undefined) {
+      evaluations.set(requirementId, {
+        receipt: stale,
+        requirementId,
+        state: "stale",
+      });
+      continue;
+    }
+    evaluations.set(requirementId, { requirementId, state: "unverified" });
+  }
+  return evaluations;
 }
 
 export function deriveActivationSubjects(
@@ -370,21 +677,54 @@ function requirementFor(
   stage: ActivationRequirementStage,
   renderResults: readonly SkillsetRenderResult[],
   observations: ReadonlyMap<string, ActivationObservation>,
+  proofEvaluations: ReadonlyMap<string, ActivationProofReceiptEvaluation>,
   untrustedOutputPaths: ReadonlySet<string>
 ): ActivationRequirement {
-  const observation = observations.get(
-    activationRequirementId({
-      capability: subject.capability,
-      stage,
-      subject: subject.subject,
-      target: subject.target,
-    })
-  );
+  const id = activationRequirementId({ ...subject, stage });
+  if (stage === "proven") {
+    const proof = proofEvaluations.get(id);
+    if (proof?.state === "proven") {
+      return {
+        capability: subject.capability,
+        id,
+        nextActions: [],
+        observationEffect: "none",
+        origin: "proven",
+        reason: "a current declared runtime receipt proved this requirement",
+        required: false,
+        sourcePaths: subject.sourcePaths,
+        sourceUnits: subject.sourceUnits,
+        stage,
+        state: "satisfied",
+        subject: subject.subject,
+        target: subject.target,
+      };
+    }
+    if (proof?.state === "stale") {
+      return {
+        capability: subject.capability,
+        id,
+        nextActions: [],
+        observationEffect: "none",
+        origin: "proven",
+        reason:
+          "a declared runtime receipt no longer matches current proof identity",
+        required: false,
+        sourcePaths: subject.sourcePaths,
+        sourceUnits: subject.sourceUnits,
+        stage,
+        state: "stale",
+        subject: subject.subject,
+        target: subject.target,
+      };
+    }
+  }
+  const observation = observations.get(id);
   if (observation !== undefined) {
     const evidence = observationEvidence(descriptor, observation);
     return {
       capability: subject.capability,
-      id: activationRequirementId({ ...subject, stage }),
+      id,
       nextActions: evidence.nextActions,
       observationEffect: observation.observationEffect,
       origin: observation.origin,
@@ -408,7 +748,7 @@ function requirementFor(
   );
   return {
     capability: subject.capability,
-    id: activationRequirementId({ ...subject, stage }),
+    id,
     nextActions: staticState.nextActions,
     observationEffect: "none",
     origin: stage === "declared" ? "declared" : "derived",
@@ -552,19 +892,6 @@ function staticRequirementState(
     };
   }
   if (
-    candidates.some((result) =>
-      result.outputs?.some((output) =>
-        untrustedOutputPaths.has(normalizeOutputPath(output.path))
-      )
-    )
-  ) {
-    return {
-      nextActions: [],
-      reason: "generated output for this requirement is missing or stale",
-      state: "missing",
-    };
-  }
-  if (
     candidates.some(
       (result) => result.status === "failed" || result.status === "unsupported"
     )
@@ -573,6 +900,19 @@ function staticRequirementState(
       nextActions: [],
       reason: "current rendering reports an explicit provider block",
       state: "blocked",
+    };
+  }
+  if (
+    candidates.some((result) =>
+      (result.outputs ?? []).some((output) =>
+        untrustedOutputPaths.has(normalizeProofOutputPath(output.path))
+      )
+    )
+  ) {
+    return {
+      nextActions: [],
+      reason: "generated output for this requirement is missing or stale",
+      state: "missing",
     };
   }
   if (
@@ -597,10 +937,6 @@ function staticRequirementState(
     reason: "current rendering did not emit the requirement",
     state: "missing",
   };
-}
-
-function normalizeOutputPath(path: string): string {
-  return path.replaceAll("\\", "/").replace(/^\.\//u, "");
 }
 
 function renderResultMatchesSubject(
@@ -699,6 +1035,149 @@ function subjectKey(subject: ActivationSubject): string {
 
 function relativeSourcePath(rootPath: string, sourcePath: string): string {
   return relative(rootPath, sourcePath).split(sep).join("/");
+}
+
+interface ActivationProofLockItem {
+  readonly outputHash: string;
+  readonly outputPaths: readonly string[];
+  readonly renderInputsHash?: string;
+  readonly sourceHash: string;
+}
+
+function normalizeActivationProofClaims(
+  claims: readonly ActivationProofClaim[]
+): readonly ActivationProofClaim[] {
+  const seen = new Set<string>();
+  return claims
+    .map((claim) => {
+      const subject = claim.subject.trim();
+      if (subject.length === 0) {
+        throw new Error("skillset: activation proof claim subject is required");
+      }
+      const key = `${claim.capability}\0${subject}`;
+      if (seen.has(key)) {
+        throw new Error(
+          `skillset: duplicate activation proof claim ${claim.capability}:${subject}`
+        );
+      }
+      seen.add(key);
+      return { capability: claim.capability, subject };
+    })
+    .toSorted((left, right) =>
+      compareStrings(
+        `${left.capability}\0${left.subject}`,
+        `${right.capability}\0${right.subject}`
+      )
+    );
+}
+
+function collectActivationProofLockItems(
+  rendered: readonly RenderedFile[]
+): readonly ActivationProofLockItem[] {
+  const items = new Map<string, ActivationProofLockItem>();
+  const decoder = new TextDecoder();
+  for (const file of rendered) {
+    if (
+      file.path !== "skillset.lock" &&
+      !file.path.endsWith("/skillset.lock")
+    ) {
+      continue;
+    }
+    let lock: unknown;
+    try {
+      lock = JSON.parse(decoder.decode(file.content));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `skillset: activation proof identity cannot parse ${file.path}: ${detail}`
+      );
+    }
+    if (!isJsonRecord(lock) || !Array.isArray(lock.items)) continue;
+    const outputRoot = dirname(file.path);
+    for (const rawItem of lock.items) {
+      if (!isJsonRecord(rawItem)) continue;
+      if (
+        typeof rawItem.sourceHash !== "string" ||
+        rawItem.sourceHash.length === 0 ||
+        typeof rawItem.outputHash !== "string" ||
+        rawItem.outputHash.length === 0
+      ) {
+        continue;
+      }
+      const files = Array.isArray(rawItem.files)
+        ? rawItem.files.filter(
+            (entry): entry is string => typeof entry === "string"
+          )
+        : typeof rawItem.outputPath === "string"
+          ? [rawItem.outputPath]
+          : [];
+      if (files.length === 0) continue;
+      const item: ActivationProofLockItem = {
+        outputHash: rawItem.outputHash,
+        outputPaths: files
+          .map((path) => join(outputRoot, path).replaceAll("\\", "/"))
+          .toSorted(compareStrings),
+        ...(typeof rawItem.renderInputsHash === "string"
+          ? { renderInputsHash: rawItem.renderInputsHash }
+          : {}),
+        sourceHash: rawItem.sourceHash,
+      };
+      const key = `${item.sourceHash}\0${item.outputHash}\0${item.renderInputsHash ?? ""}\0${item.outputPaths.join("\0")}`;
+      items.set(key, item);
+    }
+  }
+  return [...items.values()].toSorted((left, right) =>
+    compareStrings(
+      `${left.sourceHash}\0${left.outputHash}\0${left.outputPaths.join("\0")}`,
+      `${right.sourceHash}\0${right.outputHash}\0${right.outputPaths.join("\0")}`
+    )
+  );
+}
+
+function hashProofIdentity(
+  kind: "projection" | "source",
+  parts: readonly string[]
+): string {
+  const hash = createHash("sha256");
+  hash.update(`skillset.activation-proof.${kind}@1\0`);
+  for (const part of [...new Set(parts)].toSorted(compareStrings)) {
+    hash.update(part);
+    hash.update("\0");
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function compareProofReceipts(
+  left: ActivationProofReceipt,
+  right: ActivationProofReceipt
+): number {
+  return compareStrings(proofReceiptKey(left), proofReceiptKey(right));
+}
+
+function proofReceiptKey(receipt: ActivationProofReceipt): string {
+  return [
+    receipt.identity.target,
+    receipt.identity.adapterId,
+    receipt.identity.declarationHash,
+    receipt.identity.sourceHash,
+    receipt.identity.projectionHash,
+    receipt.outcome,
+    receipt.runtimeVersion ?? "",
+    receipt.claimIds.join("\0"),
+  ].join("\0");
+}
+
+function proofIdentityEquals(
+  left: ActivationProofIdentity,
+  right: ActivationProofIdentity
+): boolean {
+  return (
+    left.adapterId === right.adapterId &&
+    left.declarationHash === right.declarationHash &&
+    left.projectionHash === right.projectionHash &&
+    left.sourceHash === right.sourceHash &&
+    left.target === right.target
+  );
 }
 
 function countRequirementStates(
