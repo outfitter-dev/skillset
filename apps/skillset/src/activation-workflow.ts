@@ -15,6 +15,7 @@ export interface WorkspaceActivationOptions {
   readonly runCommand?: ActivationProviderCommandRunner;
   readonly signal?: AbortSignal;
   readonly sourcePaths?: readonly string[];
+  readonly untrustedOutputPaths?: readonly string[];
 }
 
 export async function inspectWorkspaceActivation(
@@ -28,6 +29,9 @@ export async function inspectWorkspaceActivation(
     ...(includeSourcePath === undefined ? {} : { includeSourcePath }),
     renderResults: input.renderResults,
     rootPath: input.rootPath,
+    ...(input.untrustedOutputPaths === undefined
+      ? {}
+      : { untrustedOutputPaths: input.untrustedOutputPaths }),
     ...(input.runCommand === undefined ? {} : { runCommand: input.runCommand }),
     ...(input.signal === undefined ? {} : { signal: input.signal }),
   });

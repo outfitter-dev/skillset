@@ -3,7 +3,7 @@ import type {
   LookupSubject,
   LookupView,
 } from "@skillset/core";
-import { targetNames } from "@skillset/core";
+import { diffSkillset, targetNames } from "@skillset/core";
 import {
   doctorSkillset,
   explainPath,
@@ -166,6 +166,7 @@ export async function runExplainCommand(
     execute: async () => {
       const result = await explainPath(rootPath, path, options);
       if (!activation || result.kind === "unknown") return result;
+      const drift = await diffSkillset(rootPath, options);
       const activationReport = await withActivationSignal(context, (signal) =>
         inspectWorkspaceActivation({
           options,
@@ -176,6 +177,7 @@ export async function runExplainCommand(
             result.path,
             ...result.entries.map((entry) => entry.sourcePath),
           ],
+          untrustedOutputPaths: outputDriftPaths(drift),
           ...(context.runCommand === undefined
             ? {}
             : { runCommand: context.runCommand }),
@@ -345,6 +347,7 @@ export async function runStatusCommand(
             renderResults: report.renderResults,
             rootPath,
             signal,
+            untrustedOutputPaths: outputDriftPaths(report.drift),
             ...(context.runCommand === undefined
               ? {}
               : { runCommand: context.runCommand }),
@@ -361,6 +364,15 @@ export async function runStatusCommand(
     jsonOutput,
     renderHuman: printStatusReport,
   });
+}
+
+function outputDriftPaths(drift: {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly missing: readonly string[];
+  readonly removed: readonly string[];
+}): readonly string[] {
+  return [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
 }
 
 function printStatusReport(

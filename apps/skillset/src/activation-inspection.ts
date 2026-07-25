@@ -51,6 +51,7 @@ export interface ActivationInspectionOptions {
   readonly runCommand?: ActivationProviderCommandRunner;
   readonly signal?: AbortSignal;
   readonly timeoutMs?: number;
+  readonly untrustedOutputPaths?: readonly string[];
 }
 
 export type ActivationProviderCommandRunner = (
@@ -129,6 +130,9 @@ export async function inspectActivationReadiness(
         : { includeSubject: options.includeSubject }),
       observations: runs.flatMap(({ observations }) => observations),
       renderResults: options.renderResults,
+      ...(options.untrustedOutputPaths === undefined
+        ? {}
+        : { untrustedOutputPaths: options.untrustedOutputPaths }),
     }),
     schema: ACTIVATION_INSPECTION_SCHEMA,
   };

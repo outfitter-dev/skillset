@@ -175,6 +175,48 @@ test("SET-392: status activation is opt-in, bounded, and exit-code neutral", asy
   expect(human).toContain("inspector [codex] codex.mcp.list: passive, ran");
 });
 
+test("SET-392: generated-output drift keeps rendered readiness unsatisfied", async () => {
+  const root = await activationFixture();
+  await Bun.write(join(root, "plugins/alpha/codex/.mcp.json"), "{}\n");
+  const priorExitCode = process.exitCode;
+  let stdout: string;
+  try {
+    stdout = await captureStdout(() =>
+      runStatusCommand(
+        { activation: true, jsonOutput: true, options: {}, rootPath: root },
+        { runCommand: fixtureRunner([]) }
+      )
+    );
+  } finally {
+    process.exitCode = priorExitCode ?? 0;
+  }
+  const result = JSON.parse(stdout) as {
+    readonly data: {
+      readonly activation: {
+        readonly readiness: {
+          readonly requirements: readonly {
+            readonly capability: string;
+            readonly stage: string;
+            readonly state: string;
+            readonly subject: string;
+          }[];
+          readonly summary: string;
+        };
+      };
+    };
+  };
+
+  expect(result.data.activation.readiness.summary).toBe("attention");
+  expect(result.data.activation.readiness.requirements).toContainEqual(
+    expect.objectContaining({
+      capability: "mcp-server",
+      stage: "rendered",
+      state: "missing",
+      subject: "alpha",
+    })
+  );
+});
+
 test("SET-392: explain activation keeps only matching source provenance", async () => {
   const root = await activationFixture();
   await Bun.write(
