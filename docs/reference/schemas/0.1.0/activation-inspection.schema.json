@@ -42,6 +42,7 @@
             "type": "string"
           },
           "stderrBytes": {
+            "maximum": 9007199254740991,
             "minimum": 0,
             "type": "integer"
           },
@@ -49,6 +50,7 @@
             "type": "boolean"
           },
           "stdoutBytes": {
+            "maximum": 9007199254740991,
             "minimum": 0,
             "type": "integer"
           },
@@ -96,26 +98,32 @@
           "additionalProperties": false,
           "properties": {
             "blocked": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
             "missing": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
             "notApplicable": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
             "satisfied": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
             "stale": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
             "unverified": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             }

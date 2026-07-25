@@ -551,9 +551,9 @@ export const activationInspectionContract = contract(
             "timed_out",
             "unavailable",
           ]),
-          stderrBytes: { minimum: 0, type: "integer" },
+          stderrBytes: nonNegativeSafeIntegerSchema(),
           stderrTruncated: { type: "boolean" },
-          stdoutBytes: { minimum: 0, type: "integer" },
+          stdoutBytes: nonNegativeSafeIntegerSchema(),
           stdoutTruncated: { type: "boolean" },
           subjects: arraySchema(nonEmptyStringSchema(), {
             uniqueItems: true,
@@ -607,12 +607,12 @@ function activationReadinessReportSchema(): SchemaJsonRecord {
     ...strictObjectSchema({
       counts: {
         ...strictObjectSchema({
-          blocked: { minimum: 0, type: "integer" },
-          missing: { minimum: 0, type: "integer" },
-          notApplicable: { minimum: 0, type: "integer" },
-          satisfied: { minimum: 0, type: "integer" },
-          stale: { minimum: 0, type: "integer" },
-          unverified: { minimum: 0, type: "integer" },
+          blocked: nonNegativeSafeIntegerSchema(),
+          missing: nonNegativeSafeIntegerSchema(),
+          notApplicable: nonNegativeSafeIntegerSchema(),
+          satisfied: nonNegativeSafeIntegerSchema(),
+          stale: nonNegativeSafeIntegerSchema(),
+          unverified: nonNegativeSafeIntegerSchema(),
         }),
         required: [
           "blocked",
@@ -1120,6 +1120,14 @@ function semverStringSchema(): SchemaJsonRecord {
 
 function nonEmptyStringSchema(): SchemaJsonRecord {
   return { minLength: 1, type: "string" };
+}
+
+function nonNegativeSafeIntegerSchema(): SchemaJsonRecord {
+  return {
+    maximum: Number.MAX_SAFE_INTEGER,
+    minimum: 0,
+    type: "integer",
+  };
 }
 
 function selectorSchema(): SchemaJsonRecord {

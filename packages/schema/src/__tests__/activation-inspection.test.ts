@@ -42,6 +42,37 @@ describe("activation inspection schema", () => {
     );
     expect(activationInspectionContract.schema).toMatchObject({
       additionalProperties: false,
+      properties: {
+        inspections: {
+          items: {
+            properties: {
+              stderrBytes: {
+                maximum: Number.MAX_SAFE_INTEGER,
+                minimum: 0,
+                type: "integer",
+              },
+              stdoutBytes: {
+                maximum: Number.MAX_SAFE_INTEGER,
+                minimum: 0,
+                type: "integer",
+              },
+            },
+          },
+        },
+        readiness: {
+          properties: {
+            counts: {
+              properties: {
+                satisfied: {
+                  maximum: Number.MAX_SAFE_INTEGER,
+                  minimum: 0,
+                  type: "integer",
+                },
+              },
+            },
+          },
+        },
+      },
       required: ["inspections", "readiness", "schema"],
     });
     expect(validateActivationInspectionReport(validReport)).toEqual({
