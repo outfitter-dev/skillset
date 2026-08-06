@@ -117,9 +117,10 @@ allowed_tools:
   claude:
     - Read
   codex: false
+  cursor: false
 ```
 
-`implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
+`implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex and Cursor have no confirmed skill-local allowed-tools equivalent, so leave their target values unset or set them to `false`.
 
 Use portable `tools` for known tool policy. The block records open-world policy and metadata; it is not a complete target-enforced sandbox on every provider:
 

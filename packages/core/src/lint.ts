@@ -312,10 +312,10 @@ function lintSkill(
 ): readonly LintIssue[] {
   const issues: LintIssue[] = [];
   issues.push(...lintToolEscapes(graph, skill));
+  issues.push(...lintUnsupportedAllowedTools(graph, skill, "codex"));
+  issues.push(...lintUnsupportedAllowedTools(graph, skill, "cursor"));
 
   if (!skill.targets.codex.enabled) return issues;
-
-  issues.push(...lintCodexAllowedTools(graph, skill));
 
   const markdownSearchableBody = maskMarkdownCodeRegions(skill.body);
   if (!graph.root.compile.features.promptArguments && hasSkillsetPromptArguments(skill.body)) {
@@ -402,20 +402,30 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
   return [];
 }
 
-function lintCodexAllowedTools(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
+function lintUnsupportedAllowedTools(
+  graph: BuildGraph,
+  skill: SourceSkill,
+  target: "codex" | "cursor"
+): readonly LintIssue[] {
+  if (!skill.targets[target].enabled) return [];
   const path = relative(graph.rootPath, skill.sourcePath);
-  const allowedTools = readAllowedTools(skill.frontmatter, "codex", path);
+  const allowedTools = readAllowedTools(skill.frontmatter, target, path);
   if (allowedTools === undefined || allowedTools === false) return [];
 
+  const targetLabel = target === "codex" ? "Codex" : "Cursor";
+  const remediation =
+    target === "codex"
+      ? "Set allowed_tools.codex: false or move Codex tool dependencies into agents/openai.yaml."
+      : "Set allowed_tools.cursor: false or express Cursor tool policy through tools.";
   return [
     {
-      code: "codex-allowed-tools-unsupported",
+      code: `${target}-allowed-tools-unsupported`,
       featureId: "tools-policy",
       severity: "error",
       path,
       message:
-        `${path} sets allowed_tools for Codex, but Codex skills do not currently have a skill-local allowed-tools equivalent. ` +
-        "Set allowed_tools.codex: false or move Codex tool dependencies into agents/openai.yaml.",
+        `${path} sets allowed_tools for ${targetLabel}, but ${targetLabel} skills do not currently have a skill-local allowed-tools equivalent. ` +
+        remediation,
     },
   ];
 }

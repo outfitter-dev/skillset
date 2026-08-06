@@ -174,6 +174,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       allowed_tools: {
         claude: ["Read", "Write"],
         codex: false,
+        cursor: false,
       },
       bin: {
         source: "repo:tools/docs-cli/bin",
