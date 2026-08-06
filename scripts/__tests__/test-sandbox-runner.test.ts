@@ -21,7 +21,7 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
     [
       "bun",
       "-e",
-      "const fs=await import('node:fs/promises');console.log(JSON.stringify({count:process.env.GIT_CONFIG_COUNT,git:[process.env.GIT_CONFIG_GLOBAL,process.env.GIT_CONFIG_SYSTEM],gitSizes:await Promise.all([process.env.GIT_CONFIG_GLOBAL,process.env.GIT_CONFIG_SYSTEM].map(async(path)=>(await fs.stat(path)).size)),home:process.env.HOME,marker:process.env.SKILLSET_TEST_SANDBOX,prompt:process.env.GIT_TERMINAL_PROMPT,xdg:[process.env.XDG_CONFIG_HOME,process.env.XDG_CACHE_HOME,process.env.XDG_DATA_HOME,process.env.XDG_STATE_HOME]}))",
+      "const fs=await import('node:fs/promises');console.log(JSON.stringify({count:process.env.GIT_CONFIG_COUNT,git:[process.env.GIT_CONFIG_GLOBAL,process.env.GIT_CONFIG_SYSTEM],gitSizes:await Promise.all([process.env.GIT_CONFIG_GLOBAL,process.env.GIT_CONFIG_SYSTEM].map(async(path)=>(await fs.stat(path)).size)),home:process.env.HOME,marker:process.env.SKILLSET_TEST_SANDBOX,noSystem:process.env.GIT_CONFIG_NOSYSTEM,prompt:process.env.GIT_TERMINAL_PROMPT,xdg:[process.env.XDG_CONFIG_HOME,process.env.XDG_CACHE_HOME,process.env.XDG_DATA_HOME,process.env.XDG_STATE_HOME]}))",
     ],
     decoy.env
   );
@@ -33,6 +33,7 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
     readonly gitSizes: readonly number[];
     readonly home: string;
     readonly marker: string;
+    readonly noSystem: string;
     readonly prompt: string;
     readonly xdg: readonly string[];
   };
@@ -42,6 +43,7 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
   ).toBeTrue();
   expect(observed.git.every((path) => path.includes("skillset-test-"))).toBeTrue();
   expect(observed.gitSizes).toEqual([0, 0]);
+  expect(observed.noSystem).toBe("1");
   expect(observed.prompt).toBe("0");
   expect(observed.count).toBeUndefined();
   await expect(access(observed.marker)).rejects.toThrow();

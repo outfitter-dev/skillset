@@ -198,11 +198,16 @@ async function executable(
 }
 
 async function processTreeBin(root: string, name: string): Promise<string> {
-  return executable(
+  const bin = await executable(
     root,
     name,
-    '#!/bin/sh\ntrap \'\' TERM\nsleep 30 &\nchild=$!\nprintf \'%s\\n\' "$child"\nwait "$child"\n'
+    '#!/bin/sh\nif [ "$1" = "warmup" ]; then exit 0; fi\ntrap \'\' TERM\nsleep 30 &\nchild=$!\nprintf \'%s\\n\' "$child"\nwait "$child"\n'
   );
+  // The first exec of a freshly written executable can pay a macOS security
+  // scan (~250ms) that would consume short probe timeouts before the script
+  // produces output; absorb it before the timed run.
+  Bun.spawnSync({ cmd: [bin, "warmup"] });
+  return bin;
 }
 
 async function processIsRunning(pid: number): Promise<boolean> {

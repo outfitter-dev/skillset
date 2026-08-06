@@ -100,10 +100,15 @@ test("SET-389: linked worktrees and caller-owned remote roots are rejected befor
   ).rejects.toThrow("linked worktree");
 
   const shared = await mkdtemp(join(root, "shared-common-dir-"));
-  await writeFile(
-    join(shared, ".git"),
-    `gitdir: ${await realpath(join(process.cwd(), ".git"))}\n`
+  // Resolve the common dir via rev-parse: in a linked worktree, cwd/.git is a
+  // pointer file rather than the shared common Git directory.
+  const commonDir = await runTestGit(
+    process.cwd(),
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-common-dir"
   );
+  await writeFile(join(shared, ".git"), `gitdir: ${await realpath(commonDir)}\n`);
   await expect(
     createTestGitRemote(shared, { disposableRoot: root })
   ).rejects.toThrow("common Git directory");

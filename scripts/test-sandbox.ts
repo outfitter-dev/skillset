@@ -61,6 +61,7 @@ try {
   const env: Record<string, string | undefined> = {
     ...process.env,
     GIT_CONFIG_GLOBAL: git.global,
+    GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_SYSTEM: git.system,
     GIT_TERMINAL_PROMPT: "0",
     NODE_ENV: "test",
