@@ -1,7 +1,7 @@
 # Goal Execution Contract: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: Active
+Status: Complete
 Spec: `.agents/goals/2026-08-07-trails-migration-capability-unblock/SPEC.md`
 Plan: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PLAN.md`
 Prompt: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PROMPT.md`
@@ -127,7 +127,8 @@ updates, and a forbidden-action audit.
   error is not a clean result.
 - Stop only when required external authority/service remains unavailable after
   documented recovery and no independent safe work remains.
-- Last checked: preflight on 2026-08-07; both PRs draft and conflicting.
+- Last checked: closeout on 2026-08-07; both PRs non-draft, independently
+  mergeable/clean, fresh pull-request CI green, and thread/bot-error clean.
 
 ## Persistence
 

@@ -1,32 +1,34 @@
 # Execution Plan: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: In progress
+Status: Complete
 
 ## Current State
 
-- Main workspace: clean `main` at `4ae1177a9ed1823cfb049643b09f923347f337a4`.
-- PR #393: draft, head `05bc116dc45cef36a3861d805c6a3455abc0eabe`,
-  `CONFLICTING` / `DIRTY`, three historical head checks green, zero threads.
-- PR #395: draft, head `c4dbecc3b78d8194723d92c2d4ecc80b8d50af4b`,
-  `CONFLICTING` / `DIRTY`, no hosted checks, zero threads.
-- Worker worktrees are clean and own the two branches.
+- Main used for both independent restacks:
+  `4ae1177a9ed1823cfb049643b09f923347f337a4`.
+- PR #393: non-draft, independently restacked, fresh CI green,
+  `MERGEABLE` / `CLEAN`, zero threads/reviews/bot errors; SET-396 In Review.
+- PR #395: non-draft at `fa0bb1843ea1d5fa88c3763f2dad6f1da0ad3375`,
+  independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, zero
+  threads/reviews/bot errors; SET-394 In Review.
+- Worker worktrees remain present; neither was deleted or destructively cleaned.
 - npm latest: `skillset@0.22.0`.
 
 ## Ordered Work
 
-1. Validate packet and record preflight in `RETRO.md`.
-2. Detach the clean SET-396 worker without deleting it; check out #393 in the
+1. [complete] Validate packet and record preflight in `RETRO.md`.
+2. [complete] Detach the clean SET-396 worker without deleting it; check out #393 in the
    main workspace and restack only that branch onto live `main`.
-3. Resolve #393 conflicts, regenerate, run focused and broad gates, and obtain
+3. [complete] Resolve #393 conflicts, regenerate, run focused and broad gates, and obtain
    three independent final-tip reviews.
-4. Commit packet/evidence on #393 as the first owning execution branch, submit
+4. [complete] Commit packet/evidence on #393 as the first owning execution branch, submit
    draft, reconcile fresh CI/review/bot state, and mark ready only when proven.
-5. Detach the clean SET-394 worker; return main workspace to live `main`, check
+5. [complete] Detach the clean SET-394 worker; return main workspace to live `main`, check
    out #395, and restack only that branch independently.
-6. Resolve #395 conflicts, regenerate, run focused and broad gates, and obtain
+6. [complete] Resolve #395 conflicts, regenerate, run focused and broad gates, and obtain
    three independent final-tip reviews.
-7. Submit #395 draft, reconcile fresh CI/review/bot state, mark ready only when
+7. [complete] Submit #395 draft, reconcile fresh CI/review/bot state, mark ready only when
    proven, update SET-394/SET-396 and affected Trails blocker issues, and
    finalize `RETRO.md`.
 
