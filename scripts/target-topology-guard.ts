@@ -39,27 +39,27 @@ export interface TargetTopologyDuplicateAllowlist extends TargetTopologyViolatio
 }
 
 export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] = [
-  allow("packages/schema/src/contracts.ts", 11, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
+  allow("packages/schema/src/contracts.ts", 14, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
   allow("packages/schema/src/examples.ts", 48, 18, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete targets field."),
   allow("packages/schema/src/examples.ts", 94, 20, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete marketplace targets field."),
   allow("packages/schema/src/examples.ts", 206, 24, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
-  allow("packages/schema/src/examples.ts", 360, 18, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
-  allow("packages/schema/src/examples.ts", 407, 32, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Skill eval example demonstrates an intentionally narrowed case target matrix."),
-  allow("packages/schema/src/examples.ts", 446, 16, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete activation targets field."),
+  allow("packages/schema/src/examples.ts", 362, 18, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
+  allow("packages/schema/src/examples.ts", 410, 32, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Skill eval example demonstrates an intentionally narrowed case target matrix."),
+  allow("packages/schema/src/examples.ts", 450, 16, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete activation targets field."),
   allow("packages/registry/src/index.ts", 10, 52, "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
   allow("packages/registry/src/schema-snapshots.ts", 5, 40, "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
   allow("scripts/source-layout-migration.ts", 72, 24, "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),
   allow("scripts/bootstrap/main.ts", 59, 15, "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex"', "Bootstrap exposes provider-specific setup commands only for the two supported runtimes."),
   allow("packages/core/src/render-result-collector.ts", 820, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Commands are provider-native companion formats for Claude and Cursor."),
   allow("packages/core/src/render-result-collector.ts", 826, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Agents are provider-native companion formats for Claude and Cursor."),
-  allow("packages/core/src/render.ts", 1362, 7, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor hooks require normalized provider-native output."),
-  allow("packages/core/src/render.ts", 1382, 10, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor skip copying Claude-native hook files."),
+  allow("packages/core/src/render.ts", 1366, 7, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor hooks require normalized provider-native output."),
+  allow("packages/core/src/render.ts", 1386, 10, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor skip copying Claude-native hook files."),
   allow("apps/skillset/src/provider-format-updates.ts", 195, 10, "displayProvider", "R3", 'provider === "codex" -> provider === "claude" -> else [cursor]', "Provider display labels preserve unknown registry values."),
   allow("packages/core/src/provider-format-conformance.ts", 465, 5, "checkSkillMarkdown", "R3", 'target === "codex" -> target === "cursor" -> else [claude]', "Provider-native skill formats use distinct registry references."),
   allow("packages/core/src/render-plugin-manifest.ts", 79, 5, "renderPluginManifest", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin manifests have distinct formats."),
   allow("packages/core/src/render-plugin-manifest.ts", 239, 3, "withOptionalSurfacePaths", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin surfaces have distinct destination fields."),
-  allow("packages/core/src/render.ts", 1344, 5, "copyPluginCompanionFiles", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native companion file sets are intentionally distinct."),
-  allow("packages/core/src/render.ts", 270, 3, "marketplaceReadmeLines", "R3", 'target === "claude" -> target === "cursor" -> else [codex]', "Provider-native marketplace README guidance has distinct destination formats."),
+  allow("packages/core/src/render.ts", 1348, 5, "copyPluginCompanionFiles", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native companion file sets are intentionally distinct."),
+  allow("packages/core/src/render.ts", 274, 3, "marketplaceReadmeLines", "R3", 'target === "claude" -> target === "cursor" -> else [codex]', "Provider-native marketplace README guidance has distinct destination formats."),
 ] as const;
 
 function allow(

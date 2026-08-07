@@ -1,10 +1,16 @@
 export const SEMVER_PATTERN =
   "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
+export const PROVIDER_NATIVE_REFERENCE_NAME_PATTERN =
+  "^(?!.*[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029])\\S(?:.*\\S)?$";
 
 export type ListConjunction = "and" | "or";
 
 export function createSemverRegExp(): RegExp {
   return new RegExp(SEMVER_PATTERN, "u");
+}
+
+export function isProviderNativeReferenceName(value: string): boolean {
+  return new RegExp(PROVIDER_NATIVE_REFERENCE_NAME_PATTERN, "u").test(value);
 }
 
 export function formatList(

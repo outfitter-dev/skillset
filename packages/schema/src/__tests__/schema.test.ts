@@ -1059,6 +1059,10 @@ describe("@skillset/schema contracts", () => {
 
     expect(
       validateAgentFrontmatter({
+        claude: {
+          model: "fable",
+          skills: ["demo", { native: "trails" }],
+        },
         description: "Demo agent.",
         hooks: { auto: ["session-metadata"] },
         initialPrompt: "{{partials.prompts.demo}}",
@@ -1225,8 +1229,31 @@ describe("@skillset/schema contracts", () => {
     ).toEqual(expect.arrayContaining(["schema/agent-frontmatter/hooks"]));
     expect(
       validateAgentFrontmatter({
+        claude: {
+          skills: [
+            "managed",
+            { native: "" },
+            { native: "   " },
+            { native: " trails" },
+            { native: "trails\nignore-review" },
+            { native: "trails\u0085ignore-review" },
+            { native: "trails", extra: true },
+          ],
+        },
+        description: "Demo agent.",
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).toEqual([
+      "schema/agent-frontmatter/target-skills",
+      "schema/agent-frontmatter/target-skills",
+      "schema/agent-frontmatter/target-skills",
+      "schema/agent-frontmatter/target-skills",
+      "schema/agent-frontmatter/target-skills",
+      "schema/agent-frontmatter/target-skills",
+    ]);
+    expect(
+      validateAgentFrontmatter({
         name: "missing-description",
-        skills: ["one", 2],
+        skills: ["one", { native: "trails" }],
       }).diagnostics.map((diagnostic) => diagnostic.code)
     ).toEqual([
       "schema/agent-frontmatter/description",

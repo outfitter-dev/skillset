@@ -43,7 +43,10 @@ import {
   readPreprocessDependencySync,
   resolveMarkedPathReferences,
 } from "./preprocess";
-import { resolveProjectAgentSkills } from "./project-agent-skills";
+import {
+  resolveProjectAgentSkills,
+  type ResolvedProjectAgentSkill,
+} from "./project-agent-skills";
 import { renderChangelogProjections, type ChangelogProjection } from "./changelog";
 import {
   renderValidatedJson,
@@ -143,6 +146,7 @@ interface RenderedIslandFile {
 interface RenderedProjectAgentFile {
   readonly file: RenderedFile;
   readonly preprocessDependencies: readonly string[];
+  readonly skillReferences: readonly ResolvedProjectAgentSkill[];
   readonly target: TargetName;
 }
 
@@ -532,9 +536,8 @@ async function renderCursorProjectAgent(
             targetPath
           ),
         });
-  const skills = resolveProjectAgentSkills(graph, agent, "cursor")?.map(
-    (skill) => skill.rendered
-  );
+  const skillReferences = resolveProjectAgentSkills(graph, agent, "cursor");
+  const skills = skillReferences?.map((skill) => skill.rendered);
   const frontmatter = mergeRecords(
     mergeRecords(
       stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)),
@@ -568,6 +571,7 @@ async function renderCursorProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    skillReferences: skillReferences ?? [],
     target: "cursor",
   };
 }
@@ -596,9 +600,8 @@ async function renderClaudeProjectAgent(
             targetPath
           ),
         });
-  const skills = resolveProjectAgentSkills(graph, agent, "claude")?.map(
-    (skill) => skill.rendered
-  );
+  const skillReferences = resolveProjectAgentSkills(graph, agent, "claude");
+  const skills = skillReferences?.map((skill) => skill.rendered);
   const adaptiveHooks = renderAdaptiveFrontmatterHooks(
     graph,
     { agentId: agent.outputName, kind: "agent" },
@@ -643,6 +646,7 @@ async function renderClaudeProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    skillReferences: skillReferences ?? [],
     target: "claude",
   };
 }
@@ -656,9 +660,8 @@ async function renderCodexProjectAgent(
   if (initialPrompt?.includes("</initial_prompt>")) {
     throw new Error(`skillset: ${relative(graph.rootPath, agent.sourcePath)} initialPrompt must not contain </initial_prompt>`);
   }
-  const skills = resolveProjectAgentSkills(graph, agent, "codex")?.map(
-    (skill) => skill.rendered
-  );
+  const skillReferences = resolveProjectAgentSkills(graph, agent, "codex");
+  const skills = skillReferences?.map((skill) => skill.rendered);
   const targetPath = join(targetProjectRoot(graph, "codex"), "agents", `${agent.outputName}.toml`);
   const preprocessDependencies = new Set<string>();
   const instructions = await renderCodexProjectAgentInstructions(
@@ -687,6 +690,7 @@ async function renderCodexProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    skillReferences: skillReferences ?? [],
     target: "codex",
   };
 }
@@ -1660,6 +1664,11 @@ function lockItemForProjectAgent(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files[0] ?? "",
     preprocessDependencies: args.result.preprocessDependencies,
+    skillReferences: args.result.skillReferences.map((reference) => ({
+      authored: reference.authored,
+      ownership: reference.ownership,
+      rendered: reference.rendered,
+    })),
     sourceHash: hashProjectAgentSource(
       args.graph,
       args.agent,
@@ -1811,6 +1820,9 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     preprocessDependencies: item.preprocessDependencies === undefined ? undefined : [...item.preprocessDependencies],
     renderInputsHash: item.renderInputsHash,
     skippedSkills: item.skippedSkills === undefined ? undefined : [...item.skippedSkills],
+    skillReferences: item.skillReferences === undefined
+      ? undefined
+      : item.skillReferences.map((reference) => ({ ...reference })),
     sourceHash: item.sourceHash,
     sourceOrigin: item.sourceOrigin === undefined ? undefined : sourceOriginRecord(item.sourceOrigin),
     sourcePath: item.sourcePath,

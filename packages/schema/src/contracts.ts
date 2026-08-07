@@ -1,6 +1,9 @@
 import { sortSchemaRecord } from "./json";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
-import { SEMVER_PATTERN } from "./value-contracts";
+import {
+  PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
+  SEMVER_PATTERN,
+} from "./value-contracts";
 
 export const SKILLSET_SCHEMA_VERSION = "0.1.0";
 export const SKILLSET_SCHEMA_URI_BASE =
@@ -266,9 +269,9 @@ export const agentFrontmatterContract = contract(
   {
     additionalProperties: false,
     properties: {
-      claude: targetOverrideSchema(),
-      codex: targetOverrideSchema(),
-      cursor: targetOverrideSchema(),
+      claude: agentTargetOverrideSchema(),
+      codex: agentTargetOverrideSchema(),
+      cursor: agentTargetOverrideSchema(),
       description: nonEmptyStringSchema(),
       hooks: hookAttachmentSchema(),
       initialPrompt: nonEmptyStringSchema(),
@@ -1286,6 +1289,34 @@ function targetFeatureSchema(): SchemaJsonRecord {
 function targetOverrideSchema(): SchemaJsonRecord {
   return {
     anyOf: [{ type: "boolean" }, { type: "object" }],
+  };
+}
+
+function agentTargetOverrideSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      {
+        additionalProperties: true,
+        properties: {
+          skills: arraySchema({
+            anyOf: [
+              nonEmptyStringSchema(),
+              {
+                ...strictObjectSchema({
+                  native: {
+                    pattern: PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
+                    type: "string",
+                  },
+                }),
+                required: ["native"],
+              },
+            ],
+          }),
+        },
+        type: "object",
+      },
+    ],
   };
 }
 

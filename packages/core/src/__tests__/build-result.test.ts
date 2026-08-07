@@ -592,6 +592,96 @@ Body.
     ]));
   });
 
+  it("renders and records target-scoped provider-native project-agent skills", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: provider-native-agent-skill-root
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/agents/clark.md": `
+---
+name: clark
+description: Architectural conscience.
+claude:
+  model: fable
+  skills:
+    - be-clark
+    - native: trails
+codex:
+  skills:
+    - be-clark
+    - native: trails
+cursor:
+  skills:
+    - be-clark
+    - native: trails
+---
+
+Review the architecture.
+`,
+      ".skillset/skills/be-clark/SKILL.md": `
+---
+name: be-clark
+description: Clark identity.
+---
+
+Apply Clark's identity.
+`,
+    });
+
+    await buildSkillsetResult(root);
+
+    const outputPaths = [
+      ".claude/agents/clark.md",
+      ".codex/agents/clark.toml",
+      ".cursor/agents/clark.md",
+    ] as const;
+    const [claudeOutput, codexOutput, cursorOutput] = await Promise.all(
+      outputPaths.map((outputPath) =>
+        readFile(join(root, outputPath), "utf8")
+      )
+    );
+    expect(claudeOutput).toContain("model: fable");
+    expect(claudeOutput).toContain("skills:\n  - be-clark\n  - trails");
+    expect(codexOutput).toContain("- be-clark\\n- trails");
+    expect(cursorOutput).toContain("skills:\n  - be-clark\n  - trails");
+
+    const lock = JSON.parse(
+      await readFile(join(root, "skillset.lock"), "utf8")
+    ) as {
+      readonly items: readonly {
+        readonly outputPath: string;
+        readonly skillReferences?: readonly unknown[];
+      }[];
+    };
+    const expectedReferences = [
+      {
+        authored: "be-clark",
+        ownership: "managed",
+        rendered: "be-clark",
+      },
+      {
+        authored: "trails",
+        ownership: "provider-native",
+        rendered: "trails",
+      },
+    ];
+    for (const outputPath of outputPaths) {
+      expect(
+        lock.items.find((item) => item.outputPath === outputPath)
+          ?.skillReferences
+      ).toEqual(expectedReferences);
+    }
+
+    const outputPath = outputPaths[0];
+    await Bun.write(join(root, outputPath), `${claudeOutput}\n# drift\n`);
+    const drift = await diffSkillsetResult(root);
+    expect(drift.data.changed).toContain(outputPath);
+  });
+
   it("resolves marked path references for bundles and source-backed project surfaces", async () => {
     const root = await fixture({
       "skillset.yaml": `

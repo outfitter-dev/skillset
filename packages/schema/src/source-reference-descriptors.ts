@@ -40,6 +40,7 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
     notes: [
       "Includes shared skills and provider-specific overrides.",
       "Schema records identities only; Core resolves standalone and qualified plugin selectors.",
+      "Provider-specific { native: <name> } entries are external identities and remain unchanged during managed skill renames.",
     ],
     pathPatterns: ["skills[*]", ...targetOverridePaths],
     scope: "agent-visible-skills",

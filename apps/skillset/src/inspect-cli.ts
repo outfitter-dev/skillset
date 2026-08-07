@@ -4,13 +4,13 @@ import type {
   LookupView,
 } from "@skillset/core";
 import { targetNames } from "@skillset/core";
-import { diffSkillsetResult } from "@skillset/core/internal/build";
 import {
   doctorSkillset,
   explainPath,
   listFeatureCapabilities,
   listGeneratedEntries,
 } from "@skillset/core/internal/authoring";
+import { diffSkillsetResult } from "@skillset/core/internal/build";
 import type {
   SkillsetOptions,
   SourceOrigin,
@@ -25,7 +25,6 @@ import {
   runFiniteCommand,
   type FiniteCommandWriter,
 } from "./cli-finite-command";
-import { withProcessSignalAbort } from "./process-signals";
 import { renderGeneratedEntryList } from "./cli-list-renderer";
 import {
   createInteractiveSession,
@@ -36,6 +35,7 @@ import {
   lookupRequestNeedsPrompts,
   resolveInteractiveLookup,
 } from "./lookup-interactive";
+import { withProcessSignalAbort } from "./process-signals";
 
 export interface ListCommandRequest {
   readonly details: boolean;
@@ -259,6 +259,15 @@ function printExplainResult(
     }
     if (entry.dependencies !== undefined && entry.dependencies.length > 0) {
       writeLine(writer, `    dependencies: ${entry.dependencies.join(", ")}`);
+    }
+    if (
+      entry.skillReferences !== undefined &&
+      entry.skillReferences.length > 0
+    ) {
+      writeLine(
+        writer,
+        `    skill references: ${entry.skillReferences.map((reference) => `${reference.ownership}:${reference.authored}->${reference.rendered}`).join(", ")}`
+      );
     }
     if (
       entry.preprocessDependencies !== undefined &&
@@ -497,7 +506,9 @@ function printFeatureCapability(
   }
 }
 
-function formatFeatureSupport(support: FeatureCapability["targetSupport"][TargetName]): string {
+function formatFeatureSupport(
+  support: FeatureCapability["targetSupport"][TargetName]
+): string {
   const reason = support.reason === undefined ? "" : ` (${support.reason})`;
   const note = support.note === undefined ? "" : ` note: ${support.note}`;
   return `${support.status}${reason}${note}`;

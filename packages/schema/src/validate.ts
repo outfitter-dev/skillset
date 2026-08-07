@@ -1,3 +1,4 @@
+import { isActivationCapability } from "./activation-readiness";
 import {
   AGENT_FRONTMATTER_KEYS,
   CLI_EVENT_SCHEMA_VERSION,
@@ -15,7 +16,6 @@ import {
   UNSUPPORTED_DESTINATION_POLICIES,
 } from "./contracts";
 import { isSchemaRecord } from "./json";
-import { isActivationCapability } from "./activation-readiness";
 import type {
   SchemaJsonRecord,
   SchemaJsonValue,
@@ -23,7 +23,11 @@ import type {
   SkillsetSkillEvalValidationContext,
   SkillsetSchemaValidationResult,
 } from "./types";
-import { createSemverRegExp, formatList } from "./value-contracts";
+import {
+  createSemverRegExp,
+  formatList,
+  isProviderNativeReferenceName,
+} from "./value-contracts";
 
 type KeySet = ReadonlySet<string>;
 
@@ -1682,19 +1686,19 @@ export function validateAgentFrontmatter(
     "schema/agent-frontmatter/skills",
     diagnostics
   );
-  checkTargetBlock(
+  checkAgentTargetBlock(
     value.claude,
     `${path}.claude`,
     "schema/agent-frontmatter/target",
     diagnostics
   );
-  checkTargetBlock(
+  checkAgentTargetBlock(
     value.codex,
     `${path}.codex`,
     "schema/agent-frontmatter/target",
     diagnostics
   );
-  checkTargetBlock(
+  checkAgentTargetBlock(
     value.cursor,
     `${path}.cursor`,
     "schema/agent-frontmatter/target",
@@ -3052,6 +3056,44 @@ function checkTargetBlock(
     diagnostics.push(
       diagnostic(path, code, `${path} must be true, false, or an object`)
     );
+}
+
+function checkAgentTargetBlock(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  checkTargetBlock(value, path, code, diagnostics);
+  if (!isSchemaRecord(value) || value.skills === undefined) return;
+  if (!Array.isArray(value.skills)) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.skills`,
+        "schema/agent-frontmatter/target-skills",
+        `${path}.skills must be an array of managed strings or { native: string } entries`
+      )
+    );
+    return;
+  }
+  for (const [index, entry] of value.skills.entries()) {
+    if (typeof entry === "string" && entry.length > 0) continue;
+    if (
+      isSchemaRecord(entry) &&
+      Object.keys(entry).length === 1 &&
+      typeof entry.native === "string" &&
+      isProviderNativeReferenceName(entry.native)
+    ) {
+      continue;
+    }
+    diagnostics.push(
+      diagnostic(
+        `${path}.skills[${index}]`,
+        "schema/agent-frontmatter/target-skills",
+        `${path}.skills[${index}] must be a non-empty managed string or exactly { native: <non-blank string without surrounding whitespace> }`
+      )
+    );
+  }
 }
 
 function checkTargetFeature(

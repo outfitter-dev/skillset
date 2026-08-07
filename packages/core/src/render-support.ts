@@ -37,6 +37,7 @@ export interface LockItem {
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
   readonly skippedSkills?: readonly string[];
+  readonly skillReferences?: readonly ProjectAgentSkillLockReference[];
   readonly sourceHash: string;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
@@ -45,6 +46,12 @@ export interface LockItem {
   readonly transforms?: readonly AppliedTransform[];
   readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
+}
+
+export interface ProjectAgentSkillLockReference {
+  readonly authored: string;
+  readonly ownership: "managed" | "provider-native";
+  readonly rendered: string;
 }
 
 export interface LockRoot {

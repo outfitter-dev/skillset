@@ -51,6 +51,18 @@ Review diffs and call out correctness risks.
 
 The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [agent frontmatter examples](../reference/examples/agent-frontmatter.yaml) for the current shared fields, common metadata blocks, `supports`, and provider override blocks. Provider-specific fields remain explicit inside `claude`, `codex`, and `cursor` blocks rather than being inferred from portable keys.
 
+Shared `skills` entries and ordinary string entries in a provider block are managed Skillset references. They must resolve to a target-enabled standalone skill or use the qualified `plugin.<plugin>.skill:<skill>` form. When a provider project agent intentionally references a provider-installed skill that is outside Skillset's source graph, author an explicit target-scoped native entry instead:
+
+```yaml
+claude:
+  model: fable
+  skills:
+    - be-clark
+    - native: trails
+```
+
+`native` is an ownership escape, not a missing-skill bypass. Skillset preserves the exact authored name and ordering for that provider but does not validate, install, import, or claim the referenced skill. It is unavailable in shared top-level `skills`; each use must stay visible inside the owning provider block. Use a qualified plugin reference when Skillset owns the plugin skill, because that keeps target availability validation and provider namespace rendering intact.
+
 Project-agent bodies and initial prompts can use resolve-only references such
 as `{{@references/guide.md}}` or `{{@shared:references/guide.md}}`. Skillset
 validates the source file and renders a path from each provider's generated
@@ -95,15 +107,15 @@ The Codex behavior is intentionally classified as `shimmed`, not native, because
 ## Diagnostics
 
 - Duplicate or invalid resolved agent names fail before writing target files.
-- Missing `description`, empty bodies, unknown or target-disabled `skills`, and unsafe `initialPrompt` values fail before writing target files. Qualified plugin skills use `plugin.<plugin>.skill:<skill>` in source and lower to the provider namespace.
+- Missing `description`, empty bodies, unknown or target-disabled managed `skills`, and unsafe `initialPrompt` values fail before writing target files. Qualified plugin skills use `plugin.<plugin>.skill:<skill>` in source and render to the provider namespace. Provider-native skill references must use the exact target-scoped `{ native: <name> }` form.
 - Top-level `model` warns unless every enabled target has a target-specific model from `claude.model`, `codex.model`, `cursor.model`, or target defaults.
 - A Codex-enabled plugin with Claude or Cursor plugin agents fails instead of silently dropping or promoting them.
 - User/global agent destinations should require explicit future setup workflow, not normal build.
 
 ## Provenance
 
-Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, and hashes in the root `skillset.lock`. `skillset list` includes `project-agent` entries, and `skillset explain <source-root>/agents/<name>.md` points from source to the generated provider files.
+Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, hashes, and ordered skill-reference provenance in the root `skillset.lock`. Each reference records `managed` or `provider-native` ownership plus its authored and rendered names. `skillset list` includes `project-agent` entries, and `skillset explain <source-root>/agents/<name>.md` points from source to the generated provider files.
 
 ## Tests and Fixtures
 
-Fixtures cover `<source-root>/agents/*.md` rendering to `.claude/agents/*.md`, `.codex/agents/*.toml`, and `.cursor/agents/*.md`, explicit names that differ from filenames, initial prompts, skills prefaces, metadata suppression, target overrides, collisions, unsafe closing tags, and Codex plugin-agent unsupported diagnostics.
+Fixtures cover `<source-root>/agents/*.md` rendering to `.claude/agents/*.md`, `.codex/agents/*.toml`, and `.cursor/agents/*.md`, explicit names that differ from filenames, initial prompts, managed and provider-native skill references, skills prefaces, metadata suppression, target overrides, drift, collisions, unsafe closing tags, and Codex plugin-agent unsupported diagnostics.

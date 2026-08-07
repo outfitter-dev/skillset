@@ -1,5 +1,8 @@
 claude:
   model: sonnet
+  skills:
+    - changelog
+    - native: provider-release
 codex:
   model: gpt-5.1-codex
 description: Use this agent for release review.
