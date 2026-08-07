@@ -7,10 +7,10 @@ Status: Active
 
 - Main used for both independent restacks:
   `4ae1177a9ed1823cfb049643b09f923347f337a4`.
-- PR #393: non-draft and independently restacked. A hosted Codex P2 found that
-  U+0085 remained valid; the local fix at `752b04c236bd9108c09e126f5132caa075d6ad2b`
-  rejects the full C0/C1 control ranges plus U+2028/U+2029. Final-tip local
-  reviews, submit, fresh CI, and hosted reconciliation remain.
+- PR #393: non-draft at `568d090c8b0f6acbb724728da5a64444e3347040`,
+  independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, hosted Codex
+  P2 fixed/resolved, and three exact-tip reviews 5/5 clean. Final-head Bugbot
+  attempts repeated the external usage-limit error; SET-396 is Ready to Merge.
 - PR #395: non-draft at `0567db91d7e93ba9d803f06cf610fed1d4335e11`,
   independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, and its
   hosted Codex P2 is fixed/resolved. A bounded final-head Cursor Bugbot rerun
@@ -38,8 +38,8 @@ Status: Active
 8. [complete] Reopen the loop for fresh hosted Codex findings on both PRs; fix
    U+0085 validation on #393 and read-only mode-only repair on #395, preserving
    independent ancestry.
-9. [in progress] Re-attest both repaired tips with three independent reviews,
-   full local gates, fresh merge-ref CI, resolved threads, and final-head bot state.
+9. [complete] Re-attest both repaired tips with three independent reviews, full
+   local gates, fresh merge-ref CI, resolved threads, and final-head bot state.
 10. [blocked] Re-query GitHub and Linear, finalize the packet, and stop at the
     ready-for-approval boundary without merge, queue, release, or downstream
     work. Cursor Bugbot's external usage limit currently prevents the required

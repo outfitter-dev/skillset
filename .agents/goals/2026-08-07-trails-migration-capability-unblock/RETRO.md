@@ -13,18 +13,19 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 - Objective: Reconcile #393 and #395 to ready-for-approval without merge or release.
 - Completion horizon: Ready-pr.
-- Outcome: Both independent implementations are repaired locally; #395 has
-  reached fresh final-head CI and resolved its hosted P2, while #393 still
-  requires final-tip reviews, submit, hosted CI, and thread reconciliation.
-- Tracker/PR/source-control state: Both PRs are non-draft and independently
-  based on the same live main. #395 is `MERGEABLE` / `CLEAN` with fresh
-  pull-request CI; #393's final local repair has not yet been submitted.
+- Outcome: Both independent implementations are repaired, submitted, locally
+  reviewed, mergeable/clean, fresh-CI green, and have resolved hosted Codex P2
+  threads. Strict ready-for-approval is blocked only by Cursor Bugbot's shared
+  external usage/spend limit.
+- Tracker/PR/source-control state: Both PRs are non-draft, independently based
+  on the same live main, `MERGEABLE` / `CLEAN`, and fresh pull-request CI green.
+  Linear reports SET-394 and SET-396 Ready to Merge.
 - Verification: Both branches passed focused tests, the full repository check,
   the canonical pre-push gate, generated-output checks, and three independent
   clean implementation reviews.
-- Review state: The new hosted P2s on both PRs are fixed locally. #395 has three
-  clean final-tip re-reviews and a resolved thread. Superseded #393 round-3
-  findings are retained as `.superseded.jsonl`; clean final-tip reviews remain.
+- Review state: The hosted P2s on both PRs are fixed and resolved. Each repaired
+  tip has three clean 5/5 exact-tip local reviews with zero P0-P3. Superseded
+  finding reports remain retained as `.superseded.jsonl` evidence.
 - Remaining risks: Physical chmod behavior was not exercised on Windows; the
   documented contract intentionally retains portable mode intent while skipping
   physical mode enforcement there. Downstream Trails work remains release-gated.
@@ -34,11 +35,10 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Prompt checked: Pass, 3,994/4,000 with no placeholders.
 - Goal/prompt alignment checked: Pass; prompt carries scope, sequence, loop,
   review, gates, hard rules, stop rules, done/not-done, evidence, and persistence.
-- Review blockers: #393 needs three clean final-tip reviews and hosted thread
-  reconciliation. #395's bounded final-head Bugbot rerun repeated the external
+- Review blockers: Final-head Bugbot runs on both PRs repeated the external
   usage-limit error; the required zero-review-bot-error state is not reachable
   without a Cursor user/team usage-limit change.
-- Verification blockers: #393 needs its full exact-tip gate and fresh hosted CI.
+- Verification blockers: None in source, tests, CI, mergeability, or threads.
 - Tracker blockers: Downstream issues remain release-gated; no downstream work was authorized.
 - Authority blockers: Merge, queue, publish, release, deploy, and downstream
   migration remain outside this goal and require separate maintainer authority.
@@ -183,6 +183,12 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
   `serverGenReqId_10e62fed-d44e-477e-8bc0-5b4c174be047` and repeated the same
   usage/spend-limit failure. Billing/settings were not changed. The strict
   zero-bot-error gate remains externally blocked.
+- #393 then passed three final-tip round-5 reviews at 5/5 with zero P0-P3, the
+  exact-head pre-push gate at 1,739 tests / 56,358 assertions, and fresh hosted
+  `changeset`, `check`, and `skillset-ci`. GitHub reports `MERGEABLE` / `CLEAN`;
+  its hosted Codex P2 is replied to and resolved. Automatic and bounded manual
+  Bugbot attempts on the final head repeated the same usage-limit failure
+  (`serverGenReqId_82b96426-699d-458a-a3cd-e259f2af7f6d`).
 
 ## Review Log
 
@@ -201,6 +207,9 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | #395 | 2 | mode propagation/writes | `tmp/reviews/pr395/mode-propagation/round-2.json` | 5/5 | clean | 0 | Exact repaired tip `0567db91d` |
 | #395 | 2 | lock/hash/migration/provenance | `tmp/reviews/pr395/lock-provenance/round-2.json` | 5/5 | clean | 0 | Exact repaired tip `0567db91d` |
 | #395 | 2 | full branch | `tmp/reviews/pr395/full/round-2.json` | 5/5 | clean | 0 | Exact repaired tip `0567db91d` |
+| #393 | 5 | contract/provenance | `tmp/reviews/pr393/contract/round-5.json` | 5/5 | clean | 0 | Exact tip `568d090c`; tracker drift fixed |
+| #393 | 5 | runtime/render/rename | `tmp/reviews/pr393/runtime/round-5.json` | 5/5 | clean | 0 | Exact tip `568d090c`; 98 tests / 436 expectations |
+| #393 | 5 | full branch | `tmp/reviews/pr393/full/round-5.json` | 5/5 | clean | 0 | Exact tip `568d090c`; LR-393-FULL-004 fixed |
 
 ## Verification Log
 
@@ -232,6 +241,8 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | Three independent round-2 reviews | #395 repaired tip | pass | 5/5 each; zero P0-P3 |
 | Fresh pull-request CI | #395 repaired tip | pass | `changeset`, `check`, `skillset-ci`; mergeable/clean; P2 thread resolved |
 | U+0085 shared-contract regression | #393 repaired implementation | pass | Schema, Core, and direct value-contract coverage |
+| `bun run hooks:pre-push` | #393 exact reviewed tip | pass | 1,739 tests / 56,358 assertions; all canonical gates |
+| Fresh pull-request CI | #393 exact reviewed tip | pass | `changeset`, `check`, `skillset-ci`; mergeable/clean; P2 thread resolved |
 
 ## Prompt / Goal Alignment
 
@@ -245,7 +256,7 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 | Item | State | Notes |
 | --- | --- | --- |
-| SET-396 / #393 | Ready to Merge / re-attestation active | Independent local repair at `752b04c`; final reviews/submit/CI/thread/bot reconciliation remain |
+| SET-396 / #393 | Ready to Merge / externally blocked | Independent head `568d090c`; CI green, mergeable/clean, P2 resolved, three reviews clean; final-head Bugbot failed on usage limit |
 | SET-394 / #395 | Ready to Merge / externally blocked | Linear automation advanced the tracker after CI; independent repaired head `0567db91` is mergeable/clean with P2 resolved, but the final-head Bugbot rerun failed on usage limit |
 | TRL-1272 | Backlog, blocked | Waits for approved/merged/published SET-396 release |
 | TRL-1274 | Backlog, blocked | Waits for approved/merged/published SET-394 release |
@@ -256,13 +267,13 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 ## Final State
 
-- Completion proof: Pending #393 final-tip reviews/submit/CI/thread reconciliation.
-  Strict ready-for-approval remains blocked by #395's final-head Bugbot
-  usage-limit failure.
-- Review report summary: #395 has three repaired-tip 5/5 reviews with zero
-  P0-P3. #393's superseded round-3 evidence is retained; round-4 reviews remain.
-- Verification summary: #395's repaired tip has passed local and hosted gates.
-  #393's focused U+0085 proof is green; the aggregate and hosted gates remain.
+- Completion proof: All source, local-review, local-gate, hosted-CI,
+  mergeability, tracker, and thread criteria pass. Strict ready-for-approval
+  remains blocked only by final-head Bugbot usage-limit failures on both PRs.
+- Review report summary: Both repaired tips have three 5/5 exact-tip reviews
+  with zero P0-P3. Superseded findings remain retained for auditability.
+- Verification summary: Both repaired tips passed focused proof, aggregate
+  checks, canonical pre-push gates, generated-output checks, and hosted CI.
 - Forbidden actions audit: No merge, queue, publish, release, deploy, HOME or
   provider-config mutation, destructive cleanup, worktree deletion, or
   downstream Trails implementation occurred.
