@@ -179,9 +179,13 @@ async function processTreeBin(root: string, name: string): Promise<string> {
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(
     bin,
-    '#!/bin/sh\nsleep 30 &\nchild=$!\nprintf \'%s\\n\' "$child"\nwait "$child"\n',
+    '#!/bin/sh\nif [ "$1" = "warmup" ]; then exit 0; fi\nsleep 30 &\nchild=$!\nprintf \'%s\\n\' "$child"\nwait "$child"\n',
     "utf8"
   );
   await chmod(bin, 0o755);
+  // The first exec of a freshly written executable can pay a macOS security
+  // scan (~250ms) that would consume short probe timeouts before the script
+  // produces output; absorb it before the timed run.
+  Bun.spawnSync({ cmd: [bin, "warmup"] });
   return bin;
 }
