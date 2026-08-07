@@ -4412,6 +4412,76 @@ Tools body.
   await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Codex skill-local lowering");
 });
 
+test("build and lint reject Cursor allowed_tools without an explicit Cursor opt-out", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+---
+name: tools
+description: Shares allowed tools.
+allowed_tools:
+  - Read
+---
+
+Tools body.
+`,
+  });
+
+  const lintReport = await inspectSkillset(await loadBuildGraph(root));
+  expect(lintReport.issues).toContainEqual(expect.objectContaining({
+    code: "cursor-allowed-tools-unsupported",
+    featureId: "tools-policy",
+  }));
+  await expect(lintSkillset(root)).rejects.toThrow("cursor-allowed-tools-unsupported");
+  await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Cursor skill-local lowering");
+});
+
+test("Cursor build accepts allowed_tools with an explicit Cursor opt-out", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+---
+name: tools
+description: Shares allowed tools.
+allowed_tools:
+  claude:
+    - Read
+  cursor: false
+---
+
+Tools body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const cursorSkill = await readFile(
+    join(root, "plugins/alpha/cursor/skills/tools/SKILL.md"),
+    "utf8"
+  );
+  expect(cursorSkill).not.toContain("allowed_tools:");
+  expect(cursorSkill).not.toContain("allowed-tools:");
+});
+
 test("allowed_tools arrays must not be empty", async () => {
   const root = await fixture({
     "skillset.yaml": `

@@ -130,8 +130,8 @@ unclassified, provenance-only entries.
   overrides belong under the top-level `tools` block.
 - Reject native `allow` strings that contradict an effective portable
   `false`, such as `tools.write: false` plus `tools.claude.allow: [Write]`.
-- Reject shared or Codex-targeted `allowed_tools` unless Codex is explicitly
-  false.
+- Reject shared, Codex-targeted, or Cursor-targeted `allowed_tools` unless each
+  unsupported target is explicitly false.
 
 ## Provenance
 

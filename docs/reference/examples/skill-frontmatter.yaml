@@ -3,6 +3,7 @@ allowed_tools:
     - Read
     - Write
   codex: false
+  cursor: false
 bin:
   source: repo:tools/docs-cli/bin
 claude:

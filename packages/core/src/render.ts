@@ -1106,6 +1106,9 @@ async function renderSkillMarkdown(
 ): Promise<RenderedSkillMarkdown> {
   const metadata = skill.metadata;
   const targetOptions = skill.targets[target].options;
+  if (target === "cursor") {
+    rejectCursorAllowedTools(skill, relative(graph.rootPath, skill.sourcePath));
+  }
   const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter, skill.sourcePath), {
     name:
       readString(metadata, "name") ??
@@ -1294,6 +1297,16 @@ function renderCodexSkillAgentConfig(skill: SourceSkill, label: string): JsonRec
   }
   if (implicitInvocation === undefined) return {};
   return { policy: { allow_implicit_invocation: implicitInvocation } };
+}
+
+function rejectCursorAllowedTools(skill: SourceSkill, label: string): void {
+  const allowedTools = readAllowedTools(skill.frontmatter, "cursor", label);
+  if (allowedTools !== undefined && allowedTools !== false) {
+    throw new Error(
+      `skillset: ${label} allowed_tools has no Cursor skill-local lowering; ` +
+        "set allowed_tools.cursor: false or express Cursor tool policy through tools"
+    );
+  }
 }
 
 function renderSkillToolsMetadataFile(

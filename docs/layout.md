@@ -396,11 +396,12 @@ allowed_tools:
     - Read
     - Grep
   codex: false
+  cursor: false
 ```
 
 Values can be shared (`implicit_invocation: false`) or target-scoped (`implicit_invocation: { claude: false, codex: true }`). `implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. If a Codex source skill already has `agents/openai.yaml`, generated policy is merged into it instead of overwriting the rest of the file.
 
-`allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior — it suppresses permission prompts for the listed tools, not a portable security sandbox. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset check` rejects shared or Codex-targeted allowed tools until a real Codex permission render is validated.
+`allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior — it suppresses permission prompts for the listed tools, not a portable security sandbox. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but neither Codex nor Cursor has a skill-local equivalent to Claude tool preapproval. For now Codex- and Cursor-enabled skills must leave the corresponding `allowed_tools` value unset or set it to `false`; `skillset check` rejects shared, Codex-targeted, or Cursor-targeted allowed tools until a real provider permission render is validated.
 
 Use the portable `tools` policy for provider-neutral tool meaning. The block is open-world: unset means provider default, `true` grants or preapproves where possible, and `false` constrains where possible. The registry is strict, so provider drift is visible instead of silently copied through:
 
