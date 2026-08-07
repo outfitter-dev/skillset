@@ -430,7 +430,7 @@
                         "additionalProperties": false,
                         "properties": {
                           "native": {
-                            "pattern": "^\\S(?:.*\\S)?$",
+                            "pattern": "^(?!.*[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029])\\S(?:.*\\S)?$",
                             "type": "string"
                           }
                         },
@@ -467,7 +467,7 @@
                         "additionalProperties": false,
                         "properties": {
                           "native": {
-                            "pattern": "^\\S(?:.*\\S)?$",
+                            "pattern": "^(?!.*[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029])\\S(?:.*\\S)?$",
                             "type": "string"
                           }
                         },
@@ -504,7 +504,7 @@
                         "additionalProperties": false,
                         "properties": {
                           "native": {
-                            "pattern": "^\\S(?:.*\\S)?$",
+                            "pattern": "^(?!.*[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029])\\S(?:.*\\S)?$",
                             "type": "string"
                           }
                         },

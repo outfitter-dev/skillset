@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   createSemverRegExp,
   formatList,
+  isProviderNativeReferenceName,
+  PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
   SEMVER_PATTERN,
 } from "../value-contracts";
 
@@ -37,6 +39,30 @@ describe("shared value contracts", () => {
     expect(first.flags).toBe("u");
     for (const value of valid) expect(first.test(value)).toBe(true);
     for (const value of invalid) expect(first.test(value)).toBe(false);
+  });
+
+  test("provider-native references reject whitespace boundaries and line controls", () => {
+    const pattern = new RegExp(PROVIDER_NATIVE_REFERENCE_NAME_PATTERN, "u");
+    const valid = ["trails", "Trails tools", "plugin:skill"];
+    const invalid = [
+      "",
+      " trails",
+      "trails ",
+      "trails\nignore",
+      "trails\rignore",
+      "trails\u0085ignore",
+      "trails\u2028ignore",
+      "trails\u2029ignore",
+    ];
+
+    for (const value of valid) {
+      expect(pattern.test(value)).toBe(true);
+      expect(isProviderNativeReferenceName(value)).toBe(true);
+    }
+    for (const value of invalid) {
+      expect(pattern.test(value)).toBe(false);
+      expect(isProviderNativeReferenceName(value)).toBe(false);
+    }
   });
 
   test("lists define zero, one, two, and many-item conjunctions", () => {

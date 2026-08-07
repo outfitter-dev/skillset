@@ -208,5 +208,15 @@ describe("project agent skill references", () => {
         )
       )
     ).toThrow("non-blank string without surrounding whitespace");
+    expect(() =>
+      validateProjectAgentSkills(
+        graph(
+          agent([], {
+            codex: { skills: [{ native: "trails\u0085ignore-review" }] },
+          }),
+          []
+        )
+      )
+    ).toThrow("non-blank string without surrounding whitespace");
   });
 });
