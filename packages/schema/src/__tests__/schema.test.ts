@@ -1235,12 +1235,14 @@ describe("@skillset/schema contracts", () => {
             { native: "" },
             { native: "   " },
             { native: " trails" },
+            { native: "trails\nignore-review" },
             { native: "trails", extra: true },
           ],
         },
         description: "Demo agent.",
       }).diagnostics.map((diagnostic) => diagnostic.code)
     ).toEqual([
+      "schema/agent-frontmatter/target-skills",
       "schema/agent-frontmatter/target-skills",
       "schema/agent-frontmatter/target-skills",
       "schema/agent-frontmatter/target-skills",

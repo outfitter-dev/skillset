@@ -1,5 +1,7 @@
 import { relative } from "node:path";
 
+import { isProviderNativeReferenceName } from "@skillset/schema";
+
 import { readStringArray, targetNames } from "./config";
 import { assertRewrittenSourceReference } from "./source-reference-contract";
 import type {
@@ -195,8 +197,7 @@ function readTargetProjectAgentSkills(
       isJsonRecord(entry) &&
       Object.keys(entry).length === 1 &&
       typeof entry.native === "string" &&
-      entry.native.trim().length > 0 &&
-      entry.native === entry.native.trim()
+      isProviderNativeReferenceName(entry.native)
     ) {
       return { kind: "provider-native", reference: entry.native };
     }

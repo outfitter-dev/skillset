@@ -1,6 +1,9 @@
 import { sortSchemaRecord } from "./json";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
-import { SEMVER_PATTERN } from "./value-contracts";
+import {
+  PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
+  SEMVER_PATTERN,
+} from "./value-contracts";
 
 export const SKILLSET_SCHEMA_VERSION = "0.1.0";
 export const SKILLSET_SCHEMA_URI_BASE =
@@ -1302,7 +1305,7 @@ function agentTargetOverrideSchema(): SchemaJsonRecord {
               {
                 ...strictObjectSchema({
                   native: {
-                    pattern: "^\\S(?:.*\\S)?$",
+                    pattern: PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
                     type: "string",
                   },
                 }),

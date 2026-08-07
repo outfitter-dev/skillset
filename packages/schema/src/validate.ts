@@ -23,7 +23,11 @@ import type {
   SkillsetSkillEvalValidationContext,
   SkillsetSchemaValidationResult,
 } from "./types";
-import { createSemverRegExp, formatList } from "./value-contracts";
+import {
+  createSemverRegExp,
+  formatList,
+  isProviderNativeReferenceName,
+} from "./value-contracts";
 
 type KeySet = ReadonlySet<string>;
 
@@ -3078,8 +3082,7 @@ function checkAgentTargetBlock(
       isSchemaRecord(entry) &&
       Object.keys(entry).length === 1 &&
       typeof entry.native === "string" &&
-      entry.native.trim().length > 0 &&
-      entry.native === entry.native.trim()
+      isProviderNativeReferenceName(entry.native)
     ) {
       continue;
     }

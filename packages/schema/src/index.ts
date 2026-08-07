@@ -106,6 +106,8 @@ export { isSchemaRecord, sortSchemaRecord } from "./json";
 export {
   createSemverRegExp,
   formatList,
+  isProviderNativeReferenceName,
+  PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
   SEMVER_PATTERN,
   type ListConjunction,
 } from "./value-contracts";

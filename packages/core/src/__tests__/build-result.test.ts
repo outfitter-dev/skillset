@@ -598,6 +598,8 @@ Body.
 skillset:
   name: provider-native-agent-skill-root
 claude: true
+codex: true
+cursor: true
 `,
       ".skillset/agents/clark.md": `
 ---
@@ -605,6 +607,14 @@ name: clark
 description: Architectural conscience.
 claude:
   model: fable
+  skills:
+    - be-clark
+    - native: trails
+codex:
+  skills:
+    - be-clark
+    - native: trails
+cursor:
   skills:
     - be-clark
     - native: trails
@@ -624,10 +634,20 @@ Apply Clark's identity.
 
     await buildSkillsetResult(root);
 
-    const outputPath = ".claude/agents/clark.md";
-    const output = await readFile(join(root, outputPath), "utf8");
-    expect(output).toContain("model: fable");
-    expect(output).toContain("skills:\n  - be-clark\n  - trails");
+    const outputPaths = [
+      ".claude/agents/clark.md",
+      ".codex/agents/clark.toml",
+      ".cursor/agents/clark.md",
+    ] as const;
+    const [claudeOutput, codexOutput, cursorOutput] = await Promise.all(
+      outputPaths.map((outputPath) =>
+        readFile(join(root, outputPath), "utf8")
+      )
+    );
+    expect(claudeOutput).toContain("model: fable");
+    expect(claudeOutput).toContain("skills:\n  - be-clark\n  - trails");
+    expect(codexOutput).toContain("- be-clark\\n- trails");
+    expect(cursorOutput).toContain("skills:\n  - be-clark\n  - trails");
 
     const lock = JSON.parse(
       await readFile(join(root, "skillset.lock"), "utf8")
@@ -637,9 +657,7 @@ Apply Clark's identity.
         readonly skillReferences?: readonly unknown[];
       }[];
     };
-    expect(
-      lock.items.find((item) => item.outputPath === outputPath)?.skillReferences
-    ).toEqual([
+    const expectedReferences = [
       {
         authored: "be-clark",
         ownership: "managed",
@@ -650,9 +668,16 @@ Apply Clark's identity.
         ownership: "provider-native",
         rendered: "trails",
       },
-    ]);
+    ];
+    for (const outputPath of outputPaths) {
+      expect(
+        lock.items.find((item) => item.outputPath === outputPath)
+          ?.skillReferences
+      ).toEqual(expectedReferences);
+    }
 
-    await Bun.write(join(root, outputPath), `${output}\n# drift\n`);
+    const outputPath = outputPaths[0];
+    await Bun.write(join(root, outputPath), `${claudeOutput}\n# drift\n`);
     const drift = await diffSkillsetResult(root);
     expect(drift.data.changed).toContain(outputPath);
   });
