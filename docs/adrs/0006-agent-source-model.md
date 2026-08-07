@@ -4,7 +4,7 @@ slug: agent-source-model
 title: Agent / Subagent Source Model
 status: accepted
 created: 2026-06-04
-updated: 2026-07-20
+updated: 2026-08-07
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0]
 ---
@@ -62,6 +62,7 @@ are implemented through their separate source path and renderers. Concretely:
 
 - Keep Claude plugin `agents/*.md` as a **target-native pass-through** plugin companion path. Do not copy it into Codex plugin output.
 - Project agents use a separate source path and renderer, not plugin `agents/` or skill-local `agents/openai.yaml`.
+- Project-agent skill references are managed by default. A provider block may preserve an intentionally provider-native external reference with an explicit `{ native: <name> }` entry; shared references cannot use this escape, and managed references remain strictly validated.
 - Do **not** synthesize Codex plugin agents from Claude plugin `agents/`. Codex plugin-agent output stays unsupported until Codex documents a plugin component.
 - If a future author needs Codex-native plugin agents and Codex documents that component, add it as a **Codex-native pass-through path** first. Revisit portability only if the target outcomes genuinely converge.
 

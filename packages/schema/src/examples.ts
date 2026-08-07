@@ -259,6 +259,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     value: {
       claude: {
         model: "sonnet",
+        skills: ["changelog", { native: "provider-release" }],
       },
       codex: {
         model: "gpt-5.1-codex",
@@ -324,7 +325,8 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
             hooks: [
               {
                 type: "command",
-                command: "bun ./apps/skillset/src/cli.ts hooks run post-tool-use",
+                command:
+                  "bun ./apps/skillset/src/cli.ts hooks run post-tool-use",
                 statusMessage: "Checking Skillset source changes",
                 timeout: 120,
               },
@@ -392,7 +394,8 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     },
   },
   {
-    description: "Skill-local portable eval cases compatible with Anthropic skill-creator.",
+    description:
+      "Skill-local portable eval cases compatible with Anthropic skill-creator.",
     format: "json",
     id: "skill-eval",
     path: "skill-eval.json",
@@ -417,7 +420,8 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     },
   },
   {
-    description: "Deterministic test with an explicit live-runtime activation assertion.",
+    description:
+      "Deterministic test with an explicit live-runtime activation assertion.",
     id: "test-declaration",
     path: "test-declaration.yaml",
     value: {

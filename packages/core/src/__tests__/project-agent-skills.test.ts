@@ -50,10 +50,7 @@ function agent(
   };
 }
 
-function skill(
-  id: string,
-  enabled?: readonly TargetName[]
-): StandaloneSkill {
+function skill(id: string, enabled?: readonly TargetName[]): StandaloneSkill {
   return {
     adaptiveHooks: [],
     body: "Body.",
@@ -101,10 +98,7 @@ function graph(
 
 describe("project agent skill references", () => {
   test("resolves standalone and qualified plugin skills with provider names", () => {
-    const reviewer = agent([
-      "review-policy",
-      "plugin.tools.skill:release",
-    ]);
+    const reviewer = agent(["review-policy", "plugin.tools.skill:release"]);
     const source = graph(
       reviewer,
       [skill("review-policy")],
@@ -114,11 +108,13 @@ describe("project agent skill references", () => {
     expect(resolveProjectAgentSkills(source, reviewer, "claude")).toEqual([
       {
         authored: "review-policy",
+        ownership: "managed",
         rendered: "review-policy",
         skillId: "review-policy",
       },
       {
         authored: "plugin.tools.skill:release",
+        ownership: "managed",
         pluginId: "tools",
         rendered: "tools:release",
         skillId: "release",
@@ -131,10 +127,7 @@ describe("project agent skill references", () => {
     const reviewer = agent(["shared"], {
       codex: { skills: ["codex-only"] },
     });
-    const source = graph(reviewer, [
-      skill("shared"),
-      skill("codex-only"),
-    ]);
+    const source = graph(reviewer, [skill("shared"), skill("codex-only")]);
 
     expect(
       resolveProjectAgentSkills(source, reviewer, "claude")?.map(
@@ -146,6 +139,42 @@ describe("project agent skill references", () => {
         (entry) => entry.authored
       )
     ).toEqual(["codex-only"]);
+  });
+
+  test("preserves explicit provider-native references without weakening managed validation", () => {
+    const reviewer = agent([], {
+      claude: {
+        model: "fable",
+        skills: ["review-policy", { native: "trails" }],
+      },
+    });
+    const source = graph(reviewer, [skill("review-policy")]);
+
+    expect(resolveProjectAgentSkills(source, reviewer, "claude")).toEqual([
+      {
+        authored: "review-policy",
+        ownership: "managed",
+        rendered: "review-policy",
+        skillId: "review-policy",
+      },
+      {
+        authored: "trails",
+        ownership: "provider-native",
+        rendered: "trails",
+      },
+    ]);
+    expect(() => validateProjectAgentSkills(source)).not.toThrow();
+
+    const missingManaged = agent([], {
+      claude: { skills: ["missing", { native: "trails" }] },
+    });
+    expect(() =>
+      resolveProjectAgentSkills(
+        graph(missingManaged, []),
+        missingManaged,
+        "claude"
+      )
+    ).toThrow('claude.skills references "missing"');
   });
 
   test("rejects missing, malformed, and target-disabled references", () => {
@@ -164,5 +193,10 @@ describe("project agent skill references", () => {
         graph(agent(["codex-only"]), [skill("codex-only", ["codex"])])
       )
     ).toThrow("the skill is not enabled for claude");
+    expect(() =>
+      validateProjectAgentSkills(
+        graph(agent([], { claude: { skills: [{ native: "   " }] } }), [])
+      )
+    ).toThrow("non-blank string without surrounding whitespace");
   });
 });

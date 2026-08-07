@@ -20,7 +20,7 @@ import { updateMarkdownSourceDocument } from "./source-document";
 import { readEffectiveToolsPolicy } from "./skill-policy";
 import { targetNames, targetRecord } from "./targets";
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
-import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
+import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -618,6 +618,20 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       const dependencies = Array.isArray(rawItem.dependencies)
         ? rawItem.dependencies.filter((value): value is string => typeof value === "string")
         : undefined;
+      const skillReferences = Array.isArray(rawItem.skillReferences)
+        ? rawItem.skillReferences.flatMap<ProjectAgentSkillProvenance>((value) => {
+            const ownership = isJsonRecord(value) ? value.ownership : undefined;
+            if (
+              !isJsonRecord(value) ||
+              typeof value.authored !== "string" ||
+              (ownership !== "managed" && ownership !== "provider-native") ||
+              typeof value.rendered !== "string"
+            ) {
+              return [];
+            }
+            return [{ authored: value.authored, ownership, rendered: value.rendered }];
+          })
+        : undefined;
       const transforms = Array.isArray(rawItem.transforms)
         ? rawItem.transforms.flatMap((value) =>
             isJsonRecord(value) && typeof value.intent === "string" && typeof value.count === "number"
@@ -644,6 +658,9 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
           ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
           ...(typeof rawItem.renderInputsHash === "string" ? { renderInputsHash: rawItem.renderInputsHash } : {}),
+          ...(skillReferences === undefined || skillReferences.length === 0
+            ? {}
+            : { skillReferences }),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
           ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
           ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),

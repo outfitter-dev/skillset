@@ -184,7 +184,7 @@ describe("source rename planner", () => {
   test("rewrites skill identity references and eval declarations for a skill-root move", async () => {
     const root = await fixture({
       ".skillset/agents/reviewer.md":
-        "---\ndescription: Reviewer\nskills: [old]\nclaude:\n  skills: [old]\n---\n\nReview\n",
+        "---\ndescription: Reviewer\nskills: [old]\nclaude:\n  skills: [old, { native: old }]\n---\n\nReview\n",
       ".skillset/skills/old/SKILL.md":
         "---\nname: old\ndescription: Old\n---\n\nOld\n",
       ".skillset/skills/old/evals/evals.json": JSON.stringify({
@@ -212,7 +212,7 @@ describe("source rename planner", () => {
       )
     ).toEqual({
       content:
-        "---\ndescription: Reviewer\nskills:\n  - new\nclaude:\n  skills:\n    - new\n---\n\nReview\n",
+        "---\ndescription: Reviewer\nskills:\n  - new\nclaude:\n  skills:\n    - new\n    - native: old\n---\n\nReview\n",
       kind: "update",
       path: ".skillset/agents/reviewer.md",
     });

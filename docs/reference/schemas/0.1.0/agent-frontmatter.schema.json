@@ -9,6 +9,33 @@
           "type": "boolean"
         },
         {
+          "additionalProperties": true,
+          "properties": {
+            "skills": {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "native": {
+                        "pattern": "^\\S(?:.*\\S)?$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "native"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
           "type": "object"
         }
       ]
@@ -19,6 +46,33 @@
           "type": "boolean"
         },
         {
+          "additionalProperties": true,
+          "properties": {
+            "skills": {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "native": {
+                        "pattern": "^\\S(?:.*\\S)?$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "native"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
           "type": "object"
         }
       ]
@@ -29,6 +83,33 @@
           "type": "boolean"
         },
         {
+          "additionalProperties": true,
+          "properties": {
+            "skills": {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "native": {
+                        "pattern": "^\\S(?:.*\\S)?$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "native"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
           "type": "object"
         }
       ]

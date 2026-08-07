@@ -592,6 +592,71 @@ Body.
     ]));
   });
 
+  it("renders and records target-scoped provider-native project-agent skills", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: provider-native-agent-skill-root
+claude: true
+`,
+      ".skillset/agents/clark.md": `
+---
+name: clark
+description: Architectural conscience.
+claude:
+  model: fable
+  skills:
+    - be-clark
+    - native: trails
+---
+
+Review the architecture.
+`,
+      ".skillset/skills/be-clark/SKILL.md": `
+---
+name: be-clark
+description: Clark identity.
+---
+
+Apply Clark's identity.
+`,
+    });
+
+    await buildSkillsetResult(root);
+
+    const outputPath = ".claude/agents/clark.md";
+    const output = await readFile(join(root, outputPath), "utf8");
+    expect(output).toContain("model: fable");
+    expect(output).toContain("skills:\n  - be-clark\n  - trails");
+
+    const lock = JSON.parse(
+      await readFile(join(root, "skillset.lock"), "utf8")
+    ) as {
+      readonly items: readonly {
+        readonly outputPath: string;
+        readonly skillReferences?: readonly unknown[];
+      }[];
+    };
+    expect(
+      lock.items.find((item) => item.outputPath === outputPath)?.skillReferences
+    ).toEqual([
+      {
+        authored: "be-clark",
+        ownership: "managed",
+        rendered: "be-clark",
+      },
+      {
+        authored: "trails",
+        ownership: "provider-native",
+        rendered: "trails",
+      },
+    ]);
+
+    await Bun.write(join(root, outputPath), `${output}\n# drift\n`);
+    const drift = await diffSkillsetResult(root);
+    expect(drift.data.changed).toContain(outputPath);
+  });
+
   it("resolves marked path references for bundles and source-backed project surfaces", async () => {
     const root = await fixture({
       "skillset.yaml": `

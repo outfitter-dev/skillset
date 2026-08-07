@@ -266,9 +266,9 @@ export const agentFrontmatterContract = contract(
   {
     additionalProperties: false,
     properties: {
-      claude: targetOverrideSchema(),
-      codex: targetOverrideSchema(),
-      cursor: targetOverrideSchema(),
+      claude: agentTargetOverrideSchema(),
+      codex: agentTargetOverrideSchema(),
+      cursor: agentTargetOverrideSchema(),
       description: nonEmptyStringSchema(),
       hooks: hookAttachmentSchema(),
       initialPrompt: nonEmptyStringSchema(),
@@ -1286,6 +1286,34 @@ function targetFeatureSchema(): SchemaJsonRecord {
 function targetOverrideSchema(): SchemaJsonRecord {
   return {
     anyOf: [{ type: "boolean" }, { type: "object" }],
+  };
+}
+
+function agentTargetOverrideSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      {
+        additionalProperties: true,
+        properties: {
+          skills: arraySchema({
+            anyOf: [
+              nonEmptyStringSchema(),
+              {
+                ...strictObjectSchema({
+                  native: {
+                    pattern: "^\\S(?:.*\\S)?$",
+                    type: "string",
+                  },
+                }),
+                required: ["native"],
+              },
+            ],
+          }),
+        },
+        type: "object",
+      },
+    ],
   };
 }
 

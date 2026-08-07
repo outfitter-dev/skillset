@@ -330,6 +330,7 @@ export interface GeneratedEntry {
   readonly outputRoot: string;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
+  readonly skillReferences?: readonly ProjectAgentSkillProvenance[];
   readonly sourceHash?: string;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
@@ -339,6 +340,12 @@ export interface GeneratedEntry {
   readonly transforms?: readonly AppliedTransform[];
   readonly validation?: string;
   readonly version?: string;
+}
+
+export interface ProjectAgentSkillProvenance {
+  readonly authored: string;
+  readonly ownership: "managed" | "provider-native";
+  readonly rendered: string;
 }
 
 export interface SkillsetOptions {
