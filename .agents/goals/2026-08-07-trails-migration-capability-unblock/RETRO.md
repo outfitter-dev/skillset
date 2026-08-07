@@ -246,7 +246,7 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | Item | State | Notes |
 | --- | --- | --- |
 | SET-396 / #393 | Ready to Merge / re-attestation active | Independent local repair at `752b04c`; final reviews/submit/CI/thread/bot reconciliation remain |
-| SET-394 / #395 | In Review / externally blocked | Independent repaired head `0567db91`; CI green, mergeable/clean, P2 resolved; final-head Bugbot rerun failed on usage limit |
+| SET-394 / #395 | Ready to Merge / externally blocked | Linear automation advanced the tracker after CI; independent repaired head `0567db91` is mergeable/clean with P2 resolved, but the final-head Bugbot rerun failed on usage limit |
 | TRL-1272 | Backlog, blocked | Waits for approved/merged/published SET-396 release |
 | TRL-1274 | Backlog, blocked | Waits for approved/merged/published SET-394 release |
 

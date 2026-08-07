@@ -14,7 +14,8 @@ Status: Active
 - PR #395: non-draft at `0567db91d7e93ba9d803f06cf610fed1d4335e11`,
   independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, and its
   hosted Codex P2 is fixed/resolved. A bounded final-head Cursor Bugbot rerun
-  repeated the external usage-limit error; SET-394 remains In Review.
+  repeated the external usage-limit error; Linear automation moved SET-394 to
+  Ready to Merge, but the strict goal remains externally blocked.
 - Worker worktrees remain present; neither was deleted or destructively cleaned.
 - npm latest: `skillset@0.22.0`.
 
