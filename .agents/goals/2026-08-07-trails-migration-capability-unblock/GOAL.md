@@ -1,7 +1,7 @@
 # Goal Execution Contract: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: Complete
+Status: Active
 Spec: `.agents/goals/2026-08-07-trails-migration-capability-unblock/SPEC.md`
 Plan: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PLAN.md`
 Prompt: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PROMPT.md`

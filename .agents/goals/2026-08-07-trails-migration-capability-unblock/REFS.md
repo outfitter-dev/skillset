@@ -15,12 +15,12 @@
 - PR #393: https://github.com/outfitter-dev/skillset/pull/393
 - Branch: `set-396-preserve-provider-native-project-agent-references-to`
 - Pre-restack head: `05bc116dc45cef36a3861d805c6a3455abc0eabe`
-- Final implementation head: `2e6c1cc7dbac6b6fff6a2ccd7d4536b5af9bb3b5`
+- Current implementation head: `752b04c236bd9108c09e126f5132caa075d6ad2b`
 - SET-394: https://linear.app/outfitter/issue/SET-394/preserve-executable-modes-in-generated-resource-and-plugin-files
 - PR #395: https://github.com/outfitter-dev/skillset/pull/395
 - Branch: `set-394-preserve-executable-modes-in-generated-resource-and-plugin`
 - Pre-restack head: `c4dbecc3b78d8194723d92c2d4ecc80b8d50af4b`
-- Final head: `fa0bb1843ea1d5fa88c3763f2dad6f1da0ad3375`
+- Final implementation head: `0567db91d7e93ba9d803f06cf610fed1d4335e11`
 - Preflight main: `4ae1177a9ed1823cfb049643b09f923347f337a4`
 - npm preflight: `skillset@0.22.0`
 

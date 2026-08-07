@@ -1,17 +1,20 @@
 # Execution Plan: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: Complete
+Status: Active
 
 ## Current State
 
 - Main used for both independent restacks:
   `4ae1177a9ed1823cfb049643b09f923347f337a4`.
-- PR #393: non-draft, independently restacked, fresh CI green,
-  `MERGEABLE` / `CLEAN`, zero threads/reviews/bot errors; SET-396 In Review.
-- PR #395: non-draft at `fa0bb1843ea1d5fa88c3763f2dad6f1da0ad3375`,
-  independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, zero
-  threads/reviews/bot errors; SET-394 In Review.
+- PR #393: non-draft and independently restacked. A hosted Codex P2 found that
+  U+0085 remained valid; the local fix at `752b04c236bd9108c09e126f5132caa075d6ad2b`
+  rejects the full C0/C1 control ranges plus U+2028/U+2029. Final-tip local
+  reviews, submit, fresh CI, and hosted reconciliation remain.
+- PR #395: non-draft at `0567db91d7e93ba9d803f06cf610fed1d4335e11`,
+  independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, and its
+  hosted Codex P2 is fixed/resolved. A bounded final-head Cursor Bugbot rerun is
+  pending after an earlier usage-limit error; SET-394 remains In Review.
 - Worker worktrees remain present; neither was deleted or destructively cleaned.
 - npm latest: `skillset@0.22.0`.
 
@@ -31,6 +34,13 @@ Status: Complete
 7. [complete] Submit #395 draft, reconcile fresh CI/review/bot state, mark ready only when
    proven, update SET-394/SET-396 and affected Trails blocker issues, and
    finalize `RETRO.md`.
+8. [complete] Reopen the loop for fresh hosted Codex findings on both PRs; fix
+   U+0085 validation on #393 and read-only mode-only repair on #395, preserving
+   independent ancestry.
+9. [in progress] Re-attest both repaired tips with three independent reviews,
+   full local gates, fresh merge-ref CI, resolved threads, and final-head bot state.
+10. [pending] Re-query GitHub and Linear, finalize the packet, and stop at the
+    ready-for-approval boundary without merge, queue, release, or downstream work.
 
 ## Branch Isolation Rules
 

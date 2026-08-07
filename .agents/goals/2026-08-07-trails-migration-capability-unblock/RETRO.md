@@ -1,8 +1,8 @@
 # Execution Retro: Trails Migration Capability Unblock
 
 Date started: 2026-08-07
-Date finalized: 2026-08-07
-Status: Complete
+Date finalized: Pending
+Status: Active
 Spec: `.agents/goals/2026-08-07-trails-migration-capability-unblock/SPEC.md`
 Plan: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PLAN.md`
 Goal: `.agents/goals/2026-08-07-trails-migration-capability-unblock/GOAL.md`
@@ -13,17 +13,18 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 - Objective: Reconcile #393 and #395 to ready-for-approval without merge or release.
 - Completion horizon: Ready-pr.
-- Outcome: Both independent implementation PRs reached ready-for-approval without
-  merge, queue, publish, release, deploy, global activation, or downstream Trails work.
-- Tracker/PR/source-control state: #393 / SET-396 and #395 / SET-394 are In
-  Review, non-draft, independently based on the same live main, and verified
-  `MERGEABLE` / `CLEAN` with fresh pull-request CI.
+- Outcome: Both independent implementations are repaired locally; #395 has
+  reached fresh final-head CI and resolved its hosted P2, while #393 still
+  requires final-tip reviews, submit, hosted CI, and thread reconciliation.
+- Tracker/PR/source-control state: Both PRs are non-draft and independently
+  based on the same live main. #395 is `MERGEABLE` / `CLEAN` with fresh
+  pull-request CI; #393's final local repair has not yet been submitted.
 - Verification: Both branches passed focused tests, the full repository check,
   the canonical pre-push gate, generated-output checks, and three independent
   clean implementation reviews.
-- Review state: Zero P0-P3 findings remain. The final packet-only #393 commit is
-  re-attested after this file is committed so the report and GitHub check can
-  name its immutable SHA without recursively changing that SHA.
+- Review state: The new hosted P2s on both PRs are fixed locally. #395 has three
+  clean final-tip re-reviews and a resolved thread. Superseded #393 round-3
+  findings are retained as `.superseded.jsonl`; clean final-tip reviews remain.
 - Remaining risks: Physical chmod behavior was not exercised on Windows; the
   documented contract intentionally retains portable mode intent while skipping
   physical mode enforcement there. Downstream Trails work remains release-gated.
@@ -33,13 +34,13 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Prompt checked: Pass, 3,994/4,000 with no placeholders.
 - Goal/prompt alignment checked: Pass; prompt carries scope, sequence, loop,
   review, gates, hard rules, stop rules, done/not-done, evidence, and persistence.
-- Review blockers: None. Implementation reviews are clean; the packet-only
-  exact-head attestation is recorded after this commit in the round-3 reports.
-- Verification blockers: None at the ready-for-approval horizon.
+- Review blockers: #393 needs three clean final-tip reviews and hosted thread
+  reconciliation. Both PRs need a final-head Bugbot result without an active error.
+- Verification blockers: #393 needs its full exact-tip gate and fresh hosted CI.
 - Tracker blockers: Downstream issues remain release-gated; no downstream work was authorized.
 - Authority blockers: Merge, queue, publish, release, deploy, and downstream
   migration remain outside this goal and require separate maintainer authority.
-- Next action: Maintainer approval. Release and Trails migration remain separate work.
+- Next action: Finish the repaired-tip review and hosted verification loop.
 
 ## Goal Amendments
 
@@ -154,6 +155,32 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
   with zero review threads, reviews, or bot errors. The PR was marked ready and
   SET-394 moved to In Review. No merge or queue occurred.
 
+### 2026-08-07 — hosted review loop reopened
+
+- A fresh hosted Codex review on #393 found a P2 missed by the earlier local
+  reviews: the shared single-line name contract rejected CR, LF, U+2028, and
+  U+2029 but still accepted the C1 U+0085 NEXT LINE separator.
+- #393 now rejects C0/C1 control characters plus U+2028/U+2029 in the shared
+  Schema/Core predicate. Focused Schema, Core, and direct value-contract tests
+  cover U+0085 alongside the earlier boundary cases. The repaired implementation
+  tip is `752b04c236bd9108c09e126f5132caa075d6ad2b`.
+- A fresh hosted Codex review on #395 found a P2 in mode-only repair: rewriting
+  byte-identical read-only output before chmod could fail with `EACCES`.
+- #395 now applies chmod directly for byte-identical mode-only drift and records
+  the repaired path without rewriting content. The regression starts from
+  `0555`, repairs to `0755`, verifies restore preconditions, and restores exact
+  `0555`; independent review probes also covered `0444` to `0644` with stable
+  mtimes. The repaired tip is `0567db91d7e93ba9d803f06cf610fed1d4335e11`.
+- Three independent #395 round-2 reviews are 5/5 clean with zero P0-P3. The full
+  `bun run check` and pre-push gate passed at 1,744 tests / 56,392 assertions.
+  Fresh hosted CI passed `changeset`, `check`, and `skillset-ci`; GitHub reports
+  `MERGEABLE` / `CLEAN`, and the hosted P2 thread has an evidence-backed reply
+  and is resolved.
+- Cursor Bugbot reported a usage-limit error on each earlier head. A bounded
+  top-level final-head rerun was requested for #395; billing/settings were not
+  changed. The strict zero-bot-error gate remains open until live evidence shows
+  a successful or clean superseding final-head result.
+
 ## Review Log
 
 | PR | Round | Scope | Report | Score | State | Open P0-P2 | Notes |
@@ -164,10 +191,13 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | #393 | 2 | contract/provenance | `tmp/reviews/pr393/contract/round-2.json` | 5/5 | clean | 0 | Exact implementation tip `2e6c1cc7` |
 | #393 | 2 | runtime/render | `tmp/reviews/pr393/runtime/round-2.json` | 5/5 | clean | 0 | Exact implementation tip `2e6c1cc7` |
 | #393 | 2 | full branch | `tmp/reviews/pr393/full/round-2.json` | 5/5 | clean | 0 | Exact implementation tip `2e6c1cc7` |
-| #393 | 3 | packet-only exact head | `tmp/reviews/pr393/*/round-3.json` | attested after commit | required final evidence | 0 expected | Post-commit reports avoid a self-invalidating SHA cycle |
 | #395 | 1 | mode propagation/writes | `tmp/reviews/pr395/mode-propagation/round-1.json` | 5/5 | clean | 0 | Exact final tip `fa0bb1843` |
 | #395 | 1 | lock/hash/migration/provenance | `tmp/reviews/pr395/lock-provenance/round-1.json` | 5/5 | clean | 0 | Exact final tip `fa0bb1843` |
 | #395 | 1 | full branch | `tmp/reviews/pr395/full/round-1.json` | 5/5 | clean | 0 | Exact final tip `fa0bb1843` |
+| #393 | 3 | repaired hosted finding / packet recheck | `tmp/reviews/pr393/*/round-3.superseded.jsonl` | 2–4/5 | changes requested | retained P1/P2 evidence | U+0085 fixed; packet reopened; final re-review required |
+| #395 | 2 | mode propagation/writes | `tmp/reviews/pr395/mode-propagation/round-2.json` | 5/5 | clean | 0 | Exact repaired tip `0567db91d` |
+| #395 | 2 | lock/hash/migration/provenance | `tmp/reviews/pr395/lock-provenance/round-2.json` | 5/5 | clean | 0 | Exact repaired tip `0567db91d` |
+| #395 | 2 | full branch | `tmp/reviews/pr395/full/round-2.json` | 5/5 | clean | 0 | Exact repaired tip `0567db91d` |
 
 ## Verification Log
 
@@ -194,6 +224,11 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | `bun run check` | Final SET-394 tip | pass | 1,744 tests / 56,392 assertions |
 | `bun run hooks:pre-push` | Final SET-394 tip | pass | Canonical local pre-push gate clean |
 | Fresh pull-request CI | #395 | pass | `changeset`, `check`, `skillset-ci`; mergeable/clean |
+| Read-only mode-only repair regression | #395 repaired tip | pass | `0555` to `0755`, guarded restore to exact `0555`; no byte rewrite |
+| `bun run check` | #395 repaired tip | pass | 1,744 tests / 56,392 assertions |
+| Three independent round-2 reviews | #395 repaired tip | pass | 5/5 each; zero P0-P3 |
+| Fresh pull-request CI | #395 repaired tip | pass | `changeset`, `check`, `skillset-ci`; mergeable/clean; P2 thread resolved |
+| U+0085 shared-contract regression | #393 repaired implementation | pass | Schema, Core, and direct value-contract coverage |
 
 ## Prompt / Goal Alignment
 
@@ -207,8 +242,8 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 | Item | State | Notes |
 | --- | --- | --- |
-| SET-396 / #393 | In Review / ready for approval | Independent; fresh CI green; mergeable/clean; zero threads/reviews/bot errors |
-| SET-394 / #395 | In Review / ready for approval | Independent; fresh CI green; mergeable/clean; zero threads/reviews/bot errors |
+| SET-396 / #393 | Ready to Merge / re-attestation active | Independent local repair at `752b04c`; final reviews/submit/CI/thread/bot reconciliation remain |
+| SET-394 / #395 | In Review / hosted verification active | Independent repaired head `0567db91`; CI green, mergeable/clean, P2 resolved; final Bugbot rerun pending |
 | TRL-1272 | Backlog, blocked | Waits for approved/merged/published SET-396 release |
 | TRL-1274 | Backlog, blocked | Waits for approved/merged/published SET-394 release |
 
@@ -218,19 +253,18 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 ## Final State
 
-- Completion proof: Both independent PRs are non-draft, mergeable/clean, fresh
-  pull-request CI green, and linked issues are In Review. Live state is
-  re-queried after the packet-only commit before the goal is closed.
-- Review report summary: Six implementation review lanes are 5/5 clean with
-  zero P0-P3 findings. Three packet-only #393 exact-head attestations are
-  generated after this commit and retained beside the round-2 reports.
-- Verification summary: Focused suites, aggregate checks, canonical pre-push
-  gates, schema/generated-output checks, and pull-request CI passed for both
-  branches. #393's packet-only final head receives fresh CI before closeout.
+- Completion proof: Pending #393 final-tip reviews/submit/CI/thread reconciliation
+  and clean final-head Bugbot evidence for both PRs.
+- Review report summary: #395 has three repaired-tip 5/5 reviews with zero
+  P0-P3. #393's superseded round-3 evidence is retained; round-4 reviews remain.
+- Verification summary: #395's repaired tip has passed local and hosted gates.
+  #393's focused U+0085 proof is green; the aggregate and hosted gates remain.
 - Forbidden actions audit: No merge, queue, publish, release, deploy, HOME or
   provider-config mutation, destructive cleanup, worktree deletion, or
   downstream Trails implementation occurred.
-- Remaining P3s / risks: None. Documented residual only: no physical Windows
+- Remaining P3s / risks: No accepted P3. Open operational gate: Cursor Bugbot's
+  usage-limit error needs a clean final-head superseding result. Documented
+  residual: no physical Windows
   host exercise for chmod behavior; Windows intentionally preserves lock intent
   without physical enforcement.
 - Final transcript proof: GitHub/Linear live queries plus local review JSON and
