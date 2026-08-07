@@ -1,8 +1,12 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
 import type { SetupImportCandidate } from "./setup";
+import {
+  normalizeGeneratedFileMode,
+  supportsGeneratedFileModes,
+} from "@skillset/core/internal/generated-file-mode";
 
 export interface PreparedPluginAdoptionSource {
   readonly originByFile: ReadonlyMap<string, string>;
@@ -112,17 +116,20 @@ async function mergePluginTree(
     if (!entry.isFile()) continue;
 
     const content = await readFile(sourcePath);
+    const mode = normalizeGeneratedFileMode((await stat(sourcePath)).mode);
     if (await exists(targetPath)) {
       const existing = await readFile(targetPath);
-      if (!existing.equals(content)) {
+      const existingMode = normalizeGeneratedFileMode((await stat(targetPath)).mode);
+      if (!existing.equals(content) || existingMode !== mode) {
         throw new Error(
-          `skillset: equivalent plugin candidates disagree at ${relativePath}; rerun the survey and resolve the competing sources`
+          `skillset: equivalent plugin candidates disagree in bytes or executable mode at ${relativePath}; rerun the survey and resolve the competing sources`
         );
       }
       continue;
     }
     await mkdir(dirname(targetPath), { recursive: true });
     await writeFile(targetPath, content);
+    if (supportsGeneratedFileModes()) await chmod(targetPath, mode);
     originByFile.set(relativePath, `${originRoot}/${relativePath}`.replace(/^\.\//, ""));
   }
 }

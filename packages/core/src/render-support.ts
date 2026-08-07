@@ -1,6 +1,8 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+import { formatGeneratedFileMode, normalizeGeneratedFileMode } from "./generated-file-mode";
+
 import type {
   AppliedTransform,
   RenderedFile,
@@ -16,6 +18,7 @@ export const GENERATED_BY = `${COMPILER_ID}@${COMPILER_VERSION}`;
 export const WORKSPACE_LOCK_ROOT = ".";
 
 export interface LockItem {
+  readonly fileModes: Readonly<Record<string, "0644" | "0755">>;
   readonly feature?: string;
   readonly files: readonly string[];
   readonly dependencies?: readonly string[];
@@ -65,17 +68,38 @@ export async function copyPath(
 ): Promise<readonly RenderedFile[]> {
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
-    return [{ path: targetPath, content: await readFile(sourcePath) }];
+    return [await copyFileFromSource(sourcePath, targetPath)];
   }
 
   const files: RenderedFile[] = [];
   for (const file of await collectFiles(sourcePath)) {
-    files.push({
-      path: join(targetPath, relative(sourcePath, file)),
-      content: await readFile(file),
-    });
+    files.push(await copyFileFromSource(file, join(targetPath, relative(sourcePath, file))));
   }
   return files;
+}
+
+export async function copyFileFromSource(
+  sourcePath: string,
+  targetPath: string,
+  renderedSourcePath?: string
+): Promise<RenderedFile> {
+  return {
+    content: await readFile(sourcePath),
+    mode: normalizeGeneratedFileMode((await stat(sourcePath)).mode),
+    path: targetPath,
+    ...(renderedSourcePath === undefined ? {} : { sourcePath: renderedSourcePath }),
+  };
+}
+
+export function renderedFileModes(
+  outputRoot: string,
+  files: readonly RenderedFile[]
+): Readonly<Record<string, "0644" | "0755">> {
+  return Object.fromEntries(
+    [...files]
+      .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
+      .map((file) => [relative(outputRoot, file.path), formatGeneratedFileMode(file.mode)])
+  );
 }
 
 export async function exists(path: string): Promise<boolean> {
@@ -121,8 +145,8 @@ export function textFile(
   sourcePath?: string
 ): RenderedFile {
   return sourcePath === undefined
-    ? { path, content: textEncoder.encode(content) }
-    : { path, content: textEncoder.encode(content), sourcePath };
+    ? { path, content: textEncoder.encode(content), mode: 0o644 }
+    : { path, content: textEncoder.encode(content), mode: 0o644, sourcePath };
 }
 
 async function collectFiles(root: string): Promise<readonly string[]> {

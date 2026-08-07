@@ -366,6 +366,7 @@ compile:
             target: "codex",
           })
         ),
+        mode: 0o644 as const,
         path: "plugins/skillset.lock",
       },
     ];

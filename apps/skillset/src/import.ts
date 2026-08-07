@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
@@ -20,6 +20,10 @@ import {
   targetNames,
 } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside, validateSlug } from "@skillset/core/internal/path";
+import {
+  normalizeGeneratedFileMode,
+  supportsGeneratedFileModes,
+} from "@skillset/core/internal/generated-file-mode";
 import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
 import {
   selectorForPluginConfig,
@@ -615,8 +619,12 @@ async function copyImportSource(options: {
   const exclude = rootPluginImport ? (path: string) => isRootPluginImportScaffold(copyRoot, path) : undefined;
   for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
-    await mkdir(dirname(join(targetPath, relativePath)), { recursive: true });
-    await writeFile(join(targetPath, relativePath), await readFile(file));
+    const destination = join(targetPath, relativePath);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, await readFile(file));
+    if (supportsGeneratedFileModes()) {
+      await chmod(destination, normalizeGeneratedFileMode((await stat(file)).mode));
+    }
     copied.push(relativePath);
   }
 

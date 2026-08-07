@@ -13,6 +13,7 @@ import {
 import {
   GENERATED_BY,
   lockRootsFor,
+  renderedFileModes,
   textFile,
   WORKSPACE_LOCK_ROOT,
   type LockItem,
@@ -532,6 +533,7 @@ function lockItemForRule(args: {
   readonly transforms?: readonly AppliedTransform[];
 }): LockItem {
   return {
+    fileModes: renderedFileModes(args.outputRoot, args.files),
     files: args.files
       .map((file) => relative(args.outputRoot, file.path))
       .sort(),
@@ -639,11 +641,13 @@ function hashRenderedFiles(
   files: readonly RenderedFile[]
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-output-v1\0");
+  hash.update("skillset-output-v2\0");
   for (const file of [...files].sort((left, right) =>
     compareStrings(left.path, right.path)
   )) {
     hash.update(relative(outputRoot, file.path));
+    hash.update("\0");
+    hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");
     hash.update(file.content);
     hash.update("\0");

@@ -615,6 +615,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       const files = Array.isArray(rawItem.files)
         ? rawItem.files.filter((value): value is string => typeof value === "string")
         : [];
+      const fileModes = readGeneratedFileModes(rawItem.fileModes, files, outputRoot);
       const dependencies = Array.isArray(rawItem.dependencies)
         ? rawItem.dependencies.filter((value): value is string => typeof value === "string")
         : undefined;
@@ -652,6 +653,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           outputPath: joinOutputRoot(outputRoot, outputPath),
           ...(dependencies === undefined ? {} : { dependencies }),
           ...(typeof rawItem.feature === "string" ? { feature: rawItem.feature } : {}),
+          ...(fileModes === undefined ? {} : { fileModes }),
           ...(files.length === 0 ? {} : { files: files.map((file) => joinOutputRoot(outputRoot, file)) }),
           ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
           ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
@@ -673,6 +675,20 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
     }
   }
   return matches;
+}
+
+function readGeneratedFileModes(
+  value: unknown,
+  _files: readonly string[],
+  outputRoot: string
+): Readonly<Record<string, "0644" | "0755">> | undefined {
+  if (!isJsonRecord(value)) return undefined;
+  const modes: Record<string, "0644" | "0755"> = {};
+  for (const [file, mode] of Object.entries(value)) {
+    if (mode !== "0644" && mode !== "0755") return undefined;
+    modes[joinOutputRoot(outputRoot, file)] = mode;
+  }
+  return modes;
 }
 
 function readSourceOrigin(value: unknown): SourceOrigin | undefined {

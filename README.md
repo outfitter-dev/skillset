@@ -253,7 +253,7 @@ metadata:
   generated: skillset@0.1.0
 ```
 
-Generated roots also receive `skillset.lock` files with deterministic provenance and hashes.
+Generated roots also receive `skillset.lock` files with deterministic provenance, normalized file modes, and mode-aware hashes.
 
 ## Shared Resources
 
@@ -273,7 +273,7 @@ resources:
 
 `shared:` points at `<source-root>/shared/`. `plugin:` points at `<source-root>/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Grouped resources default to skill-local target paths such as `references/common.md`, `scripts/check.sh`, `assets/...`, or `templates/...`; use `from` / `to` when the output path should differ.
 
-Generated Claude, Codex, and Cursor skills receive declared copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare (schemeless) link to the resource's source path is ambiguous and fails the build with a diagnostic: link to the emitted target path or use the `shared:`/`plugin:` resource URL instead. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `skillset.lock` hashes and `skillset check --only outputs`.
+Generated Claude, Codex, and Cursor skills receive declared copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare (schemeless) link to the resource's source path is ambiguous and fails the build with a diagnostic: link to the emitted target path or use the `shared:`/`plugin:` resource URL instead. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents and normalized modes participate in `skillset.lock` hashes and `skillset check --only outputs`. Mark executable sources with the filesystem executable bit (for example, `chmod +x .skillset/shared/scripts/check.sh`); Skillset renders executable files as `0755` and other generated files as `0644` on Unix. Windows still emits the normalized lock field but skips physical mode application and drift checks; a checkout that does not expose Git's executable bit is therefore recorded as `0644` rather than inferred from a filename or shebang.
 
 `skillset check` adds earlier, actionable diagnostics: undeclared resource links (with a suggested entry), skill bodies that depend on plugin-root script paths instead of skill-local copies, and declared `scripts/` resources whose source file is missing an executable bit.
 

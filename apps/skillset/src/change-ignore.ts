@@ -4,7 +4,7 @@ import type { JsonRecord } from "@skillset/core/internal/types";
 import { workspaceChangeFile } from "@skillset/core";
 
 import { changeCheck, hasRecordedChangeIgnore, resolvePendingChangeRef } from "./change-entries";
-import { detectWorkspaceOptions, type ChangeStatusOptions } from "./change-status";
+import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions } from "./change-status";
 import {
   withChangeLedgerLock,
   type ChangeLedgerLockOptions,
@@ -108,7 +108,7 @@ async function planChangeIgnore(
   if (entry.id === undefined) throw new Error(`skillset: pending change ${entry.path} is missing an id`);
   const sourceUnits = [...entry.sourceHashes]
     .flatMap(([selector, hashes]) => hashes.map((sourceHash) => ({
-      hashSchema: "skillset-source-unit-v2",
+      hashSchema: SOURCE_HASH_SCHEMA,
       selector,
       sourceHash,
     })))

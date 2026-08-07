@@ -140,6 +140,7 @@ function generatedTransactionPlan(
       )
       .map((operation) => ({
         content: operation.content,
+        mode: operation.mode,
         path: operation.path,
       })),
   };
@@ -156,9 +157,12 @@ function generatedEffects(
   for (const file of next) {
     const previous = currentByPath.get(file.path);
     if (previous === undefined) {
-      effects.push({ content: file.content, kind: "create", path: file.path });
-    } else if (!renderedContentEquals(previous.content, file.content)) {
-      effects.push({ content: file.content, kind: "update", path: file.path });
+      effects.push({ content: file.content, kind: "create", mode: file.mode, path: file.path });
+    } else if (
+      previous.mode !== file.mode ||
+      !renderedContentEquals(previous.content, file.content)
+    ) {
+      effects.push({ content: file.content, kind: "update", mode: file.mode, path: file.path });
     }
   }
   for (const file of current) {

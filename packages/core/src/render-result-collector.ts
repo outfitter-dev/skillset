@@ -91,8 +91,9 @@ export function collectRenderResults(
     const lock = parseRenderedLock(lockFile);
     for (const item of lock.items) {
       const outputPaths = outputPathsForLockItem(lock.outputRoot, item);
-      for (const path of outputPaths) assignedOutputPaths.add(path);
-      outcomes.push(outcomeForLockItem(graph, lock, item, outputPaths, options.includedPaths, mapOutputPath));
+      const primaryOutputPaths = primaryOutputPathsForLockItem(item, outputPaths);
+      for (const path of primaryOutputPaths) assignedOutputPaths.add(path);
+      outcomes.push(outcomeForLockItem(graph, lock, item, primaryOutputPaths, options.includedPaths, mapOutputPath));
       outcomes.push(
         ...featureOutcomesForLockItem(
           graph,
@@ -123,6 +124,19 @@ export function collectRenderResults(
       `${left.sourceUnit}\0${left.target ?? ""}\0${left.featureId}\0${left.destination ?? ""}\0${left.status}\0${left.sourcePath ?? ""}`,
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
+  );
+}
+
+function primaryOutputPathsForLockItem(
+  item: RenderedLockItem,
+  outputPaths: readonly string[]
+): readonly string[] {
+  if (item.kind !== "plugin") return outputPaths;
+  return outputPaths.filter((path) =>
+    path.endsWith("/.claude-plugin/plugin.json") ||
+    path.endsWith("/.codex-plugin/plugin.json") ||
+    path.endsWith("/.cursor-plugin/plugin.json") ||
+    path.endsWith("/LICENSE.txt")
   );
 }
 

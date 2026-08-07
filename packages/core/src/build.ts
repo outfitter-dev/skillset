@@ -2,6 +2,12 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path";
 
 import { compareStrings } from "./path";
+import {
+  applyGeneratedFileMode,
+  formatGeneratedFileMode,
+  generatedFileOnDiskMatchesMode,
+  supportsGeneratedFileModes,
+} from "./generated-file-mode";
 import { pluginTargetForOutputPath } from "./plugin-output";
 import { targetNames } from "./targets";
 import { collectRenderResults } from "./render-result-collector";
@@ -208,7 +214,7 @@ export async function diffSkillsetResult(
     renderedWithoutOutcomeMetadata,
     renderResultsWithDiagnostics
   );
-  const expected = new Map(rendered.map((file) => [file.path, file.content]));
+  const expected = new Map(rendered.map((file) => [file.path, file]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
@@ -233,7 +239,12 @@ export async function diffSkillsetResult(
       continue;
     }
     const current = await readFile(resolveOutputPath(file.path));
-    if (!bytesEqual(current, file.content)) changed.push(file.path);
+    if (
+      !bytesEqual(current, file.content) ||
+      !(await generatedFileOnDiskMatchesMode(resolveOutputPath(file.path), file))
+    ) {
+      changed.push(file.path);
+    }
   }
   for (const path of actualPaths) {
     if (!previousManagedState.paths.has(path)) continue;
@@ -302,7 +313,7 @@ export async function verifySkillsetResult(
     renderedWithoutOutcomeMetadata,
     renderResultsWithDiagnostics
   );
-  const expected = new Map(rendered.map((file) => [file.path, file.content]));
+  const expected = new Map(rendered.map((file) => [file.path, file]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
@@ -330,6 +341,16 @@ export async function verifySkillsetResult(
     const current = await readFile(outputPath);
     if (!bytesEqual(current, file.content)) {
       const message = versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`;
+      failures.push(message);
+      driftDiagnostics.push(generatedDriftDiagnostic("changed", file.path, message));
+      continue;
+    }
+    if (!(await generatedFileOnDiskMatchesMode(outputPath, file))) {
+      const actualMode = supportsGeneratedFileModes()
+        ? ((await stat(outputPath)).mode & 0o777).toString(8).padStart(4, "0")
+        : formatGeneratedFileMode(file.mode);
+      const message =
+        `stale generated file mode: ${file.path}; expected ${formatGeneratedFileMode(file.mode)}, found ${actualMode}`;
       failures.push(message);
       driftDiagnostics.push(generatedDriftDiagnostic("changed", file.path, message));
     }
@@ -636,6 +657,7 @@ async function writeRenderedFiles(
     const outputPath = resolveOutputPath(file.path);
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
+    await applyGeneratedFileMode(outputPath, file);
     writtenPaths.push(file.path);
   }
   return writtenPaths.sort(compareStrings);
@@ -651,10 +673,16 @@ async function writeChangedRenderedFiles(
     const outputPath = resolveOutputPath(file.path);
     if (actualPaths.has(file.path)) {
       const current = await readFile(outputPath);
-      if (bytesEqual(current, file.content)) continue;
+      if (bytesEqual(current, file.content)) {
+        if (await generatedFileOnDiskMatchesMode(outputPath, file)) continue;
+        await applyGeneratedFileMode(outputPath, file);
+        writtenPaths.push(file.path);
+        continue;
+      }
     }
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
+    await applyGeneratedFileMode(outputPath, file);
     writtenPaths.push(file.path);
   }
   return writtenPaths.sort(compareStrings);

@@ -279,6 +279,7 @@ function projectionResultEntry(
   return {
     bytes: textEncoder.encode(content),
     kind: "json",
+    mode: "0644",
     path: "operation-result.json",
   };
 }

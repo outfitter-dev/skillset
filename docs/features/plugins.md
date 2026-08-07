@@ -54,6 +54,8 @@ Core identity and provenance stay directly under `skillset`. Optional discovery 
 | Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | n/a unless separately supported | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
 | Cursor companion paths | n/a unless separately supported | n/a unless separately supported | commands, agents, hooks, MCP, rules, and provider source | `target_native` / `implemented` | The checked support matrix remains authoritative: assets, LSP, monitors, output styles, README, scripts, src, and themes are not implied by this row. |
 
+Copied companion and hook scripts preserve source executable intent. On Unix, any source executable bit lowers to deterministic `0755`; other generated files lower to `0644`. Lock `fileModes` evidence and `skillset check` make mode-only drift visible. Windows skips physical Unix-mode enforcement and records `0644` when its checkout does not expose Git's executable bit.
+
 ## Manifest Field Authority
 
 Each generated-manifest field has exactly one writer; competing authorities are how versions drift. `skillset import` lifts portable metadata from a native manifest into canonical plugin source, re-derives component wiring from the imported layout, and keeps only residual provider-specific options in target manifest overrides.

@@ -40,7 +40,7 @@ Skillset uses `.skillset/changes/ledger.jsonl` as the machine event stream for n
       {
         "selector": "skill:demo",
         "sourceHash": "sha256:...",
-        "hashSchema": "skillset-source-unit-v2"
+        "hashSchema": "skillset-source-unit-v3"
       }
     ]
   }
@@ -62,7 +62,7 @@ command is defined.
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Source-unit inventory | n/a | n/a | `implemented` | `skillset change status` hashes supported source units with schema `skillset-source-unit-v2`. |
+| Source-unit inventory | n/a | n/a | `implemented` | `skillset change status` hashes supported source units with schema `skillset-source-unit-v3`. The v3 hash adds a normalized executable-mode marker for `0755` files while preserving v2 digest compatibility for non-executable files. |
 | `skillset change status --since <ref>` | n/a | n/a | `implemented` | Read-only comparison against a git ref; generated-output drift is reported separately. |
 | `changes/*.md` | n/a | n/a | `implemented` | New command-created entries are reason-only Markdown; legacy frontmatter entries remain compatibility-readable and migratable with `skillset change migrate --yes`. Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; stored under `.skillset/changes`. |
 | `changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |

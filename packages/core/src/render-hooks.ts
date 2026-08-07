@@ -179,6 +179,7 @@ function adaptiveHookCommand(
   if (!scriptFiles.has(outputPath)) {
     scriptFiles.set(outputPath, {
       content: readFileSync(reference.sourcePath),
+      mode: reference.mode,
       path: outputPath,
       sourcePath: relative(graph.rootPath, reference.sourcePath),
     });

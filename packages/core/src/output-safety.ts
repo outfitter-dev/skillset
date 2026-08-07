@@ -1,10 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
+import {
+  formatGeneratedFileMode,
+  generatedFileModeMatches,
+  supportsGeneratedFileModes,
+} from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
 import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
 import type { JsonRecord, RenderedFile } from "./types";
@@ -28,7 +33,9 @@ export interface OutputBackupRecord {
   readonly action: OutputBackupAction;
   readonly backupPath: string;
   readonly generatedHash?: string;
+  readonly generatedMode?: string;
   readonly originalHash: string;
+  readonly originalMode?: string;
   readonly reason: OutputBackupReason;
   readonly sourcePath?: string;
   readonly targetPath: string;
@@ -99,9 +106,11 @@ interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "recor
 interface ParsedLock {
   readonly items: readonly ParsedLockItem[];
   readonly legacyRoot?: boolean;
+  readonly schemaVersion: 1 | 2;
 }
 
 interface ParsedLockItem {
+  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
   readonly files: readonly string[];
   readonly outputHash?: string;
 }
@@ -215,6 +224,9 @@ export async function restoreOutputBackup(
       const targetPath = resolveInside(rootPath, record.targetPath);
       await mkdir(dirname(targetPath), { recursive: true });
       await writeFile(targetPath, backupContents.get(record.targetPath) ?? (await readBackupContent(rootPath, manifest, record)));
+      if (record.originalMode !== undefined && supportsGeneratedFileModes()) {
+        await chmod(targetPath, Number.parseInt(record.originalMode, 8));
+      }
     }
   }
 
@@ -295,7 +307,7 @@ async function addManagedPathsFromLock(
       .sort((left, right) => compareStrings(left.file, right.file));
     for (const file of files) paths.add(file.displayPath);
     if (item.outputHash === undefined) continue;
-    const currentHash = await currentOutputHash(files, resolveOutputPath);
+    const currentHash = await currentOutputHash(files, item, lock.schemaVersion, resolveOutputPath);
     if (currentHash === undefined) {
       for (const file of files) {
         if (await exists(resolveOutputPath(file.displayPath))) editedPaths.add(file.displayPath);
@@ -332,7 +344,7 @@ async function readManagedLock(
     parsed.outputRoot === undefined &&
     parsed.items === undefined
   ) {
-    return { items: [], legacyRoot: true };
+    return { items: [], legacyRoot: true, schemaVersion: 1 };
   }
   if (parsed.outputRoot !== expectedOutputRoot) {
     const expected = expectedOutputRoot === "." ? "the workspace root" : JSON.stringify(expectedOutputRoot);
@@ -342,15 +354,18 @@ async function readManagedLock(
     throw corruptManagedLock(lockPath, displayLockPath, "its items field is not an array");
   }
 
+  const schemaVersion = parsed.schemaVersion === 2 ? 2 : 1;
   return {
-    items: parsed.items.map((item) => parseLockItem(lockPath, displayLockPath, item)),
+    items: parsed.items.map((item) => parseLockItem(lockPath, displayLockPath, item, schemaVersion)),
+    schemaVersion,
   };
 }
 
 function parseLockItem(
   lockPath: string,
   displayLockPath: string,
-  value: unknown
+  value: unknown,
+  schemaVersion: 1 | 2
 ): ParsedLockItem {
   if (!isRecord(value) || !Array.isArray(value.files)) {
     throw corruptManagedLock(lockPath, displayLockPath, "one of its items is missing a files array");
@@ -365,24 +380,62 @@ function parseLockItem(
   if (outputHash !== undefined && typeof outputHash !== "string") {
     throw corruptManagedLock(lockPath, displayLockPath, "one of its items has a non-string outputHash");
   }
+  const fileModes = parseLockFileModes(lockPath, displayLockPath, value.fileModes, files, schemaVersion);
   return {
+    ...(fileModes === undefined ? {} : { fileModes }),
     files,
     ...(outputHash === undefined ? {} : { outputHash }),
   };
 }
 
+function parseLockFileModes(
+  lockPath: string,
+  displayLockPath: string,
+  value: unknown,
+  files: readonly string[],
+  schemaVersion: 1 | 2
+): Readonly<Record<string, "0644" | "0755">> | undefined {
+  if (schemaVersion === 1 && value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw corruptManagedLock(lockPath, displayLockPath, "one of its v2 items is missing a fileModes object");
+  }
+  const modes: Record<string, "0644" | "0755"> = {};
+  for (const [file, mode] of Object.entries(value)) {
+    if ((mode !== "0644" && mode !== "0755")) {
+      throw corruptManagedLock(lockPath, displayLockPath, "one of its items has invalid fileModes evidence");
+    }
+    modes[file] = mode;
+  }
+  if (files.some((file) => modes[file] === undefined)) {
+    throw corruptManagedLock(lockPath, displayLockPath, "one of its v2 items has incomplete fileModes evidence");
+  }
+  return modes;
+}
+
 async function currentOutputHash(
   files: readonly LockFileEntry[],
+  item: ParsedLockItem,
+  schemaVersion: 1 | 2,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
   const hash = createHash("sha256");
-  hash.update("skillset-output-v1\0");
+  hash.update(schemaVersion === 2 ? "skillset-output-v2\0" : "skillset-output-v1\0");
 
   for (const entry of files) {
-    if (!(await exists(resolveOutputPath(entry.displayPath)))) return undefined;
+    const outputPath = resolveOutputPath(entry.displayPath);
+    if (!(await exists(outputPath))) return undefined;
     hash.update(entry.file);
     hash.update("\0");
-    hash.update(await readFile(resolveOutputPath(entry.displayPath)));
+    if (schemaVersion === 2) {
+      const expectedMode = item.fileModes?.[entry.file];
+      if (expectedMode === undefined) return undefined;
+      const mode = supportsGeneratedFileModes()
+        ? ((await stat(outputPath)).mode & 0o777).toString(8).padStart(4, "0")
+        : expectedMode;
+      hash.update(mode);
+      hash.update("\0");
+    }
+    hash.update(await readFile(outputPath));
     hash.update("\0");
   }
 
@@ -403,7 +456,8 @@ async function collectOutputBackupRecords(
     const absolutePath = resolveOutputPath(file.path);
     if (!(await exists(absolutePath))) continue;
     const current = await readFile(absolutePath);
-    if (bytesEqual(current, file.content)) continue;
+    const currentStats = await stat(absolutePath);
+    if (bytesEqual(current, file.content) && generatedFileModeMatches(currentStats.mode, file.mode)) continue;
 
     const reason = managedState.paths.has(file.path)
       ? managedState.editedPaths.has(file.path)
@@ -416,7 +470,9 @@ async function collectOutputBackupRecords(
       action: "overwrite",
       content: current,
       generatedHash: contentHash(file.content),
+      ...(supportsGeneratedFileModes() ? { generatedMode: formatGeneratedFileMode(file.mode) } : {}),
       originalHash: contentHash(current),
+      ...(supportsGeneratedFileModes() ? { originalMode: formatDiskMode(currentStats.mode) } : {}),
       reason,
       ...(file.sourcePath === undefined ? {} : { sourcePath: canonicalBackupRecordPath(file.sourcePath) }),
       targetPath: canonicalBackupRecordPath(file.path),
@@ -429,10 +485,12 @@ async function collectOutputBackupRecords(
     const absolutePath = resolveOutputPath(targetPath);
     if (!(await exists(absolutePath))) continue;
     const current = await readFile(absolutePath);
+    const currentStats = await stat(absolutePath);
     records.push({
       action: "delete",
       content: current,
       originalHash: contentHash(current),
+      ...(supportsGeneratedFileModes() ? { originalMode: formatDiskMode(currentStats.mode) } : {}),
       reason: "managed-target-edit",
       targetPath: canonicalBackupRecordPath(targetPath),
     });
@@ -493,7 +551,10 @@ async function writeGitBackupStorage(
         input: record.content,
       });
       const objectId = object.stdoutText.trim();
-      await runGit(["--git-dir", absoluteGitDir, "update-index", "--add", "--cacheinfo", "100644", objectId, backupPath], {
+      const gitMode = record.originalMode !== undefined && (Number.parseInt(record.originalMode, 8) & 0o111) !== 0
+        ? "100755"
+        : "100644";
+      await runGit(["--git-dir", absoluteGitDir, "update-index", "--add", "--cacheinfo", gitMode, objectId, backupPath], {
         cwd: rootPath,
         env: { GIT_INDEX_FILE: indexPath },
       });
@@ -722,7 +783,9 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   const action = value.action;
   const backupPath = value.backupPath;
   const generatedHash = value.generatedHash;
+  const generatedMode = value.generatedMode;
   const originalHash = value.originalHash;
+  const originalMode = value.originalMode;
   const reason = value.reason;
   const sourcePath = value.sourcePath;
   const targetPath = value.targetPath;
@@ -735,6 +798,12 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   }
   if (generatedHash !== undefined && typeof generatedHash !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedHash`);
+  }
+  if (generatedMode !== undefined && (generatedMode !== "0644" && generatedMode !== "0755")) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedMode`);
+  }
+  if (originalMode !== undefined && (typeof originalMode !== "string" || !/^[0-7]{4}$/.test(originalMode))) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid originalMode`);
   }
   if (sourcePath !== undefined && typeof sourcePath !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid sourcePath`);
@@ -752,11 +821,17 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
     action,
     backupPath,
     ...(generatedHash === undefined ? {} : { generatedHash }),
+    ...(generatedMode === undefined ? {} : { generatedMode }),
     originalHash,
+    ...(originalMode === undefined ? {} : { originalMode }),
     reason,
     ...(sourcePath === undefined ? {} : { sourcePath }),
     targetPath,
   };
+}
+
+function formatDiskMode(mode: number): string {
+  return (mode & 0o777).toString(8).padStart(4, "0");
 }
 
 function assertBackupManifestBinding(
@@ -905,6 +980,17 @@ async function inspectRestoreTarget(record: OutputBackupRecord, targetPath: stri
   const currentHash = contentHash(current);
   if (currentHash !== record.generatedHash) {
     return `refusing ambiguous restore for ${record.targetPath}; target changed since backup ${record.generatedHash}`;
+  }
+  if (record.generatedMode !== undefined && supportsGeneratedFileModes()) {
+    let currentMode: string;
+    try {
+      currentMode = formatDiskMode((await stat(targetPath)).mode);
+    } catch {
+      return `refusing ambiguous restore for ${record.targetPath}; current target mode cannot be read`;
+    }
+    if (currentMode !== record.generatedMode) {
+      return `refusing ambiguous restore for ${record.targetPath}; target mode changed since backup ${record.generatedMode}`;
+    }
   }
   return undefined;
 }

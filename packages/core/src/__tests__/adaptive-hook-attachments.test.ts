@@ -567,7 +567,7 @@ hooks:
   });
 
   test("renders plugin-level adaptive hooks to native Claude and Codex hook files", async () => {
-    const graph = await loadBuildGraph(await fixture({
+    const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: adaptive-hook-render
@@ -596,7 +596,9 @@ hooks:
         },
       }),
       ".skillset/plugins/demo/scripts/check.sh": "#!/bin/sh\nexit 0\n",
-    }));
+    });
+    await chmod(join(root, ".skillset/plugins/demo/scripts/check.sh"), 0o755);
+    const graph = await loadBuildGraph(root);
 
     const rendered = await renderBuildGraph(graph);
     const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
@@ -627,6 +629,16 @@ hooks:
     expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
       "plugins/demo/claude/scripts/check.sh",
       "plugins/demo/codex/scripts/check.sh",
+    ]));
+    expect(rendered).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        mode: 0o755,
+        path: "plugins/demo/claude/scripts/check.sh",
+      }),
+      expect.objectContaining({
+        mode: 0o755,
+        path: "plugins/demo/codex/scripts/check.sh",
+      }),
     ]));
   });
 

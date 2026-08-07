@@ -1701,6 +1701,64 @@ Body.
   }));
 });
 
+test("SET-394: distribute plan preserves executable mode intent and detects local mode drift", async () => {
+  if (process.platform === "win32") return;
+
+  const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-mode-dest-"));
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: distribution-mode
+compile:
+  targets: [claude]
+distributions:
+  executable-skill:
+    from:
+      target: claude
+      selector: skill:runner
+    to:
+      kind: local
+      path: ${destination}
+`,
+    ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho run\n",
+    ".skillset/skills/runner/SKILL.md": `
+---
+name: runner
+description: Runs a shared script.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Run scripts/run.sh.
+`,
+  });
+  const source = join(root, ".skillset/shared/scripts/run.sh");
+  await chmod(source, 0o755);
+
+  const initial = await planDistributions(root, { name: "executable-skill" });
+  const initialPlan = initial.plans[0];
+  const script = initialPlan?.files.find((file) => file.destinationPath === "scripts/run.sh");
+  expect(script).toMatchObject({ mode: "0755", status: "add" });
+
+  const destinationScript = join(destination, "scripts/run.sh");
+  await mkdir(dirname(destinationScript), { recursive: true });
+  await writeFile(destinationScript, await readFile(source));
+  await chmod(destinationScript, 0o644);
+  const drifted = await planDistributions(root, { name: "executable-skill" });
+  expect(drifted.plans[0]?.files.find((file) => file.destinationPath === "scripts/run.sh")?.status).toBe("change");
+  expect(drifted.plans[0]?.noOp).toBe(false);
+
+  await chmod(destinationScript, 0o755);
+  const matching = await planDistributions(root, { name: "executable-skill" });
+  expect(matching.plans[0]?.files.find((file) => file.destinationPath === "scripts/run.sh")?.status).toBe("unchanged");
+
+  await chmod(source, 0o644);
+  const sourceModeChanged = await planDistributions(root, { name: "executable-skill" });
+  expect(sourceModeChanged.plans[0]?.sourceDigest).not.toBe(initialPlan?.sourceDigest);
+  expect(sourceModeChanged.plans[0]?.files.find((file) => file.destinationPath === "scripts/run.sh")?.mode).toBe("0644");
+});
+
 test("SET-109: distribute plan rejects write flags and unknown distributions", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
@@ -3316,6 +3374,61 @@ codex: false
   expect(checked.stdout).toContain("change check passed");
 });
 
+test("SET-394: source inventory hashes executable intent for release evidence", async () => {
+  if (process.platform === "win32") return;
+
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: source-mode-evidence
+claude: true
+codex: false
+`,
+    ".skillset/_claude/settings.json": "{}\n",
+    ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho run\n",
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Run scripts/run.sh.
+`,
+  });
+  const source = join(root, ".skillset/shared/scripts/run.sh");
+  const islandSource = join(root, ".skillset/_claude/settings.json");
+  const regular = await collectSourceInventory(root);
+  const regularHash = regular.units.find((unit) => unit.id === "skill:demo")?.hash;
+  const regularIslandHash = regular.units.find(
+    (unit) => unit.kind === "target-native-island"
+  )?.hash;
+
+  await chmod(source, 0o755);
+  const executable = await collectSourceInventory(root);
+  const executableHash = executable.units.find((unit) => unit.id === "skill:demo")?.hash;
+  expect(executable.hashSchema).toBe("skillset-source-unit-v3");
+  expect(executableHash).not.toBe(regularHash);
+
+  await chmod(source, 0o644);
+  const reverted = await collectSourceInventory(root);
+  expect(reverted.units.find((unit) => unit.id === "skill:demo")?.hash).toBe(regularHash);
+
+  await chmod(islandSource, 0o755);
+  const executableIsland = await collectSourceInventory(root);
+  expect(
+    executableIsland.units.find((unit) => unit.kind === "target-native-island")?.hash
+  ).not.toBe(regularIslandHash);
+
+  await chmod(islandSource, 0o644);
+  const revertedIsland = await collectSourceInventory(root);
+  expect(
+    revertedIsland.units.find((unit) => unit.kind === "target-native-island")?.hash
+  ).toBe(regularIslandHash);
+});
+
 test("SET-34: source change status is read-only and deterministic for unchanged source", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
@@ -3338,7 +3451,7 @@ Body.
   const first = await changeStatus(root, { since: "HEAD" });
   const second = await changeStatus(root, { since: "HEAD" });
 
-  expect(first.hashSchema).toBe("skillset-source-unit-v2");
+  expect(first.hashSchema).toBe("skillset-source-unit-v3");
   expect(first.sourceChanges).toEqual([]);
   expect(
     first.sourceUnits.map((unit) => ({ hash: unit.hash, id: unit.id, kind: unit.kind }))
@@ -3373,7 +3486,7 @@ Body.
 
   const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
   expect(status.exitCode).toBe(0);
-  expect(status.stdout).toContain("source hash schema skillset-source-unit-v2");
+  expect(status.stdout).toContain("source hash schema skillset-source-unit-v3");
   expect(status.stdout).toContain("~ skill: demo");
   expect(status.stdout).toContain("source change(s) needing entries");
   expect(status.stdout).toContain("generated-output drift");
@@ -4769,7 +4882,7 @@ Body.
   const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
   expect(ledger).toContain('"type":"reason.created"');
   expect(ledger).toContain('"type":"change.covered"');
-  expect(ledger).toContain('"hashSchema":"skillset-source-unit-v2"');
+  expect(ledger).toContain('"hashSchema":"skillset-source-unit-v3"');
 
   const structuredAdd = await runSkillsetCli(
     "change",

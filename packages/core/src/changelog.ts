@@ -71,6 +71,7 @@ function projection(
     entityKind,
     file: {
       content: textEncoder.encode(content),
+      mode: 0o644,
       path: outputPath,
       sourcePath,
     },

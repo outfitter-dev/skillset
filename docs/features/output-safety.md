@@ -40,7 +40,7 @@ Backups live under the gitignored recovery snapshot root:
 .skillset/snapshots/<backup-id>/git/
 ```
 
-Backup manifests use schema version 2 and store backed-up bytes in a per-run bare Git object store. The manifest records the backup id, target path, Git tree path, action, reason, original hash, generated hash when applicable, source path when known, and the Git commit that owns the snapshot. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
+Backup manifests use schema version 2 and store backed-up bytes in a per-run bare Git object store. The manifest records the backup id, target path, Git tree path, action, reason, original hash and Unix mode, generated hash and mode when applicable, source path when known, and the Git commit that owns the snapshot. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
 
 `compile.build: updated` writes missing or changed generated files and removes stale managed files while leaving unchanged managed files and unmanaged neighbors alone. `compile.build: all` rewrites the selected generated files and removes stale managed files; it does not delete whole output roots or claim unmanaged neighbors.
 
@@ -60,11 +60,11 @@ skillset restore <backup-id> --root . --yes
 skillset restore --list --root .
 ```
 
-The first command previews the restore. The second writes the backed-up bytes back to the original target paths.
+The first command previews the restore. The second writes the backed-up bytes and original Unix modes back to the original target paths.
 
 `restore --list` is read-only. It checks each manifest and its Git-backed payload before reporting whether each run is `restorable-now`, `blocked-by-current-target`, or `corrupt-or-unavailable`. The list is stable and deliberately has no timestamp because backup manifests do not record one. A run is copyably restorable only when every record is `restorable-now`; `--list` cannot be combined with a backup id or `--yes`.
 
-Restore reads each backup payload from the manifest's Git commit and validates that it still matches the manifest hash. For overwrite backups, it also verifies that the current target still matches the generated replacement hash before restoring. If the target changed again after the backup, restore refuses so it does not clobber a newer edit. For delete backups, restore refuses if the target path already exists.
+Restore reads each backup payload from the manifest's Git commit and validates that it still matches the manifest hash. For overwrite backups, it also verifies that the current target still matches the generated replacement bytes and Unix mode before restoring. If either changed again after the backup, restore refuses so it does not clobber a newer edit. For delete backups, restore refuses if the target path already exists. Windows retains the byte-safety contract and skips physical Unix-mode checking and application.
 
 ## Validation
 
@@ -86,4 +86,4 @@ Generated skill frontmatter stays lightweight. Output ownership, hashes, target-
 
 ## Evidence
 
-Fixtures cover Git-backed unmanaged collision backups, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.
+Fixtures cover Git-backed unmanaged collision backups, target-side edit backups, exact Unix-mode restoration and intervening mode-change refusal, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.

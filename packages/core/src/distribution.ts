@@ -1,9 +1,13 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 
 import { classifyDestinationOwnership, type DestinationOwnershipClassification } from "./destination-ownership";
 import { compareStrings } from "./path";
+import {
+  formatGeneratedFileMode,
+  generatedFileModeMatches,
+} from "./generated-file-mode";
 import { pluginTargetRoot } from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
@@ -47,6 +51,7 @@ export interface DistributionPlanFile {
   readonly bytes: number;
   readonly destinationPath: string;
   readonly hash: string;
+  readonly mode: "0644" | "0755";
   readonly ownership: DestinationOwnershipClassification;
   readonly sourcePath: string;
   readonly status: DistributionFileStatus;
@@ -82,12 +87,14 @@ async function planDistribution(
   const files = await Promise.all(
     selected.files.map(async (file) => {
       const hash = sha256(file.content);
+      const mode = formatGeneratedFileMode(file.mode);
       const destinationPath = joinWorkspacePath(selected.destinationPrefix, stripRequiredPrefix(file.path, selected.sourcePrefix));
-      const destination = await distributionDestinationState(graph, config, destinationPath, file.content);
+      const destination = await distributionDestinationState(graph, config, destinationPath, file);
       return {
         bytes: file.content.byteLength,
         destinationPath,
         hash,
+        mode,
         ownership: mergeDestinationOwnership(
           classifyDestinationOwnership({
             content: file.content,
@@ -196,14 +203,19 @@ async function distributionDestinationState(
   graph: BuildGraph,
   config: DistributionConfig,
   destinationPath: string,
-  content: Uint8Array
+  file: RenderedFile
 ): Promise<{ readonly content?: Uint8Array; readonly status: DistributionFileStatus }> {
   if (config.to.kind !== "local") return { status: "unknown" };
   const root = config.to.path;
   if (root === undefined) return { status: "unknown" };
+  const absolutePath = resolve(graph.rootPath, root, destinationPath);
   try {
-    const current = await readFile(resolve(graph.rootPath, root, destinationPath));
-    return { content: current, status: bytesEqual(current, content) ? "unchanged" : "change" };
+    const current = await readFile(absolutePath);
+    const modeMatches = generatedFileModeMatches((await stat(absolutePath)).mode, file.mode);
+    return {
+      content: current,
+      status: bytesEqual(current, file.content) && modeMatches ? "unchanged" : "change",
+    };
   } catch (error) {
     if (isNotFound(error)) return { status: "add" };
     throw error;
@@ -239,6 +251,8 @@ function distributionDigest(files: readonly DistributionPlanFile[]): string {
     hash.update(file.destinationPath);
     hash.update("\0");
     hash.update(file.hash);
+    hash.update("\0");
+    hash.update(file.mode);
     hash.update("\0");
   }
   return hash.digest("hex");

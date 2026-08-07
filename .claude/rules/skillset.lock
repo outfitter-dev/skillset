@@ -6,12 +6,15 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "fileModes": {
+        "fixtures.md": "0644"
+      },
       "files": [
         "fixtures.md"
       ],
       "kind": "rule",
       "name": "fixtures",
-      "outputHash": "sha256:2e9429ef3ce5d0740f152b6800e4077338d099ff27ea42d1832097a0a55e2415",
+      "outputHash": "sha256:044e187861bab6a4c8c22eeff0a3b6688f5a86eaa0d7a66b0e76bc84a3b8e1e9",
       "outputPath": "fixtures.md",
       "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
       "sourcePath": ".skillset/rules/fixtures.md",
@@ -42,7 +45,7 @@
       "target": "claude"
     }
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "selectedTargets": [
     "claude",
     "codex",

@@ -1,4 +1,5 @@
 import type { WorkspaceTransactionOptions } from "./workspace-transaction";
+import type { GeneratedFileMode } from "./types";
 
 export interface SourceRenameRequest {
   readonly from: string;
@@ -29,6 +30,7 @@ export type SourceRenameGeneratedOperation =
   | {
       readonly content: Uint8Array;
       readonly kind: "create" | "update";
+      readonly mode: GeneratedFileMode;
       readonly path: string;
     }
   | {

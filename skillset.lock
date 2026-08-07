@@ -6,40 +6,49 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "fileModes": {
+        ".claude/settings.json": "0644"
+      },
       "files": [
         ".claude/settings.json"
       ],
       "kind": "island",
       "name": "claude:project:settings.json",
-      "outputHash": "sha256:0ef10bcf3fe7c86c54e41d2fed0ac2f016e9b862147a5e8de5c55a2dc1dd2991",
+      "outputHash": "sha256:72ff7c747fd2e1408fabd8035669d4584756c05ed129abf564d29037f1deef2f",
       "outputPath": ".claude/settings.json",
       "preprocessDependencies": [],
-      "sourceHash": "sha256:737eaacdef70189409545fc91d6ea1455bf19bae189b935a748e21fbfc6301c4",
+      "sourceHash": "sha256:713324eeb285f7b5c087321cbdb94f4798d7b79bfd877c9787e9b4320abe90fe",
       "sourcePath": ".skillset/_claude/settings.json",
       "validation": "structured",
       "version": "0.1.1"
     },
     {
+      "fileModes": {
+        ".codex/hooks/hooks.json": "0644"
+      },
       "files": [
         ".codex/hooks/hooks.json"
       ],
       "kind": "island",
       "name": "codex:project:hooks/hooks.json",
-      "outputHash": "sha256:bf792ad1a2df4f4aea44d4d11a27dc08f8d5809f5d71bfad2b6584992448ed8e",
+      "outputHash": "sha256:fdcde720382edcb35f12b8ac6732c4a28bca7c1167941d46f2ee683b1c4382a4",
       "outputPath": ".codex/hooks/hooks.json",
       "preprocessDependencies": [],
-      "sourceHash": "sha256:912e0eb471e8d4888a7b84ce1486e120efb9067cbaad1832ee6b84d99d32bd77",
+      "sourceHash": "sha256:83bd50d9972ac7db83484849f0d78fc30b131f7d80aed1190ede15c3175cee06",
       "sourcePath": ".skillset/_codex/hooks/hooks.json",
       "validation": "structured",
       "version": "0.1.1"
     },
     {
+      "fileModes": {
+        ".cursor/rules/fixtures.mdc": "0644"
+      },
       "files": [
         ".cursor/rules/fixtures.mdc"
       ],
       "kind": "rule",
       "name": "fixtures",
-      "outputHash": "sha256:935fbea7a2406a4266a82f89a19a16d3cac23dc99682b530066cbb24b9e580d3",
+      "outputHash": "sha256:2890f655f99d36aafaf0a6c06c3f5d0aca3f84b951120f07e2d594e099952bbd",
       "outputPath": ".cursor/rules/fixtures.mdc",
       "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
       "sourcePath": ".skillset/rules/fixtures.md",
@@ -47,12 +56,15 @@
     },
     {
       "feature": "plugin",
+      "fileModes": {
+        ".skillset/plugins/skillset/CHANGELOG.md": "0644"
+      },
       "files": [
         ".skillset/plugins/skillset/CHANGELOG.md"
       ],
       "kind": "changelog",
       "name": "skillset",
-      "outputHash": "sha256:9bd3859964afb494b7725dfa0ae21b6015d4af093439c21eb77fdb77dd4ff13e",
+      "outputHash": "sha256:ce69ba3b8858cc2b15a523f258fe9f96c14ee692fc2d06f4e70665f8b78b94c9",
       "outputPath": ".skillset/plugins/skillset/CHANGELOG.md",
       "sourceHash": "sha256:f50c452c78adcfdaeeac449f639270b6a295e1b3a585317ed86e151061c63294",
       "sourcePath": ".skillset/plugins/skillset/skillset.yaml",
@@ -61,12 +73,15 @@
     },
     {
       "feature": "skill",
+      "fileModes": {
+        ".skillset/skills/skillset-codex-development/CHANGELOG.md": "0644"
+      },
       "files": [
         ".skillset/skills/skillset-codex-development/CHANGELOG.md"
       ],
       "kind": "changelog",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:8bd659a66a88d839f91c86d30bb3e0180d3b89b6499832683de77947c43ea7f5",
+      "outputHash": "sha256:ec717d635067ba5aa296b1a5d2d24fd166e6928174eddbd6a7ab417ea1399cf9",
       "outputPath": ".skillset/skills/skillset-codex-development/CHANGELOG.md",
       "sourceHash": "sha256:dadaaadb8d4aa6e3381e066946f0eacc2ffe13b608bb942ebb12463d33090289",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
@@ -75,12 +90,15 @@
     },
     {
       "feature": "skill",
+      "fileModes": {
+        ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md": "0644"
+      },
       "files": [
         ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"
       ],
       "kind": "changelog",
       "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:a58b9cfad19b3089df7aa35934528e77de389d0ad95a2dbd7f16f329333af3ef",
+      "outputHash": "sha256:3eefaa4c79a7665054a1cec74937b603471a9055b8033dd571de37adf261831a",
       "outputPath": ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md",
       "sourceHash": "sha256:8202341e691024a384c9cb66bf2802f5c0d9d826953dafd886b4e792b6bcc106",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
@@ -88,24 +106,30 @@
       "validation": "structured"
     },
     {
+      "fileModes": {
+        "apps/skillset/src/__tests__/AGENTS.md": "0644"
+      },
       "files": [
         "apps/skillset/src/__tests__/AGENTS.md"
       ],
       "kind": "rule",
       "name": "apps/skillset/src/__tests__/AGENTS.md",
-      "outputHash": "sha256:8f9eab5234436d52e953518c7f4255a19aa165db9dc7b9a7cf388032e5417fa7",
+      "outputHash": "sha256:166971f6521e3fe443e6605ba6e2738e6f299995766f10e4f743c16fce9451d8",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
       "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     },
     {
+      "fileModes": {
+        "fixtures/AGENTS.md": "0644"
+      },
       "files": [
         "fixtures/AGENTS.md"
       ],
       "kind": "rule",
       "name": "fixtures/AGENTS.md",
-      "outputHash": "sha256:774ff6df16bc51f53322d80b230430665c715bc91626894a90955b01fd795acb",
+      "outputHash": "sha256:2f165f1f6644db9ab38994d0a233a8a55fa664f37becd67e2ac51af682d39cf5",
       "outputPath": "fixtures/AGENTS.md",
       "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
       "sourcePath": ".skillset/rules",
@@ -313,7 +337,7 @@
       "target": "codex"
     }
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "selectedTargets": [
     "claude",
     "codex",

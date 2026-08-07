@@ -16,6 +16,8 @@ Claude plugin `bin/` is a target-native executable component. Skillset supports 
 
 Use plugin-local `<source-root>/plugins/<plugin>/bin/` for conventional discovery, where `<source-root>` is `.skillset/`. `bin: true` requires that conventional directory, `bin: false` disables it, and `bin.source: repo:path/to/bin` points at a repo-owned directory.
 
+Mark executable source files with `chmod +x`. Skillset derives portable executable intent from any source executable bit, renders those files as `0755`, and renders non-executable generated files as `0644` on Unix. Windows skips physical Unix-mode application and checking; a checkout that does not expose Git's executable bit records `0644`, and Skillset does not infer execution from filenames or shebangs.
+
 ## Target Rendering
 
 | Source | Claude output | Codex output | Cursor output | Status | Notes |
@@ -33,7 +35,7 @@ Use plugin-local `<source-root>/plugins/<plugin>/bin/` for conventional discover
 
 ## Provenance
 
-Locks record `kind: plugin-feature`, `feature: bin`, origin, optional source pointer, source path, generated path, output hashes, `targetState: target-native`, and opaque-copy validation.
+Locks record `kind: plugin-feature`, `feature: bin`, origin, optional source pointer, source path, generated path, normalized `fileModes`, mode-aware output hashes, `targetState: target-native`, and opaque-copy validation.
 
 ## Tests and Fixtures
 

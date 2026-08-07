@@ -146,6 +146,7 @@ export interface SourceAdaptiveHook {
 }
 
 export interface SourceAdaptiveHookScriptReference {
+  readonly mode: GeneratedFileMode;
   readonly kind: "hook-local" | "scripts-dir";
   readonly reference: string;
   readonly runtimePath: string;
@@ -298,8 +299,12 @@ export interface BuildGraph {
   readonly warnings: readonly string[];
 }
 
+export type GeneratedFileMode = 0o644 | 0o755;
+
 export interface RenderedFile {
   readonly content: Uint8Array;
+  /** Normalized portable file mode applied to generated Unix outputs. */
+  readonly mode: GeneratedFileMode;
   readonly path: string;
   readonly sourcePath?: string;
 }
@@ -322,6 +327,7 @@ export interface SourceOrigin {
 export interface GeneratedEntry {
   readonly dependencies?: readonly string[];
   readonly feature?: string;
+  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
   readonly files?: readonly string[];
   readonly origin?: string;
   readonly kind?: string;

@@ -2,7 +2,7 @@
 /* eslint-disable unicorn/import-style -- Named path helpers keep fixture assertions compact. */
 
 import { describe, expect, test } from "bun:test";
-import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -484,6 +484,7 @@ describe("source rename planner", () => {
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
+    await chmod(join(root, ".skillset/shared/old.txt"), 0o755);
     await buildSkillset(root);
     const preview = await planSourceRename({
       from: ".skillset/shared/old.txt",
@@ -497,6 +498,13 @@ describe("source rename planner", () => {
           path: ".claude/skills/demo/SKILL.md",
         }),
       ])
+    );
+    expect(preview.generatedOperations).toContainEqual(
+      expect.objectContaining({
+        kind: "create",
+        mode: 0o755,
+        path: ".claude/skills/demo/templates/new.txt",
+      })
     );
 
     const report = await renameSource({
@@ -516,6 +524,12 @@ describe("source rename planner", () => {
     expect(
       await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf-8")
     ).toContain("templates/new.txt");
+    if (process.platform !== "win32") {
+      expect(
+        (await stat(join(root, ".claude/skills/demo/templates/new.txt"))).mode &
+          0o777
+      ).toBe(0o755);
+    }
   });
 
   test("rejects stale previews and edited generated output without mutation", async () => {
