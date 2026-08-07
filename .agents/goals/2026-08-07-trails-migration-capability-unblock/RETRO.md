@@ -32,7 +32,7 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 ## Readiness
 
-- Prompt checked: Pass, 3,994/4,000 with no placeholders.
+- Prompt checked: Pass, 3,997/4,000 with no placeholders.
 - Goal/prompt alignment checked: Pass; prompt carries scope, sequence, loop,
   review, gates, hard rules, stop rules, done/not-done, evidence, and persistence.
 - Review blockers: None. Cursor Bugbot usage-limit errors remain visible but
@@ -50,6 +50,7 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | --- | --- | --- | --- |
 | 2026-08-07 | Initial ready-pr contract for independent #393/#395 reconciliation | Objective file | User |
 | 2026-08-07 | Cursor Bugbot usage-limit/availability errors are recorded but non-blocking for this ready-pr decision | User said to ignore the Cursor stuff for now and continue | User |
+| 2026-08-07 | Align the stable specification with the approved Cursor-only exception and completed horizon | Round-8 runtime review found the packet contracts contradicted each other | Coordinator |
 
 ## Execution Log
 
@@ -203,6 +204,15 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Only Cursor Bugbot usage-limit/availability errors are non-blocking. Their
   comments and request IDs remain retained; no billing or provider state was
   changed and no review finding was suppressed.
+- Round-8 runtime attestation found P2 `LR-005`: `SPEC.md` remained Active and
+  retained the pre-amendment absolute bot-error rule. The finding is preserved
+  in `runtime/round-8.superseded.jsonl`; the specification now records the same
+  narrow Cursor-only exception and keeps every actual bot finding and all other
+  bot errors blocking.
+- Round-8 contract attestation found a separate P2 `LR-005`: the compressed
+  executable prompt had weakened `fresh merge-ref CI` to generic `fresh CI` in
+  two places. The finding is preserved in `contract/round-8.superseded.jsonl`;
+  both merge-ref qualifiers are restored without changing the Cursor exception.
 
 ## Review Log
 
@@ -227,7 +237,8 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | #393 | 7 | contract/provenance | `tmp/reviews/pr393/contract/round-7.json` | 5/5 | clean | 0 | Exact tip `b10d3019`; final blocker packet clean |
 | #393 | 7 | runtime/render/rename | `tmp/reviews/pr393/runtime/round-7.json` | 5/5 | clean | 0 | Exact tip `b10d3019`; final blocker packet clean |
 | #393 | 7 | full branch | `tmp/reviews/pr393/full/round-7.json` | 5/5 | clean | 0 | Exact tip `b10d3019`; final blocker packet clean |
-| #393 | 8 | packet-only horizon amendment | `tmp/reviews/pr393/*/round-8.json` | post-commit attestation | required final evidence | 0 expected | Reports name the immutable amendment tip without a self-invalidating SHA edit |
+| #393 | 8 | packet-only horizon amendment | `tmp/reviews/pr393/{contract,runtime}/round-8.superseded.jsonl` | 4/5 | changes requested | 2 P2 | Stable-spec and merge-ref prompt regressions fixed; exact-tip re-review required |
+| #393 | 9 | packet-only amendment fix | `tmp/reviews/pr393/*/round-9.json` | post-commit attestation | required final evidence | 0 expected | Reports name the immutable fix tip without a self-invalidating SHA edit |
 
 ## Verification Log
 
@@ -290,7 +301,7 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
   three exact-tip reviews, tracker accuracy, zero unresolved threads/P0-P3, and
   no unresolved bot finding. Cursor capacity errors are retained and non-blocking.
 - Review report summary: Both repaired tips have three 5/5 exact-tip reviews
-  with zero P0-P3. Three packet-only round-8 attestations are generated after
+  with zero P0-P3. Three packet-only round-9 attestations are generated after
   this commit; superseded findings remain retained for auditability.
 - Verification summary: Both repaired tips passed focused proof, aggregate
   checks, canonical pre-push gates, generated-output checks, and hosted CI.

@@ -1,7 +1,7 @@
 # Specification: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: Active
+Status: Complete
 
 ## Objective
 
@@ -44,7 +44,9 @@ For both PR #393 and PR #395:
 - At least three independent final-tip local reviews are recorded.
 - No open P0, P1, or P2 finding exists.
 - Every P3 is fixed or explicitly accepted with evidence.
-- No unresolved GitHub review thread or review-bot error remains.
+- No unresolved GitHub review thread, review-bot finding, or non-amended bot
+  error remains. Recorded Cursor Bugbot usage-limit/availability errors are
+  non-blocking under the explicit 2026-08-07 user amendment.
 - Linear and PR descriptions/comments reflect current evidence.
 
 ## Constraints
