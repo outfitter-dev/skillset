@@ -309,7 +309,7 @@ Only declared resources are copied. Resource mappings may point at files or dire
 
 - `resource-undeclared-link`: a `SKILL.md` markdown link to a `shared:`/`plugin:` resource that is not declared, reported with a suggested `resources` entry.
 - `skill-plugin-root-script`: a skill body that links to a plugin-root script path (`${CLAUDE_PLUGIN_ROOT}`/`${PLUGIN_ROOT}`, or a `../` link escaping the skill to a script). Skills should copy scripts skill-local via `resources.scripts` and reference `./scripts/<name>` so the script travels with the generated skill.
-- `resource-script-not-executable`: a declared `scripts/` resource whose source file is missing an executable bit. The build copies file contents but not modes, so the source must already be executable; `skillset` reports the gap rather than `chmod`-ing generated output (it does not install or run scripts).
+- `resource-script-not-executable`: a declared `scripts/` resource whose source file is missing an executable bit. Mark executable source files with `chmod +x`; the build carries that intent into normalized `0755` generated output on Unix and records it in lock provenance. Other generated files use `0644`. Windows skips physical Unix-mode enforcement and records `0644` when the checkout does not expose Git's executable bit; Skillset does not guess from filenames or shebangs.
 
 ## Source schema
 

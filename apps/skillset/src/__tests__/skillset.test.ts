@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -3095,6 +3095,37 @@ skillset:
   expect([...copied]).toEqual([...bytes]);
 });
 
+test("SET-394: target-native island source hashes include executable intent", async () => {
+  if (process.platform === "win32") return;
+
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: island-mode
+claude: true
+codex: false
+`,
+    ".skillset/_claude/scripts/run.sh": "#!/bin/sh\necho run\n",
+  });
+  const source = join(root, ".skillset/_claude/scripts/run.sh");
+  await chmod(source, 0o755);
+  await buildSkillset(root);
+  const firstLock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+    items: Array<{ fileModes?: Record<string, string>; kind: string; sourceHash: string }>;
+  };
+  const first = firstLock.items.find((item) => item.kind === "island");
+  expect(first?.fileModes).toEqual({ ".claude/scripts/run.sh": "0755" });
+
+  await chmod(source, 0o644);
+  await buildSkillset(root);
+  const secondLock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+    items: Array<{ fileModes?: Record<string, string>; kind: string; sourceHash: string }>;
+  };
+  const second = secondLock.items.find((item) => item.kind === "island");
+  expect(second?.sourceHash).not.toBe(first?.sourceHash);
+  expect(second?.fileModes).toEqual({ ".claude/scripts/run.sh": "0644" });
+});
+
 test("project target-native islands are workspace-managed files without claiming target roots", async () => {
   const root = await fixture({
     ".codex/config.toml": `
@@ -5462,7 +5493,10 @@ description: Existing skill.
 
 Imported body.
 `,
+    "external/scripts/run.sh": "#!/bin/sh\necho imported\n",
   });
+  const sourceScript = join(root, "external/scripts/run.sh");
+  await chmod(sourceScript, 0o755);
 
   const result = await importSource({
     kind: "skill",
@@ -5472,6 +5506,9 @@ Imported body.
 
   expect(result.name).toBe("imported-skill");
   expect(await exists(join(root, ".skillset/skills/imported-skill/SKILL.md"))).toBe(true);
+  if (process.platform !== "win32") {
+    expect((await stat(join(root, ".skillset/skills/imported-skill/scripts/run.sh"))).mode & 0o777).toBe(0o755);
+  }
 });
 
 test("imports existing plugins into source layout", async () => {

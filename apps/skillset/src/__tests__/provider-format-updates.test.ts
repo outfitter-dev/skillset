@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -1002,7 +1002,9 @@ async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: st
   const lockPath = join(root, relativeLockPath);
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
     readonly outputRoot: string;
+    readonly schemaVersion?: number;
     readonly items: Array<{
+      fileModes?: Readonly<Record<string, "0644" | "0755">>;
       files?: readonly string[];
       outputHash?: string;
     }>;
@@ -1011,17 +1013,29 @@ async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: st
     file === generatedPath || join(lock.outputRoot, file) === generatedPath
   ));
   if (item?.files === undefined) throw new Error("missing plugin manifest lock item");
-  item.outputHash = await hashLockItem(root, lock.outputRoot, item.files);
+  item.outputHash = await hashLockItem(root, lock.outputRoot, item.files, lock.schemaVersion, item.fileModes);
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
 
-async function hashLockItem(root: string, outputRoot: string, files: readonly string[]): Promise<string> {
+async function hashLockItem(
+  root: string,
+  outputRoot: string,
+  files: readonly string[],
+  schemaVersion = 1,
+  fileModes?: Readonly<Record<string, "0644" | "0755">>
+): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-output-v1\0");
+  hash.update(schemaVersion === 2 ? "skillset-output-v2\0" : "skillset-output-v1\0");
   for (const file of files) {
+    const outputPath = join(root, outputRoot === "." ? file : join(outputRoot, file));
     hash.update(file);
     hash.update("\0");
-    hash.update(await readFile(join(root, outputRoot === "." ? file : join(outputRoot, file))));
+    if (schemaVersion === 2) {
+      expect(fileModes?.[file]).toBeDefined();
+      hash.update(((await stat(outputPath)).mode & 0o777).toString(8).padStart(4, "0"));
+      hash.update("\0");
+    }
+    hash.update(await readFile(outputPath));
     hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;

@@ -6,6 +6,22 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "fileModes": {
+        "skillset-adrs/SKILL.md": "0644",
+        "skillset-adrs/assets/adr-management.md": "0644",
+        "skillset-adrs/scripts/__tests__/amendments.test.ts": "0644",
+        "skillset-adrs/scripts/__tests__/promote-rewrite.test.ts": "0644",
+        "skillset-adrs/scripts/adr.ts": "0644",
+        "skillset-adrs/scripts/lib/amendments.ts": "0644",
+        "skillset-adrs/scripts/lib/cli.ts": "0644",
+        "skillset-adrs/scripts/lib/decision-map.ts": "0644",
+        "skillset-adrs/scripts/lib/discovery.ts": "0644",
+        "skillset-adrs/scripts/lib/frontmatter.ts": "0644",
+        "skillset-adrs/scripts/lib/git.ts": "0644",
+        "skillset-adrs/scripts/lib/index.ts": "0644",
+        "skillset-adrs/scripts/lib/paths.ts": "0644",
+        "skillset-adrs/scripts/lib/references.ts": "0644"
+      },
       "files": [
         "skillset-adrs/SKILL.md",
         "skillset-adrs/assets/adr-management.md",
@@ -24,33 +40,39 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:c8db182df185cde0fa0203c6a8f1995f090690093796da3e59284cc6bded0513",
+      "outputHash": "sha256:626574e1638cee9d869057542c1e90494a808b3c93077ec02f253db0b309e6ee",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:d6b0060424d90c5dad48949826c30cb34cee51fc0943116270fb47f3a2617c20",
+      "sourceHash": "sha256:c0aecb7d7cf7076da2b50eb2786771bd050d31005508610255c38223f2b1fffc",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
     {
+      "fileModes": {
+        "skillset-codex-development/SKILL.md": "0644"
+      },
       "files": [
         "skillset-codex-development/SKILL.md"
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:f3ab9caa4a98d2a5674908a9ddd6ff507cd76e80a90f711efee8d1d240b17af8",
+      "outputHash": "sha256:ddfde1e46a205b79b0d4e3fd2e3d4eef8f9480d8a9a73a4be224f8c98dd5beb6",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:9c2cb240b57e9afa0108b8f574b06f287b5c4b51f588672069d9ab525693bf3f",
+      "sourceHash": "sha256:1e4f3fcc495e167954927d008d4cb6e78c639fbf6899d8951db82193938f5d75",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.1"
     },
     {
+      "fileModes": {
+        "skillset-repo-test-fixtures/SKILL.md": "0644"
+      },
       "files": [
         "skillset-repo-test-fixtures/SKILL.md"
       ],
       "kind": "standalone-skill",
       "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:d2831aee6b4dd852676ecf638d708900271e86346ff6b3fc60f1e480830fe0d2",
+      "outputHash": "sha256:1a90c2a647075447317686bc8d9a8abbe4351ec4b3f7038ce591e4aa74914082",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:c1aded6af00518a12584b1b4c5db0a592d4957e358ba72e5203afa66d3bfbe31",
+      "sourceHash": "sha256:cf5fe33d9da8c7f43458d226575f63d6f724fb910fdea0f91e9a3922f5e5d2df",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.2"
     }
@@ -209,7 +231,7 @@
       "target": "codex"
     }
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "selectedTargets": [
     "claude",
     "codex",

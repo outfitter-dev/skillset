@@ -3,6 +3,7 @@ import { lstat, readdir, readFile, readlink, stat } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 
 import { compareStrings } from "./path";
+import { formatGeneratedFileMode, normalizeGeneratedFileMode } from "./generated-file-mode";
 import { assertNoHostLeaks, type HostLeakDetectionOptions } from "./host-leak";
 import type { JsonValue } from "./types";
 import { isJsonRecord, parseYamlRecord, stringifyYaml, stripUndefinedValue } from "./yaml";
@@ -22,6 +23,7 @@ export interface NormalizedOutputTreeOptions {
 export interface NormalizedOutputTreeEntry {
   readonly bytes: Uint8Array;
   readonly kind: "bytes" | "json" | "symlink" | "yaml";
+  readonly mode: "0644" | "0755" | "symlink";
   readonly path: string;
 }
 
@@ -57,11 +59,14 @@ export async function readNormalizedOutputTree(
     if ((await lstat(absolutePath)).isSymbolicLink()) {
       const bytes = new TextEncoder().encode(normalizePath(await readlink(absolutePath)));
       assertNoForbiddenSubstrings(path, bytes, options);
-      entries.push({ bytes, kind: "symlink", path });
+      entries.push({ bytes, kind: "symlink", mode: "symlink", path });
       continue;
     }
     const bytes = await readFile(absolutePath);
-    entries.push(normalizeOutputTreeEntry(path, bytes, options));
+    entries.push({
+      ...normalizeOutputTreeEntry(path, bytes, options),
+      mode: formatGeneratedFileMode(normalizeGeneratedFileMode((await stat(absolutePath)).mode)),
+    });
   }
   return {
     entries: entries.sort((left, right) => compareStrings(left.path, right.path)),
@@ -101,12 +106,16 @@ export function compareNormalizedOutputTreeEntries(
       differences.push({ detail: "only in left tree", kind: "left-only", path });
       continue;
     }
-    if (leftEntry.kind === rightEntry.kind && bytesEqual(leftEntry.bytes, rightEntry.bytes)) {
+    if (
+      leftEntry.kind === rightEntry.kind &&
+      leftEntry.mode === rightEntry.mode &&
+      bytesEqual(leftEntry.bytes, rightEntry.bytes)
+    ) {
       identical.push(path);
       continue;
     }
     differences.push({
-      detail: `${leftEntry.kind}/${rightEntry.kind} content differs (${leftEntry.bytes.byteLength} bytes vs ${rightEntry.bytes.byteLength} bytes, sha256 ${shortHash(leftEntry.bytes)} vs ${shortHash(rightEntry.bytes)})`,
+      detail: `${leftEntry.kind}/${rightEntry.kind} content or mode differs (${leftEntry.mode} vs ${rightEntry.mode}; ${leftEntry.bytes.byteLength} bytes vs ${rightEntry.bytes.byteLength} bytes, sha256 ${shortHash(leftEntry.bytes)} vs ${shortHash(rightEntry.bytes)})`,
       kind: "different",
       path,
     });
@@ -141,7 +150,7 @@ function normalizeOutputTreeEntry(
   path: string,
   bytes: Uint8Array,
   options: NormalizedOutputTreeOptions
-): NormalizedOutputTreeEntry {
+): Omit<NormalizedOutputTreeEntry, "mode"> {
   const kind = structuredKindForPath(path, options);
   const normalizedBytes = kind === "bytes" ? bytes : normalizeStructuredBytes(path, bytes, kind);
   assertNoForbiddenSubstrings(path, normalizedBytes, options);

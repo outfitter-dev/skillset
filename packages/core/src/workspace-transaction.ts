@@ -2,6 +2,7 @@
 /* eslint-disable no-await-in-loop -- Workspace mutations and rollback must run in a strict, observable sequence. */
 
 import {
+  chmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -14,10 +15,13 @@ import {
 import nodePath from "node:path";
 
 import { compareStrings } from "./path";
+import { supportsGeneratedFileModes } from "./generated-file-mode";
+import type { GeneratedFileMode } from "./types";
 
 /** A file written as part of a bounded workspace transaction. */
 export interface WorkspaceTransactionWrite {
   readonly content: string | Uint8Array;
+  readonly mode?: GeneratedFileMode;
   readonly path: string;
 }
 
@@ -123,6 +127,7 @@ interface NormalizedMove {
 
 interface NormalizedWrite {
   readonly content: string | Uint8Array;
+  readonly mode?: GeneratedFileMode;
   readonly operation: Extract<
     WorkspaceTransactionOperation,
     { readonly kind: "write" }
@@ -259,6 +264,7 @@ function preparePlan(
       const path = normalizePath(workspaceRoot, write.path);
       return {
         content: write.content,
+        ...(write.mode === undefined ? {} : { mode: write.mode }),
         operation: { kind: "write" as const, path: path.relative },
         path,
       };
@@ -587,6 +593,9 @@ async function applyWrites(
       `${String(index).padStart(6, "0")}-${nodePath.basename(write.path.absolute)}`
     );
     await writeFile(stagingPath, write.content);
+    if (write.mode !== undefined && supportsGeneratedFileModes()) {
+      await chmod(stagingPath, write.mode);
+    }
     const applied: AppliedWrite = {
       currentPath: stagingPath,
       stagingPath,

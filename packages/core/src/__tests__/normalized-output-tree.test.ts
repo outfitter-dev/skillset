@@ -100,17 +100,17 @@ describe("normalized output trees", () => {
 
   it("compares in-memory entries for runner-produced normalized data", () => {
     const left: readonly NormalizedOutputTreeEntry[] = [
-      { bytes: new TextEncoder().encode("a"), kind: "bytes", path: "a.txt" },
+      { bytes: new TextEncoder().encode("a"), kind: "bytes", mode: "0644", path: "a.txt" },
     ];
     const right: readonly NormalizedOutputTreeEntry[] = [
-      { bytes: new TextEncoder().encode("b"), kind: "bytes", path: "a.txt" },
+      { bytes: new TextEncoder().encode("b"), kind: "bytes", mode: "0644", path: "a.txt" },
     ];
 
     const comparison = compareNormalizedOutputTreeEntries(left, right);
 
     expect(comparison.differences).toEqual([
       {
-        detail: "bytes/bytes content differs (1 bytes vs 1 bytes, sha256 ca978112ca1b vs 3e23e8160039)",
+        detail: "bytes/bytes content or mode differs (0644 vs 0644; 1 bytes vs 1 bytes, sha256 ca978112ca1b vs 3e23e8160039)",
         kind: "different",
         path: "a.txt",
       },
@@ -133,7 +133,7 @@ describe("normalized output trees", () => {
 
     const comparison = await compareNormalizedOutputTrees(left, right);
     expect(comparison.different).toEqual(["linked.txt"]);
-    expect(formatNormalizedTreeComparison(comparison)).toContain("symlink/bytes content differs");
+    expect(formatNormalizedTreeComparison(comparison)).toContain("symlink/bytes content or mode differs");
   });
 });
 

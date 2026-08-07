@@ -13,7 +13,7 @@ import type { JsonRecord } from "@skillset/core/internal/types";
 import { workspaceChangeFile } from "@skillset/core";
 
 import { changeCheck, resolvePendingChangeRef } from "./change-entries";
-import { detectWorkspaceOptions, type ChangeStatusOptions } from "./change-status";
+import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions } from "./change-status";
 
 export interface ChangeRefreshOptions extends ChangeStatusOptions {
   /** @internal Test seam for a source edit between the initial and final plans. */
@@ -179,7 +179,7 @@ function refreshLedgerEvents(entries: readonly ChangeRefreshEntry[]): readonly L
     payload: {
       reasonId: entry.ref.slice(1),
       sourceUnits: entry.scopes.map((scope) => ({
-        hashSchema: "skillset-source-unit-v2",
+        hashSchema: SOURCE_HASH_SCHEMA,
         selector: scope.scope,
         sourceHash: scope.currentHash,
       })),

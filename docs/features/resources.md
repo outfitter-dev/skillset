@@ -34,6 +34,8 @@ resources:
 | Declared resource file | skill-local copied file | skill-local copied file | skill-local copied file | `portable` / `implemented` | Links and scripts remain relative to the generated skill directory. |
 | Declared resource directory | skill-local copied tree | skill-local copied tree | skill-local copied tree | `portable` / `implemented` | Child links through resource URLs rewrite to generated paths. |
 
+The source executable bit is the authoring signal: use `chmod +x` on executable resource files. Skillset normalizes executable generated files to `0755` and other generated files to `0644` on Unix. Windows does not apply or check Unix filesystem modes; when a checkout does not expose Git's executable bit, Skillset records `0644` instead of guessing from filenames or shebangs.
+
 ## Diagnostics
 
 - Reject undeclared shared resource links and suggest a `resources` entry.
@@ -44,8 +46,8 @@ resources:
 
 ## Provenance
 
-Resource contents are included in generated skill source hashes and `skillset check --only outputs` drift. Lock entries keep generated file hashes so resource-only changes are visible.
+Resource contents and normalized modes are included in generated skill source hashes and `skillset check --only outputs` drift. Lock schema v2 entries keep `fileModes` plus mode-aware generated hashes so content-only and mode-only changes are visible.
 
 ## Tests and Fixtures
 
-Fixtures cover declared file and directory resources, custom `to` paths, link rewriting, escape rejection, collision rejection, plugin-root script diagnostics, executable-script linting, and resource-driven drift.
+Fixtures cover declared file and directory resources, custom `to` paths, link rewriting, escape rejection, collision rejection, plugin-root script diagnostics, executable-script linting, executable-mode rendering and repair, and resource-driven drift.

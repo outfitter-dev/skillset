@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -78,7 +78,14 @@ const OWNED_FUNCTIONS = {
     "withOptionalSurfacePaths",
   ],
   "render-rules": ["renderRules"],
-  "render-support": ["copyPath", "exists", "lockRootsFor", "textFile"],
+  "render-support": [
+    "copyFileFromSource",
+    "copyPath",
+    "exists",
+    "lockRootsFor",
+    "renderedFileModes",
+    "textFile",
+  ],
 } as const;
 
 describe("render owner boundaries", () => {
@@ -170,6 +177,7 @@ describe("render owner boundaries", () => {
       await mkdir(join(source, "nested"), { recursive: true });
       await writeFile(join(source, "z.txt"), "z\n");
       await writeFile(join(source, "a.txt"), "a\n");
+      await chmod(join(source, "z.txt"), 0o755);
       await writeFile(join(source, "nested", "b.txt"), "b\n");
       await writeFile(join(source, ".DS_Store"), "ignored\n");
       await symlink(join(source, "a.txt"), join(source, "ignored-link"));
@@ -185,9 +193,11 @@ describe("render owner boundaries", () => {
           copied.map((file) => new Response(file.content).text())
         )
       ).toEqual(["a\n", "b\n", "z\n"]);
+      expect(copied.map((file) => file.mode)).toEqual([0o644, 0o644, 0o755]);
       expect(await copyPath(join(source, "a.txt"), "single.txt")).toEqual([
         {
           content: new TextEncoder().encode("a\n"),
+          mode: 0o644,
           path: "single.txt",
         },
       ]);
@@ -196,6 +206,7 @@ describe("render owner boundaries", () => {
       expect(await exists(join(root, "missing"))).toBe(false);
       expect(textFile("generated.txt", "body\n", "source.md")).toEqual({
         content: new TextEncoder().encode("body\n"),
+        mode: 0o644,
         path: "generated.txt",
         sourcePath: "source.md",
       });
@@ -224,6 +235,7 @@ describe("render owner boundaries", () => {
 
 function lockItem(name: string) {
   return {
+    fileModes: {},
     files: [],
     kind: "plugin" as const,
     name,

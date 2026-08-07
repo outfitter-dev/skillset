@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve } from "node:path";
@@ -21,6 +21,7 @@ import {
 } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
+import { normalizeGeneratedFileMode } from "./generated-file-mode";
 import {
   isDefaultPluginOutputRoot,
   pluginManifestPath,
@@ -75,10 +76,12 @@ import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
 import {
+  copyFileFromSource,
   copyPath,
   exists,
   GENERATED_BY,
   lockRootsFor,
+  renderedFileModes,
   textFile,
   WORKSPACE_LOCK_ROOT,
   type LockItem,
@@ -190,7 +193,7 @@ function coalesceRenderedFiles(files: readonly RenderedFile[]): readonly Rendere
       byPath.set(file.path, file);
       continue;
     }
-    if (bytesEqual(existing.content, file.content)) continue;
+    if (bytesEqual(existing.content, file.content) && existing.mode === file.mode) continue;
     throw new Error(
       `skillset: generated output collision at ${file.path} from ` +
         `${existing.sourcePath ?? "generated output"} and ${file.sourcePath ?? "generated output"}`
@@ -325,25 +328,28 @@ async function renderPluginTarget(
     rendered.push(licenseFile);
     pluginRootFiles.push(licenseFile);
   }
-  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
-    lockItemForPlugin({
-      files: pluginRootFiles,
-      graph,
-      license: pluginLicense,
-      outputRoot,
-      plugin,
-      target,
-    })
-  );
-
   for (const skill of enabledSkills) {
     rendered.push(...(await renderPluginSkillFiles(graph, plugin, skill, target, basePath, outputRoot, lockRoots, pluginLicense)));
   }
 
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
-  rendered.push(...(await renderAdaptivePluginHookFiles(graph, plugin, target, basePath)));
-  rendered.push(...(await copyPluginCompanionFiles(graph, plugin, target, basePath)));
+  const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
+  const companionFiles = await copyPluginCompanionFiles(graph, plugin, target, basePath);
+  rendered.push(...adaptiveHookFiles, ...companionFiles);
+  pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
+  const pluginOwnedFiles = coalesceRenderedFiles(pluginRootFiles);
+  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
+    lockItemForPlugin({
+      files: pluginOwnedFiles,
+      graph,
+      license: pluginLicense,
+      outputRoot,
+      plugin,
+      sourceFiles: companionFiles,
+      target,
+    })
+  );
   return rendered;
 }
 
@@ -454,10 +460,7 @@ async function renderPluginSkillFiles(
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
-      {
-        path: join(targetSkillDir, relativeFile),
-        content: await readFile(file),
-      },
+      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -841,10 +844,7 @@ async function renderIslandFile(
     };
   }
   return {
-    file: {
-      path: targetPath,
-      content: await readFile(island.sourcePath),
-    },
+    file: await copyFileFromSource(island.sourcePath, targetPath),
     preprocessDependencies: [],
     validation: "opaque-copy",
   };
@@ -996,10 +996,7 @@ async function renderStandaloneSkill(
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
-      {
-        path: join(targetSkillDir, relativeFile),
-        content: await readFile(file),
-      },
+      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -1460,7 +1457,7 @@ async function renderLockFiles(
       selectedTargets: [...graph.root.compile.targets],
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceRoot: graph.sourceRoot,
       target: lock.target,
     };
@@ -1495,6 +1492,7 @@ async function renderChangelogs(
 function lockItemForChangelog(projection: ChangelogProjection): LockItem {
   return {
     feature: projection.entityKind,
+    fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [projection.file]),
     files: [projection.outputPath],
     kind: "changelog",
     name: projection.entityId,
@@ -1513,6 +1511,7 @@ function lockItemForPlugin(args: {
   readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin: SourcePlugin;
+  readonly sourceFiles: readonly RenderedFile[];
   readonly target: TargetName;
 }): LockItem {
   const includedSkills = args.plugin.skills
@@ -1531,6 +1530,7 @@ function lockItemForPlugin(args: {
 
   return {
     ...(dependencies.length === 0 ? {} : { dependencies }),
+    fileModes: renderedFileModes(args.outputRoot, args.files),
     files,
     includedSkills,
     kind: "plugin",
@@ -1546,7 +1546,9 @@ function lockItemForPlugin(args: {
       includedSkills,
       skippedSkills,
       dependencyHashSummaries,
-      args.license
+      args.license,
+      args.outputRoot,
+      args.sourceFiles
     ),
     ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
@@ -1595,6 +1597,7 @@ async function lockItemForPluginFeature(args: {
   const targetPath = pluginFeatureTargetPath(args.feature, args.target);
   return {
     feature: args.feature.key,
+    fileModes: renderedFileModes(args.outputRoot, args.files),
     files: args.files.map((file) => relative(args.outputRoot, file.path)).sort(),
     kind: "plugin-feature",
     name: `${args.plugin.id}:${args.feature.key}`,
@@ -1632,6 +1635,7 @@ function lockItemForIsland(args: {
   readonly result: RenderedIslandFile;
 }): LockItem {
   return {
+    fileModes: renderedFileModes(args.outputRoot, [args.result.file]),
     files: [relative(args.outputRoot, args.result.file.path)],
     kind: "island",
     name: `${args.island.target}:${args.island.plugin ?? "project"}:${args.island.relativePath}`,
@@ -1658,6 +1662,7 @@ function lockItemForProjectAgent(args: {
     .sort();
 
   return {
+    fileModes: renderedFileModes(args.outputRoot, args.files),
     files,
     kind: "project-agent",
     name: args.agent.outputName,
@@ -1700,6 +1705,7 @@ async function lockItemForSkill(args: {
     .sort();
 
   return {
+    fileModes: renderedFileModes(args.outputRoot, args.files),
     files,
     kind: args.kind,
     name: args.skill.id,
@@ -1735,12 +1741,14 @@ function hashIslandSource(
   rootPath: string
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-island-source-v1\0");
+  hash.update("skillset-island-source-v2\0");
   hash.update(island.target);
   hash.update("\0");
   hash.update(island.plugin ?? "");
   hash.update("\0");
   hash.update(island.relativePath);
+  hash.update("\0");
+  hash.update(normalizeGeneratedFileMode(statSync(island.sourcePath).mode).toString(8).padStart(4, "0"));
   hash.update("\0");
   hash.update(readFileSyncBytes(island.sourcePath));
   hash.update("\0");
@@ -1807,6 +1815,7 @@ function hashProjectAgentSource(
 
 function stripUndefinedLockItem(item: LockItem): JsonRecord {
   const value: Record<string, JsonValue | undefined> = {
+    fileModes: item.fileModes,
     feature: item.feature,
     files: [...item.files],
     dependencies: item.dependencies === undefined ? undefined : [...item.dependencies],
@@ -1853,10 +1862,16 @@ function hashPluginSource(
   includedSkills: readonly string[],
   skippedSkills: readonly string[],
   dependencies: readonly string[],
-  license: ResolvedLicense | undefined
+  license: ResolvedLicense | undefined,
+  outputRoot: string,
+  sourceFiles: readonly RenderedFile[]
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-plugin-source-v4\0");
+  hash.update(
+    sourceFiles.length === 0
+      ? "skillset-plugin-source-v4\0"
+      : "skillset-plugin-source-v5\0"
+  );
   hash.update(plugin.id);
   hash.update("\0");
   hash.update(target);
@@ -1880,6 +1895,7 @@ function hashPluginSource(
       scope: hook.scope,
       scriptReferences: hook.scriptReferences.map((reference) => ({
         kind: reference.kind,
+        mode: reference.mode,
         reference: reference.reference,
         runtimePath: reference.runtimePath,
       })),
@@ -1925,6 +1941,14 @@ function hashPluginSource(
     hash.update("\0dependencies\0");
     hash.update(dependencies.join("\n"));
   }
+  for (const file of [...sourceFiles].sort((left, right) => compareStrings(left.path, right.path))) {
+    hash.update("\0companion\0");
+    hash.update(relative(outputRoot, file.path));
+    hash.update("\0");
+    hash.update(file.mode.toString(8).padStart(4, "0"));
+    hash.update("\0");
+    hash.update(file.content);
+  }
   return `sha256:${hash.digest("hex")}`;
 }
 
@@ -1954,7 +1978,7 @@ function hashPluginRenderInputs(
 
 async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-plugin-feature-source-v1\0");
+  hash.update("skillset-plugin-feature-source-v2\0");
   hash.update(feature.key);
   hash.update("\0");
   hash.update(feature.origin);
@@ -1966,12 +1990,16 @@ async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<st
   const stats = await stat(feature.sourcePath);
   if (stats.isFile()) {
     hash.update("file\0");
+    hash.update(normalizeGeneratedFileMode(stats.mode).toString(8));
+    hash.update("\0");
     hash.update(await readFile(feature.sourcePath));
     hash.update("\0");
   } else {
     hash.update("dir\0");
     for (const file of await collectFiles(feature.sourcePath)) {
       hash.update(relative(feature.sourcePath, file));
+      hash.update("\0");
+      hash.update(normalizeGeneratedFileMode((await stat(file)).mode).toString(8));
       hash.update("\0");
       hash.update(await readFile(file));
       hash.update("\0");
@@ -1991,13 +2019,15 @@ async function hashSkillSource(
   rootPath: string
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-skill-source-v5\0");
+  hash.update("skillset-skill-source-v6\0");
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "CHANGELOG.md") continue;
     hash.update("skill\0");
     hash.update(relativeFile);
+    hash.update("\0");
+    hash.update(normalizeGeneratedFileMode((await stat(file)).mode).toString(8));
     hash.update("\0");
     hash.update(await readFile(file));
     hash.update("\0");
@@ -2060,6 +2090,8 @@ async function hashResourceSource(
   const stats = await stat(resource.sourcePath);
   if (stats.isFile()) {
     hash.update("file\0");
+    hash.update(normalizeGeneratedFileMode(stats.mode).toString(8));
+    hash.update("\0");
     hash.update(await readFile(resource.sourcePath));
     hash.update("\0");
     return;
@@ -2069,6 +2101,8 @@ async function hashResourceSource(
   for (const file of await collectFiles(resource.sourcePath)) {
     hash.update(relative(resource.sourcePath, file));
     hash.update("\0");
+    hash.update(normalizeGeneratedFileMode((await stat(file)).mode).toString(8));
+    hash.update("\0");
     hash.update(await readFile(file));
     hash.update("\0");
   }
@@ -2076,10 +2110,12 @@ async function hashResourceSource(
 
 function hashRenderedFiles(outputRoot: string, files: readonly RenderedFile[]): string {
   const hash = createHash("sha256");
-  hash.update("skillset-output-v1\0");
+  hash.update("skillset-output-v2\0");
 
   for (const file of [...files].sort((left, right) => compareStrings(left.path, right.path))) {
     hash.update(relative(outputRoot, file.path));
+    hash.update("\0");
+    hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");
     hash.update(file.content);
     hash.update("\0");

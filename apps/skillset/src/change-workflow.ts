@@ -11,7 +11,7 @@ import {
   type PendingChangeEntry,
 } from "./change-entries";
 import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
-import { changeStatus, detectWorkspaceOptions, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
+import { changeStatus, detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import {
@@ -558,7 +558,7 @@ async function restoreMigrationFiles(rootPath: string, snapshots: readonly Migra
 
 function ledgerSourceUnits(sourceHashes: ReadonlyMap<string, readonly string[]>): JsonRecord[] {
   return [...sourceHashes]
-    .flatMap(([selector, hashes]) => hashes.map((sourceHash) => ({ hashSchema: "skillset-source-unit-v2", selector, sourceHash })))
+    .flatMap(([selector, hashes]) => hashes.map((sourceHash) => ({ hashSchema: SOURCE_HASH_SCHEMA, selector, sourceHash })))
     .sort((left, right) => compareStrings(`${left.selector}\0${left.sourceHash}`, `${right.selector}\0${right.sourceHash}`));
 }
 

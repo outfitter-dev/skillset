@@ -1,6 +1,8 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, sep } from "node:path";
 
+import { normalizeGeneratedFileMode } from "./generated-file-mode";
+
 import {
   diagnoseSourceMetadataCompatibility,
   validateAgentFrontmatter,
@@ -764,6 +766,7 @@ async function readAdaptiveHookScriptReferences(
     await validateAdaptiveHookScriptSource(rootPath, sourcePath, hookSourcePath, reference);
     return {
       kind: reference.startsWith("{{scripts.dir}}/") ? "scripts-dir" as const : "hook-local" as const,
+      mode: normalizeGeneratedFileMode((await stat(sourcePath)).mode),
       reference,
       runtimePath: reference,
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),

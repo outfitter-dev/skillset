@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -547,6 +547,7 @@ for (const blocker of [
 test("SET-225: adopt merges equivalent provider roots into one canonical plugin", async () => {
   const root = await pluginFixture({
     "plugins/claude-demo/.claude-plugin/plugin.json": manifest("demo"),
+    "plugins/claude-demo/scripts/run.sh": "#!/bin/sh\necho run\n",
     "plugins/claude-demo/skills/helper/SKILL.md": skill("shared"),
     "plugins/codex-demo/.codex-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
       author: { name: "Demo Author" },
@@ -554,13 +555,18 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
       interface: { category: "productivity", developerName: "Demo Author" },
       skills: "./skills/",
     }),
+    "plugins/codex-demo/scripts/run.sh": "#!/bin/sh\necho run\n",
     "plugins/codex-demo/skills/helper/SKILL.md": skill("shared"),
     "plugins/cursor-demo/.cursor-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
       category: "productivity",
       skills: "./skills/",
     }),
+    "plugins/cursor-demo/scripts/run.sh": "#!/bin/sh\necho run\n",
     "plugins/cursor-demo/skills/helper/SKILL.md": skill("shared"),
   });
+  for (const provider of ["claude", "codex", "cursor"]) {
+    await chmod(join(root, `plugins/${provider}-demo/scripts/run.sh`), 0o755);
+  }
 
   const plan = await adoptSkillset(root);
   expect(plan.candidates).toEqual([
@@ -594,6 +600,9 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
   expect(await exists(join(root, ".skillset/plugins/demo/.codex-plugin/plugin.json"))).toBe(true);
   expect(await exists(join(root, ".skillset/plugins/demo/.cursor-plugin/plugin.json"))).toBe(true);
   expect(await exists(join(root, ".skillset/plugins/demo/skills/helper/SKILL.md"))).toBe(true);
+  if (process.platform !== "win32") {
+    expect((await stat(join(root, ".skillset/plugins/demo/scripts/run.sh"))).mode & 0o777).toBe(0o755);
+  }
 
   const configPath = join(root, ".skillset/plugins/demo/skillset.yaml");
   const importedConfig = await readFile(configPath, "utf8");
@@ -651,6 +660,22 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
       expect(generatedManifest.category).toBe("collaboration");
     }
   }
+});
+
+test("SET-394: equivalent plugin adoption rejects executable-mode disagreement", async () => {
+  if (process.platform === "win32") return;
+
+  const root = await pluginFixture({
+    "plugins/claude-demo/.claude-plugin/plugin.json": manifest("demo"),
+    "plugins/claude-demo/scripts/run.sh": "#!/bin/sh\necho run\n",
+    "plugins/codex-demo/.codex-plugin/plugin.json": manifest("demo"),
+    "plugins/codex-demo/scripts/run.sh": "#!/bin/sh\necho run\n",
+  });
+  await chmod(join(root, "plugins/claude-demo/scripts/run.sh"), 0o755);
+
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(false);
+  expect(report.imports[0]?.detail).toContain("disagree in bytes or executable mode");
 });
 
 test("SET-225: adopt keeps similar different identities separate and reports the warning", async () => {

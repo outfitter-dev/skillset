@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
@@ -12,6 +13,7 @@ import {
   diffSkillsetResult,
   resolveOperationalPath,
   RENDER_RESULT_STATUS_VALUES,
+  restoreOutputBackup,
   SkillsetRenderResultError,
   type SkillsetRenderResult,
   type SkillsetRenderResultStatus,
@@ -19,6 +21,7 @@ import {
 import { collectRenderResults } from "../render-result-collector";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
+import { supportsGeneratedFileModes } from "../generated-file-mode";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -152,6 +155,164 @@ Use the beta plugin skill.
 };
 
 describe("build render results", () => {
+  it("preserves and repairs executable modes for resources and plugin scripts", async () => {
+    if (!supportsGeneratedFileModes()) return;
+
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: executable-output
+claude: true
+codex: true
+cursor: false
+`,
+      ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho resource\n",
+      ".skillset/skills/resourceful/SKILL.md": `
+---
+name: resourceful
+description: Uses an executable resource.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Run scripts/run.sh.
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
+        hooks: {
+          SessionStart: [{ hooks: [{ command: "$CLAUDE_PLUGIN_ROOT/scripts/detect.sh", type: "command" }] }],
+        },
+      }),
+      ".skillset/plugins/demo/scripts/detect.sh": "#!/bin/sh\necho plugin\n",
+    });
+    const resourceSource = join(root, ".skillset/shared/scripts/run.sh");
+    const pluginSource = join(root, ".skillset/plugins/demo/scripts/detect.sh");
+    await chmod(resourceSource, 0o755);
+    await chmod(pluginSource, 0o755);
+
+    await buildSkillsetResult(root);
+
+    const resourceOutput = join(root, ".agents/skills/resourceful/scripts/run.sh");
+    const pluginOutput = join(root, "plugins/demo/claude/scripts/detect.sh");
+    expect((await stat(resourceOutput)).mode & 0o777).toBe(0o755);
+    expect((await stat(pluginOutput)).mode & 0o777).toBe(0o755);
+
+    const skillLock = await readJson(join(root, ".agents/skills/skillset.lock"));
+    const skillItem = (skillLock.items as Array<Record<string, unknown>>)
+      .find((item) => item.name === "resourceful");
+    expect(skillItem?.fileModes).toEqual(expect.objectContaining({
+      "resourceful/scripts/run.sh": "0755",
+    }));
+    const pluginLock = await readJson(join(root, "plugins/skillset.lock"));
+    const pluginItem = (pluginLock.items as Array<Record<string, unknown>>)
+      .find((item) => item.name === "demo" && item.kind === "plugin");
+    expect(pluginItem?.files).toEqual(expect.arrayContaining([
+      "demo/claude/hooks/hooks.json",
+      "demo/claude/scripts/detect.sh",
+    ]));
+    expect(pluginItem?.fileModes).toEqual(expect.objectContaining({
+      "demo/claude/scripts/detect.sh": "0755",
+    }));
+    await chmod(pluginSource, 0o644);
+    await buildSkillsetResult(root);
+    const pluginModeChangedLock = await readJson(join(root, "plugins/skillset.lock"));
+    const pluginModeChangedItem = (pluginModeChangedLock.items as Array<Record<string, unknown>>)
+      .find((item) => item.name === "demo" && item.kind === "plugin");
+    expect(pluginModeChangedItem?.sourceHash).not.toBe(pluginItem?.sourceHash);
+    expect(pluginModeChangedItem?.fileModes).toEqual(expect.objectContaining({
+      "demo/claude/scripts/detect.sh": "0644",
+    }));
+
+    await chmod(resourceOutput, 0o644);
+    const verification = await verifySkillsetResult(root);
+    expect(verification.ok).toBe(false);
+    expect(verification.data.failures).toContain(
+      "stale generated file mode: .agents/skills/resourceful/scripts/run.sh; expected 0755, found 0644"
+    );
+    expect((await diffSkillsetResult(root)).data.changed).toContain(
+      ".agents/skills/resourceful/scripts/run.sh"
+    );
+
+    const repaired = await buildSkillsetResult(root);
+    expect(repaired.writes.writtenPaths).toContain(
+      ".agents/skills/resourceful/scripts/run.sh"
+    );
+    expect((await stat(resourceOutput)).mode & 0o777).toBe(0o755);
+    expect(repaired.writes.backupRunId).toBeDefined();
+
+    await chmod(resourceOutput, 0o700);
+    await expect(
+      restoreOutputBackup(root, repaired.writes.backupRunId ?? "", { write: true })
+    ).rejects.toThrow("target mode changed since backup 0755");
+    await chmod(resourceOutput, 0o755);
+    await restoreOutputBackup(root, repaired.writes.backupRunId ?? "", { write: true });
+    expect((await stat(resourceOutput)).mode & 0o777).toBe(0o644);
+  });
+
+  it("upgrades schema-v1 output locks without false managed-edit backups", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: legacy-lock-mode
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Demo.
+`,
+      ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho legacy\n",
+    });
+    const sourceScript = join(root, ".skillset/shared/scripts/run.sh");
+    const outputScript = join(root, ".agents/skills/demo/scripts/run.sh");
+    await chmod(sourceScript, 0o755);
+    await buildSkillsetResult(root);
+
+    const outputRoot = join(root, ".agents/skills");
+    const lockPath = join(outputRoot, "skillset.lock");
+    const legacy = await readJson(lockPath) as {
+      items: Array<{ fileModes?: Record<string, string>; files: string[]; outputHash: string }>;
+      schemaVersion: number;
+    };
+    legacy.schemaVersion = 1;
+    for (const item of legacy.items) {
+      const hash = createHash("sha256");
+      hash.update("skillset-output-v1\0");
+      for (const file of item.files) {
+        hash.update(file);
+        hash.update("\0");
+        hash.update(await readFile(join(outputRoot, file)));
+        hash.update("\0");
+      }
+      item.outputHash = `sha256:${hash.digest("hex")}`;
+      delete item.fileModes;
+    }
+    await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
+    await chmod(outputScript, 0o644);
+
+    const migrated = await buildSkillsetResult(root);
+    expect(migrated.writes.backupRunId).toBeUndefined();
+    expect(migrated.writes.writtenPaths).toContain(
+      ".agents/skills/demo/scripts/run.sh"
+    );
+    expect(migrated.writes.writtenPaths).toContain(".agents/skills/skillset.lock");
+    expect((await stat(outputScript)).mode & 0o777).toBe(0o755);
+    expect((await readJson(lockPath)).schemaVersion).toBe(2);
+    expect((await verifySkillsetResult(root)).ok).toBe(true);
+  });
+
   it("reports emitted, pass-through, transformed, unsupported, and scoped outcomes", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
 

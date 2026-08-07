@@ -12,6 +12,7 @@ import {
 } from "@skillset/core";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { normalizeGeneratedFileMode } from "@skillset/core/internal/generated-file-mode";
 import { gitSafeEnv } from "./git-env";
 import {
   formatPreprocessDependency,
@@ -47,7 +48,8 @@ import type {
 } from "@skillset/core/internal/types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "@skillset/core/internal/yaml";
 
-export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v2";
+export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v3";
+const SOURCE_HASH_DOMAIN = "skillset-source-unit-v2";
 
 export type SourceUnitKind =
   | "instruction"
@@ -402,6 +404,7 @@ async function islandUnit(
   hash.update("\0relativePath\0");
   hash.update(island.relativePath);
   hash.update("\0content\0");
+  hashExecutableMode(hash, (await stat(island.sourcePath)).mode);
   hash.update(await readFile(island.sourcePath));
   hash.update("\0");
   await hashPreprocessDependencies(hash, graph, preprocessDependencies);
@@ -568,6 +571,7 @@ async function hashPathInto(hash: ReturnType<typeof createHash>, sourcePath: str
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
     hash.update("file\0");
+    hashExecutableMode(hash, stats.mode);
     hash.update(await readFile(sourcePath));
     hash.update("\0");
     return;
@@ -587,6 +591,7 @@ async function hashDirectory(
     if (shouldSkip?.(relativeFile)) continue;
     hash.update(relativeFile);
     hash.update("\0");
+    hashExecutableMode(hash, (await stat(file)).mode);
     hash.update(await readFile(file));
     hash.update("\0");
   }
@@ -757,11 +762,21 @@ async function collectFiles(root: string): Promise<readonly string[]> {
 
 function createSourceHash(kind: SourceUnitKind): ReturnType<typeof createHash> {
   const hash = createHash("sha256");
-  hash.update(SOURCE_HASH_SCHEMA);
+  // v3 is byte-compatible with v2 for non-executable files so existing
+  // baselines migrate without false source changes. Executable intent adds a
+  // new domain marker below and therefore cannot remain invisible.
+  hash.update(SOURCE_HASH_DOMAIN);
   hash.update("\0");
   hash.update(kind);
   hash.update("\0");
   return hash;
+}
+
+function hashExecutableMode(hash: ReturnType<typeof createHash>, mode: number): void {
+  if (normalizeGeneratedFileMode(mode) !== 0o755) return;
+  hash.update("mode\0");
+  hash.update("0755");
+  hash.update("\0");
 }
 
 function digest(hash: ReturnType<typeof createHash>): string {

@@ -232,7 +232,7 @@ function printDistributionPlan(report: DistributionPlanReport): void {
     console.log(`  digest: ${plan.sourceDigest}`);
     for (const file of plan.files) {
       console.log(
-        `  ${file.status}: ${file.sourcePath} -> ${file.destinationPath} (${file.bytes} bytes, ${file.hash.slice(0, 12)})`
+        `  ${file.status}: ${file.sourcePath} -> ${file.destinationPath} (${file.bytes} bytes, mode ${file.mode}, ${file.hash.slice(0, 12)})`
       );
       const ownership = formatOwnershipSummary(file.ownership);
       if (ownership !== undefined) {
