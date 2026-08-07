@@ -227,11 +227,11 @@ skillset:
       "demo/claude/scripts/detect.sh": "0644",
     }));
 
-    await chmod(resourceOutput, 0o644);
+    await chmod(resourceOutput, 0o555);
     const verification = await verifySkillsetResult(root);
     expect(verification.ok).toBe(false);
     expect(verification.data.failures).toContain(
-      "stale generated file mode: .agents/skills/resourceful/scripts/run.sh; expected 0755, found 0644"
+      "stale generated file mode: .agents/skills/resourceful/scripts/run.sh; expected 0755, found 0555"
     );
     expect((await diffSkillsetResult(root)).data.changed).toContain(
       ".agents/skills/resourceful/scripts/run.sh"
@@ -250,7 +250,7 @@ skillset:
     ).rejects.toThrow("target mode changed since backup 0755");
     await chmod(resourceOutput, 0o755);
     await restoreOutputBackup(root, repaired.writes.backupRunId ?? "", { write: true });
-    expect((await stat(resourceOutput)).mode & 0o777).toBe(0o644);
+    expect((await stat(resourceOutput)).mode & 0o777).toBe(0o555);
   });
 
   it("upgrades schema-v1 output locks without false managed-edit backups", async () => {

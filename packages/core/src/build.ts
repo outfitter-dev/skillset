@@ -673,10 +673,12 @@ async function writeChangedRenderedFiles(
     const outputPath = resolveOutputPath(file.path);
     if (actualPaths.has(file.path)) {
       const current = await readFile(outputPath);
-      if (
-        bytesEqual(current, file.content) &&
-        (await generatedFileOnDiskMatchesMode(outputPath, file))
-      ) continue;
+      if (bytesEqual(current, file.content)) {
+        if (await generatedFileOnDiskMatchesMode(outputPath, file)) continue;
+        await applyGeneratedFileMode(outputPath, file);
+        writtenPaths.push(file.path);
+        continue;
+      }
     }
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
