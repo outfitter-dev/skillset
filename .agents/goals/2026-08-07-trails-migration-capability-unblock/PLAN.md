@@ -13,8 +13,8 @@ Status: Active
   reviews, submit, fresh CI, and hosted reconciliation remain.
 - PR #395: non-draft at `0567db91d7e93ba9d803f06cf610fed1d4335e11`,
   independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, and its
-  hosted Codex P2 is fixed/resolved. A bounded final-head Cursor Bugbot rerun is
-  pending after an earlier usage-limit error; SET-394 remains In Review.
+  hosted Codex P2 is fixed/resolved. A bounded final-head Cursor Bugbot rerun
+  repeated the external usage-limit error; SET-394 remains In Review.
 - Worker worktrees remain present; neither was deleted or destructively cleaned.
 - npm latest: `skillset@0.22.0`.
 
@@ -39,8 +39,10 @@ Status: Active
    independent ancestry.
 9. [in progress] Re-attest both repaired tips with three independent reviews,
    full local gates, fresh merge-ref CI, resolved threads, and final-head bot state.
-10. [pending] Re-query GitHub and Linear, finalize the packet, and stop at the
-    ready-for-approval boundary without merge, queue, release, or downstream work.
+10. [blocked] Re-query GitHub and Linear, finalize the packet, and stop at the
+    ready-for-approval boundary without merge, queue, release, or downstream
+    work. Cursor Bugbot's external usage limit currently prevents the required
+    zero-review-bot-error state.
 
 ## Branch Isolation Rules
 

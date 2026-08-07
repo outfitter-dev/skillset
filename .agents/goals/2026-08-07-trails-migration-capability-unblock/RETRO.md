@@ -35,7 +35,9 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Goal/prompt alignment checked: Pass; prompt carries scope, sequence, loop,
   review, gates, hard rules, stop rules, done/not-done, evidence, and persistence.
 - Review blockers: #393 needs three clean final-tip reviews and hosted thread
-  reconciliation. Both PRs need a final-head Bugbot result without an active error.
+  reconciliation. #395's bounded final-head Bugbot rerun repeated the external
+  usage-limit error; the required zero-review-bot-error state is not reachable
+  without a Cursor user/team usage-limit change.
 - Verification blockers: #393 needs its full exact-tip gate and fresh hosted CI.
 - Tracker blockers: Downstream issues remain release-gated; no downstream work was authorized.
 - Authority blockers: Merge, queue, publish, release, deploy, and downstream
@@ -177,9 +179,10 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
   `MERGEABLE` / `CLEAN`, and the hosted P2 thread has an evidence-backed reply
   and is resolved.
 - Cursor Bugbot reported a usage-limit error on each earlier head. A bounded
-  top-level final-head rerun was requested for #395; billing/settings were not
-  changed. The strict zero-bot-error gate remains open until live evidence shows
-  a successful or clean superseding final-head result.
+  top-level final-head rerun on #395 produced request
+  `serverGenReqId_10e62fed-d44e-477e-8bc0-5b4c174be047` and repeated the same
+  usage/spend-limit failure. Billing/settings were not changed. The strict
+  zero-bot-error gate remains externally blocked.
 
 ## Review Log
 
@@ -243,7 +246,7 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | Item | State | Notes |
 | --- | --- | --- |
 | SET-396 / #393 | Ready to Merge / re-attestation active | Independent local repair at `752b04c`; final reviews/submit/CI/thread/bot reconciliation remain |
-| SET-394 / #395 | In Review / hosted verification active | Independent repaired head `0567db91`; CI green, mergeable/clean, P2 resolved; final Bugbot rerun pending |
+| SET-394 / #395 | In Review / externally blocked | Independent repaired head `0567db91`; CI green, mergeable/clean, P2 resolved; final-head Bugbot rerun failed on usage limit |
 | TRL-1272 | Backlog, blocked | Waits for approved/merged/published SET-396 release |
 | TRL-1274 | Backlog, blocked | Waits for approved/merged/published SET-394 release |
 
@@ -253,8 +256,9 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 ## Final State
 
-- Completion proof: Pending #393 final-tip reviews/submit/CI/thread reconciliation
-  and clean final-head Bugbot evidence for both PRs.
+- Completion proof: Pending #393 final-tip reviews/submit/CI/thread reconciliation.
+  Strict ready-for-approval remains blocked by #395's final-head Bugbot
+  usage-limit failure.
 - Review report summary: #395 has three repaired-tip 5/5 reviews with zero
   P0-P3. #393's superseded round-3 evidence is retained; round-4 reviews remain.
 - Verification summary: #395's repaired tip has passed local and hosted gates.
@@ -262,8 +266,9 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Forbidden actions audit: No merge, queue, publish, release, deploy, HOME or
   provider-config mutation, destructive cleanup, worktree deletion, or
   downstream Trails implementation occurred.
-- Remaining P3s / risks: No accepted P3. Open operational gate: Cursor Bugbot's
-  usage-limit error needs a clean final-head superseding result. Documented
+- Remaining P3s / risks: No accepted P3. External blocker: Cursor Bugbot's
+  usage limit must change before a clean final-head superseding result can run.
+  Documented
   residual: no physical Windows
   host exercise for chmod behavior; Windows intentionally preserves lock intent
   without physical enforcement.
