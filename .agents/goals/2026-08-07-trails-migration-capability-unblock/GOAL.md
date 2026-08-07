@@ -1,7 +1,7 @@
 # Goal Execution Contract: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: Active
+Status: Complete
 Spec: `.agents/goals/2026-08-07-trails-migration-capability-unblock/SPEC.md`
 Plan: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PLAN.md`
 Prompt: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PROMPT.md`
@@ -14,12 +14,15 @@ Ready-pr.
 
 Complete only when both #393 and #395 are non-draft, independently based on
 live `main`, mergeable, fresh merge-ref CI green, locally gate-clean, review
-clean, thread-clean, bot-error-clean, and accurately reflected in Linear and
-the packet.
+clean, thread-clean, free of unresolved bot findings, and accurately reflected
+in Linear and the packet. Per the user's 2026-08-07 horizon amendment, Cursor
+Bugbot usage-limit/availability errors are recorded but non-blocking for this
+ready-pr decision.
 
 Not complete when either PR is draft, conflicting, stale against `main`, green
 only on a pre-restack head, missing a required check or review, carrying an
-unresolved thread/bot error/P0-P2, or described by stale tracker evidence.
+unresolved thread, non-amended bot error, P0-P2, or described by stale tracker
+evidence.
 
 ## Authority
 
@@ -63,7 +66,7 @@ each final tip; source-control and tracker writes stay centralized.
      reviews are clean.
 3. PR #393 hosted readiness
    - Outcome: draft submit, current body, fresh merge-ref CI, resolved threads,
-     no bot errors, then non-draft ready state.
+     no unresolved bot findings, then non-draft ready state.
 4. SET-394 / PR #395 reconciliation
    - Outcome: branch rests independently on live `main`; conflicts preserve
      executable-mode intent without SET-396 scope.
@@ -71,7 +74,8 @@ each final tip; source-control and tracker writes stay centralized.
      reviews are clean.
 5. PR #395 hosted readiness and closeout
    - Outcome: draft submit, current body, fresh merge-ref CI, resolved threads,
-     no bot errors, then non-draft ready state; Linear and packet are current.
+     no unresolved bot findings, then non-draft ready state; Linear and packet
+     are current.
 
 ## Reviews
 
@@ -107,7 +111,8 @@ updates, and a forbidden-action audit.
 - `bun run hooks:pre-push`
 - `git diff --check`
 - Fresh GitHub merge-ref CI, mergeability, draft state, review threads, review
-  bot comments/errors, and exact head/base proof for each PR.
+  bot findings/dispositions, and exact head/base proof for each PR. Cursor
+  Bugbot usage-limit errors remain recorded but are non-blocking by amendment.
 
 ## Next Move
 
@@ -120,16 +125,17 @@ updates, and a forbidden-action audit.
 
 ## Waiting State
 
-- Waiting may occur on PR-triggered CI, review bots, or mergeability refresh.
+- Waiting may occur on PR-triggered CI, non-amended review bots, or mergeability refresh.
 - Check with `gh pr view`, `gh pr checks`, GitHub review-thread queries, and
   bounded Actions inspection about every 5–10 minutes while progress is live.
-- Continue when fresh final-head evidence arrives. A stale/missing run or bot
-  error is not a clean result.
+- Continue when fresh final-head evidence arrives. A stale/missing run or
+  non-amended bot error is not a clean result.
 - Stop only when required external authority/service remains unavailable after
   documented recovery and no independent safe work remains.
 - Last checked: 2026-08-07; both PRs are non-draft, independently
-  mergeable/clean, fresh pull-request CI green, and thread-clean, but final-head
-  Cursor Bugbot runs remain blocked by the shared external usage limit.
+  mergeable/clean, fresh pull-request CI green, thread-clean, and free of
+  unresolved bot findings. Cursor Bugbot capacity failures are recorded under
+  the user-approved non-blocking amendment.
 
 ## Persistence
 

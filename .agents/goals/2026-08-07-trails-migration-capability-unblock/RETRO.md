@@ -1,8 +1,8 @@
 # Execution Retro: Trails Migration Capability Unblock
 
 Date started: 2026-08-07
-Date finalized: Pending
-Status: Active
+Date finalized: 2026-08-07
+Status: Complete
 Spec: `.agents/goals/2026-08-07-trails-migration-capability-unblock/SPEC.md`
 Plan: `.agents/goals/2026-08-07-trails-migration-capability-unblock/PLAN.md`
 Goal: `.agents/goals/2026-08-07-trails-migration-capability-unblock/GOAL.md`
@@ -15,8 +15,8 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Completion horizon: Ready-pr.
 - Outcome: Both independent implementations are repaired, submitted, locally
   reviewed, mergeable/clean, fresh-CI green, and have resolved hosted Codex P2
-  threads. Strict ready-for-approval is blocked only by Cursor Bugbot's shared
-  external usage/spend limit.
+  threads. The user explicitly amended the horizon to record but ignore Cursor
+  Bugbot usage-limit/availability errors for this ready-pr decision.
 - Tracker/PR/source-control state: Both PRs are non-draft, independently based
   on the same live main, `MERGEABLE` / `CLEAN`, and fresh pull-request CI green.
   Linear reports SET-394 and SET-396 Ready to Merge.
@@ -35,22 +35,21 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Prompt checked: Pass, 3,994/4,000 with no placeholders.
 - Goal/prompt alignment checked: Pass; prompt carries scope, sequence, loop,
   review, gates, hard rules, stop rules, done/not-done, evidence, and persistence.
-- Review blockers: Final-head Bugbot runs on both PRs repeated the external
-  usage-limit error; the required zero-review-bot-error state is not reachable
-  without a Cursor user/team usage-limit change.
+- Review blockers: None. Cursor Bugbot usage-limit errors remain visible but
+  are non-blocking under the explicit user-approved horizon amendment.
 - Verification blockers: None in source, tests, CI, mergeability, or threads.
 - Tracker blockers: Downstream issues remain release-gated; no downstream work was authorized.
 - Authority blockers: Merge, queue, publish, release, deploy, and downstream
   migration remain outside this goal and require separate maintainer authority.
-- Next action: Stop at this boundary and wait for Cursor usage-limit capacity or
-  an explicit horizon amendment before rerunning Bugbot; do not merge, queue,
-  publish, release, deploy, or start downstream work.
+- Next action: Maintainer approval. Do not merge, queue, publish, release,
+  deploy, or start downstream work without separate authority.
 
 ## Goal Amendments
 
 | Time | Change | Reason | Approved By |
 | --- | --- | --- | --- |
 | 2026-08-07 | Initial ready-pr contract for independent #393/#395 reconciliation | Objective file | User |
+| 2026-08-07 | Cursor Bugbot usage-limit/availability errors are recorded but non-blocking for this ready-pr decision | User said to ignore the Cursor stuff for now and continue | User |
 
 ## Execution Log
 
@@ -192,6 +191,19 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
   Bugbot attempts on the final head repeated the same usage-limit failure
   (`serverGenReqId_82b96426-699d-458a-a3cd-e259f2af7f6d`).
 
+### 2026-08-07 — user-approved Cursor horizon amendment
+
+- After three consecutive live audits confirmed Cursor Bugbot capacity as the
+  only unmet gate, the user explicitly directed the coordinator to ignore the
+  Cursor issue for now and continue.
+- The ready-pr horizon still requires independent live-main ancestry,
+  non-draft/mergeable/clean PRs, fresh required CI, clean local gates, three
+  independent final-tip reviews, zero unresolved threads/P0-P2, and no
+  unexplained P3 or bot finding.
+- Only Cursor Bugbot usage-limit/availability errors are non-blocking. Their
+  comments and request IDs remain retained; no billing or provider state was
+  changed and no review finding was suppressed.
+
 ## Review Log
 
 | PR | Round | Scope | Report | Score | State | Open P0-P2 | Notes |
@@ -212,6 +224,10 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 | #393 | 5 | contract/provenance | `tmp/reviews/pr393/contract/round-5.json` | 5/5 | clean | 0 | Exact tip `568d090c`; tracker drift fixed |
 | #393 | 5 | runtime/render/rename | `tmp/reviews/pr393/runtime/round-5.json` | 5/5 | clean | 0 | Exact tip `568d090c`; 98 tests / 436 expectations |
 | #393 | 5 | full branch | `tmp/reviews/pr393/full/round-5.json` | 5/5 | clean | 0 | Exact tip `568d090c`; LR-393-FULL-004 fixed |
+| #393 | 7 | contract/provenance | `tmp/reviews/pr393/contract/round-7.json` | 5/5 | clean | 0 | Exact tip `b10d3019`; final blocker packet clean |
+| #393 | 7 | runtime/render/rename | `tmp/reviews/pr393/runtime/round-7.json` | 5/5 | clean | 0 | Exact tip `b10d3019`; final blocker packet clean |
+| #393 | 7 | full branch | `tmp/reviews/pr393/full/round-7.json` | 5/5 | clean | 0 | Exact tip `b10d3019`; final blocker packet clean |
+| #393 | 8 | packet-only horizon amendment | `tmp/reviews/pr393/*/round-8.json` | post-commit attestation | required final evidence | 0 expected | Reports name the immutable amendment tip without a self-invalidating SHA edit |
 
 ## Verification Log
 
@@ -258,8 +274,8 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 | Item | State | Notes |
 | --- | --- | --- |
-| SET-396 / #393 | Ready to Merge / externally blocked | Independent head `568d090c`; CI green, mergeable/clean, P2 resolved, three reviews clean; final-head Bugbot failed on usage limit |
-| SET-394 / #395 | Ready to Merge / externally blocked | Linear automation advanced the tracker after CI; independent repaired head `0567db91` is mergeable/clean with P2 resolved, but the final-head Bugbot rerun failed on usage limit |
+| SET-396 / #393 | Ready to Merge / ready for approval | Independent implementation/evidence through `b10d3019`; CI green, mergeable/clean, P2 resolved, three reviews clean; Cursor capacity error non-blocking by amendment |
+| SET-394 / #395 | Ready to Merge / ready for approval | Independent repaired head `0567db91`; CI green, mergeable/clean, P2 resolved, three reviews clean; Cursor capacity error non-blocking by amendment |
 | TRL-1272 | Backlog, blocked | Waits for approved/merged/published SET-396 release |
 | TRL-1274 | Backlog, blocked | Waits for approved/merged/published SET-394 release |
 
@@ -269,22 +285,23 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 
 ## Final State
 
-- Completion proof: All source, local-review, local-gate, hosted-CI,
-  mergeability, tracker, and thread criteria pass. Strict ready-for-approval
-  remains blocked only by final-head Bugbot usage-limit failures on both PRs.
+- Completion proof: All amended ready-pr criteria pass: independent live-main
+  ancestry, non-draft/mergeable/clean state, fresh required CI, local gates,
+  three exact-tip reviews, tracker accuracy, zero unresolved threads/P0-P3, and
+  no unresolved bot finding. Cursor capacity errors are retained and non-blocking.
 - Review report summary: Both repaired tips have three 5/5 exact-tip reviews
-  with zero P0-P3. Superseded findings remain retained for auditability.
+  with zero P0-P3. Three packet-only round-8 attestations are generated after
+  this commit; superseded findings remain retained for auditability.
 - Verification summary: Both repaired tips passed focused proof, aggregate
   checks, canonical pre-push gates, generated-output checks, and hosted CI.
 - Forbidden actions audit: No merge, queue, publish, release, deploy, HOME or
   provider-config mutation, destructive cleanup, worktree deletion, or
   downstream Trails implementation occurred.
-- Remaining P3s / risks: No accepted P3. External blocker: Cursor Bugbot's
-  usage limit must change before a clean final-head superseding result can run.
-  Documented
-  residual: no physical Windows
-  host exercise for chmod behavior; Windows intentionally preserves lock intent
-  without physical enforcement.
+- Remaining P3s / risks: No accepted P3. Cursor Bugbot did not execute because
+  of the recorded usage limit; the user explicitly accepted that availability
+  gap for this horizon. Documented residual: no physical Windows host exercise
+  for chmod behavior; Windows intentionally preserves lock intent without
+  physical enforcement.
 - Final transcript proof: GitHub/Linear live queries plus local review JSON and
   the final goal-loop doctor output are the closing evidence. Post-commit facts
   remain outside this tracked file to avoid recursively invalidating the exact

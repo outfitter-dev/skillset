@@ -1,7 +1,7 @@
 /goal From `/Users/mg/Developer/outfitter/skillset`, execute `.agents/goals/2026-08-07-trails-migration-capability-unblock` to ready-pr.
 
 ## Objective
-Make sibling PRs #393/SET-396 and #395/SET-394 ready: non-draft, independently based on live main, mergeable, fresh merge-ref CI green, local gates green, zero unresolved threads/bot errors/P0-P2, and only fixed or evidence-backed accepted P3s.
+Make sibling PRs #393/SET-396 and #395/SET-394 ready: non-draft live-main siblings, mergeable, fresh CI/local gates green, zero unresolved threads/bot findings/P0-P2, and no unexplained P3. Record but ignore Cursor Bugbot capacity errors per user amendment.
 
 ## Read First
 Root/scoped `AGENTS.md`; packet; goal-loop, local-review, Graphite procedures; tenets/schema docs; live issues/PRs. Use Trails #992 and TRL-1271–1275 only as evidence.
@@ -31,7 +31,7 @@ Use `/Users/mg/.agents/skills/local-review/SKILL.md`; write JSON under packet `t
 - Focused conflict/risk tests.
 - `bun run typecheck`, `bun run schema:check`, `bun run skillset:check`, `bun run skillset:check:outputs`, `bun run skillset:check:ci`, `bun run conformance:fast`, `bun run changeset:check`.
 - `bun run package-ownership:guard`, `bun run terminology:guard`, `bun run target-topology:guard`, `bun run check`, `bun run hooks:pre-push`, `git diff --check`.
-- Exact head/base, sibling ancestry, fresh merge-ref CI, mergeability, non-draft, zero threads/bot errors, clean reviews.
+- Exact refs/ancestry, fresh CI, mergeability, non-draft, zero threads/blocking bot findings, clean reviews.
 
 ## Hard Rules
 Keep #393/#395 siblings on main; never cross-absorb scope. Preserve unrelated dirt/commits. Do not hand-edit generated artifacts, weaken tests, merge, queue, publish, release, deploy, or start downstream work.
@@ -49,7 +49,7 @@ Stop only for destructive topology needs, unpreservable unexplained remote work,
 Both PRs satisfy every ready-pr condition and PR/Linear/packet evidence is current.
 
 ## Not Done
-Draft/conflicting PRs, stale green checks, missing gates, unresolved findings/errors, or local-only proof.
+Draft/conflicting PRs, stale checks, missing gates, unresolved non-amended findings, or local-only proof.
 
 ## Persistence
 Resume from `RETRO.md`, refresh live state, poll waits every 5–10 minutes, update material evidence, and continue until done or a stop rule fires.

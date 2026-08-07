@@ -1,21 +1,21 @@
 # Execution Plan: Trails Migration Capability Unblock
 
 Date: 2026-08-07
-Status: Active
+Status: Complete
 
 ## Current State
 
 - Main used for both independent restacks:
   `4ae1177a9ed1823cfb049643b09f923347f337a4`.
-- PR #393: non-draft at `568d090c8b0f6acbb724728da5a64444e3347040`,
+- PR #393: non-draft with implementation/evidence through `b10d3019`,
   independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, hosted Codex
-  P2 fixed/resolved, and three exact-tip reviews 5/5 clean. Final-head Bugbot
-  attempts repeated the external usage-limit error; SET-396 is Ready to Merge.
+  P2 fixed/resolved, and three exact-tip reviews 5/5 clean. This packet-only
+  horizon amendment is re-attested after commit; SET-396 is Ready to Merge.
 - PR #395: non-draft at `0567db91d7e93ba9d803f06cf610fed1d4335e11`,
   independently restacked, fresh CI green, `MERGEABLE` / `CLEAN`, and its
-  hosted Codex P2 is fixed/resolved. A bounded final-head Cursor Bugbot rerun
-  repeated the external usage-limit error; Linear automation moved SET-394 to
-  Ready to Merge, but the strict goal remains externally blocked.
+  hosted Codex P2 is fixed/resolved. Linear reports SET-394 Ready to Merge.
+  Cursor Bugbot usage-limit evidence is retained but non-blocking by the user's
+  explicit horizon amendment.
 - Worker worktrees remain present; neither was deleted or destructively cleaned.
 - npm latest: `skillset@0.22.0`.
 
@@ -40,10 +40,9 @@ Status: Active
    independent ancestry.
 9. [complete] Re-attest both repaired tips with three independent reviews, full
    local gates, fresh merge-ref CI, resolved threads, and final-head bot state.
-10. [blocked] Re-query GitHub and Linear, finalize the packet, and stop at the
-    ready-for-approval boundary without merge, queue, release, or downstream
-    work. Cursor Bugbot's external usage limit currently prevents the required
-    zero-review-bot-error state.
+10. [complete] Re-query GitHub and Linear, record the user-approved Cursor
+    availability amendment, finalize the packet, and stop at the
+    ready-for-approval boundary without merge, queue, release, or downstream work.
 
 ## Branch Isolation Rules
 
