@@ -42,7 +42,9 @@ Refs: `.agents/goals/2026-08-07-trails-migration-capability-unblock/REFS.md`
 - Tracker blockers: Downstream issues remain release-gated; no downstream work was authorized.
 - Authority blockers: Merge, queue, publish, release, deploy, and downstream
   migration remain outside this goal and require separate maintainer authority.
-- Next action: Finish the repaired-tip review and hosted verification loop.
+- Next action: Stop at this boundary and wait for Cursor usage-limit capacity or
+  an explicit horizon amendment before rerunning Bugbot; do not merge, queue,
+  publish, release, deploy, or start downstream work.
 
 ## Goal Amendments
 

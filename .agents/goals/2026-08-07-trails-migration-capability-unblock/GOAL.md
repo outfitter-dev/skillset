@@ -127,8 +127,9 @@ updates, and a forbidden-action audit.
   error is not a clean result.
 - Stop only when required external authority/service remains unavailable after
   documented recovery and no independent safe work remains.
-- Last checked: closeout on 2026-08-07; both PRs non-draft, independently
-  mergeable/clean, fresh pull-request CI green, and thread/bot-error clean.
+- Last checked: 2026-08-07; both PRs are non-draft, independently
+  mergeable/clean, fresh pull-request CI green, and thread-clean, but final-head
+  Cursor Bugbot runs remain blocked by the shared external usage limit.
 
 ## Persistence
 
