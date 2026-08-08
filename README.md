@@ -365,7 +365,7 @@ bundle-relative paths and require shared/plugin inputs to be declared in
 `.skillset/` source because those generated surfaces are project documents,
 not companion-file bundles.
 
-Set `skillset.preprocess: false` in source frontmatter when a Markdown body should keep literal braces. The control is source-only and is stripped from generated output.
+Unrelated double-brace expressions in Markdown, such as JSX object literals, remain unchanged; invalid reserved Skillset expressions still fail. Set `skillset.preprocess: false` in source frontmatter when all recognized preprocessing syntax should be preserved literally. The control is source-only and is stripped from generated output.
 
 Skillset-owned variables use `{{skillset.lower_snake_case}}` to match the source YAML naming style. Prompt argument placeholders use `{{$ARGUMENTS}}`, `{{$ARGUMENTS[0]}}`, `{{$ARGUMENTS[1]}}`, and `{{$ARGUMENTS.name}}` when a command needs user-supplied arguments. Claude output receives native `$ARGUMENTS...` placeholders. Codex output keeps the `{{$ARGUMENTS...}}` markers and adds one short instruction to replace them before using commands; Cursor output preserves the markers without that Codex notice. Disable this feature with `compile.features.promptArguments: false`. Target-native raw variables such as Claude `$ARGUMENTS` and `${CLAUDE_*}` remain target-specific and are not rendered by the preprocessing layer.
 

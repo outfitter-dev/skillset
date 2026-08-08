@@ -8143,6 +8143,24 @@ test("SET-62: init detects nested plugins without a marketplace manifest", async
   ]);
 });
 
+test("init detects provider-neutral root skill collections without splitting root plugins", async () => {
+  const standalone = await contractFixture({
+    "skills/animate/SKILL.md": "---\nname: animate\ndescription: Animate UI.\n---\n\nBody.\n",
+    "skills/animate/RECIPES.md": "# Recipes\n",
+    "skills/not-a-skill/README.md": "No SKILL.md here.\n",
+  });
+  const rootPlugin = await contractFixture({
+    ".claude-plugin/plugin.json": JSON.stringify({ name: "demo" }),
+    "skills/animate/SKILL.md": "---\nname: animate\ndescription: Animate UI.\n---\n\nBody.\n",
+  });
+
+  const standaloneReport = await initSkillset({ cwd: standalone, useGitRoot: false, write: false });
+  const rootPluginReport = await initSkillset({ cwd: rootPlugin, useGitRoot: false, write: false });
+
+  expect(standaloneReport.importCandidates).toEqual([{ kind: "skills", path: "skills" }]);
+  expect(rootPluginReport.importCandidates).toEqual([{ kind: "plugin", path: "." }]);
+});
+
 test("SET-256: init ignores retired provider-first generated plugin roots", async () => {
   const root = await contractFixture({
     "plugins-claude/plugins/alpha/.claude-plugin/plugin.json": JSON.stringify({ name: "alpha" }),

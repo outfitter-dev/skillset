@@ -2494,6 +2494,44 @@ Literal marker: {{{ $ARGUMENTS }}}
   expect(codexSkill).toContain("Literal marker: {{$ARGUMENTS}}");
 });
 
+test("preprocessing preserves unrelated double-brace expressions in Markdown", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/animation/SKILL.md": `
+---
+name: animation
+description: Animation skill.
+---
+
+Use {{this.description}}
+Foreign template: {{ user.name }}
+Compact foreign template: {{user.name}}
+
+{{fragment.md}}
+
+\`\`\`jsx
+<motion.div animate={{ x: 100 }} />
+\`\`\`
+`,
+    ".skillset/skills/animation/fragment.md": "Expanded relative partial.\n",
+  });
+
+  await buildSkillset(root);
+
+  const skill = await readFile(join(root, ".claude/skills/animation/SKILL.md"), "utf8");
+  expect(skill).toContain("Use Animation skill.");
+  expect(skill).toContain("Foreign template: {{ user.name }}");
+  expect(skill).toContain("Compact foreign template: {{user.name}}");
+  expect(skill).toContain("Expanded relative partial.");
+  expect(skill).not.toContain("{{fragment.md}}");
+  expect(skill).toContain("<motion.div animate={{ x: 100 }} />");
+});
+
 test("preprocessing rejects prompt argument placeholders when the feature is disabled", async () => {
   const root = await fixture({
     "skillset.yaml": `
