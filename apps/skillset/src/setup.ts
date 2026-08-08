@@ -299,7 +299,11 @@ async function detectImportCandidates(
   await maybeCandidate(candidates, rootPath, ".codex/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".cursor/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".agents/skills", "skills");
-  if (await hasNativePluginManifest(rootPath)) {
+  const rootIsNativePlugin = await hasNativePluginManifest(rootPath);
+  if (!rootIsNativePlugin) {
+    await maybeRootSkillsCandidate(candidates, rootPath);
+  }
+  if (rootIsNativePlugin) {
     pluginPaths.push(".");
   }
   for (const path of [...(await marketplacePluginSources(rootPath)), ...(await nestedPluginSources(rootPath))]) {
@@ -598,6 +602,32 @@ async function maybeCandidate(
   const entries = await readdir(absolutePath);
   if (entries.filter((entry) => entry !== ".DS_Store").length === 0) return;
   candidates.push({ kind, path: relative(rootPath, absolutePath).replaceAll("\\", "/") });
+}
+
+/**
+ * Provider-neutral skill repositories commonly publish direct child skills
+ * under a root `skills/` directory. Only surface the collection when it
+ * contains at least one actual skill so unrelated directories named `skills`
+ * do not become failing adoption suggestions.
+ */
+async function maybeRootSkillsCandidate(
+  candidates: SetupImportCandidate[],
+  rootPath: string
+): Promise<void> {
+  const path = "skills";
+  const absolutePath = join(rootPath, path);
+  if (!(await pathExists(absolutePath))) return;
+  if (!(await stat(absolutePath)).isDirectory()) return;
+  if (await isManagedCandidate(absolutePath)) return;
+  for (const entry of (await readdir(absolutePath)).sort()) {
+    if (entry === ".DS_Store") continue;
+    const skillPath = join(absolutePath, entry);
+    if (!(await pathExists(skillPath))) continue;
+    if (!(await stat(skillPath)).isDirectory()) continue;
+    if (!(await pathExists(join(skillPath, "SKILL.md")))) continue;
+    candidates.push({ kind: "skills", path });
+    return;
+  }
 }
 
 async function isManagedCandidate(path: string): Promise<boolean> {
