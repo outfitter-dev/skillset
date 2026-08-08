@@ -260,18 +260,32 @@ async function resolveVariable(
   if (key.startsWith("skillset.")) {
     const value = skillsetVariable(key, context);
     if (value !== undefined) return value;
+    throw unknownPreprocessVariable(token, context);
   }
 
   if (key.startsWith("parent.")) {
     const value = await parentVariable(key, context);
     if (value !== undefined) return value;
+    throw unknownPreprocessVariable(token, context);
   }
 
   if (key.startsWith("$ARGUMENTS")) {
     return promptArgumentsVariable(token, key, context);
   }
 
-  throw new Error(
+  // Markdown commonly embeds other double-brace syntaxes, including JSX
+  // object literals. Only Skillset's reserved variable namespaces are strict;
+  // unrelated expressions remain author-owned prose.
+  if (renderContext.markdown) return token;
+
+  throw unknownPreprocessVariable(token, context);
+}
+
+function unknownPreprocessVariable(
+  token: string,
+  context: PreprocessContext
+): Error {
+  return new Error(
     `skillset: unknown preprocess variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
   );
 }

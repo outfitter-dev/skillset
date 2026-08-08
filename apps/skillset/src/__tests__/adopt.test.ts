@@ -59,6 +59,28 @@ test("SET-277: non-interactive init adoption can select one stable candidate", a
   expect(await Bun.file(join(root, ".skillset/skills/two/SKILL.md")).exists()).toBe(false);
 });
 
+test("init adoption imports provider-neutral root skill collections", async () => {
+  const root = await fixture({
+    "skills/animate/SKILL.md": "---\nname: animate\ndescription: Animate UI.\n---\n\n```jsx\n<motion.div animate={{ x: 100 }} />\n```\n",
+    "skills/animate/RECIPES.md": "# Recipes\n",
+  });
+
+  const plan = await adoptSkillset(root);
+  expect(plan.candidates).toEqual([{ kind: "skills", path: "skills" }]);
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.imports).toEqual([
+    expect.objectContaining({
+      candidate: { kind: "skills", path: "skills" },
+      ok: true,
+    }),
+  ]);
+  expect(await Bun.file(join(root, ".skillset/skills/animate/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/skills/animate/RECIPES.md")).exists()).toBe(true);
+});
+
 test("adopt plan mode surveys only and writes nothing", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
   const before = await walkFiles(root);
