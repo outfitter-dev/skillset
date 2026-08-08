@@ -1,5 +1,12 @@
 # skillset
 
+## 0.22.1
+
+### Patch Changes
+
+- 12576ef: Preserve normalized executable intent for generated resources, plugin files, imports, managed-output checks, lock evidence, and mode-only backup recovery.
+- fed0731: Allow project agents to preserve explicit target-scoped provider-native skill references while keeping managed references strictly validated and recording both ownership classes in lock provenance.
+
 ## 0.22.0
 
 ### Minor Changes
