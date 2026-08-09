@@ -130,7 +130,10 @@ async function expandPartials(
       isPartialSpecifier(specifier.slice(1))
     ) {
       expanded += await renderPathReference(specifier.slice(1), context);
-    } else if (specifier !== undefined && isPartialSpecifier(specifier)) {
+    } else if (
+      specifier !== undefined &&
+      (await shouldExpandPathPartial(specifier, context))
+    ) {
       expanded += await readPartial(specifier, context, "path");
     } else {
       expanded += token;
@@ -260,18 +263,32 @@ async function resolveVariable(
   if (key.startsWith("skillset.")) {
     const value = skillsetVariable(key, context);
     if (value !== undefined) return value;
+    throw unknownPreprocessVariable(token, context);
   }
 
   if (key.startsWith("parent.")) {
     const value = await parentVariable(key, context);
     if (value !== undefined) return value;
+    throw unknownPreprocessVariable(token, context);
   }
 
   if (key.startsWith("$ARGUMENTS")) {
     return promptArgumentsVariable(token, key, context);
   }
 
-  throw new Error(
+  // Markdown commonly embeds other double-brace syntaxes, including JSX
+  // object literals. Only Skillset's reserved variable namespaces are strict;
+  // unrelated expressions remain author-owned prose.
+  if (renderContext.markdown) return token;
+
+  throw unknownPreprocessVariable(token, context);
+}
+
+function unknownPreprocessVariable(
+  token: string,
+  context: PreprocessContext
+): Error {
+  return new Error(
     `skillset: unknown preprocess variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
   );
 }
@@ -500,6 +517,24 @@ function isPartialSpecifier(specifier: string): boolean {
     return true;
   }
   return specifier.includes("/") || /^[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+$/.test(specifier);
+}
+
+async function shouldExpandPathPartial(
+  specifier: string,
+  context: PreprocessContext
+): Promise<boolean> {
+  if (!isPartialSpecifier(specifier)) return false;
+  if (
+    specifier.includes("/") ||
+    specifier.startsWith("shared:") ||
+    specifier.startsWith("root:") ||
+    specifier.startsWith("plugin:")
+  ) {
+    return true;
+  }
+
+  const basePath = dirname(context.partialBasePath ?? context.sourcePath);
+  return isFile(resolveInsideScoped(basePath, specifier, specifier, context));
 }
 
 function escapeTripleBraceTokens(content: string, escapedTokens: string[]): string {
