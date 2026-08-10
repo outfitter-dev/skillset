@@ -6,15 +6,18 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "fileModes": {
+        "review-notes/SKILL.md": "0644"
+      },
       "files": [
         "review-notes/SKILL.md"
       ],
       "kind": "standalone-skill",
       "name": "review-notes",
-      "outputHash": "sha256:3d4603be9f58779fb68e36a053c6904842c7428d6741730152418738d85cd225",
+      "outputHash": "sha256:d7e45d1f26b5df36fee721eaa47cda653205534d8438362a98a5f84cfe40926b",
       "outputPath": "review-notes/SKILL.md",
-      "sourceHash": "sha256:92a42f2bc84eb8ee48fb7de681edc3c268b53b5410503061fe297a727e38f996",
-      "sourcePath": "skillset/skills/review-notes/SKILL.md",
+      "sourceHash": "sha256:9b21f33653bd6e43148fb5f7eb1f59d9d0812b18d4dfaf88ab0757d2a45c35cf",
+      "sourcePath": ".skillset/skills/review-notes/SKILL.md",
       "version": "0.1.0"
     }
   ],
@@ -47,18 +50,18 @@
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": "skillset/skills/review-notes/SKILL.md",
+      "sourcePath": ".skillset/skills/review-notes/SKILL.md",
       "sourceUnit": "skill:review-notes",
       "status": "rendered",
       "target": "claude"
     }
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "selectedTargets": [
     "claude",
     "codex"
   ],
   "skillsetMetadata": true,
-  "sourceRoot": "skillset",
-  "target": "claude"
+  "sourceRoot": ".skillset",
+  "target": "workspace"
 }

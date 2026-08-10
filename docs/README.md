@@ -1,21 +1,38 @@
-# Skillset Docs
+---
+description: Routes Skillset readers to the right start, task, reference, project, or contributor documentation.
+---
 
-This directory holds durable documentation for the local Skillset compiler.
+# Skillset Documentation
 
-- [Tenets](tenets.md): the slow-moving doctrine for how Skillset makes source-first provider loadouts easier to author and safer to render.
-- [Architecture Decision Records](adrs/README.md): accepted decisions for source vocabulary, target rendering, compiler promises, and authoring workflows. Draft decisions live under [adrs/drafts](adrs/drafts/README.md).
-- [Five-Minute Quickstart](quickstart.md): a short first-author path from `init` to one built Claude, Codex, and Cursor skill.
-- [Share-Ready Checklist](quickstart.md#share-ready-checklist): the 0.16 author handoff bar before hooks or runtime activation enter the path.
-- [First Author Example](../examples/first-author/README.md): a cloneable source repo deliberately narrowed to build one skill and one rule to Claude and Codex.
-- [Feature Reference](features/README.md): the support registry layer for source features, target adapters, future-only surfaces, and feature-specific provenance.
-- [Generated Reference](reference/README.md): contract-owned CLI commands, provider support, schemas, and examples.
-- [Layout](layout.md): the current source layout, generated output shape, shared-resource behavior, rules/instructions rendering, hooks, skill policy, and import flow.
-- [Schema Contracts](schema-contracts.md): the schema-first workflow, generated artifacts, and checklist for adding source/config/frontmatter fields without drift.
-- [Package Ownership](package-ownership.md): the package altitude doctrine, app-level core shim audit, and consolidation order for retiring compatibility facades.
-- [Package Releases](package-releases.md): the GitHub Actions, Changesets, Bun package preflight, npm publish, and Trusted Publishing flow for the public package.
-- [Documentation System](development/documentation-system.md): the ownership, generation, validation, migration, and review contract for repository documentation.
-- [0.x Latest Release Plan](0x-latest-release-plan.md): the release readiness bar for promoting the public package to npm `latest` without making 1.0 promises.
-- [Target Surfaces](target-surfaces.md): the evidence matrix mapping Skillset source to provider target surfaces, with support vocabulary and live-doc verification dates. Golden manifest tests pin the shapes it claims.
-- [Workbench Check](features/workbench.md): the authoring diagnostics and generated-output verification split, plus package-level diagnostic scopes, presets, and fixtures.
+Choose the question you are trying to answer. Each linked page states what it owns; exhaustive command and support facts come from generated reference rather than duplicated prose.
 
-When changing the source contract, read the tenets first, check ADRs for prior decisions, use the feature reference for support shape, use the layout reference for current behavior, and follow the schema contract checklist.
+## I am new to Skillset
+
+- [Why Skillset](why-skillset.md) explains the problem, the source-first model, and when the compiler is a good fit.
+- [Start with Skillset](start/README.md) introduces the Start → Adopt → Work → Ship journey through the executable first-author example.
+- [Build versus activation](start/build-versus-activation.md) explains what Skillset writes and what remains a separate user or provider decision.
+
+## I need to look something up
+
+- [Generated reference](reference/README.md) routes to contract-owned CLI commands, feature support, schemas, and examples.
+- [CLI reference](reference/cli/README.md) lists every public command and its generated route pages.
+- [Feature support matrix](reference/support-matrix.md) shows registry-owned support across canonical provider targets.
+- [Glossary](glossary.md) defines the source, build, destination, provider, and activation vocabulary.
+
+## I am contributing
+
+- [Contributing](../CONTRIBUTING.md) covers setup, checks, source ownership, Changesets, and review expectations.
+- [Documentation system](development/documentation-system.md) defines authored and generated ownership, validation, migrations, and review.
+- [Current documentation-overhaul plan](project/plans/docs-overhaul.md) records the staged transition and acceptance criteria.
+- [Security policy](../SECURITY.md) gives the private vulnerability-reporting path.
+
+## Current detailed guides
+
+These existing pages remain reachable while the next stack layer moves the corpus into its final reader-intent structure:
+
+- [Five-Minute Quickstart](quickstart.md) walks through the current first-author scaffold and build.
+- [Layout](layout.md) records the current source and generated destination structure.
+- [Interactive CLI](features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
+- [Package ownership](package-ownership.md) explains the compiler package boundaries used by maintainers.
+
+Generated output does not grant runtime authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](start/build-versus-activation.md).

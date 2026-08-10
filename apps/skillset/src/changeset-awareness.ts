@@ -94,6 +94,7 @@ export function isActiveChangesetEntry(file: ChangedFile) {
 }
 
 export function isPackageAffectingPath(path: string) {
+  if (path === "README.md") return true;
   if (path === "apps/skillset/package.json") return true;
   if (path === "bun.lock" || path === "bun.lockb") return true;
 

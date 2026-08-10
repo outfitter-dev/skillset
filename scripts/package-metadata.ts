@@ -3,6 +3,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 type PackageManifest = {
+  description?: unknown;
   files?: unknown;
   license?: unknown;
   name?: unknown;
@@ -83,6 +84,36 @@ export async function projectionDiagnostics(rootPath: string) {
   return diagnostics;
 }
 
+export async function readmeMetadataDiagnostics(rootPath: string) {
+  const [readme, manifest] = await Promise.all([
+    readFile(join(rootPath, "README.md"), "utf8"),
+    readManifest(join(rootPath, "apps", "skillset", "package.json")),
+  ]);
+  if (typeof manifest.description !== "string" || !manifest.description) {
+    return ["apps/skillset/package.json is missing a package description"];
+  }
+  const description = manifest.description;
+  const expectedSentence = `Skillset is a ${description.charAt(0).toLowerCase()}${description.slice(1)}`;
+  const firstSixtyLines = readme.split("\n").slice(0, 60).join("\n");
+  const diagnostics: string[] = [];
+  if (!firstSixtyLines.includes(expectedSentence)) {
+    diagnostics.push(
+      `README.md must state the package description in its first 60 lines: ${expectedSentence}`
+    );
+  }
+  if (!firstSixtyLines.includes("bun add --dev skillset")) {
+    diagnostics.push(
+      "README.md must include the package install command in its first 60 lines"
+    );
+  }
+  if (!firstSixtyLines.includes("bunx skillset init")) {
+    diagnostics.push(
+      "README.md must include an executable Skillset example in its first 60 lines"
+    );
+  }
+  return diagnostics;
+}
+
 async function runPackDryRun() {
   const process = Bun.spawn(["bun", "pm", "pack", "--dry-run"], {
     cwd: packageDir,
@@ -104,6 +135,7 @@ async function commandCheck() {
   const diagnostics = [
     ...(await licenseDiagnostics(rootDir)),
     ...(await projectionDiagnostics(rootDir)),
+    ...(await readmeMetadataDiagnostics(rootDir)),
     ...packedFileDiagnostics(await runPackDryRun()),
   ];
   if (diagnostics.length > 0) throw new Error(diagnostics.join("\n"));

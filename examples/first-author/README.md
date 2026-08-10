@@ -1,13 +1,13 @@
 # First Author Skillset Example
 
-This is a tiny root-layout Skillset source repo. It is meant to be cloned,
+This is a tiny canonical-layout Skillset source repo. It is meant to be cloned,
 copied, or used in place from the Skillset checkout when you want to see the
 first author loop with real source files and generated Claude/Codex output.
 
 It contains:
 
-- one standalone skill source at `skillset/skills/review-notes/SKILL.md`;
-- one portable instruction rule at `skillset/rules/team-guidance.md`;
+- one standalone skill source at `.skillset/skills/review-notes/SKILL.md`;
+- one portable instruction rule at `.skillset/rules/team-guidance.md`;
 - a root `skillset.yaml` manifest that targets Claude and Codex;
 - checked-in generated Claude and Codex output so `check` passes
   immediately after cloning.
@@ -27,11 +27,11 @@ bun ./apps/skillset/src/cli.ts dev --root examples/first-author
 From a standalone clone after installing Skillset, use the package command:
 
 ```bash
-skillset check
-skillset build
-skillset build --yes
-skillset check --only outputs
-skillset dev
+bunx skillset check
+bunx skillset build
+bunx skillset build --yes
+bunx skillset check --only outputs
+bunx skillset dev
 ```
 
 ## Expected Output
@@ -49,22 +49,21 @@ AGENTS.md
 skillset.lock
 ```
 
-Skillset does not install, trust, symlink, or activate these files in
-user-level Claude or Codex runtime config.
+Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../docs/start/build-versus-activation.md).
 
 ## Edit The Source
 
 Change the skill body or rule guidance, then rerun:
 
 ```bash
-skillset check
-skillset build
-skillset build --yes
-skillset check --only outputs
+bunx skillset check
+bunx skillset build
+bunx skillset build --yes
+bunx skillset check --only outputs
 ```
 
-Use `skillset diff` to inspect pending generated changes and `skillset explain`
+Use `bunx skillset diff` to inspect pending generated changes and `bunx skillset explain`
 with either a source path or generated path when you want provenance details.
-Use `skillset dev` for the same diagnostics and generated-output preview
-as a foreground watch loop. It writes nothing; use `skillset build --yes` when
+Use `bunx skillset dev` for the same diagnostics and generated-output preview
+as a foreground watch loop. It writes nothing; use `bunx skillset build --yes` when
 you want to refresh repo-local generated output.
