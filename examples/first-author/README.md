@@ -53,7 +53,7 @@ Skillset renders files. It does not install, trust, activate, symlink, or mutate
 
 ## Edit The Source
 
-Change the skill body or rule guidance, then rerun:
+Change the skill body or rule guidance. The first check below is expected to report generated-output drift and exit non-zero; then preview and write the regeneration:
 
 ```bash
 bunx skillset check

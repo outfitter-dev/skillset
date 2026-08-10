@@ -9,7 +9,7 @@ Choose the question you are trying to answer. Each linked page states what it ow
 ## I am new to Skillset
 
 - [Why Skillset](why-skillset.md) explains the problem, the source-first model, and when the compiler is a good fit.
-- [Start with Skillset](start/README.md) introduces the Start → Adopt → Work → Ship journey through the executable first-author example.
+- [Start with Skillset](start/README.md) routes from a first build into adoption, daily work, and deliberate shipping workflows.
 - [Build versus activation](start/build-versus-activation.md) explains what Skillset writes and what remains a separate user or provider decision.
 
 ## I need to look something up
@@ -18,6 +18,10 @@ Choose the question you are trying to answer. Each linked page states what it ow
 - [CLI reference](reference/cli/README.md) lists every public command and its generated route pages.
 - [Feature support matrix](reference/support-matrix.md) shows registry-owned support across canonical provider targets.
 - [Glossary](glossary.md) defines the source, build, destination, provider, and activation vocabulary.
+
+## Something failed
+
+- [Troubleshooting](troubleshooting.md) starts from source, drift, import, recovery, watch, CI, and activation symptoms.
 
 ## I am contributing
 
@@ -28,11 +32,13 @@ Choose the question you are trying to answer. Each linked page states what it ow
 - [Current documentation-overhaul plan](project/plans/docs-overhaul.md) records the staged transition and acceptance criteria.
 - [Security policy](../SECURITY.md) gives the private vulnerability-reporting path.
 
-## Current detailed guides
+## Detailed guides
 
-These detailed pages remain reachable while later stack layers rewrite and consolidate their content:
+These pages cover common author and maintainer workflows:
 
-- [Five-Minute Quickstart](start/quickstart.md) walks through the current first-author scaffold and build.
+- [Build Your First Skill](start/quickstart.md) walks through the current first-author scaffold and build.
+- [Import Existing Work](guides/importing.md) separates whole-repository adoption from one explicit source import.
+- [Development Loop](guides/development-loop.md) covers preview, write, watch, reconciliation, and recovery.
 - [Layout](layout.md) records the current source and generated destination structure.
 - [Interactive CLI](reference/features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
 - [Package ownership](development/package-ownership.md) explains the compiler package boundaries used by maintainers.
