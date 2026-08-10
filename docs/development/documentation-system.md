@@ -10,7 +10,11 @@ Skillset treats repository Markdown as a product surface. The shared rules for t
 
 Authored pages own explanations, task workflows, and project judgment. Runtime contracts own observed behavior. Typed registries and schemas own exhaustive reference facts that code can determine. Generated reference is a projection of those contracts and must never become an input to its own generator.
 
-The current generated documentation is the schema and example set under [`docs/reference/`](../reference/schemas/README.md). Run `bun run docs:generate` after changing its owning contracts. The command will expand to cover CLI and provider-support reference as those projections land.
+The generated layer under [`docs/reference/`](../reference/README.md) projects schema artifacts, the public CLI presentation and flag contracts, and the feature registry's provider-support facts. Run `bun run docs:generate` after changing any owning contract. The CLI presentation catalog owns public routes, usage, examples, and route-to-flag assignments; `CLI_FLAGS` and `CLI_ENVIRONMENT` own the exhaustive shared vocabularies. The feature registry owns feature status, canonical targets, support levels, and feature-to-page links.
+
+Existing feature narratives remain authored pages. Their registry-owned support tables continue to use the Core-checked feature-support blocks until each feature cohort is standardized; the registry's `docs` references are the canonical linkage between a feature and one or more authored pages. Introductory pages under `start/`, `guides/`, and the repository front door link to those facts but do not acquire registry entries simply to satisfy navigation.
+
+Skillset does not generate a diagnostics catalog yet. Diagnostic identifiers, ownership, severity, and user guidance are distributed across several runtime surfaces rather than one typed exhaustive registry. Until such a registry exists, diagnostics stay documented on their owning feature and workflow pages; scraping messages would create a second, brittle contract.
 
 ## Validation
 

@@ -2,6 +2,8 @@
 
 The feature reference is the human-readable support registry for Skillset v1. It explains how authored source maps to provider target surfaces, which features are portable, which are target-native, and where support is deferred or future-only. Feature-page prose remains human-owned; each delimited feature-status and target-support matrix is rendered from the typed registry and checked for drift.
 
+For a registry-owned overview across every canonical provider target, see the [feature support matrix](../reference/support-matrix.md).
+
 Use these pages alongside the [target surface evidence matrix](../target-surfaces.md). The matrix is the compact target-fact table; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
 
 ## Initial Pages
