@@ -19,7 +19,7 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 
 ## Development Loop
 
-1. Read `AGENTS.md`, `README.md`, `docs/layout.md`, and `docs/development/schema-contracts.md` before making a compiler contract change.
+1. Read `AGENTS.md`, `README.md`, `docs/configuration/README.md`, `docs/reference/source/workspace-layout.md`, and `docs/development/schema-contracts.md` before making a compiler contract change.
 2. For source contract changes, update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
 3. Keep source edits in `.skillset/`, `skillset.yaml`, or compiler implementation files, not in generated outputs.
 4. After source changes, run `bun run skillset:build`.

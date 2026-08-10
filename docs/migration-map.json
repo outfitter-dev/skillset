@@ -207,6 +207,21 @@
       "status": "moved"
     },
     {
+      "from": "docs/layout.md",
+      "primary": "docs/reference/source/workspace-layout.md",
+      "status": "split",
+      "successors": [
+        "docs/configuration/frontmatter.md",
+        "docs/configuration/project-configuration.md",
+        "docs/configuration/target-overrides.md",
+        "docs/configuration/tools-policy.md",
+        "docs/guides/importing.md",
+        "docs/reference/source/instructions.md",
+        "docs/reference/source/preprocessing.md",
+        "docs/reference/source/workspace-layout.md"
+      ]
+    },
+    {
       "from": "docs/package-ownership.md",
       "primary": "docs/development/package-ownership.md",
       "status": "moved"

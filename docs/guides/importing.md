@@ -49,6 +49,14 @@ bunx skillset import claude
 
 Use them deliberately. Import does not silently scan user-level provider locations during ordinary [build](../glossary.md#build) or check operations.
 
+## Preserve imported material
+
+A skill import treats the containing skill directory as the unit, even when the selected path is its `SKILL.md`. Sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars are copied into canonical source with it. Collection imports follow linked skill directories but de-duplicate identical real paths.
+
+Plugin imports accept Skillset source plugins and supported Claude, Codex, or Cursor native plugin directories. Native manifests are preserved, and Skillset synthesizes a minimal source `skillset.yaml` when the imported plugin has no source config.
+
+Import preserves recognized source frontmatter, provider-native fields, and unknown fields instead of silently dropping them. Review the report's copied files, inferred source fields, preserved provider-native fields, unsupported fields, warnings, and next checks before building. These categories describe what Skillset understood and what still needs human judgment; they do not claim every preserved field is portable.
+
 ## Review what became source
 
 After either workflow:

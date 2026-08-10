@@ -15,6 +15,8 @@ Choose the question you are trying to answer. Each linked page states what it ow
 ## I need to look something up
 
 - [Generated reference](reference/README.md) routes to contract-owned CLI commands, feature support, schemas, and examples.
+- [Configuration](configuration/README.md) explains workspace settings, source frontmatter, target overrides, and tools policy.
+- [Source reference](reference/source/README.md) documents the canonical workspace layout, instructions, and preprocessing.
 - [CLI reference](reference/cli/README.md) lists every public command and its generated route pages.
 - [Feature support matrix](reference/support-matrix.md) shows registry-owned support across canonical provider targets.
 - [Glossary](glossary.md) defines the source, build, destination, provider, and activation vocabulary.
@@ -39,7 +41,6 @@ These pages cover common author and maintainer workflows:
 - [Build Your First Skill](start/quickstart.md) walks through the current first-author scaffold and build.
 - [Import Existing Work](guides/importing.md) separates whole-repository adoption from one explicit source import.
 - [Development Loop](guides/development-loop.md) covers preview, write, watch, reconciliation, and recovery.
-- [Layout](layout.md) records the current source and generated destination structure.
 - [Interactive CLI](reference/features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
 - [Package ownership](development/package-ownership.md) explains the compiler package boundaries used by maintainers.
 
