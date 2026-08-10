@@ -281,6 +281,6 @@ roster and hard cut.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed static support facts exposed through lookup.
 - [Tests and Evals](../reference/features/tests-and-evals.md) - current declared and ad hoc shared-runner behavior.
 - [Source Suggestions](../reference/features/source-suggestions.md) - current managed-output recovery safety model replaced by reconcile.
-- [Target Surfaces](../target-surfaces.md) - provider evidence and safe update boundaries.
+- [Provider Evidence Refresh](../development/features/feature-registry.md#provider-evidence-refresh) - provider evidence ownership and safe update boundaries.
 - [Linear working ADR](https://linear.app/outfitter/document/adr-draft-workflow-oriented-cli-flat-loop-explicit-domains-56e12cc1025b) - discussion history and implementation map.
 - [SET-274](https://linear.app/outfitter/issue/SET-274) - parent implementation program for SET-275 through SET-285.

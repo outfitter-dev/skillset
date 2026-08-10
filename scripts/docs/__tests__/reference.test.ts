@@ -77,6 +77,7 @@ describe("documentation reference artifacts", () => {
       ],
       cliEnvironment: [],
       cliFlags: [],
+      providers: [],
       support: {
         features: [
           {
@@ -202,6 +203,46 @@ describe("documentation reference artifacts", () => {
     }
   });
 
+  test("updates provider blocks while preserving authored bytes", async () => {
+    const root = await referenceFixture();
+    try {
+      const indexPath = join(root, "docs/reference/providers/README.md");
+      const providerPath = join(root, "docs/reference/providers/codex.md");
+      const originalIndex = await readFile(indexPath, "utf8");
+      const originalProvider = await readFile(providerPath, "utf8");
+
+      await generateDocsReferenceArtifacts(root);
+      const generatedIndex = await readFile(indexPath, "utf8");
+      const generatedProvider = await readFile(providerPath, "utf8");
+      await generateDocsReferenceArtifacts(root, { check: true });
+
+      expect(generatedIndex).toContain("[Claude](./claude.md)");
+      expect(generatedProvider).toContain(
+        "| Feature | Feature status | Target support | Qualification | Docs |"
+      );
+      expect(generatedProvider).toContain("| Project Agents |");
+      const repeatedQualification = buildDocsReferenceModel()
+        .providers.find((provider) => provider.id === "codex")
+        ?.features.find(
+          (feature) =>
+            feature.note !== undefined && feature.note === feature.reason
+        )?.note;
+      if (repeatedQualification === undefined)
+        throw new Error("expected repeated provider qualification fixture");
+      expect(generatedProvider.split(repeatedQualification)).toHaveLength(2);
+      expect(authoredOutsideBlock(generatedIndex, "provider-list")).toBe(
+        authoredOutsideBlock(originalIndex, "provider-list")
+      );
+      expect(
+        authoredOutsideBlock(generatedProvider, "provider-feature-support")
+      ).toBe(
+        authoredOutsideBlock(originalProvider, "provider-feature-support")
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   test("removes stale generated CLI pages but preserves the current set", async () => {
     const root = await referenceFixture();
     try {
@@ -251,8 +292,17 @@ describe("documentation reference artifacts", () => {
       await generateDocsReferenceArtifacts(root);
       const missingPath = join(root, "docs/reference/cli/build.md");
       const stalePath = join(root, "docs/reference/cli/check.md");
+      const staleProviderPath = join(
+        root,
+        "docs/reference/providers/claude.md"
+      );
       await unlink(missingPath);
       await writeFile(stalePath, `${GENERATED_HEADER}\n\n# Stale\n`, "utf8");
+      const staleProvider = (await readFile(staleProviderPath, "utf8")).replace(
+        "| Project Agents |",
+        "| Stale Project Agents |"
+      );
+      await writeFile(staleProviderPath, staleProvider, "utf8");
 
       await expect(
         generateDocsReferenceArtifacts(root, { check: true })
@@ -265,10 +315,16 @@ describe("documentation reference artifacts", () => {
       await expect(
         generateDocsReferenceArtifacts(root, { check: true })
       ).rejects.toThrow("- missing or stale: docs/reference/cli/check.md");
+      await expect(
+        generateDocsReferenceArtifacts(root, { check: true })
+      ).rejects.toThrow(
+        "- missing or stale: docs/reference/providers/claude.md"
+      );
       expect(await Bun.file(missingPath).exists()).toBe(false);
       expect(await readFile(stalePath, "utf8")).toBe(
         `${GENERATED_HEADER}\n\n# Stale\n`
       );
+      expect(await readFile(staleProviderPath, "utf8")).toBe(staleProvider);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -345,7 +401,53 @@ async function referenceFixture(): Promise<string> {
       "",
     ].join("\n")
   );
+  await writeFixture(
+    root,
+    "docs/reference/providers/README.md",
+    [
+      "---",
+      "description: Maintainer-authored provider navigation.",
+      "---",
+      "# Providers",
+      "",
+      "Authored provider introduction.  ",
+      "",
+      "<!-- skillset:generated:start provider-list -->",
+      "stale provider list",
+      "<!-- skillset:generated:end provider-list -->",
+      "",
+      "Authored provider footer.\t",
+      "",
+    ].join("\n")
+  );
+  for (const provider of buildDocsReferenceModel().providers) {
+    await writeFixture(
+      root,
+      `docs/reference/providers/${provider.id}.md`,
+      [
+        "---",
+        `description: Maintainer-authored ${provider.displayLabel} guidance.`,
+        "---",
+        `# ${provider.displayLabel}`,
+        "",
+        `Authored ${provider.id} introduction.  `,
+        "",
+        "<!-- skillset:generated:start provider-feature-support -->",
+        "stale provider support",
+        "<!-- skillset:generated:end provider-feature-support -->",
+        "",
+        `Authored ${provider.id} footer.\t`,
+        "",
+      ].join("\n")
+    );
+  }
   return root;
+}
+
+function authoredOutsideBlock(source: string, id: string): string {
+  const start = `<!-- skillset:generated:start ${id} -->`;
+  const end = `<!-- skillset:generated:end ${id} -->`;
+  return `${source.slice(0, source.indexOf(start) + start.length)}${source.slice(source.indexOf(end))}`;
 }
 
 function generatedPage(title: string): string {

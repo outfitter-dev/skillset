@@ -187,6 +187,31 @@ export function extractGeneratedMarkers(
 }
 
 /**
+ * Preserve reader-visible authored Markdown while masking examples, raw HTML,
+ * comments, and generated block contents without changing source positions.
+ */
+export function extractAuthoredMarkdown(source: string): string {
+  const markers = extractGeneratedMarkerLocations(source);
+  let visible = maskHtmlComments(maskMarkdownCode(source, false));
+  let generatedStart: number | undefined;
+
+  for (const marker of markers) {
+    if (marker.kind === "start") {
+      generatedStart ??= marker.start;
+      continue;
+    }
+    if (marker.kind === "end" && generatedStart !== undefined) {
+      visible = maskRange(visible, generatedStart, marker.end);
+      generatedStart = undefined;
+    }
+  }
+  if (generatedStart !== undefined) {
+    visible = maskRange(visible, generatedStart, visible.length);
+  }
+  return visible;
+}
+
+/**
  * Replace one generated block body exactly, preserving both marker comments and
  * every byte outside them. The caller owns any desired surrounding newlines.
  */
@@ -388,6 +413,12 @@ function maskHtmlComments(source: string): string {
     .replace(/<!--[\s\S]*?(?:-->|$)/gu, (comment) =>
       comment.replace(/[^\n]/gu, " ")
     );
+}
+
+function maskRange(source: string, start: number, end: number): string {
+  return `${source.slice(0, start)}${source
+    .slice(start, end)
+    .replace(/[^\n]/gu, " ")}${source.slice(end)}`;
 }
 
 function findClosingBracket(source: string, start: number): number {

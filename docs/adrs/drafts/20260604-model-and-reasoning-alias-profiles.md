@@ -212,6 +212,6 @@ This ADR defines a future source contract and diagnostics so later work can impl
 - [Agent / Subagent Source Model](../0006-agent-source-model.md) - project agents as the first close-match surface.
 - [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks model/reasoning aliases as future-only.
 - [Tenets](../../project/tenets.md) - target truth beats fake portability, and defaults should be scoped.
-- [Target Surface Evidence Matrix](../../target-surfaces.md) - current target defaults and top-level model warning rows.
+- [Target Overrides](../../configuration/target-overrides.md) - current provider selection, defaults, and provider-specific override boundary.
 - [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) - official Claude agent model and effort fields.
 - [Codex custom agents](https://developers.openai.com/codex/subagents) - official Codex custom-agent model and reasoning-effort fields.

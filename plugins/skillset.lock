@@ -292,7 +292,7 @@
         },
         {
           "kind": "docs",
-          "ref": "docs/target-surfaces.md#cursor-provider-baseline"
+          "ref": "docs/reference/providers/cursor.md"
         }
       ],
       "featureId": "plugin-readme",

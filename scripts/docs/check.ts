@@ -10,8 +10,10 @@ import {
 import { extname, join, posix, relative, resolve } from "node:path";
 
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
+import { targetNames } from "../../packages/core/src";
 import { parseWorkbenchDocument } from "../../packages/workbench/src";
 import {
+  extractAuthoredMarkdown,
   extractGeneratedMarkers,
   extractInlineMarkdownLinks,
   extractMarkdownHeadings,
@@ -41,6 +43,8 @@ import {
 const BASELINE_PATH = "docs/docs-check-baseline.json";
 const MIGRATION_MAP_PATH = "docs/migration-map.json";
 const ROOT_PAGES = ["README.md", "docs/README.md"] as const;
+const PROVIDER_ROOT = "docs/reference/providers";
+const PROVIDER_ID_DECLARATION = /^Provider id: `([^`]+)`$/gmu;
 
 export interface DocsCheckResult {
   readonly current: readonly DocsDiagnostic[];
@@ -104,9 +108,8 @@ export async function collectDocsDiagnostics(
     }
 
     diagnostics.push(...descriptionDiagnostics(path, parsed.frontmatter));
-    for (const issue of validateGeneratedMarkers(
-      extractGeneratedMarkers(source)
-    )) {
+    const generatedMarkers = extractGeneratedMarkers(source);
+    for (const issue of validateGeneratedMarkers(generatedMarkers)) {
       diagnostics.push({
         line: issue.line,
         message: generatedMarkerMessage(issue),
@@ -118,10 +121,16 @@ export async function collectDocsDiagnostics(
 
     documents.set(path, {
       anchors: new Set(headings.map((heading) => heading.anchor)),
+      generatedMarkers: generatedMarkers.map(
+        (marker) => `${marker.kind}:${marker.id}`
+      ),
       links: extractInlineMarkdownLinks(source).map((link) => ({
         destination: link.destination,
         line: link.line,
       })),
+      providerIds: [
+        ...extractAuthoredMarkdown(source).matchAll(PROVIDER_ID_DECLARATION),
+      ].map((match) => match[1] ?? ""),
     });
   }
 
@@ -137,10 +146,94 @@ export async function collectDocsDiagnostics(
   diagnostics.push(
     ...reachabilityDiagnostics(paths, graph, syntaxInvalidPaths)
   );
+  diagnostics.push(...providerIdDiagnostics(paths, documents));
   diagnostics.push(
     ...(await migrationDiagnostics(root, options.migrationChanges))
   );
   return diagnostics.sort(compareDocsDiagnostics);
+}
+
+function providerIdDiagnostics(
+  paths: readonly string[],
+  documents: ReadonlyMap<string, DocumentFacts>,
+  providers = targetNames()
+): readonly DocsDiagnostic[] {
+  if (!paths.some((path) => path.startsWith(`${PROVIDER_ROOT}/`))) return [];
+  const diagnostics: DocsDiagnostic[] = [];
+  const expected = new Map<string, string>([
+    [`${PROVIDER_ROOT}/README.md`, "provider-list"],
+    ...providers.map(
+      (provider) =>
+        [`${PROVIDER_ROOT}/${provider}.md`, "provider-feature-support"] as const
+    ),
+  ]);
+  const actual = paths.filter(
+    (path) => path.startsWith(`${PROVIDER_ROOT}/`) && path.endsWith(".md")
+  );
+
+  for (const [providerPath, markerId] of expected) {
+    if (!paths.includes(providerPath)) {
+      diagnostics.push({
+        message: `canonical provider page is missing: ${providerPath}`,
+        path: providerPath,
+        rule: "docs/provider-id",
+        subject: `missing:${providerPath}`,
+      });
+      continue;
+    }
+    const document = documents.get(providerPath);
+    if (document === undefined) continue;
+    const markerIds = document.generatedMarkers;
+    if (
+      markerIds.length !== 2 ||
+      markerIds[0] !== `start:${markerId}` ||
+      markerIds[1] !== `end:${markerId}`
+    ) {
+      diagnostics.push({
+        message: `provider page must contain exactly one ${markerId} generated block`,
+        path: providerPath,
+        rule: "docs/provider-id",
+        subject: `marker:${markerId}`,
+      });
+    }
+    if (providerPath === `${PROVIDER_ROOT}/README.md`) continue;
+    const expectedId = providerPath
+      .slice(`${PROVIDER_ROOT}/`.length)
+      .replace(/\.md$/u, "");
+    if (document.providerIds.length === 0) {
+      diagnostics.push({
+        message: `provider page must declare Provider id: \`${expectedId}\``,
+        path: providerPath,
+        rule: "docs/provider-id",
+        subject: `declaration:missing:${expectedId}`,
+      });
+    } else if (document.providerIds.length > 1) {
+      diagnostics.push({
+        message: `provider page must declare Provider id exactly once`,
+        path: providerPath,
+        rule: "docs/provider-id",
+        subject: `declaration:duplicate:${expectedId}`,
+      });
+    } else if (document.providerIds[0] !== expectedId) {
+      diagnostics.push({
+        message: `provider id ${document.providerIds[0]} does not match canonical id ${expectedId}`,
+        path: providerPath,
+        rule: "docs/provider-id",
+        subject: `declaration:mismatch:${expectedId}`,
+      });
+    }
+  }
+
+  for (const providerPath of actual) {
+    if (expected.has(providerPath)) continue;
+    diagnostics.push({
+      message: `unknown provider documentation path: ${providerPath}`,
+      path: providerPath,
+      rule: "docs/provider-id",
+      subject: `unknown:${providerPath}`,
+    });
+  }
+  return diagnostics;
 }
 
 export async function checkDocumentation(
@@ -258,10 +351,12 @@ export function renderDocsCheckResult(result: DocsCheckResult): string {
 
 interface DocumentFacts {
   readonly anchors: ReadonlySet<string>;
+  readonly generatedMarkers: readonly string[];
   readonly links: readonly {
     readonly destination: string;
     readonly line: number;
   }[];
+  readonly providerIds: readonly string[];
 }
 
 async function listDocumentationPaths(

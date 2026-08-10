@@ -175,6 +175,6 @@ product configuration or an ordinary runtime promise.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.
 - [Agent / Subagent Source Model](0006-agent-source-model.md) - project and plugin agent boundaries.
 - [Render Results](0018-render-results.md) - visible transformed, metadata-only, and unsupported outcomes.
-- [Provider Surface Evidence Matrix](../target-surfaces.md#cursor-provider-baseline) - current Cursor destinations and verification notes.
+- [Cursor provider reference](../reference/providers/cursor.md) - current Cursor destinations, evidence boundary, and provider-specific qualifications.
 - [Runtime Adapters](../development/features/runtime-adapters.md) - target/runtime and retained-test boundary.
 - [Cursor headless CLI docs](https://cursor.com/docs/cli/headless) - non-interactive CLI mode, checked 2026-07-02.
