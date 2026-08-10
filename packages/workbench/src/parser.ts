@@ -227,7 +227,7 @@ function markdownHeadings(
 }
 
 function parseMarkdownHeading(line: string): Pick<WorkbenchMarkdownHeading, "depth" | "text"> | undefined {
-  const match = /^(#{1,6})(?:[ \t]+|$)(.*)$/u.exec(line);
+  const match = /^ {0,3}(#{1,6})(?:[ \t]+|$)(.*)$/u.exec(line);
   if (match === null) return undefined;
 
   let text = match[2]!.trimEnd();

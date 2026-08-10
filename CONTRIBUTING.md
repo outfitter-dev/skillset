@@ -17,6 +17,7 @@ bun run check
 ## Make a focused change
 
 - Follow `AGENTS.md` and the nearest project documentation.
+- Follow the [documentation system](docs/development/documentation-system.md) when changing repository documentation or generated reference.
 - Keep changes small, reversible, and tied to one purpose.
 - Add focused tests for new behavior.
 - Edit `.skillset/` or `skillset.yaml` when changing self-hosted source; run `bun run skillset:build` and inspect the generated diff.

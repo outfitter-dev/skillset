@@ -26,6 +26,14 @@ async function readWorkflow(name: string): Promise<Workflow> {
 }
 
 describe("generated release PR workflow contract", () => {
+  test("repository checks fetch the Git history required by documentation validation", async () => {
+    const workflow = await readWorkflow("ci.yml");
+    const steps = workflow.jobs?.check?.steps ?? [];
+    const checkout = steps.find((step) => step.uses === "actions/checkout@v5");
+
+    expect(checkout?.with?.["fetch-depth"]).toBe(0);
+  });
+
   test("changeset coverage derives the pull request diff from git history", async () => {
     const workflow = await readWorkflow("ci.yml");
     const changeset = workflow.jobs?.changeset;
