@@ -170,5 +170,5 @@ A future implementation slice must:
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - explicit root selection and provider compile policy remain intact.
 - [ADR-0008: Unified Source Layout](../0008-unified-source-layout.md#repo-user-and-global-stay-separate) - this draft prospectively amends its unresolved user/global location examples while preserving its accepted body.
-- [Tenets](../../tenets.md) - build does not imply trust.
+- [Tenets](../../project/tenets.md) - build does not imply trust.
 - [Changelog and Version Bump Workflow](../0013-changelog-and-versioning.md) - related non-goal for install/sync behavior.

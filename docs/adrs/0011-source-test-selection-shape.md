@@ -251,16 +251,16 @@ declared runtime literal assertions, and ad hoc runtime tests. Retained reports
 use logical `.skillset/cache/tests/...` paths backed by repository XDG storage.
 Plugin-local declarations, provider-relative output selectors, and behavioral
 evals remain outside this decision. The shared schema contracts, test runner,
-CLI, contract/try tests, and `docs/features/tests-and-evals.md` are the current
+CLI, contract/try tests, and `docs/reference/features/tests-and-evals.md` are the current
 implementation evidence; `.skillset/src/tests*` and root `skillset/tests*` are
 retired paths.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first loadouts, derive by default, and target truth.
+- [Tenets](../project/tenets.md) - source-first loadouts, derive by default, and target truth.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - governing source and generated-output doctrine.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile targets remain provider selection, not source selection.
 - [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - current flat source-root model, superseding the earlier unified-layout proposal.
 - [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - original reserved deterministic test surface.
 - [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - isolated projection and adapter conformance context.
-- [Tests and Evals](../features/tests-and-evals.md) - current feature-facing test boundary.
+- [Tests and Evals](../reference/features/tests-and-evals.md) - current feature-facing test boundary.

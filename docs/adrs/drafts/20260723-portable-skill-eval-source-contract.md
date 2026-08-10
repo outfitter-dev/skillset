@@ -80,5 +80,5 @@ deterministic `skillset test`, ordinary checks, or build output.
 - [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.
 - [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outside `test`.
 - [Anthropic skill-creator schema reference](https://github.com/anthropics/skills/blob/1f630fdf9259cec4a14913127dfd7c3b69ef72eb/skills/skill-creator/references/schemas.md) - pinned primary source for the compatible base declaration fields and list semantics.
-- [Skillset Design Tenets](../../tenets.md) - source-first, one-meaning, and provider-truth guidance.
-- [Tests and Evals](../../features/tests-and-evals.md) - current product reference and portable/machine-local boundary.
+- [Skillset Design Tenets](../../project/tenets.md) - source-first, one-meaning, and provider-truth guidance.
+- [Tests and Evals](../../reference/features/tests-and-evals.md) - current product reference and portable/machine-local boundary.

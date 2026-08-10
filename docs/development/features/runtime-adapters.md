@@ -8,7 +8,7 @@
 
 Feature id: `runtime-adapters`
 
-Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)
 
 Runtime adapters describe how a Skillset rendering can be used by an actual agent runtime, distribution surface, or harness. They are deliberately separate from `compile.targets`.
 
@@ -96,9 +96,9 @@ Runtime support records are registry evidence, not generated target files. Distr
 
 ## Evidence
 
-- [Feature registry](../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.
-- [Cursor provider ADR](../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.
-- [Provider Surface Evidence Matrix](../target-surfaces.md#cursor-provider-baseline) - Cursor evidence baseline and milestone boundary.
-- [Agents](agents.md) - project-agent support and Codex skill-preface shim.
-- [Tests and Evals](tests-and-evals.md) - activation/eval boundary.
+- [Feature registry](../../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.
+- [Cursor provider ADR](../../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.
+- [Provider Surface Evidence Matrix](../../target-surfaces.md#cursor-provider-baseline) - Cursor evidence baseline and milestone boundary.
+- [Agents](../../reference/features/agents.md) - project-agent support and Codex skill-preface shim.
+- [Tests and Evals](../../reference/features/tests-and-evals.md) - activation/eval boundary.
 - `fixtures/external/repos.yaml` - pinned external adoption fixtures across current targets.

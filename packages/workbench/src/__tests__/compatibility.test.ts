@@ -102,25 +102,25 @@ describe("workbench compatibility diagnostics", () => {
           code: "missing-doc-ref",
           featureId: "hooks",
           field: "docs[0]",
-          message: "hooks docs[0] points to missing doc ref docs/features/hooks.md",
-          ref: "docs/features/hooks.md",
+          message: "hooks docs[0] points to missing doc ref docs/reference/features/hooks.md",
+          ref: "docs/reference/features/hooks.md",
         },
       ],
       ok: false,
     } satisfies FeatureRegistryDriftReport;
 
     const [diagnostic] = workbenchDiagnosticsFromFeatureRegistryDriftReport(report, {
-      locationPath: "docs/features/feature-registry.md",
+      locationPath: "docs/development/features/feature-registry.md",
     });
 
     expect(formatWorkbenchDiagnostic(diagnostic!)).toBe(
-      "docs/features/feature-registry.md: error: compat/feature-registry/missing-doc-ref: hooks docs[0] points to missing doc ref docs/features/hooks.md"
+      "docs/development/features/feature-registry.md: error: compat/feature-registry/missing-doc-ref: hooks docs[0] points to missing doc ref docs/reference/features/hooks.md"
     );
     expect(diagnostic).toMatchObject({
       featureId: "hooks",
       help: [
         "Field: docs[0]",
-        "Ref: docs/features/hooks.md",
+        "Ref: docs/reference/features/hooks.md",
       ],
       scope: "workspace",
       severity: "error",

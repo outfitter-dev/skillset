@@ -120,5 +120,5 @@ into a general template language or cross-plugin import system.
 
 - [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.
 - [Layout](../layout.md) - current source tree and preprocessing contract.
-- [Skills](../features/skills.md) - skill body preprocessing behavior.
-- [Instructions](../features/instructions.md) - rule body preprocessing behavior.
+- [Skills](../reference/features/skills.md) - skill body preprocessing behavior.
+- [Instructions](../reference/features/instructions.md) - rule body preprocessing behavior.

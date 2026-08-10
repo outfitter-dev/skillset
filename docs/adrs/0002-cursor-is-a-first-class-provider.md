@@ -95,7 +95,7 @@ generated `--plugin-dir`.
 ### Runtime Smoke Record
 
 The accepted real local smoke is recorded in the
-[SET-313 Cursor runtime smoke receipt](../evidence/2026-07-20-set-313-cursor-runtime-smoke.md).
+[SET-313 Cursor runtime smoke receipt](../development/evidence/2026-07-20-set-313-cursor-runtime-smoke.md).
 `skillset test` run
 `20260720T195201Z-set313-sandboxed-relocated-config-cursor-agent-d715891d`
 built the isolated `set313-cursor-smoke` fixture and its generated local Cursor
@@ -167,7 +167,7 @@ product configuration or an ordinary runtime promise.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first, provider-native, and fail-loud doctrine.
+- [Tenets](../project/tenets.md) - source-first, provider-native, and fail-loud doctrine.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source
   remains the product and output remains target-native.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root
@@ -176,5 +176,5 @@ product configuration or an ordinary runtime promise.
 - [Agent / Subagent Source Model](0006-agent-source-model.md) - project and plugin agent boundaries.
 - [Render Results](0018-render-results.md) - visible transformed, metadata-only, and unsupported outcomes.
 - [Provider Surface Evidence Matrix](../target-surfaces.md#cursor-provider-baseline) - current Cursor destinations and verification notes.
-- [Runtime Adapters](../features/runtime-adapters.md) - target/runtime and retained-test boundary.
+- [Runtime Adapters](../development/features/runtime-adapters.md) - target/runtime and retained-test boundary.
 - [Cursor headless CLI docs](https://cursor.com/docs/cli/headless) - non-interactive CLI mode, checked 2026-07-02.

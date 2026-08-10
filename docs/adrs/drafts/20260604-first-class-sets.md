@@ -180,8 +180,8 @@ This ADR defines future vocabulary so later work can implement the smallest safe
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.
 - [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.
-- [Build Scopes](../../features/build-scopes.md) - destination scopes, dry-run safety, and lock semantics.
-- [Feature Source Pointers](../../features/feature-source-pointers.md) - typed feature ownership instead of generic component buckets.
+- [Build Scopes](../../reference/features/build-scopes.md) - destination scopes, dry-run safety, and lock semantics.
+- [Feature Source Pointers](../../reference/features/feature-source-pointers.md) - typed feature ownership instead of generic component buckets.
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install, sync, trust, and user-level mutation.
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - keeps settings and marketplace activation out of build.
-- [Tenets](../../tenets.md) - build does not imply trust, target truth beats fake portability, and drift should be visible early.
+- [Tenets](../../project/tenets.md) - build does not imply trust, target truth beats fake portability, and drift should be visible early.

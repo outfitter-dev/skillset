@@ -36,8 +36,8 @@ intent by itself.
 
 Use this checklist for any new source/config/frontmatter field:
 
-1. Confirm the field belongs in the source contract. Read `docs/tenets.md`, then
-   check accepted ADRs and `docs/features/README.md` for existing vocabulary.
+1. Confirm the field belongs in the source contract. Read `docs/project/tenets.md`, then
+   check accepted ADRs and `docs/reference/features/README.md` for existing vocabulary.
 2. Add the field to `packages/schema/src/contracts.ts`, including any exported
    key list or vocabulary the compiler should share.
 3. Add matching validation in `packages/schema/src/validate.ts`. Keep structural

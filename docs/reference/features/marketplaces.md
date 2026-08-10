@@ -133,4 +133,4 @@ Ordinary build and check paths remain network-free. Once `marketplace update` re
 - [SET-236](https://linear.app/outfitter/issue/SET-236/implement-skillset-marketplace-update-provider-index-rendering) - `marketplace update` provider index rendering.
 - [SET-268](https://linear.app/outfitter/issue/SET-268/resolve-external-marketplace-repositories-into-deterministic-xdg-cache) - deterministic remote XDG acquisition and portable provenance.
 - [Distributions](distributions.md) - related post-build sync planning surface.
-- [Runtime Adapters](runtime-adapters.md) - runtime support remains separate from compile targets and marketplace readiness.
+- [Runtime Adapters](../../development/features/runtime-adapters.md) - runtime support remains separate from compile targets and marketplace readiness.

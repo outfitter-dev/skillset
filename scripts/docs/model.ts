@@ -72,9 +72,9 @@ export function requiresDescription(path: string): boolean {
   const normalized = normalizeRepoPath(path);
   if (!normalized.startsWith("docs/")) return false;
   return !(
-    normalized === "docs/0x-latest-release-plan.md" ||
+    normalized === "docs/project/plans/archive/0x-latest.md" ||
     normalized.startsWith("docs/adrs/") ||
-    normalized.startsWith("docs/evidence/") ||
+    normalized.startsWith("docs/development/evidence/") ||
     normalized.startsWith("docs/project/plans/") ||
     normalized.startsWith("docs/reference/schemas/")
   );
@@ -85,12 +85,21 @@ export function isPublicPage(path: string): boolean {
   if (normalized === "README.md") return true;
   if (!normalized.startsWith("docs/")) return false;
   return !(
-    normalized === "docs/0x-latest-release-plan.md" ||
+    normalized === "docs/project/plans/archive/0x-latest.md" ||
     normalized.startsWith("docs/adrs/") ||
     normalized.startsWith("docs/development/") ||
-    normalized.startsWith("docs/evidence/") ||
+    normalized.startsWith("docs/development/evidence/") ||
     normalized.startsWith("docs/project/") ||
     normalized.startsWith("docs/reference/schemas/")
+  );
+}
+
+export function requiresReachability(path: string): boolean {
+  const normalized = normalizeRepoPath(path);
+  return (
+    isPublicPage(normalized) ||
+    normalized.startsWith("docs/development/") ||
+    normalized.startsWith("docs/project/")
   );
 }
 

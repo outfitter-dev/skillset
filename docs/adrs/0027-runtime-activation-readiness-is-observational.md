@@ -221,7 +221,7 @@ SET-131 owns this decision and closes after a clean contract review plus impleme
 
 ## References
 
-- [Tenets](../tenets.md) - builds do not imply trust and provider truth beats fake portability.
+- [Tenets](../project/tenets.md) - builds do not imply trust and provider truth beats fake portability.
 - [ADR-0005: Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry evidence and runtime-support separation.
 - [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - behavioral evidence boundaries.
 - [ADR-0019: Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - render conformance is not activation.

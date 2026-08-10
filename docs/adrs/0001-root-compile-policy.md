@@ -67,4 +67,4 @@ This ADR does not define a portable source model for agents, hook activation, in
 ## References
 
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
-- [Tenets](../tenets.md) - governing design principles for source-first loadouts and target-native rendering.
+- [Tenets](../project/tenets.md) - governing design principles for source-first loadouts and target-native rendering.

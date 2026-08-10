@@ -10,7 +10,7 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 
 ## Core Principles
 
-Read `docs/tenets.md` before writing or changing an ADR. Every ADR must be consistent with the tenets, or it must explicitly argue for changing them.
+Read `docs/project/tenets.md` before writing or changing an ADR. Every ADR must be consistent with the tenets, or it must explicitly argue for changing them.
 
 Use these tenets as the review lens:
 
@@ -99,7 +99,7 @@ Examples:
 - Template: `docs/adrs/template.md`
 - Numbered decision map: `docs/adrs/decision-map.json`
 - Draft decision map: `docs/adrs/drafts/decision-map.json`
-- Tenets: `docs/tenets.md`
+- Tenets: `docs/project/tenets.md`
 
 ## Statuses
 
@@ -154,7 +154,7 @@ What this enables, what it constrains, and what remains open.
 
 ## References
 
-- [Tenets](../tenets.md) - governing design principles.
+- [Tenets](../project/tenets.md) - governing design principles.
 ```
 
 ### Detailed ADR
@@ -264,7 +264,7 @@ Use accepted Skillset vocabulary consistently:
 - `compile.unsupportedDestination`, not silent fallback, for unsupported destination policy.
 - `provenance`, not comments, for lock/status evidence.
 
-Read `docs/tenets.md` before writing. Every ADR must be consistent with the tenets.
+Read `docs/project/tenets.md` before writing. Every ADR must be consistent with the tenets.
 
 ### Tone Calibration
 

@@ -79,7 +79,7 @@ describe("terminology guard", () => {
     expect(isScannablePath("packages/core/src/render.ts")).toBe(false);
     expect(isScannablePath("packages/core/src/deterministic-projection.ts")).toBe(false);
     // Active surfaces are scanned.
-    expect(isScannablePath("docs/features/render-results.md")).toBe(true);
+    expect(isScannablePath("docs/development/features/render-results.md")).toBe(true);
     expect(isScannablePath("packages/core/src/render-result.ts")).toBe(true);
     expect(isScannablePath("README.md")).toBe(true);
   });

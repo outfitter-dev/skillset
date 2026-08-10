@@ -170,7 +170,7 @@ A repository whose whole purpose is authoring a Skillset can use root `skillset.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first loadouts, provider truth, and explicit migration.
+- [Tenets](../project/tenets.md) - source-first loadouts, provider truth, and explicit migration.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source remains the product.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - `compile.targets` remains provider selection.
 - ADR: One-Action Repo Adoption (draft) - superseded for the old split layout; adoption should use the unified layout after this cutover.

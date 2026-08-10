@@ -4,7 +4,7 @@ description: Explains Skillset's shared CLI flag rules and projects the complete
 
 # CLI Flag Conventions
 
-The [CLI command reference](./cli/README.md) documents which options each public route accepts. This page owns the cross-command rules and projects the exhaustive flag vocabulary from `CLI_FLAGS`; it does not duplicate route assignments by hand.
+The [CLI command reference](cli/README.md) documents which options each public route accepts. This page owns the cross-command rules and projects the exhaustive flag vocabulary from `CLI_FLAGS`; it does not duplicate route assignments by hand.
 
 ## Rules
 

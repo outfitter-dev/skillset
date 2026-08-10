@@ -21,7 +21,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 ## Implementation Loop
 
 1. Inspect the closest existing code path before editing. The core modules are `packages/core/src/resolver.ts`, `packages/core/src/render.ts`, `packages/core/src/build.ts`, `packages/core/src/config.ts`, and `packages/core/src/lint.ts`; source import remains in `apps/skillset/src/import.ts`.
-2. For source contract changes, follow `docs/schema-contracts.md`: update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
+2. For source contract changes, follow `docs/development/schema-contracts.md`: update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
 3. Add or update focused tests or fixtures in the appropriate `apps/skillset/src/__tests__/`, `packages/schema/src/__tests__/`, or `packages/workbench/src/__tests__/` file for every behavior change. Run focused tests with `bun run test:focused -- <test-files...>` so they use the same owned XDG sandbox as aggregate verification.
 4. For source-only skill/plugin edits, run `bun run skillset:build`.
 5. Run `bun run skillset:check` for comprehensive source and workspace diagnostics, and `bun run skillset:check:outputs` for generated-output freshness when the change touches Skillset source, generated output, or docs/guidance that explain the command boundary.

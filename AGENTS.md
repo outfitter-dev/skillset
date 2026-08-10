@@ -9,9 +9,9 @@ The repo now self-hosts source in the canonical Skillset workspace layout:
 
 ## Doctrine
 
-Read [docs/tenets.md](docs/tenets.md) before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
+Read [docs/project/tenets.md](docs/project/tenets.md) before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
 
-For source/config/frontmatter fields, follow [docs/schema-contracts.md](docs/schema-contracts.md). Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.
+For source/config/frontmatter fields, follow [docs/development/schema-contracts.md](docs/development/schema-contracts.md). Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.
 
 For repository documentation, follow [docs/development/documentation-system.md](docs/development/documentation-system.md). It defines local ownership, generation, validation, migration accounting, and review expectations under the shared documentation doctrine.
 

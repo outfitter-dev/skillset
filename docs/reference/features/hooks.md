@@ -24,7 +24,7 @@ Skillset supports two hook source styles:
 
 The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. `<source-root>` is `.skillset/`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
 
-Hook source is JSON with an aggregate `hooks` event map. Event entries may include a `matcher`, `statusMessage`, and a `hooks` array whose handlers declare a non-empty `type` plus handler-specific fields such as `command`, `prompt`, `agent`, `timeout`, and `async`. The active source contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [hook examples](../reference/examples/hook.yaml) for the current field set.
+Hook source is JSON with an aggregate `hooks` event map. Event entries may include a `matcher`, `statusMessage`, and a `hooks` array whose handlers declare a non-empty `type` plus handler-specific fields such as `command`, `prompt`, `agent`, `timeout`, and `async`. The active source contract is generated from `@skillset/schema`; see [schema reference](../schemas/README.md) and [hook examples](../examples/hook.yaml) for the current field set.
 
 Use native aggregate source when the hook file is already provider-shaped or intentionally provider-specific. Use adaptive hook units when the hook behavior should attach to a plugin, skill, or project agent and Skillset should render only destinations that preserve that scope.
 

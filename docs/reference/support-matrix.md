@@ -11,43 +11,43 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 
 | Feature | Feature status | claude | codex | cursor | Docs |
 | --- | --- | --- | --- | --- | --- |
-| Activation Probes | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/tests-and-evals.md) |
-| Adaptive Hooks | `implemented` | `transformed` | `degraded` | `degraded` | [1](../features/hooks.md) |
-| Changes | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/changes.md) |
-| Dependencies | `implemented` | `native` | `degraded` | `planned` | [1](../features/dependencies.md) |
-| Dev Watch | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/dev-watch.md) |
-| Distributions | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/distributions.md) |
-| Feature Registry | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/feature-registry.md) |
-| Future Companion Source Pointers | `planned` | `planned` | `planned` | `planned` | [1](../features/apps.md), [2](../features/hooks.md), [3](../features/commands.md), [4](../features/settings.md) |
-| Marketplaces | `implemented` | `native` | `future` | `native` | [1](../features/marketplaces.md) |
-| Output Safety | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/output-safety.md) |
-| Plugin Agents | `implemented` | `pass_through` | `unsupported` | `pass_through` | [1](../features/agents.md) |
-| Codex Plugin Apps | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](../features/apps.md) |
-| Plugin Assets | `implemented` | `pass_through` | `pass_through` | `planned` | [1](../features/plugins.md) |
-| Plugin Bin | `implemented` | `pass_through` | `unsupported` | `unsupported` | [1](../features/executables.md), [2](../features/feature-source-pointers.md) |
-| Plugin Commands | `implemented` | `pass_through` | `not_applicable` | `pass_through` | [1](../features/commands.md), [2](../features/plugins.md) |
-| Plugin Hooks | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](../features/hooks.md) |
-| Plugin LSP Servers | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](../features/lsp-servers.md), [2](../features/plugins.md) |
-| Plugin Manifests | `implemented` | `native` | `native` | `native` | [1](../features/plugins.md) |
-| Plugin MCP Servers | `implemented` | `native` | `native` | `native` | [1](../features/feature-source-pointers.md), [2](../features/mcp-servers.md) |
-| Plugin Monitors | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](../features/monitors.md), [2](../features/plugins.md) |
-| Plugin Output Styles | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](../features/output-styles.md), [2](../features/plugins.md) |
-| Plugin README | `implemented` | `pass_through` | `pass_through` | `planned` | [1](../features/plugins.md) |
-| Plugin Rules | `implemented` | `not_applicable` | `not_applicable` | `pass_through` | [1](../features/instructions.md), [2](../features/plugins.md) |
-| Plugin Scripts | `implemented` | `pass_through` | `pass_through` | `planned` | [1](../features/plugins.md) |
-| Plugin Skills | `implemented` | `native` | `native` | `native` | [1](../features/plugins.md), [2](../features/skills.md) |
-| Plugin Source | `implemented` | `pass_through` | `pass_through` | `planned` | [1](../features/plugins.md) |
-| Plugin Themes | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](../features/themes.md), [2](../features/plugins.md) |
-| Project Agents | `implemented` | `native` | `transformed` | `native` | [1](../features/agents.md) |
-| Project Instructions | `implemented` | `transformed` | `transformed` | `transformed` | [1](../features/instructions.md) |
-| Releases | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](../features/releases.md) |
-| Render Results | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/render-results.md) |
-| Resources | `implemented` | `native` | `native` | `native` | [1](../features/resources.md) |
-| Runtime Adapters | `planned` | `not_applicable` | `not_applicable` | `planned` | [1](../features/runtime-adapters.md) |
-| Runtime Context | `implemented` | `transformed` | `transformed` | `transformed` | [1](../features/hooks.md), [2](../features/hook-guardrails.md) |
-| Standalone Skills | `implemented` | `native` | `native` | `native` | [1](../features/skills.md) |
-| Supports | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](../features/supports.md) |
-| Provider Source | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](../features/target-native-islands.md) |
-| Tools Policy | `implemented` | `transformed` | `metadata_only` | `metadata_only` | [1](../features/tools-policy.md) |
-| Version Audit | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/version-audit.md) |
-| Workflows | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../features/ci.md), [2](../features/build-scopes.md), [3](../features/workbench.md) |
+| Activation Probes | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/tests-and-evals.md) |
+| Adaptive Hooks | `implemented` | `transformed` | `degraded` | `degraded` | [1](./features/hooks.md) |
+| Changes | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/changes.md) |
+| Dependencies | `implemented` | `native` | `degraded` | `planned` | [1](./features/dependencies.md) |
+| Dev Watch | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/dev-watch.md) |
+| Distributions | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/distributions.md) |
+| Feature Registry | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/feature-registry.md) |
+| Future Companion Source Pointers | `planned` | `planned` | `planned` | `planned` | [1](./features/apps.md), [2](./features/hooks.md), [3](./features/commands.md), [4](./features/settings.md) |
+| Marketplaces | `implemented` | `native` | `future` | `native` | [1](./features/marketplaces.md) |
+| Output Safety | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/output-safety.md) |
+| Plugin Agents | `implemented` | `pass_through` | `unsupported` | `pass_through` | [1](./features/agents.md) |
+| Codex Plugin Apps | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](./features/apps.md) |
+| Plugin Assets | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
+| Plugin Bin | `implemented` | `pass_through` | `unsupported` | `unsupported` | [1](./features/executables.md), [2](./features/feature-source-pointers.md) |
+| Plugin Commands | `implemented` | `pass_through` | `not_applicable` | `pass_through` | [1](./features/commands.md), [2](./features/plugins.md) |
+| Plugin Hooks | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](./features/hooks.md) |
+| Plugin LSP Servers | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/lsp-servers.md), [2](./features/plugins.md) |
+| Plugin Manifests | `implemented` | `native` | `native` | `native` | [1](./features/plugins.md) |
+| Plugin MCP Servers | `implemented` | `native` | `native` | `native` | [1](./features/feature-source-pointers.md), [2](./features/mcp-servers.md) |
+| Plugin Monitors | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/monitors.md), [2](./features/plugins.md) |
+| Plugin Output Styles | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/output-styles.md), [2](./features/plugins.md) |
+| Plugin README | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
+| Plugin Rules | `implemented` | `not_applicable` | `not_applicable` | `pass_through` | [1](./features/instructions.md), [2](./features/plugins.md) |
+| Plugin Scripts | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
+| Plugin Skills | `implemented` | `native` | `native` | `native` | [1](./features/plugins.md), [2](./features/skills.md) |
+| Plugin Source | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
+| Plugin Themes | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/themes.md), [2](./features/plugins.md) |
+| Project Agents | `implemented` | `native` | `transformed` | `native` | [1](./features/agents.md) |
+| Project Instructions | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/instructions.md) |
+| Releases | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](./features/releases.md) |
+| Render Results | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/render-results.md) |
+| Resources | `implemented` | `native` | `native` | `native` | [1](./features/resources.md) |
+| Runtime Adapters | `planned` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/runtime-adapters.md) |
+| Runtime Context | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/hooks.md), [2](../development/features/hook-guardrails.md) |
+| Standalone Skills | `implemented` | `native` | `native` | `native` | [1](./features/skills.md) |
+| Supports | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](./features/supports.md) |
+| Provider Source | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](./features/target-native-islands.md) |
+| Tools Policy | `implemented` | `transformed` | `metadata_only` | `metadata_only` | [1](./features/tools-policy.md) |
+| Version Audit | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/version-audit.md) |
+| Workflows | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/ci.md), [2](./features/build-scopes.md), [3](../development/features/workbench.md) |

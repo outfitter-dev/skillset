@@ -2,7 +2,7 @@
 
 This document records the package altitude doctrine for Skillset consolidation.
 It implements the SET-261 ownership audit and SET-262 doctrine decision. Keep it
-aligned with [Tenets](tenets.md), [Schema Contracts](schema-contracts.md), and
+aligned with [Tenets](../project/tenets.md), [Schema Contracts](schema-contracts.md), and
 [Package Releases](package-releases.md).
 
 ## Direction

@@ -49,7 +49,7 @@ Review diffs and call out correctness risks.
 .cursor/agents/<resolved-name>.md
 ```
 
-The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [agent frontmatter examples](../reference/examples/agent-frontmatter.yaml) for the current shared fields, common metadata blocks, `supports`, and provider override blocks. Provider-specific fields remain explicit inside `claude`, `codex`, and `cursor` blocks rather than being inferred from portable keys.
+The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../schemas/README.md) and [agent frontmatter examples](../examples/agent-frontmatter.yaml) for the current shared fields, common metadata blocks, `supports`, and provider override blocks. Provider-specific fields remain explicit inside `claude`, `codex`, and `cursor` blocks rather than being inferred from portable keys.
 
 Shared `skills` entries and ordinary string entries in a provider block are managed Skillset references. They must resolve to a target-enabled standalone skill or use the qualified `plugin.<plugin>.skill:<skill>` form. When a provider project agent intentionally references a provider-installed skill that is outside Skillset's source graph, author an explicit target-scoped native entry instead:
 

@@ -70,8 +70,8 @@ publishing.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first and target-truth boundaries.
-- [Render Results](../features/render-results.md) - current schema, statuses, provenance, and evidence.
+- [Tenets](../project/tenets.md) - source-first and target-truth boundaries.
+- [Render Results](../development/features/render-results.md) - current schema, statuses, provenance, and evidence.
 - [ADR-0003](0003-lossy-and-unsupported-output-policy.md) - narrow lossy and unsupported policy specialization.
 - `packages/core/src/render-result.ts` - schema and validation.
 - `packages/core/src/render-result-collector.ts` - result derivation.

@@ -18,7 +18,7 @@ const INLINE_CODE_PATTERN = /`[^`]*`/gu;
 
 /**
  * Blank out fenced code blocks and inline code spans so example links in
- * documentation (e.g. an ADR template showing `[Tenets](../tenets.md)`)
+ * documentation (e.g. an ADR template showing `[Tenets](../project/tenets.md)`)
  * are not treated as real file references.
  */
 const maskCodeRegions = (body: string): string => {

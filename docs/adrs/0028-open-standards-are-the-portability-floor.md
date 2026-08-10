@@ -741,8 +741,8 @@ boundary.
 - [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - keeps `.skillset/rules/` as adaptive instruction source and `.skillset/agents/` as project-agent source.
 - [ADR-0018: Render Results](0018-render-results.md) - amended so standards projections gain their own identity without entering the provider `target` field.
 - [ADR-0019: Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - supplies deterministic and adapter-conformance proof for standards-native output.
-- [Skillset Design Tenets](../tenets.md) - governing source-first, provider-truth, derivation, and default-build doctrine.
-- [Project Agents](../features/agents.md) - current project-agent source paths, provider renderings, and defaults vocabulary.
+- [Skillset Design Tenets](../project/tenets.md) - governing source-first, provider-truth, derivation, and default-build doctrine.
+- [Project Agents](../reference/features/agents.md) - current project-agent source paths, provider renderings, and defaults vocabulary.
 - [Workspace config contract](../../packages/schema/src/contracts.ts) - current structural admission of the bare root `agents:` placeholder retired by this decision.
 - [AGENTS.md open format](https://agents.md/) - public cross-agent convention for root and nested Markdown instructions.
 - [Codex custom instructions with AGENTS.md](https://developers.openai.com/codex/guides/agents-md) - provider-native discovery, precedence, overrides, fallback names, and limits layered on the open format.

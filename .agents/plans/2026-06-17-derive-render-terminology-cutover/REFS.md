@@ -3,7 +3,7 @@
 ## Repo Guidance
 
 - [AGENTS.md](/Users/mg/Developer/outfitter/skillset/AGENTS.md)
-- [docs/tenets.md](/Users/mg/Developer/outfitter/skillset/docs/tenets.md)
+- [docs/project/tenets.md](../../../docs/project/tenets.md)
 - [.agents/plans/PLANNING.md](/Users/mg/Developer/outfitter/skillset/.agents/plans/PLANNING.md)
 
 ## Linear Issues

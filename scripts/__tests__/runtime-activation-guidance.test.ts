@@ -26,7 +26,7 @@ test("runtime activation guidance reserves proof claims for declared tests", asy
   }
 
   const featureGuide = await readFile(
-    join(ROOT, "docs/features/runtime-activation-readiness.md"),
+    join(ROOT, "docs/reference/features/runtime-activation-readiness.md"),
     "utf8"
   );
   expect(featureGuide).toContain(

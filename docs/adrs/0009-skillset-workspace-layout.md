@@ -158,7 +158,7 @@ resolver/XDG/setup code, and workspace-layout contract tests.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first loadouts and explicit migration.
+- [Tenets](../project/tenets.md) - source-first loadouts and explicit migration.
 - [Unified Source Layout](0008-unified-source-layout.md) - earlier
   intermediate layout design that this draft supersedes for current authoring.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - committed change ledger model.

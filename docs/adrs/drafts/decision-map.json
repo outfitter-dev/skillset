@@ -15,7 +15,7 @@
         {
           "context": "- [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.",
           "from": "README",
-          "fromPath": "docs/features/README.md"
+          "fromPath": "docs/reference/features/README.md"
         },
         {
           "context": "| `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, an",
@@ -87,7 +87,7 @@
         {
           "context": "- [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and e",
           "from": "README",
-          "fromPath": "docs/features/README.md"
+          "fromPath": "docs/reference/features/README.md"
         },
         {
           "context": "| `profiles.models` / `model_profile` | provider-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](",
@@ -133,12 +133,12 @@
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).",
           "from": "hook-guardrails",
-          "fromPath": "docs/features/hook-guardrails.md"
+          "fromPath": "docs/development/features/hook-guardrails.md"
         },
         {
           "context": "- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mu",
           "from": "README",
-          "fromPath": "docs/features/README.md"
+          "fromPath": "docs/reference/features/README.md"
         },
         {
           "context": "| `settings.json` | default plugin settings | Provider-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings ",

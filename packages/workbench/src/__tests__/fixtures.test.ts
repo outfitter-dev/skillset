@@ -201,7 +201,7 @@ function feature(
 ): SkillsetFeatureEntry {
   const { id, ...rest } = overrides;
   return {
-    docs: ["docs/features/test.md"],
+    docs: ["docs/reference/features/test.md"],
     evidence: [],
     id,
     kind: "workflow",

@@ -144,12 +144,12 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: "docs/features/example.md",
+      path: "docs/reference/features/example.md",
     });
 
     expect(diagnostics).toContainEqual(
       expect.objectContaining({
-        location: expect.objectContaining({ line: 1, path: "docs/features/example.md" }),
+        location: expect.objectContaining({ line: 1, path: "docs/reference/features/example.md" }),
         ruleId: "markdown/code-fence-nesting",
       })
     );
@@ -177,7 +177,7 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: "docs/features/example.md",
+      path: "docs/reference/features/example.md",
     });
 
     expect(diagnostics).toEqual([]);
@@ -192,7 +192,7 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: "docs/features/example.md",
+      path: "docs/reference/features/example.md",
     });
 
     expect(diagnostics).toEqual([]);

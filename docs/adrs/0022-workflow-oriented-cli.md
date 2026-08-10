@@ -273,14 +273,14 @@ roster and hard cut.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first, no-trust, and visible-drift doctrine governing the command boundary.
+- [Tenets](../project/tenets.md) - source-first, no-trust, and visible-drift doctrine governing the command boundary.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.
 - [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - adoption survey, lowering, provenance, and original-tree guarantees specialized by `init`.
 - [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - separates deterministic tests, runtime evidence, and evals.
 - [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - compiler verification primitives composed by check.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed static support facts exposed through lookup.
-- [Tests and Evals](../features/tests-and-evals.md) - current declared and ad hoc shared-runner behavior.
-- [Source Suggestions](../features/source-suggestions.md) - current managed-output recovery safety model replaced by reconcile.
+- [Tests and Evals](../reference/features/tests-and-evals.md) - current declared and ad hoc shared-runner behavior.
+- [Source Suggestions](../reference/features/source-suggestions.md) - current managed-output recovery safety model replaced by reconcile.
 - [Target Surfaces](../target-surfaces.md) - provider evidence and safe update boundaries.
 - [Linear working ADR](https://linear.app/outfitter/document/adr-draft-workflow-oriented-cli-flat-loop-explicit-domains-56e12cc1025b) - discussion history and implementation map.
 - [SET-274](https://linear.app/outfitter/issue/SET-274) - parent implementation program for SET-275 through SET-285.

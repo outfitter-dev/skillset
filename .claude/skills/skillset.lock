@@ -40,9 +40,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:626574e1638cee9d869057542c1e90494a808b3c93077ec02f253db0b309e6ee",
+      "outputHash": "sha256:a6c399f9e9fb221edcc5bd66d5f9ea1d6b6f820979a4ea431e0201e6e7e2f5fc",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:c0aecb7d7cf7076da2b50eb2786771bd050d31005508610255c38223f2b1fffc",
+      "sourceHash": "sha256:3ef13c4d2acaa0035139e3f84a4f90383188138cb38ab336940b3ae762728336",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -55,9 +55,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-claude-development",
-      "outputHash": "sha256:18c6b2f1e6b0dec58b79f3f2a4ca288687cf64f4cfa358d26603c7273f5abed1",
+      "outputHash": "sha256:5e35d0310773db40ed7c5bd321798272a49a13f266d0797accfa85d7cbd469e2",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:b76c12d9fb2bbf5385a0099e738bd5d638ab835d3141536712a31831164c3a29",
+      "sourceHash": "sha256:be48c3c863212150ede78f6044cc428f45b7f0b7df58b1c7d048e50dc5eb5a90",
       "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     },
@@ -84,7 +84,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/features/skills.md"
+          "ref": "docs/reference/features/skills.md"
         },
         {
           "kind": "provider-overlay",
@@ -168,7 +168,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/features/skills.md"
+          "ref": "docs/reference/features/skills.md"
         },
         {
           "kind": "provider-overlay",
@@ -200,7 +200,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/features/skills.md"
+          "ref": "docs/reference/features/skills.md"
         },
         {
           "kind": "provider-overlay",

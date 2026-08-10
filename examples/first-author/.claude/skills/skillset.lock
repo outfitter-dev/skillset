@@ -28,7 +28,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/features/skills.md"
+          "ref": "docs/reference/features/skills.md"
         },
         {
           "kind": "provider-overlay",

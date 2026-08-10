@@ -48,4 +48,4 @@ Future extensions can add downstream distribution manifests and package metadata
 
 - [Releases And Changelogs](releases.md) - source release state and generated version behavior.
 - [Distributions](distributions.md) - destination-owned metadata and future sync boundaries.
-- [SET-111 contract test](../../apps/skillset/src/__tests__/contract.test.ts) - read-only audit and stale generated version detection.
+- [SET-111 contract test](../../../apps/skillset/src/__tests__/contract.test.ts) - read-only audit and stale generated version detection.

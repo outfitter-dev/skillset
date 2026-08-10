@@ -8,9 +8,9 @@
 
 Feature id: `hook-guardrails`
 
-Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)
 
-Hook guardrails help humans and agents notice missing change reasons, stale generated output, or release provenance drift. They are workflow snippets, not target plugin hook definitions. For target plugin hooks, see [Hooks](hooks.md).
+Hook guardrails help humans and agents notice missing change reasons, stale generated output, or release provenance drift. They are workflow snippets, not target plugin hook definitions. For target plugin hooks, see [Hooks](../../reference/features/hooks.md).
 
 ## Authoring
 
@@ -39,7 +39,7 @@ skillset-toolkit runtime context --event Stop --format env --fields provider,hoo
 | Agent runtime hook execution | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `implemented` / `target_specific` | Core CLI behavior called by reviewed Claude/Codex project-local runtime config. |
 | Runtime context helper | Claude, Codex, and Cursor `skillset-toolkit runtime context --event <event> --format env|json` | `implemented` / `target_specific` | Helper used by generated adaptive hook wrappers for `context.strategy: toolkit`; the shared context model lives in `@skillset/toolkit/runtime`. |
 
-For the normalized runtime context support matrix, use `skillset lookup hooks toolkit --field context.env --values --compat claude,codex,cursor` or see [Hooks](hooks.md#runtime-context).
+For the normalized runtime context support matrix, use `skillset lookup hooks toolkit --field context.env --values --compat claude,codex,cursor` or see [Hooks](../../reference/features/hooks.md#runtime-context).
 
 ## Diagnostics
 
@@ -63,4 +63,4 @@ Hook guardrails do not create source truth. They call Skillset commands that pro
 
 ## Evidence
 
-See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).
+See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestions.md).
