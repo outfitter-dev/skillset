@@ -1,6 +1,7 @@
-import { chmod, rm } from "node:fs/promises";
+import { chmod, copyFile, rm } from "node:fs/promises";
 
 const outdir = "apps/skillset/dist";
+const packageDir = "apps/skillset";
 
 await rm(outdir, { force: true, recursive: true });
 
@@ -19,4 +20,10 @@ if (!result.success) {
 for (const output of result.outputs) {
   await chmod(output.path, 0o755);
   console.error(`skillset: built ${output.path}`);
+}
+
+for (const file of ["README.md", "LICENSE"]) {
+  const destination = `${packageDir}/${file}`;
+  await copyFile(file, destination);
+  console.error(`skillset: projected ${destination}`);
 }

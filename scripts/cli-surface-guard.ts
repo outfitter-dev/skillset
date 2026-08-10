@@ -70,8 +70,12 @@ export function scanCliSurface(file: string, content: string): readonly CliSurfa
 }
 
 function allowedRetiredFlagUse(file: string, text: string): boolean {
-  return file.startsWith(".skillset/skills/skillset-adrs/scripts/") ||
-    (file === "docs/package-releases.md" && /\bbun pm pack --dry-run\b/u.test(text));
+  if (file.startsWith(".skillset/skills/skillset-adrs/scripts/")) return true;
+  if (file !== "docs/package-releases.md" && file !== "scripts/package-metadata.ts") return false;
+  const remainder = text
+    .replace(/\bbun pm pack --dry-run\b/gu, "bun pm pack")
+    .replace(/"bun", "pm", "pack", "--dry-run"/gu, '"bun", "pm", "pack"');
+  return remainder !== text && !RETIRED_SURFACE.some((pattern) => pattern.test(remainder));
 }
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));

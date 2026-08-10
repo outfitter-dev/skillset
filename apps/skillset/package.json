@@ -2,9 +2,12 @@
   "name": "skillset",
   "version": "0.22.1",
   "description": "Source-first compiler for provider-native agent loadouts.",
+  "license": "MIT",
   "type": "module",
   "files": [
-    "dist/*.js"
+    "dist/*.js",
+    "README.md",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
