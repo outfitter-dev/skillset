@@ -1,0 +1,102 @@
+name: Publish Homebrew
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published Skillset release tag
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: Published Skillset release tag
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: true
+
+concurrency:
+  group: homebrew-skillset-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  handoff:
+    if: github.repository == 'outfitter-dev/skillset'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - name: Resolve release tag
+        id: release
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v(.+)$ ]]; then
+            echo "Expected a v-prefixed Skillset release tag, found: $TAG" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+      - name: Validate published release assets before tap checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          gh api "repos/$GH_REPO/releases/tags/$TAG" > "$RUNNER_TEMP/release.json"
+          bun scripts/homebrew.ts validate-release \
+            --release-json "$RUNNER_TEMP/release.json" \
+            --version "$VERSION"
+          gh release download "$TAG" \
+            --dir "$RUNNER_TEMP/release-assets" \
+            --pattern "skillset-v$VERSION-darwin-arm64.tar.gz" \
+            --pattern "skillset-v$VERSION-darwin-x64.tar.gz" \
+            --pattern "skillset-v$VERSION-linux-arm64-glibc.tar.gz" \
+            --pattern "skillset-v$VERSION-linux-x64-glibc.tar.gz"
+      - name: Render formula from immutable release assets
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          bun scripts/homebrew.ts render \
+            --assets-dir "$RUNNER_TEMP/release-assets" \
+            --output "$RUNNER_TEMP/skillset.rb" \
+            --version "$VERSION"
+      - name: Verify tap token
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: test -n "$HOMEBREW_TAP_TOKEN"
+      - name: Check out Homebrew tap
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: outfitter-dev/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+      - name: Stage formula update
+        run: |
+          mkdir -p homebrew-tap/Formula
+          cp "$RUNNER_TEMP/skillset.rb" homebrew-tap/Formula/skillset.rb
+      - name: Open or update Homebrew tap pull request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+          branch: release/skillset
+          delete-branch: true
+          commit-message: "chore(skillset): update formula to ${{ steps.release.outputs.tag }}"
+          title: "chore(skillset): update formula to ${{ steps.release.outputs.tag }}"
+          body: |
+            Updates `Formula/skillset.rb` from the published [Skillset ${{ steps.release.outputs.tag }}](https://github.com/outfitter-dev/skillset/releases/tag/${{ steps.release.outputs.tag }}) release assets.
+
+            Checksums were computed from the downloaded release archives. This workflow does not merge the pull request.
+          add-paths: Formula/skillset.rb
