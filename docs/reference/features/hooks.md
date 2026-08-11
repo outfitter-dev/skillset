@@ -97,7 +97,7 @@ Adaptive hook units can choose how much Skillset-normalized runtime context to p
 | --- | --- |
 | `inline` | Prefixes the generated command with requested `SKILLSET_*` environment assignments. |
 | `none` | Passes no Skillset-normalized context. Provider-native environment remains available. |
-| `toolkit` | Renders through the `skillset-toolkit runtime context` helper shipped with the `skillset` package, backed by the shared `@skillset/toolkit/runtime` context model. |
+| `toolkit` | Renders through `skillset hooks context`, backed by the shared private `@skillset/toolkit/runtime` context model. |
 
 Inline fields are deliberately small:
 
@@ -109,32 +109,33 @@ Inline fields are deliberately small:
 
 Omitting `context` is equivalent to `context.strategy: none`, so existing hooks keep their command text unchanged.
 
-For `context.strategy: toolkit`, generated hooks call the installable helper:
+For `context.strategy: toolkit`, generated hooks call the installed Skillset command:
 
 ```sh
-skillset-toolkit runtime context --event <event> --format env --fields <field,...>
+skillset hooks context --event <event> --format env --context-fields <field,...>
 ```
 
 The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. It does not erase target-native variables such as `CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or `CURSOR_SESSION_ID`; scripts that need provider-specific data can still read the raw environment deliberately. For Cursor hooks, `session.id` resolves in deterministic order from an explicit `SKILLSET_SESSION_ID`, then the JSON stdin `conversation_id`, then `CURSOR_SESSION_ID` as a compatibility fallback. Claude and Codex continue to use their provider session environment variables after an explicit Skillset override.
 
-Generated hooks and out-of-repo scripts should use the `skillset-toolkit` CLI because it is shipped by the published `skillset` package. Repo-local tools that already depend on the internal [workspace](../../glossary.md#workspace) package can import the typed runtime surface directly:
+Generated hooks and out-of-repo scripts should use `skillset hooks context`, the public command shipped by the `skillset` package. Repo-local tools that already depend on the internal [workspace](../../glossary.md#workspace) package can import the typed runtime surface directly:
 
 ```ts
-import { createHookRuntimeContext, renderHookRuntimeContextJson } from "@skillset/toolkit/runtime";
+import { renderRuntimeContext } from "@skillset/toolkit/runtime";
 
-const context = createHookRuntimeContext({
+const output = await renderRuntimeContext({
   env: process.env,
   event: "Stop",
   fields: ["provider", "hook.event", "session.id"],
+  format: "json",
 });
 
-process.stdout.write(renderHookRuntimeContextJson(context));
+process.stdout.write(output);
 ```
 
 Shell hooks can evaluate env output:
 
 ```sh
-eval "$(skillset-toolkit runtime context --event Stop --format env --fields provider,hook.event,session.id)"
+eval "$(skillset hooks context --event Stop --format env --context-fields provider,hook.event,session.id)"
 printf '%s\n' "$SKILLSET_PROVIDER:$SKILLSET_HOOK_EVENT"
 ```
 
@@ -145,8 +146,8 @@ import json
 import subprocess
 
 context = json.loads(subprocess.check_output([
-    "skillset-toolkit",
-    "runtime",
+    "skillset",
+    "hooks",
     "context",
     "--event",
     "Stop",

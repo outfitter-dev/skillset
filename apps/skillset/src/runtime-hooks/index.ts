@@ -6,6 +6,7 @@ export {
   type RunSkillsetCommandOptions,
 } from "./commands";
 export {
+  readHookContextStdin,
   readHookRuntimeContext,
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
