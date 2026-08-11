@@ -4,7 +4,7 @@ description: The package-release contract defines Changeset ownership, automated
 
 # Package Releases
 
-This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset [source-unit](../glossary.md#source-unit) releases under `.skillset/changes`, which describe authored plugin, skill, and [generated-output](../glossary.md#generated-output) provenance.
+This page covers the npm package release path for the public Skillset distribution packages. It is separate from Skillset [source-unit](../glossary.md#source-unit) releases under `.skillset/changes`, which describe authored plugin, skill, and [generated-output](../glossary.md#generated-output) provenance.
 
 ## Ownership
 
@@ -12,18 +12,19 @@ GitHub Actions is the package release operator. Local commands are diagnostics a
 
 Changesets owns npm package version and package changelog calculation. The Skillset change/release commands continue to own source-unit reasons, release state, generated entity changelogs, and [target](../glossary.md#target) output [drift](../glossary.md#drift). Do not collapse these two release systems unless a future explicit bridge is designed.
 
-Only the unscoped `skillset` CLI package is public in the current package posture. The scoped workspace packages remain private implementation packages: `@skillset/core` is the internal compiler/library boundary, `@skillset/registry` stores deterministic provider facts and registry contracts, and the remaining scoped packages support schema, lint, toolkit, transform, and workbench surfaces behind that boundary. Do not include them in npm publish automation or treat their exports as semver-stable until a future package-posture issue explicitly promotes them.
+The unscoped `skillset` package and `@skillset/cli` are public. `@skillset/cli` owns the complete Bun-targeted artifact; the unscoped package temporarily projects the same bytes until it becomes the native launcher. Changesets keeps the two packages in one fixed version group because `skillset` owns the product version. The remaining scoped workspace packages are private implementation packages: `@skillset/core` is the internal compiler/library boundary, `@skillset/registry` stores deterministic provider facts and registry contracts, and the other scoped packages support schema, lint, toolkit, transform, and workbench surfaces behind that boundary. Do not include those private packages in npm publish automation or treat their exports as semver-stable.
 
 ## Flow
 
 Feature branches that change package-facing behavior should include a `.changeset/*.md` file on the branch that owns the behavior. In Graphite stacks, keep release intent branch-local: do not hide lower-branch package changes by adding one cleanup Changeset at the stack tip. If the lower branch owns the package-facing code, the lower branch owns the Changeset, and any missing release intent should be fixed on that branch before restacking upward.
 
-Package-facing means a change that can affect the published `skillset` CLI package payload or its runtime behavior. The guardrail intentionally does not treat docs, workflow files, release scripts, generated Skillset source-unit state, fixtures, or repo-only maintenance as package-facing by default. Current package-facing paths are:
+Package-facing means a change that can affect a public CLI package payload or its runtime behavior. The guardrail intentionally does not treat docs, workflow files, release scripts, generated Skillset source-unit state, fixtures, or repo-only maintenance as package-facing by default. Current package-facing paths are:
 
 | Path | Why it requires a package Changeset |
 | --- | --- |
 | `README.md` | Canonical README source copied into the published package. |
 | `apps/skillset/src/**` except tests | CLI runtime source bundled into the package. |
+| `apps/cli/package.json` | Public Bun package metadata, bin, dependency, runtime-floor, and version-bearing state. |
 | `apps/skillset/package.json` | Published package metadata, bin entries, dependencies, and version-bearing state. |
 | `packages/core/src/**` except tests | Internal compiler/library implementation bundled through the CLI. |
 | `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |
@@ -34,7 +35,7 @@ Package-facing means a change that can affect the published `skillset` CLI packa
 | `packages/*/package.json` for `core`, `lint`, `registry`, `schema`, `toolkit`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
 | `bun.lock` / `bun.lockb` | Dependency resolution that can alter the packaged CLI runtime. |
 
-`bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, when an active Changeset appears on a branch that only changes repo machinery, or when a pending Changeset mixes the published `skillset` package with ignored private `@skillset/*` packages. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries. Private-only Changesets remain valid internal evidence; a public Changeset should list only packages that Changesets can version.
+`bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, when an active Changeset appears on a branch that only changes repo machinery, or when a pending Changeset mixes either public package with ignored private `@skillset/*` packages. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries. Private-only Changesets remain valid internal evidence; a public Changeset should list only packages that Changesets can version.
 
 Provider and schema changes usually have two evidence surfaces. The package Changeset explains the npm-facing behavior change, while the Skillset pending change entry explains any source-unit or generated-output provenance change in the local workspace. Generated schema artifacts under `docs/reference/schemas/` and `docs/reference/examples/` are reviewed with the contract change but do not replace the `.changeset/*.md` entry because they are derived from `packages/schema/src/**`.
 
@@ -89,7 +90,7 @@ bun run publish:registry-check:published
 
 `bun run publish:policy` is the release-workflow policy gate. It reads the current commit, the associated Changesets release PR, exact-SHA GitHub checks, source PR stack evidence, package/changelog state, and npm registry state, then emits GitHub Actions outputs for `auto`, `manual`, `none`, or `block`.
 
-`bun run publish:check` is the local preflight: it runs the full repo check, rebuilds the npm package output, and performs `bun pm pack --dry-run` from `apps/skillset` so package contents are verified without registry authentication.
+`bun run publish:check` is the local preflight: it runs the full repo check, rebuilds the npm package output, and verifies both public tarball manifests without registry authentication. Publication remains single-package until the lockstep release workflow lands.
 
 Before marking a release PR ready, review provider and schema evidence when the range touches `packages/registry/src/**`, `packages/schema/src/**`, `docs/reference/schemas/**`, or `docs/reference/examples/**`:
 

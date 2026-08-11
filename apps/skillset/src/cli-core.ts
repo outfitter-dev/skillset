@@ -4,6 +4,7 @@ import { runCheckCommand } from "./check-cli";
 import { runCreateCommand } from "./create-cli";
 import { parseCliRequest } from "./cli-args";
 import { renderCliHelp } from "./cli-help";
+import { cliVersion } from "./cli-version";
 import { runDevCommand } from "./dev-cli";
 import { runEvalCommand } from "./eval-cli";
 import {
@@ -30,6 +31,11 @@ import { runUpdateCommand } from "./update-cli";
 export async function runCli(
   rawArgs: readonly string[] = process.argv.slice(2)
 ): Promise<void> {
+  if (rawArgs.length === 1 && rawArgs[0] === "--version") {
+    console.log(cliVersion);
+    return;
+  }
+
   if (rawArgs.some((arg) => arg === "--help" || arg === "-h")) {
     console.log(renderCliHelp(rawArgs));
     return;

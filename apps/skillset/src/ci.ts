@@ -530,7 +530,7 @@ export function renderCiWorkflow(): string {
     "      - name: Run skillset check",
     "        id: skillset",
     "        run: >-",
-    "          bunx skillset check --ci",
+    "          bunx @skillset/cli check --ci",
     "          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}",
     '          --report "$RUNNER_TEMP/skillset-ci-report.md"',
     "        continue-on-error: true",

@@ -4,7 +4,8 @@ import path from "node:path";
 import { parseCliRequest } from "../../apps/skillset/src/cli-args";
 import { extractInlineMarkdownLinks } from "./markdown";
 
-const PACKAGE_COMMAND = /^\s*(?:bunx|npx) skillset(?:@\S+)?\s+(.+?)\s*$/gmu;
+const PACKAGE_COMMAND =
+  /^\s*(?:bunx|npx) (?:skillset|@skillset\/cli)(?:@\S+)?\s+(.+?)\s*$/gmu;
 const ACTIVATION_INVARIANT =
   "Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration.";
 const ACTIVATION_PAGE = "docs/start/build-versus-activation.md";

@@ -71,12 +71,13 @@ function renderRootHelp(renderer: TerminalRenderer): string {
     "",
     renderer.bold("Usage"),
     "  skillset <command> [options]",
+    "  skillset --version",
     "",
     ...joinSections(sections),
     "",
     renderer.dim(
       renderer.wrap(
-        "Run `skillset <command> --help` for focused help or `skillset --help --all` for every route."
+        "Run `skillset <command> --help` for focused help, `skillset --help --all` for every route, or `skillset --version` for the product version."
       )
     ),
   ].join("\n");

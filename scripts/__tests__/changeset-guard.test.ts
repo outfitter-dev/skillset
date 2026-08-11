@@ -34,6 +34,10 @@ describe("changeset guard", () => {
     expect(result.packageFiles.map((file) => file.path)).toEqual(["README.md"]);
   });
 
+  test("treats the scoped CLI manifest as package-facing", () => {
+    expect(isPackageAffectingPath("apps/cli/package.json")).toBe(true);
+  });
+
   test("passes package payload changes with an active changeset", () => {
     const result = evaluateChangesetGuard([
       { path: "packages/core/src/build.ts", status: "M" },

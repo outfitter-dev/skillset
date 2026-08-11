@@ -81,6 +81,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--updated` | `selection` | `boolean` | Select only generated output affected by current source, the default build mode. |
 | `--use <value>` | `mode` | `value` | Select source or output as the authority for a reconciliation plan. |
 | `--values` | `selection` | `boolean` | Show lookup finite-value facts. |
+| `--version` | `output` | `boolean` | Print the Skillset product version. |
 | `--write` | `mutation` | `boolean` | Enable deterministic ordinary output writes for a route whose default is continuous or comprehensive preview. |
 | `--yes` | `mutation` | `boolean` | Confirm a fully specified plan-first mutation without prompting. |
 <!-- skillset:generated:end cli-flag-vocabulary -->

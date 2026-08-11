@@ -23,6 +23,7 @@ describe("SET-307 CLI presentation", () => {
     expect(output).toContain("Author\n");
     expect(output).toContain("Build\n");
     expect(output).toContain("skillset <command> --help");
+    expect(output).toContain("skillset --version");
     expect(output).not.toContain("--claude-setting-sources");
     expect(output.split("\n").length).toBeLessThan(50);
   });

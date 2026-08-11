@@ -11,13 +11,13 @@ Continuous integration checks a Skillset [workspace](../glossary.md#workspace), 
 Preview the optional GitHub Actions scaffold without allowing an interactive write:
 
 ```bash
-bunx skillset init --include ci --json
+bunx @skillset/cli init --include ci --json
 ```
 
 Then authorize the reviewed addition:
 
 ```bash
-bunx skillset init --include ci --yes
+bunx @skillset/cli init --include ci --yes
 ```
 
 This creates `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: later `init` runs report it as existing and do not replace your edits. Review its permissions and consider pinning the Skillset version before relying on it as a required check.
@@ -29,13 +29,13 @@ The generated [`init` reference](../reference/cli/init.md) owns the complete opt
 Run the same branch-aware readiness mode against your trunk ref:
 
 ```bash
-bunx skillset check --ci --since origin/main
+bunx @skillset/cli check --ci --since origin/main
 ```
 
 To create the same Markdown report used by job summaries and pull-request comments, request a report file explicitly:
 
 ```bash
-bunx skillset check --ci --since origin/main --report skillset-ci-report.md
+bunx @skillset/cli check --ci --since origin/main --report skillset-ci-report.md
 ```
 
 Without `--fix`, the check does not rewrite source or generated output. The requested report is its only repository-facing write. See the generated [`check` reference](../reference/cli/check.md) for exact syntax.
@@ -45,7 +45,7 @@ Without `--fix`, the check does not rewrite source or generated output. The requ
 `--fix` is a write request. It repairs [drift](../glossary.md#drift) only when source-driven generated output is the sole blocker and the managed files still match their recorded ownership hashes:
 
 ```bash
-bunx skillset check --ci --fix --since origin/main
+bunx @skillset/cli check --ci --fix --since origin/main
 ```
 
 It does not overwrite [target-side](../glossary.md#target) edits or unmanaged collisions. It also does not repair lint failures, invent missing source-change reasons or package Changesets, resolve an unavailable Git baseline, perform provider-format migrations, or hide [build](../glossary.md#build) failures. Mixed blockers remain report-only until each owning workflow resolves them.

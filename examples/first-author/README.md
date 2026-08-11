@@ -27,11 +27,11 @@ bun ./apps/skillset/src/cli.ts dev --root examples/first-author
 From a standalone clone after installing Skillset, use the package command:
 
 ```bash
-bunx skillset check
-bunx skillset build
-bunx skillset build --yes
-bunx skillset check --only outputs
-bunx skillset dev
+bunx @skillset/cli check
+bunx @skillset/cli build
+bunx @skillset/cli build --yes
+bunx @skillset/cli check --only outputs
+bunx @skillset/cli dev
 ```
 
 ## Expected Output
@@ -56,14 +56,14 @@ Skillset renders files. It does not install, trust, activate, symlink, or mutate
 Change the skill body or rule guidance. The first check below is expected to report generated-output drift and exit non-zero; then preview and write the regeneration:
 
 ```bash
-bunx skillset check
-bunx skillset build
-bunx skillset build --yes
-bunx skillset check --only outputs
+bunx @skillset/cli check
+bunx @skillset/cli build
+bunx @skillset/cli build --yes
+bunx @skillset/cli check --only outputs
 ```
 
-Use `bunx skillset diff` to inspect pending generated changes and `bunx skillset explain`
+Use `bunx @skillset/cli diff` to inspect pending generated changes and `bunx @skillset/cli explain`
 with either a source path or generated path when you want provenance details.
-Use `bunx skillset dev` for the same diagnostics and generated-output preview
-as a foreground watch loop. It writes nothing; use `bunx skillset build --yes` when
+Use `bunx @skillset/cli dev` for the same diagnostics and generated-output preview
+as a foreground watch loop. It writes nothing; use `bunx @skillset/cli build --yes` when
 you want to refresh repo-local generated output.
