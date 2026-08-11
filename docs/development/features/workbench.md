@@ -8,7 +8,7 @@
 
 Related feature id: `workflows`
 
-Support vocabulary: [Feature Reference](README.md#feature-reference-vocabulary)
+Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)
 
 Workbench is Skillset's source and workspace correctness surface. The public `skillset check` family combines source diagnostics and generated-output readiness behind one command; the private `@skillset/workbench` workspace package remains the internal implementation layer for richer parser, schema, preset, scope, and rule-id diagnostics.
 
@@ -67,7 +67,7 @@ Workbench parser helpers use Bun-backed JSON, YAML, and TOML parsing plus
 Markdown/frontmatter extraction. Bun YAML is parse-only here: authored source
 mutations use Core's private `yaml` Document writer so root `skillset` ordering,
 other authored order, unknown nodes, and attached comments follow
-[ADR-0026](../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and
+[ADR-0026](../../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and
 normalized YAML retain Core's recursive alphabetical serializer. Syntax
 diagnostics carry file and line information where the parser exposes it, and
 Markdown heading extraction ignores fenced code blocks so body facts stay
@@ -86,7 +86,7 @@ Schema checks cover representative source contracts:
 
 Root `skillset.yaml` support is loaded and validated by the compiler today. Workbench's current package-level schema helper models that workspace config shape, but it is not a replacement for the compiler. The checks are early, focused diagnostics for source shape mistakes that should be easy to fix before a build.
 
-The public schema reference is generated from `@skillset/schema` and checked by `bun run schema:check`. See [Skillset Schemas](../reference/schemas/README.md) for the current JSON Schema artifacts and maximal examples, and use the [schema contract workflow](../schema-contracts.md) when adding fields. Workbench should consume those contracts instead of maintaining a parallel schema description.
+The public schema reference is generated from `@skillset/schema` and checked by `bun run schema:check`. See [Skillset Schemas](../../reference/schemas/README.md) for the current JSON Schema artifacts and maximal examples, and use the [schema contract workflow](../schema-contracts.md) when adding fields. Workbench should consume those contracts instead of maintaining a parallel schema description.
 
 ## Resources, Providers, And Runtime
 

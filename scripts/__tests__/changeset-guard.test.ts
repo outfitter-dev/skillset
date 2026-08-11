@@ -154,7 +154,7 @@ describe("changeset guard", () => {
   test("blocks active changesets when only repo machinery changed", () => {
     const result = evaluateChangesetGuard([
       { path: ".github/workflows/release.yml", status: "M" },
-      { path: "docs/package-releases.md", status: "M" },
+      { path: "docs/development/package-releases.md", status: "M" },
       { path: "scripts/release-policy.ts", status: "M" },
       { path: ".changeset/release-policy.md", status: "A" },
     ]);
@@ -175,7 +175,7 @@ describe("changeset guard", () => {
   test("passes repo-only changes without a changeset", () => {
     const result = evaluateChangesetGuard([
       { path: ".github/workflows/release.yml", status: "M" },
-      { path: "docs/package-releases.md", status: "M" },
+      { path: "docs/development/package-releases.md", status: "M" },
       { path: "scripts/release-policy.ts", status: "M" },
     ]);
 
@@ -207,7 +207,7 @@ describe("changeset guard", () => {
 
     const result = evaluateChangesetGuard([
       { path: ".changeset/old.md", status: "D" },
-      { path: "docs/package-releases.md", status: "M" },
+      { path: "docs/development/package-releases.md", status: "M" },
     ]);
     expect(result.ok).toBe(true);
   });
@@ -225,8 +225,8 @@ describe("changeset guard", () => {
       path: "packages/core/src/new.ts",
       status: "R100",
     });
-    expect(parseChangedFileLine("docs/package-releases.md")).toEqual({
-      path: "docs/package-releases.md",
+    expect(parseChangedFileLine("docs/development/package-releases.md")).toEqual({
+      path: "docs/development/package-releases.md",
     });
     expect(parseChangedFileLine("")).toBeUndefined();
   });

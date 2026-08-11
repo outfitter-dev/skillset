@@ -112,5 +112,5 @@ The tradeoff is that authors must write explicit change entries instead of relyi
 ## References
 
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
-- [Tenets](../tenets.md) - lock provenance and generated-output promises.
+- [Tenets](../project/tenets.md) - lock provenance and generated-output promises.
 - [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.

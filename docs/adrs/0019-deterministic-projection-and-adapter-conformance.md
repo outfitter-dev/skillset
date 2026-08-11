@@ -110,5 +110,5 @@ future and adapter-aware.
 - [Core Library and CLI Boundary](0004-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed support and evidence model used by adapter conformance.
 - [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - separates fixtures, dogfooding, deterministic tests, and evals.
-- [Tests and Evals](../features/tests-and-evals.md) - feature-facing documentation for current and future verification surfaces.
+- [Tests and Evals](../reference/features/tests-and-evals.md) - feature-facing documentation for current and future verification surfaces.
 - SET-45, SET-49, and SET-50 - earlier product decisions for fixture boundaries, deterministic test selection, and the first `skillset test` slice.

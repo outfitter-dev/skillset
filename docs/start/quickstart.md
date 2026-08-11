@@ -13,7 +13,7 @@ cd my-skillset
 ```
 
 Prefer to inspect a complete tiny source tree first? See the
-[First Author Example](../examples/first-author/README.md), which deliberately
+[First Author Example](../../examples/first-author/README.md), which deliberately
 narrows one skill and one instruction rule to Claude and Codex with explicit
 `compile.targets`.
 
@@ -165,10 +165,10 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 
 ## Where To Go Deeper
 
-- [Layout](layout.md) covers the workspace layout, generated roots, and
+- [Layout](../layout.md) covers the workspace layout, generated roots, and
   operational state.
-- [Skills](features/skills.md) covers skill frontmatter, resources, rendering,
+- [Skills](../reference/features/skills.md) covers skill frontmatter, resources, rendering,
   diagnostics, and provenance.
-- [Workbench Check](features/workbench.md) explains comprehensive checks, output-only checks, repair, and CI modes.
-- [Dev Watch](features/dev-watch.md) covers the default-preview watch loop and explicit write mode.
-- [CI](features/ci.md) explains the `skillset check --ci` gate and optional workflow.
+- [Workbench Check](../development/features/workbench.md) explains comprehensive checks, output-only checks, repair, and CI modes.
+- [Dev Watch](../reference/features/dev-watch.md) covers the default-preview watch loop and explicit write mode.
+- [CI](../reference/features/ci.md) explains the `skillset check --ci` gate and optional workflow.

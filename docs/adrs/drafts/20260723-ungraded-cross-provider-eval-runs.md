@@ -68,4 +68,4 @@ completed trial, not a quality verdict against `expected_output` or
 
 - [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.
 - [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.
-- [Tests and Evals](../../features/tests-and-evals.md) - current command, retention, and non-grading contract.
+- [Tests and Evals](../../reference/features/tests-and-evals.md) - current command, retention, and non-grading contract.

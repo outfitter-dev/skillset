@@ -28,7 +28,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/features/instructions.md"
+          "ref": "docs/reference/features/instructions.md"
         },
         {
           "kind": "provider-overlay",

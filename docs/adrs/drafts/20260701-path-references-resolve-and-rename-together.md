@@ -44,7 +44,7 @@ surface early instead of failing silently at read time.
 
 Skills are not the only surface with this problem. Rules already support the
 same `shared:`/`plugin:`/named-partial preprocessing as skills
-([Instructions](../../features/instructions.md)), so a rule body can mention
+([Instructions](../../reference/features/instructions.md)), so a rule body can mention
 a stale path exactly the same way a skill body can. Project agents
 (`.skillset/agents/*.md`) run their bodies through the identical
 `preprocessText` pipeline
@@ -196,7 +196,7 @@ source-authoring question, and this ADR does not resolve it: Claude's actual
 runtime convention for cross-plugin skill references needs verification
 before implementation (see Non-Decisions). Codex's `skills` handling is
 already a shimmed compatibility preface, not a native mechanism
-([Agents](../../features/agents.md)), so a plugin-qualified entry may simply
+([Agents](../../reference/features/agents.md)), so a plugin-qualified entry may simply
 render into that preface's text rather than needing its own Codex-native
 form.
 
@@ -353,12 +353,12 @@ visibility without false confidence.
 - ADR: Agent / Subagent Source Model (draft) - establishes the project agent
   `skills:` frontmatter field this ADR adds identity validation and
   rename-cascade support for.
-- [Skills](../../features/skills.md) - current skill body preprocessing
+- [Skills](../../reference/features/skills.md) - current skill body preprocessing
   contract this ADR extends.
-- [Instructions](../../features/instructions.md) - current rule body
+- [Instructions](../../reference/features/instructions.md) - current rule body
   preprocessing contract this ADR extends.
-- [Agents](../../features/agents.md) - current project agent `skills:`
+- [Agents](../../reference/features/agents.md) - current project agent `skills:`
   frontmatter and body preprocessing contract this ADR extends.
-- [Tenets](../../tenets.md) - "Drift should become visible early" is the
+- [Tenets](../../project/tenets.md) - "Drift should become visible early" is the
   governing principle behind failing the build instead of shipping a stale
   reference.

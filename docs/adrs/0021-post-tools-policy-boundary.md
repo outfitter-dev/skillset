@@ -200,7 +200,7 @@ tests.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first, provider-native, fail-loud design principles.
+- [Tenets](../project/tenets.md) - source-first, provider-native, fail-loud design principles.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.
 - [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md) - narrow amendment recording how the reservation was satisfied.
 - [Portable Skill Tools Policy](0020-portable-skill-tools-policy.md) - `tools` source shape and registry-backed realization model.
@@ -208,5 +208,5 @@ tests.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.
 - [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - authority-changing provider settings remain reviewed plans, not build side effects.
 - [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
-- [Tools Policy](../features/tools-policy.md) - current authoring and realization reference.
-- [Render Results](../features/render-results.md) - current structured build-truth report.
+- [Tools Policy](../reference/features/tools-policy.md) - current authoring and realization reference.
+- [Render Results](../development/features/render-results.md) - current structured build-truth report.

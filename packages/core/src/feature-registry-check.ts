@@ -183,7 +183,15 @@ function featureDocs(
   for (const feature of registry) {
     for (const docRef of feature.docs) {
       const { path } = parseRef(docRef);
-      if (!path.startsWith("docs/features/") || !path.endsWith(".md")) continue;
+      if (
+        ![
+          "docs/development/features/",
+          "docs/reference/features/",
+        ].some((root) => path.startsWith(root)) ||
+        !path.endsWith(".md")
+      ) {
+        continue;
+      }
       const features = grouped.get(path) ?? new Map<string, SkillsetFeatureEntry>();
       features.set(feature.id, feature);
       grouped.set(path, features);

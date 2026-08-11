@@ -178,7 +178,7 @@ harness tests. The live external lane is not a default acceptance gate.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first loadouts, lower intent not filenames, drift visible early.
+- [Tenets](../project/tenets.md) - source-first loadouts, lower intent not filenames, drift visible early.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - the source contract adoption migrates repos into.
 - [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - external fixtures consume adoption; isolated output aligns with `skillset test` run isolation.
 - ADR: Global XDG Managed Installs and Sync (draft) - establishes that output location is configuration, not a compiler mode, and owns the activation boundary.

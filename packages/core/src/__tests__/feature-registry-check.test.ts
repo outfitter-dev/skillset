@@ -25,14 +25,14 @@ describe("feature registry drift checks", () => {
 
   it("reports implemented features with no entry evidence", async () => {
     const root = await fixture({
-      "docs/features/demo.md": "# Demo\n",
+      "docs/reference/features/demo.md": "# Demo\n",
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
 
     const report = await checkFeatureRegistryDrift(root, [
       feature({
-        docs: ["docs/features/demo.md"],
+        docs: ["docs/reference/features/demo.md"],
         evidence: [],
         id: "demo",
         renderOwner: "src/demo.ts",
@@ -57,7 +57,7 @@ describe("feature registry drift checks", () => {
 
     const report = await checkFeatureRegistryDrift(root, [
       feature({
-        docs: ["docs/features/missing.md"],
+        docs: ["docs/reference/features/missing.md"],
         id: "demo",
         renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
@@ -68,21 +68,21 @@ describe("feature registry drift checks", () => {
       code: "missing-doc-ref",
       featureId: "demo",
       field: "docs[0]",
-      message: "demo docs[0] points to missing doc ref docs/features/missing.md",
-      ref: "docs/features/missing.md",
+      message: "demo docs[0] points to missing doc ref docs/reference/features/missing.md",
+      ref: "docs/reference/features/missing.md",
     });
   });
 
   it("reports refs that only differ by path casing", async () => {
     const root = await fixture({
-      "docs/features/Demo.md": "# Demo\n",
+      "docs/reference/features/Demo.md": "# Demo\n",
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
 
     const report = await checkFeatureRegistryDrift(root, [
       feature({
-        docs: ["docs/features/demo.md"],
+        docs: ["docs/reference/features/demo.md"],
         id: "demo",
         renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
@@ -93,14 +93,14 @@ describe("feature registry drift checks", () => {
       code: "missing-doc-ref",
       featureId: "demo",
       field: "docs[0]",
-      message: "demo docs[0] points to missing doc ref docs/features/demo.md",
-      ref: "docs/features/demo.md",
+      message: "demo docs[0] points to missing doc ref docs/reference/features/demo.md",
+      ref: "docs/reference/features/demo.md",
     });
   });
 
   it("reports missing markdown fragments and accepts existing heading fragments", async () => {
     const root = await fixture({
-      "docs/features/demo.md": "# Demo\n\n## Existing Heading!\n\n## Existing Heading!\n",
+      "docs/reference/features/demo.md": "# Demo\n\n## Existing Heading!\n\n## Existing Heading!\n",
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -108,9 +108,9 @@ describe("feature registry drift checks", () => {
     const report = await checkFeatureRegistryDrift(root, [
       feature({
         docs: [
-          "docs/features/demo.md#existing-heading",
-          "docs/features/demo.md#existing-heading-1",
-          "docs/features/demo.md#missing-heading",
+          "docs/reference/features/demo.md#existing-heading",
+          "docs/reference/features/demo.md#existing-heading-1",
+          "docs/reference/features/demo.md#missing-heading",
         ],
         id: "demo",
         renderOwner: "src/demo.ts",
@@ -122,8 +122,8 @@ describe("feature registry drift checks", () => {
       code: "missing-ref-fragment",
       featureId: "demo",
       field: "docs[2]",
-      message: "demo docs[2] points to missing doc ref fragment docs/features/demo.md#missing-heading",
-      ref: "docs/features/demo.md#missing-heading",
+      message: "demo docs[2] points to missing doc ref fragment docs/reference/features/demo.md#missing-heading",
+      ref: "docs/reference/features/demo.md#missing-heading",
     });
     expect(report.issues.filter((issue) => issue.code === "missing-ref-fragment")).toHaveLength(1);
   });
@@ -156,7 +156,7 @@ describe("feature registry drift checks", () => {
   it("reports missing fixture and test evidence refs", async () => {
     const registry = [
       feature({
-        docs: ["docs/features/demo.md"],
+        docs: ["docs/reference/features/demo.md"],
         evidence: [
           { kind: "fixture", ref: "fixtures/missing" },
           { kind: "test", ref: "tests/missing.test.ts" },
@@ -167,7 +167,7 @@ describe("feature registry drift checks", () => {
       }),
     ];
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${renderFeatureSupportMatrix(registry)}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${renderFeatureSupportMatrix(registry)}\n`,
       "src/demo.ts": "export {};\n",
     });
 
@@ -188,7 +188,7 @@ describe("feature registry drift checks", () => {
   it("ignores future owner sentinels and external evidence refs", async () => {
     const registry = [
       feature({
-        docs: ["docs/features/demo.md"],
+        docs: ["docs/reference/features/demo.md"],
         evidence: [
           { kind: "external-docs", ref: "https://example.com/docs", verifiedAt: "2026-06-14" },
         ],
@@ -199,7 +199,7 @@ describe("feature registry drift checks", () => {
       }),
     ];
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${renderFeatureSupportMatrix(registry)}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${renderFeatureSupportMatrix(registry)}\n`,
     });
 
     const report = await checkFeatureRegistryDrift(root, registry);
@@ -237,7 +237,7 @@ describe("feature registry drift checks", () => {
       feature({ id: "beta" }),
     ];
     const root = await fixture({
-      "docs/features/demo.md": [
+      "docs/reference/features/demo.md": [
         "# Demo",
         "",
         "Narrative before the checked matrix.",
@@ -263,7 +263,7 @@ describe("feature registry drift checks", () => {
       "| `demo` | `implemented` | `native` | `native` | `metadata_only` |"
     );
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -277,7 +277,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "targetSupport.cursor.status",
       message: "demo cursor targetSupport.cursor.status expected native but found metadata_only",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
   });
@@ -288,7 +288,7 @@ describe("feature registry drift checks", () => {
       .replace(" | cursor |", " |")
       .replace(" | `native` |\n<!-- skillset:feature-support:end -->", " |\n<!-- skillset:feature-support:end -->");
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -302,7 +302,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "targetSupport.cursor.status",
       message: "demo cursor targetSupport.cursor.status expected native but found missing",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
   });
@@ -314,7 +314,7 @@ describe("feature registry drift checks", () => {
       .replace("| --- | --- | ---", "| --- | --- | --- | ---")
       .replace("| `demo` | `implemented` | `native`", "| `demo` | `implemented` | authored note | `native`");
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -328,7 +328,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "matrix.columns",
       message: "demo claude matrix.columns expected Feature, Feature status, claude, codex, cursor but found Feature, Feature status, Reason, claude, codex, cursor",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "claude",
     });
   });
@@ -339,7 +339,7 @@ describe("feature registry drift checks", () => {
     const staleRow = "| `demo` | `implemented` | `native` | `native` | `metadata_only` |";
     const matrix = renderFeatureSupportMatrix(registry).replace(row, `${row}\n${staleRow}`);
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -353,7 +353,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "matrix.rows",
       message: "demo claude matrix.rows expected demo but found demo, demo",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "claude",
     });
   });
@@ -367,7 +367,7 @@ describe("feature registry drift checks", () => {
     const row = "| `demo` | `implemented` | `native` | `native` | `native` |";
     const matrix = renderFeatureSupportMatrix(registry).replace(row, `${row}\n${extraRow}`);
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -381,7 +381,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "targetSupport.cursor.status",
       message: "demo cursor targetSupport.cursor.status expected native but found missing",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
   });
@@ -393,7 +393,7 @@ describe("feature registry drift checks", () => {
       "| --- | --- | --- | invalid | --- |"
     );
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -407,7 +407,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "targetSupport.cursor.status",
       message: "demo cursor targetSupport.cursor.status expected native but found missing",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
   });
@@ -421,7 +421,7 @@ describe("feature registry drift checks", () => {
       `${beta}\n${alpha}`
     );
     const root = await fixture({
-      "docs/features/demo.md": `# Demo\n\n${matrix}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -435,7 +435,7 @@ describe("feature registry drift checks", () => {
       featureId: "alpha",
       field: "matrix.rows",
       message: "alpha claude matrix.rows expected alpha, beta but found beta, alpha",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "claude",
     });
   });
@@ -443,7 +443,7 @@ describe("feature registry drift checks", () => {
   it("requires a checked matrix for every registry-linked feature doc", async () => {
     const registry = [feature({ id: "demo" })];
     const root = await fixture({
-      "docs/features/demo.md": "# Demo\n\nHuman-owned prose only.\n",
+      "docs/reference/features/demo.md": "# Demo\n\nHuman-owned prose only.\n",
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -457,7 +457,7 @@ describe("feature registry drift checks", () => {
       featureId: "demo",
       field: "targetSupport.cursor.status",
       message: "demo cursor targetSupport.cursor.status expected native but found missing",
-      ref: "docs/features/demo.md",
+      ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
   });
@@ -482,7 +482,7 @@ function feature(
   ];
   const evidence = overrides.evidence ?? defaultEvidence;
   return {
-    docs: overrides.docs ?? ["docs/features/demo.md"],
+    docs: overrides.docs ?? ["docs/reference/features/demo.md"],
     evidence,
     id: overrides.id,
     kind: overrides.kind ?? "source",

@@ -2,9 +2,9 @@
 
 The feature reference is the human-readable support registry for Skillset v1. It explains how authored source maps to provider target surfaces, which features are portable, which are target-native, and where support is deferred or future-only. Feature-page prose remains human-owned; each delimited feature-status and target-support matrix is rendered from the typed registry and checked for drift.
 
-For a registry-owned overview across every canonical provider target, see the [feature support matrix](../reference/support-matrix.md).
+For a registry-owned overview across every canonical provider target, see the [feature support matrix](../support-matrix.md).
 
-Use these pages alongside the [target surface evidence matrix](../target-surfaces.md). The matrix is the compact target-fact table; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
+Use these pages alongside the [target surface evidence matrix](../../target-surfaces.md). The matrix is the compact target-fact table; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
 
 ## Initial Pages
 
@@ -20,8 +20,8 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Distributions](distributions.md): post-build distribution planning, destination reports, and build/distribution/activation boundaries.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
-- [Feature Registry](feature-registry.md): typed support matrix for feature ids, target capability claims, docs, evidence, render owners, and validation owners.
-- [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
+- [Feature Registry](../../development/features/feature-registry.md): typed support matrix for feature ids, target capability claims, docs, evidence, render owners, and validation owners.
+- [Hook Guardrails](../../development/features/hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
 - [Hooks](hooks.md): native aggregate hook emission, adaptive hook units, target validation, and activation boundaries.
 - [Instructions](instructions.md): source-root `rules/` rendering to Claude rules, Codex `AGENTS.md`, and Cursor `.mdc` rules, with preprocessing and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
@@ -32,24 +32,24 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Output Styles](output-styles.md): Claude output style directory pass-through and manifest wiring.
 - [Plugins](plugins.md): plugin source identity, manifest rendering, companion paths, and plugin boundaries.
 - [Releases And Changelogs](releases.md): release state, generated changelog renderings, version planning, and package-tool interop.
-- [Render Results](render-results.md): structured per-build report for rendered, transformed, degraded, skipped, unsupported, and externally managed render facts.
+- [Render Results](../../development/features/render-results.md): structured per-build report for rendered, transformed, degraded, skipped, unsupported, and externally managed render facts.
 - [Resources](resources.md): shared resource declarations, link rewriting, executable-script linting, and lock hashing.
-- [Runtime Adapters](runtime-adapters.md): runtime, distribution, and harness support records that stay separate from `compile.targets`.
+- [Runtime Adapters](../../development/features/runtime-adapters.md): runtime, distribution, and harness support records that stay separate from `compile.targets`.
 - [Runtime Activation Readiness](runtime-activation-readiness.md): registry-backed activation requirements, deterministic summary semantics, and the boundary between rendering, observation, and proof.
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
 - [Source Suggestions](source-suggestions.md): implemented local managed-output reconciliation with source-side recovery suggestions, distinct from settings suggestions; CI writeback remains future work.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
 - [Provider Source](target-native-islands.md): explicit provider-native source islands, Codex `.rules` pass-through, and leakage rules.
-- [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
+- [Tests and Evals](tests-and-evals.md): deterministic `skillset test`, runtime probes, skill evals, and generated run-output boundaries.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tools Policy](tools-policy.md): portable tool policy, Claude tool-rule rendering, provider metadata, and target-native provider blocks.
 - [Version Audit](version-audit.md): read-only version-locus audit across source, release state, generated output, and future destinations.
-- [Workbench Check](workbench.md): `skillset check`, `skillset check --only outputs`, package-level diagnostic scopes/presets, parser/schema checks, fixtures, and optional ast-grep proof points.
+- [Workbench Check](../../development/features/workbench.md): `skillset check`, `skillset check --only outputs`, package-level diagnostic scopes/presets, parser/schema checks, fixtures, and optional ast-grep proof points.
 
-## Feature Reference Vocabulary
+## Support Vocabulary
 
-The feature reference uses related but separate vocabularies. Feature entry status describes whether Skillset owns a feature at all. Target support status describes whether a target can represent that feature. Runtime support uses the same status values as target support for runtime, distribution, and harness records. [Render results](render-results.md) use a separate build-result vocabulary for what happened to a specific source unit in a specific build.
+The feature reference uses related but separate vocabularies. Feature entry status describes whether Skillset owns a feature at all. Target support status describes whether a target can represent that feature. Runtime support uses the same status values as target support for runtime, distribution, and harness records. [Render results](../../development/features/render-results.md) use a separate build-result vocabulary for what happened to a specific source unit in a specific build.
 
 ### Feature Entry Status
 
@@ -83,7 +83,7 @@ Unsupported and lossy render fails loudly by default. The implemented `warn`, `s
 
 ### Render-Result Status
 
-Render-result statuses are build-result facts, not registry capability statuses. A target support row that says `native` usually produces a `rendered` render result when a source unit is built; a row that says `pass_through` usually produces `target_native`; and a row that says `unsupported` may produce `unsupported`, `intentionally_skipped`, or no render result when the source unit is outside the current build scope. See [Render Results](render-results.md#render-result-statuses) for the full render-result table.
+Render-result statuses are build-result facts, not registry capability statuses. A target support row that says `native` usually produces a `rendered` render result when a source unit is built; a row that says `pass_through` usually produces `target_native`; and a row that says `unsupported` may produce `unsupported`, `intentionally_skipped`, or no render result when the source unit is outside the current build scope. See [Render Results](../../development/features/render-results.md#render-result-statuses) for the full render-result table.
 
 ## Registry Shape
 
@@ -105,9 +105,9 @@ Future schema generation can turn these fields into richer generated docs, but t
 
 These are tracked as future/reserved unless a later issue promotes them:
 
-- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude, Codex, or Cursor config.
+- [Reviewed settings suggestion workflow](../../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude, Codex, or Cursor config.
 - [Source Suggestions](source-suggestions.md): local managed generated-output reconciliation is implemented; automated CI writeback remains future-only under SET-152.
-- [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
-- [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
+- [Model and reasoning alias profiles](../../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
+- [First-class sets](../../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
 - [Tests and evals](tests-and-evals.md): adapter-aware eval support and expanded test selectors remain planned/future; deterministic `skillset test` has a first isolated rendering slice.
 - Richer generated feature docs: only the bounded status matrices are registry-rendered today; narrative, examples, output paths, and caveats remain authored until the broader page shape is stable enough to generate.

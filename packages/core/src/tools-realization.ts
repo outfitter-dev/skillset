@@ -82,7 +82,7 @@ export interface ToolsNativeOverlayRealization {
   readonly tier: ToolsRealizationTier;
 }
 
-const TOOLS_POLICY_DOCS = "docs/features/tools-policy.md";
+const TOOLS_POLICY_DOCS = "docs/reference/features/tools-policy.md";
 const TOOLS_POLICY_ADR = "docs/adrs/0020-portable-skill-tools-policy.md";
 const SKILL_POLICY_SOURCE = "packages/core/src/skill-policy.ts";
 const RENDER_SOURCE = "packages/core/src/render.ts";

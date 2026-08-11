@@ -22,17 +22,19 @@ Choose the question you are trying to answer. Each linked page states what it ow
 ## I am contributing
 
 - [Contributing](../CONTRIBUTING.md) covers setup, checks, source ownership, Changesets, and review expectations.
+- [Development documentation](development/README.md) routes maintainers to documentation, schema, package, feature-system, and evidence guidance.
+- [Project documentation](project/README.md) routes to the design tenets and active or archived plans.
 - [Documentation system](development/documentation-system.md) defines authored and generated ownership, validation, migrations, and review.
 - [Current documentation-overhaul plan](project/plans/docs-overhaul.md) records the staged transition and acceptance criteria.
 - [Security policy](../SECURITY.md) gives the private vulnerability-reporting path.
 
 ## Current detailed guides
 
-These existing pages remain reachable while the next stack layer moves the corpus into its final reader-intent structure:
+These detailed pages remain reachable while later stack layers rewrite and consolidate their content:
 
-- [Five-Minute Quickstart](quickstart.md) walks through the current first-author scaffold and build.
+- [Five-Minute Quickstart](start/quickstart.md) walks through the current first-author scaffold and build.
 - [Layout](layout.md) records the current source and generated destination structure.
-- [Interactive CLI](features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
-- [Package ownership](package-ownership.md) explains the compiler package boundaries used by maintainers.
+- [Interactive CLI](reference/features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
+- [Package ownership](development/package-ownership.md) explains the compiler package boundaries used by maintainers.
 
 Generated output does not grant runtime authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](start/build-versus-activation.md).

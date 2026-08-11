@@ -73,4 +73,4 @@ The Markdown report starts with the `<!-- skillset-ci-report -->` marker so work
 
 ## Evidence
 
-See `packages/core/src/source-readiness.ts`, `packages/core/src/__tests__/source-readiness.test.ts`, `apps/skillset/src/ci.ts`, `apps/skillset/src/__tests__/ci.test.ts`, and this repo's own [.github/workflows/ci.yml](../../.github/workflows/ci.yml), which dogfoods the scaffolded workflow shape against the local compiler.
+See `packages/core/src/source-readiness.ts`, `packages/core/src/__tests__/source-readiness.test.ts`, `apps/skillset/src/ci.ts`, `apps/skillset/src/__tests__/ci.test.ts`, and this repo's own [.github/workflows/ci.yml](../../../.github/workflows/ci.yml), which dogfoods the scaffolded workflow shape against the local compiler.

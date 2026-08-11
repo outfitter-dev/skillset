@@ -124,7 +124,7 @@ function feature(
 ): SkillsetFeatureEntry {
   const evidence = [{ kind: "test" as const, ref: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts" }];
   return {
-    docs: ["docs/features/feature-registry.md"],
+    docs: ["docs/development/features/feature-registry.md"],
     evidence,
     kind: "source",
     renderOwner: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts",

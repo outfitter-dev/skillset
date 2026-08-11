@@ -97,7 +97,7 @@ loudly because Codex documents no faithful plugin-local destination.
 
 Skill-local invocation and tools metadata remain a separate policy surface;
 they do not stand in for project or plugin agents. The current three-provider
-matrix and evidence are maintained in `docs/features/agents.md`,
+matrix and evidence are maintained in `docs/reference/features/agents.md`,
 `packages/core/src/render.ts`, the feature registry, project-agent contract
 tests, Codex plugin-agent rejection tests, and provider-format conformance.
 ADR-0002 supplies the Cursor provider boundary without making this decision
@@ -106,5 +106,5 @@ depend on its later acceptance.
 ## References
 
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
-- [Tenets](../tenets.md) - target truth and intent-derivation principles.
+- [Tenets](../project/tenets.md) - target truth and intent-derivation principles.
 - [Target Surface Evidence Matrix](../target-surfaces.md) - current Claude/Codex/Cursor plugin surface status.

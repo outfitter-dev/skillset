@@ -72,7 +72,7 @@ describe("resource and runtime diagnostics", () => {
             "codex-cli": {
               caveats: ["Skill loading is instruction-guided rather than runtime-enforced."],
               diagnostics: ["Skill-loading intent is not enforced by Codex metadata."],
-              evidence: [{ kind: "docs", ref: "docs/features/agents.md" }],
+              evidence: [{ kind: "docs", ref: "docs/reference/features/agents.md" }],
               mechanism: "Render a deterministic instruction preface.",
               status: "shimmed",
             },
@@ -83,18 +83,18 @@ describe("resource and runtime diagnostics", () => {
           },
         }),
       ],
-      { locationPath: "docs/features/runtime-adapters.md" }
+      { locationPath: "docs/development/features/runtime-adapters.md" }
     );
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      "docs/features/runtime-adapters.md: warning: runtime/shimmed: codex-cli project-agents: Skill-loading intent is not enforced by Codex metadata.",
+      "docs/development/features/runtime-adapters.md: warning: runtime/shimmed: codex-cli project-agents: Skill-loading intent is not enforced by Codex metadata.",
     ]);
     expect(diagnostics[0]).toMatchObject({
       featureId: "project-agents",
       help: [
         "Mechanism: Render a deterministic instruction preface.",
         "Caveat: Skill loading is instruction-guided rather than runtime-enforced.",
-        "Evidence: docs docs/features/agents.md",
+        "Evidence: docs docs/reference/features/agents.md",
       ],
       scope: "runtime",
       subject: {
@@ -143,7 +143,7 @@ function feature(
 ): SkillsetFeatureEntry {
   const { id, ...rest } = overrides;
   return {
-    docs: ["docs/features/test.md"],
+    docs: ["docs/reference/features/test.md"],
     evidence: [],
     id,
     kind: "workflow",

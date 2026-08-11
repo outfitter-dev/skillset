@@ -60,7 +60,7 @@ test("SET-285: CLI surface guard rejects retired commands, flags, and environmen
   expect(scanCliSurface("apps/skillset/src/cli-core.ts", "throw new Error(`${label} does not support --dry-run`);")).toHaveLength(1);
   expect(scanCliSurface("README.md", "skillset build [--yes|--dry-run] [--source <dir>]")).toHaveLength(1);
   expect(scanCliSurface("README.md", "example--source and example--codex are not flags")).toEqual([]);
-  expect(scanCliSurface("docs/package-releases.md", "Run bun pm pack --dry-run before publishing.")).toEqual([]);
+  expect(scanCliSurface("docs/development/package-releases.md", "Run bun pm pack --dry-run before publishing.")).toEqual([]);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run"]);')).toEqual([]);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run", "--codex"]);')).toHaveLength(1);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run"]); skillset verify')).toHaveLength(1);

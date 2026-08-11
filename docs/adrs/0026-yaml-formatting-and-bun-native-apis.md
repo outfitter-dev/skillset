@@ -96,6 +96,6 @@ The implementation keeps the boundary narrow:
 
 ## References
 
-- [Tenets](../tenets.md) - source-first loadouts and deterministic generated output.
+- [Tenets](../project/tenets.md) - source-first loadouts and deterministic generated output.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root manifest compile policy.
 - [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.

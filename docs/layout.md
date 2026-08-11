@@ -324,7 +324,7 @@ skillset:
 
 Root and plugin source config support `skillset.schema`. The marker is source-only and never appears in generated artifacts; deeper provenance lives in `skillset.lock`.
 
-JSON Schema artifacts are generated from the same `@skillset/schema` contracts used by runtime validation and live under [docs/reference/schemas](reference/schemas/README.md). When adding or changing config, source metadata, or frontmatter fields, follow the [schema contract workflow](schema-contracts.md) so compiler, Workbench, docs, and generated editor schemas stay aligned. `skillset init` scaffolds workspace manifests with a YAML language-server comment that points to the current workspace config schema instead of adding a `$schema` key to authored YAML.
+JSON Schema artifacts are generated from the same `@skillset/schema` contracts used by runtime validation and live under [docs/reference/schemas](reference/schemas/README.md). When adding or changing config, source metadata, or frontmatter fields, follow the [schema contract workflow](development/schema-contracts.md) so compiler, Workbench, docs, and generated editor schemas stay aligned. `skillset init` scaffolds workspace manifests with a YAML language-server comment that points to the current workspace config schema instead of adding a `$schema` key to authored YAML.
 
 ## Versioning
 
@@ -383,7 +383,7 @@ When a Claude pass-through path is present, the generated `.claude-plugin/plugin
 
 Claude plugin docs now document root `bin/` and plugin-root `settings.json`. Treat both as target-native, not portable. `bin/` is a documented executable component and can be supported through feature-key/source-pointer work. Plugin-root `settings.json` applies default configuration when a Claude plugin is enabled, so Skillset must keep it separate from live user/project settings mutation. Build still emits definitions only: it does not install, trust, enable, or symlink generated output into runtime locations. A reviewed settings suggestion workflow is a future non-goal for v1.
 
-Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Native aggregate hooks use provider-shaped `hooks/hooks.json`; adaptive hook units use `hooks/<name>.json` or `hooks/<name>/hook.json` and attach to plugins, skills, or project agents. See [Hooks](features/hooks.md) for the source models and use `skillset lookup hooks --events --compat <target>` or `skillset lookup hooks adaptive --fields --schema` for registry-backed reference details.
+Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Native aggregate hooks use provider-shaped `hooks/hooks.json`; adaptive hook units use `hooks/<name>.json` or `hooks/<name>/hook.json` and attach to plugins, skills, or project agents. See [Hooks](reference/features/hooks.md) for the source models and use `skillset lookup hooks --events --compat <target>` or `skillset lookup hooks adaptive --fields --schema` for registry-backed reference details.
 
 ## Skill Policy
 

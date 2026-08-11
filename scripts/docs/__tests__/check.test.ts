@@ -50,6 +50,17 @@ describe("documentation checks", () => {
       "---\ndescription: An orphan.\n---\n\n# Orphan\n",
       "utf8"
     );
+    await mkdir(join(root, "docs", "development"), { recursive: true });
+    await writeFile(
+      join(root, "docs", "development", "README.md"),
+      "---\ndescription: Development guidance.\n---\n\n# Development\n",
+      "utf8"
+    );
+    await writeFile(
+      join(root, "docs", "development", "orphan.md"),
+      "---\ndescription: An orphaned maintainer page.\n---\n\n# Maintainer Orphan\n",
+      "utf8"
+    );
     await writeFile(
       join(root, "docs", "migration-map.json"),
       '{"schemaVersion":1,"entries":[]}\n',
@@ -72,6 +83,13 @@ describe("documentation checks", () => {
         (diagnostic) =>
           diagnostic.rule === "docs/reachability" &&
           diagnostic.path === "docs/orphan.md"
+      )
+    ).toBe(true);
+    expect(
+      diagnostics.some(
+        (diagnostic) =>
+          diagnostic.rule === "docs/reachability" &&
+          diagnostic.path === "docs/development/orphan.md"
       )
     ).toBe(true);
   });

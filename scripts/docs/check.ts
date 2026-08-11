@@ -31,9 +31,9 @@ import {
   diagnosticIdentity,
   DOCS_BASELINE_SCHEMA_VERSION,
   formatDocsDiagnostic,
-  isPublicPage,
   normalizeRepoPath,
   requiresDescription,
+  requiresReachability,
   type DocsBaseline,
   type DocsDiagnostic,
 } from "./model";
@@ -535,13 +535,15 @@ function reachabilityDiagnostics(
   return paths
     .filter(
       (path) =>
-        isPublicPage(path) && !excludedPaths.has(path) && !visited.has(path)
+        requiresReachability(path) &&
+        !excludedPaths.has(path) &&
+        !visited.has(path)
     )
     .map((path) => ({
-      message: "public page is not reachable from README.md or docs/README.md",
+      message: "page is not reachable from README.md or docs/README.md",
       path,
       rule: "docs/reachability" as const,
-      subject: "public-root",
+      subject: "documentation-root",
     }));
 }
 

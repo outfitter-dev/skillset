@@ -153,6 +153,6 @@ This ADR does not decide whether pending lowering outcomes appear in committed g
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - static feature capability and registry evidence model.
 - [Core Library and CLI Boundary](0004-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.
 - [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - uses lowering outcomes with the feature registry for adapter conformance.
-- [Lowering Outcomes](../features/render-results.md) - reader-facing vocabulary and examples.
+- [Lowering Outcomes](../development/features/render-results.md) - reader-facing vocabulary and examples.
 - [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md) - current policy decision and ADR-0001 amendment.
 - SET-79, SET-82, SET-83, SET-84, SET-85, and SET-86 - historical implementation stack for vocabulary, persistence, diagnostics, gates, fixtures, and warning migration.

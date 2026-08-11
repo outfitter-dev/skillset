@@ -45,7 +45,7 @@ const EXCLUDED = [
   ".changeset/",
   ".skillset/changes/",
   "docs/adrs/",
-  "docs/package-ownership.md",
+  "docs/development/package-ownership.md",
   "docs/reference/cli-flags.md",
   "apps/skillset/CHANGELOG.md",
   "scripts/cli-contract.ts",
@@ -71,7 +71,7 @@ export function scanCliSurface(file: string, content: string): readonly CliSurfa
 
 function allowedRetiredFlagUse(file: string, text: string): boolean {
   if (file.startsWith(".skillset/skills/skillset-adrs/scripts/")) return true;
-  if (file !== "docs/package-releases.md" && file !== "scripts/package-metadata.ts") return false;
+  if (file !== "docs/development/package-releases.md" && file !== "scripts/package-metadata.ts") return false;
   const remainder = text
     .replace(/\bbun pm pack --dry-run\b/gu, "bun pm pack")
     .replace(/"bun", "pm", "pack", "--dry-run"/gu, '"bun", "pm", "pack"');

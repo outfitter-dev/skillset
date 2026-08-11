@@ -106,7 +106,7 @@ test("SET-347: lookup features preserves finite human and JSON success and spars
     exitCode: 0,
     stderr: "",
     stdout:
-      "feature plugin-bin: Plugin Bin\n  status: implemented\n  claude: pass_through\n  codex: unsupported (Codex plugins do not expose a documented plugin-local bin contract.)\n  cursor: unsupported (Cursor plugins do not expose a documented plugin-local bin contract.)\n  docs: docs/features/executables.md, docs/features/feature-source-pointers.md\nskillset: listed 1 feature\n",
+      "feature plugin-bin: Plugin Bin\n  status: implemented\n  claude: pass_through\n  codex: unsupported (Codex plugins do not expose a documented plugin-local bin contract.)\n  cursor: unsupported (Cursor plugins do not expose a documented plugin-local bin contract.)\n  docs: docs/reference/features/executables.md, docs/reference/features/feature-source-pointers.md\nskillset: listed 1 feature\n",
   });
   expect(failureHuman).toEqual({
     exitCode: 1,

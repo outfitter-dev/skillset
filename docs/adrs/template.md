@@ -36,4 +36,4 @@ Explicitly deferred decisions and why they are deferred.
 
 ## References
 
-- [Tenets](../tenets.md) - governing design principles.
+- [Tenets](../project/tenets.md) - governing design principles.

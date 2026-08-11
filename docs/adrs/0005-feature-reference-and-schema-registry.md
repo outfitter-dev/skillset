@@ -27,7 +27,7 @@ Skillset uses a typed feature registry that is intentionally smaller than a publ
 
 ## Decision
 
-Skillset maintains a typed feature registry in `@skillset/core` and a manual reader-facing feature reference under `docs/features/`. The registry records static feature capability; Render Results record per-build facts.
+Skillset maintains a typed feature registry in `@skillset/core` and a manual reader-facing feature reference under `docs/reference/features/`. The registry records static feature capability; Render Results record per-build facts.
 
 The keeper sentence is: the feature registry says what Skillset claims a feature can do; Render Results say what a build actually did.
 
@@ -48,7 +48,7 @@ The registry is not allowed to become a dumping ground for every target file, ev
 
 ### Feature Reference
 
-`docs/features/` remains the human-readable explanation layer. Feature pages describe how authors write source, how enabled targets render it, which diagnostics apply, what provenance exists, and what is intentionally unsupported.
+`docs/reference/features/` remains the human-readable explanation layer. Feature pages describe how authors write source, how enabled targets render it, which diagnostics apply, what provenance exists, and what is intentionally unsupported.
 
 The docs are manual in v1. Future generated tables can come from the typed registry only after the page shape has proven stable. Generated docs are a convenience, not the core contract.
 
@@ -155,14 +155,14 @@ claims and fixture coverage; they do not claim exhaustive provider runtime
 enforcement or establish a public adapter API. Current evidence lives in
 `packages/core/src/feature-registry-check.ts`, its focused tests,
 `packages/core/src/__tests__/adapter-conformance-coverage.test.ts`, and
-`docs/features/feature-registry.md`.
+`docs/development/features/feature-registry.md`.
 
 ## References
 
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - provider selection and unsupported-policy boundary.
-- [Feature Reference](../features/README.md) - reader-facing feature index and vocabulary.
-- [Feature Registry](../features/feature-registry.md) - feature-facing documentation for the typed registry contract.
+- [Feature Reference](../reference/features/README.md) - reader-facing feature index and vocabulary.
+- [Feature Registry](../development/features/feature-registry.md) - feature-facing documentation for the typed registry contract.
 - [Render Results](0018-render-results.md) - per-build outcome vocabulary that stays separate from registry capability status.
 - [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - conformance model that consumes registry support and render results together.
 - [Target Surface Evidence Matrix](../target-surfaces.md) - compact target evidence matrix that feature pages expand.

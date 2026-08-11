@@ -1,4 +1,235 @@
 {
   "schemaVersion": 1,
-  "entries": []
+  "entries": [
+    {
+      "from": "docs/0x-latest-release-plan.md",
+      "primary": "docs/project/plans/archive/0x-latest.md",
+      "status": "archived"
+    },
+    {
+      "from": "docs/evidence/2026-07-20-set-313-cursor-runtime-smoke.md",
+      "primary": "docs/development/evidence/2026-07-20-set-313-cursor-runtime-smoke.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/agents.md",
+      "primary": "docs/reference/features/agents.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/apps.md",
+      "primary": "docs/reference/features/apps.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/build-scopes.md",
+      "primary": "docs/reference/features/build-scopes.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/changes.md",
+      "primary": "docs/reference/features/changes.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/ci.md",
+      "primary": "docs/reference/features/ci.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/commands.md",
+      "primary": "docs/reference/features/commands.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/dependencies.md",
+      "primary": "docs/reference/features/dependencies.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/dev-watch.md",
+      "primary": "docs/reference/features/dev-watch.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/distributions.md",
+      "primary": "docs/reference/features/distributions.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/executables.md",
+      "primary": "docs/reference/features/executables.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/feature-registry.md",
+      "primary": "docs/development/features/feature-registry.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/feature-source-pointers.md",
+      "primary": "docs/reference/features/feature-source-pointers.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/hook-guardrails.md",
+      "primary": "docs/development/features/hook-guardrails.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/hooks.md",
+      "primary": "docs/reference/features/hooks.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/instructions.md",
+      "primary": "docs/reference/features/instructions.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/interactive-cli.md",
+      "primary": "docs/reference/features/interactive-cli.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/lsp-servers.md",
+      "primary": "docs/reference/features/lsp-servers.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/marketplaces.md",
+      "primary": "docs/reference/features/marketplaces.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/mcp-servers.md",
+      "primary": "docs/reference/features/mcp-servers.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/monitors.md",
+      "primary": "docs/reference/features/monitors.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/output-safety.md",
+      "primary": "docs/reference/features/output-safety.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/output-styles.md",
+      "primary": "docs/reference/features/output-styles.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/plugins.md",
+      "primary": "docs/reference/features/plugins.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/README.md",
+      "primary": "docs/reference/features/README.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/releases.md",
+      "primary": "docs/reference/features/releases.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/render-results.md",
+      "primary": "docs/development/features/render-results.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/resources.md",
+      "primary": "docs/reference/features/resources.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/runtime-activation-readiness.md",
+      "primary": "docs/reference/features/runtime-activation-readiness.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/runtime-adapters.md",
+      "primary": "docs/development/features/runtime-adapters.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/settings.md",
+      "primary": "docs/reference/features/settings.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/skills.md",
+      "primary": "docs/reference/features/skills.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/source-suggestions.md",
+      "primary": "docs/reference/features/source-suggestions.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/supports.md",
+      "primary": "docs/reference/features/supports.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/target-native-islands.md",
+      "primary": "docs/reference/features/target-native-islands.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/tests-and-evals.md",
+      "primary": "docs/reference/features/tests-and-evals.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/themes.md",
+      "primary": "docs/reference/features/themes.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/tools-policy.md",
+      "primary": "docs/reference/features/tools-policy.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/version-audit.md",
+      "primary": "docs/reference/features/version-audit.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/features/workbench.md",
+      "primary": "docs/development/features/workbench.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/package-ownership.md",
+      "primary": "docs/development/package-ownership.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/package-releases.md",
+      "primary": "docs/development/package-releases.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/quickstart.md",
+      "primary": "docs/start/quickstart.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/schema-contracts.md",
+      "primary": "docs/development/schema-contracts.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/tenets.md",
+      "primary": "docs/project/tenets.md",
+      "status": "moved"
+    }
+  ]
 }

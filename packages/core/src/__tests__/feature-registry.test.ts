@@ -89,10 +89,10 @@ describe("feature registry", () => {
 
   it("documents portable instruction rendering alongside every target-native island", async () => {
     const feature = getSkillsetFeature("target-native-islands");
-    expect(feature?.docs).toContain("docs/features/target-native-islands.md");
+    expect(feature?.docs).toContain("docs/reference/features/target-native-islands.md");
 
     const documentation = await Bun.file(
-      join(REPO_ROOT, "docs/features/target-native-islands.md")
+      join(REPO_ROOT, "docs/reference/features/target-native-islands.md")
     ).text();
     expect(documentation).toContain(
       "| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | `.cursor/rules/**/*.mdc` |"
@@ -456,7 +456,7 @@ function feature(overrides: FeatureOverrides): SkillsetFeatureEntry {
     codex: { status: "native" },
   };
   const entry: Omit<SkillsetFeatureEntry, "targetSupport"> & { readonly targetSupport: typeof targetSupport } = {
-    docs: overrides.docs ?? ["docs/features/README.md"],
+    docs: overrides.docs ?? ["docs/reference/features/README.md"],
     evidence: overrides.evidence ?? defaultEvidence,
     id: overrides.id,
     kind: overrides.kind ?? "source",

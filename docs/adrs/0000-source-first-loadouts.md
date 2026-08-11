@@ -14,7 +14,7 @@ owners: ['[galligan](https://github.com/galligan)']
 
 Skillset exists because authoring parallel Claude and Codex loadouts by hand creates avoidable drift. The same skill, instruction, hook definition, or plugin intent can end up repeated across target-specific trees, and small differences become hard to audit once generated output is treated as source truth.
 
-The repo already carries this doctrine in [Tenets](../tenets.md), but agents need a numbered decision trail for changes that affect source vocabulary, target lowering, generated-output promises, and future schema migrations. A baseline ADR gives future records a stable decision to extend, specialize, or supersede.
+The repo already carries this doctrine in [Tenets](../project/tenets.md), but agents need a numbered decision trail for changes that affect source vocabulary, target lowering, generated-output promises, and future schema migrations. A baseline ADR gives future records a stable decision to extend, specialize, or supersede.
 
 ## Decision
 
@@ -52,5 +52,5 @@ It does not decide how future agent, hook, resource, MCP, app, or install workfl
 
 ## References
 
-- [Tenets](../tenets.md) - governing design principles for source-first loadouts and target-native rendering.
+- [Tenets](../project/tenets.md) - governing design principles for source-first loadouts and target-native rendering.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupportedDestination` direction.

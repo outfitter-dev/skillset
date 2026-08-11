@@ -184,7 +184,7 @@ Compiler fixtures, repository dogfooding, deterministic tests, runtime tests,
 and evals remain distinct evidence classes. The external conformance lane is
 optional and outside ordinary checks. Behavioral evals remain future,
 adapter-aware, credential-sensitive, and opt-in; this decision does not claim
-an eval runner. Current proof is in `docs/features/tests-and-evals.md`, shared
+an eval runner. Current proof is in `docs/reference/features/tests-and-evals.md`, shared
 schema contracts, test CLI/runner code, contract and runtime tests, and the
 bounded external harness.
 
@@ -194,4 +194,4 @@ bounded external harness.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - current feature docs and registry direction.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - source-change and release workflow this dogfood boundary must prove.
 - [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) - implemented release-edge decisions and the explicitly unresolved baseline boundary that test fixtures must not hide.
-- [Tests and Evals](../features/tests-and-evals.md) - feature-facing reference for current tests and future evals.
+- [Tests and Evals](../reference/features/tests-and-evals.md) - feature-facing reference for current tests and future evals.

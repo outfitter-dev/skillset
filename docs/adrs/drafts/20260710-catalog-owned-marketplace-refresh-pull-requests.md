@@ -264,8 +264,8 @@ catalog pull remain complete paths.
 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - establishes Skillset-owned XDG state and the no-activation boundary.
-- [Marketplaces](../../features/marketplaces.md) - current source, readiness, update, and lock contract.
-- [CI](../../features/ci.md) - current report and generated-drift workflow behavior.
+- [Marketplaces](../../reference/features/marketplaces.md) - current source, readiness, update, and lock contract.
+- [CI](../../reference/features/ci.md) - current report and generated-drift workflow behavior.
 - [GitHub workflow events: `repository_dispatch`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#repository_dispatch) - dispatch runs from the target default branch and exposes bounded client payload.
 - [GitHub repository dispatch endpoint](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event) - dispatch creation requires target-repository contents write permission.
 - [GitHub `GITHUB_TOKEN`](https://docs.github.com/en/actions/concepts/security/github_token#when-github_token-triggers-workflow-runs) - automated PR checks can require approval; App/PAT identity avoids it.

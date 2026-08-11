@@ -92,6 +92,6 @@ Distribution does not prove a runtime saw the plugin, skill, or agent. Activatio
 
 ## Evidence
 
-- [Runtime Adapters](runtime-adapters.md) - runtime support stays beside target support.
+- [Runtime Adapters](../../development/features/runtime-adapters.md) - runtime support stays beside target support.
 - [Tests And Evals](tests-and-evals.md) - activation probes build on test runs instead of distribution.
-- [SET-109 contract test](../../apps/skillset/src/__tests__/contract.test.ts) - read-only distribution planning behavior.
+- [SET-109 contract test](../../../apps/skillset/src/__tests__/contract.test.ts) - read-only distribution planning behavior.

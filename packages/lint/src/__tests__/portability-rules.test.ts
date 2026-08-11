@@ -78,7 +78,7 @@ describe("skill-file-reference-escape", () => {
   test("ignores example links inside fenced code blocks and inline code", () => {
     const body = [
       "```markdown",
-      "- [Tenets](../tenets.md) - governing design principles.",
+      "- [Tenets](../project/tenets.md) - governing design principles.",
       "```",
       "Inline `[Doc title](../path.md)` example.",
     ].join("\n");

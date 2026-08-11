@@ -494,7 +494,7 @@ const cmdCheck = (args: Args): void => {
   // Sibling ADR references inside docs/adrs/*.md must be bare filenames.
   // A `../NNNN-*.md` link escapes docs/adrs/ and then re-enters its parent,
   // which 404s on the website and is strictly wrong. Draft references
-  // (`drafts/*.md`) and tenets references (`../tenets.md`) stay permitted.
+  // (`drafts/*.md`) and tenets references (`../project/tenets.md`) stay permitted.
   const checkAdrSiblingLinks = (adr: { filename: string; body: string }) => {
     const siblingLink = /\]\(\.\.\/(\d{4}-[a-z0-9-]+\.md(?:#[^)]*)?)\)/g;
     for (const match of adr.body.matchAll(siblingLink)) {
@@ -505,12 +505,12 @@ const cmdCheck = (args: Args): void => {
       );
     }
 
-    const tenetsLink = /\]\(\.\.\/\.\.\/tenets\.md((?:#[^)]*)?)\)/g;
+    const tenetsLink = /\]\((\.\.\/(?:\.\.\/)?tenets\.md)((?:#[^)]*)?)\)/g;
     for (const match of adr.body.matchAll(tenetsLink)) {
       report(
         'error',
         adr.filename,
-        `tenets reference must be "../tenets.md${match[1] ?? ''}", not "../../tenets.md${match[1] ?? ''}"`
+        `tenets reference must be "../project/tenets.md${match[2] ?? ''}", not "${match[1]}${match[2] ?? ''}"`
       );
     }
   };

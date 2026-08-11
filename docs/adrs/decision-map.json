@@ -251,7 +251,7 @@
         {
           "context": "- [Cursor provider ADR](../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
           "from": "runtime-adapters",
-          "fromPath": "docs/features/runtime-adapters.md"
+          "fromPath": "docs/development/features/runtime-adapters.md"
         },
         {
           "context": "ADR](adrs/0002-cursor-is-a-first-class-provider.md). Provider evidence",
@@ -409,12 +409,12 @@
         {
           "context": "See [Feature Reference and Schema Registry](../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.",
           "from": "feature-registry",
-          "fromPath": "docs/features/feature-registry.md"
+          "fromPath": "docs/development/features/feature-registry.md"
         },
         {
           "context": "- [Feature registry](../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.",
           "from": "runtime-adapters",
-          "fromPath": "docs/features/runtime-adapters.md"
+          "fromPath": "docs/development/features/runtime-adapters.md"
         }
       ],
       "number": "0005",
@@ -613,7 +613,7 @@
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
           "from": "tests-and-evals",
-          "fromPath": "docs/features/tests-and-evals.md"
+          "fromPath": "docs/reference/features/tests-and-evals.md"
         }
       ],
       "number": "0012",
@@ -649,7 +649,7 @@
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
           "from": "releases",
-          "fromPath": "docs/features/releases.md"
+          "fromPath": "docs/reference/features/releases.md"
         }
       ],
       "number": "0013",
@@ -705,27 +705,27 @@
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
           "from": "changes",
-          "fromPath": "docs/features/changes.md"
+          "fromPath": "docs/reference/features/changes.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
           "from": "dependencies",
-          "fromPath": "docs/features/dependencies.md"
+          "fromPath": "docs/reference/features/dependencies.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).",
           "from": "hook-guardrails",
-          "fromPath": "docs/features/hook-guardrails.md"
+          "fromPath": "docs/development/features/hook-guardrails.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
           "from": "releases",
-          "fromPath": "docs/features/releases.md"
+          "fromPath": "docs/reference/features/releases.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
           "from": "supports",
-          "fromPath": "docs/features/supports.md"
+          "fromPath": "docs/reference/features/supports.md"
         }
       ],
       "number": "0014",
@@ -751,12 +751,12 @@
         {
           "context": "The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-",
           "from": "changes",
-          "fromPath": "docs/features/changes.md"
+          "fromPath": "docs/reference/features/changes.md"
         },
         {
           "context": "The reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. New",
           "from": "releases",
-          "fromPath": "docs/features/releases.md"
+          "fromPath": "docs/reference/features/releases.md"
         }
       ],
       "number": "0015",
@@ -797,22 +797,22 @@
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
           "from": "changes",
-          "fromPath": "docs/features/changes.md"
+          "fromPath": "docs/reference/features/changes.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
           "from": "dependencies",
-          "fromPath": "docs/features/dependencies.md"
+          "fromPath": "docs/reference/features/dependencies.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
           "from": "releases",
-          "fromPath": "docs/features/releases.md"
+          "fromPath": "docs/reference/features/releases.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
           "from": "supports",
-          "fromPath": "docs/features/supports.md"
+          "fromPath": "docs/reference/features/supports.md"
         }
       ],
       "number": "0016",
@@ -838,12 +838,12 @@
         {
           "context": "decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../adrs/0017-lowering-outcomes-and-loss-ledger.md)",
           "from": "render-results",
-          "fromPath": "docs/features/render-results.md"
+          "fromPath": "docs/development/features/render-results.md"
         },
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
           "from": "tests-and-evals",
-          "fromPath": "docs/features/tests-and-evals.md"
+          "fromPath": "docs/reference/features/tests-and-evals.md"
         }
       ],
       "number": "0017",
@@ -894,12 +894,12 @@
         {
           "context": "See [ADR-0018: Render Results](../adrs/0018-render-results.md) for the current",
           "from": "render-results",
-          "fromPath": "docs/features/render-results.md"
+          "fromPath": "docs/development/features/render-results.md"
         },
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
           "from": "tests-and-evals",
-          "fromPath": "docs/features/tests-and-evals.md"
+          "fromPath": "docs/reference/features/tests-and-evals.md"
         }
       ],
       "number": "0018",
@@ -960,12 +960,12 @@
         {
           "context": "- [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
           "from": "render-results",
-          "fromPath": "docs/features/render-results.md"
+          "fromPath": "docs/development/features/render-results.md"
         },
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
           "from": "tests-and-evals",
-          "fromPath": "docs/features/tests-and-evals.md"
+          "fromPath": "docs/reference/features/tests-and-evals.md"
         }
       ],
       "number": "0019",
@@ -1012,12 +1012,12 @@
         {
           "context": "- [Post-Tools Policy Boundary](../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit togethe",
           "from": "render-results",
-          "fromPath": "docs/features/render-results.md"
+          "fromPath": "docs/development/features/render-results.md"
         },
         {
           "context": "See the [Post-Tools Policy Boundary ADR](../adrs/0021-post-tools-policy-boundary.md)",
           "from": "tools-policy",
-          "fromPath": "docs/features/tools-policy.md"
+          "fromPath": "docs/reference/features/tools-policy.md"
         }
       ],
       "number": "0021",
@@ -1151,7 +1151,7 @@
         {
           "context": "contract in [ADR-0025](../adrs/0025-baseline-record-evidence-bridges.md). The",
           "from": "changes",
-          "fromPath": "docs/features/changes.md"
+          "fromPath": "docs/reference/features/changes.md"
         }
       ],
       "number": "0025",
@@ -1172,7 +1172,7 @@
         {
           "context": "[ADR-0026](../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and",
           "from": "workbench",
-          "fromPath": "docs/features/workbench.md"
+          "fromPath": "docs/development/features/workbench.md"
         }
       ],
       "number": "0026",
@@ -1193,7 +1193,7 @@
         {
           "context": "See [ADR-0027](../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
           "from": "runtime-activation-readiness",
-          "fromPath": "docs/features/runtime-activation-readiness.md"
+          "fromPath": "docs/reference/features/runtime-activation-readiness.md"
         }
       ],
       "number": "0027",

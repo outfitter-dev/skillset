@@ -2,7 +2,7 @@
 
 Runtime activation readiness describes the prerequisites between canonical Skillset source and behavior that a provider can actually use. It is observational: Skillset does not install, enable, trust, authenticate, or edit provider state while producing the report.
 
-See [ADR-0027](../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.
+See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.
 
 ## Foundational Model
 

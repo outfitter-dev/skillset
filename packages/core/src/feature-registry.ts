@@ -142,7 +142,7 @@ const CURSOR_PROVIDER_EVIDENCE = [
 
 export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
-    docs: ["docs/features/tests-and-evals.md"],
+    docs: ["docs/reference/features/tests-and-evals.md"],
     evidence: [
       test("apps/skillset/src/__tests__/contract.test.ts", "SET-112 activation probe coverage"),
       test("apps/skillset/src/__tests__/ad-hoc-test.test.ts", "SET-273 declared runtime provider coverage"),
@@ -176,7 +176,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/test-declaration.ts",
   }),
   feature({
-    docs: ["docs/features/changes.md"],
+    docs: ["docs/reference/features/changes.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-34/35/36 change status and entry coverage")],
     id: "changes",
     kind: "change-management",
@@ -189,7 +189,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "apps/skillset/src/change-entries.ts",
   }),
   feature({
-    docs: ["docs/features/dev-watch.md"],
+    docs: ["docs/reference/features/dev-watch.md"],
     evidence: [test("apps/skillset/src/__tests__/dev-watch.test.ts", "SET-210/212 dev watch path, debounce, preview, write, backup, and validation coverage")],
     id: "dev-watch",
     kind: "workflow",
@@ -202,7 +202,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "apps/skillset/src/dev-watch.ts",
   }),
   feature({
-    docs: ["docs/features/dependencies.md"],
+    docs: ["docs/reference/features/dependencies.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-40 dependency rendering tests")],
     id: "dependencies",
     kind: "metadata",
@@ -212,12 +212,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Declares plugin dependencies and renders target-specific install/awareness behavior.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/dependencies.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/dependencies.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "native",
       },
       codex: {
-        evidence: [docs("docs/features/dependencies.md"), source("packages/core/src/dependencies.ts")],
+        evidence: [docs("docs/reference/features/dependencies.md"), source("packages/core/src/dependencies.ts")],
         note: "Codex gets generated dependency notices rather than a native plugin dependency resolver.",
         provider: { destinationFormat: "codex-plugin" },
         reason: "Codex gets generated dependency notices rather than a native plugin dependency resolver.",
@@ -228,7 +228,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/dependencies.ts",
   }),
   feature({
-    docs: ["docs/features/distributions.md"],
+    docs: ["docs/reference/features/distributions.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-109 distribute plan coverage")],
     id: "distributions",
     kind: "workflow",
@@ -241,7 +241,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   feature({
-    docs: ["docs/features/marketplaces.md"],
+    docs: ["docs/reference/features/marketplaces.md"],
     evidence: [
       docs("https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references"),
       docs("https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution"),
@@ -267,18 +267,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Declares curated provider marketplace catalogs, resolves local or remote-cached plugin readiness with portable lock provenance, and renders provider-supported marketplace indexes.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/marketplaces.md"), providerSchemaSnapshot("claude-marketplace-schema")],
+        evidence: [docs("docs/reference/features/marketplaces.md"), providerSchemaSnapshot("claude-marketplace-schema")],
         provider: { schemaSnapshots: ["claude-marketplace-schema"] },
         status: "native",
       },
       codex: {
-        evidence: [docs("docs/features/marketplaces.md"), providerSnapshot("codex-plugin")],
+        evidence: [docs("docs/reference/features/marketplaces.md"), providerSnapshot("codex-plugin")],
         provider: { destinationFormat: "codex-plugin" },
         reason: "Codex plugin bundles are renderable, but Codex marketplace activation is currently a runtime config surface rather than a provider-owned generated index.",
         status: "future",
       },
       cursor: {
-        evidence: [docs("docs/features/marketplaces.md"), providerSnapshot("cursor-plugin")],
+        evidence: [docs("docs/reference/features/marketplaces.md"), providerSnapshot("cursor-plugin")],
         provider: { destinationFormat: "cursor-plugin" },
         status: "native",
       },
@@ -287,7 +287,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   feature({
-    docs: ["docs/features/feature-registry.md"],
+    docs: ["docs/development/features/feature-registry.md"],
     evidence: [
       docs("docs/adrs/0005-feature-reference-and-schema-registry.md"),
       source("packages/core/src/feature-registry.ts"),
@@ -306,7 +306,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/feature-registry.ts",
   }),
   feature({
-    docs: ["docs/features/render-results.md"],
+    docs: ["docs/development/features/render-results.md"],
     evidence: [
       docs("docs/adrs/0018-render-results.md"),
       source("packages/core/src/render-result.ts"),
@@ -329,7 +329,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/render-result.ts",
   }),
   feature({
-    docs: ["docs/features/output-safety.md"],
+    docs: ["docs/reference/features/output-safety.md"],
     evidence: [
       source("packages/core/src/output-safety.ts"),
       test("packages/core/src/__tests__/build-result.test.ts", "SET-19 output backup and restore coverage"),
@@ -346,7 +346,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/output-safety.ts",
   }),
   feature({
-    docs: ["docs/features/feature-source-pointers.md", "docs/features/mcp-servers.md"],
+    docs: ["docs/reference/features/feature-source-pointers.md", "docs/reference/features/mcp-servers.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-26 MCP pointer coverage")],
     id: "plugin-mcp",
     kind: "plugin-component",
@@ -355,7 +355,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Copies validated plugin MCP server definitions into generated provider plugin outputs.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
-      docs("docs/features/mcp-servers.md"),
+      docs("docs/reference/features/mcp-servers.md"),
     ], {
       claude: [providerSnapshot("claude-plugin")],
       codex: [providerSnapshot("codex-plugin")],
@@ -369,7 +369,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resources.ts",
   }),
   feature({
-    docs: ["docs/features/apps.md"],
+    docs: ["docs/reference/features/apps.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "Codex app manifest companion-path coverage")],
     id: "plugin-apps",
     kind: "target-native",
@@ -378,9 +378,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Passes Codex app manifests through as target-native plugin companion files.",
     targetSupport: {
-      claude: { evidence: [docs("docs/features/apps.md")], status: "not_applicable" },
+      claude: { evidence: [docs("docs/reference/features/apps.md")], status: "not_applicable" },
       codex: {
-        evidence: [docs("docs/features/apps.md"), providerSnapshot("codex-plugin")],
+        evidence: [docs("docs/reference/features/apps.md"), providerSnapshot("codex-plugin")],
         provider: { destinationFormat: "codex-plugin" },
         status: "pass_through",
       },
@@ -392,11 +392,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-assets",
     sourceShape: "plugin assets/",
     summary: "Copies plugin asset companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
+    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin Assets",
   }),
   feature({
-    docs: ["docs/features/executables.md", "docs/features/feature-source-pointers.md"],
+    docs: ["docs/reference/features/executables.md", "docs/reference/features/feature-source-pointers.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-26 bin pointer coverage")],
     id: "plugin-bin",
     kind: "plugin-component",
@@ -406,18 +406,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Copies Claude plugin-root executable helpers while failing loudly for Codex-enabled plugin output.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/executables.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/executables.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: {
-        evidence: [docs("docs/features/executables.md"), providerSnapshot("codex-plugin")],
+        evidence: [docs("docs/reference/features/executables.md"), providerSnapshot("codex-plugin")],
         provider: { destinationFormat: "codex-plugin", unsupportedDestinations: ["bin"] },
         reason: "Codex plugins do not expose a documented plugin-local bin contract.",
         status: "unsupported",
       },
       cursor: {
-        evidence: [docs("docs/features/executables.md"), providerSnapshot("cursor-plugin")],
+        evidence: [docs("docs/reference/features/executables.md"), providerSnapshot("cursor-plugin")],
         provider: { destinationFormat: "cursor-plugin", unsupportedDestinations: ["bin"] },
         reason: "Cursor plugins do not expose a documented plugin-local bin contract.",
         status: "unsupported",
@@ -427,19 +427,19 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resources.ts",
   }),
   pluginCompanionFeature({
-    docs: ["docs/features/commands.md", "docs/features/plugins.md"],
+    docs: ["docs/reference/features/commands.md", "docs/reference/features/plugins.md"],
     id: "plugin-commands",
     sourceShape: "plugin commands/",
     summary: "Passes Claude plugin command companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/commands.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/commands.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
-      codex: { evidence: [docs("docs/features/commands.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/commands.md")], status: "not_applicable" },
       cursor: {
-        evidence: [docs("docs/features/commands.md"), providerSnapshot("cursor-plugin")],
+        evidence: [docs("docs/reference/features/commands.md"), providerSnapshot("cursor-plugin")],
         provider: { destinationFormat: "cursor-plugin" },
         status: "pass_through",
       },
@@ -447,15 +447,15 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     title: "Plugin Commands",
   }),
   pluginCompanionFeature({
-    docs: ["docs/features/instructions.md", "docs/features/plugins.md"],
+    docs: ["docs/reference/features/instructions.md", "docs/reference/features/plugins.md"],
     id: "plugin-rules",
     sourceShape: "plugin rules/",
     summary: "Passes Cursor plugin rule companions through to Cursor plugin outputs.",
     targetSupport: {
-      claude: { evidence: [docs("docs/features/instructions.md")], status: "not_applicable" },
-      codex: { evidence: [docs("docs/features/instructions.md")], status: "not_applicable" },
+      claude: { evidence: [docs("docs/reference/features/instructions.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/instructions.md")], status: "not_applicable" },
       cursor: {
-        evidence: [docs("docs/features/instructions.md"), providerSnapshot("cursor-plugin"), providerSnapshot("cursor-rules")],
+        evidence: [docs("docs/reference/features/instructions.md"), providerSnapshot("cursor-plugin"), providerSnapshot("cursor-rules")],
         provider: { destinationFormat: "cursor-plugin" },
         status: "pass_through",
       },
@@ -463,7 +463,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     title: "Plugin Rules",
   }),
   feature({
-    docs: ["docs/features/hooks.md"],
+    docs: ["docs/reference/features/hooks.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-2 hook companion-path coverage")],
     id: "plugin-hooks",
     kind: "target-native",
@@ -472,7 +472,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Copies plugin hook declarations with registry-backed provider event and handler validation.",
     targetSupport: bothTargetsWithTargetEvidence("pass_through", [
-      docs("docs/features/hooks.md"),
+      docs("docs/reference/features/hooks.md"),
     ], {
       claude: [providerSnapshot("claude-hooks")],
       codex: [providerSnapshot("codex-plugin")],
@@ -486,9 +486,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/hooks.ts",
   }),
   feature({
-    docs: ["docs/features/hooks.md"],
+    docs: ["docs/reference/features/hooks.md"],
     evidence: [
-      docs("docs/features/hooks.md"),
+      docs("docs/reference/features/hooks.md"),
       source("packages/core/src/hook-capabilities.ts"),
       source("packages/schema/src/contracts.ts"),
       test("packages/core/src/__tests__/adaptive-hook-attachments.test.ts", "SET-118 attachment resolution and SET-127 script source proof coverage"),
@@ -505,7 +505,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [
-          docs("docs/features/hooks.md"),
+          docs("docs/reference/features/hooks.md"),
           providerSnapshot("claude-hooks"),
           source("packages/core/src/hook-capabilities.ts"),
         ],
@@ -514,7 +514,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       },
       codex: {
         evidence: [
-          docs("docs/features/hooks.md"),
+          docs("docs/reference/features/hooks.md"),
           providerSnapshot("codex-plugin"),
           providerSchemaSnapshot("codex-hooks-schema"),
           providerSchemaSnapshot("codex-hook-event-schemas"),
@@ -526,7 +526,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       },
       cursor: {
         evidence: [
-          docs("docs/features/hooks.md"),
+          docs("docs/reference/features/hooks.md"),
           providerSnapshot("cursor-hooks"),
           providerSnapshot("cursor-plugin"),
           source("packages/core/src/hook-capabilities.ts"),
@@ -540,22 +540,22 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/schema/src/validate.ts",
   }),
   pluginCompanionFeature({
-    docs: ["docs/features/lsp-servers.md", "docs/features/plugins.md"],
+    docs: ["docs/reference/features/lsp-servers.md", "docs/reference/features/plugins.md"],
     id: "plugin-lsp-servers",
     sourceShape: "plugin .lsp.json",
     summary: "Passes Claude plugin LSP server companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/lsp-servers.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/lsp-servers.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
-      codex: { evidence: [docs("docs/features/lsp-servers.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/lsp-servers.md")], status: "not_applicable" },
     },
     title: "Plugin LSP Servers",
   }),
   feature({
-    docs: ["docs/features/plugins.md"],
+    docs: ["docs/reference/features/plugins.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "plugin boundary and manifest coverage")],
     id: "plugin-manifests",
     kind: "source",
@@ -564,7 +564,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Projects plugin metadata and component wiring into target-native plugin manifests.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
-      docs("docs/features/plugins.md"),
+      docs("docs/reference/features/plugins.md"),
     ], {
       claude: [providerSnapshot("claude-plugin")],
       codex: [providerSnapshot("codex-plugin")],
@@ -578,32 +578,32 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   pluginCompanionFeature({
-    docs: ["docs/features/monitors.md", "docs/features/plugins.md"],
+    docs: ["docs/reference/features/monitors.md", "docs/reference/features/plugins.md"],
     id: "plugin-monitors",
     sourceShape: "plugin monitors/",
     summary: "Passes Claude plugin monitor companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/monitors.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/monitors.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
-      codex: { evidence: [docs("docs/features/monitors.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/monitors.md")], status: "not_applicable" },
     },
     title: "Plugin Monitors",
   }),
   pluginCompanionFeature({
-    docs: ["docs/features/output-styles.md", "docs/features/plugins.md"],
+    docs: ["docs/reference/features/output-styles.md", "docs/reference/features/plugins.md"],
     id: "plugin-output-styles",
     sourceShape: "plugin output-styles/",
     summary: "Passes Claude plugin output-style companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/output-styles.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/output-styles.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
-      codex: { evidence: [docs("docs/features/output-styles.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/output-styles.md")], status: "not_applicable" },
     },
     title: "Plugin Output Styles",
   }),
@@ -611,18 +611,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-readme",
     sourceShape: "plugin README.md",
     summary: "Copies plugin README companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
+    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin README",
   }),
   pluginCompanionFeature({
     id: "plugin-scripts",
     sourceShape: "plugin scripts/",
     summary: "Copies plugin script companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
+    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin Scripts",
   }),
   feature({
-    docs: ["docs/features/plugins.md", "docs/features/skills.md"],
+    docs: ["docs/reference/features/plugins.md", "docs/reference/features/skills.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "plugin skill rendering coverage")],
     id: "plugin-skills",
     kind: "source",
@@ -631,7 +631,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Preserves plugin-scoped skills inside each target plugin boundary.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
-      docs("docs/features/skills.md"),
+      docs("docs/reference/features/skills.md"),
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
@@ -648,26 +648,26 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-src",
     sourceShape: "plugin src/",
     summary: "Copies plugin source companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
+    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin Source",
   }),
   pluginCompanionFeature({
-    docs: ["docs/features/themes.md", "docs/features/plugins.md"],
+    docs: ["docs/reference/features/themes.md", "docs/reference/features/plugins.md"],
     id: "plugin-themes",
     sourceShape: "plugin themes/",
     summary: "Passes Claude plugin theme companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/themes.md"), providerSnapshot("claude-plugin")],
+        evidence: [docs("docs/reference/features/themes.md"), providerSnapshot("claude-plugin")],
         provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
-      codex: { evidence: [docs("docs/features/themes.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/themes.md")], status: "not_applicable" },
     },
     title: "Plugin Themes",
   }),
   feature({
-    docs: ["docs/features/agents.md"],
+    docs: ["docs/reference/features/agents.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "Codex plugin-agent failure coverage")],
     id: "plugin-agents",
     kind: "target-native",
@@ -677,18 +677,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
+        evidence: [docs("docs/reference/features/agents.md"), providerSnapshot("claude-subagent")],
         provider: { destinationFormat: "claude-subagent", manualOverlays: ["claude-subagent-frontmatter-overlay"] },
         status: "pass_through",
       },
       codex: {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-plugin")],
+        evidence: [docs("docs/reference/features/agents.md"), providerSnapshot("codex-plugin")],
         provider: { destinationFormat: "codex-plugin", unsupportedDestinations: ["agents"] },
         reason: "Codex plugin documentation does not include a plugin agents component.",
         status: "unsupported",
       },
       cursor: {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("cursor-agent"), providerSnapshot("cursor-plugin")],
+        evidence: [docs("docs/reference/features/agents.md"), providerSnapshot("cursor-agent"), providerSnapshot("cursor-plugin")],
         provider: { destinationFormat: "cursor-agent" },
         status: "pass_through",
       },
@@ -697,7 +697,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({
-    docs: ["docs/features/instructions.md"],
+    docs: ["docs/reference/features/instructions.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-5 instruction rendering coverage")],
     id: "project-instructions",
     kind: "source",
@@ -706,14 +706,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.",
     targetSupport: {
-      claude: { evidence: [docs("docs/features/instructions.md")], status: "transformed" },
+      claude: { evidence: [docs("docs/reference/features/instructions.md")], status: "transformed" },
       codex: {
-        evidence: [docs("docs/features/instructions.md"), providerSnapshot("codex-agents-md")],
+        evidence: [docs("docs/reference/features/instructions.md"), providerSnapshot("codex-agents-md")],
         provider: { destinationFormat: "codex-agents-md", manualOverlays: ["codex-agents-md-overlay"] },
         status: "transformed",
       },
       cursor: {
-        evidence: [docs("docs/features/instructions.md"), providerSnapshot("cursor-rules")],
+        evidence: [docs("docs/reference/features/instructions.md"), providerSnapshot("cursor-rules")],
         provider: { destinationFormat: "cursor-rules" },
         status: "transformed",
       },
@@ -722,7 +722,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({
-    docs: ["docs/features/agents.md"],
+    docs: ["docs/reference/features/agents.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "portable project agent coverage")],
     id: "project-agents",
     kind: "source",
@@ -733,7 +733,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     runtimeSupport: {
       "claude-code": {
         evidence: [
-          docs("docs/features/agents.md"),
+          docs("docs/reference/features/agents.md"),
           providerSnapshot("claude-subagent"),
           test("apps/skillset/src/__tests__/contract.test.ts", "SET-134 project-agent orchestration activation proof"),
         ],
@@ -745,7 +745,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
           "Codex receives skill-loading intent as developer instructions; it is not target-enforced skill metadata.",
         ],
         evidence: [
-          docs("docs/features/agents.md"),
+          docs("docs/reference/features/agents.md"),
           providerSnapshot("codex-subagent"),
           test("apps/skillset/src/__tests__/contract.test.ts", "SET-134 project-agent orchestration activation proof"),
         ],
@@ -755,17 +755,17 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     },
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
+        evidence: [docs("docs/reference/features/agents.md"), providerSnapshot("claude-subagent")],
         provider: { destinationFormat: "claude-subagent", manualOverlays: ["claude-subagent-frontmatter-overlay"] },
         status: "native",
       },
       codex: {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-subagent")],
+        evidence: [docs("docs/reference/features/agents.md"), providerSnapshot("codex-subagent")],
         provider: { destinationFormat: "codex-subagent", manualOverlays: ["codex-subagent-toml-overlay"] },
         status: "transformed",
       },
       cursor: {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("cursor-agent")],
+        evidence: [docs("docs/reference/features/agents.md"), providerSnapshot("cursor-agent")],
         provider: { destinationFormat: "cursor-agent" },
         status: "native",
       },
@@ -774,30 +774,30 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({
-    docs: ["docs/features/runtime-adapters.md"],
-    evidence: [docs("docs/features/runtime-adapters.md"), test("packages/core/src/__tests__/feature-registry.test.ts", "SET-113 runtime support coverage")],
+    docs: ["docs/development/features/runtime-adapters.md"],
+    evidence: [docs("docs/development/features/runtime-adapters.md"), test("packages/core/src/__tests__/feature-registry.test.ts", "SET-113 runtime support coverage")],
     id: "runtime-adapters",
     kind: "workflow",
     renderOwner: "packages/core/src/feature-registry.ts",
     runtimeSupport: {
       "claude-code": {
-        evidence: [docs("docs/features/runtime-adapters.md")],
+        evidence: [docs("docs/development/features/runtime-adapters.md")],
         mechanism: "Current Claude build target projections feed Claude Code plugin, project, and skill surfaces.",
         status: "native",
       },
       "codex-cli": {
-        evidence: [docs("docs/features/runtime-adapters.md")],
+        evidence: [docs("docs/development/features/runtime-adapters.md")],
         mechanism: "Current Codex build target projections feed Codex CLI plugin, project, and skill surfaces.",
         status: "native",
       },
       "codex-app": {
-        evidence: [docs("docs/features/runtime-adapters.md")],
+        evidence: [docs("docs/development/features/runtime-adapters.md")],
         mechanism: "Codex plugin manifests can carry app companions, but app/runtime activation remains outside build.",
         status: "externally_managed",
       },
       cursor: {
         evidence: [
-          docs("docs/features/runtime-adapters.md"),
+          docs("docs/development/features/runtime-adapters.md"),
           docs("docs/target-surfaces.md#cursor-provider-baseline"),
           docs("docs/adrs/0002-cursor-is-a-first-class-provider.md"),
           fixture("fixtures/external/repos.yaml"),
@@ -806,22 +806,22 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "native",
       },
       "gemini-cli": {
-        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
+        evidence: [docs("docs/development/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
         reason: "Gemini support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
         status: "planned",
       },
       devin: {
-        evidence: [docs("docs/features/runtime-adapters.md")],
+        evidence: [docs("docs/development/features/runtime-adapters.md")],
         reason: "Devin support is tracked as future runtime compatibility, not an implemented target.",
         status: "future",
       },
       droid: {
-        evidence: [docs("docs/features/runtime-adapters.md")],
+        evidence: [docs("docs/development/features/runtime-adapters.md")],
         reason: "Droid support is tracked as future runtime compatibility, not an implemented target.",
         status: "future",
       },
       opencode: {
-        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
+        evidence: [docs("docs/development/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
         reason: "OpenCode support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
         status: "planned",
       },
@@ -834,9 +834,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/feature-registry.ts",
   }),
   feature({
-    docs: ["docs/features/hooks.md", "docs/features/hook-guardrails.md"],
+    docs: ["docs/reference/features/hooks.md", "docs/development/features/hook-guardrails.md"],
     evidence: [
-      docs("docs/features/hooks.md"),
+      docs("docs/reference/features/hooks.md"),
       source("packages/toolkit/src/runtime.ts"),
       source("packages/toolkit/src/cli.ts"),
       source("packages/core/src/render.ts"),
@@ -853,7 +853,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [
-          docs("docs/features/hooks.md"),
+          docs("docs/reference/features/hooks.md"),
           source("packages/toolkit/src/runtime.ts"),
           test("packages/toolkit/src/__tests__/runtime.test.ts", "Claude-like environment normalization"),
         ],
@@ -862,7 +862,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       },
       codex: {
         evidence: [
-          docs("docs/features/hooks.md"),
+          docs("docs/reference/features/hooks.md"),
           source("packages/toolkit/src/runtime.ts"),
           test("packages/toolkit/src/__tests__/runtime.test.ts", "Codex-like environment normalization"),
         ],
@@ -871,7 +871,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       },
       cursor: {
         evidence: [
-          docs("docs/features/hooks.md"),
+          docs("docs/reference/features/hooks.md"),
           source("packages/toolkit/src/runtime.ts"),
           test("packages/toolkit/src/__tests__/runtime.test.ts", "Cursor-like environment normalization"),
           test("packages/core/src/__tests__/adaptive-hook-attachments.test.ts", "generated Cursor toolkit hook execution"),
@@ -884,7 +884,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/toolkit/src/runtime.ts",
   }),
   feature({
-    docs: ["docs/features/releases.md"],
+    docs: ["docs/reference/features/releases.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-38 release apply coverage")],
     id: "releases",
     kind: "change-management",
@@ -897,7 +897,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "apps/skillset/src/release.ts",
   }),
   feature({
-    docs: ["docs/features/resources.md"],
+    docs: ["docs/reference/features/resources.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "shared resource rendering coverage")],
     id: "resources",
     kind: "source",
@@ -906,7 +906,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Copies declared skill resources and validates links to shared resource declarations.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
-      docs("docs/features/resources.md"),
+      docs("docs/reference/features/resources.md"),
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
@@ -920,7 +920,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resources.ts",
   }),
   feature({
-    docs: ["docs/features/skills.md"],
+    docs: ["docs/reference/features/skills.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "standalone skill rendering coverage")],
     id: "standalone-skills",
     kind: "source",
@@ -929,7 +929,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Projects standalone repo skills into configured target skill roots.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
-      docs("docs/features/skills.md"),
+      docs("docs/reference/features/skills.md"),
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
@@ -943,7 +943,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({
-    docs: ["docs/features/supports.md"],
+    docs: ["docs/reference/features/supports.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-39 supports coverage")],
     id: "supports",
     kind: "metadata",
@@ -956,7 +956,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/supports.ts",
   }),
   feature({
-    docs: ["docs/features/target-native-islands.md"],
+    docs: ["docs/reference/features/target-native-islands.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "provider source coverage")],
     id: "target-native-islands",
     kind: "target-native",
@@ -969,7 +969,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({
-    docs: ["docs/features/tools-policy.md"],
+    docs: ["docs/reference/features/tools-policy.md"],
     evidence: [
       source("packages/core/src/tools-realization.ts"),
       test("apps/skillset/src/__tests__/skillset.test.ts", "tool policy rendering coverage"),
@@ -999,7 +999,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/skill-policy.ts",
   }),
   feature({
-    docs: ["docs/features/apps.md", "docs/features/hooks.md", "docs/features/commands.md", "docs/features/settings.md"],
+    docs: ["docs/reference/features/apps.md", "docs/reference/features/hooks.md", "docs/reference/features/commands.md", "docs/reference/features/settings.md"],
     evidence: [docs("docs/target-surfaces.md")],
     id: "future-companion-source-pointers",
     kind: "plugin-component",
@@ -1015,7 +1015,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "future",
   }),
   feature({
-    docs: ["docs/features/version-audit.md"],
+    docs: ["docs/reference/features/version-audit.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-111 release audit coverage")],
     id: "version-audit",
     kind: "change-management",
@@ -1028,7 +1028,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/version-audit.ts",
   }),
   feature({
-    docs: ["docs/features/ci.md", "docs/features/build-scopes.md", "docs/features/workbench.md"],
+    docs: ["docs/reference/features/ci.md", "docs/reference/features/build-scopes.md", "docs/development/features/workbench.md"],
     evidence: [
       test("packages/core/src/__tests__/source-readiness.test.ts", "Core source-readiness operation"),
       test("apps/skillset/src/__tests__/ci.test.ts", "CI and build-scope coverage"),
@@ -1186,7 +1186,7 @@ function pluginCompanionFeature(entry: {
   readonly title: string;
 }): SkillsetFeatureEntry {
   return feature({
-    docs: entry.docs ?? ["docs/features/plugins.md"],
+    docs: entry.docs ?? ["docs/reference/features/plugins.md"],
     evidence: [source("packages/core/src/render.ts")],
     id: entry.id,
     kind: "target-native",

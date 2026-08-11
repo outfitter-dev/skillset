@@ -82,16 +82,16 @@ describe("documentation reference artifacts", () => {
           {
             docs: [
               {
-                path: "docs/features/build-scopes.md",
-                ref: "docs/features/build-scopes.md#preview",
+                path: "docs/reference/features/build-scopes.md",
+                ref: "docs/reference/features/build-scopes.md#preview",
                 fragment: "preview",
               },
             ],
             id: "build-scopes",
             kind: "workflow",
             primaryDoc: {
-              path: "docs/features/build-scopes.md",
-              ref: "docs/features/build-scopes.md#preview",
+              path: "docs/reference/features/build-scopes.md",
+              ref: "docs/reference/features/build-scopes.md#preview",
               fragment: "preview",
             },
             status: "implemented",
@@ -159,7 +159,7 @@ describe("documentation reference artifacts", () => {
           "",
           "| Feature | Feature status | claude | codex | cursor | Docs |",
           "| --- | --- | --- | --- | --- | --- |",
-          "| Build \\| Scopes | `implemented` | `native` | `native` | `planned` | [1](../features/build-scopes.md#preview) |",
+          "| Build \\| Scopes | `implemented` | `native` | `native` | `planned` | [1](./features/build-scopes.md#preview) |",
           "",
         ].join("\n"),
         path: "docs/reference/support-matrix.md",

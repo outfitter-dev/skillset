@@ -262,7 +262,7 @@ accepted contract.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first loadouts, one meaning/one key, derive by default, and target truth.
+- [Tenets](../project/tenets.md) - source-first loadouts, one meaning/one key, derive by default, and target truth.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source vocabulary doctrine.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - release state owns generated artifact versions.

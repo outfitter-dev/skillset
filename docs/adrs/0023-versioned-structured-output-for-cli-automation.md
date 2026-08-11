@@ -268,7 +268,7 @@ Current evidence is in `packages/schema/src/contracts.ts`, generated
 
 ## References
 
-- [Tenets](../tenets.md) - deterministic output, source truth, no activation, and visible diagnostics.
+- [Tenets](../project/tenets.md) - deterministic output, source truth, no activation, and visible diagnostics.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and rendered output authority.
 - [Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - canonical command names and hard-cut policy.
 - [Core Library and CLI Boundary](0004-core-library-boundary.md) - core returns facts while the CLI owns rendering.

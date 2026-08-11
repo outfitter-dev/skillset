@@ -1,3 +1,5 @@
+> **Disposition: completed.** Skillset reached the stable npm channel with GitHub Actions-owned releases, Changesets coverage, and local package preflight in place. Remaining first-author and documentation-structure work moved into the active documentation-overhaul plan; the substantive plan below is frozen apart from mechanical link repair.
+
 # Skillset 0.x `latest` Release Plan
 
 This plan defines the release bar for promoting the public `skillset` npm package
@@ -17,7 +19,7 @@ below are green. The release remains intentionally pre-1.0:
 - hooks and runtime context are shipped only where the current helper-backed path
   is proven or explicitly deferred;
 - package publication stays GitHub Actions-owned through the Changesets release
-  flow in [Package Releases](package-releases.md);
+  flow in [Package Releases](../../../development/package-releases.md);
 - no local agent should run `bun run version:packages`,
   `bun run publish:packages`, or mutate npm/GitHub release state unless the
   maintainer chooses an explicit recovery path.
@@ -29,12 +31,12 @@ builds remain on explicit prerelease tags such as `beta`.
 
 | Gate | Current release bar | Required evidence |
 | --- | --- | --- |
-| Source/config/frontmatter contract | Mostly stable for 0.x. Known exceptions must stay documented rather than silently drifting. | `docs/schema-contracts.md`, generated schema artifacts, `bun run schema:check`, and Workbench schema diagnostics. |
-| First-author path | Needs a real authoring pass before final release approval. SET-211 adds source-positioned diagnostic guidance, but onboarding still needs human feedback. | `docs/quickstart.md`, `examples/first-author/`, SET-198, SET-211, `skillset init`, `skillset check`, and `skillset check --only outputs` runs. |
-| Hooks/runtime context | Must be either done through the helper-backed toolkit lane or explicitly deferred from release notes. Do not imply universal adaptive hook parity. | SET-16, SET-228, `docs/features/hooks.md`, `packages/toolkit/src/__tests__/`, runtime hook tests, and provider capability docs. |
-| Package release automation | Must remain GitHub Actions-owned, with clear release-intent labels and exact-SHA CI before publish. | `docs/package-releases.md`, `.github/workflows/release.yml`, `scripts/release-policy.ts`, `bun run publish:check`, and release-policy tests. |
+| Source/config/frontmatter contract | Mostly stable for 0.x. Known exceptions must stay documented rather than silently drifting. | `docs/development/schema-contracts.md`, generated schema artifacts, `bun run schema:check`, and Workbench schema diagnostics. |
+| First-author path | Needs a real authoring pass before final release approval. SET-211 adds source-positioned diagnostic guidance, but onboarding still needs human feedback. | `docs/start/quickstart.md`, `examples/first-author/`, SET-198, SET-211, `skillset init`, `skillset check`, and `skillset check --only outputs` runs. |
+| Hooks/runtime context | Must be either done through the helper-backed toolkit lane or explicitly deferred from release notes. Do not imply universal adaptive hook parity. | SET-16, SET-228, `docs/reference/features/hooks.md`, `packages/toolkit/src/__tests__/`, runtime hook tests, and provider capability docs. |
+| Package release automation | Must remain GitHub Actions-owned, with clear release-intent labels and exact-SHA CI before publish. | `docs/development/package-releases.md`, `.github/workflows/release.yml`, `scripts/release-policy.ts`, `bun run publish:check`, and release-policy tests. |
 | Provider/schema evidence | Provider snapshots and schema references must be checked in and fresh for any changed contract or target surface. | `bun run schema:check`, provider format tests, `docs/target-surfaces.md`, generated schema/example diffs when applicable. |
-| Change/release provenance | Source-unit changes and npm package changes must stay separate, with pending Skillset entries and Changesets used for their separate jobs. | `skillset change status`, `skillset change check`, `bun run changeset:check`, and `docs/features/changes.md`. |
+| Change/release provenance | Source-unit changes and npm package changes must stay separate, with pending Skillset entries and Changesets used for their separate jobs. | `skillset change status`, `skillset change check`, `bun run changeset:check`, and `docs/reference/features/changes.md`. |
 | Local gates | Local full gate must pass before a release PR leaves draft. CI must pass before the generated version PR is approved or published. | `bun run check`, `bun run skillset:check:ci`, pre-push hook output, GitHub CI on the exact release commit. |
 
 ## Explicit Contract Exceptions

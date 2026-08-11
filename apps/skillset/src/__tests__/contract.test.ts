@@ -9118,14 +9118,14 @@ Audit body.
   );
   expect(skillReport.features).toEqual([
     {
-      docs: ["docs/features/resources.md"],
+      docs: ["docs/reference/features/resources.md"],
       id: "resources",
       status: "implemented",
       targetSupport: nativeTargetSupport,
       title: "Resources",
     },
     {
-      docs: ["docs/features/skills.md"],
+      docs: ["docs/reference/features/skills.md"],
       id: "standalone-skills",
       status: "implemented",
       targetSupport: nativeTargetSupport,
@@ -9161,7 +9161,7 @@ Audit body.
   } }).data;
   expect(featureReport.features).toEqual([
     {
-      docs: ["docs/features/executables.md", "docs/features/feature-source-pointers.md"],
+      docs: ["docs/reference/features/executables.md", "docs/reference/features/feature-source-pointers.md"],
       id: "plugin-bin",
       status: "implemented",
       targetSupport: {

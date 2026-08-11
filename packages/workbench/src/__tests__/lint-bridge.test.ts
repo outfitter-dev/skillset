@@ -13,7 +13,7 @@ describe("lint bridge", () => {
   test("maps lint diagnostics into Workbench diagnostics", () => {
     const lintDiagnostic = {
       guidance: {
-        docs: ["docs/features/skills.md"],
+        docs: ["docs/reference/features/skills.md"],
         steps: ["Shorten the description."],
         summary: "Keep skill descriptions compact.",
       },
@@ -30,7 +30,7 @@ describe("lint bridge", () => {
       help: [
         "Keep skill descriptions compact.",
         "Shorten the description.",
-        "docs/features/skills.md",
+        "docs/reference/features/skills.md",
       ],
       location: { line: 3, path: ".skillset/skills/demo/SKILL.md" },
       message: "Description is too long.",

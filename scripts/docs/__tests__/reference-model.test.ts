@@ -147,8 +147,8 @@ describe("documentation reference model", () => {
     const feature: SkillsetFeatureEntry = {
       ...source,
       docs: [
-        "docs/features/demo.md#target-support",
-        "docs/features/secondary.md",
+        "docs/reference/features/demo.md#target-support",
+        "docs/reference/features/secondary.md",
       ],
       id: "fragment-proof",
     };
@@ -158,12 +158,12 @@ describe("documentation reference model", () => {
     expect(support.features[0]?.docs).toEqual([
       {
         fragment: "target-support",
-        path: "docs/features/demo.md",
-        ref: "docs/features/demo.md#target-support",
+        path: "docs/reference/features/demo.md",
+        ref: "docs/reference/features/demo.md#target-support",
       },
       {
-        path: "docs/features/secondary.md",
-        ref: "docs/features/secondary.md",
+        path: "docs/reference/features/secondary.md",
+        ref: "docs/reference/features/secondary.md",
       },
     ]);
     expect(support.features[0]?.primaryDoc).toEqual(

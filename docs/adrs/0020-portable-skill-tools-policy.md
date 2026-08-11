@@ -373,12 +373,12 @@ skill policy into native frontmatter, with residual Bash/MCP risk reported.
 Codex and Cursor retain reviewable `.skillset.tools.yaml` metadata; stronger
 sandbox or readonly settings are `settings-required` evidence and are not
 emitted. `write: false` is portable skill intent, not a universal enforcement
-claim. Current proof is in `docs/features/tools-policy.md`, `skill-policy.ts`,
+claim. Current proof is in `docs/reference/features/tools-policy.md`, `skill-policy.ts`,
 `tools-realization.ts`, and their focused tests.
 
 ## References
 
-- [Tenets](../tenets.md) - source-first, provider-native, fail-loud design principles.
+- [Tenets](../project/tenets.md) - source-first, provider-native, fail-loud design principles.
 - [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed feature and capability evidence.
 - [Agent / Subagent Source Model](0006-agent-source-model.md) - project-agent and plugin-agent boundaries.
 - [Render Results](0018-render-results.md) - visible degraded, lossy, and unsupported render results.
