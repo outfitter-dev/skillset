@@ -251,9 +251,21 @@ describe("feature registry drift checks", () => {
     const projections = listFeatureSupportMatrixProjections([
       feature({ id: "beta" }),
       feature({ id: "alpha" }),
+      feature({
+        docs: ["docs/development/features/demo.md"],
+        id: "gamma",
+      }),
     ]);
 
     expect(projections).toEqual([
+      {
+        body: [
+          `| Feature | Feature status | ${targetNames().join(" | ")} |`,
+          `| ${["Feature", "Feature status", ...targetNames()].map(() => "---").join(" | ")} |`,
+          "| `gamma` | `implemented` | `native` | `native` | `native` |",
+        ].join("\n"),
+        path: "docs/development/features/demo.md",
+      },
       {
         body: [
           `| Feature | Feature status | ${targetNames().join(" | ")} |`,

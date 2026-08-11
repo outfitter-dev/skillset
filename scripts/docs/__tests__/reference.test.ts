@@ -244,31 +244,75 @@ describe("documentation reference artifacts", () => {
     }
   });
 
-  test("repairs feature-support blocks while preserving authored bytes", async () => {
+  test("repairs public and development feature-support blocks while preserving authored bytes", async () => {
     const root = await referenceFixture();
     try {
-      const featurePath = join(root, "docs/reference/features/hooks.md");
-      const original = await readFile(featurePath, "utf8");
+      const publicPath = join(root, "docs/reference/features/hooks.md");
+      const developmentPath = join(
+        root,
+        "docs/development/features/feature-registry.md"
+      );
+      const originalPublic = await readFile(publicPath, "utf8");
+      const originalDevelopment = await readFile(developmentPath, "utf8");
 
       await expect(
         generateDocsReferenceArtifacts(root, { check: true })
       ).rejects.toThrow("- missing or stale: docs/reference/features/hooks.md");
+      await expect(
+        generateDocsReferenceArtifacts(root, { check: true })
+      ).rejects.toThrow(
+        "- missing or stale: docs/development/features/feature-registry.md"
+      );
       await generateDocsReferenceArtifacts(root);
-      const generated = await readFile(featurePath, "utf8");
+      const generatedPublic = await readFile(publicPath, "utf8");
+      const generatedDevelopment = await readFile(developmentPath, "utf8");
       await generateDocsReferenceArtifacts(root);
-      const regenerated = await readFile(featurePath, "utf8");
+      const regeneratedPublic = await readFile(publicPath, "utf8");
+      const regeneratedDevelopment = await readFile(developmentPath, "utf8");
       await generateDocsReferenceArtifacts(root, { check: true });
 
-      expect(generated).toContain(
+      expect(generatedPublic).toContain(
         "| `adaptive-hooks` | `implemented` | `transformed` | `degraded` | `degraded` |"
       );
-      expect(generated).toContain(
+      expect(generatedPublic).toContain(
         "| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |"
       );
-      expect(authoredOutsideBlock(generated, "feature-support")).toBe(
-        authoredOutsideBlock(original, "feature-support")
+      expect(generatedDevelopment).toContain(
+        "| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |"
       );
-      expect(regenerated).toBe(generated);
+      expect(authoredOutsideBlock(generatedPublic, "feature-support")).toBe(
+        authoredOutsideBlock(originalPublic, "feature-support")
+      );
+      expect(
+        authoredOutsideBlock(generatedDevelopment, "feature-support")
+      ).toBe(authoredOutsideBlock(originalDevelopment, "feature-support"));
+      expect(regeneratedPublic).toBe(generatedPublic);
+      expect(regeneratedDevelopment).toBe(generatedDevelopment);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test("refuses malformed development feature-support markers", async () => {
+    const root = await referenceFixture();
+    try {
+      const featurePath = join(
+        root,
+        "docs/development/features/feature-registry.md"
+      );
+      const original = await readFile(featurePath, "utf8");
+      await writeFile(
+        featurePath,
+        original.replace(
+          "<!-- skillset:generated:end feature-support -->",
+          "<!-- skillset:generated:end feature-support extra -->"
+        ),
+        "utf8"
+      );
+
+      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+        "invalid generated markers"
+      );
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -536,9 +580,7 @@ async function referenceFixture(): Promise<string> {
       ].join("\n")
     );
   }
-  for (const projection of listFeatureSupportMatrixProjections().filter(
-    ({ path }) => path.startsWith("docs/reference/features/")
-  )) {
+  for (const projection of listFeatureSupportMatrixProjections()) {
     await writeFixture(
       root,
       projection.path,
