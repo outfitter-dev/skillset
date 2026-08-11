@@ -153,7 +153,8 @@ local. Onboarding is preview-first: `skillset create [name]` creates a named
 child and `skillset init [directory]` initializes an existing directory. Neither
 command installs output or mutates provider/global runtime configuration. This
 decision wholly replaces Unified Source Layout while retaining source-first
-ownership and target truth. Current proof is in `docs/layout.md`, ADR-0002,
+ownership and target truth. Current proof is in the
+[workspace layout reference](../reference/source/workspace-layout.md), ADR-0002,
 resolver/XDG/setup code, and workspace-layout contract tests.
 
 ## References

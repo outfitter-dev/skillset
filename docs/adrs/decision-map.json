@@ -102,7 +102,7 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - keeps adaptive source canonical while generated standards and provider trees remain artifacts.",
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - keeps adaptive source canonical while generated standards and provider trees remain artifacts.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
@@ -198,7 +198,7 @@
           "fromPath": "docs/adrs/0026-yaml-formatting-and-bun-native-apis.md"
         },
         {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - amended narrowly: `compile.targets` remains provider selection while adopted standards gain a separate default-output axis.",
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - amended narrowly: `compile.targets` remains provider selection while adopted standards gain a separate default-output axis.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
@@ -249,7 +249,7 @@
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
-          "context": "- [Cursor provider ADR](../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
+          "context": "- [Cursor provider ADR](../../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
           "from": "runtime-adapters",
           "fromPath": "docs/development/features/runtime-adapters.md"
         },
@@ -290,7 +290,7 @@
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
-          "context": "- [ADR-0003: Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md) - governs provider and standard projections that cannot faithfully represent source.",
+          "context": "- [ADR-0003: Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md) - governs provider and standard projections that cannot faithfully represent source.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         }
@@ -387,7 +387,7 @@
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
-          "context": "- [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - provides the typed evidence model and is amended so conforming `AGENTS.md` is a standard baselin",
+          "context": "- [ADR-0005: Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - provides the typed evidence model and is amended so conforming `AGENTS.md` is a standard baseline r",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
@@ -407,12 +407,12 @@
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
         },
         {
-          "context": "See [Feature Reference and Schema Registry](../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.",
+          "context": "See [Feature Reference and Schema Registry](../../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.",
           "from": "feature-registry",
           "fromPath": "docs/development/features/feature-registry.md"
         },
         {
-          "context": "- [Feature registry](../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.",
+          "context": "- [Feature registry](../../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.",
           "from": "runtime-adapters",
           "fromPath": "docs/development/features/runtime-adapters.md"
         }
@@ -443,7 +443,7 @@
           "fromPath": "docs/adrs/0020-portable-skill-tools-policy.md"
         },
         {
-          "context": "- [ADR-0006: Agent Source Model](../0006-agent-source-model.md) - defines project agents as role source, distinct from the Agent standards family introduced here.",
+          "context": "- [ADR-0006: Agent Source Model](0006-agent-source-model.md) - defines project agents as role source, distinct from the Agent standards family introduced here.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
@@ -460,7 +460,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Agent / Subagent Source Model",
-      "updated": "2026-07-20"
+      "updated": "2026-08-07"
     },
     {
       "amended_by": [],
@@ -520,7 +520,7 @@
           "fromPath": "docs/adrs/0011-source-test-selection-shape.md"
         },
         {
-          "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md) - keeps `.skillset/rules/` as adaptive instruction source and `.skillset/agents/` as project-agent source.",
+          "context": "- [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - keeps `.skillset/rules/` as adaptive instruction source and `.skillset/agents/` as project-agent source.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         }
@@ -611,7 +611,7 @@
           "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
         },
         {
-          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
           "from": "tests-and-evals",
           "fromPath": "docs/reference/features/tests-and-evals.md"
         }
@@ -647,7 +647,7 @@
           "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), [Chang",
           "from": "releases",
           "fromPath": "docs/reference/features/releases.md"
         }
@@ -703,27 +703,27 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
-          "from": "changes",
-          "fromPath": "docs/reference/features/changes.md"
-        },
-        {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
-          "from": "dependencies",
-          "fromPath": "docs/reference/features/dependencies.md"
-        },
-        {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestion",
           "from": "hook-guardrails",
           "fromPath": "docs/development/features/hook-guardrails.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md), and",
+          "from": "changes",
+          "fromPath": "docs/reference/features/changes.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
+          "from": "dependencies",
+          "fromPath": "docs/reference/features/dependencies.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), [Chang",
           "from": "releases",
           "fromPath": "docs/reference/features/releases.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
           "from": "supports",
           "fromPath": "docs/reference/features/supports.md"
         }
@@ -795,22 +795,22 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md), and",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
           "from": "dependencies",
           "fromPath": "docs/reference/features/dependencies.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), [Chang",
           "from": "releases",
           "fromPath": "docs/reference/features/releases.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
           "from": "supports",
           "fromPath": "docs/reference/features/supports.md"
         }
@@ -836,12 +836,12 @@
           "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
-          "context": "decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../adrs/0017-lowering-outcomes-and-loss-ledger.md)",
+          "context": "decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../../adrs/0017-lowering-outcomes-and-loss-ledger.md)",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
         {
-          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
           "from": "tests-and-evals",
           "fromPath": "docs/reference/features/tests-and-evals.md"
         }
@@ -887,17 +887,17 @@
           "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
         },
         {
-          "context": "- [ADR-0018: Render Results](../0018-render-results.md) - amended so standards projections gain their own identity without entering the provider `target` field.",
+          "context": "- [ADR-0018: Render Results](0018-render-results.md) - amended so standards projections gain their own identity without entering the provider `target` field.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "See [ADR-0018: Render Results](../adrs/0018-render-results.md) for the current",
+          "context": "See [ADR-0018: Render Results](../../adrs/0018-render-results.md) for the current",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
         {
-          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
           "from": "tests-and-evals",
           "fromPath": "docs/reference/features/tests-and-evals.md"
         }
@@ -953,17 +953,17 @@
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
-          "context": "- [ADR-0019: Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md) - supplies deterministic and adapter-conformance proof for standards-native ",
+          "context": "- [ADR-0019: Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - supplies deterministic and adapter-conformance proof for standards-native out",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "- [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
+          "context": "- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
         {
-          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
           "from": "tests-and-evals",
           "fromPath": "docs/reference/features/tests-and-evals.md"
         }
@@ -1010,12 +1010,12 @@
           "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
-          "context": "- [Post-Tools Policy Boundary](../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit togethe",
+          "context": "- [Post-Tools Policy Boundary](../../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit toge",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
         {
-          "context": "See the [Post-Tools Policy Boundary ADR](../adrs/0021-post-tools-policy-boundary.md)",
+          "context": "See the [Post-Tools Policy Boundary ADR](../../adrs/0021-post-tools-policy-boundary.md)",
           "from": "tools-policy",
           "fromPath": "docs/reference/features/tools-policy.md"
         }
@@ -1054,11 +1054,6 @@
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.",
           "from": "20260723",
           "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
-        },
-        {
-          "context": "The [workflow-oriented CLI ADR](../adrs/0022-workflow-oriented-cli.md) fixes the top-level commands. This document fixes the flag vocabulary those command-family implementations consume. The machine-r",
-          "from": "cli-flags",
-          "fromPath": "docs/reference/cli-flags.md"
         }
       ],
       "number": "0022",
@@ -1116,6 +1111,11 @@
           "context": "adoption survey](0024-one-action-repo-adoption.md#adoption-surveys-the-whole-repo-not-just-manifests)",
           "from": "0022",
           "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "Provider-specific material may remain explicit rather than being forced into a fake portable abstraction. The [support matrix](../reference/support-matrix.md) shows current support, and [ADR-0024](../",
+          "from": "importing",
+          "fromPath": "docs/guides/importing.md"
         }
       ],
       "number": "0024",
@@ -1149,7 +1149,7 @@
           "fromPath": "docs/adrs/0016-change-release-edge-decisions.md"
         },
         {
-          "context": "contract in [ADR-0025](../adrs/0025-baseline-record-evidence-bridges.md). The",
+          "context": "contract in [ADR-0025](../../adrs/0025-baseline-record-evidence-bridges.md). The",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         }
@@ -1170,7 +1170,7 @@
       "depends_on": ["0", "1", "19"],
       "inbound": [
         {
-          "context": "[ADR-0026](../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and",
+          "context": "[ADR-0026](../../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and",
           "from": "workbench",
           "fromPath": "docs/development/features/workbench.md"
         }
@@ -1191,7 +1191,7 @@
       "depends_on": ["0", "5", "12", "19", "22", "23"],
       "inbound": [
         {
-          "context": "See [ADR-0027](../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
+          "context": "See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
           "from": "runtime-activation-readiness",
           "fromPath": "docs/reference/features/runtime-activation-readiness.md"
         }

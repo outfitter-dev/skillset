@@ -112,13 +112,14 @@ source-relative includes when physical placement matters.
 `packages/core/src/preprocess.ts` implements the selected syntax, workspace and
 plugin lookup precedence, recursive expansion, and dependency inclusion.
 Focused tests prove missing, ambiguous, cyclic, traversal, and cross-plugin
-failures. `docs/layout.md` and the skill/instruction feature pages document the
-same boundary. This evidence accepts the decision without expanding partials
-into a general template language or cross-plugin import system.
+failures. The [preprocessing reference](../reference/source/preprocessing.md)
+and skill/instruction feature pages document the same boundary. This evidence
+accepts the decision without expanding partials into a general template
+language or cross-plugin import system.
 
 ## References
 
 - [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.
-- [Layout](../layout.md) - current source tree and preprocessing contract.
+- [Preprocessing](../reference/source/preprocessing.md) - current preprocessing and partial-resolution contract.
 - [Skills](../reference/features/skills.md) - skill body preprocessing behavior.
 - [Instructions](../reference/features/instructions.md) - rule body preprocessing behavior.

@@ -13,7 +13,7 @@
       ],
       "inbound": [
         {
-          "context": "- [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.",
+          "context": "- [First-class sets](../../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separa",
           "from": "README",
           "fromPath": "docs/reference/features/README.md"
         },
@@ -64,9 +64,9 @@
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
         },
         {
-          "context": "trust. See the [global/XDG draft ADR](adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md).",
-          "from": "layout",
-          "fromPath": "docs/layout.md"
+          "context": "The managed known-workspaces index is machine-local configuration used to resolve local repository identities. It is disposable convenience state, not committed source or portable verification evidenc",
+          "from": "workspace-layout",
+          "fromPath": "docs/reference/source/workspace-layout.md"
         }
       ],
       "number": null,
@@ -85,7 +85,7 @@
       "depends_on": ["0", "1", "6", "5"],
       "inbound": [
         {
-          "context": "- [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and e",
+          "context": "- [Model and reasoning alias profiles](../../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model an",
           "from": "README",
           "fromPath": "docs/reference/features/README.md"
         },
@@ -131,12 +131,12 @@
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestion",
           "from": "hook-guardrails",
           "fromPath": "docs/development/features/hook-guardrails.md"
         },
         {
-          "context": "- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mu",
+          "context": "- [Reviewed settings suggestion workflow](../../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not",
           "from": "README",
           "fromPath": "docs/reference/features/README.md"
         },

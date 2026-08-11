@@ -46,8 +46,8 @@ skillset.yaml + .skillset/ authored source
        provider-native repository files
 ```
 
-- `skillset.yaml` selects targets and workspace behavior.
-- `.skillset/` contains the source humans and agents edit.
+- [`skillset.yaml`](docs/configuration/project-configuration.md) selects targets and workspace behavior.
+- [`.skillset/`](docs/reference/source/workspace-layout.md#authored-workspace) contains the source humans and agents edit.
 - `skillset check` validates source and reports generated drift.
 - `skillset build` previews a deterministic output plan.
 - `skillset build --yes` writes repo-local provider output and lock provenance.
