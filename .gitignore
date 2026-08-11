@@ -1,5 +1,7 @@
 node_modules/
 dist/
+apps/skillset/README.md
+apps/skillset/LICENSE
 .DS_Store
 .env
 .env.*

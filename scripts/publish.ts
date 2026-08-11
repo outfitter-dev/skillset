@@ -149,8 +149,7 @@ async function commandCheck() {
   const state = await getRegistryState();
   printState(state);
 
-  await run(["bun", "run", "build:npm"]);
-  await run(["bun", "pm", "pack", "--dry-run"], packageDir);
+  await run(["bun", "run", "check:pack"]);
 }
 
 async function waitForPublished() {
