@@ -36,6 +36,9 @@ describe("changeset guard", () => {
 
   test("treats the scoped CLI manifest as package-facing", () => {
     expect(isPackageAffectingPath("apps/cli/package.json")).toBe(true);
+    expect(isPackageAffectingPath("apps/native-darwin-arm64/package.json")).toBe(true);
+    expect(isPackageAffectingPath("scripts/build-package.ts")).toBe(true);
+    expect(isPackageAffectingPath("scripts/native-packages.ts")).toBe(true);
   });
 
   test("passes package payload changes with an active changeset", () => {

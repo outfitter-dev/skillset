@@ -1,11 +1,11 @@
 import { chmod, copyFile, mkdir, rm } from "node:fs/promises";
 
 const cliPackageDir = "apps/cli";
-const legacyPackageDir = "apps/skillset";
+const launcherPackageDir = "apps/skillset";
 const outdir = `${cliPackageDir}/dist`;
 
 await Promise.all(
-  [cliPackageDir, legacyPackageDir].map(async (packageDir) => {
+  [cliPackageDir, launcherPackageDir].map(async (packageDir) => {
     await rm(`${packageDir}/dist`, { force: true, recursive: true });
     await mkdir(packageDir, { recursive: true });
   })
@@ -28,14 +28,22 @@ for (const output of result.outputs) {
   console.error(`skillset: built ${output.path}`);
 }
 
-const canonicalCli = `${outdir}/cli.js`;
-const legacyCli = `${legacyPackageDir}/dist/cli.js`;
-await mkdir(`${legacyPackageDir}/dist`, { recursive: true });
-await copyFile(canonicalCli, legacyCli);
-await chmod(legacyCli, 0o755);
-console.error(`skillset: projected ${legacyCli}`);
+const launcher = `${launcherPackageDir}/dist/cli.js`;
+const launcherResult = await Bun.build({
+  entrypoints: ["apps/skillset/src/launcher.ts"],
+  external: ["@skillset/native-*"],
+  naming: { entry: "cli.js" },
+  outdir: `${launcherPackageDir}/dist`,
+  target: "node",
+});
+if (!launcherResult.success) {
+  for (const log of launcherResult.logs) console.error(log);
+  process.exit(1);
+}
+await chmod(launcher, 0o755);
+console.error(`skillset: built ${launcher}`);
 
-for (const packageDir of [cliPackageDir, legacyPackageDir]) {
+for (const packageDir of [cliPackageDir, launcherPackageDir]) {
   for (const file of ["README.md", "LICENSE"]) {
     const destination = `${packageDir}/${file}`;
     await copyFile(file, destination);

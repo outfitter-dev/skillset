@@ -42,7 +42,9 @@
     "hooks:pre-commit": "bun run test:sandbox -- lefthook run pre-commit --force",
     "hooks:pre-push": "bun run test:sandbox -- lefthook run pre-push --force",
     "build:native": "bun scripts/native.ts build",
+    "build:native-packages": "bun scripts/native-packages.ts",
     "native:check": "bun scripts/native.ts verify",
+    "native:global-smoke": "bun scripts/native-global-smoke.ts",
     "native:smoke": "bun scripts/native.ts smoke",
     "prepack": "tsc --noEmit && bun scripts/build-package.ts",
     "publish:check": "bun run test:sandbox -- bun run publish:check:repo",
@@ -73,6 +75,13 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
+    "@clack/prompts": "^1.7.0",
+    "@skillset/core": "workspace:*",
+    "@skillset/lint": "workspace:*",
+    "@skillset/registry": "workspace:*",
+    "@skillset/schema": "workspace:*",
+    "@skillset/toolkit": "workspace:*",
+    "@skillset/transforms": "workspace:*",
     "@types/bun": "^1.2.15",
     "@types/commonmark": "0.27.10",
     "commonmark": "0.31.2",
@@ -80,6 +89,7 @@
     "oxfmt": "0.54.0",
     "oxlint": "1.69.0",
     "typescript": "^5.8.3",
-    "ultracite": "7.8.3"
+    "ultracite": "7.8.3",
+    "yaml": "^2.8.1"
   }
 }

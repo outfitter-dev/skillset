@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 type Workflow = {
+  on?: {
+    pull_request?: {
+      paths?: string[];
+    };
+  };
   jobs?: Record<
     string,
     {
@@ -37,6 +42,7 @@ describe("SET-419 native workflow contract", () => {
     );
 
     expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.on?.pull_request?.paths).toContain("apps/native-*/**");
     expect(buildStep?.run).toContain("build:native");
     expect(buildStep?.run).toContain("--required --reproducible");
     expect(verifyStep?.run).toContain("native:check");
@@ -55,6 +61,13 @@ describe("SET-419 native workflow contract", () => {
           "Run target-host smoke without system Bun in the child PATH"
       )?.run
     ).toContain("native:smoke");
+    expect(
+      smoke?.steps?.find(
+        (step) =>
+          step.name ===
+          "Prove npm global install, platform selection, and reinstall"
+      )?.run
+    ).toContain("native:global-smoke");
     expect(JSON.stringify(workflow)).not.toMatch(
       /publish|release create|attest|sign/i
     );
