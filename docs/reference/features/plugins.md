@@ -1,6 +1,10 @@
+---
+description: Plugins define source containers, manifest authority, component ownership, and provider bundle boundaries.
+---
+
 # Plugins
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-assets` | `implemented` | `pass_through` | `pass_through` | `planned` |
@@ -15,17 +19,15 @@
 | `plugin-skills` | `implemented` | `native` | `native` | `native` |
 | `plugin-src` | `implemented` | `pass_through` | `pass_through` | `planned` |
 | `plugin-themes` | `implemented` | `pass_through` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `plugins`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Plugins group skills and target-native companion files while preserving provider-specific bundle boundaries. Source lives under the workspace source root's `plugins/<plugin>/` directory, such as `.skillset/plugins/<plugin>/`, with a plugin-local `skillset.yaml`.
+A plugin is a source container that preserves one product identity while generating separate [provider-native](../../glossary.md#provider-native) bundles. Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; default output lives at `plugins/<plugin>/<target>/`.
 
-## Authoring
+## Source Contract
 
-Plugin identity derives from the directory unless `skillset.name` is present and agrees. `skillset.id` is rejected. Plugin source can configure `claude`, `codex`, and `cursor` blocks for target opt-outs, output selection, defaults, and target-native options. Plugin-local `defaults.<target>.<surface>` is shorthand for target defaults, not provider selection.
+The directory name is the plugin identity. `skillset.name`, when present, must agree with it; `skillset.id` is invalid.
 
 ```yaml
 skillset:
@@ -33,7 +35,6 @@ skillset:
   description: Review automation and guidance.
   author:
     name: Example Team
-  homepage: https://example.com/review-tools
   listing:
     display_name: Review Tools
     summary: Review changes with shared automation.
@@ -41,54 +42,41 @@ skillset:
     keywords: [review, automation]
 ```
 
-Core identity and provenance stay directly under `skillset`. Optional discovery and presentation fields use `skillset.listing` with snake_case keys. Explicit provider blocks remain the final override for target-native differences.
+Core identity and provenance fields live directly under `skillset`. Discovery and presentation fields live under `skillset.listing` with snake_case keys. The generated [plugin configuration schema](../schemas/README.md) owns the accepted fields; [project configuration](../../configuration/project-configuration.md) and [target overrides](../../configuration/target-overrides.md) own root selection and provider defaults.
 
-## Target Rendering
+Portable [skills](skills.md) and their [resources](resources.md) remain inside the plugin boundary. Other component paths have their own owners: [agents](agents.md), [instructions](instructions.md), [hooks](hooks.md), [MCP](mcp-servers.md), [executables](executables.md), and [provider source](target-native-islands.md). The generated matrix above is authoritative for provider availability.
 
-| Source | Claude output | Codex output | Cursor output | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `<source-root>/plugins/<plugin>/skillset.yaml` | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` | `.cursor-plugin/plugin.json` | `portable` / `implemented` | Manifest fields derive from source metadata and target-supported companion paths. |
-| Plugin `skillset.license` or `LICENSE.txt` | `LICENSE.txt` | `LICENSE.txt` | `LICENSE.txt` | `portable` / `implemented` | Generated as managed plugin-bundle output and inherited by plugin skills unless overridden or opted out. |
-| Plugin `skills/` | `skills/` | `skills/` | `skills/` | `portable` / `implemented` | Skill inclusion is per target and recorded in locks. |
-| Claude companion paths | commands, agents, hooks, MCP, LSP, output styles, themes, monitors, assets, scripts, src, bin | n/a unless separately supported | n/a unless separately supported | `target_native` / `implemented` | Target truth wins over fake portability. |
-| Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | n/a unless separately supported | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
-| Cursor companion paths | n/a unless separately supported | n/a unless separately supported | commands, agents, hooks, MCP, rules, and provider source | `target_native` / `implemented` | The checked support matrix remains authoritative: assets, LSP, monitors, output styles, README, scripts, src, and themes are not implied by this row. |
+## Provider Output
 
-Copied companion and hook scripts preserve source executable intent. On Unix, any source executable bit lowers to deterministic `0755`; other generated files lower to `0644`. Lock `fileModes` evidence and `skillset check` make mode-only drift visible. Windows skips physical Unix-mode enforcement and records `0644` when its checkout does not expose Git's executable bit.
+Each enabled [target](../../glossary.md#target) receives a separate bundle and native manifest:
 
-## Manifest Field Authority
+```text
+plugins/review-tools/claude/.claude-plugin/plugin.json
+plugins/review-tools/codex/.codex-plugin/plugin.json
+plugins/review-tools/cursor/.cursor-plugin/plugin.json
+```
 
-Each generated-manifest field has exactly one writer; competing authorities are how versions drift. `skillset import` lifts portable metadata from a native manifest into canonical plugin source, re-derives component wiring from the imported layout, and keeps only residual provider-specific options in target manifest overrides.
+The compiler derives component wiring from source layout and feature configuration. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`.
 
-| Field | Authority | Notes |
-| --- | --- | --- |
-| `name` | source (`skillset.name`, defaults to directory) | `manifest.name` is the explicit override. |
-| `version` | release state, with source `version` as fallback | `skillset check --only outputs` reports generated version drift; do not hand-edit generated manifests. |
-| `description` | source (`listing.summary`, then `listing.description`, then core `description`) | Legacy `summary` and `presentation` remain compatibility inputs during the staged cutover. |
-| `author`, `homepage`, `repository`, `license` | core source metadata | Projected where the target manifest has a verified native field. `license` also drives managed `LICENSE.txt` generation from the supported SPDX catalog or a local source file. |
-| marketplace and presentation metadata | `skillset.listing` | Uses canonical snake_case fields and lowers only where the target has a verified native surface. |
-| Component wiring (`commands`, `agents`, `skills`, `hooks`, `mcpServers`, …) | compiler | Derived from source layout and feature keys; never authored in generated output. |
-| `dependencies` (Claude) | compiler, from source `dependencies` | A `claude.manifest.dependencies` override fails the build rather than competing. |
+## Manifest Authority
 
-Target-native `claude.manifest` / `codex.manifest` / `cursor.manifest` blocks remain the visible per-target escape hatch: an override wins over the source-owned value for that target only, and stays reviewable in source.
+Every generated field has one writer:
 
-## Diagnostics
+| Field family | Authority |
+| --- | --- |
+| Name, description, author, homepage, repository, license, listing | canonical plugin source |
+| Version | release state, with source version as fallback |
+| Component paths and dependency wiring | compiler |
+| Verified provider-only values | `claude.manifest`, `codex.manifest`, or `cursor.manifest` source override |
 
-- Reject plugin identity conflicts and unsupported plugin config keys.
-- During whole-repo adoption, compare Claude, Codex, and Cursor native candidates by manifest identity plus deterministic non-manifest source evidence before writing.
-- Normalize equivalent provider roots into one canonical `.skillset/plugins/<plugin>/` source while preserving provider-specific manifest options without shadowing portable metadata or compiler-owned component paths.
-- Coalesce compatible sparse portable metadata into canonical source, and block conflicting portable values before choosing a primary provider manifest.
-- Block same-identity divergent roots and name-only matches; keep similar different identities separate with an advisory merge warning.
-- Exclude nested plugin candidates from a root plugin import so adoption never crosses plugin boundaries.
-- Preserve plugin boundaries; do not promote plugin agents into project agents.
-- Reject Codex-enabled plugin `agents/` and Codex plugin `.rules`.
-- Reject divergent feature and provider-source outputs to the same generated path.
-- Refuse generated root overlaps and unsafe feature source pointers.
+Provider manifest overrides remain target-local, but they cannot compete with compiler-owned component wiring or Claude dependency fields. Generated manifests are [generated output](../../glossary.md#generated-output), not authoring surfaces.
+
+## Errors and Caveats
+
+Skillset rejects identity conflicts, unsupported config keys, competing field authority, unsafe source pointers, generated-root overlap, divergent features targeting the same path, and unmanaged [destination](../../glossary.md#destination) collisions. It also rejects Codex-enabled plugin agents and Codex plugin `.rules` because neither has a documented Codex plugin surface.
+
+Import compares native candidates using manifest identity plus deterministic non-manifest evidence. Conflicting portable values or divergent same-identity roots stop adoption instead of choosing a provider arbitrarily. See [importing existing content](../../guides/importing.md) for the workflow.
 
 ## Provenance
 
-Plugin lock entries include plugin version, included and skipped skills, target state, source and output hashes, and plugin-feature entries for feature-key components such as MCP and `bin`.
-
-## Tests and Fixtures
-
-Fixtures cover manifest shape, companion path declarations, plugin boundary preservation, target-specific output selection, Codex plugin-agent failure, feature/provider-source collisions, generated lock provenance, three-provider adoption permutations, equivalent and divergent candidate roots, root/nested boundaries, traversal determinism, and external-report diagnostics.
+Plugin lock entries record resolved version authority, included and skipped skills, target state, source and output hashes, file modes, and feature-key components. [`skillset explain`](../cli/explain.md) traces a plugin or generated file back to those decisions; [`skillset check --only outputs`](../cli/check.md) detects stale manifests and bundle files.

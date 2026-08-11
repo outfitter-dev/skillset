@@ -1,20 +1,22 @@
+---
+description: Dependencies define internal and external plugin requirements, provider rendering, validation, and provenance.
+---
+
 # Dependencies
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `dependencies` | `implemented` | `native` | `degraded` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `dependencies`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Dependencies declare required plugins. They are distinct from `supports`, which declares compatibility with external packages, tools, APIs, plugins, or version ranges.
+Dependencies declare plugins required by a plugin artifact. They differ from [supports](supports.md), which records compatibility without creating a required plugin edge.
 
-## Authoring
+## Source Contract
 
-Plugin dependencies can be internal selectors resolved from the current Skillset graph or external plugin references with names, ranges, and optional marketplace metadata. Declarations on plugin child source bubble up to the containing plugin because target-native dependency fields live on plugin artifacts, not child files.
+`dependencies.plugins` accepts internal selectors and external references:
 
 ```yaml
 dependencies:
@@ -25,22 +27,22 @@ dependencies:
       marketplace: acme-shared
 ```
 
-## Target Rendering
+`plugin` selects another plugin in the current Skillset graph. The compiler resolves its name and exact release range, which is the conservative default for internal edges. An external reference requires `name` and `range`; use `unversioned: true` only when the external source genuinely has no version contract. `marketplace` records where a user can obtain that plugin.
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `dependencies.plugins` | plugin manifest `dependencies.plugins` | dependency notice in plugin skill instructions | `implemented` / `target_specific` | Claude receives structured manifest metadata; Codex receives explicit fallback guidance because no native field is documented. |
-| Internal plugin selector | resolved plugin name and exact release range | explicit fallback notice | `implemented` | Exact release range is the conservative v1 default. |
-| External plugin dependency | name/range/marketplace metadata | explicit fallback notice | `implemented` | External dependencies require `range` unless `unversioned: true` is explicit. |
+Declarations on plugin-owned child source are hoisted to the containing plugin because provider dependency fields belong to plugin artifacts. The generated [frontmatter schemas](../schemas/README.md) own the exact accepted shapes.
 
-## Diagnostics
+## Provider Output
 
-Dependency declarations fail loudly for unknown internal plugin selectors, self-dependencies, malformed ranges, unsupported dependency keys, and external dependencies without either `range` or `unversioned: true`. Child plugin skill declarations are hoisted to the containing plugin artifact because target-native dependency fields live on plugin artifacts, not child files. Codex-enabled output must not silently drop dependency edges; generated notices tell Codex not to install or resolve dependencies by itself and to ask the user to install or enable them through their Skillset or plugin marketplace workflow. `skillset list` and `skillset explain` show compact dependency summaries from lock provenance.
+Claude receives structured `dependencies.plugins` in the generated plugin manifest. Codex has no documented native plugin-dependency field, so generated plugin skill instructions include an explicit fallback notice. The notice tells the user to install or enable the dependency through Skillset or their plugin marketplace; it does not install, resolve, or activate anything. Cursor support remains planned as shown in the generated matrix.
+
+Compiler-generated dependency fields are authoritative. A competing `claude.manifest.dependencies` override fails instead of shadowing source declarations.
+
+## Errors and Caveats
+
+Skillset rejects unknown internal selectors, self-dependencies, malformed ranges, unsupported keys, and external entries without either `range` or explicit `unversioned: true`. A Codex build cannot silently omit an edge; the degraded notice is required output.
+
+Dependency changes are source-significant and severity-bearing because they can change required setup. Marketplace discovery and distribution are separate from declaring the edge; see the [marketplaces guide](../../guides/marketplaces.md).
 
 ## Provenance
 
-Dependencies are both source-significant and severity-bearing because they can change required setup. They participate in normalized hashes, change status, lock/explain evidence, and release planning.
-
-## Evidence
-
-See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).
+Normalized dependencies participate in hashes, change status, lock entries, [`skillset explain`](../cli/explain.md), and release planning. The release rules are recorded in [ADR 0014](../../adrs/0014-source-change-release-provenance.md) and [ADR 0016](../../adrs/0016-change-release-edge-decisions.md).

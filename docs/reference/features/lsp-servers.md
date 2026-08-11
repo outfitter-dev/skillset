@@ -1,20 +1,26 @@
+---
+description: Claude plugin LSP servers define configuration discovery, manifest wiring, JSON validation, and provider limits.
+---
+
 # LSP Servers
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-lsp-servers` | `implemented` | `pass_through` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `lsp-servers`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Claude plugins can include an `.lsp.json` file that declares language server configuration. Skillset treats the file as target-native Claude plugin pass-through and wires the documented manifest field when the file is present.
+Claude plugins can include an `.lsp.json` file that declares language server configuration. Skillset treats the file as [provider-native](../../glossary.md#provider-native) Claude plugin pass-through and wires the documented manifest field when the file is present.
 
 ## Authoring
 
-Place `<source-root>/plugins/<plugin>/.lsp.json` in the plugin source root. `<source-root>` is `.skillset/`. The file is copied only when Claude plugin output for that plugin is active.
+Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. Discovery is automatic, and the file is copied only when the Claude plugin [target](../../glossary.md#target) is active.
+
+```text
+.skillset/plugins/reviewer/.lsp.json
+```
 
 ## Target Rendering
 
@@ -25,7 +31,7 @@ Place `<source-root>/plugins/<plugin>/.lsp.json` in the plugin source root. `<so
 ## Diagnostics
 
 - Refuse malformed generated JSON.
-- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
+- Back up unmanaged [generated-output](../../glossary.md#generated-output) collisions before replacing them in confirmed builds.
 - Reject divergent provider source that tries to emit the same `.lsp.json` path.
 - Do not copy Claude LSP configuration into Codex plugin output.
 
@@ -33,6 +39,6 @@ Place `<source-root>/plugins/<plugin>/.lsp.json` in the plugin source root. `<so
 
 The generated file participates in plugin output hashes and lock provenance as a target-native companion file. It is not a `plugin-feature` entry because v1 does not provide `lsp.source`.
 
-## Tests and Fixtures
+## Evidence
 
-Fixtures cover Claude manifest field declaration, target-native file copying, post-generation JSON parsing, and no Codex rendering.
+Plugin manifest fixtures verify field declaration, pass-through copying, post-generation JSON parsing, and the absence of a Codex [projection](../../glossary.md#projection). Skillset validates JSON syntax but does not claim a portable deep LSP schema.

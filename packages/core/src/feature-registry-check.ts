@@ -1,7 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { compareStrings } from "./path";
 import {
   skillsetFeatureRegistry,
   type SkillsetFeatureEntry,
@@ -11,11 +10,19 @@ import {
   type SkillsetRuntimeSupport,
   type SkillsetTargetSupport,
 } from "./feature-registry";
+import { compareStrings } from "./path";
 import { targetNames } from "./targets";
 import type { TargetName } from "./types";
 
-const FEATURE_SUPPORT_MATRIX_START = "<!-- skillset:feature-support:start -->";
-const FEATURE_SUPPORT_MATRIX_END = "<!-- skillset:feature-support:end -->";
+const LEGACY_FEATURE_SUPPORT_MATRIX_START =
+  "<!-- skillset:feature-support:start -->";
+const LEGACY_FEATURE_SUPPORT_MATRIX_END =
+  "<!-- skillset:feature-support:end -->";
+const GENERATED_FEATURE_SUPPORT_MATRIX_START =
+  "<!-- skillset:generated:start feature-support -->";
+const GENERATED_FEATURE_SUPPORT_MATRIX_END =
+  "<!-- skillset:generated:end feature-support -->";
+const PUBLIC_FEATURE_DOCS_ROOT = "docs/reference/features/";
 
 export type FeatureRegistryDriftCode =
   | "feature-support-table-drift"
@@ -43,6 +50,11 @@ export interface FeatureRegistryDriftReport {
   readonly ok: boolean;
 }
 
+export interface FeatureSupportMatrixProjection {
+  readonly body: string;
+  readonly path: string;
+}
+
 export async function checkFeatureRegistryDrift(
   rootPath: string,
   registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
@@ -65,7 +77,18 @@ export async function checkFeatureRegistryDrift(
   };
 }
 
-export function renderFeatureSupportMatrix(registry: SkillsetFeatureRegistry): string {
+export function listFeatureSupportMatrixProjections(
+  registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
+): readonly FeatureSupportMatrixProjection[] {
+  return featureDocs(registry).map(([path, features]) => ({
+    body: renderFeatureSupportMatrixBody(features),
+    path,
+  }));
+}
+
+export function renderFeatureSupportMatrixBody(
+  registry: SkillsetFeatureRegistry
+): string {
   const targets = targetNames();
   const header = ["Feature", "Feature status", ...targets];
   const rows = [...registry]
@@ -73,14 +96,24 @@ export function renderFeatureSupportMatrix(registry: SkillsetFeatureRegistry): s
     .map((feature) => [
       codeCell(feature.id),
       codeCell(feature.status),
-      ...targets.map((target) => codeCell(feature.targetSupport[target].status)),
+      ...targets.map((target) =>
+        codeCell(feature.targetSupport[target].status)
+      ),
     ]);
   return [
-    FEATURE_SUPPORT_MATRIX_START,
     markdownTableRow(header),
     markdownTableRow(header.map(() => "---")),
     ...rows.map(markdownTableRow),
-    FEATURE_SUPPORT_MATRIX_END,
+  ].join("\n");
+}
+
+export function renderFeatureSupportMatrix(
+  registry: SkillsetFeatureRegistry
+): string {
+  return [
+    LEGACY_FEATURE_SUPPORT_MATRIX_START,
+    renderFeatureSupportMatrixBody(registry),
+    LEGACY_FEATURE_SUPPORT_MATRIX_END,
   ].join("\n");
 }
 
@@ -91,9 +124,13 @@ async function checkFeatureSupportMatrices(
 ): Promise<void> {
   const targets = targetNames();
   for (const [ref, features] of featureDocs(registry)) {
-    if (!isInsideRoot(rootPath, ref) || !(await existsExactLocalRef(rootPath, ref))) continue;
+    if (
+      !isInsideRoot(rootPath, ref) ||
+      !(await existsExactLocalRef(rootPath, ref))
+    )
+      continue;
     const markdown = await readFile(resolve(rootPath, ref), "utf8");
-    const actual = parseFeatureSupportMatrix(markdown);
+    const actual = parseFeatureSupportMatrix(markdown, ref);
 
     if (actual !== undefined) {
       const expectedColumns = ["Feature", "Feature status", ...targets];
@@ -119,7 +156,10 @@ async function checkFeatureSupportMatrices(
       const expectedRows = features.map((feature) => feature.id);
       if (!sameStrings(actual.rows, expectedRows)) {
         const mismatchIndex = firstMismatchIndex(actual.rows, expectedRows);
-        const featureId = expectedRows[mismatchIndex] ?? actual.rows[mismatchIndex] ?? features[0]?.id;
+        const featureId =
+          expectedRows[mismatchIndex] ??
+          actual.rows[mismatchIndex] ??
+          features[0]?.id;
         const target = targets[0];
         if (featureId !== undefined && target !== undefined) {
           const expected = expectedRows.join(", ");
@@ -184,25 +224,30 @@ function featureDocs(
     for (const docRef of feature.docs) {
       const { path } = parseRef(docRef);
       if (
-        ![
-          "docs/development/features/",
-          "docs/reference/features/",
-        ].some((root) => path.startsWith(root)) ||
+        !["docs/development/features/", "docs/reference/features/"].some(
+          (root) => path.startsWith(root)
+        ) ||
         !path.endsWith(".md")
       ) {
         continue;
       }
-      const features = grouped.get(path) ?? new Map<string, SkillsetFeatureEntry>();
+      const features =
+        grouped.get(path) ?? new Map<string, SkillsetFeatureEntry>();
       features.set(feature.id, feature);
       grouped.set(path, features);
     }
   }
   return [...grouped.entries()]
     .sort(([left], [right]) => compareStrings(left, right))
-    .map(([path, features]) => [
-      path,
-      [...features.values()].sort((left, right) => compareStrings(left.id, right.id)),
-    ] as const);
+    .map(
+      ([path, features]) =>
+        [
+          path,
+          [...features.values()].sort((left, right) =>
+            compareStrings(left.id, right.id)
+          ),
+        ] as const
+    );
 }
 
 function pushFeatureSupportMismatch(
@@ -218,7 +263,10 @@ function pushFeatureSupportMismatch(
 ): void {
   if (args.actual === args.expected) return;
   const actual = args.actual ?? "missing";
-  const subject = args.target === undefined ? `${args.featureId} feature` : `${args.featureId} ${args.target}`;
+  const subject =
+    args.target === undefined
+      ? `${args.featureId} feature`
+      : `${args.featureId} ${args.target}`;
   issues.push({
     actual,
     code: "feature-support-table-drift",
@@ -231,36 +279,53 @@ function pushFeatureSupportMismatch(
   });
 }
 
-function parseFeatureSupportMatrix(markdown: string): {
-  readonly columns: readonly string[];
-  readonly features: ReadonlyMap<
-    string,
-    { readonly status: string | undefined; readonly targetSupport: ReadonlyMap<string, string> }
-  >;
-  readonly rows: readonly string[];
-} | undefined {
-  const start = markdown.indexOf(FEATURE_SUPPORT_MATRIX_START);
-  const end = markdown.indexOf(FEATURE_SUPPORT_MATRIX_END);
+function parseFeatureSupportMatrix(
+  markdown: string,
+  ref: string
+):
+  | {
+      readonly columns: readonly string[];
+      readonly features: ReadonlyMap<
+        string,
+        {
+          readonly status: string | undefined;
+          readonly targetSupport: ReadonlyMap<string, string>;
+        }
+      >;
+      readonly rows: readonly string[];
+    }
+  | undefined {
+  const [startMarker, endMarker] = ref.startsWith(PUBLIC_FEATURE_DOCS_ROOT)
+    ? [
+        GENERATED_FEATURE_SUPPORT_MATRIX_START,
+        GENERATED_FEATURE_SUPPORT_MATRIX_END,
+      ]
+    : [LEGACY_FEATURE_SUPPORT_MATRIX_START, LEGACY_FEATURE_SUPPORT_MATRIX_END];
+  const start = markdown.indexOf(startMarker);
+  const end = markdown.indexOf(endMarker);
   if (
     start === -1 ||
     end === -1 ||
     end < start ||
-    markdown.indexOf(FEATURE_SUPPORT_MATRIX_START, start + FEATURE_SUPPORT_MATRIX_START.length) !== -1 ||
-    markdown.indexOf(FEATURE_SUPPORT_MATRIX_END, end + FEATURE_SUPPORT_MATRIX_END.length) !== -1
+    markdown.indexOf(startMarker, start + startMarker.length) !== -1 ||
+    markdown.indexOf(endMarker, end + endMarker.length) !== -1
   ) {
     return undefined;
   }
 
-  const block = markdown.slice(start + FEATURE_SUPPORT_MATRIX_START.length, end).trim();
-  const tableLines = block.length === 0 ? [] : block.split(/\r?\n/u).map((line) => line.trim());
+  const block = markdown.slice(start + startMarker.length, end).trim();
+  const tableLines =
+    block.length === 0 ? [] : block.split(/\r?\n/u).map((line) => line.trim());
   if (
     tableLines.length < 3 ||
     tableLines.some((line) => !line.startsWith("|") || !line.endsWith("|"))
   ) {
     return undefined;
   }
-  const header = tableLines[0] === undefined ? [] : parseMarkdownTableRow(tableLines[0]);
-  const separator = tableLines[1] === undefined ? [] : parseMarkdownTableRow(tableLines[1]);
+  const header =
+    tableLines[0] === undefined ? [] : parseMarkdownTableRow(tableLines[0]);
+  const separator =
+    tableLines[1] === undefined ? [] : parseMarkdownTableRow(tableLines[1]);
   if (
     separator.length !== header.length ||
     separator.some((cell) => cell !== "---")
@@ -279,7 +344,10 @@ function parseFeatureSupportMatrix(markdown: string): {
 
   const features = new Map<
     string,
-    { readonly status: string | undefined; readonly targetSupport: ReadonlyMap<string, string> }
+    {
+      readonly status: string | undefined;
+      readonly targetSupport: ReadonlyMap<string, string>;
+    }
   >();
   const rows: string[] = [];
   for (const line of tableLines.slice(2)) {
@@ -301,11 +369,20 @@ function parseFeatureSupportMatrix(markdown: string): {
   return { columns: header, features, rows };
 }
 
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+function sameStrings(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
-function firstMismatchIndex(left: readonly string[], right: readonly string[]): number {
+function firstMismatchIndex(
+  left: readonly string[],
+  right: readonly string[]
+): number {
   const sharedLength = Math.min(left.length, right.length);
   for (let index = 0; index < sharedLength; index += 1) {
     if (left[index] !== right[index]) return index;
@@ -318,7 +395,10 @@ function markdownTableRow(cells: readonly string[]): string {
 }
 
 function parseMarkdownTableRow(line: string): readonly string[] {
-  return line.slice(1, -1).split("|").map((cell) => cell.trim());
+  return line
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 function codeCell(value: string): string {
@@ -348,7 +428,10 @@ function checkEvidencePresence(
 
   for (const target of targetNames()) {
     const support = feature.targetSupport[target];
-    if (supportRequiresEvidence(support) && (support.evidence?.length ?? 0) === 0) {
+    if (
+      supportRequiresEvidence(support) &&
+      (support.evidence?.length ?? 0) === 0
+    ) {
       issues.push({
         code: "missing-evidence",
         featureId: feature.id,
@@ -358,10 +441,13 @@ function checkEvidencePresence(
     }
   }
 
-  for (const [runtime, support] of Object.entries(feature.runtimeSupport ?? {}) as ReadonlyArray<
-    readonly [SkillsetRuntimeId, SkillsetRuntimeSupport]
-  >) {
-    if (supportRequiresEvidence(support) && (support.evidence?.length ?? 0) === 0) {
+  for (const [runtime, support] of Object.entries(
+    feature.runtimeSupport ?? {}
+  ) as ReadonlyArray<readonly [SkillsetRuntimeId, SkillsetRuntimeSupport]>) {
+    if (
+      supportRequiresEvidence(support) &&
+      (support.evidence?.length ?? 0) === 0
+    ) {
       issues.push({
         code: "missing-evidence",
         featureId: feature.id,
@@ -424,7 +510,13 @@ async function checkEvidenceRefs(
   rootPath: string,
   feature: SkillsetFeatureEntry
 ): Promise<void> {
-  await checkEvidenceList(issues, rootPath, feature.id, "evidence", feature.evidence);
+  await checkEvidenceList(
+    issues,
+    rootPath,
+    feature.id,
+    "evidence",
+    feature.evidence
+  );
 
   for (const target of targetNames()) {
     await checkEvidenceList(
@@ -436,9 +528,9 @@ async function checkEvidenceRefs(
     );
   }
 
-  for (const [runtime, support] of Object.entries(feature.runtimeSupport ?? {}) as ReadonlyArray<
-    readonly [SkillsetRuntimeId, SkillsetRuntimeSupport]
-  >) {
+  for (const [runtime, support] of Object.entries(
+    feature.runtimeSupport ?? {}
+  ) as ReadonlyArray<readonly [SkillsetRuntimeId, SkillsetRuntimeSupport]>) {
     await checkEvidenceList(
       issues,
       rootPath,
@@ -494,7 +586,10 @@ async function pushMissingLocalRef(
   const resolvedRef = resolve(rootPath, ref);
   if (await existsExactLocalRef(rootPath, ref)) {
     if (fragment !== undefined) {
-      await pushMissingMarkdownFragment(issues, resolvedRef, { ...args, fragment });
+      await pushMissingMarkdownFragment(issues, resolvedRef, {
+        ...args,
+        fragment,
+      });
     }
     return;
   }
@@ -534,7 +629,10 @@ async function pushMissingMarkdownFragment(
 
 function isInsideRoot(rootPath: string, ref: string): boolean {
   const relativePath = relative(rootPath, resolve(rootPath, ref));
-  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+  );
 }
 
 function supportRequiresEvidence(
@@ -544,10 +642,18 @@ function supportRequiresEvidence(
 }
 
 function isLocalEvidenceKind(kind: SkillsetFeatureEvidence["kind"]): boolean {
-  return kind === "docs" || kind === "fixture" || kind === "source" || kind === "test";
+  return (
+    kind === "docs" ||
+    kind === "fixture" ||
+    kind === "source" ||
+    kind === "test"
+  );
 }
 
-function parseRef(ref: string): { readonly fragment?: string; readonly path: string } {
+function parseRef(ref: string): {
+  readonly fragment?: string;
+  readonly path: string;
+} {
   const [path, fragment] = ref.split("#", 2);
   return {
     ...(fragment === undefined ? {} : { fragment }),
@@ -599,14 +705,22 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
       return false;
     }
     throw error;
   }
 }
 
-async function existsExactLocalRef(rootPath: string, ref: string): Promise<boolean> {
+async function existsExactLocalRef(
+  rootPath: string,
+  ref: string
+): Promise<boolean> {
   const resolvedRef = resolve(rootPath, ref);
   const relativePath = relative(rootPath, resolvedRef);
   if (relativePath === "") return true;

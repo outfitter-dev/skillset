@@ -221,10 +221,13 @@ export {
 } from "./feature-registry";
 export {
   checkFeatureRegistryDrift,
+  listFeatureSupportMatrixProjections,
   renderFeatureSupportMatrix,
+  renderFeatureSupportMatrixBody,
   type FeatureRegistryDriftCode,
   type FeatureRegistryDriftIssue,
   type FeatureRegistryDriftReport,
+  type FeatureSupportMatrixProjection,
 } from "./feature-registry-check";
 export {
   TARGET_LIST_TEXT,

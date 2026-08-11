@@ -1,121 +1,73 @@
+---
+description: Agents define project roles, skill references, provider output, compatibility limits, and validation.
+---
+
 # Agents
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-agents` | `implemented` | `pass_through` | `unsupported` | `pass_through` |
 | `project-agents` | `implemented` | `native` | `transformed` | `native` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `agents`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Project agents are a portable source surface for reusable, project-scoped specialized roles. Plugin agents remain target-native because Claude and Cursor document plugin `agents/` while Codex plugins do not document an equivalent plugin component.
+Skillset has two agent contracts:
 
-## Authoring
+| Kind | Source | Portability |
+| --- | --- | --- |
+| Project agent | `.skillset/agents/*.md` | Portable [source unit](../../glossary.md#source-unit) rendered for enabled providers |
+| Plugin agent | `.skillset/plugins/<plugin>/agents/**/*.md` | [Provider-native](../../glossary.md#provider-native) Claude and Cursor companion; unsupported in Codex plugins |
 
-```text
-<source-root>/agents/*.md
-```
+Project agents define reusable project-scoped roles. Plugin agents remain plugin components because the providers do not share one plugin-agent contract.
 
-`<source-root>` is `.skillset/`.
+## Project-Agent Contract
 
-The source is Markdown with YAML frontmatter:
+A project agent is Markdown with YAML frontmatter and a non-empty body. `description` is required. `name` defaults to the filename stem and is sanitized into the generated filename.
 
-```yaml
+```markdown
 ---
-name: Code Reviewer
-description: Reviews project changes.
+name: release-reviewer
+description: Reviews release evidence and generated changes.
 skills:
-  - skillset-codex-development
-initialPrompt: Start with the smallest complete review.
+  - changelog
 codex:
-  model: gpt-5-codex
-claude:
-  model: sonnet
-cursor:
-  model: cursor-fast
+  model: gpt-5.1-codex
 ---
 
-Review diffs and call out correctness risks.
+Review the proposed release before changing source.
 ```
 
-`description` and a non-empty body are required. `name` is optional and defaults to the source filename stem. Outputs use the resolved `name`, sanitized deterministically, not necessarily the source filename:
+The generated [agent-frontmatter schema and example](../schemas/README.md) own all accepted fields. Shared metadata belongs at the top level; provider-only fields belong in `claude`, `codex`, or `cursor` blocks. The [frontmatter](../../configuration/frontmatter.md) and [target override](../../configuration/target-overrides.md) pages explain that [cascade](../../glossary.md#cascade).
 
-```text
-.claude/agents/<resolved-name>.md
-.codex/agents/<resolved-name>.toml
-.cursor/agents/<resolved-name>.md
-```
-
-The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../schemas/README.md) and [agent frontmatter examples](../examples/agent-frontmatter.yaml) for the current shared fields, common metadata blocks, `supports`, and provider override blocks. Provider-specific fields remain explicit inside `claude`, `codex`, and `cursor` blocks rather than being inferred from portable keys.
-
-Shared `skills` entries and ordinary string entries in a provider block are managed Skillset references. They must resolve to a target-enabled standalone skill or use the qualified `plugin.<plugin>.skill:<skill>` form. When a provider project agent intentionally references a provider-installed skill that is outside Skillset's source graph, author an explicit target-scoped native entry instead:
+Shared `skills` entries are managed references. They must resolve to a target-enabled standalone skill or use `plugin.<plugin>.skill:<skill>`. A provider-installed skill outside the Skillset graph must use an explicit provider-scoped entry:
 
 ```yaml
 claude:
-  model: fable
   skills:
-    - be-clark
     - native: trails
 ```
 
-`native` is an ownership escape, not a missing-skill bypass. Skillset preserves the exact authored name and ordering for that provider but does not validate, install, import, or claim the referenced skill. It is unavailable in shared top-level `skills`; each use must stay visible inside the owning provider block. Use a qualified plugin reference when Skillset owns the plugin skill, because that keeps target availability validation and provider namespace rendering intact.
+Native references preserve the authored name and order but are not validated, installed, or claimed by Skillset.
 
-Project-agent bodies and initial prompts can use resolve-only references such
-as `{{@references/guide.md}}` or `{{@shared:references/guide.md}}`. Skillset
-validates the source file and renders a path from each provider's generated
-agent document back to the committed `.skillset/` source. Project agents are
-not resource bundles, so this does not copy companion files and `plugin:`
-references are unavailable.
+## Provider Output
 
-Skillset must keep this separate from plugin `agents/` and skill-local Codex `agents/openai.yaml`. Reusing either surface would hide target differences and make project behavior look portable by accident.
+| Source | Claude | Codex | Cursor |
+| --- | --- | --- | --- |
+| Project agent | `.claude/agents/<name>.md` | `.codex/agents/<name>.toml` | `.cursor/agents/<name>.md` |
+| Plugin agent | plugin `agents/` | unsupported | plugin `agents/` |
 
-## Support Table
+Claude and Cursor receive native project-agent fields. Codex receives TOML with `name`, `description`, and `developer_instructions`; shared skills become a deterministic instruction preface. That preface is a compatibility shim, not target-enforced skill metadata. `codex.defaults.agents.skillsPrefaceTemplate` configures it.
 
-| Source or surface | Claude | Codex | Cursor | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `<source-root>/agents/*.md` | `.claude/agents/*.md` | `.codex/agents/*.toml` | `.cursor/agents/*.md` | `portable` / `implemented` | Target-specific validation runs after rendering. |
-| `<source-root>/plugins/<plugin>/agents/**/*.md` | plugin `agents/` | none | plugin `agents/` | `target_native` / `implemented` for Claude and Cursor; `unsupported` for Codex | Plugin agents stay plugin-scoped and must not be copied into Codex plugins. |
-| skill-local `implicit_invocation` | Claude skill frontmatter | Codex `agents/openai.yaml` policy | n/a | `portable` / `implemented` | This is skill policy, not a project or plugin custom agent. |
-| skill-local `tools` | Claude allowed/disallowed tool metadata | Codex `.skillset.tools.yaml` metadata | Cursor `.skillset.tools.yaml` metadata | `metadata_only` for Codex and Cursor | Records portable policy without mutating user-level config. |
-| user agent writes | `~/.claude/agents` | `~/.codex/agents` | `~/.cursor/agents` | `future` | User/global writes require explicit setup/review flows and are not a side effect of build. |
+`initialPrompt` is appended to Codex instructions inside an `<initial_prompt>` block. A source value containing the closing tag is rejected. Resolve-only references can point from project-agent prose back to committed [workspace](../../glossary.md#workspace) files, but project agents do not copy resource bundles.
 
-## Target Rendering
+## Errors and Caveats
 
-Claude project agents are Markdown files with YAML frontmatter under `.claude/agents/`. Shared `name`, `description`, `skills`, `initialPrompt`, target-specific `claude.*` fields, and the Markdown body render into that file. Source-only fields are stripped, and generated Skillset metadata is included unless `compile.skillset.metadata: false` suppresses it.
+Skillset rejects missing descriptions, empty bodies, duplicate or invalid resolved names, unresolved or target-disabled managed skills, invalid qualified references, and unsafe initial-prompt content. A top-level `model` warns unless every enabled [target](../../glossary.md#target) resolves an explicit provider model.
 
-Codex project agents are standalone TOML files under `.codex/agents/` with `name`, `description`, and `developer_instructions`. Shared `skills` render to a deterministic preface in `developer_instructions`; configure the preface with `codex.defaults.agents.skillsPrefaceTemplate` or root shorthand `defaults.codex.agents.skillsPrefaceTemplate`. Shared `initialPrompt` is appended inside an `<initial_prompt>...</initial_prompt>` block, and source containing `</initial_prompt>` is rejected so generated instructions cannot break the wrapper. Target-specific `codex.*` fields keep exact TOML names, including `developer_instructions` overrides.
-
-Cursor project agents are Markdown files with Cursor frontmatter under `.cursor/agents/`. Shared `name`, `description`, `skills`, `initialPrompt`, target-specific `cursor.*` fields, and the Markdown body render into that file; Cursor-specific fields remain explicit rather than being inferred from portable keys.
-
-The Codex skills preface is a runtime compatibility shim. It is useful and intentional, but it is not the same as Claude's target-enforced agent `skills` metadata. Runtime support records should describe this as `shimmed`, with the mechanism and caveat visible to status, explain, activation tests, and distribution reports.
-
-Claude and Cursor plugin agents are separate plugin components. Codex plugin docs do not document plugin agents, so copying them into Codex output would be fake portability. A Codex-enabled plugin with `agents/` fails loudly; set `codex: false` for that plugin or move project-scoped roles to `<source-root>/agents/`.
-
-## Orchestration Compatibility
-
-Project-agent skill loading is the current orchestration boundary:
-
-- Claude receives native project-agent `skills` metadata in `.claude/agents/*.md`.
-- Cursor receives native project-agent Markdown with the shared `skills` field.
-- Codex receives a deterministic developer-instruction preface that asks the agent to load the named skills first.
-
-The Codex behavior is intentionally classified as `shimmed`, not native, because it depends on instruction following rather than target-enforced metadata. `skillset test` activation probes can cover both sides of that boundary by selecting the helper skill and project agent together, asserting generated Claude, Codex, and Cursor files, and retaining manual probe assets that label Codex as `manual-shimmed`.
-
-## Diagnostics
-
-- Duplicate or invalid resolved agent names fail before writing target files.
-- Missing `description`, empty bodies, unknown or target-disabled managed `skills`, and unsafe `initialPrompt` values fail before writing target files. Qualified plugin skills use `plugin.<plugin>.skill:<skill>` in source and render to the provider namespace. Provider-native skill references must use the exact target-scoped `{ native: <name> }` form.
-- Top-level `model` warns unless every enabled target has a target-specific model from `claude.model`, `codex.model`, `cursor.model`, or target defaults.
-- A Codex-enabled plugin with Claude or Cursor plugin agents fails instead of silently dropping or promoting them.
-- User/global agent destinations should require explicit future setup workflow, not normal build.
+A Codex-enabled plugin containing plugin agents fails instead of dropping or promoting them. Move a portable project role to `.skillset/agents/`, or disable Codex for that plugin. Skillset never writes user-global agent directories during build.
 
 ## Provenance
 
-Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, hashes, and ordered skill-reference provenance in the root `skillset.lock`. Each reference records `managed` or `provider-native` ownership plus its authored and rendered names. `skillset list` includes `project-agent` entries, and `skillset explain <source-root>/agents/<name>.md` points from source to the generated provider files.
-
-## Tests and Fixtures
-
-Fixtures cover `<source-root>/agents/*.md` rendering to `.claude/agents/*.md`, `.codex/agents/*.toml`, and `.cursor/agents/*.md`, explicit names that differ from filenames, initial prompts, managed and provider-native skill references, skills prefaces, metadata suppression, target overrides, drift, collisions, unsafe closing tags, and Codex plugin-agent unsupported diagnostics.
+The root `skillset.lock` records source path, resolved name, target path, hashes, validation, and ordered skill-reference ownership. [`skillset explain`](../cli/explain.md) distinguishes managed references from provider-native ones and exposes the Codex shim caveat.

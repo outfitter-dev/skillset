@@ -1,21 +1,27 @@
+---
+description: Plugin commands define Claude and Cursor source paths, pass-through output, and unsupported targets.
+---
+
 # Commands
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
 | `plugin-commands` | `implemented` | `pass_through` | `not_applicable` | `pass_through` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `commands`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Claude and Cursor plugins can include command definitions under `commands/`. Skillset treats commands as target-native provider pass-through, not as portable command source; Codex has no corresponding plugin component.
+Claude and Cursor plugins can include command definitions under `commands/`. Skillset treats commands as [provider-native](../../glossary.md#provider-native) pass-through, not as portable command source; Codex has no corresponding plugin component.
 
 ## Authoring
 
-Place command files under `<source-root>/plugins/<plugin>/commands/`. `<source-root>` is `.skillset/`. The directory is copied only when the matching Claude or Cursor plugin output for that plugin is active.
+Place command files under `.skillset/plugins/<plugin>/commands/`. Discovery is automatic, and files are copied only when the matching Claude or Cursor plugin [target](../../glossary.md#target) is active for that plugin.
+
+```text
+.skillset/plugins/reviewer/commands/review.md
+```
 
 ## Target Rendering
 
@@ -25,7 +31,7 @@ Place command files under `<source-root>/plugins/<plugin>/commands/`. `<source-r
 
 ## Diagnostics
 
-- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
+- Back up unmanaged [generated-output](../../glossary.md#generated-output) collisions before replacing them in confirmed builds.
 - Reject divergent provider source that tries to emit the same generated command path.
 - Do not copy commands into Codex plugin output.
 
@@ -33,6 +39,6 @@ Place command files under `<source-root>/plugins/<plugin>/commands/`. `<source-r
 
 Command files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide a feature-key source pointer such as `commands.source`.
 
-## Tests and Fixtures
+## Evidence
 
-Fixtures cover Claude and Cursor plugin companion copying, provider-specific output separation, and no Codex rendering for this target-native companion path.
+Plugin rendering fixtures verify Claude and Cursor copying, provider-specific output separation, and the absence of a Codex command [projection](../../glossary.md#projection).

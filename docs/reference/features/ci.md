@@ -1,76 +1,78 @@
+---
+description: Skillset CI provides branch-aware readiness checks, bounded output repair, reports, and a workflow scaffold.
+---
+
 # CI
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
+<!-- skillset:generated:end feature-support -->
 
-Feature id: `ci`
+Registry feature: `workflows`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-`skillset check --ci` is the continuous-integration mode of the cohesive readiness command. It adds branch-aware change coverage and package Changesets awareness to the same source diagnostics and generated-output drift detection used by local `skillset check`, and it can render a Markdown report for pull-request comments and job summaries.
+`skillset check --ci` adds Git-baseline change coverage, package Changesets awareness, and a stable report to the ordinary source and [generated-output](../../glossary.md#generated-output) readiness check.
 
-## Authoring
+## Run the Check
 
 ```bash
-skillset check --ci                                 # read-only CI readiness
-skillset check --ci --fix                           # repair safe source-driven drift
-skillset check --ci --since origin/main             # change baseline override
-skillset check --ci --report skillset-ci-report.md  # PR-comment/job-summary report
-skillset init --include ci --yes            # scaffold .github/workflows/skillset-ci.yml
+skillset check --ci
+skillset check --ci --since origin/main
+skillset check --ci --report skillset-ci-report.md
+skillset check --ci --fix
 ```
 
-Library consumers can call `checkSkillsetSourceReadiness(root, options)` from `@skillset/core` to obtain the source-readiness portion of this workflow without Git or CLI policy. The operation is read-only by default and returns structured graph, lint, and managed-output checks together with deterministic stale, remaining, and fixed paths. Passing `write: "outputs"` explicitly requests a neutral output rebuild after Core reloads and rechecks those facts. The CLI remains responsible for change coverage, Changesets, provider-format migrations, reconciliation policy, recovery guidance, reports, and exit status.
+The [continuous-integration guide](../../guides/continuous-integration.md) owns setup and branch workflow. The generated [`check` reference](../cli/check.md) owns exact flags.
 
-This repo's `bun run check` remains the default local and hosted CI aggregate. It runs the tracked test corpus, which includes the fast deterministic projection and adapter conformance suites. Use `bun run conformance:fast` only when you want a focused rerun of those suites without the rest of the tests. `bun run conformance:external` remains an opt-in slower lane and must not be folded into `bun run check` or scaffolded CI while it needs network access or large cloned repos.
+The report separates source lint, [workspace](../../glossary.md#workspace) change coverage, package Changesets, build errors, and generated-output [drift](../../glossary.md#drift). Terminal, Markdown, and JSON results carry the same recovery action, reason, path/ref/scope, and applicable commands. Markdown starts with `<!-- skillset-ci-report -->` so a workflow can update one PR comment.
 
-The repository's verification scripts share a canonical `bun run test:sandbox`
-runner. A top-level invocation owns one temporary sandbox, leaves `HOME`
-unchanged, isolates all four XDG roots, and passes a validated descriptor to
-nested commands through `SKILLSET_TEST_SANDBOX`. Cleanup is limited to the
-owned temporary path. `SKILLSET_TEST_SANDBOX_RETAIN=1` is an explicit debugging
-escape hatch and reports the retained descriptor and sandbox paths.
+## Know What `--fix` Can Write
 
-Source-driven generated-output drift is the only mechanically repairable problem. With `--fix`, CI rebuilds only when the recovery guidance classifies generated output as the sole blocking condition and managed outputs still match their recorded hashes. Target-side edits are never overwritten, and drift identified as a provider-format migration remains the responsibility of `skillset update`. Lint issues, change-entry failures, unresolved baselines, package Changesets issues, and build errors stay report-only.
+Without `--fix`, the check is read-only except for the explicitly requested report file. With `--fix`, Skillset rebuilds only when source-driven output drift is the sole blocking condition and managed files still match their recorded hashes.
 
-Skillset uses two separate change ledgers. `.skillset/changes/` records source-unit and loadout provenance for Skillset releases. `.changeset/*.md` records npm-facing release intent for the published `skillset` package. `skillset check --ci` checks both against the branch baseline.
+`--fix` refuses to overwrite target-side edits, repair lint or change-entry failures, resolve a missing Git baseline, create a package Changeset, or apply a provider-format migration. Use [`update`](../cli/update.md) for provider-format migrations and [reconciliation](source-suggestions.md) when a managed output edit should become source.
 
-Generated entity `CHANGELOG.md` files are managed projections. When one has been edited directly, `--fix` refuses to overwrite it and the report points to `skillset change reason <@ref>`, `skillset change amend <@ref>`, or `skillset release amend <@ref>` as appropriate.
+Generated changelog edits also remain source-side decisions. Use `change reason` before release, `change amend` for applied source-change wording, or `release amend` for release-event notes.
 
-For added or changed generated paths, CI runs the same read-only ownership and safety classification used by `skillset reconcile`. Reports include the generated path, owning source path when known, whether output-wins is available or refused, and the next manual command. CI never chooses a conflict direction automatically.
+## Exit Behavior
 
-[Source Suggestions](source-suggestions.md) provides the implemented local recovery path for managed generated-output edits that should become source changes. CI writeback remains future-only and must retain the local reconciliation command's clean-patch, refusal, stale-lock, and conflict safeguards.
+| State | Exit |
+| --- | --- |
+| Everything is ready | Zero |
+| Drift remains and `--fix` was not passed | Nonzero |
+| Drift was the only problem and `--fix` repaired it | Zero |
+| Any lint, change, Changesets, build, baseline, or unsafe-output problem remains | Nonzero |
 
-`skillset init --include ci` scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
+A shallow clone with no resolvable comparison baseline is reported as CI infrastructure failure, not as a missing change entry.
 
-- runs `skillset check --ci --fix` on same-repo pull requests and plain `skillset check --ci` on fork pull requests or pushes to `main`;
-- appends the Markdown report to the job summary on every run;
-- commits and pushes mechanical rebuilds back to same-repo pull-request branches;
-- posts (or updates) the report as a PR comment when non-mechanical problems remain, then fails the check.
+## Scaffold the Workflow
 
-Fork pull requests cannot receive pushes or comments with the default `GITHUB_TOKEN`, so the scaffold keeps them read-only; they still get the failing check and the job-summary report.
+```bash
+skillset init --include ci
+skillset init --include ci --yes
+```
 
-## Target Rendering
+The plan previews `.github/workflows/skillset-ci.yml`; `--yes` writes it once. The workflow is user-owned afterward and is never overwritten by a later init.
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `skillset check --ci` mode | n/a | n/a | `implemented` | Workflow tooling, not a rendered source feature. |
-| `--include ci` workflow scaffold | n/a | n/a | `implemented` | Writes `.github/workflows/skillset-ci.yml` once; user-owned afterwards. |
+The scaffold uses `--fix` for same-repository pull requests, stays read-only for forks and pushes to `main`, writes the report to the job summary, and can commit a safe mechanical rebuild back to a same-repository PR branch. Forks cannot receive default-token pushes or comments, so they receive the failing check and job summary only. It checks out full history so the baseline is resolvable.
 
-## Diagnostics
+## Errors and Recovery
 
-The report separates stale generated output, lint issues, change errors and warnings, package Changesets issues, and build errors. Its shared recovery guidance gives terminal, Markdown, and JSON the same action, reason, relevant path/ref/scope, and only the commands that can repair the current state. In particular, `--fix` is offered only for generated-only drift; mixed blockers remain read-only until their specific recovery actions are resolved. A change-check infrastructure failure (for example no resolvable baseline in a shallow clone) is reported distinctly so CI configuration problems are not mistaken for missing entries; the scaffolded workflow checks out with `fetch-depth: 0` to keep `origin/main` resolvable.
+| Problem | Recovery |
+| --- | --- |
+| No Git baseline | Fetch full history or pass a resolvable `--since` ref |
+| Source or config diagnostic | Fix the first source-positioned error |
+| Missing change coverage | Add or refresh a [change reason](changes.md) |
+| Missing package Changeset | Add the package-facing Changeset when required |
+| Provider-format drift | Preview `skillset update` |
+| Managed output edit | Choose `reconcile --use source` or a safe `--use output` plan |
+| Mixed blockers | Resolve each named blocker; `--fix` remains disabled |
 
-Exit status is non-zero whenever a non-mechanical problem remains, or when drift remains and `--fix` was not passed. With `--fix`, a run whose only problem was drift exits zero after rebuilding, which lets the workflow commit the rebuild instead of failing.
-
-The Markdown report starts with the `<!-- skillset-ci-report -->` marker so workflows can find and update an existing comment instead of stacking new ones.
+CI reports classify generated-path reconciliation but never choose source-wins or output-wins and never perform future CI source writeback.
 
 ## Provenance
 
-`skillset check --ci` creates no source truth and never publishes, installs, or mutates user or runtime config. Its only writes are safe source-driven generated-output repairs requested with `--fix` and the report file passed to `--report`. The scaffolded workflow is plan-listed by `init` and written only with `--yes`.
-
-## Evidence
-
-See `packages/core/src/source-readiness.ts`, `packages/core/src/__tests__/source-readiness.test.ts`, `apps/skillset/src/ci.ts`, `apps/skillset/src/__tests__/ci.test.ts`, and this repo's own [.github/workflows/ci.yml](../../../.github/workflows/ci.yml), which dogfoods the scaffolded workflow shape against the local compiler.
+The check creates no new source authority and never publishes, installs, trusts, activates, or mutates runtime configuration. A safe `--fix` updates ordinary generated files and locks; `--report` writes only its selected report path. Core's source-readiness result remains independent of Git and CLI policy in `packages/core/src/source-readiness.ts`.

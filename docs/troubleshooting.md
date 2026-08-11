@@ -91,3 +91,21 @@ A successful build proves repository output, not runtime [activation](glossary.m
 Run the same aggregate locally with `bunx skillset check --ci` and inspect its Git baseline, report, runtime version, and generated diff. Regenerate only after reviewing the plan; do not start with `--fix` when the cause is unknown.
 
 The [CI feature reference](reference/features/ci.md) owns the current check and workflow contract.
+
+## Marketplace check or update refuses an entry
+
+Start with `bunx skillset marketplace check <name> --json`. Resolve the first reported repository, revision, target, generated-output, or lock-provenance failure before previewing an update. A check may contact an external Git remote and refresh Skillset's owned XDG cache, but it does not repair repository output.
+
+Use the [marketplace guide](guides/marketplaces.md) for the workflow and the [marketplace feature reference](reference/features/marketplaces.md) for readiness and refusal states.
+
+## A test, eval, or runtime probe fails
+
+Separate deterministic projection failures from provider infrastructure or ungraded trial results. Preserve the retained run ID and report, then inspect `skillset test status`, `skillset test tail`, `skillset eval status`, or `skillset eval tail` for the surface that failed. Missing binaries, authentication, timeout, cancellation, and malformed provider output cannot establish runtime proof.
+
+See [Tests and Evals](reference/features/tests-and-evals.md) for the execution contracts and [Runtime Activation Readiness](reference/features/runtime-activation-readiness.md) for observational evidence and claim ceilings.
+
+## Version audit reports a mismatch
+
+Identify whether the reported locus is missing, malformed, or stale before changing a version. Source and release history remain authoritative; do not edit a generated manifest merely to satisfy the audit. Re-run the release audit and normal check after repairing the owning source or confirmed release projection.
+
+See [Version Audit](reference/features/version-audit.md), [Releases and Changelogs](reference/features/releases.md), and [Publishing](guides/publishing.md).

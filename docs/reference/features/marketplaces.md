@@ -1,136 +1,100 @@
+---
+description: Skillset marketplaces declare provider catalogs, verify plugin readiness, and write supported marketplace indexes.
+---
+
 # Marketplaces
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `marketplaces` | `implemented` | `native` | `future` | `native` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `marketplaces`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Marketplaces describe curated provider catalog intent. A marketplace repo owns catalog membership and marketplace-level presentation, while each plugin repo owns plugin source, version authority, generated provider bundles, and release provenance.
+A marketplace declares which local or external Skillset plugins belong in provider catalog indexes. The marketplace repository owns catalog membership and presentation; each plugin repository owns source, version authority, generated bundles, and release evidence.
 
-This source contract is intentionally separate from [Distributions](distributions.md). A distribution plan asks where generated files could sync after a build. A marketplace catalog asks which local or external Skillset plugins should appear in provider marketplace indexes once readiness has been proven.
+Use the [marketplace guide](../../guides/marketplaces.md) for the complete task flow. A [distribution](distributions.md) instead plans where already-built files could be delivered, and is not a catalog or publication command.
 
-## Source Shape
+## Declare a Catalog
 
-Marketplace source lives in root `skillset.yaml` under `marketplaces`:
+Marketplace source is a root `skillset.yaml` field:
 
 ```yaml
 marketplaces:
   outfitter:
     title: Outfitter
-    targets:
-      - claude
-      - codex
-      - cursor
+    targets: [claude, cursor]
     plugins:
       - plugin: outfitter-core
       - plugin: trails-review
         repo: github:outfitter-dev/trails
-        channel: latest
-      - plugin: skillset
-        repo: github:outfitter-dev/skillset
         ref: main
 ```
 
-Catalog ids are lowercase ids. `targets` defaults to every supported provider target. `plugins` is required and each entry requires `plugin`, the logical Skillset plugin id.
+Catalog ids are lowercase. `targets` defaults to all supported provider [targets](../../glossary.md#target). Every plugin entry requires its logical `plugin` id; optional `id` can give the catalog entry a different id.
 
-Missing `repo` means the plugin is authored in the current marketplace repo under `.skillset/plugins/<plugin>/`. Present `repo` means the plugin is authored by another Skillset repo. Committed marketplace source must use a remote repo reference, not a local filesystem path such as `../trails` or `file:../trails`; local checkout discovery belongs to managed user/XDG state.
+No `repo` means `.skillset/plugins/<plugin>/` in the current marketplace repository. An external `repo` must be a credential-free Git reference such as `github:org/repo`, HTTPS, SSH, or SCP syntax. Relative paths and `file:` URLs are rejected in committed source. Credentials remain in ordinary Git or CI configuration.
 
-External repository references use credential-free `github:org/repo`, HTTPS, SSH URL, or SCP-style Git syntax. Credentials remain in ordinary read-only Git/CI credential configuration and are never embedded in marketplace source. An external entry may set at most one of `channel`, `ref`, `sha`, or `version`. Omitting all four defaults to `channel: latest`; `latest` is the only channel currently defined. `sha` requires a full lowercase 40-character commit, `version` requires semantic version syntax, and unsafe or option-shaped refs are rejected before Git runs.
+An external entry may select at most one revision policy:
 
-Optional plugin entry fields:
+| Field     | Meaning                                      |
+| --------- | -------------------------------------------- |
+| `channel` | Floating channel; only `latest` exists today |
+| `ref`     | Requested Git ref                            |
+| `sha`     | Exact lowercase 40-character commit          |
+| `version` | Requested semantic version policy            |
 
-| Field | Meaning |
-| --- | --- |
-| `id` | Catalog entry id when it must differ from the plugin id. Defaults to `plugin`. |
-| `repo` | External Skillset repo reference, such as `github:org/repo` or an HTTPS git URL. |
-| `channel` | Floating policy such as `latest`; lock provenance pins the resolved commit/version. |
-| `ref` | Git ref requested by the catalog source; lock provenance records the exact resolved checkout. |
-| `sha` | Exact commit requested by the catalog source. Pinned entries fail when the resolved checkout does not match. |
-| `version` | Version policy requested by the catalog source; plugin version authority stays in the plugin repo. |
-| `targets` | Provider targets for this entry, narrowing the catalog targets. |
+Omitting all four defaults to `channel: latest`. Optional entry `targets` narrows the catalog targets. Exact fields and validation live in the generated [workspace schema](../schemas/README.md).
 
-Provider output paths such as `plugins/<plugin>/<provider>`, `.claude-plugin`, `.codex-plugin`, or `.cursor-plugin` are not part of the marketplace source contract. Provider-native source forms are derived output details for `marketplace update`.
+## Verify Readiness
 
-For Claude, local entries render as relative plugin roots such as `./plugins/outfitter-core`. External entries render as provider-native git subdirectory sources that point at the referenced repo and the derived generated Claude plugin bundle path, such as:
-
-```json
-{
-  "source": "git-subdir",
-  "url": "outfitter-dev/trails",
-  "path": "plugins/trails-review/claude",
-  "sha": "..."
-}
+```bash
+skillset marketplace check outfitter
+skillset marketplace check outfitter --json
 ```
 
-The authored Skillset source stays repo-shaped (`repo`, `ref`, `sha`, `channel`, `version`) rather than asking users to hand-author provider output roots. Cursor renders its provider-owned marketplace index at `.cursor-plugin/marketplace.json` when selected. Codex plugin bundles are still verified as marketplace entries, but Codex does not currently have a provider-owned generated marketplace index in this repo; Codex marketplace activation/config remains outside `marketplace update`.
+Every entry begins at `declared`. An external entry then reports either `floating` or `pinned`; a local entry has no revision-policy state. Both continue through `resolved`, `renderable`, `generated`, `verified`, `locked`, and `marketplace-ready`. A stale lock reports `stale` and ends at `not-ready`; any other failed step also ends at `not-ready` with a structured reason. Merely finding renderable source is insufficient: the selected provider bundle and portable lock proof must be current.
 
-## Resolution
+The check is read-only with respect to the marketplace repository, provider indexes, external plugin repositories, and runtime configuration. External resolution can contact the declared remote and populate or refresh Skillset's owned XDG cache. Floating `latest`, `ref`, and `version` policies resolve from the remote on every check; a warm cache is not current evidence. An exact pinned SHA can reuse a matching verified cache or clean known checkout.
 
-The resolver order is:
+Ordinary `build` and `check` remain network-free.
 
-1. Current marketplace repo for local entries.
-2. A managed user/XDG known-Skillsets checkout when it has the declared origin and exact requested pinned SHA.
-3. Deterministic remote Git acquisition under `$XDG_CACHE_HOME/skillset/remotes/`, falling back to `~/.cache/skillset/remotes/`.
-4. A structured unresolved diagnostic.
+## Preview and Write Provider Indexes
 
-The user/XDG index is managed state, not committed source truth. Floating `latest`, `ref`, and `version` policies resolve from the declared remote so a stale local checkout cannot masquerade as current. Pinned SHA checks may reuse a matching clean known checkout or a verified remote-cache checkout without network access; dirty known checkouts fall through to the remote cache. Known-checkout inspection disables optional Git locks, fsmonitor, and untracked-cache updates so the read-only command does not refresh the external repository's index. Floating checks contact the remote on every run; a warm cache is not proof that a floating ref is still current.
+```bash
+skillset marketplace update outfitter
+skillset marketplace update outfitter --yes
+```
 
-Remote cache identity is derived from the canonical repository plus normalized revision policy, so two refs or SHAs from the same repository cannot share an inspection accidentally. New entries are prepared out of place, published atomically, and serialized by cache key. Existing entries must retain the declared origin, remain inside their XDG cache boundary, use an internal Git directory, and resolve the requested full commit before forced checkout or cleanup. Checkout runs with hooks and inherited filter configuration disabled. A mismatched, symlinked, corrupt, or escaping cache entry fails as `not-ready`; Skillset does not repair it by touching another cache entry or source repository.
+Without `--yes`, update previews the complete provider-index and lock plan. A confirmed update revalidates the plan, writes supported provider indexes, and updates marketplace provenance in the existing `skillset.lock`. If local input or a floating remote changes after preview, the atomic transaction refuses without writing output or lock state.
 
-The known-Skillsets index lives at `$XDG_CONFIG_HOME/skillset/skillsets.json`, falling back to `~/.config/skillset/skillsets.json` when `XDG_CONFIG_HOME` is unset. Skillset updates this managed file opportunistically after successful local workspace commands such as `skillset build --yes`, build previews, `skillset check`, and successful `skillset init --yes` runs, including explicit adoption. Entries record the canonical local checkout path, the effective repo cache key, and normalized repository identities such as `github:outfitter-dev/trails`.
+Claude receives `.claude-plugin/marketplace.json`; Cursor receives `.cursor-plugin/marketplace.json`. Codex plugin bundles can be checked for readiness, but Skillset does not currently emit a Codex-owned marketplace index. Codex marketplace configuration and activation remain external.
 
-Updates serialize the complete read-modify-write transaction across processes. Replacement JSON is flushed to a same-directory temporary file and atomically installed, so readers continue to see the previous complete document until publication. When an updating command encounters malformed index bytes, Skillset first copies and flushes those exact bytes to a unique sibling `skillsets.corrupt-*.json` file, then atomically replaces the disposable index with one rebuilt from the workspace being registered. If replacement fails, both the malformed active index and its byte-preserved sibling remain available for diagnosis. Recovery is automatic and does not require user action. Read-only marketplace lookup never performs this recovery or any other index maintenance.
+The generated [`marketplace` reference](../cli/marketplace.md) owns exact syntax.
 
-Each successful registration also inspects at most 128 existing paths inside that transaction. A stable optional cursor advances through path-sorted entries across registrations; confirmed missing paths and non-directories are pruned, while directories, directory symlinks, and paths with ambiguous inspection errors are retained. This bounded sweep eventually compacts abandoned workspaces without imposing a numeric capacity or evicting live entries. The index remains disposable convenience state: deleting it only discards local acceleration, and subsequent successful workspace commands repopulate entries opportunistically.
+## Resolution and Cache Boundary
 
-The index never records local filesystem paths in committed marketplace source, never mutates external plugin repos, and never writes Claude, Codex, or Cursor runtime settings. Stale, origin-mismatched, or commit-mismatched paths fall through to remote resolution instead of poisoning CI or marketplace checks.
+Resolution tries the current repository, then a matching managed known checkout, then deterministic remote acquisition under `$XDG_CACHE_HOME/skillset/remotes/` (or `~/.cache/skillset/remotes/`). The known-checkout index is disposable XDG configuration state, not committed [workspace](../../glossary.md#workspace) authority.
 
-## Readiness
+Remote-cache entries are keyed by canonical repository and revision policy. Origin, boundary, Git-directory, and exact-commit checks prevent one corrupt, symlinked, or mismatched entry from being treated as another repository. Marketplace lookup never mutates an external checkout. Successful ordinary workspace commands may maintain the known-checkout index, but a read-only marketplace lookup does not repair that index.
 
-Marketplace readiness is explicit:
+## Errors and Recovery
 
-| State | Meaning |
-| --- | --- |
-| `declared` | The catalog references an entry. |
-| `resolved` | The referenced repo and plugin source were found. |
-| `renderable` | Source/config says the requested provider target can be rendered. |
-| `generated` | The expected provider plugin bundle exists at the derived output path. |
-| `verified` | Generated output matches source, lock, and build expectations. |
-| `marketplace-ready` | A provider marketplace entry can be emitted. |
-| `not-ready` | Any step failed with a structured reason. |
+| Problem | Result | Recovery |
+| --- | --- | --- |
+| Repository cannot resolve | Entry is `not-ready` | Correct the credential-free repo/ref or Git access |
+| Provider bundle is absent | Entry is unbuilt | Build and check the plugin repository first |
+| Generated bundle or lock is stale | Entry is unverified | Regenerate from the owning plugin source |
+| Requested target is missing | Entry is not renderable | Enable/build a supported target or narrow entry targets |
+| Pinned SHA differs | Entry is `not-ready`; no fallback is substituted | Correct the pin or provide matching evidence |
+| Cache origin, integrity, or boundary check fails | Entry is `not-ready`; Skillset does not touch another cache/source repo | Remove only the identified disposable cache entry and retry |
+| Input changes between preview and apply | Update refuses the stale transaction | Rerun preview and review the new plan |
 
-`resolved` plus `renderable` is not enough. Provider marketplace entries require generated and verified provider output for the selected target/ref/channel.
-
-## Commands
-
-`skillset marketplace check [name] [--json]` is the read-only marketplace verifier. It parses marketplace source, resolves local entries from the current repo, resolves external entries from an exact known checkout or deterministic XDG remote cache, verifies provider target support and generated output freshness, and reports unresolved, stale, unbuilt, and target-missing entries. Remote acquisition may populate or refresh only the XDG cache; it does not write the marketplace repo, provider marketplace files, external repos, runtime config, installs, trust, or activation state.
-
-The check command exits successfully only when every selected target entry reaches `marketplace-ready`. Local entries use current-checkout policy. External `channel`, `ref`, `version`, and `sha` policies must match portable `skillset.lock` provenance; stale or absent lock proof blocks readiness. Acquisition, origin, ref, schema, generated-output, and cache failures remain structured `not-ready` entries and do not partially update marketplace output.
-
-`skillset marketplace update [name] [--yes] [--json]` is the explicit write command. It runs the same source resolution, generated-output verification, and target support checks as `marketplace check`, refuses unresolved/unbuilt/stale generated output, renders provider-supported marketplace indexes, and updates existing `skillset.lock` provenance. Without `--yes`, it previews the files it would write and writes nothing. Interactive confirmation carries a Core-owned hash of the complete rendered provider-output and lock plan into the write call. If a floating ref or local input changes before apply, Core returns the latest canonical report and refuses the transaction without writing either output.
-
-`marketplace update` is allowed to refresh absent or stale marketplace lock entries when the referenced source and generated provider output are otherwise ready. It still blocks unresolved sources, stale generated plugin bundles, missing target support, and pinned `sha` mismatches. The command never mutates external plugin repos, publishes marketplaces, installs/trusts/activates plugins, or writes user-level provider runtime settings.
+Marketplace commands never publish a repository, mutate an external plugin repo, install or trust a plugin, or write user-level runtime settings.
 
 ## Provenance
 
-Marketplace provenance belongs in existing `skillset.lock` files. There is no separate marketplace lock. The root lock can carry a top-level `marketplaces.entries` section alongside generated-output `items`; `items` remains the generated-file ownership list, while marketplace entries record catalog readiness and resolved source facts without claiming ownership of external plugin repo files.
+The root `skillset.lock` records catalog, entry and plugin ids; requested policy; portable repository/ref/SHA evidence; plugin version; target; [provider-native](../../glossary.md#provider-native) entry; derived output paths; readiness; and catalog output ownership. It never records checkout roots, XDG paths, cache keys, credentials, or local Git URLs.
 
-Each marketplace lock/report entry records the marketplace id, entry id, plugin id, source repo when present, requested channel/ref/sha/version policy, resolved portable repository/ref/SHA facts, plugin version, provider target, provider-native marketplace source form, derived provider output path(s), and readiness status. For provider indexes that can contain external entries, the lock also stores the validated provider-native entry needed for offline re-rendering and records which named catalog currently owns each provider marketplace output. Missing or mismatched provider-entry proof invalidates the external lock entry instead of silently omitting the plugin. Reports may identify whether runtime resolution used `current`, `known-index`, or `remote-cache`; committed lock provenance normalizes external resolution to `external`. Neither surface serializes checkout roots, XDG paths, cache keys, credentials, or local Git URLs. Explicit pinned `sha` entries fail if the resolved checkout SHA is missing or different. Floating entries fail when the current resolution differs from the lock.
-
-Ordinary build and check paths remain network-free. Once `marketplace update` records a ready external resolution, normal lock rendering preserves that portable entry while its committed repo/plugin/policy/target declaration is unchanged. Changing the declaration invalidates the preserved resolution and requires another marketplace update. This allows `skillset check --only outputs` and `skillset check --ci` to pass after an update without silently re-resolving the network.
-
-## Evidence
-
-- [SET-133](https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references) - source contract and command boundary.
-- [SET-233](https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution) - managed XDG known-Skillsets index for local checkout resolution.
-- [SET-234](https://linear.app/outfitter/issue/SET-234/implement-skillset-marketplace-check-readiness-reports) - read-only marketplace readiness reports.
-- [SET-235](https://linear.app/outfitter/issue/SET-235/define-marketplace-ref-policy-and-lock-provenance-for-floating-and) - marketplace ref policy and `skillset.lock` provenance.
-- [SET-236](https://linear.app/outfitter/issue/SET-236/implement-skillset-marketplace-update-provider-index-rendering) - `marketplace update` provider index rendering.
-- [SET-268](https://linear.app/outfitter/issue/SET-268/resolve-external-marketplace-repositories-into-deterministic-xdg-cache) - deterministic remote XDG acquisition and portable provenance.
-- [Distributions](distributions.md) - related post-build sync planning surface.
-- [Runtime Adapters](../../development/features/runtime-adapters.md) - runtime support remains separate from compile targets and marketplace readiness.
+After a confirmed update records a ready external resolution, ordinary offline output checks can reuse that portable proof while the declaration remains unchanged. Editing the repository, policy, plugin, or target invalidates it and requires another marketplace update.

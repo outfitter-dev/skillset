@@ -1,21 +1,27 @@
+---
+description: Codex plugin apps define manifest discovery, pass-through output, conflicts, and current configuration limits.
+---
+
 # Apps
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
 | `plugin-apps` | `implemented` | `not_applicable` | `pass_through` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `apps`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Codex plugins can include an `.app.json` app manifest. Skillset resolves the conventional file as an internal plugin feature for rendering, provenance, and activation planning; there is no user-facing feature-key source pointer.
+Codex plugins can include an `.app.json` app manifest. Skillset resolves the conventional file as [provider-native](../../glossary.md#provider-native) source for [rendering](../../glossary.md#render), provenance, and [activation](../../glossary.md#activation) planning; there is no user-facing feature-key source pointer.
 
 ## Authoring
 
-Place `<source-root>/plugins/<plugin>/.app.json` in plugin source when an enabled Codex plugin should include the app manifest. `<source-root>` is `.skillset/`. There is no `apps.source`, `app.source`, or `apps: true` source key in v1.
+Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Codex plugin should include the app manifest. Discovery is automatic. There is no `apps.source`, `app.source`, or `apps: true` source key; those shapes fail config validation.
+
+```text
+.skillset/plugins/reviewer/.app.json
+```
 
 ## Target Rendering
 
@@ -34,6 +40,6 @@ Place `<source-root>/plugins/<plugin>/.app.json` in plugin source when an enable
 
 The current `.app.json` pass-through participates in plugin output hashes, generated manifest shape, and the `plugin-feature` lock entry used for activation planning.
 
-## Tests and Fixtures
+## Evidence
 
-Existing manifest tests cover Codex plugin interface and companion-path shape. Future app-specific tests should land with any feature-key validation or `apps.source` support.
+The [Codex provider reference](../providers/codex.md) records the provider boundary. Plugin manifest and contract tests verify companion discovery, conflicts, and generated manifest shape.

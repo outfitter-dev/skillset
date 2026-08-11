@@ -1,51 +1,66 @@
+---
+description: Skillset version audit compares current version authority with supported generated Claude and Codex artifacts.
+---
+
 # Version Audit
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `version-audit` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `version-audit`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Version audit is a read-only check across version loci: source authority, release state, generated target manifests, and future destination/runtime manifests.
+Version audit is a read-only comparison between source or release-state authority and supported generated version fields. It does not decide whether source changed, compute a release bump, repair [generated output](../../glossary.md#generated-output), or publish anything.
 
-## Boundary
-
-Version audit complements source-hash provenance. It does not decide whether a source unit changed, does not compute release bumps, and does not mutate generated files. It answers a narrower question: does the version field visible in a generated or destination artifact still match the authority Skillset would render now?
-
-`supports` ranges are compatibility metadata, not artifact versions. A skill can support `@acme/docs-cli ^2.4.0` without its own `metadata.version` being `2.4.0`.
-
-## CLI
+## Run the Audit
 
 ```bash
 skillset release audit
+skillset release audit --json
 ```
 
-The command builds the current rendering in memory, extracts expected versions, reads matching files on disk, and reports each locus. It exits nonzero only for concrete generated-output issues: `stale-generated`, `missing`, or `malformed`.
+The command renders expected versions in memory, reads matching files on disk, and reports each supported locus. It exits nonzero when any locus is `stale-generated`, `missing`, or `malformed`; an all-`in-sync` report exits zero. Exact syntax lives in the generated [`release` reference](../cli/release.md).
 
-## Statuses
+Example human report:
 
-| Status | Meaning |
-| --- | --- |
-| `in-sync` | The on-disk version matches the current source or release-state authority. |
-| `stale-generated` | The on-disk generated artifact exists but has a different version from the current authority. |
-| `missing` | The generated artifact is absent on disk. |
-| `malformed` | The generated artifact exists but the expected version field is absent or unreadable. |
-| `destination-owned` | A future destination audit owns this version field outside Skillset source. |
-| `externally-managed` | A package manager, marketplace, or runtime owns the version field. |
-| `unsupported` | Skillset recognizes the surface but cannot currently audit its version field. |
+```text
+in-sync         plugin:review  claude  plugins/review/claude/.claude-plugin/plugin.json  1.4.0
+stale-generated skill:lint     codex   .agents/skills/lint/SKILL.md                       1.3.0 -> 1.4.0
+```
 
-## Current Loci
+## Current Audit Boundary
 
-Current audits cover generated provider plugin manifests, plugin skill manifests, standalone skill manifests, marketplace metadata versions, and marketplace plugin entry versions. The authority is release state when a release scope exists, otherwise source version metadata and inheritance rules.
+The current implementation audits:
 
-Future extensions can add downstream distribution manifests and package metadata by classifying each locus with the same shape: path, field, scope, target, expected version, actual version, authority, and status.
+- Claude and Codex generated plugin manifests;
+- Claude and Codex plugin-bound and standalone skill manifests;
+- Claude `.claude-plugin/marketplace.json` plugin-entry versions.
+
+Cursor version loci are not currently audited. Codex marketplace metadata is also outside the current audit because Skillset does not emit a Codex-owned marketplace index. The generated support marker describes the workflow's registry status, not a claim that every provider has an audited version surface.
+
+Release state is authoritative when a release scope exists; otherwise source version metadata and inheritance rules supply the expected version. A `supports` range is dependency compatibility metadata, not the artifact's own version.
+
+## Current Statuses
+
+| Status | Meaning | Recovery |
+| --- | --- | --- |
+| `in-sync` | Disk matches current version authority | None |
+| `stale-generated` | A supported generated artifact has another version | Preview and confirm a build or release apply |
+| `missing` | The expected generated artifact is absent | Rebuild the selected output |
+| `malformed` | The expected version field is missing or unreadable | Inspect the artifact and regenerate it from trusted source |
+
+The internal model reserves vocabulary for future [destination](../../glossary.md#destination)-owned, externally managed, and unsupported loci, but the current audit does not emit those as inspected records.
+
+## Diagnose a Mismatch
+
+Use [`skillset explain <path>`](../cli/explain.md) to identify source and lock ownership. If the source version should change, follow [Releases and Changelogs](releases.md) and the [publishing guide](../../guides/publishing.md). If source is already correct, preview the build before repairing the generated artifact. A version audit never changes either side.
+
+## Provenance
+
+Each record carries the path, version field, source scope, provider [target](../../glossary.md#target), expected and actual values, authority, and status. Version audit complements source hashes and lock provenance; it does not replace them.
 
 ## Evidence
 
-- [Releases And Changelogs](releases.md) - source release state and generated version behavior.
-- [Distributions](distributions.md) - destination-owned metadata and future sync boundaries.
-- [SET-111 contract test](../../../apps/skillset/src/__tests__/contract.test.ts) - read-only audit and stale generated version detection.
+The implementation lives in `packages/core/src/version-audit.ts`; the read-only CLI and stale-version contract are covered by `apps/skillset/src/__tests__/contract.test.ts`.

@@ -1,44 +1,59 @@
+---
+description: Instructions define adaptive guidance metadata, path scoping, provider projections, and command-policy boundaries.
+---
+
 # Instructions
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-rules` | `implemented` | `not_applicable` | `not_applicable` | `pass_through` |
 | `project-instructions` | `implemented` | `transformed` | `transformed` | `transformed` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `instructions`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Instructions are durable repo guidance authored under `.skillset/rules/**/*.md`. Codex `.rules` files are a separate target-native command policy surface under `.skillset/_codex/rules/**/*.rules`; Cursor plugin `rules/` files are target-native companions, not portable instruction source.
+Portable [adaptive source](../../glossary.md#adaptive-source) instructions live at `.skillset/rules/**/*.md`. They provide durable repository guidance rather than invokable skill behavior.
 
-## Authoring
+## Source Contract
 
-Instruction Markdown may include `name`, `dialect`, top-level `paths` for Claude path scoping, common `skillset` metadata, `supports`, and explicit provider target blocks such as `claude`, `codex`, and `cursor`. The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../schemas/README.md) and [instruction frontmatter examples](../examples/instruction-frontmatter.yaml) for the current field set and provider override shape. Bodies support preprocessing through nested `{{this.<field>}}` frontmatter references, instruction variables such as `{{skillset.repo_root}}`, source context such as `{{skillset.source_path}}` and `{{parent.tree depth:2}}`, triple-brace literal escapes such as `{{{this.title}}}`, path partials via `{{shared:path.md}}` or a path relative to the source file, resolve-only references via `{{@shared:path.md}}` or `{{@path.md}}`, and named partials via `{{> intro}}`. Resolve-only references validate the source file and render a path from each generated rule back to committed `.skillset/` source; they do not copy companion files. `plugin:` is unavailable because adaptive instructions are workspace-owned rather than plugin-bound. Unrelated double-brace expressions in Markdown remain unchanged, while invalid reserved Skillset expressions still fail. Set `skillset.preprocess: false` when all recognized preprocessing syntax should be preserved literally.
+An instruction is Markdown with optional frontmatter and a body:
 
-Use `skillset new instruction <name>` to preview a canonical workspace instruction at `.skillset/rules/<normalized-name>.md`. Add `--in <plugin>` to place it at `.skillset/plugins/<plugin>/rules/<normalized-name>.md`; the plugin must already exist. The command writes only with `--yes`, refuses collisions, and never runs a build implicitly. Bare interactive `skillset new` offers the same Instruction kind and invokes the same scaffold report.
+```markdown
+---
+paths:
+  - docs/**/*.md
+---
 
-## Target Rendering
+# Documentation guidance
 
-| Source | Claude output | Codex output | Cursor output | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | derived `AGENTS.md` files | `.cursor/rules/**/*.mdc` | `portable` / `implemented` | Claude keeps `paths`; Codex strips frontmatter and concatenates deterministic source sections; Cursor renders Cursor rule frontmatter. |
-| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a | `target_native` / `implemented` | Execution policy, not instruction prose. |
-| `<source-root>/plugins/<plugin>/rules/` | n/a | n/a | plugin root `rules/` | `target_native` / `implemented` | Cursor plugin companion rules remain provider-native. |
+Keep public behavior aligned with its canonical contract.
+```
 
-## Diagnostics
+The generated [instruction-frontmatter schema and example](../schemas/README.md) own the exact fields. `paths` supplies Claude path scoping and helps derive scoped Codex [destinations](../../glossary.md#destination). Shared metadata and provider blocks follow the [frontmatter](../../configuration/frontmatter.md) and [target override](../../configuration/target-overrides.md) contracts.
 
-- Reject instruction Markdown outside `.skillset/rules/`.
-- Reject unmanaged `AGENTS.md` collisions before writing.
-- Warn when a generated `AGENTS.md` exceeds Codex's default `project_doc_max_bytes`.
-- Reject unknown `skillset.*` variables, missing `this.*` fields, unsafe partial paths, and unsupported Codex symlink mode.
-- Treat instruction Markdown rendering to Codex `.rules` as lossy and unsupported.
+Instruction-body expressions, partials, resolve-only references, escaping, and `skillset.preprocess: false` belong to [source preprocessing](../source/preprocessing.md). The broader path and ownership rules live in the [instruction source reference](../source/instructions.md).
+
+## Provider Output
+
+| Source | Claude | Codex | Cursor |
+| --- | --- | --- | --- |
+| `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | root or scoped `AGENTS.md` | `.cursor/rules/**/*.mdc` |
+| `.skillset/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a |
+| Plugin `rules/` | n/a | n/a | plugin `rules/` |
+
+Claude preserves path scope. Cursor translates it to Cursor rule frontmatter. Codex strips source frontmatter and combines contributing instructions in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped instructions contribute to the repository root.
+
+Codex `.rules` files are [provider-native](../../glossary.md#provider-native) command-execution policy, not instruction prose. Plugin `rules/` are Cursor-native companions. Neither path is another portable instruction [source root](../../glossary.md#source-root).
+
+## Errors and Caveats
+
+Skillset rejects invalid frontmatter, unsupported preprocessing expressions, unsafe partial paths, output collisions, unsupported symlink mode, and attempts to render Markdown instruction prose as Codex `.rules`. A generated `AGENTS.md` that exceeds Codex's default project-document byte limit emits a warning; narrower path scopes avoid silent provider truncation.
+
+Provider toggles can make one instruction unavailable to a [target](../../glossary.md#target). They do not change the instruction's shared meaning.
+
+Use [`skillset new instruction`](../cli/new.md) to scaffold source and [`skillset explain`](../cli/explain.md) to trace a source instruction or [generated output](../../glossary.md#generated-output) to its lock-backed destinations.
 
 ## Provenance
 
-Instruction outputs are tracked in the root `skillset.lock` with source paths, output paths, hashes, target, and preprocessing dependencies. `skillset explain` works for both source instruction files and generated outputs.
-
-## Tests and Fixtures
-
-Fixtures cover canonical source paths, old-path rejection, path-derived Codex destinations, deterministic concatenation, target opt-outs, variable rendering, unmanaged collisions, stale output checks, size warnings, and symlink rejection.
+The root `skillset.lock` records instruction source paths, destination paths, target, hashes, deterministic aggregation, and preprocessing dependencies.

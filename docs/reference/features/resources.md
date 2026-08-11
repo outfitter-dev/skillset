@@ -1,20 +1,22 @@
+---
+description: Resources define shared file selection, destination mapping, executable modes, path safety, and drift.
+---
+
 # Resources
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `resources` | `implemented` | `native` | `native` | `native` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `resources`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Resources let skills copy exact shared files or directories into generated skill folders without copying the entire source tree.
+Resources let a skill select shared files or directories for copying into its generated folder. [Workspace](../../glossary.md#workspace) inputs live under `.skillset/shared/`; plugin-local inputs live under `.skillset/plugins/<plugin>/shared/` and are available only to skills in that plugin.
 
-## Authoring
+## Source Contract
 
-Root shared inputs live under `<source-root>/shared/`. Plugin-local shared inputs live under `<source-root>/plugins/<plugin>/shared/`. `<source-root>` is `.skillset/`. Skills opt in through `resources` frontmatter using `shared:` for root shared resources or `plugin:` for plugin-bound skills.
+`resources` accepts the groups `references`, `scripts`, `assets`, and `templates`. A string preserves the group-relative path. An object maps `from` to an explicit skill-relative `to` [destination](../../glossary.md#destination).
 
 ```yaml
 resources:
@@ -24,30 +26,23 @@ resources:
     - plugin:scripts/check.sh
   templates:
     - from: shared:templates/report.md
-      to: templates/report.md
+      to: templates/review-report.md
 ```
 
-## Target Rendering
+`shared:` selects the workspace shared root. `plugin:` selects the current plugin's shared root and is invalid for a standalone skill. A declared directory copies its complete tree. The generated [skill-frontmatter schema](../schemas/README.md) owns the exact field shapes; [workspace layout](../source/workspace-layout.md) owns source placement.
 
-| Source | Claude output | Codex output | Cursor output | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Declared resource file | skill-local copied file | skill-local copied file | skill-local copied file | `portable` / `implemented` | Links and scripts remain relative to the generated skill directory. |
-| Declared resource directory | skill-local copied tree | skill-local copied tree | skill-local copied tree | `portable` / `implemented` | Child links through resource URLs rewrite to generated paths. |
+## Provider Output
 
-The source executable bit is the authoring signal: use `chmod +x` on executable resource files. Skillset normalizes executable generated files to `0755` and other generated files to `0644` on Unix. Windows does not apply or check Unix filesystem modes; when a checkout does not expose Git's executable bit, Skillset records `0644` instead of guessing from filenames or shebangs.
+Every enabled [target](../../glossary.md#target) receives the declared resource beneath the generated skill directory. Links from the skill or copied resources are rewritten to the mapped destination where required. A custom `to` therefore becomes the only valid generated path.
 
-## Diagnostics
+Source executable intent is authoritative. On Unix, executable inputs lower to `0755` and other generated files to `0644`; a script filename or shebang does not imply executability. Windows skips physical Unix-mode enforcement and records `0644` when the checkout exposes no executable bit.
 
-- Reject undeclared shared resource links and suggest a `resources` entry.
-- Reject ambiguous bare links to source resource paths when a custom `to` path is used.
-- Reject resource mappings that escape the generated skill directory or overwrite generated files.
-- Reject plugin resources from standalone skills.
-- Lint declared `scripts/` resources that are missing executable bits.
+## Errors and Caveats
+
+Skillset rejects missing inputs, undeclared shared-resource links, ambiguous bare links after custom mapping, path traversal, generated-file collisions, and plugin resources referenced by standalone skills. Declared scripts without source executable bits produce a lint diagnostic; set the source bit with `chmod +x`.
+
+Resources are copied, unlike resolve-only references described by [source preprocessing](../source/preprocessing.md). Avoid declaring large directories when one file is sufficient because every selected byte participates in generated [drift](../../glossary.md#drift).
 
 ## Provenance
 
-Resource contents and normalized modes are included in generated skill source hashes and `skillset check --only outputs` drift. Lock schema v2 entries keep `fileModes` plus mode-aware generated hashes so content-only and mode-only changes are visible.
-
-## Tests and Fixtures
-
-Fixtures cover declared file and directory resources, custom `to` paths, link rewriting, escape rejection, collision rejection, plugin-root script diagnostics, executable-script linting, executable-mode rendering and repair, and resource-driven drift.
+The generated skill's `skillset.lock` entry records copied paths, normalized modes, content hashes, and preprocessing dependencies. [`skillset check --only outputs`](../cli/check.md) detects content-only and mode-only drift, and [`skillset explain`](../cli/explain.md) shows the declaring skill and mapping.
