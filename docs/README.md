@@ -25,6 +25,12 @@ Choose the question you are trying to answer. Each linked page states what it ow
 
 - [Troubleshooting](troubleshooting.md) starts from source, drift, import, recovery, watch, CI, and activation symptoms.
 
+## I need to ship or distribute work
+
+- [Continuous integration](guides/continuous-integration.md) adds branch-aware readiness checks and bounds automatic [generated-output](glossary.md#generated-output) repair.
+- [Publishing](guides/publishing.md) separates workspace releases, downstream distribution planning, and npm package publication.
+- [Marketplaces](guides/marketplaces.md) verifies curated plugin entries and writes supported provider catalog indexes deliberately.
+
 ## I am contributing
 
 - [Contributing](../CONTRIBUTING.md) covers setup, checks, source ownership, Changesets, and review expectations.

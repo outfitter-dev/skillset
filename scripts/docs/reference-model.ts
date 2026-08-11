@@ -15,6 +15,7 @@ import {
 } from "../../apps/skillset/src/cli-presentation";
 import {
   listSkillsetFeatures,
+  targetDescriptor,
   targetNames,
   type SkillsetFeatureEntry,
   type SkillsetFeatureKind,
@@ -82,19 +83,39 @@ export interface SupportReference {
   readonly targets: readonly ReferenceTargetName[];
 }
 
+export interface ProviderFeatureReference {
+  readonly docs: readonly ReferenceDocLink[];
+  readonly featureStatus: SkillsetFeatureStatus;
+  readonly id: string;
+  readonly note?: string;
+  readonly primaryDoc?: ReferenceDocLink;
+  readonly reason?: string;
+  readonly status: SkillsetTargetSupportStatus;
+  readonly title: string;
+}
+
+export interface ProviderReference {
+  readonly displayLabel: string;
+  readonly features: readonly ProviderFeatureReference[];
+  readonly id: ReferenceTargetName;
+}
+
 export interface DocsReferenceModel {
   readonly cliCommands: readonly CliCommandReference[];
   readonly cliEnvironment: readonly CliEnvironmentReference[];
   readonly cliFlags: readonly CliFlagReference[];
+  readonly providers: readonly ProviderReference[];
   readonly support: SupportReference;
 }
 
 export function buildDocsReferenceModel(): DocsReferenceModel {
+  const support = buildSupportReference();
   return {
     cliCommands: buildCliCommandReferences(),
     cliEnvironment: buildCliEnvironmentReferences(),
     cliFlags: buildCliFlagReferences(),
-    support: buildSupportReference(),
+    providers: buildProviderReferences(support),
+    support,
   };
 }
 
@@ -172,6 +193,41 @@ export function buildSupportReference(
       }),
     targets: orderedTargets,
   };
+}
+
+export function buildProviderReferences(
+  support: SupportReference = buildSupportReference()
+): readonly ProviderReference[] {
+  return support.targets.map((target) => ({
+    displayLabel: targetDescriptor(target).displayLabel,
+    features: support.features.map((feature) => {
+      const targetSupport = feature.targetSupport.find(
+        (candidate) => candidate.target === target
+      );
+      if (targetSupport === undefined) {
+        throw new Error(
+          `skillset: feature ${feature.id} has no ${target} provider support reference`
+        );
+      }
+      return {
+        docs: feature.docs.map((doc) => ({ ...doc })),
+        featureStatus: feature.status,
+        id: feature.id,
+        ...(targetSupport.note === undefined
+          ? {}
+          : { note: targetSupport.note }),
+        ...(feature.primaryDoc === undefined
+          ? {}
+          : { primaryDoc: { ...feature.primaryDoc } }),
+        ...(targetSupport.reason === undefined
+          ? {}
+          : { reason: targetSupport.reason }),
+        status: targetSupport.status,
+        title: feature.title,
+      };
+    }),
+    id: target,
+  }));
 }
 
 function flagReference(name: CliFlag): CliFlagReference {

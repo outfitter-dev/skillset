@@ -137,7 +137,7 @@ type SkillsetFeatureEntryInput = Omit<SkillsetFeatureEntry, "targetSupport"> & {
 
 const CURSOR_PROVIDER_EVIDENCE = [
   docs("docs/adrs/0002-cursor-is-a-first-class-provider.md"),
-  docs("docs/target-surfaces.md#cursor-provider-baseline"),
+  docs("docs/reference/providers/cursor.md"),
 ] as const satisfies readonly SkillsetFeatureEvidence[];
 
 export const skillsetFeatureRegistry = defineFeatureRegistry([
@@ -798,7 +798,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       cursor: {
         evidence: [
           docs("docs/development/features/runtime-adapters.md"),
-          docs("docs/target-surfaces.md#cursor-provider-baseline"),
+          docs("docs/reference/providers/cursor.md"),
           docs("docs/adrs/0002-cursor-is-a-first-class-provider.md"),
           fixture("fixtures/external/repos.yaml"),
         ],
@@ -1000,7 +1000,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/reference/features/apps.md", "docs/reference/features/hooks.md", "docs/reference/features/commands.md", "docs/reference/features/settings.md"],
-    evidence: [docs("docs/target-surfaces.md")],
+    evidence: [docs("docs/reference/providers/README.md")],
     id: "future-companion-source-pointers",
     kind: "plugin-component",
     renderOwner: "future",

@@ -254,9 +254,9 @@
           "fromPath": "docs/development/features/runtime-adapters.md"
         },
         {
-          "context": "ADR](adrs/0002-cursor-is-a-first-class-provider.md). Provider evidence",
-          "from": "target-surfaces",
-          "fromPath": "docs/target-surfaces.md"
+          "context": "The local Cursor CLI can smoke-test isolated renderings, but runtime evidence remains separate from compile-target support. A successful build does not prove that Cursor trusted, discovered, or invoke",
+          "from": "cursor",
+          "fromPath": "docs/reference/providers/cursor.md"
         }
       ],
       "number": "0002",

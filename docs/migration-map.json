@@ -242,6 +242,19 @@
       "status": "moved"
     },
     {
+      "from": "docs/target-surfaces.md",
+      "primary": "docs/reference/providers/README.md",
+      "status": "split",
+      "successors": [
+        "docs/development/features/feature-registry.md",
+        "docs/reference/providers/README.md",
+        "docs/reference/providers/claude.md",
+        "docs/reference/providers/codex.md",
+        "docs/reference/providers/cursor.md",
+        "docs/reference/support-matrix.md"
+      ]
+    },
+    {
       "from": "docs/tenets.md",
       "primary": "docs/project/tenets.md",
       "status": "moved"

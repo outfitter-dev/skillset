@@ -766,7 +766,8 @@ async function expectFeatureDiagnosticError(
 }
 
 // SET-14: golden manifest tests pin the target-surface shapes the evidence
-// matrix (docs/target-surfaces.md) claims. Casing drift fails loudly here.
+// provider reference and generated support matrix claim. Casing drift fails
+// loudly here.
 
 test("SET-14: Codex plugin manifest interface uses documented camelCase fields", async () => {
   const root = await goldenPluginFixture();

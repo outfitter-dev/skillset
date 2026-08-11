@@ -9,6 +9,7 @@ import {
 import { CLI_PRESENTATION_CATALOG } from "../../../apps/skillset/src/cli-presentation";
 import {
   listSkillsetFeatures,
+  targetDescriptor,
   targetNames,
   type SkillsetFeatureEntry,
 } from "../../../packages/core/src";
@@ -17,6 +18,7 @@ import {
   buildCliEnvironmentReferences,
   buildCliFlagReferences,
   buildDocsReferenceModel,
+  buildProviderReferences,
   buildSupportReference,
 } from "../reference-model";
 
@@ -171,6 +173,43 @@ describe("documentation reference model", () => {
     );
   });
 
+  test("derives exact provider pages from canonical targets and support facts", () => {
+    const registryBefore = structuredClone(listSkillsetFeatures());
+    const targetsBefore = [...targetNames()];
+    const first = buildProviderReferences();
+    const second = buildProviderReferences();
+
+    expect(first).toEqual(second);
+    expect(first.map((provider) => provider.id)).toEqual([...targetNames()]);
+    expect(first.map((provider) => provider.displayLabel)).toEqual(
+      targetNames().map((target) => targetDescriptor(target).displayLabel)
+    );
+    for (const provider of first) {
+      expect(provider.features.map((feature) => feature.id)).toEqual(
+        listSkillsetFeatures()
+          .map((feature) => feature.id)
+          .toSorted()
+      );
+      for (const feature of provider.features) {
+        const source = listSkillsetFeatures().find(
+          (candidate) => candidate.id === feature.id
+        );
+        if (source === undefined)
+          throw new Error(`missing source feature ${feature.id}`);
+        expect(feature).toMatchObject({
+          featureStatus: source.status,
+          status: source.targetSupport[provider.id].status,
+          title: source.title,
+        });
+        expect(feature.docs.map((doc) => doc.ref)).toEqual([...source.docs]);
+        expect(feature.note).toBe(source.targetSupport[provider.id].note);
+        expect(feature.reason).toBe(source.targetSupport[provider.id].reason);
+      }
+    }
+    expect(listSkillsetFeatures()).toEqual(registryBefore);
+    expect(targetNames()).toEqual(targetsBefore);
+  });
+
   test("composes the CLI and support projections into one model", () => {
     const model = buildDocsReferenceModel();
 
@@ -179,6 +218,7 @@ describe("documentation reference model", () => {
     expect(model.cliEnvironment).toHaveLength(
       Object.keys(CLI_ENVIRONMENT).length
     );
+    expect(model.providers).toHaveLength(targetNames().length);
     expect(model.support.features).toHaveLength(listSkillsetFeatures().length);
     expect(model.support.targets).toEqual(targetNames());
   });

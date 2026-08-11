@@ -11,6 +11,7 @@ export type DocsRule =
   | "docs/link-form"
   | "docs/link-target"
   | "docs/migration-map"
+  | "docs/provider-id"
   | "docs/reachability"
   | "docs/syntax";
 

@@ -78,7 +78,7 @@ The cost is that plugin authors who want cross-target specialized roles cannot w
 
 - Current tests already assert Claude plugin `agents/` is copied into Claude plugin output and **absent** from Codex plugin output (`skillset.test.ts` "plugin manifests keep agent and hook surfaces target-specific"). That pins the plugin-agent deferral.
 - SET-24 added project-agent fixtures for `.skillset/agents/*.md` rendering to Claude `.claude/agents/<name>.md`, Codex `.codex/agents/<name>.toml`, and Cursor `.cursor/agents/<name>.md`, plus validation coverage for target fields, overrides, metadata suppression, collisions, unsafe prompts, and Codex plugin-agent unsupported diagnostics.
-- When/if a Codex-native plugin agent surface is added, add a kitchen-sink fixture path plus a golden manifest assertion, and a row in `docs/target-surfaces.md` moving Codex plugin agents from **Unsupported / Deferred** to **Implemented (pass-through)**.
+- When/if a Codex-native plugin agent surface is added, add a kitchen-sink fixture path plus a golden manifest assertion, update the registry support row, and refresh the generated support block in the [Codex provider reference](../reference/providers/codex.md).
 
 ## Open questions for a future revisit
 
@@ -107,4 +107,4 @@ depend on its later acceptance.
 
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
 - [Tenets](../project/tenets.md) - target truth and intent-derivation principles.
-- [Target Surface Evidence Matrix](../target-surfaces.md) - current Claude/Codex/Cursor plugin surface status.
+- [Provider reference](../reference/providers/README.md) - current Claude, Codex, and Cursor provider boundaries.

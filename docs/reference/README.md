@@ -9,6 +9,7 @@ Use these pages when you need exact command, compatibility, or source-contract f
 - [CLI reference](cli/README.md) lists every public command and its canonical options.
 - [Source reference](source/README.md) documents the workspace layout, instructions, and preprocessing behavior.
 - [Configuration](../configuration/README.md) explains project settings, source frontmatter, target overrides, and tools policy.
+- [Provider reference](providers/README.md) explains target vocabulary and routes to Claude, Codex, Cursor, and the generated support matrix.
 - [Feature support matrix](support-matrix.md) shows registry-owned implementation and provider status.
 - [CLI flag conventions](cli-flags.md) explains shared command-line behavior.
 - [Schemas](schemas/README.md) provide generated JSON Schema artifacts and editor integration.

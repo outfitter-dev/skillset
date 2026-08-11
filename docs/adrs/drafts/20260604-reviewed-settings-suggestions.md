@@ -185,6 +185,6 @@ The only accepted implementation work from this ADR is documentation and future 
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.
 - [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.
 - [Tenets](../../project/tenets.md) - build does not imply trust and drift should be visible early.
-- [Target Surface Evidence Matrix](../../target-surfaces.md) - compact support matrix for target surfaces.
+- [Claude provider reference](../../reference/providers/claude.md) - current provider-native settings boundary and activation limits.
 - [Claude Code settings](https://code.claude.com/docs/en/settings) - official settings scopes, settings files, precedence, and plugin settings evidence.
 - [Codex config basics](https://developers.openai.com/codex/config-basic) - official config paths, precedence, trust-gated project config, and common settings evidence.

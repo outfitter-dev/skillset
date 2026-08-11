@@ -165,4 +165,4 @@ enforcement or establish a public adapter API. Current evidence lives in
 - [Feature Registry](../development/features/feature-registry.md) - feature-facing documentation for the typed registry contract.
 - [Render Results](0018-render-results.md) - per-build outcome vocabulary that stays separate from registry capability status.
 - [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - conformance model that consumes registry support and render results together.
-- [Target Surface Evidence Matrix](../target-surfaces.md) - compact target evidence matrix that feature pages expand.
+- [Feature Support Matrix](../reference/support-matrix.md) - generated registry projection across every canonical provider target.

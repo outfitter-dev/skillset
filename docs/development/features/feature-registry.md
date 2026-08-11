@@ -82,6 +82,22 @@ Provider snapshots are the preferred evidence for implemented destination-format
 
 External docs remain useful for future or exploratory rows before a destination format is adopted. Neither evidence type proves Skillset's rendering is correct or that a runtime activation path works; runtime support and activation probes stay separate from compile-target support.
 
+## Provider Evidence Refresh
+
+Provider evidence is refreshed explicitly and never fetched during ordinary build or check operations:
+
+```bash
+bun run providers:check
+bun run providers:diff
+bun run providers:update
+```
+
+`providers:check` compares adopted schema sources with their upstream sources. `providers:diff` adds readable schema changes and manual-review rows for prose-only destination formats. `providers:update` rewrites the checked-in schema snapshots and provenance after a maintainer has reviewed the change.
+
+Destination-format snapshots, schema snapshots, and manual overlays live in `@skillset/registry`. When a provider format changes, update the affected feature support evidence and rendering tests together. Record a destination-format migration only when its behavior is understood well enough to classify as compatible, adapter-only, source-migration, unsupported-drift, or manual-review; unregistered or lossy drift must remain a visible manual review instead of triggering an automatic rewrite.
+
+Changes under `packages/registry/src/**` are package-facing. Follow the [package release procedure](../package-releases.md) for the required Changeset and release evidence, then verify that the authored [provider reference](../../reference/providers/README.md) and generated [support matrix](../../reference/support-matrix.md) still describe the same contract.
+
 ## Diagnostics
 
 Diagnostics carry stable feature ids where useful, but user-facing messages remain readable. A message like `skillset: Codex plugins do not support plugin-local bin/ helpers` is better than a bare `plugin-bin unsupported`; the feature id belongs in structured output, lock/report evidence, or a suffix where it helps agents inspect the issue. Render results inherit target-support evidence, so a skipped, degraded, or unsupported destination can cite the provider destination-format snapshot or schema overlay that justified the support fact without adding a second provider matrix.

@@ -4,7 +4,7 @@ The feature reference is the human-readable support registry for Skillset v1. It
 
 For a registry-owned overview across every canonical provider target, see the [feature support matrix](../support-matrix.md).
 
-Use these pages alongside the [target surface evidence matrix](../../target-surfaces.md). The matrix is the compact target-fact table; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
+Use these pages alongside the authored [provider reference](../providers/README.md) and generated [feature support matrix](../support-matrix.md). Provider pages explain target-level judgment; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
 
 ## Initial Pages
 

@@ -32,10 +32,8 @@ Keep source and generated output current while you edit.
 
 Shipping is a set of explicit workflows, not a side effect of build. The Ship guides cover:
 
-- continuous integration;
-- publishing;
-- marketplaces.
-
-Those guides land in the provider-and-shipping layer of this overhaul. Until then, use the [CI feature reference](../reference/features/ci.md), [package release guidance](../development/package-releases.md), and [marketplace feature reference](../reference/features/marketplaces.md) for current facts.
+1. [Continuous integration](../guides/continuous-integration.md) — make source, generated output, and release intent reviewable in hosted checks.
+2. [Publishing](../guides/publishing.md) — release source units and choose the correct external publication boundary.
+3. [Marketplaces](../guides/marketplaces.md) — verify curated plugin entries and write supported provider catalog indexes.
 
 Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

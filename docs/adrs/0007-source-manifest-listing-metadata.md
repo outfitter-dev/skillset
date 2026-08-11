@@ -204,7 +204,7 @@ The implementation that follows this ADR should update these surfaces in order:
    - Rewrite import/adopt metadata when the mapping is mechanical.
    - Report ambiguous owner/version migrations instead of guessing silently.
 4. Docs and fixtures
-   - Update `docs/target-surfaces.md`, quickstart/example docs, README routing,
+   - Update the Claude and Codex provider references, quickstart/example docs, README routing,
      schema examples, and golden tests.
    - Add fixture coverage that proves legacy aliases still lower during the
      migration window and canonical `listing` lowers to identical target output.
@@ -267,6 +267,6 @@ accepted contract.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - release state owns generated artifact versions.
 - [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt paths should rewrite mechanical target-shaped fields into canonical source.
-- [Target Surface Evidence Matrix](../target-surfaces.md) - current Claude and Codex manifest/interface render targets.
+- [Codex provider reference](../reference/providers/codex.md) - current portable listing-to-interface rendering and companion boundaries.
 - Linear: SET-203 - manifest `listing` block and source vocabulary cutover.
 - Linear document: Skillset DX - manifest and change-state redesign.
