@@ -1,6 +1,5 @@
 {
   "diagnostics": [
-    "docs/description-required|docs/README.md|description",
     "docs/description-required|docs/features/README.md|description",
     "docs/description-required|docs/features/agents.md|description",
     "docs/description-required|docs/features/apps.md|description",

@@ -23,6 +23,17 @@ describe("changeset guard", () => {
     expect(result.diagnostics[0]).toContain("Package-facing changes require a .changeset/*.md entry");
   });
 
+  test("treats the canonical npm README source as package-facing", () => {
+    const result = evaluateChangesetGuard([
+      { path: "README.md", status: "M" },
+      { path: ".changeset/docs-package-front-door.md", status: "A" },
+    ]);
+
+    expect(isPackageAffectingPath("README.md")).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(result.packageFiles.map((file) => file.path)).toEqual(["README.md"]);
+  });
+
   test("passes package payload changes with an active changeset", () => {
     const result = evaluateChangesetGuard([
       { path: "packages/core/src/build.ts", status: "M" },

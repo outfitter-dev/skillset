@@ -7,6 +7,7 @@ import {
   licenseDiagnostics,
   packedFileDiagnostics,
   projectionDiagnostics,
+  readmeMetadataDiagnostics,
   workspaceManifestPaths,
 } from "../package-metadata";
 
@@ -71,6 +72,33 @@ describe("package metadata checks", () => {
 
     expect(await projectionDiagnostics(root)).toEqual([
       "apps/skillset/README.md differs from root README.md",
+    ]);
+  });
+
+  test("keeps the package description and first executable path in the README front door", async () => {
+    const root = await fixture({
+      "README.md": [
+        "# Skillset",
+        "",
+        "Skillset is a source-first compiler for provider-native agent loadouts.",
+        "",
+        "```bash",
+        "bun add --dev skillset",
+        "bunx skillset init",
+        "```",
+      ].join("\n"),
+      "apps/skillset/package.json": {
+        description:
+          "Source-first compiler for provider-native agent loadouts.",
+      },
+    });
+
+    expect(await readmeMetadataDiagnostics(root)).toEqual([]);
+    await writeFile(join(root, "README.md"), "# Skillset\n\nStale copy.\n");
+    expect(await readmeMetadataDiagnostics(root)).toEqual([
+      "README.md must state the package description in its first 60 lines: Skillset is a source-first compiler for provider-native agent loadouts.",
+      "README.md must include the package install command in its first 60 lines",
+      "README.md must include an executable Skillset example in its first 60 lines",
     ]);
   });
 });

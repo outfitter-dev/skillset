@@ -7,6 +7,9 @@ import {
   renderDocsCheckResult,
   writeDocsBaseline,
 } from "./docs/check";
+import { checkInvariantLinks, checkReadmeCommands } from "./docs/front-door";
+import { runDocsGoldenPath } from "./docs/golden-path";
+import { readmeMetadataDiagnostics } from "./package-metadata";
 import { generateSchemaArtifacts } from "./schema-artifacts";
 
 export async function runDocsCommand(
@@ -44,9 +47,26 @@ export async function runDocsCommand(
   );
   await generateDocsReferenceArtifacts(resolve(root), { check: true });
   await assertFeatureRegistryClean(resolve(root));
+  await assertReadmeFrontDoorClean(resolve(root));
+  await runDocsGoldenPath(resolve(root));
   const result = await checkDocumentation(resolve(root));
   process.stdout.write(renderDocsCheckResult(result));
   return result.ok ? 0 : 1;
+}
+
+async function assertReadmeFrontDoorClean(root: string): Promise<void> {
+  const diagnostics = [
+    ...(await readmeMetadataDiagnostics(root)),
+    ...(await checkReadmeCommands(root)),
+    ...(await checkInvariantLinks(root)),
+  ];
+  if (diagnostics.length === 0) return;
+  throw new Error(
+    [
+      "skillset: README front door is stale",
+      ...diagnostics.map((item) => `- ${item}`),
+    ].join("\n")
+  );
 }
 
 async function assertFeatureRegistryClean(root: string): Promise<void> {
