@@ -13,6 +13,8 @@ Read [docs/tenets.md](docs/tenets.md) before changing the source contract, targe
 
 For source/config/frontmatter fields, follow [docs/schema-contracts.md](docs/schema-contracts.md). Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.
 
+For repository documentation, follow [docs/development/documentation-system.md](docs/development/documentation-system.md). It defines local ownership, generation, validation, migration accounting, and review expectations under the shared documentation doctrine.
+
 ## Responsibilities
 
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.

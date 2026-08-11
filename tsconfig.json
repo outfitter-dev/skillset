@@ -17,6 +17,8 @@
     "apps/**/*.ts",
     "packages/**/*.ts",
     "scripts/build-package.ts",
+    "scripts/docs.ts",
+    "scripts/docs/**/*.ts",
     "scripts/schema-artifacts.ts",
     "scripts/publish.ts",
     "scripts/provider-maintenance.ts",

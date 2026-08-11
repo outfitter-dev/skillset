@@ -108,6 +108,21 @@ describe("workbench parser", () => {
     ]);
   });
 
+  test("accepts CommonMark ATX headings indented up to three spaces", () => {
+    const parsed = parseWorkbenchDocument({
+      content: " # One\n  ## Two\n   ### Three\n    # Code, not a heading\n",
+      path: "README.md",
+    });
+
+    expect(parsed.kind).toBe("markdown");
+    if (parsed.kind !== "markdown") throw new Error("expected markdown parse result");
+    expect(parsed.headings).toEqual([
+      { depth: 1, line: 1, text: "One" },
+      { depth: 2, line: 2, text: "Two" },
+      { depth: 3, line: 3, text: "Three" },
+    ]);
+  });
+
   test("ignores headings inside matching Markdown fences only", () => {
     const parsed = parseWorkbenchDocument({
       content:
