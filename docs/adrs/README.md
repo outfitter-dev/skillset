@@ -43,3 +43,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0026](0026-yaml-formatting-and-bun-native-apis.md) | YAML Formatting and Bun Native APIs | Accepted |
 | [0027](0027-runtime-activation-readiness-is-observational.md) | Runtime Activation Readiness Is Observational | Accepted |
 | [0028](0028-open-standards-are-the-portability-floor.md) | Open Standards Are the Default Portability Floor | Accepted |
+| [0029](0029-global-cli-native-distribution.md) | Global CLI and Native Distribution | Accepted |
