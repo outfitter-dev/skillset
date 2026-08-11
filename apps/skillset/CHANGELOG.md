@@ -1,5 +1,16 @@
 # skillset
 
+## 0.22.2
+
+### Patch Changes
+
+- c8c3207: Link the published README's source model to the canonical configuration and workspace-layout references.
+- 1367e2c: Publish the reader-focused README and first-author documentation with the Skillset package.
+- 7ed97c7: Clarify the published README's intent-based route to project and decision documentation.
+- 68dd16d: Adopt provider-neutral root skill collections and preserve unrelated double-brace expressions in Markdown.
+- f560653: Declare Skillset's MIT license and include the canonical README and license in the published package.
+- b91d9b5: Recognize CommonMark-indented ATX headings in shared Markdown validation.
+
 ## 0.22.1
 
 ### Patch Changes
