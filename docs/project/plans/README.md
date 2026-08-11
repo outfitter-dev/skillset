@@ -6,4 +6,4 @@ description: Indexes Skillset plans that are active, upcoming, paused, or otherw
 
 This directory owns actionable planning material: active work, approved upcoming work, and paused plans that may resume. Completed, abandoned, and superseded plans move to the [archive](archive/README.md) with their outcome recorded.
 
-- [Documentation overhaul](docs-overhaul.md): rebuilds the reader layer, generated reference, and documentation information architecture through a verified Graphite stack.
+There are no active project plans. Start with the [project index](../README.md) for durable direction or the [archive](archive/README.md) for completed work.

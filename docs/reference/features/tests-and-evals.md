@@ -31,7 +31,7 @@ Use `skillset check` and `check --only outputs` for ordinary source and [generat
 
 Core owns declaration loading, source selection, caller-supplied workspace materialization, deterministic checks, rendered activation facts, and literal runtime assertions through an injected runtime probe. The CLI app owns temporary and retained-run lifecycle, report/Markdown rendering, runtime process execution and evidence, JSON/JSONL/terminal behavior, and status/tail/worker policy. This preserves one compiler-owned evaluation contract without giving Core a cache, process, or CLI policy surface.
 
-The implemented v1 shape is selector-driven and source-root owned. Workspaces use `.skillset/tests.yaml` or `.skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or instructions.
+The implemented declaration shape is selector-driven and source-root owned. Workspaces use `.skillset/tests.yaml` or `.skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or instructions.
 
 ```yaml
 self-hosted:
@@ -113,7 +113,7 @@ self:
         contains: Demo body.
 ```
 
-Target validation commands are reportable manual follow-up instructions in v1; `skillset test` does not install, publish, trust, symlink, or activate provider runtime configuration.
+Target validation commands are reportable manual follow-up instructions; `skillset test` does not install, publish, trust, symlink, or activate provider runtime configuration.
 
 Release state and inline versions are observable, not migrated, by deterministic tests. A test may assert the version that build emits after release state is applied, but it must not rewrite source `version` fields or migrate version authority. The [Releases reference](releases.md) owns that boundary.
 
@@ -141,7 +141,7 @@ activation:
     projection: true
 ```
 
-Each probe requires exactly one of `prompt` or `promptFile` plus `expect`. The v1 `expect` object must name exactly one of `skill`, `agent`, or `plugin`. Probe `targets` can narrow to enabled test targets; absent probe targets inherit the enclosing test targets. Empty target arrays fail. Manual probes verify that the expected unit was rendered before a retained run is written. Declared runtime probes report a missing unit as a `render` failure without launching the provider. Probe assets are generated under the retained test run:
+Each probe requires exactly one of `prompt` or `promptFile` plus `expect`. The `expect` object must name exactly one of `skill`, `agent`, or `plugin`. Probe `targets` can narrow to enabled test targets; absent probe targets inherit the enclosing test targets. Empty target arrays fail. Manual probes verify that the expected unit was rendered before a retained run is written. Declared runtime probes report a missing unit as a `render` failure without launching the provider. Probe assets are generated under the retained test run:
 
 ```text
 .skillset/cache/tests/runs/<run-id>/activation/<target>/

@@ -92,4 +92,4 @@ instead of argv, prompt, terminal, or process-exit policy.
 - [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - fixture, test, and dogfood boundaries.
 - [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt/setup boundary context.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - structured result and lifecycle context.
-- [Core library split research](../../.scratch/research/session-019ebd10-core-library-split-2026-06-12.md) - prior session synthesis for the package split.
+- [Package ownership](../development/package-ownership.md) - current package boundaries and change workflow.

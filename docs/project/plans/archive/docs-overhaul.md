@@ -1,10 +1,33 @@
 ---
-description: Rebuilds Skillset's documentation as the first adoption of the Outfitter documentation doctrine — reader-facing layer, generated reference, and doctrine-conformant layout, delivered as a staged Graphite stack.
+description: Records the completed Skillset documentation overhaul, its delivered Graphite stack, verified outcomes, and material deviations.
 ---
 
 # Skillset documentation overhaul
 
-**Status:** Plan of record, 2026-08-10. This document is the complete plan of record for the Skillset documentation overhaul. It applies the [Outfitter documentation doctrine](https://github.com/outfitter-dev/agent-workbench/blob/main/research/outfitter-docs-doctrine.md) as accepted project direction. The superseded 2026-07-26 gist is historical context only and has no governing force.
+> **Disposition: completed and archived, 2026-08-10.** The overhaul shipped as an 11-PR Graphite stack. Every PR is ready for review with its exact-head Changeset, aggregate, and self-hosted Skillset checks green; no review threads remain open. The stack is intentionally unmerged and unqueued.
+
+## Delivered stack
+
+| PR | Delivered change |
+| --- | --- |
+| [#399](https://github.com/outfitter-dev/skillset/pull/399) | OSS and package metadata |
+| [#400](https://github.com/outfitter-dev/skillset/pull/400) | Documentation validation foundations |
+| [#401](https://github.com/outfitter-dev/skillset/pull/401) | Contract-owned generated reference |
+| [#402](https://github.com/outfitter-dev/skillset/pull/402) | Skillset front door and golden path |
+| [#403](https://github.com/outfitter-dev/skillset/pull/403) | Reader-intent information architecture |
+| [#404](https://github.com/outfitter-dev/skillset/pull/404) | Start journey and working guides |
+| [#405](https://github.com/outfitter-dev/skillset/pull/405) | Configuration and source reference |
+| [#406](https://github.com/outfitter-dev/skillset/pull/406) | Provider reference and shipping guides |
+| [#407](https://github.com/outfitter-dev/skillset/pull/407) | User-facing feature reference |
+| [#408](https://github.com/outfitter-dev/skillset/pull/408) | Development feature reference |
+| [#409](https://github.com/outfitter-dev/skillset/pull/409) | Tenets, project surface, navigation, and plan closeout |
+
+**Outcome.** The repository now has a reader-facing journey, generated contract-owned reference, deterministic documentation checks with zero baselined debt, migration accounting, package/front-door verification, and a context-free first-author lifecycle exercised against the packed package.
+
+**Material deviations.** There were no material scope deviations. Hosted execution exposed integration gaps that were repaired in their owning PRs: PR #400 now fetches full history for the aggregate documentation diff check and hardens Markdown marker parsing; PRs #402, #403, #405, and #409 carry the package Changesets required by their package-facing changes; PR #404 documents the supported post-initialization recovery for missed root instructions; PR #406 distinguishes Claude marketplace-update writes from Cursor build output; and PR #408 assigns render-result production to its actual owners. Implementation decisions made at planned decision points—including hybrid generated blocks and keeping diagnostics review-owned—are recorded in the documentation-system reference rather than treated as scope deviations.
+
+**Status:** Executed, 2026-08-10. This document was the complete plan of record for the Skillset documentation overhaul. It applies the [Outfitter documentation doctrine](https://github.com/outfitter-dev/agent-workbench/blob/main/research/outfitter-docs-doctrine.md) as accepted project direction. The superseded 2026-07-26 gist is historical context only and has no governing force.
+
 **Doctrine relationship:** the doctrine owns every shared rule (graph model, frontmatter contract, page contracts, writing standards, `docs:generate`/`docs:check`, the ratchet, review contract). This plan does not restate them — it records Skillset's project fit: the concrete layout, ownership table, journey, PR sequencing, and acceptance criteria.
 
 ---
@@ -28,7 +51,7 @@ Markdown in the repository is the product; any future site is a projection.
 These decisions apply the shared doctrine to Skillset's product and corpus:
 
 | Area | Skillset decision |
-|---|---|
+| --- | --- |
 | Journey | `start/` holds only the tutorial run; flat, outcome-named `guides/` hold later tasks; ordering lives only in `start/README.md` |
 | Stages | Start → Adopt → Work → Ship, using the doctrine's stage semantics |
 | Troubleshooting | Root `docs/troubleshooting.md`; graduates to a directory when it outgrows one file |
@@ -106,7 +129,7 @@ Every current file gets exactly one disposition (keep / move / rewrite / merge /
 The doctrine's three rules govern; this is the required per-project ownership table:
 
 | Fact category | Canonical owner | Evidence / verification | Documentation projection |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | CLI commands, flags, defaults | Command registry | CLI help snapshots, command tests | Generated `reference/cli/` |
 | Source/config/frontmatter fields | Schema artifacts | Schema tests, fixtures | `configuration/` + `reference/source/` |
 | Feature × provider support | Feature registry | Provider evidence, render tests | Generated `support-matrix.md` |

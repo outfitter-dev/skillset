@@ -4,6 +4,7 @@ import {
   readFile,
   readdir,
   realpath,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -283,24 +284,6 @@ export async function writeDocsBaseline(
       ? {}
       : { migrationChanges: options.migrationChanges }),
   });
-  const existingBaseline = await readBaselineIfExists(root);
-  if (existingBaseline !== undefined) {
-    const result = evaluateDocsBaseline(
-      diagnostics,
-      existingBaseline,
-      await readMigrationMap(root)
-    );
-    if (result.novel.length > 0) {
-      throw new Error(
-        [
-          "skillset: refusing to add diagnostics to the shrink-only docs baseline",
-          ...result.novel.map(
-            (diagnostic) => `- ${formatDocsDiagnostic(diagnostic)}`
-          ),
-        ].join("\n")
-      );
-    }
-  }
   const changes =
     options.migrationChanges ?? (await discoverMarkdownChanges(root));
   const addedPaths = new Set(
@@ -326,10 +309,29 @@ export async function writeDocsBaseline(
       ].join("\n")
     );
   }
+  const result = evaluateDocsBaseline(
+    diagnostics,
+    await readBaseline(root),
+    await readMigrationMap(root)
+  );
+  if (result.novel.length > 0) {
+    throw new Error(
+      [
+        "skillset: refusing to add diagnostics to the shrink-only docs baseline",
+        ...result.novel.map(
+          (diagnostic) => `- ${formatDocsDiagnostic(diagnostic)}`
+        ),
+      ].join("\n")
+    );
+  }
   const baseline: DocsBaseline = {
     diagnostics: [...new Set(diagnostics.map(diagnosticIdentity))].sort(),
     schemaVersion: DOCS_BASELINE_SCHEMA_VERSION,
   };
+  if (baseline.diagnostics.length === 0) {
+    await rm(join(root, BASELINE_PATH), { force: true });
+    return;
+  }
   await writeFile(
     join(root, BASELINE_PATH),
     `${JSON.stringify(baseline, null, 2)}\n`,
@@ -713,7 +715,15 @@ export function rebaseBaselineIdentities(
 }
 
 async function readBaseline(root: string): Promise<DocsBaseline> {
-  const source = await readFile(join(root, BASELINE_PATH), "utf8");
+  let source: string;
+  try {
+    source = await readFile(join(root, BASELINE_PATH), "utf8");
+  } catch (error) {
+    if (isMissing(error)) {
+      return { diagnostics: [], schemaVersion: DOCS_BASELINE_SCHEMA_VERSION };
+    }
+    throw error;
+  }
   const parsed = JSON.parse(source) as Partial<DocsBaseline>;
   if (
     parsed.schemaVersion !== DOCS_BASELINE_SCHEMA_VERSION ||
@@ -737,17 +747,6 @@ async function readBaseline(root: string): Promise<DocsBaseline> {
     diagnostics: canonicalDiagnostics,
     schemaVersion: DOCS_BASELINE_SCHEMA_VERSION,
   };
-}
-
-async function readBaselineIfExists(
-  root: string
-): Promise<DocsBaseline | undefined> {
-  try {
-    return await readBaseline(root);
-  } catch (error) {
-    if (isMissing(error)) return undefined;
-    throw error;
-  }
 }
 
 export async function discoverUntrackedDocumentationPaths(

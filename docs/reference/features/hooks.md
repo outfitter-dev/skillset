@@ -40,7 +40,7 @@ Imported provider-native hook files stay native by default. Skillset should only
 | --- | --- | --- | --- | --- | --- |
 | `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Destination-specific native aggregate source rendered with a top-level `hooks` object. |
 | root `hooks.json` | n/a | n/a | n/a | `unsupported` | Move the file to `hooks/hooks.json`. |
-| Future `hooks.source` | n/a | n/a | n/a | `planned` | No feature-key source pointer exists in v1. |
+| Future `hooks.source` | n/a | n/a | n/a | `planned` | No feature-key source pointer is implemented. |
 
 ## Adaptive Hook Units
 
@@ -99,7 +99,7 @@ Adaptive hook units can choose how much Skillset-normalized runtime context to p
 | `none` | Passes no Skillset-normalized context. Provider-native environment remains available. |
 | `toolkit` | Renders through the `skillset-toolkit runtime context` helper shipped with the `skillset` package, backed by the shared `@skillset/toolkit/runtime` context model. |
 
-Inline v1 fields are deliberately small:
+Inline fields are deliberately small:
 
 | Field | Generated variable |
 | --- | --- |

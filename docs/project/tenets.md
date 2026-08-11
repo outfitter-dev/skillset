@@ -1,137 +1,113 @@
+---
+description: The Skillset design tenets define the durable principles and promises that guide compiler and source-contract decisions.
+---
+
 # Skillset Design Tenets
 
-> Source-first loadouts: author once, render faithfully.
+> Source-first loadouts: author once, [render](../glossary.md#render) faithfully.
 
-This is the stable doctrinal layer for the Skillset compiler. It describes what Skillset believes, how it decides between competing designs, and what agents should preserve when changing the source contract. When implementation or tactical docs drift from this document, bring the repo back into alignment or make a deliberate decision to change the tenets.
+These tenets are Skillset's slow-moving product doctrine. They guide decisions about [canonical source](../glossary.md#canonical-source), [provider adaptation](../glossary.md#provider-native), [generated artifacts](../glossary.md#generated-output), validation, and [runtime authority](../glossary.md#activation). Current fields, commands, paths, and provider support belong in the [reference layer](../reference/README.md); accepted ADRs record consequential design decisions.
 
-Skillset exists to make reusable agent loadouts easier to author and safer to ship across Claude, Codex, and Cursor. It should make the happy path smaller, not make authors learn every provider-specific file shape before they can write a useful skill.
-
-## Documentation Tiers
-
-Skillset docs are organized by how often the information should change:
-
-- **Tenets**: What we believe and why. This document changes only when our model of Skillset changes.
-- **Decisions and packets**: ADRs under `docs/adrs/`, goal packets, review reports, and retros that explain what is true now, what changed, and why.
-- **Guides and references**: How to use the current compiler, source layout, provider builds, versioning, imports, hooks, resources, and checks.
-- **Agent guidance**: `AGENTS.md`, generated skills, and repo-local instructions. These are practical operating notes and change with the repo.
-
-Tenets govern the other tiers. A guide can be stale, a packet can be superseded, and an `AGENTS.md` file can be tactical. The tenets are the long-lived test for whether a proposal fits the system we are building.
+When implementation and a tenet disagree, fix the implementation or make an explicit decision to change the tenet. Do not reconcile a conflict only in tactical documentation.
 
 ## Principles
 
-These are the foundational beliefs of Skillset. Every source-schema decision, provider adapter, lint rule, import helper, and generated-output contract should be consistent with them.
-
 ### Help the happy path
 
-Building agent loadouts with Skillset should be easier than hand-authoring parallel Claude, Codex, and Cursor trees. A small useful skill or plugin should not require authors to decide target output paths, repeat obvious names, duplicate descriptions, or learn provider-specific edge cases before they have a reason.
+Authoring a reusable loadout should be easier than maintaining parallel provider trees. A small useful [source unit](../glossary.md#source-unit) should not require repeated identity, duplicated descriptions, hand-selected [destination](../glossary.md#destination) paths, or provider-specific knowledge before that knowledge is necessary.
 
-Power should come from derivation, defaults, validation, and clear escape hatches. If a common authoring flow makes the user copy the same idea into several places, the compiler should treat that as design feedback.
+Defaults and derivation should remove repetition. Validation should explain unsafe or unsupported choices. Explicit escape hatches should remain available when the common path is not faithful.
 
 ### Source is the product
 
-The active workspace source root is the authored source of truth: repos use root `skillset.yaml` for workspace configuration and `.skillset/` for authored Skillset source. Generated provider outputs are provider-native build artifacts written to concrete destinations.
+The active Skillset [workspace](../glossary.md#workspace) is the authored source of truth. Provider files, manifests, locks, and other [generated output](../glossary.md#generated-output) may be committed and reviewed, but they remain reproducible artifacts.
 
-Generated plugin repositories, standalone skill roots, lockfiles, and instruction files can be committed and reviewed, but they are not source truth. Edits should flow from source to generated output through `skillset build`, and `skillset check --only outputs` should make stale output visible.
+Changes normally flow from source through [render](../glossary.md#render). Intentional edits discovered on the destination side require explicit reconciliation; they do not silently become source.
 
 ### One meaning, one key
 
-When first-class providers expose the same semantic feature, Skillset should provide one adaptive source key for that meaning. Exact matches do not deserve parallel provider-specific vocabulary just because manifests spell them differently.
+When supported providers expose the same semantic feature, Skillset should offer one adaptive source concept for that meaning. Different provider spellings do not justify parallel source vocabulary.
 
-Provider-native aliases can be accepted when they are safe and unambiguous. The resolver should normalize aliases into the canonical Skillset concept before adapting source to provider output.
+Normalize exact matches before rendering. Keep a provider-specific name only when it represents a real provider-specific contract.
 
 ### Render intent, not filenames
 
-Close matches should be designed from the author's intent, not from whichever provider file shape appeared first. The question is not "how do we copy a Claude subagent into Codex?" but "what outcome is the author trying to create, and what is the faithful Codex-native way to create a similar outcome?"
+Near matches should begin with the author's intended outcome, not the first provider format implemented. The compiler should choose the faithful [provider-native](../glossary.md#provider-native) representation of that intent.
 
-This applies to agents, subagents, hooks, instructions, resources, app/MCP manifests, and any future runtime surface. If Skillset cannot adapt an intent faithfully for a provider, it should say so through provider-specific support, diagnostics, or explicit opt-out rather than pretending the outputs are equivalent.
+When no faithful representation exists, Skillset should report the limitation, preserve provenance, or require an explicit provider boundary. It should not make unlike artifacts appear equivalent.
 
 ### Provider truth beats fake portability
 
-Adaptive source keys are for behavior Skillset can meaningfully adapt. Root provider selection is a compile concern, not provider-native semantics: a root `compile.targets` list may say which provider outputs to build, while `claude`, `codex`, and `cursor` blocks stay reserved for provider-specific options, explicit provider toggles, and visible provider-native escape hatches.
+Adaptive source is for behavior Skillset can meaningfully adapt. A provider-native island is preferable to a shared abstraction that erases important semantics or promises enforcement the provider does not offer.
 
-It is better for a feature to be honestly provider-specific than falsely unified. Skillset should not introduce a shared abstraction when the providers do not offer a meaningfully equivalent destination.
+Support claims require provider evidence and implementation evidence. Compatibility prose, shims, sidecars, and generated instructions do not become native support merely because they are useful.
 
 ### Derive by default, override when wrong
 
-Authors should write information only they know. Skillset should derive what it already knows: names from directories when appropriate, manifest values from source metadata, destination paths from defaults, generated version fallbacks from the nearest source version, and generated descriptions from the source fields that already exist.
+Authors should supply information only they know. Skillset should derive stable identity, metadata, destinations, and defaults from facts already present in the resolved source graph.
 
-Overrides are healthy when derivation is wrong. They should be scoped, explicit, and visible in resolved output or lock provenance. If authors routinely override everything, the derivation rules are probably wrong.
+Overrides are healthy when derivation is wrong. They should be explicit, narrowly scoped, validated, and visible in resolved output or provenance. Frequent broad overrides are evidence that the derivation rule needs revision.
 
 ### Builds do not imply trust
 
-Skillset compiler operations, including `skillset build`, `skillset check`, `skillset import`, `skillset test`, and change/release commands, are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
+[Build](../glossary.md#build) and [activation](../glossary.md#activation) have different authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. The complete operational boundary lives in [Build Versus Activation](../start/build-versus-activation.md).
 
-Build output may define hooks, app manifests, MCP manifests, plugins, skills, and instructions. Activation is a separate workflow.
+Publication, installation, registry mutation, runtime trust, and enablement require their own explicit workflows and authority.
 
 ### Codify the craft
 
-Skillset should learn what goes into excellent skills, agents, hooks, instructions, resources, and plugins, then turn that knowledge into tooling. The compiler should help authors keep versions current, declare minimum required metadata, link resources safely, avoid unsupported target features, and keep enabled target renderings in sync.
+Skillset should turn durable authoring knowledge into schemas, diagnostics, scaffolds, explainability, fixtures, and checks. Tooling is part of the product when it helps authors create clearer source and understand provider differences earlier.
 
-Internal tooling is part of the product: scaffolds, lint rules, explain commands, fixtures, import helpers, review prompts, and self-hosted development skills should all make better loadout authoring easier.
+The compiler should teach through actionable diagnostics and inspectable provenance rather than hidden repair or unexplained rejection.
 
 ## Promises
 
-These are guarantees authors and agents should be able to rely on.
-
 ### Generated output is reproducible
 
-Generated output should be deterministic, disposable, and reviewable. Rebuilding from the same source should produce the same provider files and lock provenance.
+The same canonical inputs and compiler contract should produce deterministic, disposable, reviewable artifacts. Nondeterminism is a correctness defect, not harmless formatting [drift](../glossary.md#drift).
 
 ### Provider output stays native
 
-Claude output should look like Claude. Codex output should look like Codex. Cursor output should look like Cursor. Skillset can normalize source authoring without forcing first-class providers into an unnatural shared shape.
+Each provider's output should follow that provider's conventions. Skillset may normalize source authoring without forcing destinations into an unnatural common shape.
 
-### Lockfiles carry heavy provenance
+### Provenance stays inspectable
 
-Generated skill frontmatter should stay lightweight. Product-facing generated fields such as `metadata.version` and `metadata.generated` belong in the skill itself; heavier source hashes, source paths, provider state, skipped provider information, and drift evidence belong in nearby `skillset.lock` files.
+Provider artifacts should carry only lightweight metadata needed by their contract. Source paths, hashes, support decisions, skipped output, policy, and drift evidence belong in structured operation results and nearby locks.
 
-### Migration is explicit, ambiguity is not
+### Migration is explicit
 
-Import helpers can reduce migration pain, but the source contract should not keep old spellings once Skillset can still cut over cleanly. Unknown adaptive keys and obsolete aliases should fail unless the author uses a clearly provider-native escape hatch.
+Imports and migrations should preserve unrecognized material and surface ambiguity for review. Obsolete adaptive vocabulary should not remain indefinitely once a safe cutover exists. Unknown source meaning must fail or stay visibly provider-native.
 
-### Drift should become visible early
+### Drift becomes visible early
 
-Stale generated output, unsupported provider features, unsafe resource mappings, unmanaged generated-destination collisions, malformed locks, and provider-incompatible hooks should become visible before they become quiet runtime surprises. Fail when the compiler cannot proceed safely; when a confirmed build replaces a recoverable unmanaged collision or destination-side edit, it should warn and preserve enough backup state to restore the prior file.
+Stale output, unsupported destinations, unsafe mappings, malformed provenance, and unmanaged collisions should be diagnosed before they become runtime surprises.
 
-Unsupported destination policy should be explicit. The default should fail when authored source cannot build faithfully for an enabled provider destination. Softer modes such as warn, skip, or force are escape hatches for migration and provider drift; they must record what happened in warnings, status output, or lock provenance rather than making unsupported source look synchronized.
+Fail when a safe artifact cannot be produced. A softer policy may permit only behavior the renderer already defines, with the limitation and resulting output recorded honestly.
 
-## Patterns
-
-These are recurring design shapes that operationalize the principles and promises.
+## Decision Patterns
 
 ### Normalize exact matches
 
-When a provider feature is semantically the same across enabled targets, define an adaptive source key and adapt it to provider-native syntax. `implicit_invocation`, skill version metadata, source descriptions, and provider enablement are examples of this pattern.
+Use one adaptive concept when providers share meaning. Let adapters own spelling and file shape.
 
 ### Model near matches by intent
 
-When features are similar but not identical, name the intent first and design the provider adaptation second. Instructions that build to Claude rules, Codex `AGENTS.md` files, and Cursor `.mdc` rules, agent roles that may write differently per provider, and hook definitions that stay definitions rather than activation are examples of this pattern.
+Name the desired behavior first, then define each provider [projection](../glossary.md#projection) and its caveats. Do not promote a compatibility mechanism into a universal source contract without evidence.
 
 ### Prefer defaults and scoped overrides
 
-The default posture is to compile for every first-class provider when source is adaptive. Root `compile.targets` can narrow that provider set, and nested source can opt out or back in with provider blocks such as `claude`, `codex`, and `cursor` where the resolver supports it. Boolean provider settings should use defaults; objects should exist for real overrides.
+Choose useful defaults for adaptive source. Let narrower source units override or opt out only where the resolver can explain the deciding layer.
 
 ### Keep escape hatches visible
 
-Provider-native escape hatches should be obvious in source. Provider blocks such as `tools.claude.allow` and `tools.codex.deny` signal that the author is intentionally leaving the adaptive layer. Escape hatches should still be validated for file safety, locked for provenance, and written only where the provider can accept them.
+Provider-specific source and policy should be obvious, validated for safety, and isolated to the provider that owns it. Escape hatches should not leak into another [target](../glossary.md#target) or disguise themselves as portable behavior.
 
-### Treat tooling as authoring surface
+### Treat tooling as an authoring surface
 
-`skillset check`, `skillset import`, and future explain/scaffold tools are not secondary conveniences. They are how Skillset codifies good loadout authoring, keeps provider behavior honest, and teaches the next author what to fix.
+Checks, imports, scaffolds, inspection, reconciliation, and conformance are how Skillset keeps source and provider behavior honest. New tooling should reinforce ownership rather than inventing another contract.
 
-## Current Doctrine Implications
+## Applying the Tenets
 
-These are not a replacement for the schema reference. They are examples of how the tenets should guide near-term design.
+Use the [configuration reference](../configuration/README.md) for current source fields, the [feature reference](../reference/features/README.md) and generated [support matrix](../reference/support-matrix.md) for capability facts, and the [development documentation](../development/README.md) for maintainer workflows and package boundaries. The [documentation system](../development/documentation-system.md) explains how those volatile facts remain mechanically current without expanding this doctrine.
 
-- Prefer `tools` for adaptive tool-policy meaning, with provider-native `tools.<provider>.allow` / `deny` blocks for provider-specific vocabulary.
-- Prefer `instructions` as the source concept for repo guidance, even if Claude output uses rules, Codex output uses `AGENTS.md`, and Cursor output uses `.mdc` rules.
-- Use `skillset.schema` for the version of the source contract or compiler schema, while generated skill product versions stay simple through fields like `metadata.version`.
-- Do not require a source name that is distinct from the real plugin or skill name unless there is a concrete identity problem that derivation cannot solve.
-- Use root `compile.targets` for provider selection. Keep bare top-level `targets:` out of the source contract, default to the current provider plan for adaptive source, and keep explicit provider blocks for provider-specific options and nested opt-outs.
-- Treat root `compile.unsupportedDestination` as visible unsupported destination policy. The default is `error`; `warn` and `skip` must surface skipped source in diagnostics or lock provenance. `force` may permit only a renderer-defined lossy or unsupported projection with visible provenance; it must not synthesize or broaden output, confer a target capability, or pretend unsupported behavior became portable.
-
-## Posture
-
-Skillset is opinionated about source authoring and conservative about provider activation. It should give authors a small, clear, source-first contract while preserving the native expectations of Claude, Codex, and Cursor.
-
-It should grow deliberately. A new adaptive key is valuable when it removes repetition, prevents drift, and builds faithfully. A new provider-specific escape hatch is valuable when it keeps provider truth explicit. A new abstraction is justified only when it makes authoring easier without making the system less honest.
+A proposal fits these tenets when it makes authoring smaller, preserves provider truth, keeps authority explicit, produces deterministic evidence, and assigns each consequential fact one owner.

@@ -232,6 +232,11 @@
       "status": "moved"
     },
     {
+      "from": "docs/project/plans/docs-overhaul.md",
+      "primary": "docs/project/plans/archive/docs-overhaul.md",
+      "status": "archived"
+    },
+    {
       "from": "docs/quickstart.md",
       "primary": "docs/start/quickstart.md",
       "status": "moved"

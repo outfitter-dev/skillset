@@ -97,7 +97,7 @@ Choose the path that matches your question:
 
 - **Start:** [first-author journey](docs/start/README.md), [why Skillset](docs/why-skillset.md), and [build versus activation](docs/start/build-versus-activation.md).
 - **Look something up:** [generated reference](docs/reference/README.md), [CLI commands](docs/reference/cli/README.md), [support matrix](docs/reference/support-matrix.md), and [glossary](docs/glossary.md).
-- **Understand the project:** use the [documentation map](docs/README.md), which keeps current project and decision material reachable while the corpus is reorganized.
+- **Understand the project:** use the [documentation map](docs/README.md), which routes reader, maintainer, project, and decision material by intent.
 - **Contribute:** [contributor guide](CONTRIBUTING.md), [security policy](SECURITY.md), and [documentation system](docs/development/documentation-system.md).
 
 ## Develop the compiler

@@ -38,7 +38,7 @@ Place monitor source under `.skillset/plugins/<plugin>/monitors/`. Discovery is 
 
 ## Provenance
 
-Monitor files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide `monitors.source`.
+Monitor files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because the implemented contract does not provide `monitors.source`.
 
 ## Evidence
 

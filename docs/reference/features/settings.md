@@ -33,7 +33,7 @@ There is no portable settings source and no `settings.source` feature key. Those
 
 ## Provenance
 
-No settings lock entry exists in v1. A future settings suggestion workflow should record source, target, rendered suggestion, review status, and whether the suggestion was applied outside build.
+No settings lock entry is implemented. A future settings suggestion workflow should record source, target, rendered suggestion, review status, and whether the suggestion was applied outside build.
 
 ## Evidence
 

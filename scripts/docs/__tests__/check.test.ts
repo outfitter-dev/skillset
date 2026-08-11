@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { targetNames } from "../../../packages/core/src";
@@ -360,6 +360,79 @@ describe("documentation checks", () => {
     await expect(checkDocumentation(root)).rejects.toThrow(
       "baseline diagnostics must be sorted and unique"
     );
+  });
+
+  test("treats a missing baseline as zero allowed diagnostics", async () => {
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-docs-zero-baseline-"
+    );
+    const root = join(disposableRoot, "work");
+    await mkdir(join(root, "docs"), { recursive: true });
+    await writeFile(
+      join(root, "README.md"),
+      "# Root\n\n[Docs](docs/README.md)\n",
+      "utf8"
+    );
+    await writeFile(
+      join(root, "docs", "README.md"),
+      "---\ndescription: Documentation routes.\n---\n\n# Docs\n",
+      "utf8"
+    );
+    await writeFile(
+      join(root, "docs", "migration-map.json"),
+      '{"schemaVersion":1,"entries":[]}\n',
+      "utf8"
+    );
+    await mkdir(join(root, "scripts"), { recursive: true });
+    const trunkScript = join(root, "scripts", "git-trunk.sh");
+    await writeFile(trunkScript, "#!/bin/sh\ngit rev-parse HEAD\n", "utf8");
+    await chmod(trunkScript, 0o755);
+    await initializeTestGitRepository(root, { disposableRoot });
+
+    expect(await checkDocumentation(root)).toMatchObject({
+      current: [],
+      novel: [],
+      ok: true,
+      staleBaseline: [],
+    });
+
+    await writeFile(join(root, "docs", "guide.md"), "# Guide\n", "utf8");
+    const broken = await checkDocumentation(root);
+    expect(broken.ok).toBe(false);
+    expect(broken.novel).toContainEqual(
+      expect.objectContaining({
+        path: "docs/guide.md",
+        rule: "docs/description-required",
+      })
+    );
+  });
+
+  test("removes the baseline artifact when no diagnostics remain", async () => {
+    const root = await createTestGitFixtureRoot(
+      "skillset-docs-delete-zero-baseline-"
+    );
+    await mkdir(join(root, "docs"), { recursive: true });
+    await writeFile(join(root, "README.md"), "# Root\n", "utf8");
+    await writeFile(
+      join(root, "docs", "migration-map.json"),
+      '{"schemaVersion":1,"entries":[]}\n',
+      "utf8"
+    );
+    const baselinePath = join(root, "docs", "docs-check-baseline.json");
+    await writeFile(
+      baselinePath,
+      '{"schemaVersion":1,"diagnostics":[]}\n',
+      "utf8"
+    );
+
+    await writeDocsBaseline(root, {
+      migrationChanges: [],
+      untrackedPaths: [],
+    });
+
+    await expect(access(baselinePath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 
   test("refuses to baseline debt from new or newly broken pages", async () => {

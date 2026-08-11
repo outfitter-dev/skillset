@@ -1,17 +1,16 @@
+---
+description: The package-release contract defines Changeset ownership, automated policy, local preflight, trusted publishing, and recovery boundaries.
+---
+
 # Package Releases
 
-This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under the workspace change directory (`.skillset/changes`), which describe authored plugin, skill, and generated-output provenance.
-
-For the current 0.x milestone decision record, see the
-[0.x `latest` Release Plan](../project/plans/archive/0x-latest.md). That plan defines the
-readiness gates for promoting a 0.x package to npm `latest` without making 1.0
-contract promises.
+This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset [source-unit](../glossary.md#source-unit) releases under `.skillset/changes`, which describe authored plugin, skill, and [generated-output](../glossary.md#generated-output) provenance.
 
 ## Ownership
 
 GitHub Actions is the package release operator. Local commands are diagnostics and dry-run aids; package publication should happen from the `Release` workflow on `main`.
 
-Changesets owns npm package version and package changelog calculation. The Skillset change/release commands continue to own source-unit reasons, release state, generated entity changelogs, and target output drift. Do not collapse these two release systems unless a future explicit bridge is designed.
+Changesets owns npm package version and package changelog calculation. The Skillset change/release commands continue to own source-unit reasons, release state, generated entity changelogs, and [target](../glossary.md#target) output [drift](../glossary.md#drift). Do not collapse these two release systems unless a future explicit bridge is designed.
 
 Only the unscoped `skillset` CLI package is public in the current package posture. The scoped workspace packages remain private implementation packages: `@skillset/core` is the internal compiler/library boundary, `@skillset/registry` stores deterministic provider facts and registry contracts, and the remaining scoped packages support schema, lint, toolkit, transform, and workbench surfaces behind that boundary. Do not include them in npm publish automation or treat their exports as semver-stable until a future package-posture issue explicitly promotes them.
 
@@ -28,11 +27,11 @@ Package-facing means a change that can affect the published `skillset` CLI packa
 | `apps/skillset/package.json` | Published package metadata, bin entries, dependencies, and version-bearing state. |
 | `packages/core/src/**` except tests | Internal compiler/library implementation bundled through the CLI. |
 | `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |
-| `packages/registry/src/**` except tests | Adopted provider destination-format snapshots, schema evidence, and migration registry consumed by the CLI and core conformance checks. |
+| `packages/registry/src/**` except tests | Adopted provider [destination](../glossary.md#destination)-format snapshots, schema evidence, and migration registry consumed by the CLI and core conformance checks. |
 | `packages/schema/src/**` except tests | Source contract schemas, validators, examples, and artifact generation consumed by the CLI, Workbench, and generated editor-schema references. |
 | `packages/toolkit/src/**` except tests | Runtime helper surfaces intended for hook scripts and compiler-owned wrappers. |
 | `packages/transforms/src/**` except tests | Transform implementation consumed by the CLI. |
-| `packages/*/package.json` for `core`, `lint`, `registry`, `schema`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
+| `packages/*/package.json` for `core`, `lint`, `registry`, `schema`, `toolkit`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
 | `bun.lock` / `bun.lockb` | Dependency resolution that can alter the packaged CLI runtime. |
 
 `bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, when an active Changeset appears on a branch that only changes repo machinery, or when a pending Changeset mixes the published `skillset` package with ignored private `@skillset/*` packages. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries. Private-only Changesets remain valid internal evidence; a public Changeset should list only packages that Changesets can version.
@@ -63,7 +62,7 @@ The release PR supports these mutually exclusive label families:
 | Family | Labels | Behavior |
 | --- | --- | --- |
 | Publish | `publish:auto`, `publish:manual`, `publish:none`, `publish:block` | Chooses automatic publish, protected manual publish, intentional no-publish state, or hard block. Missing `publish:*` defaults to manual. |
-| Channel | `channel:stable`, `channel:preview`, `channel:canary` | Declares the intended release channel. V1 only allows `publish:auto` with `channel:stable`, which maps to npm `latest`. |
+| Channel | `channel:stable`, `channel:preview`, `channel:canary` | Declares the intended release channel. Automatic publishing currently requires `channel:stable`, which maps to npm `latest`. |
 | Release | `release:patch`, `release:minor`, `release:major` | Declares release-size intent. When present, the policy compares it against the actual package version delta. |
 
 Conflicting labels within a family, unknown labels under these prefixes, registry drift, or `publish:block` block the workflow with diagnostics. `publish:none` requires an audit reason in the release PR body or comments because it intentionally leaves package-version state unpublished. Any generated release PR that touches workflow files, release scripts, package publish metadata, lockfiles, source files, or other unexpected paths falls back to the manual environment rather than the automatic environment.
@@ -113,15 +112,15 @@ bun run publish:packages
 
 The workflow is prepared for npm Trusted Publishing by using publish jobs with `permissions.id-token: write`, SHA-pinned workflow actions, Node 24, the npm CLI for the final publish, and GitHub environments for publish paths. Bun remains the package build, test, and preflight runtime; npm owns the OIDC exchange because Trusted Publishing is currently documented for `npm publish`. Configure the trusted publisher for the npm package with:
 
-| Field | Value |
-| --- | --- |
-| Package | `skillset` |
-| Publisher | GitHub Actions |
+| Field                | Value           |
+| -------------------- | --------------- |
+| Package              | `skillset`      |
+| Publisher            | GitHub Actions  |
 | Organization or user | `outfitter-dev` |
-| Repository | `skillset` |
-| Workflow filename | `release.yml` |
-| Environment | Leave blank |
-| Allowed action | `npm publish` |
+| Repository           | `skillset`      |
+| Workflow filename    | `release.yml`   |
+| Environment          | Leave blank     |
+| Allowed action       | `npm publish`   |
 
 npm allows one trusted publisher connection per package, so do not create separate npm trusted publisher entries for `npm` and `npm-auto`. Leaving the npm Environment field blank binds publishing to this repository and workflow without pinning one GitHub environment. The workflow still uses GitHub environments for routing: `npm` remains the protected manual approval path, while `npm-auto` should not require manual reviewers because the release policy is the gate that makes that path reachable.
 

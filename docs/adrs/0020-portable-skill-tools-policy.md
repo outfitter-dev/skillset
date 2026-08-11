@@ -384,7 +384,7 @@ claim. Current proof is in `docs/reference/features/tools-policy.md`, `skill-pol
 - [Render Results](0018-render-results.md) - visible degraded, lossy, and unsupported render results.
 - [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.
 - [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.
-- [Portable `tools` Policy — Locked Design](../../.scratch/notes/20260702-tools-policy-locked-design.md) - detailed working note and rejected alternatives.
+- [Tools policy configuration](../configuration/tools-policy.md) - current authoring contract and provider realization boundary.
 - [Claude subagents docs](https://code.claude.com/docs/en/sub-agents) - subagent fields, tools, permission modes, MCP, hooks, background, and isolation, checked 2026-07-02.
 - [Codex subagents docs](https://developers.openai.com/codex/subagents) - custom agents as config layers and inherited sandbox/approval behavior, checked 2026-07-02.
 - [Codex approvals and security docs](https://developers.openai.com/codex/agent-approvals-security) - sandbox, approval, network, and permission controls, checked 2026-07-02.
