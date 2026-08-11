@@ -46,6 +46,9 @@ bun run schema:check
 bun run schema:generate
 bun run hooks:install
 bun run hooks:pre-push
+bun run build:native -- --target <suffix>
+bun run native:check -- --allow-partial
+bun run native:smoke -- --target <suffix>
 bun run ultracite:doctor
 bun run typecheck
 bun run test

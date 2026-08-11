@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "bunVersion": "1.3.14",
+  "observedVersion": "0.22.1",
+  "policy": {
+    "percent": 10,
+    "minimumAllowanceBytes": 2097152
+  },
+  "artifacts": [
+    {
+      "suffix": "darwin-arm64",
+      "rawSize": 64684514,
+      "archiveSize": 24146173
+    },
+    {
+      "suffix": "darwin-x64",
+      "rawSize": 70402128,
+      "archiveSize": 26684840
+    },
+    {
+      "suffix": "linux-arm64-glibc",
+      "rawSize": 94873744,
+      "archiveSize": 35777148
+    },
+    {
+      "suffix": "linux-arm64-musl",
+      "rawSize": 90484600,
+      "archiveSize": 34394622
+    },
+    {
+      "suffix": "linux-x64-glibc",
+      "rawSize": 94857344,
+      "archiveSize": 35714182
+    },
+    {
+      "suffix": "linux-x64-musl",
+      "rawSize": 91654432,
+      "archiveSize": 34506592
+    },
+    {
+      "suffix": "windows-x64",
+      "rawSize": 98976768,
+      "archiveSize": 38132746
+    }
+  ]
+}

@@ -54,6 +54,27 @@ When the version PR merges to `main`, the same workflow checks the npm registry 
 
 The publish wrapper derives the npm dist-tag from the version: stable versions publish to `latest`, and prerelease versions publish to their prerelease label such as `beta`.
 
+## Native Artifact Build
+
+The repository owns a focused native build path separate from the ordinary `bun run check` gate. The accepted release set is five targets: Apple arm64 and baseline x64, Linux glibc arm64 and baseline x64, and Windows baseline x64. Linux musl arm64 and baseline x64 remain buildable reserved targets; they are not part of the required manifest or public package set.
+
+```bash
+bun run build:native -- --target darwin-arm64
+bun run native:check -- --allow-partial
+bun run native:smoke -- --target darwin-arm64
+
+bun run build:native -- --required --reproducible
+bun run native:check
+```
+
+The required build compiles the singular `apps/skillset/src/cli.ts` entrypoint with the pinned Bun runtime. `--reproducible` compiles every selected target twice using the same canonical executable filename and rejects byte drift. The build emits one raw executable per target, deterministic one-file archives, `skillset-v<version>-manifest.json`, and `skillset-v<version>-SHA256SUMS` under `.skillset/cache/native/` by default.
+
+Verification enforces the exact five-target set, archive names and payloads, executable modes, package mappings, product/Bun versions, CLI-contract digest, sizes, archive and manifest checksums, sort order, and complete checksum coverage. The target-host smoke checks version, root help, a structured read-only lookup, invalid-command exit behavior, and a sentinel proving those normal paths did not invoke a system `bun`.
+
+`scripts/native-size-baseline.json` records Bun 1.3.14 measurements for every required target and may retain informational measurements for buildable reserved targets. A target may grow by 10% or 2 MiB, whichever is larger, before verification fails. That budget catches an embedded-runtime or packaging regression without making ordinary compiler growth churn the baseline; a Bun pin change requires explicit remeasurement and review.
+
+The path-filtered `Native` workflow builds the five required targets reproducibly on Linux, then runs each executable on its matching standard GitHub-hosted macOS, Linux, or Windows architecture. This workflow creates evidence only. It does not sign, attest, publish npm packages, create a GitHub release, or change the Homebrew tap; those remain later protected release steps.
+
 ## Release Intent Labels
 
 Release labels express human intent, not trust. The policy script still verifies the branch, commit, generated Changesets PR shape, changed files, exact-SHA CI, changelog heading, version delta, and registry state before an automatic publish can run.
@@ -76,6 +97,9 @@ Source PRs may also use `stack:boundary`. That label is not a release-size inten
 bun run changeset
 bun run changeset:check
 bun run changeset:status
+bun run build:native -- --target <suffix>
+bun run native:check -- --allow-partial
+bun run native:smoke -- --target <suffix>
 bun run publish:plan
 bun run publish:label-release-pr
 bun run publish:policy
