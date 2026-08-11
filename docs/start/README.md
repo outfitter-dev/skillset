@@ -1,26 +1,41 @@
 ---
-description: Introduces Skillset's source-first journey and the executable first-author example.
+description: Guides authors from a first Skillset build through adoption, daily work, and deliberate shipping workflows.
 ---
 
 # Start with Skillset
 
-Skillset's complete author journey is **Start → Adopt → Work → Ship**. This initial path establishes the first build; the later stages are expanded in the task guides as the documentation overhaul proceeds.
+Skillset's author journey is **Start → Adopt → Work → Ship**. Follow it in order for a first repository, or jump to the stage that matches the outcome you need.
 
 ## Start
 
-1. Read [why Skillset exists](../why-skillset.md).
-2. Run the checked-in [first-author example](../../examples/first-author/README.md).
-3. Learn why [building and activation are separate](build-versus-activation.md).
-4. Use the [CLI reference](../reference/cli/README.md) when a command detail matters.
+[Build](../glossary.md#build) one small, reviewable [projection](../glossary.md#projection) from [canonical source](../glossary.md#canonical-source).
+
+1. [Quickstart](quickstart.md) — initialize a repository, author one skill, and verify [generated output](../glossary.md#generated-output).
+2. [First-author walkthrough](first-author.md) — inspect and modify the executable `examples/first-author` fixture.
+3. [How rendering works](how-rendering-works.md) — understand source, [targets](../glossary.md#target), [destinations](../glossary.md#destination), locks, and [drift](../glossary.md#drift).
+4. [Build versus activation](build-versus-activation.md) — keep repository generation separate from runtime authority.
 
 ## Adopt
 
-Initialize an existing repository with `skillset init`, then use `skillset import` for selected provider-native skills or plugins. Both operations preserve a preview and explicit-write boundary.
+Bring existing [provider-native](../glossary.md#provider-native) work into Skillset source without overwriting it silently.
+
+- [Importing existing work](../guides/importing.md) covers repository surveys, selected imports, previews, and review boundaries.
 
 ## Work
 
-Keep `.skillset/` as source truth. Run `skillset check`, preview changes with `skillset build` or `skillset diff`, and confirm writes with `skillset build --yes`.
+Keep source and generated output current while you edit.
+
+- [Development loop](../guides/development-loop.md) covers check, preview, write, watch, inspect, and commit.
+- [Troubleshooting](../troubleshooting.md) starts from observable symptoms when that loop fails.
 
 ## Ship
 
-Commit and review the provider-native outputs your repository owns. Publishing, marketplace distribution, and runtime activation remain separate explicit workflows.
+Shipping is a set of explicit workflows, not a side effect of build. The Ship guides cover:
+
+- continuous integration;
+- publishing;
+- marketplaces.
+
+Those guides land in the provider-and-shipping layer of this overhaul. Until then, use the [CI feature reference](../reference/features/ci.md), [package release guidance](../development/package-releases.md), and [marketplace feature reference](../reference/features/marketplaces.md) for current facts.
+
+Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

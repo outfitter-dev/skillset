@@ -1,174 +1,113 @@
-# Five-Minute Quickstart
+---
+description: Builds one standalone skill from canonical source and verifies its repo-local provider-native output.
+---
 
-This path starts in an existing repo and creates one standalone skill. It proves
-the source-first loop without installing, trusting, symlinking, or changing
-Claude, Codex, or Cursor runtime configuration.
+# Build Your First Skill
 
-Use a fresh source repo instead when the repo exists only to author Skillset
-loadouts:
+This path adds Skillset to an existing repository, authors one [source unit](../glossary.md#source-unit), and verifies its [generated output](../glossary.md#generated-output). It assumes you already installed the package with `bun add --dev skillset`.
 
-```bash
-skillset create my-skillset --yes
-cd my-skillset
-```
+## Initialize the repository
 
-Prefer to inspect a complete tiny source tree first? See the
-[First Author Example](../../examples/first-author/README.md), which deliberately
-narrows one skill and one instruction rule to Claude and Codex with explicit
-`compile.targets`.
-
-For an existing content repo, stay in that repo and initialize Skillset:
+From the repository root, print a non-interactive setup plan:
 
 ```bash
-skillset init --yes
+bunx skillset init --json
 ```
 
-That writes the workspace manifest at `skillset.yaml`, source placeholders under
-`.skillset/`, tracked change state under `.skillset/changes/`, ignores the
-logical `.skillset/cache/` path, and tracks a snapshot ignore sentinel under
-`.skillset/snapshots/`. Cache payloads resolve to Skillset's XDG cache bucket;
-the logical `.skillset/cache/` path stays visible for reports and command
-output. Recovery snapshots stay repo-local under `.skillset/snapshots/` and
-store backup payloads in per-run Git object stores.
-
-## Create One Skill
-
-Create a skill source file:
+The JSON result records an empty write set. Review it, then authorize initialization:
 
 ```bash
-skillset new skill "Review Notes" --yes
+bunx skillset init --yes
 ```
 
-The source lands at:
+The confirmed command writes the reviewed scaffold and also seeds `.skillset/changes/state.json`, the [workspace's](../glossary.md#workspace) initial [release state](../reference/features/releases.md). That release-state seed exists only after confirmation and is not listed as a previewed scaffold write.
 
-```text
-.skillset/skills/review-notes/SKILL.md
+Initialization creates the root `skillset.yaml` workspace manifest and the `.skillset/` [source root](../glossary.md#source-root). It does not change user-level provider configuration.
+
+If you want a new repository dedicated to agent material, use `bunx skillset create my-skillset --yes` instead. The generated [CLI reference](../reference/cli/README.md) owns the complete command and option inventory.
+
+## Create one skill
+
+Print a non-interactive source-scaffold plan:
+
+```bash
+bunx skillset new skill "Review Notes" --json
 ```
 
-Open that file and replace the starter body with the guidance the skill should
-carry. A minimal skill looks like this:
+The JSON result records an empty write set. Review it, then rerun the same scaffold with explicit write authority:
+
+```bash
+bunx skillset new skill "Review Notes" --yes
+```
+
+Edit `.skillset/skills/review-notes/SKILL.md` so it contains useful triggering guidance:
 
 ```markdown
 ---
 name: review-notes
 title: Review Notes
-description: Use when summarizing meeting notes into decisions, follow-ups, and risks.
+description: Use when turning meeting notes into decisions, follow-ups, and risks.
 ---
 
 # Review Notes
 
-Use this skill when a notes document needs to become a short decision log.
-
-## Workflow
-
-- Identify the concrete decisions.
-- Pull out follow-ups with an owner when one is named.
+- Identify concrete decisions.
+- Pull out follow-ups and named owners.
 - Keep unresolved risks separate from agreed next steps.
 ```
 
-The directory name is the stable identity. The top-level `name` may stay aligned
-with it; `title` is human-facing skill display text; `description` is the
-triggering text that renders into each enabled target's native skill format.
+The directory name is the stable identity. `title` is display text, and `description` tells an agent when the skill is relevant. The [skill reference](../reference/features/skills.md) owns the complete field and support contract.
 
-## Check And Build
+## Preview the build
 
-Run the source authoring check:
+Preview the [render](../glossary.md#render) plan:
 
 ```bash
-skillset check
+bunx skillset build
 ```
 
-Preview generated output:
+The plan names the repo-local [destinations](../glossary.md#destination) that would change. With the default [targets](../glossary.md#target), a standalone skill can produce files under `.claude/skills/`, `.agents/skills/`, and `.cursor/skills/`, each with generated provenance.
+
+## Write and verify
+
+Write the reviewed plan:
 
 ```bash
-skillset build
+bunx skillset build --yes
 ```
 
-On a fresh repo, the first build plan should list new generated files such as:
-
-```text
-.claude/skills/review-notes/SKILL.md
-.claude/skills/skillset.lock
-.agents/skills/review-notes/SKILL.md
-.agents/skills/skillset.lock
-.cursor/skills/review-notes/SKILL.md
-.cursor/skills/skillset.lock
-```
-
-Write the generated output:
+Then prove the checked-in output matches source:
 
 ```bash
-skillset build --yes
+bunx skillset check --only outputs
 ```
 
-Then verify the generated files are current:
+The comprehensive check should now pass too:
 
 ```bash
-skillset check --only outputs
+bunx skillset check
 ```
 
-## Inspect The Output
+Open one generated `SKILL.md` and its nearby `skillset.lock`. The rendered file is [provider-native](../glossary.md#provider-native) output; the lock records ownership and hashes. Keep editing `.skillset/skills/review-notes/SKILL.md`, not the generated copy.
 
-The default layout writes standalone skill output to:
+## Make one change
 
-```text
-.claude/skills/review-notes/SKILL.md
-.agents/skills/review-notes/SKILL.md
-.cursor/skills/review-notes/SKILL.md
-```
-
-Each target skill root also gets its own `skillset.lock`: `.claude/skills/`,
-`.agents/skills/`, and `.cursor/skills/`. These locks carry source paths, output
-paths, hashes, version state, target state, and generated metadata policy. They
-are review evidence for what Skillset rendered; the source remains
-`.skillset/skills/review-notes/`.
-
-Skillset does not make the generated skill live in a user runtime. It writes
-repo-local target-native files only. Activation, install, trust, and user-level
-Claude, Codex, or Cursor configuration stay separate.
-
-## Useful Next Commands
+Change the authored skill body, then run:
 
 ```bash
-skillset diff
-skillset dev
-skillset explain .skillset/skills/review-notes/SKILL.md
-skillset explain .claude/skills/review-notes/SKILL.md
-skillset explain .cursor/skills/review-notes/SKILL.md
-skillset status
+bunx skillset diff
+bunx skillset build
+bunx skillset build --yes
+bunx skillset check --only outputs
 ```
 
-Use `diff` to preview generated changes after editing source, `dev` to
-rerun source diagnostics and generated-output previews as you save, `explain` to
-see why a source or generated path exists, and `status` for a broader local
-health summary. The watch loop is read-only by default; use
-`skillset dev --write` when you want each clean refresh to write
-repo-local generated output with build ownership, backup, and restore safeguards.
-Use `skillset build --yes` when you want a single confirmed write instead.
+That is the core source-first loop: edit [canonical source](../glossary.md#canonical-source), inspect [drift](../glossary.md#drift), write deliberately, and verify.
 
-## Share-Ready Checklist
+## Next
 
-Before sharing a 0.16-era Skillset source repo with another author, make sure:
+- Walk through the checked-in [first-author example](first-author.md).
+- Learn [how rendering works](how-rendering-works.md).
+- Use the [development loop](../guides/development-loop.md) for daily work.
+- If a command fails, start with [troubleshooting](../troubleshooting.md).
 
-- `skillset check` passes for source authoring diagnostics.
-- `skillset build` shows the generated-output plan you expect.
-- `skillset build --yes` has refreshed the repo-local generated output you expect.
-- `skillset check --only outputs` passes so checked-in generated output matches source.
-- The generated output locations are visible in review, usually `.claude/`,
-  `.agents/`, and `.cursor/`, each with its target-local `skillset.lock`, for
-  the default path.
-- Runtime activation is deliberately out of band: do not ask authors to install,
-  trust, symlink, or mutate user-level provider config as part of this path.
-- Hook-dependent sharing stays deferred to the hook guardrail work. If a repo
-  has local Git or runtime hooks, document them separately from the compiler
-  quickstart.
-
-## Where To Go Deeper
-
-- [Layout](../layout.md) covers the workspace layout, generated roots, and
-  operational state.
-- [Skills](../reference/features/skills.md) covers skill frontmatter, resources, rendering,
-  diagnostics, and provenance.
-- [Workbench Check](../development/features/workbench.md) explains comprehensive checks, output-only checks, repair, and CI modes.
-- [Dev Watch](../reference/features/dev-watch.md) covers the default-preview watch loop and explicit write mode.
-- [CI](../reference/features/ci.md) explains the `skillset check --ci` gate and optional workflow.
+Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).
