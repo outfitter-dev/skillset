@@ -1,129 +1,82 @@
-# Workbench Check
+---
+description: The Workbench contract defines how maintainers add, select, format, verify, and troubleshoot authoring diagnostics.
+---
 
-<!-- skillset:feature-support:start -->
+# Workbench Diagnostics Package
+
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Related feature id: `workflows`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)
 
-Workbench is Skillset's source and workspace correctness surface. The public `skillset check` family combines source diagnostics and generated-output readiness behind one command; the private `@skillset/workbench` workspace package remains the internal implementation layer for richer parser, schema, preset, scope, and rule-id diagnostics.
+Workbench is Skillset's private authoring-diagnostics package. The public [`skillset check`](../../reference/cli/check.md) workflow combines compiler source checks and [generated-output](../../glossary.md#generated-output) readiness, but it does not import `@skillset/workbench`. The package currently supplies internal/test parser, source-contract, Markdown, compatibility, resource, preset, and diagnostic primitives; `scripts/docs/check.ts` consumes its Markdown parser explicitly. Its exports are not a published downstream tooling contract.
 
-## Commands
+## Ownership and Inputs
 
-Use `skillset check` for comprehensive, read-only readiness:
-
-```bash
-skillset check --root .
-```
-
-Use the narrow mode when a hook or script needs only generated-output freshness:
-
-```bash
-skillset check --only outputs --root .
-```
-
-`check --write` repairs ordinary source-driven drift only after the non-drift checks pass. It refuses target-side generated edits and provider-format migrations; use the reconciliation flow for the former and `skillset update` for the latter. `check --ci` adds branch-aware change-entry and package Changesets gates, and `check --ci --fix` enables the same bounded mechanical repair for CI. The old top-level `lint`, `verify`, and `ci` commands are removed without aliases.
-
-The drift directions are intentionally separate: `build` and `check --write` project source toward generated output, `update` applies only registered source-preserving provider-format migrations, and `reconcile` recovers an intentional generated-output edit toward source. No one command silently crosses those ownership boundaries.
-
-Parser/schema checks, diagnostic scopes, presets, and exact rule-id selection are implemented in the private `@skillset/workbench` workspace package for tests and future CLI integration; they are not yet exposed as `skillset check --preset`, `--scope`, or `--rule` flags.
-
-## Diagnostic Model
-
-Workbench diagnostics have stable fields for severity, rule id, rule level, scope, subject, optional source location, optional help text, and optional fix guidance. Text output is deterministic and JSON-safe diagnostics are available inside the workspace package for tests and future CLI output. They are not yet a published downstream tooling contract.
-
-Scopes are deliberately about the checked surface:
-
-| Scope | Meaning |
+| Module | Responsibility |
 | --- | --- |
-| `source` | Individual source files such as skills, agents, hooks, configs, and Markdown/frontmatter. |
-| `workspace` | Cross-file or workspace-level source contracts. |
-| `provider` | Provider capability and adapter compatibility checks for Claude, Codex, and future providers. |
-| `resource` | Shared resource declarations, copied files, executable scripts, and resource links. |
-| `runtime` | Runtime adapter, harness, distribution, or activation support records. |
-| `generated` | Generated-output facts and stale/missing managed output. |
-| `release` | Change, release, version, and changelog state. |
+| `parser.ts` | JSON, YAML, TOML, Markdown/frontmatter, and unknown-file parsing |
+| `schema.ts` | Focused source-contract diagnostics routed through shared schema validation |
+| `markdown.ts` | Code-fence and template-placeholder diagnostics |
+| `compatibility.ts` | Feature-registry and adapter conformance/coverage diagnostics |
+| `resource-runtime.ts` | Resource lint and runtime-support diagnostic bridges |
+| `lint-bridge.ts` | Core lint-diagnostic conversion |
+| `presets.ts` | Preset, scope, level, and exact-rule selection |
+| `diagnostics.ts` and `types.ts` | Stable internal diagnostic shape, sorting, formatting, and summaries |
 
-Rule levels are `standard` and `strict`. Standard rules should be suitable for ordinary CI and hooks. Strict rules are convention checks and structural proof points that are useful for authors who want a tighter local bar.
+Inputs are caller-provided source text, shared schema validation results, Core lint/resource reports, registry/conformance reports, runtime-support records, or explicit ast-grep-style matches. Workbench inspects and parses; it does not execute source scripts or project code.
 
-## Presets
+Authored source mutations remain outside Workbench. Bun YAML parsing is read-only here; Core's YAML document writer owns comment- and order-preserving source edits under [ADR 0026](../../adrs/0026-yaml-formatting-and-bun-native-apis.md).
 
-The Workbench workspace package defines two presets:
+## Diagnostics
 
-| Preset | Contents | Use |
-| --- | --- | --- |
-| `standard` | Standard-level diagnostics across all Workbench scopes. | Default authoring correctness checks. |
-| `strict` | Standard plus strict-level diagnostics across all Workbench scopes. | Local hardening, repo-specific quality gates, and future stricter CI modes. |
+A Workbench diagnostic records severity, rule id, optional rule level, scope, subject, optional source location, help, fix guidance, and feature id. Results are sorted deterministically and summarized into error, warning, and info counts plus `ok`.
 
-Current public CLI selection stays intentionally small; `skillset check` runs the default authoring check path. Preset, scope, and exact rule-id selection exist in the internal Workbench layer so the CLI can expose them later without changing diagnostic shape.
+Scopes are `source`, [`workspace`](../../glossary.md#workspace), `provider`, `resource`, `runtime`, `generated`, and `release`. Rule levels are `standard` and `strict`. The `standard` preset selects standard rules across all scopes; `strict` selects both levels across all scopes. An explicit rule-id selection bypasses the preset's level filter but still respects selected scopes.
 
-## Parser And Schema Checks
+These selectors are internal package primitives. Do not document or accept public `skillset check --preset`, `--scope`, or `--rule` flags until the CLI registry and command implementation expose them.
 
-Workbench parser helpers use Bun-backed JSON, YAML, and TOML parsing plus
-Markdown/frontmatter extraction. Bun YAML is parse-only here: authored source
-mutations use Core's private `yaml` Document writer so root `skillset` ordering,
-other authored order, unknown nodes, and attached comments follow
-[ADR-0026](../../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and
-normalized YAML retain Core's recursive alphabetical serializer. Syntax
-diagnostics carry file and line information where the parser exposes it, and
-Markdown heading extraction ignores fenced code blocks so body facts stay
-stable.
+## Outputs and Consumers
 
-Workbench Markdown diagnostics also check code fence nesting inside Markdown-labeled examples. When a fenced Markdown example needs to show another fenced code block, the outer fence must use more backticks than any inner fence. For example, use four backticks around a `markdown`, `md`, `mdx`, or `gfm` snippet that contains triple-backtick examples. The `markdown/code-fence-nesting` rule reports the outer fence and the conflicting inner fence so authors can increment the outer fence length by one backtick beyond the longest inner fence.
+Workbench returns deterministic in-memory diagnostics and summaries. `scripts/docs/check.ts` uses its Markdown parser, and compiler/CLI checks can bridge owned diagnostic sources into the common shape. Public text and JSON presentation remain command-owned.
 
-Workbench also recognizes template guidance placeholders in skill prose. Prefer `{ Placeholder text }` for new guidance because Markdown previewers do not treat it as a link. `[Placeholder text]` is also accepted for compatibility with existing agent-skill template conventions, and bare bracket placeholders are not treated as file links. Template guidance placeholders are examples for the agent or human reader; Skillset does not expand them. Use `{{this.description}}`, `{{shared:path.md}}`, and other `{{...}}` forms only for Skillset preprocessing. The `markdown/template-placeholder` rule warns about clearly broken placeholders such as `{   }`, `[]`, or an unclosed `{ Placeholder` outside code spans and fenced examples.
+Checked-in fixtures under `fixtures/workbench-clean` and `fixtures/workbench-invalid` prove source declaration, parser, schema, resource, and deterministic diagnostic behavior. They are compiler fixtures, not public `tests.yaml` declarations.
 
-Schema checks cover representative source contracts:
+## Adding or Changing a Rule
 
-- workspace config files such as `skillset.yaml`;
-- skill `SKILL.md` frontmatter and required body;
-- project-agent Markdown frontmatter and required body;
-- hook definition files under `hooks/hooks.json`.
+1. Put validation in the canonical schema or compiler owner when the rule expresses an existing source contract; adapt its diagnostic rather than duplicating field lists.
+2. Use Workbench for authoring analysis, compatibility views, parser diagnostics, or optional structural proof that has no stronger owner.
+3. Assign one stable rule id, scope, severity, subject, and standard/strict level.
+4. Keep fixes advisory or manual; Workbench primitives do not mutate source.
+5. Add focused positive, negative, location, sorting, selection, and fixture coverage as applicable.
 
-Root `skillset.yaml` support is loaded and validated by the compiler today. Workbench's current package-level schema helper models that workspace config shape, but it is not a replacement for the compiler. The checks are early, focused diagnostics for source shape mistakes that should be easy to fix before a build.
+```bash
+bun run test:focused -- packages/workbench/src/__tests__
+bun run schema:check
+bun run docs:check
+```
 
-The public schema reference is generated from `@skillset/schema` and checked by `bun run schema:check`. See [Skillset Schemas](../../reference/schemas/README.md) for the current JSON Schema artifacts and maximal examples, and use the [schema contract workflow](../schema-contracts.md) when adding fields. Workbench should consume those contracts instead of maintaining a parallel schema description.
+Run the public aggregate when CLI integration changes:
 
-## Resources, Providers, And Runtime
+```bash
+bun run check
+```
 
-Workbench can consume existing resource lint issues and report them in the `resource` scope. This keeps authoring mistakes such as undeclared shared resource links, plugin-root script dependencies, and non-executable declared scripts visible in the same diagnostic model as parser and schema findings.
+## Troubleshooting
 
-Provider and runtime diagnostics consume structured reports from the feature registry, adapter conformance, adapter coverage, and runtime support records. The important boundary is that provider/runtime diagnostics report what Skillset knows; they do not install hooks, trust plugins, execute scripts, or mutate provider runtime settings.
+- If Workbench and compiler validation disagree, treat `@skillset/schema` or the compiler owner as canonical and remove the parallel Workbench rule.
+- If a diagnostic changes order between runs, inspect its comparison keys and normalized subject/location fields; presentation must not repair nondeterminism.
+- If a strict diagnostic appears in the standard preset, verify its `ruleLevel` and the exact-rule selection path.
+- If a Markdown finding points inside code spans or fenced examples, fix the masking/parser boundary before broadening an allowlist.
+- If an optional backend is unavailable, report availability or omit its findings. Ordinary checks must not acquire a new runtime implicitly.
 
-## ast-grep Proof Point
+## Evidence and Decisions
 
-Workbench includes a bounded ast-grep adapter proof. It converts caller-provided ast-grep-style matches into Workbench diagnostics and exposes an explicit availability probe for the `ast-grep` binary.
-
-The adapter does not add an ast-grep dependency, does not run searches implicitly, and does not execute project code. That makes ast-grep usable later as an optional structural backend for repo-specific or strict rules without making ordinary `skillset check` depend on a new runtime.
-
-## Fixtures
-
-Checked-in Workbench fixtures live under `fixtures/workbench-clean` and `fixtures/workbench-invalid`.
-
-- `workbench-clean` is a positive source workspace with representative config, agent, hook, skill, and inert scripts. Tests assert declaration and existence checks without executing those scripts.
-- `workbench-invalid` intentionally violates source contracts and resource expectations so diagnostics stay deterministic.
-
-These fixtures are internal compiler fixtures, not public source-root `tests.yaml` declarations. Public deterministic build tests belong to `skillset test`; future evals remain a separate, adapter-aware feature.
-
-## Authoring Rules
-
-- Run `skillset check` before `skillset build --yes` when editing source that is covered by current authoring diagnostics.
-- Run `skillset check --only outputs` after building or when checking whether generated output is stale.
-- Run `skillset change check` for pending change coverage.
-- Keep generated-output edits out of source truth; use `skillset reconcile` to choose source-wins or output-wins explicitly.
-- Treat `strict` rules as opt-in until a repo explicitly chooses them.
-- Do not add rule backends that execute source scripts during checks. Workbench may inspect files and parse source, but runtime execution belongs to explicit tests, harnesses, or user-approved hooks.
-
-## Evidence
-
-- Package primitives: `packages/workbench/src/`
-- Parser/schema tests: `packages/workbench/src/__tests__/parser.test.ts`, `packages/workbench/src/__tests__/schema.test.ts`
-- Resource/runtime/provider tests: `packages/workbench/src/__tests__/resource-runtime.test.ts`, `packages/workbench/src/__tests__/compatibility.test.ts`
-- ast-grep proof tests: `packages/workbench/src/__tests__/ast-grep.test.ts`
-- Markdown rule tests: `packages/workbench/src/__tests__/markdown.test.ts`
-- Fixture tests: `packages/workbench/src/__tests__/fixtures.test.ts`
-- CLI command split tests: `apps/skillset/src/__tests__/contract.test.ts`, `apps/skillset/src/__tests__/runtime-hooks.test.ts`
+- `packages/workbench/src/index.ts` defines the package surface; the adjacent modules own each diagnostic stage.
+- `packages/workbench/src/__tests__/{parser,schema,markdown,presets,diagnostics,compatibility,resource-runtime,lint-bridge,fixtures,ast-grep}.test.ts` proves the focused contracts.
+- [Schema Contracts](../schema-contracts.md) defines shared schema ownership and regeneration.
+- [Package Ownership](../package-ownership.md) places authoring diagnostics in Workbench and [render](../../glossary.md#render) semantics in Core.
+- [Skillset Schemas](../../reference/schemas/README.md) is the generated public schema [projection](../../glossary.md#projection).

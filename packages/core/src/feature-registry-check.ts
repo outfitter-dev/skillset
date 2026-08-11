@@ -14,15 +14,10 @@ import { compareStrings } from "./path";
 import { targetNames } from "./targets";
 import type { TargetName } from "./types";
 
-const LEGACY_FEATURE_SUPPORT_MATRIX_START =
-  "<!-- skillset:feature-support:start -->";
-const LEGACY_FEATURE_SUPPORT_MATRIX_END =
-  "<!-- skillset:feature-support:end -->";
 const GENERATED_FEATURE_SUPPORT_MATRIX_START =
   "<!-- skillset:generated:start feature-support -->";
 const GENERATED_FEATURE_SUPPORT_MATRIX_END =
   "<!-- skillset:generated:end feature-support -->";
-const PUBLIC_FEATURE_DOCS_ROOT = "docs/reference/features/";
 
 export type FeatureRegistryDriftCode =
   | "feature-support-table-drift"
@@ -111,9 +106,9 @@ export function renderFeatureSupportMatrix(
   registry: SkillsetFeatureRegistry
 ): string {
   return [
-    LEGACY_FEATURE_SUPPORT_MATRIX_START,
+    GENERATED_FEATURE_SUPPORT_MATRIX_START,
     renderFeatureSupportMatrixBody(registry),
-    LEGACY_FEATURE_SUPPORT_MATRIX_END,
+    GENERATED_FEATURE_SUPPORT_MATRIX_END,
   ].join("\n");
 }
 
@@ -130,7 +125,7 @@ async function checkFeatureSupportMatrices(
     )
       continue;
     const markdown = await readFile(resolve(rootPath, ref), "utf8");
-    const actual = parseFeatureSupportMatrix(markdown, ref);
+    const actual = parseFeatureSupportMatrix(markdown);
 
     if (actual !== undefined) {
       const expectedColumns = ["Feature", "Feature status", ...targets];
@@ -279,10 +274,7 @@ function pushFeatureSupportMismatch(
   });
 }
 
-function parseFeatureSupportMatrix(
-  markdown: string,
-  ref: string
-):
+function parseFeatureSupportMatrix(markdown: string):
   | {
       readonly columns: readonly string[];
       readonly features: ReadonlyMap<
@@ -295,12 +287,8 @@ function parseFeatureSupportMatrix(
       readonly rows: readonly string[];
     }
   | undefined {
-  const [startMarker, endMarker] = ref.startsWith(PUBLIC_FEATURE_DOCS_ROOT)
-    ? [
-        GENERATED_FEATURE_SUPPORT_MATRIX_START,
-        GENERATED_FEATURE_SUPPORT_MATRIX_END,
-      ]
-    : [LEGACY_FEATURE_SUPPORT_MATRIX_START, LEGACY_FEATURE_SUPPORT_MATRIX_END];
+  const startMarker = GENERATED_FEATURE_SUPPORT_MATRIX_START;
+  const endMarker = GENERATED_FEATURE_SUPPORT_MATRIX_END;
   const start = markdown.indexOf(startMarker);
   const end = markdown.indexOf(endMarker);
   if (

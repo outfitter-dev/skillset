@@ -1,158 +1,94 @@
+---
+description: The render-result contract defines how maintainers record, enforce, inspect, and verify per-operation destination outcomes.
+---
+
 # Render Results
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `render-results` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `render-results`
+<!-- skillset:generated:end feature-support -->
 
 Related vocabulary: [Support Vocabulary](../../reference/features/README.md#support-vocabulary)
 
-Render results are Skillset's per-build report for target truth. They record what happened when a source unit was rendered for a target: output rendered, target-native file passed through, source transformed, metadata preserved, fallback degraded, feature skipped, behavior externally managed, or render rejected.
+A render result records what one operation did with one [source unit](../../glossary.md#source-unit) for a [target](../../glossary.md#target) and [destination](../../glossary.md#destination). The feature registry owns static capability; render results own operation-specific facts such as rendered, transformed, degraded, skipped, unsupported, or failed output.
 
-The feature registry answers a static question: "Can Claude or Codex generally represent this feature?" Render results answer a build question: "What did this build do with this source unit under this config, scope, and policy?"
+## Ownership and Inputs
 
-See [ADR-0018: Render Results](../../adrs/0018-render-results.md) for the current
-decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../../adrs/0017-lowering-outcomes-and-loss-ledger.md)
-preserves the superseded historical design.
+`packages/core/src/render-result.ts` owns schema `skillset-render-result@1`, normalization, serialization, and structural validation. `render-result-collector.ts` derives build records from the resolved [build](../../glossary.md#build) graph, generated lock items, companion files, and unsupported features. `apps/skillset/src/import.ts` creates import-specific records, while `apps/skillset/src/adopt.ts` aggregates survey, import, and build results. `render-result-policy.ts` enforces unsupported-destination policy. Build, import, adoption, status, and explain presentation consume the normalized record instead of inventing parallel outcome vocabularies.
 
-## Current Boundary
+The schema fields are:
 
-The current core schema is `skillset-render-result@1`. Build, diff, and output-check render-result records are produced by `@skillset/core` and are persisted in structured operation results, generated `skillset.lock` files, adopt reports, and the `status` / `explain` JSON surfaces. Import and adopt reports may also attach render-result records to render-relevant warnings, such as preserved target-native tool-policy frontmatter or recognized survey skips. Pure source invalidity, unknown import metadata, and lint-only authoring problems stay in diagnostics instead of being forced into the render report. Implemented deterministic and adapter conformance consume these same render results. `bun run conformance:determinism` compares representative clean-root projections; `bun run conformance:adapters` runs representative render-result/registry and provider-format checks; `bun run conformance:fast` runs both, and `bun run check` already includes them through `bun run test`. The separate `bun run conformance:external` slow lane exercises pinned external adoption fixtures and writes XDG-backed reports under the logical `.skillset/cache/fixtures/<name>/` path; it is optional and stays outside `bun run check`, `skillset:check:ci`, and PR CI. These lanes provide bounded compiler and adoption evidence, not exhaustive provider/runtime or external-repository validation. Render results are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
-
-| Field | Meaning |
+| Field | Contract |
 | --- | --- |
-| `schema` | Render-result schema stamp. Current value: `skillset-render-result@1`. |
-| `sourceUnit` | Stable source selector for the source unit that was rendered or considered. |
-| `sourcePath` | Optional source path used for diagnostics and review. |
-| `featureId` | Feature registry id, such as `standalone-skills`, `dependencies`, `plugin-bin`, or `project-instructions`. |
-| `target` | Provider/runtime adapter (`claude` or `codex`) when the fact is target-specific. |
-| `destination` | Concrete output artifact/scope rendered under the `target`, such as `skill`, `plugin-manifest`, `instruction`, `agent`, `provider-source`, `skill-frontmatter`, `skill-tools`, or a plugin feature artifact like `mcp`/`bin`/`agents`. `target` is the provider; `destination` is what is rendered under it. |
-| `status` | Build render-result status. |
-| `reason` | Required for degraded, lossy, unsupported, and failed render results. |
-| `policy` | Why a render result was allowed, skipped, disabled, or routed through unsupported destination policy. |
-| `outputs` | Generated paths for outputs produced in the selected build scope. |
-| `diagnostics` | Structured diagnostic refs when validation or rendering needs a machine-readable pointer. |
-| `evidence` | Registry evidence such as docs, source, tests, fixtures, or external provider docs. |
+| `schema` | Exact `skillset-render-result@1` stamp. |
+| `sourceUnit` | Required stable source selector. |
+| `sourcePath` | Optional review and diagnostic path. |
+| `featureId` | Required feature-registry id or event id. |
+| `target` | Optional provider target for target-specific facts. |
+| `destination` | Optional non-empty artifact or scope beneath the target. |
+| `status` | Required render-result status. |
+| `reason` | Required for `degraded`, `lossy`, `unsupported`, and `failed`. |
+| `policy` | Default, scope/target exclusion, or unsupported-destination decision. |
+| `outputs` | Sorted generated paths and optional output kinds. |
+| `diagnostics` | Sorted structured diagnostic references. |
+| `evidence` | Sorted registry evidence supporting the classification. |
 
-The schema intentionally keeps source identity and target output identity together. A single source feature can produce different render results for Claude and Codex without pretending the target files are equivalent.
+Normalization produces deterministic field order and sorts outputs, diagnostics, and evidence. External-doc evidence requires a verification date.
 
 ## Render-Result Statuses
 
-| Status | Meaning | Typical example |
-| --- | --- | --- |
-| `rendered` | Skillset rendered a faithful target-native representation. | A standalone skill rendered to target `SKILL.md`. |
-| `target_native` | Explicit provider-specific source was passed through or copied only to its target. | A Codex-only provider source or Claude-only plugin companion. |
-| `transformed` | Skillset changed the file shape while preserving the authored intent. | Source-root `rules/` rendered to Claude rules and Codex `AGENTS.md`. |
-| `metadata_only` | Skillset preserved information for provenance or sidecars, but the target does not enforce it directly. | Release changelog rendering or tools-policy sidecar. |
-| `degraded` | Skillset rendered a useful fallback that is weaker than a native target feature. | Codex dependency awareness material when Claude has native plugin dependencies. |
-| `lossy` | A render would drop required meaning or behavior. | Future body/contract loss where no faithful target shape exists. |
-| `unsupported` | The enabled target cannot represent the authored feature through a portable render. | Codex plugin-local `bin/` or plugin agents. |
-| `externally_managed` | The behavior belongs to install, activation, distribution, marketplace state, or another external owner. | A distribution destination or runtime activation result. |
-| `intentionally_skipped` | Skillset did not render output because scope, target config, or policy excluded it. | `skillset build --scope project` excluding plugin output. |
-| `failed` | Skillset attempted a render or validation and could not produce safe output. | Invalid generated path, malformed target-native file, or unsafe mapping. |
-
-`degraded`, `lossy`, `unsupported`, and `failed` require `reason` because they are review-sensitive. A future report may render them differently, but the machine record should always explain why the render result exists.
-
-## Policy Values
-
-| Policy | Meaning |
+| Status | Maintainer meaning |
 | --- | --- |
-| `default` | Normal compiler policy. |
-| `scope:excluded` | Output was excluded by the selected build scope. |
-| `target:disabled` | Target was disabled by config or source-level target toggle. |
-| `unsupported:error` | Unsupported/lossy render fails build, diff, and output checks before generated-output freshness is reported. |
-| `unsupported:warn` | Unsupported/lossy render is reported as warning diagnostics but does not fail. |
-| `unsupported:skip` | Unsupported/lossy render keeps the renderer's already-defined output set without adding or pruning files and records the skipped or unsupported source/destination. |
-| `unsupported:force` | An explicit override may permit an already-defined lossy or unsupported projection while preserving provenance; it cannot synthesize or broaden output or pretend portability. |
+| `rendered` | Faithful target representation was produced. |
+| `target_native` | Explicit provider-specific source passed through to its matching target. |
+| `transformed` | File shape changed while authored intent was preserved. |
+| `metadata_only` | Information was retained for provenance or a sidecar but is not target-enforced. |
+| `degraded` | A useful but weaker fallback was produced. |
+| `lossy` | The available [projection](../../glossary.md#projection) would drop required meaning. |
+| `unsupported` | The destination cannot represent the feature faithfully. |
+| `externally_managed` | Installation, [activation](../../glossary.md#activation), distribution, or another external owner controls the behavior. |
+| `intentionally_skipped` | Scope, target configuration, or policy excluded the output. |
+| `failed` | Validation or rendering could not produce safe output. |
 
-The default posture is error. Build, diff, and output checks enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `compile.unsupportedDestination: warn`, `skip`, and `force` soften only `lossy` and `unsupported` render results. A `failed` render result still blocks every policy because the compiler could not produce safe output.
+The default unsupported-destination policy is `error`. `warn`, `skip`, and `force` can soften only `lossy` and `unsupported`; `failed` always blocks. A softened result retains the renderer's already-defined output set and provenance. It cannot synthesize output, broaden a provider capability, or relabel an unsupported projection as faithful. An enabled target that would produce no usable output still fails.
 
-Every affected non-error render result must carry enough provenance for a
-reviewer or CI job to see what happened without reading generated output by
-hand:
+## Outputs and Consumers
 
-- source unit and source path;
-- provider target;
-- destination or scope;
-- feature id or event;
-- unsupported, lossy, or failed reason;
-- selected unsupported-destination policy;
-- provider evidence or registry row behind the classification;
-- outputs written, outputs skipped, or clear no-output provenance;
-- surfaced diagnostic refs in JSON and text output.
+Build, diff, and output checks return render results through structured operation results and persist applicable records in [generated-output](../../glossary.md#generated-output) `skillset.lock` files. Import and adoption reports attach records to render-relevant preservation or skip facts. `skillset status --json` and `skillset explain --json` expose complete records; text output summarizes the review-sensitive subset.
 
-The non-error semantics are:
+Ordinary provider artifacts do not receive debug sentinels or render-result payloads. Conformance uses the structured records to compare produced outcomes with feature-registry claims.
 
-- `warn` retains the renderer's defined output, keeps unsupported/lossy facts
-  visible, and makes warning counts machine-readable.
-- `skip` keeps the renderer's already-defined output set and records the
-  skipped or unsupported source/destination in locks and reports. It neither
-  adds destination output nor prunes an already-emitted lossy projection.
-- `force` may permit a lossy or unsupported projection the renderer already
-  defined, with provenance. It cannot synthesize or broaden output, confer a
-  target capability, or pretend unsupported portable behavior became faithful.
+## Changing the Contract
 
-If an enabled target would produce no usable output under a non-error policy,
-the command must still fail. A successful command with no output would be
-silent drift, even if the policy name says `warn`, `skip`, or `force`.
+When adding a producer, status, policy, destination, or diagnostic:
 
-## Target Rendering
+1. Change the schema and validation owner first.
+2. Update the collector or operation that has enough context to produce the fact.
+3. Preserve the distinction between provider target and concrete destination.
+4. Add policy tests for any blocking behavior and build tests for the emitted record.
+5. Update registry evidence or support claims when the result reveals a capability change.
 
-| Source pattern | Claude result | Codex result | Notes |
-| --- | --- | --- | --- |
-| Standalone skill | `rendered` | `rendered` | Both targets can receive a native `SKILL.md` rendering. |
-| Plugin skill | `rendered` | `rendered` | Plugin boundaries stay intact while target manifests differ. |
-| Source-root `rules/` | `transformed` | `transformed` | Claude receives rules; Codex receives directory-local `AGENTS.md`. |
-| Provider source | `target_native` for matching target | `target_native` for matching target | Non-matching targets do not receive output. |
-| Plugin dependencies | `rendered` | `degraded` | Claude has a native dependency surface; Codex receives awareness material. |
-| Plugin `bin/` | `target_native` | `unsupported` | Claude receives the plugin-root bin feature output; Codex has no documented plugin-local bin contract. |
-| Plugin agents | `target_native` | `unsupported` | Claude can carry plugin agents; Codex plugin output cannot. |
-| Change/release metadata | `metadata_only` | `metadata_only` | Preserved for provenance and generated changelog state, not target runtime enforcement. |
-| Distribution or activation state | `externally_managed` | `externally_managed` | Build may plan or report it, but does not activate or trust runtimes. |
-
-## Fixture Coverage
-
-`packages/core/src/__tests__/render-result-build.test.ts` covers the v1 status matrix with successful, scoped, isolated, and unsupported-error fixtures. Current observed statuses are `rendered`, `target_native`, `transformed`, `metadata_only`, `degraded`, `intentionally_skipped`, and `unsupported`.
-
-The remaining status values are intentionally documented deferrals rather than fake fixtures:
-
-| Status | Deferral |
-| --- | --- |
-| `externally_managed` | Reserved for distribution, activation, marketplace, or runtime-install facts once those workflows emit render results. |
-| `failed` | Validation failures still surface as source/build diagnostics today; SET-84 policy tests prove failed render results would block once a producer exists. |
-| `lossy` | No v1 target adapter renders lossy output; current lossy cases stay unsupported or fail before rendering. SET-84 policy tests prove lossy render results would block once a producer exists. |
+```bash
+bun run test:focused -- packages/core/src/__tests__/render-result.test.ts packages/core/src/__tests__/render-result-policy.test.ts packages/core/src/__tests__/render-result-build.test.ts
+bun run conformance:adapters
+bun run docs:check
+```
 
 ## Diagnostics
 
-- Unsupported, lossy, and failed render results fail by default for enabled targets. An explicit `warn`, `skip`, or `force` policy can soften only unsupported or lossy results; scoped opt-outs remain visible, and failed results always block.
-- Degraded render results should remain visible because they represent useful but weaker behavior.
-- Skipped render results need policy provenance so a clean build is not confused with silent omission.
-- Adaptive hook attachments that target Codex skill-local or project-agent scopes produce `adaptive-hooks` `unsupported:error` render results, because Codex has no faithful component-local hook destination for those scopes. Codex plugin attachments also produce unsupported render results when the adaptive event is not documented by Codex or when the attachment uses a matcher for an event Codex ignores matchers for. Adaptive attachments also report structured unsupported render results for `context.includeRaw` until raw-context semantics exist, ambiguous definitions containing both `run.command` and `run.script`, unsupported plugin `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` cases that do not yet have stable runtime path proof.
-- Friendly warning text can coexist with structured render-result refs when the warning is about target rendering. For example, Codex `AGENTS.md` size warnings remain readable diagnostics and also attach `codex-agents-size` refs to the matching `project-instructions` render result.
-- Import reports keep unrecognized frontmatter warnings separate, but target-native Claude tool-policy fields such as `allowed-tools` and `disable-model-invocation` also produce `tools-policy` `target_native` render-result records.
-- Adopt survey skips for recognized native surfaces produce `intentionally_skipped` render-result records in the report so planned migrations are visible without pretending the dry-run rendered output.
-- Explain output summarizes matching render results by source unit, feature id, target, status, policy, reason, outputs, and diagnostics. Explaining a source path can show every target render result for that source; explaining a generated path stays scoped to the generated output's target.
-- Status output summarizes non-happy-path render results such as degraded, lossy, unsupported, externally managed, skipped, and failed render results without dumping every rendered file by default.
-- `skillset explain --json` and `skillset status --json` include full render-result records for agents and automation.
-- Adapter conformance tests compare representative feature-registry support rows with produced render results or render errors; coverage tests report missing, stale, invalid, and unsupported-without-fixture gaps instead of claiming exhaustive coverage.
-- Generated prose, scripts, activation probes, shimmed instructions, helper
-  files, and metadata sidecars can explain compatibility behavior, but they do
-  not count as policy enforcement unless the provider enforces that surface.
+- A missing `reason` on a review-sensitive status is a schema violation; fix the producer rather than filling it during presentation.
+- A status that disagrees with feature-registry capability is a conformance issue. Inspect the renderer, provider evidence, and selected scope before changing either side.
+- A softened policy that adds, removes, or fabricates output is an enforcement bug. Policy may permit an existing projection, not define one.
+- A source validation or lint problem without a destination fact belongs in diagnostics, not a synthetic render result.
+- A clean operation with no usable output for an enabled target is silent [drift](../../glossary.md#drift) and must fail.
 
-## Provenance
+## Evidence and Decisions
 
-Outcome provenance belongs in structured operation results, generated `skillset.lock` files, the logical `.skillset/cache/adopt/report.json` report backed by the repo's XDG cache bucket, `skillset explain --json`, and `skillset status --json` today. Adopt Markdown reports and status/explain text output render compact summaries and point readers at structured records when more detail is needed. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
-
-## Evidence
-
-- [ADR-0018: Render Results](../../adrs/0018-render-results.md) defines the current decision and status semantics; [ADR-0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) preserves the superseded design.
-- [Post-Tools Policy Boundary](../../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit together after the `tools` cutover.
-- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.
-- `packages/core/src/render-result.ts` defines the current schema, status values, policy values, and validation rules.
-- `packages/core/src/render-result-collector.ts` derives render results from generated locks, target-native companions, transformations, and unsupported plugin features.
-- `packages/core/src/build.ts` attaches build diagnostic refs, such as Codex `AGENTS.md` size warnings, to matching generated-output render results.
-- `apps/skillset/src/import.ts` and `apps/skillset/src/setup.ts` attach render-relevant import/adopt report facts to the same render-result schema without changing user-facing warning prose.
-- `packages/core/src/__tests__/render-result-build.test.ts`, `apps/skillset/src/__tests__/contract.test.ts`, and `apps/skillset/src/__tests__/adopt.test.ts` prove rendered, target-native, transformed, unsupported, isolated-path, policy-gated, scoped, warning-linked, import-linked, adopt-linked, and status-matrix render results.
+- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.
+- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines registry/result comparison.
+- [Post-Tools Policy Boundary](../../adrs/0021-post-tools-policy-boundary.md) defines the difference between enforcement and compatibility metadata.
+- `packages/core/src/{render-result,render-result-collector,render-result-policy}.ts` owns the schema, build production, and policy; `apps/skillset/src/{import,adopt}.ts` owns import production and adoption aggregation.
+- `packages/core/src/__tests__/{render-result,render-result-policy,render-result-build}.test.ts` proves normalization, validation, policy, persistence, and representative status behavior.
+- `apps/skillset/src/__tests__/{contract,adopt}.test.ts` proves CLI and adoption report integration.

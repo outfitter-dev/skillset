@@ -44,7 +44,7 @@ export interface SkillsetRenderResult {
    * Concrete output or scope under {@link target} that this result describes,
    * such as `skill`, `plugin-manifest`, `instruction`, `agent`,
    * `target-native-island`, `skill-frontmatter`, or a plugin feature artifact.
-   * `target` is the provider/runtime adapter (`claude`/`codex`); `destination`
+   * `target` is the provider adapter (`claude`, `codex`, or `cursor`); `destination`
    * is the concrete artifact rendered under it.
    */
   readonly destination?: string;

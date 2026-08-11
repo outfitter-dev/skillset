@@ -1,66 +1,79 @@
+---
+description: Hook guardrails define how maintainers change, verify, and troubleshoot Git and agent-runtime integrations.
+---
+
 # Hook Guardrails
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `hook-guardrails`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)
 
-Hook guardrails help humans and agents notice missing change reasons, stale generated output, or release provenance drift. They are workflow snippets, not target plugin hook definitions. For target plugin hooks, see [Hooks](../../reference/features/hooks.md).
+Hook guardrails connect repository and agent-runtime events to existing Skillset checks. They print reviewed configuration snippets and dispatch two runtime events; they do not install hooks or create [source truth](../../glossary.md#canonical-source). Portable and [provider-native](../../glossary.md#provider-native) plugin hooks have a separate [feature contract](../../reference/features/hooks.md).
 
-## Authoring
+## Ownership and Inputs
 
-V1 is print/snippet-first for installation and first-class for runtime execution. Skillset generates snippets for existing hook runners such as lefthook, Husky, pre-commit, or plain Git fallback hooks, and exposes `skillset hooks run` commands for reviewed provider runtime configs to call. It should not take over `.git/hooks`, overwrite hook-manager config, or mutate user-level provider runtime config during build/check/diff/import/init/create.
+`apps/skillset/src/runtime-hooks/print.ts` owns deterministic Git-runner and agent-runtime snippets. `run.ts` owns dispatch, `source-gate.ts` owns the repository change gate, `context.ts` normalizes provider input, and `commands.ts` resolves and executes Skillset. The public route and flags are owned by the CLI registry and [projected](../../glossary.md#projection) into the [`hooks` reference](../../reference/cli/hooks.md).
 
-Examples:
+The print command accepts either a Git runner or an agent-runtime [target](../../glossary.md#target):
 
 ```bash
 skillset hooks print --runner lefthook --pre-commit --pre-push
-skillset hooks print --runner husky --pre-commit --pre-push
-skillset hooks print --runner pre-commit --pre-commit --pre-push
 skillset hooks print --runner git --pre-commit --pre-push
 skillset hooks print --target claude --agent-runtime
 skillset hooks print --target codex --agent-runtime
-skillset hooks run post-tool-use
-skillset hooks run stop
-skillset-toolkit runtime context --event Stop --format env --fields provider,hook.event,session.id
 ```
 
-## Target Rendering
+Runner snippets call `skillset change check --staged` at pre-commit and `skillset change check --since origin/main && skillset check` at pre-push. Agent-runtime snippets target reviewed project-local Claude or Codex configuration. Cursor has no documented runtime-hook [destination](../../glossary.md#destination) for this surface and is rejected by the print command.
 
-| Source | Target output | Status | Notes |
-| --- | --- | --- | --- |
-| Git hook-runner snippet | n/a | `implemented` | Prints additive snippets for existing hook runners; does not install. |
-| Agent runtime hook suggestion | Claude/Codex reviewed config suggestion | `implemented` / `target_specific` | Prints project-local suggestions; must not mutate runtime config automatically. |
-| Agent runtime hook execution | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `implemented` / `target_specific` | Core CLI behavior called by reviewed Claude/Codex project-local runtime config. |
-| Runtime context helper | Claude, Codex, and Cursor `skillset-toolkit runtime context --event <event> --format env|json` | `implemented` / `target_specific` | Helper used by generated adaptive hook wrappers for `context.strategy: toolkit`; the shared context model lives in `@skillset/toolkit/runtime`. |
+## Outputs and Runtime Behavior
 
-For the normalized runtime context support matrix, use `skillset lookup hooks toolkit --field context.env --values --compat claude,codex,cursor` or see [Hooks](../../reference/features/hooks.md#runtime-context).
+| Input | Output or action | Boundary |
+| --- | --- | --- |
+| Git runner | Additive text for lefthook, Husky, pre-commit, or plain Git hooks | Caller reviews and installs it. |
+| Claude or Codex agent runtime | JSON suggestion plus destination comment | Caller reviews and merges it into project-local runtime config. |
+| `post-tool-use` | Runs `skillset change status --root .` after relevant source changes | Advisory; command failure does not block the agent event. |
+| `stop` | Runs `skillset change check --root .`, then `skillset check --root .` | Blocking; stops after the first failure. |
+| Toolkit runtime context | Normalized `provider`, `hook.event`, and `session.id` fields | Provider input is permissively normalized at the boundary. |
 
-## Diagnostics
+Both runtime events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
 
-Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run `skillset change check --since origin/main` followed by the comprehensive `skillset check`.
+Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout and installed package runners; `SKILLSET_HOOK_COMMAND` is the explicit reviewed override.
 
-Runtime hook execution stays narrower than Git hooks. `skillset hooks run post-tool-use` and `skillset hooks run stop` first inspect the Skillset source/change-entry paths that can affect source provenance, including untracked files:
+## Changing or Regenerating Guardrails
 
-- `skillset.yaml`
-- `.skillset/changes`
-- `.skillset`
+When a command, path gate, destination, or event changes:
 
-The runtime gate also watches the retired root `skillset/` marker so in-flight migration branches do not bypass checks while the resolver reports the required cutover.
+1. Change the owning runtime-hook module, not copied example text.
+2. Update CLI presentation and argument contracts if public grammar changes.
+3. Update exact snippet and dispatch tests for every affected runner or target.
+4. Regenerate CLI reference and verify the authored hook feature page still owns provider behavior.
 
-`PostToolUse` is advisory: after write/edit tools it runs `skillset change status --root .` only when one of those paths has a tracked or untracked change, and it does not block the agent turn. `Stop` is blocking but uses the same path gate before running `skillset change check --root .` and the comprehensive `skillset check --root .`. `Stop` deliberately does not run the broader `status` view; explicit bootstrap diagnostics and pre-push snippets remain the broader guardrail. Runtime suggestions remain opt-in reviewed configuration, and the public snippets call the installable `skillset hooks run ...` commands.
+```bash
+bun run docs:generate
+bun run docs:check
+bun run test:focused -- apps/skillset/src/__tests__/runtime-hooks.test.ts apps/skillset/src/__tests__/cli-args.test.ts
+```
 
-Runtime hook execution resolves the Skillset command from the local compiler checkout, an installed `skillset`, `bunx skillset`, `bun x skillset`, or `npx --yes skillset`. Reviewed runtime configs may set `SKILLSET_HOOK_COMMAND` when a project needs an explicit command override. Hook subprocesses strip repository-targeting `GIT_*` variables before invoking nested Skillset commands so runtime checks inspect the configured root rather than the hook runner's inherited Git context.
+## Troubleshooting
+
+- An empty runtime invocation usually means the source gate found no relevant change; inspect its tracked and untracked path coverage before changing dispatch.
+- A `stop` event that cannot inspect Git state must fail closed. A `post-tool-use` event with the same inspection failure remains advisory by design.
+- A snippet mismatch belongs to `print.ts` or CLI presentation, not generated documentation.
+- A provider context mismatch belongs to the shared toolkit normalizer or runtime input adapter. Do not make source-change safety depend on successful provider detection.
+- A missing executable should be repaired through the command-resolution chain or an explicit `SKILLSET_HOOK_COMMAND`, not by embedding a repository-specific command in generated snippets.
 
 ## Provenance
 
-Hook guardrails do not create source truth. They call Skillset commands that produce diagnostics from source entries, locks, and release state. Runtime context parsing is permissive: Claude-like env, Codex-like env, Cursor-like env, unknown env, and optional JSON stdin payloads are normalized at the boundary without making source-change safety depend on provider detection.
+Guardrails call commands that derive diagnostics from [canonical source](../../glossary.md#canonical-source), change entries, locks, and [release state](../../reference/features/releases.md). The runtime result records the event, normalized context, source-gate outcome, commands run, and exit code; it does not become another source contract.
 
-## Evidence
+## Evidence and Decisions
 
-See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestions.md).
+- `apps/skillset/src/runtime-hooks/{print,run,source-gate,context,commands}.ts` owns the implementation boundary.
+- `apps/skillset/src/__tests__/runtime-hooks.test.ts` proves snippet, gate, dispatch, resolution, and environment behavior.
+- `packages/toolkit/src/runtime.ts` and its tests own cross-provider runtime-context normalization.
+- [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) defines the provenance guardrail.
+- [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestions.md) records why runtime configuration remains reviewed and opt-in.

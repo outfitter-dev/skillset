@@ -1,28 +1,24 @@
+---
+description: The feature registry defines how maintainers add, validate, document evidence for, regenerate, and troubleshoot capability entries.
+---
+
 # Feature Registry
 
-<!-- skillset:feature-support:start -->
-
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-
-<!-- skillset:feature-support:end -->
-
-Feature id: `feature-registry`
+<!-- skillset:generated:end feature-support -->
 
 Related vocabulary: [Support Vocabulary](../../reference/features/README.md#support-vocabulary)
 
-The feature registry is Skillset's typed support matrix. It records the features Skillset knows about, what source shape they use, whether each target can represent them, which module owns rendering, which module owns validation, and what evidence supports those claims.
+The feature registry is Skillset's typed record of feature identity, static provider capability, ownership, documentation, and evidence. It is internal compiler infrastructure, not a public extension API. The generated [support matrix](../../reference/support-matrix.md), authored feature pages, diagnostics, [render results](render-results.md), and conformance checks consume the same entries.
 
-The registry is internal compiler infrastructure, not a public plugin system. It exists so docs, diagnostics, render results, drift checks, and future conformance tests can use the same feature ids and support vocabulary.
+## Ownership and Inputs
 
-See [Feature Reference and Schema Registry](../../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.
+`packages/core/src/feature-registry.ts` owns feature entries and Skillset's support decisions. `@skillset/registry` owns adopted provider [destination](../../glossary.md#destination)-format snapshots, JSON Schema snapshots, manual overlays, and dated runtime evidence. Core references those facts; it must not copy their provider inventories into another registry.
 
-## Current Boundary
-
-The feature-support seed lives in `packages/core/src/feature-registry.ts`. Provider-owned destination formats, schemas, hook evidence, and dated activation inspection surfaces live in `@skillset/registry`. Core consumes those provider facts and owns the Skillset activation policy when deriving build or readiness reports instead of maintaining parallel target lists.
-
-Each entry records:
+Each Core entry accepts these maintainer-facing fields:
 
 | Field | Meaning |
 | --- | --- |
@@ -32,59 +28,37 @@ Each entry records:
 | `kind` | Broad feature family such as source, metadata, workflow, plugin component, target-native, adoption, or change management. |
 | `status` | Feature entry status: implemented, planned, reserved, deferred, future, or unsupported. |
 | `sourceShape` | Source path, config key, frontmatter key, or generated fact shape that defines the feature. |
-| `targetSupport` | Per-target capability records for supported providers such as Claude, Codex, and Cursor. |
-| `targetSupport.<target>.provider` | Optional provider evidence links: adopted destination-format snapshot id, adopted JSON Schema snapshot ids, docs-only manual overlay ids, and unsupported destination keys. |
+| `targetSupport` | Static capability records for each supported [target](../../glossary.md#target). |
+| `targetSupport.<target>.provider` | References to adopted destination formats, schemas, overlays, and unsupported destination keys. |
 | `runtimeSupport` | Optional runtime, distribution, or harness support records. |
 | `renderOwner` | Module or workflow that owns rendering/reporting behavior. |
 | `validationOwner` | Module or workflow that owns validation behavior. |
-| `docs` | Reader-facing docs that explain the feature. |
-| `evidence` | Docs, source, tests, fixtures, external docs, or bounded assumptions supporting the claim. |
+| `docs` | Authored pages that explain the feature. |
+| `evidence` | Documentation, source, tests, fixtures, provider facts, or bounded assumptions supporting the claim. |
 
-The registry row should stay compact. Detailed authoring examples, generated-output snippets, and caveats belong on feature pages.
+Keep entries compact. Examples, authoring guidance, and detailed caveats belong on the linked public or development feature page.
 
-## Capability Vs Render Result
+## Outputs and Consumers
 
-Registry target support is static capability. Render results are build facts.
+Registry support is a static capability claim; a [render result](render-results.md) is a fact about one operation. For example, the registry says whether Codex can represent plugin dependencies in general, while a [build](../../glossary.md#build) result says whether one dependency was rendered, degraded, excluded by scope, or rejected under the active policy.
 
-For example:
+`docs:generate` reads registry `docs` links and `targetSupport` rows to update generated feature-support blocks and the support matrix. Core diagnostics and `skillset lookup` use feature ids and support vocabulary. Adapter conformance compares representative produced results with the declared capability rather than treating the registry itself as runtime proof.
 
-- `dependencies` has Claude target support `native` and Codex target support `degraded`.
-- A particular build can render the Claude dependency surface and generate a degraded Codex awareness notice.
-- If the build scope excludes plugins, the same source may produce `intentionally_skipped` render results instead.
+Feature ids may appear in locks, structured diagnostics, operation reports, `status`, `explain`, and conformance fixtures. They do not belong in ordinary provider artifacts unless a target contract explicitly requires them.
 
-This separation keeps docs from overpromising and keeps build reports from pretending skipped or degraded output is native support.
+## Changing the Registry
 
-## Markdown Is Serialization
+When adding or changing an entry:
 
-Skillset uses Markdown because skills, rules, agents, and instructions are authored and consumed as Markdown in target ecosystems. Markdown is still not the core IR.
-
-Source `SKILL.md` is parsed into a source skill record. Generated `SKILL.md` is a target artifact. `CLAUDE.md`-style files when imported or carried through target-native source, Claude rules, Claude agent files, and Codex `AGENTS.md` files are target-native renderings. Provider source can copy opaque files, but those files remain provider-specific destination output.
-
-The core contract is the resolved source graph plus typed feature entries, target support rows, render results, diagnostics, locks, and operation results.
-
-## Evidence
-
-Evidence should be strong enough for the claim:
-
-| Evidence kind | Use |
-| --- | --- |
-| `docs` | Skillset docs or ADRs that define the contract. |
-| `source` | Compiler modules that implement parsing, rendering, validation, or reporting. |
-| `test` | Tests proving behavior, schema guards, or drift checks. |
-| `fixture` | Fixture cases proving generated output or adoption behavior. |
-| `external-docs` | Provider docs with verification dates for target surfaces. |
-| `provider-snapshot` | Checked-in `@skillset/registry` snapshot ids for adopted destination formats. |
-| `provider-schema` | Checked-in `@skillset/registry` schema snapshot ids for adopted rolling-latest provider JSON Schema sources. |
-| `provider-overlay` | Checked-in manual overlay ids for destination areas where provider docs are prose-only and no adopted JSON Schema source exists. |
-| `assumption` | Explicit bounded assumption to replace with stronger evidence before graduation. |
-
-Provider snapshots are the preferred evidence for implemented destination-format claims. They carry source URLs, fetch timestamps, and content hashes in `@skillset/registry`, so normal build and check paths can stay deterministic and offline. Target support rows can also point to provider schema snapshots and manual overlays through their `provider` block. The registry remains the support decision surface: provider snapshots strengthen a row with evidence, while the row's `status`, `reason`, and optional `unsupportedDestinations` still express Skillset's support decision.
-
-External docs remain useful for future or exploratory rows before a destination format is adopted. Neither evidence type proves Skillset's rendering is correct or that a runtime activation path works; runtime support and activation probes stay separate from compile-target support.
+1. Confirm the render and validation owners and the exact source shape.
+2. Add provider evidence strong enough for each support claim. Implemented destination claims should prefer checked-in provider snapshots plus renderer tests.
+3. Link the page that owns the reader or maintainer explanation.
+4. Update renderer, validator, diagnostic, and conformance evidence in the same change when the support claim changes.
+5. Regenerate and verify the [projections](../../glossary.md#projection).
 
 ## Provider Evidence Refresh
 
-Provider evidence is refreshed explicitly and never fetched during ordinary build or check operations:
+Provider evidence refresh is explicit and never runs during ordinary builds or checks:
 
 ```bash
 bun run providers:check
@@ -92,35 +66,32 @@ bun run providers:diff
 bun run providers:update
 ```
 
-`providers:check` compares adopted schema sources with their upstream sources. `providers:diff` adds readable schema changes and manual-review rows for prose-only destination formats. `providers:update` rewrites the checked-in schema snapshots and provenance after a maintainer has reviewed the change.
+`providers:check` compares adopted sources with upstream. `providers:diff` reports readable changes and manual-review surfaces. `providers:update` rewrites checked-in snapshots only after review.
 
-Destination-format snapshots, schema snapshots, and manual overlays live in `@skillset/registry`. When a provider format changes, update the affected feature support evidence and rendering tests together. Record a destination-format migration only when its behavior is understood well enough to classify as compatible, adapter-only, source-migration, unsupported-drift, or manual-review; unregistered or lossy drift must remain a visible manual review instead of triggering an automatic rewrite.
+Run:
 
-Changes under `packages/registry/src/**` are package-facing. Follow the [package release procedure](../package-releases.md) for the required Changeset and release evidence, then verify that the authored [provider reference](../../reference/providers/README.md) and generated [support matrix](../../reference/support-matrix.md) still describe the same contract.
+```bash
+bun run docs:generate
+bun run docs:check
+bun run conformance:adapters
+bun run test:focused -- packages/core/src/__tests__/feature-registry.test.ts packages/core/src/__tests__/feature-registry-check.test.ts
+```
 
-## Diagnostics
+Package-facing changes under `packages/core/src/**` or `packages/registry/src/**` also follow the [package release procedure](../package-releases.md).
 
-Diagnostics carry stable feature ids where useful, but user-facing messages remain readable. A message like `skillset: Codex plugins do not support plugin-local bin/ helpers` is better than a bare `plugin-bin unsupported`; the feature id belongs in structured output, lock/report evidence, or a suffix where it helps agents inspect the issue. Render results inherit target-support evidence, so a skipped, degraded, or unsupported destination can cite the provider destination-format snapshot or schema overlay that justified the support fact without adding a second provider matrix.
+## Troubleshooting
 
-The current diagnostic ownership slice covers core build/write diagnostics, selected resolver errors for plugin manifests, root hook placement, and provider source support, plus lint diagnostics for skill source, plugin hooks, resource declarations, and tool intent. Broader source invalidity that still throws before an operation result exists may remain message-only until the surrounding operation is converted to structured diagnostics.
+- A duplicate id, unknown vocabulary value, incomplete target row, invalid evidence reference, or missing documentation link is a registry validation failure; fix the owning entry rather than weakening the checker.
+- A generated support block or matrix mismatch means registry facts changed without regeneration, or authored docs point at the wrong feature. Regenerate and inspect the projection.
+- A registry row that disagrees with emitted output is a conformance failure. Verify the renderer and provider evidence before changing the support classification.
+- Provider [drift](../../glossary.md#drift) without a reviewed migration remains manual review; do not update a snapshot merely to make `providers:check` green.
 
-## Provenance
-
-Feature ids can appear in render results, `skillset.lock`, reports, status/explain output, and conformance fixtures. They should not be injected into ordinary generated target files by default.
-
-## Future Work
-
-- SET-77 adds drift checks for docs, tests, fixtures, and evidence refs.
-- SET-78 exposes capability inspection through authoring CLI surfaces.
-- SET-82 through SET-86 persist render results, render them through diagnostics, gate policies, add matrix fixtures, and migrate warnings onto render-result codes.
-
-## Evidence
+## Evidence and Decisions
 
 - [Feature Reference and Schema Registry](../../adrs/0005-feature-reference-and-schema-registry.md) defines the decision.
 - `packages/core/src/feature-registry.ts` defines the current typed registry.
-- `packages/registry/src/index.ts` stores adopted provider destination-format snapshots used as registry evidence.
-- `packages/registry/src/schema-snapshots.ts` stores adopted provider JSON Schema snapshots and manual overlays used as registry evidence.
-- `packages/registry/src/provider-runtime-evidence.ts` stores dated provider inspection commands, output shapes, observed fields, and effects.
-- `packages/core/src/activation-policy.ts` derives Skillset activation claims, stages, reasons, actions, and fallback semantics from that evidence.
-- `packages/core/src/__tests__/feature-registry.test.ts` pins registry ids, vocabulary, evidence expectations, and guard behavior.
-- [Render Results](render-results.md) explains the separate build-result report.
+- `packages/core/src/feature-registry-check.ts` checks documentation, evidence, and coverage drift.
+- `packages/registry/src/{index.ts,schema-snapshots.ts,provider-runtime-evidence.ts}` owns provider evidence.
+- `packages/core/src/activation-policy.ts` derives Skillset [activation](../../glossary.md#activation) claims, stages, reasons, actions, and fallback semantics from that evidence.
+- `packages/core/src/__tests__/{feature-registry,feature-registry-check}.test.ts` pins registry vocabulary, evidence, documentation links, and coverage behavior.
+- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines the registry-to-output evidence loop.
