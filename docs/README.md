@@ -8,6 +8,7 @@ This directory holds durable documentation for the local Skillset compiler.
 - [Share-Ready Checklist](quickstart.md#share-ready-checklist): the 0.16 author handoff bar before hooks or runtime activation enter the path.
 - [First Author Example](../examples/first-author/README.md): a cloneable source repo deliberately narrowed to build one skill and one rule to Claude and Codex.
 - [Feature Reference](features/README.md): the support registry layer for source features, target adapters, future-only surfaces, and feature-specific provenance.
+- [Generated Reference](reference/README.md): contract-owned CLI commands, provider support, schemas, and examples.
 - [Layout](layout.md): the current source layout, generated output shape, shared-resource behavior, rules/instructions rendering, hooks, skill policy, and import flow.
 - [Schema Contracts](schema-contracts.md): the schema-first workflow, generated artifacts, and checklist for adding source/config/frontmatter fields without drift.
 - [Package Ownership](package-ownership.md): the package altitude doctrine, app-level core shim audit, and consolidation order for retiring compatibility facades.

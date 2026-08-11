@@ -5,6 +5,7 @@ import {
   extractInlineMarkdownLinks,
   extractMarkdownHeadings,
   githubHeadingSlug,
+  replaceGeneratedBlock,
   validateGeneratedMarkers,
 } from "../markdown";
 
@@ -258,5 +259,64 @@ describe("generated markers", () => {
     expect(validateGeneratedMarkers(markers)).toEqual([
       { id: "start unterminated", kind: "invalid-syntax", line: 4 },
     ]);
+  });
+
+  test("replaces exactly one block body and preserves all surrounding bytes", () => {
+    const source = [
+      "prefix  ",
+      "<!-- feature-support:start -->",
+      "legacy",
+      "<!-- feature-support:end -->",
+      "<!-- skillset:generated:start cli-reference -->",
+      "old body",
+      "<!-- skillset:generated:end cli-reference -->",
+      "suffix\t",
+    ].join("\n");
+
+    expect(replaceGeneratedBlock(source, "cli-reference", "\nnew body\n")).toBe(
+      [
+        "prefix  ",
+        "<!-- feature-support:start -->",
+        "legacy",
+        "<!-- feature-support:end -->",
+        "<!-- skillset:generated:start cli-reference -->",
+        "new body",
+        "<!-- skillset:generated:end cli-reference -->",
+        "suffix\t",
+      ].join("\n")
+    );
+  });
+
+  test("rejects missing, invalid, duplicate, nested, and mismatched blocks", () => {
+    expect(() => replaceGeneratedBlock("plain", "missing", "body")).toThrow(
+      "expected exactly one generated block: missing"
+    );
+    expect(() => replaceGeneratedBlock("plain", "Bad_ID", "body")).toThrow(
+      "invalid generated block ID: Bad_ID"
+    );
+
+    const invalidSources = [
+      [
+        "<!-- skillset:generated:start same -->",
+        "<!-- skillset:generated:end same -->",
+        "<!-- skillset:generated:start same -->",
+        "<!-- skillset:generated:end same -->",
+      ].join("\n"),
+      [
+        "<!-- skillset:generated:start outer -->",
+        "<!-- skillset:generated:start inner -->",
+        "<!-- skillset:generated:end outer -->",
+      ].join("\n"),
+      [
+        "<!-- skillset:generated:start target -->",
+        "<!-- skillset:generated:end wrong -->",
+      ].join("\n"),
+      "<!-- skillset:generated:start target extra -->",
+    ];
+    for (const invalidSource of invalidSources) {
+      expect(() =>
+        replaceGeneratedBlock(invalidSource, "target", "body")
+      ).toThrow("invalid generated markers:");
+    }
   });
 });

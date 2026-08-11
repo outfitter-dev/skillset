@@ -38,6 +38,11 @@ export interface GeneratedMarkerIssue {
   readonly line: number;
 }
 
+interface GeneratedMarkerLocation extends GeneratedMarker {
+  readonly end: number;
+  readonly start: number;
+}
+
 const MARKER_CANDIDATE_PATTERN =
   /<!--\s*skillset:generated:[^\n]*?(?:-->|(?=\n|$))/g;
 const CLOSED_MARKER_PATTERN =
@@ -174,8 +179,58 @@ export function githubHeadingSlug(heading: string): string {
 export function extractGeneratedMarkers(
   source: string
 ): readonly GeneratedMarker[] {
+  return extractGeneratedMarkerLocations(source).map(({ id, kind, line }) => ({
+    id,
+    kind,
+    line,
+  }));
+}
+
+/**
+ * Replace one generated block body exactly, preserving both marker comments and
+ * every byte outside them. The caller owns any desired surrounding newlines.
+ */
+export function replaceGeneratedBlock(
+  source: string,
+  id: string,
+  body: string
+): string {
+  if (!VALID_MARKER_ID.test(id)) {
+    throw new Error(`invalid generated block ID: ${id}`);
+  }
+
+  const locations = extractGeneratedMarkerLocations(source);
+  const issues = validateGeneratedMarkers(locations);
+  if (issues.length > 0) {
+    const summary = issues
+      .map((issue) => `${issue.kind} at line ${issue.line}: ${issue.id}`)
+      .join("; ");
+    throw new Error(`invalid generated markers: ${summary}`);
+  }
+
+  const starts = locations.filter(
+    (marker) => marker.kind === "start" && marker.id === id
+  );
+  const ends = locations.filter(
+    (marker) => marker.kind === "end" && marker.id === id
+  );
+  if (starts.length !== 1 || ends.length !== 1) {
+    throw new Error(`expected exactly one generated block: ${id}`);
+  }
+
+  const start = starts[0];
+  const end = ends[0];
+  if (start === undefined || end === undefined || start.end > end.start) {
+    throw new Error(`invalid generated block boundaries: ${id}`);
+  }
+  return `${source.slice(0, start.end)}${body}${source.slice(end.start)}`;
+}
+
+function extractGeneratedMarkerLocations(
+  source: string
+): readonly GeneratedMarkerLocation[] {
   const visible = maskMarkdownCode(source);
-  const markers: GeneratedMarker[] = [];
+  const markers: GeneratedMarkerLocation[] = [];
   for (const match of visible.matchAll(MARKER_CANDIDATE_PATTERN)) {
     const candidate = match[0];
     const closed = CLOSED_MARKER_PATTERN.exec(candidate);
@@ -190,6 +245,7 @@ export function extractGeneratedMarkers(
         : "invalid";
     if (match.index === undefined) continue;
     markers.push({
+      end: match.index + match[0].length,
       id:
         kind === "invalid"
           ? closed === null
@@ -198,6 +254,7 @@ export function extractGeneratedMarkers(
           : parts[0]!,
       kind,
       line: sourcePosition(source, match.index).line,
+      start: match.index,
     });
   }
   return markers;

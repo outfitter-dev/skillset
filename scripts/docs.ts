@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import { checkFeatureRegistryDrift } from "../packages/core/src";
+import { generateDocsReferenceArtifacts } from "./docs-reference";
 import {
   checkDocumentation,
   renderDocsCheckResult,
@@ -23,6 +25,8 @@ export async function runDocsCommand(
 
   if (command === "generate") {
     await withWorkingDirectory(root, () => generateSchemaArtifacts());
+    await generateDocsReferenceArtifacts(resolve(root));
+    await assertFeatureRegistryClean(resolve(root));
     process.stdout.write("skillset: generated documentation projections\n");
     return 0;
   }
@@ -38,9 +42,25 @@ export async function runDocsCommand(
   await withWorkingDirectory(root, () =>
     generateSchemaArtifacts({ check: true })
   );
+  await generateDocsReferenceArtifacts(resolve(root), { check: true });
+  await assertFeatureRegistryClean(resolve(root));
   const result = await checkDocumentation(resolve(root));
   process.stdout.write(renderDocsCheckResult(result));
   return result.ok ? 0 : 1;
+}
+
+async function assertFeatureRegistryClean(root: string): Promise<void> {
+  const report = await checkFeatureRegistryDrift(root);
+  if (report.ok) return;
+  throw new Error(
+    [
+      "skillset: feature registry documentation is stale",
+      ...report.issues.map(
+        (issue) =>
+          `- ${issue.code}: ${issue.ref ?? issue.featureId}: ${issue.message}`
+      ),
+    ].join("\n")
+  );
 }
 
 async function withWorkingDirectory<T>(
