@@ -1,29 +1,29 @@
+---
+description: Support constraints define compatibility ranges, mismatch policy, inheritance, and source-unit provenance.
+---
+
 # Supports
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `supports` | `implemented` | `metadata_only` | `metadata_only` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `supports`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-`supports` declares compatibility with external packages, tools, APIs, plugins, or version ranges. It is not the artifact's own version and it is not a plugin dependency.
+`supports` declares compatibility with an external package, tool, API, plugin, or version range. It does not set the [source unit's](../../glossary.md#source-unit) own version and does not create a plugin dependency.
 
-## Authoring
+## Source Contract
 
-Support constraints may appear on source units that can make a compatibility claim. V1 does not implicitly inherit root or plugin constraints into nested skills, agents, provider source, or feature pointers. A child source unit must explicitly declare or opt into a support constraint before the constraint affects that child's hash, status, history, or generated notice.
-
-Compact form:
+Compact entries combine package name and range:
 
 ```yaml
 supports:
   - "@acme/docs-cli@>=2.4 <3"
 ```
 
-Expanded form:
+Expanded entries can identify a local package source and mismatch policy:
 
 ```yaml
 supports:
@@ -34,20 +34,22 @@ supports:
       onMismatch: warn
 ```
 
-## Target Rendering
+The generated [frontmatter schemas](../schemas/README.md) own accepted shapes. `range` accepts the documented comparator, caret, and tilde forms. `source: repo:<path>` resolves package JSON relative to the repository. `onMismatch` defaults to `warn`; `error` makes a detected local-version mismatch fail validation.
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `supports` metadata | not rendered by default | not rendered by default | `implemented` / `metadata_only` | Significant for provenance and diagnostics; not target-enforced by default. |
+Constraints apply only to the source unit that declares them. [Workspace](../../glossary.md#workspace) or plugin constraints do not implicitly [cascade](../../glossary.md#cascade) to nested skills, agents, provider source, or feature pointers.
 
-## Diagnostics
+## Provider Output
 
-Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when rendered user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset check` and `status` warn by default, or fail when `onMismatch: error` is set, when the local version falls outside the declared range.
+Claude and Codex retain support constraints as provenance and diagnostics rather than target-enforced metadata. Cursor support remains planned as shown in the generated matrix. A constraint can therefore document and validate compatibility without claiming that a provider installs or enforces the dependency.
+
+## Errors and Caveats
+
+Skillset rejects malformed compact entries, invalid ranges, invalid package names or repository source paths, and mismatches configured with `onMismatch: error`. Checks and status warn for the default mismatch policy.
+
+A supports-only edit is source-significant but is not inherently severity-bearing: the default suggested release bump is `none`, or `patch` when the change alters rendered user-facing metadata. Use [dependencies](dependencies.md) when another plugin is required for operation.
 
 ## Provenance
 
-Support constraints appear in source-unit provenance, history evidence, and `explain`/`status` output. Aggregates may report child supports for inspection, but they do not copy constraints into child identity by default.
+Normalized constraints participate in hashes, history evidence, [`skillset status`](../cli/status.md), and [`skillset explain`](../cli/explain.md). Aggregates may report child constraints for inspection, but they do not copy them into child identity.
 
-## Evidence
-
-See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).
+The release rationale is recorded in [ADR 0014](../../adrs/0014-source-change-release-provenance.md) and [ADR 0016](../../adrs/0016-change-release-edge-decisions.md).

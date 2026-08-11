@@ -1,32 +1,34 @@
+---
+description: Skillset hooks define native and adaptive source, events, actions, attachments, provider rendering, and activation limits.
+---
+
 # Hooks
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `adaptive-hooks` | `implemented` | `transformed` | `degraded` | `degraded` |
 | `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
 | `plugin-hooks` | `implemented` | `pass_through` | `pass_through` | `pass_through` |
 | `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `hooks`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Hooks are rendered definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude, Codex, or Cursor configuration as a side effect of build, check, diff, import, init, or create.
+Hooks are [rendered](../../glossary.md#render) definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude, Codex, or Cursor configuration as a side effect of [build](../../glossary.md#build), check, diff, import, init, or create.
 
 Skillset supports two hook source styles:
 
-- Native aggregate hooks: provider-shaped plugin hook files at `hooks/hooks.json`.
-- Adaptive hook units: reusable hook definitions under `hooks/<name>.json` or `hooks/<name>/hook.json` that attach to plugins, skills, or project agents and render only where Skillset can preserve the intended scope.
+- Native aggregate hooks preserve [provider-native](../../glossary.md#provider-native) plugin hook files at `hooks/hooks.json`.
+- Adaptive hook units are reusable [source units](../../glossary.md#source-unit) under `hooks/<name>.json` or `hooks/<name>/hook.json`. They attach to plugins, skills, or project agents and render only where Skillset can preserve the intended scope.
 
 ## Native Aggregate Hooks
 
-The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. `<source-root>` is `.skillset/`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
+The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. The [source root](../../glossary.md#source-root) is `.skillset/`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
 
 Hook source is JSON with an aggregate `hooks` event map. Event entries may include a `matcher`, `statusMessage`, and a `hooks` array whose handlers declare a non-empty `type` plus handler-specific fields such as `command`, `prompt`, `agent`, `timeout`, and `async`. The active source contract is generated from `@skillset/schema`; see [schema reference](../schemas/README.md) and [hook examples](../examples/hook.yaml) for the current field set.
 
-Use native aggregate source when the hook file is already provider-shaped or intentionally provider-specific. Use adaptive hook units when the hook behavior should attach to a plugin, skill, or project agent and Skillset should render only destinations that preserve that scope.
+Use native aggregate source when the hook file is already provider-shaped or intentionally provider-specific. Use adaptive hook units when the hook behavior should attach to a plugin, skill, or project agent and Skillset should render only [destinations](../../glossary.md#destination) that preserve that scope.
 
 `hooks/hooks.json` is a destination-specific native aggregate source. It is not a universal sink for portable hook behavior, and it cannot be combined with adaptive hook units for the same generated plugin hook destination.
 
@@ -41,8 +43,6 @@ Imported provider-native hook files stay native by default. Skillset should only
 | Future `hooks.source` | n/a | n/a | n/a | `planned` | No feature-key source pointer exists in v1. |
 
 ## Adaptive Hook Units
-
-Feature id: `adaptive-hooks`
 
 Adaptive hook units are Skillset-authored source. They let authors define hook behavior once, attach it to the source unit where it belongs, and have Skillset render only provider/destination combinations that preserve the intended scope and runtime behavior.
 
@@ -117,7 +117,7 @@ skillset-toolkit runtime context --event <event> --format env --fields <field,..
 
 The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. It does not erase target-native variables such as `CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or `CURSOR_SESSION_ID`; scripts that need provider-specific data can still read the raw environment deliberately. For Cursor hooks, `session.id` resolves in deterministic order from an explicit `SKILLSET_SESSION_ID`, then the JSON stdin `conversation_id`, then `CURSOR_SESSION_ID` as a compatibility fallback. Claude and Codex continue to use their provider session environment variables after an explicit Skillset override.
 
-Generated hooks and out-of-repo scripts should use the `skillset-toolkit` CLI because it is shipped by the published `skillset` package. Repo-local tools that already depend on the internal workspace package can import the typed runtime surface directly:
+Generated hooks and out-of-repo scripts should use the `skillset-toolkit` CLI because it is shipped by the published `skillset` package. Repo-local tools that already depend on the internal [workspace](../../glossary.md#workspace) package can import the typed runtime surface directly:
 
 ```ts
 import { createHookRuntimeContext, renderHookRuntimeContextJson } from "@skillset/toolkit/runtime";
@@ -202,7 +202,7 @@ Nearest-first resolution only chooses named source definitions. It does not over
 
 The implemented render slices support plugin-level command/script hooks, plugin-level `run.env` shell assignments, and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into generated provider plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent.
 
-Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex- or Cursor-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex or Cursor is enabled and an attachment cannot be faithfully rendered, build, diff, and output checks surface an `adaptive-hooks` `unsupported:error` render result instead of writing a broader plugin or project hook.
+Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex- or Cursor-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex or Cursor is enabled and an attachment cannot be faithfully rendered, build, diff, and output checks surface an `adaptive-hooks` `unsupported:error` [render result](../../glossary.md#render-result) instead of writing a broader plugin or project hook.
 
 Provider blocks are closed, typed overrides for `events`, `match`, `context`, and `run`. An absent field inherits the portable unit; a supplied field replaces that complete semantic unit; `match: null` and `context: null` clear only those values. An override cannot enable a provider excluded by the unit's `providers` list. Skillset resolves this effective definition once per target before validating attachments, scripts, and target capabilities.
 
@@ -240,6 +240,6 @@ Provider docs checked: 2026-06-25.
 
 Hook definitions are generated plugin files. Plugin lock hashes include hook source content through plugin output hashes; hooks are not activation state.
 
-## Tests and Fixtures
+## Evidence
 
-Fixtures cover shared hooks, root hook rejection, target-specific hook validation, async handler rejection, excluded plugin output selection, generated manifest fields, and adaptive hook authoring in `fixtures/adaptive-hooks`, including toolkit runtime context rendering.
+Schema, capability, attachment, adapter, and runtime-context tests cover both source models and every generated support claim. Use the generated [hook schema and example](../schemas/README.md), the [Hook Guardrails](../../development/features/hook-guardrails.md) maintainer reference, and [Build Versus Activation](../../start/build-versus-activation.md) for the separate runtime authority boundary.

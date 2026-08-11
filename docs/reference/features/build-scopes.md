@@ -1,67 +1,86 @@
+---
+description: Build scopes select generated destinations for preview, writing, inspection, and isolated builds.
+---
+
 # Build Scopes
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
+<!-- skillset:generated:end feature-support -->
 
-Feature id: `build-scopes`
+Registry feature: `workflows`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Build scopes describe where Skillset writes or inspects generated output. They should stay separate from typed entity selectors such as plugin names, skill names, or future component ids.
+A build scope filters the [destinations](../../glossary.md#destination) that Skillset previews, writes, or inspects. It does not change [canonical source](../../glossary.md#canonical-source), provider meaning, or source-change coverage.
 
-## Authoring
+## Choose a Build Mode
 
-Build mode is configured in root source:
+Root `skillset.yaml` sets the default mode:
 
 ```yaml
 compile:
   build: updated
 ```
 
-`updated` is the default mode. `all` rebuilds every configured output. CLI flags `--updated` and `--all` override config for the current command.
+`updated` is the default and selects missing, changed, or stale managed output. `all` selects every configured generated file. `--updated` and `--all` override the manifest for one command and cannot be combined.
 
-`skillset build` is plan-first. It prints pending generated changes and writes only with explicit confirmation:
+`skillset build` is plan-first. It writes only after interactive confirmation or `--yes`:
 
 ```bash
+skillset build
 skillset build --yes
 ```
 
-Explicit `--scope` selectors filter generated destinations for build, diff, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
+The generated [`build` reference](../cli/build.md) owns the exact flags. The [development loop](../../guides/development-loop.md) shows the normal preview, write, and check sequence.
 
-`--isolated` on build, diff, or `check --only outputs` re-roots the entire rendering under the logical `.skillset/cache/latest/` mirror, preserving repo-relative layout in reports and locks while storing the mirror in the repo's XDG cache bucket. Writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against that mirror while live generated outputs stay untouched.
+## Filter Destinations
 
-## Support Table
+`--scope` filters destination classes for `build`, `diff`, `list`, and `explain`:
 
-| Behavior | Build | Output check | Diff/list/explain | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `compile.build: updated` | writes missing/changed outputs and removes stale scoped outputs | detect drift | explain target state | `implemented` | No usable lock falls back to the rendered configured outputs and writes a fresh baseline only when build runs with `--yes`; unchanged files are left untouched. |
-| `compile.build: all` | rewrites selected output roots | detect drift | explain full plan | `implemented` | CLI `--all` overrides config and records the resolved mode in lock metadata. |
-| `--scope repo/plugins/project/user/all` | destination filtering | destination filtering | destination filtering | `implemented` | Scope is about destinations, not arbitrary feature sets. `repo` covers standalone generated skill roots, `plugins` covers generated plugin repos, `project` covers project guidance/agents/provider source, and `user` is reserved with no build outputs today. |
-| `skillset diff` | no writes | n/a | added/changed/missing/removed diff | `implemented` | Missing locked outputs are shown separately from new generated outputs. |
-| `skillset explain <path>` | n/a | n/a | source/generated provenance and matching render results | `implemented` | Explain resolves lock provenance for current generated outputs, and `--json` includes full render-result records. |
-| `skillset list` | n/a | n/a | lock-backed inventory | `implemented` | Lists current generated lock entries today, including provider source and project agents. |
+| Scope     | Selected destination                              |
+| --------- | ------------------------------------------------- |
+| `repo`    | Repo-local standalone generated skill roots       |
+| `plugins` | Generated plugin bundles                          |
+| `project` | Project instructions, agents, and provider source |
+| `user`    | Reserved; no build output exists today            |
+| `all`     | Every configured destination                      |
 
-## Target Rendering
+Scopes are not entity selectors. They cannot substitute for plugin or skill ids, and `change status` and `change check` reject them because those commands measure source coverage rather than generated destinations.
 
-Build scopes do not change source meaning. They choose destination classes and entity subsets for planning or writing. Target adapters still decide whether a source feature can render faithfully to a provider, and unsupported destination remains fail-loud unless visible unsupported destination policy provenance exists.
+## Use an Isolated Mirror
 
-User/global destinations require the most conservative posture. `skillset build` must not mutate user-level Claude or Codex runtime config as a side effect. Future setup flows may propose or stage changes, but write confirmation and provenance need to be explicit.
+`--isolated` on `build`, `diff`, or `check --only outputs` reroots the complete [projection](../../glossary.md#projection) under the logical `.skillset/cache/latest/` mirror in the repository's XDG cache bucket. Reports and locks retain repository-relative paths, while live generated roots remain untouched.
 
-## Diagnostics
+Writes, [drift](../../glossary.md#drift) checks, stale-file removal, collision backups, and locks operate against the mirror. This is useful for inspection and tests; it does not install or activate the result.
 
-- Missing or corrupt locks should not silently disable guards. The workspace lock still fails loudly when corrupt because it guards unmanaged project files; absent locks are treated as a first baseline build.
-- Dry-run commands must never write generated files, locks, target config, or user-level settings.
-- Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `skillset check --only outputs`.
-- Scope/entity selectors should fail on unknown scopes or ambiguous entity selectors rather than guessing.
-- Diff/list/explain should make skipped, future, unsupported, and target-native states visible. Status and explain read render results so degraded or unsupported facts do not require hand-reading target files.
+## Read the Result
+
+| Command | Result | Writes |
+| --- | --- | --- |
+| `skillset build` | Planned additions, changes, missing files, and removals | Only after confirmation or `--yes` |
+| `skillset diff` | Content and state differences | Never |
+| `skillset list` | Lock-backed generated inventory | Never |
+| `skillset explain <path>` | Source, destination, provenance, and [render-result](../../glossary.md#render-result) facts | Never |
+| `skillset check --only outputs` | Whether checked-in output matches source | Never |
+
+Missing managed output appears separately from newly [generated output](../../glossary.md#generated-output). Unsupported or lossy destinations fail unless the [workspace](../../glossary.md#workspace) has an explicit visible policy that permits the result.
+
+## Errors and Recovery
+
+| Problem | Result | Recovery |
+| --- | --- | --- |
+| Unknown scope | Command fails instead of guessing | Choose a scope from the table or omit `--scope` |
+| Conflicting build modes | Command fails | Pass only `--updated` or `--all` |
+| Missing lock | Preview derives the configured projection; a confirmed build writes a new baseline | Review the full plan before confirming |
+| Corrupt lock | Build and inspection fail because ownership is unsafe to infer | Repair or regenerate the lock from trusted source |
+| Missing managed file | Diff and output check report the missing path | Preview and confirm a build |
+| Unmanaged collision or edited output | Confirmed build creates a recovery snapshot before replacement | Follow [Output Safety](output-safety.md) |
+
+Dry-run commands never write generated files, locks, [target](../../glossary.md#target) configuration, or user-level settings.
 
 ## Provenance
 
-`skillset.lock` should remain the heavy provenance surface: source hashes, generated hashes, target state, skipped source, adapter version, preprocessing dependencies, and warnings belong there rather than in generated skill frontmatter. Build-scope commands should explain their decisions from lock state rather than hidden global state.
-
-## Tests and Fixtures
-
-Fixtures cover plan-first build behavior, `--yes`, retired preview-flag rejection, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, provider source, and project agents.
+Nearby `skillset.lock` files record resolved build mode, source and generated hashes, target state, preprocessing dependencies, warnings, and skipped or unsupported facts. Generated frontmatter remains lightweight; use [`status`](../cli/status.md) or [`explain`](../cli/explain.md) to inspect the lock-backed decision.

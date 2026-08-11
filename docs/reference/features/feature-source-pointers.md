@@ -1,19 +1,21 @@
+---
+description: Feature source pointers define conventional discovery and explicit repository paths for MCP and executable plugin features.
+---
+
 # Feature Source Pointers
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-bin` | `implemented` | `pass_through` | `unsupported` | `unsupported` |
 | `plugin-mcp` | `implemented` | `native` | `native` | `native` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `feature-source-pointers`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Feature source pointers let a feature own external repo files without a generic component bucket or symlinks. The pointer lives on the feature key that understands the file, so target support and diagnostics remain feature-specific.
+Feature source pointers let a feature own repository files outside its [source root](../../glossary.md#source-root) without a generic component bucket or symlinks. The pointer lives on the feature key that understands the file, so [target](../../glossary.md#target) support and diagnostics remain feature-specific.
 
-The implemented v1 feature-key adapters are `mcp` and `bin`. Other plugin companion surfaces can still be implemented target-native pass-through paths, but they do not accept `*.source` pointer syntax until a later adapter owns that feature.
+The implemented feature-key adapters are `mcp` and `bin`. Other plugin companion surfaces can still use [provider-native](../../glossary.md#provider-native) pass-through paths, but they do not accept `*.source` pointer syntax unless their adapter owns that feature.
 
 ## Authoring
 
@@ -62,6 +64,6 @@ Claude plugin-root `bin/` is a documented target-native component added to the B
 
 Locks record the feature key, source pointer when present, target support status, discovered convention or explicit pointer, generated path, source hash, output hash, and target state. `skillset list` and `skillset explain` show whether a generated plugin feature came from convention or an explicit source pointer.
 
-## Tests and Fixtures
+## Evidence
 
-Fixtures cover `true`, `false`, and object forms, safe `repo:` path resolution, missing pointer diagnostics, conventional discovery, target-specific unsupported behavior, divergent output collisions, and lock/list/explain provenance.
+Contract tests cover every accepted form, repository containment, conventional discovery, structured validation, unsupported targets, output collisions, and lock/list/explain provenance.

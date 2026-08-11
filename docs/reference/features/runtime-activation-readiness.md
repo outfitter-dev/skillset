@@ -1,6 +1,10 @@
+---
+description: Runtime activation readiness defines observational stages, evidence effects, claim ceilings, reports, and manual next actions.
+---
+
 # Runtime Activation Readiness
 
-Runtime activation readiness describes the prerequisites between canonical Skillset source and behavior that a provider can actually use. It is observational: Skillset does not install, enable, trust, authenticate, or edit provider state while producing the report.
+Runtime [activation](../../glossary.md#activation) readiness describes the prerequisites between [canonical source](../../glossary.md#canonical-source), a current [render result](../../glossary.md#render-result), and behavior that a provider can actually use. It is observational: Skillset does not install, enable, trust, authenticate, or edit provider state while producing the report.
 
 See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.
 
@@ -12,7 +16,7 @@ See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md)
 - provider versions and evidence sources;
 - passive, active, or unavailable observation effects.
 
-`@skillset/core` owns the Skillset activation policy: capabilities, requirement stages, claim ceilings, stable reasons, manual next actions, and fallback semantics. It joins that policy to Registry-owned provider evidence and derives deterministic requirements from the resolved source graph and current render results. It does not read HOME or XDG state, spawn providers, parse credentials, or read retained CLI runtime caches.
+`@skillset/core` owns the Skillset activation policy: capabilities, requirement stages, claim ceilings, stable reasons, manual next actions, and fallback semantics. It joins that policy to Registry-owned provider evidence and derives deterministic requirements from the resolved source graph and current render results. Core does not read HOME or XDG state, spawn providers, parse credentials, or read retained CLI runtime caches.
 
 ## Requirement Stages
 
@@ -37,7 +41,7 @@ Summary precedence is deterministic:
 3. Otherwise, required unverified evidence yields `ready_unverified`.
 4. Otherwise the report is `ready`.
 
-Disabled targets are omitted. Optional findings remain visible but do not change the summary. An enabled target with no activation requirements is ready with zero counts. Runtime proof is informational by default.
+Disabled [targets](../../glossary.md#target) are omitted. Optional findings remain visible but do not change the summary. An enabled target with no activation requirements is ready with zero counts. Runtime proof is informational by default.
 
 ## Static Subjects
 
@@ -47,7 +51,7 @@ The first Core slice derives:
 - individual MCP server names from structured plugin MCP source;
 - plugin app companions from target-native app provenance.
 
-Stable requirement IDs combine target, capability, canonical subject, and stage. When several source units require the same subject, the requirement is deduplicated while retaining every owning source path and source-unit selector.
+Stable requirement IDs combine target, capability, canonical subject, and stage. When several [source units](../../glossary.md#source-unit) require the same subject, the requirement is deduplicated while retaining every owning source path and source-unit selector.
 
 ## Declared Runtime Proof
 
@@ -60,7 +64,7 @@ claims:
     subject: github
 ```
 
-Core resolves each claim against the selected target and source projection
+Core resolves each claim against the selected target and source [projection](../../glossary.md#projection)
 before any provider process starts. The declaration names the canonical
 capability and subject, not an internal requirement ID. Missing, ambiguous,
 disabled, target-incompatible, and unsupported claims fail before runtime
@@ -114,7 +118,7 @@ Provider binaries are versioned with the Registry-owned `<binary> --version` sur
 
 Unsupported app state and Cursor persistent plugin inventory stay unverified. Codex MCP inventory cannot establish connection or credentials. Plugin inventory cannot establish current-session load, bundled MCP startup, hosted policy, or runtime proof.
 
-Observational means Skillset issues no mutation command and writes no provider state directly. It does not promise byte-immutable provider directories: an invoked provider binary may maintain incidental caches or bookkeeping of its own. Tests isolate HOME and XDG roots so those effects remain outside the workspace and user configuration.
+Observational means Skillset issues no mutation command and writes no provider state directly. It does not promise byte-immutable provider directories: an invoked provider binary may maintain incidental caches or bookkeeping of its own. Tests isolate HOME and XDG roots so those effects remain outside the [workspace](../../glossary.md#workspace) and user configuration.
 
 ### Failure And Redaction Boundary
 

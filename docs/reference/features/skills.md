@@ -1,53 +1,63 @@
+---
+description: Skills define portable source, identity, provider output, validation, and generated provenance.
+---
+
 # Skills
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-skills` | `implemented` | `native` | `native` | `native` |
 | `standalone-skills` | `implemented` | `native` | `native` | `native` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `skills`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skills are the core portable source unit. A skill can live inside a plugin at `<source-root>/plugins/<plugin>/skills/<skill>/SKILL.md` or as a standalone repo skill at `<source-root>/skills/<skill>/SKILL.md`, where `<source-root>` is `.skillset/`.
+A skill is a portable [source unit](../../glossary.md#source-unit) stored in one of two locations under the `.skillset/` [source root](../../glossary.md#source-root):
 
-## Authoring
+| Kind | Source path | Default generated roots |
+| --- | --- | --- |
+| Standalone | `.skillset/skills/<skill>/SKILL.md` | `.claude/skills/`, `.agents/skills/`, `.cursor/skills/` |
+| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/<target>/skills/` for each enabled [target](../../glossary.md#target) |
 
-Skill source is Markdown with YAML frontmatter. Skillset derives machine identity from the directory and accepts top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, `tools`, and target-specific provider blocks such as `claude`, `codex`, and `cursor`. The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../schemas/README.md) and [skill frontmatter examples](../examples/skill-frontmatter.yaml) for the current field set, including common metadata blocks, dependencies, generated metadata, `supports`, and provider override blocks. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are rejected; use top-level `name` and `version`. Skill Markdown bodies and generated Codex `agents/openai.yaml` sidecars support preprocessing with nested `{{this.<field>}}` frontmatter references, scalar values, object and array JSON rendering, `{{skillset.*}}` / `{{parent.*}}` context variables, triple-brace literal escapes such as `{{{this.description}}}`, prompt argument placeholders such as `{{$ARGUMENTS}}`, `{{$ARGUMENTS[0]}}`, `{{$ARGUMENTS[1]}}`, and `{{$ARGUMENTS.name}}`, path partials such as `{{shared:path.md}}`, `{{plugin:path.md}}`, or a file path relative to the current source file, and named partials such as `{{> intro}}`. Named partials resolve from `.skillset/partials/` first, then from the current plugin's `partials/` when plugin-bound; `{{> <plugin>.<name>}}` can explicitly address the current plugin's own partial namespace, and cross-plugin partial references fail. Unrelated double-brace expressions in Markdown, such as JSX object literals, remain unchanged; reserved `this.*`, `skillset.*`, `parent.*`, and `$ARGUMENTS` expressions still fail loudly when invalid. Skill prose can also include template guidance placeholders such as `{ Customer name }` or `[Customer name]`; those are reader-facing examples, not preprocessing variables.
+The directory name is the stable skill identity. Top-level `name`, when present, must agree with it. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are invalid; version authority uses top-level `version` until [workspace](../../glossary.md#workspace) release state supersedes it.
 
-Resolve-only references use `{{@references/guide.md}}`,
-`{{@shared:references/guide.md}}`, or `{{@plugin:references/guide.md}}`.
-Unlike a path partial, the referenced file is validated and recorded in
-provenance but not embedded. Bare paths retain their bundle-relative spelling;
-shared and plugin paths must be declared through `resources` and lower to the
-copied target path inside each generated skill.
+## Source Contract
 
-Use `skillset new skill <name>` to create a minimal valid skill source file in the detected source root. The command plans by default and writes only with `--yes`. It derives a kebab-case id from the display name unless `--id` is provided; `--name` can keep a prettier display title separate from the stable id. `--in <plugin-name>` writes into an existing plugin container. Skill presets can add common support surfaces: `support` creates `references/`, `assets/`, and `scripts/`; `evals` creates a `skill-creator`-compatible `evals/evals.json` with the matching `skill_name`; `reference-file` and `examples-file` create `REFERENCE.md` or `EXAMPLES.md` when one file is enough. `assets/` is the broad static-resource home; examples, starter files, and template-like artifacts can live there until they need stronger semantics.
+Skill source is Markdown with YAML frontmatter and a body:
 
-## Target Rendering
+```markdown
+---
+name: docs-review
+description: Review documentation for contract accuracy and usable navigation.
+tools: readonly
+---
 
-| Source | Claude output | Codex output | Cursor output | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Plugin skill source | `plugins/<plugin>/claude/skills/<skill>/SKILL.md` | `plugins/<plugin>/codex/skills/<skill>/SKILL.md` plus Codex sidecars when needed | `plugins/<plugin>/cursor/skills/<skill>/SKILL.md` | `portable` / `implemented` | Plugin boundaries are preserved per target. |
-| Standalone skill source | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` plus Codex sidecars when needed | `.cursor/skills/<skill>/SKILL.md` | `portable` / `implemented` | Standalone roots are configured by target skill output paths. |
-| Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset check --only outputs` reports generated version drift. |
-| `{{$ARGUMENTS...}}` source placeholders | native `$ARGUMENTS...` placeholders | preserved `{{$ARGUMENTS...}}` markers plus a one-line replacement instruction | preserved `{{$ARGUMENTS...}}` markers | `shimmed` / `implemented` | Enabled by default through `compile.features.promptArguments`; disable to reject the source markers. |
-| `compile.skillset.metadata: false` | suppress generated Skillset metadata | suppress generated Skillset metadata | suppress generated Skillset metadata | `implemented` | Locks still carry provenance. |
+# Docs Review
 
-## Diagnostics
+Check claims against their [canonical source](../../glossary.md#canonical-source) before proposing edits.
+```
 
-- Reject unsupported source schema versions and malformed semver product versions.
-- Reject identity conflicts between directory names and top-level `name`; reject skill-local `skillset.name`, `skillset.id`, and `skillset.version`.
-- Reject unknown portable frontmatter keys unless they are accepted target-native fields inside a target block.
-- Warn for top-level `model` unless every enabled target has an exact target model through file-level fields or defaults.
-- Reject stale generated skills and manifests in `skillset check --only outputs`.
+The generated [skill-frontmatter schema and example](../schemas/README.md) own the complete field set and value constraints. The [frontmatter reference](../../configuration/frontmatter.md) explains field ownership; [target overrides](../../configuration/target-overrides.md), [tools policy](../../configuration/tools-policy.md), and [resources](resources.md) own their specialized configuration.
+
+Skill bodies support the expressions documented in [source preprocessing](../source/preprocessing.md). `compile.features.promptArguments` defaults to enabled, and `compile.skillset.metadata` defaults to enabled; [project configuration](../../configuration/project-configuration.md) owns those workspace settings.
+
+## Provider Output
+
+Every enabled [target](../../glossary.md#target) receives its native `SKILL.md` shape. Plugin boundaries remain intact. Codex may also receive compiler-owned sidecars such as `agents/openai.yaml` and `.skillset.tools.yaml` when authored policy requires them.
+
+Release state supplies generated version metadata after `skillset release apply`; inline versions remain the fallback before release state exists. Disabling generated Skillset metadata does not remove lock provenance.
+
+`{{$ARGUMENTS...}}` expressions become native Claude placeholders. Codex preserves the marker and adds replacement guidance; Cursor preserves the marker without the Codex notice.
+
+## Errors and Caveats
+
+Skillset rejects identity conflicts, unsupported source schema versions, malformed versions, invalid preprocessing expressions, unsafe resource paths, and output collisions. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
+
+Generated skills are [generated output](../../glossary.md#generated-output), not authoring surfaces. [`skillset check --only outputs`](../cli/check.md) reports missing, stale, or edited managed files; [`skillset explain`](../cli/explain.md) shows the deciding source, target, resources, preprocessing dependencies, and policy realization.
+
+Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use and writes only when confirmation is explicit.
 
 ## Provenance
 
-Generated skill and plugin lock entries record source paths, output paths, hashes, version state, target state, skipped target-specific skill versions, copied resources, preprocessing dependencies, and generated metadata policy. Partial files referenced from skill Markdown or generated Codex YAML participate in source hashes so `skillset check --only outputs`, `skillset explain`, and `skillset list` can show why a generated skill became stale.
-
-## Tests and Fixtures
-
-Fixtures cover plugin and standalone skill rendering, identity conflicts, old metadata-key rejection, version drift, metadata suppression, target defaults, target opt-outs, generated sidecars, and import preservation.
+Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, and any compiler-owned sidecars.

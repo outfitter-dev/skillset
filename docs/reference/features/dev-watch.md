@@ -1,86 +1,53 @@
+---
+description: Skillset development mode watches source, previews drift, and optionally writes generated output.
+---
+
 # Dev Watch
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `dev-watch` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `dev-watch`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-`skillset dev` runs a foreground authoring loop for first authors. It
-watches the active Skillset workspace source and config paths, debounces edits,
-and reruns source diagnostics plus generated-output checks as files change. The
-default mode is preview-only; `--write` opts into writing repo-local generated
-output on each clean refresh.
+`skillset dev` runs a foreground authoring loop over the active Skillset [workspace](../../glossary.md#workspace). It debounces changes to `skillset.yaml` and `.skillset/`, then reruns source diagnostics and [generated-output](../../glossary.md#generated-output) checks.
 
-## Authoring
-
-Start the loop from a Skillset workspace:
+## Preview by Default
 
 ```bash
 skillset dev
 ```
 
-To apply generated output after each source edit, opt in explicitly:
+Each refresh reports source diagnostics, generated-output [drift](../../glossary.md#drift), and the active output roots. Preview mode writes nothing. Use a separate confirmed build when the plan is ready:
+
+```bash
+skillset build --yes
+```
+
+The [development-loop guide](../../guides/development-loop.md) owns the complete author workflow, and the generated [`dev` reference](../cli/dev.md) owns exact syntax.
+
+## Opt Into Continuous Writes
 
 ```bash
 skillset dev --write
-```
-
-For another checkout, pass `--root`:
-
-```bash
 skillset dev --root examples/first-author
 ```
 
-The command watches:
+`--write` uses the same repo-local build path and ownership checks as `skillset build --yes` on every clean refresh. It can create reversible backups for collisions or edited managed files. Bare `dev` does not accept `--yes`; `--write` is the explicit continuous-write choice.
 
-- the workspace config, `skillset.yaml`;
-- the active source root, `.skillset/`.
+The watcher ignores generated roots, `AGENTS.md`, `skillset.lock`, `.skillset/cache/`, `.skillset/snapshots/`, and its own report churn so a build does not retrigger itself.
 
-It ignores generated output roots, `AGENTS.md`, `skillset.lock`,
-`.skillset/cache/`, `.skillset/snapshots/`, and generated lock/report churn so
-preview and apply output do not trigger the watcher.
+## Errors and Exit Behavior
 
-## Target Rendering
+- Source and render errors are printed without ending the watch process. Fix the file and save to retry.
+- A failed write refresh records no completed write. If an earlier refresh created a backup, the report includes the [`restore`](../cli/restore.md) command.
+- `SIGINT` or `SIGTERM` ends the foreground process normally; `dev` is not a daemon.
+- Invalid flags or an invalid workspace fail before the watcher starts.
 
-Preview mode does not render or write target files. Each refresh prints:
+`skillset dev` never installs, trusts, activates, symlinks, publishes, executes generated hooks or scripts, or mutates user-level provider configuration. Writing proves only that the repository [projection](../../glossary.md#projection) is current; see [Build Versus Activation](../../start/build-versus-activation.md).
 
-- source diagnostics;
-- generated-output drift that `skillset build` would write;
-- active output roots where generated files would land.
+## Provenance
 
-Use `skillset build --yes` when the preview is acceptable and you want to write
-repo-local generated provider output.
-
-Write mode uses the same build path as `skillset build --yes`. It writes only
-repo-local generated output, uses generated-output ownership checks, creates
-reversible backups for unmanaged collisions or target-side edits, and reports
-the `skillset restore <backup-id>` recovery command when a backup is created.
-`--write` is the continuous-write opt-in; bare `dev` remains preview-only and
-does not accept `--yes`.
-
-## Diagnostics
-
-The watch loop reports source errors without exiting the process. Fix the file
-and save again to rerun the preview or write refresh. Build/render errors are
-shown inline. In write mode, a failed refresh reports that no completed write was
-recorded and points at restore if an earlier backup was reported.
-
-`skillset dev` is intentionally not a daemon, background service,
-runtime activation layer, or provider-specific live preview. It ends when the
-foreground process receives `SIGINT` or `SIGTERM`.
-
-Neither preview nor write mode installs, trusts, activates, symlinks, publishes,
-executes hooks/scripts, or mutates user-level Claude, Codex, or Cursor
-configuration.
-
-## Tests and Fixtures
-
-Tests cover workspace watch path selection, generated/cache/output ignore rules,
-debounce behavior with a fake scheduler, preview summary rendering, apply writes,
-backup recovery guidance, and command validation without starting a long-running
-watcher.
+Write mode updates ordinary generated files and their nearby `skillset.lock` records. Preview mode creates no provenance. Collision and target-side-edit recovery evidence belongs to the snapshot described by [Output Safety](output-safety.md).

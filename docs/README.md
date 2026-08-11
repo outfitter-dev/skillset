@@ -18,6 +18,7 @@ Choose the question you are trying to answer. Each linked page states what it ow
 - [Configuration](configuration/README.md) explains workspace settings, source frontmatter, target overrides, and tools policy.
 - [Source reference](reference/source/README.md) documents the canonical workspace layout, instructions, and preprocessing.
 - [CLI reference](reference/cli/README.md) lists every public command and its generated route pages.
+- [Feature reference](reference/features/README.md) defines exact authoring, output, error, example, and caveat contracts by feature or workflow.
 - [Feature support matrix](reference/support-matrix.md) shows registry-owned support across canonical provider targets.
 - [Glossary](glossary.md) defines the source, build, destination, provider, and activation vocabulary.
 

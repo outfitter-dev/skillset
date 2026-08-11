@@ -1,37 +1,33 @@
+---
+description: Skillset tests and evals define deterministic checks, activation probes, runtime trials, reports, and retention.
+---
+
 # Tests and Evals
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `activation-probes` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `tests-and-evals`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skillset implements deterministic source-root test declarations, activation probes, optional declared or ad hoc runtime tests, portable skill-local eval declarations, and opt-in ungraded eval runs. Tests and evals are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals retain provider trial evidence without judging whether a model met an expectation.
+Skillset implements deterministic [source-root](../../glossary.md#source-root) test declarations, [activation](../../glossary.md#activation) probes, optional declared or ad hoc runtime tests, portable skill-local eval declarations, and opt-in ungraded eval runs. Tests and evals are related because both establish confidence in a Skillset [loadout](../../glossary.md#loadout), but they answer different questions. Deterministic tests ask whether selected source [projects](../../glossary.md#projection) into expected files and lifecycle state. Evals retain provider trial evidence without judging whether a model met an expectation.
 
-## Current Boundary
+## Choose the Evidence You Need
 
-Skillset currently uses internal compiler fixtures and validation commands:
-
-| Surface | Location | Status | Purpose |
+| Question | Surface | Runtime process | Result |
 | --- | --- | --- | --- |
-| Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/.skillset/` ([convention](../../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
-| Contract tests | `apps/skillset/src/__tests__/` and `packages/*/src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
-| Validation commands | `skillset check`, `skillset check --only outputs`, `status`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate or inspect real source and generated output. |
-| Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
-| `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
-| `skillset test --target …` | `.skillset/cache/tests/ad-hoc/` logical reports backed by XDG cache storage | `implemented` | Runs an ad hoc non-interactive provider test and retains status, output, tail, and report files. |
-| `<skill>/evals/evals.json` | skill-local JSON | `implemented` / declaration | Portable case source, validation, and read-only target-matrix listing. |
-| `skillset eval run` | XDG-backed `.skillset/cache/evals/` | `implemented` / opt-in | Runs the declared case-by-target matrix through target-native local adapters without grading. |
+| Does selected source [render](../../glossary.md#render) deterministically and satisfy declared checks? | `skillset test` declaration | Only for an explicit declared runtime section | Isolated projection and structured checks |
+| Did a declared capability actually run for the current source? | Activation probe or declared runtime claim | Yes | Current bounded proof receipt |
+| What does one local provider do with this prompt? | `skillset test --target … --prompt …` | Yes | Retained ad hoc runtime evidence |
+| What happens for every declared case and enabled [target](../../glossary.md#target)? | `skillset eval run` | Yes | Ungraded case-by-target trial evidence |
 
-Checked-in internal fixtures use the current workspace layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/.skillset/` as the source root.
+Use `skillset check` and `check --only outputs` for ordinary source and [generated-output](../../glossary.md#generated-output) readiness. They do not replace declared tests or launch providers.
 
 ## Deterministic Tests
 
-`skillset test` runs isolated deterministic scenarios. It compiles selected source units in a run workspace and checks generated files, provider manifests, and drift without touching live target output.
+`skillset test` runs isolated deterministic scenarios. It compiles selected [source units](../../glossary.md#source-unit) in a run [workspace](../../glossary.md#workspace) and checks generated files, provider manifests, and [drift](../../glossary.md#drift) without touching live target output.
 
 Core owns declaration loading, source selection, caller-supplied workspace materialization, deterministic checks, rendered activation facts, and literal runtime assertions through an injected runtime probe. The CLI app owns temporary and retained-run lifecycle, report/Markdown rendering, runtime process execution and evidence, JSON/JSONL/terminal behavior, and status/tail/worker policy. This preserves one compiler-owned evaluation contract without giving Core a cache, process, or CLI policy surface.
 
@@ -86,7 +82,7 @@ project-agent:
     projection: true
 ```
 
-`select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--updated`, `--all`.
+`select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated [destination](../../glossary.md#destination) filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--updated`, `--all`.
 
 The test runner copies only source-relevant files into an isolated run workspace: root `skillset.yaml`, `.skillset/`, and source-adjacent state such as `.skillset/changes/`. It then prunes unselected source units before building. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated files such as entity `CHANGELOG.md` files remain recognized as managed inside the run.
 
@@ -119,7 +115,7 @@ self:
 
 Target validation commands are reportable manual follow-up instructions in v1; `skillset test` does not install, publish, trust, symlink, or activate provider runtime configuration.
 
-Release state and inline versions are observable, not migrated, by deterministic tests. A test may assert the version that build emits after release state is applied, but it must not rewrite source `version` fields or start the SET-43 migration from inline versions to release-state-only authoring.
+Release state and inline versions are observable, not migrated, by deterministic tests. A test may assert the version that build emits after release state is applied, but it must not rewrite source `version` fields or migrate version authority. The [Releases reference](releases.md) owns that boundary.
 
 ## Activation Probes
 
@@ -224,7 +220,7 @@ The command remains credential-free when the selected declaration has no `runtim
 
 Runtime results distinguish `render`, `binary`, `setup`, `auth`, `timeout`, `cancelled`, `runtime`, and `assertion` failures. A provider process can therefore complete successfully while its declared expectation fails as `assertion`; missing generated units fail as `render` before provider launch, while a missing executable fails as `binary`. JSON and Markdown test reports record the target, command context, prompt provenance, normalized assertion results, and logical raw evidence paths. Raw ad hoc reports, stdout/stderr events, prompts, and final responses remain under the repo's XDG-backed `.skillset/cache/tests/ad-hoc/` bucket.
 
-The promotion path is intentionally direct: use `skillset test` to refine a provider prompt, move the prompt inline or into a source-root file, add the expected rendered unit and literal response assertion to an activation probe, then run it with `skillset test`. Subjective quality evaluation remains separate work under SET-51.
+The promotion path is intentionally direct: use `skillset test` to refine a provider prompt, move the prompt inline or into a source-root file, add the expected rendered unit and literal response assertion to an activation probe, then run it with `skillset test`. Subjective quality evaluation remains outside the deterministic assertion contract; eval runs retain evidence without assigning a model-quality verdict.
 
 ## Ad Hoc Runtime Tests
 
@@ -274,51 +270,6 @@ SKILLSET_TEST_CLAUDE_SETTING_SOURCES=project skillset test --target claude --pro
 Override runtime binaries with `SKILLSET_TEST_CODEX_BIN`, `SKILLSET_TEST_CLAUDE_BIN`, or `SKILLSET_TEST_CURSOR_BIN` for tests, shims, or machine-specific installs.
 
 For Claude Code non-interactive runs, the CLI process must see a non-interactive credential. If `claude --print` reports `Not logged in`, run `claude setup-token`, put the printed `CLAUDE_CODE_OAUTH_TOKEN` export in the repo-local ignored `.envrc`, and run `direnv allow`. The committed `.envrc.example` shows the expected shape without storing secrets. From shells or automation that do not load the direnv hook, use `direnv exec . skillset test ...`.
-
-## Compiler Determinism and Adapter Conformance
-
-The compiler verification lane is narrower than `skillset test` and much narrower than evals. It proves that the same source projects to the same generated artifacts, lockfiles, reports, and structured outcomes when built in clean roots. It is an internal and core-library-facing determinism proof, not a user-authored scenario format.
-
-The default fast lane should run small local cases such as `fixtures/kitchen-sink/` and selected self-hosted source. Slower lanes can cover external adoption fixtures and larger conformance packs. Both lanes should share the same normalized output-tree utilities so path-level failures look the same.
-
-This repo exposes the fast lane through targeted package scripts:
-
-```bash
-bun run conformance:determinism
-bun run conformance:adapters
-bun run conformance:fast
-```
-
-`bun run conformance:determinism` reruns the clean-root projection proofs for the checked-in kitchen-sink fixture and the self-hosted `skillset/` source selection. `bun run conformance:adapters` reruns adapter outcome and coverage tests against representative feature-registry claims. `bun run conformance:fast` runs both. These scripts are for focused maintainer reruns; the default `bun run check` gate already includes them through `bun run test`.
-
-External adoption fixtures are the opt-in slower lane:
-
-```bash
-bun run conformance:external
-bun run conformance:external -- <name>
-bun run conformance:external:sync
-```
-
-The external lane reuses the pinned repo manifest in `fixtures/external/repos.yaml` and writes reports under the logical `.skillset/cache/fixtures/<name>/` path, backed by the repo's XDG cache bucket. Those reports are conformance evidence for real-world adoption and round-trip fidelity: they show which repo/ref was acquired, what adoption imported, whether lint/build/purity passed, and which generated paths matched or drifted. They are suitable as feature-registry or adapter coverage references, but they remain outside `bun run check`, `skillset:check:ci`, and PR CI because they may fetch network data and run against large cloned repos.
-
-Normalization is intentionally limited. The runner may normalize path separators, strip only its own documented temp-root prefixes from comparison material, canonicalize JSON object key order for locks/reports/results, and exclude documented runner-retention metadata. Absolute source temp paths in generated files or hash material, timestamps in locks, unstable ordering, host-specific separators, and mismatched generated bytes should fail.
-
-Adapter conformance consumes the feature registry and [render results](../../development/features/render-results.md) together. A target support row that says `native`, `transformed`, `pass_through`, `metadata_only`, `degraded`, or `unsupported` should be reflected by rendered render results or render errors with reasons and evidence. This proves Skillset told the truth about rendering; it does not prove Claude or Codex runtime behavior after activation.
-
-## Lifecycle Dogfooding
-
-Lifecycle dogfooding is not a product command. It is how this repo proves that the change/release workflow is usable:
-
-```bash
-skillset change status
-skillset change add ...
-skillset change check
-skillset release plan
-skillset release apply --yes
-skillset check --only outputs
-```
-
-The first durable dogfood pass should use a small self-hosted `skillset/` source edit, create a real pending reason, apply release state, refresh generated output, and confirm no drift. A separate fake-repo lifecycle fixture can cover edge cases, but it should not replace using the workflow on the real repo.
 
 ## Evals
 
@@ -442,4 +393,4 @@ Test runs record the source selector, target set, run id, generated output paths
 
 ## Evidence
 
-See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md), [Render Results](../../adrs/0018-render-results.md), the superseded [Lowering Outcomes and Loss Ledger](../../adrs/0017-lowering-outcomes-and-loss-ledger.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](releases.md).
+See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md), [Render Results](../../adrs/0018-render-results.md), [Build Scopes](build-scopes.md), and [Runtime Activation Readiness](runtime-activation-readiness.md). Maintainer-only conformance and repository dogfooding belong in the [development reference](../../development/README.md).

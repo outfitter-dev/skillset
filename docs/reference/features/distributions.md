@@ -1,33 +1,28 @@
+---
+description: Skillset distributions plan downstream delivery of built artifacts without syncing, publishing, or activating them.
+---
+
 # Distributions
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `distributions` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
-
-Feature id: `distributions`
+<!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Distributions describe where an already-built Skillset rendering could be synced after build. They are separate from compilation and separate from runtime activation.
+A distribution describes where an already-built [projection](../../glossary.md#projection) could be delivered. Skillset currently implements planning only: it does not sync files, commit to another repository, publish, install, or prove [activation](../../glossary.md#activation).
 
-## Lifecycle Boundary
+Use a distribution when generated artifacts need a downstream filesystem or Git [destination](../../glossary.md#destination). Use a [marketplace](../../guides/marketplaces.md) to curate provider catalog entries, and use the [publishing guide](../../guides/publishing.md) to choose among [workspace](../../glossary.md#workspace) releases, distributions, marketplaces, and npm publication.
 
-`skillset build` materializes deterministic generated files from source. It does not trust, install, publish, activate, or mutate another repository.
+## Configure a Distribution
 
-`skillset distribute plan` reads `distributions` config, builds the generated rendering in memory, filters the requested source surface, and reports where those files would land. It does not write files, create commits, open pull requests, or install runtime config.
-
-Future sync/publish commands can consume the same plan, but the plan is the contract first: source target, selector, destination, file list, hashes, local destination status when available, and whether the local destination is already a no-op.
-
-## Config
-
-Distribution config is root-level and intentionally not nested under `compile`:
+`distributions` is a root `skillset.yaml` field, separate from `compile`:
 
 ```yaml
 compile:
-  targets:
-    - codex
+  targets: [codex]
 
 distributions:
   codex-marketplace:
@@ -41,57 +36,52 @@ distributions:
       subdirectory: packages/skillset
 ```
 
-`from.target` is the build target rendering to read. It must already be enabled by `compile.targets`.
+`from.target` must be enabled by `compile.targets`. Optional `from.runtime` records intended consumer evidence; it does not add a build target or prove runtime readiness.
 
-`from.runtime` is optional evidence for the runtime or harness that will consume the distribution. It does not make the runtime a build target.
+| Selector      | Selected generated surface                                |
+| ------------- | --------------------------------------------------------- |
+| `plugin:<id>` | One provider plugin bundle, relative to its bundle root   |
+| `plugins`     | The provider's complete generated plugin output root      |
+| `skill:<id>`  | One standalone provider skill, relative to its skill root |
 
-`from.selector` currently supports:
+`to.kind: local` requires `path`. `to.kind: git` requires `repo`; `branch` and `subdirectory` are metadata for a future sync workflow. Exact field shapes live in the generated [workspace schema](../schemas/README.md).
 
-| Selector | Meaning |
-| --- | --- |
-| `plugin:<id>` | A single generated plugin bundle for the selected target, stripped to the plugin bundle root. |
-| `plugins` | The selected target's whole generated plugin output root, including marketplace/readme/lock files. |
-| `skill:<id>` | A standalone generated skill for the selected target, stripped to the skill root. |
-
-`to.kind: local` requires `to.path`. `to.kind: git` requires `to.repo`; `branch` and `subdirectory` are plan metadata for later sync automation.
-
-## CLI
+## Plan the Delivery
 
 ```bash
-skillset distribute plan
 skillset distribute plan codex-marketplace
+skillset distribute plan codex-marketplace --json
 ```
 
-The command is always read-only. It rejects build/write flags such as `--yes`, `--updated`, `--all`, and `--scope` because those flags belong to build or future sync behavior.
+A plan reports the target, selector, destination, file hashes, ownership, and destination status. Local files are `add`, `change`, or `unchanged`; Git destination files remain `unknown` because the command does not fetch or check out the repository.
 
-For local destinations the plan reads destination files and marks each file as `add`, `change`, or `unchanged`. For git destinations the file status is `unknown` until a future sync command checks out or fetches the destination.
+The generated [`distribute` reference](../cli/distribute.md) owns exact syntax. There is no `distribute sync`, apply, or publish command today. Write-oriented build flags such as `--yes`, `--updated`, `--all`, and `--scope` are rejected.
 
-## Destination Ownership
+## Preserve Destination Ownership
 
-Distribution plans do not assume every downstream file is Skillset-owned. Files selected from generated output are Skillset-owned candidates, but downstream marketplace metadata, review files, repository settings, and runtime trust state can be destination-owned.
-
-Ownership classes:
+Selected files can contain different ownership classes:
 
 | Class | Meaning |
 | --- | --- |
-| `source-owned` | The file or field comes directly from selected Skillset source output. Future sync can replace it from source. |
-| `generated` | The file or field is generated by Skillset from source and compiler rules. Future sync can replace it, but reports should identify it as generated rather than handwritten source. |
-| `destination-owned` | The downstream destination owns the file or field. Future sync should preserve it by default and require explicit overlay config before replacement. |
-| `overlay` | The destination may intentionally override or enrich this value. Future sync should report the overlay and make precedence explicit. |
-| `ignored` | The file or field is known but intentionally excluded from sync. |
+| `source-owned` | Directly selected Skillset source output |
+| `generated` | Derived by Skillset and replaceable from source |
+| `destination-owned` | Controlled by the downstream repository and preserved by default |
+| `overlay` | Intentionally enriched downstream with explicit precedence |
+| `ignored` | Known but deliberately excluded |
 
-Current defaults are conservative. Codex plugin manifests classify core manifest structure as `generated`, presentation assets and policy URLs such as `plugin.json#/interface/logo`, `plugin.json#/interface/screenshots`, `plugin.json#/interface/privacyPolicyURL`, and `plugin.json#/interface/termsOfServiceURL` as `destination-owned`, and presentation text/color fields as `overlay`. Unknown manifest fields are destination-owned by default. Claude plugin manifests are generated from source today; unknown Claude manifest fields are destination-owned by default. Claude marketplace indexes treat the plugin list as generated and marketplace presentation metadata as overlay.
+Unknown downstream manifest fields are conservative destination-owned data. A plan can report presentation assets or metadata that a future sync must preserve; it never treats the whole destination as disposable.
 
-For local destinations, `skillset distribute plan` inspects existing destination manifests when they are present and includes destination-only fields in the ownership report. This keeps future sync work from silently dropping downstream review metadata or marketplace-only fields.
+## Errors and Recovery
 
-`skillset distribute plan` prints ownership summaries for manifest files so a future sync can prove what it would preserve before any write occurs.
+| Problem | Result | Recovery |
+| --- | --- | --- |
+| Target is disabled | Plan fails | Enable the target or choose one already in `compile.targets` |
+| Distribution, plugin, or skill is unknown | Plan fails | Correct the id or selector |
+| Selector produces no files | Plan fails rather than creating an empty delivery | Build and verify the selected source/target |
+| Path or subdirectory is unsafe | Validation fails | Use a normalized repository-relative subdirectory and an explicit destination root |
+| Local path is absent | Plan reports additions against an empty destination | Create/review the destination outside Skillset before any future sync |
+| Git repository is unavailable | File status remains `unknown`; no network action occurs | Inspect the Git destination separately |
 
-## Activation
+## Provenance
 
-Distribution does not prove a runtime saw the plugin, skill, or agent. Activation belongs to runtime setup and activation probes, not build or distribution planning.
-
-## Evidence
-
-- [Runtime Adapters](../../development/features/runtime-adapters.md) - runtime support stays beside target support.
-- [Tests And Evals](tests-and-evals.md) - activation probes build on test runs instead of distribution.
-- [SET-109 contract test](../../../apps/skillset/src/__tests__/contract.test.ts) - read-only distribution planning behavior.
+The plan derives files and hashes from the current in-memory rendering. It does not write destination state or a delivery lock. Runtime and harness support records remain separate from compile targets in [Runtime Adapters](../../development/features/runtime-adapters.md).

@@ -6,8 +6,9 @@ import { join } from "node:path";
 import {
   checkFeatureRegistryDrift,
   getSkillsetFeature,
+  listFeatureSupportMatrixProjections,
   listSkillsetFeatures,
-  renderFeatureSupportMatrix,
+  renderFeatureSupportMatrixBody,
   type SkillsetFeatureEntry,
   type SkillsetFeatureEvidence,
   targetNames,
@@ -68,7 +69,8 @@ describe("feature registry drift checks", () => {
       code: "missing-doc-ref",
       featureId: "demo",
       field: "docs[0]",
-      message: "demo docs[0] points to missing doc ref docs/reference/features/missing.md",
+      message:
+        "demo docs[0] points to missing doc ref docs/reference/features/missing.md",
       ref: "docs/reference/features/missing.md",
     });
   });
@@ -93,14 +95,16 @@ describe("feature registry drift checks", () => {
       code: "missing-doc-ref",
       featureId: "demo",
       field: "docs[0]",
-      message: "demo docs[0] points to missing doc ref docs/reference/features/demo.md",
+      message:
+        "demo docs[0] points to missing doc ref docs/reference/features/demo.md",
       ref: "docs/reference/features/demo.md",
     });
   });
 
   it("reports missing markdown fragments and accepts existing heading fragments", async () => {
     const root = await fixture({
-      "docs/reference/features/demo.md": "# Demo\n\n## Existing Heading!\n\n## Existing Heading!\n",
+      "docs/reference/features/demo.md":
+        "# Demo\n\n## Existing Heading!\n\n## Existing Heading!\n",
       "src/demo.ts": "export {};\n",
       "tests/demo.test.ts": "test('demo', () => {});\n",
     });
@@ -122,10 +126,13 @@ describe("feature registry drift checks", () => {
       code: "missing-ref-fragment",
       featureId: "demo",
       field: "docs[2]",
-      message: "demo docs[2] points to missing doc ref fragment docs/reference/features/demo.md#missing-heading",
+      message:
+        "demo docs[2] points to missing doc ref fragment docs/reference/features/demo.md#missing-heading",
       ref: "docs/reference/features/demo.md#missing-heading",
     });
-    expect(report.issues.filter((issue) => issue.code === "missing-ref-fragment")).toHaveLength(1);
+    expect(
+      report.issues.filter((issue) => issue.code === "missing-ref-fragment")
+    ).toHaveLength(1);
   });
 
   it("reports local refs that escape the checked root", async () => {
@@ -148,7 +155,8 @@ describe("feature registry drift checks", () => {
       code: "outside-root-ref",
       featureId: "demo",
       field: "docs[0]",
-      message: "demo docs[0] points outside root with doc ref ../outside-registry-ref.txt",
+      message:
+        "demo docs[0] points outside root with doc ref ../outside-registry-ref.txt",
       ref: "../outside-registry-ref.txt",
     });
   });
@@ -167,22 +175,24 @@ describe("feature registry drift checks", () => {
       }),
     ];
     const root = await fixture({
-      "docs/reference/features/demo.md": `# Demo\n\n${renderFeatureSupportMatrix(registry)}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${publicFeatureMatrix(registry)}\n`,
       "src/demo.ts": "export {};\n",
     });
 
     const report = await checkFeatureRegistryDrift(root, registry);
 
-    expect(report.issues.map((issue) => `${issue.field}:${issue.ref}`)).toEqual([
-      "evidence[0]:fixtures/missing",
-      "evidence[1]:tests/missing.test.ts",
-      "targetSupport.claude.evidence[0]:fixtures/missing",
-      "targetSupport.claude.evidence[1]:tests/missing.test.ts",
-      "targetSupport.codex.evidence[0]:fixtures/missing",
-      "targetSupport.codex.evidence[1]:tests/missing.test.ts",
-      "targetSupport.cursor.evidence[0]:fixtures/missing",
-      "targetSupport.cursor.evidence[1]:tests/missing.test.ts",
-    ]);
+    expect(report.issues.map((issue) => `${issue.field}:${issue.ref}`)).toEqual(
+      [
+        "evidence[0]:fixtures/missing",
+        "evidence[1]:tests/missing.test.ts",
+        "targetSupport.claude.evidence[0]:fixtures/missing",
+        "targetSupport.claude.evidence[1]:tests/missing.test.ts",
+        "targetSupport.codex.evidence[0]:fixtures/missing",
+        "targetSupport.codex.evidence[1]:tests/missing.test.ts",
+        "targetSupport.cursor.evidence[0]:fixtures/missing",
+        "targetSupport.cursor.evidence[1]:tests/missing.test.ts",
+      ]
+    );
   });
 
   it("ignores future owner sentinels and external evidence refs", async () => {
@@ -190,7 +200,11 @@ describe("feature registry drift checks", () => {
       feature({
         docs: ["docs/reference/features/demo.md"],
         evidence: [
-          { kind: "external-docs", ref: "https://example.com/docs", verifiedAt: "2026-06-14" },
+          {
+            kind: "external-docs",
+            ref: "https://example.com/docs",
+            verifiedAt: "2026-06-14",
+          },
         ],
         id: "demo",
         renderOwner: "future",
@@ -199,7 +213,7 @@ describe("feature registry drift checks", () => {
       }),
     ];
     const root = await fixture({
-      "docs/reference/features/demo.md": `# Demo\n\n${renderFeatureSupportMatrix(registry)}\n`,
+      "docs/reference/features/demo.md": `# Demo\n\n${publicFeatureMatrix(registry)}\n`,
     });
 
     const report = await checkFeatureRegistryDrift(root, registry);
@@ -219,30 +233,48 @@ describe("feature registry drift checks", () => {
       })),
     });
 
-    const matrix = renderFeatureSupportMatrix([entry]);
+    const matrix = publicFeatureMatrix([entry]);
     const header = `| Feature | Feature status | ${targetNames().join(" | ")} |`;
 
-    expect(matrix).toBe([
-      "<!-- skillset:feature-support:start -->",
-      header,
-      `| ${["Feature", "Feature status", ...targetNames()].map(() => "---").join(" | ")} |`,
-      "| `demo` | `implemented` | `native` | `native` | `pass_through` |",
-      "<!-- skillset:feature-support:end -->",
-    ].join("\n"));
+    expect(matrix).toBe(
+      [
+        "<!-- skillset:generated:start feature-support -->",
+        header,
+        `| ${["Feature", "Feature status", ...targetNames()].map(() => "---").join(" | ")} |`,
+        "| `demo` | `implemented` | `native` | `native` | `pass_through` |",
+        "<!-- skillset:generated:end feature-support -->",
+      ].join("\n")
+    );
+  });
+
+  it("projects every shared feature page once with deterministically ordered rows", () => {
+    const projections = listFeatureSupportMatrixProjections([
+      feature({ id: "beta" }),
+      feature({ id: "alpha" }),
+    ]);
+
+    expect(projections).toEqual([
+      {
+        body: [
+          `| Feature | Feature status | ${targetNames().join(" | ")} |`,
+          `| ${["Feature", "Feature status", ...targetNames()].map(() => "---").join(" | ")} |`,
+          "| `alpha` | `implemented` | `native` | `native` | `native` |",
+          "| `beta` | `implemented` | `native` | `native` | `native` |",
+        ].join("\n"),
+        path: "docs/reference/features/demo.md",
+      },
+    ]);
   });
 
   it("groups every registry entry that owns the same doc and ignores surrounding prose", async () => {
-    const registry = [
-      feature({ id: "alpha" }),
-      feature({ id: "beta" }),
-    ];
+    const registry = [feature({ id: "alpha" }), feature({ id: "beta" })];
     const root = await fixture({
       "docs/reference/features/demo.md": [
         "# Demo",
         "",
         "Narrative before the checked matrix.",
         "",
-        renderFeatureSupportMatrix(registry),
+        publicFeatureMatrix(registry),
         "",
         "Narrative after the checked matrix remains human-owned.",
         "",
@@ -258,7 +290,7 @@ describe("feature registry drift checks", () => {
 
   it("reports a wrong target value with the feature, target, field, expected, and actual value", async () => {
     const registry = [feature({ id: "demo" })];
-    const matrix = renderFeatureSupportMatrix(registry).replace(
+    const matrix = publicFeatureMatrix(registry).replace(
       "| `demo` | `implemented` | `native` | `native` | `native` |",
       "| `demo` | `implemented` | `native` | `native` | `metadata_only` |"
     );
@@ -276,7 +308,8 @@ describe("feature registry drift checks", () => {
       expected: "native",
       featureId: "demo",
       field: "targetSupport.cursor.status",
-      message: "demo cursor targetSupport.cursor.status expected native but found metadata_only",
+      message:
+        "demo cursor targetSupport.cursor.status expected native but found metadata_only",
       ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
@@ -284,9 +317,12 @@ describe("feature registry drift checks", () => {
 
   it("reports a missing target column as a missing exact target-support field", async () => {
     const registry = [feature({ id: "demo" })];
-    const matrix = renderFeatureSupportMatrix(registry)
+    const matrix = publicFeatureMatrix(registry)
       .replace(" | cursor |", " |")
-      .replace(" | `native` |\n<!-- skillset:feature-support:end -->", " |\n<!-- skillset:feature-support:end -->");
+      .replace(
+        " | `native` |\n<!-- skillset:generated:end feature-support -->",
+        " |\n<!-- skillset:generated:end feature-support -->"
+      );
     const root = await fixture({
       "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
@@ -301,7 +337,8 @@ describe("feature registry drift checks", () => {
       expected: "native",
       featureId: "demo",
       field: "targetSupport.cursor.status",
-      message: "demo cursor targetSupport.cursor.status expected native but found missing",
+      message:
+        "demo cursor targetSupport.cursor.status expected native but found missing",
       ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
@@ -309,10 +346,16 @@ describe("feature registry drift checks", () => {
 
   it("rejects non-registry fields inside the bounded matrix", async () => {
     const registry = [feature({ id: "demo" })];
-    const matrix = renderFeatureSupportMatrix(registry)
-      .replace("| Feature | Feature status | claude", "| Feature | Feature status | Reason | claude")
+    const matrix = publicFeatureMatrix(registry)
+      .replace(
+        "| Feature | Feature status | claude",
+        "| Feature | Feature status | Reason | claude"
+      )
       .replace("| --- | --- | ---", "| --- | --- | --- | ---")
-      .replace("| `demo` | `implemented` | `native`", "| `demo` | `implemented` | authored note | `native`");
+      .replace(
+        "| `demo` | `implemented` | `native`",
+        "| `demo` | `implemented` | authored note | `native`"
+      );
     const root = await fixture({
       "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
@@ -327,7 +370,8 @@ describe("feature registry drift checks", () => {
       expected: "Feature, Feature status, claude, codex, cursor",
       featureId: "demo",
       field: "matrix.columns",
-      message: "demo claude matrix.columns expected Feature, Feature status, claude, codex, cursor but found Feature, Feature status, Reason, claude, codex, cursor",
+      message:
+        "demo claude matrix.columns expected Feature, Feature status, claude, codex, cursor but found Feature, Feature status, Reason, claude, codex, cursor",
       ref: "docs/reference/features/demo.md",
       target: "claude",
     });
@@ -336,8 +380,12 @@ describe("feature registry drift checks", () => {
   it("rejects a stale duplicate feature row instead of collapsing it by id", async () => {
     const registry = [feature({ id: "demo" })];
     const row = "| `demo` | `implemented` | `native` | `native` | `native` |";
-    const staleRow = "| `demo` | `implemented` | `native` | `native` | `metadata_only` |";
-    const matrix = renderFeatureSupportMatrix(registry).replace(row, `${row}\n${staleRow}`);
+    const staleRow =
+      "| `demo` | `implemented` | `native` | `native` | `metadata_only` |";
+    const matrix = publicFeatureMatrix(registry).replace(
+      row,
+      `${row}\n${staleRow}`
+    );
     const root = await fixture({
       "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
@@ -365,7 +413,10 @@ describe("feature registry drift checks", () => {
   ])("rejects a %s inside the bounded matrix", async (_case, extraRow) => {
     const registry = [feature({ id: "demo" })];
     const row = "| `demo` | `implemented` | `native` | `native` | `native` |";
-    const matrix = renderFeatureSupportMatrix(registry).replace(row, `${row}\n${extraRow}`);
+    const matrix = publicFeatureMatrix(registry).replace(
+      row,
+      `${row}\n${extraRow}`
+    );
     const root = await fixture({
       "docs/reference/features/demo.md": `# Demo\n\n${matrix}\n`,
       "src/demo.ts": "export {};\n",
@@ -380,7 +431,8 @@ describe("feature registry drift checks", () => {
       expected: "native",
       featureId: "demo",
       field: "targetSupport.cursor.status",
-      message: "demo cursor targetSupport.cursor.status expected native but found missing",
+      message:
+        "demo cursor targetSupport.cursor.status expected native but found missing",
       ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
@@ -388,7 +440,7 @@ describe("feature registry drift checks", () => {
 
   it("rejects a malformed separator inside the bounded matrix", async () => {
     const registry = [feature({ id: "demo" })];
-    const matrix = renderFeatureSupportMatrix(registry).replace(
+    const matrix = publicFeatureMatrix(registry).replace(
       "| --- | --- | --- | --- | --- |",
       "| --- | --- | --- | invalid | --- |"
     );
@@ -406,7 +458,8 @@ describe("feature registry drift checks", () => {
       expected: "native",
       featureId: "demo",
       field: "targetSupport.cursor.status",
-      message: "demo cursor targetSupport.cursor.status expected native but found missing",
+      message:
+        "demo cursor targetSupport.cursor.status expected native but found missing",
       ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
@@ -414,9 +467,10 @@ describe("feature registry drift checks", () => {
 
   it("rejects feature rows that do not follow deterministic registry order", async () => {
     const registry = [feature({ id: "alpha" }), feature({ id: "beta" })];
-    const alpha = "| `alpha` | `implemented` | `native` | `native` | `native` |";
+    const alpha =
+      "| `alpha` | `implemented` | `native` | `native` | `native` |";
     const beta = "| `beta` | `implemented` | `native` | `native` | `native` |";
-    const matrix = renderFeatureSupportMatrix(registry).replace(
+    const matrix = publicFeatureMatrix(registry).replace(
       `${alpha}\n${beta}`,
       `${beta}\n${alpha}`
     );
@@ -434,7 +488,8 @@ describe("feature registry drift checks", () => {
       expected: "alpha, beta",
       featureId: "alpha",
       field: "matrix.rows",
-      message: "alpha claude matrix.rows expected alpha, beta but found beta, alpha",
+      message:
+        "alpha claude matrix.rows expected alpha, beta but found beta, alpha",
       ref: "docs/reference/features/demo.md",
       target: "claude",
     });
@@ -456,7 +511,8 @@ describe("feature registry drift checks", () => {
       expected: "native",
       featureId: "demo",
       field: "targetSupport.cursor.status",
-      message: "demo cursor targetSupport.cursor.status expected native but found missing",
+      message:
+        "demo cursor targetSupport.cursor.status expected native but found missing",
       ref: "docs/reference/features/demo.md",
       target: "cursor",
     });
@@ -465,12 +521,15 @@ describe("feature registry drift checks", () => {
   it("derives the shipped Cursor provider-source support from the registry", async () => {
     const providerSource = getSkillsetFeature("target-native-islands");
     expect(providerSource).toBeDefined();
-    if (providerSource === undefined) throw new Error("missing target-native-islands fixture");
+    if (providerSource === undefined)
+      throw new Error("missing target-native-islands fixture");
 
-    const matrix = renderFeatureSupportMatrix([providerSource]);
+    const matrix = publicFeatureMatrix([providerSource]);
 
     expect(providerSource.targetSupport.cursor.status).toBe("pass_through");
-    expect(matrix).toContain("| `target-native-islands` | `implemented` | `pass_through` | `pass_through` | `pass_through` |");
+    expect(matrix).toContain(
+      "| `target-native-islands` | `implemented` | `pass_through` | `pass_through` | `pass_through` |"
+    );
   });
 });
 
@@ -490,16 +549,30 @@ function feature(
     sourceShape: overrides.sourceShape ?? ".skillset/demo",
     status: overrides.status ?? "implemented",
     summary: overrides.summary ?? "Demo feature.",
-    targetSupport: overrides.targetSupport ?? targetRecord(() => ({ evidence, status: "native" })),
+    targetSupport:
+      overrides.targetSupport ??
+      targetRecord(() => ({ evidence, status: "native" })),
     title: overrides.title ?? "Demo",
     validationOwner: overrides.validationOwner ?? "src/demo.ts",
   };
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-feature-registry-check-"));
+  const root = await mkdtemp(
+    join(tmpdir(), "skillset-feature-registry-check-")
+  );
   for (const [path, content] of Object.entries(files)) {
     await Bun.write(join(root, path), content);
   }
   return root;
+}
+
+function publicFeatureMatrix(
+  registry: readonly SkillsetFeatureEntry[]
+): string {
+  return [
+    "<!-- skillset:generated:start feature-support -->",
+    renderFeatureSupportMatrixBody(registry),
+    "<!-- skillset:generated:end feature-support -->",
+  ].join("\n");
 }

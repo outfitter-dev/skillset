@@ -1,90 +1,69 @@
-# Source Suggestions
+---
+description: Skillset reconciliation safely resolves managed generated edits against their canonical source projection.
+---
 
-Feature id: `source-suggestions`
+# Reconcile Generated Edits
 
-Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+Cross-command workflow reference; no registry feature id.
 
-Reconciliation are the recovery workflow for managed generated-output edits. They help a contributor who changed a file recorded in `skillset.lock` understand which source unit owns that file, whether the edit can be safely moved back to source, and what command or manual action should happen next. The v1 local command is diagnostics-first and only writes clean generated skill Markdown body edits when explicitly confirmed.
+Reconciliation resolves a conflict between [canonical source](../../glossary.md#canonical-source) and a managed [generated output](../../glossary.md#generated-output). It uses `skillset.lock` and the current [render](../../glossary.md#render) to identify ownership, preview a direction, and refuse reverse mappings that could lose meaning.
 
-## Source Shape
+There is no source key for reconciliation. The existing source file, lock, expected rendering, change ledger, and release history remain authoritative.
 
-There is no author-facing source key in v1. The source of truth remains the existing adaptive source file, pending change entry, applied change history, release state, and generated-output lock that already own the generated path.
-
-The intended local command shape is:
+## Choose a Direction
 
 ```bash
-skillset reconcile <generated-path>
-skillset reconcile <generated-path> --use output --yes
+skillset reconcile .claude/skills/review/SKILL.md --use output
+skillset reconcile .claude/skills/review/SKILL.md --use output --yes
+
+skillset reconcile .claude/skills/review/SKILL.md --use source
+skillset reconcile .claude/skills/review/SKILL.md --use source --yes
 ```
 
-Preview mode is read-only. Write mode is allowed only for clean, single-source cases where the generated Markdown body can be mapped back to one source path without losing meaning, and it requires `--use output --yes`. The command reuses `skillset.lock` ownership and `skillset explain` provenance so "which source owns this generated file?" has one answer across the CLI.
+`--use output` accepts an eligible generated Markdown body edit into its single owning source file, then rebuilds the affected generated [projection](../../glossary.md#projection). `--use source` discards the generated edit and restores the current source projection. Both preview by default and require confirmation or `--yes` to write.
 
-## Target Support
+Omitting the path or direction can prompt in an eligible interactive terminal. Automation must supply both. The generated [`reconcile` reference](../cli/reconcile.md) owns exact syntax.
 
-| Case | Behavior | Status |
+## Eligibility
+
+Output-wins is implemented only for a clean managed skill Markdown body that maps to one source path. Skillset renders the exact managed path from current source and compares the generated frontmatter block with the on-disk frontmatter after line-ending normalization. Any frontmatter difference, including formatting or comments, blocks reverse mapping because provider rendering can strip, derive, or transform source fields.
+
+| Case | `--use output` result | Recovery |
 | --- | --- | --- |
-| Managed generated skill body edit | Preview source `SKILL.md` body replacement, optionally write with `--use output --yes` when clean | `implemented` |
-| Pending changelog wording before release | Do not reverse-patch from generated output; point to `skillset change reason <@ref>` because pending entries are not rendered into committed changelogs | `implemented` |
-| Generated changelog edit after release | Refuse reconciliation and point to `skillset change amend` for applied-history wording or `skillset release amend` for release-event metadata | `implemented` |
-| Generated metadata, lock files, manifests, or version fields | Refuse; output resolution compares the exact generated frontmatter block with the current expected render and accepts body edits only | `implemented` |
-| Output from partials, shared resources, or multiple source files | Refuse with diagnostics until a richer mapping exists | `implemented` |
-| Provider-native output with no adaptive round trip | Refuse and explain the provider-specific source or manual path | `implemented` |
-| Unmanaged files | Refuse; Skillset cannot claim source ownership without lock provenance | `implemented` |
+| Clean single-source skill body edit | Eligible source replacement plan | Review and confirm |
+| Generated frontmatter or metadata differs | Refused | Edit canonical source fields directly |
+| Lock is stale, corrupt, remapped, or absent | Refused | Restore trustworthy ownership first |
+| Path is unmanaged | Refused | Decide ownership manually; Skillset cannot claim it |
+| Output combines partials, shared resources, or multiple sources | Refused | Apply the intent to the owning source files manually |
+| [Provider-native](../../glossary.md#provider-native) output has no adaptive round trip | Refused | Edit the provider-native source island |
+| Other managed output or sibling [drift](../../glossary.md#drift) would be affected | Refused | Resolve the wider drift and rerun preview |
+| Generated changelog changed | Refused | Use the change/release correction commands below |
+| Current source no longer renders the path | Refused | Inspect `skillset explain <path>` and current configuration |
 
-## Diagnostics
+Source-wins still validates ownership and the current plan; it never overwrites an unmanaged path by pretending it is generated.
 
-The first implementation should make diagnostics useful before attempting writes:
+## Changelog Corrections
 
-- show the generated path, owning source unit, source path, and lock that established ownership;
-- state whether the generated edit is cleanly suggestible, manual-only, or refused;
-- show the source path and explicit write mode for clean cases;
-- explain the generated files that would need to be rebuilt after accepting the source edit;
-- keep refusal messages specific: metadata, multi-source rendering, provider-native no-round-trip, post-release changelog, unmanaged path, or stale/corrupt lock.
+Generated `CHANGELOG.md` files project source-side history and are never reverse-patched:
 
-Output resolution renders the exact managed path from current source and compares
-its frontmatter block with the actual generated frontmatter after normalizing line
-endings. It does not compare generated frontmatter with adaptive source
-frontmatter, because provider rendering intentionally strips, derives, and
-transforms fields. Any generated-side frontmatter difference—including comments
-or formatting—is refused before a source write; body-only edits remain eligible.
+- before release, use `skillset change reason <@ref>`;
+- after release, use `skillset change amend <@ref>` for source-change wording;
+- use `skillset release amend <@ref>` for release-event notes.
 
-`skillset check --ci --fix` remains mechanical generated-output repair. It may restore generated files from source, but it must not treat a managed generated edit as source truth. For generated changelogs, current diagnostics already point contributors toward `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied-history wording after release, and `skillset release amend <@ref>` for release-event metadata. Because committed changelog projections render applied history, not pending entries, a generated `CHANGELOG.md` edit is usually a released-history correction and refuses local reverse-patching.
+Then rebuild to refresh the projection. See [Changes](changes.md) and [Releases and Changelogs](releases.md).
+
+## Writes, Errors, and Exit Behavior
+
+Preview mode writes nothing. A confirmed output-wins operation updates the real source and rebuilds affected managed output and locks. A confirmed source-wins operation rebuilds from unchanged source. Failed safety classification, stale input, or conflicting sibling drift produces a nonzero refusal with the generated path, owning source when known, reason, and next manual action.
+
+Reconciliation never mutates `~/.claude`, `~/.codex`, runtime trust, marketplace [activation](../../glossary.md#activation), or user/project provider settings. Reviewed settings suggestions are a distinct future feature because those files are not Skillset-owned generated output.
+
+## CI Boundary
+
+`skillset check --ci` can report the same ownership and output-wins eligibility for added or changed generated paths. It never chooses a direction automatically. `--fix` remains source-wins mechanical repair; automated CI source writeback is not implemented.
 
 ## Provenance
 
-Reconciliation should not create a second source of truth. Accepted reconciliation changes the real source file or pending reason, then normal build/release machinery updates generated outputs and locks and `skillset check --only outputs` checks the result.
+Reconciliation creates no second source of truth. Accepted output-wins changes canonical source, then ordinary build machinery updates generated files and locks. Source-wins changes only the managed projection. Run `skillset check --only outputs` afterward to confirm that source, output, and lock agree.
 
-When CI suggestions arrive later, they should record enough evidence to avoid noisy repeat comments: suggestion id, generated path, owning source path, lock hash or source hash reviewed, suggested action, accepted/rejected/skipped status, and whether a writeback commit was attempted. That evidence belongs to suggestion workflow state, not generated target files.
-
-## Relationship To Settings Suggestions
-
-Reconciliation and reviewed settings suggestions solve different problems:
-
-- Reconciliation recover edits made to files Skillset already owns as generated output.
-- Settings suggestions propose changes to live runtime configuration that Skillset intentionally does not own or mutate during build.
-
-Both need reviewable previews, stable ids, conflict checks, and refusal paths, but they must stay separate. A reconciliation should never mutate `~/.claude`, `~/.codex`, trust settings, marketplace activation, or project runtime settings. A settings suggestion should never pretend a generated output edit can be recovered into adaptive source.
-
-## CI Path
-
-[SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) adds CI-side reconciliation diagnostics and keeps automated writeback as a future permissioned step. The intended path is:
-
-1. `skillset check --ci` detects a PR edit to a managed generated path.
-2. CI resolves the owning source unit from `skillset.lock`.
-3. CI runs the same safety classification as `skillset reconcile` for added and changed generated paths.
-4. For unsafe or ambiguous cases, CI reports the source path, reason for refusal, and manual command in the job summary or PR comment.
-5. For clean cases, CI reports the owning source path and local `skillset reconcile <path> --use output --yes` recovery command; it does not choose a direction automatically.
-6. Future safe same-repo writeback may commit a source update plus regenerated output back to the PR branch only after permission, branch freshness, and conflict checks pass.
-7. Meaningful source edits still require normal change coverage.
-
-Fork PRs, protected branches, stale branches, corrupt locks, concurrent pushes, and multi-source renderings should all fall back to comment-only diagnostics.
-
-## Tests and Fixtures
-
-[SET-151](https://linear.app/outfitter/issue/SET-151/implement-suggest-source-command-for-clean-generated-to-source) added tests for clean skill-body suggestions, generated changelog refusal, read-only previews, explicit write confirmation, and `explain`/suggestion provenance consistency. [SET-322](https://linear.app/outfitter/issue/SET-322/reconcile-detect-and-refuse-generated-side-frontmatter-divergence) adds expected-render frontmatter comparison, structured recovery, provider-transformed body-only coverage, and implemented provider-native refusal coverage.
-
-[SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) should add tests for comment-only CI output, safe same-repo writeback, fork/protected-branch refusal, stale lock refusal, conflicts, and preservation of change-entry requirements.
-
-## Evidence
-
-See [Output Safety](output-safety.md), [Changes](changes.md), [Releases And Changelogs](releases.md), [CI](ci.md), [SET-147](https://linear.app/outfitter/issue/SET-147/design-managed-output-source-suggestions-for-contributor-edits), [SET-151](https://linear.app/outfitter/issue/SET-151/implement-suggest-source-command-for-clean-generated-to-source), and [SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits).
+See [Output Safety](output-safety.md) for backups and restore, and [Troubleshooting](../../troubleshooting.md) for symptom-first recovery.

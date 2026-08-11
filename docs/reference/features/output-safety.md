@@ -1,89 +1,80 @@
+---
+description: Skillset output safety distinguishes managed output, protects neighboring files, and restores reversible backups.
+---
+
 # Output Safety
 
-<!-- skillset:feature-support:start -->
+<!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `output-safety` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
-<!-- skillset:feature-support:end -->
+<!-- skillset:generated:end feature-support -->
 
-Feature id: `output-safety`
+Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skillset treats generated target files as reproducible renderings while still protecting hand-authored files that happen to live near those renderings. Output safety is the build-time ownership layer that decides which files are managed, which files are unmanaged neighbors, and when a reversible backup is required before writing.
+Output safety uses `skillset.lock` ownership to protect hand-authored files near [generated output](../../glossary.md#generated-output). There is no author-facing configuration key: the current [projection](../../glossary.md#projection), prior locks, on-disk bytes, and Unix modes determine whether a write is safe or needs a reversible backup.
 
-## Source Shape
+## Ownership Cases
 
-There is no author-facing source key for output safety. Ownership is derived from generated `skillset.lock` files and the files the current build would render.
+| Case | Behavior |
+| --- | --- |
+| Unmanaged neighbor inside an output root | Diff, output check, and stale cleanup ignore it |
+| Unmanaged file at an exact [destination](../../glossary.md#destination) Skillset must write | Confirmed build backs it up, warns, then replaces it |
+| Managed generated file edited since the last lock | Confirmed replacement or deletion backs it up first |
+| Managed file missing | Plan warns and a confirmed build regenerates it |
+| Corrupt lock | Build and output inspection fail before making ownership decisions |
 
-Managed files are files recorded by a current or previous Skillset lock. Workspace-managed project files such as generated `AGENTS.md` and provider-source project files are recorded in the root `skillset.lock`. Plugin and standalone skill roots record ownership in their nearby generated `skillset.lock` files. Entity-local `CHANGELOG.md` files are also managed projections when release history renders them beside source entities.
+[Workspace](../../glossary.md#workspace)-managed project files, plugin output, standalone skills, and generated changelogs are recorded in the root or nearest generated `skillset.lock`. Skillset never claims an entire directory merely because generated files live there.
 
-Unmanaged files are files under or beside generated output roots that no Skillset lock currently owns. `skillset diff`, `skillset check --only outputs`, and stale-file cleanup ignore unmanaged neighbors so a repo can keep hand-authored files near generated output without Skillset claiming or deleting them.
-
-## Target Support
-
-| Case | Behavior | Status |
-| --- | --- | --- |
-| Unmanaged neighbor inside an output root | Ignored by diff/output checks/stale cleanup | `implemented` |
-| Unmanaged file at a path Skillset must emit | Back up, warn, then overwrite during a confirmed build | `implemented` |
-| Managed generated file edited after the previous lock | Back up before replacing or deleting it | `implemented` |
-| Missing managed file | Warn that it will be regenerated | `implemented` |
-| Corrupt Skillset lock | Fail before build/output checks/diff can make ownership decisions | `implemented` |
-| Restore backup by ref | Preview by default, write only with `--yes` | `implemented` |
-
-## Build Behavior
-
-`skillset build` is still plan-first at the CLI layer: without `--yes`, it previews generated changes and writes nothing. During a confirmed write, Skillset prepares safety backups before replacing a conflicting path or deleting a managed target-side edit.
-
-Backups live under the gitignored recovery snapshot root:
-
-```text
-.skillset/snapshots/<backup-id>/manifest.json
-.skillset/snapshots/<backup-id>/git/
-```
-
-Backup manifests use schema version 2 and store backed-up bytes in a per-run bare Git object store. The manifest records the backup id, target path, Git tree path, action, reason, original hash and Unix mode, generated hash and mode when applicable, source path when known, and the Git commit that owns the snapshot. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
-
-`compile.build: updated` writes missing or changed generated files and removes stale managed files while leaving unchanged managed files and unmanaged neighbors alone. `compile.build: all` rewrites the selected generated files and removes stale managed files; it does not delete whole output roots or claim unmanaged neighbors.
-
-`--isolated` applies the same ownership and backup rules inside the logical `.skillset/cache/latest/` mirror, backed by the repo's XDG cache bucket, so a mirror build can be inspected without touching live target roots.
-
-Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset check --ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied history wording after release, or `skillset release amend <@ref>` for release-event metadata. `skillset check --ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
-
-The broader recovery model is [Source Suggestions](source-suggestions.md). The implemented local reconciliation workflow uses lock ownership to explain the source path behind a generated edit, preview clean source-side patches, and refuse unsafe reverse patches. Automated CI writeback remains future work; output safety stays conservative and never silently accepts generated edits as source truth.
-
-## Restore
-
-Use `restore` with a backup id from the warning or manifest path:
+## Preview Before Writing
 
 ```bash
-skillset restore <backup-id> --root .
-skillset restore <backup-id> --root . --yes
-skillset restore --list --root .
+skillset diff
+skillset build
+skillset build --yes
 ```
 
-The first command previews the restore. The second writes the backed-up bytes and original Unix modes back to the original target paths.
+An unconfirmed build writes nothing. A confirmed build prepares recovery snapshots before replacing a collision or target-side edit. `compile.build: updated` changes missing, changed, or stale managed files; `all` selects every configured generated file. Neither deletes unmanaged neighbors.
 
-`restore --list` is read-only. It checks each manifest and its Git-backed payload before reporting whether each run is `restorable-now`, `blocked-by-current-target`, or `corrupt-or-unavailable`. The list is stable and deliberately has no timestamp because backup manifests do not record one. A run is copyably restorable only when every record is `restorable-now`; `--list` cannot be combined with a backup id or `--yes`.
+`--isolated` applies the same rules inside the logical `.skillset/cache/latest/` mirror without touching live output roots. The generated [`build`](../cli/build.md), [`diff`](../cli/diff.md), and [`restore`](../cli/restore.md) pages own exact syntax.
 
-Restore reads each backup payload from the manifest's Git commit and validates that it still matches the manifest hash. For overwrite backups, it also verifies that the current target still matches the generated replacement bytes and Unix mode before restoring. If either changed again after the backup, restore refuses so it does not clobber a newer edit. For delete backups, restore refuses if the target path already exists. Windows retains the byte-safety contract and skips physical Unix-mode checking and application.
+## Choose the Recovery Path
 
-## Validation
+| Symptom | Action |
+| --- | --- |
+| Managed file is missing | Preview and confirm a build |
+| Generated edit should be discarded | Preview `skillset reconcile <path> --use source`, then confirm |
+| Clean generated body edit should become source | Preview `skillset reconcile <path> --use output`, then confirm if eligible |
+| Unmanaged collision was replaced | Inspect the reported backup and preview restore |
+| Lock is corrupt | Stop; repair or regenerate ownership evidence from trusted source |
+| Generated changelog wording is wrong | Use `change reason`, `change amend`, or `release amend`, not reverse patching |
 
-Output safety diagnostics use warning severity for reversible backup cases:
+[Reconciliation](source-suggestions.md) owns source/output conflict direction. [Troubleshooting](../../troubleshooting.md) routes from the observed symptom.
+
+## Restore a Backup
+
+```bash
+skillset restore --list
+skillset restore <backup-id>
+skillset restore <backup-id> --yes
+```
+
+Backups live under `.skillset/snapshots/<backup-id>/` with a schema-versioned manifest and per-run bare Git object store. List and restore previews are read-only. Confirmed restore verifies the saved Git payload and hash before writing.
+
+For an overwrite backup, restore also requires the current target bytes and Unix mode to still match the generated replacement. For a deletion backup, the target must still be absent. A newer edit or recreated path blocks restore instead of being clobbered. Windows preserves byte safety but does not apply physical Unix-mode checks.
+
+`restore --list` classifies each run as `restorable-now`, `blocked-by-current-target`, or `corrupt-or-unavailable`. It cannot be combined with a backup id or `--yes`.
+
+## Diagnostics
 
 | Code | Meaning |
 | --- | --- |
-| `unmanaged-output-collision` | Skillset needed to write a path that existed but was not lock-owned. |
-| `managed-output-edited` | A lock-owned output differed from the previous output hash before Skillset replaced or deleted it. |
-| `managed-output-missing` | A lock-owned output was missing and will be regenerated. |
+| `unmanaged-output-collision` | An unowned file occupied a required destination |
+| `managed-output-edited` | Lock-owned output no longer matched its previous hash |
+| `managed-output-missing` | Lock-owned output was absent and will be regenerated |
 
-Malformed generated locks fail loudly because Skillset cannot safely distinguish managed files from unmanaged files without trustworthy lock provenance.
+These cases are warnings when a reversible plan exists. A malformed lock is an error because safe ownership cannot be inferred.
 
 ## Provenance
 
-Lock files remain the source of generated-output ownership. Backup manifests and their per-run Git object stores are recovery aids, not source truth, and live under `.skillset/snapshots/` so they stay separate from delete-safe cache output.
-
-Generated skill frontmatter stays lightweight. Output ownership, hashes, target-side edit evidence, stale managed paths, and backup information belong in locks, diagnostics, and backup manifests rather than in generated target files.
-
-## Evidence
-
-Fixtures cover Git-backed unmanaged collision backups, target-side edit backups, exact Unix-mode restoration and intervening mode-change refusal, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.
+Locks remain generated-output ownership authority. Snapshot manifests record backup id, target and source paths when known, action, reason, original/generated hashes and modes, tree path, and owning Git commit. Snapshots are recovery aids, not [canonical source](../../glossary.md#canonical-source), and stay separate from delete-safe cache output.

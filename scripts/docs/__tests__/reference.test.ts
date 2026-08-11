@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { listFeatureSupportMatrixProjections } from "../../../packages/core/src";
 import {
   buildDocsReferenceArtifacts,
   generateDocsReferenceArtifacts,
@@ -243,6 +244,82 @@ describe("documentation reference artifacts", () => {
     }
   });
 
+  test("repairs feature-support blocks while preserving authored bytes", async () => {
+    const root = await referenceFixture();
+    try {
+      const featurePath = join(root, "docs/reference/features/hooks.md");
+      const original = await readFile(featurePath, "utf8");
+
+      await expect(
+        generateDocsReferenceArtifacts(root, { check: true })
+      ).rejects.toThrow("- missing or stale: docs/reference/features/hooks.md");
+      await generateDocsReferenceArtifacts(root);
+      const generated = await readFile(featurePath, "utf8");
+      await generateDocsReferenceArtifacts(root);
+      const regenerated = await readFile(featurePath, "utf8");
+      await generateDocsReferenceArtifacts(root, { check: true });
+
+      expect(generated).toContain(
+        "| `adaptive-hooks` | `implemented` | `transformed` | `degraded` | `degraded` |"
+      );
+      expect(generated).toContain(
+        "| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |"
+      );
+      expect(authoredOutsideBlock(generated, "feature-support")).toBe(
+        authoredOutsideBlock(original, "feature-support")
+      );
+      expect(regenerated).toBe(generated);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test.each([
+    [
+      "duplicate",
+      (source: string) =>
+        `${source}\n<!-- skillset:generated:start feature-support -->\n<!-- skillset:generated:end feature-support -->\n`,
+    ],
+    [
+      "malformed",
+      (source: string) =>
+        source.replace(
+          "<!-- skillset:generated:start feature-support -->",
+          "<!-- skillset:generated:start feature-support extra -->"
+        ),
+    ],
+    [
+      "reversed",
+      (source: string) =>
+        source
+          .replace(
+            "<!-- skillset:generated:start feature-support -->",
+            "<!-- feature-start -->"
+          )
+          .replace(
+            "<!-- skillset:generated:end feature-support -->",
+            "<!-- skillset:generated:start feature-support -->"
+          )
+          .replace(
+            "<!-- feature-start -->",
+            "<!-- skillset:generated:end feature-support -->"
+          ),
+    ],
+  ])("refuses %s feature-support markers", async (_case, mutate) => {
+    const root = await referenceFixture();
+    try {
+      const featurePath = join(root, "docs/reference/features/agents.md");
+      const original = await readFile(featurePath, "utf8");
+      await writeFile(featurePath, mutate(original), "utf8");
+
+      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+        "invalid generated markers"
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   test("removes stale generated CLI pages but preserves the current set", async () => {
     const root = await referenceFixture();
     try {
@@ -279,6 +356,24 @@ describe("documentation reference artifacts", () => {
 
       await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
         "refusing symbolic link in generated CLI reference root"
+      );
+      expect(await readFile(outside, "utf8")).toBe("# Outside\n");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test("refuses symbolic links in registry-owned feature pages", async () => {
+    const root = await referenceFixture();
+    try {
+      const outside = join(root, "outside-feature.md");
+      const linked = join(root, "docs/reference/features/agents.md");
+      await writeFile(outside, "# Outside\n", "utf8");
+      await unlink(linked);
+      await symlink(outside, linked);
+
+      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+        "refusing symbolic link in documentation artifact path"
       );
       expect(await readFile(outside, "utf8")).toBe("# Outside\n");
     } finally {
@@ -437,6 +532,26 @@ async function referenceFixture(): Promise<string> {
         "<!-- skillset:generated:end provider-feature-support -->",
         "",
         `Authored ${provider.id} footer.\t`,
+        "",
+      ].join("\n")
+    );
+  }
+  for (const projection of listFeatureSupportMatrixProjections().filter(
+    ({ path }) => path.startsWith("docs/reference/features/")
+  )) {
+    await writeFixture(
+      root,
+      projection.path,
+      [
+        `# ${projection.path}`,
+        "",
+        "Authored feature introduction.  ",
+        "",
+        "<!-- skillset:generated:start feature-support -->",
+        "stale feature support",
+        "<!-- skillset:generated:end feature-support -->",
+        "",
+        "Authored feature footer.\t",
         "",
       ].join("\n")
     );
