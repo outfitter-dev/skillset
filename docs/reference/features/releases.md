@@ -22,7 +22,7 @@ skillset release apply
 skillset release apply --yes
 ```
 
-`plan` and an unconfirmed `apply` write nothing. The plan shows selected pending reasons, ignored audit entries, release scopes, version changes, and source hashes. Confirmed apply consumes all eligible pending reasons in v1; release commands reject build `--scope` because scoped release selection does not exist.
+`plan` and an unconfirmed `apply` write nothing. The plan shows selected pending reasons, ignored audit entries, release scopes, version changes, and source hashes. Confirmed apply consumes all eligible pending reasons; release commands reject build `--scope` because scoped release selection does not exist.
 
 The [publishing guide](../../guides/publishing.md) owns the end-to-end workflow. The generated [`release` reference](../cli/release.md) owns exact command syntax.
 
@@ -56,7 +56,7 @@ Amendments append evidence and leave original history auditable. Rebuild after t
 | Stale source evidence | Apply refuses | Run `change check` and review `change refresh` |
 | Invalid or corrupt release state | Validation fails before output writes | Repair source-side state from trusted ledger/history evidence |
 | Generated changelog was edited | Output checks refuse to treat it as source | Use the correction table above |
-| `--scope` is supplied | Command rejects it | Apply the complete v1 release or defer it |
+| `--scope` is supplied | Command rejects it | Apply the complete release or defer it |
 | Output collision or target-side edit | Build safety creates a backup or refuses | Follow [Output Safety](output-safety.md) |
 
 An ignored change stays auditable but contributes no version bump or changelog entry. Its source hash is still recorded at apply so status does not repeatedly report the dispositioned edit.

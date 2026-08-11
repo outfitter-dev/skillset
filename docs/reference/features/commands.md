@@ -37,7 +37,7 @@ Place command files under `.skillset/plugins/<plugin>/commands/`. Discovery is a
 
 ## Provenance
 
-Command files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide a feature-key source pointer such as `commands.source`.
+Command files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because the implemented contract does not provide a feature-key source pointer such as `commands.source`.
 
 ## Evidence
 

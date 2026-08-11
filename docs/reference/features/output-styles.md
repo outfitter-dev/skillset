@@ -36,7 +36,7 @@ Place output style files under `.skillset/plugins/<plugin>/output-styles/`. Disc
 
 ## Provenance
 
-Output style files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide `outputStyles.source` or `output-styles.source`.
+Output style files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because the implemented contract does not provide `outputStyles.source` or `output-styles.source`.
 
 ## Evidence
 

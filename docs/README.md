@@ -38,7 +38,6 @@ Choose the question you are trying to answer. Each linked page states what it ow
 - [Development documentation](development/README.md) routes maintainers to documentation, schema, package, feature-system, and evidence guidance.
 - [Project documentation](project/README.md) routes to the design tenets and active or archived plans.
 - [Documentation system](development/documentation-system.md) defines authored and generated ownership, validation, migrations, and review.
-- [Current documentation-overhaul plan](project/plans/docs-overhaul.md) records the staged transition and acceptance criteria.
 - [Security policy](../SECURITY.md) gives the private vulnerability-reporting path.
 
 ## Detailed guides

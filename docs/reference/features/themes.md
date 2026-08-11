@@ -36,7 +36,7 @@ Place theme files under `.skillset/plugins/<plugin>/themes/`. Discovery is autom
 
 ## Provenance
 
-Theme files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide `themes.source`.
+Theme files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because the implemented contract does not provide `themes.source`.
 
 ## Evidence
 

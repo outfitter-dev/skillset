@@ -62,7 +62,7 @@ bunx skillset distribute plan
 bunx skillset distribute plan codex-marketplace
 ```
 
-Distribution is plan-only in the current release. The command does not accept `--yes`; it does not copy files, commit, push, open a pull request, or install runtime configuration. Local plans can report `add`, `change`, and `unchanged`; Git destinations remain `unknown` until a future sync workflow inspects them.
+Distribution is plan-only. The command does not accept `--yes`; it does not copy files, commit, push, open a pull request, or install runtime configuration. Local plans can report `add`, `change`, and `unchanged`; Git destinations remain `unknown` until a sync workflow is implemented to inspect them.
 
 See [Distributions](../reference/features/distributions.md) for configuration, selection, and downstream ownership, and the generated [`distribute` reference](../reference/cli/distribute.md) for command syntax.
 

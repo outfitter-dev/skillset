@@ -26,7 +26,7 @@ Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. Discover
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `<source-root>/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable v1 contract. |
+| `<source-root>/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable contract. |
 
 ## Diagnostics
 
@@ -37,7 +37,7 @@ Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. Discover
 
 ## Provenance
 
-The generated file participates in plugin output hashes and lock provenance as a target-native companion file. It is not a `plugin-feature` entry because v1 does not provide `lsp.source`.
+The generated file participates in plugin output hashes and lock provenance as a target-native companion file. It is not a `plugin-feature` entry because the implemented contract does not provide `lsp.source`.
 
 ## Evidence
 

@@ -95,7 +95,7 @@ path-resolution system:
 The bare form is deliberately `{{@...}}`, never unwrapped `@path/to/file.md`.
 Skillset's own authored prose — this repo included — mentions scoped package
 names like `@outfitter/*` and `@acme/docs-cli` constantly (see
-[skill-frontmatter.yaml](../reference/examples/skill-frontmatter.yaml)). An
+[skill-frontmatter.yaml](../../reference/examples/skill-frontmatter.yaml)). An
 unwrapped `@` marker would collide with that on sight. `{{...}}` is already
 reserved for preprocessing, so wrapping the marker removes the ambiguity for
 free.

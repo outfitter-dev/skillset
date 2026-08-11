@@ -14,7 +14,7 @@ Use these pages alongside the authored [provider reference](../providers/README.
 
 - [Activation Probes](tests-and-evals.md#activation-probes): target-aware manual harness prompts generated inside `skillset test` runs.
 - [Agents](agents.md): portable project agents, Claude and Cursor plugin agents, Codex project agents, and skill-local policy boundaries.
-- [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
+- [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no `apps.source` feature key.
 - [Build Scopes](build-scopes.md): build mode, [destination](../../glossary.md#destination) scopes, preview safety, diff/list/explain behavior, and lock semantics.
 - [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
 - [CI](ci.md): the `skillset check --ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
@@ -66,7 +66,7 @@ The feature reference uses related but separate vocabularies. Feature entry stat
 | `planned` | Accepted design with no parser/render support yet. |
 | `reserved` | Recognized vocabulary that fails until behavior and provenance exist. |
 | `deferred` | Intentionally not rendered or implemented yet; documented reason. |
-| `future` | Outside the v1 contract but tracked as a possible later design. |
+| `future` | Outside the implemented contract but tracked as a possible later design. |
 | `unsupported` | Known not to be supported as a Skillset source feature. |
 
 ### Target Support Status
@@ -82,7 +82,7 @@ The feature reference uses related but separate vocabularies. Feature entry stat
 | `shimmed` | Runtime behavior can work through deliberate compatibility instructions or harness material, but is not target-enforced. |
 | `not_applicable` | The feature is a Skillset workflow or source-management surface rather than a target runtime feature. |
 | `planned` | Target support is accepted but not implemented. |
-| `future` | Target support is possible later but outside the v1 contract. |
+| `future` | Target support is possible later but outside the implemented contract. |
 | `unsupported` | The target cannot represent the feature faithfully through a portable render and must carry a reason. |
 | `lossy` | A possible target render would drop required meaning or behavior and must carry a reason. |
 
@@ -104,4 +104,4 @@ These are tracked as future/reserved unless a later issue promotes them:
 
 - [Reviewed settings suggestion workflow](../../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude, Codex, or Cursor config.
 - [Model and reasoning alias profiles](../../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
-- [First-class sets](../../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
+- [First-class sets](../../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; the implemented contract keeps build scopes and entity selectors separate.
