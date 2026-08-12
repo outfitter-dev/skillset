@@ -1,13 +1,25 @@
 {
   "name": "@skillset/native-linux-x64-glibc",
-  "version": "0.22.2",
+  "version": "0.23.0",
   "description": "Native Skillset executable for Linux x64 with glibc.",
   "license": "MIT",
-  "os": ["linux"],
-  "cpu": ["x64"],
-  "libc": ["glibc"],
-  "files": ["bin/skillset", "README.md", "LICENSE"],
-  "publishConfig": { "access": "public" },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "files": [
+    "bin/skillset",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/outfitter-dev/skillset.git"

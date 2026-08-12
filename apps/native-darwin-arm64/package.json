@@ -1,12 +1,22 @@
 {
   "name": "@skillset/native-darwin-arm64",
-  "version": "0.22.2",
+  "version": "0.23.0",
   "description": "Native Skillset executable for macOS arm64.",
   "license": "MIT",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
-  "files": ["bin/skillset", "README.md", "LICENSE"],
-  "publishConfig": { "access": "public" },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/skillset",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/outfitter-dev/skillset.git"
