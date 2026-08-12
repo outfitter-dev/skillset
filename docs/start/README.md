@@ -10,10 +10,11 @@ Skillset's author journey is **Start → Adopt → Work → Ship**. Follow it in
 
 [Build](../glossary.md#build) one small, reviewable [projection](../glossary.md#projection) from [canonical source](../glossary.md#canonical-source).
 
-1. [Quickstart](quickstart.md) — initialize a repository, author one skill, and verify [generated output](../glossary.md#generated-output).
-2. [First-author walkthrough](first-author.md) — inspect and modify the executable `examples/first-author` fixture.
-3. [How rendering works](how-rendering-works.md) — understand source, [targets](../glossary.md#target), [destinations](../glossary.md#destination), locks, and [drift](../glossary.md#drift).
-4. [Build versus activation](build-versus-activation.md) — keep repository generation separate from runtime authority.
+1. [Install Skillset](installation.md) — choose the native global, Homebrew, GitHub asset, Bun, CI, local dependency, or contributor route with exact runtime requirements.
+2. [Quickstart](quickstart.md) — initialize a repository, author one skill, and verify [generated output](../glossary.md#generated-output).
+3. [First-author walkthrough](first-author.md) — inspect and modify the executable `examples/first-author` fixture.
+4. [How rendering works](how-rendering-works.md) — understand source, [targets](../glossary.md#target), [destinations](../glossary.md#destination), locks, and [drift](../glossary.md#drift).
+5. [Build versus activation](build-versus-activation.md) — keep repository generation separate from runtime authority.
 
 ## Adopt
 

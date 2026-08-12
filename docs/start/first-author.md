@@ -89,10 +89,10 @@ Run the confirmed build once more. A second build with unchanged source should b
 In a copied or cloned standalone fixture with Skillset installed, the same loop is:
 
 ```bash
-bunx @skillset/cli check
-bunx @skillset/cli build
-bunx @skillset/cli build --yes
-bunx @skillset/cli check --only outputs
+skillset check
+skillset build
+skillset build --yes
+skillset check --only outputs
 ```
 
 Continue with [How Rendering Works](how-rendering-works.md) for the model behind the loop, or the [development loop](../guides/development-loop.md) for everyday editing.

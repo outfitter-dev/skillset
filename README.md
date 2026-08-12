@@ -6,26 +6,28 @@ Write a skill, instruction, agent, hook, or plugin once in a repository-owned so
 
 ## Install
 
-Skillset requires Bun 1.3.14 or newer.
+Install the native global command once with npm:
 
 ```bash
-bun add --dev @skillset/cli
+npm install --global skillset
 ```
 
 Initialize an existing repository, inspect the plan, and write the source scaffold:
 
 ```bash
-bunx @skillset/cli init
-bunx @skillset/cli init --yes
+skillset init
+skillset init --yes
 ```
+
+The npm route uses a small Node 18 launcher to select the matching native package; it does not require Bun. On macOS, `brew install outfitter-dev/tap/skillset` installs the native executable with neither Node nor Bun required at command runtime. See [Install Skillset](docs/start/installation.md) for Homebrew, direct GitHub assets, the complete slimmer `@skillset/cli` Bun distribution, CI, local dependency, and contributor paths.
 
 Add authored source under `.skillset/`, then preview and write provider-native output:
 
 ```bash
-bunx @skillset/cli check
-bunx @skillset/cli build
-bunx @skillset/cli build --yes
-bunx @skillset/cli check --only outputs
+skillset check
+skillset build
+skillset build --yes
+skillset check --only outputs
 ```
 
 `init` and `build` preview by default. `--yes` confirms the exact plan. Start with the [first-author journey](docs/start/README.md) or run the checked-in [first-author example](examples/first-author/README.md).
@@ -66,16 +68,16 @@ The everyday loop is small:
 
 ```bash
 # Validate source and generated readiness.
-bunx @skillset/cli check
+skillset check
 
 # Inspect pending output without writing.
-bunx @skillset/cli diff
+skillset diff
 
 # Explain one source or generated path.
-bunx @skillset/cli explain .agents/skills/my-skill/SKILL.md
+skillset explain .agents/skills/my-skill/SKILL.md
 
 # Watch source and preview continuously.
-bunx @skillset/cli dev
+skillset dev
 ```
 
 Use `skillset dev --write` only when you want clean source edits to update repo-local outputs continuously. Use `skillset reconcile` when a managed generated file was edited and a human must choose source or output authority. Confirmed replacement paths retain backup or rollback evidence.
@@ -85,8 +87,8 @@ Use `skillset dev --write` only when you want clean source edits to update repo-
 `skillset init` surveys an existing repository for local skills, plugins, and instruction files. `skillset import` copies one selected provider-native source into `.skillset/` without overwriting existing source:
 
 ```bash
-bunx @skillset/cli import /path/to/SKILL.md
-bunx @skillset/cli import /path/to/plugin
+skillset import /path/to/SKILL.md
+skillset import /path/to/plugin
 ```
 
 Import reports what it recognized, preserved, and could not adapt. It never scans or changes user-level provider configuration unless you explicitly choose a provider's local import root.

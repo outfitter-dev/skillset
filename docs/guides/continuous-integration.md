@@ -11,31 +11,50 @@ Continuous integration checks a Skillset [workspace](../glossary.md#workspace), 
 Preview the optional GitHub Actions scaffold without allowing an interactive write:
 
 ```bash
-bunx @skillset/cli init --include ci --json
+skillset init --include ci --json
 ```
 
 Then authorize the reviewed addition:
 
 ```bash
-bunx @skillset/cli init --include ci --yes
+skillset init --include ci --yes
 ```
 
 This creates `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: later `init` runs report it as existing and do not replace your edits. Review its permissions and consider pinning the Skillset version before relying on it as a required check.
 
 The generated [`init` reference](../reference/cli/init.md) owns the complete option inventory.
 
-## Reproduce the Check Locally
+## Choose the CI Distribution
 
-Run the same branch-aware readiness mode against your trunk ref:
+The scaffold uses the complete `@skillset/cli` Bun distribution because its JavaScript payload is smaller than the native executable package:
 
 ```bash
 bunx @skillset/cli check --ci --since origin/main
 ```
 
+This route requires Bun 1.3.14 or newer at command runtime. It exposes the same command surface as the native distribution; it is not a reduced CI product.
+
+If a runner already provides Node 18 and npm, the native route is also supported:
+
+```bash
+npm install --global skillset
+skillset check --ci --since origin/main
+```
+
+The npm-installed command uses Node only for the launcher and does not require Bun. Pin either package to the intended release version in a production workflow. The [installation guide](../start/installation.md) owns the complete route and runtime matrix.
+
+## Reproduce the Check Locally
+
+Run the same branch-aware readiness mode against your trunk ref:
+
+```bash
+skillset check --ci --since origin/main
+```
+
 To create the same Markdown report used by job summaries and pull-request comments, request a report file explicitly:
 
 ```bash
-bunx @skillset/cli check --ci --since origin/main --report skillset-ci-report.md
+skillset check --ci --since origin/main --report skillset-ci-report.md
 ```
 
 Without `--fix`, the check does not rewrite source or generated output. The requested report is its only repository-facing write. See the generated [`check` reference](../reference/cli/check.md) for exact syntax.
@@ -45,7 +64,7 @@ Without `--fix`, the check does not rewrite source or generated output. The requ
 `--fix` is a write request. It repairs [drift](../glossary.md#drift) only when source-driven generated output is the sole blocker and the managed files still match their recorded ownership hashes:
 
 ```bash
-bunx @skillset/cli check --ci --fix --since origin/main
+skillset check --ci --fix --since origin/main
 ```
 
 It does not overwrite [target-side](../glossary.md#target) edits or unmanaged collisions. It also does not repair lint failures, invent missing source-change reasons or package Changesets, resolve an unavailable Git baseline, perform provider-format migrations, or hide [build](../glossary.md#build) failures. Mixed blockers remain report-only until each owning workflow resolves them.

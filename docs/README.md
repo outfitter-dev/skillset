@@ -9,7 +9,8 @@ Choose the question you are trying to answer. Each linked page states what it ow
 ## I am new to Skillset
 
 - [Why Skillset](why-skillset.md) explains the problem, the source-first model, and when the compiler is a good fit.
-- [Start with Skillset](start/README.md) routes from a first build into adoption, daily work, and deliberate shipping workflows.
+- [Install Skillset](start/installation.md) compares the native global, Homebrew, GitHub asset, Bun, CI, local dependency, and contributor routes.
+- [Start with Skillset](start/README.md) routes from installation into a first build, adoption, daily work, and deliberate shipping workflows.
 - [Build versus activation](start/build-versus-activation.md) explains what Skillset writes and what remains a separate user or provider decision.
 
 ## I need to look something up

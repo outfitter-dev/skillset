@@ -11,29 +11,29 @@ Daily Skillset work moves in one direction: edit [canonical source](../glossary.
 After changing `skillset.yaml` or `.skillset/`, run:
 
 ```bash
-bunx @skillset/cli check
-bunx @skillset/cli diff
-bunx @skillset/cli build
-bunx @skillset/cli build --yes
-bunx @skillset/cli check --only outputs
+skillset check
+skillset diff
+skillset build
+skillset build --yes
+skillset check --only outputs
 ```
 
 The comprehensive check includes source and generated-output readiness, so it may report expected [drift](../glossary.md#drift) before regeneration. `diff` and bare [build](../glossary.md#build) preview without writing. The confirmed build refreshes owned [destinations](../glossary.md#destination), and the output-only check proves they are current.
 
-Use `bunx @skillset/cli explain <path>` when you need the source, [target](../glossary.md#target), ownership, or provenance behind one file. Use `bunx @skillset/cli status` for a broader repository summary. Exact syntax belongs to the generated [CLI reference](../reference/cli/README.md).
+Use `skillset explain <path>` when you need the source, [target](../glossary.md#target), ownership, or provenance behind one file. Use `skillset status` for a broader repository summary. Exact syntax belongs to the generated [CLI reference](../reference/cli/README.md).
 
 ## Watch while you work
 
-`bunx @skillset/cli dev` is a foreground, preview-only loop. It watches [workspace](../glossary.md#workspace) configuration and canonical source, reruns diagnostics, and reports pending output changes.
+`skillset dev` is a foreground, preview-only loop. It watches [workspace](../glossary.md#workspace) configuration and canonical source, reruns diagnostics, and reports pending output changes.
 
 ```bash
-bunx @skillset/cli dev
+skillset dev
 ```
 
 Use continuous writes only when that is what you intend:
 
 ```bash
-bunx @skillset/cli dev --write
+skillset dev --write
 ```
 
 Generated output, caches, locks, and backups are not watch inputs, so output churn cannot create a feedback loop. The [Dev Watch reference](../reference/features/dev-watch.md) owns the detailed behavior.
@@ -45,7 +45,7 @@ Ordinary work is source-to-output. Do not edit a generated file and expect build
 If a managed target file contains an intentional edit, preview bounded reconciliation:
 
 ```bash
-bunx @skillset/cli reconcile <generated-path> --use output
+skillset reconcile <generated-path> --use output
 ```
 
 Confirm only a clean, understandable mapping with `--yes`. Use `--use source` when canonical source should win. Skillset may refuse [provider-native](../glossary.md#provider-native), metadata-owned, multi-source, unmanaged, or unsafe reverse mappings; the [source-suggestions reference](../reference/features/source-suggestions.md) explains the boundary.
@@ -54,7 +54,7 @@ Provider-format migrations belong to `skillset update`, not ordinary build or re
 
 ## Record meaningful source changes
 
-When the workspace uses Skillset's change ledger, run `bunx @skillset/cli change status` after a source change and add the required reason before shipping. The [Changes reference](../reference/features/changes.md) owns ledger and release details.
+When the workspace uses Skillset's change ledger, run `skillset change status` after a source change and add the required reason before shipping. The [Changes reference](../reference/features/changes.md) owns ledger and release details.
 
 ## Review before committing
 
