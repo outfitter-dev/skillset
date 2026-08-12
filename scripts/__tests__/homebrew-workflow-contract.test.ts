@@ -13,7 +13,7 @@ interface Step {
 interface Job {
   environment?: string;
   if?: string;
-  needs?: string;
+  needs?: string | string[];
   outputs?: Record<string, string>;
   permissions?: Record<string, string>;
   secrets?: Record<string, string>;
@@ -61,10 +61,11 @@ describe("SET-422 release workflow contract", () => {
       'echo "channel=$DIST_TAG" >> "$GITHUB_OUTPUT"'
     );
     expect(releaseStep?.run).toContain('echo "tag=$tag" >> "$GITHUB_OUTPUT"');
-    expect(homebrew?.needs).toBe("github-release");
+    expect(homebrew?.needs).toEqual(["github-release", "publish-plan"]);
     expect(homebrew?.if).toContain(
-      "needs.github-release.outputs.channel == 'latest'"
+      "needs.publish-plan.outputs.tag == 'latest'"
     );
+    expect(homebrew?.if).not.toContain("outputs.channel");
     expect(homebrew?.uses).toBe("./.github/workflows/publish-homebrew.yml");
     expect(homebrew?.permissions).toEqual({
       attestations: "read",

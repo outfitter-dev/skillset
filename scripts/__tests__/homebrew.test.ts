@@ -108,7 +108,8 @@ describe("SET-422 Homebrew release handoff", () => {
     }
     expect(formula).not.toContain(`version "${version}"`);
     expect(formula).toContain("depends_on :macos");
-    expect(formula).toContain("on_arm do");
+    expect(formula).toContain("on_macos do");
+    expect(formula).not.toContain("on_arm do");
     expect(formula).toContain("on_intel do");
     expect(formula).not.toContain("on_linux");
     expect(formula).toContain('bin.install "skillset"');
