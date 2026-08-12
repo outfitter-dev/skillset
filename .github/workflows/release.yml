@@ -1,8 +1,19 @@
 name: Release
 
+# The pull_request trigger exists so GitHub's workflow compiler — not just
+# actionlint — parses this file before it reaches main. actionlint cannot
+# validate reusable-workflow permission inheritance, which is how a missing
+# `attestations: read` on the Homebrew caller reached main and produced
+# startup_failure on every push (2026-08-12). Every job below is gated on
+# `github.ref == 'refs/heads/main'`, directly or transitively via `needs`,
+# so a pull_request run instantiates each job and then skips it without
+# entering any publish, signing, attestation, or Homebrew mutation step.
 on:
   push:
     branches: [main]
+  pull_request:
+    paths:
+      - .github/workflows/**
   workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
