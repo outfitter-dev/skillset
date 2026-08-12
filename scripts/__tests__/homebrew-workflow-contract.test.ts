@@ -15,6 +15,7 @@ interface Job {
   if?: string;
   needs?: string;
   outputs?: Record<string, string>;
+  permissions?: Record<string, string>;
   secrets?: Record<string, string>;
   steps?: Step[];
   uses?: string;
@@ -65,6 +66,10 @@ describe("SET-422 release workflow contract", () => {
       "needs.github-release.outputs.channel == 'latest'"
     );
     expect(homebrew?.uses).toBe("./.github/workflows/publish-homebrew.yml");
+    expect(homebrew?.permissions).toEqual({
+      attestations: "read",
+      contents: "read",
+    });
     expect(homebrew?.with?.tag).toBe(releaseTag);
     expect(homebrew?.secrets).toBeUndefined();
   });

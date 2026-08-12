@@ -197,12 +197,15 @@ describe("SET-419 native target and artifact contract", () => {
   test("rejects a partial manifest at the release-shaped verification boundary", async () => {
     const root = await temporaryRoot();
     const target = currentHostTarget();
-    await buildNativeArtifacts({
+    const builtManifest = await buildNativeArtifacts({
       commit: "b".repeat(40),
       outputDir: root,
       targets: [target],
     });
-    const unexpectedArchive = join(root, "skillset-v0.22.1-unexpected.tar.gz");
+    const unexpectedArchive = join(
+      root,
+      `skillset-v${builtManifest.version}-unexpected.tar.gz`
+    );
     await writeFile(unexpectedArchive, "unexpected");
     await expect(
       verifyNativeArtifacts({ allowPartial: true, outputDir: root })

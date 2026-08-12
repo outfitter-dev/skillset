@@ -384,5 +384,8 @@ jobs:
     needs: github-release
     if: needs.github-release.result == 'success' && needs.github-release.outputs.channel == 'latest'
     uses: ./.github/workflows/publish-homebrew.yml
+    permissions:
+      attestations: read
+      contents: read
     with:
       tag: ${{ needs.github-release.outputs.tag }}
