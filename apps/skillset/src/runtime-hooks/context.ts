@@ -27,3 +27,13 @@ export async function readHookStdin(): Promise<string | undefined> {
   const text = await new Response(Bun.stdin.stream()).text();
   return text.trim().length === 0 ? undefined : text;
 }
+
+export async function readHookContextStdin(
+  env: Record<string, string | undefined> = process.env
+): Promise<string | undefined> {
+  const provider = env.SKILLSET_PROVIDER;
+  const isCursor =
+    provider === "cursor" ||
+    (provider === undefined && env.CURSOR_SESSION_ID !== undefined);
+  return isCursor ? readHookStdin() : undefined;
+}

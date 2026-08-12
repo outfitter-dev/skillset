@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import {
   licenseDiagnostics,
+  packageBinDiagnostics,
   packedFileDiagnostics,
   projectionDiagnostics,
   readmeMetadataDiagnostics,
@@ -47,7 +48,6 @@ describe("package metadata checks", () => {
       "LICENSE",
       "README.md",
       "dist/cli.js",
-      "dist/toolkit.js",
       "package.json",
     ]
       .map((path) => `packed 1B ${path}`)
@@ -57,7 +57,28 @@ describe("package metadata checks", () => {
       "package tarball is missing LICENSE",
       "package tarball is missing README.md",
       "package tarball is missing dist/cli.js",
-      "package tarball is missing dist/toolkit.js",
+    ]);
+  });
+
+  test("requires one public CLI bin", async () => {
+    const root = await fixture({
+      "apps/skillset/package.json": {
+        bin: { skillset: "dist/cli.js" },
+      },
+    });
+    expect(await packageBinDiagnostics(root)).toEqual([]);
+
+    await writeFile(
+      join(root, "apps/skillset/package.json"),
+      `${JSON.stringify({
+        bin: {
+          skillset: "dist/cli.js",
+          "skillset-toolkit": "dist/toolkit.js",
+        },
+      })}\n`
+    );
+    expect(await packageBinDiagnostics(root)).toEqual([
+      "apps/skillset/package.json must expose only skillset -> dist/cli.js",
     ]);
   });
 

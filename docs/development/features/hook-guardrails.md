@@ -37,7 +37,7 @@ Runner snippets call `skillset change check --staged` at pre-commit and `skillse
 | Claude or Codex agent runtime | JSON suggestion plus destination comment | Caller reviews and merges it into project-local runtime config. |
 | `post-tool-use` | Runs `skillset change status --root .` after relevant source changes | Advisory; command failure does not block the agent event. |
 | `stop` | Runs `skillset change check --root .`, then `skillset check --root .` | Blocking; stops after the first failure. |
-| Toolkit runtime context | Normalized `provider`, `hook.event`, and `session.id` fields | Provider input is permissively normalized at the boundary. |
+| Skillset runtime context | Normalized `provider`, `hook.event`, and `session.id` fields | Provider input is permissively normalized at the boundary. |
 
 Both runtime events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
 

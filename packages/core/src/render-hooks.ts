@@ -420,8 +420,10 @@ function withAdaptiveHookToolkitContextCommand(
   const provider = `SKILLSET_PROVIDER=${target}`;
   const hookEvent = `SKILLSET_HOOK_EVENT=${event}`;
   const fieldArgs =
-    fields.length === 0 ? "" : ` --fields ${shellLiteral(fields.join(","))}`;
-  const helper = `${provider} ${hookEvent} skillset-toolkit runtime context --event ${event} --format env${fieldArgs}`;
+    fields.length === 0
+      ? ""
+      : ` --context-fields ${shellLiteral(fields.join(","))}`;
+  const helper = `${provider} ${hookEvent} skillset hooks context --event ${event} --format env${fieldArgs}`;
   if (target === "cursor") {
     return `skillset_hook_payload="$(mktemp)" && trap 'rm -f "$skillset_hook_payload"' 0 && cat > "$skillset_hook_payload" && eval "$(${helper} < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( ${command} )`;
   }

@@ -2195,6 +2195,17 @@ test("SET-228: hooks context emits helper-backed runtime context", async () => {
   const stdinPreserved = await runShell(`printf payload | (eval "$(bun ${cliPath} hooks context --event Stop --format env --context-fields provider)" && cat)`);
   expect(stdinPreserved.exitCode).toBe(0);
   expect(stdinPreserved.stdout).toBe("payload");
+
+  const cursorPayload = shellQuote(
+    JSON.stringify({ conversation_id: "cursor-hook-conversation" })
+  );
+  const cursor = await runShell(
+    `printf %s ${cursorPayload} | SKILLSET_PROVIDER=cursor CURSOR_SESSION_ID=cursor-env-fallback bun ${cliPath} hooks context --event afterAgentResponse --format json --context-fields session.id`
+  );
+  expect(cursor.exitCode).toBe(0);
+  expect(JSON.parse(cursor.stdout)).toMatchObject({
+    session: { id: "cursor-hook-conversation" },
+  });
 });
 
 test("SET-55: hooks run is a CLI-owned runtime entrypoint", async () => {

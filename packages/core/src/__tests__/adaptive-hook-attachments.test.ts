@@ -899,7 +899,7 @@ hooks:
       hooks: {
         Stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
+            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
             type: "command",
           }],
         }],
@@ -909,7 +909,7 @@ hooks:
       hooks: {
         Stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
+            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
             type: "command",
           }],
         }],
@@ -919,7 +919,7 @@ hooks:
       hooks: {
         stop: [{
           hooks: [{
-            command: 'skillset_hook_payload="$(mktemp)" && trap \'rm -f "$skillset_hook_payload"\' 0 && cat > "$skillset_hook_payload" && eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\' < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat )',
+            command: 'skillset_hook_payload="$(mktemp)" && trap \'rm -f "$skillset_hook_payload"\' 0 && cat > "$skillset_hook_payload" && eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\' < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat )',
             type: "command",
           }],
         }],
@@ -1153,7 +1153,7 @@ Body.
     expect(skillFrontmatter.hooks).toEqual({
       Stop: [{
         hooks: [{
-          command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event\')" && echo skill',
+          command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event\')" && echo skill',
           type: "command",
         }],
       }],
@@ -1260,10 +1260,10 @@ async function runGeneratedHookCommand(
   const root = await mkdtemp(join(tmpdir(), "skillset-generated-hook-"));
   const binDir = join(root, "bin");
   await mkdir(binDir);
-  const shim = join(binDir, "skillset-toolkit");
+  const shim = join(binDir, "skillset");
   await Bun.write(
     shim,
-    `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(join(process.cwd(), "packages/toolkit/src/cli.ts"))} "$@"\n`
+    `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(join(process.cwd(), "apps/skillset/src/cli.ts"))} "$@"\n`
   );
   await chmod(shim, 0o755);
   const proc = Bun.spawn({

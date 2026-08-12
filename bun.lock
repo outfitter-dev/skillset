@@ -21,7 +21,6 @@
       "version": "0.21.0",
       "bin": {
         "skillset": "dist/cli.js",
-        "skillset-toolkit": "dist/toolkit.js",
       },
       "dependencies": {
         "@clack/prompts": "^1.7.0",
@@ -65,9 +64,6 @@
     "packages/toolkit": {
       "name": "@skillset/toolkit",
       "version": "0.0.0",
-      "bin": {
-        "skillset-toolkit": "./src/cli.ts",
-      },
       "dependencies": {
         "@skillset/schema": "workspace:*",
       },

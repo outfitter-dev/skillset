@@ -2,6 +2,7 @@ import type { TargetName } from "@skillset/core/internal/types";
 
 import {
   dispatchHookRun,
+  readHookContextStdin,
   readHookStdin,
   renderHookPrint,
   renderHookRuntimeContext,
@@ -69,6 +70,7 @@ export async function runHooksCommand({
     if (hookContextEvent === undefined) {
       throw new Error("skillset: hooks context requires --event");
     }
+    const stdinText = await readHookContextStdin();
     process.stdout.write(
       await renderHookRuntimeContext({
         event: hookContextEvent,
@@ -77,6 +79,7 @@ export async function runHooksCommand({
           : { fields: hookContextFields }),
         format: hookContextFormat ?? "json",
         rootPath,
+        ...(stdinText === undefined ? {} : { stdinText }),
       })
     );
     return;

@@ -838,10 +838,10 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     evidence: [
       docs("docs/reference/features/hooks.md"),
       source("packages/toolkit/src/runtime.ts"),
-      source("packages/toolkit/src/cli.ts"),
+      source("apps/skillset/src/hooks-cli.ts"),
       source("packages/core/src/render.ts"),
       test("packages/toolkit/src/__tests__/runtime.test.ts", "runtime context normalization coverage"),
-      test("packages/toolkit/src/__tests__/cli.test.ts", "shell-friendly runtime context CLI coverage"),
+      test("apps/skillset/src/__tests__/contract.test.ts", "shell-friendly runtime context CLI coverage"),
       test("packages/core/src/__tests__/adaptive-hook-attachments.test.ts", "generated toolkit hook wrapper coverage"),
     ],
     id: "runtime-context",
@@ -849,7 +849,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/render-hooks.ts",
     sourceShape: "adaptive hook context.strategy toolkit runtime context helper",
     status: "implemented",
-    summary: "Normalizes provider hook runtime context into Skillset fields for hook scripts through a typed API and shell-friendly CLI.",
+    summary: "Normalizes provider hook runtime context into Skillset fields for hook scripts through the typed runtime API and the skillset CLI.",
     targetSupport: {
       claude: {
         evidence: [

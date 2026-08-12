@@ -3,6 +3,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 type PackageManifest = {
+  bin?: unknown;
   description?: unknown;
   files?: unknown;
   license?: unknown;
@@ -16,7 +17,6 @@ const expectedPackedFiles = [
   "LICENSE",
   "README.md",
   "dist/cli.js",
-  "dist/toolkit.js",
   "package.json",
 ];
 
@@ -114,6 +114,25 @@ export async function readmeMetadataDiagnostics(rootPath: string) {
   return diagnostics;
 }
 
+export async function packageBinDiagnostics(rootPath: string) {
+  const manifest = await readManifest(
+    join(rootPath, "apps", "skillset", "package.json")
+  );
+  const bin = manifest.bin;
+  if (
+    typeof bin === "object" &&
+    bin !== null &&
+    !Array.isArray(bin) &&
+    Object.keys(bin).length === 1 &&
+    (bin as Record<string, unknown>).skillset === "dist/cli.js"
+  ) {
+    return [];
+  }
+  return [
+    "apps/skillset/package.json must expose only skillset -> dist/cli.js",
+  ];
+}
+
 async function runPackDryRun() {
   const process = Bun.spawn(["bun", "pm", "pack", "--dry-run"], {
     cwd: packageDir,
@@ -134,6 +153,7 @@ async function runPackDryRun() {
 async function commandCheck() {
   const diagnostics = [
     ...(await licenseDiagnostics(rootDir)),
+    ...(await packageBinDiagnostics(rootDir)),
     ...(await projectionDiagnostics(rootDir)),
     ...(await readmeMetadataDiagnostics(rootDir)),
     ...packedFileDiagnostics(await runPackDryRun()),

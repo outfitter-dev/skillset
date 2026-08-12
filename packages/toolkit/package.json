@@ -4,12 +4,8 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "bin": {
-    "skillset-toolkit": "./src/cli.ts"
-  },
   "exports": {
     ".": "./src/index.ts",
-    "./cli": "./src/cli.ts",
     "./runtime": "./src/runtime.ts"
   },
   "dependencies": {
