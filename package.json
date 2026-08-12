@@ -69,6 +69,7 @@
     "skillset:check:ci:report": "bun run test:sandbox -- bun ./apps/skillset/src/cli.ts check --ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/cache/reports/skillset-ci-report.md",
     "skillset:check:outputs": "bun run test:sandbox -- bun ./apps/skillset/src/cli.ts check --only outputs --root .",
     "test": "bun run test:sandbox -- bun test --timeout 15000 $(git ls-files 'apps/**/*.test.ts' 'packages/**/*.test.ts' 'scripts/**/*.test.ts')",
+    "test:distribution": "bun run test:sandbox -- bun test --timeout 60000 apps/skillset/src/__tests__/launcher.test.ts scripts/__tests__/distribution-conformance.test.ts scripts/__tests__/distribution-workflow-contract.test.ts scripts/__tests__/native-artifacts.test.ts scripts/__tests__/native-packages.test.ts scripts/__tests__/release-packages.test.ts",
     "test:focused": "bun run test:sandbox -- bun test --timeout 15000",
     "typecheck": "tsc --noEmit",
     "ultracite:check": "ultracite check",

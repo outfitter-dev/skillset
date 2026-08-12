@@ -1,0 +1,249 @@
+name: Distribution Conformance
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable Skillset release tag
+        required: true
+        type: string
+
+permissions:
+  attestations: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+      - run: npm install --global npm@11.12.1
+      - run: bun install --frozen-lockfile
+      - run: bun run test:distribution
+      - name: Resolve stable release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Expected a stable v-prefixed release tag, found: $TAG" >&2
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > "$RUNNER_TEMP/release.json"
+          bun scripts/homebrew.ts validate-release \
+            --release-json "$RUNNER_TEMP/release.json" \
+            --version "$version"
+          commit="$(git rev-parse HEAD)"
+          if [[ ! "$commit" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "Could not resolve the checked-out release commit: $commit" >&2
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Verify exact release assets and attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          gh release download "$TAG" --dir "$RUNNER_TEMP/release-assets"
+          bun run release:assets -- verify \
+            --release-dir "$RUNNER_TEMP/release-assets" \
+            --version "$VERSION"
+          for asset in "$RUNNER_TEMP"/release-assets/skillset-v*; do
+            gh attestation verify "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-digest "$RELEASE_COMMIT"
+          done
+      - name: Rebuild exact npm tarballs and verify registry integrity and provenance
+        env:
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          bun scripts/hydrate-native-release.ts \
+            --commit "$RELEASE_COMMIT" \
+            --release-dir "$RUNNER_TEMP/release-assets" \
+            --out-dir "$RUNNER_TEMP/native" \
+            --version "$VERSION"
+          mkdir -p "$RUNNER_TEMP/release-tarballs"
+          bun run publish:release-check -- \
+            --native-out-dir "$RUNNER_TEMP/native" \
+            --stage-dir "$RUNNER_TEMP/release-tarballs"
+          bun run publish:registry-check:published -- \
+            --stage-dir "$RUNNER_TEMP/release-tarballs"
+      - name: Prove the Bun package fails explicitly without Bun
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          prefix="$RUNNER_TEMP/bun-required"
+          tools="$RUNNER_TEMP/node-only"
+          mkdir -p "$tools"
+          ln -s "$(command -v node)" "$tools/node"
+          npm install --prefix "$prefix" --ignore-scripts "@skillset/cli@$VERSION"
+          set +e
+          output="$(PATH="$tools" "$prefix/node_modules/.bin/skillset" --version 2>&1)"
+          exit_code=$?
+          set -e
+          if [ "$exit_code" -eq 0 ] || [[ ! "$output" =~ [Bb]un ]]; then
+            echo "@skillset/cli without Bun must fail explicitly; exit=$exit_code output=$output" >&2
+            exit 1
+          fi
+      - name: Record native and Bun package sizes
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/cli-pack"
+          npm pack "@skillset/cli@$VERSION" \
+            --ignore-scripts \
+            --pack-destination "$RUNNER_TEMP/cli-pack"
+          cli_tarballs=("$RUNNER_TEMP"/cli-pack/*.tgz)
+          if [ "${#cli_tarballs[@]}" -ne 1 ]; then
+            echo "Expected one @skillset/cli tarball, found ${#cli_tarballs[@]}" >&2
+            exit 1
+          fi
+          bun scripts/distribution-size-report.ts \
+            --assets-dir "$RUNNER_TEMP/release-assets" \
+            --cli-tarball "${cli_tarballs[0]}" \
+            --output "$RUNNER_TEMP/distribution-sizes.md" \
+            --version "$VERSION"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: skillset-distribution-evidence-${{ steps.release.outputs.version }}
+          path: |
+            ${{ runner.temp }}/release-assets
+            ${{ runner.temp }}/distribution-sizes.md
+          if-no-files-found: error
+          retention-days: 30
+
+  channels:
+    needs: inventory
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            suffix: darwin-arm64
+          - runner: macos-15-intel
+            suffix: darwin-x64
+          - runner: ubuntu-24.04-arm
+            suffix: linux-arm64-glibc
+          - runner: ubuntu-24.04
+            suffix: linux-x64-glibc
+          - runner: windows-2025
+            suffix: windows-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+      - run: npm install --global npm@11.12.1
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: skillset-distribution-evidence-${{ needs.inventory.outputs.version }}
+          path: ${{ runner.temp }}/evidence
+      - name: Install published npm, Bun-global, and repository-local channels
+        env:
+          BUN_INSTALL: ${{ runner.temp }}/bun-global
+          VERSION: ${{ needs.inventory.outputs.version }}
+        run: |
+          npm install --global --ignore-scripts "skillset@$VERSION"
+          bun add --global "@skillset/cli@$VERSION"
+          mkdir -p "$RUNNER_TEMP/local-project"
+          pushd "$RUNNER_TEMP/local-project"
+          bun init --yes
+          bun add --dev "@skillset/cli@$VERSION"
+          popd
+      - name: Extract direct native release asset
+        env:
+          VERSION: ${{ needs.inventory.outputs.version }}
+        run: |
+          extension="tar.gz"
+          executable="$RUNNER_TEMP/skillset"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            extension="zip"
+            executable="$RUNNER_TEMP/skillset.exe"
+          fi
+          bun scripts/extract-release-asset.ts \
+            --archive "$RUNNER_TEMP/evidence/release-assets/skillset-v$VERSION-${{ matrix.suffix }}.$extension" \
+            --output "$executable"
+      - name: Prove direct, npm-global, and Bun command parity
+        env:
+          BUN_INSTALL: ${{ runner.temp }}/bun-global
+          VERSION: ${{ needs.inventory.outputs.version }}
+        run: |
+          native="$RUNNER_TEMP/skillset"
+          npm_prefix="$(npm config get prefix)"
+          npm_command="$npm_prefix/bin/skillset"
+          npm_root="$npm_prefix/lib/node_modules"
+          bun_command="$BUN_INSTALL/bin/skillset"
+          local_bun="$RUNNER_TEMP/local-project/node_modules/.bin/skillset"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            native="$RUNNER_TEMP/skillset.exe"
+            npm_command="$npm_prefix/skillset.cmd"
+            npm_root="$npm_prefix/node_modules"
+            bun_command="$BUN_INSTALL/bin/skillset.exe"
+            local_bun="$RUNNER_TEMP/local-project/node_modules/.bin/skillset.exe"
+          fi
+          bun scripts/distribution-conformance.ts --exhaustive --runtime native --executable "$native" --version "$VERSION"
+          bun scripts/distribution-conformance.ts --exhaustive --runtime node-launcher --executable "$npm_command" --version "$VERSION"
+          bun scripts/distribution-conformance.ts --exhaustive --runtime bun --executable "$bun_command" --version "$VERSION"
+          bun scripts/distribution-conformance.ts --exhaustive --runtime bun --executable "$local_bun" --version "$VERSION"
+          bun scripts/distribution-conformance.ts --bunx-package "@skillset/cli@$VERSION" --exhaustive --runtime bun --version "$VERSION"
+          bun scripts/published-launcher-negatives.ts \
+            --executable "$npm_command" \
+            --global-root "$npm_root" \
+            --suffix "${{ matrix.suffix }}"
+
+  homebrew:
+    needs: inventory
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - run: brew update
+      - run: brew install outfitter-dev/tap/skillset
+      - name: Prove Homebrew native command without Bun or Node
+        env:
+          VERSION: ${{ needs.inventory.outputs.version }}
+        run: |
+          bun scripts/distribution-conformance.ts \
+            --exhaustive \
+            --runtime native \
+            --executable "$(brew --prefix)/bin/skillset" \
+            --version "$VERSION"
+          brew audit --strict outfitter-dev/tap/skillset
+          brew test outfitter-dev/tap/skillset
