@@ -57,7 +57,7 @@ describe("generated release PR workflow contract", () => {
     expect(changeset?.permissions?.["pull-requests"]).toBeUndefined();
   });
 
-  test("CI exposes an explicit dispatch path for bot-authored release heads", async () => {
+  test("CI validates generated release heads without source Changeset checks", async () => {
     const workflow = await readWorkflow("ci.yml");
     const steps = workflow.jobs?.["skillset-ci"]?.steps ?? [];
     const releaseCheck = steps.find(
@@ -69,8 +69,16 @@ describe("generated release PR workflow contract", () => {
     expect(releaseCheck?.run).toBe("bun scripts/publish.ts check");
     expect(releaseCheck?.if).toContain("github.event_name == 'workflow_dispatch'");
     expect(releaseCheck?.if).toContain("refs/heads/changeset-release/main");
+    expect(releaseCheck?.if).toContain("github.event_name == 'pull_request'");
+    expect(releaseCheck?.if).toContain(
+      "github.event.pull_request.head.ref == 'changeset-release/main'"
+    );
     expect(sourceCheck?.if).toContain("github.event_name != 'workflow_dispatch'");
     expect(sourceCheck?.if).toContain("refs/heads/changeset-release/main");
+    expect(sourceCheck?.if).toContain("github.event_name != 'pull_request'");
+    expect(sourceCheck?.if).toContain(
+      "github.event.pull_request.head.ref != 'changeset-release/main'"
+    );
   });
 
   test("release automation dispatches CI after updating and labeling the version PR", async () => {
