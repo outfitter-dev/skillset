@@ -279,6 +279,7 @@ jobs:
     if: always() && github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.attest-native.result == 'success' && needs.publish-policy.outputs.create_github_release == 'true' && (needs.publish-plan.outputs.registry_complete == 'true' || needs.publish-auto.outputs.registry_complete == 'true' || needs.publish.outputs.registry_complete == 'true')
     runs-on: ubuntu-latest
     outputs:
+      channel: ${{ steps.release.outputs.channel }}
       tag: ${{ steps.release.outputs.tag }}
     permissions:
       attestations: read
@@ -330,6 +331,7 @@ jobs:
           fi
 
           tag="v$VERSION"
+          echo "channel=$DIST_TAG" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           notes="Published the seven-package Skillset $VERSION set to npm with dist-tag \`$DIST_TAG\`."
           git fetch --force --tags origin
@@ -380,9 +382,7 @@ jobs:
   homebrew:
     name: Update Homebrew tap
     needs: github-release
-    if: needs.github-release.result == 'success'
+    if: needs.github-release.result == 'success' && needs.github-release.outputs.channel == 'latest'
     uses: ./.github/workflows/publish-homebrew.yml
     with:
       tag: ${{ needs.github-release.outputs.tag }}
-    secrets:
-      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

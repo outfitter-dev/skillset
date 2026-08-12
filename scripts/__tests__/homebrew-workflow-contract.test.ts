@@ -11,6 +11,8 @@ interface Step {
 }
 
 interface Job {
+  environment?: string;
+  if?: string;
   needs?: string;
   outputs?: Record<string, string>;
   secrets?: Record<string, string>;
@@ -20,10 +22,11 @@ interface Job {
 }
 
 interface Workflow {
+  concurrency?: { "cancel-in-progress"?: boolean; group?: string };
   jobs?: Record<string, Job>;
   on?: {
     release?: { types?: string[] };
-    workflow_call?: unknown;
+    workflow_call?: { inputs?: unknown; secrets?: unknown };
     workflow_dispatch?: unknown;
   };
   permissions?: Record<string, string>;
@@ -49,17 +52,28 @@ describe("SET-422 release workflow contract", () => {
     );
     const homebrew = workflow.jobs?.homebrew;
 
+    expect(release?.outputs?.channel).toBe(
+      `\${{ steps.release.outputs.channel }}`
+    );
     expect(release?.outputs?.tag).toBe(releaseOutputTag);
+    expect(releaseStep?.run).toContain(
+      'echo "channel=$DIST_TAG" >> "$GITHUB_OUTPUT"'
+    );
     expect(releaseStep?.run).toContain('echo "tag=$tag" >> "$GITHUB_OUTPUT"');
     expect(homebrew?.needs).toBe("github-release");
+    expect(homebrew?.if).toContain(
+      "needs.github-release.outputs.channel == 'latest'"
+    );
     expect(homebrew?.uses).toBe("./.github/workflows/publish-homebrew.yml");
     expect(homebrew?.with?.tag).toBe(releaseTag);
-    expect(homebrew?.secrets?.HOMEBREW_TAP_TOKEN).toBe(homebrewTapToken);
+    expect(homebrew?.secrets).toBeUndefined();
   });
 
   test("validates a published release and renders before checking out the tap", async () => {
     const workflow = await readWorkflow("publish-homebrew.yml");
-    const steps = workflow.jobs?.handoff?.steps ?? [];
+    const jobs = workflow.jobs as Record<string, Job>;
+    const handoff = jobs.handoff as Job;
+    const steps = handoff.steps ?? [];
     const validateIndex = steps.findIndex(
       (step) =>
         step.name === "Validate published release assets before tap checkout"
@@ -80,19 +94,37 @@ describe("SET-422 release workflow contract", () => {
     expect(workflow.on?.release?.types).toEqual(["published"]);
     expect(workflow.on).toHaveProperty("workflow_dispatch");
     expect(workflow.on).toHaveProperty("workflow_call");
-    expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.permissions).toEqual({
+      attestations: "read",
+      contents: "read",
+    });
+    expect(workflow.concurrency).toEqual({
+      "cancel-in-progress": false,
+      group: "homebrew-skillset",
+    });
+    expect(workflow.on?.workflow_call?.secrets).toBeUndefined();
+    expect(handoff.environment).toBe("homebrew");
+    expect(handoff.if).toContain("github.event.release.prerelease == false");
     expect(validateIndex).toBeGreaterThan(-1);
     expect(renderIndex).toBeGreaterThan(validateIndex);
     expect(tokenIndex).toBeGreaterThan(renderIndex);
     expect(tapIndex).toBeGreaterThan(tokenIndex);
-    expect(steps[validateIndex]?.run).toContain("validate-release");
-    expect(steps[validateIndex]?.run).toContain("gh release download");
-    expect(steps[tapIndex]?.with?.repository).toBe(
-      "outfitter-dev/homebrew-tap"
+    const validateStep = steps[validateIndex] as Step;
+    const tapStep = steps[tapIndex] as Step;
+    expect(validateStep.run).toContain("validate-release");
+    expect(validateStep.run).toContain("gh release download");
+    expect(validateStep.run).toContain(
+      'gh api "repos/$GH_REPO/releases/latest"'
     );
-    expect(steps[tapIndex]?.with?.token).toBe(homebrewTapToken);
-    expect(pullRequest?.with?.token).toBe(homebrewTapToken);
-    expect(pullRequest?.uses).toMatch(
+    expect(validateStep.run).toContain("release:assets -- verify");
+    expect(validateStep.run).toContain("gh attestation verify");
+    expect(tapStep.with?.repository).toBe("outfitter-dev/homebrew-tap");
+    expect(tapStep.with?.token).toBe(homebrewTapToken);
+    const pullRequestStep = pullRequest as Step;
+    expect(pullRequestStep.with?.token).toBe(homebrewTapToken);
+    expect(pullRequestStep.with?.branch).toBe("release/skillset");
+    expect(pullRequestStep.with?.["add-paths"]).toContain("README.md");
+    expect(pullRequestStep.uses).toMatch(
       /^peter-evans\/create-pull-request@[a-f0-9]{40}$/u
     );
     expect(JSON.stringify(workflow)).not.toContain("gh pr merge");

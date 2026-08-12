@@ -62,6 +62,16 @@ After the registry set is complete, the workflow verifies every GitHub attestati
 
 The publish wrapper derives the npm dist-tag from the version: stable versions publish to `latest`, and prerelease versions publish to their prerelease label such as `beta`.
 
+## Homebrew Handoff
+
+Homebrew is the native macOS path for Apple Silicon and Intel systems. After a stable `latest` release is reconciled, the Release workflow calls the reusable `Publish Homebrew` workflow with the published tag. Prereleases and older stable tags are rejected so they cannot replace the current formula.
+
+The handoff downloads the exact seven GitHub release assets, verifies their GitHub attestations, checks the `SHA256SUMS` inventory and bytes, and validates the native manifest's exact five-target metadata. It then renders a macOS-only formula from the verified Darwin checksums and updates the tap README with install, upgrade, and uninstall commands. The workflow opens or updates `release/skillset` in `outfitter-dev/homebrew-tap`; it never merges the pull request or publishes the formula directly. The generic tap workflow repair in `outfitter-dev/homebrew-tap` PR #19 is a prerequisite. Tap-owned CI must pass strict audit plus install and test on Apple Silicon and Intel macOS before a maintainer merges that PR; the tap's tested-head publication remains a separate maintainer action.
+
+Cross-repository mutation runs only in the protected GitHub `homebrew` environment. Configure `HOMEBREW_TAP_TOKEN` there as a fine-grained token limited to `outfitter-dev/homebrew-tap` with Contents and Pull requests read/write access. The environment's required reviewers own approval of token use; repository-wide or organization-wide token access is not required.
+
+For recovery, manually dispatch `Publish Homebrew` with the current published stable tag. The workflow serializes every Skillset handoff through one concurrency group and reuses one tap branch, so a newer stable release updates the existing proposal instead of creating mergeable stale-version branches. A missing token, non-latest tag, asset mismatch, invalid manifest, failed attestation, unmanaged tap README section, or tap PR conflict stops without merging. Resolve the evidence or branch conflict, then rerun the protected workflow; do not hand-edit generated checksums or bypass tap CI.
+
 ## Native Artifact Build
 
 The repository owns a focused native build path separate from the ordinary `bun run check` gate. The accepted release set is five targets: Apple arm64 and baseline x64, Linux glibc arm64 and baseline x64, and Windows baseline x64. Linux musl arm64 and baseline x64 remain buildable reserved targets; they are not part of the required manifest or public package set.
