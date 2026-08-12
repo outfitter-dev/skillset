@@ -99,6 +99,22 @@ The path-filtered `Native` workflow builds the five required targets reproducibl
 
 The global native smoke command packs all five local platform packages, rewrites only the disposable launcher fixture to use those tarballs, and runs a real offline global npm installation with lifecycle scripts disabled. It asserts npm installed only the host-compatible optional package, runs `skillset --version` and root help with Bun replaced by a sentinel, then uninstalls and reinstalls the command. The hosted Native matrix runs this proof on every initial target after the direct executable smoke.
 
+### Verify the published distribution matrix
+
+After a stable npm/GitHub release and its Homebrew formula are published, run the manual **Distribution Conformance** workflow with the exact `v<version>` tag. This is deliberately a post-publication gate: pull requests and local builds cannot prove registry provenance, GitHub attestations, or a formula installed from the public tap.
+
+The workflow checks out the release tag with read-only permissions, reconstructs the native package inputs from the verified archives, and rebuilds all seven npm tarballs with pinned npm. Registry verification requires the exact seven-package set, common dist-tag, matching tarball integrity, and provenance. It also verifies the exact seven GitHub assets and every attestation, then records native raw/archive sizes plus the `@skillset/cli` tarball size. Finally, it runs the same version, help, structured lookup, invalid-command, exit-code, and forbidden-runtime assertions across three channels on all five required hosts:
+
+- the direct native archive with neither Bun nor Node available to the child command;
+- `npm install --global skillset` with Node available and Bun replaced by a sentinel;
+- `bunx @skillset/cli`, the Bun-global command, and a repository-local development dependency, plus an explicit no-Bun failure proof.
+
+A separate Homebrew lane installs `outfitter-dev/tap/skillset`, runs the same native assertions, and executes strict audit and formula tests on Apple Silicon and Intel macOS. Musl remains a reserved negative-diagnostic target rather than Tier 1; it does not enter this required matrix until the native target contract promotes it.
+
+`bun run test:distribution` is the local and immutable-tag diagnostic gate. It pins the five-target inventory, unsupported platform and libc diagnostics, and recoverable versus blocked partial-release states. The hosted workflow runs that gate before exercising the published bytes, then mutates only its disposable global installation to prove missing-package, version-mismatch, and corrupt-executable diagnostics from the published launcher. It also exhaustively checks every public route's help, structured-output declaration, and invalid-input exit behavior on each installed channel.
+
+The workflow does not publish, tag, attest, sign, open or merge a pull request, or modify the tap. A failed partial-registry, missing-asset, checksum, provenance, attestation, version-parity, runtime, or formula check leaves the release incomplete and requires the owning recovery path. Preserve the uploaded `skillset-distribution-evidence-<version>` artifact and link its run in the release handoff.
+
 ## Release Intent Labels
 
 Release labels express human intent, not trust. The policy script still verifies the branch, commit, generated Changesets PR shape, changed files, exact-SHA CI, changelog heading, version delta, and registry state before an automatic publish can run.
