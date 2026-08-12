@@ -356,7 +356,7 @@ export async function buildNativeArtifacts(
   return manifest;
 }
 
-function parseManifest(value: unknown): NativeArtifactManifest {
+export function parseNativeManifest(value: unknown): NativeArtifactManifest {
   if (!value || typeof value !== "object")
     throw new Error("Native manifest must be an object");
   const expectedManifestFields = [
@@ -435,7 +435,9 @@ function parseManifest(value: unknown): NativeArtifactManifest {
       "target",
     ] as const) {
       if (typeof record[field] !== "string" || record[field].length === 0) {
-        throw new Error(`Native manifest artifact ${index} is missing ${field}`);
+        throw new Error(
+          `Native manifest artifact ${index} is missing ${field}`
+        );
       }
     }
     if (!/^[a-f0-9]{64}$/.test(record.sha256 ?? "")) {
@@ -495,7 +497,7 @@ export async function verifyNativeArtifacts(
     join(outputDir, nativeManifestName()),
     "utf8"
   );
-  const manifest = parseManifest(JSON.parse(manifestText));
+  const manifest = parseNativeManifest(JSON.parse(manifestText));
   if (manifest.version !== packageManifest.version) {
     throw new Error(
       `Native manifest version ${manifest.version} does not match ${packageManifest.version}`
