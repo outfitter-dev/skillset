@@ -2,15 +2,11 @@
   "name": "skillset-workspace",
   "private": true,
   "license": "MIT",
-  "type": "module",
-  "packageManager": "bun@1.3.14",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
-  "engines": {
-    "bun": ">=1.3.14"
-  },
+  "type": "module",
   "scripts": {
     "build": "bun run typecheck && bun run build:npm",
     "build:npm": "bun scripts/build-package.ts",
@@ -49,6 +45,7 @@
     "prepack": "tsc --noEmit && bun scripts/build-package.ts",
     "publish:check": "bun run test:sandbox -- bun run publish:check:repo",
     "publish:check:repo": "bun run check && bun scripts/publish.ts check",
+    "publish:bootstrap": "bun scripts/npm-bootstrap.ts",
     "publish:label-release-pr": "bun scripts/release-policy.ts label-release-pr",
     "publish:packages": "bun scripts/publish.ts publish",
     "publish:plan": "bun scripts/publish.ts plan",
@@ -95,5 +92,9 @@
     "typescript": "^5.8.3",
     "ultracite": "7.8.3",
     "yaml": "^2.8.1"
-  }
+  },
+  "engines": {
+    "bun": ">=1.3.14"
+  },
+  "packageManager": "bun@1.3.14"
 }
