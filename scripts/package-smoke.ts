@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -54,16 +54,42 @@ try {
       `Packed @skillset/cli reported ${version.stdout.trim()}, expected ${productManifest.version}`
     );
   }
+  const bunInstall = join(smokeDir, "bun-global");
+  await mkdir(bunInstall, { recursive: true });
+  const bunGlobalEnv = { ...process.env, BUN_INSTALL: bunInstall };
+  await run(["bun", "add", "--global", tarball], smokeDir, bunGlobalEnv);
+  const globalVersion = await run(
+    [
+      join(
+        bunInstall,
+        "bin",
+        process.platform === "win32" ? "skillset.exe" : "skillset"
+      ),
+      "--version",
+    ],
+    smokeDir,
+    bunGlobalEnv
+  );
+  if (globalVersion.stdout.trim() !== productManifest.version) {
+    throw new Error(
+      `Bun-global @skillset/cli reported ${globalVersion.stdout.trim()}, expected ${productManifest.version}`
+    );
+  }
   console.error(
-    `skillset: packed @skillset/cli resolves the skillset bin; --help and --version ${productManifest.version} pass`
+    `skillset: packed @skillset/cli resolves bunx and isolated Bun-global skillset bins; --help and --version ${productManifest.version} pass`
   );
 } finally {
   await rm(smokeDir, { force: true, recursive: true });
 }
 
-async function run(command: readonly string[], cwd: string) {
+async function run(
+  command: readonly string[],
+  cwd: string,
+  env: Record<string, string | undefined> = process.env
+) {
   const process = Bun.spawn(command, {
     cwd,
+    env,
     stderr: "pipe",
     stdout: "pipe",
   });

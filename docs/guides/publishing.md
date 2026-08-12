@@ -20,26 +20,26 @@ A workspace release can refresh [generated output](../glossary.md#generated-outp
 Inspect source changes first:
 
 ```bash
-bunx @skillset/cli change status
+skillset change status
 ```
 
 If a changed source unit has no pending record, create one with the scope and release impact you intend:
 
 ```bash
-bunx @skillset/cli change add --scope skill:review-notes --bump patch --reason "Describe the reader-visible change."
+skillset change add --scope skill:review-notes --bump patch --reason "Describe the reader-visible change."
 ```
 
-To revise an existing record, use the reference returned by `change add` or run `bunx @skillset/cli change list` to find it, then replace the example `@abcdef`:
+To revise an existing record, use the reference returned by `change add` or run `skillset change list` to find it, then replace the example `@abcdef`:
 
 ```bash
-bunx @skillset/cli change reason @abcdef --reason "Clarify the reader-visible change."
+skillset change reason @abcdef --reason "Clarify the reader-visible change."
 ```
 
 Both commands write source-side release evidence. Once the reasons and version impact are correct, preview and apply the release:
 
 ```bash
-bunx @skillset/cli release plan
-bunx @skillset/cli release apply --yes
+skillset release plan
+skillset release apply --yes
 ```
 
 The confirmed apply appends release evidence, advances source-unit version authority, refreshes generated changelogs, locks, and configured provider output, and consumes the pending changes included in the plan. It writes repository state; it does not publish over a network, install provider output, or change user-level runtime configuration.
@@ -47,8 +47,8 @@ The confirmed apply appends release evidence, advances source-unit version autho
 Verify the result:
 
 ```bash
-bunx @skillset/cli release audit
-bunx @skillset/cli check
+skillset release audit
+skillset check
 ```
 
 The [Changes reference](../reference/features/changes.md) and [Releases reference](../reference/features/releases.md) own the ledger, amendment, version, and changelog details. Exact commands live in the generated [`change`](../reference/cli/change.md) and [`release`](../reference/cli/release.md) pages.
@@ -58,8 +58,8 @@ The [Changes reference](../reference/features/changes.md) and [Releases referenc
 Root `distributions` configuration selects an already enabled [target](../glossary.md#target) [rendering](../glossary.md#render) and describes a local or Git destination. Inspect every configured plan, or one named plan:
 
 ```bash
-bunx @skillset/cli distribute plan
-bunx @skillset/cli distribute plan codex-marketplace
+skillset distribute plan
+skillset distribute plan codex-marketplace
 ```
 
 Distribution is plan-only. The command does not accept `--yes`; it does not copy files, commit, push, open a pull request, or install runtime configuration. Local plans can report `add`, `change`, and `unchanged`; Git destinations remain `unknown` until a sync workflow is implemented to inspect them.

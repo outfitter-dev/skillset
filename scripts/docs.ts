@@ -7,7 +7,11 @@ import {
   renderDocsCheckResult,
   writeDocsBaseline,
 } from "./docs/check";
-import { checkInvariantLinks, checkReadmeCommands } from "./docs/front-door";
+import {
+  checkAuthoredCommands,
+  checkDistributionFrontDoor,
+  checkInvariantLinks,
+} from "./docs/front-door";
 import { runDocsGoldenPath } from "./docs/golden-path";
 import { readmeMetadataDiagnostics } from "./package-metadata";
 import { generateSchemaArtifacts } from "./schema-artifacts";
@@ -57,7 +61,8 @@ export async function runDocsCommand(
 async function assertReadmeFrontDoorClean(root: string): Promise<void> {
   const diagnostics = [
     ...(await readmeMetadataDiagnostics(root)),
-    ...(await checkReadmeCommands(root)),
+    ...(await checkAuthoredCommands(root)),
+    ...(await checkDistributionFrontDoor(root)),
     ...(await checkInvariantLinks(root)),
   ];
   if (diagnostics.length === 0) return;

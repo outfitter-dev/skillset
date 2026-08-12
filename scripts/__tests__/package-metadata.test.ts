@@ -118,8 +118,8 @@ describe("package metadata checks", () => {
         "Skillset is a source-first compiler for provider-native agent loadouts.",
         "",
         "```bash",
-        "bun add --dev @skillset/cli",
-        "bunx @skillset/cli init",
+        "npm install --global skillset",
+        "skillset init",
         "```",
       ].join("\n"),
       "apps/cli/package.json": {
@@ -132,7 +132,7 @@ describe("package metadata checks", () => {
     await writeFile(join(root, "README.md"), "# Skillset\n\nStale copy.\n");
     expect(await readmeMetadataDiagnostics(root)).toEqual([
       "README.md must state the package description in its first 60 lines: Skillset is a source-first compiler for provider-native agent loadouts.",
-      "README.md must include the package install command in its first 60 lines",
+      "README.md must include the global native install command in its first 60 lines",
       "README.md must include an executable Skillset example in its first 60 lines",
     ]);
   });

@@ -162,12 +162,12 @@ export async function readmeMetadataDiagnostics(rootPath: string) {
       `README.md must state the package description in its first 60 lines: ${expectedSentence}`
     );
   }
-  if (!firstSixtyLines.includes("bun add --dev @skillset/cli")) {
+  if (!firstSixtyLines.includes("npm install --global skillset")) {
     diagnostics.push(
-      "README.md must include the package install command in its first 60 lines"
+      "README.md must include the global native install command in its first 60 lines"
     );
   }
-  if (!firstSixtyLines.includes("bunx @skillset/cli init")) {
+  if (!firstSixtyLines.includes("skillset init")) {
     diagnostics.push(
       "README.md must include an executable Skillset example in its first 60 lines"
     );

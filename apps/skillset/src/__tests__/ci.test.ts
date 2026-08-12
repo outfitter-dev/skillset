@@ -694,6 +694,7 @@ test("init --include ci scaffolds a valid workflow and keeps user edits", async 
   const parsed = parseYamlRecord(content, CI_WORKFLOW_PATH);
   expect(parsed.name).toBe("Skillset CI");
   expect(parsed.jobs).toBeDefined();
+  expect(content).toContain("@skillset/cli is the complete, smaller Bun distribution");
   expect(content).toContain("@skillset/cli check --ci");
   expect(content).toContain("--fix");
 

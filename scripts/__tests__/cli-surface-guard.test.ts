@@ -64,6 +64,11 @@ test("SET-285: CLI surface guard rejects retired commands, flags, and environmen
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run"]);')).toEqual([]);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run", "--codex"]);')).toHaveLength(1);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run"]); skillset verify')).toHaveLength(1);
+  expect(scanCliSurface("README.md", "npm install --global skillset")).toEqual([]);
+  expect(scanCliSurface("README.md", "bun add --global @skillset/cli")).toEqual([]);
+  expect(scanCliSurface("scripts/package-smoke.ts", '["bun", "add", "--global", tarball]')).toEqual([]);
+  expect(scanCliSurface("README.md", "skillset check --global")).toHaveLength(1);
+  expect(scanCliSurface("README.md", "npm install --global skillset; skillset verify")).toHaveLength(1);
   expect(scanCliSurface("README.md", "Run skillset check --only outputs and skillset dev --write.")).toEqual([]);
 });
 
