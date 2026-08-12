@@ -12,7 +12,7 @@ GitHub Actions is the package release operator. Local commands are diagnostics a
 
 Changesets owns npm package version and package changelog calculation. The Skillset change/release commands continue to own source-unit reasons, release state, generated entity changelogs, and [target](../glossary.md#target) output [drift](../glossary.md#drift). Do not collapse these two release systems unless a future explicit bridge is designed.
 
-The unscoped `skillset` package and `@skillset/cli` are public. `@skillset/cli` owns the complete Bun-targeted artifact; the unscoped package temporarily projects the same bytes until it becomes the native launcher. Changesets keeps the two packages in one fixed version group because `skillset` owns the product version. The remaining scoped workspace packages are private implementation packages: `@skillset/core` is the internal compiler/library boundary, `@skillset/registry` stores deterministic provider facts and registry contracts, and the other scoped packages support schema, lint, toolkit, transform, and workbench surfaces behind that boundary. Do not include those private packages in npm publish automation or treat their exports as semver-stable.
+The unscoped `skillset` package, `@skillset/cli`, and the five initial `@skillset/native-*` packages are public. `@skillset/cli` owns the complete Bun-targeted artifact. The unscoped package is a dependency-free Node launcher whose optional dependencies select exactly one matching native package by operating system, CPU, and Linux libc. Changesets keeps all seven packages in one fixed version group because `skillset` owns the product version. The remaining scoped workspace packages are private implementation packages: `@skillset/core` is the internal compiler/library boundary, `@skillset/registry` stores deterministic provider facts and registry contracts, and the other scoped packages support schema, lint, toolkit, transform, and workbench surfaces behind that boundary. Do not include those private packages in npm publish automation or treat their exports as semver-stable.
 
 ## Flow
 
@@ -26,6 +26,8 @@ Package-facing means a change that can affect a public CLI package payload or it
 | `apps/skillset/src/**` except tests | CLI runtime source bundled into the package. |
 | `apps/cli/package.json` | Public Bun package metadata, bin, dependency, runtime-floor, and version-bearing state. |
 | `apps/skillset/package.json` | Published package metadata, bin entries, dependencies, and version-bearing state. |
+| `apps/native-*/package.json` | Public platform package identity, compatibility selectors, payload, and version-bearing state. |
+| `scripts/build-package.ts`, `scripts/native-packages.ts` | Public launcher, Bun CLI, and native package assembly behavior. |
 | `packages/core/src/**` except tests | Internal compiler/library implementation bundled through the CLI. |
 | `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |
 | `packages/registry/src/**` except tests | Adopted provider [destination](../glossary.md#destination)-format snapshots, schema evidence, and migration registry consumed by the CLI and core conformance checks. |
@@ -65,6 +67,8 @@ bun run native:smoke -- --target darwin-arm64
 
 bun run build:native -- --required --reproducible
 bun run native:check
+bun run build:native-packages -- --required --pack-dir <path>
+bun run native:global-smoke -- --target darwin-arm64
 ```
 
 The required build compiles the singular `apps/skillset/src/cli.ts` entrypoint with the pinned Bun runtime. `--reproducible` compiles every selected target twice using the same canonical executable filename and rejects byte drift. The build emits one raw executable per target, deterministic one-file archives, `skillset-v<version>-manifest.json`, and `skillset-v<version>-SHA256SUMS` under `.skillset/cache/native/` by default.
@@ -74,6 +78,10 @@ Verification enforces the exact five-target set, archive names and payloads, exe
 `scripts/native-size-baseline.json` records Bun 1.3.14 measurements for every required target and may retain informational measurements for buildable reserved targets. A target may grow by 10% or 2 MiB, whichever is larger, before verification fails. That budget catches an embedded-runtime or packaging regression without making ordinary compiler growth churn the baseline; a Bun pin change requires explicit remeasurement and review.
 
 The path-filtered `Native` workflow builds the five required targets reproducibly on Linux, then runs each executable on its matching standard GitHub-hosted macOS, Linux, or Windows architecture. This workflow creates evidence only. It does not sign, attest, publish npm packages, create a GitHub release, or change the Homebrew tap; those remain later protected release steps.
+
+`bun run build:native-packages -- --required` projects the verified raw executables into the five public platform package directories. Each package contains exactly one executable plus its package manifest, generated package README, and MIT license. The platform packages declare `os`, `cpu`, and Linux `libc` compatibility; the unscoped launcher's optional dependencies use exact product versions and never download during `postinstall`. Global npm installation remains compatible with npm's lifecycle-script disabling mode because the launcher and platform packages contain their complete payloads and declare no lifecycle scripts.
+
+The global native smoke command packs all five local platform packages, rewrites only the disposable launcher fixture to use those tarballs, and runs a real offline global npm installation with lifecycle scripts disabled. It asserts npm installed only the host-compatible optional package, runs `skillset --version` and root help with Bun replaced by a sentinel, then uninstalls and reinstalls the command. The hosted Native matrix runs this proof on every initial target after the direct executable smoke.
 
 ## Release Intent Labels
 
@@ -98,7 +106,9 @@ bun run changeset
 bun run changeset:check
 bun run changeset:status
 bun run build:native -- --target <suffix>
+bun run build:native-packages -- --required --pack-dir <path>
 bun run native:check -- --allow-partial
+bun run native:global-smoke -- --target <suffix>
 bun run native:smoke -- --target <suffix>
 bun run publish:plan
 bun run publish:label-release-pr

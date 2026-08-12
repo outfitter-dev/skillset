@@ -6,6 +6,13 @@
       "name": "skillset",
       "devDependencies": {
         "@changesets/cli": "^2.31.0",
+        "@clack/prompts": "^1.7.0",
+        "@skillset/core": "workspace:*",
+        "@skillset/lint": "workspace:*",
+        "@skillset/registry": "workspace:*",
+        "@skillset/schema": "workspace:*",
+        "@skillset/toolkit": "workspace:*",
+        "@skillset/transforms": "workspace:*",
         "@types/bun": "^1.2.15",
         "@types/commonmark": "0.27.10",
         "commonmark": "0.31.2",
@@ -14,6 +21,7 @@
         "oxlint": "1.69.0",
         "typescript": "^5.8.3",
         "ultracite": "7.8.3",
+        "yaml": "^2.8.1",
       },
     },
     "apps/cli": {
@@ -35,23 +43,38 @@
         "@skillset/transforms": "workspace:*",
       },
     },
+    "apps/native-darwin-arm64": {
+      "name": "@skillset/native-darwin-arm64",
+      "version": "0.22.1",
+    },
+    "apps/native-darwin-x64": {
+      "name": "@skillset/native-darwin-x64",
+      "version": "0.22.1",
+    },
+    "apps/native-linux-arm64-glibc": {
+      "name": "@skillset/native-linux-arm64-glibc",
+      "version": "0.22.1",
+    },
+    "apps/native-linux-x64-glibc": {
+      "name": "@skillset/native-linux-x64-glibc",
+      "version": "0.22.1",
+    },
+    "apps/native-windows-x64": {
+      "name": "@skillset/native-win32-x64",
+      "version": "0.22.1",
+    },
     "apps/skillset": {
       "name": "skillset",
       "version": "0.22.1",
       "bin": {
         "skillset": "dist/cli.js",
       },
-      "dependencies": {
-        "@clack/prompts": "^1.7.0",
-        "yaml": "^2.8.1",
-      },
-      "devDependencies": {
-        "@skillset/core": "workspace:*",
-        "@skillset/lint": "workspace:*",
-        "@skillset/registry": "workspace:*",
-        "@skillset/schema": "workspace:*",
-        "@skillset/toolkit": "workspace:*",
-        "@skillset/transforms": "workspace:*",
+      "optionalDependencies": {
+        "@skillset/native-darwin-arm64": "0.22.1",
+        "@skillset/native-darwin-x64": "0.22.1",
+        "@skillset/native-linux-arm64-glibc": "0.22.1",
+        "@skillset/native-linux-x64-glibc": "0.22.1",
+        "@skillset/native-win32-x64": "0.22.1",
       },
     },
     "packages/core": {
@@ -235,6 +258,16 @@
     "@skillset/core": ["@skillset/core@workspace:packages/core"],
 
     "@skillset/lint": ["@skillset/lint@workspace:packages/lint"],
+
+    "@skillset/native-darwin-arm64": ["@skillset/native-darwin-arm64@workspace:apps/native-darwin-arm64"],
+
+    "@skillset/native-darwin-x64": ["@skillset/native-darwin-x64@workspace:apps/native-darwin-x64"],
+
+    "@skillset/native-linux-arm64-glibc": ["@skillset/native-linux-arm64-glibc@workspace:apps/native-linux-arm64-glibc"],
+
+    "@skillset/native-linux-x64-glibc": ["@skillset/native-linux-x64-glibc@workspace:apps/native-linux-x64-glibc"],
+
+    "@skillset/native-win32-x64": ["@skillset/native-win32-x64@workspace:apps/native-windows-x64"],
 
     "@skillset/registry": ["@skillset/registry@workspace:packages/registry"],
 

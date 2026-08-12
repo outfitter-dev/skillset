@@ -97,6 +97,9 @@ export function isPackageAffectingPath(path: string) {
   if (path === "README.md") return true;
   if (path === "apps/cli/package.json") return true;
   if (path === "apps/skillset/package.json") return true;
+  if (/^apps\/native-[^/]+\/package\.json$/.test(path)) return true;
+  if (path === "scripts/build-package.ts") return true;
+  if (path === "scripts/native-packages.ts") return true;
   if (path === "bun.lock" || path === "bun.lockb") return true;
 
   if (isRuntimeSourcePath(path, "apps/skillset/src")) return true;

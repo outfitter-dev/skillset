@@ -1,0 +1,14 @@
+{
+  "name": "@skillset/native-win32-x64",
+  "version": "0.22.1",
+  "description": "Native Skillset executable for Windows x64.",
+  "license": "MIT",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["bin/skillset.exe", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/outfitter-dev/skillset.git"
+  }
+}

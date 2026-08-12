@@ -2,13 +2,19 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { nativePackageManifestDiagnostics } from "./native-packages";
+
 type PackageManifest = {
   bin?: unknown;
   description?: unknown;
+  dependencies?: unknown;
+  devDependencies?: unknown;
   engines?: unknown;
   files?: unknown;
   license?: unknown;
   name?: unknown;
+  optionalDependencies?: unknown;
+  scripts?: unknown;
   workspaces?: unknown;
 };
 
@@ -20,6 +26,16 @@ const expectedPackedFiles = [
   "dist/cli.js",
   "package.json",
 ];
+const sourceWorkspaceDependencies = {
+  "@clack/prompts": "^1.7.0",
+  "@skillset/core": "workspace:*",
+  "@skillset/lint": "workspace:*",
+  "@skillset/registry": "workspace:*",
+  "@skillset/schema": "workspace:*",
+  "@skillset/toolkit": "workspace:*",
+  "@skillset/transforms": "workspace:*",
+  yaml: "^2.8.1",
+} as const;
 
 export async function workspaceManifestPaths(rootPath: string) {
   const rootManifest = await readManifest(join(rootPath, "package.json"));
@@ -52,9 +68,13 @@ export async function licenseDiagnostics(rootPath: string) {
   return diagnostics;
 }
 
-export function packedFileDiagnostics(output: string, packageDir = "package") {
+export function packedFileDiagnostics(
+  output: string,
+  packageDir = "package",
+  expectedFiles: readonly string[] = expectedPackedFiles
+) {
   const diagnostics: string[] = [];
-  for (const path of expectedPackedFiles) {
+  for (const path of expectedFiles) {
     if (
       !output.split("\n").some((line) => line.trimEnd().endsWith(` ${path}`))
     ) {
@@ -66,10 +86,10 @@ export function packedFileDiagnostics(output: string, packageDir = "package") {
     .filter((line) => line.trim().startsWith("Total files:"));
   if (
     totalFileLines.length !== 1 ||
-    totalFileLines[0]?.trim() !== `Total files: ${expectedPackedFiles.length}`
+    totalFileLines[0]?.trim() !== `Total files: ${expectedFiles.length}`
   ) {
     diagnostics.push(
-      `${packageDir} tarball must contain exactly ${expectedPackedFiles.length} files`
+      `${packageDir} tarball must contain exactly ${expectedFiles.length} files`
     );
   }
   return diagnostics;
@@ -98,21 +118,31 @@ export async function projectionDiagnostics(rootPath: string) {
   return diagnostics;
 }
 
-export async function bundleParityDiagnostics(rootPath: string) {
-  const [canonical, legacy] = await Promise.all([
+export async function distributionBundleDiagnostics(rootPath: string) {
+  const [cli, launcher] = await Promise.all([
     readFile(join(rootPath, "apps", "cli", "dist", "cli.js")).catch(() => null),
     readFile(join(rootPath, "apps", "skillset", "dist", "cli.js")).catch(
       () => null
     ),
   ]);
-  if (!canonical || !legacy) {
-    return ["Both public CLI bundles must exist; run bun run build:npm"];
+  if (!cli || !launcher) {
+    return [
+      "Both public distribution entries must exist; run bun run build:npm",
+    ];
   }
-  return canonical.equals(legacy)
-    ? []
-    : [
-        "apps/skillset/dist/cli.js must match apps/cli/dist/cli.js byte-for-byte",
-      ];
+  const diagnostics: string[] = [];
+  if (!cli.toString("utf8", 0, 64).startsWith("#!/usr/bin/env bun\n")) {
+    diagnostics.push("@skillset/cli must retain the Bun executable shebang");
+  }
+  if (!launcher.toString("utf8", 0, 64).startsWith("#!/usr/bin/env node\n")) {
+    diagnostics.push("skillset must build a Node launcher executable");
+  }
+  if (cli.equals(launcher)) {
+    diagnostics.push(
+      "skillset launcher must not duplicate the @skillset/cli Bun bundle"
+    );
+  }
+  return diagnostics;
 }
 
 export async function readmeMetadataDiagnostics(rootPath: string) {
@@ -178,6 +208,49 @@ export async function bunRuntimeDiagnostics(rootPath: string) {
     : ["apps/cli/package.json must require Bun >=1.3.14"];
 }
 
+export async function sourceWorkspaceDiagnostics(rootPath: string) {
+  const manifest = await readManifest(join(rootPath, "package.json"));
+  const devDependencies = isRecord(manifest.devDependencies)
+    ? manifest.devDependencies
+    : {};
+  const missing = Object.entries(sourceWorkspaceDependencies).filter(
+    ([name, version]) => devDependencies[name] !== version
+  );
+  return missing.length === 0
+    ? []
+    : [
+        `package.json must expose dependency-free launcher source dependencies from the private workspace root: ${missing.map(([name]) => name).join(", ")}`,
+      ];
+}
+
+export async function launcherRuntimeDiagnostics(rootPath: string) {
+  const manifest = await readManifest(
+    join(rootPath, "apps", "skillset", "package.json")
+  );
+  const engines = manifest.engines;
+  const diagnostics: string[] = [];
+  if (!isRecord(engines) || engines.node !== ">=18") {
+    diagnostics.push("apps/skillset/package.json must require Node >=18");
+  }
+  if (manifest.dependencies !== undefined) {
+    diagnostics.push(
+      "apps/skillset/package.json launcher must not declare runtime dependencies"
+    );
+  }
+  if (manifest.devDependencies !== undefined) {
+    diagnostics.push(
+      "apps/skillset/package.json launcher must not retain compiler dev dependencies"
+    );
+  }
+  if (manifest.scripts !== undefined) {
+    diagnostics.push(
+      "apps/skillset/package.json launcher must not declare lifecycle scripts"
+    );
+  }
+  diagnostics.push(...(await nativePackageManifestDiagnostics(rootPath)));
+  return diagnostics;
+}
+
 async function runPackDryRun(packagePath: string) {
   const process = Bun.spawn(["bun", "pm", "pack", "--dry-run"], {
     cwd: join(rootDir, packagePath),
@@ -199,10 +272,12 @@ async function commandCheck() {
   const diagnostics = [
     ...(await licenseDiagnostics(rootDir)),
     ...(await bunRuntimeDiagnostics(rootDir)),
-    ...(await bundleParityDiagnostics(rootDir)),
+    ...(await distributionBundleDiagnostics(rootDir)),
+    ...(await launcherRuntimeDiagnostics(rootDir)),
     ...(await packageBinDiagnostics(rootDir)),
     ...(await projectionDiagnostics(rootDir)),
     ...(await readmeMetadataDiagnostics(rootDir)),
+    ...(await sourceWorkspaceDiagnostics(rootDir)),
   ];
   for (const packageDir of publicPackageDirs) {
     diagnostics.push(

@@ -1,6 +1,11 @@
+import {
+  NATIVE_DISTRIBUTIONS,
+  type NativeDistribution,
+} from "../apps/skillset/src/native-distribution";
+
 export type NativeArchiveKind = "tar.gz" | "zip";
 
-export interface NativeTarget {
+export interface NativeTarget extends NativeDistribution {
   readonly archiveKind: NativeArchiveKind;
   readonly bunTarget:
     | "bun-darwin-arm64"
@@ -10,77 +15,48 @@ export interface NativeTarget {
     | "bun-linux-x64-baseline"
     | "bun-linux-x64-musl-baseline"
     | "bun-windows-x64-baseline";
-  readonly executable: "skillset" | "skillset.exe";
-  readonly npmPackage: `@skillset/native-${string}`;
-  readonly required: boolean;
-  readonly suffix:
-    | "darwin-arm64"
-    | "darwin-x64"
-    | "linux-arm64-glibc"
-    | "linux-arm64-musl"
-    | "linux-x64-glibc"
-    | "linux-x64-musl"
-    | "windows-x64";
 }
 
-export const NATIVE_TARGETS: readonly NativeTarget[] = [
-  {
+const buildTargetBySuffix = {
+  "darwin-arm64": {
     archiveKind: "tar.gz",
     bunTarget: "bun-darwin-arm64",
-    executable: "skillset",
-    npmPackage: "@skillset/native-darwin-arm64",
-    required: true,
-    suffix: "darwin-arm64",
   },
-  {
+  "darwin-x64": {
     archiveKind: "tar.gz",
     bunTarget: "bun-darwin-x64-baseline",
-    executable: "skillset",
-    npmPackage: "@skillset/native-darwin-x64",
-    required: true,
-    suffix: "darwin-x64",
   },
-  {
+  "linux-arm64-glibc": {
     archiveKind: "tar.gz",
     bunTarget: "bun-linux-arm64",
-    executable: "skillset",
-    npmPackage: "@skillset/native-linux-arm64-glibc",
-    required: true,
-    suffix: "linux-arm64-glibc",
   },
-  {
-    archiveKind: "tar.gz",
-    bunTarget: "bun-linux-x64-baseline",
-    executable: "skillset",
-    npmPackage: "@skillset/native-linux-x64-glibc",
-    required: true,
-    suffix: "linux-x64-glibc",
-  },
-  {
-    archiveKind: "zip",
-    bunTarget: "bun-windows-x64-baseline",
-    executable: "skillset.exe",
-    npmPackage: "@skillset/native-win32-x64",
-    required: true,
-    suffix: "windows-x64",
-  },
-  {
+  "linux-arm64-musl": {
     archiveKind: "tar.gz",
     bunTarget: "bun-linux-arm64-musl",
-    executable: "skillset",
-    npmPackage: "@skillset/native-linux-arm64-musl",
-    required: false,
-    suffix: "linux-arm64-musl",
   },
-  {
+  "linux-x64-glibc": {
+    archiveKind: "tar.gz",
+    bunTarget: "bun-linux-x64-baseline",
+  },
+  "linux-x64-musl": {
     archiveKind: "tar.gz",
     bunTarget: "bun-linux-x64-musl-baseline",
-    executable: "skillset",
-    npmPackage: "@skillset/native-linux-x64-musl",
-    required: false,
-    suffix: "linux-x64-musl",
   },
-] as const;
+  "windows-x64": {
+    archiveKind: "zip",
+    bunTarget: "bun-windows-x64-baseline",
+  },
+} as const satisfies Record<
+  NativeDistribution["suffix"],
+  Pick<NativeTarget, "archiveKind" | "bunTarget">
+>;
+
+export const NATIVE_TARGETS: readonly NativeTarget[] = NATIVE_DISTRIBUTIONS.map(
+  (distribution) => ({
+    ...distribution,
+    ...buildTargetBySuffix[distribution.suffix],
+  })
+);
 
 const targetBySuffix = new Map(
   NATIVE_TARGETS.map((target) => [target.suffix, target])

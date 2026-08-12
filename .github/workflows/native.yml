@@ -6,6 +6,7 @@ on:
       - .bun-version
       - .github/workflows/native.yml
       - apps/cli/**
+      - apps/native-*/**
       - apps/skillset/**
       - packages/**
       - scripts/native*.ts
@@ -69,3 +70,7 @@ jobs:
           path: ${{ runner.temp }}/native
       - name: Run target-host smoke without system Bun in the child PATH
         run: bun run native:smoke -- --target ${{ matrix.suffix }} --out-dir "${{ runner.temp }}/native"
+      - name: Prove npm global install, platform selection, and reinstall
+        run: |
+          bun run build:npm
+          bun run native:global-smoke -- --target ${{ matrix.suffix }} --native-out-dir "${{ runner.temp }}/native"

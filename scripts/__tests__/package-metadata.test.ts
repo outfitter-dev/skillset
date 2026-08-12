@@ -4,13 +4,15 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
-  bundleParityDiagnostics,
   bunRuntimeDiagnostics,
+  distributionBundleDiagnostics,
+  launcherRuntimeDiagnostics,
   licenseDiagnostics,
   packageBinDiagnostics,
   packedFileDiagnostics,
   projectionDiagnostics,
   readmeMetadataDiagnostics,
+  sourceWorkspaceDiagnostics,
   workspaceManifestPaths,
 } from "../package-metadata";
 
@@ -135,19 +137,71 @@ describe("package metadata checks", () => {
     ]);
   });
 
-  test("requires the declared Bun floor and byte-identical transitional bundles", async () => {
+  test("separates the Bun CLI floor from the dependency-free Node launcher", async () => {
     const root = await fixture({
-      "apps/cli/dist/cli.js": "bundle\n",
       "apps/cli/package.json": { engines: { bun: ">=1.3.14" } },
-      "apps/skillset/dist/cli.js": "bundle\n",
+      "apps/skillset/package.json": {
+        engines: { node: ">=18" },
+        optionalDependencies: {},
+      },
     });
 
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
-    expect(await bundleParityDiagnostics(root)).toEqual([]);
+    expect(await launcherRuntimeDiagnostics(root)).toContain(
+      "apps/skillset/package.json must declare exactly the five required native packages as optional dependencies"
+    );
+    await writeFile(
+      join(root, "apps/skillset/package.json"),
+      `${JSON.stringify({
+        engines: { node: ">=18" },
+        optionalDependencies: {},
+        scripts: { postinstall: "node download.js" },
+      })}\n`
+    );
+    expect(await launcherRuntimeDiagnostics(root)).toContain(
+      "apps/skillset/package.json launcher must not declare lifecycle scripts"
+    );
+  });
 
-    await writeFile(join(root, "apps/skillset/dist/cli.js"), "drift\n");
-    expect(await bundleParityDiagnostics(root)).toEqual([
-      "apps/skillset/dist/cli.js must match apps/cli/dist/cli.js byte-for-byte",
+  test("keeps compiler source dependencies on the private workspace root", async () => {
+    const root = await fixture({
+      "package.json": {
+        devDependencies: {
+          "@clack/prompts": "^1.7.0",
+          "@skillset/core": "workspace:*",
+          "@skillset/lint": "workspace:*",
+          "@skillset/registry": "workspace:*",
+          "@skillset/schema": "workspace:*",
+          "@skillset/toolkit": "workspace:*",
+          "@skillset/transforms": "workspace:*",
+          yaml: "^2.8.1",
+        },
+      },
+    });
+
+    expect(await sourceWorkspaceDiagnostics(root)).toEqual([]);
+    await writeFile(
+      join(root, "package.json"),
+      `${JSON.stringify({ devDependencies: {} })}\n`
+    );
+    expect(await sourceWorkspaceDiagnostics(root)).toEqual([
+      "package.json must expose dependency-free launcher source dependencies from the private workspace root: @clack/prompts, @skillset/core, @skillset/lint, @skillset/registry, @skillset/schema, @skillset/toolkit, @skillset/transforms, yaml",
+    ]);
+  });
+
+  test("keeps distinct Bun CLI and Node launcher executable entries", async () => {
+    const root = await fixture({
+      "apps/cli/dist/cli.js": "#!/usr/bin/env bun\ncli\n",
+      "apps/skillset/dist/cli.js": "#!/usr/bin/env node\nlauncher\n",
+    });
+    expect(await distributionBundleDiagnostics(root)).toEqual([]);
+    await writeFile(
+      join(root, "apps/skillset/dist/cli.js"),
+      "#!/usr/bin/env bun\ncli\n"
+    );
+    expect(await distributionBundleDiagnostics(root)).toEqual([
+      "skillset must build a Node launcher executable",
+      "skillset launcher must not duplicate the @skillset/cli Bun bundle",
     ]);
   });
 });

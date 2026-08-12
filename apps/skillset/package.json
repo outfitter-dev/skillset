@@ -31,16 +31,14 @@
   "bin": {
     "skillset": "dist/cli.js"
   },
-  "dependencies": {
-    "@clack/prompts": "^1.7.0",
-    "yaml": "^2.8.1"
+  "engines": {
+    "node": ">=18"
   },
-  "devDependencies": {
-    "@skillset/core": "workspace:*",
-    "@skillset/lint": "workspace:*",
-    "@skillset/registry": "workspace:*",
-    "@skillset/schema": "workspace:*",
-    "@skillset/toolkit": "workspace:*",
-    "@skillset/transforms": "workspace:*"
+  "optionalDependencies": {
+    "@skillset/native-darwin-arm64": "0.22.1",
+    "@skillset/native-darwin-x64": "0.22.1",
+    "@skillset/native-linux-arm64-glibc": "0.22.1",
+    "@skillset/native-linux-x64-glibc": "0.22.1",
+    "@skillset/native-win32-x64": "0.22.1"
   }
 }
