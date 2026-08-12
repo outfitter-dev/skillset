@@ -22,6 +22,7 @@ import {
   planNpmBootstrap,
   readNpmBootstrapStageForNpmVersion,
   validateBootstrapNativeManifest,
+  validateBootstrapPublicationSourceCommit,
   validateBootstrapSourceState,
   validateBootstrapStageSourceState,
   validateBootstrapTarball,
@@ -274,6 +275,39 @@ describe("one-time npm package bootstrap", () => {
         status: "M package.json",
       })
     ).toThrow("staging requires a clean worktree");
+  });
+
+  test("revalidates the staged source immediately before every immutable publish", async () => {
+    expect(() =>
+      validateBootstrapPublicationSourceCommit(sourceCommit, sourceCommit)
+    ).not.toThrow();
+    expect(() =>
+      validateBootstrapPublicationSourceCommit(sourceCommit, "b".repeat(40))
+    ).toThrow("expected live main");
+
+    const source = await readFile(
+      join(rootDir, "scripts/npm-bootstrap.ts"),
+      "utf8"
+    );
+    const commandStart = source.indexOf("async function commandPublish");
+    const publishLoop = source.slice(
+      source.indexOf(
+        "for (const spec of NPM_BOOTSTRAP_PACKAGE_SPECS)",
+        commandStart
+      ),
+      source.indexOf("  } finally {", commandStart)
+    );
+    const sourceCheck = publishLoop.indexOf(
+      "await assertStagedPublicationSource(staged.sourceCommit);"
+    );
+    const registryCheck = publishLoop.indexOf(
+      "if (currentPlan.missing[0] !== spec.name)"
+    );
+    const publish = publishLoop.indexOf("npmBootstrapPublishCommand(");
+    expect(registryCheck).toBeGreaterThan(-1);
+    expect(sourceCheck).toBeGreaterThan(-1);
+    expect(registryCheck).toBeLessThan(sourceCheck);
+    expect(sourceCheck).toBeLessThan(publish);
   });
 
   test("binds native input artifacts to the exact staged source commit", () => {

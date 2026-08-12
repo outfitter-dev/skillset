@@ -198,6 +198,17 @@ export function validateBootstrapSourceState(state: {
   }
 }
 
+export function validateBootstrapPublicationSourceCommit(
+  stagedSourceCommit: string,
+  liveMainCommit: string
+): void {
+  if (stagedSourceCommit !== liveMainCommit) {
+    throw new Error(
+      `npm bootstrap stage came from ${stagedSourceCommit}, expected live main ${liveMainCommit}; rebuild the stage`
+    );
+  }
+}
+
 export function validateBootstrapStageSourceState(state: {
   readonly head: string;
   readonly status: string;
@@ -557,6 +568,15 @@ async function assertPublicationSource(): Promise<string> {
   return originMain;
 }
 
+async function assertStagedPublicationSource(
+  stagedSourceCommit: string
+): Promise<void> {
+  validateBootstrapPublicationSourceCommit(
+    stagedSourceCommit,
+    await assertPublicationSource()
+  );
+}
+
 async function commandStage(
   nativeOutputDir: string,
   stageDir: string
@@ -629,13 +649,8 @@ async function commandPublish(
       "npm bootstrap publication requires an interactive terminal for npm 2FA"
     );
   }
-  const sourceCommit = await assertPublicationSource();
   const staged = await readNpmBootstrapStage(stageDir);
-  if (staged.sourceCommit !== sourceCommit) {
-    throw new Error(
-      `npm bootstrap stage came from ${staged.sourceCommit}, expected live main ${sourceCommit}; rebuild the stage`
-    );
-  }
+  await assertStagedPublicationSource(staged.sourceCommit);
   const integrity = expectedIntegrity(staged.packages);
   const initial = await getRegistryStates();
   const plan = planNpmBootstrap(initial, integrity);
@@ -699,6 +714,7 @@ async function commandPublish(
       const tarball = staged.packages.find(
         (entry) => entry.name === spec.name
       )!;
+      await assertStagedPublicationSource(staged.sourceCommit);
       await runInteractive(
         npmBootstrapPublishCommand(
           tarball.path,
