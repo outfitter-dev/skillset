@@ -278,6 +278,8 @@ jobs:
     needs: [publish-plan, publish-policy, attest-native, publish-auto, publish]
     if: always() && github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.attest-native.result == 'success' && needs.publish-policy.outputs.create_github_release == 'true' && (needs.publish-plan.outputs.registry_complete == 'true' || needs.publish-auto.outputs.registry_complete == 'true' || needs.publish.outputs.registry_complete == 'true')
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     permissions:
       attestations: read
       contents: write
@@ -312,6 +314,7 @@ jobs:
           bun run publish:release-check -- --native-out-dir "$RUNNER_TEMP/native" --stage-dir "$RUNNER_TEMP/release-tarballs"
           bun run publish:registry-check:published -- --stage-dir "$RUNNER_TEMP/release-tarballs"
       - name: Create or reconcile tag and GitHub release assets
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -327,6 +330,7 @@ jobs:
           fi
 
           tag="v$VERSION"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           notes="Published the seven-package Skillset $VERSION set to npm with dist-tag \`$DIST_TAG\`."
           git fetch --force --tags origin
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
@@ -372,3 +376,13 @@ jobs:
             cat "$final_missing" >&2
             exit 1
           fi
+
+  homebrew:
+    name: Update Homebrew tap
+    needs: github-release
+    if: needs.github-release.result == 'success'
+    uses: ./.github/workflows/publish-homebrew.yml
+    with:
+      tag: ${{ needs.github-release.outputs.tag }}
+    secrets:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

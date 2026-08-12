@@ -11,7 +11,12 @@ interface Step {
 }
 
 interface Job {
+  needs?: string;
+  outputs?: Record<string, string>;
+  secrets?: Record<string, string>;
   steps?: Step[];
+  uses?: string;
+  with?: Record<string, string>;
 }
 
 interface Workflow {
@@ -26,6 +31,8 @@ interface Workflow {
 
 const root = path.join(import.meta.dir, "..", "..");
 const homebrewTapToken = `\${{ secrets.HOMEBREW_TAP_TOKEN }}`;
+const releaseOutputTag = `\${{ steps.release.outputs.tag }}`;
+const releaseTag = `\${{ needs.github-release.outputs.tag }}`;
 
 const readWorkflow = async (name: string): Promise<Workflow> =>
   Bun.YAML.parse(
@@ -33,6 +40,23 @@ const readWorkflow = async (name: string): Promise<Workflow> =>
   ) as Workflow;
 
 describe("SET-422 release workflow contract", () => {
+  test("calls the reusable handoff with the reconciled release tag", async () => {
+    const workflow = await readWorkflow("release.yml");
+    const release = workflow.jobs?.["github-release"];
+    const releaseStep = release?.steps?.find(
+      (step) =>
+        step.name === "Create or reconcile tag and GitHub release assets"
+    );
+    const homebrew = workflow.jobs?.homebrew;
+
+    expect(release?.outputs?.tag).toBe(releaseOutputTag);
+    expect(releaseStep?.run).toContain('echo "tag=$tag" >> "$GITHUB_OUTPUT"');
+    expect(homebrew?.needs).toBe("github-release");
+    expect(homebrew?.uses).toBe("./.github/workflows/publish-homebrew.yml");
+    expect(homebrew?.with?.tag).toBe(releaseTag);
+    expect(homebrew?.secrets?.HOMEBREW_TAP_TOKEN).toBe(homebrewTapToken);
+  });
+
   test("validates a published release and renders before checking out the tap", async () => {
     const workflow = await readWorkflow("publish-homebrew.yml");
     const steps = workflow.jobs?.handoff?.steps ?? [];
