@@ -35,10 +35,10 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@skillset/native-darwin-arm64": "0.22.1",
-    "@skillset/native-darwin-x64": "0.22.1",
-    "@skillset/native-linux-arm64-glibc": "0.22.1",
-    "@skillset/native-linux-x64-glibc": "0.22.1",
-    "@skillset/native-win32-x64": "0.22.1"
+    "@skillset/native-darwin-arm64": "0.22.2",
+    "@skillset/native-darwin-x64": "0.22.2",
+    "@skillset/native-linux-arm64-glibc": "0.22.2",
+    "@skillset/native-linux-x64-glibc": "0.22.2",
+    "@skillset/native-win32-x64": "0.22.2"
   }
 }

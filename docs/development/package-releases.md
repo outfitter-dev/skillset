@@ -206,7 +206,7 @@ The repository intentionally does not commit an npm auth token in `.npmrc` and t
 
 ### One-time package identity bootstrap
 
-npm requires a package to exist before its trusted publisher can be configured. Before the first native release, the five `@skillset/native-*` packages and `@skillset/cli` therefore need one tightly bounded interactive bootstrap at the existing `0.22.1` product version. These are real, installable baseline artifacts; the bootstrap does not republish or replace the existing `skillset@0.22.1` package. The provenance-bearing global-native release remains the coordinated `0.23.0` set.
+npm requires a package to exist before its trusted publisher can be configured. Before the first native release, the five `@skillset/native-*` packages and `@skillset/cli` therefore need one tightly bounded interactive bootstrap at the current `0.22.2` source version. These are real, installable baseline artifacts; the bootstrap does not republish or replace the existing `skillset@0.22.1` registry package and never includes the unscoped launcher. The provenance-bearing global-native release remains the coordinated `0.23.0` set.
 
 After the complete source stack is merged, use a clean `main` checkout synchronized exactly with `origin/main`. Install the pinned npm CLI, build and verify the five native targets, then stage the six bootstrap tarballs into a new empty directory:
 
@@ -220,17 +220,17 @@ bun run publish:bootstrap -- stage \
   --stage-dir <new-empty-directory>
 ```
 
-Inspect `npm-bootstrap-packages.json` and all six tarballs before authorizing the mutation. The stage excludes `skillset`, pins version `0.22.1`, records the exact clean source commit and SHA-512 integrity, and verifies every tarball's internal package identity and exact four-file payload. It refuses an occupied package identity unless it is an exact canonical-prefix recovery from the same staged bytes. Publication requires that recorded commit to remain the live `main` commit, so restage after any source change.
+Inspect `npm-bootstrap-packages.json` and all six tarballs before authorizing the mutation. The stage excludes `skillset`, pins version `0.22.2`, records the exact clean source commit and SHA-512 integrity, and verifies every tarball's internal package identity and exact four-file payload. It refuses an occupied package identity unless it is an exact canonical-prefix recovery from the same staged bytes. Publication requires that recorded commit to remain the live `main` commit, so restage after any source change.
 
 The mutating command is deliberately local and interactive. It discards ambient npm token/configuration variables, uses an isolated temporary npm configuration, forces a fresh npm web login against `registry.npmjs.org`, requires the authenticated account to report `auth-and-writes` 2FA, and removes the temporary login state afterward. npm owns the 2FA prompt for every publish. The command refuses a non-TTY session, a dirty worktree, any branch other than `main`, a head different from live `origin/main` or the staged commit, a changed tarball, a mismatched confirmation, a non-prefix registry state, or an already-registered identity with different bytes or tags:
 
 ```bash
 bun run publish:bootstrap -- publish \
   --stage-dir <reviewed-directory> \
-  --confirm-version 0.22.1
+  --confirm-version 0.22.2
 ```
 
-After all six exact packages are visible, configure `release.yml` as the trusted publisher for all seven packages using the table above. Do not merge the generated `0.23.0` version PR until every connection is saved, the protected GitHub release environments exist, and `SKILLSET_MACOS_SIGNING_POLICY=unsigned` is set explicitly. The ordinary coordinated publisher remains token-free; the bootstrap command is not a recovery path for later releases and stops working once the product manifests leave `0.22.1`.
+After all six exact packages are visible, configure `release.yml` as the trusted publisher for all seven packages using the table above. Do not merge the generated `0.23.0` version PR until every connection is saved, the protected GitHub release environments exist, and `SKILLSET_MACOS_SIGNING_POLICY=unsigned` is set explicitly. The ordinary coordinated publisher remains token-free; the bootstrap command is not a recovery path for later releases and stops working once the product manifests leave `0.22.2`.
 
 ## No Package Release
 

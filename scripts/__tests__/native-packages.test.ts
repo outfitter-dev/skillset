@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import productManifest from "../../apps/skillset/package.json";
 import {
   REQUIRED_NATIVE_DISTRIBUTIONS,
   nativePackageDirectory,
@@ -68,7 +69,7 @@ describe("SET-420 native npm packages", () => {
     const optionalDependencies = Object.fromEntries(
       REQUIRED_NATIVE_DISTRIBUTIONS.map((distribution) => [
         distribution.npmPackage,
-        "0.22.1",
+        productManifest.version,
       ])
     );
     await mkdir(join(root, "apps", "skillset"), { recursive: true });

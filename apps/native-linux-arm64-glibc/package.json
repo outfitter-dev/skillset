@@ -1,6 +1,6 @@
 {
   "name": "@skillset/native-linux-arm64-glibc",
-  "version": "0.22.1",
+  "version": "0.22.2",
   "description": "Native Skillset executable for Linux arm64 with glibc.",
   "license": "MIT",
   "os": ["linux"],

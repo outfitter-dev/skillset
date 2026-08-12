@@ -33,7 +33,7 @@ const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const registryUrl = "https://registry.npmjs.org";
 const manifestName = "npm-bootstrap-packages.json";
 
-export const NPM_BOOTSTRAP_VERSION = "0.22.1" as const;
+export const NPM_BOOTSTRAP_VERSION = "0.22.2" as const;
 export const NPM_BOOTSTRAP_PACKAGE_SPECS: readonly ReleasePackageSpec[] =
   RELEASE_PACKAGE_SPECS.filter((spec) => spec.role !== "launcher");
 

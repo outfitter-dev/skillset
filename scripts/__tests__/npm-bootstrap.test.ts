@@ -114,12 +114,12 @@ describe("one-time npm package bootstrap", () => {
     ]);
     expect(names).not.toContain("skillset");
     expect(NPM_BOOTSTRAP_PACKAGE_SPECS.map(npmBootstrapFilename)).toEqual([
-      "skillset-native-darwin-arm64-0.22.1.tgz",
-      "skillset-native-darwin-x64-0.22.1.tgz",
-      "skillset-native-linux-arm64-glibc-0.22.1.tgz",
-      "skillset-native-linux-x64-glibc-0.22.1.tgz",
-      "skillset-native-win32-x64-0.22.1.tgz",
-      "skillset-cli-0.22.1.tgz",
+      "skillset-native-darwin-arm64-0.22.2.tgz",
+      "skillset-native-darwin-x64-0.22.2.tgz",
+      "skillset-native-linux-arm64-glibc-0.22.2.tgz",
+      "skillset-native-linux-x64-glibc-0.22.2.tgz",
+      "skillset-native-win32-x64-0.22.2.tgz",
+      "skillset-cli-0.22.2.tgz",
     ]);
   });
 
@@ -212,7 +212,7 @@ describe("one-time npm package bootstrap", () => {
         states([], integrity, { registeredOnly: names[0]! }),
         integrity
       )
-    ).toThrow("already registered without 0.22.1");
+    ).toThrow("already registered without 0.22.2");
     expect(() =>
       planNpmBootstrap(states([names[1]!], integrity), integrity)
     ).toThrow("appears after a missing bootstrap prerequisite");
@@ -333,7 +333,7 @@ describe("one-time npm package bootstrap", () => {
         { ...manifest, version: "0.23.0" },
         sourceCommit
       )
-    ).toThrow("must be 0.22.1");
+    ).toThrow("must be 0.22.2");
   });
 
   test("documents the bounded bootstrap without adding a release token", async () => {
@@ -348,7 +348,7 @@ describe("one-time npm package bootstrap", () => {
     expect(packageJson.scripts?.["publish:bootstrap"]).toBe(
       "bun scripts/npm-bootstrap.ts"
     );
-    expect(releaseDocs).toContain("--confirm-version 0.22.1");
+    expect(releaseDocs).toContain("--confirm-version 0.22.2");
     expect(releaseDocs).toContain("all seven packages");
     expect(releaseDocs).toContain("does not republish or replace");
     expect(releaseDocs).not.toContain("NPM_TOKEN=");
