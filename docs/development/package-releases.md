@@ -190,19 +190,47 @@ The workflow uses npm Trusted Publishing with `permissions.id-token: write`, SHA
 - `@skillset/cli`
 - `skillset`
 
-| Field                | Value           |
-| -------------------- | --------------- |
+| Field                | Value                                         |
+| -------------------- | --------------------------------------------- |
 | Package              | One package from the seven-package list above |
-| Publisher            | GitHub Actions  |
-| Organization or user | `outfitter-dev` |
-| Repository           | `skillset`      |
-| Workflow filename    | `release.yml`   |
-| Environment          | Leave blank     |
-| Allowed action       | `npm publish`   |
+| Publisher            | GitHub Actions                                |
+| Organization or user | `outfitter-dev`                               |
+| Repository           | `skillset`                                    |
+| Workflow filename    | `release.yml`                                 |
+| Environment          | Leave blank                                   |
+| Allowed action       | `npm publish`                                 |
 
 npm allows one trusted publisher connection per package, so do not create separate entries for `npm` and `npm-auto`. Leaving the npm Environment field blank binds each package to this repository and workflow without pinning one GitHub environment. The workflow still uses GitHub environments for routing: `npm` remains the protected manual and recovery path, while `npm-auto` should not require manual reviewers because the release policy and exact-set preflight are the gates that make that path reachable.
 
 The repository intentionally does not commit an npm auth token in `.npmrc` and the release workflow does not pass `NPM_TOKEN`.
+
+### One-time package identity bootstrap
+
+npm requires a package to exist before its trusted publisher can be configured. Before the first native release, the five `@skillset/native-*` packages and `@skillset/cli` therefore need one tightly bounded interactive bootstrap at the existing `0.22.1` product version. These are real, installable baseline artifacts; the bootstrap does not republish or replace the existing `skillset@0.22.1` package. The provenance-bearing global-native release remains the coordinated `0.23.0` set.
+
+After the complete source stack is merged, use a clean `main` checkout synchronized exactly with `origin/main`. Install the pinned npm CLI, build and verify the five native targets, then stage the six bootstrap tarballs into a new empty directory:
+
+```bash
+npm install --location=global npm@11.12.1
+bun install --frozen-lockfile
+bun run build:native -- --required --reproducible
+bun run native:check
+bun run publish:bootstrap -- stage \
+  --native-out-dir .skillset/cache/native \
+  --stage-dir <new-empty-directory>
+```
+
+Inspect `npm-bootstrap-packages.json` and all six tarballs before authorizing the mutation. The stage excludes `skillset`, pins version `0.22.1`, records the exact clean source commit and SHA-512 integrity, and verifies every tarball's internal package identity and exact four-file payload. It refuses an occupied package identity unless it is an exact canonical-prefix recovery from the same staged bytes. Publication requires that recorded commit to remain the live `main` commit, so restage after any source change.
+
+The mutating command is deliberately local and interactive. It discards ambient npm token/configuration variables, uses an isolated temporary npm configuration, forces a fresh npm web login against `registry.npmjs.org`, requires the authenticated account to report `auth-and-writes` 2FA, and removes the temporary login state afterward. npm owns the 2FA prompt for every publish. The command refuses a non-TTY session, a dirty worktree, any branch other than `main`, a head different from live `origin/main` or the staged commit, a changed tarball, a mismatched confirmation, a non-prefix registry state, or an already-registered identity with different bytes or tags:
+
+```bash
+bun run publish:bootstrap -- publish \
+  --stage-dir <reviewed-directory> \
+  --confirm-version 0.22.1
+```
+
+After all six exact packages are visible, configure `release.yml` as the trusted publisher for all seven packages using the table above. Do not merge the generated `0.23.0` version PR until every connection is saved, the protected GitHub release environments exist, and `SKILLSET_MACOS_SIGNING_POLICY=unsigned` is set explicitly. The ordinary coordinated publisher remains token-free; the bootstrap command is not a recovery path for later releases and stops working once the product manifests leave `0.22.1`.
 
 ## No Package Release
 

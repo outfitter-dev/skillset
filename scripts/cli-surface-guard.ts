@@ -71,17 +71,20 @@ export function scanCliSurface(file: string, content: string): readonly CliSurfa
 
 function allowedRetiredFlagUse(file: string, text: string): boolean {
   if (file.startsWith(".skillset/skills/skillset-adrs/scripts/")) return true;
+  if (file === "scripts/npm-bootstrap.ts" && /^\s*"--dry-run",?\s*$/u.test(text)) return true;
   let remainder = text
     .replace(/\bnpm (?:install|i) --global\b/gu, "npm install")
     .replace(/\bbun add --global\b/gu, "bun add")
     .replace(/"bun", "add", "--global"/gu, '"bun", "add"');
   if (
     file === "docs/development/package-releases.md" ||
-    file === "scripts/package-metadata.ts"
+    file === "scripts/package-metadata.ts" ||
+    file === "scripts/npm-bootstrap.ts"
   ) {
     remainder = remainder
       .replace(/\bbun pm pack --dry-run\b/gu, "bun pm pack")
-      .replace(/"bun", "pm", "pack", "--dry-run"/gu, '"bun", "pm", "pack"');
+      .replace(/"bun", "pm", "pack", "--dry-run"/gu, '"bun", "pm", "pack"')
+      .replace(/"npm", "pack", "--dry-run"/gu, '"npm", "pack"');
   }
   return remainder !== text && !RETIRED_SURFACE.some((pattern) => pattern.test(remainder));
 }
