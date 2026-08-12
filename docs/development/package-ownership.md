@@ -16,7 +16,8 @@ Package roots represent intentional APIs. Private `internal/*` imports are [work
 
 | Package | Owns | Does not own |
 | --- | --- | --- |
-| `apps/skillset` | CLI entrypoints, argument parsing, terminal presentation, confirmations, exit mapping, command composition, and package-bin compatibility | Compiler semantics, source-graph shape, provider facts, shared schema vocabulary, reusable lint rules, or runtime helper libraries |
+| `apps/skillset` | The singular CLI source implementation: entrypoint, argument parsing, terminal presentation, confirmations, exit mapping, and command composition | Compiler semantics, source-graph shape, provider facts, shared schema vocabulary, reusable lint rules, or runtime helper libraries |
+| `apps/cli` | Public `@skillset/cli` Bun package metadata and the canonical bundled CLI artifact | A second CLI implementation or command-specific behavior |
 | `@skillset/core` | Source resolution, compiler operations, [render](../glossary.md#render) orchestration, provider adaptation decisions, operation results, diagnostics, provenance, conformance, and compiler reports | CLI-only presentation, publication policy, schema field lists, or standalone editor UX |
 | `@skillset/schema` | Shared config/frontmatter structure, value contracts, structural validation, examples, and generated JSON Schema artifacts | Path resolution, [destination](../glossary.md#destination) policy, release severity, dependency-graph semantics, rendering, or CLI formatting |
 | `@skillset/lint` | Lint registry, rule types, shell, and [source-unit](../glossary.md#source-unit) rule primitives | Loading a workspace graph or deciding compiler writes |
@@ -25,7 +26,7 @@ Package roots represent intentional APIs. Private `internal/*` imports are [work
 | `@skillset/toolkit` | Runtime helpers used by generated hooks and compiler-owned wrappers | Source resolution or CLI orchestration |
 | `@skillset/workbench` | Authoring diagnostics, parsing, Markdown analysis, compatibility views, presets, and fixtures | Public CLI command ownership or compiler render semantics |
 
-The unscoped `skillset` app is the published package. Scoped workspace packages remain private implementation packages until an explicit package-posture decision promotes one; see [Package Releases](package-releases.md).
+The unscoped `skillset` app and scoped `@skillset/cli` app are public distribution packages. They project the same CLI implementation while the unscoped package transitions to the native launcher. Other scoped workspace packages remain private implementation packages; see [Package Releases](package-releases.md) and [ADR-0029](../adrs/0029-global-cli-native-distribution.md).
 
 ## Import Policy
 

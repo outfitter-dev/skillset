@@ -694,10 +694,10 @@ test("init --include ci scaffolds a valid workflow and keeps user edits", async 
   const parsed = parseYamlRecord(content, CI_WORKFLOW_PATH);
   expect(parsed.name).toBe("Skillset CI");
   expect(parsed.jobs).toBeDefined();
-  expect(content).toContain("skillset check --ci");
+  expect(content).toContain("@skillset/cli check --ci");
   expect(content).toContain("--fix");
 
-  const customized = content.replace("bunx skillset check --ci", "bunx skillset@9.9.9 check --ci");
+  const customized = content.replace("bunx @skillset/cli check --ci", "bunx @skillset/cli@9.9.9 check --ci");
   await writeFile(workflowPath, customized);
   const rerun = await initSkillset({ cwd: root, include: ["ci"], useGitRoot: false, write: true });
   const replanned = rerun.files.find((file) => file.path === CI_WORKFLOW_PATH);

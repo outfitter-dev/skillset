@@ -16,7 +16,7 @@
     "build:npm": "bun scripts/build-package.ts",
     "check": "bun run test:sandbox -- bun run check:repo",
     "check:repo": "bun run build && bun run test && bun run ultracite:doctor && bun run skillset:check && bun run docs:check && bun run check:pack && git diff --check && bun run package-ownership:guard && bun run terminology:guard && bun run cli-surface:guard && bun run target-topology:guard",
-    "check:pack": "bun run build:npm && bun scripts/package-metadata.ts check",
+    "check:pack": "bun run build:npm && bun scripts/package-metadata.ts check && bun scripts/package-smoke.ts",
     "package-ownership:guard": "bun scripts/package-ownership-guard.ts",
     "terminology:guard": "bun scripts/terminology-guard.ts",
     "cli-surface:guard": "bun scripts/cli-surface-guard.ts",

@@ -9,17 +9,17 @@ test("README package examples use canonical public commands", () => {
   expect(
     readmeCommandDiagnostics(
       [
-        "bunx skillset init",
-        "bunx skillset build --yes",
+        "bunx @skillset/cli init",
+        "bunx @skillset/cli build --yes",
         "npx skillset@beta check",
       ].join("\n")
     )
   ).toEqual([]);
-  expect(readmeCommandDiagnostics("bunx skillset build --watch")[0]).toContain(
+  expect(readmeCommandDiagnostics("bunx @skillset/cli build --watch")[0]).toContain(
     "README.md documents an invalid command (build --watch)"
   );
   expect(
-    readmeCommandDiagnostics("bunx skillset change nonsense")[0]
+    readmeCommandDiagnostics("bunx @skillset/cli change nonsense")[0]
   ).toContain("README.md documents an invalid command (change nonsense)");
 });
 

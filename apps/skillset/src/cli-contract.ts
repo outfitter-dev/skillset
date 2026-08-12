@@ -348,6 +348,11 @@ export const CLI_FLAGS = {
     meaning: "Show lookup finite-value facts.",
     value: "boolean",
   },
+  "--version": {
+    family: "output",
+    meaning: "Print the Skillset product version.",
+    value: "boolean",
+  },
   "--write": {
     family: "mutation",
     meaning:

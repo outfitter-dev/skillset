@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
+  bundleParityDiagnostics,
+  bunRuntimeDiagnostics,
   licenseDiagnostics,
   packageBinDiagnostics,
   packedFileDiagnostics,
@@ -44,24 +46,32 @@ describe("package metadata checks", () => {
   });
 
   test("requires the public package payload", () => {
-    const complete = [
-      "LICENSE",
-      "README.md",
-      "dist/cli.js",
-      "package.json",
-    ]
+    const complete = ["LICENSE", "README.md", "dist/cli.js", "package.json"]
       .map((path) => `packed 1B ${path}`)
+      .concat("Total files: 4")
       .join("\n");
-    expect(packedFileDiagnostics(complete)).toEqual([]);
-    expect(packedFileDiagnostics("packed 1B package.json")).toEqual([
-      "package tarball is missing LICENSE",
-      "package tarball is missing README.md",
-      "package tarball is missing dist/cli.js",
-    ]);
+    expect(packedFileDiagnostics(complete, "apps/cli")).toEqual([]);
+    expect(packedFileDiagnostics("packed 1B package.json", "apps/cli")).toEqual(
+      [
+        "apps/cli tarball is missing LICENSE",
+        "apps/cli tarball is missing README.md",
+        "apps/cli tarball is missing dist/cli.js",
+        "apps/cli tarball must contain exactly 4 files",
+      ]
+    );
+    expect(
+      packedFileDiagnostics(
+        `${complete}\npacked 1B dist/extra.js\nTotal files: 5`,
+        "apps/cli"
+      )
+    ).toEqual(["apps/cli tarball must contain exactly 4 files"]);
   });
 
   test("requires one public CLI bin", async () => {
     const root = await fixture({
+      "apps/cli/package.json": {
+        bin: { skillset: "dist/cli.js" },
+      },
       "apps/skillset/package.json": {
         bin: { skillset: "dist/cli.js" },
       },
@@ -88,6 +98,8 @@ describe("package metadata checks", () => {
       "README.md": "readme\n",
       "apps/skillset/LICENSE": "license\n",
       "apps/skillset/README.md": "stale\n",
+      "apps/cli/LICENSE": "license\n",
+      "apps/cli/README.md": "readme\n",
       "package.json": { license: "MIT", name: "root", workspaces: ["apps/*"] },
     });
 
@@ -104,11 +116,11 @@ describe("package metadata checks", () => {
         "Skillset is a source-first compiler for provider-native agent loadouts.",
         "",
         "```bash",
-        "bun add --dev skillset",
-        "bunx skillset init",
+        "bun add --dev @skillset/cli",
+        "bunx @skillset/cli init",
         "```",
       ].join("\n"),
-      "apps/skillset/package.json": {
+      "apps/cli/package.json": {
         description:
           "Source-first compiler for provider-native agent loadouts.",
       },
@@ -120,6 +132,22 @@ describe("package metadata checks", () => {
       "README.md must state the package description in its first 60 lines: Skillset is a source-first compiler for provider-native agent loadouts.",
       "README.md must include the package install command in its first 60 lines",
       "README.md must include an executable Skillset example in its first 60 lines",
+    ]);
+  });
+
+  test("requires the declared Bun floor and byte-identical transitional bundles", async () => {
+    const root = await fixture({
+      "apps/cli/dist/cli.js": "bundle\n",
+      "apps/cli/package.json": { engines: { bun: ">=1.3.14" } },
+      "apps/skillset/dist/cli.js": "bundle\n",
+    });
+
+    expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    expect(await bundleParityDiagnostics(root)).toEqual([]);
+
+    await writeFile(join(root, "apps/skillset/dist/cli.js"), "drift\n");
+    expect(await bundleParityDiagnostics(root)).toEqual([
+      "apps/skillset/dist/cli.js must match apps/cli/dist/cli.js byte-for-byte",
     ]);
   });
 });

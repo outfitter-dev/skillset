@@ -1,6 +1,5 @@
 import type { Readable, Writable } from "node:stream";
 
-import packageJson from "../package.json";
 import {
   ClackPromptAdapter,
   renderPromptIntro,
@@ -8,6 +7,7 @@ import {
   type PromptAdapter,
   type PromptContext,
 } from "./prompt-adapter";
+import { cliVersion } from "./cli-version";
 import {
   createTerminalRenderer,
   terminalColorEnabled,
@@ -92,7 +92,7 @@ export function createInteractiveSession(
     signal: options.signal,
     banner: () =>
       renderPromptIntro(
-        `skillset ${renderer.dim(`v${packageJson.version}`)}`,
+        `skillset ${renderer.dim(`v${cliVersion}`)}`,
         output
       ),
     note: (message, title) => renderPromptNote(message, output, title),

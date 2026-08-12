@@ -1,9 +1,15 @@
-import { chmod, copyFile, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdir, rm } from "node:fs/promises";
 
-const outdir = "apps/skillset/dist";
-const packageDir = "apps/skillset";
+const cliPackageDir = "apps/cli";
+const legacyPackageDir = "apps/skillset";
+const outdir = `${cliPackageDir}/dist`;
 
-await rm(outdir, { force: true, recursive: true });
+await Promise.all(
+  [cliPackageDir, legacyPackageDir].map(async (packageDir) => {
+    await rm(`${packageDir}/dist`, { force: true, recursive: true });
+    await mkdir(packageDir, { recursive: true });
+  })
+);
 
 const result = await Bun.build({
   entrypoints: ["apps/skillset/src/cli.ts"],
@@ -22,8 +28,17 @@ for (const output of result.outputs) {
   console.error(`skillset: built ${output.path}`);
 }
 
-for (const file of ["README.md", "LICENSE"]) {
-  const destination = `${packageDir}/${file}`;
-  await copyFile(file, destination);
-  console.error(`skillset: projected ${destination}`);
+const canonicalCli = `${outdir}/cli.js`;
+const legacyCli = `${legacyPackageDir}/dist/cli.js`;
+await mkdir(`${legacyPackageDir}/dist`, { recursive: true });
+await copyFile(canonicalCli, legacyCli);
+await chmod(legacyCli, 0o755);
+console.error(`skillset: projected ${legacyCli}`);
+
+for (const packageDir of [cliPackageDir, legacyPackageDir]) {
+  for (const file of ["README.md", "LICENSE"]) {
+    const destination = `${packageDir}/${file}`;
+    await copyFile(file, destination);
+    console.error(`skillset: projected ${destination}`);
+  }
 }
