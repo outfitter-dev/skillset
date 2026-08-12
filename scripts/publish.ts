@@ -1,39 +1,55 @@
-import { appendFile, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { appendFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import {
+  NPM_PROVENANCE_PREDICATE,
+  RELEASE_PACKAGE_SPECS,
+  npmPublishCommand,
+  planCoordinatedRelease,
+  readReleasePackageSet,
+  type ReleasePackageSpec,
+  type ReleaseRegistryState,
+} from "./release-packages";
+import { resolveReleaseVersionCommit } from "./release-ref";
+import {
+  readStagedReleaseTarballs,
+  stageReleaseTarballs,
+  type StagedReleaseTarball,
+} from "./release-tarballs";
 
 type DistTags = Record<string, string | undefined>;
 
 type RegistryDocument = {
   "dist-tags"?: DistTags;
-  versions?: Record<string, unknown>;
+  versions?: Record<
+    string,
+    {
+      dist?: {
+        attestations?: {
+          provenance?: { predicateType?: unknown };
+        };
+        integrity?: unknown;
+      };
+    }
+  >;
 };
 
-type PackageJson = {
-  name?: string;
-  version?: string;
-};
+interface RegistryState extends ReleaseRegistryState {
+  readonly document: RegistryDocument | null;
+  readonly tag: string;
+  readonly version: string;
+}
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
-const packageDir = join(rootDir, "apps", "skillset");
-const packageJsonPath = join(packageDir, "package.json");
 const registryUrl = "https://registry.npmjs.org";
-const allowedPrereleaseTags = new Set(["alpha", "beta", "canary", "next", "rc"]);
-
-async function readPackageInfo() {
-  const raw = await readFile(packageJsonPath, "utf8");
-  const packageJson = JSON.parse(raw) as PackageJson;
-
-  if (!packageJson.name || !packageJson.version) {
-    throw new Error(`Missing name or version in ${packageJsonPath}`);
-  }
-
-  return {
-    name: packageJson.name,
-    tag: distTagForVersion(packageJson.version),
-    version: packageJson.version,
-  };
-}
+const allowedPrereleaseTags = new Set([
+  "alpha",
+  "beta",
+  "canary",
+  "next",
+  "rc",
+]);
 
 export function distTagForVersion(version: string) {
   const prerelease = version.match(/^\d+\.\d+\.\d+-([0-9A-Za-z.-]+)$/)?.[1];
@@ -57,26 +73,50 @@ async function fetchRegistryDocument(name: string) {
 
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error(`Registry lookup failed for ${name}: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Registry lookup failed for ${name}: ${response.status} ${response.statusText}`
+    );
   }
 
   return (await response.json()) as RegistryDocument;
 }
 
-async function getRegistryState() {
-  const info = await readPackageInfo();
-  const document = await fetchRegistryDocument(info.name);
-  const published = Boolean(document?.versions?.[info.version]);
-  const taggedVersion = document?.["dist-tags"]?.[info.tag];
-
-  return { ...info, document, published, taggedVersion };
+async function getRegistryStates(): Promise<{
+  readonly states: readonly RegistryState[];
+  readonly tag: string;
+  readonly version: string;
+}> {
+  const releaseSet = await readReleasePackageSet(rootDir);
+  const tag = distTagForVersion(releaseSet.version);
+  const states = await Promise.all(
+    releaseSet.packages.map(async (spec): Promise<RegistryState> => {
+      const document = await fetchRegistryDocument(spec.name);
+      const publishedVersion = document?.versions?.[releaseSet.version];
+      return {
+        document,
+        integrity:
+          typeof publishedVersion?.dist?.integrity === "string"
+            ? publishedVersion.dist.integrity
+            : undefined,
+        name: spec.name,
+        provenancePredicateType:
+          typeof publishedVersion?.dist?.attestations?.provenance
+            ?.predicateType === "string"
+            ? publishedVersion.dist.attestations.provenance.predicateType
+            : undefined,
+        published: Boolean(publishedVersion),
+        tag,
+        taggedVersion: document?.["dist-tags"]?.[tag],
+        version: releaseSet.version,
+      };
+    })
+  );
+  return { states, tag, version: releaseSet.version };
 }
 
-function registryComplete(state: Awaited<ReturnType<typeof getRegistryState>>) {
-  return state.published && state.taggedVersion === state.version;
-}
-
-export async function writeGitHubOutput(values: Record<string, string | boolean>) {
+export async function writeGitHubOutput(
+  values: Record<string, string | boolean>
+) {
   const outputPath = process.env.GITHUB_OUTPUT;
   if (!outputPath) return;
 
@@ -84,20 +124,26 @@ export async function writeGitHubOutput(values: Record<string, string | boolean>
   await appendFile(outputPath, `${lines.join("\n")}\n`);
 }
 
-function printState(state: Awaited<ReturnType<typeof getRegistryState>>) {
-  const status = state.published ? "published" : "not published";
-  console.error(`skillset: ${state.name}@${state.version} is ${status} on ${registryUrl}`);
-  console.error(`skillset: intended dist-tag is ${state.tag}`);
-
-  if (state.taggedVersion) {
-    console.error(`skillset: registry ${state.tag} currently points to ${state.taggedVersion}`);
+function printStates(states: readonly RegistryState[]): void {
+  for (const state of states) {
+    const status = state.published ? "published" : "not published";
+    console.error(
+      `skillset: ${state.name}@${state.version} is ${status} on ${registryUrl}`
+    );
+    if (state.taggedVersion) {
+      console.error(
+        `skillset: ${state.name} registry ${state.tag} points to ${state.taggedVersion}`
+      );
+    }
   }
 }
 
-async function run(command: string[], cwd = rootDir) {
-  console.error(`skillset: running ${command.join(" ")}${cwd === rootDir ? "" : ` in ${cwd}`}`);
+async function run(command: readonly string[], cwd = rootDir) {
+  console.error(
+    `skillset: running ${command.join(" ")}${cwd === rootDir ? "" : ` in ${cwd}`}`
+  );
 
-  const subprocess = Bun.spawn(command, {
+  const subprocess = Bun.spawn([...command], {
     cwd,
     stderr: "inherit",
     stdin: "inherit",
@@ -110,94 +156,215 @@ async function run(command: string[], cwd = rootDir) {
   }
 }
 
+function outputForPlan(
+  mode: "complete" | "publish" | "recover",
+  states: readonly RegistryState[],
+  tag: string,
+  version: string
+) {
+  const published = states
+    .filter((state) => state.published)
+    .map((state) => state.name);
+  const missing = states
+    .filter((state) => !state.published)
+    .map((state) => state.name);
+  return {
+    missing_packages: JSON.stringify(missing),
+    name: "skillset",
+    partial_release: mode === "recover",
+    published: mode === "complete",
+    published_packages: JSON.stringify(published),
+    registry_complete: mode === "complete",
+    should_publish: mode !== "complete",
+    tag,
+    version,
+  };
+}
+
 async function commandPlan() {
-  const state = await getRegistryState();
-  printState(state);
-
-  if (state.published && !registryComplete(state)) {
-    throw new Error(
-      `${state.name}@${state.version} exists, but ${state.tag} points to ${state.taggedVersion ?? "nothing"}`
-    );
-  }
-
+  const { states, tag, version } = await getRegistryStates();
+  printStates(states);
+  const plan = planCoordinatedRelease(states, version, tag);
+  const versionCommit = await resolveReleaseVersionCommit(rootDir, version);
   await writeGitHubOutput({
-    name: state.name,
-    published: state.published,
-    registry_complete: registryComplete(state),
-    should_publish: !state.published,
-    tag: state.tag,
-    version: state.version,
+    ...outputForPlan(plan.mode, states, tag, version),
+    version_commit: versionCommit,
   });
 }
 
-async function commandRegistryCheck(requirePublished: boolean) {
-  const state = await getRegistryState();
-  printState(state);
+function expectedIntegrity(
+  packages: readonly StagedReleaseTarball[]
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    packages.map((entry) => [entry.name, entry.integrity])
+  );
+}
 
-  if (!requirePublished) return;
-
-  if (!state.published) {
-    throw new Error(`${state.name}@${state.version} is not visible on ${registryUrl}`);
-  }
-
-  if (state.taggedVersion !== state.version) {
-    throw new Error(`${state.name}@${state.version} is published, but ${state.tag} points to ${state.taggedVersion ?? "nothing"}`);
+async function commandRegistryCheck(
+  requirePublished: boolean,
+  stageDir?: string
+) {
+  const { states, tag, version } = await getRegistryStates();
+  printStates(states);
+  const staged = stageDir
+    ? await readStagedReleaseTarballs(stageDir)
+    : undefined;
+  const plan = planCoordinatedRelease(
+    states,
+    version,
+    tag,
+    staged ? expectedIntegrity(staged.packages) : undefined
+  );
+  if (requirePublished && plan.mode !== "complete") {
+    throw new Error(
+      `Coordinated registry set is incomplete for ${version}; missing ${plan.missing.join(", ")}`
+    );
   }
 }
 
 async function commandCheck() {
-  const state = await getRegistryState();
-  printState(state);
-
+  await readReleasePackageSet(rootDir);
   await run(["bun", "run", "check:pack"]);
 }
 
-async function waitForPublished() {
+async function waitForPublished(
+  spec: ReleasePackageSpec,
+  version: string,
+  tag: string,
+  integrity: string
+): Promise<void> {
   for (let attempt = 1; attempt <= 10; attempt += 1) {
-    const state = await getRegistryState();
-    if (state.published && state.taggedVersion === state.version) return state;
+    const document = await fetchRegistryDocument(spec.name);
+    const published = document?.versions?.[version];
+    if (
+      published?.dist?.integrity === integrity &&
+      published.dist.attestations?.provenance?.predicateType ===
+        NPM_PROVENANCE_PREDICATE &&
+      document?.["dist-tags"]?.[tag] === version
+    ) {
+      return;
+    }
 
-    console.error(`skillset: waiting for registry propagation (${attempt}/10)`);
+    console.error(
+      `skillset: waiting for ${spec.name}@${version} registry propagation (${attempt}/10)`
+    );
     await Bun.sleep(3000);
   }
 
-  const finalState = await getRegistryState();
-  throw new Error(`${finalState.name}@${finalState.version} did not become visible with dist-tag ${finalState.tag}`);
+  throw new Error(
+    `${spec.name}@${version} did not become visible with dist-tag ${tag}`
+  );
 }
 
-async function commandPublish() {
-  const state = await getRegistryState();
-  printState(state);
+async function commandReleaseCheck(
+  nativeOutputDir: string,
+  stageDir: string
+): Promise<void> {
+  await commandCheck();
+  const staged = await stageReleaseTarballs({
+    nativeOutputDir,
+    rootPath: rootDir,
+    stageDir,
+  });
+  const current = await getRegistryStates();
+  planCoordinatedRelease(
+    current.states,
+    current.version,
+    current.tag,
+    expectedIntegrity(staged)
+  );
+}
 
-  if (state.published) {
-    if (!registryComplete(state)) {
-      throw new Error(
-        `${state.name}@${state.version} exists, but ${state.tag} points to ${state.taggedVersion ?? "nothing"}`
-      );
-    }
-
+async function commandPublish(nativeOutputDir?: string, stageDir?: string) {
+  const initial = await getRegistryStates();
+  printStates(initial.states);
+  if (!nativeOutputDir || !stageDir) {
+    throw new Error(
+      "Coordinated publication requires --native-out-dir and --stage-dir from the verified release preflight"
+    );
+  }
+  const staged = await readStagedReleaseTarballs(stageDir);
+  if (staged.version !== initial.version) {
+    throw new Error(
+      `Staged release version ${staged.version} does not match product version ${initial.version}`
+    );
+  }
+  const stagedIntegrity = expectedIntegrity(staged.packages);
+  const initialPlan = planCoordinatedRelease(
+    initial.states,
+    initial.version,
+    initial.tag,
+    stagedIntegrity
+  );
+  if (initialPlan.mode === "complete") {
     await writeGitHubOutput({
-      name: state.name,
+      name: "skillset",
       published: false,
       registry_complete: true,
-      tag: state.tag,
-      version: state.version,
+      tag: initial.tag,
+      version: initial.version,
     });
-    console.error("skillset: skipping publish because this version already exists");
+    console.error(
+      "skillset: skipping publish because the coordinated version already exists"
+    );
     return;
   }
-
   assertPublishAllowed();
-  await run(["bun", "run", "build:npm"]);
-  await run(["npm", "publish", "--access", "public", "--tag", state.tag], packageDir);
 
-  const publishedState = await waitForPublished();
+  let publishedAny = false;
+  for (const spec of RELEASE_PACKAGE_SPECS) {
+    if (!initialPlan.missing.includes(spec.name)) continue;
+    const tarball = staged.packages.find((entry) => entry.name === spec.name)!;
+
+    if (spec.role === "launcher") {
+      const beforeLauncher = await getRegistryStates();
+      const launcherPlan = planCoordinatedRelease(
+        beforeLauncher.states,
+        beforeLauncher.version,
+        beforeLauncher.tag,
+        stagedIntegrity
+      );
+      if (
+        launcherPlan.missing.length !== 1 ||
+        launcherPlan.missing[0] !== "skillset"
+      ) {
+        throw new Error(
+          `Refusing to publish skillset@${initial.version} before every prerequisite package is visible`
+        );
+      }
+    }
+
+    await run(
+      npmPublishCommand(spec, initial.tag, tarball.path),
+      resolve(rootDir, spec.directory)
+    );
+    await waitForPublished(
+      spec,
+      initial.version,
+      initial.tag,
+      tarball.integrity
+    );
+    publishedAny = true;
+  }
+
+  const final = await getRegistryStates();
+  const finalPlan = planCoordinatedRelease(
+    final.states,
+    final.version,
+    final.tag,
+    stagedIntegrity
+  );
+  if (finalPlan.mode !== "complete") {
+    throw new Error(
+      `Coordinated registry set did not complete; missing ${finalPlan.missing.join(", ")}`
+    );
+  }
   await writeGitHubOutput({
-    name: publishedState.name,
-    published: true,
+    name: "skillset",
+    published: publishedAny,
     registry_complete: true,
-    tag: publishedState.tag,
-    version: publishedState.version,
+    tag: final.tag,
+    version: final.version,
   });
 }
 
@@ -210,9 +377,24 @@ function assertPublishAllowed() {
   );
 }
 
+function readFlagValue(
+  args: readonly string[],
+  flag: string
+): string | undefined {
+  const index = args.indexOf(flag);
+  if (index === -1) return undefined;
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${flag} requires a value`);
+  }
+  return value;
+}
+
 async function main() {
   const [command = "plan", ...args] = Bun.argv.slice(2);
   const flags = new Set(args);
+  const nativeOutputDir = readFlagValue(args, "--native-out-dir");
+  const stageDir = readFlagValue(args, "--stage-dir");
 
   switch (command) {
     case "check":
@@ -222,10 +404,18 @@ async function main() {
       await commandPlan();
       break;
     case "publish":
-      await commandPublish();
+      await commandPublish(nativeOutputDir, stageDir);
       break;
     case "registry-check":
-      await commandRegistryCheck(flags.has("--require-published"));
+      await commandRegistryCheck(flags.has("--require-published"), stageDir);
+      break;
+    case "release-check":
+      if (!nativeOutputDir || !stageDir) {
+        throw new Error(
+          "release-check requires --native-out-dir and --stage-dir"
+        );
+      }
+      await commandReleaseCheck(nativeOutputDir, stageDir);
       break;
     default:
       throw new Error(`Unknown publish command: ${command}`);

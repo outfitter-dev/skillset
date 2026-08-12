@@ -7,6 +7,9 @@ type Workflow = {
     pull_request?: {
       paths?: string[];
     };
+    workflow_call?: {
+      inputs?: Record<string, unknown>;
+    };
   };
   jobs?: Record<
     string,
@@ -42,6 +45,8 @@ describe("SET-419 native workflow contract", () => {
     );
 
     expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.on?.workflow_call?.inputs).toHaveProperty("artifact-name");
+    expect(workflow.on?.workflow_call?.inputs).toHaveProperty("source-sha");
     expect(workflow.on?.pull_request?.paths).toContain("apps/native-*/**");
     expect(buildStep?.run).toContain("build:native");
     expect(buildStep?.run).toContain("--required --reproducible");
