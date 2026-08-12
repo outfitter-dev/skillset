@@ -249,12 +249,12 @@
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
-          "context": "- [Cursor provider ADR](../../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
+          "context": "- [Cursor Is a First-Class Provider](../../adrs/0002-cursor-is-a-first-class-provider.md) defines why Cursor remains a target rather than a runtime-only shim.",
           "from": "runtime-adapters",
           "fromPath": "docs/development/features/runtime-adapters.md"
         },
         {
-          "context": "The local Cursor CLI can smoke-test isolated renderings, but runtime evidence remains separate from compile-target support. A successful build does not prove that Cursor trusted, discovered, or invoke",
+          "context": "The local Cursor CLI can smoke-test isolated renderings, but runtime evidence remains separate from compile-target support. A successful [build](../../glossary.md#build) does not prove that Cursor tru",
           "from": "cursor",
           "fromPath": "docs/reference/providers/cursor.md"
         }
@@ -305,7 +305,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["29"],
       "amends": [],
       "created": "2026-06-12",
       "depends_on": ["0", "1"],
@@ -324,6 +324,11 @@
           "context": "- [Core Library and CLI Boundary](0004-core-library-boundary.md) - core returns facts while the CLI owns rendering.",
           "from": "0023",
           "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "[ADR-0004](../0004-core-library-boundary.md#package-and-publish-posture)",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         }
       ],
       "number": "0004",
@@ -407,14 +412,9 @@
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
         },
         {
-          "context": "See [Feature Reference and Schema Registry](../../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.",
+          "context": "- [Feature Reference and Schema Registry](../../adrs/0005-feature-reference-and-schema-registry.md) defines the decision.",
           "from": "feature-registry",
           "fromPath": "docs/development/features/feature-registry.md"
-        },
-        {
-          "context": "- [Feature registry](../../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.",
-          "from": "runtime-adapters",
-          "fromPath": "docs/development/features/runtime-adapters.md"
         }
       ],
       "number": "0005",
@@ -647,7 +647,7 @@
           "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), [Chang",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), and [R",
           "from": "releases",
           "fromPath": "docs/reference/features/releases.md"
         }
@@ -703,27 +703,32 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestion",
+          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](../0014-source-change-release-provenance.md) - existing Changesets and release provenance context.",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) defines the provenance guardrail.",
           "from": "hook-guardrails",
           "fromPath": "docs/development/features/hook-guardrails.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md), and",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reason-Only Change Ledger and Derived State](../../adrs/0015-reason-only-change-ledger",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
+          "context": "Normalized dependencies participate in hashes, change status, lock entries, [`skillset explain`](../cli/explain.md), and release planning. The release rules are recorded in [ADR 0014](../../adrs/0014-",
           "from": "dependencies",
           "fromPath": "docs/reference/features/dependencies.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), [Chang",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), and [R",
           "from": "releases",
           "fromPath": "docs/reference/features/releases.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
+          "context": "The release rationale is recorded in [ADR 0014](../../adrs/0014-source-change-release-provenance.md) and [ADR 0016](../../adrs/0016-change-release-edge-decisions.md).",
           "from": "supports",
           "fromPath": "docs/reference/features/supports.md"
         }
@@ -749,12 +754,12 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reason-Only Change Ledger and Derived State](../../adrs/0015-reason-only-change-ledger",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         },
         {
-          "context": "The reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. New",
+          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), and [R",
           "from": "releases",
           "fromPath": "docs/reference/features/releases.md"
         }
@@ -795,22 +800,12 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md), and",
-          "from": "changes",
-          "fromPath": "docs/reference/features/changes.md"
-        },
-        {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
+          "context": "Normalized dependencies participate in hashes, change status, lock entries, [`skillset explain`](../cli/explain.md), and release planning. The release rules are recorded in [ADR 0014](../../adrs/0014-",
           "from": "dependencies",
           "fromPath": "docs/reference/features/dependencies.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), [Chang",
-          "from": "releases",
-          "fromPath": "docs/reference/features/releases.md"
-        },
-        {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../../adrs/0016-change-release-edge-decisions.md).",
+          "context": "The release rationale is recorded in [ADR 0014](../../adrs/0014-source-change-release-provenance.md) and [ADR 0016](../../adrs/0016-change-release-edge-decisions.md).",
           "from": "supports",
           "fromPath": "docs/reference/features/supports.md"
         }
@@ -836,14 +831,9 @@
           "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
-          "context": "decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../../adrs/0017-lowering-outcomes-and-loss-ledger.md)",
+          "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
-        },
-        {
-          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
-          "from": "tests-and-evals",
-          "fromPath": "docs/reference/features/tests-and-evals.md"
         }
       ],
       "number": "0017",
@@ -892,7 +882,7 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "See [ADR-0018: Render Results](../../adrs/0018-render-results.md) for the current",
+          "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
@@ -958,7 +948,12 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
+          "context": "- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines the registry-to-output evidence loop.",
+          "from": "feature-registry",
+          "fromPath": "docs/development/features/feature-registry.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines registry/result comparison.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
@@ -1010,12 +1005,12 @@
           "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
-          "context": "- [Post-Tools Policy Boundary](../../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit toge",
+          "context": "- [Post-Tools Policy Boundary](../../adrs/0021-post-tools-policy-boundary.md) defines the difference between enforcement and compatibility metadata.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
         },
         {
-          "context": "See the [Post-Tools Policy Boundary ADR](../../adrs/0021-post-tools-policy-boundary.md)",
+          "context": "Lock entries and generated sidecars record effective intent, overlays, realization evidence, and residual-risk diagnostics. The boundary is defined by [ADR 0021](../../adrs/0021-post-tools-policy-boun",
           "from": "tools-policy",
           "fromPath": "docs/reference/features/tools-policy.md"
         }
@@ -1044,6 +1039,11 @@
           "context": "- [ADR-0022: Workflow-Oriented CLI](0022-workflow-oriented-cli.md) - status, explain, lookup, test, and eval ownership.",
           "from": "0027",
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
+          "context": "- [ADR-0022: Workflow-Oriented CLI](../0022-workflow-oriented-cli.md) - one public command vocabulary and workflow-oriented routing.",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
         {
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outsi",
@@ -1075,6 +1075,11 @@
           "context": "- [ADR-0023: Versioned Structured Output](0023-versioned-structured-output-for-cli-automation.md) - machine-readable command contracts.",
           "from": "0027",
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
+          "context": "- [ADR-0023: Versioned Structured Output For CLI Automation](../0023-versioned-structured-output-for-cli-automation.md) - distribution parity includes the public machine protocol.",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
         {
           "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
@@ -1147,11 +1152,6 @@
           "context": "- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) - exact baseline evidence semantics and exclusions.",
           "from": "0016",
           "fromPath": "docs/adrs/0016-change-release-edge-decisions.md"
-        },
-        {
-          "context": "contract in [ADR-0025](../../adrs/0025-baseline-record-evidence-bridges.md). The",
-          "from": "changes",
-          "fromPath": "docs/reference/features/changes.md"
         }
       ],
       "number": "0025",
@@ -1170,7 +1170,12 @@
       "depends_on": ["0", "1", "19"],
       "inbound": [
         {
-          "context": "[ADR-0026](../../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and",
+          "context": "- [ADR-0026: YAML Formatting and Bun Native APIs](../0026-yaml-formatting-and-bun-native-apis.md) - pinned Bun and Bun-native implementation preference.",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        },
+        {
+          "context": "Authored source mutations remain outside Workbench. Bun YAML parsing is read-only here; Core's YAML document writer owns comment- and order-preserving source edits under [ADR 0026](../../adrs/0026-yam",
           "from": "workbench",
           "fromPath": "docs/development/features/workbench.md"
         }
@@ -1190,6 +1195,11 @@
       "created": "2026-07-24",
       "depends_on": ["0", "5", "12", "19", "22", "23"],
       "inbound": [
+        {
+          "context": "- [ADR-0027: Runtime Activation Readiness Is Observational](../0027-runtime-activation-readiness-is-observational.md) - compiler installation does not imply provider activation.",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        },
         {
           "context": "See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
           "from": "runtime-activation-readiness",
@@ -1219,6 +1229,21 @@
       "superseded_by": null,
       "title": "Open Standards Are the Default Portability Floor",
       "updated": "2026-08-07"
+    },
+    {
+      "amended_by": [],
+      "amends": ["4"],
+      "created": "2026-08-11",
+      "depends_on": ["0", "4", "14", "22", "23", "26", "27"],
+      "inbound": [],
+      "number": "0029",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0029-global-cli-native-distribution.md",
+      "slug": "global-cli-native-distribution",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Global CLI and Native Distribution",
+      "updated": "2026-08-11"
     }
   ],
   "version": 1

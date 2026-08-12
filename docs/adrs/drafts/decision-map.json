@@ -13,7 +13,7 @@
       ],
       "inbound": [
         {
-          "context": "- [First-class sets](../../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separa",
+          "context": "- [First-class sets](../../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; the implemented contract keeps build scopes and e",
           "from": "README",
           "fromPath": "docs/reference/features/README.md"
         }
@@ -121,7 +121,7 @@
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestion",
+          "context": "- [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestions.md) records why runtime configuration remains reviewed and opt-in.",
           "from": "hook-guardrails",
           "fromPath": "docs/development/features/hook-guardrails.md"
         },
@@ -129,6 +129,11 @@
           "context": "- [Reviewed settings suggestion workflow](../../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not",
           "from": "README",
           "fromPath": "docs/reference/features/README.md"
+        },
+        {
+          "context": "Host-leak and setup tests verify that repository commands do not mutate user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md) and the [reviewed setti",
+          "from": "settings",
+          "fromPath": "docs/reference/features/settings.md"
         }
       ],
       "number": null,
