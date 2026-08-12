@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { RELEASE_NPM_VERSION } from "../release-packages";
+
 type Workflow = {
   jobs?: Record<string, {
+    needs?: string | string[];
     permissions?: Record<string, string>;
+    uses?: string;
     steps?: Array<{
       env?: Record<string, string>;
       if?: string;
@@ -13,6 +17,7 @@ type Workflow = {
       uses?: string;
       with?: Record<string, unknown>;
     }>;
+    with?: Record<string, unknown>;
   }>;
   on?: Record<string, unknown>;
 };
@@ -80,6 +85,78 @@ describe("generated release PR workflow contract", () => {
     expect(dispatchIndex).toBeGreaterThan(labelIndex);
     expect(steps[dispatchIndex]?.run).toBe(
       "gh workflow run ci.yml --ref changeset-release/main"
+    );
+  });
+
+  test("release publication waits for five-host native evidence and exact artifact attestations", async () => {
+    const workflow = await readWorkflow("release.yml");
+    const native = workflow.jobs?.["native-evidence"];
+    const attest = workflow.jobs?.["attest-native"];
+    const attestStep = attest?.steps?.find(
+      (step) =>
+        step.uses === "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6"
+    );
+
+    expect(native?.uses).toBe("./.github/workflows/native.yml");
+    expect(native?.with?.["artifact-name"]).toBe(
+      "skillset-native-${{ needs.publish-plan.outputs.version_commit }}"
+    );
+    expect(native?.with?.["source-sha"]).toBe(
+      "${{ needs.publish-plan.outputs.version_commit }}"
+    );
+    expect(attest?.needs).toEqual([
+      "publish-plan",
+      "publish-policy",
+      "native-evidence",
+    ]);
+    expect(attest?.permissions?.["id-token"]).toBe("write");
+    expect(attest?.permissions?.attestations).toBe("write");
+    expect(attestStep?.with?.["subject-path"]).toBe(
+      "${{ runner.temp }}/release-assets/skillset-v*"
+    );
+    expect(
+      attest?.steps?.find(
+        (step) => step.name === "Verify required attestations"
+      )?.run
+    ).toContain("gh attestation verify");
+  });
+
+  test("both npm routes preflight the same artifacts and publish only after attestation", async () => {
+    const workflow = await readWorkflow("release.yml");
+    for (const name of ["publish-auto", "publish"] as const) {
+      const job = workflow.jobs?.[name];
+      expect(job?.needs).toContain("attest-native");
+      expect(job?.permissions?.["id-token"]).toBe("write");
+      expect(job?.permissions?.attestations).toBe("read");
+      expect(job?.steps?.map((step) => step.run)).toContain(
+        `npm install --location=global npm@${RELEASE_NPM_VERSION}`
+      );
+      expect(
+        job?.steps?.find(
+          (step) => step.name === "Validate coordinated release before publish"
+        )?.run
+      ).toContain("publish:release-check");
+      expect(
+        job?.steps?.find((step) => step.name === "Publish package set")?.run
+      ).toContain("--native-out-dir");
+    }
+  });
+
+  test("GitHub release recovery verifies signing, registry, attestations, and exact assets", async () => {
+    const workflow = await readWorkflow("release.yml");
+    const release = workflow.jobs?.["github-release"];
+    const joined = (release?.steps ?? [])
+      .map((step) => step.run ?? "")
+      .join("\n");
+
+    expect(release?.needs).toContain("attest-native");
+    expect(release?.permissions?.attestations).toBe("read");
+    expect(joined).toContain("release:signing-check");
+    expect(joined).toContain("publish:registry-check:published");
+    expect(joined).toContain("gh attestation verify");
+    expect(joined).toContain("release:assets");
+    expect(joined).toContain(
+      "gh release view \"$tag\" --json assets --jq '.assets | length'"
     );
   });
 });

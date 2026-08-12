@@ -52,7 +52,13 @@ Use these package changelog shapes for common provider/schema updates:
 
 When a branch with unreleased Changesets merges to `main`, `.github/workflows/release.yml` runs `changesets/action` to create or update a `chore(release): version packages` pull request. Skillset then applies missing release intent labels to that generated version PR. It preserves any existing human-provided label family and only fills gaps. The labeler uses source PR evidence from the package release range: if every consumed Changeset source PR carries explicit `stack:boundary` evidence and the generated version is stable, it may add `publish:auto`; otherwise it adds `publish:manual` so the release stays behind the protected environment.
 
-When the version PR merges to `main`, the same workflow checks the npm registry and resolves the release intent labels from the merged version PR. If the current `apps/skillset/package.json` version is already published and the intended dist-tag points to it, the workflow exits the publish step without entering a publish environment and ensures a missing GitHub release can still be created when the matching `v<version>` tag already points at the package-version commit. If the version is missing, the workflow runs the publish policy. Low-risk generated releases can publish through `npm-auto`; anything ambiguous routes to the protected manual `npm` environment; `publish:none` skips npm and GitHub release creation; `publish:block` stops the release workflow. Successful publishes wait for the version and dist-tag to appear on the registry, create and push the matching `v<version>` tag at the package-version commit, and create the GitHub release with `--verify-tag` if it does not already exist.
+When the version PR merges to `main`, the same workflow checks the exact seven-package npm set and resolves the release intent labels from the merged version PR. A fresh low-risk generated release may publish through `npm-auto`; anything ambiguous routes to the protected manual `npm` environment. A recoverable partial release always routes through `npm`, even when its source policy was automatic. `publish:none` skips npm and GitHub release creation, while `publish:block` stops the workflow.
+
+Before npm publication, the workflow resolves the protected macOS signing policy, builds one release artifact from the version commit, runs direct and global-install smoke on all five target hosts, and attests the exact five archives plus manifest and checksum file. The current implementation accepts only an explicit `SKILLSET_MACOS_SIGNING_POLICY=unsigned`; a missing, unknown, or `required` value fails closed because protected signing and notarization are not yet implemented. Signing must be added before final archive assembly when that policy changes because signatures alter the executable and archive hashes.
+
+The publisher uses npm 11.12.1 to stage all seven tarballs before the first registry mutation. It records each tarball's SHA-512 integrity, publishes the five native packages, then `@skillset/cli`, then `skillset`, and waits after every package for the exact version, dist-tag, integrity, and SLSA provenance to appear. It rechecks all six prerequisites immediately before the launcher. A partial prefix may resume through the manual environment while the launcher is absent. A non-prefix state, missing provenance, immutable tarball mismatch, dist-tag drift, or a launcher published before a prerequisite blocks and requires a new version instead of silent repair.
+
+After the registry set is complete, the workflow verifies every GitHub attestation, resolves the commit where all seven manifests acquired the product version, and creates or verifies the matching `v<version>` tag. GitHub release recovery is byte-safe: matching assets are retained, missing assets are uploaded, and mismatched or unexpected assets block without clobbering. The final release must contain exactly the five native archives, `skillset-v<version>-manifest.json`, and `skillset-v<version>-SHA256SUMS`.
 
 The publish wrapper derives the npm dist-tag from the version: stable versions publish to `latest`, and prerelease versions publish to their prerelease label such as `beta`.
 
@@ -77,7 +83,7 @@ Verification enforces the exact five-target set, archive names and payloads, exe
 
 `scripts/native-size-baseline.json` records Bun 1.3.14 measurements for every required target and may retain informational measurements for buildable reserved targets. A target may grow by 10% or 2 MiB, whichever is larger, before verification fails. That budget catches an embedded-runtime or packaging regression without making ordinary compiler growth churn the baseline; a Bun pin change requires explicit remeasurement and review.
 
-The path-filtered `Native` workflow builds the five required targets reproducibly on Linux, then runs each executable on its matching standard GitHub-hosted macOS, Linux, or Windows architecture. This workflow creates evidence only. It does not sign, attest, publish npm packages, create a GitHub release, or change the Homebrew tap; those remain later protected release steps.
+The path-filtered `Native` workflow builds the five required targets reproducibly on Linux, then runs each executable on its matching standard GitHub-hosted macOS, Linux, or Windows architecture. Pull requests and manual dispatches create evidence only. The protected Release workflow calls the same reusable job, resolves the signing policy before it starts, and consumes that exact smoke-tested artifact for attestation, npm packaging, and the GitHub release. The native workflow itself does not sign, attest, publish, create a release, or change the Homebrew tap.
 
 `bun run build:native-packages -- --required` projects the verified raw executables into the five public platform package directories. Each package contains exactly one executable plus its package manifest, generated package README, and MIT license. The platform packages declare `os`, `cpu`, and Linux `libc` compatibility; the unscoped launcher's optional dependencies use exact product versions and never download during `postinstall`. Global npm installation remains compatible with npm's lifecycle-script disabling mode because the launcher and platform packages contain their complete payloads and declare no lifecycle scripts.
 
@@ -116,6 +122,9 @@ bun run publish:policy
 bun run publish:check
 bun run publish:registry-check
 bun run publish:registry-check:published
+bun run publish:release-check -- --native-out-dir <path> --stage-dir <path>
+bun run release:assets -- stage --native-out-dir <path> --release-dir <path>
+bun run release:signing-check
 ```
 
 `bun run publish:label-release-pr` is a workflow helper that runs after `changesets/action` creates or updates the generated version PR. It labels missing intent families without overriding existing human intent.
@@ -124,7 +133,7 @@ bun run publish:registry-check:published
 
 `bun run publish:policy` is the release-workflow policy gate. It reads the current commit, the associated Changesets release PR, exact-SHA GitHub checks, source PR stack evidence, package/changelog state, and npm registry state, then emits GitHub Actions outputs for `auto`, `manual`, `none`, or `block`.
 
-`bun run publish:check` is the local preflight: it runs the full repo check, rebuilds the npm package output, and verifies both public tarball manifests without registry authentication. Publication remains single-package until the lockstep release workflow lands.
+`bun run publish:check` is the local source preflight: it runs the full repo check, validates the exact seven-package manifest and Changesets fixed group, rebuilds the npm outputs, and verifies the ordinary package payloads without registry authentication. The release-only `publish:release-check` additionally consumes a verified native output, stages all seven tarballs with the pinned npm CLI, and compares any existing package versions against their immutable registry integrity and provenance.
 
 Before marking a release PR ready, review provider and schema evidence when the range touches `packages/registry/src/**`, `packages/schema/src/**`, `docs/reference/schemas/**`, or `docs/reference/examples/**`:
 
@@ -141,15 +150,23 @@ bun run version:packages
 bun run publish:packages
 ```
 
-`bun run version:packages` consumes Changesets and rewrites package versions and changelogs. `bun run publish:packages` is intended for GitHub Actions and refuses to perform a first publish from a local shell unless `SKILLSET_ALLOW_LOCAL_PUBLISH=1` is set for an explicit incident or recovery path.
+`bun run version:packages` consumes Changesets and rewrites package versions and changelogs. `bun run publish:packages -- --native-out-dir <path> --stage-dir <path>` publishes only the preflighted tarballs in canonical order. It is intended for GitHub Actions and refuses to publish from a local shell unless `SKILLSET_ALLOW_LOCAL_PUBLISH=1` is set for an explicit incident or recovery path.
 
 ## Trusted Publishing Setup
 
-The workflow is prepared for npm Trusted Publishing by using publish jobs with `permissions.id-token: write`, SHA-pinned workflow actions, Node 24, the npm CLI for the final publish, and GitHub environments for publish paths. Bun remains the package build, test, and preflight runtime; npm owns the OIDC exchange because Trusted Publishing is currently documented for `npm publish`. Configure the trusted publisher for the npm package with:
+The workflow uses npm Trusted Publishing with `permissions.id-token: write`, SHA-pinned workflow actions, Node 24, pinned npm 11.12.1, explicit `npm publish --provenance`, and GitHub environments for publish paths. Bun remains the package build, test, and preflight runtime; npm owns the OIDC exchange. Configure the same publisher connection separately for each of these packages:
+
+- `@skillset/native-darwin-arm64`
+- `@skillset/native-darwin-x64`
+- `@skillset/native-linux-arm64-glibc`
+- `@skillset/native-linux-x64-glibc`
+- `@skillset/native-win32-x64`
+- `@skillset/cli`
+- `skillset`
 
 | Field                | Value           |
 | -------------------- | --------------- |
-| Package              | `skillset`      |
+| Package              | One package from the seven-package list above |
 | Publisher            | GitHub Actions  |
 | Organization or user | `outfitter-dev` |
 | Repository           | `skillset`      |
@@ -157,7 +174,7 @@ The workflow is prepared for npm Trusted Publishing by using publish jobs with `
 | Environment          | Leave blank     |
 | Allowed action       | `npm publish`   |
 
-npm allows one trusted publisher connection per package, so do not create separate npm trusted publisher entries for `npm` and `npm-auto`. Leaving the npm Environment field blank binds publishing to this repository and workflow without pinning one GitHub environment. The workflow still uses GitHub environments for routing: `npm` remains the protected manual approval path, while `npm-auto` should not require manual reviewers because the release policy is the gate that makes that path reachable.
+npm allows one trusted publisher connection per package, so do not create separate entries for `npm` and `npm-auto`. Leaving the npm Environment field blank binds each package to this repository and workflow without pinning one GitHub environment. The workflow still uses GitHub environments for routing: `npm` remains the protected manual and recovery path, while `npm-auto` should not require manual reviewers because the release policy and exact-set preflight are the gates that make that path reachable.
 
 The repository intentionally does not commit an npm auth token in `.npmrc` and the release workflow does not pass `NPM_TOKEN`.
 
