@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmod, lstat, mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdtemp } from "node:fs/promises";
 
 import {
   isBunVersionAllowed,
@@ -20,6 +20,7 @@ import {
   ensureBunAvailable,
   hasRepoInstallState,
   listWorkspaceGlobs,
+  normalizeTrackedCheckoutModes,
 } from "../bootstrap/repo";
 import { isRepoRoot } from "../bootstrap/shared";
 import { resolveCleanupTarget } from "../bootstrap/teardown";
@@ -257,6 +258,78 @@ describe("bootstrap repo policy", () => {
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
+  });
+
+  test("bootstrap normalizes tracked checkout modes without touching untracked files or symlinks", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const root = await createTestGitFixtureRoot("skillset-bootstrap-modes-");
+    const work = await mkdtemp(join(root, "work-"));
+    const regular = join(work, "regular.txt");
+    const executable = join(work, "run.sh");
+    const link = join(work, "regular-link");
+    const untracked = join(work, "private.txt");
+    await writeFile(regular, "regular\n");
+    await writeFile(executable, "#!/bin/sh\n");
+    await chmod(executable, 0o755);
+    await symlink("regular.txt", link);
+    await initializeTestGitRepository(work, { disposableRoot: root });
+    await chmod(regular, 0o600);
+    await chmod(executable, 0o700);
+    await writeFile(untracked, "private\n", { mode: 0o600 });
+
+    await expect(normalizeTrackedCheckoutModes(work)).resolves.toEqual({
+      executable: 1,
+      regular: 1,
+    });
+    const [regularEntry, executableEntry, untrackedEntry, linkEntry] =
+      await Promise.all([
+        lstat(regular),
+        lstat(executable),
+        lstat(untracked),
+        lstat(link),
+      ]);
+    expect(regularEntry.mode % 0o1000).toBe(0o644);
+    expect(executableEntry.mode % 0o1000).toBe(0o755);
+    expect(untrackedEntry.mode % 0o1000).toBe(0o600);
+    expect(linkEntry.isSymbolicLink()).toBe(true);
+    await expect(normalizeTrackedCheckoutModes(work)).resolves.toEqual({
+      executable: 0,
+      regular: 0,
+    });
+  });
+
+  test("bootstrap leaves unmerged checkout modes untouched", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const root = await createTestGitFixtureRoot(
+      "skillset-bootstrap-unmerged-modes-"
+    );
+    const work = await mkdtemp(join(root, "work-"));
+    const conflicted = join(work, "conflicted.txt");
+    await writeFile(conflicted, "base\n");
+    await initializeTestGitRepository(work, { disposableRoot: root });
+    await runTestGit(work, "switch", "-c", "executable-change");
+    await writeFile(conflicted, "branch\n");
+    await chmod(conflicted, 0o755);
+    await runTestGit(work, "add", "conflicted.txt");
+    await runTestGit(work, "commit", "-m", "executable change");
+    await runTestGit(work, "switch", "main");
+    await writeFile(conflicted, "main\n");
+    await runTestGit(work, "add", "conflicted.txt");
+    await runTestGit(work, "commit", "-m", "main change");
+    await expect(
+      runTestGit(work, "merge", "executable-change")
+    ).rejects.toThrow();
+    await chmod(conflicted, 0o600);
+
+    await expect(normalizeTrackedCheckoutModes(work)).resolves.toEqual({
+      executable: 0,
+      regular: 0,
+    });
+    expect((await lstat(conflicted)).mode % 0o1000).toBe(0o600);
   });
 
   test("root resolution prefers provider env vars before cwd", () => {

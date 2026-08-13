@@ -9,10 +9,14 @@ Open an issue or discussion before investing in a large behavior, schema, or arc
 Skillset uses Bun 1.3.14. From a fresh checkout:
 
 ```bash
-bun install --frozen-lockfile
+./scripts/bootstrap.sh repo
 bun run hooks:install
 bun run check
 ```
+
+Bootstrap installs the pinned dependencies and normalizes tracked checkout file
+modes, so verification behaves the same even when Git cloned the repository
+under a restrictive shell umask.
 
 ## Make a focused change
 

@@ -112,6 +112,12 @@ async function run(
   childArgv: readonly string[],
   env: Record<string, string | undefined>
 ): Promise<number> {
+  // Git materializes ordinary tracked files through the caller's umask. Keep
+  // disposable clones and generated-mode fixtures portable across contributor
+  // shells while leaving the private sandbox roots created above untouched.
+  if (process.platform !== "win32") {
+    process.umask(0o022);
+  }
   const child = Bun.spawn({
     cmd: [...childArgv],
     env,
