@@ -28,6 +28,7 @@ For ADR lifecycle work, use `skillset-adrs`, then follow `docs/adrs/README.md` a
 
 - Contributor material may read, invoke, test, and extend the public Skillset product.
 - Public `skillset*` artifacts must never route to or depend on `skillset-dev*`, repository internals, fixtures, or release machinery.
+- `bun run public-closure:guard` enforces that boundary only over generated `plugins/skillset/**` output. Contributor and self-hosted `.agents/`, `.claude/`, `.cursor/`, and `.skillset/` trees are intentionally outside its scan root.
 - Edit `.skillset/` and `skillset.yaml` as canonical self-hosted source. Rebuild generated `.agents/`, `.claude/`, `.cursor/`, and `plugins/` output; never hand-edit it as source truth.
 - Build does not authorize installation, activation, trust, publication, or user-level provider configuration changes.
 
