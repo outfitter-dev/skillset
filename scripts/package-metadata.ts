@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { nativePackageManifestDiagnostics } from "./native-packages";
 
 type PackageManifest = {
@@ -145,6 +146,23 @@ export async function distributionBundleDiagnostics(rootPath: string) {
   return diagnostics;
 }
 
+export async function distributionOutputGitDiagnostics(rootPath: string) {
+  const tracked = await runGit(rootPath, ["ls-files", "--", "apps/cli/dist"]);
+  const ignored = await runGit(
+    rootPath,
+    ["check-ignore", "--quiet", "--no-index", "--", "apps/cli/dist/cli.js"],
+    [0, 1]
+  );
+  const diagnostics: string[] = [];
+  if (tracked.stdout.trim().length > 0) {
+    diagnostics.push("apps/cli/dist must remain untracked");
+  }
+  if (ignored.exitCode !== 0) {
+    diagnostics.push("apps/cli/dist must remain ignored");
+  }
+  return diagnostics;
+}
+
 export async function readmeMetadataDiagnostics(rootPath: string) {
   const [readme, manifest] = await Promise.all([
     readFile(join(rootPath, "README.md"), "utf8"),
@@ -273,6 +291,7 @@ async function commandCheck() {
     ...(await licenseDiagnostics(rootDir)),
     ...(await bunRuntimeDiagnostics(rootDir)),
     ...(await distributionBundleDiagnostics(rootDir)),
+    ...(await distributionOutputGitDiagnostics(rootDir)),
     ...(await launcherRuntimeDiagnostics(rootDir)),
     ...(await packageBinDiagnostics(rootDir)),
     ...(await projectionDiagnostics(rootDir)),
@@ -305,6 +324,28 @@ async function readManifest(path: string) {
     );
   }
   return parsed;
+}
+
+async function runGit(
+  cwd: string,
+  args: readonly string[],
+  allowedExitCodes: readonly number[] = [0]
+) {
+  const process = Bun.spawn(["git", ...args], {
+    cwd,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(process.stdout).text(),
+    new Response(process.stderr).text(),
+    process.exited,
+  ]);
+  if (!allowedExitCodes.includes(exitCode)) {
+    throw new Error(`git ${args.join(" ")} failed: ${stderr.trim()}`);
+  }
+  return { exitCode, stdout };
 }
 
 if (import.meta.main) {
