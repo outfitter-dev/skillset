@@ -3194,7 +3194,7 @@ skillset:
   expect(await exists(join(root, ".codex/skillset.lock"))).toBe(false);
 });
 
-test("project target-native islands back up unmanaged destination collisions", async () => {
+test("project target-native islands block unmanaged destination collisions", async () => {
   const root = await fixture({
     ".codex/rules/deny.rules": `
 match = "existing"
@@ -3220,11 +3220,10 @@ skillset:
     code: "unmanaged-output-collision",
     outputPath: ".codex/rules/deny.rules",
   }));
-  expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
-    action: "overwrite",
-    reason: "unmanaged-collision",
-    targetPath: ".codex/rules/deny.rules",
-  }));
+  expect(result.ok).toBe(false);
+  expect(result.writes.paths).toEqual([]);
+  expect(await readFile(join(root, ".codex/rules/deny.rules"), "utf8")).toContain('match = "existing"');
+  expect(await exists(join(root, ".skillset/snapshots"))).toBe(false);
 });
 
 test("project target-native islands reject project roots inside source root", async () => {
@@ -3841,7 +3840,7 @@ codex: false
   expect(await exists(join(root, ".claude/rules/docs/second.md"))).toBe(true);
 });
 
-test("rules back up unmanaged AGENTS collisions", async () => {
+test("rules block unmanaged AGENTS collisions", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -3862,8 +3861,11 @@ codex: true
     code: "unmanaged-output-collision",
     outputPath: "AGENTS.md",
   }));
-  expect(result.writes.backupRunId).toBeDefined();
-  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(true);
+  expect(result.ok).toBe(false);
+  expect(result.writes.paths).toEqual([]);
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(false);
+  expect(await exists(join(root, ".skillset/snapshots"))).toBe(false);
 });
 
 test("rules reject unknown skillset variables", async () => {

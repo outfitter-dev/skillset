@@ -108,7 +108,7 @@ test("isolated rebuild is idempotent", async () => {
   expect(await mirrorTreeHashes(root)).toEqual(before);
 });
 
-test("isolated build backs up unmanaged files planted inside the mirror", async () => {
+test("isolated build blocks unmanaged files planted inside the mirror", async () => {
   const root = await fixture(DEMO_FIXTURE);
   await Bun.write(cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md")), "user file\n");
 
@@ -117,7 +117,11 @@ test("isolated build backs up unmanaged files planted inside the mirror", async 
     code: "unmanaged-output-collision",
     outputPath: join(ISOLATED_OUT_ROOT, "AGENTS.md"),
   }));
-  expect(result.writes.backupRunId).toBeDefined();
+  expect(result.ok).toBe(false);
+  expect(result.outputState.state).toBe("blocked");
+  expect(result.writes.paths).toEqual([]);
+  expect(await Bun.file(cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md"))).text()).toBe("user file\n");
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 });
 
 test("CLI accepts --isolated for build and the narrow output check", async () => {

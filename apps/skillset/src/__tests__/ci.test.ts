@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
-import { buildSkillset, checkSkillsetSourceReadiness, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { buildSkillset, checkSkillsetSourceReadiness, classifySkillsetOutputState, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
 import {
@@ -162,6 +162,7 @@ test("check shares generated-only recovery guidance across terminal, Markdown, a
   const markdown = renderCiReportMarkdown(report);
 
   expect(terminal.exitCode).toBe(1);
+  expect(report.outputState.state).toBe("source-ahead");
   expect(terminal.stdout).toContain("recovery rebuild-generated-output:");
   expect(terminal.stdout).toContain("next: skillset check --write");
   expect(terminal.stdout).not.toContain("skillset check --ci --fix");
@@ -170,10 +171,14 @@ test("check shares generated-only recovery guidance across terminal, Markdown, a
   expect(markdown).toContain("rebuild-generated-output");
   expect(markdown).toContain("`skillset check --write`");
   expect(markdown).not.toContain("`skillset check --ci --fix`");
+  expect(markdown).not.toContain("### Reconciliation");
+  expect(report.sourceSuggestions).toBeUndefined();
 
   expect(json.exitCode).toBe(1);
-  expect(JSON.parse(json.stdout)).toMatchObject({
+  const jsonReport = JSON.parse(json.stdout) as { data: { sourceSuggestions?: unknown } };
+  expect(jsonReport).toMatchObject({
     data: {
+      outputState: { state: "source-ahead" },
       recovery: [expect.objectContaining({
         action: "rebuild-generated-output",
         commands: ["skillset check --write"],
@@ -181,6 +186,27 @@ test("check shares generated-only recovery guidance across terminal, Markdown, a
       })],
     },
   });
+  expect(jsonReport.data.sourceSuggestions).toBeUndefined();
+  expect(terminal.stdout).not.toContain("skillset reconcile");
+});
+
+test("check never offers reconciliation without an output baseline", async () => {
+  const root = await fixture(DEMO_FIXTURE);
+
+  const terminal = await runSkillsetCli("check", "--root", root);
+  const json = await runSkillsetCli("check", "--root", root, "--json");
+  const report = await ciSkillset(root);
+  const markdown = renderCiReportMarkdown(report);
+
+  expect(report.outputState.state).toBe("no-output-baseline");
+  expect(report.sourceSuggestions).toBeUndefined();
+  expect(terminal.stdout).not.toContain("skillset reconcile");
+  expect(markdown).not.toContain("### Reconciliation");
+  expect(JSON.parse(json.stdout)).toMatchObject({
+    data: { outputState: { state: "no-output-baseline" } },
+  });
+  expect(json.stdout).not.toContain("sourceSuggestions");
+  expect(json.stdout).not.toContain("skillset reconcile");
 });
 
 test("check suppresses mechanical rebuild guidance when change coverage also blocks", async () => {
@@ -253,7 +279,7 @@ test("check --only outputs supports structured output", async () => {
   });
 });
 
-test("check --only outputs serializes drift diagnostics", async () => {
+test("check --only outputs serializes managed-edit and drift diagnostics without writing", async () => {
   const root = await builtFixture();
   await writeFile(join(root, GENERATED_SKILL), "stale\n");
 
@@ -262,11 +288,24 @@ test("check --only outputs serializes drift diagnostics", async () => {
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
-    diagnostics: [expect.objectContaining({ path: GENERATED_SKILL, severity: "error" })],
+    diagnostics: [
+      expect.objectContaining({
+        code: "managed-output-edited",
+        path: GENERATED_SKILL,
+        severity: "warning",
+      }),
+      expect.objectContaining({
+        code: "generated-output-changed",
+        path: GENERATED_SKILL,
+        severity: "error",
+      }),
+    ],
     exitCode: 1,
     kind: "diagnostics",
     ok: false,
   });
+  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toBe("stale\n");
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 });
 
 test("check preserves generated-output diagnostics without drift", async () => {
@@ -295,6 +334,10 @@ test("ci report explains generated changelog drift", () => {
     ok: false,
     outputEditedPaths: [],
     outputDiagnostics: [],
+    outputState: classifySkillsetOutputState({
+      hasBaseline: true,
+      sourceChanges: [".skillset/skills/demo/CHANGELOG.md"],
+    }),
     providerUpdatePaths: [],
     warnings: [],
   });
@@ -320,6 +363,7 @@ test("ci report renders recovery guidance for successful warning-only change rep
     ok: true,
     outputEditedPaths: [],
     outputDiagnostics: [],
+    outputState: classifySkillsetOutputState({ hasBaseline: true }),
     providerUpdatePaths: [],
     recovery: [{
       action: "change-migrate",
@@ -351,6 +395,10 @@ test("ci report uses a safe Markdown code fence for recovery commands containing
     ok: false,
     outputEditedPaths: [],
     outputDiagnostics: [],
+    outputState: classifySkillsetOutputState({
+      hasBaseline: true,
+      outputChanges: [path],
+    }),
     providerUpdatePaths: [],
     recovery: [{ action: "reconcile", commands: [command], path, reason: "preview exact path" }],
     warnings: [],

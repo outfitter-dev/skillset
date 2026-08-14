@@ -86,6 +86,7 @@ export {
 export {
   buildSkillset,
   buildSkillsetResult,
+  SkillsetBuildBlockedError,
   verifySkillset,
   verifySkillsetResult,
   diffSkillset,
@@ -94,6 +95,7 @@ export {
   type SkillsetBuildResult,
   type SkillsetVerifyResult,
   type SkillsetDiff,
+  type SkillsetDiffInspectionOptions,
   type SkillsetDiffResult,
 } from "./build";
 export {
@@ -276,6 +278,15 @@ export {
   type CheckSkillsetSourceReadinessOptions,
   type SkillsetSourceReadinessData,
 } from "./source-readiness";
+export {
+  classifySkillsetOutputFailure,
+  classifySkillsetOutputState,
+  SKILLSET_OUTPUT_STATES,
+  type ClassifySkillsetOutputStateInput,
+  type SkillsetOutputState,
+  type SkillsetOutputStateBlocker,
+  type SkillsetOutputStateEvidence,
+} from "./output-state";
 export {
   planSourceRename,
   renameSource,

@@ -17,6 +17,7 @@ import {
   prepareOutputBackups,
   readManagedOutputState,
   withBackupSummary,
+  type ManagedOutputState,
   type OutputPathResolver,
 } from "./output-safety";
 import {
@@ -34,6 +35,7 @@ import {
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
 } from "./operation-result";
+import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { SkillsetRenderResultError, defineRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
@@ -94,18 +96,33 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
   return diagnostics;
 }
 
-export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]>;
+export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]> & {
+  readonly outputState: SkillsetOutputStateEvidence;
+};
+
+export class SkillsetBuildBlockedError extends Error {
+  readonly result: SkillsetBuildResult;
+
+  constructor(result: SkillsetBuildResult) {
+    super(`skillset: build blocked by ${result.outputState.blockers.map((blocker) => blocker.code).join(", ")}`);
+    this.name = "SkillsetBuildBlockedError";
+    this.result = result;
+  }
+}
 
 export async function buildSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<readonly RenderedFile[]> {
-  return (await buildSkillsetResult(rootPath, options)).data;
+  const result = await buildSkillsetResult(rootPath, options);
+  if (!result.ok) throw new SkillsetBuildBlockedError(result);
+  return result.data;
 }
 
 export async function buildSkillsetResult(
   rootPath: string,
-  options: SkillsetOptions = {}
+  options: SkillsetOptions = {},
+  inspectionOptions: SkillsetDiffInspectionOptions = {}
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
@@ -137,26 +154,55 @@ export async function buildSkillsetResult(
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
   diagnostics.push(...await diagnoseMissingManagedOutputs(rendered, previousManagedState.paths, resolveOutputPath));
-
+  const inspection = await inspectOutputPlan({
+    diagnostics,
+    expected: new Map(rendered.map((file) => [file.path, file])),
+    outputRoots,
+    pathContext,
+    previousManagedState,
+    rendered,
+    resolveOutputPath,
+    rootPath,
+    ...(inspectionOptions.sourceDrivenOutputPaths === undefined
+      ? {}
+      : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+  });
+  if (inspection.outputState.state === "blocked") {
+    diagnostics.push(...inspection.preflightDiagnostics);
+    return {
+      data: rendered,
+      diagnostics,
+      outputState: inspection.outputState,
+      renderResults: renderResultsWithDiagnostics,
+      ok: false,
+      operation: "build",
+      writes: {
+        deletedPaths: [],
+        mode: "read",
+        paths: [],
+        writtenPaths: [],
+      },
+    };
+  }
   if (graph.root.compile.build === "all") {
-    const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, expectedPaths);
+    const staleManagedPaths = inspection.staleManagedPaths;
     const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
     diagnostics.push(...safety.diagnostics);
 
     const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
     const writtenPaths = await writeRenderedFiles(rendered, resolveOutputPath);
-    return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+    return buildResult(rendered, diagnostics, inspection.outputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
-  const actualPaths = new Set(await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath));
-  const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, expectedPaths).filter((path) => actualPaths.has(path));
+  const actualPaths = inspection.actualPaths;
+  const staleManagedPaths = inspection.staleManagedPaths;
   const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
   diagnostics.push(...safety.diagnostics);
 
   const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
   const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, resolveOutputPath);
 
-  return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  return buildResult(rendered, diagnostics, inspection.outputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
 export interface SkillsetDiff {
@@ -166,10 +212,117 @@ export interface SkillsetDiff {
   readonly removed: readonly string[];
 }
 
-export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff>;
+interface OutputPlanInspection {
+  readonly actualPaths: ReadonlySet<string>;
+  readonly diff: SkillsetDiff;
+  readonly outputState: SkillsetOutputStateEvidence;
+  readonly preflightDiagnostics: readonly SkillsetDiagnostic[];
+  readonly staleManagedPaths: readonly string[];
+}
+
+async function inspectOutputPlan(args: {
+  readonly diagnostics: readonly SkillsetDiagnostic[];
+  readonly expected: ReadonlyMap<string, RenderedFile>;
+  readonly outputRoots: readonly string[];
+  readonly pathContext: OperationalPathContext;
+  readonly previousManagedState: ManagedOutputState;
+  readonly rendered: readonly RenderedFile[];
+  readonly resolveOutputPath: OutputPathResolver;
+  readonly rootPath: string;
+  readonly sourceDrivenOutputPaths?: readonly string[];
+}): Promise<OutputPlanInspection> {
+  const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
+  const actualPaths = new Set(actualPathList);
+  const staleManagedPaths = staleManagedOutputPaths(args.previousManagedState.paths, new Set(args.expected.keys())).filter((path) => actualPaths.has(path));
+  const preflightDiagnostics = await diagnoseOutputBackupPreflight(args.rootPath, args.rendered, staleManagedPaths, args.previousManagedState, args.resolveOutputPath);
+  const added: string[] = [];
+  const changed: string[] = [];
+  const missing: string[] = [];
+  const removed: string[] = [];
+
+  for (const file of args.rendered) {
+    if (!actualPaths.has(file.path)) {
+      if (args.previousManagedState.paths.has(file.path)) {
+        missing.push(file.path);
+      } else {
+        added.push(file.path);
+      }
+      continue;
+    }
+    const current = await readFile(args.resolveOutputPath(file.path));
+    if (!bytesEqual(current, file.content) || !(await generatedFileOnDiskMatchesMode(args.resolveOutputPath(file.path), file))) {
+      changed.push(file.path);
+    }
+  }
+  for (const path of actualPathList) {
+    if (!args.previousManagedState.paths.has(path)) continue;
+    if (!args.expected.has(path)) removed.push(path);
+  }
+
+  const diff: SkillsetDiff = {
+    added: added.sort(compareStrings),
+    changed: changed.sort(compareStrings),
+    missing: missing.sort(compareStrings),
+    removed: removed.sort(compareStrings),
+  };
+  const outputChanges = new Set([
+    ...diff.missing,
+    ...diff.changed.filter((path) => args.previousManagedState.editedPaths.has(path)),
+    ...diff.removed.filter((path) => args.previousManagedState.editedPaths.has(path)),
+  ]);
+  const candidateSourceChanges = [...diff.added, ...diff.changed, ...diff.removed]
+    .filter((path) => !outputChanges.has(path));
+  const blockers = [...args.diagnostics, ...preflightDiagnostics]
+    .filter((diagnostic) =>
+      diagnostic.severity === "error" ||
+      (diagnostic.code === "unmanaged-output-collision" &&
+        !isEstablishedMarketplaceSourceDrift(
+          diagnostic.outputPath ?? diagnostic.path,
+          args.previousManagedState.paths.size,
+          args.sourceDrivenOutputPaths ?? []
+        ))
+    )
+    .map((diagnostic) => ({
+      code: diagnostic.code,
+      ...(diagnostic.outputPath === undefined && diagnostic.path === undefined ? {} : { path: diagnostic.outputPath ?? diagnostic.path }),
+    }));
+  const blockedPaths = new Set(blockers.flatMap((blocker) => blocker.path === undefined ? [] : [blocker.path]));
+  const sourceChanges = candidateSourceChanges.filter((path) => !blockedPaths.has(path));
+
+  return {
+    actualPaths,
+    diff,
+    outputState: classifySkillsetOutputState({
+      blockers,
+      hasBaseline: args.previousManagedState.hasBaseline,
+      outputChanges: [...outputChanges],
+      sourceChanges,
+    }),
+    preflightDiagnostics,
+    staleManagedPaths,
+  };
+}
+
+function isEstablishedMarketplaceSourceDrift(
+  path: string | undefined,
+  managedOutputCount: number,
+  sourceDrivenOutputPaths: readonly string[]
+): boolean {
+  if (path === undefined || managedOutputCount === 0 || !sourceDrivenOutputPaths.includes(path)) return false;
+  return path === ".claude-plugin/marketplace.json" ||
+    path === ".cursor-plugin/marketplace.json" ||
+    path?.endsWith("/.claude-plugin/marketplace.json") === true ||
+    path?.endsWith("/.cursor-plugin/marketplace.json") === true;
+}
+
+export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff> & {
+  readonly outputState: SkillsetOutputStateEvidence;
+};
 
 export interface SkillsetDiffInspectionOptions {
   readonly enforceRenderPolicy?: boolean;
+  /** Paths proven source-driven by a provider-format analysis. */
+  readonly sourceDrivenOutputPaths?: readonly string[];
 }
 
 /**
@@ -219,49 +372,26 @@ export async function diffSkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
-  const actualPaths = await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath);
-  const actual = new Set(actualPaths);
-  const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, new Set(expected.keys())).filter((path) => actual.has(path));
-  diagnostics.push(...await diagnoseOutputBackupPreflight(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath));
-
-  const added: string[] = [];
-  const changed: string[] = [];
-  const missing: string[] = [];
-  const removed: string[] = [];
-
-  for (const file of rendered) {
-    if (!actual.has(file.path)) {
-      if (previousManagedState.paths.has(file.path)) {
-        missing.push(file.path);
-      } else {
-        added.push(file.path);
-      }
-      continue;
-    }
-    const current = await readFile(resolveOutputPath(file.path));
-    if (
-      !bytesEqual(current, file.content) ||
-      !(await generatedFileOnDiskMatchesMode(resolveOutputPath(file.path), file))
-    ) {
-      changed.push(file.path);
-    }
-  }
-  for (const path of actualPaths) {
-    if (!previousManagedState.paths.has(path)) continue;
-    if (!expected.has(path)) removed.push(path);
-  }
-
-  const diff = {
-    added: [...added].sort(compareStrings),
-    changed: [...changed].sort(compareStrings),
-    missing: [...missing].sort(compareStrings),
-    removed: [...removed].sort(compareStrings),
-  };
-  return {
-    data: diff,
+  const inspectionResult = await inspectOutputPlan({
     diagnostics,
+    expected,
+    outputRoots,
+    pathContext,
+    previousManagedState,
+    rendered,
+    resolveOutputPath,
+    rootPath,
+    ...(inspection.sourceDrivenOutputPaths === undefined
+      ? {}
+      : { sourceDrivenOutputPaths: inspection.sourceDrivenOutputPaths }),
+  });
+  diagnostics.push(...inspectionResult.preflightDiagnostics);
+  return {
+    data: inspectionResult.diff,
+    diagnostics,
+    outputState: inspectionResult.outputState,
     renderResults: renderResultsWithDiagnostics,
-    ok: true,
+    ok: inspectionResult.outputState.state !== "blocked",
     operation: "diff",
     writes: {
       deletedPaths: [],
@@ -283,7 +413,9 @@ export async function verifySkillset(
   return result.data;
 }
 
-export type SkillsetVerifyResult = SkillsetOperationResult<CheckResult>;
+export type SkillsetVerifyResult = SkillsetOperationResult<CheckResult> & {
+  readonly outputState: SkillsetOutputStateEvidence;
+};
 
 export async function verifySkillsetResult(
   rootPath: string,
@@ -318,8 +450,19 @@ export async function verifySkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
-  const actualPaths = await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath);
-  const actual = new Set(actualPaths);
+  const inspection = await inspectOutputPlan({
+    diagnostics,
+    expected,
+    outputRoots,
+    pathContext,
+    previousManagedState,
+    rendered,
+    resolveOutputPath,
+    rootPath,
+  });
+  diagnostics.push(...inspection.preflightDiagnostics);
+  const actualPaths = [...inspection.actualPaths];
+  const actual = inspection.actualPaths;
   const failures: string[] = [];
   const driftDiagnostics: SkillsetDiagnostic[] = [];
 
@@ -367,8 +510,9 @@ export async function verifySkillsetResult(
   return {
     data: { checkedFiles: rendered.length, failures },
     diagnostics: [...diagnostics, ...driftDiagnostics],
+    outputState: inspection.outputState,
     renderResults: renderResultsWithDiagnostics,
-    ok: failures.length === 0,
+    ok: failures.length === 0 && inspection.outputState.state !== "blocked",
     operation: "verify",
     writes: {
       deletedPaths: [],
@@ -479,12 +623,14 @@ function enforceSoftPolicyHasUsableOutput(
 function buildResult(
   rendered: readonly RenderedFile[],
   diagnostics: readonly SkillsetDiagnostic[],
+  outputState: SkillsetOutputStateEvidence,
   renderResults: readonly SkillsetRenderResult[],
   writes: SkillsetWriteSummary
 ): SkillsetBuildResult {
   return {
     data: rendered,
     diagnostics,
+    outputState,
     renderResults,
     ok: true,
     operation: "build",

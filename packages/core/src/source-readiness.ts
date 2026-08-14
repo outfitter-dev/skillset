@@ -19,6 +19,11 @@ import {
   resolveOperationalPath,
 } from "./operational-cache";
 import { readManagedOutputState } from "./output-safety";
+import {
+  classifySkillsetOutputFailure,
+  classifySkillsetOutputState,
+  type SkillsetOutputStateEvidence,
+} from "./output-state";
 import { compareStrings } from "./path";
 import type { SkillsetRenderResult } from "./render-result";
 import { loadBuildGraph } from "./resolver";
@@ -32,6 +37,8 @@ import type {
 export interface CheckSkillsetSourceReadinessOptions extends SkillsetOptions {
   /** Explicitly request a generated-output-only rebuild. */
   readonly write?: "outputs";
+  /** Output paths proven source-driven by provider-format analysis. */
+  readonly sourceDrivenOutputPaths?: readonly string[];
 }
 
 export interface SkillsetSourceReadinessData {
@@ -44,6 +51,7 @@ export interface SkillsetSourceReadinessData {
   readonly fixedPaths: readonly string[];
   readonly managedOutputPaths: readonly string[];
   readonly outputDiagnostics: readonly SkillsetDiagnostic[];
+  readonly outputState: SkillsetOutputStateEvidence;
   readonly remainingPaths: readonly string[];
   readonly stalePaths: readonly string[];
   readonly warnings: readonly string[];
@@ -77,13 +85,6 @@ const READ_WRITES: SkillsetWriteSummary = {
   paths: [],
   writtenPaths: [],
 };
-const INVOKED_WRITES: SkillsetWriteSummary = {
-  deletedPaths: [],
-  mode: "write",
-  paths: [],
-  writtenPaths: [],
-};
-
 /**
  * Check source and generated-output readiness without Git, release, recovery,
  * presentation, or exit policy. Writes require the explicit `outputs` request
@@ -93,8 +94,11 @@ export async function checkSkillsetSourceReadiness(
   rootPath: string,
   options: CheckSkillsetSourceReadinessOptions = {}
 ): Promise<SkillsetOperationResult<SkillsetSourceReadinessData>> {
-  const { write, ...skillsetOptions } = options;
-  const initial = await collectSourceReadiness(rootPath, skillsetOptions);
+  const { sourceDrivenOutputPaths, write, ...skillsetOptions } = options;
+  const inspection = sourceDrivenOutputPaths === undefined
+    ? {}
+    : { sourceDrivenOutputPaths };
+  const initial = await collectSourceReadiness(rootPath, skillsetOptions, inspection);
   if ("error" in initial) {
     return collectionFailureResult(initial);
   }
@@ -116,7 +120,7 @@ export async function checkSkillsetSourceReadiness(
   // Reload every neutral fact immediately before a requested write. The app or
   // library caller owns higher-level eligibility; Core independently refuses
   // stale managed edits, lint failures, and error diagnostics.
-  const current = await collectSourceReadiness(rootPath, skillsetOptions);
+  const current = await collectSourceReadiness(rootPath, skillsetOptions, inspection);
   if ("error" in current) {
     return collectionFailureResult(current);
   }
@@ -163,30 +167,37 @@ export async function checkSkillsetSourceReadiness(
     );
   }
 
-  let writeInvoked = false;
   let writes = READ_WRITES;
+  let writePerformed = false;
   try {
-    writeInvoked = true;
-    writes = (await buildSkillsetResult(rootPath, skillsetOptions)).writes;
+    const build = await buildSkillsetResult(rootPath, skillsetOptions, inspection);
+    writes = build.writes;
+    writePerformed = build.ok && build.writes.mode === "write" && build.writes.paths.length > 0;
   } catch (error) {
     const buildFailureDiagnostics = failureDiagnostics(error);
     const afterFailure = await collectSourceReadiness(
       rootPath,
-      skillsetOptions
+      skillsetOptions,
+      inspection
     );
     if (!("error" in afterFailure)) {
       const remainingPaths = driftPaths(afterFailure.data.drift);
       const remainingSet = new Set(remainingPaths);
       const fixedPaths = stalePaths.filter((path) => !remainingSet.has(path));
+      const partialWrites = await observedPartialWrites(
+        rootPath,
+        skillsetOptions,
+        fixedPaths
+      );
       return readinessResult(
         afterFailure,
         {
           fixedPaths,
           remainingPaths,
           stalePaths,
-          writePerformed: writeInvoked,
+          writePerformed: partialWrites.mode === "write",
         },
-        writeInvoked ? INVOKED_WRITES : READ_WRITES,
+        partialWrites,
         buildFailureDiagnostics
       );
     }
@@ -196,14 +207,14 @@ export async function checkSkillsetSourceReadiness(
         fixedPaths: [],
         remainingPaths: stalePaths,
         stalePaths,
-        writePerformed: writeInvoked,
+        writePerformed: false,
       },
-      writeInvoked ? INVOKED_WRITES : READ_WRITES,
+      READ_WRITES,
       [...buildFailureDiagnostics, ...failureDiagnostics(afterFailure.error)]
     );
   }
 
-  const remaining = await collectSourceReadiness(rootPath, skillsetOptions);
+  const remaining = await collectSourceReadiness(rootPath, skillsetOptions, inspection);
   if ("error" in remaining) {
     return readinessResult(
       current,
@@ -211,7 +222,7 @@ export async function checkSkillsetSourceReadiness(
         fixedPaths: [],
         remainingPaths: stalePaths,
         stalePaths,
-        writePerformed: true,
+        writePerformed,
       },
       writes,
       failureDiagnostics(remaining.error)
@@ -226,15 +237,49 @@ export async function checkSkillsetSourceReadiness(
       fixedPaths,
       remainingPaths,
       stalePaths,
-      writePerformed: true,
+      writePerformed,
     },
     writes
   );
 }
 
+async function observedPartialWrites(
+  rootPath: string,
+  options: SkillsetOptions,
+  fixedPaths: readonly string[]
+): Promise<SkillsetWriteSummary> {
+  if (fixedPaths.length === 0) return READ_WRITES;
+  const graph = await loadBuildGraph(rootPath, options);
+  const pathContext = createOperationalPathContext(rootPath, {
+    ...(graph.root.workspace.cacheKey === undefined
+      ? {}
+      : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+    ...(options.xdg?.env === undefined ? {} : { env: options.xdg.env }),
+    ...(options.xdg?.homeDir === undefined
+      ? {}
+      : { homeDir: options.xdg.homeDir }),
+  });
+  const writtenPaths: string[] = [];
+  const deletedPaths: string[] = [];
+  for (const path of fixedPaths) {
+    if (await Bun.file(resolveOperationalPath(pathContext, path)).exists()) {
+      writtenPaths.push(path);
+    } else {
+      deletedPaths.push(path);
+    }
+  }
+  return {
+    deletedPaths,
+    mode: "write",
+    paths: fixedPaths,
+    writtenPaths,
+  };
+}
+
 async function collectSourceReadiness(
   rootPath: string,
-  options: SkillsetOptions
+  options: SkillsetOptions,
+  inspection: { readonly sourceDrivenOutputPaths?: readonly string[] } = {}
 ): Promise<SourceReadinessFacts | SourceReadinessFailure> {
   try {
     const graph = await loadBuildGraph(rootPath, options);
@@ -262,7 +307,7 @@ async function collectSourceReadiness(
     );
     let diff: Awaited<ReturnType<typeof diffSkillsetResult>>;
     try {
-      diff = await diffSkillsetResult(rootPath, options);
+      diff = await diffSkillsetResult(rootPath, options, inspection);
     } catch (error) {
       return {
         error,
@@ -279,6 +324,7 @@ async function collectSourceReadiness(
             drift: EMPTY_DRIFT,
             managedOutputPaths: [...managed.paths].sort(compareStrings),
             outputDiagnostics: [],
+            outputState: classifySkillsetOutputFailure(error, managed.hasBaseline),
             warnings: graph.warnings,
           },
           diagnostics: lint.issues.map(lintDiagnostic),
@@ -303,6 +349,7 @@ async function collectSourceReadiness(
         drift: diff.data,
         managedOutputPaths: [...managed.paths].sort(compareStrings),
         outputDiagnostics: diff.diagnostics,
+        outputState: diff.outputState,
         warnings: graph.warnings,
       },
       diagnostics: [...diff.diagnostics, ...lint.issues.map(lintDiagnostic)],
@@ -352,6 +399,7 @@ function failedResult(
       fixedPaths: [],
       managedOutputPaths: [],
       outputDiagnostics: [],
+      outputState: classifySkillsetOutputFailure(error, false),
       remainingPaths: [],
       stalePaths: [],
       warnings: [],

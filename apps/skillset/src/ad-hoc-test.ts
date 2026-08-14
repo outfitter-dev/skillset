@@ -3,7 +3,7 @@ import { spawn as spawnNode } from "node:child_process";
 import { join, resolve } from "node:path";
 
 import {
-  buildSkillset,
+  buildSkillsetResult,
   ISOLATED_OUT_ROOT,
 } from "@skillset/core";
 
@@ -242,7 +242,6 @@ export async function executeAdHocTestRun(
     buildMode: "all",
     isolated: true,
     ...(config.sourceDir === undefined ? {} : { sourceDir: config.sourceDir }),
-    targetFilter: [target],
     ...(xdg === undefined ? {} : { xdg }),
   };
 
@@ -250,7 +249,12 @@ export async function executeAdHocTestRun(
   await appendEvent(paths, "status", "building isolated target output");
   status = await updateRunState(paths, status, "building");
   try {
-    await buildSkillset(root, runOptions);
+    const build = await buildSkillsetResult(root, runOptions);
+    if (!build.ok) {
+      throw new Error(
+        `skillset: isolated runtime build blocked before provider launch by ${build.outputState.blockers.map((blocker) => blocker.code).join(", ")}`
+      );
+    }
   } catch (error) {
     await failRun(paths, status, messageFor(error), "render");
     return;

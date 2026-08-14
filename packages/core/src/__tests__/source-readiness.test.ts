@@ -117,7 +117,7 @@ test("read-only isolated readiness keeps output in the XDG mirror", async () => 
   }
 });
 
-test("a library output write backs up an unmanaged collision", async () => {
+test("a library output write blocks an unmanaged collision", async () => {
   const root = await fixture();
   try {
     await mkdir(join(root, ".claude/skills/demo"), { recursive: true });
@@ -127,18 +127,12 @@ test("a library output write backs up an unmanaged collision", async () => {
       write: "outputs",
     });
 
-    expect(result.ok).toBe(true);
-    expect(result.data.writePerformed).toBe(true);
-    expect(result.data.remainingPaths).toEqual([]);
-    expect(result.writes.backupRecords).toContainEqual(
-      expect.objectContaining({
-        reason: "unmanaged-collision",
-        targetPath: GENERATED_SKILL,
-      })
-    );
-    expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toContain(
-      "Demo body."
-    );
+    expect(result.ok).toBe(false);
+    expect(result.data.writePerformed).toBe(false);
+    expect(result.data.remainingPaths).toContain(GENERATED_SKILL);
+    expect(result.writes.paths).toEqual([]);
+    expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toBe("hand-authored\n");
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   } finally {
     await rm(root, { force: true, recursive: true });
   }
@@ -184,7 +178,7 @@ test("an explicit output write rebuilds stale paths and rediffs", async () => {
   }
 });
 
-test("a rebuild failure records the invocation without claiming unknown writes", async () => {
+test("a partial rebuild failure reports writes completed before the failure", async () => {
   const root = await fixture();
   const blockedDirectory = join(root, ".claude/skills/zeta");
   try {
@@ -202,12 +196,9 @@ test("a rebuild failure records the invocation without claiming unknown writes",
 
     expect(result.ok).toBe(false);
     expect(result.data.writePerformed).toBe(true);
-    expect(result.writes).toEqual({
-      deletedPaths: [],
-      mode: "write",
-      paths: [],
-      writtenPaths: [],
-    });
+    expect(result.writes.mode).toBe("write");
+    expect(result.writes.paths).toContain(GENERATED_SKILL);
+    expect(result.writes.writtenPaths).toContain(GENERATED_SKILL);
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         code: "source-readiness-failed",

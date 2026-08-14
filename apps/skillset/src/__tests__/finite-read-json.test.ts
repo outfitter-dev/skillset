@@ -264,19 +264,28 @@ describe("SET-287 finite read-only JSON", () => {
     const root = path.join(parent, "workspace");
     await cp(fixtureRoot, root, { recursive: true });
 
-    const preview = JSON.parse((await runJsonRoute("build", "--root", root)).stdout) as SkillsetCliResult;
+    const preview = JSON.parse((await runJsonRoute("build", "--root", root)).stdout) as SkillsetCliResult & {
+      data: { outputState: { state: string } };
+    };
     const applied = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult & {
-      data: { state: string; writes: string[] };
+      data: { report: { outputState: { state: string } }; state: string; writes: string[] };
     };
     const unchanged = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult & {
-      data: { state: string; writes: string[] };
+      data: { report: { outputState: { state: string } }; state: string; writes: string[] };
+    };
+    const diff = JSON.parse((await runJsonRoute("diff", "--root", root)).stdout) as SkillsetCliResult & {
+      data: { outputState: { state: string } };
     };
 
     expect(preview.kind).toBe("plan");
+    expect(preview.data.outputState.state).toBe("no-output-baseline");
     expect(applied.kind).toBe("mutation");
+    expect(applied.data.report.outputState.state).toBe("no-output-baseline");
     expect(applied.data.state).toBe("written");
     expect(applied.data.writes.length).toBeGreaterThan(0);
     expect(unchanged.data).toMatchObject({ state: "planned", writes: [] });
+    expect(unchanged.data.report.outputState.state).toBe("current");
+    expect(diff.data.outputState.state).toBe("current");
   });
 
   test("build apply emits a finite summary and every changed path", async () => {
@@ -329,7 +338,7 @@ describe("SET-287 finite read-only JSON", () => {
     expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
   });
 
-  test("build JSON normalizes output-safety diagnostics", async () => {
+  test("build JSON blocks unmanaged output without writing", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-build-diagnostics-"));
     await mkdir(path.join(root, ".skillset", "rules"), { recursive: true });
     await writeFile(
@@ -343,21 +352,23 @@ describe("SET-287 finite read-only JSON", () => {
     expect(result.stderr).toBe("");
     const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
       data: {
-        report: { writes: { backupManifestPath?: string; paths: string[] } };
+        report: { outputState: { state: string }; writes: { paths: string[] } };
+        state: string;
         writes: string[];
       };
     };
     expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope.ok).toBe(false);
     expect(envelope.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "AGENTS.md", severity: "warning" }),
     ]));
-    const backupManifestPath = envelope.data.report.writes.backupManifestPath;
-    expect(backupManifestPath).toMatch(/^\.skillset\/snapshots\/[^/]+\/manifest\.json$/u);
-    if (backupManifestPath === undefined) throw new Error("missing build backup manifest path");
-    expect(envelope.data.writes).toEqual([
-      ...envelope.data.report.writes.paths,
-      backupManifestPath,
-    ]);
+    expect(envelope.data).toMatchObject({
+      report: { outputState: { state: "blocked" }, writes: { paths: [] } },
+      state: "blocked",
+      writes: [],
+    });
+    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toBe("# Unmanaged guidance\n");
+    expect(await Bun.file(path.join(root, ".skillset", "snapshots")).exists()).toBe(false);
   });
 
   test("change migrate does not report a ledger write for a no-op", async () => {

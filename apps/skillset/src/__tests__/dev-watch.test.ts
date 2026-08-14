@@ -142,7 +142,7 @@ test("SET-212: dev write writes generated output with build safeguards", async (
   expect(freshRendered).toContain("generated output already fresh");
 });
 
-test("SET-212: dev write reports backup recovery guidance", async () => {
+test("SET-212: dev write blocks unmanaged collisions without backup writes", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-backup-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
@@ -154,11 +154,11 @@ test("SET-212: dev write reports backup recovery guidance", async () => {
   const report = await runDevWatchApply(root, {}, "test");
   const rendered = renderDevWatchPreview(report);
 
-  expect(report.ok).toBe(true);
-  expect(report.writes?.backupRunId).toBeString();
-  expect(report.writes?.backupManifestPath).toBe(`.skillset/snapshots/${report.writes?.backupRunId}/manifest.json`);
-  expect(rendered).toContain("backup: 1 file saved");
-  expect(rendered).toContain(`skillset restore ${report.writes?.backupRunId} --yes`);
+  expect(report.ok).toBe(false);
+  expect(report.writes?.paths).toEqual([]);
+  expect(rendered).not.toContain("backup:");
+  expect(await Bun.file(join(root, ".claude/skills/review-notes/SKILL.md")).text()).toBe("hand-authored collision\n");
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 });
 
 test("SET-212: dev write failures render recovery guidance", () => {

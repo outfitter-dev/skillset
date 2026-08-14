@@ -5,7 +5,7 @@ import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
-import { buildSkillset, verifySkillsetResult } from "./build";
+import { buildSkillsetResult, verifySkillsetResult } from "./build";
 import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
@@ -88,7 +88,7 @@ export async function planSourceRenameGeneratedEffects(
       shadowRoot,
       sourceTransactionPlan(sourcePlan)
     );
-    const nextRendered = await buildSkillset(shadowRoot);
+    const nextRendered = (await buildSkillsetResult(shadowRoot)).data;
     await assertNoUnmanagedOutputCollisions(
       rootPath,
       currentRendered,

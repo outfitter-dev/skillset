@@ -23,6 +23,7 @@ export type OutputPathDisplayMapper = (absolutePath: string) => string;
 
 export interface ManagedOutputState {
   readonly editedPaths: ReadonlySet<string>;
+  readonly hasBaseline: boolean;
   readonly paths: ReadonlySet<string>;
 }
 
@@ -130,16 +131,17 @@ export async function readManagedOutputState(
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
   const editedPaths = new Set<string>();
+  let hasBaseline = false;
 
   if (includeWorkspaceLock) {
-    await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths, resolveOutputPath, displayOutputPath);
+    hasBaseline = (await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths, resolveOutputPath, displayOutputPath)) || hasBaseline;
   }
 
   for (const outputRoot of liveOutputRoots) {
-    await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths, resolveOutputPath, displayOutputPath);
+    hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths, resolveOutputPath, displayOutputPath)) || hasBaseline;
   }
 
-  return { editedPaths, paths };
+  return { editedPaths, hasBaseline, paths };
 }
 
 export async function prepareOutputBackups(
@@ -286,10 +288,10 @@ async function addManagedPathsFromLock(
   editedPaths: Set<string>,
   resolveOutputPath: OutputPathResolver,
   displayOutputPath: OutputPathDisplayMapper
-): Promise<void> {
+): Promise<boolean> {
   const displayLockPath = outPath(lockPath);
   const absoluteLockPath = resolveOutputPath(displayLockPath);
-  if (!(await exists(absoluteLockPath))) return;
+  if (!(await exists(absoluteLockPath))) return false;
 
   const lock = await readManagedLock(lockPath, displayLockPath, expectedOutputRoot, resolveOutputPath);
   paths.add(displayLockPath);
@@ -317,6 +319,7 @@ async function addManagedPathsFromLock(
     if (currentHash === item.outputHash) continue;
     for (const file of files) editedPaths.add(file.displayPath);
   }
+  return lock.items.some((item) => item.outputHash !== undefined);
 }
 
 async function readManagedLock(

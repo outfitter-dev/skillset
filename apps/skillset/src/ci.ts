@@ -9,6 +9,7 @@ import {
   checkSkillsetSourceReadiness,
   type SkillsetDiagnostic,
   type SkillsetDiff,
+  type SkillsetOutputStateEvidence,
 } from "@skillset/core";
 import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
@@ -51,6 +52,8 @@ export interface CiReport {
   readonly outputEditedPaths: readonly string[];
   /** Diagnostics produced while deriving and validating generated output. */
   readonly outputDiagnostics: readonly SkillsetDiagnostic[];
+  /** Shared generated-output evidence classification. */
+  readonly outputState: SkillsetOutputStateEvidence;
   /** Drift owned by explicit provider-format migrations and therefore `update`. */
   readonly providerUpdatePaths: readonly string[];
   /** Provider-format classification failure; recovery must fail closed. */
@@ -114,10 +117,11 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
 
   let drift = sourceReadiness.data.drift;
   let outputDiagnostics = sourceReadiness.data.outputDiagnostics;
+  let outputState = sourceReadiness.data.outputState;
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
-  const sourceSuggestions = buildError === undefined && hasDrift(drift)
+  const sourceSuggestions = buildError === undefined && outputState.state === "output-diverged"
     ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
     : [];
   let providerUpdatePaths: readonly string[] = [];
@@ -200,11 +204,13 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   if (fix === true && mechanicalFixEligibility(recoveryInput()).eligible) {
     const rebuilt = await checkSkillsetSourceReadiness(rootPath, {
       ...buildOptions,
+      sourceDrivenOutputPaths: [...providerSourceDriftPaths],
       write: "outputs",
     });
     buildError = sourceReadinessError(rebuilt.diagnostics);
     drift = rebuilt.data.drift;
     outputDiagnostics = rebuilt.data.outputDiagnostics;
+    outputState = rebuilt.data.outputState;
     outputEditedPaths = rebuilt.data.checks.managedOutputs.failures;
     fixedPaths = rebuilt.data.fixedPaths;
   }
@@ -233,6 +239,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       !hasDrift(drift),
     outputEditedPaths,
     outputDiagnostics,
+    outputState,
     ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
     providerUpdatePaths,
     recovery,

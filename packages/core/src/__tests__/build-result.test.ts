@@ -69,39 +69,24 @@ Stale.
     expect(third.writes.paths).toEqual([".claude/skills/skillset.lock", staleOutput]);
   });
 
-  it("backs up unmanaged collisions and restores the original safely", async () => {
-    const root = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: unmanaged-root
-claude: false
-codex: true
-`,
-      ".skillset/rules/root.md": `
-# Generated Instructions
-`,
-      "AGENTS.md": `
-# Hand Authored Instructions
-`,
-    });
-
-    const result = await buildSkillsetResult(root);
+  it("backs up managed target edits and restores the original safely", async () => {
+    const { root, result } = await managedEditedBackup("# Hand Authored Skill\n");
     const backupRunId = result.writes.backupRunId;
 
     expect(backupRunId).toBeString();
     expect(result.diagnostics).toContainEqual(expect.objectContaining({
-      code: "unmanaged-output-collision",
+      code: "managed-output-edited",
       featureId: "output-safety",
-      outputPath: "AGENTS.md",
+      outputPath: ".claude/skills/demo/SKILL.md",
       severity: "warning",
     }));
     expectKnownDiagnosticFeatureIds(result.diagnostics);
     expect(result.writes.backupManifestPath).toBe(`.skillset/snapshots/${backupRunId}/manifest.json`);
     expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
       action: "overwrite",
-      backupPath: "files/AGENTS.md",
-      reason: "unmanaged-collision",
-      targetPath: "AGENTS.md",
+      backupPath: "files/.claude/skills/demo/SKILL.md",
+      reason: "managed-target-edit",
+      targetPath: ".claude/skills/demo/SKILL.md",
     }));
     const manifest = JSON.parse(await readFile(join(root, `.skillset/snapshots/${backupRunId}/manifest.json`), "utf8")) as {
       readonly schemaVersion?: number;
@@ -114,16 +99,16 @@ codex: true
       kind: "git",
     }));
     expect(await Bun.file(join(root, `.skillset/snapshots/${backupRunId}/git/config`)).exists()).toBe(true);
-    expect(await Bun.file(join(root, `.skillset/snapshots/${backupRunId}/files/AGENTS.md`)).exists()).toBe(false);
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+    expect(await Bun.file(join(root, `.skillset/snapshots/${backupRunId}/files/.claude/skills/demo/SKILL.md`)).exists()).toBe(false);
+    expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("Body.");
 
     const preview = await restoreOutputBackup(root, backupRunId ?? "");
     expect(preview.write).toBe(false);
-    expect(preview.restoredPaths).toEqual(["AGENTS.md"]);
+    expect(preview.restoredPaths).toEqual([".claude/skills/demo/SKILL.md"]);
 
     const restored = await restoreOutputBackup(root, backupRunId ?? "", { write: true });
     expect(restored.write).toBe(true);
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Hand Authored Instructions");
+    expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("# Hand Authored Skill");
   });
 
   it("lists no backups without creating the missing snapshot root", async () => {
@@ -134,18 +119,8 @@ codex: true
   });
 
   it("lists valid backups and records in deterministic order", async () => {
-    const root = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: ordered-backups
-claude: false
-codex: true
-`,
-      ".skillset/rules/root.md": "# Generated Instructions\n",
-      "AGENTS.md": "# First hand-authored instructions\n",
-    });
-    const first = await buildSkillsetResult(root);
-    await Bun.write(join(root, "AGENTS.md"), "# Second hand-authored instructions\n");
+    const { root, result: first } = await managedEditedBackup("# First target edit\n");
+    await Bun.write(join(root, ".claude/skills/demo/SKILL.md"), "# Second target edit\n");
     const second = await buildSkillsetResult(root);
 
     const inspection = await inspectOutputBackups(root);
@@ -159,7 +134,7 @@ codex: true
       records: [expect.objectContaining({
         action: "overwrite",
         state: "restorable-now",
-        targetPath: "AGENTS.md",
+        targetPath: ".claude/skills/demo/SKILL.md",
       })],
       state: "restorable-now",
     }))));
@@ -172,25 +147,15 @@ codex: true
   });
 
   it("blocks overwrite and delete backups whose targets have reappeared or changed", async () => {
-    const overwriteRoot = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: blocked-overwrite
-claude: false
-codex: true
-`,
-      ".skillset/rules/root.md": "# Generated Instructions\n",
-      "AGENTS.md": "# Hand Authored Instructions\n",
-    });
-    const overwrite = await buildSkillsetResult(overwriteRoot);
-    await Bun.write(join(overwriteRoot, "AGENTS.md"), "# Changed after backup\n");
+    const { root: overwriteRoot, result: overwrite } = await managedEditedBackup("# Target edit\n");
+    await Bun.write(join(overwriteRoot, ".claude/skills/demo/SKILL.md"), "# Changed after backup\n");
 
     const overwriteInspection = await inspectOutputBackups(overwriteRoot);
     expect(overwriteInspection.runs).toContainEqual(expect.objectContaining({
       runId: overwrite.writes.backupRunId,
       records: [expect.objectContaining({
         state: "blocked-by-current-target",
-        targetPath: "AGENTS.md",
+        targetPath: ".claude/skills/demo/SKILL.md",
       })],
       state: "blocked-by-current-target",
     }));
@@ -218,17 +183,7 @@ codex: true
   });
 
   it("isolates corrupt sibling backups and reports malformed manifests, missing stores, and invalid payload hashes", async () => {
-    const root = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: corrupt-backups
-claude: false
-codex: true
-`,
-      ".skillset/rules/root.md": "# Generated Instructions\n",
-      "AGENTS.md": "# Hand Authored Instructions\n",
-    });
-    const valid = await buildSkillsetResult(root);
+    const { root, result: valid } = await managedEditedBackup("# Target edit\n");
     const validRunId = valid.writes.backupRunId ?? "";
     await mkdir(join(root, ".skillset/snapshots/badbeef1"), { recursive: true });
     await Bun.write(join(root, ".skillset/snapshots/badbeef1/manifest.json"), "{}\n");
@@ -252,7 +207,7 @@ codex: true
     expect(malformedSiblingInspection.runs).toContainEqual(expect.objectContaining({
       runId: validRunId,
       records: expect.arrayContaining([
-        expect.objectContaining({ state: "restorable-now", targetPath: "AGENTS.md" }),
+        expect.objectContaining({ state: "restorable-now", targetPath: ".claude/skills/demo/SKILL.md" }),
         expect.objectContaining({ state: "corrupt-or-unavailable" }),
       ]),
       state: "corrupt-or-unavailable",
@@ -266,22 +221,12 @@ codex: true
       records: expect.arrayContaining([expect.objectContaining({
         action: "overwrite",
         state: "corrupt-or-unavailable",
-        targetPath: "AGENTS.md",
+        targetPath: ".claude/skills/demo/SKILL.md",
       })]),
       state: "corrupt-or-unavailable",
     }));
 
-    const emptyRoot = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: empty-backup
-claude: false
-codex: true
-`,
-      ".skillset/rules/root.md": "# Generated Instructions\n",
-      "AGENTS.md": "# Hand Authored Instructions\n",
-    });
-    const emptyBackup = await buildSkillsetResult(emptyRoot);
+    const { root: emptyRoot, result: emptyBackup } = await managedEditedBackup("# Target edit\n");
     const emptyRunId = emptyBackup.writes.backupRunId ?? "";
     const emptyManifestPath = join(emptyRoot, `.skillset/snapshots/${emptyRunId}/manifest.json`);
     const emptyManifest = JSON.parse(await readFile(emptyManifestPath, "utf8")) as {
@@ -310,17 +255,7 @@ codex: true
       state: "corrupt-or-unavailable",
     }));
 
-    const hashRoot = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: invalid-payload-hash
-claude: false
-codex: true
-`,
-      ".skillset/rules/root.md": "# Generated Instructions\n",
-      "AGENTS.md": "# Hand Authored Instructions\n",
-    });
-    const hashBackup = await buildSkillsetResult(hashRoot);
+    const { root: hashRoot, result: hashBackup } = await managedEditedBackup("# Target edit\n");
     const hashRunId = hashBackup.writes.backupRunId ?? "";
     const manifestPath = join(hashRoot, `.skillset/snapshots/${hashRunId}/manifest.json`);
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { records: Array<{ originalHash: string }> };
@@ -907,6 +842,16 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function managedEditedBackup(content: string): Promise<{
+  readonly result: Awaited<ReturnType<typeof buildSkillsetResult>>;
+  readonly root: string;
+}> {
+  const root = await fixture(DEMO_FIXTURE);
+  await buildSkillsetResult(root);
+  await Bun.write(join(root, ".claude/skills/demo/SKILL.md"), content);
+  return { result: await buildSkillsetResult(root), root };
 }
 
 function expectKnownDiagnosticFeatureIds(
