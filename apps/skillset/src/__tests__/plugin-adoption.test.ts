@@ -209,6 +209,64 @@ test("SET-225: conflicting same-path portable metadata becomes a structured bloc
   ]);
 });
 
+test("SET-450: provider-native author shapes import as one canonical author", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml":
+      "skillset:\n  name: import-root\nclaude: true\ncodex: true\ncursor: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: {
+        email: "team@example.com",
+        name: "Team",
+        url: "https://example.com/team",
+      },
+    }),
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: "Team",
+    }),
+    "native/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: "Team",
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.warnings).toEqual([]);
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("author:\n    email: team@example.com\n    name: Team\n    url: https://example.com/team");
+});
+
+test("SET-450: provider-native author imports still reject real conflicts", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Claude Team" },
+    }),
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: "Codex Team",
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "native plugin manifests disagree on portable metadata: author"
+  );
+  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+});
+
 test("SET-369: conflicting native listing metadata stays a provider-specific warning", async () => {
   const root = await pluginFixture({
     "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {

@@ -1,5 +1,6 @@
 import type { JsonRecord, TargetName } from "@skillset/core/internal/types";
 import type { JsonValue } from "@skillset/core";
+import { readSourceAuthorRecord } from "@skillset/schema";
 
 export const PORTABLE_PLUGIN_METADATA_FIELDS = [
   "author",
@@ -38,6 +39,9 @@ export function portablePluginMetadataConflicts(
 ): readonly PortablePluginMetadataConflict[] {
   const entries = [...manifests];
   return PORTABLE_PLUGIN_METADATA_FIELDS.flatMap((field) => {
+    if (field === "author") {
+      return authorMetadataConflicts(entries);
+    }
     const values = new Set<string>();
     const providers = new Set<TargetName>();
     for (const [provider, manifest] of entries) {
@@ -98,11 +102,49 @@ export function firstPortablePluginMetadataValue(
   manifests: Iterable<ProviderPluginManifestEntry>,
   field: PortablePluginMetadataField
 ): JsonValue | undefined {
+  if (field === "author") {
+    return canonicalAuthorValue(manifests);
+  }
   for (const [, manifest] of manifests) {
     const value = manifest[field];
     if (value !== undefined) return value;
   }
   return undefined;
+}
+
+function authorMetadataConflicts(
+  manifests: readonly ProviderPluginManifestEntry[]
+): readonly PortablePluginMetadataConflict[] {
+  const values = new Map<string, Set<string>>();
+  const providers = new Set<TargetName>();
+  for (const [provider, manifest] of manifests) {
+    const author = readSourceAuthorRecord(manifest.author);
+    if (author === undefined) continue;
+    providers.add(provider);
+    for (const [key, value] of Object.entries(author)) {
+      if (value === undefined) continue;
+      const fieldValues = values.get(key) ?? new Set<string>();
+      fieldValues.add(stableJson(value));
+      values.set(key, fieldValues);
+    }
+  }
+  return [...values.values()].some((fieldValues) => fieldValues.size > 1)
+    ? [{ field: "author", providers: [...providers].sort() }]
+    : [];
+}
+
+function canonicalAuthorValue(
+  manifests: Iterable<ProviderPluginManifestEntry>
+): JsonRecord | undefined {
+  const author: Record<string, JsonValue> = {};
+  for (const [, manifest] of manifests) {
+    const normalized = readSourceAuthorRecord(manifest.author);
+    if (normalized === undefined) continue;
+    for (const [key, value] of Object.entries(normalized)) {
+      if (value !== undefined && author[key] === undefined) author[key] = value;
+    }
+  }
+  return Object.keys(author).length === 0 ? undefined : author;
 }
 
 function stableJson(value: JsonValue): string {
