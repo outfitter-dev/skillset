@@ -872,12 +872,57 @@ Help with the task.
         diagnostics: [
           expect.objectContaining({
             code: "render/claude-author-fields-omitted",
+            path: ".skillset/plugins/tools: $.skillset.author",
           }),
         ],
         destination: "plugin-manifest",
         featureId: "plugin-manifests",
         reason:
           "Claude author output supports only name, email, and url; omitted canonical fields: contributor",
+        sourcePath: ".skillset/plugins/tools",
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+        target: "claude",
+      })
+    );
+  });
+
+  it("attributes inherited Claude author omissions to root metadata", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+  author:
+    name: Root Team
+    contributor: Example Contributor
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/claude-author-fields-omitted",
+            path: "skillset.yaml: $.skillset.author",
+          }),
+        ],
+        destination: "plugin-manifest",
+        sourcePath: "skillset.yaml",
         sourceUnit: "plugin.tools.config:root",
         status: "lossy",
         target: "claude",

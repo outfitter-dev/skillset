@@ -341,7 +341,7 @@ function outcomeForLockItem(
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
     ...(policy === undefined ? {} : { policy }),
     ...(reason === undefined ? {} : { reason }),
-    sourcePath: item.sourcePath,
+    sourcePath: authorFacts?.sourcePath ?? item.sourcePath,
     sourceUnit: sourceUnitForLockItem(item, target),
     status,
     ...(target === undefined ? {} : { target }),
@@ -356,6 +356,7 @@ function claudeAuthorRenderFacts(
   | {
       readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
       readonly reason?: string;
+      readonly sourcePath: string;
       readonly status: SkillsetRenderResultStatus;
     }
   | undefined {
@@ -378,6 +379,7 @@ function claudeAuthorRenderFacts(
       },
     ],
     reason,
+    sourcePath: authorSourcePath,
     status: "lossy",
   };
 }
