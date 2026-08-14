@@ -66,7 +66,7 @@ primary-skills:
   select:
     skills:
       primary:
-        - skillset-codex-development
+        - demo
   checks:
     projection: true
 ```
@@ -128,7 +128,7 @@ activation:
   select:
     skills:
       primary:
-        - skillset-repo-test-fixtures
+        - fixture-demo
   targets:
     - claude
     - codex
@@ -136,7 +136,7 @@ activation:
     - name: fixture guidance
       prompt: Help me inspect this Skillset fixture setup.
       expect:
-        skill: skillset-repo-test-fixtures
+        skill: fixture-demo
   checks:
     projection: true
 ```
