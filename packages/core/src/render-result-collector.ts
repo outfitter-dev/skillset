@@ -18,12 +18,14 @@ import {
 } from "./render-result";
 import { compareStrings } from "./path";
 import {
+  claudeMarketplacePath,
   pluginManifestPath,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
+import { omittedClaudeAuthorKeys, readAuthorName } from "./source-author";
 import {
   planToolsRealization,
   renderResultStatusForToolsTier,
@@ -35,10 +37,11 @@ import {
   selectorForPluginFeature,
   selectorForPluginSkill,
   selectorForProjectAgent,
+  selectorForRootConfig,
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
 } from "./source-unit-selector";
-import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, RenderedFile, SourceSkill, TargetName } from "./types";
+import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, JsonValue, RenderedFile, SourceSkill, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const LOCK_FILE = "skillset.lock";
@@ -118,6 +121,14 @@ export function collectRenderResults(
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
+  outcomes.push(
+    ...claudeMarketplaceAuthorOutcomes(
+      graph,
+      rendered,
+      options.includedPaths,
+      mapOutputPath
+    )
+  );
 
   return outcomes.sort((left, right) =>
     compareStrings(
@@ -125,6 +136,123 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+function claudeMarketplaceAuthorOutcomes(
+  graph: BuildGraph,
+  rendered: readonly RenderedFile[],
+  includedPaths: ReadonlySet<string>,
+  mapOutputPath: OutputPathMapper
+): readonly SkillsetRenderResult[] {
+  const marketplacePath = claudeMarketplacePath(
+    graph.root.outputs.plugins.claude
+  );
+  const marketplaceFile = rendered.find((file) => file.path === marketplacePath);
+  if (marketplaceFile === undefined) return [];
+  const included = includedPaths.has(marketplacePath);
+  const root = graph.root.metadata;
+  const ownerUsesOverride = readAuthorName(root.owner) !== undefined;
+  const owner = ownerUsesOverride ? root.owner : root.author;
+  const outcomes: SkillsetRenderResult[] = [];
+  if (owner !== undefined) {
+    outcomes.push(
+      marketplaceAuthorOutcome({
+        author: owner,
+        diagnosticPath: `marketplace.owner`,
+        included,
+        mapOutputPath,
+        outputPath: marketplacePath,
+        sourcePath: "skillset.yaml",
+        sourceUnit: selectorForRootConfig(),
+      })
+    );
+  }
+
+  const pluginIds = marketplacePluginIds(marketplaceFile);
+  for (const pluginId of pluginIds) {
+    const plugin = graph.plugins.find((candidate) => candidate.id === pluginId);
+    if (plugin === undefined) continue;
+    const usesPluginAuthor = plugin.metadata.author !== undefined;
+    const author = usesPluginAuthor ? plugin.metadata.author : root.author;
+    if (author === undefined) continue;
+    outcomes.push(
+      marketplaceAuthorOutcome({
+        author,
+        diagnosticPath: `marketplace.plugins.${pluginId}.author`,
+        included,
+        mapOutputPath,
+        outputPath: marketplacePath,
+        sourcePath: usesPluginAuthor
+          ? normalizeSourcePath(graph, plugin.path)
+          : "skillset.yaml",
+        sourceUnit: selectorForPluginConfig(pluginId),
+      })
+    );
+  }
+  return outcomes;
+}
+
+function marketplacePluginIds(file: RenderedFile): readonly string[] {
+  const parsed = JSON.parse(new TextDecoder().decode(file.content)) as unknown;
+  if (!isJsonRecord(parsed) || !Array.isArray(parsed.plugins)) return [];
+  return parsed.plugins
+    .flatMap((entry) =>
+      isJsonRecord(entry) && typeof entry.name === "string" ? [entry.name] : []
+    )
+    .sort(compareStrings);
+}
+
+function marketplaceAuthorOutcome(args: {
+  readonly author: JsonRecord | JsonValue;
+  readonly diagnosticPath: string;
+  readonly included: boolean;
+  readonly mapOutputPath: OutputPathMapper;
+  readonly outputPath: string;
+  readonly sourcePath: string;
+  readonly sourceUnit: string;
+}): SkillsetRenderResult {
+  const omitted = omittedClaudeAuthorKeys(args.author);
+  const evidence = evidenceFor("marketplaces", "claude");
+  const reason =
+    omitted.length === 0
+      ? undefined
+      : `Claude marketplace author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  return defineRenderResult({
+    destination: "marketplace",
+    ...(args.included && reason !== undefined
+      ? {
+          diagnostics: [
+            {
+              code: "render/claude-marketplace-author-fields-omitted",
+              message: reason,
+              path: args.diagnosticPath,
+            },
+          ],
+        }
+      : {}),
+    ...(evidence === undefined ? {} : { evidence }),
+    featureId: "marketplaces",
+    ...(args.included
+      ? {
+          outputs: [
+            { kind: "marketplace", path: args.mapOutputPath(args.outputPath) },
+          ],
+        }
+      : { policy: "scope:excluded" as const }),
+    ...(args.included
+      ? reason === undefined
+        ? {}
+        : { reason }
+      : { reason: "excluded by build scope" }),
+    sourcePath: args.sourcePath,
+    sourceUnit: args.sourceUnit,
+    status: args.included
+      ? reason === undefined
+        ? "rendered"
+        : "lossy"
+      : "intentionally_skipped",
+    target: "claude",
+  });
 }
 
 function primaryOutputPathsForLockItem(
@@ -193,15 +321,21 @@ function outcomeForLockItem(
 ): SkillsetRenderResult {
   const target = targetForLockItem(graph, lock, item, outputPaths);
   const featureId = featureIdForLockItem(item);
-  const baseStatus = statusForLockItem(item, target);
+  const authorFacts = claudeAuthorRenderFacts(graph, item, target);
+  const baseStatus = authorFacts?.status ?? statusForLockItem(item, target);
   const isIncluded = outputPaths.some((path) => includedPaths.has(path));
   const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
   const policy: SkillsetRenderResultPolicy | undefined = isIncluded ? undefined : "scope:excluded";
-  const reason = isIncluded ? reasonForStatus(featureId, target, status) : "excluded by build scope";
+  const reason = isIncluded
+    ? authorFacts?.reason ?? reasonForStatus(featureId, target, status)
+    : "excluded by build scope";
   const evidence = evidenceFor(featureId, target);
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
+    ...(isIncluded && authorFacts?.diagnostics !== undefined
+      ? { diagnostics: authorFacts.diagnostics }
+      : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
@@ -212,6 +346,38 @@ function outcomeForLockItem(
     status,
     ...(target === undefined ? {} : { target }),
   });
+}
+
+function claudeAuthorRenderFacts(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName | undefined
+):
+  | {
+      readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
+      readonly reason?: string;
+      readonly status: SkillsetRenderResultStatus;
+    }
+  | undefined {
+  if (item.kind !== "plugin" || target !== "claude") return undefined;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
+  if (plugin === undefined) return undefined;
+  const author = plugin.metadata.author ?? graph.root.metadata.author;
+  if (author === undefined) return undefined;
+  const omitted = omittedClaudeAuthorKeys(author);
+  if (omitted.length === 0) return undefined;
+  const reason = `Claude author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  return {
+    diagnostics: [
+      {
+        code: "render/claude-author-fields-omitted",
+        message: reason,
+        path: `${item.sourcePath}: $.skillset.author`,
+      },
+    ],
+    reason,
+    status: "lossy",
+  };
 }
 
 function outcomeForCompanionFile(

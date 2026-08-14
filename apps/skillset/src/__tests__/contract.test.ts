@@ -1035,7 +1035,7 @@ Body.
   ) as Record<string, unknown>;
 
   expect(claude.description).toBe("Canonical summary.");
-  expect(claude.author).toBe("Canonical developer");
+  expect(claude.author).toEqual({ name: "Canonical developer" });
   expect(claude.keywords).toEqual(["canonical", "listing"]);
   expect(codex.author).toBe("Canonical developer");
   expect(codex.interface).toEqual(
@@ -1186,6 +1186,68 @@ test("SET-14: Claude plugin manifest emits the documented top-level fields", asy
   expect(manifest.interface).toBeUndefined();
 });
 
+test("SET-450: Claude plugin and marketplace authors use the native object shape", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: author-root
+  author:
+    name: Root Team
+    email: root@example.com
+    url: https://example.com/root
+claude: true
+codex: false
+cursor: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  author:
+    name: Alpha Team
+    email: alpha@example.com
+    url: https://example.com/alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const manifest = JSON.parse(
+    await readFile(
+      join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as Record<string, unknown>;
+  const marketplace = JSON.parse(
+    await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+  ) as {
+    metadata?: Record<string, unknown>;
+    owner?: Record<string, unknown>;
+    plugins?: Array<{ author?: Record<string, unknown>; name?: string }>;
+  };
+
+  expect(manifest.author).toEqual({
+    email: "alpha@example.com",
+    name: "Alpha Team",
+    url: "https://example.com/alpha",
+  });
+  expect(marketplace.owner).toEqual({
+    email: "root@example.com",
+    name: "Root Team",
+    url: "https://example.com/root",
+  });
+  expect(marketplace.plugins?.[0]?.author).toEqual(
+    manifest.author as Record<string, unknown>
+  );
+  expect(marketplace.metadata).not.toHaveProperty("generatedBy");
+});
+
 // SET-10: import returns a report and preserves target-native fields verbatim.
 
 test("SET-10: skill import reports copied files and classifies frontmatter", async () => {
@@ -1288,7 +1350,9 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
     await readFile(join(root, "plugins/roundtrip/claude/.claude-plugin/plugin.json"), "utf8")
   ) as Record<string, unknown>;
   for (const [key, value] of Object.entries(originalManifest)) {
-    expect(generated[key]).toEqual(value);
+    expect(generated[key]).toEqual(
+      key === "author" ? { name: value } : value
+    );
   }
 });
 
@@ -3190,7 +3254,7 @@ Demo body.
   const claudeManifest = JSON.parse(
     await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8")
   ) as {
-    author?: string;
+    author?: Record<string, string>;
     keywords?: string[];
     license?: string;
     name?: string;
@@ -3219,7 +3283,7 @@ Demo body.
     version?: string;
   };
   expect(claudeManifest.name).toBe("alpha-claude");
-  expect(claudeManifest.author).toBe("Alpha Author");
+  expect(claudeManifest.author).toEqual({ name: "Alpha Author" });
   expect(claudeManifest.version).toBe("2.3.4");
   expect(claudeManifest.license).toBe("MIT");
   expect(claudeManifest.keywords).toEqual(["alpha"]);

@@ -84,6 +84,10 @@ export { skillsetSchemaExamples } from "./examples";
 export { isSkillsetReport, validateSkillsetReport } from "./report";
 export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {
+  readSourceAuthorName,
+  readSourceAuthorRecord,
+} from "./source-author";
+export {
   getSkillsetSourceReferenceDescriptor,
   skillsetSourceReferenceDescriptors,
   skillsetSourceReferenceExclusions,

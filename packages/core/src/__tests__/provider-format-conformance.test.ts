@@ -99,6 +99,7 @@ describe("provider format conformance", () => {
     expect(files.map((file) => file.path).sort()).toEqual(expect.arrayContaining([
       ".skillset/cache/latest/AGENTS.md",
       ".skillset/cache/latest/.claude/agents/reviewer.md",
+      ".skillset/cache/latest/.claude-plugin/marketplace.json",
       ".skillset/cache/latest/plugins/alpha/claude/.claude-plugin/plugin.json",
       ".skillset/cache/latest/plugins/alpha/claude/hooks/hooks.json",
       ".skillset/cache/latest/plugins/alpha/codex/.codex-plugin/plugin.json",
@@ -213,6 +214,110 @@ describe("provider format conformance", () => {
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
     ]);
     expect(report.issues.map((issue) => issue.message).join("\n")).toContain("Codex plugin manifest structure is currently documented in prose");
+  });
+
+  it("validates Claude's native author object fields", () => {
+    const valid = checkProviderFormatConformance([
+      rendered("plugins/alpha/claude/.claude-plugin/plugin.json", {
+        author: {
+          email: "team@example.com",
+          name: "Example Team",
+          url: "https://example.com/team",
+        },
+        description: "Alpha plugin.",
+        name: "alpha",
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered("plugins/alpha/claude/.claude-plugin/plugin.json", {
+        author: { contributor: "Example Contributor", email: 1 },
+        description: "Alpha plugin.",
+        name: "alpha",
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field author.email must be a string",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field author.name",
+      },
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field author.contributor; allowed fields are email, name, url",
+      },
+    ]);
+  });
+
+  it("validates Claude marketplace owner and plugin author objects", () => {
+    const valid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        metadata: { description: "Example marketplace", pluginRoot: "./plugins" },
+        name: "example",
+        owner: { email: "team@example.com", name: "Example Team" },
+        plugins: [
+          {
+            author: {
+              name: "Plugin Team",
+              url: "https://example.com/plugin",
+            },
+            name: "alpha",
+            source: "./plugins/alpha",
+          },
+        ],
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        metadata: { generatedBy: "skillset@0.1.0" },
+        name: "example",
+        owner: { contributor: "Publisher", email: 1 },
+        plugins: [
+          {
+            author: { contributor: "Contributor", name: "Plugin Team" },
+            name: "alpha",
+            source: "./plugins/alpha",
+          },
+          { author: "Legacy Author", name: "beta", source: "./plugins/beta" },
+        ],
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field owner.email must be a string",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[1].author must be an object",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field owner.name",
+      },
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field metadata.generatedBy; allowed fields are description, pluginRoot, version",
+      },
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field owner.contributor; allowed fields are email, name, url",
+      },
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field plugins[0].author.contributor; allowed fields are email, name, url",
+      },
+    ]);
   });
 
   it("classifies skill targets by output path segments instead of substrings", () => {

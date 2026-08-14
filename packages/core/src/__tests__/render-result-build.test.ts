@@ -840,6 +840,137 @@ Help with the task.
     expect(dependency?.outputs).toBeUndefined();
   });
 
+  it("reports Claude author fields that cannot be represented", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    contributor: Example Contributor
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/claude-author-fields-omitted",
+          }),
+        ],
+        destination: "plugin-manifest",
+        featureId: "plugin-manifests",
+        reason:
+          "Claude author output supports only name, email, and url; omitted canonical fields: contributor",
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+        target: "claude",
+      })
+    );
+  });
+
+  it("reports Claude marketplace author omissions once per destination", async () => {
+    const cases = [
+      {
+        expectedPath: "marketplace.owner",
+        pluginAuthor: `
+  author:
+    name: Plugin Team
+`,
+        rootIdentity: `
+  author:
+    name: Root Team
+  owner:
+    name: Publishing Team
+    contributor: Publisher
+`,
+      },
+      {
+        expectedPath: "marketplace.owner",
+        pluginAuthor: `
+  author:
+    name: Plugin Team
+`,
+        rootIdentity: `
+  author:
+    name: Root Team
+    contributor: Root Contributor
+`,
+      },
+      {
+        expectedPath: "marketplace.plugins.tools.author",
+        pluginAuthor: `
+  author:
+    name: Plugin Team
+    contributor: Plugin Contributor
+`,
+        rootIdentity: `
+  author:
+    name: Root Team
+`,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: marketplace-evidence
+${testCase.rootIdentity}
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+${testCase.pluginAuthor}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const preview = await diffSkillsetResult(root);
+      const marketplaceOutcomes = preview.renderResults.filter(
+        (outcome) => outcome.featureId === "marketplaces"
+      );
+      expect(marketplaceOutcomes).toHaveLength(2);
+      const diagnostics = marketplaceOutcomes.flatMap(
+        (outcome) => outcome.diagnostics ?? []
+      );
+      expect(diagnostics).toEqual([
+        expect.objectContaining({
+          code: "render/claude-marketplace-author-fields-omitted",
+          path: testCase.expectedPath,
+        }),
+      ]);
+      expect(
+        marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+      ).toHaveLength(1);
+    }
+  });
+
   it("validates conventional app JSON before claiming structured output", async () => {
     const root = await fixture({
       "skillset.yaml": `

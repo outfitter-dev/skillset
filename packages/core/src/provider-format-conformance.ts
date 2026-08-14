@@ -120,6 +120,7 @@ function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): bool
 }
 
 function isProviderFormatConformanceFile(file: RenderedFile): boolean {
+  if (isClaudeMarketplacePath(file.path)) return true;
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
@@ -138,6 +139,9 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
 function checkProviderFormatConformanceFile(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
+  if (isClaudeMarketplacePath(file.path)) {
+    return checkClaudeMarketplace(file);
+  }
   if (file.path.endsWith("/.claude-plugin/plugin.json")) {
     return checkClaudePluginManifest(file);
   }
@@ -177,6 +181,106 @@ function checkProviderFormatConformanceFile(
   return [];
 }
 
+function checkClaudeMarketplace(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const parsed = parseJsonRecord(file, "claude", "claude-marketplace-schema");
+  if (!parsed.ok) return parsed.issues;
+
+  const issues: ProviderFormatConformanceIssue[] = [];
+  const schema = jsonSchemaSummary("claude-marketplace-schema");
+  issues.push(
+    ...checkRequiredFields(
+      file,
+      parsed.value,
+      "claude",
+      "claude-marketplace-schema",
+      schema.required ?? []
+    ),
+    ...checkFieldTypes(
+      file,
+      parsed.value,
+      "claude",
+      "claude-marketplace-schema",
+      {
+        allowCrossMarketplaceDependenciesOn: "string-array",
+        metadata: "object",
+        name: "string",
+        owner: "object",
+        plugins: "array",
+        version: "string",
+      }
+    ),
+    ...checkUnknownFields(
+      file,
+      parsed.value,
+      "claude",
+      "claude-marketplace-schema",
+      schema.properties ?? []
+    )
+  );
+  if (isJsonRecord(parsed.value.owner)) {
+    issues.push(
+      ...checkClaudeAuthorObject(
+        file,
+        parsed.value.owner,
+        "claude-marketplace-schema",
+        "owner"
+      )
+    );
+  }
+  if (isJsonRecord(parsed.value.metadata)) {
+    issues.push(
+      ...checkUnknownFields(
+        file,
+        parsed.value.metadata,
+        "claude",
+        "claude-marketplace-schema",
+        ["description", "pluginRoot", "version"],
+        "metadata"
+      )
+    );
+  }
+  if (Array.isArray(parsed.value.plugins)) {
+    for (const [index, plugin] of parsed.value.plugins.entries()) {
+      const prefix = `plugins[${index}]`;
+      if (!isJsonRecord(plugin)) {
+        issues.push(
+          issue(
+            file,
+            "claude",
+            "claude-marketplace-schema",
+            "invalid-shape",
+            `destination field ${prefix} must be an object`
+          )
+        );
+        continue;
+      }
+      if (plugin.author !== undefined && !isJsonRecord(plugin.author)) {
+        issues.push(
+          issue(
+            file,
+            "claude",
+            "claude-marketplace-schema",
+            "invalid-field-type",
+            `destination field ${prefix}.author must be an object`
+          )
+        );
+      } else if (isJsonRecord(plugin.author)) {
+        issues.push(
+          ...checkClaudeAuthorObject(
+            file,
+            plugin.author,
+            "claude-marketplace-schema",
+            `${prefix}.author`
+          )
+        );
+      }
+    }
+  }
+  return issues;
+}
+
 function checkClaudePluginManifest(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
@@ -190,7 +294,7 @@ function checkClaudePluginManifest(
   issues.push(...checkFieldTypes(file, parsed.value, "claude", "claude-plugin-manifest-schema", {
     $schema: "string",
     agents: "string",
-    author: "string",
+    author: "object",
     commands: "string",
     dependencies: "object",
     description: "string",
@@ -217,6 +321,16 @@ function checkClaudePluginManifest(
       "experimental",
     ])
   );
+  if (isJsonRecord(parsed.value.author)) {
+    issues.push(
+      ...checkClaudeAuthorObject(
+        file,
+        parsed.value.author,
+        "claude-plugin-manifest-schema",
+        "author"
+      )
+    );
+  }
   if (isJsonRecord(parsed.value.experimental)) {
     issues.push(
       ...checkUnknownFields(file, parsed.value.experimental, "claude", "claude-plugin", [
@@ -575,7 +689,7 @@ function checkUnknownFields(
     });
 }
 
-type FieldType = "object" | "string" | "string-array";
+type FieldType = "array" | "object" | "string" | "string-array";
 
 function checkFieldTypes(
   file: ProviderFormatConformanceFile,
@@ -600,15 +714,68 @@ function checkFieldTypes(
 }
 
 function matchesFieldType(value: unknown, expected: FieldType): boolean {
+  if (expected === "array") return Array.isArray(value);
   if (expected === "object") return isJsonRecord(value);
   if (expected === "string") return typeof value === "string";
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
 function fieldTypeLabel(expected: FieldType): string {
+  if (expected === "array") return "an array";
   if (expected === "object") return "an object";
   if (expected === "string-array") return "an array of strings";
   return "a string";
+}
+
+function checkClaudeAuthorObject(
+  file: ProviderFormatConformanceFile,
+  author: JsonRecord,
+  providerRef: "claude-marketplace-schema" | "claude-plugin-manifest-schema",
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  const issues: ProviderFormatConformanceIssue[] = [];
+  if (author.name === undefined) {
+    issues.push(
+      issue(
+        file,
+        "claude",
+        providerRef,
+        "missing-required-field",
+        `missing required destination field ${prefix}.name`
+      )
+    );
+  }
+  for (const key of ["email", "name", "url"] as const) {
+    const value = author[key];
+    if (value === undefined || typeof value === "string") continue;
+    issues.push(
+      issue(
+        file,
+        "claude",
+        providerRef,
+        "invalid-field-type",
+        `destination field ${prefix}.${key} must be a string`
+      )
+    );
+  }
+  issues.push(
+    ...checkUnknownFields(
+      file,
+      author,
+      "claude",
+      providerRef,
+      ["email", "name", "url"],
+      prefix
+    )
+  );
+  return issues;
+}
+
+function isClaudeMarketplacePath(path: string): boolean {
+  return (
+    path === ".claude-plugin/marketplace.json" ||
+    path.endsWith("/.claude-plugin/marketplace.json")
+  );
 }
 
 function pluginManifestFormat(id: "claude-plugin" | "codex-plugin" | "cursor-plugin"): {

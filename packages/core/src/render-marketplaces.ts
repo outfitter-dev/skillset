@@ -19,8 +19,8 @@ import {
   providerSourceForPlugin,
 } from "./plugin-output";
 import { parseRemoteRepositoryReference } from "./remote-repository-reference";
-import { GENERATED_BY, textFile, type LockRoot } from "./render-support";
-import { readAuthorRecord } from "./source-author";
+import { textFile, type LockRoot } from "./render-support";
+import { readAuthorRecord, renderClaudeAuthor } from "./source-author";
 import {
   readListingString,
   readListingStringArray,
@@ -94,7 +94,9 @@ export async function renderClaudeMarketplace(
 
   const root = graph.root.metadata;
   const owner =
-    readAuthorRecord(root.owner) ?? readAuthorRecord(root.author) ?? {};
+    renderClaudeAuthor(root.owner) ?? renderClaudeAuthor(root.author) ?? {
+      name: readString(root, "name") ?? "skillset",
+    };
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
   const marketplace = mergeRecords(
     {
@@ -114,7 +116,6 @@ export async function renderClaudeMarketplace(
         pluginRoot: isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude)
           ? "./plugins"
           : "./plugins",
-        generatedBy: "example content repo skillset compiler",
       },
       plugins,
     },
@@ -151,8 +152,8 @@ async function renderClaudeMarketplacePlugin(
         plugin.id,
       version: pluginVersion(graph, plugin),
       author:
-        readAuthorRecord(metadata.author) ??
-        readAuthorRecord(graph.root.metadata.author),
+        renderClaudeAuthor(metadata.author) ??
+        renderClaudeAuthor(graph.root.metadata.author),
       repository: metadata.repository,
       license: pluginLicense?.manifestValue,
       keywords:
@@ -184,8 +185,8 @@ export function renderClaudeMarketplaceDocument(
   plugins: readonly JsonRecord[]
 ): JsonRecord {
   const root = graph.root.metadata;
-  const owner = readAuthorRecord(root.owner) ??
-    readAuthorRecord(root.author) ?? {
+  const owner = renderClaudeAuthor(root.owner) ??
+    renderClaudeAuthor(root.author) ?? {
       name: readString(root, "name") ?? catalogName,
     };
   return {
@@ -201,7 +202,6 @@ export function renderClaudeMarketplaceDocument(
         readListingString(root, "description") ??
         readString(root, "description") ??
         "Source-first Skillset plugins",
-      generatedBy: GENERATED_BY,
       version: rootVersion(graph),
     },
     plugins: [...plugins].sort((left, right) =>

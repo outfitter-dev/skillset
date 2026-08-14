@@ -34,6 +34,8 @@ Normalize exact matches before rendering. Keep a provider-specific name only whe
 
 Near matches should begin with the author's intended outcome, not the first provider format implemented. The compiler should choose the faithful [provider-native](../glossary.md#provider-native) representation of that intent.
 
+Preserve meaning before representation: canonical source keeps the highest useful fidelity, while each renderer projects only provider-supported fields and records any omitted meaning explicitly.
+
 When no faithful representation exists, Skillset should report the limitation, preserve provenance, or require an explicit provider boundary. It should not make unlike artifacts appear equivalent.
 
 ### Provider truth beats fake portability

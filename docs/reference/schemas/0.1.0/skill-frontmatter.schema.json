@@ -413,9 +413,32 @@
       "additionalProperties": false,
       "properties": {
         "author": {
-          "type": [
-            "object",
-            "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "additionalProperties": true,
+              "properties": {
+                "email": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "url": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            }
           ]
         },
         "category": {
@@ -563,6 +586,24 @@
           "type": "object"
         },
         "owner": {
+          "additionalProperties": true,
+          "properties": {
+            "email": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "url": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
           "type": "object"
         },
         "preprocess": {

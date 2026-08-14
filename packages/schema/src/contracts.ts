@@ -1056,7 +1056,12 @@ function contract(
 
 function sourceMetadataSchema(): SchemaJsonRecord {
   return strictObjectSchema({
-    author: { type: ["object", "string"] },
+    author: {
+      anyOf: [
+        nonEmptyStringSchema(),
+        sourceAuthorObjectSchema(),
+      ],
+    },
     category: { type: "string" },
     description: nonEmptyStringSchema(),
     homepage: { type: "string" },
@@ -1067,7 +1072,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     marketplace: { type: "object" },
     name: nonEmptyStringSchema(),
     origin: sourceOriginSchema(),
-    owner: { type: "object" },
+    owner: sourceAuthorObjectSchema(),
     outputs: { type: "object" },
     presentation: { type: "object" },
     preprocess: { type: "boolean" },
@@ -1078,6 +1083,19 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     title: nonEmptyStringSchema(),
     version: semverStringSchema(),
   });
+}
+
+function sourceAuthorObjectSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
+    properties: {
+      email: nonEmptyStringSchema(),
+      name: nonEmptyStringSchema(),
+      url: nonEmptyStringSchema(),
+    },
+    required: ["name"],
+    type: "object",
+  };
 }
 
 function sourceListingSchema(): SchemaJsonRecord {

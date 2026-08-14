@@ -1,7 +1,6 @@
 {
   "metadata": {
     "description": "Self-hosted source for developing and using the skillset compiler.",
-    "generatedBy": "example content repo skillset compiler",
     "pluginRoot": "./plugins",
     "version": "0.1.1"
   },
