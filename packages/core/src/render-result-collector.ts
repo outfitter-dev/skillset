@@ -362,17 +362,19 @@ function claudeAuthorRenderFacts(
   if (item.kind !== "plugin" || target !== "claude") return undefined;
   const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
   if (plugin === undefined) return undefined;
-  const author = plugin.metadata.author ?? graph.root.metadata.author;
+  const usesPluginAuthor = plugin.metadata.author !== undefined;
+  const author = usesPluginAuthor ? plugin.metadata.author : graph.root.metadata.author;
   if (author === undefined) return undefined;
   const omitted = omittedClaudeAuthorKeys(author);
   if (omitted.length === 0) return undefined;
   const reason = `Claude author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  const authorSourcePath = usesPluginAuthor ? item.sourcePath : "skillset.yaml";
   return {
     diagnostics: [
       {
         code: "render/claude-author-fields-omitted",
         message: reason,
-        path: `${item.sourcePath}: $.skillset.author`,
+        path: `${authorSourcePath}: $.skillset.author`,
       },
     ],
     reason,
