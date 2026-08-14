@@ -189,7 +189,7 @@ codex: true
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(generatedPath);
-  expect(await readFile(join(root, generatedPath), "utf8")).toContain("generated: skillset");
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain('skillset.schema: "1"');
 });
 
 test("SET-278: check writes project-agent drift caused by target defaults", async () => {

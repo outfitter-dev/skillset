@@ -1,7 +1,7 @@
 ---
 description: Design, implement, or review Skillset compiler tests, internal fixtures, deterministic projection, adapter conformance, self-hosted checks, and external adoption evidence. Use when choosing a test tier, creating fake repositories, changing test infrastructure, or proving compiler and provider-output behavior.
 metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 0.1.0
 name: skillset-dev-testing
 ---

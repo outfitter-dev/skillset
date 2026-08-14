@@ -41,7 +41,7 @@ Failed [render results](../glossary.md#render-result) block every policy. Check 
 
 ## Configure Generated Metadata and Prompt Arguments
 
-`compile.skillset.metadata` defaults to `true`. Set it to `false` to suppress the generated `metadata.generated` and `metadata.version` fields on rendered skills.
+`compile.skillset.metadata` defaults to `true`. Set it to `false` to suppress the compiler-owned `metadata.version` and `metadata["skillset.schema"]` fields on rendered skills. Authored provider metadata remains intact.
 
 `compile.features.promptArguments` also defaults to `true`. Set it to `false` to reject Skillset-owned `{{$ARGUMENTS...}}` expressions. See the [preprocessing reference](../reference/source/preprocessing.md) for expression and target behavior.
 

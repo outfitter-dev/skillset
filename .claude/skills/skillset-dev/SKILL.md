@@ -1,7 +1,7 @@
 ---
 description: Route work on the Skillset compiler repository through its tenets, accepted ADRs, and focused contributor skills. Use whenever changing or reviewing Skillset source, compiler behavior, schemas, tests, fixtures, generated output, or contributor workflows.
 metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 0.1.0
 name: skillset-dev
 ---

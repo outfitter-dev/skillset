@@ -21,6 +21,14 @@ export const REPORT_KINDS = [
   "import",
   "external-fixture",
 ] as const;
+export const RENDERED_METADATA_SCHEMA_KEY = "skillset.schema";
+export const RENDERED_METADATA_SCHEMA_VERSION = "1";
+export const RETIRED_RENDERED_SKILL_METADATA_KEYS = ["generated"] as const;
+export const RENDERED_SKILL_METADATA_RESERVED_KEYS = [
+  ...RETIRED_RENDERED_SKILL_METADATA_KEYS,
+  "version",
+  RENDERED_METADATA_SCHEMA_KEY,
+] as const;
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
 export const REPORT_EXTERNAL_FIXTURE_PHASES = [
@@ -267,7 +275,7 @@ export const skillFrontmatterContract = contract(
       implicit_invocation: implicitInvocationSchema(),
       hooks: hookAttachmentSchema(),
       mcp: targetFeatureSchema(),
-      metadata: generatedMetadataSchema(),
+      metadata: skillMetadataSchema(),
       model: nonEmptyStringSchema(),
       name: nonEmptyStringSchema(),
       resources: resourceDeclarationSchema(),
@@ -298,7 +306,7 @@ export const agentFrontmatterContract = contract(
       description: nonEmptyStringSchema(),
       hooks: hookAttachmentSchema(),
       initialPrompt: nonEmptyStringSchema(),
-      metadata: generatedMetadataSchema(),
+      metadata: providerMetadataSchema(),
       model: nonEmptyStringSchema(),
       name: nonEmptyStringSchema(),
       skillset: sourceMetadataSchema(),
@@ -322,7 +330,7 @@ export const instructionFrontmatterContract = contract(
       cursor: targetOverrideSchema(),
       description: nonEmptyStringSchema(),
       dialect: { enum: ["claude"], type: "string" },
-      metadata: generatedMetadataSchema(),
+      metadata: providerMetadataSchema(),
       name: nonEmptyStringSchema(),
       paths: arraySchema(nonEmptyStringSchema()),
       skillset: sourceMetadataSchema(),
@@ -1117,13 +1125,23 @@ function sourceListingSchema(): SchemaJsonRecord {
   });
 }
 
-function generatedMetadataSchema(): SchemaJsonRecord {
+function skillMetadataSchema(): SchemaJsonRecord {
   return {
     additionalProperties: true,
     properties: {
-      generated: { type: "string" },
+      [RENDERED_METADATA_SCHEMA_KEY]: {
+        const: RENDERED_METADATA_SCHEMA_VERSION,
+        type: "string",
+      },
       version: semverStringSchema(),
     },
+    type: "object",
+  };
+}
+
+function providerMetadataSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
     type: "object",
   };
 }

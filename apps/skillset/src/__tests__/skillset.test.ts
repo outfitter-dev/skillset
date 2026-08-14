@@ -1557,6 +1557,13 @@ skillset:
 ---
 name: plain
 description: Plain skill.
+metadata:
+  authored: keep
+  generated: manual-provider-value
+codex:
+  frontmatter:
+    metadata:
+      provider: keep
 ---
 
 Plain.
@@ -1569,8 +1576,11 @@ Plain.
     join(root, "plugins/alpha/codex/skills/plain/SKILL.md"),
     "utf8"
   );
+  expect(skill).toContain("authored: keep");
+  expect(skill).toContain("generated: manual-provider-value");
+  expect(skill).toContain("provider: keep");
+  expect(skill).not.toContain("skillset.schema");
   expect(skill).not.toContain("generated: skillset");
-  expect(skill).not.toContain("version:");
 
   const lock = JSON.parse(await readFile(join(root, "plugins/skillset.lock"), "utf8"));
   expect(lock.buildMode).toBe("all");
@@ -1781,7 +1791,7 @@ Beta body.
   expect(codexSkill).toContain("description: Codex alpha description.");
   expect(codexSkill).toContain(`metadata:
   author: fixture
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 2.1.0`);
   expect(codexSkill).toContain("Alpha body.");
   expect(lock).toContain(`"sourceHash": "sha256:`);
@@ -1797,7 +1807,7 @@ Beta body.
     "utf8"
   );
   expect(betaSkill).toContain(`metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 3.0.0`);
 });
 
@@ -1884,7 +1894,7 @@ Beta body.
   expect(codexHook).toContain("SessionStart");
 });
 
-test("portable project agents lower to Claude Markdown and Codex TOML with provenance", async () => {
+test("portable project agents lower without compiler metadata and preserve provider metadata", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -1914,14 +1924,20 @@ Follow the Skillset development workflow.
 ---
 name: Code Reviewer
 description: Reviews project changes.
+metadata:
+  authored: keep
 skills:
   - skillset-dev-compiler
 initialPrompt: "Start with the {{shared:templates/prompt.md }}"
 codex:
   model: gpt-5-codex
   description: Reviews changes through Codex.
+  metadata:
+    provider: codex
 claude:
   color: blue
+  metadata:
+    provider: claude
 ---
 
 Review diffs and call out correctness risks.
@@ -1939,7 +1955,9 @@ Tree:
   expect(claudeAgent).toContain(`color: blue`);
   expect(claudeAgent).toContain("skills:");
   expect(claudeAgent).toContain("- skillset-dev-compiler");
-  expect(claudeAgent).toContain(`generated: skillset@0.1.0`);
+  expect(claudeAgent).not.toContain(`generated: skillset@`);
+  expect(claudeAgent).toContain(`authored: keep`);
+  expect(claudeAgent).toContain(`provider: claude`);
   expect(claudeAgent).toContain("Review diffs and call out correctness risks.");
   expect(claudeAgent).toContain("- reviewer.md");
   expect(claudeAgent).toContain("Use the shared review checklist.");
@@ -1956,7 +1974,9 @@ Tree:
   expect(codexAgent).toContain("Use the shared review checklist.");
   expect(codexAgent).toContain("<initial_prompt>");
   expect(codexAgent).toContain("Start with the smallest complete review");
-  expect(codexAgent).toContain("[metadata.skillset]");
+  expect(codexAgent).not.toContain("[metadata.skillset]");
+  expect(codexAgent).toContain(`[metadata]`);
+  expect(codexAgent).toContain(`provider = "codex"`);
   expect(codexAgent.indexOf("Required skills:")).toBeLessThan(codexAgent.indexOf("Review diffs"));
   expect(codexAgent.indexOf("Review diffs")).toBeLessThan(codexAgent.indexOf("<initial_prompt>"));
 
@@ -2002,9 +2022,16 @@ codex: true
     ".skillset/agents/reviewer.md": `
 ---
 description: Reviews project changes.
+metadata:
+  authored: keep
 model: opus
 codex:
   developer_instructions: Use Codex-specific review steps.
+  metadata:
+    provider: codex
+claude:
+  metadata:
+    provider: claude
 ---
 
 Review diffs.
@@ -2019,8 +2046,10 @@ Review diffs.
   await buildSkillset(root);
   const claudeAgent = await readFile(join(root, ".claude/agents/reviewer.md"), "utf8");
   const codexAgent = await readFile(join(root, ".codex/agents/reviewer.toml"), "utf8");
-  expect(claudeAgent).not.toContain("metadata:");
+  expect(claudeAgent).toContain("authored: keep");
+  expect(claudeAgent).toContain("provider: claude");
   expect(codexAgent).not.toContain("[metadata.skillset]");
+  expect(codexAgent).toContain(`provider = "codex"`);
   expect(codexAgent).toContain("Use Codex-specific review steps.");
 
   const closingTagRoot = await fixture({
@@ -3737,7 +3766,7 @@ Draft body.
   const skill = await readFile(join(root, "skills-claude/draft/SKILL.md"), "utf8");
   expect(skill).not.toContain("skillset:");
   expect(skill).toContain(`metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 0.2.0`);
 });
 
@@ -4887,12 +4916,14 @@ claude:
   frontmatter:
     metadata:
       generated: manual
+      skillset.schema: "9"
       note: keep
       version: 9.9.9
 codex:
   frontmatter:
     metadata:
       generated: manual
+      skillset.schema: "9"
       note: keep
       version: 9.9.9
 ---
@@ -4924,13 +4955,15 @@ Alpha body.
   expect(codexManifest).toContain(`"version": "1.0.0"`);
   expect(claudeManifest).not.toContain(`"version": "9.9.9"`);
   expect(codexManifest).not.toContain(`"version": "9.9.9"`);
+  expect(claudeSkill).not.toContain("generated: manual");
+  expect(codexSkill).not.toContain("generated: manual");
   expect(claudeSkill).toContain(`metadata:
-  generated: skillset@0.1.0
   note: keep
+  skillset.schema: "1"
   version: 2.0.0`);
   expect(codexSkill).toContain(`metadata:
-  generated: skillset@0.1.0
   note: keep
+  skillset.schema: "1"
   version: 2.0.0`);
 });
 

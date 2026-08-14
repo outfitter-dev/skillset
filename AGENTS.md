@@ -22,7 +22,7 @@ For repository documentation, follow [docs/development/documentation-system.md](
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
 - Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
-- Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata.generated` fields.
+- Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata["skillset.schema"]` fields.
 - Write deterministic `skillset.lock` files near generated outputs.
 - Provide local source import helpers for existing plugins and skills.
 

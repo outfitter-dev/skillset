@@ -635,15 +635,6 @@
         },
         "metadata": {
           "additionalProperties": true,
-          "properties": {
-            "generated": {
-              "type": "string"
-            },
-            "version": {
-              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
-              "type": "string"
-            }
-          },
           "type": "object"
         },
         "model": {
@@ -1324,15 +1315,6 @@
         },
         "metadata": {
           "additionalProperties": true,
-          "properties": {
-            "generated": {
-              "type": "string"
-            },
-            "version": {
-              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
-              "type": "string"
-            }
-          },
           "type": "object"
         },
         "name": {
@@ -2053,7 +2035,8 @@
         "metadata": {
           "additionalProperties": true,
           "properties": {
-            "generated": {
+            "skillset.schema": {
+              "const": "1",
               "type": "string"
             },
             "version": {

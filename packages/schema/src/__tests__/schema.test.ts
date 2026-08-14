@@ -10,6 +10,10 @@ import {
   deriveSkillsetJsonSchemaArtifacts,
   instructionFrontmatterContract,
   PLUGIN_CONFIG_KEYS,
+  RENDERED_METADATA_SCHEMA_KEY,
+  RENDERED_METADATA_SCHEMA_VERSION,
+  RENDERED_SKILL_METADATA_RESERVED_KEYS,
+  RETIRED_RENDERED_SKILL_METADATA_KEYS,
   ROOT_SOURCE_MANIFEST_KEYS,
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
@@ -38,6 +42,14 @@ import {
 describe("@skillset/schema contracts", () => {
   it("exports stable contract descriptors", () => {
     expect(SKILLSET_SCHEMA_VERSION).toBe("0.1.0");
+    expect(RENDERED_METADATA_SCHEMA_KEY).toBe("skillset.schema");
+    expect(RENDERED_METADATA_SCHEMA_VERSION).toBe("1");
+    expect(RETIRED_RENDERED_SKILL_METADATA_KEYS).toEqual(["generated"]);
+    expect(RENDERED_SKILL_METADATA_RESERVED_KEYS).toEqual([
+      "generated",
+      "version",
+      "skillset.schema",
+    ]);
     expect(skillsetSchemaContracts.map((contract) => contract.id)).toEqual([
       "workspace-config",
       "source-metadata",
@@ -1087,7 +1099,7 @@ describe("@skillset/schema contracts", () => {
         },
         implicit_invocation: true,
         mcp: { source: "repo:.mcp.json" },
-        metadata: { generated: "skillset@0.1.0", version: "1.0.0" },
+        metadata: { "skillset.schema": "1", version: "1.0.0" },
         model: "gpt-5.4",
         name: "demo",
         resources: {},
@@ -1209,11 +1221,15 @@ describe("@skillset/schema contracts", () => {
     );
     expect(
       validateSkillFrontmatter({
-        metadata: { generated: 1, version: "nope", extra: true },
+        metadata: {
+          "skillset.schema": "2",
+          version: "nope",
+          extra: true,
+        },
       }).diagnostics.map((diagnostic) => diagnostic.code)
     ).toEqual(
       expect.arrayContaining([
-        "schema/skill-frontmatter/metadata-generated",
+        "schema/skill-frontmatter/metadata-skillset-schema",
         "schema/skill-frontmatter/metadata-version",
       ])
     );

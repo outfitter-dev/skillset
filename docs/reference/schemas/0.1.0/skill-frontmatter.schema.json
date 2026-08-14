@@ -310,7 +310,8 @@
     "metadata": {
       "additionalProperties": true,
       "properties": {
-        "generated": {
+        "skillset.schema": {
+          "const": "1",
           "type": "string"
         },
         "version": {

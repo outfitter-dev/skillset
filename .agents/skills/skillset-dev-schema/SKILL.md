@@ -1,7 +1,7 @@
 ---
 description: Change or review Skillset workspace config, source frontmatter, shared metadata fields, structural validation, examples, and generated schema artifacts. Use whenever adding, removing, renaming, validating, or documenting a key shared by compiler and authoring surfaces.
 metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 0.1.0
 name: skillset-dev-schema
 ---

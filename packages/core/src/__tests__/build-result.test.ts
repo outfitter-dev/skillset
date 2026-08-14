@@ -1053,7 +1053,7 @@ dependencies:
   plugins:
     - plugin:base
 metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 1.0.0
 supports:
   packages: []
