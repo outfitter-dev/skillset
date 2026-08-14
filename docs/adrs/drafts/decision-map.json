@@ -210,6 +210,21 @@
       "superseded_by": null,
       "title": "Ungraded Cross-Provider Eval Runs",
       "updated": "2026-07-23"
+    },
+    {
+      "amended_by": [],
+      "amends": ["19", "22"],
+      "created": "2026-08-14",
+      "depends_on": ["0", "4", "19", "22", "23"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md",
+      "slug": "global-immutable-operational-reports",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Global Immutable Operational Reports",
+      "updated": "2026-08-14"
     }
   ],
   "version": 1

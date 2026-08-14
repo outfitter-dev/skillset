@@ -130,6 +130,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.",
           "from": "20260710",
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.",
+          "from": "20260814",
+          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
         }
       ],
       "number": "0000",
@@ -326,9 +331,14 @@
           "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
         },
         {
-          "context": "[ADR-0004](../0004-core-library-boundary.md#package-and-publish-posture)",
+          "context": "[ADR-0004](0004-core-library-boundary.md#package-and-publish-posture)",
           "from": "0029",
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        },
+        {
+          "context": "- [ADR-0004: Core Library and CLI Boundary](../0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.",
+          "from": "20260814",
+          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
         }
       ],
       "number": "0004",
@@ -611,6 +621,11 @@
           "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
         },
         {
+          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - current retained test/eval evidence boundaries remain producer-owned until explicit migration.",
+          "from": "20260814",
+          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+        },
+        {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
           "from": "tests-and-evals",
           "fromPath": "docs/reference/features/tests-and-evals.md"
@@ -703,7 +718,7 @@
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
-          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](../0014-source-change-release-provenance.md) - existing Changesets and release provenance context.",
+          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - existing Changesets and release provenance context.",
           "from": "0029",
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
@@ -948,6 +963,11 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
+          "context": "- [ADR-0019](../0019-deterministic-projection-and-adapter-conformance.md#projection-comparison)",
+          "from": "20260814",
+          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+        },
+        {
           "context": "- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines the registry-to-output evidence loop.",
           "from": "feature-registry",
           "fromPath": "docs/development/features/feature-registry.md"
@@ -1041,7 +1061,7 @@
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
-          "context": "- [ADR-0022: Workflow-Oriented CLI](../0022-workflow-oriented-cli.md) - one public command vocabulary and workflow-oriented routing.",
+          "context": "- [ADR-0022: Workflow-Oriented CLI](0022-workflow-oriented-cli.md) - one public command vocabulary and workflow-oriented routing.",
           "from": "0029",
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
@@ -1054,6 +1074,11 @@
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.",
           "from": "20260723",
           "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
+        },
+        {
+          "context": "- [ADR-0022](../0022-workflow-oriented-cli.md#final-command-roster)",
+          "from": "20260814",
+          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
         }
       ],
       "number": "0022",
@@ -1077,9 +1102,14 @@
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
-          "context": "- [ADR-0023: Versioned Structured Output For CLI Automation](../0023-versioned-structured-output-for-cli-automation.md) - distribution parity includes the public machine protocol.",
+          "context": "- [ADR-0023: Versioned Structured Output For CLI Automation](0023-versioned-structured-output-for-cli-automation.md) - distribution parity includes the public machine protocol.",
           "from": "0029",
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        },
+        {
+          "context": "- [ADR-0023](../0023-versioned-structured-output-for-cli-automation.md#json-is-one-finite-result-envelope)",
+          "from": "20260814",
+          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
         },
         {
           "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
@@ -1170,7 +1200,7 @@
       "depends_on": ["0", "1", "19"],
       "inbound": [
         {
-          "context": "- [ADR-0026: YAML Formatting and Bun Native APIs](../0026-yaml-formatting-and-bun-native-apis.md) - pinned Bun and Bun-native implementation preference.",
+          "context": "- [ADR-0026: YAML Formatting and Bun Native APIs](0026-yaml-formatting-and-bun-native-apis.md) - pinned Bun and Bun-native implementation preference.",
           "from": "0029",
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
@@ -1196,7 +1226,7 @@
       "depends_on": ["0", "5", "12", "19", "22", "23"],
       "inbound": [
         {
-          "context": "- [ADR-0027: Runtime Activation Readiness Is Observational](../0027-runtime-activation-readiness-is-observational.md) - compiler installation does not imply provider activation.",
+          "context": "- [ADR-0027: Runtime Activation Readiness Is Observational](0027-runtime-activation-readiness-is-observational.md) - compiler installation does not imply provider activation.",
           "from": "0029",
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
@@ -1235,7 +1265,13 @@
       "amends": ["4"],
       "created": "2026-08-11",
       "depends_on": ["0", "4", "14", "22", "23", "26", "27"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "The unscoped `skillset` app and scoped `@skillset/cli` app are public distribution packages. They project the same CLI implementation while the unscoped package transitions to the native launcher. Oth",
+          "from": "package-ownership",
+          "fromPath": "docs/development/package-ownership.md"
+        }
+      ],
       "number": "0029",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0029-global-cli-native-distribution.md",

@@ -25,3 +25,8 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
 - [Portable Skill Eval Source Contract](20260723-portable-skill-eval-source-contract.md)
 - [Ungraded Cross-Provider Eval Runs](20260723-ungraded-cross-provider-eval-runs.md)
+
+## 2026-08
+
+- [Global Immutable Operational Reports](20260814-global-immutable-operational-reports.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0004: Core Library and CLI Boundary](../0004-core-library-boundary.md), [ADR-0019: Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md), [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md), [ADR-0023: Versioned Structured Output For CLI Automation](../0023-versioned-structured-output-for-cli-automation.md)
