@@ -241,6 +241,7 @@ export async function executeAdHocTestRun(
   const runOptions: SkillsetOptions = {
     buildMode: "all",
     isolated: true,
+    targetFilter: [target],
     ...(config.sourceDir === undefined ? {} : { sourceDir: config.sourceDir }),
     ...(xdg === undefined ? {} : { xdg }),
   };
@@ -248,8 +249,18 @@ export async function executeAdHocTestRun(
   let status = await readStatus(paths.absolute.statusPath);
   await appendEvent(paths, "status", "building isolated target output");
   status = await updateRunState(paths, status, "building");
+  let graph: BuildGraph;
   try {
-    const build = await buildSkillsetResult(root, runOptions);
+    graph = await loadBuildGraph(root, runOptions);
+    const build = await buildSkillsetResult(root, runOptions, {
+      sourceDrivenOutputPaths: [
+        join(
+          ISOLATED_OUT_ROOT,
+          graph.root.outputs.plugins[target],
+          "README.md"
+        ),
+      ],
+    });
     if (!build.ok) {
       throw new Error(
         `skillset: isolated runtime build blocked before provider launch by ${build.outputState.blockers.map((blocker) => blocker.code).join(", ")}`
@@ -260,7 +271,6 @@ export async function executeAdHocTestRun(
     return;
   }
 
-  const graph = await loadBuildGraph(root, runOptions);
   let command: ReturnType<typeof runtimeCommand>;
   let result: Awaited<ReturnType<typeof runRuntimeProbe>>;
   try {

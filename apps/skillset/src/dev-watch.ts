@@ -185,8 +185,15 @@ export async function runDevWatchPreview(
       checkedSkills: lint.checkedSkills,
       diagnostics: diff.diagnostics,
       diff: diff.data,
+      ...(diff.ok
+        ? {}
+        : {
+            error: `generated output preview is blocked by ${diff.outputState.blockers
+              .map((blocker) => blocker.code)
+              .join(", ")}`,
+          }),
       mode: "preview",
-      ok: true,
+      ok: diff.ok,
       outputRoots: plan.outputRoots,
       reason,
       sourceRoot: plan.sourceRoot,

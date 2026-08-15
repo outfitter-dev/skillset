@@ -276,7 +276,7 @@ async function inspectOutputPlan(args: {
     .filter((diagnostic) =>
       diagnostic.severity === "error" ||
       (diagnostic.code === "unmanaged-output-collision" &&
-        !isEstablishedMarketplaceSourceDrift(
+        !isEstablishedSourceDrivenOutput(
           diagnostic.outputPath ?? diagnostic.path,
           args.previousManagedState.paths.size,
           args.sourceDrivenOutputPaths ?? []
@@ -303,16 +303,14 @@ async function inspectOutputPlan(args: {
   };
 }
 
-function isEstablishedMarketplaceSourceDrift(
+function isEstablishedSourceDrivenOutput(
   path: string | undefined,
   managedOutputCount: number,
   sourceDrivenOutputPaths: readonly string[]
 ): boolean {
-  if (path === undefined || managedOutputCount === 0 || !sourceDrivenOutputPaths.includes(path)) return false;
-  return path === ".claude-plugin/marketplace.json" ||
-    path === ".cursor-plugin/marketplace.json" ||
-    path?.endsWith("/.claude-plugin/marketplace.json") === true ||
-    path?.endsWith("/.cursor-plugin/marketplace.json") === true;
+  return path !== undefined &&
+    managedOutputCount > 0 &&
+    sourceDrivenOutputPaths.includes(path);
 }
 
 export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff> & {
@@ -321,7 +319,7 @@ export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff> & {
 
 export interface SkillsetDiffInspectionOptions {
   readonly enforceRenderPolicy?: boolean;
-  /** Paths proven source-driven by a provider-format analysis. */
+  /** Paths proven source-driven by the calling analysis or operation. */
   readonly sourceDrivenOutputPaths?: readonly string[];
 }
 

@@ -39,7 +39,7 @@ import type {
 export interface CheckSkillsetSourceReadinessOptions extends SkillsetOptions {
   /** Explicitly request a generated-output-only rebuild. */
   readonly write?: "outputs";
-  /** Output paths proven source-driven by provider-format analysis. */
+  /** Output paths proven source-driven by the calling analysis or operation. */
   readonly sourceDrivenOutputPaths?: readonly string[];
 }
 
