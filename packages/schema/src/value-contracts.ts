@@ -5,6 +5,8 @@ export const PROVIDER_NATIVE_REFERENCE_NAME_PATTERN =
 export const WORKSPACE_ID_PATTERN =
   "^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$";
 export const WORKSPACE_ID_MAX_LENGTH = 160;
+export const REPORT_WORKSPACE_NAME_PATTERN =
+  "^(?!\\.{1,2}$)(?!~$)(?![A-Za-z]:)[^\\\\/\\r\\n]+$";
 
 export type ListConjunction = "and" | "or";
 

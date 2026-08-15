@@ -16,6 +16,7 @@ import {
   dirname,
   isAbsolute,
   join,
+  parse,
   relative,
   resolve,
   sep,
@@ -75,6 +76,10 @@ export interface ReportStoreBoundary {
   readonly trustedBase: string;
 }
 
+interface ResolvedReportStoreBoundary extends ReportStoreBoundary {
+  readonly allowForeignSystemTrustedBase: boolean;
+}
+
 export interface ReportStoreTestHooks {
   readonly afterFinalRename?:
     | ((context: { readonly finalPath: string }) => Promise<void> | void)
@@ -122,7 +127,7 @@ export async function createReportBundle(
   input: SkillsetReport,
   options: ReportStoreOptions = {}
 ): Promise<StoredReportBundle> {
-  const boundary = resolveStoreBoundary(options);
+  const boundary = await resolveStoreBoundary(options);
   const reportRoot = boundary.reportRoot;
   const report = sanitizeAndValidateSkillsetReport(input, options.sentinels);
   const json = serializeSkillsetReport(report);
@@ -275,7 +280,7 @@ export async function readReportBundleAtBoundary(
   reference: string,
   options: ReportStoreOptions = {}
 ): Promise<StoredReportBundle> {
-  const boundary = resolveStoreBoundary(options);
+  const boundary = await resolveStoreBoundary(options);
   const reportRoot = boundary.reportRoot;
   const isId = UUID_V4_PATTERN.test(reference);
   try {
@@ -562,9 +567,9 @@ interface DirectoryIdentity {
   readonly ino: number;
 }
 
-function resolveStoreBoundary(
+async function resolveStoreBoundary(
   options: ReportStoreOptions
-): ReportStoreBoundary {
+): Promise<ResolvedReportStoreBoundary> {
   if (options.boundary !== undefined) {
     const trustedBase = resolve(options.boundary.trustedBase);
     const reportRoot = resolve(options.boundary.reportRoot);
@@ -574,25 +579,81 @@ function resolveStoreBoundary(
         "report root is outside its trusted base"
       );
     }
-    return { reportRoot, trustedBase };
+    return {
+      allowForeignSystemTrustedBase: false,
+      reportRoot,
+      trustedBase,
+    };
   }
   const reportRoot = resolve(resolveReportStoreRoot(options));
   const env = options.env ?? process.env;
   const configuredState = env.XDG_STATE_HOME;
-  const trustedBase =
+  const hasConfiguredState =
     configuredState !== undefined &&
     configuredState.trim().length > 0 &&
-    isAbsolute(configuredState)
-      ? dirname(resolve(configuredState))
-      : resolve(options.homeDir ?? homedir());
-  return { reportRoot, trustedBase };
+    isAbsolute(configuredState);
+  const resolvedConfiguredState = hasConfiguredState
+    ? resolve(configuredState)
+    : undefined;
+  const trustedBase =
+    resolvedConfiguredState === undefined
+      ? resolve(options.homeDir ?? homedir())
+      : await findExistingTrustedBase(resolvedConfiguredState);
+  return {
+    allowForeignSystemTrustedBase:
+      resolvedConfiguredState !== undefined &&
+      trustedBase !== resolvedConfiguredState,
+    reportRoot,
+    trustedBase,
+  };
+}
+
+async function findExistingTrustedBase(path: string): Promise<string> {
+  const absolute = resolve(path);
+  const authority = parse(absolute).root;
+  const authorityEntry = await lstat(authority);
+  if (authorityEntry.isSymbolicLink() || !authorityEntry.isDirectory()) {
+    throw new ReportStoreError(
+      "invalid_reference",
+      "configured state filesystem authority must be a plain directory"
+    );
+  }
+
+  const components = relative(authority, absolute)
+    .split(sep)
+    .filter((component) => component.length > 0);
+  let candidate = authority;
+  let trustedBase = authority;
+  let reachedMissingComponent = false;
+  for (const component of components) {
+    candidate = join(candidate, component);
+    if (reachedMissingComponent) continue;
+    try {
+      const entry = await lstat(candidate);
+      if (entry.isSymbolicLink() || !entry.isDirectory()) {
+        throw new ReportStoreError(
+          "invalid_reference",
+          "configured state ancestry must contain only plain directories"
+        );
+      }
+      trustedBase = candidate;
+    } catch (error) {
+      if (!isMissingError(error)) throw error;
+      reachedMissingComponent = true;
+    }
+  }
+  return trustedBase;
 }
 
 async function preparePrivateReportRoot(
-  boundary: ReportStoreBoundary
+  boundary: ResolvedReportStoreBoundary
 ): Promise<void> {
   const { reportRoot, trustedBase } = boundary;
-  await createDirectoryPathWithoutSymlinks(trustedBase, reportRoot);
+  await createDirectoryPathWithoutSymlinks(
+    trustedBase,
+    reportRoot,
+    boundary.allowForeignSystemTrustedBase
+  );
   await assertPlainDirectory(reportRoot, "invalid_reference", "report root");
   await enforceMode(reportRoot, 0o700);
   await assertOwned(reportRoot, "report root");
@@ -600,7 +661,8 @@ async function preparePrivateReportRoot(
 
 async function createDirectoryPathWithoutSymlinks(
   trustedBase: string,
-  path: string
+  path: string,
+  allowForeignSystemTrustedBase: boolean
 ): Promise<void> {
   if (!isContainedPath(trustedBase, path)) {
     throw new ReportStoreError(
@@ -608,13 +670,17 @@ async function createDirectoryPathWithoutSymlinks(
       "report root escapes its trusted base"
     );
   }
-  await assertPlainDirectory(trustedBase, "invalid_reference", "trusted base");
+  await assertTrustedCreationBase(
+    trustedBase,
+    allowForeignSystemTrustedBase
+  );
   const components = relative(trustedBase, path)
     .split(sep)
     .filter((component) => component.length > 0);
   let current = trustedBase;
   for (const component of components) {
     current = join(current, component);
+    let created = false;
     try {
       const entry = await lstat(current);
       if (entry.isSymbolicLink() || !entry.isDirectory()) {
@@ -629,6 +695,7 @@ async function createDirectoryPathWithoutSymlinks(
       if (!isMissingError(error)) throw error;
       try {
         await mkdir(current, { mode: 0o700 });
+        created = true;
       } catch (mkdirError) {
         if (!isAlreadyExistsError(mkdirError)) throw mkdirError;
       }
@@ -641,7 +708,38 @@ async function createDirectoryPathWithoutSymlinks(
       );
     }
     await assertOwnedFromStat(entry.uid, "report root parent");
+    if (created) await enforceMode(current, 0o700);
   }
+}
+
+async function assertTrustedCreationBase(
+  path: string,
+  allowForeignSystemTrustedBase: boolean
+): Promise<void> {
+  const entry = await lstat(path);
+  if (entry.isSymbolicLink() || !entry.isDirectory()) {
+    throw new ReportStoreError(
+      "invalid_reference",
+      "trusted base must be a plain directory"
+    );
+  }
+  if (process.platform === "win32" || process.getuid === undefined) return;
+  if (entry.uid === process.getuid()) return;
+
+  const isRootOwnedStickyWorldWritableAndSearchable =
+    entry.uid === 0 && (entry.mode & 0o1003) === 0o1003;
+  if (
+    allowForeignSystemTrustedBase &&
+    isRootOwnedStickyWorldWritableAndSearchable
+  ) {
+    return;
+  }
+  throw new ReportStoreError(
+    "invalid_reference",
+    allowForeignSystemTrustedBase
+      ? "trusted base must be user-owned or a root-owned sticky system directory"
+      : "trusted base must be owned by the current user"
+  );
 }
 
 async function captureDirectoryIdentity(

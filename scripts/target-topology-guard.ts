@@ -39,7 +39,7 @@ export interface TargetTopologyDuplicateAllowlist extends TargetTopologyViolatio
 }
 
 export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] = [
-  allow("packages/schema/src/contracts.ts", 18, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
+  allow("packages/schema/src/contracts.ts", 19, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
   allow("packages/schema/src/examples.ts", 78, 18, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete targets field."),
   allow("packages/schema/src/examples.ts", 124, 20, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete marketplace targets field."),
   allow("packages/schema/src/examples.ts", 236, 24, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),

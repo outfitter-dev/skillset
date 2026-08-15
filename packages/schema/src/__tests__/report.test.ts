@@ -90,6 +90,44 @@ describe("skillset.report@1", () => {
     }
   });
 
+  it("rejects path-shaped workspace display names", () => {
+    for (const name of [
+      "/home/alice/private-repo",
+      "C:\\Users\\alice\\private-repo",
+      "\\\\server\\private-repo",
+      "~/private-repo",
+      "private/repo",
+      "..",
+    ]) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          workspace: { ...report.workspace, name },
+        }).diagnostics
+      ).toContainEqual({
+        code: "schema/report/workspace-name",
+        message: "workspace name must be a display name, not a path",
+        path: "$.workspace.name",
+      });
+    }
+    expect(
+      validateSkillsetReport({
+        ...report,
+        workspace: { ...report.workspace, name: "Outfitter Skillset" },
+      }).ok
+    ).toBe(true);
+  });
+
+  it("declares semantic date-time validation in the generated contract", () => {
+    expect(reportContract.schema).toMatchObject({
+      properties: {
+        createdAt: {
+          format: "date-time",
+        },
+      },
+    });
+  });
+
   it("shares one workspace identity length boundary", () => {
     const maximum = "a".repeat(WORKSPACE_ID_MAX_LENGTH);
     const overlong = `${maximum}a`;

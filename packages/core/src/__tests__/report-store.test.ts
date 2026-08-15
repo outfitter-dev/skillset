@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { randomUUID } from "node:crypto";
 import {
   mkdir,
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rename,
   stat,
   symlink,
@@ -49,6 +51,130 @@ afterEach(async () => {
 });
 
 describe("global immutable report store", () => {
+  it("creates missing configured state ancestors on first use", async () => {
+    const root = await realpath(await temporaryRoot());
+    const stateRoot = join(root, "new-user/state");
+    const stored = await createReportBundle(fixtureReport(), {
+      env: { XDG_STATE_HOME: stateRoot },
+      homeDir: root,
+    });
+
+    expect(stored.resolvedPath).toBe(
+      join(stateRoot, "skillset/reports", ID)
+    );
+    expect(
+      await readReportBundle(ID, {
+        env: { XDG_STATE_HOME: stateRoot },
+        homeDir: root,
+      })
+    ).toEqual(stored);
+  });
+
+  it("creates a private first-use boundary under the system temp directory", async () => {
+    if (
+      process.platform === "win32" ||
+      process.getuid === undefined ||
+      process.getuid() === 0
+    ) {
+      return;
+    }
+    const systemTemp = await realpath("/tmp");
+    const systemTempEntry = await stat(systemTemp);
+    expect(systemTempEntry.uid).toBe(0);
+    expect(systemTempEntry.uid).not.toBe(process.getuid());
+    expect(systemTempEntry.mode & 0o1003).toBe(0o1003);
+    const probeRoot = join(
+      systemTemp,
+      `skillset-first-use-probe-${process.pid}-${randomUUID()}`
+    );
+    roots.push(probeRoot);
+    const stateRoot = join(probeRoot, "state");
+
+    const stored = await createReportBundle(fixtureReport(), {
+      env: { XDG_STATE_HOME: stateRoot },
+    });
+
+    expect(stored.resolvedPath).toBe(
+      join(stateRoot, "skillset/reports", ID)
+    );
+    expect((await stat(probeRoot)).mode & 0o777).toBe(0o700);
+    expect((await stat(stateRoot)).mode & 0o777).toBe(0o700);
+    expect((await stat(join(stateRoot, "skillset"))).mode & 0o777).toBe(
+      0o700
+    );
+    expect((await stat(join(stateRoot, "skillset/reports"))).mode & 0o777).toBe(
+      0o700
+    );
+    expect((await stat(stored.resolvedPath)).mode & 0o777).toBe(0o700);
+  });
+
+  it("rejects an explicit foreign system-temp trusted base without writing", async () => {
+    if (
+      process.platform === "win32" ||
+      process.getuid === undefined ||
+      process.getuid() === 0
+    ) {
+      return;
+    }
+    const systemTemp = await realpath("/tmp");
+    const probeRoot = join(
+      systemTemp,
+      `skillset-explicit-boundary-probe-${process.pid}-${randomUUID()}`
+    );
+    roots.push(probeRoot);
+
+    await expect(
+      createReportBundle(fixtureReport(), {
+        boundary: {
+          reportRoot: join(probeRoot, "reports"),
+          trustedBase: systemTemp,
+        },
+      })
+    ).rejects.toThrow("trusted base must be owned by the current user");
+    expect(await Bun.file(probeRoot).exists()).toBe(false);
+  });
+
+  it("rejects a symlink above the discovered configured state base", async () => {
+    if (process.platform === "win32") return;
+    const root = await realpath(await temporaryRoot());
+    const real = join(root, "real-state");
+    const existing = join(real, "existing");
+    const link = join(root, "linked-state");
+    await mkdir(existing, { recursive: true });
+    await symlink(real, link);
+
+    const stateRoot = join(link, "existing/new-user/state");
+    await expect(
+      createReportBundle(fixtureReport(), {
+        env: { XDG_STATE_HOME: stateRoot },
+        homeDir: root,
+      })
+    ).rejects.toThrow(
+      "configured state ancestry must contain only plain directories"
+    );
+    expect(Bun.file(join(existing, "new-user")).exists()).resolves.toBe(false);
+  });
+
+  it("rejects path-shaped workspace names before creating report state", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "state/skillset/reports");
+    const report = fixtureReport();
+
+    await expect(
+      createReportBundle(
+        {
+          ...report,
+          workspace: {
+            ...report.workspace,
+            name: "/home/alice/private-repo",
+          },
+        },
+        { boundary: storeBoundary(reportRoot, root) }
+      )
+    ).rejects.toThrow("workspace name must be a display name, not a path");
+    expect(Bun.file(reportRoot).exists()).resolves.toBe(false);
+  });
+
   it("creates and reads one private, deterministic, immutable bundle", async () => {
     const root = await temporaryRoot();
     const reportRoot = join(root, "state/skillset/reports");
@@ -549,7 +675,7 @@ describe("global immutable report store", () => {
     const reportRoot = join(root, "reports");
     const sentinel = "fixture-secret-value";
     const hostile =
-      "<img src=x onerror=alert(1)> [go](https://evil.example) *em* ``ticks``";
+      "<img src=x onerror=alert(1)> [go](evil.example) *em* ``ticks``";
     const stored = await createReportBundle(
       fixtureReport(ID, `${hostile} ${sentinel}`),
       {
@@ -567,7 +693,7 @@ describe("global immutable report store", () => {
     ).not.toContain(sentinel);
 
     const edgePunctuation =
-      " <b>html</b> [link](x) ![image](x) *em* _em_ [brackets] (parens) ``ticks`` \\ & ";
+      " <img src=x> [link](x) ![image](x) *em* _em_ [brackets] (parens) ``ticks`` & ";
     const rendered = renderSkillsetReportMarkdown(
       fixtureReport(ID, edgePunctuation)
     );

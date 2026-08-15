@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import {
   createSemverRegExp,
+  REPORT_WORKSPACE_NAME_PATTERN,
   WORKSPACE_ID_MAX_LENGTH,
   WORKSPACE_ID_PATTERN,
 } from "./value-contracts";
@@ -17,6 +18,7 @@ const UUID_V4_PATTERN =
 const TIMESTAMP_PATTERN =
   /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
 const workspaceIdPattern = new RegExp(WORKSPACE_ID_PATTERN, "u");
+const workspaceNamePattern = new RegExp(REPORT_WORKSPACE_NAME_PATTERN, "u");
 const COMMAND_PATTERN = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const REPOSITORY_IDENTITY_PATTERN = /^[a-z0-9.-]+(?:\/[A-Za-z0-9._-]+)+$/;
 const FULL_GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -140,6 +142,18 @@ function checkWorkspace(
           `${path}.name`,
           "schema/report/workspace-name",
           "workspace name must be one line"
+        )
+      );
+    }
+    if (
+      typeof value.name === "string" &&
+      !workspaceNamePattern.test(value.name)
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.name`,
+          "schema/report/workspace-name",
+          "workspace name must be a display name, not a path"
         )
       );
     }
