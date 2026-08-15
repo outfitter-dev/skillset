@@ -116,6 +116,7 @@ export async function checkSkillsetSourceReadinessWithAuthority(
 ): Promise<SkillsetOperationResult<SkillsetSourceReadinessData>> {
   const {
     sourceDrivenOutputPaths,
+    transactionOptions,
     write,
     ...skillsetOptions
   } = options;
@@ -197,7 +198,10 @@ export async function checkSkillsetSourceReadinessWithAuthority(
     const build = await buildSkillsetResultWithAuthority(
       rootPath,
       skillsetOptions,
-      inspection,
+      {
+        ...inspection,
+        ...(transactionOptions === undefined ? {} : { transactionOptions }),
+      },
       managedLockRepairPaths,
       hooks
     );

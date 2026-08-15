@@ -194,6 +194,166 @@ Body.
     )).toEqual([]);
   });
 
+  it("applies managed file and directory output transitions transactionally", async () => {
+    if (process.platform === "win32") return;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Original guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/guide
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const sourceResourcePath = join(
+      root,
+      ".skillset/shared/references/guide.md"
+    );
+    const outputPath = join(
+      root,
+      ".claude/skills/demo/references/guide"
+    );
+    await chmod(sourceResourcePath, 0o644);
+    await buildSkillsetResult(root);
+    expect(await readFile(outputPath, "utf8")).toBe("Original guide.\n");
+    expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/guide",
+        "to: references/guide/page.md"
+      )
+    );
+    await Bun.write(sourceResourcePath, "Nested guide.\n");
+    await chmod(sourceResourcePath, 0o755);
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeApply: (operation) => {
+            if (
+              operation.kind === "write" &&
+              operation.path === ".claude/skills/skillset.lock"
+            ) {
+              throw new Error("injected failure after file-to-directory write");
+            }
+          },
+        },
+      },
+    })).rejects.toThrow("injected failure after file-to-directory write");
+    expect(await readFile(outputPath, "utf8")).toBe("Original guide.\n");
+    expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+
+    const nested = await buildSkillsetResult(root);
+    const nestedOutputPath = join(outputPath, "page.md");
+    expect(await readFile(nestedOutputPath, "utf8")).toBe("Nested guide.\n");
+    expect((await stat(nestedOutputPath)).mode & 0o777).toBe(0o755);
+    expect(nested.writes.deletedPaths).toContain(
+      ".claude/skills/demo/references/guide"
+    );
+    expect(nested.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide/page.md"
+    );
+
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/guide/page.md",
+        "to: references/guide"
+      )
+    );
+    await Bun.write(sourceResourcePath, "Flat guide.\n");
+    await chmod(sourceResourcePath, 0o644);
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeApply: (operation) => {
+            if (
+              operation.kind === "write" &&
+              operation.path === ".claude/skills/skillset.lock"
+            ) {
+              throw new Error("injected failure after directory-to-file write");
+            }
+          },
+        },
+      },
+    })).rejects.toThrow("injected failure after directory-to-file write");
+    expect(await readFile(nestedOutputPath, "utf8")).toBe("Nested guide.\n");
+    expect((await stat(nestedOutputPath)).mode & 0o777).toBe(0o755);
+
+    const flat = await buildSkillsetResult(root);
+    expect(await readFile(outputPath, "utf8")).toBe("Flat guide.\n");
+    expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+    expect(flat.writes.deletedPaths).toContain(
+      ".claude/skills/demo/references/guide/page.md"
+    );
+    expect(flat.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide"
+    );
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("refuses to replace a managed output directory containing unmanaged files", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Nested guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/guide/page.md
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const outputDirectory = join(
+      root,
+      ".claude/skills/demo/references/guide"
+    );
+    await buildSkillsetResult(root);
+    await Bun.write(join(outputDirectory, "unmanaged.txt"), "Keep me.\n");
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/guide/page.md",
+        "to: references/guide"
+      )
+    );
+
+    const result = await buildSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.outputState.state).toBe("blocked");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "unmanaged-output-collision",
+      outputPath:
+        ".claude/skills/demo/references/guide/unmanaged.txt",
+    }));
+    expect(await readFile(join(outputDirectory, "page.md"), "utf8")).toBe(
+      "Nested guide.\n"
+    );
+    expect(
+      await readFile(join(outputDirectory, "unmanaged.txt"), "utf8")
+    ).toBe("Keep me.\n");
+  });
+
   it("blocks a distinct equal unmanaged case-variant resource destination", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,

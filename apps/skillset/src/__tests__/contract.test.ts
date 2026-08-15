@@ -1235,9 +1235,9 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
     })
   );
   expect(report.nextChecks).toEqual([
-    "skillset build",
-    "skillset build --yes",
-    "skillset check",
+    `skillset build --root ${root}`,
+    `skillset build --yes --root ${root}`,
+    `skillset check --root ${root}`,
   ]);
 
   // Target-native and unknown fields are preserved verbatim in the copied source.
@@ -8677,8 +8677,12 @@ test("SET-464: init fails loudly for malformed active source", async () => {
 });
 
 test("SET-464: import guidance follows the canonical build transcript", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-guidance-root-"));
+  const parent = await mkdtemp(join(tmpdir(), "skillset-import-guidance-root-"));
+  const root = join(parent, "workspace $(not-run) 'quoted");
+  const caller = join(parent, "caller");
   const external = await mkdtemp(join(tmpdir(), "skillset-import-guidance-src-"));
+  await mkdir(root);
+  await mkdir(caller);
   await Bun.write(
     join(external, "demo/SKILL.md"),
     "---\nname: demo\ndescription: Imported demo.\n---\n\nBody.\n"
@@ -8695,12 +8699,28 @@ test("SET-464: import guidance follows the canonical build transcript", async ()
   );
 
   expect(result.exitCode).toBe(0);
-  const preview = result.stdout.indexOf("next: skillset build\n");
-  const write = result.stdout.indexOf("next: skillset build --yes\n");
-  const check = result.stdout.indexOf("next: skillset check\n");
+  const quotedRoot = shellQuote(root);
+  const previewCommand = `skillset build --root ${quotedRoot}`;
+  const writeCommand = `skillset build --yes --root ${quotedRoot}`;
+  const checkCommand = `skillset check --root ${quotedRoot}`;
+  const preview = result.stdout.indexOf(`next: ${previewCommand}\n`);
+  const write = result.stdout.indexOf(`next: ${writeCommand}\n`);
+  const check = result.stdout.indexOf(`next: ${checkCommand}\n`);
   expect(preview).toBeGreaterThan(-1);
   expect(write).toBeGreaterThan(preview);
   expect(check).toBeGreaterThan(write);
+
+  const cliPath = shellQuote(join(import.meta.dir, "..", "cli.ts"));
+  for (const command of [previewCommand, writeCommand, checkCommand]) {
+    const executed = await runShell(
+      `cd ${shellQuote(caller)} && bun ${cliPath} ${command.slice("skillset ".length)}`
+    );
+    expect(executed.exitCode).toBe(0);
+  }
+  expect(
+    await fileExists(join(root, ".claude/skills/demo/SKILL.md"))
+  ).toBe(true);
+  expect(await fileExists(join(caller, ".claude"))).toBe(false);
 });
 
 test("SET-143: init validates dedicated workspace roots instead of creating ordinary mode", async () => {
