@@ -20,7 +20,10 @@ import {
   logicalOperationalPath,
   resolveOperationalPath,
 } from "./operational-cache";
-import { readManagedOutputState } from "./output-safety";
+import {
+  independentlyObservedOutputBaseline,
+  readManagedOutputState,
+} from "./output-safety";
 import {
   classifySkillsetOutputFailure,
   classifySkillsetOutputState,
@@ -71,6 +74,7 @@ interface SourceReadinessFacts {
 
 interface SourceReadinessFailure {
   readonly error: unknown;
+  readonly hasBaseline?: boolean;
   readonly partial?: SourceReadinessFacts;
 }
 
@@ -358,7 +362,10 @@ async function collectSourceReadiness(
       renderResults: diff.renderResults,
     };
   } catch (error) {
-    return { error };
+    return {
+      error,
+      hasBaseline: await independentlyObservedOutputBaseline(rootPath, options),
+    };
   }
 }
 
@@ -388,7 +395,8 @@ function readinessResult(
 }
 
 function failedResult(
-  error: unknown
+  error: unknown,
+  hasBaseline = false
 ): SkillsetOperationResult<SkillsetSourceReadinessData> {
   return {
     data: {
@@ -401,7 +409,7 @@ function failedResult(
       fixedPaths: [],
       managedOutputPaths: [],
       outputDiagnostics: [],
-      outputState: classifySkillsetOutputFailure(error, false),
+      outputState: classifySkillsetOutputFailure(error, hasBaseline),
       remainingPaths: [],
       stalePaths: [],
       warnings: [],
@@ -418,7 +426,9 @@ function failedResult(
 function collectionFailureResult(
   failure: SourceReadinessFailure
 ): SkillsetOperationResult<SkillsetSourceReadinessData> {
-  if (failure.partial === undefined) return failedResult(failure.error);
+  if (failure.partial === undefined) {
+    return failedResult(failure.error, failure.hasBaseline);
+  }
   const stalePaths = driftPaths(failure.partial.data.drift);
   return readinessResult(
     failure.partial,

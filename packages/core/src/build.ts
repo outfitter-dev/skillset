@@ -69,6 +69,46 @@ function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): 
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
+const LOCK_TOP_LEVEL_KEYS = new Set([
+  "buildMode",
+  "features",
+  "generatedBy",
+  "items",
+  "marketplaces",
+  "outputRoot",
+  "renderResults",
+  "schemaVersion",
+  "selectedTargets",
+  "skillsetMetadata",
+  "sourceRoot",
+  "target",
+]);
+const LOCK_FEATURE_KEYS = new Set(["promptArguments"]);
+const LOCK_ITEM_KEYS = new Set([
+  "dependencies",
+  "feature",
+  "fileModes",
+  "files",
+  "includedSkills",
+  "kind",
+  "name",
+  "origin",
+  "outputHash",
+  "outputPath",
+  "plugin",
+  "preprocessDependencies",
+  "renderInputsHash",
+  "skillReferences",
+  "skippedSkills",
+  "sourceHash",
+  "sourceOrigin",
+  "sourcePath",
+  "sourcePointer",
+  "targetState",
+  "transforms",
+  "validation",
+  "version",
+]);
 
 /**
  * Codex truncates AGENTS.md content beyond `project_doc_max_bytes` (32 KiB by
@@ -413,6 +453,10 @@ function hasUntrustedLockProvenance(
   const expectedLock = JSON.parse(textDecoder.decode(expected)) as unknown;
   if (!isJsonRecord(currentLock) || !isJsonRecord(expectedLock)) return true;
   if (currentLock.generatedBy !== expectedLock.generatedBy) return true;
+  if (Object.keys(currentLock).some((key) => !LOCK_TOP_LEVEL_KEYS.has(key))) {
+    return true;
+  }
+  if (hasUnknownFixedShapeLockFields(currentLock)) return true;
   const legacySchemaMigration =
     currentLock.schemaVersion === 1 &&
     expectedLock.schemaVersion === 2 &&
@@ -460,6 +504,21 @@ function hasUntrustedLockProvenance(
     }
   }
   return false;
+}
+
+function hasUnknownFixedShapeLockFields(lock: JsonRecord): boolean {
+  if (
+    !isJsonRecord(lock.features) ||
+    Object.keys(lock.features).some((key) => !LOCK_FEATURE_KEYS.has(key))
+  ) {
+    return true;
+  }
+  if (!Array.isArray(lock.items)) return true;
+  return lock.items.some(
+    (item) =>
+      !isJsonRecord(item) ||
+      Object.keys(item).some((key) => !LOCK_ITEM_KEYS.has(key))
+  );
 }
 
 function hasCoherentLegacyIntegrity(

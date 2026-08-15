@@ -270,6 +270,9 @@ codex: true
 
     const status = await doctorSkillset(root);
     const pluginStatus = await doctorSkillset(root, { scopes: ["plugins"] });
+    const projectReadiness = await checkSkillsetSourceReadiness(root, {
+      scopes: ["project"],
+    });
 
     expect(status.ok).toBe(false);
     expect(status.buildError).toContain("Flow sequence in block collection");
@@ -280,6 +283,73 @@ codex: true
     expect(pluginStatus.buildError).toBe(status.buildError);
     expect(pluginStatus.outputState).toMatchObject({
       hasBaseline: false,
+      state: "blocked",
+    });
+    expect(projectReadiness.data.outputState).toMatchObject({
+      hasBaseline: true,
+      state: "blocked",
+    });
+  });
+
+  it("preserves a configured plugin baseline when graph loading fails", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: plugin-graph-failure-root
+claude:
+  plugins:
+    path: generated/claude
+codex: false
+cursor: false
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+      ".skillset/plugins/tools/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo plugin skill.
+---
+
+Body.
+`,
+    });
+    const baseline = await buildSkillsetResult(root, { scopes: ["plugins"] });
+    expect(baseline.ok).toBe(true);
+    expect(baseline.writes.paths).toContain("generated/claude/skillset.lock");
+    await writeFile(
+      join(root, "skillset.yaml"),
+      `
+skillset:
+  name: plugin-graph-failure-root
+claude:
+  enabled: false
+  plugins:
+    path: generated/claude
+codex: true
+cursor: false
+`,
+      "utf8"
+    );
+    await writeFile(
+      join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
+      "---\nname: demo\ndescription: [\n---\nBroken plugin skill.\n",
+      "utf8"
+    );
+
+    const status = await doctorSkillset(root, { scopes: ["plugins"] });
+    const readiness = await checkSkillsetSourceReadiness(root, {
+      scopes: ["plugins"],
+    });
+
+    expect(status.ok).toBe(false);
+    expect(status.outputState).toMatchObject({
+      hasBaseline: true,
+      state: "blocked",
+    });
+    expect(readiness.data.outputState).toMatchObject({
+      hasBaseline: true,
       state: "blocked",
     });
   });
@@ -508,6 +578,116 @@ codex: true
       targetPath: "skillset.lock",
     }));
     expect(await Bun.file(lockPath).text()).toContain('"generatedBy": "skillset@0.1.0"');
+  });
+
+  it("classifies unknown top-level lock fields as output divergence and backs them up", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: unknown-lock-field-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    lock.unknownField = "untrusted";
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: [],
+      state: "output-diverged",
+    });
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+
+    const applied = await buildSkillsetResult(root);
+    expect(applied.ok).toBe(true);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+    expect(await Bun.file(lockPath).text()).not.toContain("unknownField");
+  });
+
+  it("classifies unknown feature fields as output divergence and backs them up", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: unknown-lock-feature-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      features: Record<string, unknown>;
+    };
+    lock.features.unknownField = true;
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: [],
+      state: "output-diverged",
+    });
+    const applied = await buildSkillsetResult(root);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+  });
+
+  it("does not let source drift excuse unknown item fields", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: unknown-lock-item-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      items: Array<Record<string, unknown>>;
+    };
+    lock.items[0]!.unknownField = true;
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+    await writeFile(
+      join(root, ".skillset/rules/root.md"),
+      "# Updated project instructions\n",
+      "utf8"
+    );
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: ["AGENTS.md"],
+      state: "output-diverged",
+    });
+    const applied = await buildSkillsetResult(root);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
   });
 
   it("does not mistake a schema-downgraded v2 lock for a legacy migration", async () => {

@@ -25,7 +25,10 @@ import {
   logicalOperationalPath,
   resolveOperationalPath,
 } from "./operational-cache";
-import { readManagedOutputState } from "./output-safety";
+import {
+  independentlyObservedOutputBaseline,
+  readManagedOutputState,
+} from "./output-safety";
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
@@ -473,7 +476,7 @@ export async function doctorSkillset(
   } catch (error) {
     const buildDiagnostics = diagnosticsFromError(error);
     const renderResults = renderResultsFromError(error);
-    const hasBaseline = await independentlyObservedWorkspaceBaseline(
+    const hasBaseline = await independentlyObservedOutputBaseline(
       rootPath,
       options
     );
@@ -553,35 +556,6 @@ export async function doctorSkillset(
     outputState,
     warnings: graph.warnings,
   };
-}
-
-async function independentlyObservedWorkspaceBaseline(
-  rootPath: string,
-  options: SkillsetOptions
-): Promise<boolean> {
-  if (!includesProjectScope(options.scopes)) return false;
-  const outPath = options.isolated === true
-    ? (path: string) => join(ISOLATED_OUT_ROOT, path)
-    : (path: string) => path;
-  const pathContext = createOperationalPathContext(rootPath, {
-    ...(options.xdg?.env === undefined ? {} : { env: options.xdg.env }),
-    ...(options.xdg?.homeDir === undefined
-      ? {}
-      : { homeDir: options.xdg.homeDir }),
-  });
-  try {
-    const managed = await readManagedOutputState(
-      rootPath,
-      [],
-      true,
-      outPath,
-      (path) => resolveOperationalPath(pathContext, path),
-      (path) => logicalOperationalPath(pathContext, path)
-    );
-    return managed.hasBaseline;
-  } catch {
-    return false;
-  }
 }
 
 interface LockItemMatch {

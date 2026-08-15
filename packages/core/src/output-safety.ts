@@ -4,6 +4,7 @@ import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 
+import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
   formatGeneratedFileMode,
@@ -12,7 +13,14 @@ import {
 } from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
 import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
-import type { JsonRecord, RenderedFile } from "./types";
+import {
+  createOperationalPathContext,
+  logicalOperationalPath,
+  resolveOperationalPath,
+} from "./operational-cache";
+import type { JsonRecord, RenderedFile, SkillsetOptions } from "./types";
+import { isJsonRecord, parseYamlRecord } from "./yaml";
+import { readSkillsetWorkspaceConfig } from "./xdg";
 
 export const WORKSPACE_LOCK_FILE = "skillset.lock";
 export const OUTPUT_BACKUP_ROOT = ".skillset/snapshots";
@@ -142,6 +150,117 @@ export async function readManagedOutputState(
   }
 
   return { editedPaths, hasBaseline, paths };
+}
+
+/**
+ * Recover scoped baseline evidence without loading the source graph. This is
+ * deliberately narrower than graph resolution: a malformed source unit must
+ * not hide already-managed output from read-only status and readiness checks.
+ */
+export async function independentlyObservedOutputBaseline(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<boolean> {
+  const configPath = join(rootPath, "skillset.yaml");
+  let config: JsonRecord = {};
+  try {
+    config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  } catch {
+    // Fixed default roots remain independently observable without config.
+  }
+
+  let workspaceCacheKey: string | undefined;
+  try {
+    workspaceCacheKey = readSkillsetWorkspaceConfig(config, configPath).cacheKey;
+  } catch {
+    // A malformed workspace stanza cannot invalidate ordinary local evidence.
+  }
+
+  let outputs = readOutputConfig(
+    {},
+    {},
+    options.distDir === undefined ? {} : { distDir: options.distDir }
+  );
+  try {
+    outputs = readOutputConfig(
+      config,
+      readSkillsetMetadata(config, configPath),
+      options.distDir === undefined ? {} : { distDir: options.distDir }
+    );
+  } catch {
+    // Invalid output configuration falls back to fixed default roots only.
+  }
+
+  const scopes = options.scopes;
+  const includesScope = (scope: "plugins" | "project" | "repo") =>
+    scopes === undefined || scopes.includes(scope);
+  const outputRoots = new Set<string>();
+  if (includesScope("plugins")) {
+    for (const outputRoot of Object.values(outputs.plugins)) {
+      outputRoots.add(outputRoot);
+    }
+    addDeclaredProviderOutputRoots(outputRoots, config, "plugins", rootPath);
+  }
+  if (includesScope("repo")) {
+    for (const outputRoot of Object.values(outputs.skills)) {
+      outputRoots.add(outputRoot);
+    }
+    addDeclaredProviderOutputRoots(outputRoots, config, "skills", rootPath);
+  }
+
+  const outPath = options.isolated === true
+    ? (path: string) => join(".skillset/cache/latest", path)
+    : (path: string) => path;
+  const pathContext = createOperationalPathContext(rootPath, {
+    ...(workspaceCacheKey === undefined ? {} : { workspaceCacheKey }),
+    ...(options.xdg?.env === undefined ? {} : { env: options.xdg.env }),
+    ...(options.xdg?.homeDir === undefined ? {} : { homeDir: options.xdg.homeDir }),
+  });
+  const inspect = async (
+    liveOutputRoots: readonly string[],
+    includeWorkspaceLock: boolean
+  ): Promise<boolean> => {
+    try {
+      return (await readManagedOutputState(
+        rootPath,
+        liveOutputRoots,
+        includeWorkspaceLock,
+        outPath,
+        (path) => resolveOperationalPath(pathContext, path),
+        (path) => logicalOperationalPath(pathContext, path)
+      )).hasBaseline;
+    } catch {
+      return false;
+    }
+  };
+
+  if (includesScope("project") && await inspect([], true)) return true;
+  for (const outputRoot of [...outputRoots].sort(compareStrings)) {
+    if (await inspect([outputRoot], false)) return true;
+  }
+  return false;
+}
+
+function addDeclaredProviderOutputRoots(
+  outputRoots: Set<string>,
+  config: JsonRecord,
+  surface: "plugins" | "skills",
+  rootPath: string
+): void {
+  for (const target of targetNames()) {
+    const targetConfig = config[target];
+    if (!isJsonRecord(targetConfig)) continue;
+    const output = targetConfig[surface];
+    if (!isJsonRecord(output)) continue;
+    const path = output.path;
+    if (typeof path !== "string" || path.trim().length === 0) continue;
+    try {
+      resolveInside(rootPath, path);
+      outputRoots.add(path);
+    } catch {
+      // Graph validation owns invalid output-path diagnostics.
+    }
+  }
 }
 
 export async function prepareOutputBackups(
