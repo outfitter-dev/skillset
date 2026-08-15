@@ -380,6 +380,44 @@ test("SET-369: native Codex developerName conflicts warn and stay provider-speci
   expect(importedConfig).toContain("developerName: Codex Author");
 });
 
+test("SET-485: single import prints each distinct preservation warning once", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml":
+      "skillset:\n  name: import-root\ncodex: true\ncursor: true\n",
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Canonical Author" },
+      interface: { developerName: "Codex Author" },
+    }),
+    "native/.cursor-plugin/plugin.json": manifest(
+      "demo",
+      "Demo",
+      "1.0.0",
+      {
+        category: "cursor-productivity",
+        tags: ["cursor-native"],
+      }
+    ),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+  const cursorWarning =
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers.";
+  const codexWarning =
+    "Native Codex interface.developerName differs from canonical author.name; Skillset preserved the Codex-specific value instead of choosing a canonical author.";
+
+  const result = await runSkillsetCli(
+    "import",
+    join(root, "native"),
+    "--kind",
+    "plugin",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stderr.split(cursorWarning)).toHaveLength(2);
+  expect(result.stderr.split(codexWarning)).toHaveLength(2);
+});
+
 test("SET-369: direct native import rejects conflicting provider versions", async () => {
   const root = await pluginFixture({
     "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
