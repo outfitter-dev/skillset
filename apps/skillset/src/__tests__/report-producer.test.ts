@@ -7,6 +7,7 @@ import {
   createCliExternalFixtureReport,
   createCliImportReport,
   createCliOperationReport,
+  externalFixtureManifestEntrySha256,
 } from "../report-producer";
 
 describe("CLI operational report producer", () => {
@@ -85,11 +86,16 @@ describe("CLI operational report producer", () => {
         evidence: [],
         fixture: {
           manifestEntryCount: 1,
+          manifestEntrySha256: externalFixtureManifestEntrySha256({
+            name: "fixture",
+            ref: "b".repeat(40),
+            repo: "github.com/example/fixture",
+          }),
           manifestSha256: "a".repeat(64),
           name: "fixture",
           pinnedCommit: "b".repeat(40),
           repository: "github.com/example/fixture",
-          targets: ["codex"],
+          targets: ["claude"],
         },
         pipelinePassed: false,
         phases: {
@@ -124,5 +130,8 @@ describe("CLI operational report producer", () => {
       "instructions:AGENTS.md",
       "plugins:.claude/plugins",
     ]);
+    expect(fixture.payload.fixture.manifestEntrySha256).toBe(
+      "bb37fe589c7eac6b9c8129954a92a26b2dd89c6587b5d62e6530fdd0c99845a1"
+    );
   });
 });

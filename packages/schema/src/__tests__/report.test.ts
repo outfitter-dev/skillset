@@ -96,6 +96,7 @@ const externalFixturePayload = {
   ],
   fixture: {
     manifestEntryCount: 7,
+    manifestEntrySha256: "d".repeat(64),
     manifestSha256: "a".repeat(64),
     name: "browserbase",
     pinnedCommit: "c".repeat(40),
@@ -271,6 +272,20 @@ describe("skillset.report@1", () => {
           ...externalFixturePayload,
           semanticConclusion: "passed",
         },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: {
+          ...externalFixturePayload,
+          fixture: {
+            ...externalFixturePayload.fixture,
+            manifestEntrySha256: "not-a-sha",
+          },
+        },
+        result: { command: "conformance.external", exitCode: 0, ok: true },
       }).ok
     ).toBe(false);
     expect(

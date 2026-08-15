@@ -785,6 +785,7 @@ function checkFixtureIdentity(
   if (!checkRecord(value, path, diagnostics)) return;
   const keys = [
     "manifestEntryCount",
+    "manifestEntrySha256",
     "manifestSha256",
     "name",
     "pinnedCommit",
@@ -795,6 +796,13 @@ function checkFixtureIdentity(
   checkBoundedCount(
     value.manifestEntryCount,
     `${path}.manifestEntryCount`,
+    diagnostics
+  );
+  checkPattern(
+    value.manifestEntrySha256,
+    SHA256_PATTERN,
+    `${path}.manifestEntrySha256`,
+    "sha256",
     diagnostics
   );
   checkPattern(

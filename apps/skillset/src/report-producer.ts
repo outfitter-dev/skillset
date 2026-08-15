@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   createAdoptionReport,
   createExternalFixtureReport,
@@ -15,6 +17,31 @@ import type {
 } from "@skillset/schema";
 
 import { cliVersion } from "./cli-version";
+
+export interface ExternalFixtureManifestEntryIdentity {
+  readonly name: string;
+  readonly notes?: string;
+  readonly ref: string;
+  readonly repo: string;
+  readonly targets?: SkillsetExternalFixtureReportPayload["fixture"]["targets"];
+}
+
+/**
+ * Hashes the parsed selected manifest entry after expanding its default target.
+ * JSON keys are emitted in the fixed name, notes, ref, repo, targets order.
+ */
+export function externalFixtureManifestEntrySha256(
+  entry: ExternalFixtureManifestEntryIdentity
+): string {
+  const canonicalJson = JSON.stringify({
+    name: entry.name,
+    ...(entry.notes === undefined ? {} : { notes: entry.notes }),
+    ref: entry.ref,
+    repo: entry.repo,
+    targets: entry.targets ?? ["claude"],
+  });
+  return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
+}
 
 export interface CreateCliOperationReportInput {
   readonly command: CreateOperationReportInput["command"];

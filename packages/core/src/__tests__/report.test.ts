@@ -123,6 +123,7 @@ describe("typed operational reports", () => {
           ],
           fixture: {
             manifestEntryCount: 7,
+            manifestEntrySha256: "d".repeat(64),
             manifestSha256: "a".repeat(64),
             name: "browserbase",
             pinnedCommit: "c".repeat(40),
@@ -151,6 +152,9 @@ describe("typed operational reports", () => {
     expect(report.payload.runtime).toEqual({ bunVersion: "1.3.14" });
     expect(renderSkillsetReportMarkdown(report)).toContain(
       "Pipeline passed: yes"
+    );
+    expect(renderSkillsetReportMarkdown(report)).toContain(
+      "Manifest entry SHA-256"
     );
   });
 
@@ -189,6 +193,7 @@ describe("typed operational reports", () => {
       evidence: [],
       fixture: {
         manifestEntryCount: 1,
+        manifestEntrySha256: "c".repeat(64),
         manifestSha256: "a".repeat(64),
         name: "fixture",
         pinnedCommit: "b".repeat(40),
