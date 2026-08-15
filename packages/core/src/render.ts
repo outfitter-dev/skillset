@@ -188,6 +188,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
 
 function coalesceRenderedFiles(files: readonly RenderedFile[]): readonly RenderedFile[] {
   const byPath = new Map<string, RenderedFile>();
+  assertCasePortableRenderedPaths(files.map((file) => file.path));
   for (const file of files) {
     const existing = byPath.get(file.path);
     if (existing === undefined) {
@@ -201,6 +202,34 @@ function coalesceRenderedFiles(files: readonly RenderedFile[]): readonly Rendere
     );
   }
   return [...byPath.values()];
+}
+
+export function assertCasePortableRenderedPaths(paths: readonly string[]): void {
+  const byCaseInsensitivePrefix = new Map<
+    string,
+    { readonly destination: string; readonly prefix: string }
+  >();
+  for (const path of paths) {
+    const destination = path.replaceAll("\\", "/");
+    let prefix = "";
+    for (const segment of path.split(/[\\/]/u)) {
+      prefix = prefix === "" ? segment : `${prefix}/${segment}`;
+      const caseVariant = byCaseInsensitivePrefix.get(prefix.toLowerCase());
+      if (caseVariant !== undefined && caseVariant.prefix !== prefix) {
+        const [left, right] = [caseVariant.destination, destination].sort(compareStrings);
+        const [leftPrefix, rightPrefix] = [caseVariant.prefix, prefix].sort(compareStrings);
+        throw new Error(
+          "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+            `${left} and ${right} (prefixes ${leftPrefix} and ${rightPrefix}); ` +
+            "rename one source destination"
+        );
+      }
+      byCaseInsensitivePrefix.set(prefix.toLowerCase(), {
+        destination,
+        prefix,
+      });
+    }
+  }
 }
 
 function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
