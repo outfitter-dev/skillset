@@ -766,10 +766,11 @@ test("SET-279: check refreshes legacy locks missing render input hashes", async 
   expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
 });
 
-test("SET-279: ownerless legacy plugin hashes stay eligible for provider updates", async () => {
+test("SET-279: ownerless legacy plugin hashes stay visible beside provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
     readonly items: Array<{
       kind?: string;
       renderInputsHash?: string;
@@ -780,6 +781,7 @@ test("SET-279: ownerless legacy plugin hashes stay eligible for provider updates
   if (plugin === undefined) throw new Error("missing plugin lock item");
   plugin.sourceHash = "sha256:dcc61b5427f850699c111bbc08d10b9c2be3d248aece8d12208a9a51513d3a4e";
   delete plugin.renderInputsHash;
+  delete lock.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
@@ -790,7 +792,15 @@ test("SET-279: ownerless legacy plugin hashes stay eligible for provider updates
 
   expect(report.ok).toBe(false);
   expect(report.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.providerUpdatePaths).toContain("plugins/skillset.lock");
+  expect(report.providerUpdatePaths).not.toContain("plugins/skillset.lock");
+  expect(report.repairableManagedLockPaths).toContain("plugins/skillset.lock");
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
+    code: "managed-lock-integrity-migration",
+    outputPath: "plugins/skillset.lock",
+  }));
+  expect(report.recovery).not.toContainEqual(expect.objectContaining({
+    commands: expect.arrayContaining(["skillset build --yes"]),
+  }));
   expect(report.fixedPaths).toEqual([]);
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
@@ -806,7 +816,15 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
 
   expect(report.ok).toBe(false);
   expect(report.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.providerUpdatePaths).toContain("plugins/skillset.lock");
+  expect(report.providerUpdatePaths).not.toContain("plugins/skillset.lock");
+  expect(report.repairableManagedLockPaths).toContain("plugins/skillset.lock");
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
+    code: "managed-lock-integrity-migration",
+    outputPath: "plugins/skillset.lock",
+  }));
+  expect(report.recovery).not.toContainEqual(expect.objectContaining({
+    commands: expect.arrayContaining(["skillset build --yes"]),
+  }));
   expect(report.fixedPaths).toEqual([]);
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
@@ -990,9 +1008,11 @@ async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
 async function removePluginRenderInputsHash(root: string): Promise<void> {
   const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
     readonly items: Array<{ renderInputsHash?: string }>;
   };
   for (const item of lock.items) delete item.renderInputsHash;
+  delete lock.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
 
@@ -1003,6 +1023,7 @@ async function removePluginRenderInputsHashForPath(
   const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
     readonly outputRoot: string;
+    provenanceHash?: string;
     readonly items: Array<{ files?: readonly string[]; renderInputsHash?: string }>;
   };
   const item = lock.items.find((candidate) => candidate.files?.some((file) =>
@@ -1010,6 +1031,7 @@ async function removePluginRenderInputsHashForPath(
   ));
   if (item === undefined) throw new Error(`missing lock item for ${generatedPath}`);
   delete item.renderInputsHash;
+  delete lock.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
 

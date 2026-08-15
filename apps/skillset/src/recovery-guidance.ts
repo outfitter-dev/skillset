@@ -117,16 +117,17 @@ export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly
     ));
   }
 
-  for (const path of lockIntegrityMigrationPaths) {
-    guidance.push({
-      action: "rebuild-generated-output",
-      commands: ["skillset build --yes"],
-      path,
-      reason: "this managed v2 lock does not include verifiable integrity provenance; Skillset will back up the previous lock before rewriting it",
-    });
-  }
-
   const fix = mechanicalFixEligibility(input);
+  if (fix.eligible) {
+    for (const path of lockIntegrityMigrationPaths) {
+      guidance.push({
+        action: "rebuild-generated-output",
+        commands: ["skillset build --yes"],
+        path,
+        reason: "this managed v2 lock does not include verifiable integrity provenance; Skillset will back up the previous lock before rewriting it",
+      });
+    }
+  }
   if (hasDrift(input.drift)) {
     if (fix.eligible) {
       if (lockIntegrityMigrationPaths.length === 0) {
