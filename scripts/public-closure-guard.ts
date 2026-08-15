@@ -117,6 +117,7 @@ const NPM_RUN_COMMANDS: ReadonlySet<string> = new Set([
   "rum",
   "urn",
 ]);
+const PNPM_RUN_COMMANDS: ReadonlySet<string> = new Set(["run", "run-script"]);
 const NPM_LIFECYCLE_SCRIPTS: Readonly<Record<string, string>> = {
   restart: "restart",
   start: "start",
@@ -231,16 +232,18 @@ function readRunnerToken(
 
 /**
  * Statically recognizes `runner [flags] run [flags] script` for Bun, pnpm,
- * and Yarn; npm also accepts its `run-script`, `rum`, and `urn` aliases. Bun,
- * pnpm, and Yarn accept non-builtin `runner [flags] script` shorthand. npm
- * accepts only its finite lifecycle shorthand (`start`, `stop`, `restart`, and
- * `test` plus `t`/`tst`). Script names may be bare or single-/double-quoted.
+ * and Yarn; npm also accepts its `run-script`, `rum`, and `urn` aliases, while
+ * pnpm also accepts `run-script`. Bun, pnpm, and Yarn accept non-builtin
+ * `runner [flags] script` shorthand. npm accepts only its finite lifecycle
+ * shorthand (`start`, `stop`, `restart`, and `test` plus `t`/`tst`). Script
+ * names may be bare or single-/double-quoted.
  * Bounded value flags (`npm --prefix`, `-w`/`--workspace`, `--script-shell`;
  * `bun/yarn --cwd`; and `pnpm --dir`) consume one following token; other flags
- * must be self-contained (for example `--silent` or `--cwd=path`). npm script
- * execution includes bounded pre/post lifecycle edges, and `restart` chooses
- * restart or stop/start fallback edges from the supplied script inventory. This
- * does not expand variables or parse general shell syntax.
+ * must be self-contained (for example `--silent` or `--cwd=path`). npm, Bun,
+ * and pnpm package-script execution includes bounded pre/post lifecycle edges;
+ * npm `restart` chooses restart or stop/start fallback edges from the supplied
+ * script inventory. This does not expand variables or parse general shell
+ * syntax.
  */
 function invokedPackageScripts(
   text: string,
@@ -256,11 +259,19 @@ function invokedPackageScripts(
     if (!token) continue;
     const command = token.value.toLowerCase();
     const isRunCommand =
-      runner === "npm" ? NPM_RUN_COMMANDS.has(command) : command === "run";
+      runner === "npm"
+        ? NPM_RUN_COMMANDS.has(command)
+        : runner === "pnpm"
+          ? PNPM_RUN_COMMANDS.has(command)
+          : command === "run";
     if (isRunCommand) {
       token = readRunnerToken(text, token.end, runner);
       if (runner === "npm" && token?.value) {
         scripts.push(...npmLifecycleEdges(token.value, packageScriptNames));
+        continue;
+      }
+      if ((runner === "bun" || runner === "pnpm") && token?.value) {
+        scripts.push(...packageLifecycleEdges(token.value, packageScriptNames));
         continue;
       }
     } else if (runner === "npm") {
@@ -272,9 +283,21 @@ function invokedPackageScripts(
     } else if (RUNNER_BUILTINS[runner].has(command)) {
       continue;
     }
-    if (token?.value) scripts.push(token.value);
+    if (token?.value && (runner === "bun" || runner === "pnpm")) {
+      scripts.push(...packageLifecycleEdges(token.value, packageScriptNames));
+    } else if (token?.value) {
+      scripts.push(token.value);
+    }
   }
   return scripts;
+}
+
+function packageLifecycleEdges(
+  script: string,
+  packageScriptNames?: ReadonlySet<string>
+): readonly string[] {
+  if (packageScriptNames && !packageScriptNames.has(script)) return [];
+  return [`pre${script}`, script, `post${script}`];
 }
 
 function npmLifecycleEdges(

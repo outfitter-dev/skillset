@@ -426,6 +426,75 @@ describe("generated public closure guard", () => {
     ).toEqual([1, 2, 3, 4]);
   });
 
+  test("SET-465: Bun and pnpm execution follows package pre and post hooks", () => {
+    const packageScripts = {
+      check: "echo check",
+      postreview: "bun scripts/private.ts",
+      precheck: "bun scripts/private.ts",
+      review: "echo review",
+      "via:bun-run": "bun --cwd . run check",
+      "via:bun-short": "bun --cwd . review",
+      "via:pnpm-run": "pnpm --dir . run check",
+      "via:pnpm-run-script-post": "pnpm --dir . run-script review",
+      "via:pnpm-run-script-pre": "pnpm run-script check",
+      "via:pnpm-short": "pnpm --dir . review",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const content = [
+      "Run `bun --cwd . run check`.",
+      "Run `bun --cwd . review`.",
+      "Run `pnpm --dir . run check`.",
+      "Run `pnpm --dir . review`.",
+      "Run `pnpm run-script check`.",
+      "Run `pnpm --dir . run-script review`.",
+    ].join("\n");
+
+    expect([...aliases].toSorted()).toEqual([
+      "postreview",
+      "precheck",
+      "via:bun-run",
+      "via:bun-short",
+      "via:pnpm-run",
+      "via:pnpm-run-script-post",
+      "via:pnpm-run-script-pre",
+      "via:pnpm-short",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line }) => line)
+    ).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  test("SET-465: Bun builtins still bypass package lifecycle shorthand", () => {
+    const packageScripts = {
+      pretest: "bun scripts/private.ts",
+      test: "echo test",
+      "via:explicit": "bun run test",
+      "via:shorthand": "bun test",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+
+    expect([...aliases].toSorted()).toEqual(["pretest", "via:explicit"]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        ["Use `bun test`.", "Use `bun run test`."].join("\n"),
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line }) => line)
+    ).toEqual([2]);
+  });
+
   test("SET-465: allows package scripts without repository-script dependencies", () => {
     const aliases = findRepoInternalScriptAliases(
       {
