@@ -995,7 +995,7 @@ function isInsideOutputRoot(path: string, outputRoot: string): boolean {
   return path === outputRoot || path.startsWith(`${outputRoot}/`);
 }
 
-function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolean {
+export function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolean {
   return scopes === undefined || scopes.includes("project");
 }
 

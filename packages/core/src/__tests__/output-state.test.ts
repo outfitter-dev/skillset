@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -246,6 +246,67 @@ See the [guide](shared:references/guide.md).
     expect(report.buildError).toContain("undeclared shared resource");
     expect(report.outputState).toMatchObject({
       hasBaseline: true,
+      state: "blocked",
+    });
+  });
+
+  it("scopes status and readiness baseline evidence when plugin rendering fails", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: scoped-failure-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    const baseline = await buildSkillsetResult(root, { scopes: ["project"] });
+    expect(baseline.ok).toBe(true);
+    expect(baseline.writes.paths).toContain("AGENTS.md");
+    expect(baseline.writes.paths).toContain("skillset.lock");
+    await writeFile(join(root, "AGENTS.md"), "stale project output\n", "utf8");
+    await mkdir(join(root, ".skillset/plugins/tools/skills/broken"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(root, ".skillset/plugins/tools/skillset.yaml"),
+      "skillset:\n  name: tools\n",
+      "utf8"
+    );
+    await writeFile(
+      join(root, ".skillset/plugins/tools/skills/broken/SKILL.md"),
+      `---
+name: broken
+description: Broken plugin skill.
+---
+
+See the [guide](shared:references/missing.md).
+`,
+      "utf8"
+    );
+
+    const status = await doctorSkillset(root, { scopes: ["plugins"] });
+    const readiness = await checkSkillsetSourceReadiness(root, {
+      scopes: ["plugins"],
+    });
+
+    expect(status.buildError).toContain("undeclared shared resource");
+    expect(status.drift).toEqual({
+      added: [],
+      changed: [],
+      missing: [],
+      removed: [],
+    });
+    expect(status.outputState).toMatchObject({
+      hasBaseline: false,
+      outputChanges: [],
+      state: "blocked",
+    });
+    expect(readiness.data.managedOutputPaths).toEqual([]);
+    expect(readiness.data.checks.managedOutputs.checkedFiles).toBe(0);
+    expect(readiness.data.outputState).toMatchObject({
+      hasBaseline: false,
+      outputChanges: [],
       state: "blocked",
     });
   });

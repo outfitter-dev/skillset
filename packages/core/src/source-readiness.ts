@@ -3,7 +3,9 @@ import { join } from "node:path";
 import {
   buildSkillsetResult,
   diffSkillsetResult,
+  includesProjectScope,
   ISOLATED_OUT_ROOT,
+  scopedOutputRoots,
   type SkillsetDiff,
 } from "./build";
 import { inspectSkillset } from "./lint";
@@ -299,8 +301,8 @@ async function collectSourceReadiness(
     });
     const managed = await readManagedOutputState(
       rootPath,
-      graph.outputRoots,
-      true,
+      scopedOutputRoots(graph, options.scopes),
+      includesProjectScope(options.scopes),
       outPath,
       (path) => resolveOperationalPath(pathContext, path),
       (path) => logicalOperationalPath(pathContext, path)

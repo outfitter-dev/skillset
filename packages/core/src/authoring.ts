@@ -11,7 +11,14 @@ import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-r
 import { collectRenderResults } from "./render-result-collector";
 import { SkillsetFeatureDiagnosticError, type SkillsetDiagnostic } from "./operation-result";
 
-import { diffSkillsetResult, ISOLATED_OUT_ROOT, scopedRenderedFiles, type SkillsetDiff } from "./build";
+import {
+  diffSkillsetResult,
+  includesProjectScope,
+  ISOLATED_OUT_ROOT,
+  scopedOutputRoots,
+  scopedRenderedFiles,
+  type SkillsetDiff,
+} from "./build";
 import { inspectSkillset } from "./lint";
 import {
   createOperationalPathContext,
@@ -505,8 +512,8 @@ export async function doctorSkillset(
   try {
     const managed = await readManagedOutputState(
       rootPath,
-      graph.outputRoots,
-      true,
+      scopedOutputRoots(graph, options.scopes),
+      includesProjectScope(options.scopes),
       outPath,
       (path) => resolveOperationalPath(pathContext, path),
       (path) => logicalOperationalPath(pathContext, path)
