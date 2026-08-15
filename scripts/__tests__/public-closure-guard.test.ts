@@ -325,7 +325,14 @@ describe("generated public closure guard", () => {
       "git -C public -C scripts status",
       "git -C",
       "git -C --no-pager status",
+      // Git's top-level parser compares whole arguments, so the attached-short
+      // ("unknown option: -Cscripts"), bundled, and attached-long-without-`=`
+      // spellings are all rejected by Git and never reach `scripts`. None of
+      // them is a directory route. Contrast the wrapper case below, where GNU
+      // getopt does accept `-Cfixtures`.
       "git -Cscripts status",
+      "git -pC scripts status",
+      "git --work-treescripts status",
       "git -config -C scripts status",
       "git -c=color.ui=false -C scripts status",
       "git --version -C scripts status",
@@ -363,6 +370,49 @@ describe("generated public closure guard", () => {
       { line: 11, rule: "internal-script" },
       { line: 12, rule: "internal-script" },
       { line: 13, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: treats git --git-dir as a protected repository route", () => {
+    const content = [
+      "```bash",
+      "git --git-dir=scripts/.git log",
+      "git --git-dir scripts/.git log",
+      "git --git-dir=packages/.git log",
+      "git --git-dir packages/.git log",
+      "git --git-dir=scripts log",
+      "git --git-dir scripts log",
+      // The operand resolves against the directory `-C` put us in, matching
+      // `--work-tree`: `public` alone is unprotected, but the pair routes into
+      // `scripts`.
+      "git -C public --git-dir=../scripts/.git log",
+      // ...and the operand alone is not enough: this one resolves to
+      // `public/scripts/.git`, which is outside the protected tree.
+      "git -C public --git-dir=scripts/.git log",
+      "git --no-pager --git-dir=packages/.git --work-tree=packages log",
+      "git --git-dir=public/.git log",
+      // Git rejects the attached-long spelling without `=`, so it is no route.
+      "git --git-dirscripts log",
+      "git --git-dir",
+      "git --git-dir --no-pager log",
+      "```",
+      "In prose, git --git-dir=scripts/.git log is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-script" },
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "internal-package" },
+      { line: 5, rule: "internal-package" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-script" },
+      { line: 8, rule: "internal-script" },
+      { line: 10, rule: "internal-package" },
     ]);
   });
 

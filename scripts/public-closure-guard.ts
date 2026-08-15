@@ -346,6 +346,11 @@ const SHELL_WRAPPER_DIRECTORY_VALUE_FLAGS: Readonly<
   env: new Set(["--chdir", "-C"]),
   sudo: new Set(["--chdir", "--chroot", "-D", "-R"]),
 };
+// Git options whose operand names a directory the command then reads or writes
+// through, so the operand is a route into that directory rather than an opaque
+// value. Both are also listed in GIT_GLOBAL_VALUE_FLAGS, which keeps the flag
+// table complete; the route check runs first and consumes them.
+const GIT_DIRECTORY_ROUTE_FLAGS = ["--git-dir", "--work-tree"] as const;
 const GIT_GLOBAL_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "--config-env",
   "--git-dir",
@@ -1289,6 +1294,12 @@ function hasGitProtectedDirectoryArgument(
   };
   for (let index = 1; index < tokens.length; index += 1) {
     const token = tokens[index] ?? "";
+    // Only the detached spelling is a route. Git's top-level option parser is
+    // hand-rolled (`handle_options` in git.c compares whole arguments) rather
+    // than parse-options or getopt, so it rejects both the attached-short
+    // spelling (`git -Cscripts` -> "unknown option: -Cscripts") and bundling
+    // (`git -pC scripts`). This is why `-Cdir` is handled for shell wrappers,
+    // whose GNU getopt parsing does accept it, but deliberately not here.
     if (token === "-C") {
       const operand = tokens[index + 1];
       if (operand === undefined || operand.startsWith("-")) return false;
@@ -1296,19 +1307,22 @@ function hasGitProtectedDirectoryArgument(
       index += 1;
       continue;
     }
-    // `git --work-tree=<path>` (and its detached form) routes Git into the
-    // named tree, so the effective work tree is a protected directory route in
-    // the same way `-C` is. Git resolves it relative to the directory in effect
-    // where the option appears.
-    if (token === "--work-tree" || token.startsWith("--work-tree=")) {
+    // `git --work-tree=<path>` points Git at a tree and `git --git-dir=<path>`
+    // points it at a repository, so both spellings of both options route into
+    // the named directory the way `-C` does. Git resolves each operand relative
+    // to the directory in effect where the option appears.
+    const routeFlag = GIT_DIRECTORY_ROUTE_FLAGS.find(
+      (flag) => token === flag || token.startsWith(`${flag}=`)
+    );
+    if (routeFlag !== undefined) {
       let operand: string;
-      if (token === "--work-tree") {
+      if (token === routeFlag) {
         const detached = tokens[index + 1];
         if (detached === undefined || detached.startsWith("-")) return false;
         operand = detached;
         index += 1;
       } else {
-        operand = token.slice("--work-tree=".length);
+        operand = token.slice(routeFlag.length + 1);
         if (operand.length === 0) continue;
       }
       routes.push(resolveAgainstDirectory(operand));
