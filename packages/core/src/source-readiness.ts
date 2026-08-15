@@ -39,12 +39,15 @@ import type {
   LintResult,
   SkillsetOptions,
 } from "./types";
+import type { WorkspaceTransactionOptions } from "./workspace-transaction";
 
 export interface CheckSkillsetSourceReadinessOptions extends SkillsetOptions {
   /** Explicitly request a generated-output-only rebuild. */
   readonly write?: "outputs";
   /** Output paths proven source-driven by the calling analysis or operation. */
   readonly sourceDrivenOutputPaths?: readonly string[];
+  /** Deterministic fault injection for ordinary output transaction tests. @internal */
+  readonly transactionOptions?: WorkspaceTransactionOptions;
 }
 
 export interface SkillsetSourceReadinessData {

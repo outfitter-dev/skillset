@@ -1234,8 +1234,11 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
       target: "claude",
     })
   );
-  expect(report.nextChecks).toContain("skillset check");
-  expect(report.nextChecks).toContain("skillset check --only outputs");
+  expect(report.nextChecks).toEqual([
+    "skillset build",
+    "skillset build --yes",
+    "skillset check",
+  ]);
 
   // Target-native and unknown fields are preserved verbatim in the copied source.
   const copied = await readFile(join(report.targetPath, "SKILL.md"), "utf8");
@@ -8524,6 +8527,79 @@ test("SET-27: init scaffolds optional CI only when requested", async () => {
   ).resolves.toMatchObject({ exitCode: 0 });
   expect(await fileExists(join(shaped, ".skillset/agents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(shaped, ".github/workflows/skillset-ci.yml"))).toBe(true);
+});
+
+test("SET-464: init guidance distinguishes empty and active source", async () => {
+  const empty = await mkdtemp(join(tmpdir(), "skillset-setup-empty-guidance-"));
+  const emptyResult = await runSkillsetCli("init", "--root", empty, "--yes");
+
+  expect(emptyResult.exitCode).toBe(0);
+  expect(emptyResult.stdout).toContain("next: skillset new skill <name>");
+  expect(emptyResult.stdout).toContain("next: skillset import <path>");
+  expect(emptyResult.stdout).not.toContain("next: skillset build");
+
+  const active = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: active-guidance\ncompile:\n  targets: [claude]\n",
+    ".skillset/skills/demo/SKILL.md":
+      "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+  const activeResult = await runSkillsetCli(
+    "init",
+    "--root",
+    active,
+    "--yes"
+  );
+
+  expect(activeResult.exitCode).toBe(0);
+  const preview = activeResult.stdout.indexOf("next: skillset build\n");
+  const write = activeResult.stdout.indexOf("next: skillset build --yes\n");
+  const check = activeResult.stdout.indexOf("next: skillset check\n");
+  expect(preview).toBeGreaterThan(-1);
+  expect(write).toBeGreaterThan(preview);
+  expect(check).toBeGreaterThan(write);
+});
+
+test("SET-464: init fails loudly for malformed active source", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: blocked-guidance\ncompile:\n  targets: [claude]\n",
+    ".skillset/skills/broken/SKILL.md":
+      "---\nname: broken\ndescription:\n  nested: invalid\n---\n\nBody.\n",
+  });
+
+  const result = await runSkillsetCli("init", "--root", root, "--yes");
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("frontmatter failed schema validation");
+  expect(result.stdout).not.toContain("next: skillset new");
+  expect(result.stdout).not.toContain("next: skillset import");
+  expect(result.stdout).not.toContain("next: skillset build");
+});
+
+test("SET-464: import guidance follows the canonical build transcript", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-guidance-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-guidance-src-"));
+  await Bun.write(
+    join(external, "demo/SKILL.md"),
+    "---\nname: demo\ndescription: Imported demo.\n---\n\nBody.\n"
+  );
+  await runSkillsetCli("init", "--root", root, "--yes");
+
+  const result = await runSkillsetCli(
+    "import",
+    join(external, "demo"),
+    "--kind",
+    "skill",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(0);
+  const preview = result.stdout.indexOf("next: skillset build\n");
+  const write = result.stdout.indexOf("next: skillset build --yes\n");
+  const check = result.stdout.indexOf("next: skillset check\n");
+  expect(preview).toBeGreaterThan(-1);
+  expect(write).toBeGreaterThan(preview);
+  expect(check).toBeGreaterThan(write);
 });
 
 test("SET-143: init validates dedicated workspace roots instead of creating ordinary mode", async () => {

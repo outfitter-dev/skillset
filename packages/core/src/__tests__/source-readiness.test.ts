@@ -181,7 +181,7 @@ test("an explicit output write rebuilds stale paths and rediffs", async () => {
   }
 });
 
-test("a partial rebuild failure reports writes completed before the failure", async () => {
+test("a failed rebuild rolls back writes completed before the failure", async () => {
   const root = await fixture();
   const blockedDirectory = join(root, ".claude/skills/zeta");
   try {
@@ -198,24 +198,22 @@ test("a partial rebuild failure reports writes completed before the failure", as
     });
 
     expect(result.ok).toBe(false);
-    expect(result.data.writePerformed).toBe(true);
-    expect(result.writes.mode).toBe("write");
-    expect(result.writes.paths).toContain(GENERATED_SKILL);
-    expect(result.writes.writtenPaths).toContain(GENERATED_SKILL);
+    expect(result.data.writePerformed).toBe(false);
+    expect(result.writes.mode).toBe("read");
+    expect(result.writes.paths).toEqual([]);
+    expect(result.writes.writtenPaths).toEqual([]);
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         code: "source-readiness-failed",
         severity: "error",
       })
     );
-    expect(result.data.fixedPaths).toContain(GENERATED_SKILL);
-    expect(result.data.remainingPaths).not.toContain(GENERATED_SKILL);
+    expect(result.data.fixedPaths).toEqual([]);
+    expect(result.data.remainingPaths).toContain(GENERATED_SKILL);
     expect(result.data.remainingPaths).toContain(
       ".claude/skills/zeta/SKILL.md"
     );
-    expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toContain(
-      "Demo body."
-    );
+    await expect(readFile(join(root, GENERATED_SKILL), "utf8")).rejects.toThrow();
     await expect(
       readFile(join(blockedDirectory, "SKILL.md"), "utf8")
     ).rejects.toThrow();
