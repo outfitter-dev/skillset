@@ -41,6 +41,11 @@ const adoptionPayload = {
   destinations: [".agents/skills/review"],
   diagnosticCodes: ["adopt.review-required"],
   importedUnitIds: ["skill:review"],
+  listCounts: {
+    candidateIds: 2,
+    destinations: 1,
+    importedUnitIds: 1,
+  },
   migrationFlagCodes: ["metadata.preserved"],
   phases: {
     build: { count: 1, status: "passed" },
@@ -55,12 +60,13 @@ const importPayload = {
   destinations: [".skillset/skills/review"],
   diagnosticCodes: [],
   fields: {
-    inferred: ["name"],
-    preserved: ["description"],
-    unsupported: ["provider_extension"],
+    inferred: 1,
+    preserved: 1,
+    unsupported: 1,
   },
   fileCount: 2,
   importedUnitIds: ["skill:review"],
+  listCounts: { destinations: 1, importedUnitIds: 1 },
   partial: false,
   requestedKind: "skill",
   requestedProvider: "claude",
@@ -150,6 +156,34 @@ describe("skillset.report@1", () => {
     }
   });
 
+  it("enforces exact list totals below the retention cap", () => {
+    const retained = Array.from(
+      { length: 200 },
+      (_, index) => `skill:unit-${index.toString().padStart(3, "0")}`
+    );
+    const validates = (candidateIds: readonly string[], total: number) =>
+      validateSkillsetReport({
+        ...report,
+        kind: "adoption",
+        payload: {
+          ...adoptionPayload,
+          candidateIds,
+          listCounts: {
+            ...adoptionPayload.listCounts,
+            candidateIds: total,
+          },
+        },
+        result: { command: "init.adopt", exitCode: 0, ok: true },
+      }).ok;
+
+    expect(validates([], 200)).toBe(false);
+    expect(validates(retained.slice(0, 2), 3)).toBe(false);
+    expect(validates(retained.slice(0, 2), 2)).toBe(true);
+    expect(validates(retained, 200)).toBe(true);
+    expect(validates(retained, 201)).toBe(true);
+    expect(validates(retained.slice(0, 2), 1)).toBe(false);
+  });
+
   it("keeps kind payloads discriminated and bounded", () => {
     expect(
       validateSkillsetReport({
@@ -183,7 +217,11 @@ describe("skillset.report@1", () => {
         validateSkillsetReport({
           ...report,
           kind: "adoption",
-          payload: { ...adoptionPayload, candidateIds: [candidateId] },
+          payload: {
+            ...adoptionPayload,
+            candidateIds: [candidateId],
+            listCounts: { ...adoptionPayload.listCounts, candidateIds: 1 },
+          },
           result: { command: "init.adopt", exitCode: 0, ok: true },
         }).ok
       ).toBe(false);
@@ -201,7 +239,11 @@ describe("skillset.report@1", () => {
         validateSkillsetReport({
           ...report,
           kind: "adoption",
-          payload: { ...adoptionPayload, candidateIds: [candidateId] },
+          payload: {
+            ...adoptionPayload,
+            candidateIds: [candidateId],
+            listCounts: { ...adoptionPayload.listCounts, candidateIds: 1 },
+          },
           result: { command: "init.adopt", exitCode: 0, ok: true },
         }).ok
       ).toBe(true);

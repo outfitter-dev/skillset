@@ -107,6 +107,32 @@
               ],
               "type": "object"
             },
+            "listCounts": {
+              "additionalProperties": false,
+              "properties": {
+                "candidateIds": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "destinations": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "importedUnitIds": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "candidateIds",
+                "destinations",
+                "importedUnitIds"
+              ],
+              "type": "object"
+            },
             "migrationFlagCodes": {
               "items": {
                 "maxLength": 96,
@@ -264,6 +290,7 @@
             "destinations",
             "diagnosticCodes",
             "importedUnitIds",
+            "listCounts",
             "migrationFlagCodes",
             "phases",
             "renderResults"
@@ -323,34 +350,19 @@
               "additionalProperties": false,
               "properties": {
                 "inferred": {
-                  "items": {
-                    "maxLength": 96,
-                    "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
-                    "type": "string"
-                  },
-                  "maxItems": 200,
-                  "type": "array",
-                  "uniqueItems": true
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
                 },
                 "preserved": {
-                  "items": {
-                    "maxLength": 96,
-                    "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
-                    "type": "string"
-                  },
-                  "maxItems": 200,
-                  "type": "array",
-                  "uniqueItems": true
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
                 },
                 "unsupported": {
-                  "items": {
-                    "maxLength": 96,
-                    "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
-                    "type": "string"
-                  },
-                  "maxItems": 200,
-                  "type": "array",
-                  "uniqueItems": true
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
                 }
               },
               "required": [
@@ -374,6 +386,26 @@
               "maxItems": 200,
               "type": "array",
               "uniqueItems": true
+            },
+            "listCounts": {
+              "additionalProperties": false,
+              "properties": {
+                "destinations": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "importedUnitIds": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "destinations",
+                "importedUnitIds"
+              ],
+              "type": "object"
             },
             "partial": {
               "type": "boolean"
@@ -447,6 +479,7 @@
             "fields",
             "fileCount",
             "importedUnitIds",
+            "listCounts",
             "partial",
             "requestedKind",
             "renderResults",

@@ -44,6 +44,7 @@ describe("typed operational reports", () => {
       destinations: [".agents/skills/review"],
       diagnosticCodes: ["adopt.review-required"],
       importedUnitIds: ["skill:review"],
+      listCounts: { candidateIds: 2, destinations: 1, importedUnitIds: 1 },
       migrationFlagCodes: ["metadata.preserved"],
       phases: {
         build: { count: 1, status: "passed" },
@@ -78,12 +79,13 @@ describe("typed operational reports", () => {
           destinations: [".skillset/skills/review"],
           diagnosticCodes: ["import.partial"],
           fields: {
-            inferred: ["name"],
-            preserved: ["description"],
-            unsupported: ["provider_extension"],
+            inferred: 1,
+            preserved: 1,
+            unsupported: 1,
           },
           fileCount: 2,
           importedUnitIds: ["skill:review"],
+          listCounts: { destinations: 1, importedUnitIds: 1 },
           partial: true,
           requestedKind: "skill",
           requestedProvider: "claude",
@@ -163,6 +165,7 @@ describe("typed operational reports", () => {
             destinations: [],
             diagnosticCodes: [],
             importedUnitIds: [],
+            listCounts: { candidateIds: 1, destinations: 0, importedUnitIds: 0 },
             migrationFlagCodes: [],
             phases: {
               build: { count: 0, status: "not-run" },
@@ -261,6 +264,7 @@ describe("typed operational reports", () => {
             destinations: [],
             diagnosticCodes: [],
             importedUnitIds: [],
+            listCounts: { candidateIds: 0, destinations: 0, importedUnitIds: 0 },
             migrationFlagCodes: [],
             phases: {
               build: { count: 0, status: "skipped" },

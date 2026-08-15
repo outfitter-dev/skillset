@@ -13,6 +13,10 @@ import {
   createInteractiveSession,
   type InteractiveSession,
 } from "./interactive-session";
+import {
+  persistImportReceipt,
+  printOperationReceipt,
+} from "./operation-receipt";
 import { runInteractiveNew } from "./new-interactive";
 import type {
   NewSourceKind,
@@ -61,7 +65,18 @@ export async function runImportCommand({
         : { sourceDir: options.sourceDir }),
     });
   } catch (error) {
-    if (!jsonOutput || !(error instanceof ImportBatchError)) {
+    if (!(error instanceof ImportBatchError)) {
+      throw error;
+    }
+    const receipt = await persistImportReceipt({
+      failed: true,
+      imports: error.imports,
+      kind: importKind,
+      provider: importProvider,
+      rootPath,
+    });
+    if (!jsonOutput) {
+      printOperationReceipt(receipt);
       throw error;
     }
     const writes = importWritePaths(rootPath, error.imports);
@@ -69,7 +84,8 @@ export async function runImportCommand({
       "import",
       {
         imports: error.imports,
-        state: writes.length > 0 ? "written" : "planned",
+        receipt,
+        state: writes.length > 0 ? "written" : "blocked",
         writes,
       },
       1,
@@ -84,8 +100,16 @@ export async function runImportCommand({
     );
     return;
   }
+  const receipt = await persistImportReceipt({
+    failed: false,
+    imports: result.imports,
+    kind: importKind,
+    provider: importProvider,
+    rootPath,
+  });
   if (jsonOutput) {
     printCliJsonData("import", {
+      receipt,
       result,
       state: "written",
       writes: importWritePaths(rootPath, result.imports),
@@ -109,6 +133,7 @@ export async function runImportCommand({
       console.log(formatScaffoldNextStep(command));
     }
   }
+  if (!jsonOutput) printOperationReceipt(receipt);
   if (!jsonOutput) {
     for (const warning of result.warnings)
       console.warn(`  warning: ${warning}`);

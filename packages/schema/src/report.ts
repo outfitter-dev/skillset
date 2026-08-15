@@ -34,7 +34,6 @@ const repositoryIdentityPattern = new RegExp(
 const FULL_GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const REPORT_CODE_PATTERN = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
-const REPORT_FIELD_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
 const reportRelativeIdPattern = new RegExp(REPORT_RELATIVE_ID_PATTERN, "u");
 const FIXTURE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 const REPORT_PHASE_STATUSES = [
@@ -453,6 +452,7 @@ function checkAdoptionPayload(
       "diagnosticCodes",
       "importedUnitIds",
       "isolatedOutput",
+      "listCounts",
       "migrationFlagCodes",
       "phases",
       "renderResults",
@@ -463,6 +463,7 @@ function checkAdoptionPayload(
       "destinations",
       "diagnosticCodes",
       "importedUnitIds",
+      "listCounts",
       "migrationFlagCodes",
       "phases",
       "renderResults",
@@ -486,6 +487,22 @@ function checkAdoptionPayload(
       diagnostics
     );
   }
+  checkListCounts(
+    value.listCounts,
+    ["candidateIds", "destinations", "importedUnitIds"],
+    `${path}.listCounts`,
+    diagnostics
+  );
+  checkRetainedListCounts(
+    value.listCounts,
+    {
+      candidateIds: value.candidateIds,
+      destinations: value.destinations,
+      importedUnitIds: value.importedUnitIds,
+    },
+    `${path}.listCounts`,
+    diagnostics
+  );
   checkCodeList(
     value.migrationFlagCodes,
     `${path}.migrationFlagCodes`,
@@ -513,6 +530,7 @@ function checkImportPayload(
       "fields",
       "fileCount",
       "importedUnitIds",
+      "listCounts",
       "partial",
       "requestedKind",
       "requestedProvider",
@@ -525,6 +543,7 @@ function checkImportPayload(
       "fields",
       "fileCount",
       "importedUnitIds",
+      "listCounts",
       "partial",
       "requestedKind",
       "renderResults",
@@ -540,6 +559,21 @@ function checkImportPayload(
   checkRelativeIdList(
     value.importedUnitIds,
     `${path}.importedUnitIds`,
+    diagnostics
+  );
+  checkListCounts(
+    value.listCounts,
+    ["destinations", "importedUnitIds"],
+    `${path}.listCounts`,
+    diagnostics
+  );
+  checkRetainedListCounts(
+    value.listCounts,
+    {
+      destinations: value.destinations,
+      importedUnitIds: value.importedUnitIds,
+    },
+    `${path}.listCounts`,
     diagnostics
   );
   checkBoolean(value.partial, `${path}.partial`, diagnostics);
@@ -637,13 +671,47 @@ function checkFieldClassifications(
   const keys = ["inferred", "preserved", "unsupported"] as const;
   checkShape(value, keys, keys, path, diagnostics);
   for (const key of keys) {
-    checkStringList(
-      value[key],
-      `${path}.${key}`,
-      REPORT_FIELD_PATTERN,
-      96,
-      diagnostics
-    );
+    checkBoundedCount(value[key], `${path}.${key}`, diagnostics);
+  }
+}
+
+function checkListCounts(
+  value: unknown,
+  keys: readonly string[],
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (!checkRecord(value, path, diagnostics)) return;
+  checkShape(value, keys, keys, path, diagnostics);
+  for (const key of keys) {
+    checkBoundedCount(value[key], `${path}.${key}`, diagnostics);
+  }
+}
+
+function checkRetainedListCounts(
+  value: unknown,
+  lists: Readonly<Record<string, unknown>>,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (!isSchemaRecord(value)) return;
+  for (const [key, list] of Object.entries(lists)) {
+    const count = value[key];
+    if (!Array.isArray(list) || typeof count !== "number" || !Number.isInteger(count))
+      continue;
+    const countIsImpossible =
+      count < list.length || (list.length < 200 && count !== list.length);
+    if (countIsImpossible) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.${key}`,
+          "schema/report/list-count",
+          list.length < 200
+            ? `${key} count must equal the retained list below the 200-item cap`
+            : `${key} count cannot be smaller than the retained list`
+        )
+      );
+    }
   }
 }
 

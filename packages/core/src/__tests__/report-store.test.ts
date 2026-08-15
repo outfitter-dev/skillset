@@ -250,6 +250,7 @@ describe("global immutable report store", () => {
           destinations: [".agents/skills/review"],
           diagnosticCodes: [],
           importedUnitIds: ["skill:review"],
+          listCounts: { candidateIds: 2, destinations: 1, importedUnitIds: 1 },
           migrationFlagCodes: [],
           phases: {
             build: { count: 1, status: "passed" },
@@ -298,6 +299,7 @@ describe("global immutable report store", () => {
           destinations: [],
           diagnosticCodes: [],
           importedUnitIds: [],
+          listCounts: { candidateIds: 1, destinations: 0, importedUnitIds: 0 },
           migrationFlagCodes: [],
           phases: {
             build: { count: 0, status: "skipped" },

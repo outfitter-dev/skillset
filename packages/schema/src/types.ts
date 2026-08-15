@@ -102,6 +102,11 @@ export interface SkillsetAdoptionReportPayload {
   readonly diagnosticCodes: readonly string[];
   readonly importedUnitIds: readonly string[];
   readonly isolatedOutput?: SkillsetReportEvidenceDescriptor;
+  readonly listCounts: {
+    readonly candidateIds: number;
+    readonly destinations: number;
+    readonly importedUnitIds: number;
+  };
   readonly migrationFlagCodes: readonly string[];
   readonly phases: {
     readonly build: SkillsetReportPhaseSummary;
@@ -116,12 +121,16 @@ export interface SkillsetImportReportPayload {
   readonly destinations: readonly string[];
   readonly diagnosticCodes: readonly string[];
   readonly fields: {
-    readonly inferred: readonly string[];
-    readonly preserved: readonly string[];
-    readonly unsupported: readonly string[];
+    readonly inferred: number;
+    readonly preserved: number;
+    readonly unsupported: number;
   };
   readonly fileCount: number;
   readonly importedUnitIds: readonly string[];
+  readonly listCounts: {
+    readonly destinations: number;
+    readonly importedUnitIds: number;
+  };
   readonly partial: boolean;
   readonly requestedKind: "auto" | "plugin" | "plugins" | "skill" | "skills";
   readonly requestedProvider?: "agents" | SkillsetReportTarget | "skillset";

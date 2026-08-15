@@ -8,8 +8,6 @@ import {
   type TransformMatch,
 } from "@skillset/transforms";
 import {
-  createOperationalPathContext,
-  resolveOperationalPath,
   type SkillsetRenderResult,
 } from "@skillset/core";
 
@@ -137,13 +135,6 @@ export interface AdoptReport {
   /** Logical paths actually written by this adoption attempt, including audit artifacts. */
   readonly writtenPaths: readonly string[];
 }
-
-/** Where write-mode adoption persists its migration report. */
-export const ADOPT_REPORT_DIR = ".skillset/cache/adopt";
-const ADOPT_REPORT_PATHS = [
-  `${ADOPT_REPORT_DIR}/report.md`,
-  `${ADOPT_REPORT_DIR}/report.json`,
-] as const;
 
 const INSTRUCTIONS_DIR = ".skillset/rules";
 
@@ -341,9 +332,8 @@ async function adoptResolvedRoot(
       surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
-      writtenPaths: [...new Set([...acquisitionWrittenPaths, ...ADOPT_REPORT_PATHS])],
+      writtenPaths: [...new Set(acquisitionWrittenPaths)],
     };
-    await persistAdoptReport(report);
     return report;
   }
 
@@ -377,10 +367,8 @@ async function adoptResolvedRoot(
 
   let lintIssues: readonly LintIssue[] = [];
   let buildError: string | undefined;
-  let workspaceCacheKey: string | undefined;
   try {
     const graph = await loadBuildGraph(init.rootPath, buildOptions);
-    workspaceCacheKey = graph.root.workspace.cacheKey;
     lintIssues = (await inspectSkillset(graph)).issues;
   } catch (error) {
     buildError = errorMessage(error);
@@ -421,7 +409,6 @@ async function adoptResolvedRoot(
     ]),
     ...baselinePaths,
     ...buildWritePaths,
-    ...ADOPT_REPORT_PATHS,
   ])];
   const report: AdoptReport = {
     acquisition,
@@ -449,8 +436,6 @@ async function adoptResolvedRoot(
     writtenPaths,
   };
 
-  await persistAdoptReport(report, workspaceCacheKey);
-
   return report;
 }
 
@@ -458,24 +443,6 @@ function hasBlockingSurveyDiagnostic(
   diagnostics: readonly PluginAdoptionDiagnostic[]
 ): boolean {
   return diagnostics.some((diagnostic) => diagnostic.severity === "error");
-}
-
-async function persistAdoptReport(
-  report: AdoptReport,
-  workspaceCacheKey?: string
-): Promise<void> {
-  const reportDir = resolveOperationalPath(
-    createOperationalPathContext(report.rootPath, {
-      ...(workspaceCacheKey === undefined ? {} : { workspaceCacheKey }),
-    }),
-    ADOPT_REPORT_DIR
-  );
-  await mkdir(reportDir, { recursive: true });
-  await writeFile(
-    join(reportDir, "report.md"),
-    renderAdoptReportMarkdown(report, { rootPath: report.rootPath })
-  );
-  await writeFile(join(reportDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 }
 
 async function adoptedWorkspaceExists(rootPath: string): Promise<boolean> {

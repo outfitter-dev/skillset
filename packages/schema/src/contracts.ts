@@ -1528,14 +1528,6 @@ function reportRelativeIdSchema(): SchemaJsonRecord {
   };
 }
 
-function reportFieldNameSchema(): SchemaJsonRecord {
-  return {
-    maxLength: 96,
-    pattern: "^[A-Za-z_][A-Za-z0-9_.-]*$",
-    type: "string",
-  };
-}
-
 function reportSha256Schema(): SchemaJsonRecord {
   return { pattern: "^[0-9a-f]{64}$", type: "string" };
 }
@@ -1597,11 +1589,11 @@ function reportCodeListSchema(): SchemaJsonRecord {
   });
 }
 
-function reportFieldListSchema(): SchemaJsonRecord {
-  return arraySchema(reportFieldNameSchema(), {
-    maxItems: 200,
-    uniqueItems: true,
-  });
+function reportListCountsSchema(keys: readonly string[]): SchemaJsonRecord {
+  return requiredObjectSchema(
+    Object.fromEntries(keys.map((key) => [key, reportBoundedCountSchema()])),
+    keys
+  );
 }
 
 function reportAdoptionPayloadSchema(): SchemaJsonRecord {
@@ -1613,6 +1605,11 @@ function reportAdoptionPayloadSchema(): SchemaJsonRecord {
       diagnosticCodes: reportCodeListSchema(),
       importedUnitIds: reportIdListSchema(),
       isolatedOutput: reportEvidenceDescriptorSchema(),
+      listCounts: reportListCountsSchema([
+        "candidateIds",
+        "destinations",
+        "importedUnitIds",
+      ]),
       migrationFlagCodes: reportCodeListSchema(),
       phases: requiredObjectSchema(
         {
@@ -1631,6 +1628,7 @@ function reportAdoptionPayloadSchema(): SchemaJsonRecord {
       "destinations",
       "diagnosticCodes",
       "importedUnitIds",
+      "listCounts",
       "migrationFlagCodes",
       "phases",
       "renderResults",
@@ -1645,14 +1643,18 @@ function reportImportPayloadSchema(): SchemaJsonRecord {
       diagnosticCodes: reportCodeListSchema(),
       fields: requiredObjectSchema(
         {
-          inferred: reportFieldListSchema(),
-          preserved: reportFieldListSchema(),
-          unsupported: reportFieldListSchema(),
+          inferred: reportBoundedCountSchema(),
+          preserved: reportBoundedCountSchema(),
+          unsupported: reportBoundedCountSchema(),
         },
         ["inferred", "preserved", "unsupported"]
       ),
       fileCount: reportBoundedCountSchema(),
       importedUnitIds: reportIdListSchema(),
+      listCounts: reportListCountsSchema([
+        "destinations",
+        "importedUnitIds",
+      ]),
       partial: { type: "boolean" },
       requestedKind: enumSchema([
         "auto",
@@ -1671,6 +1673,7 @@ function reportImportPayloadSchema(): SchemaJsonRecord {
       "fields",
       "fileCount",
       "importedUnitIds",
+      "listCounts",
       "partial",
       "requestedKind",
       "renderResults",

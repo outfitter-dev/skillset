@@ -53,6 +53,7 @@ describe("CLI operational report producer", () => {
         destinations: [],
         diagnosticCodes: [],
         importedUnitIds: [],
+        listCounts: { candidateIds: 2, destinations: 0, importedUnitIds: 0 },
         migrationFlagCodes: [],
         phases: {
           build: { count: 0, status: "skipped" },
@@ -68,9 +69,10 @@ describe("CLI operational report producer", () => {
       payload: {
         destinations: [],
         diagnosticCodes: [],
-        fields: { inferred: [], preserved: [], unsupported: [] },
+        fields: { inferred: 0, preserved: 0, unsupported: 0 },
         fileCount: 0,
         importedUnitIds: [],
+        listCounts: { destinations: 0, importedUnitIds: 0 },
         partial: false,
         requestedKind: "auto",
         renderResults,

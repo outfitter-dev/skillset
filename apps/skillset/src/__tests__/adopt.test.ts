@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
-import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
+import { adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "@skillset/core";
 import {
   createTestGitFixtureRoot,
@@ -154,7 +154,7 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
     ["plugin", true],
   ]);
 
-  const markdown = await readFile(cachePath(report.rootPath, join(ADOPT_REPORT_DIR, "report.md")), "utf8");
+  const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
   expect(markdown).toContain("## Acquisition");
   expect(markdown).toContain("- source: git remote");
   expect(markdown).toContain(`- repo: \`${remote}\``);
@@ -302,7 +302,7 @@ test("SET-277: acquisition validates adoption before copying its destination", a
   expect(await exists(destination)).toBe(false);
 });
 
-test("adopt write mode imports everything, builds the mirror, and writes the report", async () => {
+test("adopt write mode imports everything and builds the mirror", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
   const before = await walkFiles(root);
 
@@ -335,8 +335,8 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(await exists(cachePath(root, ISOLATED_OUT_ROOT))).toBe(true);
   expect(await exists(join(root, "plugins-claude"))).toBe(false);
 
-  // The migration report persists in both shapes.
-  const markdown = await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")), "utf8");
+  // The domain report remains renderable without persisting a nested receipt.
+  const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toBe(renderAdoptReportMarkdown(report, { rootPath: root }));
   expect(markdown).toContain("## Summary");
   expect(markdown).toContain("## Cutover");
@@ -345,17 +345,8 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(markdown).toContain("codex rendered:");
   expect(markdown).toContain("`AGENTS.md`");
   expect(markdown).toContain("unmanaged");
-  const json = JSON.parse(await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")), "utf8")) as {
-    renderResults: readonly {
-      featureId: string;
-      sourceUnit: string;
-      status: string;
-      target?: string;
-    }[];
-    ok: boolean;
-  };
-  expect(json.ok).toBe(true);
-  expect(json.renderResults).toContainEqual(
+  expect(report.ok).toBe(true);
+  expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "plugin-skills",
       sourceUnit: "plugin.demo.skill:demo-skill",
@@ -363,7 +354,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
       target: "codex",
     })
   );
-  expect(json.renderResults).toContainEqual(
+  expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "target-native-islands",
       sourceUnit: "claude.commands:commands",
@@ -371,7 +362,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
       target: "claude",
     })
   );
-  expect(JSON.stringify(json.renderResults)).not.toContain(root);
+  expect(JSON.stringify(report.renderResults)).not.toContain(root);
 
   const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", root);
   expect(explain.exitCode).toBe(0);
@@ -430,7 +421,7 @@ test("adopt elevates a root native plugin without copying workspace config into 
   expect(await exists(join(root, ".skillset/plugins/root-native/skills/helper/SKILL.md"))).toBe(true);
 });
 
-test("blocked adoption reports its persisted audit artifacts", async () => {
+test("blocked reusable adoption does not persist nested audit artifacts", async () => {
   const root = await fixture({
     ".claude-plugin/plugin.json": JSON.stringify({ name: "claude-name", version: "1.0.0" }),
     ".codex-plugin/plugin.json": JSON.stringify({ name: "codex-name", version: "1.0.0" }),
@@ -440,12 +431,7 @@ test("blocked adoption reports its persisted audit artifacts", async () => {
 
   expect(report.ok).toBe(false);
   expect(report.write).toBe(false);
-  expect(report.writtenPaths).toEqual([
-    `${ADOPT_REPORT_DIR}/report.md`,
-    `${ADOPT_REPORT_DIR}/report.json`,
-  ]);
-  expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")))).toBe(true);
-  expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")))).toBe(true);
+  expect(report.writtenPaths).toEqual([]);
 });
 
 test("failed instruction adoption reports its partial copied destination", async () => {
@@ -489,7 +475,7 @@ test("adopt elevates a root Cursor native plugin", async () => {
   expect(await exists(join(root, ".skillset/plugins/cursor-native/skills/helper/SKILL.md"))).toBe(true);
 });
 
-test("adopt carries import render results into the persisted report", async () => {
+test("adopt carries import render results into its domain report", async () => {
   const root = await fixture({
     ".claude/skills/native/SKILL.md":
       "---\nname: native\ndescription: Native skill.\nallowed-tools:\n  - Read\ndisable-model-invocation: true\n---\n\nBody.\n",
@@ -513,13 +499,9 @@ test("adopt carries import render results into the persisted report", async () =
   expect(report.imports[0]?.renderResults).toContainEqual(importOutcome);
   expect(report.renderResults).toContainEqual(importOutcome);
 
-  const json = JSON.parse(await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")), "utf8")) as {
-    renderResults: readonly unknown[];
-  };
-  expect(json.renderResults).toContainEqual(importOutcome);
 });
 
-test("adopt carries native hook lift diagnostics into the persisted report", async () => {
+test("adopt carries native hook lift diagnostics into its domain report", async () => {
   const hooks = {
     hooks: {
       SessionStart: [
@@ -556,10 +538,6 @@ test("adopt carries native hook lift diagnostics into the persisted report", asy
   expect(report.imports.find((result) => result.candidate.kind === "plugin")?.renderResults).toContainEqual(importOutcome);
   expect(report.renderResults).toContainEqual(importOutcome);
 
-  const json = JSON.parse(await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")), "utf8")) as {
-    renderResults: readonly unknown[];
-  };
-  expect(json.renderResults).toContainEqual(importOutcome);
 });
 
 test("adopt preserves survey skip outcomes when imported source cannot load", async () => {
@@ -584,7 +562,7 @@ test("adopt preserves survey skip outcomes when imported source cannot load", as
     })
   );
 
-  const markdown = await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")), "utf8");
+  const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain("### Render results");
   expect(markdown).toContain("claude intentionally_skipped:");
 });

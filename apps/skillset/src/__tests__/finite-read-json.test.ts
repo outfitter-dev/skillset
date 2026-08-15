@@ -202,12 +202,20 @@ describe("SET-287 finite read-only JSON", () => {
     );
 
     const adopted = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
-    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & {
+      data: {
+        receipt: { id: string; path: string; showCommand: string };
+        writes: string[];
+      };
+    };
 
     expect(envelope.data.writes).toContain(".skillset/skills/one");
     expect(envelope.data.writes).toContain(".skillset/changes/state.json");
-    expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.md");
-    expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.json");
+    expect(envelope.data.receipt.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(envelope.data.receipt.showCommand).toBe(
+      `skillset report show ${envelope.data.receipt.id}`
+    );
+    expect(envelope.data.writes).not.toContain(envelope.data.receipt.path);
     expect(envelope.data.writes.some((write) => write.startsWith(".skillset/cache/latest/"))).toBe(true);
   });
 
@@ -234,7 +242,7 @@ describe("SET-287 finite read-only JSON", () => {
     expect(await Bun.file(destination).exists()).toBe(false);
   });
 
-  test("blocked init adoption JSON reports persisted audit writes", async () => {
+  test("blocked init adoption JSON reports a global receipt without workspace writes", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-blocked-"));
     await mkdir(path.join(root, ".claude-plugin"), { recursive: true });
     await mkdir(path.join(root, ".codex-plugin"), { recursive: true });
@@ -248,15 +256,21 @@ describe("SET-287 finite read-only JSON", () => {
     );
 
     const blocked = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
-    const envelope = JSON.parse(blocked.stdout) as SkillsetCliResult & { data: { state: string; writes: string[] } };
+    const envelope = JSON.parse(blocked.stdout) as SkillsetCliResult & {
+      data: {
+        receipt: { id: string; path: string; showCommand: string };
+        state: string;
+        writes: string[];
+      };
+    };
 
     expect(blocked.exitCode).toBe(1);
     expect(blocked.stderr).toBe("");
-    expect(envelope.data.writes).toEqual([
-      ".skillset/cache/adopt/report.md",
-      ".skillset/cache/adopt/report.json",
-    ]);
-    expect(envelope.data.state).toBe("written");
+    expect(envelope.data.writes).toEqual([]);
+    expect(envelope.data.state).toBe("blocked");
+    expect(envelope.data.receipt.showCommand).toBe(
+      `skillset report show ${envelope.data.receipt.id}`
+    );
   });
 
   test("build JSON distinguishes plans from mutations", async () => {
