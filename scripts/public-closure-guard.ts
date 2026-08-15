@@ -27,6 +27,9 @@ interface ClosurePattern {
   readonly rule: PublicClosureRule;
 }
 
+type PackageScripts = Readonly<Record<string, string>>;
+type PackageRunner = "bun" | "npm" | "pnpm" | "yarn";
+
 const PUBLIC_ROOT = "plugins/skillset/";
 const CLOSURE_PATTERNS: readonly ClosurePattern[] = [
   {
@@ -48,6 +51,72 @@ const CLOSURE_PATTERNS: readonly ClosurePattern[] = [
   },
 ] as const;
 
+const PACKAGE_RUNNER_PATTERN =
+  /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
+const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
+  {
+    bun: new Set(["--cwd"]),
+    npm: new Set(["--prefix"]),
+    pnpm: new Set(["--dir"]),
+    yarn: new Set(["--cwd"]),
+  };
+const RUNNER_BUILTINS: Readonly<Record<PackageRunner, ReadonlySet<string>>> = {
+  bun: new Set([
+    "add",
+    "build",
+    "create",
+    "install",
+    "link",
+    "pm",
+    "remove",
+    "test",
+    "unlink",
+    "update",
+    "upgrade",
+    "x",
+  ]),
+  npm: new Set(),
+  pnpm: new Set([
+    "add",
+    "audit",
+    "config",
+    "create",
+    "dlx",
+    "exec",
+    "fetch",
+    "import",
+    "init",
+    "install",
+    "link",
+    "publish",
+    "remove",
+    "store",
+    "unlink",
+    "update",
+  ]),
+  yarn: new Set([
+    "add",
+    "cache",
+    "config",
+    "create",
+    "dlx",
+    "exec",
+    "init",
+    "install",
+    "link",
+    "plugin",
+    "remove",
+    "set",
+    "unlink",
+    "up",
+  ]),
+};
+
+interface CommandToken {
+  readonly end: number;
+  readonly value: string;
+}
+
 export function isGeneratedPublicPath(path: string): boolean {
   return path.startsWith(PUBLIC_ROOT) && path.length > PUBLIC_ROOT.length;
 }
@@ -55,7 +124,8 @@ export function isGeneratedPublicPath(path: string): boolean {
 export function scanGeneratedPublicContent(
   file: string,
   content: string,
-  repoInternalScripts: readonly string[] = []
+  repoInternalScripts: readonly string[] = [],
+  repoInternalScriptAliases: ReadonlySet<string> = new Set()
 ): readonly PublicClosureViolation[] {
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
@@ -78,9 +148,129 @@ export function scanGeneratedPublicContent(
         rule: "internal-script",
         text: text.trim(),
       });
+    } else if (
+      !violations.some(
+        (violation) =>
+          violation.line === index + 1 && violation.rule === "internal-script"
+      ) &&
+      invokedPackageScripts(text).some((name) =>
+        repoInternalScriptAliases.has(name)
+      )
+    ) {
+      violations.push({
+        file,
+        line: index + 1,
+        rule: "internal-script",
+        text: text.trim(),
+      });
     }
   }
   return violations;
+}
+
+function readCommandToken(text: string, offset: number): CommandToken | null {
+  let start = offset;
+  while (/\s/u.test(text[start] ?? "")) start += 1;
+  while (text[start] === "`") start += 1;
+  const quote = text[start];
+  if (quote === '"' || quote === "'") {
+    let end = start + 1;
+    let value = "";
+    while (end < text.length) {
+      const character = text[end];
+      if (character === quote) return { end: end + 1, value };
+      if (character === "\\" && end + 1 < text.length) {
+        end += 1;
+        value += text[end];
+      } else {
+        value += character;
+      }
+      end += 1;
+    }
+    return null;
+  }
+
+  let end = start;
+  while (end < text.length && !/[\s`'"();,]/u.test(text[end] ?? "")) {
+    end += 1;
+  }
+  return end === start ? null : { end, value: text.slice(start, end) };
+}
+
+function readRunnerToken(
+  text: string,
+  offset: number,
+  runner: PackageRunner
+): CommandToken | null {
+  let token = readCommandToken(text, offset);
+  while (token?.value.startsWith("-") && token.value !== "--") {
+    const consumesValue = RUNNER_VALUE_FLAGS[runner].has(token.value);
+    token = readCommandToken(text, token.end);
+    if (consumesValue) {
+      if (!token) return null;
+      token = readCommandToken(text, token.end);
+    }
+  }
+  return token?.value === "--" ? null : token;
+}
+
+/**
+ * Statically recognizes `runner [flags] run [flags] script` for Bun, npm,
+ * pnpm, and Yarn, plus non-builtin `runner [flags] script` shorthand for Bun,
+ * pnpm, and Yarn. Script names may be bare or single-/double-quoted. Bounded
+ * value flags (`npm --prefix`, `bun/yarn --cwd`, and `pnpm --dir`) consume one
+ * following token; other flags must be self-contained (for example `--silent`
+ * or `--cwd=path`). This does not expand variables or parse general shell
+ * syntax.
+ */
+function invokedPackageScripts(text: string): readonly string[] {
+  const scripts: string[] = [];
+  for (const match of text.matchAll(PACKAGE_RUNNER_PATTERN)) {
+    const runner = match.groups?.runner?.toLowerCase() as
+      | PackageRunner
+      | undefined;
+    if (!(runner && match.index !== undefined)) continue;
+    let token = readRunnerToken(text, match.index + match[0].length, runner);
+    if (!token) continue;
+    if (token.value === "run") {
+      token = readRunnerToken(text, token.end, runner);
+    } else if (runner === "npm") {
+      continue;
+    } else if (RUNNER_BUILTINS[runner].has(token.value.toLowerCase())) {
+      continue;
+    }
+    if (token?.value) scripts.push(token.value);
+  }
+  return scripts;
+}
+
+export function findRepoInternalScriptAliases(
+  packageScripts: PackageScripts,
+  repoInternalScripts: readonly string[]
+): ReadonlySet<string> {
+  const aliases = new Set<string>();
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const [name, command] of Object.entries(packageScripts)) {
+      if (aliases.has(name)) continue;
+      const referencesInternalPath = repoInternalScripts.some(
+        (path) =>
+          hasBarePathReference(command, path) ||
+          hasBarePathReference(command, `./${path}`)
+      );
+      const referencesInternalAlias = invokedPackageScripts(command).some(
+        (dependency) => aliases.has(dependency)
+      );
+      if (referencesInternalPath || referencesInternalAlias) {
+        aliases.add(name);
+        changed = true;
+      }
+    }
+  }
+
+  return aliases;
 }
 
 function hasBarePathReference(text: string, path: string): boolean {
@@ -133,6 +323,13 @@ export async function scanGeneratedPublicTree(
   const repoInternalScripts = (
     await filesBelow(resolve(rootDir, "scripts"))
   ).map((path) => relative(rootDir, path).replaceAll("\\", "/"));
+  const packageJson = JSON.parse(
+    await readFile(resolve(rootDir, "package.json"), "utf8")
+  ) as { readonly scripts?: PackageScripts };
+  const repoInternalScriptAliases = findRepoInternalScriptAliases(
+    packageJson.scripts ?? {},
+    repoInternalScripts
+  );
   for (const path of files) {
     const content = await readFile(path);
     if (content.includes(0)) {
@@ -144,7 +341,8 @@ export async function scanGeneratedPublicTree(
       ...scanGeneratedPublicContent(
         file,
         content.toString("utf8"),
-        repoInternalScripts
+        repoInternalScripts,
+        repoInternalScriptAliases
       )
     );
   }
