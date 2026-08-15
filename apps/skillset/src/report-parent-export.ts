@@ -1,5 +1,5 @@
 import { lstat, realpath } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
   importReportBundle,
@@ -18,6 +18,7 @@ export interface CapturedParentXdg {
 }
 
 export interface ExportSandboxReportInput {
+  readonly artifactDirectory?: string;
   readonly childEnv: Readonly<Record<string, string | undefined>>;
   readonly expectedRepoRoot: string;
   readonly parentXdg: CapturedParentXdg;
@@ -54,6 +55,19 @@ export async function exportSandboxReportToParent(
   const parentReportRoot = resolveReportStoreRoot({
     env: { XDG_STATE_HOME: input.parentXdg.state },
   });
+  if (input.artifactDirectory !== undefined) {
+    await rejectOverlappingRoots(
+      [
+        sandbox.descriptor.sandboxPath,
+        sandbox.xdg.state,
+        childReportRoot,
+        input.parentXdg.state,
+        parentReportRoot,
+        join(parentReportRoot, input.reportId),
+      ],
+      [input.artifactDirectory]
+    );
+  }
   await rejectOverlappingRoots(
     [sandbox.descriptor.sandboxPath, sandbox.xdg.state, childReportRoot],
     [input.parentXdg.state, parentReportRoot]

@@ -762,7 +762,13 @@
                   "minimum": 0,
                   "type": "integer"
                 },
+                "manifestEntrySha256": {
+                  "description": "SHA-256 over canonical UTF-8 JSON of the parsed selected manifest entry after default-target expansion and fixed key ordering.",
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
                 "manifestSha256": {
+                  "description": "SHA-256 over the manifest's raw file bytes.",
                   "pattern": "^[0-9a-f]{64}$",
                   "type": "string"
                 },
@@ -797,6 +803,7 @@
               },
               "required": [
                 "manifestEntryCount",
+                "manifestEntrySha256",
                 "manifestSha256",
                 "name",
                 "pinnedCommit",

@@ -40,6 +40,8 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         ],
         fixture: {
           manifestEntryCount: 7,
+          manifestEntrySha256:
+            "f08904795a14bde76202c787d3b203481d93752800a1d897dcf3ebf8854e5706",
           manifestSha256:
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           name: "browserbase",

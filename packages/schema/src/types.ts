@@ -142,6 +142,12 @@ export interface SkillsetExternalFixtureReportPayload {
   readonly evidence: readonly SkillsetReportEvidenceDescriptor[];
   readonly fixture: {
     readonly manifestEntryCount: number;
+    /**
+     * SHA-256 of the selected parsed manifest entry's canonical UTF-8 JSON
+     * after default-target expansion and fixed key ordering.
+     */
+    readonly manifestEntrySha256: string;
+    /** SHA-256 of the manifest's raw file bytes. */
     readonly manifestSha256: string;
     readonly name: string;
     readonly pinnedCommit: string;

@@ -1729,7 +1729,15 @@ function reportExternalFixturePayloadSchema(): SchemaJsonRecord {
       fixture: requiredObjectSchema(
         {
           manifestEntryCount: reportBoundedCountSchema(),
-          manifestSha256: reportSha256Schema(),
+          manifestEntrySha256: {
+            ...reportSha256Schema(),
+            description:
+              "SHA-256 over canonical UTF-8 JSON of the parsed selected manifest entry after default-target expansion and fixed key ordering.",
+          },
+          manifestSha256: {
+            ...reportSha256Schema(),
+            description: "SHA-256 over the manifest's raw file bytes.",
+          },
           name: {
             maxLength: 160,
             pattern: "^[a-z0-9][a-z0-9._-]*$",
@@ -1749,6 +1757,7 @@ function reportExternalFixturePayloadSchema(): SchemaJsonRecord {
         },
         [
           "manifestEntryCount",
+          "manifestEntrySha256",
           "manifestSha256",
           "name",
           "pinnedCommit",

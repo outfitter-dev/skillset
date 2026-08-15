@@ -484,6 +484,7 @@ function cloneExternalFixturePayload(
     evidence: value.evidence.map(cloneEvidenceDescriptor),
     fixture: {
       manifestEntryCount: value.fixture.manifestEntryCount,
+      manifestEntrySha256: value.fixture.manifestEntrySha256,
       manifestSha256: value.fixture.manifestSha256,
       name: value.fixture.name,
       pinnedCommit: value.fixture.pinnedCommit,
@@ -583,6 +584,7 @@ function renderExternalFixturePayload(
     `- Repository: ${renderInlineCode(payload.fixture.repository)}`,
     `- Pinned commit: ${renderInlineCode(payload.fixture.pinnedCommit)}`,
     `- Targets: ${payload.fixture.targets.map(renderInlineCode).join(", ")}`,
+    `- Manifest entry SHA-256: ${renderInlineCode(payload.fixture.manifestEntrySha256)}`,
     `- Manifest SHA-256: ${renderInlineCode(payload.fixture.manifestSha256)}`,
     `- Manifest entries: ${payload.fixture.manifestEntryCount}`,
     `- Bun: ${renderInlineCode(payload.runtime.bunVersion)}`,

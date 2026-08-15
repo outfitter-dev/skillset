@@ -73,15 +73,23 @@ and therefore require its sanitized repository identity, exact commit, and dirty
 state. Their payload adds only fixture facts and the Bun version; it does not
 duplicate envelope-owned Skillset or checkout facts.
 
+`fixture.manifestSha256` identifies the manifest's raw file bytes.
+`fixture.manifestEntrySha256` identifies the selected parsed entry after
+default-target expansion: SHA-256 is computed over UTF-8 JSON with fixed
+`name`, optional `notes`, `ref`, `repo`, and `targets` key ordering, no trailing
+newline, and parsed target order preserved.
+
 The fixture pipeline is one fixed phase map, ordered as `acquire`, `init`,
 `import`, `lint`, `build`, `purity`, and `compare`. A phase records only its
 status and exit class. Repeated work within a phase, including importing more
 than one source unit, is aggregated into that single phase outcome; detailed
-per-unit evidence remains in the producer-owned cache. After an early failure,
-later phases remain present and use `not-run` or `skipped` with the `not-run`
-exit class. `pipelinePassed` is true exactly when all seven phases passed with a
-successful exit class. This invariant is enforced by both the runtime validator
-and the generated JSON Schema, independently of the outer command result.
+per-unit evidence remains in the producer-owned cache. Independently safe
+invariant phases, especially purity, may still run after an earlier failure;
+only phases that were not attempted use `not-run` or `skipped` with the
+`not-run` exit class. `pipelinePassed` is true exactly when all seven phases
+passed with a successful exit class. This invariant is enforced by both the
+runtime validator and the generated JSON Schema, independently of the outer
+command result.
 
 `report.md` is a deterministic human projection of `report.json`. Retrieval
 rejects a bundle when the JSON is invalid, the directory and receipt IDs differ,
