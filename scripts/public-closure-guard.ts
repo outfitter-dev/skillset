@@ -65,6 +65,8 @@ const PUBLIC_CLOSURE_RULE_ORDER: readonly PublicClosureRule[] = [
 ];
 const PROTECTED_PATH_ACTIONS =
   "browse|cd|edit|enter|inspect|list|open|read|visit";
+const PUBLIC_REPOSITORY_OWNER = "outfitter-dev";
+const PUBLIC_REPOSITORY_NAME = "skillset";
 const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
   "bash",
   "bun",
@@ -192,7 +194,22 @@ const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
       "-L",
       "-w",
     ]),
-    pnpm: new Set(["--dir", "--filter", "-C", "-F"]),
+    pnpm: new Set([
+      "--changed-files-ignore-pattern",
+      "--dir",
+      "--filter",
+      "--filter-prod",
+      "--loglevel",
+      "--network-concurrency",
+      "--reporter",
+      "--resume-from",
+      "--script-shell",
+      "--store-dir",
+      "--test-pattern",
+      "--workspace-concurrency",
+      "-C",
+      "-F",
+    ]),
     yarn: new Set(["--cwd"]),
   };
 const RUNNER_BUILTINS: Readonly<Record<PackageRunner, ReadonlySet<string>>> = {
@@ -265,6 +282,26 @@ const NPM_PRE_COMMAND_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   "--silent",
   "--workspaces",
   "-s",
+]);
+const PNPM_RUN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
+  "--aggregate-output",
+  "--color",
+  "--fail-if-no-match",
+  "--if-present",
+  "--parallel",
+  "--recursive",
+  "--report-summary",
+  "--reporter-hide-prefix",
+  "--sequential",
+  "--silent",
+  "--stream",
+  "--use-stderr",
+  "--workspace-root",
+  "--yes",
+  "-r",
+  "-s",
+  "-w",
+  "-y",
 ]);
 const PNPM_RUN_COMMANDS: ReadonlySet<string> = new Set(["run", "run-script"]);
 const NPM_LIFECYCLE_SCRIPTS: Readonly<Record<string, string>> = {
@@ -343,7 +380,11 @@ function matchingProtectedBoundaryRules(
   repoRoot: string | undefined,
   context: ProtectedBoundaryContext
 ): readonly PublicClosureRule[] {
-  const normalizedText = text.replaceAll("\\", "/");
+  const normalizedTextWithUrls = normalizeLiteralShellPathQuotes(
+    text.replaceAll("\\", "/")
+  );
+  const normalizedText = withoutHttpUrls(normalizedTextWithUrls);
+  const repositoryPaths = repositoryHttpPaths(normalizedTextWithUrls);
   const rules = new Set<PublicClosureRule>(
     CLOSURE_PATTERNS.filter(({ pattern }) => pattern.test(normalizedText)).map(
       ({ rule }) => rule
@@ -355,7 +396,8 @@ function matchingProtectedBoundaryRules(
         normalizedText,
         owner.path,
         repoRoot,
-        context
+        context,
+        repositoryPaths
       )
     ) {
       rules.add(owner.rule);
@@ -368,7 +410,8 @@ function hasProtectedPathOwnerReference(
   normalizedText: string,
   ownerPath: string,
   repoRoot: string | undefined,
-  context: ProtectedBoundaryContext
+  context: ProtectedBoundaryContext,
+  repositoryPaths: readonly string[]
 ): boolean {
   const normalizedOwner = ownerPath.toLowerCase();
   const owns = (candidate: string): boolean =>
@@ -382,7 +425,8 @@ function hasProtectedPathOwnerReference(
     ? posix.normalize(`${normalizedRoot}/${normalizedOwner}`)
     : undefined;
 
-  for (const match of normalizedText.matchAll(PATH_CANDIDATE_PATTERN)) {
+  const pathCandidateText = collapseRepeatedPathSeparators(normalizedText);
+  for (const match of pathCandidateText.matchAll(PATH_CANDIDATE_PATTERN)) {
     if (match[0].endsWith("/.")) continue;
     const candidate = posix
       .normalize(match[0].replace(/[!,.?:;]+$/u, ""))
@@ -414,6 +458,8 @@ function hasProtectedPathOwnerReference(
     return true;
   }
 
+  if (repositoryPaths.some(owns)) return true;
+
   if (
     (context === "package-script" &&
       hasProtectedRootCommandArgument(normalizedText, normalizedOwner)) ||
@@ -443,6 +489,23 @@ function hasProtectedPathOwnerReference(
   );
 }
 
+function normalizeLiteralShellPathQuotes(text: string): string {
+  let normalized = text;
+  while (true) {
+    const next = normalized.replace(/(["'])([a-z0-9._@:+\/-]*)\1/giu, "$2");
+    if (next === normalized) return normalized;
+    normalized = next;
+  }
+}
+
+function collapseRepeatedPathSeparators(text: string): string {
+  return text.replace(/\/{2,}/gu, "/");
+}
+
+function withoutHttpUrls(text: string): string {
+  return text.replace(/\bhttps?:\/\/[^\s`"'<>]+/giu, " ");
+}
+
 function fileUrlPaths(text: string): readonly string[] {
   const paths: string[] = [];
   for (const match of text.matchAll(/\bfile:\/\/\/[^\s`"'<>]+/giu)) {
@@ -456,6 +519,47 @@ function fileUrlPaths(text: string): readonly string[] {
       paths.push(posix.normalize(path).toLowerCase());
     } catch {
       // Malformed file URLs are not treated as repository paths.
+    }
+  }
+  return paths;
+}
+
+function repositoryHttpPaths(text: string): readonly string[] {
+  const paths: string[] = [];
+  const appendSuffixes = (
+    segments: readonly string[],
+    firstPathIndex: number
+  ): void => {
+    for (let index = firstPathIndex; index < segments.length; index += 1) {
+      paths.push(
+        posix.normalize(segments.slice(index).join("/")).toLowerCase()
+      );
+    }
+  };
+  for (const match of text.matchAll(/\bhttps?:\/\/[^\s`"'<>]+/giu)) {
+    const value = match[0].replace(/[!,.?:;]+$/u, "");
+    try {
+      const url = new URL(value);
+      const segments = decodeURIComponent(url.pathname)
+        .split("/")
+        .filter(Boolean);
+      const host = url.hostname.toLowerCase();
+      const isRepository =
+        segments[0]?.toLowerCase() === PUBLIC_REPOSITORY_OWNER &&
+        segments[1]?.toLowerCase() === PUBLIC_REPOSITORY_NAME;
+      if (!isRepository) continue;
+
+      if (
+        host === "github.com" &&
+        ["blob", "raw", "tree"].includes(segments[2]?.toLowerCase() ?? "") &&
+        segments.length > 4
+      ) {
+        appendSuffixes(segments, 4);
+      } else if (host === "raw.githubusercontent.com" && segments.length > 3) {
+        appendSuffixes(segments, 3);
+      }
+    } catch {
+      // Malformed or undecodable URLs are not treated as repository paths.
     }
   }
   return paths;
@@ -650,9 +754,11 @@ function readRunnerTokens(
   );
 }
 
-function readNpmConfiguredTokens(
+function readConfiguredRunnerTokens(
   text: string,
   offset: number,
+  valueFlags: ReadonlySet<string>,
+  booleanFlags: ReadonlySet<string>,
   acceptsToken: (token: CommandToken) => boolean
 ): readonly CommandToken[] {
   const memo = new Map<number, readonly CommandToken[]>();
@@ -676,13 +782,13 @@ function readNpmConfiguredTokens(
     }
 
     const next = readCommandToken(text, token.end);
-    if (RUNNER_VALUE_FLAGS.npm.has(token.value)) {
+    if (valueFlags.has(token.value)) {
       return next ? visit(readCommandToken(text, next.end)) : [];
     }
     if (
       token.value.includes("=") ||
       token.value.startsWith("--no-") ||
-      NPM_PRE_COMMAND_BOOLEAN_FLAGS.has(token.value)
+      booleanFlags.has(token.value)
     ) {
       return visit(next);
     }
@@ -708,8 +814,12 @@ function readNpmPreCommandTokens(
     ...NPM_RUN_COMMANDS,
     ...Object.keys(NPM_LIFECYCLE_SCRIPTS),
   ]);
-  return readNpmConfiguredTokens(text, offset, (token) =>
-    commandNames.has(token.value.toLowerCase())
+  return readConfiguredRunnerTokens(
+    text,
+    offset,
+    RUNNER_VALUE_FLAGS.npm,
+    NPM_PRE_COMMAND_BOOLEAN_FLAGS,
+    (token) => commandNames.has(token.value.toLowerCase())
   );
 }
 
@@ -718,9 +828,25 @@ function readNpmRunScriptTokens(
   offset: number,
   packageScriptNames?: ReadonlySet<string>
 ): readonly CommandToken[] {
-  return readNpmConfiguredTokens(
+  return readConfiguredRunnerTokens(
     text,
     offset,
+    RUNNER_VALUE_FLAGS.npm,
+    NPM_PRE_COMMAND_BOOLEAN_FLAGS,
+    (token) => packageScriptNames?.has(token.value) !== false
+  );
+}
+
+function readPnpmRunScriptTokens(
+  text: string,
+  offset: number,
+  packageScriptNames?: ReadonlySet<string>
+): readonly CommandToken[] {
+  return readConfiguredRunnerTokens(
+    text,
+    offset,
+    RUNNER_VALUE_FLAGS.pnpm,
+    PNPM_RUN_BOOLEAN_FLAGS,
     (token) => packageScriptNames?.has(token.value) !== false
   );
 }
@@ -801,12 +927,14 @@ function invokedPackageScriptsForCommand(
     const scriptTokens =
       runner === "npm"
         ? readNpmRunScriptTokens(text, commandToken.end, packageScriptNames)
-        : readRunnerTokens(text, commandToken.end, runner, {
-            ...(runner === "yarn"
-              ? { requiredValueFlags: YARN_RUN_REQUIRED_VALUE_FLAGS }
-              : {}),
-            skipArgumentDelimiter: runner !== "yarn",
-          });
+        : runner === "pnpm"
+          ? readPnpmRunScriptTokens(text, commandToken.end, packageScriptNames)
+          : readRunnerTokens(text, commandToken.end, runner, {
+              ...(runner === "yarn"
+                ? { requiredValueFlags: YARN_RUN_REQUIRED_VALUE_FLAGS }
+                : {}),
+              skipArgumentDelimiter: runner !== "yarn",
+            });
     for (const token of scriptTokens) {
       if (runner === "npm") {
         scripts.push(...npmLifecycleEdges(token.value, packageScriptNames));
@@ -908,7 +1036,9 @@ function hasRepoInternalScriptReference(
   path: string,
   repoRoot?: string
 ): boolean {
-  const normalizedText = text.replaceAll("\\", "/").toLowerCase();
+  const normalizedText = collapseRepeatedPathSeparators(
+    withoutHttpUrls(normalizeLiteralShellPathQuotes(text.replaceAll("\\", "/")))
+  ).toLowerCase();
   const normalizedPath = path.replaceAll("\\", "/").toLowerCase();
   if (
     hasBarePathReference(normalizedText, normalizedPath) ||

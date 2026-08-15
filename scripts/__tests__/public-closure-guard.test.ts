@@ -163,6 +163,74 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: normalizes literal shell quote fragments inside protected paths", () => {
+    const content = [
+      'Read packages/"core"/src/index.ts.',
+      "Run `node packages/'core'/src/index.ts`.",
+      'Read "docs"/development/schema-contracts.md.',
+      'Read apps/skillset/"src"/cli.ts.',
+      'Read fixtures/"kitchen-sink"/skillset.yaml.',
+      'Run `node scripts/"private".ts`.',
+      'Run `node pack""ages/core/src/index.ts`.',
+      "Run `node fi''xtures/kitchen-sink/skillset.yaml`.",
+      'Read docs/deve""lopment/schema-contracts.md.',
+      'Run `node packages/"/"core/src/index.ts`.',
+      'Read public/"packages"/core/src/index.ts.',
+      'Read packages/"$PACKAGE"/src/index.ts.',
+      'Read packages/"core docs"/src/index.ts.',
+      'Read .skillset/plugins/demo/scripts/"check".ts.',
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"]
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-package" },
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "internal-package" },
+      { line: 5, rule: "fixture-path" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-package" },
+      { line: 8, rule: "fixture-path" },
+      { line: 9, rule: "development-docs" },
+      { line: 10, rule: "internal-package" },
+    ]);
+  });
+
+  test("SET-465: recognizes protected paths only in this repository's HTTP links", () => {
+    const content = [
+      "Read https://github.com/outfitter-dev/skillset/blob/main/docs/development/schema-contracts.md.",
+      "Inspect https://github.com/outfitter-dev/skillset/tree/main/packages/core/src.",
+      "Read https://raw.githubusercontent.com/outfitter-dev/skillset/main/fixtures/kitchen-sink/skillset.yaml.",
+      "Open https://github.com/outfitter-dev/skillset/blob/main/apps%2Fskillset%2Fsrc%2Fcli.ts.",
+      "Read https://github.com/outfitter-dev/skillset/blob/feature/foo/docs/development/schema-contracts.md.",
+      "Read https://raw.githubusercontent.com/outfitter-dev/skillset/feature/foo/packages/core/src/index.ts.",
+      "Read https://github.com/another/skillset/blob/main/docs/development/schema-contracts.md.",
+      "Read https://example.com/outfitter-dev/skillset/blob/main/packages/core/src/index.ts.",
+      "Read https://github.com/outfitter-dev/skillset/issues/1?path=docs/development/schema-contracts.md.",
+      "Read https://github.com/outfitter-dev/skillset/blob/main/docs/developmental/overview.md.",
+      "Read https://github.com/outfitter-dev/skillset/blob/main/docs/reference/features/skills.md.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "development-docs" },
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "fixture-path" },
+      { line: 4, rule: "internal-package" },
+      { line: 5, rule: "development-docs" },
+      { line: 6, rule: "internal-package" },
+    ]);
+  });
+
   test("SET-465: protected path owners include roots and descendants across path forms", () => {
     const owners = [
       ["docs/development", "development-docs"],
@@ -714,6 +782,66 @@ describe("generated public closure guard", () => {
       "npm run --future-config value public private",
       "npm run --silent public private",
       "npm run --loglevel silent -- public private",
+    ];
+
+    expect(
+      protectedCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          [],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(protectedCommands.map(() => ["internal-script"]));
+    expect(
+      publicOrIncompleteCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          [],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        )
+      )
+    ).toEqual(publicOrIncompleteCommands.map(() => []));
+  });
+
+  test("SET-465: pnpm post-run value options preserve exact script selection", () => {
+    const packageScripts = {
+      "--private": "bun packages/core/src/private.ts",
+      private: "bun packages/core/src/private.ts",
+      public: "echo public",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, []);
+    const protectedCommands = [
+      "pnpm run --loglevel silent private",
+      "pnpm run --loglevel=silent private",
+      "pnpm run --filter demo private",
+      "pnpm run -F demo private",
+      "pnpm run --dir . private",
+      "pnpm run -C . private",
+      "pnpm run --workspace-concurrency 2 private",
+      "pnpm run --reporter append-only private",
+      "pnpm run --script-shell /bin/sh private",
+      "pnpm run --store-dir /tmp/store private",
+      "pnpm run --network-concurrency 2 private",
+      "pnpm run --future-config value private",
+      "pnpm run --future-boolean private",
+      "pnpm run --loglevel silent -- private",
+      "pnpm run -- --private",
+    ];
+    const publicOrIncompleteCommands = [
+      "pnpm run --loglevel silent public private",
+      "pnpm run public --loglevel silent private",
+      "pnpm run --loglevel private",
+      "pnpm run --filter private",
+      "pnpm run --reporter private",
+      "pnpm run --script-shell private",
+      "pnpm run --future-config value public private",
+      "pnpm run --silent public private",
+      "pnpm run --loglevel silent -- public private",
     ];
 
     expect(
