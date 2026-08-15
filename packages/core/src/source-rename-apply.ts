@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
 import { buildSkillsetResult, verifySkillsetResult } from "./build";
+import type { SkillsetOutputStateBlocker } from "./output-state";
 import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
@@ -88,7 +89,13 @@ export async function planSourceRenameGeneratedEffects(
       shadowRoot,
       sourceTransactionPlan(sourcePlan)
     );
-    const nextRendered = (await buildSkillsetResult(shadowRoot)).data;
+    const shadowBuild = await buildSkillsetResult(shadowRoot);
+    if (!shadowBuild.ok) {
+      throw new SourceRenamePlanError(
+        `projected generated output is blocked; reconcile it before renaming:\n${describeBlockers(shadowBuild.outputState.blockers)}`
+      );
+    }
+    const nextRendered = shadowBuild.data;
     await assertNoUnmanagedOutputCollisions(
       rootPath,
       currentRendered,
@@ -98,6 +105,19 @@ export async function planSourceRenameGeneratedEffects(
   } finally {
     await rm(shadowRoot, { force: true, recursive: true });
   }
+}
+
+function describeBlockers(
+  blockers: readonly SkillsetOutputStateBlocker[]
+): string {
+  if (blockers.length === 0) return "output derivation was blocked";
+  return blockers
+    .map((blocker) =>
+      blocker.path === undefined
+        ? blocker.code
+        : `${blocker.code}: ${blocker.path}`
+    )
+    .join("\n");
 }
 
 function sourceTransactionPlan(
