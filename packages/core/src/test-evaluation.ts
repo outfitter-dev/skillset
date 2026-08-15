@@ -7,6 +7,7 @@ import {
   SkillsetBuildBlockedError,
 } from "./build";
 import { readRecord, readString, readStringArray } from "./config";
+import { resolveLicense } from "./licenses";
 import { compareStrings, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
@@ -228,9 +229,8 @@ async function pluginManifestCheck(
           continue;
         }
         for (const [field, expected] of Object.entries(
-          expectedPluginManifestFields(graph, plugin, target)
+          await expectedPluginManifestFields(graph, plugin, target)
         )) {
-          if (expected === undefined) continue;
           if (!jsonEquals(manifest[field], expected)) {
             failures.push(
               `${manifestPath} ${field} actual ${JSON.stringify(manifest[field])} expected ${JSON.stringify(expected)}`
@@ -262,62 +262,78 @@ function pluginManifestPath(
   );
 }
 
-function expectedPluginManifestFields(
+async function expectedPluginManifestFields(
   graph: BuildGraph,
   plugin: BuildGraph["plugins"][number],
   target: TargetName
-): JsonRecord {
+): Promise<Readonly<Record<string, JsonValue | undefined>>> {
   const metadata = plugin.metadata;
   const portableManifest = readRecord(metadata, "manifest") ?? {};
   const targetManifest =
     readRecord(plugin.targets[target].options, "manifest") ?? {};
   const listing = readSourceListing(metadata);
+  const rootLicense = await resolveLicense({
+    graph,
+    label: relative(graph.rootPath, graph.rootManifestPath),
+    metadata: graph.root.metadata,
+    scopePath: graph.sourceRootPath,
+    sourcePath: graph.rootManifestPath,
+  });
+  const pluginLicense = await resolveLicense({
+    graph,
+    label: relative(graph.rootPath, plugin.configPath),
+    metadata,
+    ...(rootLicense === undefined ? {} : { parent: rootLicense }),
+    scopePath: plugin.path,
+    sourcePath: plugin.configPath,
+  });
   const description =
     readString(listing, "summary") ??
     readString(listing, "description") ??
     readString(metadata, "description") ??
     plugin.id;
   if (target === "cursor") {
-    return stripUndefinedRecord({
-      author:
-        renderCursorAuthor(metadata.author) ??
-        renderCursorAuthor(graph.root.metadata.author),
-      name: readString(portableManifest, "name") ?? plugin.id,
-      description,
-      displayName:
-        readString(portableManifest, "displayName") ??
-        readString(listing, "display_name"),
-      homepage: metadata.homepage,
-      keywords: listing.keywords ?? metadata.keywords,
-      license: metadata.license,
-      logo:
-        readString(portableManifest, "logo") ??
-        readString(listing, "logo"),
-      repository: metadata.repository,
+    return {
+      ...stripUndefinedRecord({
+        author:
+          renderCursorAuthor(metadata.author) ??
+          renderCursorAuthor(graph.root.metadata.author),
+        name: readString(portableManifest, "name") ?? plugin.id,
+        description,
+        displayName:
+          readString(portableManifest, "displayName") ??
+          readString(listing, "display_name"),
+        homepage: metadata.homepage,
+        keywords: listing.keywords ?? metadata.keywords,
+        logo:
+          readString(portableManifest, "logo") ?? readString(listing, "logo"),
+        repository: metadata.repository,
+      }),
+      license: pluginLicense?.manifestValue,
       ...targetManifest,
       version: pluginVersion(graph, plugin),
-    });
+    };
   }
   const base = stripUndefinedRecord({
     author:
       target === "claude"
-        ? renderClaudeAuthor(metadata.author) ??
-          renderClaudeAuthor(graph.root.metadata.author)
-        : renderCodexAuthor(metadata.author) ??
-          renderCodexAuthor(graph.root.metadata.author),
+        ? (renderClaudeAuthor(metadata.author) ??
+          renderClaudeAuthor(graph.root.metadata.author))
+        : (renderCodexAuthor(metadata.author) ??
+          renderCodexAuthor(graph.root.metadata.author)),
     description,
     homepage: metadata.homepage,
     keywords: listing.keywords ?? metadata.keywords,
-    license: metadata.license,
     name: readString(portableManifest, "name") ?? plugin.id,
     repository: metadata.repository,
     version: pluginVersion(graph, plugin),
   });
-  return stripUndefinedRecord({
+  return {
     ...base,
+    license: pluginLicense?.manifestValue,
     ...targetManifest,
     version: pluginVersion(graph, plugin),
-  });
+  };
 }
 
 function outputIncludes(
@@ -597,7 +613,10 @@ function stripUndefinedRecord(record: JsonRecord): JsonRecord {
   ) as JsonRecord;
 }
 
-function jsonEquals(left: JsonValue | undefined, right: JsonValue): boolean {
+function jsonEquals(
+  left: JsonValue | undefined,
+  right: JsonValue | undefined
+): boolean {
   return (
     JSON.stringify(normalizeJson(left)) === JSON.stringify(normalizeJson(right))
   );

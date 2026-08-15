@@ -310,6 +310,14 @@ blocked:
     }
   });
 
+  it("expects an opted-out Cursor plugin license to be omitted", async () => {
+    await expectCursorPluginLicense("none", undefined);
+  });
+
+  it("expects a resolved Cursor plugin license in the manifest", async () => {
+    await expectCursorPluginLicense("MIT", "MIT");
+  });
+
   it("remains independent from the CLI app implementation", async () => {
     const sources = await Promise.all([
       readFile(new URL("../test-declaration.ts", import.meta.url), "utf-8"),
@@ -322,6 +330,76 @@ blocked:
     }
   });
 });
+
+async function expectCursorPluginLicense(
+  sourceLicense: "MIT" | "none",
+  expectedLicense: "MIT" | undefined
+): Promise<void> {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: license-evaluation-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  license: ${sourceLicense}
+`,
+    ".skillset/plugins/tools/skills/demo/SKILL.md": SOURCE,
+    ".skillset/tests.yaml": `
+plugin-license:
+  select:
+    plugins: [tools]
+  checks:
+    pluginManifests: true
+`,
+  });
+  const stagingRoot = await mkdtemp(
+    join(tmpdir(), "skillset-test-evaluation-license-")
+  );
+  const workspacePath = join(stagingRoot, "workspace");
+  await mkdir(workspacePath, { recursive: true });
+
+  try {
+    const { declaration, graph } = await loadSkillsetTestDeclaration(
+      root,
+      "plugin-license"
+    );
+    await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
+    const evaluation = await evaluateSkillsetTestWorkspace(
+      workspacePath,
+      graph,
+      declaration,
+      {
+        buildMode: "all",
+        sourceDir: graph.sourceDir,
+        targetFilter: declaration.targets,
+      }
+    );
+    const manifest = JSON.parse(
+      await readFile(
+        join(workspacePath, "plugins/tools/cursor/.cursor-plugin/plugin.json"),
+        "utf8"
+      )
+    ) as { license?: string };
+
+    expect(evaluation.checks).toContainEqual({
+      kind: "pluginManifests",
+      ok: true,
+    });
+    if (expectedLicense === undefined) {
+      expect(manifest).not.toHaveProperty("license");
+    } else {
+      expect(manifest.license).toBe(expectedLicense);
+    }
+  } finally {
+    await rm(stagingRoot, { force: true, recursive: true });
+    await rm(root, { force: true, recursive: true });
+  }
+}
 
 async function fixture(
   files: Readonly<Record<string, string>>
