@@ -471,10 +471,16 @@ function checkClaudeMarketplacePluginArrays(
       ...checkClaudeComponentPaths(file, plugin[field], `${prefix}.${field}`, extension)
     );
   }
+  const checkMcpServerReference = (path: string, label: string): void => {
+    if (path.startsWith("./") || isAbsoluteUrl(path)) return;
+    report("invalid-shape", `destination field ${label} must start with ./ or be an absolute URL`);
+  };
   if (typeof plugin.mcpServers === "string") {
-    const path = plugin.mcpServers;
-    if (!path.startsWith("./") && !isAbsoluteUrl(path)) {
-      report("invalid-shape", `destination field ${prefix}.mcpServers must start with ./ or be an absolute URL`);
+    checkMcpServerReference(plugin.mcpServers, `${prefix}.mcpServers`);
+  } else if (Array.isArray(plugin.mcpServers)) {
+    for (const [index, entry] of plugin.mcpServers.entries()) {
+      if (typeof entry !== "string") continue;
+      checkMcpServerReference(entry, `${prefix}.mcpServers[${index}]`);
     }
   }
   checkItems("commands", (value) => typeof value === "string", "a string");
@@ -598,6 +604,16 @@ function checkClaudeMarketplacePluginArrays(
       } else if (dependency.version === "") {
         report("invalid-shape", `destination field ${dependencyPrefix}.version must not be empty`);
       }
+      issues.push(
+        ...checkUnknownFields(
+          file,
+          dependency,
+          "claude",
+          "claude-marketplace-schema",
+          ["marketplace", "name", "version"],
+          dependencyPrefix
+        )
+      );
     }
   }
   if (isJsonRecord(plugin.experimental)) {
@@ -1028,12 +1044,35 @@ function isBlockedArchiveHost(value: string): boolean {
   try {
     const hostname = new URL(value).hostname.toLowerCase().replace(/^\[|\]$/gu, "");
     if (hostname === "localhost" || hostname === "::1" || hostname === "metadata.google.internal") return true;
-    if (/^127(?:\.\d{1,3}){3}$/u.test(hostname)) return true;
-    if (/^169\.254(?:\.\d{1,3}){2}$/u.test(hostname)) return true;
+    if (isBlockedIpv4Host(hostname)) return true;
+    const mapped = ipv4MappedIpv6Address(hostname);
+    if (mapped !== undefined && isBlockedIpv4Host(mapped)) return true;
     return /^fe[89ab][0-9a-f]:/u.test(hostname);
   } catch {
     return false;
   }
+}
+
+function isBlockedIpv4Host(hostname: string): boolean {
+  return (
+    /^127(?:\.\d{1,3}){3}$/u.test(hostname) ||
+    /^169\.254(?:\.\d{1,3}){2}$/u.test(hostname)
+  );
+}
+
+/**
+ * Returns the IPv4 address embedded in an IPv4-mapped IPv6 host, which reaches
+ * the same interface as the bare IPv4 address. `URL.hostname` normalizes
+ * `[::ffff:127.0.0.1]` to `::ffff:7f00:1`, so both spellings are recognized.
+ */
+function ipv4MappedIpv6Address(hostname: string): string | undefined {
+  const dotted = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/u.exec(hostname);
+  if (dotted?.[1] !== undefined) return dotted[1];
+  const hextets = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/u.exec(hostname);
+  if (hextets?.[1] === undefined || hextets[2] === undefined) return undefined;
+  const high = Number.parseInt(hextets[1], 16);
+  const low = Number.parseInt(hextets[2], 16);
+  return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
 }
 
 export function checkClaudeAuthorObject(

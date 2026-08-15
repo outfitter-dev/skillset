@@ -885,6 +885,116 @@ skillset:
     ]);
   });
 
+  it("rejects Claude marketplace mcpServers array references that are neither ./ nor absolute URLs", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            mcpServers: [
+              "./mcp/config.json",
+              "https://example.com/mcp.json",
+              "not-relative",
+              { local: { command: "node" } },
+            ],
+            name: "mcp-array",
+            source: "./plugins/mcp-array",
+          },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[0].mcpServers[2] must start with ./ or be an absolute URL",
+      },
+    ]);
+  });
+
+  it("rejects unknown fields in Claude marketplace dependency objects", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            dependencies: [
+              { marketplace: "example", name: "supported", version: "1.0.0" },
+              { name: "dep", unexpected: true },
+            ],
+            name: "dependencies",
+            source: "./plugins/dependencies",
+          },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field plugins[0].dependencies[1].unexpected; allowed fields are marketplace, name, version",
+      },
+    ]);
+  });
+
+  it("rejects IPv4-mapped IPv6 loopback and link-local archive hosts", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            name: "mapped-loopback",
+            source: { source: "archive", url: "https://[::ffff:127.0.0.1]/plugin.zip" },
+          },
+          {
+            name: "mapped-loopback-hextets",
+            source: { source: "archive", url: "https://[::ffff:7f00:1]/plugin.zip" },
+          },
+          {
+            name: "mapped-link-local",
+            source: { source: "archive", url: "https://[::ffff:169.254.169.254]/plugin.zip" },
+          },
+          {
+            name: "expanded-loopback",
+            source: { source: "archive", url: "https://[0:0:0:0:0:0:0:1]/plugin.zip" },
+          },
+          {
+            name: "mapped-public",
+            source: { source: "archive", url: "https://[::ffff:8.8.8.8]/plugin.zip" },
+          },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[0].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[1].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[2].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[3].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+    ]);
+  });
+
   it("classifies skill targets by output path segments instead of substrings", () => {
     const report = checkProviderFormatConformance([
       textFile("plugins/codex-helper/claude/skills/demo/SKILL.md", [
