@@ -55,6 +55,7 @@ import {
   PORTABLE_PLUGIN_METADATA_FIELDS,
 } from "./plugin-manifest-authority";
 import type { ImportKind, ImportProvider } from "./source-arg-values";
+import { quoteShellArgument } from "./recovery-guidance";
 
 export type { ImportKind, ImportProvider } from "./source-arg-values";
 
@@ -277,11 +278,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       kind: options.kind,
       renderResults,
       name,
-      nextChecks: [
-        "skillset build",
-        "skillset build --yes",
-        "skillset check",
-      ],
+      nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: classification.targetNative,
       sourcePath,
       targetPath,
@@ -293,6 +290,15 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       await rm(stagingPath, { force: true, recursive: true });
     }
   }
+}
+
+function importChecksAtRoot(rootPath: string): readonly string[] {
+  const rootArgument = quoteShellArgument(rootPath);
+  return [
+    `skillset build --root ${rootArgument}`,
+    `skillset build --yes --root ${rootArgument}`,
+    `skillset check --root ${rootArgument}`,
+  ];
 }
 
 async function resolveImportSourceDir(rootPath: string, explicitSourceDir: string | undefined): Promise<string> {

@@ -177,6 +177,9 @@ export async function buildSkillsetResult(
     ...(inspectionOptions.sourceDrivenOutputPaths === undefined
       ? {}
       : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+    ...(inspectionOptions.transactionOptions === undefined
+      ? {}
+      : { transactionOptions: inspectionOptions.transactionOptions }),
   });
 }
 
@@ -190,7 +193,7 @@ export interface SkillsetBuildAuthorityHooks {
 export async function buildSkillsetResultWithAuthority(
   rootPath: string,
   options: SkillsetOptions,
-  inspectionOptions: SkillsetDiffInspectionOptions,
+  inspectionOptions: SkillsetBuildInspectionOptions,
   managedLockRepairPaths: readonly string[],
   hooks: SkillsetBuildAuthorityHooks = {}
 ): Promise<SkillsetBuildResult> {
@@ -208,10 +211,13 @@ export async function buildSkillsetResultWithAuthority(
     ...(inspectionOptions.sourceDrivenOutputPaths === undefined
       ? {}
       : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+    ...(inspectionOptions.transactionOptions === undefined
+      ? {}
+      : { transactionOptions: inspectionOptions.transactionOptions }),
   });
 }
 
-interface SkillsetBuildInspectionOptions extends SkillsetDiffInspectionOptions {
+interface SkillsetBuildInternalOptions extends SkillsetBuildInspectionOptions {
   /** @internal Deterministic race injection after backup persistence. */
   readonly afterBackupPersistence?: () => Promise<void> | void;
   /** @internal Deterministic race injection after backup planning. */
@@ -224,7 +230,7 @@ interface SkillsetBuildInspectionOptions extends SkillsetDiffInspectionOptions {
 async function buildSkillsetResultInternal(
   rootPath: string,
   options: SkillsetOptions,
-  inspectionOptions: SkillsetBuildInspectionOptions
+  inspectionOptions: SkillsetBuildInternalOptions
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
@@ -1473,11 +1479,20 @@ async function applyRenderedFileTransaction(
   const writes: RenderedFile[] = [];
   for (const file of rendered) {
     const outputPath = resolveOutputPath(file.path);
-    if (
-      !writeAll &&
-      !caseOnlyMoveTargets.has(file.path) &&
-      await exists(outputPath)
-    ) {
+    const existingEntry = !writeAll && !caseOnlyMoveTargets.has(file.path)
+      ? await stat(outputPath).catch((error: unknown) => {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error.code === "ENOENT" || error.code === "ENOTDIR")
+          ) {
+            return;
+          }
+          throw error;
+        })
+      : undefined;
+    if (existingEntry?.isFile() === true) {
       const current = await readFile(outputPath);
       if (
         bytesEqual(current, file.content) &&
@@ -1848,7 +1863,12 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")
+    ) {
       return false;
     }
     throw error;

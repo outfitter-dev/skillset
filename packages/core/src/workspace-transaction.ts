@@ -6,6 +6,7 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   realpath,
   rename,
   rm,
@@ -386,7 +387,10 @@ function assertPlanPaths(
         isAncestorPath(left.path, right.path) ||
         isAncestorPath(right.path, left.path)
       ) {
-        if (isWriteUnderMoveTarget(left, right)) {
+        if (
+          isWriteUnderMoveTarget(left, right) ||
+          isShapeTransitionCandidate(left, right)
+        ) {
           continue;
         }
         throw transactionError(
@@ -424,8 +428,25 @@ async function inspectInitialEntries(
   for (const path of [...paths.values()].toSorted((left, right) =>
     compareStrings(left.relative, right.relative)
   )) {
-    entries.set(path.relative, await inspectPath(workspaceRoot, path));
+    const obscuringDelete = prepared.deletes.some(
+      (entry) => isAncestorPath(entry.path.relative, path.relative)
+    );
+    const isWrite = prepared.writes.some(
+      (write) => write.path.relative === path.relative
+    );
+    entries.set(
+      path.relative,
+      obscuringDelete && isWrite
+        ? undefined
+        : await inspectPath(workspaceRoot, path)
+    );
   }
+
+  await assertManagedShapeTransitionEntries(
+    workspaceRoot,
+    prepared,
+    entries
+  );
 
   for (const move of prepared.moves) {
     const source = entries.get(move.from.relative);
@@ -448,6 +469,13 @@ async function inspectInitialEntries(
   }
   for (const write of prepared.writes) {
     const entry = entries.get(write.path.relative);
+    const replacesManagedDescendants = prepared.deletes.some(
+      (plannedDelete) =>
+        isAncestorPath(write.path.relative, plannedDelete.path.relative)
+    );
+    if (entry?.isDirectory() === true && replacesManagedDescendants) {
+      continue;
+    }
     if (entry !== undefined && !entry.isFile()) {
       throw transactionError(
         `write target is not a regular file: ${write.path.relative}`
@@ -461,6 +489,46 @@ async function inspectInitialEntries(
     }
   }
   return entries;
+}
+
+async function assertManagedShapeTransitionEntries(
+  workspaceRoot: string,
+  prepared: PreparedPlan,
+  entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>
+): Promise<void> {
+  for (const write of prepared.writes) {
+    for (const plannedDelete of prepared.deletes) {
+      if (isAncestorPath(plannedDelete.path.relative, write.path.relative)) {
+        const deletedEntry = entries.get(plannedDelete.path.relative);
+        if (deletedEntry?.isFile() !== true) {
+          throw transactionError(
+            `delete ancestor must be an existing regular file before a descendant write: ${plannedDelete.path.relative}`
+          );
+        }
+        continue;
+      }
+      if (!isAncestorPath(write.path.relative, plannedDelete.path.relative)) {
+        continue;
+      }
+      const replacedEntry = entries.get(write.path.relative);
+      if (replacedEntry?.isDirectory() !== true) {
+        throw transactionError(
+          `write ancestor must be an existing directory before deleting descendants: ${write.path.relative}`
+        );
+      }
+      const deletedEntry = entries.get(plannedDelete.path.relative);
+      if (deletedEntry?.isFile() !== true) {
+        throw transactionError(
+          `delete descendant must be an existing regular file before an ancestor write: ${plannedDelete.path.relative}`
+        );
+      }
+      await assertDirectoryReplacementIsCovered(
+        workspaceRoot,
+        write.path,
+        prepared.deletes
+      );
+    }
+  }
 }
 
 function assertMoveTargetCollisions(
@@ -506,7 +574,17 @@ async function stagePreimages(
         move.to.relative === write.path.relative ||
         isAncestorPath(move.to.relative, write.path.relative)
     );
-    if (!installedByMove && entries.get(write.path.relative) !== undefined) {
+    const entry = entries.get(write.path.relative);
+    const replacedByDescendantDeletes =
+      entry?.isDirectory() === true &&
+      prepared.deletes.some((plannedDelete) =>
+        isAncestorPath(write.path.relative, plannedDelete.path.relative)
+      );
+    if (
+      !installedByMove &&
+      !replacedByDescendantDeletes &&
+      entry !== undefined
+    ) {
       paths.set(write.path.relative, write.path);
     }
   }
@@ -724,6 +802,7 @@ async function rollbackTransaction(
     await run(
       { kind: "restore-preimage", path: preimage.path.relative },
       async () => {
+        await removeCreatedDirectoriesWithin(state, preimage.path.absolute);
         await ensureSafeParent(state, preimage.path);
         await rename(preimage.journalPath, preimage.path.absolute);
       }
@@ -862,6 +941,67 @@ function isWriteUnderMoveTarget(
       left.role === "write" &&
       isAncestorPath(right.path, left.path))
   );
+}
+
+function isShapeTransitionCandidate(
+  left: { readonly path: string; readonly role: string },
+  right: { readonly path: string; readonly role: string }
+): boolean {
+  return (
+    (left.role === "delete" && right.role === "write") ||
+    (left.role === "write" && right.role === "delete")
+  );
+}
+
+async function assertDirectoryReplacementIsCovered(
+  workspaceRoot: string,
+  directory: NormalizedPath,
+  deletes: readonly NormalizedDelete[]
+): Promise<void> {
+  const inspectDirectory = async (absolute: string): Promise<void> => {
+    const entries = await readdir(absolute, { withFileTypes: true });
+    for (const entry of entries) {
+      const childAbsolute = nodePath.join(absolute, entry.name);
+      const childRelative = nodePath.relative(workspaceRoot, childAbsolute);
+      if (entry.isSymbolicLink()) {
+        throw transactionError(
+          `refusing to replace directory containing symbolic link: ${childRelative}`
+        );
+      }
+      const coveredFile = entry.isFile() && deletes.some(
+        (plannedDelete) => plannedDelete.path.relative === childRelative
+      );
+      if (coveredFile) {
+        continue;
+      }
+      const containsPlannedDelete = deletes.some((plannedDelete) =>
+        isAncestorPath(childRelative, plannedDelete.path.relative)
+      );
+      if (entry.isDirectory() && containsPlannedDelete) {
+        await inspectDirectory(childAbsolute);
+        continue;
+      }
+      throw transactionError(
+        `refusing to replace directory containing unmanaged entry: ${childRelative}`
+      );
+    }
+  };
+
+  await inspectDirectory(directory.absolute);
+}
+
+async function removeCreatedDirectoriesWithin(
+  state: TransactionState,
+  targetPath: string
+): Promise<void> {
+  for (const directory of [...state.createdDirectories].toReversed()) {
+    if (
+      directory === targetPath ||
+      directory.startsWith(`${targetPath}${nodePath.sep}`)
+    ) {
+      await removeEmptyDirectory(directory);
+    }
+  }
 }
 
 function isContainedRelativePath(relativePath: string): boolean {

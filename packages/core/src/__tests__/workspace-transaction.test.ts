@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   access,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -8,6 +9,7 @@ import {
   realpath,
   rm,
   symlink,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -184,6 +186,104 @@ describe("workspace transactions", () => {
       expect(await readFile(nodePath.join(root, "Old.txt"), "utf-8")).toBe(
         "after\n"
       );
+    });
+  });
+
+  test("supports validated file and directory shape transitions", async () => {
+    await withWorkspace(async (root) => {
+      const outputPath = nodePath.join(root, "references/guide");
+      await mkdir(nodePath.dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, "flat before\n");
+      await chmod(outputPath, 0o644);
+
+      await applyWorkspaceTransaction(root, {
+        deletes: ["references/guide"],
+        writes: [
+          {
+            content: "nested after\n",
+            mode: 0o755,
+            path: "references/guide/subdir/page.md",
+          },
+        ],
+      });
+
+      const nestedPath = nodePath.join(outputPath, "subdir/page.md");
+      expect(await readFile(nestedPath, "utf-8")).toBe("nested after\n");
+      expect((await stat(nestedPath)).mode & 0o777).toBe(0o755);
+
+      await applyWorkspaceTransaction(root, {
+        deletes: ["references/guide/subdir/page.md"],
+        writes: [
+          {
+            content: "flat again\n",
+            mode: 0o644,
+            path: "references/guide",
+          },
+        ],
+      });
+
+      expect(await readFile(outputPath, "utf-8")).toBe("flat again\n");
+      expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+    });
+  });
+
+  test("rejects shape transitions that could consume unmanaged directory entries", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "old"));
+      await writeFile(nodePath.join(root, "old/managed.txt"), "managed\n");
+      await writeFile(
+        nodePath.join(root, "old/unmanaged.txt"),
+        "unmanaged\n"
+      );
+
+      await expect(
+        applyWorkspaceTransaction(root, {
+          deletes: ["old"],
+          writes: [{ content: "new\n", path: "old/new.txt" }],
+        })
+      ).rejects.toThrow(
+        "delete ancestor must be an existing regular file before a descendant write"
+      );
+      await expect(
+        applyWorkspaceTransaction(root, {
+          deletes: ["old/managed.txt"],
+          writes: [{ content: "flat\n", path: "old" }],
+        })
+      ).rejects.toThrow(
+        "refusing to replace directory containing unmanaged entry: old/unmanaged.txt"
+      );
+
+      expect(
+        await readFile(nodePath.join(root, "old/managed.txt"), "utf-8")
+      ).toBe("managed\n");
+      expect(
+        await readFile(nodePath.join(root, "old/unmanaged.txt"), "utf-8")
+      ).toBe("unmanaged\n");
+      await expect(access(nodePath.join(root, "old/new.txt"))).rejects.toThrow();
+    });
+  });
+
+  test("rejects a directory delete as coverage for nested unmanaged content", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "old/subdir"), { recursive: true });
+      await writeFile(
+        nodePath.join(root, "old/subdir/unmanaged.txt"),
+        "unmanaged\n"
+      );
+
+      await expect(
+        applyWorkspaceTransaction(root, {
+          deletes: ["old/subdir"],
+          writes: [{ content: "flat\n", path: "old" }],
+        })
+      ).rejects.toThrow(
+        "delete descendant must be an existing regular file before an ancestor write: old/subdir"
+      );
+
+      expect(
+        await readFile(nodePath.join(root, "old/subdir/unmanaged.txt"), "utf-8")
+      ).toBe("unmanaged\n");
+      expect(await readdir(nodePath.join(root, "old"))).toEqual(["subdir"]);
     });
   });
 
