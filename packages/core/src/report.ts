@@ -441,6 +441,7 @@ function cloneAdoptionPayload(
     ...(value.isolatedOutput === undefined
       ? {}
       : { isolatedOutput: cloneEvidenceDescriptor(value.isolatedOutput) }),
+    listCounts: { ...value.listCounts },
     migrationFlagCodes: [...value.migrationFlagCodes],
     phases: {
       build: { ...value.phases.build },
@@ -459,12 +460,13 @@ function cloneImportPayload(
     destinations: [...value.destinations],
     diagnosticCodes: [...value.diagnosticCodes],
     fields: {
-      inferred: [...value.fields.inferred],
-      preserved: [...value.fields.preserved],
-      unsupported: [...value.fields.unsupported],
+      inferred: value.fields.inferred,
+      preserved: value.fields.preserved,
+      unsupported: value.fields.unsupported,
     },
     fileCount: value.fileCount,
     importedUnitIds: [...value.importedUnitIds],
+    listCounts: { ...value.listCounts },
     partial: value.partial,
     requestedKind: value.requestedKind,
     ...(value.requestedProvider === undefined
@@ -528,6 +530,9 @@ function renderAdoptionPayload(
     ...renderPhaseSummary("Lint", payload.phases.lint),
     ...renderPhaseSummary("Build", payload.phases.build),
     ...renderRenderResultCounts(payload.renderResults),
+    `- Candidate IDs retained: ${payload.candidateIds.length}/${payload.listCounts.candidateIds}`,
+    `- Imported units retained: ${payload.importedUnitIds.length}/${payload.listCounts.importedUnitIds}`,
+    `- Destinations retained: ${payload.destinations.length}/${payload.listCounts.destinations}`,
     ...renderStringList("Candidate IDs", payload.candidateIds),
     ...renderStringList("Imported units", payload.importedUnitIds),
     ...renderStringList("Destinations", payload.destinations),
@@ -554,12 +559,14 @@ function renderImportPayload(
     `- Requested kind: ${renderInlineCode(payload.requestedKind)}`,
     `- Partial: ${payload.partial ? "yes" : "no"}`,
     `- Files: ${payload.fileCount}`,
+    `- Imported units retained: ${payload.importedUnitIds.length}/${payload.listCounts.importedUnitIds}`,
+    `- Destinations retained: ${payload.destinations.length}/${payload.listCounts.destinations}`,
+    `- Inferred fields: ${payload.fields.inferred}`,
+    `- Preserved fields: ${payload.fields.preserved}`,
+    `- Unsupported fields: ${payload.fields.unsupported}`,
     ...renderRenderResultCounts(payload.renderResults),
     ...renderStringList("Imported units", payload.importedUnitIds),
     ...renderStringList("Destinations", payload.destinations),
-    ...renderStringList("Inferred fields", payload.fields.inferred),
-    ...renderStringList("Preserved fields", payload.fields.preserved),
-    ...renderStringList("Unsupported fields", payload.fields.unsupported),
     ...renderStringList("Diagnostic codes", payload.diagnosticCodes),
     ...renderStringList("Warning codes", payload.warningCodes),
   ];
