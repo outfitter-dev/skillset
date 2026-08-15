@@ -227,6 +227,46 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("validates each directory replacement once before journaling", async () => {
+    await withWorkspace(async (root) => {
+      const leafPaths = Array.from(
+        { length: 128 },
+        (_, index) => `bundle/nested/file-${String(index).padStart(3, "0")}.txt`
+      );
+      await mkdir(nodePath.join(root, "bundle/nested"), { recursive: true });
+      await Promise.all(
+        leafPaths.map((path) => writeFile(nodePath.join(root, path), path))
+      );
+      let validationCount = 0;
+
+      await applyWorkspaceTransaction(
+        root,
+        {
+          deletes: leafPaths,
+          writes: [{ content: "flat\n", path: "bundle" }],
+        },
+        {
+          testHooks: {
+            beforeDirectoryReplacementValidation: async (path) => {
+              validationCount += 1;
+              expect(path).toBe("bundle");
+              expect(
+                (await readdir(root)).filter((entry) =>
+                  entry.startsWith(".skillset-workspace-transaction-")
+                )
+              ).toEqual([]);
+            },
+          },
+        }
+      );
+
+      expect(validationCount).toBe(1);
+      expect(await readFile(nodePath.join(root, "bundle"), "utf-8")).toBe(
+        "flat\n"
+      );
+    });
+  });
+
   test("rejects shape transitions that could consume unmanaged directory entries", async () => {
     await withWorkspace(async (root) => {
       await mkdir(nodePath.join(root, "old"));
