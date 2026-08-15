@@ -236,8 +236,9 @@ export async function executeValidationCommands(
     surface: lane.coveredSurfaces.join(", "),
     targets: lane.targets.join(", "),
   }));
+  const boundedFailures = failures.map(boundedDiagnostic);
   const report = {
-    failures: failures.map((diagnostic) => ({
+    failures: boundedFailures.map((diagnostic) => ({
       diagnostic,
       lane: diagnostic.split(" ", 1)[0] as ProviderValidationLaneId,
       stage: "validation" as const,
@@ -252,7 +253,7 @@ export async function executeValidationCommands(
     rows,
   } satisfies ProviderValidationReport;
   if (failures.length > 0) {
-    throw new ProviderValidationFailure(report, failures);
+    throw new ProviderValidationFailure(report, boundedFailures);
   }
   return report;
 }

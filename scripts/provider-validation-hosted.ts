@@ -540,7 +540,7 @@ async function runRequired(
   ]);
   if (exitCode !== 0) {
     throw new Error(
-      `skillset: acquisition command failed: ${argv.join(" ")}\\n${stderr}`
+      `skillset: acquisition command failed: ${argv.join(" ")}\n${stderr}`
     );
   }
 }
