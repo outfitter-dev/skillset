@@ -366,6 +366,94 @@ describe("provider format conformance", () => {
     ]);
   });
 
+  it("accepts pinned Cursor semver values for minClientVersions", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        plugins: [
+          {
+            minClientVersions: { cursor: "3.13.0", other: "1.0.0-rc.1" },
+            name: "alpha",
+            source: "plugins/alpha",
+          },
+        ],
+      }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        minClientVersions: { cursor: "3.13.0" },
+        name: "alpha",
+      }),
+    ]);
+
+    expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
+  });
+
+  it("rejects marketplace minClientVersions members that break the pinned semver contract", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        plugins: [
+          { minClientVersions: { cursor: 3 }, name: "alpha", source: "plugins/alpha" },
+          { minClientVersions: { cursor: "3.13" }, name: "beta", source: "plugins/beta" },
+          // Cursor's pinned semver contract rejects build metadata.
+          { minClientVersions: { cursor: "1.0.0+build.5" }, name: "gamma", source: "plugins/gamma" },
+          { minClientVersions: {}, name: "delta", source: "plugins/delta" },
+          { minClientVersions: "3.13.0", name: "epsilon", source: "plugins/epsilon" },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: 'destination field plugins[0].minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field plugins[1].minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field plugins[2].minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[4].minClientVersions must be an object",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[3].minClientVersions must declare at least one client version",
+      },
+    ]);
+  });
+
+  it("rejects Cursor plugin manifest minClientVersions members that break the pinned semver contract", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        minClientVersions: { cursor: 3, other: "not-a-version" },
+        name: "alpha",
+      }),
+      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+        minClientVersions: {},
+        name: "beta",
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: 'destination field minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field minClientVersions.other must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field minClientVersions must declare at least one client version",
+      },
+    ]);
+  });
+
   it("validates Claude marketplace owner and plugin author objects", () => {
     const valid = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {

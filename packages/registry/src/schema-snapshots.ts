@@ -96,6 +96,21 @@ export interface ProviderSchemaSnapshot {
   readonly title: string;
 }
 
+/**
+ * The `semver` definition shared verbatim by the pinned `cursor-plugin-schema`
+ * and `cursor-marketplace-schema` snapshots. It is deliberately not the
+ * semver.org grammar: Cursor rejects `+build` metadata and allows prerelease
+ * identifiers that start with digits. Both schemas constrain every
+ * `minClientVersions` member with it.
+ */
+export const CURSOR_SEMVER_PATTERN =
+  "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?$";
+
+/** Whether a value satisfies the pinned Cursor `semver` contract. */
+export function isCursorSemver(value: unknown): boolean {
+  return typeof value === "string" && new RegExp(CURSOR_SEMVER_PATTERN, "u").test(value);
+}
+
 const FETCHED_AT = "2026-06-23T09:51:15-04:00";
 
 const schemaSnapshots = [

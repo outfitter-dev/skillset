@@ -1022,13 +1022,23 @@ Help with the task.
     );
   });
 
-  it("reports canonical listing category omitted from Cursor plugin output", async () => {
+  const LISTING_CATEGORY_DEGRADED_REASON =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
+    "omitted canonical field: listing.category; " +
+    "still rendered by enabled target: Codex interface.category";
+  const LISTING_CATEGORY_LOSSY_REASON =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
+    "omitted canonical field: listing.category; " +
+    "no enabled target renders this category, so the authored value is dropped; " +
+    "move the value to cursor.manifest.category to keep the Cursor-native field";
+
+  it("reports canonical listing category omitted from Cursor plugin output while Codex still renders it", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: listing-evidence
 compile:
-  targets: [cursor]
+  targets: [codex, cursor]
 `,
       ".skillset/plugins/tools/skillset.yaml": `
 skillset:
@@ -1057,14 +1067,12 @@ Help with the task.
       diagnostics: [
         {
           code: "render/cursor-listing-category-omitted",
-          message:
-            "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+          message: LISTING_CATEGORY_DEGRADED_REASON,
           path: ".skillset/plugins/tools: $.skillset.listing.category",
         },
       ],
       destination: "plugin-manifest",
-      reason:
-        "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+      reason: LISTING_CATEGORY_DEGRADED_REASON,
       sourcePath: ".skillset/plugins/tools",
       status: "degraded",
     });
@@ -1073,6 +1081,133 @@ Help with the task.
       join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
     );
     expect(manifest.category).toBeUndefined();
+    // The degraded classification is only true because this enabled Codex
+    // target really does render the same authored category.
+    const codexManifest = await readJson(
+      join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+    );
+    expect(
+      (codexManifest.interface as Record<string, unknown>).category
+    ).toBe("Developer Tools");
+  });
+
+  it("blocks default builds when no enabled target renders the canonical listing category", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-only-cursor
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      SkillsetRenderResultError
+    );
+  });
+
+  it("reports the canonical listing category as lossy in a Cursor-only workspace", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-only-cursor
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/cursor-listing-category-omitted",
+          message: LISTING_CATEGORY_LOSSY_REASON,
+          path: ".skillset/plugins/tools: $.skillset.listing.category",
+        },
+      ],
+      destination: "plugin-manifest",
+      reason: LISTING_CATEGORY_LOSSY_REASON,
+      sourcePath: ".skillset/plugins/tools",
+      status: "lossy",
+    });
+
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.category).toBeUndefined();
+  });
+
+  it("reports the canonical listing category as lossy when the plugin opts out of the faithful target", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-plugin-optout
+compile:
+  targets: [codex, cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+codex: false
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      reason: LISTING_CATEGORY_LOSSY_REASON,
+      status: "lossy",
+    });
   });
 
   it.each([
@@ -1086,7 +1221,7 @@ Help with the task.
 skillset:
   name: listing-compat-evidence
 compile:
-  targets: [cursor]
+  targets: [codex, cursor]
 `,
         ".skillset/plugins/tools/skillset.yaml": `
 skillset:
@@ -1114,8 +1249,7 @@ Help with the task.
         diagnostics: [
           {
             code: "render/cursor-listing-category-omitted",
-            message:
-              "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+            message: LISTING_CATEGORY_DEGRADED_REASON,
             path: `.skillset/plugins/tools: $.skillset.${authoredKey}`,
           },
         ],

@@ -453,7 +453,7 @@ function pluginManifestRenderFacts(
   if (item.kind !== "plugin" || target !== "cursor") return authorFacts;
   const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
   if (plugin === undefined) return authorFacts;
-  const omissions = cursorManifestOmissions(plugin.metadata, item.sourcePath);
+  const omissions = cursorManifestOmissions(graph, plugin, item.sourcePath);
   if (omissions.length === 0) return authorFacts;
 
   const diagnostics = omissions.map((omission) => omission.diagnostic);
@@ -488,36 +488,81 @@ interface CursorManifestOmission {
  * quietly reported `rendered` would let default policy accept metadata loss.
  */
 function cursorManifestOmissions(
-  metadata: JsonRecord,
+  graph: BuildGraph,
+  plugin: SourcePlugin,
   sourcePath: string
 ): readonly CursorManifestOmission[] {
   return [
-    ...cursorListingCategoryOmissions(metadata, sourcePath),
-    ...cursorPortableManifestOmissions(metadata, sourcePath),
+    ...cursorListingCategoryOmissions(graph, plugin, sourcePath),
+    ...cursorPortableManifestOmissions(plugin.metadata, sourcePath),
   ];
 }
 
+/**
+ * Plugin-manifest destination each target renders the canonical listing
+ * category into. Codex lowers it to `interface.category` in
+ * `renderCodexInterface`; the pinned Claude and Cursor plugin manifest formats
+ * have no category destination. Declared per target so a new target has to
+ * state its own answer instead of inheriting one.
+ */
+const PLUGIN_LISTING_CATEGORY_DESTINATIONS: Readonly<
+  Record<TargetName, string | undefined>
+> = {
+  claude: undefined,
+  codex: "interface.category",
+  cursor: undefined,
+};
+
+/**
+ * Faithful listing-category destinations this workspace actually renders.
+ * `pluginTargetSelected` reads the compiled target set and the plugin's own
+ * target selection, so a Cursor-only workspace correctly reports none.
+ */
+function enabledListingCategoryDestinations(
+  graph: BuildGraph,
+  pluginId: string
+): readonly string[] {
+  return targetNames().flatMap((target) => {
+    const destination = PLUGIN_LISTING_CATEGORY_DESTINATIONS[target];
+    return destination === undefined ||
+      !pluginTargetSelected(graph, pluginId, target)
+      ? []
+      : [`${targetLabel(target)} ${destination}`];
+  });
+}
+
 function cursorListingCategoryOmissions(
-  metadata: JsonRecord,
+  graph: BuildGraph,
+  plugin: SourcePlugin,
   sourcePath: string
 ): readonly CursorManifestOmission[] {
   // Derive through the shared listing reader so the compatibility spellings
   // (`skillset.category`, `skillset.presentation.category`) count exactly like
   // the canonical `skillset.listing.category`.
-  if (readString(readSourceListing(metadata), "category") === undefined) return [];
+  if (readString(readSourceListing(plugin.metadata), "category") === undefined) {
+    return [];
+  }
+  // The authored meaning only survives the workspace while another enabled
+  // target still renders the same category. In a Cursor-only workspace nothing
+  // does, so the value is dropped outright and policy has to see it.
+  const faithfulDestinations = enabledListingCategoryDestinations(graph, plugin.id);
+  const isFaithfulElsewhere = faithfulDestinations.length > 0;
   const reason =
-    "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category";
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
+    "omitted canonical field: listing.category; " +
+    (isFaithfulElsewhere
+      ? `still rendered by enabled target: ${faithfulDestinations.join(", ")}`
+      : "no enabled target renders this category, so the authored value is dropped; " +
+        "move the value to cursor.manifest.category to keep the Cursor-native field");
   return [
     {
       diagnostic: {
         code: "render/cursor-listing-category-omitted",
         message: reason,
-        path: `${sourcePath}: $.skillset.${authoredListingCategoryKey(metadata)}`,
+        path: `${sourcePath}: $.skillset.${authoredListingCategoryKey(plugin.metadata)}`,
       },
       reason,
-      // Codex still renders the same canonical category as `interface.category`,
-      // so the authored meaning survives the workspace: visible, not blocking.
-      status: "degraded",
+      status: isFaithfulElsewhere ? "degraded" : "lossy",
     },
   ];
 }

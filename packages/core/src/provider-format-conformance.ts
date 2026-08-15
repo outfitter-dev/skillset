@@ -1,4 +1,4 @@
-import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
+import { getProviderDestinationFormatSnapshot, isCursorSemver } from "@skillset/registry";
 
 import {
   checkClaudeAuthorObject,
@@ -20,7 +20,7 @@ import {
 } from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
 import type { SkillsetRenderResult } from "./render-result";
-import type { JsonRecord, RenderedFile, TargetName } from "./types";
+import type { JsonRecord, JsonValue, RenderedFile, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -299,7 +299,6 @@ function checkCursorPluginManifest(
     license: "string",
     logo: "string",
     mcpServers: "string",
-    minClientVersions: "object",
     name: "string",
     publisher: "string",
     repository: "string",
@@ -309,6 +308,9 @@ function checkCursorPluginManifest(
     variables: "object",
     version: "string",
   }));
+  issues.push(
+    ...checkCursorMinClientVersions(file, parsed.value.minClientVersions, "cursor-plugin", "minClientVersions")
+  );
   issues.push(...checkUnknownFields(file, parsed.value, "cursor", "cursor-plugin", [...allowedFields]));
   if (isJsonRecord(parsed.value.author)) {
     issues.push(
@@ -316,6 +318,39 @@ function checkCursorPluginManifest(
     );
   }
   return issues;
+}
+
+/**
+ * The pinned Cursor plugin and marketplace schemas type `minClientVersions` as
+ * an object with `minProperties: 1` whose every member is a `semver` string.
+ * Checking objectness alone would report conformance for an artifact Cursor
+ * rejects, so validate the members against the pinned contract.
+ */
+function checkCursorMinClientVersions(
+  file: ProviderFormatConformanceFile,
+  value: JsonValue | undefined,
+  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  if (value === undefined) return [];
+  if (!isJsonRecord(value)) {
+    return [issue(file, "cursor", providerRef, "invalid-field-type", `destination field ${prefix} must be an object`)];
+  }
+  const clients = Object.keys(value).sort(compareStrings);
+  if (clients.length === 0) {
+    return [issue(file, "cursor", providerRef, "invalid-shape", `destination field ${prefix} must declare at least one client version`)];
+  }
+  return clients
+    .filter((client) => !isCursorSemver(value[client]))
+    .map((client) =>
+      issue(
+        file,
+        "cursor",
+        providerRef,
+        "invalid-field-type",
+        `destination field ${prefix}.${client} must be a semantic version string such as "3.13.0"`
+      )
+    );
 }
 
 function checkCursorMarketplace(
@@ -355,9 +390,14 @@ function checkCursorMarketplace(
           issues.push(issue(file, "cursor", "cursor-marketplace-schema", "invalid-field-type", `destination field ${prefix}.${field} must be a string`));
         }
       }
-      if (plugin.minClientVersions !== undefined && !isJsonRecord(plugin.minClientVersions)) {
-        issues.push(issue(file, "cursor", "cursor-marketplace-schema", "invalid-field-type", `destination field ${prefix}.minClientVersions must be an object`));
-      }
+      issues.push(
+        ...checkCursorMinClientVersions(
+          file,
+          plugin.minClientVersions,
+          "cursor-marketplace-schema",
+          `${prefix}.minClientVersions`
+        )
+      );
       issues.push(
         ...checkUnknownFields(file, plugin, "cursor", "cursor-marketplace-schema", ["description", "minClientVersions", "name", "source"], prefix)
       );

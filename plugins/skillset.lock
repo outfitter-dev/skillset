@@ -216,7 +216,7 @@
       "diagnostics": [
         {
           "code": "render/cursor-listing-category-omitted",
-          "message": "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+          "message": "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category; still rendered by enabled target: Codex interface.category",
           "path": ".skillset/plugins/skillset: $.skillset.listing.category"
         }
       ],
@@ -249,7 +249,7 @@
           "path": "plugins/skillset/cursor/LICENSE.txt"
         }
       ],
-      "reason": "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+      "reason": "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category; still rendered by enabled target: Codex interface.category",
       "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/plugins/skillset",
       "sourceUnit": "plugin.skillset.config:root",
