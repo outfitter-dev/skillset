@@ -195,6 +195,51 @@ Body.
     )).toEqual([]);
   });
 
+  it("writes a case-only renamed destination when the managed source is missing", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/Guide.md
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const resourceDirectory = join(root, ".claude/skills/demo/references");
+    const originalOutputPath = join(resourceDirectory, "Guide.md");
+    const renamedOutputPath = join(resourceDirectory, "guide.md");
+    await buildSkillsetResult(root);
+    await rm(originalOutputPath);
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/Guide.md",
+        "to: references/guide.md"
+      )
+    );
+
+    const result = await buildSkillsetResult(root);
+
+    expect(await readFile(renamedOutputPath, "utf8")).toBe("Guide.\n");
+    expect(result.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide.md"
+    );
+    expect(result.writes.deletedPaths).not.toContain(
+      ".claude/skills/demo/references/Guide.md"
+    );
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
   it("rejects case-only ambiguous destinations before writing output", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
