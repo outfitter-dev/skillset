@@ -3212,9 +3212,6 @@ skillset:
   license: MIT
   keywords:
     - alpha
-  manifest:
-    tags:
-      - manifest-tag
 claude:
   manifest:
     name: alpha-claude
@@ -3224,6 +3221,8 @@ codex:
 cursor:
   manifest:
     name: alpha-cursor
+    tags:
+      - manifest-tag
 `,
     ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
@@ -3299,7 +3298,9 @@ Demo body.
   expect(cursorManifest.author).toEqual({ name: "Alpha Author" });
   expect(cursorManifest.keywords).toEqual(["alpha"]);
   expect(cursorManifest.license).toBe("MIT");
-  expect(cursorManifest.tags).toBeUndefined();
+  // Cursor discovery tags are provider-native: they come from cursor.manifest,
+  // never from a portable skillset.manifest field.
+  expect(cursorManifest.tags).toEqual(["manifest-tag"]);
   expect(cursorManifest.version).toBe("2.3.4");
 });
 

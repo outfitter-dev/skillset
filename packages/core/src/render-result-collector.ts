@@ -33,6 +33,7 @@ import {
   omittedCursorAuthorKeys,
   readAuthorName,
 } from "./source-author";
+import { readSourceListing } from "./source-listing";
 import {
   planToolsRealization,
   renderResultStatusForToolsTier,
@@ -452,30 +453,127 @@ function pluginManifestRenderFacts(
   if (item.kind !== "plugin" || target !== "cursor") return authorFacts;
   const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
   if (plugin === undefined) return authorFacts;
-  const category = readString(readRecord(plugin.metadata, "listing") ?? {}, "category");
-  if (category === undefined) return authorFacts;
+  const omissions = cursorManifestOmissions(plugin.metadata, item.sourcePath);
+  if (omissions.length === 0) return authorFacts;
 
-  const reason =
-    "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category";
-  const categoryDiagnostic: SkillsetRenderResultDiagnosticRef = {
-    code: "render/cursor-listing-category-omitted",
-    message: reason,
-    path: `${item.sourcePath}: $.skillset.listing.category`,
-  };
+  const diagnostics = omissions.map((omission) => omission.diagnostic);
+  const reason = omissions.map((omission) => omission.reason).join("; ");
+  const status = omissionStatus(omissions.map((omission) => omission.status));
   if (authorFacts === undefined) {
     return {
-      diagnostics: [categoryDiagnostic],
+      diagnostics,
       reason,
       sourcePath: item.sourcePath,
-      status: "degraded",
+      status,
     };
   }
   return {
-    diagnostics: [...authorFacts.diagnostics, categoryDiagnostic],
+    diagnostics: [...authorFacts.diagnostics, ...diagnostics],
     reason: `${authorFacts.reason}; ${reason}`,
     sourcePath: item.sourcePath,
-    status: authorFacts.status === "lossy" ? "lossy" : "degraded",
+    status: omissionStatus([authorFacts.status, status]),
   };
+}
+
+/** One canonical field the Cursor manifest renderer has no destination for. */
+interface CursorManifestOmission {
+  readonly diagnostic: SkillsetRenderResultDiagnosticRef;
+  readonly reason: string;
+  readonly status: "degraded" | "lossy";
+}
+
+/**
+ * Every canonical plugin field the Cursor manifest renderer drops, in a stable
+ * order. Each dropped field must produce evidence: a Cursor manifest that
+ * quietly reported `rendered` would let default policy accept metadata loss.
+ */
+function cursorManifestOmissions(
+  metadata: JsonRecord,
+  sourcePath: string
+): readonly CursorManifestOmission[] {
+  return [
+    ...cursorListingCategoryOmissions(metadata, sourcePath),
+    ...cursorPortableManifestOmissions(metadata, sourcePath),
+  ];
+}
+
+function cursorListingCategoryOmissions(
+  metadata: JsonRecord,
+  sourcePath: string
+): readonly CursorManifestOmission[] {
+  // Derive through the shared listing reader so the compatibility spellings
+  // (`skillset.category`, `skillset.presentation.category`) count exactly like
+  // the canonical `skillset.listing.category`.
+  if (readString(readSourceListing(metadata), "category") === undefined) return [];
+  const reason =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category";
+  return [
+    {
+      diagnostic: {
+        code: "render/cursor-listing-category-omitted",
+        message: reason,
+        path: `${sourcePath}: $.skillset.${authoredListingCategoryKey(metadata)}`,
+      },
+      reason,
+      // Codex still renders the same canonical category as `interface.category`,
+      // so the authored meaning survives the workspace: visible, not blocking.
+      status: "degraded",
+    },
+  ];
+}
+
+/**
+ * Authored key that supplied the canonical listing category, using the same
+ * precedence `readSourceListing` merges with, so the diagnostic points at a key
+ * that exists in the author's source.
+ */
+function authoredListingCategoryKey(metadata: JsonRecord): string {
+  if (readString(readRecord(metadata, "listing") ?? {}, "category") !== undefined) {
+    return "listing.category";
+  }
+  if (readString(readRecord(metadata, "presentation") ?? {}, "category") !== undefined) {
+    return "presentation.category";
+  }
+  return "category";
+}
+
+/**
+ * Portable `skillset.manifest` fields the Cursor manifest renderer used to
+ * consume. The pinned Cursor parser has no verified destination for them and no
+ * other target renders them, so authored values are lost outright.
+ */
+const CURSOR_OMITTED_PORTABLE_MANIFEST_FIELDS = ["category", "tags"] as const;
+
+function cursorPortableManifestOmissions(
+  metadata: JsonRecord,
+  sourcePath: string
+): readonly CursorManifestOmission[] {
+  const portableManifest = readRecord(metadata, "manifest") ?? {};
+  return CURSOR_OMITTED_PORTABLE_MANIFEST_FIELDS.filter(
+    (field) => portableManifest[field] !== undefined
+  ).map((field) => {
+    const reason =
+      `Cursor plugin output has no verified runtime destination for portable manifest.${field}; ` +
+      `omitted canonical field: manifest.${field}; ` +
+      `move the value to cursor.manifest.${field} to keep the Cursor-native field`;
+    return {
+      diagnostic: {
+        code: "render/cursor-portable-manifest-field-omitted",
+        message: reason,
+        path: `${sourcePath}: $.skillset.manifest.${field}`,
+      },
+      reason,
+      // No target renders these portable fields any more, so the authored
+      // meaning is lost rather than degraded and policy has to see it.
+      status: "lossy" as const,
+    };
+  });
+}
+
+function omissionStatus(
+  statuses: readonly SkillsetRenderResultStatus[]
+): SkillsetRenderResultStatus {
+  return statuses.includes("lossy") ? "lossy" : "degraded";
 }
 
 function pluginAuthorRenderFacts(

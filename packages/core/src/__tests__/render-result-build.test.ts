@@ -18,6 +18,7 @@ import {
   type SkillsetRenderResult,
   type SkillsetRenderResultStatus,
 } from "@skillset/core";
+import { claudeMarketplaceSourcePlugins } from "../render-marketplaces";
 import { collectRenderResults } from "../render-result-collector";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
@@ -872,6 +873,7 @@ Help with the task.
       (file) => !file.path.endsWith("/SKILL.md")
     );
     const results = collectRenderResults(graph, rendered, {
+      claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
       includedPaths: new Set(rendered.map((file) => file.path)),
     });
     const dependency = results.find(
@@ -1071,6 +1073,192 @@ Help with the task.
       join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
     );
     expect(manifest.category).toBeUndefined();
+  });
+
+  it.each([
+    ["category", "category: Developer Tools"],
+    ["presentation.category", "presentation:\n    category: Developer Tools"],
+  ])(
+    "reports compatibility listing category %s omitted from Cursor plugin output",
+    async (authoredKey, authoredYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: listing-compat-evidence
+compile:
+  targets: [cursor]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  ${authoredYaml}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        diagnostics: [
+          {
+            code: "render/cursor-listing-category-omitted",
+            message:
+              "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+            path: `.skillset/plugins/tools: $.skillset.${authoredKey}`,
+          },
+        ],
+        destination: "plugin-manifest",
+        status: "degraded",
+      });
+
+      const manifest = await readJson(
+        join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      );
+      expect(manifest.category).toBeUndefined();
+    }
+  );
+
+  it.each(["category", "tags"])(
+    "blocks default builds when portable manifest.%s has no Cursor destination",
+    async (field) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: portable-manifest-evidence
+compile:
+  targets: [cursor]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    ${field === "tags" ? "tags: [review]" : "category: Developer Tools"}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      await expect(buildSkillsetResult(root)).rejects.toThrow(
+        SkillsetRenderResultError
+      );
+    }
+  );
+
+  it.each(["category", "tags"])(
+    "reports portable manifest.%s omitted from Cursor plugin output",
+    async (field) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: portable-manifest-evidence
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    ${field === "tags" ? "tags: [review]" : "category: Developer Tools"}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        diagnostics: [
+          {
+            code: "render/cursor-portable-manifest-field-omitted",
+            message:
+              `Cursor plugin output has no verified runtime destination for portable manifest.${field}; ` +
+              `omitted canonical field: manifest.${field}; ` +
+              `move the value to cursor.manifest.${field} to keep the Cursor-native field`,
+            path: `.skillset/plugins/tools: $.skillset.manifest.${field}`,
+          },
+        ],
+        destination: "plugin-manifest",
+        status: "lossy",
+      });
+
+      const manifest = await readJson(
+        join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      );
+      expect(manifest[field]).toBeUndefined();
+    }
+  );
+
+  it("reports canonical listing and portable manifest omissions together", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: combined-manifest-evidence
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  category: Developer Tools
+  manifest:
+    category: Legacy Category
+    tags: [review]
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(
+      manifestResults[0]?.diagnostics?.map((diagnostic) => diagnostic.path)
+    ).toEqual([
+      ".skillset/plugins/tools: $.skillset.category",
+      ".skillset/plugins/tools: $.skillset.manifest.category",
+      ".skillset/plugins/tools: $.skillset.manifest.tags",
+    ]);
+    expect(manifestResults[0]?.status).toBe("lossy");
   });
 
   it("allows default multi-provider builds when Cursor only omits author URL", async () => {
