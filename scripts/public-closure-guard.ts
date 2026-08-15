@@ -140,6 +140,28 @@ const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
     ]),
     time: new Set(["--format", "--output", "-f", "-o"]),
   };
+const GIT_GLOBAL_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--config-env",
+  "--git-dir",
+  "--namespace",
+  "--work-tree",
+  "-c",
+]);
+const GIT_GLOBAL_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
+  "--bare",
+  "--glob-pathspecs",
+  "--icase-pathspecs",
+  "--literal-pathspecs",
+  "--no-advice",
+  "--no-lazy-fetch",
+  "--no-optional-locks",
+  "--no-pager",
+  "--no-replace-objects",
+  "--noglob-pathspecs",
+  "--paginate",
+  "-P",
+  "-p",
+]);
 
 const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
@@ -418,7 +440,8 @@ function matchingProtectedBoundaryRules(
         repoRoot,
         context,
         repositoryPaths,
-        shellCommand
+        shellCommand,
+        text
       )
     ) {
       rules.add(owner.rule);
@@ -433,7 +456,8 @@ function hasProtectedPathOwnerReference(
   repoRoot: string | undefined,
   context: ProtectedBoundaryContext,
   repositoryPaths: readonly string[],
-  shellCommand: boolean
+  shellCommand: boolean,
+  shellText: string
 ): boolean {
   const normalizedOwner = ownerPath.toLowerCase();
   const owns = (candidate: string): boolean =>
@@ -484,11 +508,11 @@ function hasProtectedPathOwnerReference(
 
   if (
     (context === "package-script" &&
-      hasProtectedRootCommandArgument(normalizedText, normalizedOwner)) ||
+      hasProtectedRootCommandArgument(shellText, normalizedOwner)) ||
     (context === "generated" &&
-      (hasGeneratedShellOwnerToken(normalizedText, normalizedOwner) ||
+      (hasGeneratedShellOwnerToken(shellText, normalizedOwner) ||
         (shellCommand &&
-          hasProtectedRootCommandArgument(normalizedText, normalizedOwner))))
+          hasProtectedRootCommandArgument(shellText, normalizedOwner))))
   ) {
     return true;
   }
@@ -608,27 +632,66 @@ function trimUrlClosingDelimiters(value: string): string {
 }
 
 function normalizeShellToken(token: string): string {
-  return token
-    .replace(/^[`"'(<{\[]+/u, "")
-    .replace(/[`"')>}\],.!?:]+$/u, "")
-    .replace(/^\.\//u, "")
-    .replace(/\/+$/u, "")
-    .toLowerCase();
+  return token.replace(/^\.\//u, "").replace(/\/+$/u, "");
 }
 
 function hasProtectedRootCommandArgument(
   command: string,
   normalizedOwner: string
 ): boolean {
-  return command.split(/(?:&&|\|\||[;|])/u).some((segment) => {
-    const tokens = unwrapShellCommand(
-      segment.trim().split(/\s+/u).map(normalizeShellToken).filter(Boolean)
+  return readShellCommandSegments(command).some((segment) => {
+    const tokens = unwrapShellCommand(segment);
+    const normalizedTokens = tokens.map((token) =>
+      normalizeShellToken(token).toLowerCase()
     );
     return (
-      PROTECTED_ROOT_PATH_COMMANDS.has(tokens[0] ?? "") &&
-      tokens.slice(1).includes(normalizedOwner)
+      (PROTECTED_ROOT_PATH_COMMANDS.has(normalizedTokens[0] ?? "") &&
+        normalizedTokens.slice(1).includes(normalizedOwner)) ||
+      hasGitProtectedDirectoryArgument(tokens, normalizedOwner)
     );
   });
+}
+
+function hasGitProtectedDirectoryArgument(
+  tokens: readonly string[],
+  normalizedOwner: string
+): boolean {
+  if (tokens[0]?.toLowerCase() !== "git") return false;
+  let directory = ".";
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? "";
+    if (token === "-C") {
+      const operand = tokens[index + 1];
+      if (operand === undefined || operand.startsWith("-")) return false;
+      const normalizedDirectory = operand.replaceAll("\\", "/");
+      directory = posix.isAbsolute(normalizedDirectory)
+        ? posix.normalize(normalizedDirectory)
+        : posix.normalize(posix.join(directory, normalizedDirectory));
+      index += 1;
+      continue;
+    }
+    if (token === "--" || !token.startsWith("-")) break;
+    if (GIT_GLOBAL_VALUE_FLAGS.has(token)) {
+      if (!tokens[index + 1]) return false;
+      index += 1;
+      continue;
+    }
+    if (
+      GIT_GLOBAL_BOOLEAN_FLAGS.has(token) ||
+      token.startsWith("--exec-path=") ||
+      [...GIT_GLOBAL_VALUE_FLAGS].some(
+        (flag) => flag.startsWith("--") && token.startsWith(`${flag}=`)
+      )
+    ) {
+      continue;
+    }
+    return false;
+  }
+  const normalizedDirectory = directory.toLowerCase();
+  return (
+    normalizedDirectory === normalizedOwner ||
+    normalizedDirectory.startsWith(`${normalizedOwner}/`)
+  );
 }
 
 function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
@@ -640,7 +703,7 @@ function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
   skipAssignments();
 
   while (index < tokens.length) {
-    const wrapper = tokens[index] ?? "";
+    const wrapper = (tokens[index] ?? "").toLowerCase();
     if (
       !["command", "env", "exec", "nice", "nohup", "sudo", "time"].includes(
         wrapper
@@ -763,29 +826,92 @@ function readCommandToken(text: string, offset: number): CommandToken | null {
   let start = offset;
   while (/\s/u.test(text[start] ?? "")) start += 1;
   while (text[start] === "`") start += 1;
-  const quote = text[start];
-  if (quote === '"' || quote === "'") {
-    let end = start + 1;
-    let value = "";
-    while (end < text.length) {
-      const character = text[end];
-      if (character === quote) return { end: end + 1, value };
-      if (character === "\\" && end + 1 < text.length) {
-        end += 1;
-        value += text[end];
-      } else {
-        value += character;
-      }
-      end += 1;
-    }
-    return null;
-  }
-
   let end = start;
-  while (end < text.length && !/[\s`'"();,]/u.test(text[end] ?? "")) {
+  let value = "";
+  let consumed = false;
+  while (end < text.length) {
+    const character = text[end] ?? "";
+    if (/[\s`();,<>|&]/u.test(character)) break;
+    if (character === '"' || character === "'") {
+      const quote = character;
+      consumed = true;
+      end += 1;
+      let closed = false;
+      while (end < text.length) {
+        const quotedCharacter = text[end] ?? "";
+        if (quotedCharacter === quote) {
+          closed = true;
+          end += 1;
+          break;
+        }
+        if (
+          quote === '"' &&
+          quotedCharacter === "\\" &&
+          end + 1 < text.length &&
+          /[$`"\\\n]/u.test(text[end + 1] ?? "")
+        ) {
+          end += 1;
+          value += text[end];
+        } else {
+          value += quotedCharacter;
+        }
+        end += 1;
+      }
+      if (!closed) return null;
+      continue;
+    }
+    if (character === "\\" && end + 1 < text.length) {
+      end += 1;
+      value += text[end];
+    } else {
+      value += character;
+    }
+    consumed = true;
     end += 1;
   }
-  return end === start ? null : { end, value: text.slice(start, end) };
+  return consumed ? { end, value } : null;
+}
+
+function readShellCommandSegments(
+  text: string
+): readonly (readonly string[])[] {
+  const segments: string[][] = [[]];
+  let offset = 0;
+  while (offset < text.length) {
+    while (/\s/u.test(text[offset] ?? "")) offset += 1;
+    if (
+      (segments.at(-1)?.length ?? 0) === 0 &&
+      text[offset] === ">" &&
+      /\s/u.test(text[offset + 1] ?? "")
+    ) {
+      segments.at(-1)?.push(">");
+      offset += 1;
+      continue;
+    }
+    const boundary = /^(?:&&|\|\||[;&|])/u.exec(text.slice(offset));
+    if (boundary) {
+      if ((segments.at(-1)?.length ?? 0) > 0) segments.push([]);
+      offset += boundary[0].length;
+      continue;
+    }
+    const redirection = /^(?:\d+)?(?:<>|>&|<&|>>|<<|>|<)/u.exec(
+      text.slice(offset)
+    );
+    if (redirection) {
+      offset += redirection[0].length;
+      const target = readCommandToken(text, offset);
+      offset = target?.end ?? offset;
+      continue;
+    }
+    const token = readCommandToken(text, offset);
+    if (token) {
+      segments.at(-1)?.push(token.value);
+      offset = token.end;
+    } else {
+      offset += 1;
+    }
+  }
+  return segments.filter((segment) => segment.length > 0);
 }
 
 function readRunnerTokens(

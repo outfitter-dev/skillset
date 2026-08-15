@@ -273,6 +273,7 @@ describe("generated public closure guard", () => {
       "```ZSH",
       "stat scripts",
       "% ls scripts",
+      "> ls scripts",
       "```",
       "```{.bash}",
       "command ls scripts",
@@ -298,7 +299,70 @@ describe("generated public closure guard", () => {
       { line: 13, rule: "internal-script" },
       { line: 16, rule: "internal-script" },
       { line: 17, rule: "internal-script" },
-      { line: 20, rule: "internal-script" },
+      { line: 18, rule: "internal-script" },
+      { line: 21, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: treats git -C as fenced-shell directory routing", () => {
+    const content = [
+      "```bash",
+      "git -C scripts status",
+      "git --no-pager -C scripts status",
+      "git -c color.ui=false --git-dir .git -C scripts status",
+      "git -C . -C scripts/subdir status",
+      "git -C public -C .. -C scripts status",
+      "git -C scripts>/tmp/log status",
+      "git --literal-pathspecs -C scripts status",
+      "git --glob-pathspecs -C scripts status",
+      "git --noglob-pathspecs -C scripts status",
+      "git --icase-pathspecs -C scripts status",
+      "git --exec-path=/tmp -C scripts status",
+      'git -C "scr"ipts status',
+      "git -C docs/reference status",
+      "git -C docs/reference -C examples status",
+      "git -C scripts -C .. status",
+      "git -C public -C scripts status",
+      "git -C",
+      "git -C --no-pager status",
+      "git -Cscripts status",
+      "git -config -C scripts status",
+      "git -c=color.ui=false -C scripts status",
+      "git --version -C scripts status",
+      "git -h -C scripts status",
+      "git status -C scripts",
+      "echo git -C scripts",
+      'git -C "scripts>/tmp" status',
+      "git -C scripts\\>/tmp status",
+      'git -C "packages|safe" status',
+      "git -C packages\\|safe status",
+      'ls "scripts|safe"',
+      'ls \\"scripts',
+      "ls scripts\\>",
+      "ls \\(scripts",
+      "ls scripts.",
+      "```",
+      "In prose, git -C scripts is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-script" },
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-script" },
+      { line: 8, rule: "internal-script" },
+      { line: 9, rule: "internal-script" },
+      { line: 10, rule: "internal-script" },
+      { line: 11, rule: "internal-script" },
+      { line: 12, rule: "internal-script" },
+      { line: 13, rule: "internal-script" },
     ]);
   });
 
@@ -758,6 +822,56 @@ describe("generated public closure guard", () => {
         )
       )
     ).toEqual(publicCommandsWithPrivateArguments.map(() => []));
+  });
+
+  test("SET-465: unquoted shell operators terminate package-script tokens", () => {
+    const packageScripts = {
+      "publish:packages": "bun scripts/publish.ts",
+      public: "echo public",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/publish.ts",
+    ]);
+    const protectedCommands = [
+      "bun run publish:packages>/tmp/log",
+      "npm run publish:packages|tee /tmp/log",
+      "pnpm run publish:packages&&echo done",
+      "yarn run publish:packages<input.txt",
+      "bun run publish:packages&wait",
+      "bun run publish\\:packages",
+      'bun run "publish:"packages',
+    ];
+    const literalOrPublicCommands = [
+      'bun run "publish:packages>/tmp/log"',
+      "bun run 'publish:packages|tee'",
+      "bun run publish:packages\\>/tmp/log",
+      "bun run 'publish\\:packages'",
+      'bun run "publish\\:packages"',
+      "npm run public>publish:packages",
+    ];
+
+    expect(
+      protectedCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/publish.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(protectedCommands.map(() => ["internal-script"]));
+    expect(
+      literalOrPublicCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/publish.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        )
+      )
+    ).toEqual(literalOrPublicCommands.map(() => []));
   });
 
   test("SET-465: npm pre-command config options preserve exact command selection", () => {
