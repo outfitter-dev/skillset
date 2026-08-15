@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -250,6 +251,39 @@ See the [guide](shared:references/guide.md).
     });
   });
 
+  it("preserves an independently readable workspace baseline when graph loading fails", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: graph-failure-baseline-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    await writeFile(
+      join(root, ".skillset/rules/root.md"),
+      "---\npaths: [\n---\nBroken instructions.\n",
+      "utf8"
+    );
+
+    const status = await doctorSkillset(root);
+    const pluginStatus = await doctorSkillset(root, { scopes: ["plugins"] });
+
+    expect(status.ok).toBe(false);
+    expect(status.buildError).toContain("Flow sequence in block collection");
+    expect(status.outputState).toMatchObject({
+      hasBaseline: true,
+      state: "blocked",
+    });
+    expect(pluginStatus.buildError).toBe(status.buildError);
+    expect(pluginStatus.outputState).toMatchObject({
+      hasBaseline: false,
+      state: "blocked",
+    });
+  });
+
   it("scopes status and readiness baseline evidence when plugin rendering fails", async () => {
     const root = await fixture({
       "skillset.yaml": `
@@ -366,6 +400,246 @@ cursor: false
     });
     expect(applied.writes.paths).toEqual([]);
     expect(await Bun.file(join(root, "AGENTS.md")).text()).toBe("# Appeared after preview\n");
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
+  });
+
+  it("aborts when write-owner safety finds an unmanaged collision after plan inspection", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: write-owner-race-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Body.
+`,
+    });
+    await buildSkillsetResult(root);
+    await mkdir(join(root, ".skillset/rules"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/rules/root.md"),
+      "# Generated root instructions\n",
+      "utf8"
+    );
+    await mkdir(join(root, ".skillset/rules/docs"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/rules/docs/writing.md"),
+      "---\npaths:\n  - docs/**/*.md\n---\n\n# Generated docs instructions\n",
+      "utf8"
+    );
+    await mkdir(join(root, "docs"), { recursive: true });
+    await writeFile(join(root, "AGENTS.md"), "# Allowed source-driven file\n", "utf8");
+
+    const latePath = join(root, "docs/AGENTS.md");
+    const sourceDrivenOutputPaths = new Proxy(["AGENTS.md"], {
+      get(target, property, receiver) {
+        if (property !== "includes") return Reflect.get(target, property, receiver);
+        return (path: string) => {
+          // The first blocker-policy check occurs after plan preflight and
+          // before the write owner re-inspects destinations.
+          writeFileSync(latePath, "# Appeared during the build\n");
+          return target.includes(path);
+        };
+      },
+    });
+
+    const result = await buildSkillsetResult(root, {}, {
+      sourceDrivenOutputPaths,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.outputState).toMatchObject({
+      blockers: [{
+        code: "unmanaged-output-collision",
+        path: "docs/AGENTS.md",
+      }],
+      state: "blocked",
+    });
+    expect(result.writes.paths).toEqual([]);
+    expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "unmanaged-collision",
+      targetPath: "docs/AGENTS.md",
+    }));
+    expect(await Bun.file(join(root, "AGENTS.md")).text()).toBe("# Allowed source-driven file\n");
+    expect(await Bun.file(latePath).text()).toBe("# Appeared during the build\n");
+  });
+
+  it("classifies edited lock provenance as output divergence and backs it up", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: edited-lock-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      generatedBy: string;
+    };
+    lock.generatedBy = "skillset@9.9.9";
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: [],
+      state: "output-diverged",
+    });
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+
+    const applied = await buildSkillsetResult(root);
+    expect(applied.ok).toBe(true);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+    expect(await Bun.file(lockPath).text()).toContain('"generatedBy": "skillset@0.1.0"');
+  });
+
+  it("does not trust edited item provenance when tracked payloads are unchanged", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: edited-lock-item-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      items: Array<{ sourceHash: string }>;
+    };
+    lock.items[0]!.sourceHash = `sha256:${"0".repeat(64)}`;
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: [],
+      state: "output-diverged",
+    });
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+
+    const applied = await buildSkillsetResult(root);
+    expect(applied.ok).toBe(true);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+  });
+
+  it("does not let another item's source drift excuse edited lock provenance", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: edited-multi-item-lock-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/docs.md": `
+---
+paths:
+  - docs/**/*.md
+---
+
+# Docs instructions
+`,
+      ".skillset/rules/typescript.md": `
+---
+paths:
+  - src/**/*.ts
+---
+
+# TypeScript instructions
+`,
+      "docs/guide.md": "# Guide\n",
+      "src/index.ts": "export const value = 1;\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      items: Array<{ outputPath: string; sourceHash: string }>;
+    };
+    const docsItem = lock.items.find((item) => item.outputPath === "docs/AGENTS.md");
+    if (docsItem === undefined) throw new Error("missing docs lock item");
+    docsItem.sourceHash = `sha256:${"0".repeat(64)}`;
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+    await writeFile(join(root, "docs/AGENTS.md"), "# Edited docs output\n", "utf8");
+    await writeFile(
+      join(root, ".skillset/rules/typescript.md"),
+      `${await readFile(join(root, ".skillset/rules/typescript.md"), "utf8")}\nUpdated source.\n`,
+      "utf8"
+    );
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["docs/AGENTS.md", "skillset.lock"],
+      sourceChanges: ["src/AGENTS.md"],
+      state: "output-diverged",
+    });
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+  });
+
+  it("keeps a legitimate config-only lock refresh source-ahead", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: lock-only-source-root
+compile:
+  build: updated
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const configPath = join(root, "skillset.yaml");
+    await writeFile(
+      configPath,
+      (await readFile(configPath, "utf8")).replace("build: updated", "build: all"),
+      "utf8"
+    );
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.data.changed).toContain("skillset.lock");
+    expect(preview.outputState).toMatchObject({
+      outputChanges: [],
+      state: "source-ahead",
+    });
+    expect(preview.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+
+    const applied = await buildSkillsetResult(root);
+    expect(applied.ok).toBe(true);
+    expect(applied.writes.backupRecords).toBeUndefined();
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });
 

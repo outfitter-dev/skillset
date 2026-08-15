@@ -18,6 +18,7 @@ import {
   readManagedOutputState,
   withBackupSummary,
   type ManagedOutputState,
+  type OutputBackupSummary,
   type OutputPathResolver,
 } from "./output-safety";
 import {
@@ -169,40 +170,50 @@ export async function buildSkillsetResult(
   });
   if (inspection.outputState.state === "blocked") {
     diagnostics.push(...inspection.preflightDiagnostics);
-    return {
-      data: rendered,
+    return blockedBuildResult(
+      rendered,
       diagnostics,
-      outputState: inspection.outputState,
-      renderResults: renderResultsWithDiagnostics,
-      ok: false,
-      operation: "build",
-      writes: {
-        deletedPaths: [],
-        mode: "read",
-        paths: [],
-        writtenPaths: [],
-      },
-    };
+      inspection.outputState,
+      renderResultsWithDiagnostics
+    );
   }
-  if (graph.root.compile.build === "all") {
-    const staleManagedPaths = inspection.staleManagedPaths;
-    const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
-    diagnostics.push(...safety.diagnostics);
 
+  const staleManagedPaths = inspection.staleManagedPaths;
+  const safety = await prepareOutputBackups(
+    rootPath,
+    rendered,
+    staleManagedPaths,
+    inspection.managedState,
+    resolveOutputPath
+  );
+  diagnostics.push(...safety.diagnostics);
+  const writeOutputState = classifyWriteSafety(
+    inspection.outputState,
+    safety.diagnostics,
+    inspection.managedState.paths.size,
+    inspectionOptions.sourceDrivenOutputPaths ?? []
+  );
+  if (writeOutputState.state === "blocked") {
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      writeOutputState,
+      renderResultsWithDiagnostics,
+      safety.backup
+    );
+  }
+
+  if (graph.root.compile.build === "all") {
     const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
     const writtenPaths = await writeRenderedFiles(rendered, resolveOutputPath);
-    return buildResult(rendered, diagnostics, inspection.outputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+    return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
   const actualPaths = inspection.actualPaths;
-  const staleManagedPaths = inspection.staleManagedPaths;
-  const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
-  diagnostics.push(...safety.diagnostics);
-
   const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
   const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, resolveOutputPath);
 
-  return buildResult(rendered, diagnostics, inspection.outputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
 export interface SkillsetDiff {
@@ -215,6 +226,7 @@ export interface SkillsetDiff {
 interface OutputPlanInspection {
   readonly actualPaths: ReadonlySet<string>;
   readonly diff: SkillsetDiff;
+  readonly managedState: ManagedOutputState;
   readonly outputState: SkillsetOutputStateEvidence;
   readonly preflightDiagnostics: readonly SkillsetDiagnostic[];
   readonly staleManagedPaths: readonly string[];
@@ -234,11 +246,14 @@ async function inspectOutputPlan(args: {
   const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
   const actualPaths = new Set(actualPathList);
   const staleManagedPaths = staleManagedOutputPaths(args.previousManagedState.paths, new Set(args.expected.keys())).filter((path) => actualPaths.has(path));
-  const preflightDiagnostics = await diagnoseOutputBackupPreflight(args.rootPath, args.rendered, staleManagedPaths, args.previousManagedState, args.resolveOutputPath);
   const added: string[] = [];
   const changed: string[] = [];
   const missing: string[] = [];
   const removed: string[] = [];
+  const changedLocks = new Map<
+    string,
+    { readonly current: Uint8Array; readonly expected: Uint8Array }
+  >();
 
   for (const file of args.rendered) {
     if (!actualPaths.has(file.path)) {
@@ -252,6 +267,9 @@ async function inspectOutputPlan(args: {
     const current = await readFile(args.resolveOutputPath(file.path));
     if (!bytesEqual(current, file.content) || !(await generatedFileOnDiskMatchesMode(args.resolveOutputPath(file.path), file))) {
       changed.push(file.path);
+      if (isLockFilePath(file.path)) {
+        changedLocks.set(file.path, { current, expected: file.content });
+      }
     }
   }
   for (const path of actualPathList) {
@@ -265,42 +283,188 @@ async function inspectOutputPlan(args: {
     missing: missing.sort(compareStrings),
     removed: removed.sort(compareStrings),
   };
+  const sourceDrivenPayloadChanges = new Set([
+    ...diff.added.filter((path) => !isLockFilePath(path)),
+    ...diff.changed.filter((path) =>
+      !isLockFilePath(path) && !args.previousManagedState.editedPaths.has(path)
+    ),
+    ...diff.removed.filter((path) =>
+      !isLockFilePath(path) && !args.previousManagedState.editedPaths.has(path)
+    ),
+  ]);
+  const removedPayloadChanges = new Set(
+    diff.removed.filter((path) => !isLockFilePath(path))
+  );
+  const untrustedLockPaths = new Set(
+    [...changedLocks]
+      .filter(([path, contents]) =>
+        hasUntrustedLockProvenance(
+          path,
+          contents.current,
+          contents.expected,
+          sourceDrivenPayloadChanges,
+          removedPayloadChanges
+        ))
+      .map(([path]) => path)
+  );
+  const managedState = untrustedLockPaths.size === 0
+    ? args.previousManagedState
+    : {
+        ...args.previousManagedState,
+        editedPaths: new Set([
+          ...args.previousManagedState.editedPaths,
+          ...untrustedLockPaths,
+        ]),
+      };
+  const preflightDiagnostics = await diagnoseOutputBackupPreflight(
+    args.rootPath,
+    args.rendered,
+    staleManagedPaths,
+    managedState,
+    args.resolveOutputPath
+  );
   const outputChanges = new Set([
     ...diff.missing,
-    ...diff.changed.filter((path) => args.previousManagedState.editedPaths.has(path)),
-    ...diff.removed.filter((path) => args.previousManagedState.editedPaths.has(path)),
+    ...diff.changed.filter((path) => managedState.editedPaths.has(path)),
+    ...diff.removed.filter((path) => managedState.editedPaths.has(path)),
   ]);
   const candidateSourceChanges = [...diff.added, ...diff.changed, ...diff.removed]
     .filter((path) => !outputChanges.has(path));
-  const blockers = [...args.diagnostics, ...preflightDiagnostics]
-    .filter((diagnostic) =>
-      diagnostic.severity === "error" ||
-      (diagnostic.code === "unmanaged-output-collision" &&
-        !isEstablishedSourceDrivenOutput(
-          diagnostic.outputPath ?? diagnostic.path,
-          args.previousManagedState.paths.size,
-          args.sourceDrivenOutputPaths ?? []
-        ))
-    )
-    .map((diagnostic) => ({
-      code: diagnostic.code,
-      ...(diagnostic.outputPath === undefined && diagnostic.path === undefined ? {} : { path: diagnostic.outputPath ?? diagnostic.path }),
-    }));
+  const blockers = outputBlockers(
+    [...args.diagnostics, ...preflightDiagnostics],
+    managedState.paths.size,
+    args.sourceDrivenOutputPaths ?? []
+  );
   const blockedPaths = new Set(blockers.flatMap((blocker) => blocker.path === undefined ? [] : [blocker.path]));
   const sourceChanges = candidateSourceChanges.filter((path) => !blockedPaths.has(path));
 
   return {
     actualPaths,
     diff,
+    managedState,
     outputState: classifySkillsetOutputState({
       blockers,
-      hasBaseline: args.previousManagedState.hasBaseline,
+      hasBaseline: managedState.hasBaseline,
       outputChanges: [...outputChanges],
       sourceChanges,
     }),
     preflightDiagnostics,
     staleManagedPaths,
   };
+}
+
+function outputBlockers(
+  diagnostics: readonly SkillsetDiagnostic[],
+  managedOutputCount: number,
+  sourceDrivenOutputPaths: readonly string[]
+): SkillsetOutputStateEvidence["blockers"] {
+  return diagnostics
+    .filter((diagnostic) =>
+      diagnostic.severity === "error" ||
+      (diagnostic.code === "unmanaged-output-collision" &&
+        !isEstablishedSourceDrivenOutput(
+          diagnostic.outputPath ?? diagnostic.path,
+          managedOutputCount,
+          sourceDrivenOutputPaths
+        ))
+    )
+    .map((diagnostic) => ({
+      code: diagnostic.code,
+      ...(diagnostic.outputPath === undefined && diagnostic.path === undefined ? {} : { path: diagnostic.outputPath ?? diagnostic.path }),
+    }));
+}
+
+function classifyWriteSafety(
+  inspected: SkillsetOutputStateEvidence,
+  diagnostics: readonly SkillsetDiagnostic[],
+  managedOutputCount: number,
+  sourceDrivenOutputPaths: readonly string[]
+): SkillsetOutputStateEvidence {
+  const blockers = [
+    ...inspected.blockers,
+    ...outputBlockers(
+      diagnostics,
+      managedOutputCount,
+      sourceDrivenOutputPaths
+    ),
+  ];
+  const blockedPaths = new Set(
+    blockers.flatMap((blocker) => blocker.path === undefined ? [] : [blocker.path])
+  );
+  return classifySkillsetOutputState({
+    blockers,
+    hasBaseline: inspected.hasBaseline,
+    outputChanges: inspected.outputChanges,
+    sourceChanges: inspected.sourceChanges.filter((path) => !blockedPaths.has(path)),
+  });
+}
+
+function hasUntrustedLockProvenance(
+  path: string,
+  current: Uint8Array,
+  expected: Uint8Array,
+  sourceDrivenPayloadChanges: ReadonlySet<string>,
+  removedPayloadChanges: ReadonlySet<string>
+): boolean {
+  const currentLock = JSON.parse(textDecoder.decode(current)) as unknown;
+  const expectedLock = JSON.parse(textDecoder.decode(expected)) as unknown;
+  if (!isJsonRecord(currentLock) || !isJsonRecord(expectedLock)) return true;
+  if (
+    currentLock.generatedBy !== expectedLock.generatedBy ||
+    currentLock.schemaVersion !== expectedLock.schemaVersion
+  ) {
+    return true;
+  }
+
+  // Top-level fields are derived from config, render results, or target
+  // topology. Item provenance may also change from source, but only alongside
+  // a tracked payload change; otherwise the lock itself is the untrusted side.
+  if (JSON.stringify(currentLock.items) === JSON.stringify(expectedLock.items)) {
+    return false;
+  }
+  const outputRoot = outputRootForLockPath(path);
+  const currentItems = lockItemsByIdentity(currentLock);
+  const expectedItems = lockItemsByIdentity(expectedLock);
+  for (const identity of new Set([...currentItems.keys(), ...expectedItems.keys()])) {
+    const currentGroup = currentItems.get(identity) ?? [];
+    const expectedGroup = expectedItems.get(identity) ?? [];
+    if (JSON.stringify(currentGroup) === JSON.stringify(expectedGroup)) continue;
+    const trackedPaths = new Set(
+      [...currentGroup, ...expectedGroup]
+        .flatMap((item) => [...outputPathsForLockItem(outputRoot, item)])
+    );
+    if (
+      expectedGroup.length === 0 &&
+      currentGroup.length > 0 &&
+      [...removedPayloadChanges].some((payloadPath) => trackedPaths.has(payloadPath))
+    ) {
+      continue;
+    }
+    if (![...sourceDrivenPayloadChanges].some((payloadPath) => trackedPaths.has(payloadPath))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function lockItemsByIdentity(
+  lock: JsonRecord
+): ReadonlyMap<string, readonly JsonRecord[]> {
+  const groups = new Map<string, JsonRecord[]>();
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  for (const item of items) {
+    if (!isJsonRecord(item)) continue;
+    const identity = JSON.stringify([
+      item.kind,
+      item.name,
+      item.sourcePath,
+      item.outputPath,
+    ]);
+    const group = groups.get(identity) ?? [];
+    group.push(item);
+    groups.set(identity, group);
+  }
+  return groups;
 }
 
 function isEstablishedSourceDrivenOutput(
@@ -636,6 +800,32 @@ function buildResult(
   };
 }
 
+function blockedBuildResult(
+  rendered: readonly RenderedFile[],
+  diagnostics: readonly SkillsetDiagnostic[],
+  outputState: SkillsetOutputStateEvidence,
+  renderResults: readonly SkillsetRenderResult[],
+  backup?: OutputBackupSummary
+): SkillsetBuildResult {
+  return {
+    data: rendered,
+    diagnostics,
+    outputState,
+    renderResults,
+    ok: false,
+    operation: "build",
+    writes: withBackupSummary(
+      {
+        deletedPaths: [],
+        mode: "read",
+        paths: [],
+        writtenPaths: [],
+      },
+      backup
+    ),
+  };
+}
+
 function attachDiagnosticsToRenderResults(
   renderResults: readonly SkillsetRenderResult[],
   diagnostics: readonly SkillsetDiagnostic[]
@@ -752,15 +942,24 @@ function outputPathsForLock(outputRoot: string, lock: JsonRecord): ReadonlySet<s
   const paths = new Set<string>();
   for (const item of items) {
     if (!isJsonRecord(item)) continue;
-    let files: readonly string[] = [];
-    if (Array.isArray(item.files) && item.files.every((entry) => typeof entry === "string")) {
-      files = item.files;
-    } else if (typeof item.outputPath === "string") {
-      files = [item.outputPath];
-    }
-    for (const file of files) paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+    for (const path of outputPathsForLockItem(outputRoot, item)) paths.add(path);
   }
   return paths;
+}
+
+function outputPathsForLockItem(
+  outputRoot: string,
+  item: JsonRecord
+): ReadonlySet<string> {
+  let files: readonly string[] = [];
+  if (Array.isArray(item.files) && item.files.every((entry) => typeof entry === "string")) {
+    files = item.files;
+  } else if (typeof item.outputPath === "string") {
+    files = [item.outputPath];
+  }
+  return new Set(
+    files.map((file) => join(outputRoot, file).replaceAll("\\", "/"))
+  );
 }
 
 function outputRootForLockPath(lockPath: string): string {

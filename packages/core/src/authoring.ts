@@ -473,6 +473,10 @@ export async function doctorSkillset(
   } catch (error) {
     const buildDiagnostics = diagnosticsFromError(error);
     const renderResults = renderResultsFromError(error);
+    const hasBaseline = await independentlyObservedWorkspaceBaseline(
+      rootPath,
+      options
+    );
     return {
       buildError: errorMessage(error),
       buildDiagnostics,
@@ -482,7 +486,7 @@ export async function doctorSkillset(
       renderResults,
       notableRenderResults: notableRenderResults(renderResults),
       ok: false,
-      outputState: classifySkillsetOutputFailure(error, false),
+      outputState: classifySkillsetOutputFailure(error, hasBaseline),
       warnings: [],
     };
   }
@@ -549,6 +553,35 @@ export async function doctorSkillset(
     outputState,
     warnings: graph.warnings,
   };
+}
+
+async function independentlyObservedWorkspaceBaseline(
+  rootPath: string,
+  options: SkillsetOptions
+): Promise<boolean> {
+  if (!includesProjectScope(options.scopes)) return false;
+  const outPath = options.isolated === true
+    ? (path: string) => join(ISOLATED_OUT_ROOT, path)
+    : (path: string) => path;
+  const pathContext = createOperationalPathContext(rootPath, {
+    ...(options.xdg?.env === undefined ? {} : { env: options.xdg.env }),
+    ...(options.xdg?.homeDir === undefined
+      ? {}
+      : { homeDir: options.xdg.homeDir }),
+  });
+  try {
+    const managed = await readManagedOutputState(
+      rootPath,
+      [],
+      true,
+      outPath,
+      (path) => resolveOperationalPath(pathContext, path),
+      (path) => logicalOperationalPath(pathContext, path)
+    );
+    return managed.hasBaseline;
+  } catch {
+    return false;
+  }
 }
 
 interface LockItemMatch {
