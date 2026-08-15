@@ -298,12 +298,14 @@ async function inspectOutputPlan(args: {
   const untrustedLockPaths = new Set(
     [...changedLocks]
       .filter(([path, contents]) =>
+        args.previousManagedState.hasBaseline &&
         hasUntrustedLockProvenance(
           path,
           contents.current,
           contents.expected,
           sourceDrivenPayloadChanges,
-          removedPayloadChanges
+          removedPayloadChanges,
+          args.previousManagedState.editedPaths
         ))
       .map(([path]) => path)
   );
@@ -404,13 +406,19 @@ function hasUntrustedLockProvenance(
   current: Uint8Array,
   expected: Uint8Array,
   sourceDrivenPayloadChanges: ReadonlySet<string>,
-  removedPayloadChanges: ReadonlySet<string>
+  removedPayloadChanges: ReadonlySet<string>,
+  editedOutputPaths: ReadonlySet<string>
 ): boolean {
   const currentLock = JSON.parse(textDecoder.decode(current)) as unknown;
   const expectedLock = JSON.parse(textDecoder.decode(expected)) as unknown;
   if (!isJsonRecord(currentLock) || !isJsonRecord(expectedLock)) return true;
+  if (currentLock.generatedBy !== expectedLock.generatedBy) return true;
+  const legacySchemaMigration =
+    currentLock.schemaVersion === 1 &&
+    expectedLock.schemaVersion === 2 &&
+    hasCoherentLegacyIntegrity(path, currentLock, editedOutputPaths);
   if (
-    currentLock.generatedBy !== expectedLock.generatedBy ||
+    !legacySchemaMigration &&
     currentLock.schemaVersion !== expectedLock.schemaVersion
   ) {
     return true;
@@ -420,6 +428,13 @@ function hasUntrustedLockProvenance(
   // topology. Item provenance may also change from source, but only alongside
   // a tracked payload change; otherwise the lock itself is the untrusted side.
   if (JSON.stringify(currentLock.items) === JSON.stringify(expectedLock.items)) {
+    return false;
+  }
+  if (
+    legacySchemaMigration &&
+    lockItemsWithoutGeneratedIntegrity(currentLock) ===
+      lockItemsWithoutGeneratedIntegrity(expectedLock)
+  ) {
     return false;
   }
   const outputRoot = outputRootForLockPath(path);
@@ -445,6 +460,46 @@ function hasUntrustedLockProvenance(
     }
   }
   return false;
+}
+
+function hasCoherentLegacyIntegrity(
+  path: string,
+  lock: JsonRecord,
+  editedOutputPaths: ReadonlySet<string>
+): boolean {
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  if (items.length === 0) return false;
+  const outputRoot = outputRootForLockPath(path);
+  for (const item of items) {
+    if (
+      !isJsonRecord(item) ||
+      item.fileModes !== undefined ||
+      typeof item.outputHash !== "string"
+    ) {
+      return false;
+    }
+    if (
+      [...outputPathsForLockItem(outputRoot, item)]
+        .some((outputPath) => editedOutputPaths.has(outputPath))
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function lockItemsWithoutGeneratedIntegrity(lock: JsonRecord): string {
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  return JSON.stringify(
+    items.map((item) => {
+      if (!isJsonRecord(item)) return item;
+      return Object.fromEntries(
+        Object.entries(item).filter(
+          ([key]) => key !== "fileModes" && key !== "outputHash"
+        )
+      );
+    })
+  );
 }
 
 function lockItemsByIdentity(

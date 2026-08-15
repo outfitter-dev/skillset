@@ -510,6 +510,43 @@ codex: true
     expect(await Bun.file(lockPath).text()).toContain('"generatedBy": "skillset@0.1.0"');
   });
 
+  it("does not mistake a schema-downgraded v2 lock for a legacy migration", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: schema-downgrade-root
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      schemaVersion: number;
+    };
+    lock.schemaVersion = 1;
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      state: "output-diverged",
+    });
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+
+    const applied = await buildSkillsetResult(root);
+    expect(applied.ok).toBe(true);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+  });
+
   it("does not trust edited item provenance when tracked payloads are unchanged", async () => {
     const root = await fixture({
       "skillset.yaml": `
