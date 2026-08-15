@@ -1466,14 +1466,21 @@ async function applyRenderedFileTransaction(
   readonly deletedPaths: readonly string[];
   readonly writtenPaths: readonly string[];
 }> {
-  const caseOnlyMoves = staleManagedPaths.flatMap((from) => {
+  const caseOnlyMoves: { readonly from: string; readonly to: string }[] = [];
+  const missingCaseOnlyMoveSources = new Set<string>();
+  for (const from of staleManagedPaths) {
     const target = rendered.find(
       (file) =>
         file.path !== from &&
         file.path.toLowerCase() === from.toLowerCase()
     );
-    return target === undefined ? [] : [{ from, to: target.path }];
-  });
+    if (target === undefined) continue;
+    if (await exists(resolveOutputPath(from))) {
+      caseOnlyMoves.push({ from, to: target.path });
+    } else {
+      missingCaseOnlyMoveSources.add(from);
+    }
+  }
   const caseOnlyMoveSources = new Set(caseOnlyMoves.map((move) => move.from));
   const caseOnlyMoveTargets = new Set(caseOnlyMoves.map((move) => move.to));
   const writes: RenderedFile[] = [];
@@ -1510,7 +1517,9 @@ async function applyRenderedFileTransaction(
     rootPath,
     {
       deletes: staleManagedPaths.filter(
-        (path) => !caseOnlyMoveSources.has(path)
+        (path) =>
+          !caseOnlyMoveSources.has(path) &&
+          !missingCaseOnlyMoveSources.has(path)
       ),
       moves: caseOnlyMoves,
       writes: writes.map((file) => ({
@@ -1521,8 +1530,11 @@ async function applyRenderedFileTransaction(
     },
     transactionOptions
   );
+  const deletedPaths = staleManagedPaths.filter(
+    (path) => !missingCaseOnlyMoveSources.has(path)
+  );
   return {
-    deletedPaths: [...staleManagedPaths].sort(compareStrings),
+    deletedPaths: deletedPaths.sort(compareStrings),
     writtenPaths: writes.map((file) => file.path).sort(compareStrings),
   };
 }
