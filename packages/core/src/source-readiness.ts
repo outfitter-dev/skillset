@@ -339,7 +339,17 @@ async function collectSourceReadiness(
       };
     }
     const driftSet = new Set(driftPaths(diff.data));
-    const outputEditedPaths = [...managed.editedPaths]
+    const outputEditedPaths = [
+      ...new Set([
+        ...managed.editedPaths,
+        ...diff.diagnostics.flatMap((diagnostic) =>
+          diagnostic.code === "managed-output-edited" &&
+          diagnostic.outputPath !== undefined
+            ? [diagnostic.outputPath]
+            : []
+        ),
+      ]),
+    ]
       .filter((path) => driftSet.has(path))
       .sort(compareStrings);
     return {

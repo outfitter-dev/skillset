@@ -258,6 +258,43 @@ test("a fresh neutral safety check refuses managed target edits", async () => {
   }
 });
 
+test("a fresh neutral safety check refuses newly detected lock provenance edits", async () => {
+  const root = await fixture();
+  try {
+    await checkSkillsetSourceReadiness(root, { write: "outputs" });
+    const lockPath = join(root, ".claude/skills/skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      generatedBy: string;
+    };
+    lock.generatedBy = "skillset@9.9.9";
+    const edited = `${JSON.stringify(lock, null, 2)}\n`;
+    await writeFile(lockPath, edited, "utf8");
+
+    const result = await checkSkillsetSourceReadiness(root, {
+      write: "outputs",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.data.checks.managedOutputs.failures).toContain(
+      ".claude/skills/skillset.lock"
+    );
+    expect(result.data.fixedPaths).toEqual([]);
+    expect(result.data.writePerformed).toBe(false);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "source-readiness-output-write-blocked",
+        severity: "error",
+      })
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(edited);
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(
+      false
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("a scoped check ignores managed edits outside its drift set", async () => {
   const root = await fixture();
   try {

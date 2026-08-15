@@ -194,18 +194,31 @@ export async function independentlyObservedOutputBaseline(
   const scopes = options.scopes;
   const includesScope = (scope: "plugins" | "project" | "repo") =>
     scopes === undefined || scopes.includes(scope);
+  const includedTargets = new Set(options.targetFilter ?? targetNames());
   const outputRoots = new Set<string>();
   if (includesScope("plugins")) {
-    for (const outputRoot of Object.values(outputs.plugins)) {
-      outputRoots.add(outputRoot);
+    for (const target of targetNames()) {
+      if (includedTargets.has(target)) outputRoots.add(outputs.plugins[target]);
     }
-    addDeclaredProviderOutputRoots(outputRoots, config, "plugins", rootPath);
+    addDeclaredProviderOutputRoots(
+      outputRoots,
+      config,
+      "plugins",
+      rootPath,
+      includedTargets
+    );
   }
   if (includesScope("repo")) {
-    for (const outputRoot of Object.values(outputs.skills)) {
-      outputRoots.add(outputRoot);
+    for (const target of targetNames()) {
+      if (includedTargets.has(target)) outputRoots.add(outputs.skills[target]);
     }
-    addDeclaredProviderOutputRoots(outputRoots, config, "skills", rootPath);
+    addDeclaredProviderOutputRoots(
+      outputRoots,
+      config,
+      "skills",
+      rootPath,
+      includedTargets
+    );
   }
 
   const outPath = options.isolated === true
@@ -245,9 +258,11 @@ function addDeclaredProviderOutputRoots(
   outputRoots: Set<string>,
   config: JsonRecord,
   surface: "plugins" | "skills",
-  rootPath: string
+  rootPath: string,
+  includedTargets: ReadonlySet<string>
 ): void {
   for (const target of targetNames()) {
+    if (!includedTargets.has(target)) continue;
     const targetConfig = config[target];
     if (!isJsonRecord(targetConfig)) continue;
     const output = targetConfig[surface];

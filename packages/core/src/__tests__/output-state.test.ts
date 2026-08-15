@@ -339,6 +339,10 @@ cursor: false
     );
 
     const status = await doctorSkillset(root, { scopes: ["plugins"] });
+    const codexStatus = await doctorSkillset(root, {
+      scopes: ["plugins"],
+      targetFilter: ["codex"],
+    });
     const readiness = await checkSkillsetSourceReadiness(root, {
       scopes: ["plugins"],
     });
@@ -352,6 +356,87 @@ cursor: false
       hasBaseline: true,
       state: "blocked",
     });
+    expect(codexStatus.outputState).toMatchObject({
+      hasBaseline: false,
+      state: "blocked",
+    });
+  });
+
+  it("filters plugin and standalone-skill fallback roots by target", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: target-filtered-fallback-root
+claude:
+  plugins:
+    path: generated/claude/plugins
+  skills:
+    path: generated/claude/skills
+codex:
+  plugins:
+    path: generated/codex/plugins
+  skills:
+    path: generated/codex/skills
+cursor: false
+`,
+      ".skillset/skills/standalone/SKILL.md": `
+---
+name: standalone
+description: Standalone skill.
+---
+
+Body.
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+      ".skillset/plugins/tools/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo plugin skill.
+---
+
+Body.
+`,
+    });
+    const baseline = await buildSkillsetResult(root, {
+      targetFilter: ["claude"],
+    });
+    expect(baseline.ok).toBe(true);
+    expect(baseline.writes.paths).toContain(
+      "generated/claude/plugins/skillset.lock"
+    );
+    expect(baseline.writes.paths).toContain(
+      "generated/claude/skills/skillset.lock"
+    );
+    await writeFile(
+      join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
+      "---\nname: demo\ndescription: [\n---\nBroken plugin skill.\n",
+      "utf8"
+    );
+
+    const claudePlugins = await doctorSkillset(root, {
+      scopes: ["plugins"],
+      targetFilter: ["claude"],
+    });
+    const codexPlugins = await doctorSkillset(root, {
+      scopes: ["plugins"],
+      targetFilter: ["codex"],
+    });
+    const claudeSkills = await doctorSkillset(root, {
+      scopes: ["repo"],
+      targetFilter: ["claude"],
+    });
+    const codexSkills = await doctorSkillset(root, {
+      scopes: ["repo"],
+      targetFilter: ["codex"],
+    });
+
+    expect(claudePlugins.outputState.hasBaseline).toBe(true);
+    expect(codexPlugins.outputState.hasBaseline).toBe(false);
+    expect(claudeSkills.outputState.hasBaseline).toBe(true);
+    expect(codexSkills.outputState.hasBaseline).toBe(false);
   });
 
   it("scopes status and readiness baseline evidence when plugin rendering fails", async () => {
