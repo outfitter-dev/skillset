@@ -33,6 +33,29 @@ const withWorkspace = async (
   }
 };
 
+const detectCaseSensitiveWorkspaceVolume = async (): Promise<boolean> => {
+  const probeRoot = await mkdtemp(
+    nodePath.join(tmpdir(), "skillset-workspace-case-probe-")
+  );
+  try {
+    await writeFile(nodePath.join(probeRoot, "probe.txt"), "probe\n");
+    return await access(nodePath.join(probeRoot, "PROBE.txt")).then(
+      () => false,
+      () => true
+    );
+  } finally {
+    await rm(probeRoot, { force: true, recursive: true });
+  }
+};
+
+/**
+ * Two fixtures below need two distinct entries whose paths differ only by
+ * case. That is unrepresentable on a case-insensitive volume (macOS APFS by
+ * default), so they report as skipped there rather than passing vacuously.
+ */
+const caseSensitiveVolume = await detectCaseSensitiveWorkspaceVolume();
+const caseSensitiveTest = test.skipIf(!caseSensitiveVolume);
+
 describe("workspace transactions", () => {
   test("applies writes, moves, and deletes in deterministic report order", async () => {
     await withWorkspace(async (root) => {
@@ -103,6 +126,28 @@ describe("workspace transactions", () => {
     });
   });
 
+  caseSensitiveTest(
+    "rejects a distinct occupied case-variant move target (case-sensitive volume)",
+    async () => {
+      await withWorkspace(async (root) => {
+        const sourcePath = nodePath.join(root, "guide.txt");
+        const targetPath = nodePath.join(root, "Guide.txt");
+        await writeFile(sourcePath, "managed source\n");
+        await writeFile(targetPath, "unmanaged target\n");
+
+        await expect(
+          applyWorkspaceTransaction(root, {
+            moves: [{ from: "guide.txt", to: "Guide.txt" }],
+          })
+        ).rejects.toThrow(
+          "move target already exists without a matching move source or delete"
+        );
+        expect(await readFile(sourcePath, "utf-8")).toBe("managed source\n");
+        expect(await readFile(targetPath, "utf-8")).toBe("unmanaged target\n");
+      });
+    }
+  );
+
   test("supports swaps and case-only moves without leaving staging artifacts", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "a.txt"), "a\n");
@@ -126,6 +171,254 @@ describe("workspace transactions", () => {
       const rootEntries = await readdir(root);
       expect(
         rootEntries.filter((entry) => entry.startsWith(".skillset-workspace-"))
+      ).toEqual([]);
+    });
+  });
+
+  caseSensitiveTest(
+    "removes case staging before rolling back its created parent (case-sensitive volume)",
+    async () => {
+      await withWorkspace(async (root) => {
+        const sourceDirectory = nodePath.join(root, "References");
+        const targetDirectory = nodePath.join(root, "references");
+        await mkdir(sourceDirectory);
+        await writeFile(nodePath.join(sourceDirectory, "Guide.md"), "before\n");
+
+        let transactionFailure: unknown;
+        try {
+          await applyWorkspaceTransaction(
+            root,
+            {
+              moves: [
+                {
+                  from: "References/Guide.md",
+                  to: "references/guide.md",
+                },
+              ],
+              writes: [{ content: "late\n", path: "zz.txt" }],
+            },
+            {
+              testHooks: {
+                beforeApply: (operation) => {
+                  if (operation.kind === "write") {
+                    throw new Error("injected case-staging failure");
+                  }
+                },
+              },
+            }
+          );
+        } catch (error) {
+          transactionFailure = error;
+        }
+
+        expect(transactionFailure).toBeInstanceOf(Error);
+        expect(transactionFailure).not.toBeInstanceOf(
+          WorkspaceTransactionRollbackError
+        );
+        expect((transactionFailure as Error).message).toBe(
+          "injected case-staging failure"
+        );
+        expect(
+          await readFile(nodePath.join(sourceDirectory, "Guide.md"), "utf-8")
+        ).toBe("before\n");
+        await expect(access(targetDirectory)).rejects.toThrow();
+        expect(
+          (await readdir(root)).filter((entry) =>
+            entry.startsWith(".skillset-workspace-")
+          )
+        ).toEqual([]);
+      });
+    }
+  );
+
+  test("rejects and preserves a write target occupied before atomic install", async () => {
+    await withWorkspace(async (root) => {
+      const targetPath = nodePath.join(root, "created/occupied.txt");
+      let transactionFailure: unknown;
+
+      try {
+        await applyWorkspaceTransaction(
+          root,
+          {
+            writes: [
+              { content: "managed\n", path: "created/occupied.txt" },
+            ],
+          },
+          {
+            testHooks: {
+              beforeWriteInstall: async (path) => {
+                expect(path).toBe("created/occupied.txt");
+                await writeFile(targetPath, "unmanaged\n");
+              },
+            },
+          }
+        );
+      } catch (error) {
+        transactionFailure = error;
+      }
+
+      expect(transactionFailure).toBeInstanceOf(Error);
+      expect(transactionFailure).not.toBeInstanceOf(
+        WorkspaceTransactionRollbackError
+      );
+      expect((transactionFailure as Error).message).toBe(
+        "skillset: workspace transaction write target appeared before " +
+          "atomic install: created/occupied.txt"
+      );
+      expect(await readFile(targetPath, "utf-8")).toBe("unmanaged\n");
+      expect(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith(".skillset-workspace-")
+        )
+      ).toEqual([]);
+    });
+  });
+
+  test("retains a staged preimage when its target is recreated", async () => {
+    await withWorkspace(async (root) => {
+      const targetPath = nodePath.join(root, "occupied.txt");
+      await writeFile(targetPath, "original\n");
+      let transactionFailure: unknown;
+
+      try {
+        await applyWorkspaceTransaction(
+          root,
+          {
+            writes: [{ content: "managed\n", path: "occupied.txt" }],
+          },
+          {
+            testHooks: {
+              beforeApply: async (operation) => {
+                if (operation.kind === "write") {
+                  await writeFile(targetPath, "late unmanaged\n");
+                }
+              },
+            },
+          }
+        );
+      } catch (error) {
+        transactionFailure = error;
+      }
+
+      expect(transactionFailure).toBeInstanceOf(
+        WorkspaceTransactionRollbackError
+      );
+      const rollbackError =
+        transactionFailure as WorkspaceTransactionRollbackError;
+      expect(rollbackError.originalError).toBeInstanceOf(Error);
+      expect((rollbackError.originalError as Error).message).toBe(
+        "skillset: workspace transaction write target reappeared after " +
+          "preimage staging: occupied.txt"
+      );
+      expect(await readFile(targetPath, "utf-8")).toBe("late unmanaged\n");
+
+      const reportedFailures = rollbackError.rollbackFailures.join("\n");
+      const preservedPreimage =
+        /preserved preimage at (?<path>\S+)/u.exec(reportedFailures)?.groups
+          ?.path;
+      const retainedJournal =
+        /recovery journal retained at (?<path>\S+)/u.exec(reportedFailures)
+          ?.groups?.path;
+      if (preservedPreimage === undefined || retainedJournal === undefined) {
+        throw new Error(
+          `rollback failures did not report recovery paths: ${reportedFailures}`
+        );
+      }
+      expect(
+        await readFile(nodePath.join(root, preservedPreimage), "utf-8")
+      ).toBe("original\n");
+
+      const journals = (await readdir(root)).filter((entry) =>
+        entry.startsWith(".skillset-workspace-transaction-")
+      );
+      expect(journals).toEqual([retainedJournal]);
+      const recoveryEntries = await readdir(
+        nodePath.join(root, retainedJournal, "preimages")
+      );
+      expect(recoveryEntries).toHaveLength(1);
+    });
+  });
+
+  test("rejects and preserves a move target occupied before atomic install", async () => {
+    await withWorkspace(async (root) => {
+      const sourcePath = nodePath.join(root, "move.txt");
+      const targetPath = nodePath.join(root, "created/moved.txt");
+      await writeFile(sourcePath, "managed source\n");
+      let transactionFailure: unknown;
+
+      try {
+        await applyWorkspaceTransaction(
+          root,
+          { moves: [{ from: "move.txt", to: "created/moved.txt" }] },
+          {
+            testHooks: {
+              beforeApply: async (operation) => {
+                if (operation.kind !== "move") {
+                  return;
+                }
+                await mkdir(nodePath.join(root, "created"), {
+                  recursive: true,
+                });
+                await writeFile(targetPath, "unmanaged late\n");
+              },
+            },
+          }
+        );
+      } catch (error) {
+        transactionFailure = error;
+      }
+
+      expect(transactionFailure).toBeInstanceOf(Error);
+      expect(transactionFailure).not.toBeInstanceOf(
+        WorkspaceTransactionRollbackError
+      );
+      expect((transactionFailure as Error).message).toBe(
+        "skillset: workspace transaction move target appeared before " +
+          "atomic install: created/moved.txt"
+      );
+      expect(await readFile(targetPath, "utf-8")).toBe("unmanaged late\n");
+      expect(await readFile(sourcePath, "utf-8")).toBe("managed source\n");
+      expect(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith(".skillset-workspace-")
+        )
+      ).toEqual([]);
+    });
+  });
+
+  test("enforces caller-approved absence during initial inspection", async () => {
+    await withWorkspace(async (root) => {
+      const targetPath = nodePath.join(root, "occupied.txt");
+
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          {
+            writes: [
+              {
+                content: "managed\n",
+                expectedAbsent: true,
+                path: "occupied.txt",
+              },
+            ],
+          },
+          {
+            testHooks: {
+              beforeInitialInspection: async () => {
+                await writeFile(targetPath, "unmanaged\n");
+              },
+            },
+          }
+        )
+      ).rejects.toThrow(
+        "write target appeared after final approval: occupied.txt"
+      );
+
+      expect(await readFile(targetPath, "utf-8")).toBe("unmanaged\n");
+      expect(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith(".skillset-workspace-")
+        )
       ).toEqual([]);
     });
   });

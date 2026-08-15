@@ -32,6 +32,37 @@ Body.
 };
 
 describe("buildSkillsetResult", () => {
+  it("preserves an absent output target occupied after final approval", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const occupiedPath = join(root, ".claude/skills/demo/SKILL.md");
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeInitialInspection: async () => {
+            await mkdir(join(root, ".claude/skills/demo"), {
+              recursive: true,
+            });
+            await Bun.write(occupiedPath, "unmanaged late occupant\n");
+          },
+        },
+      },
+    })).rejects.toThrow(
+      "write target appeared after final approval: " +
+        ".claude/skills/demo/SKILL.md"
+    );
+
+    expect(await readFile(occupiedPath, "utf-8")).toBe(
+      "unmanaged late occupant\n"
+    );
+    expect(await Bun.file(
+      join(root, ".claude/skills/skillset.lock")
+    ).exists()).toBe(false);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
   it("rolls back writes, modes, and stale deletions after a late transaction failure", async () => {
     if (process.platform === "win32") return;
     const root = await fixture({
