@@ -900,10 +900,15 @@ async function collectOutputWritePreimages(
   const preimages: OutputWritePreimage[] = [];
   for (const targetPath of [...new Set(targetPaths)].sort(compareStrings)) {
     const absolutePath = resolveOutputPath(targetPath);
-    if (!(await exists(absolutePath))) {
+    const entry = await lstat(absolutePath).catch((error: unknown) => {
+      if (isNotFound(error)) return;
+      throw error;
+    });
+    if (entry === undefined) {
       preimages.push({ state: "absent", targetPath });
       continue;
     }
+    if (entry.isDirectory()) continue;
     const content = await readFile(absolutePath);
     const currentStats = await stat(absolutePath);
     preimages.push({

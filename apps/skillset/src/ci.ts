@@ -231,6 +231,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       {
         ...buildOptions,
         sourceDrivenOutputPaths: [...providerSourceDriftPaths],
+        ...(transactionOptions === undefined ? {} : { transactionOptions }),
         write: "outputs",
       },
       repairableManagedLockPaths()

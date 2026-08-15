@@ -398,14 +398,57 @@ async function buildSkillsetResultInternal(
   }
 
   if (graph.root.compile.build === "all") {
-    const deletedPaths = await removeStaleGeneratedFiles(new Set(writeInspection.staleManagedPaths), expectedPaths, writePreimages, resolveOutputPath);
-    const writtenPaths = await writeRenderedFiles(rendered, writePreimages, resolveOutputPath);
+    const { deletedPaths, writtenPaths } = options.isolated === true
+      ? {
+          deletedPaths: await removeStaleGeneratedFiles(
+            new Set(writeInspection.staleManagedPaths),
+            expectedPaths,
+            writePreimages,
+            resolveOutputPath
+          ),
+          writtenPaths: await writeRenderedFiles(
+            rendered,
+            writePreimages,
+            resolveOutputPath
+          ),
+        }
+      : await applyRenderedFileTransaction(
+          rootPath,
+          rendered,
+          writeInspection.staleManagedPaths,
+          writePreimages,
+          resolveOutputPath,
+          true,
+          inspectionOptions.transactionOptions
+        );
     return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
   const actualPaths = writeInspection.actualPaths;
-  const deletedPaths = await removeStaleGeneratedFiles(new Set(writeInspection.staleManagedPaths), expectedPaths, writePreimages, resolveOutputPath);
-  const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, writePreimages, resolveOutputPath);
+  const { deletedPaths, writtenPaths } = options.isolated === true
+    ? {
+        deletedPaths: await removeStaleGeneratedFiles(
+          new Set(writeInspection.staleManagedPaths),
+          expectedPaths,
+          writePreimages,
+          resolveOutputPath
+        ),
+        writtenPaths: await writeChangedRenderedFiles(
+          rendered,
+          actualPaths,
+          writePreimages,
+          resolveOutputPath
+        ),
+      }
+    : await applyRenderedFileTransaction(
+        rootPath,
+        rendered,
+        writeInspection.staleManagedPaths,
+        writePreimages,
+        resolveOutputPath,
+        false,
+        inspectionOptions.transactionOptions
+      );
 
   return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
@@ -1459,6 +1502,7 @@ async function applyRenderedFileTransaction(
   rootPath: string,
   rendered: readonly RenderedFile[],
   staleManagedPaths: readonly string[],
+  writePreimages: ReadonlyMap<string, OutputWritePreimage>,
   resolveOutputPath: OutputPathResolver,
   writeAll: boolean,
   transactionOptions: WorkspaceTransactionOptions | undefined
@@ -1513,6 +1557,7 @@ async function applyRenderedFileTransaction(
   if (writes.length === 0 && staleManagedPaths.length === 0) {
     return { deletedPaths: [], writtenPaths: [] };
   }
+  await assertOutputWritePreimages(writePreimages, resolveOutputPath);
   await applyWorkspaceTransaction(
     rootPath,
     {
@@ -1537,6 +1582,15 @@ async function applyRenderedFileTransaction(
     deletedPaths: deletedPaths.sort(compareStrings),
     writtenPaths: writes.map((file) => file.path).sort(compareStrings),
   };
+}
+
+async function assertOutputWritePreimages(
+  preimages: ReadonlyMap<string, OutputWritePreimage>,
+  resolveOutputPath: OutputPathResolver
+): Promise<void> {
+  for (const targetPath of [...preimages.keys()].sort(compareStrings)) {
+    await assertOutputWritePreimage(targetPath, preimages, resolveOutputPath);
+  }
 }
 
 async function writeChangedRenderedFiles(
