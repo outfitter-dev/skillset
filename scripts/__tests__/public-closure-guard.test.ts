@@ -273,6 +273,159 @@ describe("generated public closure guard", () => {
     ).toEqual([3, 4]);
   });
 
+  test("SET-465: npm run aliases and lifecycle shorthand resolve private scripts", () => {
+    const aliases = findRepoInternalScriptAliases(
+      {
+        install: "bun scripts/private.ts",
+        private: "bun scripts/private.ts",
+        restart: "bun scripts/private.ts",
+        start: "bun scripts/private.ts",
+        stop: "bun scripts/private.ts",
+        "via:run-script": "npm run-script private",
+        "via:rum": "npm rum via:run-script",
+        "via:t": "npm t",
+        "via:test": "npm test",
+        "via:tst": "npm tst",
+        "via:urn": "npm urn via:rum",
+        test: "bun scripts/private.ts",
+      },
+      ["scripts/private.ts"]
+    );
+    const content = [
+      "Run `npm run-script private`.",
+      "Run `npm rum via:run-script`.",
+      "Run `npm urn via:rum`.",
+      "Run `npm test`.",
+      "Run `npm t`.",
+      "Run `npm tst`.",
+      "Run `npm start`.",
+      "Run `npm stop`.",
+      "Run `npm restart`.",
+      "Run `npm install`.",
+    ].join("\n");
+
+    expect([...aliases].toSorted()).toEqual([
+      "install",
+      "private",
+      "restart",
+      "start",
+      "stop",
+      "test",
+      "via:rum",
+      "via:run-script",
+      "via:t",
+      "via:test",
+      "via:tst",
+      "via:urn",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        aliases
+      ).map(({ line }) => line)
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  test("SET-465: npm lifecycle edges and restart fallback close private aliases", () => {
+    const packageScripts = {
+      postrelease: "bun scripts/private.ts",
+      pretest: "bun scripts/private.ts",
+      release: "echo release",
+      start: "echo start",
+      stop: "bun scripts/private.ts",
+      test: "echo test",
+      "via:release": "npm run release",
+      "via:restart": "npm restart",
+      "via:test": "npm test",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const content = [
+      "Run `npm test`.",
+      "Run `npm run release`.",
+      "Run `npm restart`.",
+    ].join("\n");
+
+    expect([...aliases].toSorted()).toEqual([
+      "postrelease",
+      "pretest",
+      "stop",
+      "via:release",
+      "via:restart",
+      "via:test",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line }) => line)
+    ).toEqual([1, 2, 3]);
+  });
+
+  test("SET-465: npm restart does not follow fallback when restart exists", () => {
+    const packageScripts = {
+      restart: "echo restart",
+      stop: "bun scripts/private.ts",
+      wrapper: "npm restart",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+
+    expect([...aliases]).toEqual(["stop"]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "Run `npm restart`.",
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      )
+    ).toEqual([]);
+  });
+
+  test("SET-465: npm run value flags preserve direct and transitive aliases", () => {
+    const packageScripts = {
+      private: "bun scripts/private.ts",
+      "via:prefix": "npm --prefix . run private",
+      "via:shell": "npm --script-shell bash run via:workspace",
+      "via:workspace": "npm --workspace packages/demo run via:prefix",
+      "via:workspace-short": "npm run -w packages/demo via:shell",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const content = [
+      "Run `npm --prefix . run private`.",
+      "Run `npm --workspace packages/demo run via:prefix`.",
+      "Run `npm run -w packages/demo via:workspace`.",
+      "Run `npm --script-shell bash run via:workspace-short`.",
+    ].join("\n");
+
+    expect([...aliases].toSorted()).toEqual([
+      "private",
+      "via:prefix",
+      "via:shell",
+      "via:workspace",
+      "via:workspace-short",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line }) => line)
+    ).toEqual([1, 2, 3, 4]);
+  });
+
   test("SET-465: allows package scripts without repository-script dependencies", () => {
     const aliases = findRepoInternalScriptAliases(
       {

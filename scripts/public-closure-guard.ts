@@ -56,7 +56,7 @@ const PACKAGE_RUNNER_PATTERN =
 const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
   {
     bun: new Set(["--cwd"]),
-    npm: new Set(["--prefix"]),
+    npm: new Set(["--prefix", "--script-shell", "--workspace", "-w"]),
     pnpm: new Set(["--dir"]),
     yarn: new Set(["--cwd"]),
   };
@@ -111,6 +111,20 @@ const RUNNER_BUILTINS: Readonly<Record<PackageRunner, ReadonlySet<string>>> = {
     "up",
   ]),
 };
+const NPM_RUN_COMMANDS: ReadonlySet<string> = new Set([
+  "run",
+  "run-script",
+  "rum",
+  "urn",
+]);
+const NPM_LIFECYCLE_SCRIPTS: Readonly<Record<string, string>> = {
+  restart: "restart",
+  start: "start",
+  stop: "stop",
+  t: "test",
+  test: "test",
+  tst: "test",
+};
 
 interface CommandToken {
   readonly end: number;
@@ -125,7 +139,8 @@ export function scanGeneratedPublicContent(
   file: string,
   content: string,
   repoInternalScripts: readonly string[] = [],
-  repoInternalScriptAliases: ReadonlySet<string> = new Set()
+  repoInternalScriptAliases: ReadonlySet<string> = new Set(),
+  packageScriptNames?: ReadonlySet<string>
 ): readonly PublicClosureViolation[] {
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
@@ -153,7 +168,7 @@ export function scanGeneratedPublicContent(
         (violation) =>
           violation.line === index + 1 && violation.rule === "internal-script"
       ) &&
-      invokedPackageScripts(text).some((name) =>
+      invokedPackageScripts(text, packageScriptNames).some((name) =>
         repoInternalScriptAliases.has(name)
       )
     ) {
@@ -215,15 +230,22 @@ function readRunnerToken(
 }
 
 /**
- * Statically recognizes `runner [flags] run [flags] script` for Bun, npm,
- * pnpm, and Yarn, plus non-builtin `runner [flags] script` shorthand for Bun,
- * pnpm, and Yarn. Script names may be bare or single-/double-quoted. Bounded
- * value flags (`npm --prefix`, `bun/yarn --cwd`, and `pnpm --dir`) consume one
- * following token; other flags must be self-contained (for example `--silent`
- * or `--cwd=path`). This does not expand variables or parse general shell
- * syntax.
+ * Statically recognizes `runner [flags] run [flags] script` for Bun, pnpm,
+ * and Yarn; npm also accepts its `run-script`, `rum`, and `urn` aliases. Bun,
+ * pnpm, and Yarn accept non-builtin `runner [flags] script` shorthand. npm
+ * accepts only its finite lifecycle shorthand (`start`, `stop`, `restart`, and
+ * `test` plus `t`/`tst`). Script names may be bare or single-/double-quoted.
+ * Bounded value flags (`npm --prefix`, `-w`/`--workspace`, `--script-shell`;
+ * `bun/yarn --cwd`; and `pnpm --dir`) consume one following token; other flags
+ * must be self-contained (for example `--silent` or `--cwd=path`). npm script
+ * execution includes bounded pre/post lifecycle edges, and `restart` chooses
+ * restart or stop/start fallback edges from the supplied script inventory. This
+ * does not expand variables or parse general shell syntax.
  */
-function invokedPackageScripts(text: string): readonly string[] {
+function invokedPackageScripts(
+  text: string,
+  packageScriptNames?: ReadonlySet<string>
+): readonly string[] {
   const scripts: string[] = [];
   for (const match of text.matchAll(PACKAGE_RUNNER_PATTERN)) {
     const runner = match.groups?.runner?.toLowerCase() as
@@ -232,11 +254,22 @@ function invokedPackageScripts(text: string): readonly string[] {
     if (!(runner && match.index !== undefined)) continue;
     let token = readRunnerToken(text, match.index + match[0].length, runner);
     if (!token) continue;
-    if (token.value === "run") {
+    const command = token.value.toLowerCase();
+    const isRunCommand =
+      runner === "npm" ? NPM_RUN_COMMANDS.has(command) : command === "run";
+    if (isRunCommand) {
       token = readRunnerToken(text, token.end, runner);
+      if (runner === "npm" && token?.value) {
+        scripts.push(...npmLifecycleEdges(token.value, packageScriptNames));
+        continue;
+      }
     } else if (runner === "npm") {
+      const lifecycleScript = NPM_LIFECYCLE_SCRIPTS[command];
+      if (lifecycleScript) {
+        scripts.push(...npmLifecycleEdges(lifecycleScript, packageScriptNames));
+      }
       continue;
-    } else if (RUNNER_BUILTINS[runner].has(token.value.toLowerCase())) {
+    } else if (RUNNER_BUILTINS[runner].has(command)) {
       continue;
     }
     if (token?.value) scripts.push(token.value);
@@ -244,11 +277,35 @@ function invokedPackageScripts(text: string): readonly string[] {
   return scripts;
 }
 
+function npmLifecycleEdges(
+  script: string,
+  packageScriptNames?: ReadonlySet<string>
+): readonly string[] {
+  if (script !== "restart") return [`pre${script}`, script, `post${script}`];
+  const restartEdges = ["prerestart", "restart", "postrestart"];
+  const fallbackEdges = [
+    ...(packageScriptNames?.has("stop") === false
+      ? []
+      : ["prestop", "stop", "poststop"]),
+    ...(packageScriptNames?.has("start") === false
+      ? []
+      : ["prestart", "start", "poststart"]),
+  ];
+  if (!packageScriptNames) {
+    return [...restartEdges, "prerestart", ...fallbackEdges, "postrestart"];
+  }
+  if (packageScriptNames.has("restart")) return restartEdges;
+  return fallbackEdges.length > 0
+    ? ["prerestart", ...fallbackEdges, "postrestart"]
+    : [];
+}
+
 export function findRepoInternalScriptAliases(
   packageScripts: PackageScripts,
   repoInternalScripts: readonly string[]
 ): ReadonlySet<string> {
   const aliases = new Set<string>();
+  const packageScriptNames = new Set(Object.keys(packageScripts));
   let changed = true;
 
   while (changed) {
@@ -260,9 +317,10 @@ export function findRepoInternalScriptAliases(
           hasBarePathReference(command, path) ||
           hasBarePathReference(command, `./${path}`)
       );
-      const referencesInternalAlias = invokedPackageScripts(command).some(
-        (dependency) => aliases.has(dependency)
-      );
+      const referencesInternalAlias = invokedPackageScripts(
+        command,
+        packageScriptNames
+      ).some((dependency) => aliases.has(dependency));
       if (referencesInternalPath || referencesInternalAlias) {
         aliases.add(name);
         changed = true;
@@ -330,6 +388,7 @@ export async function scanGeneratedPublicTree(
     packageJson.scripts ?? {},
     repoInternalScripts
   );
+  const packageScriptNames = new Set(Object.keys(packageJson.scripts ?? {}));
   for (const path of files) {
     const content = await readFile(path);
     if (content.includes(0)) {
@@ -342,7 +401,8 @@ export async function scanGeneratedPublicTree(
         file,
         content.toString("utf8"),
         repoInternalScripts,
-        repoInternalScriptAliases
+        repoInternalScriptAliases,
+        packageScriptNames
       )
     );
   }
