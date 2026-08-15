@@ -6,7 +6,12 @@ import {
   diffSkillset,
   SkillsetBuildBlockedError,
 } from "./build";
-import { readRecord, readString, readStringArray } from "./config";
+import {
+  mergeRecords,
+  readRecord,
+  readString,
+  readStringArray,
+} from "./config";
 import { resolveLicense } from "./licenses";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -293,8 +298,8 @@ async function expectedPluginManifestFields(
     readString(metadata, "description") ??
     plugin.id;
   if (target === "cursor") {
-    return {
-      ...stripUndefinedRecord({
+    const expected = mergeRecords(
+      stripUndefinedRecord({
         author:
           renderCursorAuthor(metadata.author) ??
           renderCursorAuthor(graph.root.metadata.author),
@@ -308,9 +313,13 @@ async function expectedPluginManifestFields(
         logo:
           readString(portableManifest, "logo") ?? readString(listing, "logo"),
         repository: metadata.repository,
+        license: pluginLicense?.manifestValue,
       }),
-      license: pluginLicense?.manifestValue,
-      ...targetManifest,
+      targetManifest
+    );
+    return {
+      ...expected,
+      ...(expected.license === undefined ? { license: undefined } : {}),
       version: pluginVersion(graph, plugin),
     };
   }
@@ -324,14 +333,15 @@ async function expectedPluginManifestFields(
     description,
     homepage: metadata.homepage,
     keywords: listing.keywords ?? metadata.keywords,
+    license: pluginLicense?.manifestValue,
     name: readString(portableManifest, "name") ?? plugin.id,
     repository: metadata.repository,
     version: pluginVersion(graph, plugin),
   });
+  const expected = mergeRecords(base, targetManifest);
   return {
-    ...base,
-    license: pluginLicense?.manifestValue,
-    ...targetManifest,
+    ...expected,
+    ...(expected.license === undefined ? { license: undefined } : {}),
     version: pluginVersion(graph, plugin),
   };
 }

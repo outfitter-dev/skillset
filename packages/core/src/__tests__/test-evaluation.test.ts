@@ -318,6 +318,26 @@ blocked:
     await expectCursorPluginLicense("MIT", "MIT");
   });
 
+  it("recursively merges a partial Cursor manifest author override", async () => {
+    const { checks, manifest } = await evaluateCursorPluginManifest(`
+skillset:
+  name: tools
+  author:
+    name: Canonical Author
+    email: canonical@example.com
+cursor:
+  manifest:
+    author:
+      name: Cursor Author
+`);
+
+    expect(checks).toContainEqual({ kind: "pluginManifests", ok: true });
+    expect(manifest.author).toEqual({
+      email: "canonical@example.com",
+      name: "Cursor Author",
+    });
+  });
+
   it("remains independent from the CLI app implementation", async () => {
     const sources = await Promise.all([
       readFile(new URL("../test-declaration.ts", import.meta.url), "utf-8"),
@@ -335,6 +355,30 @@ async function expectCursorPluginLicense(
   sourceLicense: "MIT" | "none",
   expectedLicense: "MIT" | undefined
 ): Promise<void> {
+  const { checks, manifest } = await evaluateCursorPluginManifest(`
+skillset:
+  name: tools
+  license: ${sourceLicense}
+`);
+
+  expect(checks).toContainEqual({
+    kind: "pluginManifests",
+    ok: true,
+  });
+  if (expectedLicense === undefined) {
+    expect(manifest).not.toHaveProperty("license");
+  } else {
+    expect(manifest.license).toBe(expectedLicense);
+  }
+}
+
+async function evaluateCursorPluginManifest(pluginConfig: string): Promise<{
+  checks: readonly { kind: string; ok: boolean }[];
+  manifest: {
+    author?: { email?: string; name?: string };
+    license?: string;
+  };
+}> {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -343,11 +387,7 @@ claude: false
 codex: false
 cursor: true
 `,
-    ".skillset/plugins/tools/skillset.yaml": `
-skillset:
-  name: tools
-  license: ${sourceLicense}
-`,
+    ".skillset/plugins/tools/skillset.yaml": pluginConfig,
     ".skillset/plugins/tools/skills/demo/SKILL.md": SOURCE,
     ".skillset/tests.yaml": `
 plugin-license:
@@ -384,17 +424,12 @@ plugin-license:
         join(workspacePath, "plugins/tools/cursor/.cursor-plugin/plugin.json"),
         "utf8"
       )
-    ) as { license?: string };
+    ) as {
+      author?: { email?: string; name?: string };
+      license?: string;
+    };
 
-    expect(evaluation.checks).toContainEqual({
-      kind: "pluginManifests",
-      ok: true,
-    });
-    if (expectedLicense === undefined) {
-      expect(manifest).not.toHaveProperty("license");
-    } else {
-      expect(manifest.license).toBe(expectedLicense);
-    }
+    return { checks: evaluation.checks, manifest };
   } finally {
     await rm(stagingRoot, { force: true, recursive: true });
     await rm(root, { force: true, recursive: true });
