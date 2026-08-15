@@ -8,5 +8,18 @@ describe("@skillset/core", () => {
     expect(core.verifySkillsetResult).toBeFunction();
     expect(core.diffSkillset).toBeFunction();
     expect(core.diffSkillsetResult).toBeFunction();
+    expect(core.readReportBundle).toBeFunction();
+    for (const internalName of [
+      "containsSensitiveReportContent",
+      "createOperationReport",
+      "createReportBundle",
+      "importReportBundle",
+      "reportKindRegistry",
+      "resolveReportStoreRoot",
+      "sanitizeAndValidateSkillsetReport",
+      "serializeSkillsetReport",
+    ]) {
+      expect(core).not.toHaveProperty(internalName);
+    }
   });
 });

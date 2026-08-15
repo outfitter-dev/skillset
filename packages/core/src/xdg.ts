@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { homedir, hostname } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 
+import { isWorkspaceId } from "@skillset/schema";
+
 import { readRecord } from "./config";
 import type { JsonRecord, SkillsetWorkspaceConfig } from "./types";
 
@@ -9,7 +11,6 @@ export type { SkillsetWorkspaceConfig } from "./types";
 
 const SKILLSET_XDG_DIR = "skillset";
 const FALLBACK_HASH_LENGTH = 12;
-const REPO_CACHE_KEY_PATTERN = /^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$/;
 
 export type SkillsetXdgKind = "cache" | "config" | "data" | "state";
 export type RepoCacheKeySource = "explicit" | "fallback" | "remote";
@@ -117,7 +118,7 @@ function slugPart(value: string, label: string): string {
 
 function validateRepoCacheKey(value: string, label: string): string {
   const trimmed = value.trim();
-  if (!REPO_CACHE_KEY_PATTERN.test(trimmed)) {
+  if (!isWorkspaceId(trimmed)) {
     throw new Error(`skillset: expected ${label} to be a lowercase repo cache key`);
   }
   return trimmed;

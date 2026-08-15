@@ -22,6 +22,7 @@ import type {
   RestoreCommandRequest,
 } from "./recovery-cli";
 import type { ReleaseCommandRequest } from "./release-cli";
+import type { ReportCommandRequest } from "./report-cli";
 import type { RenameCommandRequest } from "./rename-cli";
 import type { ImportCommandRequest, NewCommandRequest } from "./source-cli";
 import type { TestCommandRequest } from "./test-cli";
@@ -64,6 +65,7 @@ export type CliRequest =
     }
   | { readonly command: "rename"; readonly request: RenameCommandRequest }
   | { readonly command: "release"; readonly request: ReleaseCommandRequest }
+  | { readonly command: "report"; readonly request: ReportCommandRequest }
   | { readonly command: "restore"; readonly request: RestoreCommandRequest }
   | { readonly command: "status"; readonly request: StatusCommandRequest }
   | { readonly command: "test"; readonly request: TestCommandRequest }

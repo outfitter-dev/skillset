@@ -12,6 +12,7 @@ import {
   cliResultContract,
   hookContract,
   instructionFrontmatterContract,
+  reportContract,
   skillEvalContract,
   skillFrontmatterContract,
   skillsetSchemaContracts,
@@ -36,6 +37,7 @@ const schemaFileNames = {
   "cli-result": "cli-result.schema.json",
   hook: "hook.schema.json",
   "instruction-frontmatter": "instruction-frontmatter.schema.json",
+  report: "report.schema.json",
   "skill-eval": "skill-eval.schema.json",
   "skill-frontmatter": "skill-frontmatter.schema.json",
   "source-metadata": "source-metadata.schema.json",
@@ -56,6 +58,7 @@ export function deriveSkillsetJsonSchemaArtifacts(): readonly SkillsetJsonSchema
       activationProofReceiptContract,
       cliResultContract,
       cliEventContract,
+      reportContract,
     ].map((contract) => ({
       contractId: contract.id,
       path: `docs/reference/schemas/${SKILLSET_SCHEMA_VERSION}/${schemaFileNames[contract.id]}`,
@@ -124,3 +127,4 @@ export const skillsetActivationInspectionJsonSchema =
 export const skillsetActivationProofReceiptJsonSchema =
   activationProofReceiptContract.schema;
 export const skillsetCliEventJsonSchema = cliEventContract.schema;
+export const skillsetReportJsonSchema = reportContract.schema;

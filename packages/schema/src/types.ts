@@ -15,11 +15,45 @@ export type SkillsetSchemaContractId =
   | "cli-result"
   | "hook"
   | "instruction-frontmatter"
+  | "report"
   | "skill-eval"
   | "skill-frontmatter"
   | "source-metadata"
   | "test-declaration"
   | "workspace-config";
+
+export interface SkillsetReportRepository {
+  readonly commit?: string;
+  readonly dirty?: boolean;
+  readonly identity: string;
+}
+
+export interface SkillsetReportWorkspace {
+  readonly id: string;
+  readonly name?: string;
+  readonly repository?: SkillsetReportRepository;
+}
+
+export interface SkillsetReportResult {
+  readonly command: string;
+  readonly exitCode: number;
+  readonly ok: boolean;
+}
+
+export interface SkillsetOperationReport {
+  readonly createdAt: string;
+  readonly id: string;
+  readonly kind: "operation";
+  readonly payload: Record<string, never>;
+  readonly result: SkillsetReportResult;
+  readonly schemaVersion: "skillset.report@1";
+  readonly skillset: {
+    readonly version: string;
+  };
+  readonly workspace: SkillsetReportWorkspace;
+}
+
+export type SkillsetReport = SkillsetOperationReport;
 
 export interface SkillsetCliResult {
   readonly changes: readonly SkillsetCliChange[];

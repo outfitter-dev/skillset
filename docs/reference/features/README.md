@@ -30,6 +30,7 @@ Use these pages alongside the authored [provider reference](../providers/README.
 - [Marketplaces](marketplaces.md): curated provider catalogs, external plugin references, readiness states, and check/update boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
 - [Monitors](monitors.md): Claude experimental monitor pass-through, manifest wiring, and Codex unsupported boundaries.
+- [Operational Reports](operational-reports.md): globally retained immutable receipts, UUID/path retrieval, bundle validation, and producer-migration boundaries.
 - [Output Safety](output-safety.md): managed output ownership, unmanaged neighbor handling, reversible backups, and restore.
 - [Output Styles](output-styles.md): Claude output style directory pass-through and manifest wiring.
 - [Plugins](plugins.md): plugin source identity, manifest rendering, companion paths, and plugin boundaries.

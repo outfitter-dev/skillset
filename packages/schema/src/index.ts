@@ -43,6 +43,8 @@ export {
   COMPILE_BUILD_MODES,
   CLI_EVENT_SCHEMA_VERSION,
   CLI_RESULT_SCHEMA_VERSION,
+  REPORT_KINDS,
+  REPORT_SCHEMA_VERSION,
   DEFAULT_TARGET_NAMES,
   INSTRUCTION_FRONTMATTER_KEYS,
   PLUGIN_CONFIG_KEYS,
@@ -67,6 +69,7 @@ export {
   cliResultContract,
   hookContract,
   instructionFrontmatterContract,
+  reportContract,
   schemaUri,
   skillEvalContract,
   skillFrontmatterContract,
@@ -76,6 +79,7 @@ export {
   workspaceConfigContract,
 } from "./contracts";
 export { skillsetSchemaExamples } from "./examples";
+export { isSkillsetReport, validateSkillsetReport } from "./report";
 export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {
   getSkillsetSourceReferenceDescriptor,
@@ -95,6 +99,7 @@ export {
   skillsetCliResultJsonSchema,
   skillsetHookJsonSchema,
   skillsetInstructionFrontmatterJsonSchema,
+  skillsetReportJsonSchema,
   skillsetSkillFrontmatterJsonSchema,
   skillsetSkillEvalJsonSchema,
   skillsetSourceMetadataJsonSchema,
@@ -107,7 +112,10 @@ export {
   createSemverRegExp,
   formatList,
   isProviderNativeReferenceName,
+  isWorkspaceId,
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
+  WORKSPACE_ID_MAX_LENGTH,
+  WORKSPACE_ID_PATTERN,
   SEMVER_PATTERN,
   type ListConjunction,
 } from "./value-contracts";
@@ -117,6 +125,11 @@ export type {
   SchemaJsonValue,
   SkillsetSchemaContract,
   SkillsetSchemaContractId,
+  SkillsetOperationReport,
+  SkillsetReport,
+  SkillsetReportRepository,
+  SkillsetReportResult,
+  SkillsetReportWorkspace,
   SkillsetCliChange,
   SkillsetCliDiagnostic,
   SkillsetCliEvent,

@@ -19,6 +19,36 @@ export interface SkillsetExampleArtifact {
 
 export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
   {
+    description: "Immutable Skillset operational report receipt.",
+    format: "json",
+    id: "report",
+    path: "report.json",
+    value: {
+      createdAt: "2026-08-14T21:30:00.000Z",
+      id: "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5",
+      kind: "operation",
+      payload: {},
+      result: {
+        command: "check",
+        exitCode: 0,
+        ok: true,
+      },
+      schemaVersion: "skillset.report@1",
+      skillset: {
+        version: "0.1.1",
+      },
+      workspace: {
+        id: "skillset--local-12abcdef3456",
+        name: "skillset",
+        repository: {
+          commit: "64618a42a23300b5cbbd308ed3fec0e64bae1a4e",
+          dirty: false,
+          identity: "github.com/outfitter-dev/skillset",
+        },
+      },
+    },
+  },
+  {
     description: "Maximal workspace manifest for Skillset repos.",
     id: "workspace-config",
     path: "workspace-config.yaml",

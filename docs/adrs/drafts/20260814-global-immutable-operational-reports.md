@@ -281,9 +281,12 @@ machine failures keep stdout pure and stderr empty under ADR-0023.
 
 ### Hermetic execution exports through the parent
 
-Hermetic children receive isolated HOME and XDG roots and cannot inspect or
-write the host report store. A child report therefore completes only inside its
-isolated XDG state.
+Verification children receive runner-owned XDG roots, so Skillset resolves a
+child report only inside the child's isolated XDG state. The current runner may
+preserve `HOME` and the operating-system user; this is routing and authority
+isolation, not proof of OS-level filesystem confinement. The export protocol
+therefore withholds the parent destination and host report path rather than
+claiming that the child process cannot inspect arbitrary host files.
 
 An owning parent may import a completed child bundle through one explicit
 export operation. The child does not choose or learn the host destination. The

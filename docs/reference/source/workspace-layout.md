@@ -84,9 +84,26 @@ Nearby `skillset.lock` files record source paths, target ownership, hashes, and 
 
 Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. [Build and activation are separate workflows](../../start/build-versus-activation.md).
 
-## Operational paths
+## Operational storage and lifetimes
 
-Operational cache reports use logical `.skillset/cache/...` paths, but their payloads live in Skillset's XDG cache directory. The repository ignores the logical cache path. Recovery snapshots are different: `.skillset/snapshots/` remains repo-local and ignored because its Git-backed backup material may be needed for an explicit restore.
+Skillset keeps authored source, reproducible output, temporary operational
+evidence, recovery material, and durable operation receipts in separate stores.
+The logical `.skillset/cache/...` paths printed by workspace commands resolve to
+the repository's XDG cache bucket; they are not physical repo directories.
+
+| Surface | Physical owner and location | Lifetime and identity | Source-of-truth boundary |
+| --- | --- | --- | --- |
+| Authored source and configuration | Repository: `skillset.yaml` and `.skillset/` source families | Durable, repository-versioned paths | Canonical authored intent |
+| Generated provider output and locks | Configured repository destinations and nearby `skillset.lock` files | Deterministic and disposable; rebuilt from current source | Reviewable projection, never competing source |
+| Operational cache | `$XDG_CACHE_HOME/skillset/<repo-key>/...`, displayed as logical `.skillset/cache/...` | Repository-bucketed, rebuildable or rerunnable evidence | Cache only; commands may retain run-specific readers or `latest` views |
+| Recovery snapshots | Repository-local ignored `.skillset/snapshots/<backup-id>/` | Retained for explicit restore under the snapshot contract | Recovery evidence, not cache or canonical source |
+| Immutable operational reports | `$XDG_STATE_HOME/skillset/reports/<report-id>/` | User-global, create-only UUIDv4 identity; retained until a future explicit pruning contract | Durable operation receipt, not generated output or workspace cache |
+
+Use [`skillset report show <id-or-path>`](../features/operational-reports.md)
+to inspect a completed immutable report. Existing test, eval, CI, adoption, and
+fixture evidence keeps its producer-specific cache path and reader until an
+explicit migration; a cache report does not become a global receipt merely
+because both contain structured results.
 
 | Kind | Environment variable | Default base | Skillset directory |
 | --- | --- | --- | --- |

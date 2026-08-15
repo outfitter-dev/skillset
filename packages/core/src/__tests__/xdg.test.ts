@@ -63,6 +63,20 @@ describe("XDG path helpers", () => {
 });
 
 describe("repo cache keys", () => {
+  test("enforces the shared workspace identity length boundary", () => {
+    expect(
+      resolveRepoCacheKey({
+        rootPath: "/work/demo",
+        workspaceCacheKey: "a".repeat(160),
+      }).key
+    ).toHaveLength(160);
+    expect(() =>
+      resolveRepoCacheKey({
+        rootPath: "/work/demo",
+        workspaceCacheKey: "a".repeat(161),
+      })
+    ).toThrow("expected workspace.cacheKey to be a lowercase repo cache key");
+  });
   test("uses explicit workspace cache keys before automatic keys", () => {
     expect(resolveRepoCachePath({
       env: { XDG_CACHE_HOME: "/xdg/cache" },

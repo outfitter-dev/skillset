@@ -17,6 +17,7 @@ import { parseLookupCommandRequest } from "./lookup-args";
 import * as recovery from "./recovery-args";
 import { parseRenameCommandRequest } from "./rename-args";
 import { parseReleaseCommandRequest } from "./release-args";
+import { parseReportCommandRequest } from "./report-args";
 import * as source from "./source-args";
 import { parseTestCommandRequest } from "./test-args";
 import { parseUpdateCommandRequest } from "./update-args";
@@ -139,12 +140,8 @@ export const parseCliRequest = (
           request: parseReleaseCommandRequest(args, parseContext),
         };
       }
-      case "restore": {
-        return {
-          command,
-          request: recovery.parseRestoreCommandRequest(args, parseContext),
-        };
-      }
+      case "report": return { command, request: parseReportCommandRequest(args, parseContext) };
+      case "restore": return { command, request: recovery.parseRestoreCommandRequest(args, parseContext) };
       case "status": {
         return {
           command,

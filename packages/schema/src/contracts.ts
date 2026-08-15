@@ -3,6 +3,8 @@ import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 import {
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
   SEMVER_PATTERN,
+  WORKSPACE_ID_MAX_LENGTH,
+  WORKSPACE_ID_PATTERN,
 } from "./value-contracts";
 
 export const SKILLSET_SCHEMA_VERSION = "0.1.0";
@@ -10,6 +12,8 @@ export const SKILLSET_SCHEMA_URI_BASE =
   "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas";
 export const CLI_RESULT_SCHEMA_VERSION = "skillset.cli.result@1";
 export const CLI_EVENT_SCHEMA_VERSION = "skillset.cli.event@1";
+export const REPORT_SCHEMA_VERSION = "skillset.report@1";
+export const REPORT_KINDS = ["operation"] as const;
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
@@ -672,6 +676,106 @@ export const cliResultContract = contract(
       "meta",
       "ok",
       "schemaVersion",
+    ],
+    type: "object",
+  }
+);
+
+export const reportContract = contract(
+  "report",
+  "Skillset Operational Report",
+  "Immutable structured receipt retained by the Skillset report store.",
+  {
+    additionalProperties: false,
+    properties: {
+      createdAt: {
+        pattern:
+          "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+        type: "string",
+      },
+      id: {
+        pattern:
+          "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        type: "string",
+      },
+      kind: enumSchema([...REPORT_KINDS]),
+      payload: {
+        additionalProperties: false,
+        properties: {},
+        type: "object",
+      },
+      result: {
+        additionalProperties: false,
+        oneOf: [
+          { properties: { exitCode: { const: 0 }, ok: { const: true } } },
+          { properties: { exitCode: { minimum: 1 }, ok: { const: false } } },
+        ],
+        properties: {
+          command: {
+            pattern: "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+            type: "string",
+          },
+          exitCode: { minimum: 0, type: "integer" },
+          ok: { type: "boolean" },
+        },
+        required: ["command", "exitCode", "ok"],
+        type: "object",
+      },
+      schemaVersion: { const: REPORT_SCHEMA_VERSION, type: "string" },
+      skillset: {
+        additionalProperties: false,
+        properties: {
+          version: semverStringSchema(),
+        },
+        required: ["version"],
+        type: "object",
+      },
+      workspace: {
+        additionalProperties: false,
+        properties: {
+          id: {
+            maxLength: WORKSPACE_ID_MAX_LENGTH,
+            pattern: WORKSPACE_ID_PATTERN,
+            type: "string",
+          },
+          name: {
+            maxLength: 160,
+            minLength: 1,
+            pattern: "^[^\\r\\n]+$",
+            type: "string",
+          },
+          repository: {
+            additionalProperties: false,
+            properties: {
+              commit: {
+                pattern: "^[0-9a-f]{40}$",
+                type: "string",
+              },
+              dirty: { type: "boolean" },
+              identity: {
+                maxLength: 512,
+                minLength: 1,
+                pattern: "^[a-z0-9.-]+(?:/[A-Za-z0-9._-]+)+$",
+                type: "string",
+              },
+            },
+            required: ["identity"],
+            type: "object",
+          },
+        },
+        required: ["id"],
+        type: "object",
+      },
+    },
+    required: [
+      "createdAt",
+      "id",
+      "kind",
+      "payload",
+      "result",
+      "schemaVersion",
+      "skillset",
+      "workspace",
     ],
     type: "object",
   }
