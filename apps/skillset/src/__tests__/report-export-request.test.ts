@@ -414,7 +414,10 @@ test("SET-445: optional CI export atomically publishes exact two-file UUID bundl
   );
   for (const bundle of imported) {
     const bundlePath = join(artifactDirectory, bundle.report.id);
-    expect(await readdir(bundlePath)).toEqual(["report.json", "report.md"]);
+    expect((await readdir(bundlePath)).toSorted()).toEqual([
+      "report.json",
+      "report.md",
+    ]);
     expect(await readFile(join(bundlePath, "report.json"), "utf8")).toBe(
       `${JSON.stringify(bundle.report, null, 2)}\n`
     );

@@ -274,7 +274,7 @@ describe("global immutable report store", () => {
       boundary: storeBoundary(reportRoot, root),
     });
 
-    expect(await readdir(stored.resolvedPath)).toEqual([
+    expect((await readdir(stored.resolvedPath)).toSorted()).toEqual([
       "report.json",
       "report.md",
     ]);
