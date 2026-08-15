@@ -455,6 +455,53 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("restores a file after a failed file-to-directory transition", async () => {
+    await withWorkspace(async (root) => {
+      const transitionPath = nodePath.join(root, "resource");
+      await writeFile(transitionPath, "before\n");
+
+      let transactionFailure: unknown;
+      try {
+        await applyWorkspaceTransaction(
+          root,
+          {
+            deletes: ["resource"],
+            writes: [
+              { content: "after\n", path: "resource/page.md" },
+              { content: "late\n", path: "zz.txt" },
+            ],
+          },
+          {
+            testHooks: {
+              beforeApply: (operation) => {
+                if (operation.kind === "write" && operation.path === "zz.txt") {
+                  throw new Error("injected file-to-directory failure");
+                }
+              },
+            },
+          }
+        );
+      } catch (error) {
+        transactionFailure = error;
+      }
+
+      expect(transactionFailure).toBeInstanceOf(Error);
+      expect(transactionFailure).not.toBeInstanceOf(
+        WorkspaceTransactionRollbackError
+      );
+      expect((transactionFailure as Error).message).toBe(
+        "injected file-to-directory failure"
+      );
+      expect(await readFile(transitionPath, "utf-8")).toBe("before\n");
+      await expect(access(nodePath.join(root, "zz.txt"))).rejects.toThrow();
+      expect(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith(".skillset-workspace-")
+        )
+      ).toEqual([]);
+    });
+  });
+
   test("reports a distinct error when rollback itself fails", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "move.txt"), "move before\n");

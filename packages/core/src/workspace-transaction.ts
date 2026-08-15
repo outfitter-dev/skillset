@@ -1021,12 +1021,19 @@ async function removeCreatedDirectoriesWithin(
   state: TransactionState,
   targetPath: string
 ): Promise<void> {
-  for (const directory of [...state.createdDirectories].toReversed()) {
+  for (
+    let index = state.createdDirectories.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const directory = state.createdDirectories[index];
+    if (directory === undefined) continue;
     if (
       directory === targetPath ||
       directory.startsWith(`${targetPath}${nodePath.sep}`)
     ) {
       await removeEmptyDirectory(directory);
+      state.createdDirectories.splice(index, 1);
     }
   }
 }
