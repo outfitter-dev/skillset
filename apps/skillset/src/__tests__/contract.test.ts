@@ -813,7 +813,7 @@ Body.
       buildError: expect.stringContaining("workspace lock skillset.lock cannot guard generated state"),
       outputState: {
         blockers: [{ code: "output-derivation-failed" }],
-        hasBaseline: false,
+        hasBaseline: true,
         state: "blocked",
       },
     },

@@ -537,7 +537,10 @@ export async function doctorSkillset(
     buildDiagnostics = diagnosticsFromError(error);
     buildError = errorMessage(error);
     renderResults = renderResultsFromError(error);
-    outputState = classifySkillsetOutputFailure(error, outputState.hasBaseline);
+    const hasBaseline =
+      outputState.hasBaseline ||
+      (await independentlyObservedOutputBaseline(rootPath, options));
+    outputState = classifySkillsetOutputFailure(error, hasBaseline);
   }
 
   const hasDrift =

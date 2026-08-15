@@ -1,6 +1,9 @@
 import { compareStrings } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
-import { SkillsetRenderResultError } from "./render-result";
+import {
+  SkillsetRenderResultError,
+  type SkillsetRenderResult,
+} from "./render-result";
 
 export const SKILLSET_OUTPUT_STATES = [
   "no-output-baseline",
@@ -77,7 +80,7 @@ export function classifySkillsetOutputFailure(
     });
   } else if (error instanceof SkillsetRenderResultError) {
     for (const result of error.renderResults) {
-      if (result.status !== "failed" && result.status !== "unsupported") continue;
+      if (!isBlockingRenderResult(result)) continue;
       if ((result.diagnostics?.length ?? 0) > 0) {
         for (const diagnostic of result.diagnostics ?? []) {
           blockers.push({
@@ -89,7 +92,7 @@ export function classifySkillsetOutputFailure(
         }
       } else {
         blockers.push({
-          code: result.status === "unsupported" ? "unsupported-destination" : "render-failed",
+          code: result.status === "failed" ? "render-failed" : "unsupported-destination",
           ...(result.sourcePath === undefined ? {} : { path: result.sourcePath }),
         });
       }
@@ -97,6 +100,16 @@ export function classifySkillsetOutputFailure(
   }
   if (blockers.length === 0) blockers.push({ code: "output-derivation-failed" });
   return classifySkillsetOutputState({ blockers, hasBaseline });
+}
+
+function isBlockingRenderResult(result: SkillsetRenderResult): boolean {
+  if (result.status === "failed" || result.status === "unsupported") return true;
+  if (result.status !== "lossy") return false;
+  return (
+    result.policy !== "unsupported:force" &&
+    result.policy !== "unsupported:skip" &&
+    result.policy !== "unsupported:warn"
+  );
 }
 
 function uniquePaths(paths: readonly string[]): readonly string[] {

@@ -14,6 +14,7 @@ import { join } from "node:path";
 import {
   checkSkillsetSourceReadiness,
   createOperationalPathContext,
+  doctorSkillset,
   resolveOperationalPath,
 } from "@skillset/core";
 import { checkSkillsetSourceReadinessWithAuthority } from "@skillset/core/internal/source-readiness";
@@ -678,6 +679,50 @@ test("diff failures preserve completed lint facts and structured diagnostics", a
     await rm(root, { force: true, recursive: true });
   }
 });
+
+test.each([
+  ["project", "plugins/skillset.lock"],
+  ["plugin", "skillset.lock"],
+] as const)(
+  "doctor preserves a valid %s baseline when another requested scope is corrupt",
+  async (_validScope, corruptLockPath) => {
+    const root = await fixture();
+    try {
+      await mkdir(join(root, ".skillset/plugins/alpha/skills/plugin-skill"), {
+        recursive: true,
+      });
+      await writeFile(
+        join(root, ".skillset/plugins/alpha/skillset.yaml"),
+        "skillset:\n  name: alpha\n"
+      );
+      await writeFile(
+        join(root, ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md"),
+        "---\nname: plugin-skill\ndescription: Plugin skill.\n---\n\nPlugin body.\n"
+      );
+      expect(
+        (await checkSkillsetSourceReadiness(root, { write: "outputs" })).ok
+      ).toBe(true);
+
+      const corruptLock = "{ not valid json";
+      await writeFile(join(root, corruptLockPath), corruptLock, "utf8");
+
+      const result = await doctorSkillset(root);
+
+      expect(result.ok).toBe(false);
+      expect(result.buildError).toContain("cannot guard generated state");
+      expect(result.outputState).toMatchObject({
+        blockers: [{ code: "output-derivation-failed" }],
+        hasBaseline: true,
+        state: "blocked",
+      });
+      expect(await readFile(join(root, corruptLockPath), "utf8")).toBe(
+        corruptLock
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+);
 
 async function fixture(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-source-readiness-"));

@@ -19,6 +19,7 @@ import {
   classifySkillsetOutputFailure,
   classifySkillsetOutputState,
 } from "../output-state";
+import { defineRenderResult, SkillsetRenderResultError } from "../render-result";
 import {
   checkSkillsetSourceReadiness,
   checkSkillsetSourceReadinessWithAuthority,
@@ -106,6 +107,37 @@ describe("output-state evidence classifier", () => {
         code: "invalid-source-field",
         path: ".skillset/skills/demo/SKILL.md",
       }],
+      hasBaseline: true,
+      outputChanges: [],
+      sourceChanges: [],
+      state: "blocked",
+    });
+  });
+
+  it("preserves policy-blocking lossy evidence without blocking softened loss", () => {
+    const sourcePath = ".skillset/skills/demo/SKILL.md";
+    const result = (policy: "unsupported:error" | "unsupported:warn") =>
+      defineRenderResult({
+        diagnostics: [{ code: `lossy-${policy.split(":")[1]}` }],
+        featureId: "skill-frontmatter",
+        policy,
+        reason: "the destination relocates source metadata",
+        sourcePath,
+        sourceUnit: "skill:demo",
+        status: "lossy",
+        target: "codex",
+      });
+
+    expect(
+      classifySkillsetOutputFailure(
+        new SkillsetRenderResultError("lossy destination", [
+          result("unsupported:error"),
+          result("unsupported:warn"),
+        ]),
+        true
+      )
+    ).toEqual({
+      blockers: [{ code: "lossy-error", path: sourcePath }],
       hasBaseline: true,
       outputChanges: [],
       sourceChanges: [],
@@ -207,7 +239,7 @@ Body.
     expect(report.buildError).toContain("workspace lock skillset.lock cannot guard generated state");
     expect(report.outputState).toEqual({
       blockers: [{ code: "output-derivation-failed" }],
-      hasBaseline: false,
+      hasBaseline: true,
       outputChanges: [],
       sourceChanges: [],
       state: "blocked",
