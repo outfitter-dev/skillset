@@ -79,6 +79,7 @@ describe("documentation reference artifacts", () => {
       cliEnvironment: [],
       cliFlags: [],
       providers: [],
+      providerValidation: [],
       support: {
         features: [
           {

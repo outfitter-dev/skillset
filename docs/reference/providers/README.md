@@ -22,4 +22,6 @@ A support cell describes what Skillset can render for one feature and target. It
 
 Provider evidence is checked into the repository so ordinary builds stay deterministic and offline. Maintainers refresh that evidence through the [feature-registry provider evidence procedure](../../development/features/feature-registry.md#provider-evidence-refresh).
 
+The [hosted provider-validation record](../provider-validation.md) lists exact external pins, the surfaces each validator actually covers, negative canaries, and the internal-conformance fallback for uncovered provider behavior.
+
 Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
