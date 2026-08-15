@@ -1672,6 +1672,54 @@ Body.
   expect(unchanged.stdout).toContain("wrote 0 generated files");
 });
 
+test("SET-451: unhashed v2 locks advertise their one-time integrity migration", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: lock-integrity-migration-root
+claude: false
+codex: true
+cursor: false
+`,
+    ".skillset/rules/root.md": "# Project instructions\n",
+  });
+  await buildSkillset(root);
+  const lockPath = join(root, "skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+  };
+  delete lock.provenanceHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const diff = await runSkillsetCli("diff", "--root", root);
+  expect(diff.exitCode).toBe(0);
+  expect(diff.stdout).toContain("~ skillset.lock");
+  expect(diff.stdout).toContain("run skillset build --yes to apply");
+  expect(diff.stdout).not.toContain("no generated changes");
+  expect(diff.stderr).toContain("does not include verifiable lock integrity provenance");
+  expect(diff.stderr).toContain("backed up before writing");
+
+  const planned = await runSkillsetCli("build", "--root", root);
+  expect(planned.exitCode).toBe(0);
+  expect(planned.stdout).toContain("~ skillset.lock");
+  expect(planned.stdout).toContain("rerun with --yes");
+  expect(planned.stdout).not.toContain("no generated changes");
+  expect(planned.stderr).toContain("does not include verifiable lock integrity provenance");
+
+  const checked = await runSkillsetCli("check", "--root", root);
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("next: skillset build --yes");
+  expect(checked.stdout).toContain("back up the previous lock");
+  expect(checked.stdout).not.toContain("recovery blocked manual-review");
+
+  const applied = await runSkillsetCli("build", "--root", root, "--yes");
+  expect(applied.exitCode).toBe(0);
+  expect(applied.stdout).toContain("backed up 1 overwritten output file");
+  expect(JSON.parse(await readFile(lockPath, "utf8")).provenanceHash).toMatch(
+    /^sha256:[a-f0-9]{64}$/
+  );
+});
+
 test("SET-451: blocked build previews never offer or perform an ordinary apply", async () => {
   const root = await contractFixture({
     "skillset.yaml": `

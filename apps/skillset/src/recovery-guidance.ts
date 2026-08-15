@@ -71,6 +71,10 @@ export function mechanicalFixEligibility(input: RecoveryGuidanceInput): Mechanic
 
 export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly RecoveryGuidance[] {
   const guidance: RecoveryGuidance[] = [];
+  const lockIntegrityMigrationPaths = input.outputDiagnostics
+    .filter((diagnostic) => diagnostic.code === "managed-lock-integrity-migration")
+    .flatMap((diagnostic) => diagnostic.outputPath === undefined ? [] : [diagnostic.outputPath])
+    .toSorted(compareStrings);
   const baselineRef = input.changeReport?.status.baseline.kind === "git-ref"
     ? input.changeReport.status.baseline.ref
     : undefined;
@@ -113,17 +117,28 @@ export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly
     ));
   }
 
+  for (const path of lockIntegrityMigrationPaths) {
+    guidance.push({
+      action: "rebuild-generated-output",
+      commands: ["skillset build --yes"],
+      path,
+      reason: "this managed v2 lock does not include verifiable integrity provenance; Skillset will back up the previous lock before rewriting it",
+    });
+  }
+
   const fix = mechanicalFixEligibility(input);
   if (hasDrift(input.drift)) {
     if (fix.eligible) {
-      const command = input.mode === "ci"
-        ? `skillset check --ci --fix${baselineRef === undefined ? "" : ` --since ${quoteShellArgument(baselineRef)}`}`
-        : "skillset check --write";
-      guidance.push({
-        action: "rebuild-generated-output",
-        commands: [command],
-        reason: "generated output is the sole blocking condition and can be rebuilt from current source",
-      });
+      if (lockIntegrityMigrationPaths.length === 0) {
+        const command = input.mode === "ci"
+          ? `skillset check --ci --fix${baselineRef === undefined ? "" : ` --since ${quoteShellArgument(baselineRef)}`}`
+          : "skillset check --write";
+        guidance.push({
+          action: "rebuild-generated-output",
+          commands: [command],
+          reason: "generated output is the sole blocking condition and can be rebuilt from current source",
+        });
+      }
     } else {
       guidance.push({
         action: "manual-review",

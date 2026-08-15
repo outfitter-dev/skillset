@@ -21,6 +21,7 @@ import {
 } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
+import { withLockProvenance } from "./lock-provenance";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 import {
   isDefaultPluginOutputRoot,
@@ -1461,7 +1462,10 @@ async function renderLockFiles(
       sourceRoot: graph.sourceRoot,
       target: lock.target,
     };
-    rendered.push(textFile(join(outputRoot, "skillset.lock"), renderValidatedJson(value, `${outputRoot}/skillset.lock`)));
+    rendered.push(textFile(
+      join(outputRoot, "skillset.lock"),
+      renderValidatedJson(withLockProvenance(value), `${outputRoot}/skillset.lock`)
+    ));
   }
 
   return rendered;

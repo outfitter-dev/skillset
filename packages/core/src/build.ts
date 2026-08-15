@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path";
 
 import { compareStrings } from "./path";
+import { hasValidLockProvenance, withLockProvenance } from "./lock-provenance";
 import {
   applyGeneratedFileMode,
   formatGeneratedFileMode,
@@ -80,6 +81,7 @@ const LOCK_TOP_LEVEL_KEYS = new Set([
   "items",
   "marketplaces",
   "outputRoot",
+  "provenanceHash",
   "renderResults",
   "schemaVersion",
   "selectedTargets",
@@ -501,7 +503,7 @@ async function inspectOutputPlan(args: {
       .map(([path]) => path)
   );
   const repairableLockPaths = [...lockProvenanceStates]
-    .filter(([, state]) => state === "repairable")
+    .filter(([, state]) => isRepairableLockProvenance(state))
     .map(([path]) => path)
     .sort(compareStrings);
   const driftPathSet = new Set([
@@ -515,7 +517,7 @@ async function inspectOutputPlan(args: {
   );
   const approvedLockRepairPaths = new Set(
     [...requestedLockRepairPaths].filter(
-      (path) => lockProvenanceStates.get(path) === "repairable"
+      (path) => isRepairableLockProvenance(lockProvenanceStates.get(path))
     )
   );
   const invalidatedLockRepairPaths = [
@@ -524,7 +526,7 @@ async function inspectOutputPlan(args: {
     .filter(
       (path) =>
         driftPathSet.has(path) &&
-        lockProvenanceStates.get(path) !== "repairable"
+        !isRepairableLockProvenance(lockProvenanceStates.get(path))
     )
     .sort(compareStrings);
   const allManagedEditPaths = new Set([
@@ -560,7 +562,11 @@ async function inspectOutputPlan(args: {
       managedState,
       args.resolveOutputPath
     ),
-    ...repairableLockPaths.map(managedLockProvenanceStaleDiagnostic),
+    ...repairableLockPaths.map((path) =>
+      lockProvenanceStates.get(path) === "migration"
+        ? managedLockIntegrityMigrationDiagnostic(path)
+        : managedLockProvenanceStaleDiagnostic(path)
+    ),
     ...invalidatedLockRepairPaths.map(
       managedLockRepairInvalidatedDiagnostic
     ),
@@ -644,7 +650,13 @@ function classifyWriteSafety(
   });
 }
 
-type LockProvenanceState = "repairable" | "trusted" | "unsafe";
+type LockProvenanceState = "migration" | "repairable" | "trusted" | "unsafe";
+
+function isRepairableLockProvenance(
+  state: LockProvenanceState | undefined
+): boolean {
+  return state === "migration" || state === "repairable";
+}
 
 function classifyLockProvenance(
   path: string,
@@ -672,6 +684,10 @@ function classifyLockProvenance(
   ) {
     return "unsafe";
   }
+  if (currentLock.provenanceHash !== undefined) {
+    return hasValidLockProvenance(currentLock) ? "trusted" : "repairable";
+  }
+  if (currentLock.schemaVersion === 2) return "migration";
 
   // Top-level fields are derived from config, render results, or target
   // topology. Item provenance may also change from source, but only alongside
@@ -719,6 +735,19 @@ function managedLockProvenanceStaleDiagnostic(
     featureId: "output-safety",
     message:
       "managed lock differs only in recognized generated provenance; an explicit repair may rebuild it",
+    outputPath,
+    severity: "warning",
+  };
+}
+
+function managedLockIntegrityMigrationDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-lock-integrity-migration",
+    featureId: "output-safety",
+    message:
+      "managed v2 lock does not include verifiable lock integrity provenance; run skillset build --yes to migrate it, with the previous lock backed up before writing",
     outputPath,
     severity: "warning",
   };
@@ -1242,15 +1271,15 @@ function withPersistedRenderResults(
   rendered: readonly RenderedFile[],
   renderResults: readonly SkillsetRenderResult[]
 ): readonly RenderedFile[] {
-  if (renderResults.length === 0) return rendered;
   return rendered.map((file) => {
     if (!isLockFilePath(file.path)) return file;
     const lock = parseLockFile(file);
     const lockOutcomes = renderResultsForLock(file.path, lock, renderResults);
-    const value: JsonRecord = {
+    const withoutHash: JsonRecord = {
       ...lock,
       ...(lockOutcomes.length === 0 ? {} : { renderResults: lockOutcomes as unknown as JsonValue }),
     };
+    const value = withLockProvenance(withoutHash);
     return {
       ...file,
       content: textEncoder.encode(renderValidatedJson(value, file.path)),

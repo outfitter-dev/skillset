@@ -12,6 +12,7 @@ import {
   type MarketplaceLockEntry,
 } from "./marketplace-check";
 import { compareStrings, resolveInside } from "./path";
+import { withLockProvenance } from "./lock-provenance";
 import { claudeMarketplacePath } from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { renderClaudeMarketplaceDocument } from "./render-marketplaces";
@@ -273,7 +274,7 @@ async function renderMarketplaceLock(
       entries: nextEntries as unknown as JsonValue,
     },
   });
-  return renderValidatedJson(next, "skillset.lock");
+  return renderValidatedJson(withLockProvenance(next), "skillset.lock");
 }
 
 function marketplaceLockEntries(lock: JsonRecord): readonly MarketplaceLockEntry[] {

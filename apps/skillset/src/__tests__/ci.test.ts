@@ -518,6 +518,34 @@ test("check presents repairable lock provenance separately from target edits", a
   expect(terminal.stdout).not.toContain("target-side generated edit");
 });
 
+test("check presents unhashed v2 locks as an explicit integrity migration", async () => {
+  const root = await builtFixture();
+  const relativeLockPath = ".claude/skills/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+  };
+  delete lock.provenanceHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root);
+
+  expect(report.repairableManagedLockPaths).toEqual([relativeLockPath]);
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
+    code: "managed-lock-integrity-migration",
+    outputPath: relativeLockPath,
+  }));
+  expect(report.recovery).toContainEqual(expect.objectContaining({
+    action: "rebuild-generated-output",
+    commands: ["skillset build --yes"],
+    path: relativeLockPath,
+    reason: expect.stringContaining("back up"),
+  }));
+  expect(report.recovery).not.toContainEqual(expect.objectContaining({
+    action: "manual-review",
+  }));
+});
+
 test("ci --fix refuses arbitrary managed lock provenance edits", async () => {
   const root = await builtFixture();
   const relativeLockPath = ".claude/skills/skillset.lock";

@@ -103,6 +103,7 @@
     }
   ],
   "outputRoot": ".",
+  "provenanceHash": "sha256:efa5eceb739943fc358ffb96e7f32f21ded9d1fe2cc3a294b2de1d64cd2ab043",
   "renderResults": [
     {
       "destination": "changelog",

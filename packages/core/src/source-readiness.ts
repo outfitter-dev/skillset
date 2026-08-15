@@ -520,7 +520,8 @@ function neutralWriteBlockers(
         isSkillsetLockPath(path) &&
         facts.data.outputDiagnostics.some(
           (diagnostic) =>
-            diagnostic.code === "managed-lock-provenance-stale" &&
+            (diagnostic.code === "managed-lock-provenance-stale" ||
+              diagnostic.code === "managed-lock-integrity-migration") &&
             diagnostic.outputPath === path
         )
     )

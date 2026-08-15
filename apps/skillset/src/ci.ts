@@ -183,16 +183,16 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     }
   );
   const repairableManagedLockPaths = (): readonly string[] =>
-    outputEditedPaths.filter(
+    [...new Set([...outputEditedPaths, ...providerUpdatePaths])].filter(
       (path) =>
         isSkillsetLockPath(path) &&
-        !providerUpdatePaths.includes(path) &&
         outputDiagnostics.some(
           (diagnostic) =>
-            diagnostic.code === "managed-lock-provenance-stale" &&
+            (diagnostic.code === "managed-lock-provenance-stale" ||
+              diagnostic.code === "managed-lock-integrity-migration") &&
             diagnostic.outputPath === path
         )
-    );
+    ).sort();
   const recoveryInput = (): RecoveryGuidanceInput => ({
     ...(buildError === undefined ? {} : { buildError }),
     ...(changeError === undefined ? {} : { changeError }),
@@ -208,7 +208,9 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ),
     ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
     ...(providerReport === undefined ? {} : { providerReport }),
-    providerUpdatePaths,
+    providerUpdatePaths: providerUpdatePaths.filter(
+      (path) => !repairableManagedLockPaths().includes(path)
+    ),
     sourceSuggestions,
     unmanagedOutputCollisions: hasUnmanagedOutputCollisions,
   });
@@ -236,6 +238,14 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   }
 
   const recovery = classifyRecoveryGuidance(recoveryInput());
+  const reportedRepairableLockPaths = repairableManagedLockPaths();
+  const reportedRepairableLockPathSet = new Set(reportedRepairableLockPaths);
+  const reportedProviderUpdatePaths = providerUpdatePaths.filter(
+    (path) => !reportedRepairableLockPathSet.has(path)
+  );
+  const reportedSourceSuggestions = sourceSuggestions.filter(
+    (suggestion) => !reportedRepairableLockPathSet.has(suggestion.generatedPath)
+  );
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
@@ -261,11 +271,13 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     outputDiagnostics,
     outputState,
     ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
-    providerUpdatePaths,
-    repairableManagedLockPaths: repairableManagedLockPaths(),
+    providerUpdatePaths: reportedProviderUpdatePaths,
+    repairableManagedLockPaths: reportedRepairableLockPaths,
     recovery,
     ...(packageFiles.length === 0 ? {} : { packageFiles }),
-    ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
+    ...(reportedSourceSuggestions.length === 0
+      ? {}
+      : { sourceSuggestions: reportedSourceSuggestions }),
     warnings,
   };
 }
