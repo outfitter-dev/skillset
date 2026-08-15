@@ -280,10 +280,10 @@ export async function readReportBundleAtBoundary(
   reference: string,
   options: ReportStoreOptions = {}
 ): Promise<StoredReportBundle> {
-  const boundary = await resolveStoreBoundary(options);
-  const reportRoot = boundary.reportRoot;
   const isId = UUID_V4_PATTERN.test(reference);
   try {
+    const boundary = await resolveStoreBoundary(options);
+    const reportRoot = boundary.reportRoot;
     if (!(await pathExists(reportRoot))) {
       if (isId) {
         throw new ReportStoreError(

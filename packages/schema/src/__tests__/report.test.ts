@@ -166,6 +166,21 @@ describe("skillset.report@1", () => {
     ).toBe(true);
   });
 
+  it("counts workspace display-name limits in Unicode code points", () => {
+    expect(
+      validateSkillsetReport({
+        ...report,
+        workspace: { ...report.workspace, name: "🚀".repeat(160) },
+      }).ok
+    ).toBe(true);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        workspace: { ...report.workspace, name: "🚀".repeat(161) },
+      }).ok
+    ).toBe(false);
+  });
+
   it("declares semantic date-time validation in the generated contract", () => {
     expect(reportContract.schema).toMatchObject({
       properties: {

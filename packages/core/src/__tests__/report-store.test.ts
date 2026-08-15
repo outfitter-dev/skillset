@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -269,6 +270,29 @@ describe("global immutable report store", () => {
         boundary: storeBoundary(reportRoot, root),
       })
     ).rejects.toMatchObject({ code: "invalid_reference" });
+  });
+
+  it("normalizes configured-state boundary lookup failures as read errors", async () => {
+    if (
+      process.platform === "win32" ||
+      process.getuid === undefined ||
+      process.getuid() === 0
+    ) {
+      return;
+    }
+    const root = await realpath(await temporaryRoot());
+    const inaccessible = join(root, "inaccessible");
+    await mkdir(inaccessible, { mode: 0o700 });
+    await chmod(inaccessible, 0o000);
+    try {
+      await expect(
+        readReportBundle(ID, {
+          env: { XDG_STATE_HOME: join(inaccessible, "state") },
+        })
+      ).rejects.toMatchObject({ code: "read_failed" });
+    } finally {
+      await chmod(inaccessible, 0o700);
+    }
   });
 
   it("refuses a duplicate ID without changing completed bytes", async () => {

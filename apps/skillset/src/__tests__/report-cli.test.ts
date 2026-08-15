@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -142,6 +149,44 @@ describe("SET-453 report CLI", () => {
     expect(human.exitCode).toBe(cases[0].exitCode);
     expect(human.stdout).toBe("");
     expect(human.stderr).toContain("was not found");
+  });
+
+  test("maps configured-state lookup failures to read_failed and exit 3", async () => {
+    if (
+      process.platform === "win32" ||
+      process.getuid === undefined ||
+      process.getuid() === 0
+    ) {
+      return;
+    }
+    const root = await realpath(
+      await mkdtemp(join(tmpdir(), "skillset-report-cli-read-failure-"))
+    );
+    const inaccessible = join(root, "inaccessible");
+    await mkdir(inaccessible, { mode: 0o700 });
+    await chmod(inaccessible, 0o000);
+    try {
+      const result = await runCli(
+        join(inaccessible, "state"),
+        root,
+        "report",
+        "show",
+        REPORT_ID,
+        "--json"
+      );
+      expect(result.exitCode).toBe(3);
+      expect(result.stderr).toBe("");
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        command: "report.show",
+        diagnostics: [{ code: "report.read_failed", severity: "error" }],
+        exitCode: 3,
+        kind: "diagnostics",
+        ok: false,
+      });
+    } finally {
+      await chmod(inaccessible, 0o700);
+      await rm(root, { force: true, recursive: true });
+    }
   });
 
   test("rejects an edited Markdown view as an invalid bundle", async () => {
