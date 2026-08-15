@@ -89,6 +89,23 @@ describe("generated public closure guard", () => {
       "Open {apps/skillset/src}.",
       "Read <docs/development>.",
       "Inspect fixtures...",
+      "cd scripts",
+      "Open <scripts>.",
+      "Inspect scripts...",
+      "cd ../scripts",
+      "cd ../../scripts",
+      "cd scripts/",
+      "cd scripts && ls",
+      "cd scripts || exit 1",
+      "Open scripts directory.",
+      "cd scripts # inspect",
+      "cd scripts | pwd",
+      "cd scripts & pwd",
+      "cd scripts > /tmp/out",
+      "cd scripts.",
+      "cd scripts, then inspect the files.",
+      "cd scripts 2>/dev/null",
+      "cd scripts 2>&1",
     ].join("\n");
 
     expect(
@@ -101,6 +118,23 @@ describe("generated public closure guard", () => {
       { line: 2, rule: "internal-package" },
       { line: 3, rule: "development-docs" },
       { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-script" },
+      { line: 8, rule: "internal-script" },
+      { line: 9, rule: "internal-script" },
+      { line: 10, rule: "internal-script" },
+      { line: 11, rule: "internal-script" },
+      { line: 12, rule: "internal-script" },
+      { line: 13, rule: "internal-script" },
+      { line: 14, rule: "internal-script" },
+      { line: 15, rule: "internal-script" },
+      { line: 16, rule: "internal-script" },
+      { line: 17, rule: "internal-script" },
+      { line: 18, rule: "internal-script" },
+      { line: 19, rule: "internal-script" },
+      { line: 20, rule: "internal-script" },
+      { line: 21, rule: "internal-script" },
     ]);
     expect(
       scanGeneratedPublicContent(
@@ -561,6 +595,83 @@ describe("generated public closure guard", () => {
     ).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
+  test("SET-465: Bun value flags do not swallow protected package scripts", () => {
+    const packageScripts = {
+      private: "bun scripts/private.ts",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const commands = [
+      "bun run --shell system private",
+      "bun run --filter workspace private",
+      "bun run -F workspace private",
+      "bun run --config private",
+      "bun run -c private",
+      "bun run --bunfile private",
+      "bun run --config=bunfig.toml private",
+      "bun run -c=bunfig.toml private",
+      "bun run --bunfile=bunfig.toml private",
+      "bun run --preload setup.ts private",
+      "bun run -r setup.ts private",
+      "bun run --inspect private",
+      "bun run --inspect-wait private",
+      "bun run --inspect-brk private",
+      "bun run --inspect=localhost:9229 private",
+      "bun run --inspect-wait=localhost:9229 private",
+      "bun run --inspect-brk=localhost:9229 private",
+      "bun --inspect run private",
+      "bun --config run private",
+      "bun run --cpu-prof-name profile private",
+      "bun run --conditions development private",
+      "bun run --env-file .env.test private",
+      "bun run --define FLAG:true private",
+      "bun run -d FLAG:true private",
+      "bun run --eval 1+1 private",
+      "bun run -e 1+1 private",
+      "bun run --print 1+1 private",
+      "bun run -p 1+1 private",
+      "bun run --loader .ts:tsx private",
+      "bun run -l .ts:tsx private",
+      "bun run --tsconfig-override tsconfig.test.json private",
+      "bun run --shell=system private",
+    ];
+
+    expect(
+      commands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/private.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(commands.map(() => ["internal-script"]));
+
+    const separatedNonValues = [
+      "bun run --config bunfig.toml private",
+      "bun run -c bunfig.toml private",
+      "bun run --bunfile bunfig.toml private",
+      "bun run --inspect localhost:9229 private",
+      "bun run --inspect-wait localhost:9229 private",
+      "bun run --inspect-brk localhost:9229 private",
+      "bun --inspect localhost:9229 run private",
+      "bun --config bunfig.toml run private",
+    ];
+    expect(
+      separatedNonValues.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/private.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        )
+      )
+    ).toEqual(separatedNonValues.map(() => []));
+  });
+
   test("SET-465: Bun builtins still bypass package lifecycle shorthand", () => {
     const packageScripts = {
       pretest: "bun scripts/private.ts",
@@ -671,6 +782,9 @@ describe("generated public closure guard", () => {
     const content = [
       "Use the `skillset` skill and run `skillset check`.",
       "A plugin may contain references/, assets/, and scripts/.",
+      "Portable scripts make repeated operations deterministic.",
+      "Read scripts carefully before distributing a plugin.",
+      "Run `cd scripts.md` to inspect an unrelated directory.",
       "Load plugin:scripts/check.sh when that public plugin owns it.",
       "Read .skillset/plugins/demo/scripts/provider-maintenance.ts.",
       "Read the public guide at docs/reference/features/skills.md.",
@@ -696,6 +810,9 @@ describe("generated public closure guard", () => {
       "Read /other/scripts/private.ts.",
       "Read ../../scripts/public.ts.",
       "Read .skillset/plugins/demo/scripts/private.ts.",
+      "cd /repo/scripts",
+      "cd /other/scripts",
+      "Open .skillset/plugins/demo/scripts.",
     ].join("\n");
 
     expect(
@@ -714,11 +831,22 @@ describe("generated public closure guard", () => {
       { line: 4, rule: "internal-script" },
       { line: 5, rule: "internal-script" },
       { line: 6, rule: "internal-script" },
+      { line: 10, rule: "internal-script" },
     ]);
     expect(
       scanGeneratedPublicContent(
         "plugins/skillset/codex/skills/skillset/SKILL.md",
         "Read `C:\\repo\\sub\\..\\scripts\\private.ts`.",
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "C:\\repo"
+      ).map(({ rule }) => rule)
+    ).toEqual(["internal-script"]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "cd C:\\repo\\scripts",
         ["scripts/private.ts"],
         new Set(),
         undefined,

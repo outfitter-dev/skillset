@@ -52,7 +52,7 @@ const CLOSURE_PATTERNS: readonly ClosurePattern[] = [
   },
   {
     pattern:
-      /(?:\brepo:scripts\/|(?:^|[\s("'`])(?:\.\.\/|\.\/|\/)scripts\/|\b(?:bun|node|tsx?)\s+(?:\.\/)?scripts\/)/u,
+      /(?:\brepo:scripts\/|(?:^|[\s("'`])(?:\.\.\/|\.\/|\/)scripts\/|\b(?:bun|node|tsx?)\s+(?:\.\/)?scripts\/|\bcd\s+(?:[`<{[(])?(?:\.\/)?scripts\/?(?=$|[`>\]})]|[.,?:!](?=$|\s)|\s*(?:&&|\|\||\d*[<>]|[;&|#]))|\b(?:browse|edit|enter|inspect|list|open|read|visit)\s+(?:[`<{[(])?(?:\.\/)?(?:scripts\/(?=$|[\s`>\]})...,;:])|scripts(?=$|[`>\]})]|\.{2,}|[,;:]|\s+(?:directory|folder)\b)))/iu,
     rule: "internal-script",
   },
 ] as const;
@@ -61,9 +61,57 @@ const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
 const PATH_CANDIDATE_PATTERN =
   /(?<![a-z0-9_.:\\/-])(?:[a-z]:)?[\\/]?(?:[a-z0-9._-]+[\\/])+[a-z0-9._-]+/giu;
+// Value-taking forms from `bun run --help`. Keeping this finite prevents an
+// unknown flag from swallowing the package-script token.
+const BUN_RUN_REQUIRED_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--conditions",
+  "--console-depth",
+  "--cpu-prof-dir",
+  "--cpu-prof-interval",
+  "--cpu-prof-name",
+  "--cron-period",
+  "--cron-title",
+  "--cwd",
+  "--define",
+  "--dns-result-order",
+  "--drop",
+  "--elide-lines",
+  "--env-file",
+  "--eval",
+  "--extension-order",
+  "--feature",
+  "--fetch-preconnect",
+  "--filter",
+  "--heap-prof-dir",
+  "--heap-prof-name",
+  "--import",
+  "--install",
+  "--jsx-factory",
+  "--jsx-fragment",
+  "--jsx-import-source",
+  "--jsx-runtime",
+  "--loader",
+  "--main-fields",
+  "--max-http-header-size",
+  "--port",
+  "--preload",
+  "--print",
+  "--require",
+  "--shell",
+  "--title",
+  "--tsconfig-override",
+  "--unhandled-rejections",
+  "--user-agent",
+  "-d",
+  "-e",
+  "-F",
+  "-l",
+  "-p",
+  "-r",
+]);
 const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
   {
-    bun: new Set(["--cwd"]),
+    bun: BUN_RUN_REQUIRED_VALUE_FLAGS,
     npm: new Set(["--prefix", "--script-shell", "--workspace", "-w"]),
     pnpm: new Set(["--dir", "--filter", "-C", "-F"]),
     yarn: new Set(["--cwd"]),
@@ -165,6 +213,20 @@ export function scanGeneratedPublicContent(
         (violation) =>
           violation.line === line && violation.rule === "internal-script"
       ) &&
+      hasRepoInternalScriptDirectoryReference(text, repoRoot)
+    ) {
+      violations.push({
+        file,
+        line,
+        rule: "internal-script",
+        text: text.trim(),
+      });
+    }
+    if (
+      !violations.some(
+        (violation) =>
+          violation.line === line && violation.rule === "internal-script"
+      ) &&
       repoInternalScripts.some((path) =>
         hasRepoInternalScriptReference(text, path, repoRoot)
       )
@@ -245,21 +307,23 @@ function readCommandToken(text: string, offset: number): CommandToken | null {
   return end === start ? null : { end, value: text.slice(start, end) };
 }
 
-function readRunnerToken(
+function readRunnerTokens(
   text: string,
   offset: number,
   runner: PackageRunner
-): CommandToken | null {
-  let token = readCommandToken(text, offset);
-  while (token?.value.startsWith("-") && token.value !== "--") {
-    const consumesValue = RUNNER_VALUE_FLAGS[runner].has(token.value);
-    token = readCommandToken(text, token.end);
-    if (consumesValue) {
-      if (!token) return null;
-      token = readCommandToken(text, token.end);
+): readonly CommandToken[] {
+  const visit = (token: CommandToken | null): readonly CommandToken[] => {
+    if (!token || token.value === "--") return [];
+    if (!token.value.startsWith("-")) return [token];
+
+    const next = readCommandToken(text, token.end);
+    if (RUNNER_VALUE_FLAGS[runner].has(token.value)) {
+      return next ? visit(readCommandToken(text, next.end)) : [];
     }
-  }
-  return token?.value === "--" ? null : token;
+    return visit(next);
+  };
+
+  return visit(readCommandToken(text, offset));
 }
 
 /**
@@ -269,10 +333,11 @@ function readRunnerToken(
  * `runner [flags] script` shorthand. npm accepts only its finite lifecycle
  * shorthand (`start`, `stop`, `restart`, and `test` plus `t`/`tst`). Script
  * names may be bare or single-/double-quoted.
- * Bounded value flags (`npm --prefix`, `-w`/`--workspace`, `--script-shell`;
- * `bun/yarn --cwd`; and `pnpm --dir`, `-C`, `--filter`, or `-F`) consume one
- * following token; other flags must be self-contained (for example `--silent`
- * or `--cwd=path`). npm, Bun, and pnpm package-script execution includes
+ * Bounded required-value flags (`npm --prefix`, `-w`/`--workspace`,
+ * `--script-shell`; the corresponding Bun forms; `yarn --cwd`; and
+ * `pnpm --dir`, `-C`, `--filter`, or `-F`) consume one following token. Other
+ * flags must be self-contained (for example `--silent` or `--cwd=path`). npm,
+ * Bun, and pnpm package-script execution includes
  * bounded pre/post lifecycle edges; npm `restart` chooses restart or stop/start
  * fallback edges from the supplied script inventory. This does not expand
  * variables or parse general shell syntax.
@@ -296,39 +361,65 @@ function invokedPackageScriptsOnLine(
       | PackageRunner
       | undefined;
     if (!(runner && match.index !== undefined)) continue;
-    let token = readRunnerToken(text, match.index + match[0].length, runner);
-    if (!token) continue;
-    const command = token.value.toLowerCase();
-    const isRunCommand =
-      runner === "npm"
-        ? NPM_RUN_COMMANDS.has(command)
-        : runner === "pnpm"
-          ? PNPM_RUN_COMMANDS.has(command)
-          : command === "run";
-    if (isRunCommand) {
-      token = readRunnerToken(text, token.end, runner);
-      if (runner === "npm" && token?.value) {
+    const commandTokens = readRunnerTokens(
+      text,
+      match.index + match[0].length,
+      runner
+    );
+    for (const commandToken of commandTokens) {
+      scripts.push(
+        ...invokedPackageScriptsForCommand(
+          text,
+          runner,
+          commandToken,
+          packageScriptNames
+        )
+      );
+    }
+  }
+  return [...new Set(scripts)];
+}
+
+function invokedPackageScriptsForCommand(
+  text: string,
+  runner: PackageRunner,
+  commandToken: CommandToken,
+  packageScriptNames?: ReadonlySet<string>
+): readonly string[] {
+  const scripts: string[] = [];
+  const command = commandToken.value.toLowerCase();
+  const isRunCommand =
+    runner === "npm"
+      ? NPM_RUN_COMMANDS.has(command)
+      : runner === "pnpm"
+        ? PNPM_RUN_COMMANDS.has(command)
+        : command === "run";
+  if (isRunCommand) {
+    for (const token of readRunnerTokens(text, commandToken.end, runner)) {
+      if (runner === "npm") {
         scripts.push(...npmLifecycleEdges(token.value, packageScriptNames));
-        continue;
-      }
-      if ((runner === "bun" || runner === "pnpm") && token?.value) {
+      } else if (runner === "bun" || runner === "pnpm") {
         scripts.push(...packageLifecycleEdges(token.value, packageScriptNames));
-        continue;
+      } else {
+        scripts.push(token.value);
       }
-    } else if (runner === "npm") {
-      const lifecycleScript = NPM_LIFECYCLE_SCRIPTS[command];
-      if (lifecycleScript) {
-        scripts.push(...npmLifecycleEdges(lifecycleScript, packageScriptNames));
-      }
-      continue;
-    } else if (RUNNER_BUILTINS[runner].has(command)) {
-      continue;
     }
-    if (token?.value && (runner === "bun" || runner === "pnpm")) {
-      scripts.push(...packageLifecycleEdges(token.value, packageScriptNames));
-    } else if (token?.value) {
-      scripts.push(token.value);
+    return scripts;
+  }
+  if (runner === "npm") {
+    const lifecycleScript = NPM_LIFECYCLE_SCRIPTS[command];
+    if (lifecycleScript) {
+      scripts.push(...npmLifecycleEdges(lifecycleScript, packageScriptNames));
     }
+    return scripts;
+  }
+  if (RUNNER_BUILTINS[runner].has(command)) return scripts;
+  if (runner === "bun" || runner === "pnpm") {
+    scripts.push(
+      ...packageLifecycleEdges(commandToken.value, packageScriptNames)
+    );
+  } else {
+    scripts.push(commandToken.value);
   }
   return scripts;
 }
@@ -379,9 +470,8 @@ export function findRepoInternalScriptAliases(
       if (aliases.has(name)) continue;
       const commandLines = shellLogicalLines(command).map((line) => line.text);
       const referencesInternalPath = repoInternalScripts.some((path) =>
-        commandLines.some(
-          (line) =>
-            hasRepoInternalScriptReference(line, path, repoRoot)
+        commandLines.some((line) =>
+          hasRepoInternalScriptReference(line, path, repoRoot)
         )
       );
       const referencesInternalAlias = invokedPackageScripts(
@@ -396,6 +486,31 @@ export function findRepoInternalScriptAliases(
   }
 
   return aliases;
+}
+
+function hasRepoInternalScriptDirectoryReference(
+  text: string,
+  repoRoot?: string
+): boolean {
+  const normalizedText = text.replaceAll("\\", "/");
+  const parentRelativePattern = /^(?:\.\.\/)+scripts\/?$/iu;
+  const absoluteRepoPath =
+    repoRoot === undefined
+      ? undefined
+      : posix.normalize(
+          `${repoRoot.replaceAll("\\", "/").replace(/\/+$/u, "")}/scripts`
+        );
+
+  for (const match of normalizedText.matchAll(PATH_CANDIDATE_PATTERN)) {
+    const candidate = posix.normalize(match[0].replace(/[!,.?:;]+$/u, ""));
+    if (
+      parentRelativePattern.test(candidate) ||
+      candidate === absoluteRepoPath
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasRepoInternalScriptReference(
