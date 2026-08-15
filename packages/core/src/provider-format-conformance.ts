@@ -256,6 +256,7 @@ function checkClaudeMarketplace(
         );
         continue;
       }
+      issues.push(...checkClaudeMarketplacePlugin(file, plugin, prefix));
       if (plugin.author !== undefined && !isJsonRecord(plugin.author)) {
         issues.push(
           issue(
@@ -279,6 +280,145 @@ function checkClaudeMarketplace(
     }
   }
   return issues;
+}
+
+function checkClaudeMarketplacePlugin(
+  file: ProviderFormatConformanceFile,
+  plugin: JsonRecord,
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  const issues: ProviderFormatConformanceIssue[] = [];
+  const report = (code: ProviderFormatConformanceIssueCode, message: string): void => {
+    issues.push(
+      issue(file, "claude", "claude-marketplace-schema", code, message)
+    );
+  };
+  for (const field of ["name", "source"] as const) {
+    if (plugin[field] !== undefined) continue;
+    report(
+      "missing-required-field",
+      `missing required destination field ${prefix}.${field}`
+    );
+  }
+  if (plugin.name !== undefined && typeof plugin.name !== "string") {
+    report("invalid-field-type", `destination field ${prefix}.name must be a string`);
+  } else if (plugin.name === "") {
+    report("invalid-shape", `destination field ${prefix}.name must not be empty`);
+  } else if (
+    typeof plugin.name === "string" &&
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plugin.name)
+  ) {
+    report(
+      "invalid-shape",
+      `destination field ${prefix}.name must start with a letter or digit, use only letters, digits, dots, underscores, or hyphens, and contain at most 128 characters`
+    );
+  }
+
+  const source = plugin.source;
+  if (source === undefined) return issues;
+  if (typeof source === "string") {
+    if (!source.startsWith("./")) {
+      report(
+        "invalid-shape",
+        `destination field ${prefix}.source must start with ./ when it is a string`
+      );
+    } else if (hasParentPathSegment(source)) {
+      report(
+        "invalid-shape",
+        `destination field ${prefix}.source must not traverse outside the marketplace root`
+      );
+    }
+    return issues;
+  }
+  if (!isJsonRecord(source)) {
+    report(
+      "invalid-field-type",
+      `destination field ${prefix}.source must be a string or an object`
+    );
+    return issues;
+  }
+
+  if (source.source === undefined) {
+    report(
+      "missing-required-field",
+      `missing required destination field ${prefix}.source.source`
+    );
+    return issues;
+  }
+  if (typeof source.source !== "string") {
+    report(
+      "invalid-field-type",
+      `destination field ${prefix}.source.source must be a string`
+    );
+    return issues;
+  }
+
+  const requiredFields = CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS[
+    source.source as keyof typeof CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS
+  ];
+  if (requiredFields === undefined) {
+    report(
+      "invalid-shape",
+      `destination field ${prefix}.source.source must be archive, command, github, git-subdir, npm, or url`
+    );
+    return issues;
+  }
+  for (const field of requiredFields) {
+    const value = source[field];
+    if (value === undefined) {
+      report(
+        "missing-required-field",
+        `missing required destination field ${prefix}.source.${field}`
+      );
+    } else if (typeof value !== "string") {
+      report(
+        "invalid-field-type",
+        `destination field ${prefix}.source.${field} must be a string`
+      );
+    }
+  }
+  if (source.source === "git-subdir" && source.path === "") {
+    report(
+      "invalid-shape",
+      `destination field ${prefix}.source.path must not be empty`
+    );
+  }
+  if (
+    source.source === "git-subdir" &&
+    typeof source.path === "string" &&
+    hasParentPathSegment(source.path)
+  ) {
+    report(
+      "invalid-shape",
+      `destination field ${prefix}.source.path must not contain parent traversal`
+    );
+  }
+  if (source.source === "archive" && source.url === "") {
+    report(
+      "invalid-shape",
+      `destination field ${prefix}.source.url must not be empty`
+    );
+  }
+  if (source.source === "command" && source.command === "") {
+    report(
+      "invalid-shape",
+      `destination field ${prefix}.source.command must not be empty`
+    );
+  }
+  return issues;
+}
+
+const CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS = {
+  archive: ["url"],
+  command: ["command"],
+  github: ["repo"],
+  "git-subdir": ["url", "path"],
+  npm: ["package"],
+  url: ["url"],
+} as const;
+
+function hasParentPathSegment(value: string): boolean {
+  return value.split(/[\\/]+/u).includes("..");
 }
 
 function checkClaudePluginManifest(

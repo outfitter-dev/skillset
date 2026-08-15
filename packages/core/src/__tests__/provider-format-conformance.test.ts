@@ -320,6 +320,224 @@ describe("provider format conformance", () => {
     ]);
   });
 
+  it("validates Claude marketplace plugin entry requirements", () => {
+    const valid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          { name: "local", source: "./plugins/local" },
+          { name: "Bad_Name", source: "./plugins/native-name" },
+          { name: "bad.name", source: "./plugins/dotted-name" },
+          { name: "bad_name", source: "./plugins/underscored-name" },
+          { name: "a".repeat(128), source: "./plugins/max-name" },
+          { name: "archive", source: { source: "archive", url: "https://example.com/plugin.zip" } },
+          { name: "command", source: { command: "skillset plugin path", source: "command" } },
+          {
+            name: "remote",
+            source: { repo: "example/remote", source: "github" },
+          },
+          { name: "npm", source: { package: "@example/plugin", source: "npm" } },
+          { name: "url", source: { source: "url", url: "https://example.com/plugin.git" } },
+          {
+            name: "subdir",
+            source: {
+              path: "plugins/subdir",
+              source: "git-subdir",
+              url: "example/repo",
+            },
+          },
+        ],
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {},
+          { name: 42, source: [] },
+          { name: "missing-discriminator", source: {} },
+          { name: "invalid-discriminator", source: { source: 42 } },
+          { name: "", source: "not-relative" },
+          { name: "unknown", source: { source: "bogus" } },
+          { name: "missing-repo", source: { source: "github" } },
+          {
+            name: "empty-subdir",
+            source: { path: "", source: "git-subdir", url: "example/repo" },
+          },
+        ],
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[1].name must be a string",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[1].source must be a string or an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[3].source.source must be a string",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[4].name must not be empty",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[4].source must start with ./ when it is a string",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[5].source.source must be archive, command, github, git-subdir, npm, or url",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[7].source.path must not be empty",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[0].name",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[0].source",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[2].source.source",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[6].source.repo",
+      },
+    ]);
+  });
+
+  it("rejects malformed Claude marketplace plugin overrides after rendering", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: provider-format-root
+claude:
+  marketplace:
+    plugins:
+      - {}
+      - name: ""
+        source: not-relative
+      - name: missing-repo
+        source:
+          source: github
+`,
+      ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  description: Alpha plugin.
+`,
+    });
+    const build = await buildSkillsetResult(root, { isolated: true });
+    const report = checkProviderFormatConformance(
+      providerFormatConformanceFiles(build.data, build.renderResults)
+    );
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[1].name must not be empty",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[1].source must start with ./ when it is a string",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[0].name",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[0].source",
+      },
+      {
+        code: "missing-required-field",
+        message: "missing required destination field plugins[2].source.repo",
+      },
+    ]);
+  });
+
+  it("rejects Claude marketplace values that fail runtime and sync validation", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          { name: "bad name", source: "./plugins/bad" },
+          { name: "bad/name", source: "./plugins/slash" },
+          { name: "bad@name", source: "./plugins/at-sign" },
+          { name: ".leading", source: "./plugins/leading" },
+          { name: "a".repeat(129), source: "./plugins/too-long" },
+          { name: "local-traversal", source: "./../outside" },
+          { name: "empty-command", source: { command: "", source: "command" } },
+          { name: "empty-archive", source: { source: "archive", url: "" } },
+          {
+            name: "subdir-traversal",
+            source: { path: "../outside", source: "git-subdir", url: "example/repo" },
+          },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[0].name must start with a letter or digit, use only letters, digits, dots, underscores, or hyphens, and contain at most 128 characters",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[1].name must start with a letter or digit, use only letters, digits, dots, underscores, or hyphens, and contain at most 128 characters",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[2].name must start with a letter or digit, use only letters, digits, dots, underscores, or hyphens, and contain at most 128 characters",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[3].name must start with a letter or digit, use only letters, digits, dots, underscores, or hyphens, and contain at most 128 characters",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[4].name must start with a letter or digit, use only letters, digits, dots, underscores, or hyphens, and contain at most 128 characters",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[5].source must not traverse outside the marketplace root",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[6].source.command must not be empty",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[7].source.url must not be empty",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[8].source.path must not contain parent traversal",
+      },
+    ]);
+  });
+
   it("classifies skill targets by output path segments instead of substrings", () => {
     const report = checkProviderFormatConformance([
       textFile("plugins/codex-helper/claude/skills/demo/SKILL.md", [
