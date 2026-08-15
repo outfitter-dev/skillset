@@ -44,6 +44,13 @@ describe("SET-463 provider-validation workflow", () => {
       job?.steps?.find((step) => step.uses?.startsWith("actions/setup-python@"))
         ?.with?.["python-version"]
     ).toBe("3.12");
+    const setupUv = job?.steps?.find((step) =>
+      step.uses?.startsWith("astral-sh/setup-uv@")
+    );
+    expect(setupUv?.with?.version).toBe("0.12.5");
+    expect(setupUv?.with?.checksum).toBe(
+      "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2"
+    );
     for (const step of job?.steps ?? []) {
       if (step.uses !== undefined) expect(step.uses).toMatch(/@[a-f0-9]{40}$/u);
     }

@@ -410,6 +410,69 @@ describe("SET-463 hosted provider validation orchestration", () => {
     ).rejects.toThrow("shadows the pinned validator");
   });
 
+  test("rejects marketplace source paths that resolve differently under staging", async () => {
+    for (const provider of ["claude", "cursor"] as const) {
+      const root = await fixtureRoot();
+      const marketplacePath = join(
+        root,
+        `.${provider}-plugin/marketplace.json`
+      );
+      const source = `nested/../../${basename(root)}/plugins/demo/${provider}`;
+      await writeFile(
+        marketplacePath,
+        `${JSON.stringify({
+          name: "escape",
+          plugins: [{ name: "escape", source }],
+        })}\n`
+      );
+      const inventory = await enumerateProviderArtifacts(root);
+      const temp = await mkdtemp(join(tmpdir(), "skillset-provider-escape-"));
+      const cursor = await fixtureCursorTool(temp);
+
+      await expect(
+        stageValidationInputs(root, temp, inventory, {
+          agentSkills: join(temp, "agent-tool"),
+          claude: join(temp, "claude-tool"),
+          codexPython: join(temp, "python"),
+          codexValidator: join(temp, "codex-validator"),
+          cursor,
+        })
+      ).rejects.toThrow("portable repository-relative path");
+      expect(await Bun.file(join(temp, "stage", basename(root))).exists()).toBe(
+        false
+      );
+    }
+  });
+
+  test("rejects platform-specific marketplace source separators", async () => {
+    for (const provider of ["claude", "cursor"] as const) {
+      for (const source of ["plugins\\\\demo\\\\plugin", "C:plugin"]) {
+        const root = await fixtureRoot();
+        await writeFile(
+          join(root, `.${provider}-plugin/marketplace.json`),
+          `${JSON.stringify({
+            name: "platform-specific",
+            plugins: [{ name: "platform-specific", source }],
+          })}\n`
+        );
+        const inventory = await enumerateProviderArtifacts(root);
+        const temp = await mkdtemp(
+          join(tmpdir(), "skillset-provider-platform-")
+        );
+
+        await expect(
+          stageValidationInputs(root, temp, inventory, {
+            agentSkills: join(temp, "agent-tool"),
+            claude: join(temp, "claude-tool"),
+            codexPython: join(temp, "python"),
+            codexValidator: join(temp, "codex-validator"),
+            cursor: await fixtureCursorTool(temp),
+          })
+        ).rejects.toThrow("portable repository-relative path");
+      }
+    }
+  });
+
   test("normalizes the deepest temporary path before RUNNER_TEMP", () => {
     const report = normalizeProviderValidationReport(
       {
@@ -532,8 +595,20 @@ async function fixtureRoot(): Promise<string> {
         ? '{"name":"demo","version":"1.0.0"}\n'
         : `---\nname: ${basename(dirname(path))}\ndescription: demo\n---\n`
     );
-  await writeFile(join(root, ".claude-plugin/marketplace.json"), "{}\n");
-  await writeFile(join(root, ".cursor-plugin/marketplace.json"), "{}\n");
+  await writeFile(
+    join(root, ".claude-plugin/marketplace.json"),
+    `${JSON.stringify({
+      name: "demo",
+      plugins: [{ name: "demo", source: "./plugins/demo/claude" }],
+    })}\n`
+  );
+  await writeFile(
+    join(root, ".cursor-plugin/marketplace.json"),
+    `${JSON.stringify({
+      name: "demo",
+      plugins: [{ name: "demo", source: "plugins/demo/cursor" }],
+    })}\n`
+  );
   await writeLock(
     join(root, ".agents/skills/skillset.lock"),
     ".agents/skills",
@@ -555,6 +630,21 @@ async function fixtureRoot(): Promise<string> {
     await writeLock(join(root, path), path.split("/skillset.lock")[0]!, []);
   }
   return root;
+}
+
+async function fixtureCursorTool(temp: string): Promise<string> {
+  const cursor = join(temp, "cursor-tool");
+  for (const path of ["scripts", "schemas", "node_modules"]) {
+    await mkdir(join(cursor, path), { recursive: true });
+  }
+  for (const path of ["package.json", "package-lock.json"]) {
+    await writeFile(join(cursor, path), "{}\n");
+  }
+  await writeFile(
+    join(cursor, "scripts/validate-plugins.mjs"),
+    "verified-validator\n"
+  );
+  return cursor;
 }
 
 async function writeLock(

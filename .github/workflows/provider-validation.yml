@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          checksum: 68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
+          version: "0.12.5"
       - name: Install repository dependencies
         run: bun install --frozen-lockfile
       - name: Acquire exact validators and validate generated outputs

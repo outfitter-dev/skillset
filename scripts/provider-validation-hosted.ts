@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, posix, relative, sep } from "node:path";
 
 import { getProviderValidationLane } from "../packages/registry/src/provider-validation";
 import {
+  assertContained,
   assertTreeHasNoSymlinks,
   resolveContainedExisting,
   type ProviderArtifactInventory,
@@ -261,12 +262,17 @@ export async function stageValidationInputs(
     for (const entry of marketplace.plugins ?? []) {
       if (typeof entry.source !== "string")
         throw new Error("skillset: claude marketplace source must be a string");
+      assertPortableMarketplaceSource(entry.source);
       const source = await resolveContainedExisting(
         canonicalRoot,
         entry.source
       );
       await assertTreeHasNoSymlinks(source);
-      const destination = join(stagedRoot, entry.source);
+      const destination = join(
+        stagedRoot,
+        normalizedMarketplaceSource(canonicalRoot, source, entry.source)
+      );
+      await assertContained(stagedRoot, destination);
       await cp(source, destination, { recursive: true });
       representedClaudePlugins.add(source);
       stagedClaudePlugins.add(destination);
@@ -345,6 +351,7 @@ export async function stageValidationInputs(
     for (const entry of marketplace.plugins ?? []) {
       if (typeof entry.source !== "string")
         throw new Error("skillset: cursor marketplace source must be a string");
+      assertPortableMarketplaceSource(entry.source);
       const source = await resolveContainedExisting(
         canonicalRoot,
         entry.source
@@ -356,7 +363,11 @@ export async function stageValidationInputs(
         entry.source
       );
       represented.add(source);
-      const destination = join(cursorReal, entry.source);
+      const destination = join(
+        cursorReal,
+        normalizedMarketplaceSource(canonicalRoot, source, entry.source)
+      );
+      await assertContained(cursorReal, destination);
       await cp(source, destination, { recursive: true });
       stagedCursorPlugins.add(destination);
     }
@@ -422,6 +433,41 @@ export async function stageValidationInputs(
       skills: stagedSkills,
     },
   };
+}
+
+function assertPortableMarketplaceSource(declaredSource: string): void {
+  const normalized = normalizeDeclaredMarketplaceSource(declaredSource);
+  if (
+    declaredSource.includes("\\") ||
+    posix.isAbsolute(declaredSource) ||
+    /^[A-Za-z]:/u.test(declaredSource) ||
+    normalized === ".." ||
+    normalized.startsWith("../")
+  ) {
+    throw new Error(
+      `skillset: marketplace source must be a portable repository-relative path: ${declaredSource}`
+    );
+  }
+}
+
+function normalizedMarketplaceSource(
+  root: string,
+  source: string,
+  declaredSource: string
+): string {
+  const offset = relative(root, source).split(sep).join("/") || ".";
+  if (normalizeDeclaredMarketplaceSource(declaredSource) !== offset) {
+    throw new Error(
+      `skillset: marketplace source must be a normalized repository-relative path: ${declaredSource}`
+    );
+  }
+  return offset;
+}
+
+function normalizeDeclaredMarketplaceSource(source: string): string {
+  const normalized = posix.normalize(source);
+  if (normalized === "./") return ".";
+  return normalized.replace(/\/$/u, "");
 }
 
 async function stageCursorTool(
