@@ -248,6 +248,68 @@ missing:
     }
   });
 
+  it("fails build-only evaluation when projection returns a blocked result", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: blocked-evaluation-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/root.md": "# Generated instructions\n",
+      ".skillset/tests.yaml": `
+blocked:
+  checks:
+    projection: true
+`,
+      "AGENTS.md": "# Unmanaged instructions\n",
+    });
+
+    try {
+      const loaded = await loadSkillsetTestDeclaration(
+        root,
+        "blocked"
+      );
+      const { graph } = loaded;
+      const declaration = {
+        ...loaded.declaration,
+        checks: [{ kind: "build" as const }],
+      };
+      const evaluation = await evaluateSkillsetTestWorkspace(
+        root,
+        graph,
+        declaration,
+        {
+          buildMode: "all",
+          sourceDir: graph.sourceDir,
+          targetFilter: declaration.targets,
+        }
+      );
+
+      expect(evaluation.ok).toBe(false);
+      expect(evaluation.buildError).toBe(
+        "skillset: build blocked by unmanaged-output-collision"
+      );
+      expect(evaluation.checks).toEqual([{
+        detail: "skillset: build blocked by unmanaged-output-collision",
+        kind: "build",
+        ok: false,
+      }]);
+      expect(evaluation.generatedFiles).toBeGreaterThan(0);
+      expect(evaluation.rendered.length).toBe(evaluation.generatedFiles);
+      expect(evaluation.renderResults.length).toBeGreaterThan(0);
+      expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(
+        "# Unmanaged instructions\n"
+      );
+      expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(
+        false
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("remains independent from the CLI app implementation", async () => {
     const sources = await Promise.all([
       readFile(new URL("../test-declaration.ts", import.meta.url), "utf-8"),

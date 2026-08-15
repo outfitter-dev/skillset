@@ -1,7 +1,11 @@
 import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
-import { buildSkillsetResult, diffSkillset } from "./build";
+import {
+  buildSkillsetResult,
+  diffSkillset,
+  SkillsetBuildBlockedError,
+} from "./build";
 import { readRecord, readString, readStringArray } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -672,6 +676,9 @@ export async function evaluateSkillsetTestWorkspace(
     rendered = build.data;
     renderResults = build.renderResults;
     generatedFiles = rendered.length;
+    if (!build.ok) {
+      buildError = new SkillsetBuildBlockedError(build).message;
+    }
   } catch (error) {
     buildError = messageFor(error);
   }
