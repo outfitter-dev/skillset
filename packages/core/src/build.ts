@@ -33,6 +33,7 @@ import {
   type OperationalPathContext,
 } from "./operational-cache";
 import { renderBuildGraph } from "./render";
+import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import {
@@ -240,6 +241,7 @@ async function buildSkillsetResultInternal(
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
@@ -998,6 +1000,7 @@ export async function diffSkillsetResult(
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
@@ -1078,6 +1081,7 @@ export async function verifySkillsetResult(
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,

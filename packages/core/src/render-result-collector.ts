@@ -41,7 +41,7 @@ import {
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
 } from "./source-unit-selector";
-import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, JsonValue, RenderedFile, SourceSkill, TargetName } from "./types";
+import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, JsonValue, RenderedFile, SourcePlugin, SourceSkill, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const LOCK_FILE = "skillset.lock";
@@ -50,6 +50,13 @@ const TARGETS = targetNames();
 type OutputPathMapper = (path: string) => string;
 
 interface CollectRenderResultsOptions {
+  /**
+   * Source plugins projected into the generated Claude marketplace, from
+   * `claudeMarketplaceSourcePlugins`. Marketplace entries can be renamed by the
+   * `claude.marketplace.name` override, so marketplace render results must take
+   * plugin identity from rendering instead of the provider-native entry names.
+   */
+  readonly claudeMarketplacePlugins: readonly SourcePlugin[];
   readonly includedPaths: ReadonlySet<string>;
   readonly mapOutputPath?: OutputPathMapper;
   readonly scopes?: readonly BuildScope[] | undefined;
@@ -126,7 +133,8 @@ export function collectRenderResults(
       graph,
       rendered,
       options.includedPaths,
-      mapOutputPath
+      mapOutputPath,
+      options.claudeMarketplacePlugins
     )
   );
 
@@ -142,13 +150,13 @@ function claudeMarketplaceAuthorOutcomes(
   graph: BuildGraph,
   rendered: readonly RenderedFile[],
   includedPaths: ReadonlySet<string>,
-  mapOutputPath: OutputPathMapper
+  mapOutputPath: OutputPathMapper,
+  marketplacePlugins: readonly SourcePlugin[]
 ): readonly SkillsetRenderResult[] {
   const marketplacePath = claudeMarketplacePath(
     graph.root.outputs.plugins.claude
   );
-  const marketplaceFile = rendered.find((file) => file.path === marketplacePath);
-  if (marketplaceFile === undefined) return [];
+  if (!rendered.some((file) => file.path === marketplacePath)) return [];
   const included = includedPaths.has(marketplacePath);
   const root = graph.root.metadata;
   const ownerUsesOverride = readAuthorName(root.owner) !== undefined;
@@ -168,38 +176,25 @@ function claudeMarketplaceAuthorOutcomes(
     );
   }
 
-  const pluginIds = marketplacePluginIds(marketplaceFile);
-  for (const pluginId of pluginIds) {
-    const plugin = graph.plugins.find((candidate) => candidate.id === pluginId);
-    if (plugin === undefined) continue;
+  for (const plugin of marketplacePlugins) {
     const usesPluginAuthor = plugin.metadata.author !== undefined;
     const author = usesPluginAuthor ? plugin.metadata.author : root.author;
     if (author === undefined) continue;
     outcomes.push(
       marketplaceAuthorOutcome({
         author,
-        diagnosticPath: `marketplace.plugins.${pluginId}.author`,
+        diagnosticPath: `marketplace.plugins.${plugin.id}.author`,
         included,
         mapOutputPath,
         outputPath: marketplacePath,
         sourcePath: usesPluginAuthor
           ? normalizeSourcePath(graph, plugin.path)
           : "skillset.yaml",
-        sourceUnit: selectorForPluginConfig(pluginId),
+        sourceUnit: selectorForPluginConfig(plugin.id),
       })
     );
   }
   return outcomes;
-}
-
-function marketplacePluginIds(file: RenderedFile): readonly string[] {
-  const parsed = JSON.parse(new TextDecoder().decode(file.content)) as unknown;
-  if (!isJsonRecord(parsed) || !Array.isArray(parsed.plugins)) return [];
-  return parsed.plugins
-    .flatMap((entry) =>
-      isJsonRecord(entry) && typeof entry.name === "string" ? [entry.name] : []
-    )
-    .sort(compareStrings);
 }
 
 function marketplaceAuthorOutcome(args: {

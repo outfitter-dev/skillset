@@ -20,6 +20,7 @@ import {
 } from "@skillset/core";
 import { collectRenderResults } from "../render-result-collector";
 import { renderBuildGraph } from "../render";
+import { claudeMarketplaceSourcePlugins } from "../render-marketplaces";
 import { loadBuildGraph } from "../resolver";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
 
@@ -827,6 +828,7 @@ Help with the task.
       (file) => !file.path.endsWith("/SKILL.md")
     );
     const results = collectRenderResults(graph, rendered, {
+      claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
       includedPaths: new Set(rendered.map((file) => file.path)),
     });
     const dependency = results.find(
@@ -1014,6 +1016,79 @@ Help with the task.
         marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
       ).toHaveLength(1);
     }
+  });
+
+  it("tracks marketplace authors through a renamed Claude marketplace entry", async () => {
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-evidence
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+    contributor: Plugin Contributor
+claude:
+  marketplace:
+    name: tools-renamed
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    const marketplaceOutcomes = preview.renderResults.filter(
+      (outcome) => outcome.featureId === "marketplaces"
+    );
+    expect(
+      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([
+      expect.objectContaining({
+        code: "render/claude-marketplace-author-fields-omitted",
+        path: "marketplace.plugins.tools.author",
+      }),
+    ]);
+    expect(
+      marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+    ).toEqual([
+      expect.objectContaining({
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+      }),
+    ]);
+
+    const built = await buildSkillsetResult(warnRoot);
+    const marketplace = await readJson(
+      join(warnRoot, ".claude-plugin/marketplace.json")
+    );
+    expect(built.writes.writtenPaths).toContain(
+      ".claude-plugin/marketplace.json"
+    );
+    expect(marketplace.plugins).toEqual([
+      expect.objectContaining({ name: "tools-renamed" }),
+    ]);
+
+    // A marketplace-scoped build excludes the plugin manifest, so the
+    // marketplace render result is the only record of the omission.
+    const errorRoot = await fixture(files(""));
+    await expect(
+      buildSkillsetResult(errorRoot, { scopes: ["project"] })
+    ).rejects.toThrow(
+      "Claude marketplace author output supports only name, email, and url; omitted canonical fields: contributor"
+    );
   });
 
   it("validates conventional app JSON before claiming structured output", async () => {
