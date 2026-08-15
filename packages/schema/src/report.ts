@@ -829,7 +829,7 @@ function checkFixtureIdentity(
   );
   checkPattern(
     value.repository,
-    REPOSITORY_IDENTITY_PATTERN,
+    repositoryIdentityPattern,
     `${path}.repository`,
     "repository identity",
     diagnostics,
