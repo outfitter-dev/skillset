@@ -1982,4 +1982,222 @@ describe("generated public closure guard", () => {
       ).map(({ rule }) => rule)
     ).toEqual(["internal-script"]);
   });
+
+  test("SET-465: git work-tree options route into protected directories", () => {
+    const content = [
+      "```bash",
+      "git --work-tree packages status",
+      "git --work-tree=packages status",
+      "git --work-tree scripts status",
+      "git -C docs --work-tree development status",
+      "git --work-tree=fixtures status",
+      "git --work-tree=. -C scripts status",
+      "git --work-tree docs/reference status",
+      "git --work-tree",
+      "git --work-tree= status",
+      "git --work-tree --no-pager status",
+      "git status --work-tree packages",
+      "```",
+      "In prose, git --work-tree packages is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "development-docs" },
+      { line: 6, rule: "fixture-path" },
+      { line: 7, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: resolves working-directory expansions in shell paths", () => {
+    const content = [
+      "```bash",
+      'cat "$PWD/packages/core/src/index.ts"',
+      "cd $PWD/docs/development",
+      "cat ${PWD}/fixtures/kitchen-sink/skillset.yaml",
+      "cat $PWD/scripts/private.ts",
+      "rg TODO $PWD/packages",
+      "rg TODO ${PWD}/scripts/private.ts",
+      "cd $PWD/docs/reference",
+      "echo $PWDX/packages",
+      "```",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "internal-script" },
+    ]);
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"]
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: fd search-root operands close protected trees", () => {
+    expect(
+      [
+        ...findRepoInternalScriptAliases(
+          {
+            "private:base-directory": "fd --base-directory scripts TODO",
+            "private:path": "fdfind TODO packages",
+            "private:script-path": "fd TODO scripts/private.ts",
+            "public:exclude": "fd --exclude packages TODO public",
+            "public:pattern": "fd packages/core/src/index.ts",
+          },
+          ["scripts/private.ts"]
+        ),
+      ].toSorted()
+    ).toEqual([
+      "private:base-directory",
+      "private:path",
+      "private:script-path",
+    ]);
+
+    const content = [
+      "```sh",
+      "fdfind TODO packages",
+      "fd TODO packages",
+      "fd -t f TODO docs/development",
+      "fd --base-directory packages TODO",
+      "fd --search-path fixtures TODO",
+      "fd --ignore-file fixtures/ignore TODO",
+      "fd TODO public packages",
+      "fd -e ts TODO apps/skillset/src",
+      "fd TODO ../scripts",
+      "fd TODO scripts",
+      "fd packages",
+      "fd -t d packages",
+      "fd --exclude packages TODO public",
+      "fd packages/core/src/index.ts",
+      "fd TODO docs/reference",
+      "```",
+      "Run `fd TODO packages`.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "development-docs" },
+      { line: 5, rule: "internal-package" },
+      { line: 6, rule: "fixture-path" },
+      { line: 7, rule: "fixture-path" },
+      { line: 8, rule: "internal-package" },
+      { line: 9, rule: "internal-package" },
+      { line: 10, rule: "internal-script" },
+      { line: 18, rule: "internal-package" },
+    ]);
+  });
+
+  test("SET-465: generated scripts subpaths stay plugin-local unless they route to the repository", () => {
+    const content = [
+      "Load plugin:scripts/release when this plugin ships it.",
+      "Read scripts/release/notes.md from this plugin.",
+      "Read scripts/release-assets.ts from the repository.",
+      "Read ../../scripts/release/notes.md.",
+      "Read /repo/scripts/release/notes.md.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/release-assets.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: percent-decodes relative link destinations before owner checks", () => {
+    const content = [
+      "[docs](../../../doc%73/development/schema-contracts.md)",
+      "[docs](<../../../doc%73/development/schema-contracts.md>)",
+      '<a href="../../../package%73/core/src/index.ts">source</a>',
+      '<img src="../../fixture%73/kitchen-sink/diagram.png">',
+      "[malformed](../../../doc%73/development/schema-cont%racts.md)",
+      "[trailing](../../../doc%73/development/%)",
+      "[ref]: ../../../doc%73/development/schema-contracts.md",
+      "[public](../../../docs/reference/features/skills.md)",
+      "[encoded public](../../../docs/referen%63e/features/skills.md)",
+      "[external](https://example.com/doc%73/development/schema-contracts.md)",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "development-docs" },
+      { line: 2, rule: "development-docs" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "development-docs" },
+      { line: 6, rule: "development-docs" },
+      { line: 7, rule: "development-docs" },
+    ]);
+  });
+
+  test("SET-465: canonical GitHub edit and blame routes match file views", () => {
+    const content = [
+      "Open https://github.com/outfitter-dev/skillset/edit/main/docs/development/schema-contracts.md.",
+      "Read https://github.com/outfitter-dev/skillset/blame/main/packages/core/src/index.ts.",
+      "[Edit fixture](https://github.com/outfitter-dev/skillset/edit/main/fixtures/kitchen-sink/skillset.yaml)",
+      "Read https://github.com/outfitter-dev/skillset/blame/main/docs/reference/features/skills.md.",
+      "Read https://github.com/another/skillset/edit/main/docs/development/schema-contracts.md.",
+      "Read https://github.com/outfitter-dev/skillset/edit/main.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "development-docs" },
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "fixture-path" },
+    ]);
+  });
 });

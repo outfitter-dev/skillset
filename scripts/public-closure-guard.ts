@@ -94,6 +94,14 @@ const PROTECTED_PATH_ACTIONS =
   "browse|cd|edit|enter|inspect|list|open|read|visit";
 const PUBLIC_REPOSITORY_OWNER = "outfitter-dev";
 const PUBLIC_REPOSITORY_NAME = "skillset";
+// Canonical `github.com/<owner>/<repo>/<route>/<ref>/<path>` file views.
+const GITHUB_FILE_VIEW_ROUTES: ReadonlySet<string> = new Set([
+  "blame",
+  "blob",
+  "edit",
+  "raw",
+  "tree",
+]);
 const LITERAL_OPEN_BRACE = "\u{e000}";
 const LITERAL_CLOSE_BRACE = "\u{e001}";
 const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
@@ -218,8 +226,65 @@ const GREP_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "-D",
   "-m",
 ]);
+// `fd --help` documents `fd [OPTIONS] [pattern] [path]...`, so fd shares the
+// generic "first operand is the pattern, later operands are search roots"
+// shape already used for grep and ripgrep.
+const FD_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set(["--and"]);
+const FD_PATH_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--base-directory",
+  "--ignore-file",
+  "--search-path",
+]);
+const FD_COMMAND_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--exec",
+  "--exec-batch",
+  "-X",
+  "-x",
+]);
+const FD_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  ...FD_COMMAND_VALUE_FLAGS,
+  ...FD_PATH_VALUE_FLAGS,
+  ...FD_PATTERN_VALUE_FLAGS,
+  "--batch-size",
+  "--changed-after",
+  "--changed-before",
+  "--changed-within",
+  "--color",
+  "--exact-depth",
+  "--exclude",
+  "--extension",
+  "--format",
+  "--max-depth",
+  "--max-results",
+  "--min-depth",
+  "--newer",
+  "--older",
+  "--owner",
+  "--path-separator",
+  "--size",
+  "--threads",
+  "--type",
+  "-c",
+  "-d",
+  "-E",
+  "-e",
+  "-j",
+  "-o",
+  "-S",
+  "-t",
+]);
+const FD_SEARCH_COMMAND_DIALECT: SearchCommandDialect = {
+  commandValueFlags: FD_COMMAND_VALUE_FLAGS,
+  optionalAttachedValueFlags: new Set(),
+  pathOnlyFlags: new Set(),
+  pathValueFlags: FD_PATH_VALUE_FLAGS,
+  patternValueFlags: FD_PATTERN_VALUE_FLAGS,
+  valueFlags: FD_VALUE_FLAGS,
+};
 const SEARCH_COMMAND_DIALECTS: Readonly<Record<string, SearchCommandDialect>> =
   {
+    fd: FD_SEARCH_COMMAND_DIALECT,
+    fdfind: FD_SEARCH_COMMAND_DIALECT,
     grep: {
       commandValueFlags: new Set(),
       optionalAttachedValueFlags: new Set(["--color", "--colour"]),
@@ -295,6 +360,13 @@ const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
 const PATH_CANDIDATE_PATTERN =
   /(?<![a-z0-9_.:\\/-])(?:[a-z]:)?[\\/]?(?:[a-z0-9._-]+[\\/])+[a-z0-9._-]+/giu;
+// Literal shell working-directory expansions; `$pwd` is a different variable.
+const WORKING_DIRECTORY_VARIABLE_PATTERN = /\$\{PWD\}|\$PWD(?![A-Za-z0-9_])/gu;
+// Markdown inline destinations, Markdown reference definitions, and HTML
+// `href`/`src` attributes. The destination stops at shell/Markdown delimiters.
+const LINK_DESTINATION_PATTERN =
+  /(\][(:]\s*<?|\b(?:href|src)\s*=\s*["']?)([^\s()<>"'`\r\n]+)/giu;
+const ABSOLUTE_LINK_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//iu;
 // Value-taking forms from `bun run --help`. Keeping this finite prevents an
 // unknown flag from swallowing the package-script token.
 const BUN_RUN_REQUIRED_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -550,8 +622,12 @@ function matchingProtectedBoundaryRules(
   context: ProtectedBoundaryContext,
   shellCommand = false
 ): readonly PublicClosureRule[] {
+  const shellText = expandWorkingDirectoryVariables(text, repoRoot);
   const normalizedTextWithUrls = normalizeLiteralShellPathQuotes(
-    text.replaceAll("\\", "/")
+    expandWorkingDirectoryVariables(
+      decodeRelativeLinkDestinations(text),
+      repoRoot
+    ).replaceAll("\\", "/")
   );
   const normalizedText = withoutHttpUrls(normalizedTextWithUrls);
   const repositoryPaths = repositoryHttpPaths(normalizedTextWithUrls);
@@ -569,7 +645,7 @@ function matchingProtectedBoundaryRules(
         context,
         repositoryPaths,
         shellCommand,
-        text
+        shellText
       )
     ) {
       rules.add(owner.rule);
@@ -680,6 +756,66 @@ function hasProtectedPathOwnerReference(
   );
 }
 
+/**
+ * Resolves literal `$PWD` and `${PWD}` working-directory expansions against the
+ * repository root so shell guidance cannot conceal a protected route behind the
+ * variable prefix. Without a known root the expansion becomes `.`, which keeps
+ * the remainder repository-relative.
+ */
+function expandWorkingDirectoryVariables(
+  text: string,
+  repoRoot: string | undefined
+): string {
+  if (!text.includes("$")) return text;
+  const normalizedRoot = repoRoot
+    ?.replaceAll("\\", "/")
+    .replace(/\/+$/u, "")
+    .trim();
+  const replacement =
+    normalizedRoot === undefined || normalizedRoot.length === 0
+      ? "."
+      : normalizedRoot;
+  return text.replace(WORKING_DIRECTORY_VARIABLE_PATTERN, () => replacement);
+}
+
+/**
+ * Percent-decodes relative Markdown and HTML link destinations before the
+ * closure rules run. Absolute URLs keep their own decoding path, and malformed
+ * escapes degrade to per-escape decoding so a single invalid sequence neither
+ * throws nor hides the valid escapes around it.
+ */
+function decodeRelativeLinkDestinations(text: string): string {
+  if (!text.includes("%")) return text;
+  return text.replace(
+    LINK_DESTINATION_PATTERN,
+    (match: string, prefix: string, destination: string) =>
+      isRelativeLinkDestination(destination)
+        ? `${prefix}${decodePercentEncodedPath(destination)}`
+        : match
+  );
+}
+
+function isRelativeLinkDestination(destination: string): boolean {
+  if (destination.length === 0 || destination.startsWith("#")) return false;
+  if (destination.startsWith("//")) return false;
+  return !ABSOLUTE_LINK_SCHEME_PATTERN.test(destination);
+}
+
+function decodePercentEncodedPath(value: string): string {
+  if (!value.includes("%")) return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value.replace(/%[0-9a-f]{2}/giu, (escape) => {
+      try {
+        return decodeURIComponent(escape);
+      } catch {
+        return escape;
+      }
+    });
+  }
+}
+
 function normalizeLiteralShellPathQuotes(text: string): string {
   let normalized = text;
   while (true) {
@@ -742,7 +878,7 @@ function repositoryHttpPaths(text: string): readonly string[] {
 
       if (
         host === "github.com" &&
-        ["blob", "raw", "tree"].includes(segments[2]?.toLowerCase() ?? "") &&
+        GITHUB_FILE_VIEW_ROUTES.has(segments[2]?.toLowerCase() ?? "") &&
         segments.length > 4
       ) {
         appendSuffixes(segments, 4);
@@ -1120,16 +1256,38 @@ function hasGitProtectedDirectoryArgument(
 ): boolean {
   if (tokens[0]?.toLowerCase() !== "git") return false;
   let directory = ".";
+  const routes: string[] = [];
+  const resolveAgainstDirectory = (operand: string): string => {
+    const normalizedOperand = operand.replaceAll("\\", "/");
+    return posix.isAbsolute(normalizedOperand)
+      ? posix.normalize(normalizedOperand)
+      : posix.normalize(posix.join(directory, normalizedOperand));
+  };
   for (let index = 1; index < tokens.length; index += 1) {
     const token = tokens[index] ?? "";
     if (token === "-C") {
       const operand = tokens[index + 1];
       if (operand === undefined || operand.startsWith("-")) return false;
-      const normalizedDirectory = operand.replaceAll("\\", "/");
-      directory = posix.isAbsolute(normalizedDirectory)
-        ? posix.normalize(normalizedDirectory)
-        : posix.normalize(posix.join(directory, normalizedDirectory));
+      directory = resolveAgainstDirectory(operand);
       index += 1;
+      continue;
+    }
+    // `git --work-tree=<path>` (and its detached form) routes Git into the
+    // named tree, so the effective work tree is a protected directory route in
+    // the same way `-C` is. Git resolves it relative to the directory in effect
+    // where the option appears.
+    if (token === "--work-tree" || token.startsWith("--work-tree=")) {
+      let operand: string;
+      if (token === "--work-tree") {
+        const detached = tokens[index + 1];
+        if (detached === undefined || detached.startsWith("-")) return false;
+        operand = detached;
+        index += 1;
+      } else {
+        operand = token.slice("--work-tree=".length);
+        if (operand.length === 0) continue;
+      }
+      routes.push(resolveAgainstDirectory(operand));
       continue;
     }
     if (token === "--" || !token.startsWith("-")) break;
@@ -1149,11 +1307,13 @@ function hasGitProtectedDirectoryArgument(
     }
     return false;
   }
-  const normalizedDirectory = directory.toLowerCase();
-  return (
-    normalizedDirectory === normalizedOwner ||
-    normalizedDirectory.startsWith(`${normalizedOwner}/`)
-  );
+  return [directory, ...routes].some((route) => {
+    const normalizedRoute = route.toLowerCase();
+    return (
+      normalizedRoute === normalizedOwner ||
+      normalizedRoute.startsWith(`${normalizedOwner}/`)
+    );
+  });
 }
 
 function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
@@ -1730,7 +1890,10 @@ function hasRepoInternalScriptReference(
 ): boolean {
   const normalizedPath = path.replaceAll("\\", "/").toLowerCase();
   if (
-    searchCommandSegments(text, shellCommand).some((tokens) =>
+    searchCommandSegments(
+      expandWorkingDirectoryVariables(text, repoRoot),
+      shellCommand
+    ).some((tokens) =>
       hasSearchCommandProtectedPathArgument(tokens, normalizedPath, repoRoot)
     )
   ) {
@@ -1739,7 +1902,12 @@ function hasRepoInternalScriptReference(
   const normalizedText = collapseRepeatedPathSeparators(
     withoutHttpUrls(
       withoutSearchCommandSegments(
-        normalizeLiteralShellPathQuotes(text.replaceAll("\\", "/")),
+        normalizeLiteralShellPathQuotes(
+          expandWorkingDirectoryVariables(
+            decodeRelativeLinkDestinations(text),
+            repoRoot
+          ).replaceAll("\\", "/")
+        ),
         shellCommand
       )
     )
