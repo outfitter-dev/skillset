@@ -685,7 +685,13 @@ function classifyLockProvenance(
     return "unsafe";
   }
   if (currentLock.provenanceHash !== undefined) {
-    return hasValidLockProvenance(currentLock) ? "trusted" : "repairable";
+    if (!hasValidLockProvenance(currentLock)) return "repairable";
+    return bytesEqual(
+      current,
+      textEncoder.encode(renderValidatedJson(currentLock, path))
+    )
+      ? "trusted"
+      : "repairable";
   }
   if (currentLock.schemaVersion === 2) return "migration";
   if (
