@@ -337,7 +337,7 @@ function marketplaceAuthorOutcome(args: {
     status: args.included
       ? reason === undefined
         ? "rendered"
-        : "lossy"
+        : authorOmissionStatus(args.target, omitted)
       : "intentionally_skipped",
     target: args.target,
   });
@@ -484,8 +484,22 @@ function pluginAuthorRenderFacts(
     ],
     reason,
     sourcePath: authorSourcePath,
-    status: "lossy",
+    status: authorOmissionStatus(target, omitted),
   };
+}
+
+function authorOmissionStatus(
+  target: "claude" | "codex" | "cursor",
+  omitted: readonly string[]
+): "degraded" | "lossy" {
+  // Cursor has no author URL destination. The supported name/email projection
+  // remains useful and the omission stays visible, but it does not become
+  // policy-blocking unless additional authored fields are also dropped.
+  return target === "cursor" &&
+    omitted.length > 0 &&
+    omitted.every((key) => key === "url")
+    ? "degraded"
+    : "lossy";
 }
 
 function outcomeForCompanionFile(
