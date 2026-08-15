@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promis
 import { createHash, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 
-import { buildSkillsetResult } from "@skillset/core";
+import { buildSkillsetResult, SkillsetBuildBlockedError } from "@skillset/core";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
@@ -172,6 +172,7 @@ export async function applyRelease(
     }
 
     const build = await buildSkillsetResult(rootPath, releaseOptions);
+    if (!build.ok) throw new SkillsetBuildBlockedError(build);
     renderedFiles = build.data.length;
     for (const path of build.writes.paths) files.add(path);
     if (build.writes.backupManifestPath !== undefined) {
