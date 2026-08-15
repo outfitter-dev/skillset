@@ -951,6 +951,132 @@ codex: true
     }));
   });
 
+  it.each([
+    ["target", (lock: Record<string, unknown>) => {
+      lock.target = "claude";
+    }],
+    ["render results", (lock: Record<string, unknown>) => {
+      lock.renderResults = [];
+    }],
+    ["feature metadata", (lock: Record<string, unknown>) => {
+      const features = lock.features as Record<string, unknown>;
+      features.promptArguments = !features.promptArguments;
+    }],
+  ] as const)("backs up edited schema-v1 %s during migration", async (_label, editLock) => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: edited-legacy-lock-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = await downgradeLockToV1(root, "skillset.lock");
+    editLock(lock);
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: [],
+      state: "output-diverged",
+    });
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-lock-provenance-stale",
+      outputPath: "skillset.lock",
+    }));
+    const applied = await buildSkillsetResult(root);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+  });
+
+  it.each([
+    ["target", (lock: Record<string, unknown>) => {
+      lock.target = "claude";
+    }],
+    ["render results", (lock: Record<string, unknown>) => {
+      lock.renderResults = [];
+    }],
+    ["feature metadata", (lock: Record<string, unknown>) => {
+      const features = lock.features as Record<string, unknown>;
+      features.promptArguments = !features.promptArguments;
+    }],
+  ] as const)("does not let source drift excuse edited schema-v1 %s", async (_label, editLock) => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: mixed-edited-legacy-lock-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = await downgradeLockToV1(root, "skillset.lock");
+    editLock(lock);
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+    await writeFile(
+      join(root, ".skillset/rules/root.md"),
+      "# Updated project instructions\n",
+      "utf8"
+    );
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: ["skillset.lock"],
+      sourceChanges: ["AGENTS.md"],
+      state: "output-diverged",
+    });
+    const applied = await buildSkillsetResult(root);
+    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
+      reason: "managed-target-edit",
+      targetPath: "skillset.lock",
+    }));
+    expect(applied.writes.writtenPaths).toContain("AGENTS.md");
+  });
+
+  it("keeps schema-v1 migration source changes source-driven", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: legacy-source-change-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    await downgradeLockToV1(root, "skillset.lock");
+    await writeFile(
+      join(root, ".skillset/rules/root.md"),
+      "# Updated project instructions\n",
+      "utf8"
+    );
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({
+      outputChanges: [],
+      sourceChanges: ["AGENTS.md", "skillset.lock"],
+      state: "source-ahead",
+    });
+    const applied = await buildSkillsetResult(root);
+    expect(applied.writes.backupRunId).toBeUndefined();
+    expect(applied.writes.writtenPaths).toContain("AGENTS.md");
+    expect(applied.writes.writtenPaths).toContain("skillset.lock");
+  });
+
   it("does not trust edited item provenance when tracked payloads are unchanged", async () => {
     const root = await fixture({
       "skillset.yaml": `
@@ -1295,6 +1421,35 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function downgradeLockToV1(
+  root: string,
+  relativeLockPath: string
+): Promise<Record<string, unknown>> {
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  const outputRoot = lock.outputRoot as string;
+  const items = lock.items as Array<Record<string, unknown>>;
+  lock.schemaVersion = 1;
+  delete lock.provenanceHash;
+  for (const item of items) {
+    const hash = createHash("sha256");
+    hash.update("skillset-output-v1\0");
+    for (const file of item.files as string[]) {
+      hash.update(file);
+      hash.update("\0");
+      hash.update(await readFile(join(root, outputRoot, file)));
+      hash.update("\0");
+    }
+    item.outputHash = `sha256:${hash.digest("hex")}`;
+    delete item.fileModes;
+  }
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  return lock;
 }
 
 async function marketplaceFixture(

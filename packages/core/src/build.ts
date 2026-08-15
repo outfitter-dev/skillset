@@ -688,6 +688,12 @@ function classifyLockProvenance(
     return hasValidLockProvenance(currentLock) ? "trusted" : "repairable";
   }
   if (currentLock.schemaVersion === 2) return "migration";
+  if (
+    legacySchemaMigration &&
+    hasLegacyTopLevelChanges(currentLock, expectedLock)
+  ) {
+    return "repairable";
+  }
 
   // Top-level fields are derived from config, render results, or target
   // topology. Item provenance may also change from source, but only alongside
@@ -845,6 +851,24 @@ function lockItemsWithoutGeneratedIntegrity(lock: JsonRecord): string {
       );
     })
   );
+}
+
+function hasLegacyTopLevelChanges(
+  current: JsonRecord,
+  expected: JsonRecord
+): boolean {
+  const legacyComparableMetadata = (lock: JsonRecord): string =>
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(lock).filter(
+          ([key]) =>
+            key !== "items" &&
+            key !== "provenanceHash" &&
+            key !== "schemaVersion"
+        )
+      )
+    );
+  return legacyComparableMetadata(current) !== legacyComparableMetadata(expected);
 }
 
 function lockItemsByIdentity(
