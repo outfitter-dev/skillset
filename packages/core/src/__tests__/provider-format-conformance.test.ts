@@ -15,9 +15,15 @@ const PROVIDER_FORMAT_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
 skillset:
   name: provider-format-root
+  author:
+    name: Root Team
+    email: root@example.com
+    url: https://example.com/root
 claude: true
 codex: true
 cursor: true
+compile:
+  unsupportedDestination: warn
 `,
   ".skillset/skills/repo-skill/SKILL.md": `
 ---
@@ -48,6 +54,13 @@ Review diffs carefully.
 skillset:
   name: alpha
   description: Alpha plugin.
+  author:
+    name: Alpha Team
+    email: alpha@example.com
+  homepage: https://example.com/alpha
+  repository: https://github.com/example/alpha
+  license: MIT
+  keywords: [alpha, tools]
 mcp: true
 `,
   ".skillset/plugins/alpha/.mcp.json": `
@@ -100,6 +113,7 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/AGENTS.md",
       ".skillset/cache/latest/.claude/agents/reviewer.md",
       ".skillset/cache/latest/.claude-plugin/marketplace.json",
+      ".skillset/cache/latest/.cursor-plugin/marketplace.json",
       ".skillset/cache/latest/plugins/alpha/claude/.claude-plugin/plugin.json",
       ".skillset/cache/latest/plugins/alpha/claude/hooks/hooks.json",
       ".skillset/cache/latest/plugins/alpha/codex/.codex-plugin/plugin.json",
@@ -112,6 +126,26 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/.cursor/rules/root.mdc",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
+
+    const codexManifest = files.find((file) =>
+      file.path.endsWith("/codex/.codex-plugin/plugin.json")
+    );
+    const cursorManifest = files.find((file) =>
+      file.path.endsWith("/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(JSON.parse(new TextDecoder().decode(codexManifest?.content))).toMatchObject({
+      author: {
+        email: "alpha@example.com",
+        name: "Alpha Team",
+      },
+    });
+    expect(JSON.parse(new TextDecoder().decode(cursorManifest?.content))).toMatchObject({
+      author: { email: "alpha@example.com", name: "Alpha Team" },
+      homepage: "https://example.com/alpha",
+      keywords: ["alpha", "tools"],
+      license: "MIT",
+      repository: "https://github.com/example/alpha",
+    });
   });
 
   it("reports schema-backed missing and unknown fields with provider refs", () => {
@@ -213,7 +247,7 @@ describe("provider format conformance", () => {
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
     ]);
-    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("Codex plugin manifest structure is currently documented in prose");
+    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("Codex 0.147.0 publishes a plugin authoring validator");
   });
 
   it("validates Claude's native author object fields", () => {
@@ -250,6 +284,72 @@ describe("provider format conformance", () => {
         code: "unknown-destination-field",
         message:
           "unknown destination field author.contributor; allowed fields are email, name, url",
+      },
+    ]);
+  });
+
+  it("validates Codex and Cursor provider-native author objects", () => {
+    const valid = checkProviderFormatConformance([
+      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
+        author: { email: "team@example.com", name: "Team", url: "https://example.com" },
+        name: "alpha",
+      }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        author: { email: "team@example.com", name: "Team" },
+        description: "Alpha.",
+        name: "alpha",
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 2, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
+        author: "Legacy Author",
+        name: "alpha",
+      }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        author: { name: "Team", url: "https://example.com" },
+        description: "Alpha.",
+        name: "alpha",
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field author must be an object (Codex 0.147.0 publishes a plugin authoring validator and prose manifest specification but no adopted JSON Schema source.)",
+      },
+      {
+        code: "unknown-destination-field",
+        message: "unknown destination field author.url; allowed fields are email, name",
+      },
+    ]);
+  });
+
+  it("validates the pinned Cursor marketplace root and entry shapes", () => {
+    const valid = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        owner: { email: "team@example.com", name: "Example Team" },
+        plugins: [{ description: "Alpha.", name: "alpha", source: "plugins/alpha" }],
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team", url: "https://example.com" },
+        plugins: [{ name: "alpha", source: "plugins/alpha", tags: ["alpha"] }],
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "unknown-destination-field",
+        message: "unknown destination field owner.url; allowed fields are email, name",
+      },
+      {
+        code: "unknown-destination-field",
+        message: "unknown destination field plugins[0].tags; allowed fields are description, minClientVersions, name, source",
       },
     ]);
   });

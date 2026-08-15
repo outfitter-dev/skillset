@@ -353,87 +353,6 @@ for (const [label, author] of [
   });
 }
 
-test("SET-369: conflicting native listing metadata stays a provider-specific warning", async () => {
-  const root = await pluginFixture({
-    "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-      author: { name: "Canonical Author" },
-      interface: {
-        category: "productivity",
-        developerName: "Codex Author",
-      },
-      keywords: ["portable"],
-    }),
-    "plugins/demo/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-      category: "development",
-      tags: ["cursor-only"],
-    }),
-    "plugins/demo/skills/helper/SKILL.md": skill("shared"),
-  });
-
-  const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
-
-  expect(result.groups).toHaveLength(1);
-  expect(result.diagnostics).toEqual([
-    expect.objectContaining({
-      code: "plugin-listing-conflict",
-      evidence: [
-        "native listing.category differs across codex, cursor",
-        "native listing.keywords differs across codex, cursor",
-      ],
-      paths: ["plugins/demo"],
-      severity: "warning",
-    }),
-  ]);
-
-  const report = await adoptSkillset(root, { write: true });
-  expect(report.ok).toBe(true);
-  expect(report.surveyDiagnostics).toEqual([
-    expect.objectContaining({
-      code: "plugin-listing-conflict",
-      severity: "warning",
-    }),
-  ]);
-  const importedConfig = await readFile(
-    join(root, ".skillset/plugins/demo/skillset.yaml"),
-    "utf8"
-  );
-  expect(importedConfig).toContain("codex:");
-  expect(importedConfig).toContain("category: productivity");
-  expect(importedConfig).toContain("developerName: Codex Author");
-  expect(importedConfig).toContain("cursor:");
-  expect(importedConfig).toContain("category: development");
-  expect(importedConfig).toContain("keywords:");
-  expect(importedConfig).toContain("- portable");
-  expect(importedConfig).toContain("tags:");
-  expect(importedConfig).toContain("- cursor-only");
-
-  await buildSkillset(root, { isolated: true });
-  const generatedRoot = resolveOperationalPath(
-    createOperationalPathContext(root),
-    ISOLATED_OUT_ROOT
-  );
-  const codexManifest = JSON.parse(
-    await readFile(
-      join(
-        generatedRoot,
-        "plugins/demo/codex/.codex-plugin/plugin.json"
-      ),
-      "utf8"
-    )
-  ) as { keywords?: string[] };
-  const cursorManifest = JSON.parse(
-    await readFile(
-      join(
-        generatedRoot,
-        "plugins/demo/cursor/.cursor-plugin/plugin.json"
-      ),
-      "utf8"
-    )
-  ) as { tags?: string[] };
-  expect(codexManifest.keywords).toEqual(["portable"]);
-  expect(cursorManifest.tags).toEqual(["cursor-only"]);
-});
-
 test("SET-369: native Codex developerName conflicts warn and stay provider-specific", async () => {
   const root = await pluginFixture({
     "skillset.yaml": "skillset:\n  name: import-root\ncodex: true\n",
@@ -978,3 +897,135 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
   ]);
   return { exitCode, stderr, stdout };
 }
+test("SET-485: mixed-provider adoption keeps Cursor discovery metadata provider-native", async () => {
+  const root = await pluginFixture({
+    "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Canonical Author" },
+      interface: {
+        category: "productivity",
+        developerName: "Codex Author",
+      },
+      keywords: ["portable"],
+    }),
+    "plugins/demo/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      category: "development",
+      tags: ["cursor-only"],
+    }),
+    "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
+
+  expect(result.groups).toHaveLength(1);
+  expect(result.diagnostics).toEqual([]);
+
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(true);
+  expect(report.surveyDiagnostics).toEqual([]);
+  expect(report.imports[0]?.warnings).toContain(
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers."
+  );
+  expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain(
+    "## Import warnings"
+  );
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("codex:");
+  expect(importedConfig).toContain("category: productivity");
+  expect(importedConfig).toContain("developerName: Codex Author");
+  expect(importedConfig).toContain("cursor:");
+  expect(importedConfig).toContain("category: development");
+  expect(importedConfig).toContain("keywords:");
+  expect(importedConfig).toContain("- portable");
+  expect(importedConfig).toContain("tags:");
+  expect(importedConfig).toContain("- cursor-only");
+
+  await buildSkillset(root, { isolated: true });
+  const generatedRoot = resolveOperationalPath(
+    createOperationalPathContext(root),
+    ISOLATED_OUT_ROOT
+  );
+  const codexManifest = JSON.parse(
+    await readFile(
+      join(
+        generatedRoot,
+        "plugins/demo/codex/.codex-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { keywords?: string[] };
+  const cursorManifest = JSON.parse(
+    await readFile(
+      join(
+        generatedRoot,
+        "plugins/demo/cursor/.cursor-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { category?: string; keywords?: string[]; tags?: string[] };
+  expect(codexManifest.keywords).toEqual(["portable"]);
+  expect(cursorManifest.category).toBe("development");
+  expect(cursorManifest.keywords).toEqual(["portable"]);
+  expect(cursorManifest.tags).toEqual(["cursor-only"]);
+});
+
+test("SET-485: Cursor-only import round-trips native discovery without seeding Codex", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": `
+skillset:
+  name: import-root
+compile:
+  targets: [codex, cursor]
+`,
+    "native/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      category: "cursor-productivity",
+      tags: ["cursor-native"],
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.warnings).toContain(
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers."
+  );
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("cursor:\n  manifest:\n    category: cursor-productivity");
+  expect(importedConfig).toContain("tags:\n      - cursor-native");
+  expect(importedConfig.match(/category: cursor-productivity/gu)).toHaveLength(1);
+
+  await buildSkillset(root, { isolated: true });
+  const generatedRoot = resolveOperationalPath(
+    createOperationalPathContext(root),
+    ISOLATED_OUT_ROOT
+  );
+  const codexManifest = JSON.parse(
+    await readFile(
+      join(generatedRoot, "plugins/demo/codex/.codex-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as { interface?: { category?: string }; keywords?: string[]; tags?: string[] };
+  const cursorManifest = JSON.parse(
+    await readFile(
+      join(generatedRoot, "plugins/demo/cursor/.cursor-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as { category?: string; keywords?: string[]; tags?: string[] };
+  expect(cursorManifest).toMatchObject({
+    category: "cursor-productivity",
+    tags: ["cursor-native"],
+  });
+  expect(cursorManifest.keywords).toBeUndefined();
+  expect(codexManifest.interface?.category).toBe("Productivity");
+  expect(codexManifest.keywords).toBeUndefined();
+  expect(codexManifest.tags).toBeUndefined();
+});

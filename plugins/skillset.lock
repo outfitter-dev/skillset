@@ -64,7 +64,7 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:077939128106a51a125166a4d266a763cbb0fee87f121ff0a6636edf25349317",
+      "outputHash": "sha256:4ff159eda3950cfda60468cfb4c98e7c28d4508e5e1ff59a99f542de13899626",
       "outputPath": "skillset/codex/.codex-plugin/plugin.json",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "skippedSkills": [],
@@ -107,7 +107,7 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:e2d6e41d70714327bb483370cb0bf4ac3f484e7bca65f684918853fd59961fb9",
+      "outputHash": "sha256:2089a38e6195b4a2cf6dbdbab3097209f7821fb3f88ce24453df6cfb23d80b6a",
       "outputPath": "skillset/cursor/.cursor-plugin/plugin.json",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "skippedSkills": [],
@@ -184,14 +184,14 @@
         },
         {
           "kind": "provider-overlay",
-          "note": "Codex plugin manifest structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "note": "Codex 0.147.0 publishes a plugin authoring validator and prose manifest specification but no adopted JSON Schema source.",
           "ref": "codex-plugin-manifest-overlay"
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:ea1a87e3450a9c3959adfb9e1165fede2d9eca9fa9663d8e97f15d2a48ca3ae0",
+          "note": "sha256:2508f4c0f44b30439c17ccad875a1348b691af2bf067fbe13de8bba5eccb677e",
           "ref": "codex-plugin",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-08-14"
         }
       ],
       "featureId": "plugin-manifests",
@@ -219,10 +219,16 @@
           "ref": "docs/reference/features/plugins.md"
         },
         {
+          "kind": "provider-schema",
+          "note": "sha256:f0b6bf41741bdb523ee0571b42e577deea9eba178691b2843a4b1dafe8947396",
+          "ref": "cursor-plugin-schema",
+          "verifiedAt": "2026-08-14"
+        },
+        {
           "kind": "provider-snapshot",
-          "note": "sha256:1d87b97a074afb49078bda9fa1e399a653229001c134b8fe0a5a2937ccbde5f9",
+          "note": "sha256:3e1929d4816292e8d1901324d31b4e5cd57857f73217a9951503901e602cfb5b",
           "ref": "cursor-plugin",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-08-14"
         }
       ],
       "featureId": "plugin-manifests",

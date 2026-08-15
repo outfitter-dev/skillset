@@ -1914,6 +1914,167 @@ Body.
       })
     );
   });
+
+  it("reports Cursor author URL omission with plugin-local provenance", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    url: https://example.com/tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/cursor-author-fields-omitted",
+            path: ".skillset/plugins/tools: $.skillset.author",
+          }),
+        ],
+        destination: "plugin-manifest",
+        reason:
+          "Cursor author output supports only name and email; omitted canonical fields: url",
+        sourcePath: ".skillset/plugins/tools",
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+        target: "cursor",
+      })
+    );
+  });
+
+  it("reports unsupported Codex structured-author fields", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [codex]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    contributor: Example Contributor
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/codex-author-fields-omitted",
+          }),
+        ],
+        reason:
+          "Codex author output supports only name, email, and url; omitted canonical fields: contributor",
+        status: "lossy",
+        target: "codex",
+      })
+    );
+  });
+
+  it("reports Cursor marketplace owner omissions for explicit owner and author fallback", async () => {
+    const cases = [
+      {
+        rootIdentity: `
+  author:
+    name: Root Team
+  owner:
+    name: Publishing Team
+    url: https://example.com/publisher
+    contributor: Publisher
+`,
+      },
+      {
+        rootIdentity: `
+  author:
+    name: Root Team
+    url: https://example.com/root
+    contributor: Root Contributor
+`,
+      },
+    ];
+
+    for (const { rootIdentity } of cases) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: cursor-marketplace-author-evidence
+${rootIdentity}
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const preview = await diffSkillsetResult(root);
+      expect(preview.renderResults).toContainEqual(
+        expect.objectContaining({
+          diagnostics: [
+            expect.objectContaining({
+              code: "render/cursor-marketplace-author-fields-omitted",
+              path: "marketplace.owner",
+            }),
+          ],
+          destination: "marketplace",
+          featureId: "marketplaces",
+          outputs: [
+            expect.objectContaining({
+              path: ".cursor-plugin/marketplace.json",
+            }),
+          ],
+          reason:
+            "Cursor marketplace author output supports only name and email; omitted canonical fields: contributor, url",
+          sourcePath: "skillset.yaml",
+          sourceUnit: "config:root",
+          status: "lossy",
+          target: "cursor",
+        })
+      );
+    }
+  });
 });
 
 function outcomeKey(outcome: SkillsetRenderResult): string {

@@ -14,13 +14,14 @@ import { corruptWorkspaceLock } from "./output-safety";
 import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
+  cursorMarketplacePath,
   isDefaultPluginOutputRoot,
   pluginManifestPath,
   providerSourceForPlugin,
 } from "./plugin-output";
 import { parseRemoteRepositoryReference } from "./remote-repository-reference";
 import { textFile, type LockRoot } from "./render-support";
-import { readAuthorRecord, renderClaudeAuthor } from "./source-author";
+import { renderClaudeAuthor, renderCursorAuthor } from "./source-author";
 import {
   readListingString,
   readListingStringArray,
@@ -415,7 +416,7 @@ export async function renderCursorMarketplace(
 
   const root = graph.root.metadata;
   const owner =
-    readAuthorRecord(root.owner) ?? readAuthorRecord(root.author) ?? {};
+    renderCursorAuthor(root.owner) ?? renderCursorAuthor(root.author);
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
   const marketplace = mergeRecords(
     {
@@ -424,7 +425,7 @@ export async function renderCursorMarketplace(
         readString(root, "name") ??
         readString(root, "id") ??
         "skillset",
-      owner,
+      ...(owner === undefined ? {} : { owner }),
       metadata: {
         description:
           readListingString(root, "summary") ??
@@ -443,15 +444,6 @@ export async function renderCursorMarketplace(
       renderValidatedJson(marketplace, "Cursor marketplace")
     ),
   ];
-}
-
-function cursorMarketplacePath(outputRoot: string): string {
-  return isDefaultPluginOutputRoot(outputRoot)
-    ? ".cursor-plugin/marketplace.json"
-    : join(outputRoot, ".cursor-plugin", "marketplace.json").replaceAll(
-        "\\",
-        "/"
-      );
 }
 
 export function marketplaceLockProvenance(

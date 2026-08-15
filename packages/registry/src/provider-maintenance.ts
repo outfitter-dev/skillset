@@ -548,7 +548,7 @@ export interface ProviderSchemaSource {
 export interface ProviderSchemaProvenance {
   readonly contentHash: string;
   readonly fetchedAt: string;
-  readonly rollingLatest: true;
+  readonly rollingLatest: boolean;
   readonly sources: readonly ProviderSchemaSource[];
 }
 

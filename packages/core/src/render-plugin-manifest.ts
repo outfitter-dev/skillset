@@ -11,7 +11,12 @@ import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { validateSlug } from "./path";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
-import { readAuthorName, renderClaudeAuthor } from "./source-author";
+import {
+  readAuthorName,
+  renderClaudeAuthor,
+  renderCodexAuthor,
+  renderCursorAuthor,
+} from "./source-author";
 import { readSourceListing } from "./source-listing";
 import type {
   BuildGraph,
@@ -45,23 +50,22 @@ export function renderPluginManifest(
       readString(listing, "description") ??
       readString(metadata, "description") ??
       plugin.id,
-    ...(target === "cursor"
-      ? {}
-      : {
-          author:
-            target === "claude"
-              ? renderClaudeAuthor(metadata.author) ??
-                renderClaudeAuthor(graph.root.metadata.author)
-              : readAuthorName(metadata.author) ??
-                readAuthorName(graph.root.metadata.author),
-          homepage: metadata.homepage,
-          repository: metadata.repository,
-          license: license?.manifestValue,
-          keywords: copyOptionalStrings(
-            readStringArray(listing, "keywords") ??
-              readStringArray(metadata, "keywords")
-          ),
-        }),
+    author:
+      target === "claude"
+        ? renderClaudeAuthor(metadata.author) ??
+          renderClaudeAuthor(graph.root.metadata.author)
+        : target === "codex"
+          ? renderCodexAuthor(metadata.author) ??
+            renderCodexAuthor(graph.root.metadata.author)
+          : renderCursorAuthor(metadata.author) ??
+            renderCursorAuthor(graph.root.metadata.author),
+    homepage: metadata.homepage,
+    repository: metadata.repository,
+    license: license?.manifestValue,
+    keywords: copyOptionalStrings(
+      readStringArray(listing, "keywords") ??
+        readStringArray(metadata, "keywords")
+    ),
   };
   const dependencies =
     target === "claude"
@@ -125,20 +129,13 @@ function renderCursorPluginDisplayFields(
   portableManifest: JsonRecord
 ): JsonRecord {
   const listing = readSourceListing(metadata);
-  const tags =
-    readStringArray(portableManifest, "tags") ??
-    readStringArray(listing, "keywords");
   return {
     displayName:
       readString(portableManifest, "displayName") ??
       readString(listing, "display_name"),
-    category:
-      readString(portableManifest, "category") ??
-      readString(listing, "category"),
     logo:
       readString(portableManifest, "logo") ??
       readString(listing, "logo"),
-    ...(tags === undefined ? {} : { tags: [...tags] }),
   };
 }
 

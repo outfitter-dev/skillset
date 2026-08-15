@@ -196,7 +196,10 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
     renderResults: imports.flatMap((report) => report.renderResults),
     ...(options.provider === undefined ? {} : { provider: options.provider }),
     sourcePath,
-    warnings: plan.warnings,
+    warnings: [
+      ...plan.warnings,
+      ...imports.flatMap((report) => report.warnings),
+    ],
   };
 }
 
@@ -1017,6 +1020,9 @@ async function writeImportedPluginConfig(
         : [[provider, providerConfig]];
     })
   );
+  const cursorNativeDiscoveryFields = ["category", "tags"].filter(
+    (field) => nativeManifests.get("cursor")?.[field] !== undefined
+  );
   await writeFile(
     join(targetPath, "skillset.yaml"),
     stringifyYamlSourceDocument({
@@ -1027,6 +1033,11 @@ async function writeImportedPluginConfig(
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
     warnings: [
+      ...(cursorNativeDiscoveryFields.length === 0
+        ? []
+        : [
+            `import-preserved-cursor-native-discovery: preserved Cursor manifest fields ${cursorNativeDiscoveryFields.join(", ")} under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers.`,
+          ]),
       ...listingConflicts.map(
         (conflict) =>
           `Native ${conflict.field} differs across ${conflict.providers.join(", ")}; Skillset preserved provider-specific values instead of choosing a canonical listing value.`
@@ -1057,14 +1068,10 @@ function importedManifestOverride(
   }
   if (provider === "codex") delete override.interface;
   if (provider === "cursor") {
-    if (!hasListingConflict(listingConflicts, "listing.category"))
-      delete override.category;
     if (!hasListingConflict(listingConflicts, "listing.display_name"))
       delete override.displayName;
     if (!hasListingConflict(listingConflicts, "listing.logo"))
       delete override.logo;
-    if (!hasListingConflict(listingConflicts, "listing.keywords"))
-      delete override.tags;
   }
   const nativeDescription = readString(manifest, "description");
   if (
@@ -1143,8 +1150,7 @@ function importedListing(
     category:
       hasListingConflict(conflicts, "listing.category")
         ? undefined
-        : readString(codexInterface ?? {}, "category") ??
-          readString(cursorManifest ?? {}, "category"),
+        : readString(codexInterface ?? {}, "category"),
     capabilities: copyJsonStringArray(
       (codexInterface ?? {}).capabilities
     ),
@@ -1170,12 +1176,9 @@ function importedListing(
     screenshots: copyJsonStringArray(
       (codexInterface ?? {}).screenshots
     ),
-    keywords: hasListingConflict(conflicts, "listing.keywords")
-      ? undefined
-      : copyJsonStringArray((cursorManifest ?? {}).tags) ??
-        copyJsonStringArray(
-          firstPortablePluginMetadataValue(manifests, "keywords")
-        ),
+    keywords: copyJsonStringArray(
+      firstPortablePluginMetadataValue(manifests, "keywords")
+    ),
   };
   return Object.values(listing).some((value) => value !== undefined)
     ? listing

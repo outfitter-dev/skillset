@@ -6,6 +6,8 @@ import {
 import type { JsonRecord, JsonValue } from "./types";
 
 const CLAUDE_AUTHOR_KEYS = ["name", "email", "url"] as const;
+const CODEX_AUTHOR_KEYS = ["name", "email", "url"] as const;
+const CURSOR_AUTHOR_KEYS = ["name", "email"] as const;
 
 export function readAuthorName(
   value: JsonValue | undefined
@@ -22,10 +24,29 @@ export function readAuthorRecord(
 export function renderClaudeAuthor(
   value: JsonValue | undefined
 ): JsonRecord | undefined {
+  return renderAuthor(value, CLAUDE_AUTHOR_KEYS);
+}
+
+export function renderCodexAuthor(
+  value: JsonValue | undefined
+): JsonRecord | undefined {
+  return renderAuthor(value, CODEX_AUTHOR_KEYS);
+}
+
+export function renderCursorAuthor(
+  value: JsonValue | undefined
+): JsonRecord | undefined {
+  return renderAuthor(value, CURSOR_AUTHOR_KEYS);
+}
+
+function renderAuthor(
+  value: JsonValue | undefined,
+  keys: readonly string[]
+): JsonRecord | undefined {
   const author = readAuthorRecord(value);
   if (author === undefined || typeof author.name !== "string") return undefined;
   return Object.fromEntries(
-    CLAUDE_AUTHOR_KEYS.flatMap((key) =>
+    keys.flatMap((key) =>
       typeof author[key] === "string" ? [[key, author[key]]] : []
     )
   );
@@ -58,8 +79,21 @@ export function droppedClaudeAuthorKeys(
 export function omittedClaudeAuthorKeys(
   value: JsonValue | undefined
 ): readonly string[] {
+  return omittedAuthorKeys(value, CLAUDE_AUTHOR_KEYS);
+}
+
+export function omittedCursorAuthorKeys(
+  value: JsonValue | undefined
+): readonly string[] {
+  return omittedAuthorKeys(value, CURSOR_AUTHOR_KEYS);
+}
+
+function omittedAuthorKeys(
+  value: JsonValue | undefined,
+  keys: readonly string[]
+): readonly string[] {
   const author = readAuthorRecord(value);
   if (author === undefined) return [];
-  const supported = new Set<string>(CLAUDE_AUTHOR_KEYS);
+  const supported = new Set(keys);
   return Object.keys(author).filter((key) => !supported.has(key)).sort();
 }

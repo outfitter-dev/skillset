@@ -13,7 +13,11 @@ import {
   pluginTargetRoot,
 } from "./plugin-output";
 import { loadBuildGraph } from "./resolver";
-import { readAuthorName, renderClaudeAuthor } from "./source-author";
+import {
+  renderClaudeAuthor,
+  renderCodexAuthor,
+  renderCursorAuthor,
+} from "./source-author";
 import { readSourceListing } from "./source-listing";
 import type { SkillsetRenderResult } from "./render-result";
 import { targetDescriptor } from "./targets";
@@ -274,22 +278,22 @@ function expectedPluginManifestFields(
     readString(metadata, "description") ??
     plugin.id;
   if (target === "cursor") {
-    const tags =
-      readStringArray(portableManifest, "tags") ??
-      readStringArray(listing, "keywords");
     return stripUndefinedRecord({
+      author:
+        renderCursorAuthor(metadata.author) ??
+        renderCursorAuthor(graph.root.metadata.author),
       name: readString(portableManifest, "name") ?? plugin.id,
       description,
       displayName:
         readString(portableManifest, "displayName") ??
         readString(listing, "display_name"),
-      category:
-        readString(portableManifest, "category") ??
-        readString(listing, "category"),
+      homepage: metadata.homepage,
+      keywords: listing.keywords ?? metadata.keywords,
+      license: metadata.license,
       logo:
         readString(portableManifest, "logo") ??
         readString(listing, "logo"),
-      tags: tags === undefined ? undefined : [...tags],
+      repository: metadata.repository,
       ...targetManifest,
       version: pluginVersion(graph, plugin),
     });
@@ -299,8 +303,8 @@ function expectedPluginManifestFields(
       target === "claude"
         ? renderClaudeAuthor(metadata.author) ??
           renderClaudeAuthor(graph.root.metadata.author)
-        : readAuthorName(metadata.author) ??
-          readAuthorName(graph.root.metadata.author),
+        : renderCodexAuthor(metadata.author) ??
+          renderCodexAuthor(graph.root.metadata.author),
     description,
     homepage: metadata.homepage,
     keywords: listing.keywords ?? metadata.keywords,

@@ -14,7 +14,9 @@ export type ProviderSchemaSnapshotId =
   | "codex-config-schema"
   | "codex-hook-event-schemas"
   | "codex-hooks-schema"
-  | "codex-skill-metadata-schema";
+  | "codex-skill-metadata-schema"
+  | "cursor-marketplace-schema"
+  | "cursor-plugin-schema";
 
 export type ProviderSchemaManualOverlayId =
   | "claude-hooks-overlay"
@@ -41,7 +43,7 @@ export interface ProviderSchemaSource {
 export interface ProviderSchemaProvenance {
   readonly contentHash: string;
   readonly fetchedAt: string;
-  readonly rollingLatest: true;
+  readonly rollingLatest: boolean;
   readonly sources: readonly ProviderSchemaSource[];
 }
 
@@ -481,6 +483,82 @@ const schemaSnapshots = [
     target: "codex",
     title: "Codex Skill Metadata JSON Schema",
   }),
+  schemaSnapshot({
+    destination: "marketplace",
+    id: "cursor-marketplace-schema",
+    provenance: {
+      contentHash: "sha256:a7b7f1c5cc6f6af685d2d1d9b1787d555b20666a8826050b5b3b9fe86f2b6bf7",
+      fetchedAt: "2026-08-14T00:00:00-04:00",
+      rollingLatest: false,
+      sources: [
+        {
+          contentHash: "sha256:1aae96a24c2796419933bc8bfe3a1255394e7199c35740b36325e0ce6dbc253d",
+          note: "Pinned official authoring schema; the installed Cursor Agent consuming parser differs on marketplace entry fields.",
+          url: "https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/marketplace.schema.json",
+        },
+      ],
+    },
+    summary: {
+      definitions: ["minClientVersions", "owner", "pluginEntry", "semver"],
+      id: "https://cursor.com/schemas/cursor-plugin/marketplace.json",
+      properties: ["metadata", "name", "owner", "plugins"],
+      required: ["name", "plugins"],
+      schemaUri: "http://json-schema.org/draft-07/schema#",
+      title: "Cursor Plugin Marketplace",
+      topLevelType: "object",
+    },
+    target: "cursor",
+    title: "Cursor Marketplace JSON Schema",
+  }),
+  schemaSnapshot({
+    destination: "plugin-manifest",
+    id: "cursor-plugin-schema",
+    provenance: {
+      contentHash: "sha256:f0b6bf41741bdb523ee0571b42e577deea9eba178691b2843a4b1dafe8947396",
+      fetchedAt: "2026-08-14T00:00:00-04:00",
+      rollingLatest: false,
+      sources: [
+        {
+          contentHash: "sha256:a393b758901803fcf5cfe0d77bda8a83e987d32c3377dfce2d9edf445af884ed",
+          note: "Pinned official authoring schema; Skillset uses only discovery fields also supported by the installed Cursor Agent consuming parser.",
+          url: "https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/plugin.schema.json",
+        },
+      ],
+    },
+    summary: {
+      definitions: ["author", "mcpServers", "minClientVersions", "semver", "stringOrStringArray"],
+      id: "https://cursor.com/schemas/cursor-plugin/plugin.json",
+      properties: [
+        "agents",
+        "author",
+        "category",
+        "commands",
+        "description",
+        "displayName",
+        "homepage",
+        "hooks",
+        "keywords",
+        "license",
+        "logo",
+        "mcpServers",
+        "minClientVersions",
+        "name",
+        "publisher",
+        "repository",
+        "rules",
+        "skills",
+        "tags",
+        "variables",
+        "version",
+      ],
+      required: ["name"],
+      schemaUri: "http://json-schema.org/draft-07/schema#",
+      title: "Cursor Plugin Manifest",
+      topLevelType: "object",
+    },
+    target: "cursor",
+    title: "Cursor Plugin Manifest JSON Schema",
+  }),
 ] as const satisfies readonly ProviderSchemaSnapshot[];
 
 export const providerSchemaSnapshots = defineProviderSchemaSnapshots(schemaSnapshots);
@@ -510,8 +588,11 @@ export const providerSchemaManualOverlays = [
   manualOverlay({
     formatSnapshotId: "codex-plugin",
     id: "codex-plugin-manifest-overlay",
-    note: "Codex plugin manifest structure is currently documented in prose; no adopted JSON Schema source is available.",
-    sources: [{ url: "https://developers.openai.com/codex/plugins/build" }],
+    note: "Codex 0.147.0 publishes a plugin authoring validator and prose manifest specification but no adopted JSON Schema source.",
+    sources: [
+      { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py" },
+      { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/references/plugin-json-spec.md" },
+    ],
     target: "codex",
   }),
   manualOverlay({

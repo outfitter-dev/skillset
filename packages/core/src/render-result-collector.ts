@@ -19,6 +19,7 @@ import {
 import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
+  cursorMarketplacePath,
   pluginManifestPath,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
@@ -29,6 +30,7 @@ import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
 import {
   droppedClaudeAuthorKeys,
   omittedClaudeAuthorKeys,
+  omittedCursorAuthorKeys,
   readAuthorName,
 } from "./source-author";
 import {
@@ -143,6 +145,14 @@ export function collectRenderResults(
       options.claudeMarketplacePlugins
     )
   );
+  outcomes.push(
+    ...cursorMarketplaceAuthorOutcomes(
+      graph,
+      rendered,
+      options.includedPaths,
+      mapOutputPath
+    )
+  );
 
   return outcomes.sort((left, right) =>
     compareStrings(
@@ -178,6 +188,7 @@ function claudeMarketplaceAuthorOutcomes(
         reason: unsupportedClaudeAuthorReason(owner),
         sourcePath: "skillset.yaml",
         sourceUnit: selectorForRootConfig(),
+        target: "claude",
       })
     );
   }
@@ -197,6 +208,7 @@ function claudeMarketplaceAuthorOutcomes(
           ? normalizeSourcePath(graph, plugin.path)
           : "skillset.yaml",
         sourceUnit: selectorForPluginConfig(plugin.id),
+        target: "claude",
       })
     );
   }
@@ -223,6 +235,19 @@ function unsupportedClaudeAuthorReason(
  * entry does not carry because a `claude.marketplace` override replaced or
  * omitted the author it kept.
  */
+/**
+ * Canonical author fields the Cursor marketplace owner output cannot
+ * represent; Cursor supports only name and email.
+ */
+function unsupportedCursorAuthorReason(
+  author: JsonValue | undefined
+): string | undefined {
+  const omitted = omittedCursorAuthorKeys(author);
+  return omitted.length === 0
+    ? undefined
+    : `Cursor marketplace author output supports only name and email; omitted canonical fields: ${omitted.join(", ")}`;
+}
+
 function marketplaceAuthorLossReason(
   author: JsonValue | undefined,
   emittedAuthor: JsonValue | undefined
@@ -237,6 +262,34 @@ function marketplaceAuthorLossReason(
   return reasons.length === 0 ? undefined : reasons.join("; ");
 }
 
+function cursorMarketplaceAuthorOutcomes(
+  graph: BuildGraph,
+  rendered: readonly RenderedFile[],
+  includedPaths: ReadonlySet<string>,
+  mapOutputPath: OutputPathMapper
+): readonly SkillsetRenderResult[] {
+  const marketplacePath = cursorMarketplacePath(
+    graph.root.outputs.plugins.cursor
+  );
+  if (!rendered.some((file) => file.path === marketplacePath)) return [];
+  const root = graph.root.metadata;
+  const owner =
+    readAuthorName(root.owner) !== undefined ? root.owner : root.author;
+  if (owner === undefined) return [];
+  return [
+    marketplaceAuthorOutcome({
+      diagnosticPath: "marketplace.owner",
+      included: includedPaths.has(marketplacePath),
+      mapOutputPath,
+      outputPath: marketplacePath,
+      reason: unsupportedCursorAuthorReason(owner),
+      sourcePath: "skillset.yaml",
+      sourceUnit: selectorForRootConfig(),
+      target: "cursor",
+    }),
+  ];
+}
+
 function marketplaceAuthorOutcome(args: {
   readonly diagnosticPath: string;
   readonly included: boolean;
@@ -245,8 +298,9 @@ function marketplaceAuthorOutcome(args: {
   readonly reason: string | undefined;
   readonly sourcePath: string;
   readonly sourceUnit: string;
+  readonly target: "claude" | "cursor";
 }): SkillsetRenderResult {
-  const evidence = evidenceFor("marketplaces", "claude");
+  const evidence = evidenceFor("marketplaces", args.target);
   const reason = args.reason;
   return defineRenderResult({
     destination: "marketplace",
@@ -254,7 +308,10 @@ function marketplaceAuthorOutcome(args: {
       ? {
           diagnostics: [
             {
-              code: "render/claude-marketplace-author-fields-omitted",
+              code:
+                args.target === "claude"
+                  ? "render/claude-marketplace-author-fields-omitted"
+                  : "render/cursor-marketplace-author-fields-omitted",
               message: reason,
               path: args.diagnosticPath,
             },
@@ -282,7 +339,7 @@ function marketplaceAuthorOutcome(args: {
         ? "rendered"
         : "lossy"
       : "intentionally_skipped",
-    target: "claude",
+    target: args.target,
   });
 }
 
@@ -352,7 +409,7 @@ function outcomeForLockItem(
 ): SkillsetRenderResult {
   const target = targetForLockItem(graph, lock, item, outputPaths);
   const featureId = featureIdForLockItem(item);
-  const authorFacts = claudeAuthorRenderFacts(graph, item, target);
+  const authorFacts = pluginAuthorRenderFacts(graph, item, target);
   const baseStatus = authorFacts?.status ?? statusForLockItem(item, target);
   const isIncluded = outputPaths.some((path) => includedPaths.has(path));
   const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
@@ -379,7 +436,7 @@ function outcomeForLockItem(
   });
 }
 
-function claudeAuthorRenderFacts(
+function pluginAuthorRenderFacts(
   graph: BuildGraph,
   item: RenderedLockItem,
   target: TargetName | undefined
@@ -391,20 +448,36 @@ function claudeAuthorRenderFacts(
       readonly status: SkillsetRenderResultStatus;
     }
   | undefined {
-  if (item.kind !== "plugin" || target !== "claude") return undefined;
+  if (
+    item.kind !== "plugin" ||
+    (target !== "claude" && target !== "codex" && target !== "cursor")
+  )
+    return undefined;
   const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
   if (plugin === undefined) return undefined;
   const usesPluginAuthor = plugin.metadata.author !== undefined;
   const author = usesPluginAuthor ? plugin.metadata.author : graph.root.metadata.author;
   if (author === undefined) return undefined;
-  const omitted = omittedClaudeAuthorKeys(author);
+  const omitted =
+    target === "cursor"
+      ? omittedCursorAuthorKeys(author)
+      : omittedClaudeAuthorKeys(author);
   if (omitted.length === 0) return undefined;
-  const reason = `Claude author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  const providerName =
+    target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Cursor";
+  const supportedFields =
+    target === "cursor" ? "name and email" : "name, email, and url";
+  const reason = `${providerName} author output supports only ${supportedFields}; omitted canonical fields: ${omitted.join(", ")}`;
   const authorSourcePath = usesPluginAuthor ? item.sourcePath : "skillset.yaml";
   return {
     diagnostics: [
       {
-        code: "render/claude-author-fields-omitted",
+        code:
+          target === "claude"
+            ? "render/claude-author-fields-omitted"
+            : target === "codex"
+              ? "render/codex-author-fields-omitted"
+              : "render/cursor-author-fields-omitted",
         message: reason,
         path: `${authorSourcePath}: $.skillset.author`,
       },

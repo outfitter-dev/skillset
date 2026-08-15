@@ -73,6 +73,7 @@ export interface AdoptImportResult {
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly units: readonly AdoptImportedUnit[];
+  readonly warnings: readonly string[];
 }
 
 /** One recognized construct in an imported markdown file, preview only. */
@@ -525,7 +526,7 @@ async function importCandidate(
       // protection, so it belongs on the cutover list.
       cutover.push(candidate.path);
       previewSources.push(destination);
-      return { baselinePaths: [], candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
+      return { baselinePaths: [], candidate, destination, detail: destination, renderResults: [], ok: true, units: [], warnings: [] };
     } catch (error) {
       const copiedBeforeFailure = !destinationExisted && await exists(join(rootPath, expectedDestination));
       return {
@@ -536,6 +537,7 @@ async function importCandidate(
         renderResults: [],
         ok: false,
         units: [],
+        warnings: [],
       };
     }
   }
@@ -561,6 +563,7 @@ async function importCandidate(
       renderResults: batch.renderResults,
       ok: true,
       units,
+      warnings: batch.warnings,
     };
   } catch (error) {
     const partialImports = error instanceof ImportBatchError ? error.imports : [];
@@ -573,6 +576,7 @@ async function importCandidate(
       renderResults: partialImports.flatMap((report) => report.renderResults),
       ok: false,
       units: adoptedUnits(rootPath, candidate, partialImports),
+      warnings: partialImports.flatMap((report) => report.warnings),
     };
   }
 }
@@ -828,6 +832,9 @@ export function renderAdoptReportMarkdown(
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
   const succeeded = report.imports.filter((result) => result.ok);
   const failed = report.imports.filter((result) => !result.ok);
+  const importWarnings = report.imports.flatMap((result) =>
+    result.warnings.map((warning) => ({ result, warning }))
+  );
   const blockedBeforeWrite = !report.write && hasBlockingSurveyDiagnostic(report.surveyDiagnostics);
 
   const lines: string[] = ["# Skillset adoption report", ""];
@@ -911,6 +918,14 @@ export function renderAdoptReportMarkdown(
     lines.push("## Skipped surfaces", "");
     for (const skip of report.surveySkips) {
       lines.push(`- ${skip.surface} \`${skip.path}\`: ${skip.reason}`);
+    }
+    lines.push("");
+  }
+
+  if (importWarnings.length > 0) {
+    lines.push("## Import warnings", "");
+    for (const { result, warning } of importWarnings) {
+      lines.push(`- \`${result.candidate.path}\`: ${warning}`);
     }
     lines.push("");
   }

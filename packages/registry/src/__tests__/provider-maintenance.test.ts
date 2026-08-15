@@ -60,6 +60,39 @@ describe("SET-335 registry-owned provider maintenance", () => {
     );
   });
 
+  test("SET-485: immutable Cursor schema summaries match maintenance derivation", async () => {
+    const snapshots = listProviderSchemaSnapshots().filter(
+      (snapshot) => snapshot.id === "cursor-marketplace-schema" || snapshot.id === "cursor-plugin-schema"
+    );
+    const bodies = new Map(
+      snapshots.map((snapshot) => {
+        const body = schemaBodyFromSummary(snapshot.summary as ProviderJsonSchemaSummary);
+        return [snapshot.provenance.sources[0]!.url, body] as const;
+      })
+    );
+    const normalizedSnapshots = snapshots.map((snapshot) =>
+      snapshotWithSourceBody(snapshot, bodies.get(snapshot.provenance.sources[0]!.url)!)
+    );
+
+    const report = await runProviderMaintenance(
+      "/tmp/skillset-provider-cursor-check",
+      "check",
+      {
+        destinationSnapshots: [],
+        fetcher: fetchMap(Object.fromEntries(bodies)),
+        schemaSnapshots: normalizedSnapshots,
+      }
+    );
+
+    expect(report.ok).toBe(true);
+    expect(report.schemaChanged).toBe(0);
+    expect(report.schemaMatched).toBe(2);
+    expect(report.schemaResults.map(({ id, status, summaryChanges }) => ({ id, status, summaryChanges }))).toEqual([
+      { id: "cursor-marketplace-schema", status: "matched", summaryChanges: [] },
+      { id: "cursor-plugin-schema", status: "matched", summaryChanges: [] },
+    ]);
+  });
+
   test("SET-191: update writes refreshed schema snapshots only after explicit write", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-providers-"));
     const schemaPath = join(root, "schema-snapshots.ts");
@@ -286,7 +319,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
     expect(formatSnapshotUnion).toBe(expectedFormatSnapshotUnion);
     expect(formatSnapshotUnion).toContain('| "claude-hooks"');
     expect(hashText(source)).toBe(
-      "sha256:340f6aada58c322156cd754f11c3ccc6c3ed1c87e6e3919c8bffae74b3180f52"
+      "sha256:d9d996752e2f2f3ceae5593575fdd35322a9e04045c947014bec8ac125329957"
     );
     await writeFile(path, source);
     expect(typeDiagnostics(path)).toEqual([]);
@@ -321,6 +354,40 @@ function schemaBody(properties: readonly string[]): string {
     title: "Codex hooks configuration",
     type: "object",
   })}\n`;
+}
+
+function schemaBodyFromSummary(summary: ProviderJsonSchemaSummary): string {
+  return `${JSON.stringify({
+    $schema: summary.schemaUri,
+    ...(summary.id === undefined ? {} : { $id: summary.id }),
+    ...(summary.title === undefined ? {} : { title: summary.title }),
+    ...(summary.topLevelType === undefined ? {} : { type: summary.topLevelType }),
+    ...(summary.required === undefined ? {} : { required: summary.required }),
+    properties: Object.fromEntries((summary.properties ?? []).map((property) => [property, {}])),
+    $defs: Object.fromEntries((summary.definitions ?? []).map((definition) => [definition, {}])),
+  })}\n`;
+}
+
+function snapshotWithSourceBody(
+  snapshot: ProviderSchemaSnapshot,
+  body: string
+): ProviderSchemaSnapshot {
+  const source = snapshot.provenance.sources[0]!;
+  const input = {
+    ...snapshot,
+    provenance: {
+      ...snapshot.provenance,
+      contentHash: "",
+      sources: [{ ...source, contentHash: hashText(body) }],
+    },
+  };
+  return {
+    ...input,
+    provenance: {
+      ...input.provenance,
+      contentHash: hashProviderSchemaSnapshot(input),
+    },
+  };
 }
 
 function schemaSnapshot(body: string, url: string): ProviderSchemaSnapshot {
