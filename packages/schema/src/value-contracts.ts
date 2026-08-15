@@ -6,7 +6,7 @@ export const WORKSPACE_ID_PATTERN =
   "^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$";
 export const WORKSPACE_ID_MAX_LENGTH = 160;
 export const REPORT_WORKSPACE_NAME_PATTERN =
-  "^(?!\\.{1,2}$)(?!~$)(?![A-Za-z]:)[^\\\\/\\r\\n]+$";
+  "^(?!\\.{1,2}$)(?!~$)(?![A-Za-z]:)[^\\\\/\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]+$";
 
 export type ListConjunction = "and" | "or";
 

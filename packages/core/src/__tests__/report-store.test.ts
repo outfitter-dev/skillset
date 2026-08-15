@@ -155,24 +155,36 @@ describe("global immutable report store", () => {
     expect(Bun.file(join(existing, "new-user")).exists()).resolves.toBe(false);
   });
 
-  it("rejects path-shaped workspace names before creating report state", async () => {
+  it("rejects unsafe workspace names before creating report state", async () => {
     const root = await temporaryRoot();
     const reportRoot = join(root, "state/skillset/reports");
     const report = fixtureReport();
+    const sentinel = "fixture-secret-value";
 
-    await expect(
-      createReportBundle(
-        {
-          ...report,
-          workspace: {
-            ...report.workspace,
-            name: "/home/alice/private-repo",
+    for (const name of [
+      "/home/alice/private-repo",
+      `workspace ${sentinel}\u001b[31m`,
+      `workspace ${sentinel}\u0085hidden`,
+    ]) {
+      await expect(
+        createReportBundle(
+          {
+            ...report,
+            workspace: {
+              ...report.workspace,
+              name,
+            },
           },
-        },
-        { boundary: storeBoundary(reportRoot, root) }
-      )
-    ).rejects.toThrow("workspace name must be a display name, not a path");
-    expect(Bun.file(reportRoot).exists()).resolves.toBe(false);
+          {
+            boundary: storeBoundary(reportRoot, root),
+            sentinels: [sentinel],
+          }
+        )
+      ).rejects.toThrow(
+        "workspace name must be a human-readable display name without path syntax, control characters, or Unicode line separators"
+      );
+      expect(await Bun.file(reportRoot).exists()).toBe(false);
+    }
   });
 
   it("creates and reads one private, deterministic, immutable bundle", async () => {

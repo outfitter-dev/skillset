@@ -153,7 +153,7 @@ function checkWorkspace(
         diagnostic(
           `${path}.name`,
           "schema/report/workspace-name",
-          "workspace name must be a display name, not a path"
+          "workspace name must be a human-readable display name without path syntax, control characters, or Unicode line separators"
         )
       );
     }

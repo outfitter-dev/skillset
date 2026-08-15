@@ -106,7 +106,8 @@ describe("skillset.report@1", () => {
         }).diagnostics
       ).toContainEqual({
         code: "schema/report/workspace-name",
-        message: "workspace name must be a display name, not a path",
+        message:
+          "workspace name must be a human-readable display name without path syntax, control characters, or Unicode line separators",
         path: "$.workspace.name",
       });
     }
@@ -114,6 +115,39 @@ describe("skillset.report@1", () => {
       validateSkillsetReport({
         ...report,
         workspace: { ...report.workspace, name: "Outfitter Skillset" },
+      }).ok
+    ).toBe(true);
+  });
+
+  it("rejects C0, C1, and Unicode line controls in workspace display names", () => {
+    for (const name of [
+      "skill\u0000set",
+      "skill\u001fset",
+      "skill\u007fset",
+      "skill\u0085set",
+      "skill\u009fset",
+      "skill\u2028set",
+      "skill\u2029set",
+    ]) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          workspace: { ...report.workspace, name },
+        }).diagnostics
+      ).toContainEqual({
+        code: "schema/report/workspace-name",
+        message:
+          "workspace name must be a human-readable display name without path syntax, control characters, or Unicode line separators",
+        path: "$.workspace.name",
+      });
+    }
+    expect(
+      validateSkillsetReport({
+        ...report,
+        workspace: {
+          ...report.workspace,
+          name: "Skillset – Café 🚀 研发",
+        },
       }).ok
     ).toBe(true);
   });
