@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -163,6 +163,79 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: protected path owners include roots and descendants across path forms", () => {
+    const owners = [
+      ["docs/development", "development-docs"],
+      ["fixtures", "fixture-path"],
+      ["packages", "internal-package"],
+      ["apps/skillset/src", "internal-package"],
+      ["scripts", "internal-script"],
+    ] as const;
+
+    for (const [owner, rule] of owners) {
+      const lines = [
+        `cd ${owner}`,
+        `Open <${owner}>.`,
+        `Read ../../${owner}.`,
+        `Read ..\\..\\${owner.replaceAll("/", "\\")}.`,
+        `Read /repo/${owner}.`,
+        ...(owner === "scripts" ? [] : [`Read ${owner}/child.ts.`]),
+        ...(owner === "scripts" ? [] : [`Use \`${owner}\`.`]),
+      ];
+      const content = lines.join("\n");
+      expect(
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          content,
+          [],
+          new Set(),
+          undefined,
+          "/repo"
+        ).map(({ line, rule: actualRule }) => ({ line, rule: actualRule }))
+      ).toEqual(lines.map((_, index) => ({ line: index + 1, rule })));
+      expect(
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Read C:\\repo\\${owner.replaceAll("/", "\\")}.`,
+          [],
+          new Set(),
+          undefined,
+          "C:\\repo"
+        ).map(({ rule: actualRule }) => actualRule)
+      ).toEqual([rule]);
+      expect(
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          [
+            `Read ${owner.toUpperCase()}/child.ts.`,
+            `Read ..\\..\\${owner.toUpperCase().replaceAll("/", "\\")}.`,
+          ].join("\n")
+        ).map(({ rule: actualRule }) => actualRule)
+      ).toEqual(owner === "scripts" ? [rule] : [rule, rule]);
+    }
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        [
+          "Public packages are useful.",
+          "Portable fixtures improve examples.",
+          "Plugin scripts make automation deterministic.",
+          "Read docs/reference/features/skills.md.",
+          "Import @skillset/core.",
+          "Read .skillset/plugins/demo/scripts/check.ts.",
+          "Read apps/public/src/index.ts.",
+          "Read /other/packages/core/src/index.ts.",
+          "Use docs/developmental and apps/skillset/srcset.",
+        ].join("\n"),
+        [],
+        new Set(),
+        undefined,
+        "/repo"
+      )
+    ).toEqual([]);
+  });
+
   test("SET-465: synthetic public leak fails without scanning contributor surfaces", async () => {
     const root = await fixtureRoot();
     const publicSkill = join(
@@ -201,6 +274,19 @@ describe("generated public closure guard", () => {
         text: "Read scripts/provider-maintenance.ts.",
       },
     ]);
+  });
+
+  test("SET-465: tree scans fail closed on symbolic links", async () => {
+    const root = await fixtureRoot();
+    const publicRoot = join(root, "plugins/skillset/claude");
+    const publicTarget = join(root, "outside-public.md");
+    await mkdir(publicRoot, { recursive: true });
+    await writeFile(publicTarget, "Read packages/core/src/private.ts.\n");
+    await symlink(publicTarget, join(publicRoot, "linked.md"));
+
+    await expect(scanGeneratedPublicTree(root)).rejects.toThrow(
+      "public closure guard refuses symbolic link"
+    );
   });
 
   test("SET-465: rejects package-script aliases that reach repository scripts", () => {
@@ -293,6 +379,124 @@ describe("generated public closure guard", () => {
       { line: 1, rule: "internal-script" },
       { line: 2, rule: "internal-script" },
     ]);
+  });
+
+  test("SET-465: scripts ownership distinguishes repository and plugin-local paths", () => {
+    const packageScripts = {
+      "plugin-local": "bun .skillset/plugins/demo/scripts/check.ts",
+      private: "bun scripts/private.ts",
+      transitive: "npm run private",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+
+    expect([...aliases].toSorted()).toEqual(["private", "transitive"]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        [
+          "Read scripts/check.ts from this plugin.",
+          "Read scripts/private.ts from the repository.",
+          "A plugin may contain `scripts/` companions.",
+        ].join("\n"),
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([{ line: 2, rule: "internal-script" }]);
+  });
+
+  test("SET-465: shell-token contexts close bare protected roots", () => {
+    const packageScripts = {
+      "find:scripts": "find scripts -type f",
+      "find:scripts:assignment": "CI=1 find scripts -type f",
+      "list:fixtures": "ls fixtures",
+      "list:scripts": "ls scripts",
+      "list:scripts:env": "env CI=1 ls scripts",
+      "public:lookalikes": "ls scripts-extra fixtures.json packages-public",
+      "public:print-fixtures": "printf fixtures",
+      "public:print-packages": "echo packages",
+      "public:print-scripts": "echo scripts",
+      "via:roots": "npm run list:scripts && bun run list:fixtures",
+      "via:command": "command find fixtures -type f",
+      "copy:packages": "cp -R packages out",
+      "copy:packages:sudo": "sudo -u root cp -R packages out",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, []);
+
+    expect([...aliases].toSorted()).toEqual([
+      "copy:packages",
+      "copy:packages:sudo",
+      "find:scripts",
+      "find:scripts:assignment",
+      "list:fixtures",
+      "list:scripts",
+      "list:scripts:env",
+      "via:command",
+      "via:roots",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        [
+          "Run `ls scripts`.",
+          "Run `find fixtures -type f`.",
+          "Run `cp -R packages out`.",
+          "Run `node scripts`.",
+          "Run `bun scripts`.",
+          "Run `env CI=1 ls scripts`.",
+          "Run `command find fixtures -type f`.",
+          "Run `sudo -u root cp -R packages out`.",
+          "Run `CI=1 find scripts -type f`.",
+          "Run `echo packages`.",
+          "Run `printf fixtures`.",
+          "Run `echo scripts`.",
+          "The plugin ships `scripts/` and `fixtures.json`.",
+        ].join("\n")
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-script" },
+      { line: 2, rule: "fixture-path" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "fixture-path" },
+      { line: 8, rule: "internal-package" },
+      { line: 9, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: repository file URLs inherit protected owner semantics", () => {
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        [
+          "Read file:///repo/scripts/private.ts.",
+          "Read file:///repo/packages/core/src/x.ts.",
+          "Read file:///other/scripts/private.ts.",
+          "Read https://example.com/repo/packages/core/src/x.ts.",
+        ].join("\n"),
+        [],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-script" },
+      { line: 2, rule: "internal-package" },
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "Read file:///C:/repo/Packages/core/src/x.ts.",
+        [],
+        new Set(),
+        undefined,
+        "C:\\repo"
+      ).map(({ rule }) => rule)
+    ).toEqual(["internal-package"]);
   });
 
   test("SET-465: tree scan derives private aliases from package.json", async () => {
@@ -415,6 +619,64 @@ describe("generated public closure guard", () => {
         )
       )
     ).toEqual(publicCommandsWithPrivateArguments.map(() => []));
+  });
+
+  test("SET-465: npm pre-command config options preserve exact command selection", () => {
+    const packageScripts = {
+      private: "bun packages/core/src/private.ts",
+      public: "echo public",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, []);
+    const protectedCommands = [
+      "npm --loglevel silent run private",
+      "npm --workspace demo run private",
+      "npm -w demo run private",
+      "npm --silent run private",
+      "npm --loglevel=silent run private",
+      "npm --future-config value run private",
+      "npm --future-boolean run private",
+      "npm --no-future-boolean run private",
+      "npm -- run private",
+      "npm -L project run private",
+      "npm -Q value run private",
+      "npm -Z run private",
+      "npm -s run private",
+    ];
+
+    expect([...aliases]).toEqual(["private"]);
+    expect(
+      protectedCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          [],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(protectedCommands.map(() => ["internal-script"]));
+
+    const nonPrivateSelections = [
+      "npm --loglevel silent run public private",
+      "npm --workspace run private",
+      "npm --future-config value public private",
+      "npm --silent public private",
+      "npm -L run private",
+      "npm --location run private",
+      "npm -Q value public private",
+      "npm -- run public private",
+    ];
+    expect(
+      nonPrivateSelections.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          [],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        )
+      )
+    ).toEqual(nonPrivateSelections.map(() => []));
   });
 
   test("SET-465: Yarn require values do not hide the selected script", () => {
@@ -1009,6 +1271,7 @@ describe("generated public closure guard", () => {
       { line: 4, rule: "internal-script" },
       { line: 5, rule: "internal-script" },
       { line: 6, rule: "internal-script" },
+      { line: 8, rule: "internal-script" },
       { line: 10, rule: "internal-script" },
     ]);
     expect(
