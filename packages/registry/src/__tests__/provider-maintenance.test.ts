@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -130,6 +130,72 @@ describe("SET-335 registry-owned provider maintenance", () => {
     expect(source).toContain(hashText(liveBody));
     expect(source).toContain("2026-06-23T12:00:00.000Z");
   });
+
+  test.each([
+    ["JSON schema", false],
+    ["JSON schema", true],
+    ["schema set", false],
+    ["schema set", true],
+  ] as const)(
+    "SET-485: update preserves %s rollingLatest=%s provenance",
+    async (kind, rollingLatest) => {
+      const root = await mkdtemp(
+        join(tmpdir(), "skillset-providers-provenance-")
+      );
+      const schemaPath = join(root, "schema-snapshots.ts");
+      const adoptedBody = schemaBody(["alpha"]);
+      const liveBody = schemaBody(["alpha", "beta"]);
+      const schemaUrl = "https://example.com/event.schema.json";
+      const listingUrl = "https://api.example.com/schemas";
+      const listingBody = schemaSetListing(schemaUrl);
+      const snapshot =
+        kind === "JSON schema"
+          ? schemaSnapshot(adoptedBody, schemaUrl, rollingLatest)
+          : schemaSetSnapshot(
+              listingBody,
+              adoptedBody,
+              listingUrl,
+              schemaUrl,
+              rollingLatest
+            );
+      const responses =
+        kind === "JSON schema"
+          ? { [schemaUrl]: liveBody }
+          : { [listingUrl]: listingBody, [schemaUrl]: liveBody };
+
+      try {
+        const report = await runProviderMaintenance(root, "update", {
+          destinationSnapshots: [],
+          fetcher: fetchMap(responses),
+          now: "2026-08-15T03:00:00.000Z",
+          schemaSnapshotPath: schemaPath,
+          schemaSnapshots: [snapshot],
+          write: true,
+        });
+
+        expect(report.wrote).toBe(true);
+        expect(
+          report.schemaResults[0]?.updatedSnapshot?.provenance.rollingLatest
+        ).toBe(rollingLatest);
+        const source = await readFile(schemaPath, "utf8");
+        expect(source).toContain(`"rollingLatest": ${rollingLatest}`);
+        expect(typeDiagnostics(schemaPath)).toEqual([]);
+        const imported = (await import(pathToFileURL(schemaPath).href)) as {
+          readonly listProviderSchemaSnapshots: () => readonly ProviderSchemaSnapshot[];
+        };
+        const [writtenSnapshot] = imported.listProviderSchemaSnapshots();
+        expect(writtenSnapshot).toBeDefined();
+        if (writtenSnapshot === undefined)
+          throw new Error("expected refreshed schema snapshot");
+        expect(writtenSnapshot.provenance.rollingLatest).toBe(rollingLatest);
+        expect(hashProviderSchemaSnapshot(writtenSnapshot)).toBe(
+          writtenSnapshot.provenance.contentHash
+        );
+      } finally {
+        await rm(root, { force: true, recursive: true });
+      }
+    }
+  );
 
   test("SET-191: update preserves existing fetchedAt by default for deterministic CLI output", async () => {
     const root = await mkdtemp(
@@ -390,14 +456,18 @@ function snapshotWithSourceBody(
   };
 }
 
-function schemaSnapshot(body: string, url: string): ProviderSchemaSnapshot {
+function schemaSnapshot(
+  body: string,
+  url: string,
+  rollingLatest = true
+): ProviderSchemaSnapshot {
   const input = {
     destination: "hooks",
     id: "codex-hooks-schema",
     provenance: {
       contentHash: "",
       fetchedAt: "2026-06-22T12:00:00.000Z",
-      rollingLatest: true,
+      rollingLatest,
       sources: [{ contentHash: hashText(body), url }],
     },
     schema: PROVIDER_SCHEMA_SNAPSHOT_SCHEMA,
@@ -407,6 +477,60 @@ function schemaSnapshot(body: string, url: string): ProviderSchemaSnapshot {
   } as const satisfies ProviderSchemaSnapshot;
   const contentHash = hashProviderSchemaSnapshot(input);
   return { ...input, provenance: { ...input.provenance, contentHash } };
+}
+
+function schemaSetListing(schemaUrl: string): string {
+  return `${JSON.stringify([
+    {
+      download_url: schemaUrl,
+      name: "event.schema.json",
+      type: "file",
+    },
+  ])}\n`;
+}
+
+function schemaSetSnapshot(
+  listingBody: string,
+  body: string,
+  listingUrl: string,
+  schemaUrl: string,
+  rollingLatest: boolean
+): ProviderSchemaSnapshot {
+  const summary = jsonSchemaSummary(JSON.parse(body));
+  const input = {
+    destination: "hook-events",
+    id: "codex-hook-event-schemas",
+    provenance: {
+      contentHash: "",
+      fetchedAt: "2026-06-22T12:00:00.000Z",
+      rollingLatest,
+      sources: [{ contentHash: hashText(listingBody), url: listingUrl }],
+    },
+    schema: PROVIDER_SCHEMA_SNAPSHOT_SCHEMA,
+    summary: {
+      entries: [
+        {
+          contentHash: hashText(body),
+          name: "event.schema.json",
+          properties: summary.properties ?? [],
+          required: summary.required ?? [],
+          title: summary.title ?? "event",
+          url: schemaUrl,
+        },
+      ],
+      repositoryPath: "example/schemas",
+      schemaCount: 1,
+    },
+    target: "codex",
+    title: "Codex Hook Event JSON Schema Set",
+  } as const satisfies ProviderSchemaSnapshot;
+  return {
+    ...input,
+    provenance: {
+      ...input.provenance,
+      contentHash: hashProviderSchemaSnapshot(input),
+    },
+  };
 }
 
 function jsonSchemaSummary(value: unknown): ProviderJsonSchemaSummary {
