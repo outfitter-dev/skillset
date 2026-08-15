@@ -271,7 +271,11 @@ test("check --only outputs supports structured output", async () => {
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
     command: "check",
-    data: { checkedFiles: expect.any(Number), failures: [] },
+    data: {
+      checkedFiles: expect.any(Number),
+      failures: [],
+      outputState: { state: "current" },
+    },
     diagnostics: [],
     exitCode: 0,
     kind: "diagnostics",
@@ -288,6 +292,9 @@ test("check --only outputs serializes managed-edit and drift diagnostics without
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
+    data: {
+      outputState: { state: "output-diverged" },
+    },
     diagnostics: [
       expect.objectContaining({
         code: "managed-output-edited",

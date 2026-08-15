@@ -122,6 +122,23 @@ test("isolated build blocks unmanaged files planted inside the mirror", async ()
   expect(result.writes.paths).toEqual([]);
   expect(await Bun.file(cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md"))).text()).toBe("user file\n");
   expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
+
+  const preview = await runSkillsetCli(
+    "build",
+    "--isolated",
+    "--root",
+    root,
+    "--json"
+  );
+  expect(preview.exitCode).toBe(1);
+  expect(JSON.parse(preview.stdout)).toMatchObject({
+    data: {
+      outputState: { state: "blocked" },
+      state: "blocked",
+      writes: [],
+    },
+    ok: false,
+  });
 });
 
 test("CLI accepts --isolated for build and the narrow output check", async () => {

@@ -14,7 +14,11 @@ import {
 } from "@skillset/core";
 
 import type { ReleaseBaselineEntry } from "./adoption";
-import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "@skillset/core";
+import {
+  buildSkillsetResult,
+  ISOLATED_OUT_ROOT,
+  SkillsetBuildBlockedError,
+} from "@skillset/core";
 import { gitSafeEnv } from "./git-env";
 import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
@@ -391,12 +395,13 @@ async function adoptResolvedRoot(
   if (buildError === undefined) {
     try {
       const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
-      builtFiles = build.data.length;
-      buildWritePaths = build.writes.paths;
       renderResults = [
         ...renderResults,
         ...build.renderResults,
       ];
+      if (!build.ok) throw new SkillsetBuildBlockedError(build);
+      builtFiles = build.data.length;
+      buildWritePaths = build.writes.paths;
     } catch (error) {
       buildError = errorMessage(error);
     }

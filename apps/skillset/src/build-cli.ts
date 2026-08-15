@@ -47,7 +47,7 @@ export async function runBuildCommand({
         {
           changes: result.data,
           outputState: result.outputState,
-          state: "planned",
+          state: result.ok ? "planned" : "blocked",
           writes: [],
         },
         result.ok ? 0 : 1,

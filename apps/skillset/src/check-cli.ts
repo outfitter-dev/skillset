@@ -48,7 +48,7 @@ export async function runCheckCommand({
     if (jsonOutput) {
       printCliJsonData(
         "check",
-        result.data,
+        { ...result.data, outputState: result.outputState },
         result.ok ? 0 : 1,
         "diagnostics",
         serializeDiagnostics(result.diagnostics)
