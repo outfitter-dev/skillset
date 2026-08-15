@@ -80,6 +80,8 @@ export interface WorkspaceTransactionTestHooks {
   readonly beforeDirectoryReplacementValidation?: (
     path: string
   ) => Promise<void> | void;
+  /** Fires immediately before a directory destination name is claimed. */
+  readonly beforeDirectoryInstall?: (path: string) => Promise<void> | void;
   readonly beforeWriteInstall?: (path: string) => Promise<void> | void;
   readonly beforeRollback?: (
     action: WorkspaceTransactionRollbackAction,
@@ -681,7 +683,7 @@ async function applyMoves(
       Object.assign(applied, { caseStagingDirectory });
     }
     const outcome = await installWithoutReplacing(
-      state,
+      hooks,
       applied.currentPath,
       move.to
     );
@@ -743,7 +745,7 @@ async function applyWrites(
     state.appliedWrites.push(applied);
     await hooks?.beforeWriteInstall?.(write.path.relative);
     const outcome = await installWithoutReplacing(
-      state,
+      hooks,
       applied.currentPath,
       write.path
     );
@@ -761,13 +763,16 @@ async function applyWrites(
  * Installs one staged entry at its final path without ever replacing an entry
  * that appeared after inspection.
  *
- * Regular files use an exclusive hard link so the occupancy check and the
- * install are a single atomic step. Directories have no portable atomic
- * equivalent, so they fall back to a checked rename that still refuses a
- * visibly occupied target.
+ * Both branches take the destination name with an exclusive create, so
+ * occupancy detection and installation are one atomic step rather than a
+ * check followed by an overwrite-capable act. Regular files take it with
+ * `link`. Directories cannot be hard-linked, so they take it with `mkdir`,
+ * which fails with `EEXIST` for any existing entry — including an empty
+ * directory or a symbolic link, neither of which it follows — and then move
+ * onto the claim this transaction now owns.
  */
 async function installWithoutReplacing(
-  state: TransactionState,
+  hooks: WorkspaceTransactionTestHooks | undefined,
   sourcePath: string,
   target: NormalizedPath
 ): Promise<"installed" | "occupied"> {
@@ -784,11 +789,50 @@ async function installWithoutReplacing(
     await rm(sourcePath);
     return "installed";
   }
-  if ((await inspectPath(state.workspaceRoot, target)) !== undefined) {
-    return "occupied";
+  await hooks?.beforeDirectoryInstall?.(target.relative);
+  try {
+    await mkdir(target.absolute);
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      return "occupied";
+    }
+    throw error;
   }
-  await rename(sourcePath, target.absolute);
-  return "installed";
+  return await moveOntoDirectoryClaim(sourcePath, target.absolute);
+}
+
+/**
+ * Moves a staged directory onto the destination name this transaction just
+ * claimed.
+ *
+ * POSIX `rename` replaces an empty destination directory, so it consumes the
+ * claim directly. Windows refuses to rename a directory onto any existing
+ * entry, so there the claim is released first; that same refusal keeps the
+ * retry no-replace, and `rmdir` fails closed when the claim is no longer the
+ * empty directory this transaction created.
+ */
+async function moveOntoDirectoryClaim(
+  sourcePath: string,
+  targetPath: string
+): Promise<"installed" | "occupied"> {
+  try {
+    await rename(sourcePath, targetPath);
+    return "installed";
+  } catch (error) {
+    if (!isAlreadyExists(error)) {
+      throw error;
+    }
+  }
+  await rmdir(targetPath);
+  try {
+    await rename(sourcePath, targetPath);
+    return "installed";
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      return "occupied";
+    }
+    throw error;
+  }
 }
 
 function writeReplacesPlannedEntry(
@@ -904,7 +948,7 @@ async function rollbackTransaction(
       { kind: "restore-preimage", path: preimage.path.relative },
       async () => {
         await ensureSafeParent(state, preimage.path);
-        await restorePreimageWithoutOverwrite(state, preimage);
+        await restorePreimageWithoutOverwrite(state, hooks, preimage);
       }
     );
   }
@@ -926,7 +970,7 @@ async function rollbackTransaction(
       async () => {
         await removeCreatedDirectoriesWithin(state, preimage.path.absolute);
         await ensureSafeParent(state, preimage.path);
-        await restorePreimageWithoutOverwrite(state, preimage);
+        await restorePreimageWithoutOverwrite(state, hooks, preimage);
       }
     );
   }
@@ -975,10 +1019,11 @@ async function rollbackTransaction(
 
 async function restorePreimageWithoutOverwrite(
   state: TransactionState,
+  hooks: WorkspaceTransactionTestHooks | undefined,
   preimage: Preimage
 ): Promise<void> {
   const outcome = await installWithoutReplacing(
-    state,
+    hooks,
     preimage.journalPath,
     preimage.path
   );

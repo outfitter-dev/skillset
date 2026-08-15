@@ -12,4 +12,6 @@ Output writes and moves are now installed exclusively rather than with an overwr
 
 Rollback also drains case-staging directories before removing directories the transaction created, so `ENOTEMPTY` no longer masks the original failure.
 
-Note for consumers on filesystems without hard-link support (exFAT/FAT32, some SMB mounts): exclusive install uses `link()`, which fails there where `rename()` previously worked. This fails loudly rather than corrupting output.
+Exclusive install takes the destination name with an exclusive create rather than checking it first: regular files with `link()`, directories with `mkdir()`. Both refuse an existing entry — including an empty directory or a symbolic link, which is never followed — so a directory install can no longer discard an unapproved entry that appeared after inspection.
+
+Note for consumers on filesystems without hard-link support (exFAT/FAT32, some SMB mounts): file install uses `link()`, which fails there where `rename()` previously worked. This fails loudly rather than corrupting output.
