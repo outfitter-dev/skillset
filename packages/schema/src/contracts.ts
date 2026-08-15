@@ -2,6 +2,7 @@ import { sortSchemaRecord } from "./json";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 import {
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
+  REPORT_REPOSITORY_IDENTITY_PATTERN,
   REPORT_WORKSPACE_NAME_PATTERN,
   SEMVER_PATTERN,
   WORKSPACE_ID_MAX_LENGTH,
@@ -758,7 +759,7 @@ export const reportContract = contract(
               identity: {
                 maxLength: 512,
                 minLength: 1,
-                pattern: "^[a-z0-9.-]+(?:/[A-Za-z0-9._-]+)+$",
+                pattern: REPORT_REPOSITORY_IDENTITY_PATTERN,
                 type: "string",
               },
             },

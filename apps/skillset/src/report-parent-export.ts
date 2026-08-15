@@ -1,13 +1,5 @@
 import { lstat, realpath } from "node:fs/promises";
-import {
-  dirname,
-  isAbsolute,
-  join,
-  parse,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
   importReportBundle,
@@ -41,20 +33,20 @@ export interface ExportSandboxReportInput {
  * the child environment was constructed.
  */
 export async function exportSandboxReportToParent(
-  input: ExportSandboxReportInput,
+  input: ExportSandboxReportInput
 ): Promise<StoredReportBundle> {
   if (!UUID_V4_PATTERN.test(input.reportId)) {
     throw new Error("skillset: sandbox report export requires a full UUIDv4");
   }
   if (!isAbsolute(input.parentXdg.state)) {
     throw new Error(
-      "skillset: sandbox report export requires an absolute captured parent XDG state root",
+      "skillset: sandbox report export requires an absolute captured parent XDG state root"
     );
   }
 
   const sandbox = await validateTestSandbox(
     input.childEnv,
-    input.expectedRepoRoot,
+    input.expectedRepoRoot
   );
   const childReportRoot = resolveReportStoreRoot({
     env: { XDG_STATE_HOME: sandbox.xdg.state },
@@ -62,21 +54,14 @@ export async function exportSandboxReportToParent(
   const parentReportRoot = resolveReportStoreRoot({
     env: { XDG_STATE_HOME: input.parentXdg.state },
   });
-  const parentTrustedBase = await findExistingTrustedBase(
-    input.parentXdg.state,
-  );
-
   await rejectOverlappingRoots(
     [sandbox.descriptor.sandboxPath, sandbox.xdg.state, childReportRoot],
-    [input.parentXdg.state, parentReportRoot],
+    [input.parentXdg.state, parentReportRoot]
   );
 
   return importReportBundle({
     destination: {
-      boundary: {
-        reportRoot: parentReportRoot,
-        trustedBase: parentTrustedBase,
-      },
+      env: { XDG_STATE_HOME: input.parentXdg.state },
     },
     sentinels: input.sensitiveValues,
     sourceReference: input.reportId,
@@ -85,68 +70,21 @@ export async function exportSandboxReportToParent(
   });
 }
 
-async function findExistingTrustedBase(path: string): Promise<string> {
-  const absolute = resolve(path);
-  const authority = parse(absolute).root;
-  const authorityEntry = await lstat(authority);
-  if (authorityEntry.isSymbolicLink() || !authorityEntry.isDirectory()) {
-    throw new Error(
-      "skillset: parent filesystem authority must be a plain directory",
-    );
-  }
-
-  const components = relative(authority, absolute)
-    .split(sep)
-    .filter((component) => component.length > 0);
-  let candidate = authority;
-  let trustedBase = authority;
-  let reachedMissingComponent = false;
-  for (const component of components) {
-    candidate = join(candidate, component);
-    if (reachedMissingComponent) continue;
-    try {
-      const entry = await lstat(candidate);
-      if (entry.isSymbolicLink()) {
-        throw new Error(
-          "skillset: captured parent XDG state ancestry must not contain symlinks",
-        );
-      }
-      if (!entry.isDirectory()) {
-        throw new Error(
-          "skillset: captured parent XDG state ancestry must contain only directories",
-        );
-      }
-      trustedBase = candidate;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        "code" in error &&
-        error.code === "ENOENT"
-      ) {
-        reachedMissingComponent = true;
-        continue;
-      }
-      throw error;
-    }
-  }
-  return trustedBase;
-}
-
 async function rejectOverlappingRoots(
   childPaths: readonly string[],
-  parentPaths: readonly string[],
+  parentPaths: readonly string[]
 ): Promise<void> {
   const canonicalChildren = await Promise.all(
-    childPaths.map(canonicalizePotentialPath),
+    childPaths.map(canonicalizePotentialPath)
   );
   const canonicalParents = await Promise.all(
-    parentPaths.map(canonicalizePotentialPath),
+    parentPaths.map(canonicalizePotentialPath)
   );
   for (const childPath of canonicalChildren) {
     for (const parentPath of canonicalParents) {
       if (pathsOverlap(childPath, parentPath)) {
         throw new Error(
-          "skillset: child and parent report state must not overlap",
+          "skillset: child and parent report state must not overlap"
         );
       }
     }
@@ -162,7 +100,7 @@ async function canonicalizePotentialPath(path: string): Promise<string> {
       (error: NodeJS.ErrnoException) => {
         if (error.code === "ENOENT") return undefined;
         throw error;
-      },
+      }
     );
     if (entry !== undefined) {
       return resolve(await realpath(existing), ...missing.reverse());

@@ -78,6 +78,11 @@ describe("skillset.report@1", () => {
   it("rejects local paths and credential-bearing repository identities", () => {
     for (const identity of [
       "/Users/mg/project",
+      "../private/repo",
+      "home/alice/private-repo",
+      "github.com/../private-repo",
+      "github.com/org/./repo",
+      "github..com/org/repo",
       "https://user@example.com/org/repo?token=x",
       "C:\\Users\\mg\\project",
     ]) {
@@ -88,6 +93,15 @@ describe("skillset.report@1", () => {
         }).ok
       ).toBe(false);
     }
+    expect(
+      validateSkillsetReport({
+        ...report,
+        workspace: {
+          ...report.workspace,
+          repository: { identity: "git.example/acme/repo.with-dots" },
+        },
+      }).ok
+    ).toBe(true);
   });
 
   it("rejects path-shaped workspace display names", () => {

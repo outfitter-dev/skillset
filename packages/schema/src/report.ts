@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import {
   createSemverRegExp,
+  REPORT_REPOSITORY_IDENTITY_PATTERN,
   REPORT_WORKSPACE_NAME_PATTERN,
   WORKSPACE_ID_MAX_LENGTH,
   WORKSPACE_ID_PATTERN,
@@ -20,7 +21,10 @@ const TIMESTAMP_PATTERN =
 const workspaceIdPattern = new RegExp(WORKSPACE_ID_PATTERN, "u");
 const workspaceNamePattern = new RegExp(REPORT_WORKSPACE_NAME_PATTERN, "u");
 const COMMAND_PATTERN = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
-const REPOSITORY_IDENTITY_PATTERN = /^[a-z0-9.-]+(?:\/[A-Za-z0-9._-]+)+$/;
+const repositoryIdentityPattern = new RegExp(
+  REPORT_REPOSITORY_IDENTITY_PATTERN,
+  "u"
+);
 const FULL_GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 const semverPattern = createSemverRegExp();
 
@@ -187,7 +191,7 @@ function checkRepository(
   );
   checkPattern(
     value.identity,
-    REPOSITORY_IDENTITY_PATTERN,
+    repositoryIdentityPattern,
     `${path}.identity`,
     "repository identity",
     diagnostics,

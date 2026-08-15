@@ -7,6 +7,7 @@ import {
   readFile,
   readdir,
   realpath,
+  rm,
   stat,
   symlink,
   writeFile,
@@ -238,7 +239,7 @@ test("SET-453: parent export rejects a symlinked parent state ancestor", async (
       parentXdg: { state: linkedParentState },
       reportId: FIRST_ID,
     })
-  ).rejects.toThrow("must not contain symlinks");
+  ).rejects.toThrow("must contain only plain directories");
   expect(pathExists(parentReportRoot(fixture))).resolves.toBe(false);
 });
 
@@ -261,7 +262,7 @@ test("SET-453: first parent export rejects a symlink above its discovered base",
       parentXdg: { state: capturedState },
       reportId: FIRST_ID,
     })
-  ).rejects.toThrow("must not contain symlinks");
+  ).rejects.toThrow("must contain only plain directories");
   expect(pathExists(join(existing, "new-state"))).resolves.toBe(false);
 });
 
@@ -295,6 +296,42 @@ test("SET-453: first parent export creates an absent private state hierarchy", a
     expect((await stat(join(absentParentState, "skillset"))).mode & 0o777).toBe(
       0o700
     );
+  }
+});
+
+test("SET-453: first parent export supports an absent hierarchy below a sticky system temp root", async () => {
+  if (process.platform === "win32" || process.getuid === undefined) return;
+  const systemTempRoot = await realpath("/tmp");
+  const systemTemp = await stat(systemTempRoot);
+  if (
+    process.getuid() === 0 ||
+    systemTemp.uid !== 0 ||
+    (systemTemp.mode & 0o1003) !== 0o1003
+  ) {
+    return;
+  }
+
+  const fixture = await createSandboxFixture();
+  await writeChildReport(fixture, FIRST_ID, "workspace");
+  const absentRoot = join(
+    systemTempRoot,
+    `skillset-parent-export-${crypto.randomUUID()}`
+  );
+  const absentParentState = join(absentRoot, "state");
+
+  try {
+    const stored = await exportSandboxReportToParent({
+      childEnv: fixture.env,
+      expectedRepoRoot: process.cwd(),
+      parentXdg: { state: absentParentState },
+      reportId: FIRST_ID,
+    });
+
+    expect(stored.resolvedPath).toBe(
+      join(absentParentState, "skillset/reports", FIRST_ID)
+    );
+  } finally {
+    await rm(absentRoot, { force: true, recursive: true });
   }
 });
 
