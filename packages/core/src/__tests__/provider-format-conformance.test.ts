@@ -320,6 +320,346 @@ describe("provider format conformance", () => {
     ]);
   });
 
+  it("validates Claude marketplace root and metadata field types", () => {
+    const valid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        $schema: "https://json.schemastore.org/claude-code-marketplace.json",
+        description: "Example marketplace.",
+        forceRemoveDeletedPlugins: false,
+        metadata: { description: "Example.", pluginRoot: "./plugins", version: "1.0.0" },
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [],
+        renames: { legacy: null },
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        $schema: {},
+        description: 1,
+        forceRemoveDeletedPlugins: "yes",
+        metadata: { description: true, pluginRoot: false, version: 1 },
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [],
+        renames: [],
+      }),
+    ]);
+    expect(invalid.issues.map(({ message }) => message)).toEqual([
+      "destination field $schema must be a string",
+      "destination field description must be a string",
+      "destination field forceRemoveDeletedPlugins must be a boolean",
+      "destination field metadata.description must be a string",
+      "destination field metadata.pluginRoot must be a string",
+      "destination field metadata.version must be a string",
+      "destination field renames must be an object",
+    ]);
+  });
+
+  it("validates Claude marketplace plugin override fields and nested shapes", () => {
+    const valid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            agents: ["./agents/reviewer.md"],
+            channels: [{ displayName: "Alerts", server: "alerts", userConfig: {} }],
+            defaultEnabled: false,
+            dependencies: ["base", { marketplace: "example", name: "shared" }],
+            description: "Alpha plugin.",
+            displayName: "Alpha Plugin",
+            experimental: { monitors: "./monitors.json" },
+            keywords: ["tools"],
+            lspServers: [
+              {
+                ts: {
+                  command: "tsserver",
+                  diagnostics: false,
+                  extensionToLanguage: { ".ts": "typescript" },
+                },
+              },
+            ],
+            metadata: { entitlement: "pro" },
+            name: "alpha",
+            relevance: { signals: { cli: ["alpha"] }, topic: "Alpha plugin" },
+            source: { ref: "main", repo: "owner/repo", source: "github" },
+            version: "1.0.0",
+            workflows: ["./workflows/review.md"],
+          },
+        ],
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            agents: [42],
+            channels: [42],
+            dependencies: [42],
+            description: false,
+            keywords: "tools",
+            name: "alpha",
+            source: { ref: 42, repo: "owner/repo", source: "github", unexpected: true },
+            unknown: true,
+            version: 1,
+          },
+        ],
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].agents must be a string or an array of strings",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].channels[0] must be an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].dependencies[0] must be a string or an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].description must be a string",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].keywords must be an array of strings",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].source.ref must be a string",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[0].version must be a string",
+      },
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field plugins[0].source.unexpected; allowed fields are ref, repo, sha, source",
+      },
+      {
+        code: "unknown-destination-field",
+        message:
+          "unknown destination field plugins[0].unknown; allowed fields are $schema, agents, author, category, channels, commands, defaultEnabled, dependencies, description, displayName, experimental, homepage, hooks, keywords, license, lspServers, mcpServers, metadata, monitors, name, outputStyles, relevance, repository, settings, skills, source, strict, tags, themes, userConfig, version, workflows",
+      },
+    ]);
+  });
+
+  it("rejects empty Claude marketplace identity fields", () => {
+    const result = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "",
+        owner: { name: "" },
+        plugins: [
+          { author: { name: "" }, name: "alpha", source: "./plugins/alpha" },
+        ],
+      }),
+    ]);
+    expect(result.issues.map(({ message }) => message)).toEqual([
+      "destination field name must not be empty",
+      "destination field owner.name must not be empty",
+      "destination field plugins[0].author.name must not be empty",
+    ]);
+  });
+
+  it("validates every array-bearing Claude marketplace plugin override", () => {
+    const result = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            commands: [42],
+            experimental: { monitors: [42], themes: [42], unknown: true },
+            hooks: [42],
+            lspServers: [42],
+            mcpServers: [42],
+            monitors: [42],
+            name: "alpha",
+            outputStyles: [42],
+            skills: [42],
+            source: "./plugins/alpha",
+            themes: [42],
+            workflows: [42],
+          },
+        ],
+      }),
+    ]);
+    expect(result.issues.map(({ message }) => message)).toEqual([
+      "destination field plugins[0].commands[0] must be a string",
+      "destination field plugins[0].experimental.monitors[0] must be an object",
+      "destination field plugins[0].experimental.themes must be a string or an array of strings",
+      "destination field plugins[0].hooks[0] must be a string or an object",
+      "destination field plugins[0].lspServers[0] must be a string or an object",
+      "destination field plugins[0].mcpServers[0] must be a string or an object",
+      "destination field plugins[0].monitors[0] must be an object",
+      "destination field plugins[0].outputStyles must be a string or an array of strings",
+      "destination field plugins[0].skills must be a string or an array of strings",
+      "destination field plugins[0].themes must be a string or an array of strings",
+      "destination field plugins[0].workflows must be a string or an array of strings",
+      "unknown destination field plugins[0].experimental.unknown; allowed fields are monitors, themes",
+    ]);
+  });
+
+  it("validates Claude marketplace rename targets", () => {
+    const result = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [],
+        renames: { legacy: 42, removed: null, renamed: "current" },
+      }),
+    ]);
+    expect(result.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field renames.legacy must be a string or null",
+      },
+    ]);
+  });
+
+  it("rejects malformed structured Claude marketplace overrides", () => {
+    const result = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            channels: [{ server: "mcp", userConfig: { token: { type: false } } }],
+            commands: {
+              bar: { content: "inline", source: "not-relative" },
+              foo: { source: 1, unknown: true },
+            },
+            dependencies: ["bad space", { marketplace: "", name: "dep", version: 1 }],
+            experimental: { monitors: [{}] },
+            hooks: [{ Bogus: [{}] }],
+            lspServers: [{
+              bad: {
+                args: [""], command: "lsp", extensionToLanguage: { x: "" },
+                maxRestarts: -1, shutdownTimeout: -1, startupTimeout: 0,
+              },
+              ts: { args: [1], command: 1, transport: "bogus", unknown: true },
+            }],
+            mcpServers: [{
+              remote: {
+                oauth: {
+                  authServerMetadataUrl: "http://example.com",
+                  callbackPort: 0,
+                  clientId: 1,
+                  scopes: "",
+                  xaa: "yes",
+                },
+                type: "http",
+                url: "https://example.com",
+              },
+              x: { args: [1], command: 1, env: { X: 1 }, type: "bogus", unknown: true },
+            }],
+            monitors: [{ command: "watch", description: "Watch.", name: "watch", when: "sometimes" }],
+            name: "components",
+            source: "./plugins/components",
+            userConfig: {
+              "bad-key": {
+                default: {},
+                description: "Token.",
+                title: "Token",
+                type: "string",
+              },
+              token: { type: false },
+            },
+          },
+          {
+            name: "github",
+            source: { repo: "", sha: "x", source: "github" },
+          },
+          {
+            name: "archive",
+            source: { sha256: "x", source: "archive", url: "http://example.com/a.zip" },
+          },
+          {
+            name: "command",
+            source: { command: "tool path", mode: "bogus", source: "command", timeout: -1 },
+          },
+          {
+            name: "npm",
+            source: { package: "", registry: "not a URL", source: "npm" },
+          },
+          {
+            name: "loopback",
+            source: { source: "archive", url: "https://127.0.0.1/plugin.zip" },
+          },
+          {
+            name: "unsafe-command",
+            source: { command: "tool    café", source: "command" },
+          },
+          {
+            agents: "agents/reviewer.md",
+            commands: "commands/review.txt",
+            experimental: { monitors: "monitors/config.json" },
+            hooks: "hooks/config.yaml",
+            lspServers: "lsp/config.json",
+            mcpServers: "mcp/config.json",
+            monitors: "monitors/config.json",
+            name: "paths",
+            skills: ["skills/review"],
+            source: "./plugins/paths",
+          },
+        ],
+      }),
+    ]);
+    const messages = result.issues.map(({ message }) => message);
+    for (const expected of [
+      "destination field plugins[0].channels[0].userConfig.token.type must be a string",
+      "destination field plugins[0].commands.bar.source must start with ./",
+      "destination field plugins[0].commands.bar must not define both source and content",
+      "destination field plugins[0].commands.foo.source must be a string",
+      "destination field plugins[0].dependencies[0] must be a valid plugin dependency identifier",
+      "destination field plugins[0].dependencies[1].marketplace must not be empty",
+      "destination field plugins[0].dependencies[1].version must be a string",
+      "missing required destination field plugins[0].experimental.monitors[0].command",
+      "unknown destination field plugins[0].hooks[0].Bogus; allowed fields are ConfigChange, CwdChanged, Elicitation, ElicitationResult, FileChanged, InstructionsLoaded, MessageDisplay, Notification, PermissionDenied, PermissionRequest, PostCompact, PostToolBatch, PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Setup, Stop, StopFailure, SubagentStart, SubagentStop, TaskCompleted, TaskCreated, TeammateIdle, UserPromptExpansion, UserPromptSubmit, WorktreeCreate, WorktreeRemove",
+      "destination field plugins[0].lspServers[0].ts.command must be a string",
+      "destination field plugins[0].lspServers[0].ts.transport must be socket or stdio",
+      "destination field plugins[0].mcpServers[0].x.command must be a string",
+      "destination field plugins[0].mcpServers[0].x.env.X must be a string",
+      "destination field plugins[0].mcpServers[0].x.type must be http, sse, stdio, or ws",
+      "destination field plugins[0].monitors[0].when must be always or start with on-skill-invoke:",
+      "destination field plugins[0].userConfig.bad-key.default must be a string, number, boolean, or array of strings",
+      "destination field plugins[0].userConfig.bad-key must use an identifier key",
+      "destination field plugins[0].userConfig.token.type must be a string",
+      "destination field plugins[1].source.repo must not be empty",
+      "destination field plugins[1].source.sha must be a 40-character lowercase hexadecimal commit SHA",
+      "destination field plugins[2].source.sha256 must be a 64-character hexadecimal digest",
+      "destination field plugins[2].source.url must use HTTPS",
+      "destination field plugins[3].source.mode must be copy or link",
+      "destination field plugins[3].source.timeout must be an integer from 1 through 600",
+      "destination field plugins[4].source.package must not be empty",
+      "destination field plugins[4].source.registry must be an absolute URL",
+      "destination field plugins[5].source.url must not use a loopback, link-local, or cloud-metadata host",
+      "destination field plugins[6].source.command must be at most 500 printable ASCII characters without four consecutive spaces",
+      "destination field plugins[7].agents must start with ./",
+      "destination field plugins[7].commands must start with ./",
+      "destination field plugins[7].experimental.monitors must start with ./",
+      "destination field plugins[7].hooks must start with ./",
+      "destination field plugins[7].lspServers must start with ./",
+      "destination field plugins[7].mcpServers must start with ./ or be an absolute URL",
+      "destination field plugins[7].monitors must start with ./",
+      "destination field plugins[7].skills[0] must start with ./",
+    ]) {
+      expect(messages).toContain(expected);
+    }
+    expect(result.ok).toBe(false);
+  });
+
   it("validates Claude marketplace plugin entry requirements", () => {
     const valid = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {
@@ -331,7 +671,14 @@ describe("provider format conformance", () => {
           { name: "bad.name", source: "./plugins/dotted-name" },
           { name: "bad_name", source: "./plugins/underscored-name" },
           { name: "a".repeat(128), source: "./plugins/max-name" },
-          { name: "archive", source: { source: "archive", url: "https://example.com/plugin.zip" } },
+          {
+            name: "archive",
+            source: {
+              sha256: "A".repeat(64),
+              source: "archive",
+              url: "https://example.com/plugin.zip",
+            },
+          },
           { name: "command", source: { command: "skillset plugin path", source: "command" } },
           {
             name: "remote",
