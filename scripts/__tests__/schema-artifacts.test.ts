@@ -2,7 +2,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseYamlRecord } from "../../packages/core/src/yaml";
-import { reportContract, SKILLSET_SCHEMA_VERSION, skillsetSchemaContracts, skillsetSchemaExamples } from "../../packages/schema/src";
+import {
+  reportContract,
+  SKILLSET_SCHEMA_VERSION,
+  skillsetSchemaContracts,
+  skillsetSchemaExamples,
+  validateSkillsetReport,
+} from "../../packages/schema/src";
 import type { SchemaJsonRecord } from "../../packages/schema/src";
 import { buildSchemaArtifacts, findUnexpectedGeneratedArtifactPaths, validateAgainstSchema } from "../schema-artifacts";
 
@@ -108,6 +114,18 @@ test("SET-445: report artifacts enforce discriminants, bounds, and pipeline stat
     (evidence[0] as Record<string, unknown>).id = id;
     expect(validateAgainstSchema(validIdentity, reportContract.schema)).toEqual([]);
   }
+});
+
+test("SET-445: external fixture repository identity has runtime and schema parity", () => {
+  const example = skillsetSchemaExamples.find((candidate) => candidate.id === "report")?.value;
+  if (example === undefined) throw new Error("missing report example");
+  const invalidIdentity = structuredClone(example);
+  const payload = invalidIdentity.payload as Record<string, unknown>;
+  const fixture = payload.fixture as Record<string, unknown>;
+  fixture.repository = "home/alice/private-repo";
+
+  expect(validateSkillsetReport(invalidIdentity).ok).toBe(false);
+  expect(validateAgainstSchema(invalidIdentity, reportContract.schema)).not.toEqual([]);
 });
 
 test("SET-182: generated workspace examples use the language-server schema comment", async () => {

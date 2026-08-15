@@ -1746,7 +1746,7 @@ function reportExternalFixturePayloadSchema(): SchemaJsonRecord {
           pinnedCommit: { pattern: "^[0-9a-f]{40}$", type: "string" },
           repository: {
             maxLength: 512,
-            pattern: "^[a-z0-9.-]+(?:/[A-Za-z0-9._-]+)+$",
+            pattern: REPORT_REPOSITORY_IDENTITY_PATTERN,
             type: "string",
           },
           targets: arraySchema(enumSchema([...TARGET_NAMES]), {
