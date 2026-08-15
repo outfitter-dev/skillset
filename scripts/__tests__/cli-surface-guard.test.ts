@@ -64,6 +64,13 @@ test("SET-285: CLI surface guard rejects retired commands, flags, and environmen
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run"]);')).toEqual([]);
   expect(scanCliSurface("scripts/npm-bootstrap.ts", 'Bun.spawn(["npm", "pack", "--dry-run"]);')).toEqual([]);
   expect(scanCliSurface("scripts/npm-bootstrap.ts", '    "--dry-run",')).toEqual([]);
+  expect(scanCliSurface("scripts/public-closure-guard.ts", '    "--dry-run",')).toEqual([]);
+  expect(
+    scanCliSurface(
+      "scripts/public-closure-guard.ts",
+      'Bun.spawn(["npm", "run", "--dry-run", "--codex"]);'
+    )
+  ).toHaveLength(1);
   expect(scanCliSurface("scripts/npm-bootstrap.ts", 'Bun.spawn(["npm", "pack", "--dry-run", "--codex"]);')).toHaveLength(1);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run", "--codex"]);')).toHaveLength(1);
   expect(scanCliSurface("scripts/package-metadata.ts", 'Bun.spawn(["bun", "pm", "pack", "--dry-run"]); skillset verify')).toHaveLength(1);
