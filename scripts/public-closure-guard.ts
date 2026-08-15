@@ -109,6 +109,9 @@ const BUN_RUN_REQUIRED_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "-p",
   "-r",
 ]);
+const YARN_RUN_REQUIRED_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--require",
+]);
 const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
   {
     bun: BUN_RUN_REQUIRED_VALUE_FLAGS,
@@ -310,20 +313,62 @@ function readCommandToken(text: string, offset: number): CommandToken | null {
 function readRunnerTokens(
   text: string,
   offset: number,
-  runner: PackageRunner
+  runner: PackageRunner,
+  options: {
+    readonly consumeYarnRequireBeforeRun?: boolean;
+    readonly requiredValueFlags?: ReadonlySet<string>;
+    readonly skipArgumentDelimiter?: boolean;
+  } = {}
 ): readonly CommandToken[] {
-  const visit = (token: CommandToken | null): readonly CommandToken[] => {
-    if (!token || token.value === "--") return [];
-    if (!token.value.startsWith("-")) return [token];
+  const visit = (
+    token: CommandToken | null,
+    maySkipArgumentDelimiter: boolean,
+    requiresExplicitRun = false
+  ): readonly CommandToken[] => {
+    if (!token) return [];
+    if (token.value === "--") {
+      const script = readCommandToken(text, token.end);
+      return maySkipArgumentDelimiter && script ? [script] : [];
+    }
+    if (!token.value.startsWith("-")) {
+      return requiresExplicitRun && token.value.toLowerCase() !== "run"
+        ? []
+        : [token];
+    }
 
     const next = readCommandToken(text, token.end);
-    if (RUNNER_VALUE_FLAGS[runner].has(token.value)) {
-      return next ? visit(readCommandToken(text, next.end)) : [];
+    if (
+      runner === "yarn" &&
+      options.consumeYarnRequireBeforeRun === true &&
+      (token.value === "--require" || token.value.startsWith("--require="))
+    ) {
+      const command =
+        token.value === "--require"
+          ? next
+            ? readCommandToken(text, next.end)
+            : null
+          : next;
+      return visit(command, maySkipArgumentDelimiter, true);
     }
-    return visit(next);
+    if (
+      RUNNER_VALUE_FLAGS[runner].has(token.value) ||
+      options.requiredValueFlags?.has(token.value) === true
+    ) {
+      return next
+        ? visit(
+            readCommandToken(text, next.end),
+            maySkipArgumentDelimiter,
+            requiresExplicitRun
+          )
+        : [];
+    }
+    return visit(next, maySkipArgumentDelimiter, requiresExplicitRun);
   };
 
-  return visit(readCommandToken(text, offset));
+  return visit(
+    readCommandToken(text, offset),
+    options.skipArgumentDelimiter === true
+  );
 }
 
 /**
@@ -334,8 +379,9 @@ function readRunnerTokens(
  * shorthand (`start`, `stop`, `restart`, and `test` plus `t`/`tst`). Script
  * names may be bare or single-/double-quoted.
  * Bounded required-value flags (`npm --prefix`, `-w`/`--workspace`,
- * `--script-shell`; the corresponding Bun forms; `yarn --cwd`; and
- * `pnpm --dir`, `-C`, `--filter`, or `-F`) consume one following token. Other
+ * `--script-shell`; the corresponding Bun forms; Yarn's global `--cwd` and
+ * run-scoped `--require`; and `pnpm --dir`, `-C`, `--filter`, or `-F`) consume
+ * one following token. Other
  * flags must be self-contained (for example `--silent` or `--cwd=path`). npm,
  * Bun, and pnpm package-script execution includes
  * bounded pre/post lifecycle edges; npm `restart` chooses restart or stop/start
@@ -364,7 +410,10 @@ function invokedPackageScriptsOnLine(
     const commandTokens = readRunnerTokens(
       text,
       match.index + match[0].length,
-      runner
+      runner,
+      {
+        consumeYarnRequireBeforeRun: runner === "yarn",
+      }
     );
     for (const commandToken of commandTokens) {
       scripts.push(
@@ -395,7 +444,12 @@ function invokedPackageScriptsForCommand(
         ? PNPM_RUN_COMMANDS.has(command)
         : command === "run";
   if (isRunCommand) {
-    for (const token of readRunnerTokens(text, commandToken.end, runner)) {
+    for (const token of readRunnerTokens(text, commandToken.end, runner, {
+      ...(runner === "yarn"
+        ? { requiredValueFlags: YARN_RUN_REQUIRED_VALUE_FLAGS }
+        : {}),
+      skipArgumentDelimiter: runner !== "yarn",
+    })) {
       if (runner === "npm") {
         scripts.push(...npmLifecycleEdges(token.value, packageScriptNames));
       } else if (runner === "bun" || runner === "pnpm") {

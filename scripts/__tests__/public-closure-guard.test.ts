@@ -299,6 +299,120 @@ describe("generated public closure guard", () => {
     ).toEqual([1, 2, 3, 4]);
   });
 
+  test("SET-465: run delimiters expose scripts but not later script arguments", () => {
+    const packageScripts = {
+      "--private": "bun scripts/private.ts",
+      "--public": "echo public",
+      private: "bun scripts/private.ts",
+      public: "echo public",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const protectedCommands = [
+      "npm run -- private",
+      "npm run --silent -- private",
+      "bun run -- private",
+      "bun run --silent -- private",
+      "pnpm run -- private",
+      "pnpm run --silent -- private",
+      "npm run -- --private",
+      "bun run -- --private",
+      "pnpm run -- --private",
+    ];
+    const publicCommandsWithPrivateArguments = [
+      "npm run public -- private",
+      "bun run public -- private",
+      "pnpm run public -- private",
+      "npm run -- --public private",
+      "bun run -- --public private",
+      "pnpm run -- --public private",
+    ];
+
+    expect(
+      protectedCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/private.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(protectedCommands.map(() => ["internal-script"]));
+    expect(
+      publicCommandsWithPrivateArguments.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/private.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        )
+      )
+    ).toEqual(publicCommandsWithPrivateArguments.map(() => []));
+  });
+
+  test("SET-465: Yarn require values do not hide the selected script", () => {
+    const packageScripts = {
+      private: "bun scripts/private.ts",
+      public: "echo public",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const protectedCommands = [
+      "yarn run --require ./hook.cjs private",
+      "yarn --cwd . run --require ./hook.cjs private",
+      "yarn run --require=./hook.cjs private",
+      "yarn --require ./hook.cjs run private",
+      "yarn --require=./hook.cjs run private",
+      "yarn --require ./hook.cjs --cwd . run private",
+      "yarn --require ./hook.cjs --silent run private",
+      "yarn --require ./hook.cjs --inspect run private",
+      "yarn --require one.cjs --require two.cjs run private",
+    ];
+
+    expect(
+      protectedCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          ["scripts/private.ts"],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(protectedCommands.map(() => ["internal-script"]));
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "Run `yarn run public --require ./hook.cjs private`.",
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      )
+    ).toEqual([]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "Run `yarn --require ./hook.cjs private`.",
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      )
+    ).toEqual([]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "Run `yarn --require=./hook.cjs private`.",
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      )
+    ).toEqual([]);
+  });
+
   test("SET-465: pnpm filter selectors preserve direct and transitive aliases", () => {
     const packageScripts = {
       private: "bun scripts/private.ts",
