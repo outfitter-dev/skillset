@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-import { buildSkillset } from "@skillset/core";
+import { buildSkillset, checkSkillsetSourceReadiness } from "@skillset/core";
 import { ciSkillset } from "../ci";
 import {
   renderProviderFormatUpdateReport,
@@ -457,6 +457,8 @@ Body.
 test("SET-278: check writes lock-only source provenance drift", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const originalManifest = await readFile(manifestPath, "utf8");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
     readonly items: Array<{ kind?: string; sourceHash?: string }>;
   };
@@ -464,11 +466,29 @@ test("SET-278: check writes lock-only source provenance drift", async () => {
   if (item === undefined) throw new Error("missing plugin lock item");
   item.sourceHash = `sha256:${"0".repeat(64)}`;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  const direct = await checkSkillsetSourceReadiness(root, {
+    write: "outputs",
+  });
+  expect(direct.ok).toBe(false);
+  expect(direct.data.fixedPaths).toEqual([]);
+
   const report = await ciSkillset(root, { fix: true });
 
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toEqual(["plugins/skillset.lock"]);
+  expect(report.repairableManagedLockPaths).toEqual([]);
+  expect(report.drift).toEqual({
+    added: [],
+    changed: [],
+    missing: [],
+    removed: [],
+  });
+  expect(report.outputState.state).toBe("current");
+  expect(await readFile(manifestPath, "utf8")).toBe(originalManifest);
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(
+    false
+  );
 });
 
 test("SET-278: check writes source drift in secondary provider files", async () => {

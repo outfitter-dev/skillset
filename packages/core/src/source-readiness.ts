@@ -1,11 +1,12 @@
 import { join } from "node:path";
 
 import {
-  buildSkillsetResult,
+  buildSkillsetResultWithAuthority,
   diffSkillsetResult,
   includesProjectScope,
   ISOLATED_OUT_ROOT,
   scopedOutputRoots,
+  type SkillsetBuildAuthorityHooks,
   type SkillsetDiff,
 } from "./build";
 import { inspectSkillset } from "./lint";
@@ -100,7 +101,21 @@ export async function checkSkillsetSourceReadiness(
   rootPath: string,
   options: CheckSkillsetSourceReadinessOptions = {}
 ): Promise<SkillsetOperationResult<SkillsetSourceReadinessData>> {
-  const { sourceDrivenOutputPaths, write, ...skillsetOptions } = options;
+  return checkSkillsetSourceReadinessWithAuthority(rootPath, options, []);
+}
+
+/** @internal App-owned repair seam; Core revalidates authority before writing. */
+export async function checkSkillsetSourceReadinessWithAuthority(
+  rootPath: string,
+  options: CheckSkillsetSourceReadinessOptions,
+  managedLockRepairPaths: readonly string[],
+  hooks: SkillsetBuildAuthorityHooks = {}
+): Promise<SkillsetOperationResult<SkillsetSourceReadinessData>> {
+  const {
+    sourceDrivenOutputPaths,
+    write,
+    ...skillsetOptions
+  } = options;
   const inspection = sourceDrivenOutputPaths === undefined
     ? {}
     : { sourceDrivenOutputPaths };
@@ -152,7 +167,7 @@ export async function checkSkillsetSourceReadiness(
     );
   }
 
-  const blockers = neutralWriteBlockers(current);
+  const blockers = neutralWriteBlockers(current, managedLockRepairPaths);
   if (blockers.length > 0) {
     return readinessResult(
       current,
@@ -176,9 +191,45 @@ export async function checkSkillsetSourceReadiness(
   let writes = READ_WRITES;
   let writePerformed = false;
   try {
-    const build = await buildSkillsetResult(rootPath, skillsetOptions, inspection);
+    const build = await buildSkillsetResultWithAuthority(
+      rootPath,
+      skillsetOptions,
+      inspection,
+      managedLockRepairPaths,
+      hooks
+    );
     writes = build.writes;
     writePerformed = build.ok && build.writes.mode === "write" && build.writes.paths.length > 0;
+    if (!build.ok) {
+      const afterBlocked = await collectSourceReadiness(
+        rootPath,
+        skillsetOptions,
+        inspection
+      );
+      const latest = "error" in afterBlocked ? current : afterBlocked;
+      const writeBoundaryFacts: SourceReadinessFacts = {
+        data: {
+          ...latest.data,
+          outputDiagnostics: build.diagnostics,
+          outputState: build.outputState,
+        },
+        diagnostics: [
+          ...build.diagnostics,
+          ...latest.data.checks.lint.issues.map(lintDiagnostic),
+        ],
+        renderResults: build.renderResults,
+      };
+      return readinessResult(
+        writeBoundaryFacts,
+        {
+          fixedPaths: [],
+          remainingPaths: driftPaths(latest.data.drift),
+          stalePaths,
+          writePerformed: false,
+        },
+        build.writes
+      );
+    }
   } catch (error) {
     const buildFailureDiagnostics = failureDiagnostics(error);
     const afterFailure = await collectSourceReadiness(
@@ -453,14 +504,32 @@ function collectionFailureResult(
   );
 }
 
-function neutralWriteBlockers(facts: SourceReadinessFacts): readonly string[] {
+function neutralWriteBlockers(
+  facts: SourceReadinessFacts,
+  managedLockRepairPaths: readonly string[]
+): readonly string[] {
   const blockers: string[] = [];
   if (
     facts.data.checks.lint.issues.some((issue) => issue.severity === "error")
   ) {
     blockers.push("source lint errors");
   }
-  if (facts.data.checks.managedOutputs.failures.length > 0) {
+  const approvedLockRepairs = new Set(
+    managedLockRepairPaths.filter(
+      (path) =>
+        isSkillsetLockPath(path) &&
+        facts.data.outputDiagnostics.some(
+          (diagnostic) =>
+            diagnostic.code === "managed-lock-provenance-stale" &&
+            diagnostic.outputPath === path
+        )
+    )
+  );
+  if (
+    facts.data.checks.managedOutputs.failures.some(
+      (path) => !approvedLockRepairs.has(path)
+    )
+  ) {
     blockers.push("managed target edits");
   }
   if (
@@ -471,6 +540,10 @@ function neutralWriteBlockers(facts: SourceReadinessFacts): readonly string[] {
     blockers.push("generated-output diagnostics");
   }
   return blockers;
+}
+
+function isSkillsetLockPath(path: string): boolean {
+  return path === "skillset.lock" || path.endsWith("/skillset.lock");
 }
 
 function driftPaths(drift: SkillsetDiff): readonly string[] {

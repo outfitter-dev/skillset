@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,7 +19,10 @@ import {
   classifySkillsetOutputFailure,
   classifySkillsetOutputState,
 } from "../output-state";
-import { checkSkillsetSourceReadiness } from "../source-readiness";
+import {
+  checkSkillsetSourceReadiness,
+  checkSkillsetSourceReadinessWithAuthority,
+} from "../source-readiness";
 
 describe("output-state evidence classifier", () => {
   it.each([
@@ -618,12 +622,10 @@ Body.
       state: "blocked",
     });
     expect(result.writes.paths).toEqual([]);
-    expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
-      reason: "unmanaged-collision",
-      targetPath: "docs/AGENTS.md",
-    }));
+    expect(result.writes.backupRecords).toBeUndefined();
     expect(await Bun.file(join(root, "AGENTS.md")).text()).toBe("# Allowed source-driven file\n");
     expect(await Bun.file(latePath).text()).toBe("# Appeared during the build\n");
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });
 
   it("classifies edited lock provenance as output divergence and backs it up", async () => {
@@ -653,6 +655,10 @@ codex: true
     });
     expect(preview.diagnostics).toContainEqual(expect.objectContaining({
       code: "managed-output-edited",
+      outputPath: "skillset.lock",
+    }));
+    expect(preview.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: "managed-lock-provenance-stale",
       outputPath: "skillset.lock",
     }));
 
@@ -695,7 +701,6 @@ codex: true
       code: "managed-output-edited",
       outputPath: "skillset.lock",
     }));
-
     const applied = await buildSkillsetResult(root);
     expect(applied.ok).toBe(true);
     expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
@@ -841,6 +846,10 @@ codex: true
       code: "managed-output-edited",
       outputPath: "skillset.lock",
     }));
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-lock-provenance-stale",
+      outputPath: "skillset.lock",
+    }));
 
     const applied = await buildSkillsetResult(root);
     expect(applied.ok).toBe(true);
@@ -978,6 +987,94 @@ codex: true
     expect(rebuilt.ok).toBe(true);
     expect(rebuilt.outputState.state).toBe("source-ahead");
     expect(await Bun.file(join(root, ".cursor-plugin/marketplace.json")).text()).toContain("Updated plugin.");
+  });
+
+  it("backs up final source-driven marketplace collision bytes", async () => {
+    const root = await marketplaceFixture("cursor");
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await Bun.write(
+      join(root, ".skillset/plugins/local-tools/skillset.yaml"),
+      "skillset:\n  name: local-tools\n  description: Updated plugin.\n"
+    );
+    const relativeMarketplacePath = ".cursor-plugin/marketplace.json";
+    const marketplacePath = join(root, relativeMarketplacePath);
+    const finalCollision = "late source-driven marketplace collision\n";
+
+    const rebuilt = await checkSkillsetSourceReadinessWithAuthority(
+      root,
+      {
+        sourceDrivenOutputPaths: [relativeMarketplacePath],
+        write: "outputs",
+      },
+      [],
+      {
+        beforeFinalWriteInspection: () => {
+          writeFileSync(marketplacePath, finalCollision, "utf8");
+        },
+      }
+    );
+
+    expect(rebuilt.ok).toBe(true);
+    expect(rebuilt.writes.backupRecords).toContainEqual(
+      expect.objectContaining({
+        originalHash: `sha256:${createHash("sha256").update(finalCollision).digest("hex")}`,
+        reason: "unmanaged-collision",
+        targetPath: relativeMarketplacePath,
+      })
+    );
+    expect(await Bun.file(marketplacePath).text()).toContain("Updated plugin.");
+  });
+
+  it("refuses a source-driven collision changed after backup persistence", async () => {
+    const root = await marketplaceFixture("cursor");
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await Bun.write(
+      join(root, ".skillset/plugins/local-tools/skillset.yaml"),
+      "skillset:\n  name: local-tools\n  description: Updated plugin.\n"
+    );
+    const relativeMarketplacePath = ".cursor-plugin/marketplace.json";
+    const marketplacePath = join(root, relativeMarketplacePath);
+    await Bun.write(marketplacePath, "collision captured by backup\n");
+    const postBackupCollision = "collision written after backup persistence\n";
+
+    const rebuilt = await checkSkillsetSourceReadinessWithAuthority(
+      root,
+      {
+        sourceDrivenOutputPaths: [relativeMarketplacePath],
+        write: "outputs",
+      },
+      [],
+      {
+        afterBackupPersistence: () => {
+          writeFileSync(marketplacePath, postBackupCollision, "utf8");
+        },
+      }
+    );
+
+    expect(rebuilt.ok).toBe(false);
+    expect(rebuilt.data.writePerformed).toBe(false);
+    expect(rebuilt.data.outputState).toMatchObject({
+      blockers: [{
+        code: "output-write-preimage-invalidated",
+        path: relativeMarketplacePath,
+      }],
+      state: "blocked",
+    });
+    expect(rebuilt.data.outputDiagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "output-write-preimage-invalidated",
+        outputPath: relativeMarketplacePath,
+        severity: "error",
+      })
+    );
+    expect(rebuilt.writes).toEqual({
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    });
+    expect(await Bun.file(marketplacePath).text()).toBe(postBackupCollision);
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });
 
   it("blocks a destination-only marketplace edit in an established workspace", async () => {

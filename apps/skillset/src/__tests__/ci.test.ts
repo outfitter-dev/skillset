@@ -346,6 +346,7 @@ test("ci report explains generated changelog drift", () => {
       sourceChanges: [".skillset/skills/demo/CHANGELOG.md"],
     }),
     providerUpdatePaths: [],
+    repairableManagedLockPaths: [],
     warnings: [],
   });
 
@@ -372,6 +373,7 @@ test("ci report renders recovery guidance for successful warning-only change rep
     outputDiagnostics: [],
     outputState: classifySkillsetOutputState({ hasBaseline: true }),
     providerUpdatePaths: [],
+    repairableManagedLockPaths: [],
     recovery: [{
       action: "change-migrate",
       commands: ["skillset change migrate", "skillset change migrate --yes"],
@@ -407,6 +409,7 @@ test("ci report uses a safe Markdown code fence for recovery commands containing
       outputChanges: [path],
     }),
     providerUpdatePaths: [],
+    repairableManagedLockPaths: [],
     recovery: [{ action: "reconcile", commands: [command], path, reason: "preview exact path" }],
     warnings: [],
   });
@@ -483,6 +486,67 @@ test("check --write refreshes stale locks after an output edit is reconciled", a
   expect(report.outputEditedPaths).toEqual([]);
   expect(report.fixedPaths.some((path) => path.endsWith("skillset.lock"))).toBe(true);
   expect(await readFile(generatedPath, "utf8")).toContain("Reconciled.");
+});
+
+test("check presents repairable lock provenance separately from target edits", async () => {
+  const root = await builtFixture();
+  const relativeLockPath = ".claude/skills/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    items: Array<{ sourceHash?: string }>;
+  };
+  lock.items[0]!.sourceHash = `sha256:${"0".repeat(64)}`;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root);
+  const markdown = renderCiReportMarkdown(report);
+  const terminal = await runSkillsetCli("check", "--root", root);
+
+  expect(report.ok).toBe(false);
+  expect(report.outputEditedPaths).toContain(relativeLockPath);
+  expect(report.repairableManagedLockPaths).toEqual([relativeLockPath]);
+  expect(report.recovery).toContainEqual(expect.objectContaining({
+    action: "rebuild-generated-output",
+  }));
+  expect(markdown).toContain("### Repairable managed locks");
+  expect(markdown).not.toContain("### Target-side generated edits");
+  expect(markdown).toContain("can rebuild them explicitly");
+  expect(terminal.exitCode).toBe(1);
+  expect(terminal.stdout).toContain(
+    `repairable managed lock ${relativeLockPath}`
+  );
+  expect(terminal.stdout).not.toContain("target-side generated edit");
+});
+
+test("ci --fix refuses arbitrary managed lock provenance edits", async () => {
+  const root = await builtFixture();
+  const relativeLockPath = ".claude/skills/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    generatedBy: string;
+  };
+  lock.generatedBy = "skillset@9.9.9";
+  const edited = `${JSON.stringify(lock, null, 2)}\n`;
+  await writeFile(lockPath, edited, "utf8");
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(
+    sourcePath,
+    `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nUnrelated source drift.\n`,
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.outputEditedPaths).toContain(relativeLockPath);
+  expect(report.outputDiagnostics).not.toContainEqual(
+    expect.objectContaining({
+      code: "managed-lock-provenance-stale",
+      outputPath: relativeLockPath,
+    })
+  );
+  expect(await readFile(lockPath, "utf8")).toBe(edited);
 });
 
 test("ci --fix refuses unrepairable generated changelog drift", async () => {

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
@@ -8,7 +8,6 @@ import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
   formatGeneratedFileMode,
-  generatedFileModeMatches,
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
@@ -51,6 +50,25 @@ export interface OutputBackupRecord {
 }
 
 export type OutputBackupPlanRecord = Omit<OutputBackupRecord, "backupPath">;
+
+export type OutputWritePreimage =
+  | {
+      readonly state: "absent";
+      readonly targetPath: string;
+    }
+  | {
+      readonly content: Uint8Array;
+      readonly mode?: string;
+      readonly state: "present";
+      readonly targetPath: string;
+    };
+
+export interface OutputBackupPlan {
+  readonly preimages: readonly OutputWritePreimage[];
+  readonly records: readonly (OutputBackupPlanRecord & {
+    readonly content: Uint8Array;
+  })[];
+}
 
 export interface OutputBackupGitStorage {
   readonly commit: string;
@@ -288,7 +306,48 @@ export async function prepareOutputBackups(
   readonly backup?: OutputBackupSummary;
   readonly diagnostics: readonly SkillsetDiagnostic[];
 }> {
-  const records = await collectOutputBackupRecords(rootPath, rendered, deletePaths, managedState, resolveOutputPath);
+  return persistOutputBackupPlan(
+    rootPath,
+    await planOutputBackups(
+      rootPath,
+      rendered,
+      deletePaths,
+      managedState,
+      resolveOutputPath
+    )
+  );
+}
+
+export async function planOutputBackups(
+  rootPath: string,
+  rendered: readonly RenderedFile[],
+  deletePaths: readonly string[],
+  managedState: ManagedOutputState,
+  resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path)
+): Promise<OutputBackupPlan> {
+  const preimages = await collectOutputWritePreimages(
+    [...rendered.map((file) => file.path), ...deletePaths],
+    resolveOutputPath
+  );
+  return {
+    preimages,
+    records: collectOutputBackupRecords(
+      rendered,
+      deletePaths,
+      managedState,
+      new Map(preimages.map((preimage) => [preimage.targetPath, preimage]))
+    ),
+  };
+}
+
+export async function persistOutputBackupPlan(
+  rootPath: string,
+  plan: OutputBackupPlan
+): Promise<{
+  readonly backup?: OutputBackupSummary;
+  readonly diagnostics: readonly SkillsetDiagnostic[];
+}> {
+  const { records } = plan;
 
   if (records.length === 0) return { diagnostics: [] };
 
@@ -320,6 +379,29 @@ export async function prepareOutputBackups(
   };
 }
 
+export async function discardOutputBackup(
+  rootPath: string,
+  backup: OutputBackupSummary
+): Promise<void> {
+  if (!/^[a-f0-9]{8,64}$/.test(backup.runId)) {
+    throw new Error(`skillset: cannot discard invalid backup id ${JSON.stringify(backup.runId)}`);
+  }
+  await rm(resolveInside(rootPath, join(OUTPUT_BACKUP_ROOT, backup.runId)), {
+    force: true,
+    recursive: true,
+  });
+  try {
+    await rmdir(resolveInside(rootPath, OUTPUT_BACKUP_ROOT));
+  } catch (error) {
+    if (
+      typeof error !== "object" ||
+      error === null ||
+      !("code" in error) ||
+      (error.code !== "ENOENT" && error.code !== "ENOTEMPTY")
+    ) throw error;
+  }
+}
+
 export async function diagnoseOutputBackupPreflight(
   rootPath: string,
   rendered: readonly RenderedFile[],
@@ -327,8 +409,20 @@ export async function diagnoseOutputBackupPreflight(
   managedState: ManagedOutputState,
   resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path)
 ): Promise<readonly SkillsetDiagnostic[]> {
-  const records = await collectOutputBackupRecords(rootPath, rendered, deletePaths, managedState, resolveOutputPath);
-  return records.map(preflightBackupDiagnostic);
+  const plan = await planOutputBackups(
+    rootPath,
+    rendered,
+    deletePaths,
+    managedState,
+    resolveOutputPath
+  );
+  return diagnoseOutputBackupPlan(plan);
+}
+
+export function diagnoseOutputBackupPlan(
+  plan: OutputBackupPlan
+): readonly SkillsetDiagnostic[] {
+  return plan.records.map(preflightBackupDiagnostic);
 }
 
 export async function restoreOutputBackup(
@@ -579,22 +673,24 @@ async function currentOutputHash(
   return `sha256:${hash.digest("hex")}`;
 }
 
-async function collectOutputBackupRecords(
-  rootPath: string,
+function collectOutputBackupRecords(
   rendered: readonly RenderedFile[],
   deletePaths: readonly string[],
   managedState: ManagedOutputState,
-  resolveOutputPath: OutputPathResolver
-): Promise<Array<OutputBackupPlanRecord & { readonly content: Uint8Array }>> {
+  preimages: ReadonlyMap<string, OutputWritePreimage>
+): Array<OutputBackupPlanRecord & { readonly content: Uint8Array }> {
   const records: Array<OutputBackupPlanRecord & { readonly content: Uint8Array }> = [];
   const renderedByPath = new Map(rendered.map((file) => [file.path, file]));
 
   for (const file of rendered) {
-    const absolutePath = resolveOutputPath(file.path);
-    if (!(await exists(absolutePath))) continue;
-    const current = await readFile(absolutePath);
-    const currentStats = await stat(absolutePath);
-    if (bytesEqual(current, file.content) && generatedFileModeMatches(currentStats.mode, file.mode)) continue;
+    const preimage = preimages.get(file.path);
+    if (preimage?.state !== "present") continue;
+    const current = preimage.content;
+    if (
+      bytesEqual(current, file.content) &&
+      (!supportsGeneratedFileModes() ||
+        preimage.mode === formatGeneratedFileMode(file.mode))
+    ) continue;
 
     const reason = managedState.paths.has(file.path)
       ? managedState.editedPaths.has(file.path)
@@ -609,7 +705,7 @@ async function collectOutputBackupRecords(
       generatedHash: contentHash(file.content),
       ...(supportsGeneratedFileModes() ? { generatedMode: formatGeneratedFileMode(file.mode) } : {}),
       originalHash: contentHash(current),
-      ...(supportsGeneratedFileModes() ? { originalMode: formatDiskMode(currentStats.mode) } : {}),
+      ...(preimage.mode === undefined ? {} : { originalMode: preimage.mode }),
       reason,
       ...(file.sourcePath === undefined ? {} : { sourcePath: canonicalBackupRecordPath(file.sourcePath) }),
       targetPath: canonicalBackupRecordPath(file.path),
@@ -619,21 +715,45 @@ async function collectOutputBackupRecords(
   for (const targetPath of deletePaths) {
     if (!managedState.editedPaths.has(targetPath)) continue;
     if (renderedByPath.has(targetPath)) continue;
-    const absolutePath = resolveOutputPath(targetPath);
-    if (!(await exists(absolutePath))) continue;
-    const current = await readFile(absolutePath);
-    const currentStats = await stat(absolutePath);
+    const preimage = preimages.get(targetPath);
+    if (preimage?.state !== "present") continue;
+    const current = preimage.content;
     records.push({
       action: "delete",
       content: current,
       originalHash: contentHash(current),
-      ...(supportsGeneratedFileModes() ? { originalMode: formatDiskMode(currentStats.mode) } : {}),
+      ...(preimage.mode === undefined ? {} : { originalMode: preimage.mode }),
       reason: "managed-target-edit",
       targetPath: canonicalBackupRecordPath(targetPath),
     });
   }
 
   return records.sort((left, right) => compareStrings(left.targetPath, right.targetPath));
+}
+
+async function collectOutputWritePreimages(
+  targetPaths: readonly string[],
+  resolveOutputPath: OutputPathResolver
+): Promise<readonly OutputWritePreimage[]> {
+  const preimages: OutputWritePreimage[] = [];
+  for (const targetPath of [...new Set(targetPaths)].sort(compareStrings)) {
+    const absolutePath = resolveOutputPath(targetPath);
+    if (!(await exists(absolutePath))) {
+      preimages.push({ state: "absent", targetPath });
+      continue;
+    }
+    const content = await readFile(absolutePath);
+    const currentStats = await stat(absolutePath);
+    preimages.push({
+      content,
+      ...(supportsGeneratedFileModes()
+        ? { mode: formatDiskMode(currentStats.mode) }
+        : {}),
+      state: "present",
+      targetPath,
+    });
+  }
+  return preimages;
 }
 
 function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiagnostic {

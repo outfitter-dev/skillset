@@ -11,7 +11,12 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SkillsetCliDiagnostic } from "@skillset/schema";
 
-import { ciSkillset, hasDrift, renderCiReportMarkdown } from "./ci";
+import {
+  ciSkillset,
+  hasDrift,
+  renderCiReportMarkdown,
+  targetEditedOutputPaths,
+} from "./ci";
 import type { CiReport } from "./ci";
 import { serializeDiagnostics } from "./cli-diagnostics";
 import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
@@ -179,8 +184,11 @@ function printCiReport(report: CiReport): void {
   for (const path of report.fixedPaths) {
     console.log(`  fixed ${path}`);
   }
-  for (const path of report.outputEditedPaths) {
+  for (const path of targetEditedOutputPaths(report)) {
     console.log(`  target-side generated edit ${path}`);
+  }
+  for (const path of report.repairableManagedLockPaths) {
+    console.log(`  repairable managed lock ${path}`);
   }
   for (const path of report.providerUpdatePaths) {
     console.log(`  provider-format update ${path}`);
@@ -255,9 +263,15 @@ function printCiReport(report: CiReport): void {
   if ((report.changesetIssues ?? []).length > 0) {
     problems.push(`${report.changesetIssues?.length} Changesets issue(s)`);
   }
-  if (report.outputEditedPaths.length > 0) {
+  const targetEditedPaths = targetEditedOutputPaths(report);
+  if (targetEditedPaths.length > 0) {
     problems.push(
-      `${report.outputEditedPaths.length} target-side generated edit(s)`
+      `${targetEditedPaths.length} target-side generated edit(s)`
+    );
+  }
+  if (report.repairableManagedLockPaths.length > 0) {
+    problems.push(
+      `${report.repairableManagedLockPaths.length} repairable managed lock(s)`
     );
   }
   if (report.providerUpdatePaths.length > 0) {
