@@ -20,6 +20,7 @@ import type {
   NewSourceScope,
 } from "./new-source";
 import { scaffoldSourceUnit } from "./new-source";
+import { quoteShellArgument } from "./recovery-guidance";
 import {
   formatScaffoldFileLine,
   formatScaffoldNextStep,
@@ -286,6 +287,19 @@ function printImportReport(result: ImportReport): void {
   }
 }
 
+function newSourceChecksAtRoot(rootPath: string): readonly string[] {
+  const commands = [
+    "skillset build",
+    "skillset build --yes",
+    "skillset check",
+  ];
+  if (resolve(rootPath) === resolve(process.cwd())) {
+    return commands;
+  }
+  const rootArgument = quoteShellArgument(rootPath);
+  return commands.map((command) => `${command} --root ${rootArgument}`);
+}
+
 function printNewSourceReport(result: NewSourceReport, reason: string): void {
   for (const file of result.files) {
     console.log(formatScaffoldFileLine(file.path, file.operation));
@@ -295,8 +309,8 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
   console.log(`  source: ${result.sourceRoot}`);
   console.log(`  name: ${result.displayName}`);
   if (result.write) {
-    console.log(formatScaffoldNextStep("skillset build"));
-    console.log(formatScaffoldNextStep("skillset build --yes"));
-    console.log(formatScaffoldNextStep("skillset check"));
+    for (const command of newSourceChecksAtRoot(result.rootPath)) {
+      console.log(formatScaffoldNextStep(command));
+    }
   }
 }

@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
+import { scaffoldSourceUnit } from "../new-source";
+
 test("SET-165: new skill previews by default and writes ordinary repo source with confirmation", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-new-ordinary-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
@@ -34,6 +36,65 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   await expect(runSkillsetCli("build", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   const check = await runSkillsetCli("check", "--root", root);
   expect(check.exitCode).toBe(0);
+});
+
+test("SET-464: new guidance preserves the selected workspace root", async () => {
+  const caller = await mkdtemp(join(tmpdir(), "skillset-new-caller-"));
+  const root = join(
+    await mkdtemp(join(tmpdir(), "skillset-new-guidance-")),
+    "target's workspace"
+  );
+  await mkdir(root, { recursive: true });
+  await expect(
+    runSkillsetCliIn(caller, "init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const report = await scaffoldSourceUnit(root, {
+    kind: "skill",
+    name: "API Root Probe",
+    write: false,
+  });
+  expect(report.rootPath).toBe(root);
+  expect(report.files).toEqual([
+    {
+      operation: "create",
+      path: ".skillset/skills/api-root-probe/SKILL.md",
+    },
+  ]);
+
+  const written = await runSkillsetCliIn(
+    caller,
+    "new",
+    "skill",
+    "Root Guidance",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  const quotedRoot = `'${root.replaceAll("'", `'"'"'`)}'`;
+  expect(written.stdout).toContain(
+    `next: skillset build --root ${quotedRoot}\n`
+  );
+  expect(written.stdout).toContain(
+    `next: skillset build --yes --root ${quotedRoot}\n`
+  );
+  expect(written.stdout).toContain(
+    `next: skillset check --root ${quotedRoot}\n`
+  );
+
+  const local = await runSkillsetCliIn(
+    root,
+    "new",
+    "skill",
+    "Local Guidance",
+    "--yes"
+  );
+  expect(local.exitCode).toBe(0);
+  expect(local.stdout).toContain("next: skillset build\n");
+  expect(local.stdout).toContain("next: skillset build --yes\n");
+  expect(local.stdout).toContain("next: skillset check\n");
+  expect(local.stdout).not.toContain("next: skillset build --root");
 });
 
 test("SET-165: new skill separates stable id and display name in dedicated source repos", async () => {
@@ -477,8 +538,17 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
   readonly stderr: string;
   readonly stdout: string;
 }> {
+  return runSkillsetCliIn(process.cwd(), ...args);
+}
+
+async function runSkillsetCliIn(cwd: string, ...args: readonly string[]): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    cwd,
     stderr: "pipe",
     stdout: "pipe",
   });
