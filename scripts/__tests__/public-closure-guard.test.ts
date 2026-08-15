@@ -905,6 +905,85 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: grep shares bounded pattern and file operand semantics", () => {
+    expect(
+      [
+        ...findRepoInternalScriptAliases(
+          {
+            "private:attached": "grep -ReTODO packages",
+            "private:pattern-file": "grep -f scripts/patterns.txt public",
+            "private:recursive": "grep -R TODO packages",
+            "private:wrapped": "env grep TODO fixtures",
+            "public:option-value": "grep --include packages TODO public",
+            "public:path-pattern": "grep packages/core public",
+            "public:pattern": "grep packages/core",
+          },
+          ["scripts/patterns.txt"]
+        ),
+      ].toSorted()
+    ).toEqual([
+      "private:attached",
+      "private:pattern-file",
+      "private:recursive",
+      "private:wrapped",
+    ]);
+
+    const cases = [
+      ["grep -R TODO packages", ["internal-package"]],
+      [
+        "grep TODO public packages fixtures",
+        ["fixture-path", "internal-package"],
+      ],
+      ["grep -e TODO packages", ["internal-package"]],
+      ["grep -eTODO packages", ["internal-package"]],
+      ["grep -ReTODO packages", ["internal-package"]],
+      ["grep --color TODO packages", ["internal-package"]],
+      ["grep --colour TODO packages", ["internal-package"]],
+      ["grep --context 2 TODO packages", ["internal-package"]],
+      ["grep --color=always TODO packages", ["internal-package"]],
+      ["rg --colour TODO packages", ["internal-package"]],
+      ["grep -f scripts/patterns.txt public", ["internal-script"]],
+      ["grep --file=scripts/patterns.txt public", ["internal-script"]],
+      [
+        "grep --exclude-from docs/development/ignore TODO public",
+        ["development-docs"],
+      ],
+      ["grep -- TODO packages", ["internal-package"]],
+      ["grep TODO ../packages", ["internal-package"]],
+      ["grep TODO /repo/packages", ["internal-package"]],
+      ["env grep TODO packages", ["internal-package"]],
+      ["echo ok && grep TODO fixtures", ["fixture-path"]],
+      ["grep TODO 'docs/development'", ["development-docs"]],
+      ["grep packages", []],
+      ["grep packages/core", []],
+      ["grep packages/core public", []],
+      ["grep -e packages/core", []],
+      ["grep -e TODO", []],
+      ["grep TODO -", []],
+      ["grep -- packages", []],
+      ["grep --color packages", []],
+      ["grep --context 2 packages/core public", []],
+      ["grep -A packages TODO public", []],
+      ["grep --include packages TODO public", []],
+      ["grep -f scripts/plugin-patterns.txt public", []],
+      ["grep TODO /other/packages", []],
+      ["printf packages | grep TODO", []],
+    ] as const;
+
+    expect(
+      cases.map(([command]) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `\`\`\`bash\n${command}\n\`\`\``,
+          ["scripts/patterns.txt"],
+          new Set(),
+          undefined,
+          "/repo"
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(cases.map(([, rules]) => [...rules]));
+  });
+
   test("SET-465: repository file URLs inherit protected owner semantics", () => {
     expect(
       scanGeneratedPublicContent(

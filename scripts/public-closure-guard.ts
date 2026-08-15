@@ -32,6 +32,15 @@ interface ProtectedPathOwner {
   readonly rule: PublicClosureRule;
 }
 
+interface SearchCommandDialect {
+  readonly commandValueFlags: ReadonlySet<string>;
+  readonly optionalAttachedValueFlags: ReadonlySet<string>;
+  readonly pathOnlyFlags: ReadonlySet<string>;
+  readonly pathValueFlags: ReadonlySet<string>;
+  readonly patternValueFlags: ReadonlySet<string>;
+  readonly valueFlags: ReadonlySet<string>;
+}
+
 type PackageScripts = Readonly<Record<string, string>>;
 type PackageRunner = "bun" | "npm" | "pnpm" | "yarn";
 type ProtectedBoundaryContext = "generated" | "package-script";
@@ -174,6 +183,60 @@ const RIPGREP_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "-t",
   "-T",
 ]);
+const GREP_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--file",
+  "--regexp",
+  "-e",
+  "-f",
+]);
+const GREP_PATH_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--exclude-from",
+  "--file",
+  "-f",
+]);
+const GREP_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  ...GREP_PATTERN_VALUE_FLAGS,
+  "--after-context",
+  "--before-context",
+  "--binary-files",
+  "--color",
+  "--colour",
+  "--context",
+  "--devices",
+  "--directories",
+  "--exclude",
+  "--exclude-dir",
+  "--exclude-from",
+  "--group-separator",
+  "--include",
+  "--label",
+  "--max-count",
+  "-A",
+  "-B",
+  "-C",
+  "-d",
+  "-D",
+  "-m",
+]);
+const SEARCH_COMMAND_DIALECTS: Readonly<Record<string, SearchCommandDialect>> =
+  {
+    grep: {
+      commandValueFlags: new Set(),
+      optionalAttachedValueFlags: new Set(["--color", "--colour"]),
+      pathOnlyFlags: new Set(),
+      pathValueFlags: GREP_PATH_VALUE_FLAGS,
+      patternValueFlags: GREP_PATTERN_VALUE_FLAGS,
+      valueFlags: GREP_VALUE_FLAGS,
+    },
+    rg: {
+      commandValueFlags: RIPGREP_COMMAND_VALUE_FLAGS,
+      optionalAttachedValueFlags: new Set(),
+      pathOnlyFlags: new Set(["--files"]),
+      pathValueFlags: RIPGREP_PATH_VALUE_FLAGS,
+      patternValueFlags: RIPGREP_PATTERN_VALUE_FLAGS,
+      valueFlags: RIPGREP_VALUE_FLAGS,
+    },
+  };
 const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
   {
     env: new Set(["--chdir", "--split-string", "--unset", "-C", "-S", "-u"]),
@@ -537,7 +600,7 @@ function hasProtectedPathOwnerReference(
     : undefined;
 
   const pathCandidateText = collapseRepeatedPathSeparators(
-    withoutRipgrepCommandSegments(
+    withoutSearchCommandSegments(
       normalizedText,
       context === "package-script" || shellCommand
     )
@@ -730,7 +793,7 @@ function hasProtectedRootCommandArgument(
       return (
         (PROTECTED_ROOT_PATH_COMMANDS.has(normalizedTokens[0] ?? "") &&
           normalizedTokens.slice(1).includes(normalizedOwner)) ||
-        hasRipgrepProtectedPathArgument(
+        hasSearchCommandProtectedPathArgument(
           tokens,
           normalizedOwner,
           repoRoot,
@@ -742,13 +805,14 @@ function hasProtectedRootCommandArgument(
   );
 }
 
-function hasRipgrepProtectedPathArgument(
+function hasSearchCommandProtectedPathArgument(
   tokens: readonly string[],
   normalizedOwner: string,
   repoRoot?: string,
   allowDirectOwner = true
 ): boolean {
-  if (tokens[0]?.toLowerCase() !== "rg") return false;
+  const dialect = SEARCH_COMMAND_DIALECTS[tokens[0]?.toLowerCase() ?? ""];
+  if (!dialect) return false;
   let hasPattern = false;
   let pathsOnly = false;
   let parseOptions = true;
@@ -760,36 +824,42 @@ function hasRipgrepProtectedPathArgument(
       continue;
     }
     if (parseOptions && token.startsWith("-") && token !== "-") {
-      if (token === "--files") {
+      if (dialect.pathOnlyFlags.has(token)) {
         pathsOnly = true;
         continue;
       }
       const longFlag = token.split("=", 1)[0] ?? token;
-      const shortValue = ripgrepShortValueFlag(token);
-      const valueFlag = RIPGREP_VALUE_FLAGS.has(token)
+      const shortValue = searchCommandShortValueFlag(token, dialect.valueFlags);
+      const valueFlag = dialect.valueFlags.has(token)
         ? token
-        : RIPGREP_VALUE_FLAGS.has(longFlag)
+        : dialect.valueFlags.has(longFlag)
           ? longFlag
           : shortValue?.flag;
       if (!valueFlag) continue;
-      if (RIPGREP_PATTERN_VALUE_FLAGS.has(valueFlag)) hasPattern = true;
+      if (dialect.patternValueFlags.has(valueFlag)) hasPattern = true;
       const hasAttachedValue = token.startsWith("--")
         ? token.includes("=")
         : shortValue?.attached === true;
-      let operand: ReturnType<typeof readRipgrepShellWord>;
+      if (
+        dialect.optionalAttachedValueFlags.has(valueFlag) &&
+        !hasAttachedValue
+      ) {
+        continue;
+      }
+      let operand: ReturnType<typeof readSearchCommandShellWord>;
       if (hasAttachedValue) {
         const value = token.startsWith("--")
           ? token.slice(token.indexOf("=") + 1)
           : token.slice(shortValue?.valueStart ?? token.length);
         operand = { lastIndex: index, values: [value] };
       } else {
-        operand = readRipgrepShellWord(tokens, index + 1);
+        operand = readSearchCommandShellWord(tokens, index + 1);
       }
       if (!operand) return false;
       if (
-        RIPGREP_PATH_VALUE_FLAGS.has(valueFlag) &&
+        dialect.pathValueFlags.has(valueFlag) &&
         operand.values.some((value) =>
-          ripgrepPathMatchesOwner(
+          searchCommandPathMatchesOwner(
             value,
             normalizedOwner,
             repoRoot,
@@ -800,16 +870,16 @@ function hasRipgrepProtectedPathArgument(
         return true;
       }
       if (
-        RIPGREP_COMMAND_VALUE_FLAGS.has(valueFlag) &&
+        dialect.commandValueFlags.has(valueFlag) &&
         operand.values.some(
           (value) =>
-            ripgrepPathMatchesOwner(
+            searchCommandPathMatchesOwner(
               value,
               normalizedOwner,
               repoRoot,
               allowDirectOwner
             ) ||
-            ripgrepCommandValueMatchesOwner(
+            searchCommandValueMatchesOwner(
               value,
               normalizedOwner,
               repoRoot,
@@ -831,7 +901,7 @@ function hasRipgrepProtectedPathArgument(
       continue;
     }
 
-    const operand = readRipgrepShellWord(tokens, index);
+    const operand = readSearchCommandShellWord(tokens, index);
     if (!operand) return false;
     index = operand.lastIndex;
     if (!(pathsOnly || hasPattern)) {
@@ -840,7 +910,7 @@ function hasRipgrepProtectedPathArgument(
     }
     if (
       operand.values.some((value) =>
-        ripgrepPathMatchesOwner(
+        searchCommandPathMatchesOwner(
           value,
           normalizedOwner,
           repoRoot,
@@ -853,7 +923,7 @@ function hasRipgrepProtectedPathArgument(
   return false;
 }
 
-function ripgrepCommandValueMatchesOwner(
+function searchCommandValueMatchesOwner(
   command: string,
   normalizedOwner: string,
   repoRoot?: string,
@@ -867,7 +937,7 @@ function ripgrepCommandValueMatchesOwner(
         tokens
           .slice(1)
           .some((token) =>
-            ripgrepPathMatchesOwner(
+            searchCommandPathMatchesOwner(
               token,
               normalizedOwner,
               repoRoot,
@@ -879,7 +949,7 @@ function ripgrepCommandValueMatchesOwner(
   );
 }
 
-function readRipgrepShellWord(
+function readSearchCommandShellWord(
   tokens: readonly string[],
   index: number
 ):
@@ -912,7 +982,7 @@ function readRipgrepShellWord(
   };
 }
 
-function ripgrepPathMatchesOwner(
+function searchCommandPathMatchesOwner(
   operand: string,
   normalizedOwner: string,
   repoRoot?: string,
@@ -942,7 +1012,7 @@ function ripgrepPathMatchesOwner(
       return true;
     }
     if (!normalizedPath.startsWith(`${normalizedRoot}/`)) return false;
-    return ripgrepGlobContainsOwner(
+    return searchCommandGlobContainsOwner(
       normalizedPath.slice(normalizedRoot.length + 1),
       normalizedOwner
     );
@@ -954,11 +1024,11 @@ function ripgrepPathMatchesOwner(
       (repositoryRelative === normalizedOwner ||
         repositoryRelative.startsWith(`${normalizedOwner}/`))) ||
     (allowDirectOwner &&
-      ripgrepGlobContainsOwner(repositoryRelative, normalizedOwner))
+      searchCommandGlobContainsOwner(repositoryRelative, normalizedOwner))
   );
 }
 
-function ripgrepGlobContainsOwner(
+function searchCommandGlobContainsOwner(
   operand: string,
   normalizedOwner: string
 ): boolean {
@@ -972,7 +1042,10 @@ function ripgrepGlobContainsOwner(
   );
 }
 
-function ripgrepShortValueFlag(token: string):
+function searchCommandShortValueFlag(
+  token: string,
+  valueFlags: ReadonlySet<string>
+):
   | {
       readonly attached: boolean;
       readonly flag: string;
@@ -982,7 +1055,7 @@ function ripgrepShortValueFlag(token: string):
   if (!/^-[^-]/u.test(token)) return undefined;
   for (let index = 1; index < token.length; index += 1) {
     const flag = `-${token[index] ?? ""}`;
-    if (RIPGREP_VALUE_FLAGS.has(flag)) {
+    if (valueFlags.has(flag)) {
       return {
         attached: index + 1 < token.length,
         flag,
@@ -993,14 +1066,17 @@ function ripgrepShortValueFlag(token: string):
   return undefined;
 }
 
-function withoutRipgrepCommandSegments(
+function withoutSearchCommandSegments(
   text: string,
   assumeShellCommand: boolean
 ): string {
   const withoutSegments = (command: string): string =>
     readShellCommandSegments(markLiteralShellBraces(command))
       .filter(
-        (segment) => unwrapShellCommand(segment)[0]?.toLowerCase() !== "rg"
+        (segment) =>
+          SEARCH_COMMAND_DIALECTS[
+            unwrapShellCommand(segment)[0]?.toLowerCase() ?? ""
+          ] === undefined
       )
       .map((segment) => segment.join(" "))
       .join(" ");
@@ -1021,7 +1097,7 @@ function markLiteralShellBraces(text: string): string {
   );
 }
 
-function ripgrepCommandSegments(
+function searchCommandSegments(
   text: string,
   assumeShellCommand: boolean
 ): readonly (readonly string[])[] {
@@ -1031,7 +1107,10 @@ function ripgrepCommandSegments(
   return commands.flatMap((command) =>
     readShellCommandSegments(markLiteralShellBraces(command))
       .map(unwrapShellCommand)
-      .filter((tokens) => tokens[0]?.toLowerCase() === "rg")
+      .filter(
+        (tokens) =>
+          SEARCH_COMMAND_DIALECTS[tokens[0]?.toLowerCase() ?? ""] !== undefined
+      )
   );
 }
 
@@ -1651,15 +1730,15 @@ function hasRepoInternalScriptReference(
 ): boolean {
   const normalizedPath = path.replaceAll("\\", "/").toLowerCase();
   if (
-    ripgrepCommandSegments(text, shellCommand).some((tokens) =>
-      hasRipgrepProtectedPathArgument(tokens, normalizedPath, repoRoot)
+    searchCommandSegments(text, shellCommand).some((tokens) =>
+      hasSearchCommandProtectedPathArgument(tokens, normalizedPath, repoRoot)
     )
   ) {
     return true;
   }
   const normalizedText = collapseRepeatedPathSeparators(
     withoutHttpUrls(
-      withoutRipgrepCommandSegments(
+      withoutSearchCommandSegments(
         normalizeLiteralShellPathQuotes(text.replaceAll("\\", "/")),
         shellCommand
       )
