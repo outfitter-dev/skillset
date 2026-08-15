@@ -498,19 +498,23 @@ export async function doctorSkillset(
       ? {}
       : { homeDir: options.xdg.homeDir }),
   });
-  const managed = await readManagedOutputState(
-    rootPath,
-    graph.outputRoots,
-    true,
-    outPath,
-    (path) => resolveOperationalPath(pathContext, path),
-    (path) => logicalOperationalPath(pathContext, path)
-  );
   let outputState = classifySkillsetOutputState({
     blockers: [{ code: "build-error" }],
-    hasBaseline: managed.hasBaseline,
+    hasBaseline: false,
   });
   try {
+    const managed = await readManagedOutputState(
+      rootPath,
+      graph.outputRoots,
+      true,
+      outPath,
+      (path) => resolveOperationalPath(pathContext, path),
+      (path) => logicalOperationalPath(pathContext, path)
+    );
+    outputState = classifySkillsetOutputState({
+      blockers: [{ code: "build-error" }],
+      hasBaseline: managed.hasBaseline,
+    });
     const diff = await diffSkillsetResult(rootPath, options);
     drift = diff.data;
     outputState = diff.outputState;

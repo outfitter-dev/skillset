@@ -772,6 +772,56 @@ Body.
   }
 });
 
+test("SET-451: status JSON reports corrupt managed locks as blocked output state", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: corrupt-status-lock
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await buildSkillset(root);
+  await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
+
+  const result = await runSkillsetCli("status", "--root", root, "--json");
+
+  expect(result.exitCode).toBe(1);
+  const envelope = JSON.parse(result.stdout) as {
+    readonly command: string;
+    readonly data: {
+      readonly buildError?: string;
+      readonly outputState: {
+        readonly blockers: readonly { readonly code: string }[];
+        readonly hasBaseline: boolean;
+        readonly state: string;
+      };
+    };
+    readonly ok: boolean;
+  };
+  expect(envelope).toMatchObject({
+    command: "status",
+    data: {
+      buildError: expect.stringContaining("workspace lock skillset.lock cannot guard generated state"),
+      outputState: {
+        blockers: [{ code: "output-derivation-failed" }],
+        hasBaseline: false,
+        state: "blocked",
+      },
+    },
+    ok: false,
+  });
+  expect(result.stdout).not.toContain("cli.usage");
+});
+
 async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -170,6 +170,83 @@ Body.
     expect((await diffSkillsetResult(root)).outputState).toMatchObject({
       outputChanges: [".claude/skills/demo/SKILL.md"],
       state: "output-diverged",
+    });
+  });
+
+  it.each([
+    ["malformed", "{ not valid json"],
+    ["invalid provenance", JSON.stringify({ generatedBy: "other@1.0.0" })],
+  ])("reports a %s managed lock as blocked doctor evidence", async (_case, lock) => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: corrupt-lock-root
+claude: true
+codex: false
+`,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Body.
+`,
+    });
+    await buildSkillsetResult(root);
+    await writeFile(join(root, "skillset.lock"), lock, "utf8");
+
+    const report = await doctorSkillset(root);
+
+    expect(report.ok).toBe(false);
+    expect(report.buildError).toContain("workspace lock skillset.lock cannot guard generated state");
+    expect(report.outputState).toEqual({
+      blockers: [{ code: "output-derivation-failed" }],
+      hasBaseline: false,
+      outputChanges: [],
+      sourceChanges: [],
+      state: "blocked",
+    });
+    expect(await readFile(join(root, "skillset.lock"), "utf8")).toBe(lock);
+  });
+
+  it("preserves a trustworthy managed baseline when later derivation fails", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: baseline-failure-root
+claude: true
+codex: false
+`,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Body.
+`,
+    });
+    await buildSkillsetResult(root);
+    await writeFile(
+      join(root, ".skillset/skills/demo/SKILL.md"),
+      `---
+name: demo
+description: Demo with an undeclared resource link.
+---
+
+See the [guide](shared:references/guide.md).
+`,
+      "utf8"
+    );
+
+    const report = await doctorSkillset(root);
+
+    expect(report.ok).toBe(false);
+    expect(report.buildError).toContain("undeclared shared resource");
+    expect(report.outputState).toMatchObject({
+      hasBaseline: true,
+      state: "blocked",
     });
   });
 
