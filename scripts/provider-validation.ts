@@ -215,15 +215,21 @@ export async function executeValidationCommands(
       result = await runner(item);
     } catch (error) {
       status.set(item.lane, false);
-      failures.push(`${item.lane} ${item.subject}: ${message(error)}`);
+      failures.push(
+        boundedDiagnostic(`${item.lane} ${item.subject}: ${message(error)}`)
+      );
       continue;
     }
     const passed =
       item.expect === "success" ? result.exitCode === 0 : result.exitCode !== 0;
     if (!passed) {
       status.set(item.lane, false);
+      const output =
+        result.stderr.trim() || result.stdout.trim() || "no output";
       failures.push(
-        `${item.lane} ${item.subject}: expected ${item.expect}, exit ${result.exitCode}; ${result.stderr.trim() || result.stdout.trim()}`
+        boundedDiagnostic(
+          `${item.lane} ${item.subject}: expected ${item.expect}, exit ${result.exitCode}; ${output}`
+        )
       );
     }
   }
@@ -291,7 +297,8 @@ export function renderProviderValidationReport(
           "## Failure evidence",
           "",
           ...report.failures.map(
-            (item) => `- **${item.stage} / ${item.lane}:** ${item.diagnostic}`
+            (item) =>
+              `- **${item.stage} / ${item.lane}:** ${boundedDiagnostic(item.diagnostic)}`
           ),
         ]),
     "",
@@ -473,9 +480,12 @@ export function normalizeProviderValidationReport(
     ...report,
     failures: report.failures.map((failure) => ({
       ...failure,
-      diagnostic: orderedReplacements.reduce(
-        (value, [source, replacement]) => value.replaceAll(source, replacement),
-        failure.diagnostic
+      diagnostic: boundedDiagnostic(
+        orderedReplacements.reduce(
+          (value, [source, replacement]) =>
+            value.replaceAll(source, replacement),
+          failure.diagnostic
+        )
       ),
     })),
   };
@@ -540,7 +550,12 @@ function createFailedReport(
 }
 
 function boundedDiagnostic(value: string): string {
-  return value.replaceAll(/\s+/g, " ").trim().slice(0, 500);
+  const normalized = value.replaceAll(/\s+/g, " ").trim();
+  const limit = 500;
+  const marker = " … [truncated] … ";
+  if (normalized.length <= limit) return normalized;
+  const tailLength = 120;
+  return `${normalized.slice(0, limit - marker.length - tailLength)}${marker}${normalized.slice(-tailLength)}`;
 }
 
 function message(error: unknown): string {

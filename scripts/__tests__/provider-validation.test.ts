@@ -21,9 +21,24 @@ import {
   runHostedProviderValidation,
   type ProviderArtifactInventory,
 } from "../provider-validation";
-import { stageValidationInputs } from "../provider-validation-hosted";
+import {
+  formatAcquisitionFailureDiagnostic,
+  stageValidationInputs,
+} from "../provider-validation-hosted";
 
 describe("SET-463 hosted provider validation orchestration", () => {
+  test("formats acquisition failures with an actual newline", () => {
+    const diagnostic = formatAcquisitionFailureDiagnostic(
+      ["validator", "--check"],
+      "first line\nsecond line\n"
+    );
+
+    expect(diagnostic).toBe(
+      "skillset: acquisition command failed: validator --check\nfirst line\nsecond line\n"
+    );
+    expect(diagnostic).not.toContain("\\n");
+  });
+
   test("enumerates canonical lock items and fixed root marketplaces without globs", async () => {
     const root = await fixtureRoot();
     const canonicalRoot = await realpath(root);
@@ -207,6 +222,69 @@ describe("SET-463 hosted provider validation orchestration", () => {
       );
     }
     expect(calls).toBe(commands.length);
+  });
+
+  test("bounds validator stdout and stderr with deterministic actionable evidence", async () => {
+    const commands = [
+      {
+        argv: ["validator", "stderr"] as const,
+        cwd: "/stage/stderr",
+        env: {},
+        expect: "success" as const,
+        lane: "codex-authoring" as const,
+        subject: "large stderr",
+      },
+      {
+        argv: ["validator", "stdout"] as const,
+        cwd: "/stage/stdout",
+        env: {},
+        expect: "success" as const,
+        lane: "cursor-authoring" as const,
+        subject: "large stdout",
+      },
+    ];
+    const execute = async (): Promise<ProviderValidationFailure> => {
+      try {
+        await executeValidationCommands(commands, async ({ subject }) => ({
+          exitCode: 1,
+          stderr:
+            subject === "large stderr"
+              ? `stderr-start\n${"e".repeat(10_000)}\nstderr-tail-actionable`
+              : "",
+          stdout:
+            subject === "large stdout"
+              ? `stdout-start\n${"o".repeat(10_000)}\nstdout-tail-actionable`
+              : "",
+        }));
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProviderValidationFailure);
+        return error as ProviderValidationFailure;
+      }
+      throw new Error("expected bounded validation failure");
+    };
+
+    const first = await execute();
+    const second = await execute();
+    expect(first.report.failures).toEqual(second.report.failures);
+    expect(first.failures).toEqual(
+      first.report.failures.map(({ diagnostic }) => diagnostic)
+    );
+    for (const { diagnostic } of first.report.failures) {
+      expect(diagnostic.length).toBeLessThanOrEqual(500);
+      expect(diagnostic).toContain("[truncated]");
+      expect(diagnostic).not.toContain("\n");
+    }
+    expect(first.report.failures[0]?.diagnostic).toContain(
+      "stderr-tail-actionable"
+    );
+    expect(first.report.failures[1]?.diagnostic).toContain(
+      "stdout-tail-actionable"
+    );
+    const markdown = renderProviderValidationReport(first.report);
+    expect(markdown).toContain("stderr-tail-actionable");
+    expect(markdown).toContain("stdout-tail-actionable");
+    expect(markdown).not.toContain("e".repeat(501));
+    expect(markdown).not.toContain("o".repeat(501));
   });
 
   test("hard-wraps validators in a no-network namespace with a clean environment", () => {

@@ -539,10 +539,15 @@ async function runRequired(
     new Response(child.stderr).text(),
   ]);
   if (exitCode !== 0) {
-    throw new Error(
-      `skillset: acquisition command failed: ${argv.join(" ")}\n${stderr}`
-    );
+    throw new Error(formatAcquisitionFailureDiagnostic(argv, stderr));
   }
+}
+
+export function formatAcquisitionFailureDiagnostic(
+  argv: readonly [string, ...string[]],
+  stderr: string
+): string {
+  return `skillset: acquisition command failed: ${argv.join(" ")}\n${stderr}`;
 }
 
 async function verifyNodePackages(
