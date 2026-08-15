@@ -83,6 +83,33 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: rejects protected directory roots at token boundaries", () => {
+    const content = [
+      "Run `cd [packages/core]`.",
+      "Open {apps/skillset/src}.",
+      "Read <docs/development>.",
+      "Inspect fixtures...",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-package" },
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "fixture-path" },
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        "Use docs/developmental, docs/development.md, apps/skillset/srcset, fixtures.json, and fixtures-extra."
+      )
+    ).toEqual([]);
+  });
+
   test("SET-465: synthetic public leak fails without scanning contributor surfaces", async () => {
     const root = await fixtureRoot();
     const publicSkill = join(
@@ -236,6 +263,36 @@ describe("generated public closure guard", () => {
         aliases
       ).map(({ line }) => line)
     ).toEqual([1, 2, 3, 4]);
+  });
+
+  test("SET-465: pnpm filter selectors preserve direct and transitive aliases", () => {
+    const packageScripts = {
+      private: "bun scripts/private.ts",
+      "via:filter": "pnpm --filter skillset run private",
+      "via:filter-short": "pnpm -F skillset run via:filter",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const content = [
+      "Run `pnpm --filter skillset run private`.",
+      "Run `pnpm -F skillset run via:filter`.",
+    ].join("\n");
+
+    expect([...aliases].toSorted()).toEqual([
+      "private",
+      "via:filter",
+      "via:filter-short",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line }) => line)
+    ).toEqual([1, 2]);
   });
 
   test("SET-465: Bun builtins require explicit run to resolve package aliases", () => {
@@ -422,7 +479,9 @@ describe("generated public closure guard", () => {
         ["scripts/private.ts"],
         aliases,
         new Set(Object.keys(packageScripts))
-      ).map(({ line }) => line)
+      )
+        .filter(({ rule }) => rule === "internal-script")
+        .map(({ line }) => line)
     ).toEqual([1, 2, 3, 4]);
   });
 
@@ -493,6 +552,62 @@ describe("generated public closure guard", () => {
         new Set(Object.keys(packageScripts))
       ).map(({ line }) => line)
     ).toEqual([2]);
+  });
+
+  test("SET-465: shell continuations remove backslash-newline without a separator", () => {
+    const packageScripts = {
+      outer: "bun run pri\\\nvate",
+      path: "bun scripts/\\\nprivate.ts",
+      private: "bun scripts/private.ts",
+      transitive: "bun run out\\\ner",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+
+    expect([...aliases].toSorted()).toEqual([
+      "outer",
+      "path",
+      "private",
+      "transitive",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        [
+          "Run `bun run pri\\",
+          "vate`.",
+          "Run `bun scripts/\\",
+          "private.ts`.",
+          "Run `bun run\\",
+          "private`.",
+          "Run `bun run out\\",
+          "er`.",
+        ].join("\n"),
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      )
+    ).toEqual([
+      {
+        file: "plugins/skillset/codex/skills/skillset/SKILL.md",
+        line: 1,
+        rule: "internal-script",
+        text: "Run `bun run private`.",
+      },
+      {
+        file: "plugins/skillset/codex/skills/skillset/SKILL.md",
+        line: 3,
+        rule: "internal-script",
+        text: "Run `bun scripts/private.ts`.",
+      },
+      {
+        file: "plugins/skillset/codex/skills/skillset/SKILL.md",
+        line: 7,
+        rule: "internal-script",
+        text: "Run `bun run outer`.",
+      },
+    ]);
   });
 
   test("SET-465: allows package scripts without repository-script dependencies", () => {

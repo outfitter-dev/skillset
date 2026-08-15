@@ -37,11 +37,17 @@ const CLOSURE_PATTERNS: readonly ClosurePattern[] = [
       /(?:^|[^a-z0-9-])skillset-dev(?:-[a-z0-9][a-z0-9-]*)?(?=$|[^a-z0-9-])/iu,
     rule: "contributor-skill",
   },
-  { pattern: /\bdocs\/development\//iu, rule: "development-docs" },
-  { pattern: /\bfixtures\//iu, rule: "fixture-path" },
+  {
+    pattern: /\bdocs\/development(?![a-z0-9_-]|\.[a-z0-9_-])/iu,
+    rule: "development-docs",
+  },
+  {
+    pattern: /\bfixtures(?![a-z0-9_-]|\.[a-z0-9_-])/iu,
+    rule: "fixture-path",
+  },
   {
     pattern:
-      /(?:@skillset\/[a-z0-9._-]+\/(?:internal|src)(?:\/|\b)|\bpackages\/[a-z0-9._-]+\/|\bapps\/skillset\/src\/)/iu,
+      /(?:@skillset\/[a-z0-9._-]+\/(?:internal|src)(?![a-z0-9_-]|\.[a-z0-9_-])|\bpackages\/[a-z0-9._-]*[a-z0-9_-](?![a-z0-9_-]|\.[a-z0-9_-])|\bapps\/skillset\/src(?![a-z0-9_-]|\.[a-z0-9_-]))/iu,
     rule: "internal-package",
   },
   {
@@ -57,7 +63,7 @@ const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
   {
     bun: new Set(["--cwd"]),
     npm: new Set(["--prefix", "--script-shell", "--workspace", "-w"]),
-    pnpm: new Set(["--dir"]),
+    pnpm: new Set(["--dir", "--filter", "-F"]),
     yarn: new Set(["--cwd"]),
   };
 const RUNNER_BUILTINS: Readonly<Record<PackageRunner, ReadonlySet<string>>> = {
@@ -145,29 +151,29 @@ export function scanGeneratedPublicContent(
 ): readonly PublicClosureViolation[] {
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
-  for (const [index, text] of content.split(/\r?\n/u).entries()) {
+  for (const { line, text } of shellLogicalLines(content)) {
     for (const { pattern, rule } of CLOSURE_PATTERNS) {
       if (pattern.test(text)) {
-        violations.push({ file, line: index + 1, rule, text: text.trim() });
+        violations.push({ file, line, rule, text: text.trim() });
       }
     }
     if (
       !violations.some(
         (violation) =>
-          violation.line === index + 1 && violation.rule === "internal-script"
+          violation.line === line && violation.rule === "internal-script"
       ) &&
       repoInternalScripts.some((path) => hasBarePathReference(text, path))
     ) {
       violations.push({
         file,
-        line: index + 1,
+        line,
         rule: "internal-script",
         text: text.trim(),
       });
     } else if (
       !violations.some(
         (violation) =>
-          violation.line === index + 1 && violation.rule === "internal-script"
+          violation.line === line && violation.rule === "internal-script"
       ) &&
       invokedPackageScripts(text, packageScriptNames).some((name) =>
         repoInternalScriptAliases.has(name)
@@ -175,13 +181,34 @@ export function scanGeneratedPublicContent(
     ) {
       violations.push({
         file,
-        line: index + 1,
+        line,
         rule: "internal-script",
         text: text.trim(),
       });
     }
   }
   return violations;
+}
+
+function shellLogicalLines(
+  content: string
+): readonly { readonly line: number; readonly text: string }[] {
+  const lines = content.split(/\r?\n/u);
+  const logicalLines: { line: number; text: string }[] = [];
+  let line = 1;
+  let text = "";
+
+  for (const [index, physicalLine] of lines.entries()) {
+    if (text.length === 0) line = index + 1;
+    if (physicalLine.endsWith("\\")) {
+      text += physicalLine.slice(0, -1);
+    } else {
+      logicalLines.push({ line, text: text + physicalLine });
+      text = "";
+    }
+  }
+  if (text.length > 0) logicalLines.push({ line, text });
+  return logicalLines;
 }
 
 function readCommandToken(text: string, offset: number): CommandToken | null {
@@ -238,14 +265,23 @@ function readRunnerToken(
  * shorthand (`start`, `stop`, `restart`, and `test` plus `t`/`tst`). Script
  * names may be bare or single-/double-quoted.
  * Bounded value flags (`npm --prefix`, `-w`/`--workspace`, `--script-shell`;
- * `bun/yarn --cwd`; and `pnpm --dir`) consume one following token; other flags
- * must be self-contained (for example `--silent` or `--cwd=path`). npm, Bun,
- * and pnpm package-script execution includes bounded pre/post lifecycle edges;
- * npm `restart` chooses restart or stop/start fallback edges from the supplied
- * script inventory. This does not expand variables or parse general shell
- * syntax.
+ * `bun/yarn --cwd`; and `pnpm --dir`, `--filter`, or `-F`) consume one
+ * following token; other flags must be self-contained (for example `--silent`
+ * or `--cwd=path`). npm, Bun, and pnpm package-script execution includes
+ * bounded pre/post lifecycle edges; npm `restart` chooses restart or stop/start
+ * fallback edges from the supplied script inventory. This does not expand
+ * variables or parse general shell syntax.
  */
 function invokedPackageScripts(
+  text: string,
+  packageScriptNames?: ReadonlySet<string>
+): readonly string[] {
+  return shellLogicalLines(text).flatMap((line) =>
+    invokedPackageScriptsOnLine(line.text, packageScriptNames)
+  );
+}
+
+function invokedPackageScriptsOnLine(
   text: string,
   packageScriptNames?: ReadonlySet<string>
 ): readonly string[] {
@@ -335,10 +371,13 @@ export function findRepoInternalScriptAliases(
     changed = false;
     for (const [name, command] of Object.entries(packageScripts)) {
       if (aliases.has(name)) continue;
-      const referencesInternalPath = repoInternalScripts.some(
-        (path) =>
-          hasBarePathReference(command, path) ||
-          hasBarePathReference(command, `./${path}`)
+      const commandLines = shellLogicalLines(command).map((line) => line.text);
+      const referencesInternalPath = repoInternalScripts.some((path) =>
+        commandLines.some(
+          (line) =>
+            hasBarePathReference(line, path) ||
+            hasBarePathReference(line, `./${path}`)
+        )
       );
       const referencesInternalAlias = invokedPackageScripts(
         command,
