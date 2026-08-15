@@ -73,6 +73,9 @@ export interface WorkspaceTransactionTestHooks {
     operation: WorkspaceTransactionOperation,
     index: number
   ) => Promise<void> | void;
+  readonly beforeDirectoryReplacementValidation?: (
+    path: string
+  ) => Promise<void> | void;
   readonly beforeRollback?: (
     action: WorkspaceTransactionRollbackAction,
     index: number
@@ -200,7 +203,8 @@ export async function applyWorkspaceTransaction(
   const prepared = preparePlan(resolvedWorkspaceRoot, plan);
   const initialEntries = await inspectInitialEntries(
     resolvedWorkspaceRoot,
-    prepared
+    prepared,
+    options.testHooks
   );
   assertMoveTargetCollisions(prepared, initialEntries);
 
@@ -410,7 +414,8 @@ function assertUnique(paths: Set<string>, path: string, label: string): void {
 
 async function inspectInitialEntries(
   workspaceRoot: string,
-  prepared: PreparedPlan
+  prepared: PreparedPlan,
+  hooks: WorkspaceTransactionTestHooks | undefined
 ): Promise<ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>> {
   const paths = new Map<string, NormalizedPath>();
   for (const write of prepared.writes) {
@@ -445,7 +450,8 @@ async function inspectInitialEntries(
   await assertManagedShapeTransitionEntries(
     workspaceRoot,
     prepared,
-    entries
+    entries,
+    hooks
   );
 
   for (const move of prepared.moves) {
@@ -494,40 +500,50 @@ async function inspectInitialEntries(
 async function assertManagedShapeTransitionEntries(
   workspaceRoot: string,
   prepared: PreparedPlan,
-  entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>
+  entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>,
+  hooks: WorkspaceTransactionTestHooks | undefined
 ): Promise<void> {
   for (const write of prepared.writes) {
-    for (const plannedDelete of prepared.deletes) {
-      if (isAncestorPath(plannedDelete.path.relative, write.path.relative)) {
-        const deletedEntry = entries.get(plannedDelete.path.relative);
-        if (deletedEntry?.isFile() !== true) {
-          throw transactionError(
-            `delete ancestor must be an existing regular file before a descendant write: ${plannedDelete.path.relative}`
-          );
-        }
-        continue;
-      }
-      if (!isAncestorPath(write.path.relative, plannedDelete.path.relative)) {
-        continue;
-      }
-      const replacedEntry = entries.get(write.path.relative);
-      if (replacedEntry?.isDirectory() !== true) {
+    const ancestorDeletes = prepared.deletes.filter((plannedDelete) =>
+      isAncestorPath(plannedDelete.path.relative, write.path.relative)
+    );
+    for (const plannedDelete of ancestorDeletes) {
+      const deletedEntry = entries.get(plannedDelete.path.relative);
+      if (deletedEntry?.isFile() !== true) {
         throw transactionError(
-          `write ancestor must be an existing directory before deleting descendants: ${write.path.relative}`
+          `delete ancestor must be an existing regular file before a descendant write: ${plannedDelete.path.relative}`
         );
       }
+    }
+
+    const descendantDeletes = prepared.deletes.filter((plannedDelete) =>
+      isAncestorPath(write.path.relative, plannedDelete.path.relative)
+    );
+    if (descendantDeletes.length === 0) {
+      continue;
+    }
+    const replacedEntry = entries.get(write.path.relative);
+    if (replacedEntry?.isDirectory() !== true) {
+      throw transactionError(
+        `write ancestor must be an existing directory before deleting descendants: ${write.path.relative}`
+      );
+    }
+    for (const plannedDelete of descendantDeletes) {
       const deletedEntry = entries.get(plannedDelete.path.relative);
       if (deletedEntry?.isFile() !== true) {
         throw transactionError(
           `delete descendant must be an existing regular file before an ancestor write: ${plannedDelete.path.relative}`
         );
       }
-      await assertDirectoryReplacementIsCovered(
-        workspaceRoot,
-        write.path,
-        prepared.deletes
-      );
     }
+    await hooks?.beforeDirectoryReplacementValidation?.(
+      write.path.relative
+    );
+    await assertDirectoryReplacementIsCovered(
+      workspaceRoot,
+      write.path,
+      descendantDeletes
+    );
   }
 }
 
@@ -958,8 +974,24 @@ async function assertDirectoryReplacementIsCovered(
   directory: NormalizedPath,
   deletes: readonly NormalizedDelete[]
 ): Promise<void> {
+  const deleteLeaves = new Set(
+    deletes.map((plannedDelete) => plannedDelete.path.relative)
+  );
+  const deleteAncestors = new Set<string>();
+  for (const leaf of deleteLeaves) {
+    let ancestor = nodePath.dirname(leaf);
+    while (
+      ancestor !== directory.relative &&
+      isAncestorPath(directory.relative, ancestor)
+    ) {
+      deleteAncestors.add(ancestor);
+      ancestor = nodePath.dirname(ancestor);
+    }
+  }
+
   const inspectDirectory = async (absolute: string): Promise<void> => {
-    const entries = await readdir(absolute, { withFileTypes: true });
+    const entries = (await readdir(absolute, { withFileTypes: true }))
+      .toSorted((left, right) => compareStrings(left.name, right.name));
     for (const entry of entries) {
       const childAbsolute = nodePath.join(absolute, entry.name);
       const childRelative = nodePath.relative(workspaceRoot, childAbsolute);
@@ -968,16 +1000,11 @@ async function assertDirectoryReplacementIsCovered(
           `refusing to replace directory containing symbolic link: ${childRelative}`
         );
       }
-      const coveredFile = entry.isFile() && deletes.some(
-        (plannedDelete) => plannedDelete.path.relative === childRelative
-      );
+      const coveredFile = entry.isFile() && deleteLeaves.has(childRelative);
       if (coveredFile) {
         continue;
       }
-      const containsPlannedDelete = deletes.some((plannedDelete) =>
-        isAncestorPath(childRelative, plannedDelete.path.relative)
-      );
-      if (entry.isDirectory() && containsPlannedDelete) {
+      if (entry.isDirectory() && deleteAncestors.has(childRelative)) {
         await inspectDirectory(childAbsolute);
         continue;
       }
