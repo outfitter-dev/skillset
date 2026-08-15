@@ -17,7 +17,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
-import type { SkillsetReport } from "@skillset/schema";
+import type { SkillsetOperationReport } from "@skillset/schema";
 
 import {
   createAdoptionReport,
@@ -320,7 +320,7 @@ describe("global immutable report store", () => {
     const unsafe = {
       ...valid,
       payload: { ...valid.payload, candidateIds: ["file:/Users/private"] },
-    } as SkillsetReport;
+    };
 
     await expect(
       createReportBundle(unsafe, {
@@ -927,7 +927,10 @@ describe("global immutable report store", () => {
   });
 });
 
-function fixtureReport(id = ID, workspaceName = "skillset"): SkillsetReport {
+function fixtureReport(
+  id = ID,
+  workspaceName = "skillset"
+): SkillsetOperationReport {
   return createOperationReport(
     {
       command: "check",
