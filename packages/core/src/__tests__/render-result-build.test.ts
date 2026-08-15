@@ -1020,6 +1020,59 @@ Help with the task.
     );
   });
 
+  it("reports canonical listing category omitted from Cursor plugin output", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-evidence
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/cursor-listing-category-omitted",
+          message:
+            "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+          path: ".skillset/plugins/tools: $.skillset.listing.category",
+        },
+      ],
+      destination: "plugin-manifest",
+      reason:
+        "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category",
+      sourcePath: ".skillset/plugins/tools",
+      status: "degraded",
+    });
+
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.category).toBeUndefined();
+  });
+
   it("allows default multi-provider builds when Cursor only omits author URL", async () => {
     const root = await fixture({
       "skillset.yaml": `

@@ -6,7 +6,7 @@ import {
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
-import { readString, isOutputSelected } from "./config";
+import { readRecord, readString, isOutputSelected } from "./config";
 import { getSkillsetFeature, type SkillsetFeatureEvidence } from "./feature-registry";
 import { hookProviderCapabilities } from "./hook-capabilities";
 import {
@@ -409,31 +409,73 @@ function outcomeForLockItem(
 ): SkillsetRenderResult {
   const target = targetForLockItem(graph, lock, item, outputPaths);
   const featureId = featureIdForLockItem(item);
-  const authorFacts = pluginAuthorRenderFacts(graph, item, target);
-  const baseStatus = authorFacts?.status ?? statusForLockItem(item, target);
+  const manifestFacts = pluginManifestRenderFacts(graph, item, target);
+  const baseStatus = manifestFacts?.status ?? statusForLockItem(item, target);
   const isIncluded = outputPaths.some((path) => includedPaths.has(path));
   const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
   const policy: SkillsetRenderResultPolicy | undefined = isIncluded ? undefined : "scope:excluded";
   const reason = isIncluded
-    ? authorFacts?.reason ?? reasonForStatus(featureId, target, status)
+    ? manifestFacts?.reason ?? reasonForStatus(featureId, target, status)
     : "excluded by build scope";
   const evidence = evidenceFor(featureId, target);
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
-    ...(isIncluded && authorFacts?.diagnostics !== undefined
-      ? { diagnostics: authorFacts.diagnostics }
+    ...(isIncluded && manifestFacts?.diagnostics !== undefined
+      ? { diagnostics: manifestFacts.diagnostics }
       : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
     ...(policy === undefined ? {} : { policy }),
     ...(reason === undefined ? {} : { reason }),
-    sourcePath: authorFacts?.sourcePath ?? item.sourcePath,
+    sourcePath: manifestFacts?.sourcePath ?? item.sourcePath,
     sourceUnit: sourceUnitForLockItem(item, target),
     status,
     ...(target === undefined ? {} : { target }),
   });
+}
+
+interface PluginManifestRenderFacts {
+  readonly diagnostics: readonly SkillsetRenderResultDiagnosticRef[];
+  readonly reason: string;
+  readonly sourcePath: string;
+  readonly status: SkillsetRenderResultStatus;
+}
+
+function pluginManifestRenderFacts(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName | undefined
+): PluginManifestRenderFacts | undefined {
+  const authorFacts = pluginAuthorRenderFacts(graph, item, target);
+  if (item.kind !== "plugin" || target !== "cursor") return authorFacts;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
+  if (plugin === undefined) return authorFacts;
+  const category = readString(readRecord(plugin.metadata, "listing") ?? {}, "category");
+  if (category === undefined) return authorFacts;
+
+  const reason =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category";
+  const categoryDiagnostic: SkillsetRenderResultDiagnosticRef = {
+    code: "render/cursor-listing-category-omitted",
+    message: reason,
+    path: `${item.sourcePath}: $.skillset.listing.category`,
+  };
+  if (authorFacts === undefined) {
+    return {
+      diagnostics: [categoryDiagnostic],
+      reason,
+      sourcePath: item.sourcePath,
+      status: "degraded",
+    };
+  }
+  return {
+    diagnostics: [...authorFacts.diagnostics, categoryDiagnostic],
+    reason: `${authorFacts.reason}; ${reason}`,
+    sourcePath: item.sourcePath,
+    status: authorFacts.status === "lossy" ? "lossy" : "degraded",
+  };
 }
 
 function pluginAuthorRenderFacts(
@@ -441,12 +483,7 @@ function pluginAuthorRenderFacts(
   item: RenderedLockItem,
   target: TargetName | undefined
 ):
-  | {
-      readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
-      readonly reason?: string;
-      readonly sourcePath: string;
-      readonly status: SkillsetRenderResultStatus;
-    }
+  | PluginManifestRenderFacts
   | undefined {
   if (
     item.kind !== "plugin" ||
