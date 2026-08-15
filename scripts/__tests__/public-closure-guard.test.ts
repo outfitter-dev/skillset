@@ -671,6 +671,240 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: ripgrep distinguishes patterns, option values, and path operands", () => {
+    expect(
+      [
+        ...findRepoInternalScriptAliases(
+          {
+            "private:path": "rg TODO packages",
+            "private:plugin-script-option": "rg -f scripts/patterns.txt public",
+            "private:plugin-script-path": "rg TODO scripts/check.ts",
+            "private:script-path": "rg TODO scripts/private.ts",
+            "public:glob": "rg -g packages TODO public",
+            "public:pattern": "rg packages/core/src/index.ts",
+            "public:script-pattern": "rg scripts/private.ts",
+          },
+          ["scripts/private.ts"]
+        ),
+      ].toSorted()
+    ).toEqual([
+      "private:path",
+      "private:plugin-script-option",
+      "private:plugin-script-path",
+      "private:script-path",
+    ]);
+
+    const content = [
+      "```sh",
+      "rg TODO packages",
+      "rg TODO public packages fixtures",
+      "rg -g packages TODO public",
+      "rg --glob '*.ts' TODO packages",
+      "rg -e TODO -- packages",
+      "rg --regexp=TODO packages/core",
+      "rg --files scripts",
+      "rg TODO 'docs/development'",
+      'rg TODO "apps/skillset/src"',
+      "rg TODO pack\\ages",
+      "rg TODO packages/**",
+      "rg -- TODO packages",
+      "rg packages",
+      "rg packages public",
+      "rg -e packages",
+      "rg --regexp packages",
+      "rg --glob packages TODO public",
+      "rg -gpackages TODO public",
+      "rg TODO public",
+      "rg TODO -",
+      "rg --files",
+      "rg --glob packages",
+      "rg --max-depth packages TODO public",
+      "```",
+      "Run `rg packages/core/src/index.ts`.",
+      "Run `rg TODO packages/core/src/index.ts`.",
+      "```sh",
+      "rg 'packages/core/src/index.ts'",
+      "rg packages/core/src/index.ts public",
+      "rg -e packages/core/src/index.ts",
+      "rg --glob packages/core/src/** TODO public",
+      "rg scripts/private.ts",
+      "rg TODO scripts/private.ts",
+      "rg TODO scripts/check.ts",
+      "rg --files scripts/check.ts",
+      "rg -f scripts/patterns.txt public",
+      "```",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"]
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "fixture-path" },
+      { line: 3, rule: "internal-package" },
+      { line: 5, rule: "internal-package" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "internal-package" },
+      { line: 9, rule: "development-docs" },
+      { line: 10, rule: "internal-package" },
+      { line: 11, rule: "internal-package" },
+      { line: 12, rule: "internal-package" },
+      { line: 13, rule: "internal-package" },
+      { line: 27, rule: "internal-package" },
+      { line: 34, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: ripgrep handles normalized paths, short clusters, and bounded shell expansion", () => {
+    expect(
+      [
+        ...findRepoInternalScriptAliases(
+          {
+            "private:absolute": "rg TODO /repo/packages",
+            "private:brace": "rg TODO {packages,public}",
+            "private:cluster": "rg -neTODO packages",
+            "private:glob": "rg TODO **/packages",
+            "private:negated": "! rg TODO packages",
+            "private:parent": "rg TODO ../packages",
+            "private:script-parent": "rg TODO ../scripts/private.ts",
+            "public:foreign-absolute": "rg TODO /other/packages",
+            "public:glob-option": "rg -ugpackages TODO public",
+            "public:pattern-brace": "rg {packages,public}",
+            "public:quoted-brace": "rg TODO '{packages,public}'",
+          },
+          ["scripts/private.ts"],
+          "/repo"
+        ),
+      ].toSorted()
+    ).toEqual([
+      "private:absolute",
+      "private:brace",
+      "private:cluster",
+      "private:glob",
+      "private:negated",
+      "private:parent",
+      "private:script-parent",
+    ]);
+
+    const content = [
+      "```sh",
+      "rg TODO ../packages",
+      "rg TODO ../../docs/development",
+      "rg TODO /repo/packages",
+      "rg TODO ../scripts/private.ts",
+      "rg -neTODO packages",
+      "rg -uneTODO fixtures",
+      "rg -HneTODO docs/development",
+      "! rg TODO packages",
+      "rg TODO {packages,public}",
+      "rg TODO {fixtures,public}",
+      "rg TODO **/packages",
+      "rg TODO /repo/**/packages",
+      "rg TODO /other/packages",
+      "rg TODO ../public/packages",
+      "rg -ugpackages TODO public",
+      "rg -g {packages,public} TODO public",
+      "rg {packages,public}",
+      "! echo packages",
+      "rg -ne",
+      "rg TODO '{packages,public}'",
+      'rg TODO "{fixtures,public}"',
+      "rg TODO \\{packages,public\\}",
+      "```",
+      "Run `rg TODO ../packages`.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "internal-package" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "fixture-path" },
+      { line: 8, rule: "development-docs" },
+      { line: 9, rule: "internal-package" },
+      { line: 10, rule: "internal-package" },
+      { line: 11, rule: "fixture-path" },
+      { line: 12, rule: "internal-package" },
+      { line: 13, rule: "internal-package" },
+      { line: 25, rule: "internal-package" },
+    ]);
+  });
+
+  test("SET-465: ripgrep checks path-reading and command option operands", () => {
+    expect(
+      [
+        ...findRepoInternalScriptAliases(
+          {
+            "private:file": "rg -f scripts/private.ts public",
+            "private:file-attached": "rg --file=scripts/private.ts public",
+            "private:hostname":
+              "rg --hostname-bin scripts/private.ts TODO public",
+            "private:ignore":
+              "rg --ignore-file docs/development/schema-contracts.md TODO public",
+            "private:pre": "rg --pre 'node scripts/private.ts' TODO public",
+            "public:file": "rg --file patterns.txt public",
+            "public:ignore":
+              "rg --ignore-file docs/reference/ignore TODO public",
+            "public:pre": "rg --pre 'echo ready' TODO public",
+          },
+          ["scripts/private.ts"]
+        ),
+      ].toSorted()
+    ).toEqual([
+      "private:file",
+      "private:file-attached",
+      "private:hostname",
+      "private:ignore",
+      "private:pre",
+    ]);
+
+    const content = [
+      "```sh",
+      "rg -f scripts/private.ts public",
+      "rg --file scripts/private.ts public",
+      "rg --file=scripts/private.ts public",
+      "rg --ignore-file docs/development/schema-contracts.md TODO public",
+      "rg --pre scripts/private.ts TODO public",
+      "rg --hostname-bin scripts/private.ts TODO public",
+      "rg --pre 'node scripts/private.ts' TODO public",
+      "rg --file patterns.txt public",
+      "rg --ignore-file docs/reference/ignore TODO public",
+      "rg --pre 'echo ready' TODO public",
+      "rg --hostname-bin /usr/bin/hostname TODO public",
+      "rg --glob packages TODO public",
+      "```",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"]
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-script" },
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "development-docs" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-script" },
+      { line: 8, rule: "internal-script" },
+    ]);
+  });
+
   test("SET-465: repository file URLs inherit protected owner semantics", () => {
     expect(
       scanGeneratedPublicContent(

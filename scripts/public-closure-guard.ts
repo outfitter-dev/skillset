@@ -85,6 +85,8 @@ const PROTECTED_PATH_ACTIONS =
   "browse|cd|edit|enter|inspect|list|open|read|visit";
 const PUBLIC_REPOSITORY_OWNER = "outfitter-dev";
 const PUBLIC_REPOSITORY_NAME = "skillset";
+const LITERAL_OPEN_BRACE = "\u{e000}";
+const LITERAL_CLOSE_BRACE = "\u{e001}";
 const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
   "bash",
   "bun",
@@ -108,6 +110,69 @@ const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
   "tree",
   "tsx",
   "zsh",
+]);
+const RIPGREP_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--file",
+  "--regexp",
+  "-e",
+  "-f",
+]);
+const RIPGREP_PATH_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--file",
+  "--ignore-file",
+  "-f",
+]);
+const RIPGREP_COMMAND_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  "--hostname-bin",
+  "--pre",
+]);
+const RIPGREP_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  ...RIPGREP_PATTERN_VALUE_FLAGS,
+  "--after-context",
+  "--before-context",
+  "--color",
+  "--colors",
+  "--context",
+  "--context-separator",
+  "--dfa-size-limit",
+  "--encoding",
+  "--engine",
+  "--field-context-separator",
+  "--field-match-separator",
+  "--generate",
+  "--glob",
+  "--hostname-bin",
+  "--hyperlink-format",
+  "--iglob",
+  "--ignore-file",
+  "--max-columns",
+  "--max-count",
+  "--max-depth",
+  "--max-filesize",
+  "--path-separator",
+  "--pre",
+  "--pre-glob",
+  "--regex-size-limit",
+  "--replace",
+  "--sort",
+  "--sortr",
+  "--threads",
+  "--type",
+  "--type-add",
+  "--type-clear",
+  "--type-not",
+  "-A",
+  "-B",
+  "-C",
+  "-d",
+  "-E",
+  "-g",
+  "-j",
+  "-m",
+  "-M",
+  "-r",
+  "-t",
+  "-T",
 ]);
 const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
   {
@@ -387,7 +452,7 @@ export function scanGeneratedPublicContent(
           violation.line === line && violation.rule === "internal-script"
       ) &&
       repoInternalScripts.some((path) =>
-        hasRepoInternalScriptReference(text, path, repoRoot)
+        hasRepoInternalScriptReference(text, path, repoRoot, shellCommand)
       )
     ) {
       violations.push({
@@ -471,7 +536,12 @@ function hasProtectedPathOwnerReference(
     ? posix.normalize(`${normalizedRoot}/${normalizedOwner}`)
     : undefined;
 
-  const pathCandidateText = collapseRepeatedPathSeparators(normalizedText);
+  const pathCandidateText = collapseRepeatedPathSeparators(
+    withoutRipgrepCommandSegments(
+      normalizedText,
+      context === "package-script" || shellCommand
+    )
+  );
   for (const match of pathCandidateText.matchAll(PATH_CANDIDATE_PATTERN)) {
     if (match[0].endsWith("/.")) continue;
     const candidate = posix
@@ -508,11 +578,21 @@ function hasProtectedPathOwnerReference(
 
   if (
     (context === "package-script" &&
-      hasProtectedRootCommandArgument(shellText, normalizedOwner)) ||
+      hasProtectedRootCommandArgument(shellText, normalizedOwner, repoRoot)) ||
     (context === "generated" &&
-      (hasGeneratedShellOwnerToken(shellText, normalizedOwner) ||
+      (hasGeneratedShellOwnerToken(
+        shellText,
+        normalizedOwner,
+        repoRoot,
+        ownerPath !== "scripts"
+      ) ||
         (shellCommand &&
-          hasProtectedRootCommandArgument(shellText, normalizedOwner))))
+          hasProtectedRootCommandArgument(
+            shellText,
+            normalizedOwner,
+            repoRoot,
+            ownerPath !== "scripts"
+          ))))
   ) {
     return true;
   }
@@ -637,19 +717,322 @@ function normalizeShellToken(token: string): string {
 
 function hasProtectedRootCommandArgument(
   command: string,
+  normalizedOwner: string,
+  repoRoot?: string,
+  allowDirectOwner = true
+): boolean {
+  return readShellCommandSegments(markLiteralShellBraces(command)).some(
+    (segment) => {
+      const tokens = unwrapShellCommand(segment);
+      const normalizedTokens = tokens.map((token) =>
+        normalizeShellToken(token).toLowerCase()
+      );
+      return (
+        (PROTECTED_ROOT_PATH_COMMANDS.has(normalizedTokens[0] ?? "") &&
+          normalizedTokens.slice(1).includes(normalizedOwner)) ||
+        hasRipgrepProtectedPathArgument(
+          tokens,
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner
+        ) ||
+        hasGitProtectedDirectoryArgument(tokens, normalizedOwner)
+      );
+    }
+  );
+}
+
+function hasRipgrepProtectedPathArgument(
+  tokens: readonly string[],
+  normalizedOwner: string,
+  repoRoot?: string,
+  allowDirectOwner = true
+): boolean {
+  if (tokens[0]?.toLowerCase() !== "rg") return false;
+  let hasPattern = false;
+  let pathsOnly = false;
+  let parseOptions = true;
+
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? "";
+    if (parseOptions && token === "--") {
+      parseOptions = false;
+      continue;
+    }
+    if (parseOptions && token.startsWith("-") && token !== "-") {
+      if (token === "--files") {
+        pathsOnly = true;
+        continue;
+      }
+      const longFlag = token.split("=", 1)[0] ?? token;
+      const shortValue = ripgrepShortValueFlag(token);
+      const valueFlag = RIPGREP_VALUE_FLAGS.has(token)
+        ? token
+        : RIPGREP_VALUE_FLAGS.has(longFlag)
+          ? longFlag
+          : shortValue?.flag;
+      if (!valueFlag) continue;
+      if (RIPGREP_PATTERN_VALUE_FLAGS.has(valueFlag)) hasPattern = true;
+      const hasAttachedValue = token.startsWith("--")
+        ? token.includes("=")
+        : shortValue?.attached === true;
+      let operand: ReturnType<typeof readRipgrepShellWord>;
+      if (hasAttachedValue) {
+        const value = token.startsWith("--")
+          ? token.slice(token.indexOf("=") + 1)
+          : token.slice(shortValue?.valueStart ?? token.length);
+        operand = { lastIndex: index, values: [value] };
+      } else {
+        operand = readRipgrepShellWord(tokens, index + 1);
+      }
+      if (!operand) return false;
+      if (
+        RIPGREP_PATH_VALUE_FLAGS.has(valueFlag) &&
+        operand.values.some((value) =>
+          ripgrepPathMatchesOwner(
+            value,
+            normalizedOwner,
+            repoRoot,
+            allowDirectOwner
+          )
+        )
+      ) {
+        return true;
+      }
+      if (
+        RIPGREP_COMMAND_VALUE_FLAGS.has(valueFlag) &&
+        operand.values.some(
+          (value) =>
+            ripgrepPathMatchesOwner(
+              value,
+              normalizedOwner,
+              repoRoot,
+              allowDirectOwner
+            ) ||
+            ripgrepCommandValueMatchesOwner(
+              value,
+              normalizedOwner,
+              repoRoot,
+              allowDirectOwner
+            ) ||
+            hasProtectedRootCommandArgument(
+              value,
+              normalizedOwner,
+              repoRoot,
+              allowDirectOwner
+            )
+        )
+      ) {
+        return true;
+      }
+      if (!hasAttachedValue) {
+        index = operand.lastIndex;
+      }
+      continue;
+    }
+
+    const operand = readRipgrepShellWord(tokens, index);
+    if (!operand) return false;
+    index = operand.lastIndex;
+    if (!(pathsOnly || hasPattern)) {
+      hasPattern = true;
+      continue;
+    }
+    if (
+      operand.values.some((value) =>
+        ripgrepPathMatchesOwner(
+          value,
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner
+        )
+      )
+    )
+      return true;
+  }
+  return false;
+}
+
+function ripgrepCommandValueMatchesOwner(
+  command: string,
+  normalizedOwner: string,
+  repoRoot?: string,
+  allowDirectOwner = true
+): boolean {
+  return readShellCommandSegments(markLiteralShellBraces(command)).some(
+    (segment) => {
+      const tokens = unwrapShellCommand(segment);
+      return (
+        PROTECTED_ROOT_PATH_COMMANDS.has(tokens[0]?.toLowerCase() ?? "") &&
+        tokens
+          .slice(1)
+          .some((token) =>
+            ripgrepPathMatchesOwner(
+              token,
+              normalizedOwner,
+              repoRoot,
+              allowDirectOwner
+            )
+          )
+      );
+    }
+  );
+}
+
+function readRipgrepShellWord(
+  tokens: readonly string[],
+  index: number
+):
+  | { readonly lastIndex: number; readonly values: readonly string[] }
+  | undefined {
+  const first = tokens[index];
+  if (first === undefined) return undefined;
+  const opening = first.indexOf("{");
+  if (opening < 0) return { lastIndex: index, values: [first] };
+
+  let lastIndex = index;
+  while (
+    lastIndex < tokens.length &&
+    !(tokens[lastIndex] ?? "").includes("}")
+  ) {
+    lastIndex += 1;
+  }
+  if (lastIndex >= tokens.length) return { lastIndex: index, values: [first] };
+  const combined = tokens.slice(index, lastIndex + 1).join(",");
+  const closing = combined.indexOf("}", opening + 1);
+  if (closing < 0) return { lastIndex: index, values: [first] };
+  const prefix = combined.slice(0, opening);
+  const suffix = combined.slice(closing + 1);
+  const alternatives = combined.slice(opening + 1, closing).split(",");
+  return {
+    lastIndex,
+    values: alternatives.map(
+      (alternative) => `${prefix}${alternative}${suffix}`
+    ),
+  };
+}
+
+function ripgrepPathMatchesOwner(
+  operand: string,
+  normalizedOwner: string,
+  repoRoot?: string,
+  allowDirectOwner = true
+): boolean {
+  const normalizedPath = posix
+    .normalize(
+      collapseRepeatedPathSeparators(
+        normalizeShellToken(operand.replaceAll("\\", "/"))
+      )
+    )
+    .toLowerCase();
+  const normalizedRoot = repoRoot
+    ?.replaceAll("\\", "/")
+    .replace(/\/+$/u, "")
+    .toLowerCase();
+  const absoluteOwner = normalizedRoot
+    ? posix.normalize(`${normalizedRoot}/${normalizedOwner}`)
+    : undefined;
+  if (posix.isAbsolute(normalizedPath)) {
+    if (!normalizedRoot) return false;
+    if (
+      absoluteOwner &&
+      (normalizedPath === absoluteOwner ||
+        normalizedPath.startsWith(`${absoluteOwner}/`))
+    ) {
+      return true;
+    }
+    if (!normalizedPath.startsWith(`${normalizedRoot}/`)) return false;
+    return ripgrepGlobContainsOwner(
+      normalizedPath.slice(normalizedRoot.length + 1),
+      normalizedOwner
+    );
+  }
+  const repositoryRelative = normalizedPath.replace(/^(?:\.\.\/)+/u, "");
+  const isParentRelative = repositoryRelative !== normalizedPath;
+  return (
+    ((allowDirectOwner || isParentRelative) &&
+      (repositoryRelative === normalizedOwner ||
+        repositoryRelative.startsWith(`${normalizedOwner}/`))) ||
+    (allowDirectOwner &&
+      ripgrepGlobContainsOwner(repositoryRelative, normalizedOwner))
+  );
+}
+
+function ripgrepGlobContainsOwner(
+  operand: string,
   normalizedOwner: string
 ): boolean {
-  return readShellCommandSegments(command).some((segment) => {
-    const tokens = unwrapShellCommand(segment);
-    const normalizedTokens = tokens.map((token) =>
-      normalizeShellToken(token).toLowerCase()
-    );
-    return (
-      (PROTECTED_ROOT_PATH_COMMANDS.has(normalizedTokens[0] ?? "") &&
-        normalizedTokens.slice(1).includes(normalizedOwner)) ||
-      hasGitProtectedDirectoryArgument(tokens, normalizedOwner)
-    );
+  if (!/(?:\*|\?|\[)/u.test(operand)) return false;
+  const segments = operand.split("/");
+  const ownerSegments = normalizedOwner.split("/");
+  return segments.some((_, index) =>
+    ownerSegments.every(
+      (ownerSegment, offset) => segments[index + offset] === ownerSegment
+    )
+  );
+}
+
+function ripgrepShortValueFlag(token: string):
+  | {
+      readonly attached: boolean;
+      readonly flag: string;
+      readonly valueStart: number;
+    }
+  | undefined {
+  if (!/^-[^-]/u.test(token)) return undefined;
+  for (let index = 1; index < token.length; index += 1) {
+    const flag = `-${token[index] ?? ""}`;
+    if (RIPGREP_VALUE_FLAGS.has(flag)) {
+      return {
+        attached: index + 1 < token.length,
+        flag,
+        valueStart: index + 1,
+      };
+    }
+  }
+  return undefined;
+}
+
+function withoutRipgrepCommandSegments(
+  text: string,
+  assumeShellCommand: boolean
+): string {
+  const withoutSegments = (command: string): string =>
+    readShellCommandSegments(markLiteralShellBraces(command))
+      .filter(
+        (segment) => unwrapShellCommand(segment)[0]?.toLowerCase() !== "rg"
+      )
+      .map((segment) => segment.join(" "))
+      .join(" ");
+  if (assumeShellCommand) return withoutSegments(text);
+  return text.replace(/`([^`\r\n]+)`/gu, (wrapped, command: string) => {
+    const remaining = withoutSegments(command);
+    return remaining === command ? wrapped : remaining;
   });
+}
+
+function markLiteralShellBraces(text: string): string {
+  return text.replace(/'(?:[^']*)'|"(?:\\.|[^"])*"|\\[{}]/gu, (literal) =>
+    literal
+      .replaceAll("\\{", LITERAL_OPEN_BRACE)
+      .replaceAll("\\}", LITERAL_CLOSE_BRACE)
+      .replaceAll("{", LITERAL_OPEN_BRACE)
+      .replaceAll("}", LITERAL_CLOSE_BRACE)
+  );
+}
+
+function ripgrepCommandSegments(
+  text: string,
+  assumeShellCommand: boolean
+): readonly (readonly string[])[] {
+  const commands = assumeShellCommand
+    ? [text]
+    : [...text.matchAll(/`([^`\r\n]+)`/gu)].map((match) => match[1] ?? "");
+  return commands.flatMap((command) =>
+    readShellCommandSegments(markLiteralShellBraces(command))
+      .map(unwrapShellCommand)
+      .filter((tokens) => tokens[0]?.toLowerCase() === "rg")
+  );
 }
 
 function hasGitProtectedDirectoryArgument(
@@ -697,6 +1080,7 @@ function hasGitProtectedDirectoryArgument(
 function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
   let index = 0;
   if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
+  while (tokens[index] === "!") index += 1;
   const skipAssignments = (): void => {
     while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) index += 1;
   };
@@ -738,13 +1122,20 @@ function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
 
 function hasGeneratedShellOwnerToken(
   text: string,
-  normalizedOwner: string
+  normalizedOwner: string,
+  repoRoot?: string,
+  allowDirectOwner = true
 ): boolean {
   return [...text.matchAll(/`([^`\r\n]+)`/gu)].some((match) => {
     const command = match[1] ?? "";
     return (
       /\s/u.test(command) &&
-      hasProtectedRootCommandArgument(command, normalizedOwner)
+      hasProtectedRootCommandArgument(
+        command,
+        normalizedOwner,
+        repoRoot,
+        allowDirectOwner
+      )
     );
   });
 }
@@ -1235,7 +1626,7 @@ export function findRepoInternalScriptAliases(
           matchingProtectedBoundaryRules(line, repoRoot, "package-script")
             .length > 0 ||
           repoInternalScripts.some((path) =>
-            hasRepoInternalScriptReference(line, path, repoRoot)
+            hasRepoInternalScriptReference(line, path, repoRoot, true)
           )
       );
       const referencesInternalAlias = invokedPackageScripts(
@@ -1255,12 +1646,25 @@ export function findRepoInternalScriptAliases(
 function hasRepoInternalScriptReference(
   text: string,
   path: string,
-  repoRoot?: string
+  repoRoot?: string,
+  shellCommand = false
 ): boolean {
-  const normalizedText = collapseRepeatedPathSeparators(
-    withoutHttpUrls(normalizeLiteralShellPathQuotes(text.replaceAll("\\", "/")))
-  ).toLowerCase();
   const normalizedPath = path.replaceAll("\\", "/").toLowerCase();
+  if (
+    ripgrepCommandSegments(text, shellCommand).some((tokens) =>
+      hasRipgrepProtectedPathArgument(tokens, normalizedPath, repoRoot)
+    )
+  ) {
+    return true;
+  }
+  const normalizedText = collapseRepeatedPathSeparators(
+    withoutHttpUrls(
+      withoutRipgrepCommandSegments(
+        normalizeLiteralShellPathQuotes(text.replaceAll("\\", "/")),
+        shellCommand
+      )
+    )
+  ).toLowerCase();
   if (
     hasBarePathReference(normalizedText, normalizedPath) ||
     hasBarePathReference(normalizedText, `./${normalizedPath}`)
