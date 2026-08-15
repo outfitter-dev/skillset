@@ -20,6 +20,7 @@ import { join, relative } from "node:path";
 import type { SkillsetReport } from "@skillset/schema";
 
 import {
+  createAdoptionReport,
   createOperationReport,
   renderSkillsetReportMarkdown,
   serializeSkillsetReport,
@@ -235,6 +236,97 @@ describe("global immutable report store", () => {
         })
       ).markdown
     ).toBe(renderSkillsetReportMarkdown(report));
+  });
+
+  it("round-trips a typed payload through the unchanged two-file store", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "state/skillset/reports");
+    const report = createAdoptionReport(
+      {
+        exitCode: 0,
+        payload: {
+          alreadyAdopted: false,
+          candidateIds: ["plugin:.", "skills:.agents/skills"],
+          destinations: [".agents/skills/review"],
+          diagnosticCodes: [],
+          importedUnitIds: ["skill:review"],
+          migrationFlagCodes: [],
+          phases: {
+            build: { count: 1, status: "passed" },
+            import: { count: 1, status: "passed" },
+            lint: { count: 1, status: "passed" },
+            setup: { count: 1, status: "passed" },
+          },
+          renderResults: {
+            failed: 0,
+            rendered: 1,
+            skipped: 0,
+            unsupported: 0,
+          },
+        },
+        skillsetVersion: "0.23.0",
+        workspace: { id: "skillset--local-12abcdef3456" },
+      },
+      { testHooks: { createdAt: CREATED_AT, id: ID } }
+    );
+    const stored = await createReportBundle(report, {
+      boundary: storeBoundary(reportRoot, root),
+    });
+
+    expect(await readdir(stored.resolvedPath)).toEqual([
+      "report.json",
+      "report.md",
+    ]);
+    expect(
+      (
+        await readReportBundle(ID, {
+          boundary: storeBoundary(reportRoot, root),
+        })
+      ).report
+    ).toEqual(report);
+  });
+
+  it("rejects disguised absolute identities at the store boundary", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "state/skillset/reports");
+    const valid = createAdoptionReport(
+      {
+        exitCode: 0,
+        payload: {
+          alreadyAdopted: false,
+          candidateIds: ["plugin:."],
+          destinations: [],
+          diagnosticCodes: [],
+          importedUnitIds: [],
+          migrationFlagCodes: [],
+          phases: {
+            build: { count: 0, status: "skipped" },
+            import: { count: 0, status: "skipped" },
+            lint: { count: 0, status: "skipped" },
+            setup: { count: 0, status: "skipped" },
+          },
+          renderResults: {
+            failed: 0,
+            rendered: 0,
+            skipped: 0,
+            unsupported: 0,
+          },
+        },
+        skillsetVersion: "0.23.0",
+        workspace: { id: "skillset--local-12abcdef3456" },
+      },
+      { testHooks: { createdAt: CREATED_AT, id: ID } }
+    );
+    const unsafe = {
+      ...valid,
+      payload: { ...valid.payload, candidateIds: ["file:/Users/private"] },
+    } as SkillsetReport;
+
+    await expect(
+      createReportBundle(unsafe, {
+        boundary: storeBoundary(reportRoot, root),
+      })
+    ).rejects.toThrow("relative identity is invalid");
   });
 
   it("resolves relative paths only against the explicit cwd", async () => {

@@ -15,9 +15,25 @@ export const SKILLSET_SCHEMA_URI_BASE =
 export const CLI_RESULT_SCHEMA_VERSION = "skillset.cli.result@1";
 export const CLI_EVENT_SCHEMA_VERSION = "skillset.cli.event@1";
 export const REPORT_SCHEMA_VERSION = "skillset.report@1";
-export const REPORT_KINDS = ["operation"] as const;
+export const REPORT_KINDS = [
+  "operation",
+  "adoption",
+  "import",
+  "external-fixture",
+] as const;
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
+export const REPORT_EXTERNAL_FIXTURE_PHASES = [
+  "acquire",
+  "init",
+  "import",
+  "lint",
+  "build",
+  "purity",
+  "compare",
+] as const;
+export const REPORT_RELATIVE_ID_PATTERN =
+  "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$";
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = [
@@ -690,6 +706,17 @@ export const reportContract = contract(
   "Immutable structured receipt retained by the Skillset report store.",
   {
     additionalProperties: false,
+    oneOf: [
+      reportKindSchema("operation", reportOperationPayloadSchema()),
+      reportKindSchema("adoption", reportAdoptionPayloadSchema(), "init.adopt"),
+      reportKindSchema("import", reportImportPayloadSchema(), "import"),
+      reportKindSchema(
+        "external-fixture",
+        reportExternalFixturePayloadSchema(),
+        "conformance.external",
+        true
+      ),
+    ],
     properties: {
       createdAt: {
         format: "date-time",
@@ -703,11 +730,7 @@ export const reportContract = contract(
         type: "string",
       },
       kind: enumSchema([...REPORT_KINDS]),
-      payload: {
-        additionalProperties: false,
-        properties: {},
-        type: "object",
-      },
+      payload: { type: "object" },
       result: {
         additionalProperties: false,
         oneOf: [
@@ -1445,6 +1468,369 @@ function instructionCodexOverrideSchema(): SchemaJsonRecord {
 
 function semverStringSchema(): SchemaJsonRecord {
   return { pattern: SEMVER_PATTERN, type: "string" };
+}
+
+function reportKindSchema(
+  kind: (typeof REPORT_KINDS)[number],
+  payload: SchemaJsonRecord,
+  command?: string,
+  requiresRepositoryState = false
+): SchemaJsonRecord {
+  return {
+    properties: {
+      kind: { const: kind, type: "string" },
+      payload,
+      ...(command === undefined
+        ? {}
+        : {
+            result: {
+              properties: {
+                command: { const: command, type: "string" },
+                exitCode: { maximum: 4 },
+              },
+              required: ["command"],
+            },
+          }),
+      ...(requiresRepositoryState
+        ? {
+            workspace: {
+              properties: {
+                repository: {
+                  required: ["commit", "dirty", "identity"],
+                },
+              },
+              required: ["repository"],
+            },
+          }
+        : {}),
+    },
+    required: ["kind", "payload"],
+  };
+}
+
+function reportOperationPayloadSchema(): SchemaJsonRecord {
+  return strictObjectSchema({});
+}
+
+function reportCodeSchema(): SchemaJsonRecord {
+  return {
+    maxLength: 96,
+    pattern: "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+    type: "string",
+  };
+}
+
+function reportRelativeIdSchema(): SchemaJsonRecord {
+  return {
+    maxLength: 256,
+    pattern: REPORT_RELATIVE_ID_PATTERN,
+    type: "string",
+  };
+}
+
+function reportFieldNameSchema(): SchemaJsonRecord {
+  return {
+    maxLength: 96,
+    pattern: "^[A-Za-z_][A-Za-z0-9_.-]*$",
+    type: "string",
+  };
+}
+
+function reportSha256Schema(): SchemaJsonRecord {
+  return { pattern: "^[0-9a-f]{64}$", type: "string" };
+}
+
+function reportBoundedCountSchema(): SchemaJsonRecord {
+  return { maximum: 1_000_000, minimum: 0, type: "integer" };
+}
+
+function reportPhaseStatusSchema(): SchemaJsonRecord {
+  return enumSchema(["failed", "not-run", "passed", "skipped"]);
+}
+
+function reportPhaseSummarySchema(): SchemaJsonRecord {
+  return requiredObjectSchema(
+    {
+      count: reportBoundedCountSchema(),
+      status: reportPhaseStatusSchema(),
+    },
+    ["count", "status"]
+  );
+}
+
+function reportEvidenceDescriptorSchema(): SchemaJsonRecord {
+  return requiredObjectSchema(
+    {
+      available: { type: "boolean" },
+      bytes: nonNegativeSafeIntegerSchema(),
+      entries: reportBoundedCountSchema(),
+      id: reportRelativeIdSchema(),
+      sha256: reportSha256Schema(),
+    },
+    ["available", "bytes", "entries", "id", "sha256"]
+  );
+}
+
+function reportRenderResultCountsSchema(): SchemaJsonRecord {
+  return requiredObjectSchema(
+    {
+      failed: reportBoundedCountSchema(),
+      rendered: reportBoundedCountSchema(),
+      skipped: reportBoundedCountSchema(),
+      unsupported: reportBoundedCountSchema(),
+    },
+    ["failed", "rendered", "skipped", "unsupported"]
+  );
+}
+
+function reportIdListSchema(): SchemaJsonRecord {
+  return arraySchema(reportRelativeIdSchema(), {
+    maxItems: 200,
+    uniqueItems: true,
+  });
+}
+
+function reportCodeListSchema(): SchemaJsonRecord {
+  return arraySchema(reportCodeSchema(), {
+    maxItems: 200,
+    uniqueItems: true,
+  });
+}
+
+function reportFieldListSchema(): SchemaJsonRecord {
+  return arraySchema(reportFieldNameSchema(), {
+    maxItems: 200,
+    uniqueItems: true,
+  });
+}
+
+function reportAdoptionPayloadSchema(): SchemaJsonRecord {
+  return requiredObjectSchema(
+    {
+      alreadyAdopted: { type: "boolean" },
+      candidateIds: reportIdListSchema(),
+      destinations: reportIdListSchema(),
+      diagnosticCodes: reportCodeListSchema(),
+      importedUnitIds: reportIdListSchema(),
+      isolatedOutput: reportEvidenceDescriptorSchema(),
+      migrationFlagCodes: reportCodeListSchema(),
+      phases: requiredObjectSchema(
+        {
+          build: reportPhaseSummarySchema(),
+          import: reportPhaseSummarySchema(),
+          lint: reportPhaseSummarySchema(),
+          setup: reportPhaseSummarySchema(),
+        },
+        ["build", "import", "lint", "setup"]
+      ),
+      renderResults: reportRenderResultCountsSchema(),
+    },
+    [
+      "alreadyAdopted",
+      "candidateIds",
+      "destinations",
+      "diagnosticCodes",
+      "importedUnitIds",
+      "migrationFlagCodes",
+      "phases",
+      "renderResults",
+    ]
+  );
+}
+
+function reportImportPayloadSchema(): SchemaJsonRecord {
+  return requiredObjectSchema(
+    {
+      destinations: reportIdListSchema(),
+      diagnosticCodes: reportCodeListSchema(),
+      fields: requiredObjectSchema(
+        {
+          inferred: reportFieldListSchema(),
+          preserved: reportFieldListSchema(),
+          unsupported: reportFieldListSchema(),
+        },
+        ["inferred", "preserved", "unsupported"]
+      ),
+      fileCount: reportBoundedCountSchema(),
+      importedUnitIds: reportIdListSchema(),
+      partial: { type: "boolean" },
+      requestedKind: enumSchema([
+        "auto",
+        "plugin",
+        "plugins",
+        "skill",
+        "skills",
+      ]),
+      requestedProvider: enumSchema(["agents", ...TARGET_NAMES, "skillset"]),
+      renderResults: reportRenderResultCountsSchema(),
+      warningCodes: reportCodeListSchema(),
+    },
+    [
+      "destinations",
+      "diagnosticCodes",
+      "fields",
+      "fileCount",
+      "importedUnitIds",
+      "partial",
+      "requestedKind",
+      "renderResults",
+      "warningCodes",
+    ]
+  );
+}
+
+function reportExternalFixturePayloadSchema(): SchemaJsonRecord {
+  const phaseSchema = {
+    ...requiredObjectSchema(
+      {
+        exitClass: enumSchema([
+          "command-failure",
+          "not-run",
+          "signal",
+          "success",
+          "timeout",
+        ]),
+        status: reportPhaseStatusSchema(),
+      },
+      ["exitClass", "status"]
+    ),
+    oneOf: [
+      {
+        properties: {
+          exitClass: { const: "success" },
+          status: { const: "passed" },
+        },
+        required: ["exitClass", "status"],
+      },
+      {
+        properties: {
+          exitClass: { const: "not-run" },
+          status: { enum: ["not-run", "skipped"] },
+        },
+        required: ["exitClass", "status"],
+      },
+      {
+        properties: {
+          exitClass: { enum: ["command-failure", "signal", "timeout"] },
+          status: { const: "failed" },
+        },
+        required: ["exitClass", "status"],
+      },
+    ],
+  };
+  const payloadSchema = requiredObjectSchema(
+    {
+      evidence: arraySchema(reportEvidenceDescriptorSchema(), {
+        maxItems: 40,
+      }),
+      fixture: requiredObjectSchema(
+        {
+          manifestEntryCount: reportBoundedCountSchema(),
+          manifestSha256: reportSha256Schema(),
+          name: {
+            maxLength: 160,
+            pattern: "^[a-z0-9][a-z0-9._-]*$",
+            type: "string",
+          },
+          pinnedCommit: { pattern: "^[0-9a-f]{40}$", type: "string" },
+          repository: {
+            maxLength: 512,
+            pattern: "^[a-z0-9.-]+(?:/[A-Za-z0-9._-]+)+$",
+            type: "string",
+          },
+          targets: arraySchema(enumSchema([...TARGET_NAMES]), {
+            maxItems: TARGET_NAMES.length,
+            minItems: 1,
+            uniqueItems: true,
+          }),
+        },
+        [
+          "manifestEntryCount",
+          "manifestSha256",
+          "name",
+          "pinnedCommit",
+          "repository",
+          "targets",
+        ]
+      ),
+      pipelinePassed: { type: "boolean" },
+      runtime: requiredObjectSchema(
+        {
+          bunVersion: semverStringSchema(),
+        },
+        ["bunVersion"]
+      ),
+      phases: requiredObjectSchema(
+        Object.fromEntries(
+          REPORT_EXTERNAL_FIXTURE_PHASES.map((phase) => [phase, phaseSchema])
+        ),
+        REPORT_EXTERNAL_FIXTURE_PHASES
+      ),
+      summaries: requiredObjectSchema(
+        {
+          comparisonDifferences: reportBoundedCountSchema(),
+          importedUnits: reportBoundedCountSchema(),
+          migrationFlags: reportBoundedCountSchema(),
+          renderResults: reportRenderResultCountsSchema(),
+          surveyCandidates: reportBoundedCountSchema(),
+        },
+        [
+          "comparisonDifferences",
+          "importedUnits",
+          "migrationFlags",
+          "renderResults",
+          "surveyCandidates",
+        ]
+      ),
+    },
+    ["evidence", "fixture", "phases", "pipelinePassed", "runtime", "summaries"]
+  );
+  return {
+    ...payloadSchema,
+    oneOf: [
+      {
+        properties: {
+          phases: {
+            properties: Object.fromEntries(
+              REPORT_EXTERNAL_FIXTURE_PHASES.map((phase) => [
+                phase,
+                {
+                  properties: {
+                    exitClass: { const: "success" },
+                    status: { const: "passed" },
+                  },
+                },
+              ])
+            ),
+          },
+          pipelinePassed: { const: true },
+        },
+      },
+      {
+        properties: {
+          phases: {
+            anyOf: REPORT_EXTERNAL_FIXTURE_PHASES.map((phase) => ({
+              properties: {
+                [phase]: {
+                  properties: {
+                    status: { enum: ["failed", "not-run", "skipped"] },
+                  },
+                },
+              },
+            })),
+          },
+          pipelinePassed: { const: false },
+        },
+      },
+    ],
+  };
+}
+
+function requiredObjectSchema(
+  properties: Record<string, SchemaJsonRecord>,
+  required: readonly string[]
+): SchemaJsonRecord {
+  return { ...strictObjectSchema(properties), required: [...required] };
 }
 
 function nonEmptyStringSchema(): SchemaJsonRecord {

@@ -28,6 +28,86 @@ const report = {
   },
 } as const;
 
+const zeroRenderResults = {
+  failed: 0,
+  rendered: 0,
+  skipped: 0,
+  unsupported: 0,
+} as const;
+
+const adoptionPayload = {
+  alreadyAdopted: false,
+  candidateIds: ["plugin:.", "skills:.agents/skills"],
+  destinations: [".agents/skills/review"],
+  diagnosticCodes: ["adopt.review-required"],
+  importedUnitIds: ["skill:review"],
+  migrationFlagCodes: ["metadata.preserved"],
+  phases: {
+    build: { count: 1, status: "passed" },
+    import: { count: 1, status: "passed" },
+    lint: { count: 1, status: "passed" },
+    setup: { count: 1, status: "passed" },
+  },
+  renderResults: { ...zeroRenderResults, rendered: 1 },
+} as const;
+
+const importPayload = {
+  destinations: [".skillset/skills/review"],
+  diagnosticCodes: [],
+  fields: {
+    inferred: ["name"],
+    preserved: ["description"],
+    unsupported: ["provider_extension"],
+  },
+  fileCount: 2,
+  importedUnitIds: ["skill:review"],
+  partial: false,
+  requestedKind: "skill",
+  requestedProvider: "claude",
+  renderResults: { ...zeroRenderResults, rendered: 1 },
+  warningCodes: [],
+} as const;
+
+const passedExternalPhases = {
+  acquire: { exitClass: "success", status: "passed" },
+  init: { exitClass: "success", status: "passed" },
+  import: { exitClass: "success", status: "passed" },
+  lint: { exitClass: "success", status: "passed" },
+  build: { exitClass: "success", status: "passed" },
+  purity: { exitClass: "success", status: "passed" },
+  compare: { exitClass: "success", status: "passed" },
+} as const;
+
+const externalFixturePayload = {
+  evidence: [
+    {
+      available: true,
+      bytes: 1024,
+      entries: 2,
+      id: "fixture/browserbase/comparison",
+      sha256: "b".repeat(64),
+    },
+  ],
+  fixture: {
+    manifestEntryCount: 7,
+    manifestSha256: "a".repeat(64),
+    name: "browserbase",
+    pinnedCommit: "c".repeat(40),
+    repository: "github.com/browserbase/skills",
+    targets: ["claude", "codex"],
+  },
+  phases: passedExternalPhases,
+  pipelinePassed: true,
+  runtime: { bunVersion: "1.3.14" },
+  summaries: {
+    comparisonDifferences: 2,
+    importedUnits: 1,
+    migrationFlags: 1,
+    renderResults: { ...zeroRenderResults, rendered: 2 },
+    surveyCandidates: 1,
+  },
+} as const;
+
 describe("skillset.report@1", () => {
   it("defines and validates the closed operation receipt", () => {
     expect(reportContract.id).toBe("report");
@@ -39,6 +119,241 @@ describe("skillset.report@1", () => {
       ok: true,
     });
     expect(isSkillsetReport(report)).toBe(true);
+  });
+
+  it("validates each closed typed producer payload", () => {
+    for (const candidate of [
+      {
+        ...report,
+        kind: "adoption",
+        payload: adoptionPayload,
+        result: { command: "init.adopt", exitCode: 0, ok: true },
+      },
+      {
+        ...report,
+        kind: "import",
+        payload: importPayload,
+        result: { command: "import", exitCode: 0, ok: true },
+      },
+      {
+        ...report,
+        kind: "external-fixture",
+        payload: externalFixturePayload,
+        result: { command: "conformance.external", exitCode: 0, ok: true },
+      },
+    ]) {
+      expect(validateSkillsetReport(candidate)).toEqual({
+        diagnostics: [],
+        ok: true,
+      });
+      expect(isSkillsetReport(candidate)).toBe(true);
+    }
+  });
+
+  it("keeps kind payloads discriminated and bounded", () => {
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "adoption",
+        payload: importPayload,
+      }).ok
+    ).toBe(false);
+    for (const candidateId of [
+      "/private",
+      "C:/private",
+      "C:private/path",
+      "file:/Users/private",
+      "file:Users/private/path",
+      "http:github.com/example/private",
+      "https:github.com/example/private",
+      "instructions:../AGENTS.md",
+      "instructions:file:AGENTS.md",
+      "plugins:./private",
+      "plugins:/private",
+      "root:/private",
+      "ssh:host/private",
+      "https://example.com/private",
+      "./private",
+      "../private",
+      "skills/.git/config",
+      "skills\\private",
+      "skills\nprivate",
+    ]) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          kind: "adoption",
+          payload: { ...adoptionPayload, candidateIds: [candidateId] },
+          result: { command: "init.adopt", exitCode: 0, ok: true },
+        }).ok
+      ).toBe(false);
+    }
+    for (const candidateId of [
+      "plugin:.",
+      "plugin:plugins/review",
+      "instructions:AGENTS.md",
+      "plugins:.claude/plugins",
+      "skills:.agents/skills",
+      "skill:review",
+      ".agents/skills/review",
+    ]) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          kind: "adoption",
+          payload: { ...adoptionPayload, candidateIds: [candidateId] },
+          result: { command: "init.adopt", exitCode: 0, ok: true },
+        }).ok
+      ).toBe(true);
+    }
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "adoption",
+        payload: adoptionPayload,
+        result: { command: "import", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "adoption",
+        payload: { ...adoptionPayload, candidateIds: ["../../private"] },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: {
+          ...externalFixturePayload,
+          semanticConclusion: "passed",
+        },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: externalFixturePayload,
+        result: { command: "conformance.external", exitCode: 0, ok: true },
+        workspace: { id: report.workspace.id },
+      }).ok
+    ).toBe(false);
+    const { compare: _compare, ...incompletePhases } = passedExternalPhases;
+    expect(_compare.status).toBe("passed");
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: { ...externalFixturePayload, phases: incompletePhases },
+        result: { command: "conformance.external", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: {
+          ...externalFixturePayload,
+          phases: {
+            ...passedExternalPhases,
+            compare: { exitClass: "not-run", status: "not-run" },
+          },
+        },
+        result: { command: "conformance.external", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: { ...externalFixturePayload, pipelinePassed: false },
+        result: { command: "conformance.external", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(false);
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "external-fixture",
+        payload: {
+          ...externalFixturePayload,
+          phases: {
+            ...passedExternalPhases,
+            compare: { exitClass: "command-failure", status: "failed" },
+          },
+          pipelinePassed: false,
+        },
+        result: { command: "conformance.external", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(true);
+    for (const [kind, payload, command] of [
+      ["adoption", adoptionPayload, "init.adopt"],
+      ["import", importPayload, "import"],
+      ["external-fixture", externalFixturePayload, "conformance.external"],
+    ] as const) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          kind,
+          payload,
+          result: { command, exitCode: 99, ok: false },
+        }).ok
+      ).toBe(false);
+    }
+  });
+
+  it("pins the exact import request vocabulary", () => {
+    for (const requestedProvider of [
+      "agents",
+      "claude",
+      "codex",
+      "cursor",
+      "skillset",
+    ]) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          kind: "import",
+          payload: { ...importPayload, requestedProvider },
+          result: { command: "import", exitCode: 0, ok: true },
+        }).ok
+      ).toBe(true);
+    }
+    const { requestedProvider, ...withoutProvider } = importPayload;
+    expect(requestedProvider).toBe("claude");
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "import",
+        payload: withoutProvider,
+        result: { command: "import", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(true);
+    for (const requestedKind of [
+      "auto",
+      "plugin",
+      "plugins",
+      "skill",
+      "skills",
+    ]) {
+      expect(
+        validateSkillsetReport({
+          ...report,
+          kind: "import",
+          payload: { ...importPayload, requestedKind },
+          result: { command: "import", exitCode: 0, ok: true },
+        }).ok
+      ).toBe(true);
+    }
+    expect(
+      validateSkillsetReport({
+        ...report,
+        kind: "import",
+        payload: { ...importPayload, requestedProvider: "github" },
+        result: { command: "import", exitCode: 0, ok: true },
+      }).ok
+    ).toBe(false);
   });
 
   it("rejects unknown envelope and payload fields", () => {

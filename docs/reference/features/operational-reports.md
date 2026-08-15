@@ -48,15 +48,40 @@ records:
 
 - the report UUID, kind, and canonical creation time;
 - the exact Skillset version that created it;
-- an opaque workspace identity and optional sanitized repository facts;
+- an opaque workspace identity and sanitized repository facts when available;
 - the canonical producer command and outcome; and
 - one closed, kind-specific payload.
 
-The initial `operation` kind has an empty payload. Later producers add explicit
-closed kinds rather than turning the envelope into an arbitrary data bag. See
-the generated [`report` schema](../schemas/0.1.0/report.schema.json) and
-schema-valid [`report` example](../examples/report.json) for the exhaustive
-shape.
+The closed union includes an empty `operation` payload plus bounded `adoption`,
+`import`, and `external-fixture` payloads. Each typed payload retains only
+relative identities, finite vocabularies, counts, hashes, and logical evidence
+descriptors appropriate to that operation. New producers require another
+explicit closed kind rather than turning the envelope into an arbitrary data
+bag. See the generated
+[`report` schema](../schemas/0.1.0/report.schema.json) and schema-valid
+[`report` example](../examples/report.json) for the exhaustive shape.
+
+Logical identity fields accept colon-free relative paths plus the explicit
+`instructions:<relative-path>`, `plugin:.` or `plugin:<relative-path>`,
+`plugins:<relative-path>`, `skills:<relative-path>`, and
+`skill:<source-id>` forms. No other colon-bearing form is valid, so
+drive-relative paths and URI-like values cannot be mistaken for retained
+logical identities.
+
+`external-fixture` receipts use the envelope workspace as the Skillset checkout
+and therefore require its sanitized repository identity, exact commit, and dirty
+state. Their payload adds only fixture facts and the Bun version; it does not
+duplicate envelope-owned Skillset or checkout facts.
+
+The fixture pipeline is one fixed phase map, ordered as `acquire`, `init`,
+`import`, `lint`, `build`, `purity`, and `compare`. A phase records only its
+status and exit class. Repeated work within a phase, including importing more
+than one source unit, is aggregated into that single phase outcome; detailed
+per-unit evidence remains in the producer-owned cache. After an early failure,
+later phases remain present and use `not-run` or `skipped` with the `not-run`
+exit class. `pipelinePassed` is true exactly when all seven phases passed with a
+successful exit class. This invariant is enforced by both the runtime validator
+and the generated JSON Schema, independently of the outer command result.
 
 `report.md` is a deterministic human projection of `report.json`. Retrieval
 rejects a bundle when the JSON is invalid, the directory and receipt IDs differ,
@@ -94,8 +119,9 @@ that producer receives an explicit migration:
 | Adoption, import, and external-fixture evidence | Their existing logical cache paths and command output | Their current producer-specific workflows |
 
 `skillset report show` deliberately does not infer a legacy report kind, wrap an
-old file on demand, or read arbitrary filesystem content. Producer migrations
-must define their own closed report kind and preserve any detailed cache evidence
+old file on demand, or read arbitrary filesystem content. Defining the typed
+payload does not migrate a producer by itself. Producer migrations must project
+only into their assigned closed kind and preserve any detailed cache evidence
 under its existing lifecycle.
 
 ## Failure Behavior
