@@ -41,9 +41,13 @@ describe("SET-463 provider-validation workflow", () => {
     expect(commands).toContain("$RUNNER_TEMP/provider-validation.md");
     expect(commands).not.toMatch(/publish|plugin install|plugin enable|trust/u);
     expect(
+      job?.steps?.find((step) => step.uses?.startsWith("actions/setup-node@"))
+        ?.with?.["node-version"]
+    ).toBe("24.19.0");
+    expect(
       job?.steps?.find((step) => step.uses?.startsWith("actions/setup-python@"))
         ?.with?.["python-version"]
-    ).toBe("3.12");
+    ).toBe("3.12.14");
     const setupUv = job?.steps?.find((step) =>
       step.uses?.startsWith("astral-sh/setup-uv@")
     );
