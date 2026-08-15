@@ -114,6 +114,6 @@ because both contain structured results.
 
 Unset, empty, or relative XDG values fall back to the listed home-relative bases. Per-repository cache buckets use `workspace.cacheKey` when explicitly configured; otherwise Skillset derives a machine-local key from the checkout. Most repositories should keep the automatic key.
 
-Logical `.skillset/cache/<suffix>` paths map to `$XDG_CACHE_HOME/skillset/<repo-key>/<suffix>`. An explicit `workspace.cacheKey` supplies `<repo-key>`; otherwise Skillset derives `<basename>--local-<sha12>` from the checkout. The managed known-workspaces index is machine-local configuration used to resolve local repository identities. It is disposable convenience state, not committed source or portable verification evidence.
+Logical `.skillset/cache/<suffix>` paths map to `$XDG_CACHE_HOME/skillset/<repo-key>/<suffix>`. An explicit `workspace.cacheKey` supplies a lowercase `<repo-key>` of at most 160 characters; otherwise Skillset derives `<basename>--local-<sha12>` from the checkout. The managed known-workspaces index is machine-local configuration used to resolve local repository identities. It is disposable convenience state, not committed source or portable verification evidence.
 
 Current public commands remain repository-local unless an existing command receives an explicit root; the prospective workspace in the [global/XDG draft ADR](../../adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md) is not an implemented fallback.

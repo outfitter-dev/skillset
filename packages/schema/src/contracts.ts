@@ -214,7 +214,8 @@ export const workspaceConfigContract = contract(
       supports: supportsSchema(),
       workspace: strictObjectSchema({
         cacheKey: {
-          pattern: "^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$",
+          maxLength: WORKSPACE_ID_MAX_LENGTH,
+          pattern: WORKSPACE_ID_PATTERN,
           type: "string",
         },
       }),

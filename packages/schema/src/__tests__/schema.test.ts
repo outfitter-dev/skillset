@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   SKILLSET_SCHEMA_VERSION,
+  WORKSPACE_ID_MAX_LENGTH,
   agentFrontmatterContract,
   adaptiveHookContract,
   changeEntryContract,
@@ -562,6 +563,7 @@ describe("@skillset/schema contracts", () => {
   });
 
   it("validates workspace config structure", () => {
+    const maximumCacheKey = "a".repeat(WORKSPACE_ID_MAX_LENGTH);
     const valid = validateWorkspaceConfig({
       compile: {
         build: "updated",
@@ -599,10 +601,22 @@ describe("@skillset/schema contracts", () => {
           },
         ],
       },
-      workspace: { cacheKey: "outfitter--skillset" },
+      workspace: { cacheKey: maximumCacheKey },
     });
 
     expect(valid).toEqual({ diagnostics: [], ok: true });
+  });
+
+  it("rejects workspace cache keys beyond the shared identity boundary", () => {
+    expect(
+      validateWorkspaceConfig({
+        workspace: { cacheKey: "a".repeat(WORKSPACE_ID_MAX_LENGTH + 1) },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/workspace-config/cache-key",
+      message: "workspace.cacheKey must be a lowercase repo cache key",
+      path: "$.workspace.cacheKey",
+    });
   });
 
   it("owns distinct root, split workspace, source manifest, and plugin key contracts", () => {

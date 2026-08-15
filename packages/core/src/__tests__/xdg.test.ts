@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { WORKSPACE_ID_MAX_LENGTH } from "@skillset/schema";
+
 import {
   readSkillsetWorkspaceConfig,
   resolveRepoCacheKey,
@@ -67,13 +69,13 @@ describe("repo cache keys", () => {
     expect(
       resolveRepoCacheKey({
         rootPath: "/work/demo",
-        workspaceCacheKey: "a".repeat(160),
+        workspaceCacheKey: "a".repeat(WORKSPACE_ID_MAX_LENGTH),
       }).key
-    ).toHaveLength(160);
+    ).toHaveLength(WORKSPACE_ID_MAX_LENGTH);
     expect(() =>
       resolveRepoCacheKey({
         rootPath: "/work/demo",
-        workspaceCacheKey: "a".repeat(161),
+        workspaceCacheKey: "a".repeat(WORKSPACE_ID_MAX_LENGTH + 1),
       })
     ).toThrow("expected workspace.cacheKey to be a lowercase repo cache key");
   });
@@ -129,6 +131,22 @@ describe("repo cache keys", () => {
 });
 
 describe("operational cache paths", () => {
+  test("enforces the shared workspace identity length boundary", () => {
+    const maximumCacheKey = "a".repeat(WORKSPACE_ID_MAX_LENGTH);
+    expect(
+      createOperationalPathContext("/work/docs-cli", {
+        env: { XDG_CACHE_HOME: "/xdg/cache" },
+        workspaceCacheKey: maximumCacheKey,
+      }).cacheRootPath
+    ).toBe(`/xdg/cache/skillset/${maximumCacheKey}`);
+    expect(() =>
+      createOperationalPathContext("/work/docs-cli", {
+        env: { XDG_CACHE_HOME: "/xdg/cache" },
+        workspaceCacheKey: "a".repeat(WORKSPACE_ID_MAX_LENGTH + 1),
+      })
+    ).toThrow("expected workspace.cacheKey to be a lowercase repo cache key");
+  });
+
   test("maps logical repo cache paths into the repo XDG cache bucket", () => {
     const context = createOperationalPathContext("/work/docs-cli", {
       env: { XDG_CACHE_HOME: "/xdg/cache" },
@@ -162,5 +180,25 @@ describe("workspace cache key config", () => {
     expect(() => readSkillsetWorkspaceConfig({ workspace: { cacheKey: "../docs" } }, "skillset.yaml")).toThrow(
       "workspace.cacheKey"
     );
+  });
+
+  test("enforces the shared workspace identity length boundary", () => {
+    const maximumCacheKey = "a".repeat(WORKSPACE_ID_MAX_LENGTH);
+    expect(
+      readSkillsetWorkspaceConfig(
+        { workspace: { cacheKey: maximumCacheKey } },
+        "skillset.yaml"
+      )
+    ).toEqual({ cacheKey: maximumCacheKey });
+    expect(() =>
+      readSkillsetWorkspaceConfig(
+        {
+          workspace: {
+            cacheKey: "a".repeat(WORKSPACE_ID_MAX_LENGTH + 1),
+          },
+        },
+        "skillset.yaml"
+      )
+    ).toThrow("expected skillset.yaml.workspace.cacheKey to be a lowercase repo cache key");
   });
 });
