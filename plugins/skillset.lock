@@ -184,12 +184,12 @@
         },
         {
           "kind": "provider-overlay",
-          "note": "Codex 0.147.0 publishes a plugin authoring validator and prose manifest specification but no adopted JSON Schema source.",
+          "note": "Codex 0.147.0 has no adopted JSON Schema source for plugin manifests; runtime-loader behavior and the separate, stricter plugin-creator handoff preflight are recorded as distinct primary sources for this manual overlay.",
           "ref": "codex-plugin-manifest-overlay"
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:2508f4c0f44b30439c17ccad875a1348b691af2bf067fbe13de8bba5eccb677e",
+          "note": "sha256:a3f71fd04caea6157453b0cec7a6e6ff1e3ec51ac88a0c96409b9cee8737370b",
           "ref": "codex-plugin",
           "verifiedAt": "2026-08-14"
         }

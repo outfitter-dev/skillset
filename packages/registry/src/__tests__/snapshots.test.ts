@@ -73,6 +73,37 @@ describe("@skillset/registry snapshots", () => {
     expect(components.some((component) => component.kind === "bin" && component.status === "unsupported")).toBe(true);
   });
 
+  it("separates Codex runtime-loader evidence from creator-preflight evidence", () => {
+    const codexPlugin = getProviderDestinationFormatSnapshot("codex-plugin");
+    const manifest = (codexPlugin?.format as {
+      readonly manifest?: {
+        readonly optionalFields?: readonly string[];
+        readonly requiredFields?: readonly string[];
+      };
+    }).manifest;
+
+    expect(manifest?.requiredFields).toEqual(["name"]);
+    expect(manifest?.optionalFields).toEqual(
+      expect.arrayContaining(["author", "hooks"])
+    );
+    expect(codexPlugin?.provenance.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          note: expect.stringContaining("runtime manifest parser"),
+          url: expect.stringContaining("/codex-rs/core-plugins/src/manifest.rs"),
+        }),
+        expect.objectContaining({
+          note: expect.stringContaining("runtime loader regressions"),
+          url: expect.stringContaining("/codex-rs/core-plugins/src/loader_tests.rs"),
+        }),
+        expect.objectContaining({
+          note: expect.stringContaining("plugin-creator handoff preflight"),
+          url: expect.stringContaining("/plugin-creator/scripts/validate_plugin.py"),
+        }),
+      ])
+    );
+  });
+
   it("derives compiler-owned plugin component manifest fields from provider snapshots", () => {
     expect(listProviderPluginComponentManifestFields("claude")).toEqual([
       "agents",

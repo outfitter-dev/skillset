@@ -233,15 +233,27 @@ const snapshots = [
     },
     id: "codex-plugin",
     provenance: {
-      contentHash: "sha256:2508f4c0f44b30439c17ccad875a1348b691af2bf067fbe13de8bba5eccb677e",
+      contentHash: "sha256:a3f71fd04caea6157453b0cec7a6e6ff1e3ec51ac88a0c96409b9cee8737370b",
       fetchedAt: "2026-08-14T00:00:00-04:00",
       sources: [
         {
-          note: "Released Codex 0.147.0 plugin authoring validator.",
+          note: "Released Codex 0.147.0 runtime manifest parser; author metadata is not required and hooks are accepted as native manifest input.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/manifest.rs",
+        },
+        {
+          note: "Released Codex 0.147.0 runtime loader; hooks/hooks.json is the conventional default hook source.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/loader.rs",
+        },
+        {
+          note: "Released Codex 0.147.0 runtime loader regressions for authorless manifests and default hook discovery.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/loader_tests.rs",
+        },
+        {
+          note: "Released Codex 0.147.0 plugin-creator handoff preflight; stricter than runtime ingestion.",
           url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py",
         },
         {
-          note: "Released Codex 0.147.0 plugin manifest specification.",
+          note: "Released Codex 0.147.0 plugin-creator authoring guidance; stricter than runtime ingestion.",
           url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/references/plugin-json-spec.md",
         },
       ],

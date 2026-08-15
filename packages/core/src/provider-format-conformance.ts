@@ -237,6 +237,9 @@ function checkClaudePluginManifest(
 function checkCodexPluginManifest(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
+  // Runtime ingestion is intentionally broader than the plugin-creator handoff
+  // preflight. Keep the generic destination contract sourced from the runtime
+  // loader; the self-hosted artifact exercises the stricter preflight separately.
   const parsed = parseJsonRecord(file, "codex", "codex-plugin-manifest-overlay");
   if (!parsed.ok) return parsed.issues;
 

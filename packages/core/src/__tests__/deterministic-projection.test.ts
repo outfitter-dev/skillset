@@ -55,6 +55,32 @@ describe("deterministic projection runner", () => {
       expect(report.outputComparison.identical).toContain("plugins/skillset/claude/.claude-plugin/plugin.json");
       expect(report.outputComparison.identical).toContain("plugins/skillset/codex/.codex-plugin/plugin.json");
       expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/claude/.claude-plugin/plugin.json"))).toBe(true);
+      const codexManifest = await Bun.file(
+        join(
+          report.runs[0].outputRoot,
+          "plugins/skillset/codex/.codex-plugin/plugin.json"
+        )
+      ).json();
+      // The pinned Codex 0.147.0 plugin-creator handoff preflight is stricter
+      // than runtime ingestion. Exercise that narrower contract only for the
+      // self-hosted distribution artifact.
+      const nonEmptyString = expect.stringMatching(/\S/u);
+      expect(codexManifest).toMatchObject({
+        author: { name: nonEmptyString },
+        description: nonEmptyString,
+        interface: {
+          capabilities: expect.arrayContaining([nonEmptyString]),
+          category: nonEmptyString,
+          defaultPrompt: expect.arrayContaining([nonEmptyString]),
+          developerName: nonEmptyString,
+          displayName: nonEmptyString,
+          longDescription: nonEmptyString,
+          shortDescription: nonEmptyString,
+        },
+        name: nonEmptyString,
+        version: nonEmptyString,
+      });
+      expect(codexManifest).not.toHaveProperty("hooks");
     } finally {
       await rm(report.tempRootPath, { force: true, recursive: true });
     }

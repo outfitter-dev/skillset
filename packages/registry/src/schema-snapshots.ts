@@ -588,8 +588,11 @@ export const providerSchemaManualOverlays = [
   manualOverlay({
     formatSnapshotId: "codex-plugin",
     id: "codex-plugin-manifest-overlay",
-    note: "Codex 0.147.0 publishes a plugin authoring validator and prose manifest specification but no adopted JSON Schema source.",
+    note: "Codex 0.147.0 has no adopted JSON Schema source for plugin manifests; runtime-loader behavior and the separate, stricter plugin-creator handoff preflight are recorded as distinct primary sources for this manual overlay.",
     sources: [
+      { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/manifest.rs" },
+      { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/loader.rs" },
+      { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/loader_tests.rs" },
       { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py" },
       { url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/references/plugin-json-spec.md" },
     ],

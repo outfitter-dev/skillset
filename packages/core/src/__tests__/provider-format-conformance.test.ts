@@ -247,7 +247,7 @@ describe("provider format conformance", () => {
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
     ]);
-    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("Codex 0.147.0 publishes a plugin authoring validator");
+    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("runtime-loader behavior and the separate, stricter plugin-creator handoff preflight");
   });
 
   it("validates Claude's native author object fields", () => {
@@ -316,13 +316,25 @@ describe("provider format conformance", () => {
     expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
       {
         code: "invalid-field-type",
-        message: "destination field author must be an object (Codex 0.147.0 publishes a plugin authoring validator and prose manifest specification but no adopted JSON Schema source.)",
+        message: "destination field author must be an object (Codex 0.147.0 has no adopted JSON Schema source for plugin manifests; runtime-loader behavior and the separate, stricter plugin-creator handoff preflight are recorded as distinct primary sources for this manual overlay.)",
       },
       {
         code: "unknown-destination-field",
         message: "unknown destination field author.url; allowed fields are email, name",
       },
     ]);
+  });
+
+  it("keeps authorless manifests with hooks valid for the Codex runtime loader", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/runtime/codex/.codex-plugin/plugin.json", {
+        hooks: "./hooks/hooks.json",
+        name: "runtime",
+      }),
+      rendered("plugins/runtime/codex/hooks/hooks.json", { hooks: {} }),
+    ]);
+
+    expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
   });
 
   it("validates the pinned Cursor marketplace root and entry shapes", () => {
