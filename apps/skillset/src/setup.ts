@@ -20,6 +20,7 @@ import {
   type PluginAdoptionDiagnostic,
   type PluginAdoptionRelation,
 } from "./plugin-adoption";
+import { quoteShellArgument } from "./recovery-guidance";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
@@ -227,26 +228,59 @@ async function setupNextSteps(
   importCandidates: readonly SetupImportCandidate[],
   inspectActiveSource: boolean
 ): Promise<readonly string[]> {
+  const commandRoot = await setupCommandRoot(rootPath);
   if (inspectActiveSource) {
     try {
       const graph = await loadBuildGraph(rootPath);
       if (
+        Object.keys(graph.root.marketplaces).length > 0 ||
         graph.plugins.length > 0 ||
         graph.projectAgents.length > 0 ||
         graph.projectIslands.some((island) => island.relativePath !== ".gitkeep") ||
         graph.rules.length > 0 ||
         graph.standaloneSkills.length > 0
       ) {
-        return ["skillset build", "skillset build --yes", "skillset check"];
+        return setupCommandsAtRoot(
+          ["skillset build", "skillset build --yes", "skillset check"],
+          commandRoot
+        );
       }
     } catch (error) {
       if (!isEmptySourceGraphError(error)) throw error;
     }
   }
   if (importCandidates.length > 0) {
-    return ["skillset init --adopt all --yes", "skillset import <path>"];
+    return setupCommandsAtRoot(
+      ["skillset init --adopt all --yes", "skillset import <path>"],
+      commandRoot
+    );
   }
-  return ["skillset new skill <name>", "skillset import <path>"];
+  return setupCommandsAtRoot(
+    ["skillset new skill <name>", "skillset import <path>"],
+    commandRoot
+  );
+}
+
+function setupCommandsAtRoot(
+  commands: readonly string[],
+  rootPath: string | undefined
+): readonly string[] {
+  if (rootPath === undefined) return commands;
+  const rootArgument = quoteShellArgument(rootPath);
+  return commands.map((command) => `${command} --root ${rootArgument}`);
+}
+
+async function setupCommandRoot(rootPath: string): Promise<string | undefined> {
+  const callerCwd = process.cwd();
+  if (resolve(rootPath) === resolve(callerCwd)) return undefined;
+  try {
+    if (await realpath(rootPath) === await realpath(callerCwd)) {
+      return undefined;
+    }
+  } catch {
+    // A create preview may target a child that does not exist yet.
+  }
+  return rootPath;
 }
 
 function isEmptySourceGraphError(error: unknown): boolean {
