@@ -1,5 +1,10 @@
+import type { TARGET_NAMES } from "./contracts";
+
 export type SchemaJsonScalar = boolean | null | number | string;
-export type SchemaJsonValue = SchemaJsonScalar | SchemaJsonRecord | SchemaJsonValue[];
+export type SchemaJsonValue =
+  | SchemaJsonScalar
+  | SchemaJsonRecord
+  | SchemaJsonValue[];
 
 export interface SchemaJsonRecord {
   readonly [key: string]: SchemaJsonValue | undefined;
@@ -34,10 +39,136 @@ export interface SkillsetReportWorkspace {
   readonly repository?: SkillsetReportRepository;
 }
 
+export interface SkillsetExternalFixtureReportWorkspace extends SkillsetReportWorkspace {
+  readonly repository: {
+    readonly commit: string;
+    readonly dirty: boolean;
+    readonly identity: string;
+  };
+}
+
 export interface SkillsetReportResult {
   readonly command: string;
   readonly exitCode: number;
   readonly ok: boolean;
+}
+
+export type SkillsetTypedReportExitCode = 0 | 1 | 2 | 3 | 4;
+
+export type SkillsetTypedReportResult<Command extends string> =
+  | {
+      readonly command: Command;
+      readonly exitCode: 0;
+      readonly ok: true;
+    }
+  | {
+      readonly command: Command;
+      readonly exitCode: Exclude<SkillsetTypedReportExitCode, 0>;
+      readonly ok: false;
+    };
+
+export type SkillsetReportTarget = (typeof TARGET_NAMES)[number];
+
+export type SkillsetReportPhaseStatus =
+  | "failed"
+  | "not-run"
+  | "passed"
+  | "skipped";
+
+export interface SkillsetReportPhaseSummary {
+  readonly count: number;
+  readonly status: SkillsetReportPhaseStatus;
+}
+
+export interface SkillsetReportEvidenceDescriptor {
+  readonly available: boolean;
+  readonly bytes: number;
+  readonly entries: number;
+  readonly id: string;
+  readonly sha256: string;
+}
+
+export interface SkillsetReportRenderResultCounts {
+  readonly failed: number;
+  readonly rendered: number;
+  readonly skipped: number;
+  readonly unsupported: number;
+}
+
+export interface SkillsetAdoptionReportPayload {
+  readonly alreadyAdopted: boolean;
+  readonly candidateIds: readonly string[];
+  readonly destinations: readonly string[];
+  readonly diagnosticCodes: readonly string[];
+  readonly importedUnitIds: readonly string[];
+  readonly isolatedOutput?: SkillsetReportEvidenceDescriptor;
+  readonly migrationFlagCodes: readonly string[];
+  readonly phases: {
+    readonly build: SkillsetReportPhaseSummary;
+    readonly import: SkillsetReportPhaseSummary;
+    readonly lint: SkillsetReportPhaseSummary;
+    readonly setup: SkillsetReportPhaseSummary;
+  };
+  readonly renderResults: SkillsetReportRenderResultCounts;
+}
+
+export interface SkillsetImportReportPayload {
+  readonly destinations: readonly string[];
+  readonly diagnosticCodes: readonly string[];
+  readonly fields: {
+    readonly inferred: readonly string[];
+    readonly preserved: readonly string[];
+    readonly unsupported: readonly string[];
+  };
+  readonly fileCount: number;
+  readonly importedUnitIds: readonly string[];
+  readonly partial: boolean;
+  readonly requestedKind: "auto" | "plugin" | "plugins" | "skill" | "skills";
+  readonly requestedProvider?: "agents" | SkillsetReportTarget | "skillset";
+  readonly renderResults: SkillsetReportRenderResultCounts;
+  readonly warningCodes: readonly string[];
+}
+
+export interface SkillsetExternalFixtureReportPayload {
+  readonly evidence: readonly SkillsetReportEvidenceDescriptor[];
+  readonly fixture: {
+    readonly manifestEntryCount: number;
+    readonly manifestSha256: string;
+    readonly name: string;
+    readonly pinnedCommit: string;
+    readonly repository: string;
+    readonly targets: readonly SkillsetReportTarget[];
+  };
+  readonly pipelinePassed: boolean;
+  readonly runtime: {
+    readonly bunVersion: string;
+  };
+  readonly phases: {
+    readonly acquire: SkillsetExternalFixturePhase;
+    readonly init: SkillsetExternalFixturePhase;
+    readonly import: SkillsetExternalFixturePhase;
+    readonly lint: SkillsetExternalFixturePhase;
+    readonly build: SkillsetExternalFixturePhase;
+    readonly purity: SkillsetExternalFixturePhase;
+    readonly compare: SkillsetExternalFixturePhase;
+  };
+  readonly summaries: {
+    readonly comparisonDifferences: number;
+    readonly importedUnits: number;
+    readonly migrationFlags: number;
+    readonly renderResults: SkillsetReportRenderResultCounts;
+    readonly surveyCandidates: number;
+  };
+}
+
+export interface SkillsetExternalFixturePhase {
+  readonly exitClass:
+    | "command-failure"
+    | "not-run"
+    | "signal"
+    | "success"
+    | "timeout";
+  readonly status: SkillsetReportPhaseStatus;
 }
 
 export interface SkillsetOperationReport {
@@ -53,7 +184,48 @@ export interface SkillsetOperationReport {
   readonly workspace: SkillsetReportWorkspace;
 }
 
-export type SkillsetReport = SkillsetOperationReport;
+interface SkillsetStructuredReportBase<
+  Command extends string,
+  Kind extends string,
+  Payload,
+> {
+  readonly createdAt: string;
+  readonly id: string;
+  readonly kind: Kind;
+  readonly payload: Payload;
+  readonly result: SkillsetTypedReportResult<Command>;
+  readonly schemaVersion: "skillset.report@1";
+  readonly skillset: {
+    readonly version: string;
+  };
+  readonly workspace: SkillsetReportWorkspace;
+}
+
+export type SkillsetAdoptionReport = SkillsetStructuredReportBase<
+  "init.adopt",
+  "adoption",
+  SkillsetAdoptionReportPayload
+>;
+
+export type SkillsetImportReport = SkillsetStructuredReportBase<
+  "import",
+  "import",
+  SkillsetImportReportPayload
+>;
+
+export interface SkillsetExternalFixtureReport extends SkillsetStructuredReportBase<
+  "conformance.external",
+  "external-fixture",
+  SkillsetExternalFixtureReportPayload
+> {
+  readonly workspace: SkillsetExternalFixtureReportWorkspace;
+}
+
+export type SkillsetReport =
+  | SkillsetAdoptionReport
+  | SkillsetExternalFixtureReport
+  | SkillsetImportReport
+  | SkillsetOperationReport;
 
 export interface SkillsetCliResult {
   readonly changes: readonly SkillsetCliChange[];
