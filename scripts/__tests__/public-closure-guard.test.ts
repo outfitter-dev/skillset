@@ -295,6 +295,36 @@ describe("generated public closure guard", () => {
     ).toEqual([1, 2]);
   });
 
+  test("SET-465: pnpm directory selectors preserve the following script command", () => {
+    const packageScripts = {
+      private: "bun scripts/private.ts",
+      "via:dir": "pnpm --dir . run private",
+      "via:dir-short": "pnpm -C . run via:dir",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, [
+      "scripts/private.ts",
+    ]);
+    const content = [
+      "Run `pnpm --dir . run private`.",
+      "Run `pnpm -C . run via:dir`.",
+    ].join("\n");
+
+    expect([...aliases].toSorted()).toEqual([
+      "private",
+      "via:dir",
+      "via:dir-short",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line }) => line)
+    ).toEqual([1, 2]);
+  });
+
   test("SET-465: Bun builtins require explicit run to resolve package aliases", () => {
     const aliases = findRepoInternalScriptAliases(
       {
@@ -653,5 +683,47 @@ describe("generated public closure guard", () => {
         ["scripts/check.sh", "scripts/provider-maintenance.ts"]
       )
     ).toEqual([]);
+  });
+
+  test("SET-465: rejects traversals and actual absolute paths to inventoried scripts", () => {
+    const content = [
+      "Read ../../scripts/private.ts.",
+      "Read .././../scripts/private.ts.",
+      "Read `..\\..\\scripts\\private.ts`.",
+      "Read /repo/scripts/private.ts.",
+      "Read /repo/./scripts/private.ts.",
+      "Read /repo/sub/../scripts/private.ts.",
+      "Read /other/scripts/private.ts.",
+      "Read ../../scripts/public.ts.",
+      "Read .skillset/plugins/demo/scripts/private.ts.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-script" },
+      { line: 2, rule: "internal-script" },
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-script" },
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "Read `C:\\repo\\sub\\..\\scripts\\private.ts`.",
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "C:\\repo"
+      ).map(({ rule }) => rule)
+    ).toEqual(["internal-script"]);
   });
 });

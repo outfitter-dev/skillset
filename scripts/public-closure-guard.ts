@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, posix, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type PublicClosureRule =
@@ -59,11 +59,13 @@ const CLOSURE_PATTERNS: readonly ClosurePattern[] = [
 
 const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
+const PATH_CANDIDATE_PATTERN =
+  /(?<![a-z0-9_.:\\/-])(?:[a-z]:)?[\\/]?(?:[a-z0-9._-]+[\\/])+[a-z0-9._-]+/giu;
 const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
   {
     bun: new Set(["--cwd"]),
     npm: new Set(["--prefix", "--script-shell", "--workspace", "-w"]),
-    pnpm: new Set(["--dir", "--filter", "-F"]),
+    pnpm: new Set(["--dir", "--filter", "-C", "-F"]),
     yarn: new Set(["--cwd"]),
   };
 const RUNNER_BUILTINS: Readonly<Record<PackageRunner, ReadonlySet<string>>> = {
@@ -147,7 +149,8 @@ export function scanGeneratedPublicContent(
   content: string,
   repoInternalScripts: readonly string[] = [],
   repoInternalScriptAliases: ReadonlySet<string> = new Set(),
-  packageScriptNames?: ReadonlySet<string>
+  packageScriptNames?: ReadonlySet<string>,
+  repoRoot?: string
 ): readonly PublicClosureViolation[] {
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
@@ -162,7 +165,9 @@ export function scanGeneratedPublicContent(
         (violation) =>
           violation.line === line && violation.rule === "internal-script"
       ) &&
-      repoInternalScripts.some((path) => hasBarePathReference(text, path))
+      repoInternalScripts.some((path) =>
+        hasRepoInternalScriptReference(text, path, repoRoot)
+      )
     ) {
       violations.push({
         file,
@@ -265,7 +270,7 @@ function readRunnerToken(
  * shorthand (`start`, `stop`, `restart`, and `test` plus `t`/`tst`). Script
  * names may be bare or single-/double-quoted.
  * Bounded value flags (`npm --prefix`, `-w`/`--workspace`, `--script-shell`;
- * `bun/yarn --cwd`; and `pnpm --dir`, `--filter`, or `-F`) consume one
+ * `bun/yarn --cwd`; and `pnpm --dir`, `-C`, `--filter`, or `-F`) consume one
  * following token; other flags must be self-contained (for example `--silent`
  * or `--cwd=path`). npm, Bun, and pnpm package-script execution includes
  * bounded pre/post lifecycle edges; npm `restart` chooses restart or stop/start
@@ -361,7 +366,8 @@ function npmLifecycleEdges(
 
 export function findRepoInternalScriptAliases(
   packageScripts: PackageScripts,
-  repoInternalScripts: readonly string[]
+  repoInternalScripts: readonly string[],
+  repoRoot?: string
 ): ReadonlySet<string> {
   const aliases = new Set<string>();
   const packageScriptNames = new Set(Object.keys(packageScripts));
@@ -375,8 +381,7 @@ export function findRepoInternalScriptAliases(
       const referencesInternalPath = repoInternalScripts.some((path) =>
         commandLines.some(
           (line) =>
-            hasBarePathReference(line, path) ||
-            hasBarePathReference(line, `./${path}`)
+            hasRepoInternalScriptReference(line, path, repoRoot)
         )
       );
       const referencesInternalAlias = invokedPackageScripts(
@@ -391,6 +396,45 @@ export function findRepoInternalScriptAliases(
   }
 
   return aliases;
+}
+
+function hasRepoInternalScriptReference(
+  text: string,
+  path: string,
+  repoRoot?: string
+): boolean {
+  const normalizedText = text.replaceAll("\\", "/");
+  const normalizedPath = path.replaceAll("\\", "/");
+  if (
+    hasBarePathReference(normalizedText, normalizedPath) ||
+    hasBarePathReference(normalizedText, `./${normalizedPath}`)
+  ) {
+    return true;
+  }
+
+  const escapedPath = normalizedPath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const parentRelativePattern = new RegExp(
+    `^(?:\\.\\./)+${escapedPath}$`,
+    "iu"
+  );
+  const absoluteRepoPath =
+    repoRoot === undefined
+      ? undefined
+      : posix.normalize(
+          `${repoRoot.replaceAll("\\", "/").replace(/\/+$/u, "")}/${normalizedPath}`
+        );
+
+  for (const match of normalizedText.matchAll(PATH_CANDIDATE_PATTERN)) {
+    const candidate = posix.normalize(match[0].replace(/[!,.?:;]+$/u, ""));
+    if (
+      candidate === normalizedPath ||
+      parentRelativePattern.test(candidate) ||
+      candidate === absoluteRepoPath
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasBarePathReference(text: string, path: string): boolean {
@@ -448,7 +492,8 @@ export async function scanGeneratedPublicTree(
   ) as { readonly scripts?: PackageScripts };
   const repoInternalScriptAliases = findRepoInternalScriptAliases(
     packageJson.scripts ?? {},
-    repoInternalScripts
+    repoInternalScripts,
+    rootDir
   );
   const packageScriptNames = new Set(Object.keys(packageJson.scripts ?? {}));
   for (const path of files) {
@@ -464,7 +509,8 @@ export async function scanGeneratedPublicTree(
         content.toString("utf8"),
         repoInternalScripts,
         repoInternalScriptAliases,
-        packageScriptNames
+        packageScriptNames,
+        rootDir
       )
     );
   }
