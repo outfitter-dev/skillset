@@ -679,6 +679,67 @@ describe("generated public closure guard", () => {
     ).toEqual(nonPrivateSelections.map(() => []));
   });
 
+  test("SET-465: npm post-run config values preserve exact script selection", () => {
+    const packageScripts = {
+      "--private": "bun packages/core/src/private.ts",
+      private: "bun packages/core/src/private.ts",
+      public: "echo public",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, []);
+    const protectedCommands = [
+      "npm run --loglevel silent private",
+      "npm run --loglevel=silent private",
+      "npm run --workspace demo private",
+      "npm run -w demo private",
+      "npm run --prefix . private",
+      "npm run --script-shell /bin/sh private",
+      "npm run --location project private",
+      "npm run -L project private",
+      "npm run --userconfig /tmp/npmrc private",
+      "npm run --cache /tmp/cache private",
+      "npm run --registry https://registry.npmjs.org private",
+      "npm run --fetch-retries 2 private",
+      "npm run --future-config value private",
+      "npm run --future-boolean private",
+      "npm run --loglevel silent -- private",
+      "npm run -- --private",
+    ];
+    const publicOrIncompleteCommands = [
+      "npm run --loglevel silent public private",
+      "npm run public --loglevel silent private",
+      "npm run --loglevel private",
+      "npm run --workspace private",
+      "npm run --cache private",
+      "npm run --userconfig private",
+      "npm run --future-config value public private",
+      "npm run --silent public private",
+      "npm run --loglevel silent -- public private",
+    ];
+
+    expect(
+      protectedCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          [],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        ).map(({ rule }) => rule)
+      )
+    ).toEqual(protectedCommands.map(() => ["internal-script"]));
+    expect(
+      publicOrIncompleteCommands.map((command) =>
+        scanGeneratedPublicContent(
+          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          `Run \`${command}\`.`,
+          [],
+          aliases,
+          new Set(Object.keys(packageScripts))
+        )
+      )
+    ).toEqual(publicOrIncompleteCommands.map(() => []));
+  });
+
   test("SET-465: Yarn require values do not hide the selected script", () => {
     const packageScripts = {
       private: "bun scripts/private.ts",

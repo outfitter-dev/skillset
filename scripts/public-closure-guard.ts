@@ -180,9 +180,14 @@ const RUNNER_VALUE_FLAGS: Readonly<Record<PackageRunner, ReadonlySet<string>>> =
   {
     bun: BUN_RUN_REQUIRED_VALUE_FLAGS,
     npm: new Set([
+      "--cache",
+      "--fetch-retries",
       "--location",
+      "--loglevel",
       "--prefix",
+      "--registry",
       "--script-shell",
+      "--userconfig",
       "--workspace",
       "-L",
       "-w",
@@ -645,14 +650,11 @@ function readRunnerTokens(
   );
 }
 
-function readNpmPreCommandTokens(
+function readNpmConfiguredTokens(
   text: string,
-  offset: number
+  offset: number,
+  acceptsToken: (token: CommandToken) => boolean
 ): readonly CommandToken[] {
-  const commandNames = new Set([
-    ...NPM_RUN_COMMANDS,
-    ...Object.keys(NPM_LIFECYCLE_SCRIPTS),
-  ]);
   const memo = new Map<number, readonly CommandToken[]>();
 
   function visit(token: CommandToken | null): readonly CommandToken[] {
@@ -665,9 +667,12 @@ function readNpmPreCommandTokens(
   }
 
   function visitUncached(token: CommandToken): readonly CommandToken[] {
-    if (token.value === "--") return visit(readCommandToken(text, token.end));
+    if (token.value === "--") {
+      const selected = readCommandToken(text, token.end);
+      return selected && acceptsToken(selected) ? [selected] : [];
+    }
     if (!token.value.startsWith("-")) {
-      return commandNames.has(token.value.toLowerCase()) ? [token] : [];
+      return acceptsToken(token) ? [token] : [];
     }
 
     const next = readCommandToken(text, token.end);
@@ -695,6 +700,31 @@ function readNpmPreCommandTokens(
   return visit(readCommandToken(text, offset));
 }
 
+function readNpmPreCommandTokens(
+  text: string,
+  offset: number
+): readonly CommandToken[] {
+  const commandNames = new Set([
+    ...NPM_RUN_COMMANDS,
+    ...Object.keys(NPM_LIFECYCLE_SCRIPTS),
+  ]);
+  return readNpmConfiguredTokens(text, offset, (token) =>
+    commandNames.has(token.value.toLowerCase())
+  );
+}
+
+function readNpmRunScriptTokens(
+  text: string,
+  offset: number,
+  packageScriptNames?: ReadonlySet<string>
+): readonly CommandToken[] {
+  return readNpmConfiguredTokens(
+    text,
+    offset,
+    (token) => packageScriptNames?.has(token.value) !== false
+  );
+}
+
 /**
  * Statically recognizes `runner [flags] run [flags] script` for Bun, pnpm,
  * and Yarn; npm also accepts its `run-script`, `rum`, and `urn` aliases, while
@@ -706,8 +736,10 @@ function readNpmPreCommandTokens(
  * `--script-shell`; the corresponding Bun forms; Yarn's global `--cwd` and
  * run-scoped `--require`; and `pnpm --dir`, `-C`, `--filter`, or `-F`) consume
  * one following token. Other
- * flags must be self-contained (for example `--silent` or `--cwd=path`). npm,
- * Bun, and pnpm package-script execution includes
+ * flags must be self-contained (for example `--silent` or `--cwd=path`). npm
+ * additionally branches unknown config flags as boolean-or-value and filters
+ * possible script tokens through the package-script inventory. npm, Bun, and
+ * pnpm package-script execution includes
  * bounded pre/post lifecycle edges; npm `restart` chooses restart or stop/start
  * fallback edges from the supplied script inventory. This does not expand
  * variables or parse general shell syntax.
@@ -766,12 +798,16 @@ function invokedPackageScriptsForCommand(
         ? PNPM_RUN_COMMANDS.has(command)
         : command === "run";
   if (isRunCommand) {
-    for (const token of readRunnerTokens(text, commandToken.end, runner, {
-      ...(runner === "yarn"
-        ? { requiredValueFlags: YARN_RUN_REQUIRED_VALUE_FLAGS }
-        : {}),
-      skipArgumentDelimiter: runner !== "yarn",
-    })) {
+    const scriptTokens =
+      runner === "npm"
+        ? readNpmRunScriptTokens(text, commandToken.end, packageScriptNames)
+        : readRunnerTokens(text, commandToken.end, runner, {
+            ...(runner === "yarn"
+              ? { requiredValueFlags: YARN_RUN_REQUIRED_VALUE_FLAGS }
+              : {}),
+            skipArgumentDelimiter: runner !== "yarn",
+          });
+    for (const token of scriptTokens) {
       if (runner === "npm") {
         scripts.push(...npmLifecycleEdges(token.value, packageScriptNames));
       } else if (runner === "bun" || runner === "pnpm") {
