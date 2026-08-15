@@ -995,6 +995,46 @@ skillset:
     ]);
   });
 
+  it("rejects archive URLs that cannot be parsed", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            name: "unparsable-host",
+            source: { source: "archive", url: "https://[bad" },
+          },
+          {
+            name: "scheme-only",
+            source: { source: "archive", url: "https://" },
+          },
+          {
+            name: "uppercase-scheme",
+            source: { source: "archive", url: "HTTPS://Example.com/plugin.zip" },
+          },
+          {
+            name: "valid",
+            source: { source: "archive", url: "https://example.com/plugin.zip" },
+          },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[0].source.url must be a parsable absolute URL",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[1].source.url must be a parsable absolute URL",
+      },
+    ]);
+  });
+
   it("classifies skill targets by output path segments instead of substrings", () => {
     const report = checkProviderFormatConformance([
       textFile("plugins/codex-helper/claude/skills/demo/SKILL.md", [

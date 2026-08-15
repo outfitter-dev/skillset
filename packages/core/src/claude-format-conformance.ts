@@ -322,23 +322,28 @@ function checkClaudeMarketplacePlugin(
   if (
     source.source === "archive" &&
     typeof source.url === "string" &&
-    source.url !== "" &&
-    !source.url.startsWith("https://")
+    source.url !== ""
   ) {
-    report(
-      "invalid-shape",
-      `destination field ${prefix}.source.url must use HTTPS`
-    );
-  }
-  if (
-    source.source === "archive" &&
-    typeof source.url === "string" &&
-    isBlockedArchiveHost(source.url)
-  ) {
-    report(
-      "invalid-shape",
-      `destination field ${prefix}.source.url must not use a loopback, link-local, or cloud-metadata host`
-    );
+    // A prefix test accepts values such as `https://[bad` that `URL` cannot
+    // parse, so the host checks below silently pass an unfetchable archive.
+    // Parsing first makes an unparsable URL its own conformance failure.
+    const parsed = parseAbsoluteUrl(source.url);
+    if (parsed === undefined) {
+      report(
+        "invalid-shape",
+        `destination field ${prefix}.source.url must be a parsable absolute URL`
+      );
+    } else if (parsed.protocol !== "https:") {
+      report(
+        "invalid-shape",
+        `destination field ${prefix}.source.url must use HTTPS`
+      );
+    } else if (isBlockedArchiveHost(parsed)) {
+      report(
+        "invalid-shape",
+        `destination field ${prefix}.source.url must not use a loopback, link-local, or cloud-metadata host`
+      );
+    }
   }
   if (
     source.source === "command" &&
@@ -1032,25 +1037,30 @@ function hasParentPathSegment(value: string): boolean {
   return value.split(/[\\/]+/u).includes("..");
 }
 
-function isAbsoluteUrl(value: string): boolean {
+function parseAbsoluteUrl(value: string): URL | undefined {
   try {
-    return new URL(value).protocol.length > 1;
+    return new URL(value);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-function isBlockedArchiveHost(value: string): boolean {
-  try {
-    const hostname = new URL(value).hostname.toLowerCase().replace(/^\[|\]$/gu, "");
-    if (hostname === "localhost" || hostname === "::1" || hostname === "metadata.google.internal") return true;
-    if (isBlockedIpv4Host(hostname)) return true;
-    const mapped = ipv4MappedIpv6Address(hostname);
-    if (mapped !== undefined && isBlockedIpv4Host(mapped)) return true;
-    return /^fe[89ab][0-9a-f]:/u.test(hostname);
-  } catch {
-    return false;
-  }
+function isAbsoluteUrl(value: string): boolean {
+  return (parseAbsoluteUrl(value)?.protocol.length ?? 0) > 1;
+}
+
+/**
+ * Takes a parsed `URL` so an unparsable value can never reach the host checks.
+ * Swallowing the parse failure here would report a malformed archive URL as an
+ * allowed host instead of as a conformance failure.
+ */
+function isBlockedArchiveHost(url: URL): boolean {
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/gu, "");
+  if (hostname === "localhost" || hostname === "::1" || hostname === "metadata.google.internal") return true;
+  if (isBlockedIpv4Host(hostname)) return true;
+  const mapped = ipv4MappedIpv6Address(hostname);
+  if (mapped !== undefined && isBlockedIpv4Host(mapped)) return true;
+  return /^fe[89ab][0-9a-f]:/u.test(hostname);
 }
 
 function isBlockedIpv4Host(hostname: string): boolean {

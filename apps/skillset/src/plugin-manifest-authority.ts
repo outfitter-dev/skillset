@@ -112,6 +112,28 @@ export function firstPortablePluginMetadataValue(
   return undefined;
 }
 
+/**
+ * Providers whose native `author` is present but is not a readable author shape
+ * (a string or an object). `author` is the one portable field Skillset
+ * normalizes across providers, so an unreadable value has no canonical form:
+ * conflict detection and canonicalization both have to skip it, and the
+ * importer strips `author` from provider overrides as source-owned. Callers
+ * must reject these providers first, otherwise a malformed native value is
+ * indistinguishable from an absent one and disappears on import.
+ */
+export function unreadableNativeAuthorProviders(
+  manifests: Iterable<ProviderPluginManifestEntry>
+): readonly TargetName[] {
+  const providers: TargetName[] = [];
+  for (const [provider, manifest] of manifests) {
+    if (manifest.author === undefined) continue;
+    if (readSourceAuthorRecord(manifest.author) !== undefined) continue;
+    providers.push(provider);
+  }
+  return providers.sort();
+}
+
+/** Assumes `unreadableNativeAuthorProviders` already rejected malformed values. */
 function authorMetadataConflicts(
   manifests: readonly ProviderPluginManifestEntry[]
 ): readonly PortablePluginMetadataConflict[] {
@@ -133,6 +155,7 @@ function authorMetadataConflicts(
     : [];
 }
 
+/** Assumes `unreadableNativeAuthorProviders` already rejected malformed values. */
 function canonicalAuthorValue(
   manifests: Iterable<ProviderPluginManifestEntry>
 ): JsonRecord | undefined {

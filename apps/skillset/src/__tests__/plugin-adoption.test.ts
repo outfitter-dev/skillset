@@ -267,6 +267,30 @@ test("SET-450: provider-native author imports still reject real conflicts", asyn
   expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
 });
 
+test("SET-450: an unreadable native author blocks import instead of being dropped", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: 42,
+    }),
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Codex Team" },
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "native plugin manifests declare an unreadable author: claude"
+  );
+  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+});
+
 test("SET-369: conflicting native listing metadata stays a provider-specific warning", async () => {
   const root = await pluginFixture({
     "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
