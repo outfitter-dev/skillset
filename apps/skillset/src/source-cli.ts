@@ -104,6 +104,9 @@ export async function runImportCommand({
         `  - ${imported.kind} ${imported.name}: ${imported.targetPath} (${imported.files} files)`
       );
     }
+    for (const command of result.imports[0]?.nextChecks ?? []) {
+      console.log(formatScaffoldNextStep(command));
+    }
   }
   if (!jsonOutput) {
     for (const warning of result.warnings)
@@ -278,7 +281,9 @@ function printImportReport(result: ImportReport): void {
   for (const warning of result.warnings) {
     console.warn(`  warning: ${warning}`);
   }
-  console.log(formatScaffoldNextStep(result.nextChecks.join(", ")));
+  for (const command of result.nextChecks) {
+    console.log(formatScaffoldNextStep(command));
+  }
 }
 
 function printNewSourceReport(result: NewSourceReport, reason: string): void {
@@ -290,6 +295,7 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
   console.log(`  source: ${result.sourceRoot}`);
   console.log(`  name: ${result.displayName}`);
   if (result.write) {
+    console.log(formatScaffoldNextStep("skillset build"));
     console.log(formatScaffoldNextStep("skillset build --yes"));
     console.log(formatScaffoldNextStep("skillset check"));
   }

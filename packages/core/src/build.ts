@@ -45,6 +45,8 @@ import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from ".
 import { SkillsetRenderResultError, defineRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
+import { applyWorkspaceTransaction } from "./workspace-transaction";
+import type { WorkspaceTransactionOptions } from "./workspace-transaction";
 
 /** Mirror root for isolated builds; the full projection lands under it. */
 export const ISOLATED_OUT_ROOT = ".skillset/cache/latest";
@@ -169,7 +171,7 @@ export async function buildSkillset(
 export async function buildSkillsetResult(
   rootPath: string,
   options: SkillsetOptions = {},
-  inspectionOptions: SkillsetDiffInspectionOptions = {}
+  inspectionOptions: SkillsetBuildInspectionOptions = {}
 ): Promise<SkillsetBuildResult> {
   return buildSkillsetResultInternal(rootPath, options, {
     ...(inspectionOptions.sourceDrivenOutputPaths === undefined
@@ -917,6 +919,12 @@ export interface SkillsetDiffInspectionOptions {
   readonly sourceDrivenOutputPaths?: readonly string[];
 }
 
+export interface SkillsetBuildInspectionOptions
+  extends SkillsetDiffInspectionOptions {
+  /** Deterministic fault injection for ordinary output transaction tests. @internal */
+  readonly transactionOptions?: WorkspaceTransactionOptions;
+}
+
 /**
  * Compute the generated changes a build would make, without writing anything.
  * Backs `skillset diff` and `skillset status`.
@@ -1439,6 +1447,69 @@ async function writeRenderedFiles(
     writtenPaths.push(file.path);
   }
   return writtenPaths.sort(compareStrings);
+}
+
+async function applyRenderedFileTransaction(
+  rootPath: string,
+  rendered: readonly RenderedFile[],
+  staleManagedPaths: readonly string[],
+  resolveOutputPath: OutputPathResolver,
+  writeAll: boolean,
+  transactionOptions: WorkspaceTransactionOptions | undefined
+): Promise<{
+  readonly deletedPaths: readonly string[];
+  readonly writtenPaths: readonly string[];
+}> {
+  const caseOnlyMoves = staleManagedPaths.flatMap((from) => {
+    const target = rendered.find(
+      (file) =>
+        file.path !== from &&
+        file.path.toLowerCase() === from.toLowerCase()
+    );
+    return target === undefined ? [] : [{ from, to: target.path }];
+  });
+  const caseOnlyMoveSources = new Set(caseOnlyMoves.map((move) => move.from));
+  const caseOnlyMoveTargets = new Set(caseOnlyMoves.map((move) => move.to));
+  const writes: RenderedFile[] = [];
+  for (const file of rendered) {
+    const outputPath = resolveOutputPath(file.path);
+    if (
+      !writeAll &&
+      !caseOnlyMoveTargets.has(file.path) &&
+      await exists(outputPath)
+    ) {
+      const current = await readFile(outputPath);
+      if (
+        bytesEqual(current, file.content) &&
+        await generatedFileOnDiskMatchesMode(outputPath, file)
+      ) {
+        continue;
+      }
+    }
+    writes.push(file);
+  }
+  if (writes.length === 0 && staleManagedPaths.length === 0) {
+    return { deletedPaths: [], writtenPaths: [] };
+  }
+  await applyWorkspaceTransaction(
+    rootPath,
+    {
+      deletes: staleManagedPaths.filter(
+        (path) => !caseOnlyMoveSources.has(path)
+      ),
+      moves: caseOnlyMoves,
+      writes: writes.map((file) => ({
+        content: file.content,
+        mode: file.mode,
+        path: file.path,
+      })),
+    },
+    transactionOptions
+  );
+  return {
+    deletedPaths: [...staleManagedPaths].sort(compareStrings),
+    writtenPaths: writes.map((file) => file.path).sort(compareStrings),
+  };
 }
 
 async function writeChangedRenderedFiles(
