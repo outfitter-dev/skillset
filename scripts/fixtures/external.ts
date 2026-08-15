@@ -23,8 +23,12 @@
  * The round-trip comparison is report-only for now; per-repo expectations can
  * harden into assertions once the numbers settle.
  */
+import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
+
+import type { SkillsetRenderResult } from "@skillset/core";
+import type { SkillsetReportRenderResultCounts } from "@skillset/schema";
 
 import { adoptSkillset, type AdoptReport } from "../../apps/skillset/src/adopt";
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
@@ -46,6 +50,11 @@ import { loadBuildGraph } from "../../packages/core/src/resolver";
 import { isTargetName, TARGET_LIST_TEXT } from "../../packages/core/src/targets";
 import type { TargetName } from "../../packages/core/src/types";
 import { parseYamlRecord } from "../../packages/core/src/yaml";
+import {
+  persistExternalFixtureReport,
+  type PersistExternalFixtureReportResult,
+  writeExternalRunReport,
+} from "./external-report";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
@@ -207,7 +216,14 @@ export async function compareTrees(
 export interface ExternalStageResult {
   readonly detail: string;
   readonly ok: boolean;
-  readonly stage: "build" | "import" | "init" | "lint" | "purity";
+  readonly stage:
+    | "acquire"
+    | "build"
+    | "compare"
+    | "import"
+    | "init"
+    | "lint"
+    | "purity";
 }
 
 export interface ExternalRoundTrip {
@@ -232,8 +248,21 @@ export interface ExternalRunReport {
   readonly ok: boolean;
   readonly roundTrips: readonly ExternalRoundTrip[];
   readonly stages: readonly ExternalStageResult[];
+  readonly summary: ExternalRunSummary;
   readonly survey: ExternalSurvey;
 }
+
+export interface ExternalRunSummary {
+  readonly importedUnits: number;
+  readonly migrationFlags: number;
+  readonly renderResults: SkillsetReportRenderResultCounts;
+}
+
+const EMPTY_RUN_SUMMARY: ExternalRunSummary = {
+  importedUnits: 0,
+  migrationFlags: 0,
+  renderResults: { failed: 0, rendered: 0, skipped: 0, unsupported: 0 },
+};
 
 /** How many dirty paths a failed purity stage lists before truncating. */
 const PURITY_DETAIL_CAP = 10;
@@ -303,6 +332,7 @@ export async function runExternalRepo(
   const stages: ExternalStageResult[] = [];
   const roundTrips: ExternalRoundTrip[] = [];
   const cloneCacheContext = createOperationalPathContext(clonePath);
+  let summary = EMPTY_RUN_SUMMARY;
 
   await cleanSkillsetLeftovers(clonePath);
 
@@ -312,8 +342,20 @@ export async function runExternalRepo(
     adopt = await adoptSkillset(clonePath, { targets, write: true });
   } catch (error) {
     stages.push({ detail: errorMessage(error), ok: false, stage: "init" });
-    return { name, ok: false, roundTrips, stages, survey };
+    return { name, ok: false, roundTrips, stages, summary, survey };
   }
+
+  summary = {
+    importedUnits: new Set(
+      adopt.imports.flatMap((result) =>
+        result.units.map((unit) => `${unit.kind}:${unit.name}`)
+      )
+    ).size,
+    migrationFlags: adopt.transformPreviews.filter(
+      (preview) => preview.dialectDeclared
+    ).length,
+    renderResults: summarizeRenderResults(adopt.renderResults),
+  };
 
   const { candidates } = adopt;
   survey = {
@@ -334,7 +376,7 @@ export async function runExternalRepo(
     stage: "init",
   });
   if (candidates.length === 0 || blockingDiagnostics.length > 0) {
-    return { name, ok: false, roundTrips, stages, survey };
+    return { name, ok: false, roundTrips, stages, summary, survey };
   }
 
   const imported: {
@@ -395,36 +437,45 @@ export async function runExternalRepo(
   // A failed isolated build already records the graph-load error. Retrying the
   // load here would prevent the harness from returning its failed report.
   if (adopt.buildError !== undefined) {
-    return { name, ok: false, roundTrips, stages, survey };
+    return { name, ok: false, roundTrips, stages, summary, survey };
   }
 
-  const graph = await loadBuildGraph(clonePath);
-  for (const item of imported) {
-    for (const target of targets) {
-      const generatedRoot = item.kind === "plugin"
-        ? join(
-            ISOLATED_OUT_ROOT,
-            pluginTargetRoot(graph.root.outputs.plugins[target], target, item.name)
-          )
-        : join(ISOLATED_OUT_ROOT, graph.root.outputs.skills[target], item.name);
-      const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
-      const originalRoot =
-        item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
-      roundTrips.push({
-        comparison: await compareTrees(
-          originalRoot,
-          generatedRootPath
-        ),
-        generatedRoot,
-        kind: item.kind,
-        name: item.name,
-        originalRoot:
-          relative(clonePath, originalRoot) === ""
-            ? "."
-            : relative(clonePath, originalRoot),
-        target,
-      });
+  try {
+    const graph = await loadBuildGraph(clonePath);
+    for (const item of imported) {
+      for (const target of targets) {
+        const generatedRoot = item.kind === "plugin"
+          ? join(
+              ISOLATED_OUT_ROOT,
+              pluginTargetRoot(graph.root.outputs.plugins[target], target, item.name)
+            )
+          : join(ISOLATED_OUT_ROOT, graph.root.outputs.skills[target], item.name);
+        const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
+        const originalRoot =
+          item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
+        roundTrips.push({
+          comparison: await compareTrees(
+            originalRoot,
+            generatedRootPath
+          ),
+          generatedRoot,
+          kind: item.kind,
+          name: item.name,
+          originalRoot:
+            relative(clonePath, originalRoot) === ""
+              ? "."
+              : relative(clonePath, originalRoot),
+          target,
+        });
+      }
     }
+    stages.push({
+      detail: `${roundTrips.length} target projection comparison(s) completed`,
+      ok: true,
+      stage: "compare",
+    });
+  } catch (error) {
+    stages.push({ detail: errorMessage(error), ok: false, stage: "compare" });
   }
 
   return {
@@ -432,6 +483,7 @@ export async function runExternalRepo(
     ok: stages.every((stage) => stage.ok),
     roundTrips,
     stages,
+    summary,
     survey,
   };
 }
@@ -505,19 +557,6 @@ export function renderRunReportMarkdown(
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
-export async function writeExternalRunReport(
-  reportDir: string,
-  report: ExternalRunReport,
-  entry: Pick<ExternalRepoEntry, "ref" | "repo">
-): Promise<void> {
-  await mkdir(reportDir, { recursive: true });
-  await writeFile(join(reportDir, "report.md"), renderRunReportMarkdown(report, entry));
-  await writeFile(
-    join(reportDir, "report.json"),
-    `${JSON.stringify(report, null, 2)}\n`
-  );
-}
-
 function appendCappedList(
   lines: string[],
   title: string,
@@ -534,9 +573,16 @@ function appendCappedList(
 
 async function readManifest(
   rootPath: string
-): Promise<readonly ExternalRepoEntry[]> {
+): Promise<{
+  readonly entries: readonly ExternalRepoEntry[];
+  readonly sha256: string;
+}> {
   const path = join(rootPath, MANIFEST_PATH);
-  return parseExternalManifest(await readFile(path, "utf-8"), MANIFEST_PATH);
+  const content = await readFile(path, "utf-8");
+  return {
+    entries: parseExternalManifest(content, MANIFEST_PATH),
+    sha256: createHash("sha256").update(content, "utf8").digest("hex"),
+  };
 }
 
 function selectEntries(
@@ -594,6 +640,116 @@ async function syncRepo(
   console.log(`external: ${entry.name} synced to ${entry.ref.slice(0, 12)}`);
 }
 
+export interface ExternalFixtureExecutionResult {
+  readonly entry: ExternalRepoEntry;
+  readonly report: ExternalRunReport;
+  readonly reportDir: string;
+  readonly receipt: PersistExternalFixtureReportResult;
+}
+
+interface ExternalFixtureExecutionTestHooks {
+  readonly acquire?: (
+    rootPath: string,
+    entry: ExternalRepoEntry
+  ) => Promise<void>;
+  readonly run?: (
+    name: string,
+    clonePath: string,
+    targets: readonly TargetName[]
+  ) => Promise<ExternalRunReport>;
+}
+
+export interface RunSelectedExternalFixturesInput {
+  readonly entries: readonly ExternalRepoEntry[];
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  readonly manifestEntryCount: number;
+  readonly manifestSha256: string;
+  readonly rootPath: string;
+  /** Deterministic seams for focused orchestration tests only. */
+  readonly testHooks?: ExternalFixtureExecutionTestHooks;
+}
+
+/**
+ * Executes and receipts each selected fixture independently. Acquisition and
+ * every pre-adoption setup step are inside the per-entry failure boundary, so
+ * one partial clone or setup failure cannot suppress later fixture receipts.
+ */
+export async function runSelectedExternalFixtures(
+  input: RunSelectedExternalFixturesInput
+): Promise<readonly ExternalFixtureExecutionResult[]> {
+  const reportCacheContext = await operationalContextForRoot(input.rootPath);
+  const results: ExternalFixtureExecutionResult[] = [];
+  for (const entry of input.entries) {
+    const report = await executeExternalFixtureEntry(
+      input.rootPath,
+      entry,
+      input.testHooks
+    );
+    const reportDir = resolveOperationalPath(
+      reportCacheContext,
+      join(REPORTS_DIR, entry.name)
+    );
+    const evidence = await writeExternalRunReport(reportDir, report, entry);
+    const receipt = await persistExternalFixtureReport({
+      entry,
+      ...(input.env === undefined ? {} : { env: input.env }),
+      evidence: [evidence],
+      manifestEntryCount: input.manifestEntryCount,
+      manifestSha256: input.manifestSha256,
+      report,
+      rootPath: input.rootPath,
+    });
+    results.push({ entry, receipt, report, reportDir });
+  }
+  return results;
+}
+
+async function executeExternalFixtureEntry(
+  rootPath: string,
+  entry: ExternalRepoEntry,
+  testHooks: ExternalFixtureExecutionTestHooks = {}
+): Promise<ExternalRunReport> {
+  const clonePath = join(rootPath, CLONES_DIR, entry.name);
+  try {
+    await (testHooks.acquire ?? syncRepo)(rootPath, entry);
+  } catch (error) {
+    return failedExternalRunReport(entry.name, "acquire", error);
+  }
+
+  let report: ExternalRunReport;
+  try {
+    report = await (testHooks.run ?? runExternalRepo)(
+      entry.name,
+      clonePath,
+      entry.targets
+    );
+  } catch (error) {
+    report = failedExternalRunReport(entry.name, "init", error);
+  }
+  return {
+    ...report,
+    stages: [
+      { detail: "pinned fixture acquired", ok: true, stage: "acquire" },
+      ...report.stages.filter((stage) => stage.stage !== "acquire"),
+    ],
+  };
+}
+
+function failedExternalRunReport(
+  name: string,
+  stage: "acquire" | "init",
+  error: unknown
+): ExternalRunReport {
+  return {
+    name,
+    ok: false,
+    roundTrips: [],
+    stages: [{ detail: errorMessage(error), ok: false, stage }],
+    summary: EMPTY_RUN_SUMMARY,
+    survey: { candidates: [], diagnostics: [], skips: [] },
+  };
+}
+
 async function updateRepo(
   rootPath: string,
   entry: ExternalRepoEntry
@@ -625,9 +781,17 @@ async function gitOutput(
   cwd: string,
   ...args: readonly string[]
 ): Promise<string> {
+  return gitOutputWithEnv(cwd, args, process.env);
+}
+
+async function gitOutputWithEnv(
+  cwd: string,
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>>
+): Promise<string> {
   const proc = Bun.spawn({
     cmd: ["git", "-C", cwd, ...args],
-    env: gitSafeEnv(),
+    env: gitSafeEnv(env),
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -646,6 +810,28 @@ async function gitOutput(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function summarizeRenderResults(
+  results: readonly SkillsetRenderResult[]
+): SkillsetReportRenderResultCounts {
+  const counts = {
+    failed: 0,
+    rendered: 0,
+    skipped: 0,
+    unsupported: 0,
+  };
+  for (const result of results) {
+    if (result.status === "failed") counts.failed += 1;
+    else if (result.status === "unsupported") counts.unsupported += 1;
+    else if (
+      result.status === "externally_managed" ||
+      result.status === "intentionally_skipped"
+    )
+      counts.skipped += 1;
+    else counts.rendered += 1;
+  }
+  return counts;
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -674,7 +860,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const rootPath = resolve(import.meta.dir, "../..");
-  const entries = await readManifest(rootPath);
+  const { entries, sha256: manifestSha256 } = await readManifest(rootPath);
   const selected = selectEntries(entries, name);
 
   if (verb === "update") {
@@ -699,17 +885,13 @@ async function main(): Promise<void> {
     return;
   }
 
-  let failed = false;
-  const reportCacheContext = await operationalContextForRoot(rootPath);
-  for (const entry of selected) {
-    await syncRepo(rootPath, entry);
-    const clonePath = join(rootPath, CLONES_DIR, entry.name);
-    const report = await runExternalRepo(entry.name, clonePath, entry.targets);
-    const reportDir = resolveOperationalPath(
-      reportCacheContext,
-      join(REPORTS_DIR, entry.name)
-    );
-    await writeExternalRunReport(reportDir, report, entry);
+  const executions = await runSelectedExternalFixtures({
+    entries: selected,
+    manifestEntryCount: entries.length,
+    manifestSha256,
+    rootPath,
+  });
+  for (const { entry, receipt, report } of executions) {
     for (const stage of report.stages) {
       console.log(
         `  ${stage.ok ? "ok" : "FAIL"} ${stage.stage}: ${stage.detail.split("\n")[0]}`
@@ -726,9 +908,11 @@ async function main(): Promise<void> {
     console.log(
       `external: ${entry.name} ${report.ok ? "passed" : "failed"} (${join(REPORTS_DIR, entry.name, "report.md")})`
     );
-    if (!report.ok) {failed = true;}
+    console.log(`  report: ${receipt.stored.report.id}`);
+    console.log(`  show: skillset report show ${receipt.stored.report.id}`);
+    console.log(`  path: ${receipt.stored.resolvedPath}`);
+    if (!report.ok) {process.exitCode = 1;}
   }
-  if (failed) {process.exitCode = 1;}
 }
 
 async function operationalContextForRoot(rootPath: string): Promise<OperationalPathContext> {
