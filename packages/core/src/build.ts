@@ -1569,6 +1569,9 @@ async function applyRenderedFileTransaction(
       moves: caseOnlyMoves,
       writes: writes.map((file) => ({
         content: file.content,
+        ...(writePreimages.get(file.path)?.state === "absent"
+          ? { expectedAbsent: true }
+          : {}),
         mode: file.mode,
         path: file.path,
       })),
