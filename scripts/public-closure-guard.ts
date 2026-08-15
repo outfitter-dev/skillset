@@ -36,6 +36,24 @@ type PackageScripts = Readonly<Record<string, string>>;
 type PackageRunner = "bun" | "npm" | "pnpm" | "yarn";
 type ProtectedBoundaryContext = "generated" | "package-script";
 
+interface ShellLogicalLine {
+  readonly line: number;
+  readonly shellCommand: boolean;
+  readonly text: string;
+}
+
+interface MarkdownFence {
+  readonly character: "`" | "~";
+  readonly length: number;
+  readonly shell: boolean;
+}
+
+interface MarkdownFenceDelimiter {
+  readonly character: "`" | "~";
+  readonly info: string;
+  readonly length: number;
+}
+
 const PUBLIC_ROOT = "plugins/skillset/";
 const CLOSURE_PATTERNS: readonly ClosurePattern[] = [
   {
@@ -332,11 +350,12 @@ export function scanGeneratedPublicContent(
 ): readonly PublicClosureViolation[] {
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
-  for (const { line, text } of shellLogicalLines(content)) {
+  for (const { line, shellCommand, text } of shellLogicalLines(content, true)) {
     for (const rule of matchingProtectedBoundaryRules(
       text,
       repoRoot,
-      "generated"
+      "generated",
+      shellCommand
     )) {
       violations.push({ file, line, rule, text: text.trim() });
     }
@@ -378,7 +397,8 @@ export function scanGeneratedPublicContent(
 function matchingProtectedBoundaryRules(
   text: string,
   repoRoot: string | undefined,
-  context: ProtectedBoundaryContext
+  context: ProtectedBoundaryContext,
+  shellCommand = false
 ): readonly PublicClosureRule[] {
   const normalizedTextWithUrls = normalizeLiteralShellPathQuotes(
     text.replaceAll("\\", "/")
@@ -397,7 +417,8 @@ function matchingProtectedBoundaryRules(
         owner.path,
         repoRoot,
         context,
-        repositoryPaths
+        repositoryPaths,
+        shellCommand
       )
     ) {
       rules.add(owner.rule);
@@ -411,7 +432,8 @@ function hasProtectedPathOwnerReference(
   ownerPath: string,
   repoRoot: string | undefined,
   context: ProtectedBoundaryContext,
-  repositoryPaths: readonly string[]
+  repositoryPaths: readonly string[],
+  shellCommand: boolean
 ): boolean {
   const normalizedOwner = ownerPath.toLowerCase();
   const owns = (candidate: string): boolean =>
@@ -464,7 +486,9 @@ function hasProtectedPathOwnerReference(
     (context === "package-script" &&
       hasProtectedRootCommandArgument(normalizedText, normalizedOwner)) ||
     (context === "generated" &&
-      hasGeneratedShellOwnerToken(normalizedText, normalizedOwner))
+      (hasGeneratedShellOwnerToken(normalizedText, normalizedOwner) ||
+        (shellCommand &&
+          hasProtectedRootCommandArgument(normalizedText, normalizedOwner))))
   ) {
     return true;
   }
@@ -537,7 +561,7 @@ function repositoryHttpPaths(text: string): readonly string[] {
     }
   };
   for (const match of text.matchAll(/\bhttps?:\/\/[^\s`"'<>]+/giu)) {
-    const value = match[0].replace(/[!,.?:;]+$/u, "");
+    const value = trimUrlClosingDelimiters(match[0].replace(/[!,.?:;]+$/u, ""));
     try {
       const url = new URL(value);
       const segments = decodeURIComponent(url.pathname)
@@ -565,10 +589,28 @@ function repositoryHttpPaths(text: string): readonly string[] {
   return paths;
 }
 
+function trimUrlClosingDelimiters(value: string): string {
+  let trimmed = value;
+  for (const [opening, closing] of [
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ] as const) {
+    while (
+      trimmed.endsWith(closing) &&
+      [...trimmed].filter((character) => character === closing).length >
+        [...trimmed].filter((character) => character === opening).length
+    ) {
+      trimmed = trimmed.slice(0, -1);
+    }
+  }
+  return trimmed;
+}
+
 function normalizeShellToken(token: string): string {
   return token
-    .replace(/^[`"'<{\[]+/u, "")
-    .replace(/[`"'>}\],.!?:]+$/u, "")
+    .replace(/^[`"'(<{\[]+/u, "")
+    .replace(/[`"')>}\],.!?:]+$/u, "")
     .replace(/^\.\//u, "")
     .replace(/\/+$/u, "")
     .toLowerCase();
@@ -591,6 +633,7 @@ function hasProtectedRootCommandArgument(
 
 function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
   let index = 0;
+  if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
   const skipAssignments = (): void => {
     while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) index += 1;
   };
@@ -644,24 +687,76 @@ function hasGeneratedShellOwnerToken(
 }
 
 function shellLogicalLines(
-  content: string
-): readonly { readonly line: number; readonly text: string }[] {
+  content: string,
+  recognizeMarkdownFences = false
+): readonly ShellLogicalLine[] {
   const lines = content.split(/\r?\n/u);
-  const logicalLines: { line: number; text: string }[] = [];
+  const logicalLines: ShellLogicalLine[] = [];
+  let fence: MarkdownFence | undefined;
   let line = 1;
+  let shellCommand = false;
   let text = "";
 
   for (const [index, physicalLine] of lines.entries()) {
-    if (text.length === 0) line = index + 1;
+    if (text.length === 0) {
+      line = index + 1;
+      if (recognizeMarkdownFences) {
+        const delimiter = markdownFenceDelimiter(physicalLine);
+        if (delimiter && fence) {
+          if (
+            delimiter.character === fence.character &&
+            delimiter.length >= fence.length &&
+            delimiter.info.length === 0
+          ) {
+            fence = undefined;
+            logicalLines.push({
+              line,
+              shellCommand: false,
+              text: physicalLine,
+            });
+            continue;
+          }
+        } else if (delimiter) {
+          fence = {
+            character: delimiter.character,
+            length: delimiter.length,
+            shell:
+              /^(?:(?:bash|sh|shell|zsh)(?:\s|$)|\{\.(?:bash|sh|shell|zsh)(?:\s|\}))/iu.test(
+                delimiter.info
+              ),
+          };
+          logicalLines.push({
+            line,
+            shellCommand: false,
+            text: physicalLine,
+          });
+          continue;
+        }
+      }
+      shellCommand = fence?.shell === true;
+    }
     if (physicalLine.endsWith("\\")) {
       text += physicalLine.slice(0, -1);
     } else {
-      logicalLines.push({ line, text: text + physicalLine });
+      logicalLines.push({ line, shellCommand, text: text + physicalLine });
       text = "";
     }
   }
-  if (text.length > 0) logicalLines.push({ line, text });
+  if (text.length > 0) logicalLines.push({ line, shellCommand, text });
   return logicalLines;
+}
+
+function markdownFenceDelimiter(
+  line: string
+): MarkdownFenceDelimiter | undefined {
+  const match = /^(?: {0,3})(?<marker>`{3,}|~{3,})(?<info>.*)$/u.exec(line);
+  const marker = match?.groups?.marker;
+  if (!marker) return undefined;
+  return {
+    character: marker[0] as "`" | "~",
+    info: (match?.groups?.info ?? "").trim(),
+    length: marker.length,
+  };
 }
 
 function readCommandToken(text: string, offset: number): CommandToken | null {

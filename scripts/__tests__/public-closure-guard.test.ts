@@ -231,6 +231,77 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: strips Markdown delimiters from repository HTTP links", () => {
+    const content = [
+      "[Development docs](https://github.com/outfitter-dev/skillset/tree/main/docs/development)",
+      "![Fixture](https://github.com/outfitter-dev/skillset/blob/main/fixtures)",
+      "[Package source](https://raw.githubusercontent.com/outfitter-dev/skillset/main/packages/core/src/index.ts)",
+      "[Public docs](https://github.com/outfitter-dev/skillset/tree/main/docs/reference)",
+      "[Lookalike](https://github.com/outfitter-dev/skillset/tree/main/docs/developmental)",
+      "[Other repository](https://github.com/another/skillset/tree/main/docs/development)",
+      "[Balanced parentheses](https://github.com/outfitter-dev/skillset/tree/main/docs/reference/example_(draft))",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "development-docs" },
+      { line: 2, rule: "fixture-path" },
+      { line: 3, rule: "internal-package" },
+    ]);
+  });
+
+  test("SET-465: treats supported Markdown shell fences as command context", () => {
+    const content = [
+      "```bash",
+      "ls scripts",
+      "find fixtures",
+      "cp -R packages out",
+      "$ ls scripts",
+      "(ls scripts)",
+      "echo scripts",
+      "```",
+      "~~~shell",
+      "tree scripts",
+      "~~~",
+      "```sh title=check",
+      "du scripts",
+      "```",
+      "```ZSH",
+      "stat scripts",
+      "% ls scripts",
+      "```",
+      "```{.bash}",
+      "command ls scripts",
+      "```",
+      "```typescript",
+      'console.log("ls scripts");',
+      "```",
+      "In prose, ls scripts is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-script" },
+      { line: 3, rule: "fixture-path" },
+      { line: 4, rule: "internal-package" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-script" },
+      { line: 10, rule: "internal-script" },
+      { line: 13, rule: "internal-script" },
+      { line: 16, rule: "internal-script" },
+      { line: 17, rule: "internal-script" },
+      { line: 20, rule: "internal-script" },
+    ]);
+  });
+
   test("SET-465: protected path owners include roots and descendants across path forms", () => {
     const owners = [
       ["docs/development", "development-docs"],
