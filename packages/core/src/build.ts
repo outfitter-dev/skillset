@@ -1208,7 +1208,8 @@ function enforceSoftPolicyHasUsableOutput(
       `skillset: unsupported destination policy ${unsupportedPolicy} produced no usable target output`,
       "at least one non-lock output must remain so unsupported source cannot look synchronized",
     ].join("\n"),
-    softened
+    softened,
+    "no-usable-output"
   );
 }
 

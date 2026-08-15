@@ -407,6 +407,7 @@ export {
   serializeRenderResult,
   type SkillsetRenderResult,
   type SkillsetRenderResultDiagnosticRef,
+  type SkillsetRenderResultErrorKind,
   type SkillsetRenderResultInput,
   type SkillsetRenderResultOutput,
   type SkillsetRenderResultPolicy,

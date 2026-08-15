@@ -145,6 +145,50 @@ describe("output-state evidence classifier", () => {
     });
   });
 
+  it.each(["warn", "skip", "force"] as const)(
+    "preserves lossy evidence when the %s policy leaves no usable output",
+    (policy) => {
+      const diagnosedPath = ".skillset/skills/diagnosed/SKILL.md";
+      const barePath = ".skillset/skills/bare/SKILL.md";
+      const lossy = (sourceUnit: string, sourcePath: string, diagnosed: boolean) =>
+        defineRenderResult({
+          ...(diagnosed
+            ? { diagnostics: [{ code: "skill-frontmatter-relocated", path: sourcePath }] }
+            : {}),
+          featureId: "skill-frontmatter",
+          policy: `unsupported:${policy}`,
+          reason: "the destination relocates source metadata",
+          sourcePath,
+          sourceUnit,
+          status: "lossy",
+          target: "codex",
+        });
+
+      expect(
+        classifySkillsetOutputFailure(
+          new SkillsetRenderResultError(
+            `skillset: unsupported destination policy ${policy} produced no usable target output`,
+            [
+              lossy("skill:diagnosed", diagnosedPath, true),
+              lossy("skill:bare", barePath, false),
+            ],
+            "no-usable-output"
+          ),
+          true
+        )
+      ).toEqual({
+        blockers: [
+          { code: "skill-frontmatter-relocated", path: diagnosedPath },
+          { code: "unsupported-destination", path: barePath },
+        ],
+        hasBaseline: true,
+        outputChanges: [],
+        sourceChanges: [],
+        state: "blocked",
+      });
+    }
+  );
+
   it("shares truthful evidence across build, diff, check, and status", async () => {
     const root = await fixture({
       "skillset.yaml": `

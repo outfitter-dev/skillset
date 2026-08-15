@@ -79,8 +79,11 @@ export function classifySkillsetOutputFailure(
       ...(error.path === undefined ? {} : { path: error.path }),
     });
   } else if (error instanceof SkillsetRenderResultError) {
+    // A soft policy that left no usable non-lock output blocks on the whole
+    // carried set, not on each result's individually softened policy.
+    const allCarriedResultsBlock = error.kind === "no-usable-output";
     for (const result of error.renderResults) {
-      if (!isBlockingRenderResult(result)) continue;
+      if (!allCarriedResultsBlock && !isBlockingRenderResult(result)) continue;
       if ((result.diagnostics?.length ?? 0) > 0) {
         for (const diagnostic of result.diagnostics ?? []) {
           blockers.push({
