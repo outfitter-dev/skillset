@@ -157,6 +157,69 @@ test("SET-453: parent export rejects invalid IDs, foreign child state, and overl
   ).resolves.toBe(false);
 });
 
+test("SET-453: parent export rejects dotted descendants without changing the source", async () => {
+  await Promise.all(
+    ["..parent-state", "..parent-state/nested"].map(
+      async (relativeParentState) => {
+        const fixture = await createSandboxFixture();
+        const child = await writeChildReport(fixture, FIRST_ID, "workspace");
+        const childPaths = [
+          join(child.resolvedPath, "report.json"),
+          join(child.resolvedPath, "report.md"),
+        ] as const;
+        const sourceBefore = await Promise.all(
+          childPaths.map((path) => readFile(path))
+        );
+        const dottedParentState = join(fixture.xdg.state, relativeParentState);
+
+        await expect(
+          exportSandboxReportToParent({
+            childEnv: fixture.env,
+            expectedRepoRoot: process.cwd(),
+            parentXdg: { state: dottedParentState },
+            reportId: FIRST_ID,
+          })
+        ).rejects.toThrow("child and parent report state must not overlap");
+
+        expect(pathExists(dottedParentState)).resolves.toBe(false);
+        expect(
+          await Promise.all(childPaths.map((path) => readFile(path)))
+        ).toEqual(sourceBefore);
+      }
+    )
+  );
+});
+
+test("SET-453: parent export allows a true outside sibling with a dotted basename", async () => {
+  const fixture = await createSandboxFixture();
+  const child = await writeChildReport(fixture, FIRST_ID, "workspace");
+  const childPaths = [
+    join(child.resolvedPath, "report.json"),
+    join(child.resolvedPath, "report.md"),
+  ] as const;
+  const sourceBefore = await Promise.all(
+    childPaths.map((path) => readFile(path))
+  );
+  const outsideParentState = join(
+    dirname(fixture.parentState),
+    "..parent-state-outside"
+  );
+
+  const stored = await exportSandboxReportToParent({
+    childEnv: fixture.env,
+    expectedRepoRoot: process.cwd(),
+    parentXdg: { state: outsideParentState },
+    reportId: FIRST_ID,
+  });
+
+  expect(stored.resolvedPath).toBe(
+    join(outsideParentState, "skillset/reports", FIRST_ID)
+  );
+  expect(await Promise.all(childPaths.map((path) => readFile(path)))).toEqual(
+    sourceBefore
+  );
+});
+
 test("SET-453: parent export rejects a symlinked parent state ancestor", async () => {
   if (process.platform === "win32") return;
   const fixture = await createSandboxFixture();

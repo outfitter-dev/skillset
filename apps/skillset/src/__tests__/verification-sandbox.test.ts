@@ -274,6 +274,16 @@ test("SET-388: descriptors reject repository and HOME containment in either dire
       HOME: nestedHome,
     })
   ).rejects.toThrow("overlaps a repository or HOME");
+
+  const dottedHomeDescendant = await createDescriptor();
+  const dottedNestedHome = join(dottedHomeDescendant.sandboxPath, "..home");
+  await mkdir(dottedNestedHome);
+  await expect(
+    validateTestSandbox({
+      ...fixtureEnv(dottedHomeDescendant),
+      HOME: dottedNestedHome,
+    })
+  ).rejects.toThrow("overlaps a repository or HOME");
 });
 
 test("SET-388: test mode refuses registration without the canonical marker", async () => {

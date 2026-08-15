@@ -85,6 +85,12 @@ export interface ReportStoreTestHooks {
   readonly beforeBundleFileRead?:
     | ((context: { readonly bundlePath: string }) => Promise<void> | void)
     | undefined;
+  readonly transformDirectoryIdentity?:
+    | ((context: {
+        readonly identity: DirectoryIdentity;
+        readonly path: string;
+      }) => DirectoryIdentity)
+    | undefined;
 }
 
 export interface ReadReportBundleOptions extends SkillsetXdgOptions {
@@ -125,7 +131,8 @@ export async function createReportBundle(
   await preparePrivateReportRoot(boundary);
   const reportRootIdentity = await captureDirectoryIdentity(
     reportRoot,
-    "report root"
+    "report root",
+    options.testHooks
   );
 
   const stagingPath = join(
@@ -144,11 +151,16 @@ export async function createReportBundle(
     await validateCompletedBundleDirectory(stagingPath, report.id, {
       allowStagedName: true,
       sentinels: options.sentinels,
+      testHooks: options.testHooks,
     });
     await syncDirectory(stagingPath);
     assertSameDirectoryIdentity(
       reportRootIdentity,
-      await captureDirectoryIdentity(reportRoot, "report root")
+      await captureDirectoryIdentity(
+        reportRoot,
+        "report root",
+        options.testHooks
+      )
     );
 
     if (await pathExists(finalPath)) {
@@ -159,7 +171,8 @@ export async function createReportBundle(
     }
     stagedIdentity = await captureDirectoryIdentity(
       stagingPath,
-      "staged report bundle"
+      "staged report bundle",
+      options.testHooks
     );
     try {
       await rename(stagingPath, finalPath);
@@ -177,13 +190,18 @@ export async function createReportBundle(
     await syncDirectory(reportRoot);
     assertSameDirectoryIdentity(
       reportRootIdentity,
-      await captureDirectoryIdentity(reportRoot, "report root")
+      await captureDirectoryIdentity(
+        reportRoot,
+        "report root",
+        options.testHooks
+      )
     );
     const stored = await validateCompletedPublication(
       finalPath,
       stagedIdentity,
       report.id,
-      options.sentinels
+      options.sentinels,
+      options.testHooks
     );
     await options.testHooks?.afterFinalRename?.({ finalPath });
     return stored;
@@ -200,7 +218,8 @@ export async function createReportBundle(
           finalPath,
           stagedIdentity,
           report.id,
-          options.sentinels
+          options.sentinels,
+          options.testHooks
         );
       } catch (verificationError) {
         throw new ReportStoreError(
@@ -230,14 +249,16 @@ async function validateCompletedPublication(
   finalPath: string,
   stagedIdentity: DirectoryIdentity,
   expectedId: string,
-  sentinels: readonly string[] | undefined
+  sentinels: readonly string[] | undefined,
+  testHooks: ReportStoreTestHooks | undefined
 ): Promise<StoredReportBundle> {
   const stored = await validateCompletedBundleDirectory(finalPath, expectedId, {
     sentinels,
+    testHooks,
   });
   assertSameFilesystemObjectIdentity(
     stagedIdentity,
-    await captureDirectoryIdentity(finalPath, "report bundle")
+    await captureDirectoryIdentity(finalPath, "report bundle", testHooks)
   );
   return stored;
 }
@@ -279,7 +300,8 @@ export async function readReportBundleAtBoundary(
     await assertMode(reportRoot, 0o700, "report root");
     const reportRootIdentity = await captureDirectoryIdentity(
       reportRoot,
-      "report root"
+      "report root",
+      options.testHooks
     );
     const bundlePath = await resolveBundleReference(
       reference,
@@ -310,7 +332,11 @@ export async function readReportBundleAtBoundary(
     );
     assertSameDirectoryIdentity(
       reportRootIdentity,
-      await captureDirectoryIdentity(reportRoot, "report root")
+      await captureDirectoryIdentity(
+        reportRoot,
+        "report root",
+        options.testHooks
+      )
     );
     return bundle;
   } catch (error) {
@@ -448,7 +474,8 @@ async function validateCompletedBundleDirectory(
 ): Promise<StoredReportBundle> {
   const initialIdentity = await captureDirectoryIdentity(
     bundlePath,
-    "report bundle"
+    "report bundle",
+    options.testHooks
   );
   await assertPlainDirectory(bundlePath, "invalid_bundle", "report bundle");
   await assertMode(bundlePath, 0o700, "report bundle");
@@ -484,7 +511,8 @@ async function validateCompletedBundleDirectory(
   ]);
   const finalIdentity = await captureDirectoryIdentity(
     bundlePath,
-    "report bundle"
+    "report bundle",
+    options.testHooks
   );
   assertSameDirectoryIdentity(initialIdentity, finalIdentity);
   await assertExactReportEntries(bundlePath);
@@ -530,7 +558,6 @@ async function validateCompletedBundleDirectory(
 interface DirectoryIdentity {
   readonly birthtimeMs: number;
   readonly canonicalPath: string;
-  readonly ctimeMs: number;
   readonly dev: number;
   readonly ino: number;
 }
@@ -619,7 +646,8 @@ async function createDirectoryPathWithoutSymlinks(
 
 async function captureDirectoryIdentity(
   path: string,
-  label: string
+  label: string,
+  testHooks?: ReportStoreTestHooks | undefined
 ): Promise<DirectoryIdentity> {
   const entry = await lstat(path);
   if (entry.isSymbolicLink() || !entry.isDirectory()) {
@@ -629,13 +657,15 @@ async function captureDirectoryIdentity(
     );
   }
   await assertOwnedFromStat(entry.uid, label);
-  return {
+  const identity = {
     birthtimeMs: entry.birthtimeMs,
     canonicalPath: await realpath(path),
-    ctimeMs: entry.ctimeMs,
     dev: entry.dev,
     ino: entry.ino,
   };
+  return (
+    testHooks?.transformDirectoryIdentity?.({ identity, path }) ?? identity
+  );
 }
 
 function assertSameDirectoryIdentity(
@@ -644,11 +674,7 @@ function assertSameDirectoryIdentity(
 ): void {
   if (
     before.canonicalPath !== after.canonicalPath ||
-    before.dev !== after.dev ||
-    before.ino !== after.ino ||
-    (before.ino === 0 &&
-      (before.birthtimeMs !== after.birthtimeMs ||
-        before.ctimeMs !== after.ctimeMs))
+    filesystemObjectIdentityChanged(before, after)
   ) {
     throw new ReportStoreError(
       "invalid_bundle",
@@ -661,24 +687,33 @@ function assertSameFilesystemObjectIdentity(
   before: DirectoryIdentity,
   after: DirectoryIdentity
 ): void {
-  const inodeChanged =
-    before.ino !== 0 && after.ino !== 0 && before.ino !== after.ino;
-  const inodeAvailabilityChanged = (before.ino === 0) !== (after.ino === 0);
-  const inodeUnavailableAndBirthChanged =
-    before.ino === 0 &&
-    after.ino === 0 &&
-    before.birthtimeMs !== after.birthtimeMs;
-  if (
-    before.dev !== after.dev ||
-    inodeChanged ||
-    inodeAvailabilityChanged ||
-    inodeUnavailableAndBirthChanged
-  ) {
+  if (filesystemObjectIdentityChanged(before, after)) {
     throw new ReportStoreError(
       "invalid_bundle",
       "published report bundle is not the validated staged bundle"
     );
   }
+}
+
+function filesystemObjectIdentityChanged(
+  before: DirectoryIdentity,
+  after: DirectoryIdentity
+): boolean {
+  if (before.dev !== after.dev || (before.ino === 0) !== (after.ino === 0)) {
+    return true;
+  }
+  if (before.ino !== 0) return before.ino !== after.ino;
+
+  // Directory ctime changes whenever children are added, removed, or renamed,
+  // including during this store's own publication. When inode identity is not
+  // available, birth time is the remaining stable cross-platform object token.
+  // A filesystem that supplies neither fails closed instead of trusting a path.
+  const hasStableBirthTime =
+    Number.isFinite(before.birthtimeMs) &&
+    Number.isFinite(after.birthtimeMs) &&
+    before.birthtimeMs !== 0 &&
+    after.birthtimeMs !== 0;
+  return !hasStableBirthTime || before.birthtimeMs !== after.birthtimeMs;
 }
 
 async function assertExactReportEntries(bundlePath: string): Promise<void> {

@@ -26,11 +26,13 @@ import {
   importReportBundle,
   readReportBundleAtBoundary as readReportBundle,
   ReportStoreError,
+  type ReportStoreTestHooks,
 } from "../report-store";
 
 const roots: string[] = [];
 const ID = "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5";
 const OTHER_ID = "8f9a7c10-18c5-4f42-a614-8826fb848a14";
+const THIRD_ID = "0de8fb2e-ece3-4ac2-9a54-a858476583e8";
 const CREATED_AT = "2026-08-14T21:30:00.000Z";
 
 afterEach(async () => {
@@ -247,6 +249,61 @@ describe("global immutable report store", () => {
     );
   });
 
+  it("publishes and imports with inode-zero identity across owned child mutations", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "reports");
+    await mkdir(reportRoot, { mode: 0o700 });
+    const testHooks = inodeZeroIdentityHooks();
+    const [first, second] = await Promise.all([
+      createReportBundle(fixtureReport(ID, "first inode-zero workspace"), {
+        boundary: storeBoundary(reportRoot, root),
+        testHooks,
+      }),
+      createReportBundle(
+        fixtureReport(OTHER_ID, "second inode-zero workspace"),
+        {
+          boundary: storeBoundary(reportRoot, root),
+          testHooks,
+        }
+      ),
+    ]);
+    expect(first.report.id).toBe(ID);
+    expect(second.report.id).toBe(OTHER_ID);
+
+    const sandbox = join(root, "child");
+    const childReportRoot = join(sandbox, "state/skillset/reports");
+    const parentReportRoot = join(root, "parent/state/skillset/reports");
+    await createReportBundle(fixtureReport(THIRD_ID), {
+      boundary: storeBoundary(childReportRoot, root),
+    });
+    const imported = await importReportBundle({
+      destination: {
+        boundary: storeBoundary(parentReportRoot, root),
+        testHooks: inodeZeroIdentityHooks(),
+      },
+      sourceReference: THIRD_ID,
+      sourceReportRoot: childReportRoot,
+      sourceSandboxRoot: sandbox,
+    });
+    expect(imported.report.id).toBe(THIRD_ID);
+  });
+
+  it("fails closed when neither inode nor birth-time identity is available", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "reports");
+    await expect(
+      createReportBundle(fixtureReport(), {
+        boundary: storeBoundary(reportRoot, root),
+        testHooks: {
+          transformDirectoryIdentity({ identity }) {
+            return { ...identity, birthtimeMs: 0, ino: 0 };
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "invalid_bundle" });
+    expect(await visibleReportRootEntries(reportRoot)).toEqual([]);
+  });
+
   it("does not retrieve staged or incomplete UUID bundles", async () => {
     const root = await temporaryRoot();
     const reportRoot = join(root, "reports");
@@ -403,11 +460,13 @@ describe("global immutable report store", () => {
       { boundary: storeBoundary(replacementRoot, root) }
     );
     const originalPath = join(root, "original-bundle");
+    const inodeZeroHooks = inodeZeroIdentityHooks();
 
     await expect(
       readReportBundle(ID, {
         boundary: storeBoundary(reportRoot, root),
         testHooks: {
+          ...inodeZeroHooks,
           async beforeBundleFileRead({ bundlePath }) {
             await rename(bundlePath, originalPath);
             await rename(replacement.resolvedPath, bundlePath);
@@ -642,6 +701,18 @@ async function temporaryRoot(): Promise<string> {
 
 function storeBoundary(reportRoot: string, trustedBase: string) {
   return { reportRoot, trustedBase } as const;
+}
+
+function inodeZeroIdentityHooks(): ReportStoreTestHooks {
+  return {
+    transformDirectoryIdentity({ identity }) {
+      return {
+        ...identity,
+        birthtimeMs: identity.ino === 0 ? identity.birthtimeMs : identity.ino,
+        ino: 0,
+      };
+    },
+  };
 }
 
 async function visibleReportRootEntries(reportRoot: string): Promise<string[]> {

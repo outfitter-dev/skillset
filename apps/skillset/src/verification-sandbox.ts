@@ -1,6 +1,13 @@
 import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 export const TEST_SANDBOX_ENV = "SKILLSET_TEST_SANDBOX";
 export const TEST_SANDBOX_RETAIN_ENV = "SKILLSET_TEST_SANDBOX_RETAIN";
@@ -284,7 +291,12 @@ async function validateGitConfig(
 
 function isInside(parent: string, child: string): boolean {
   const path = relative(parent, child);
-  return path.length > 0 && !path.startsWith("..") && !isAbsolute(path);
+  return (
+    path.length > 0 &&
+    path !== ".." &&
+    !path.startsWith(`..${sep}`) &&
+    !isAbsolute(path)
+  );
 }
 
 async function hasGitAncestor(
