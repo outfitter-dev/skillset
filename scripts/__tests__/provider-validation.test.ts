@@ -356,6 +356,14 @@ describe("SET-463 hosted provider validation orchestration", () => {
     expect(
       new Set(staged.inventory.skills.map((skill) => dirname(skill))).size
     ).toBe(staged.inventory.skills.length);
+    const agentCanary = await readFile(
+      join(staged.agentCanary, "SKILL.md"),
+      "utf8"
+    );
+    expect(agentCanary.match(/^name:\s*(.+)$/mu)?.[1]).toBe(
+      basename(staged.agentCanary)
+    );
+    expect(agentCanary).not.toMatch(/^description:/mu);
     for (const root of [...staged.cursorRoots, staged.cursorCanary]) {
       expect(
         await readFile(join(root, "scripts/validate-plugins.mjs"), "utf8")

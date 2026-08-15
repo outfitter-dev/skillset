@@ -321,7 +321,7 @@ export async function stageValidationInputs(
   await mkdir(agentCanary, { recursive: true });
   await writeFile(
     join(agentCanary, "SKILL.md"),
-    "---\nname: canary\n---\n# Canary\n",
+    "---\nname: agent-canary\n---\n# Canary\n",
     "utf8"
   );
 
