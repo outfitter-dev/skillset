@@ -11,6 +11,7 @@ import {
   inspectOutputBackups,
   restoreOutputBackup,
 } from "@skillset/core";
+import { assertCasePortableRenderedPaths } from "../render";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -192,6 +193,89 @@ Body.
     expect((await readdir(root)).filter((entry) =>
       entry.startsWith(".skillset-workspace-transaction-")
     )).toEqual([]);
+  });
+
+  it("rejects case-only ambiguous destinations before writing output", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide-a.md": "First guide.\n",
+      ".skillset/shared/references/guide-b.md": "Second guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide-a.md
+      to: references/Guide.md
+    - from: shared:references/guide-b.md
+      to: references/guide.md
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+        ".claude/skills/demo/references/Guide.md and " +
+        ".claude/skills/demo/references/guide.md " +
+        "(prefixes .claude/skills/demo/references/Guide.md and " +
+        ".claude/skills/demo/references/guide.md); rename one source destination"
+    );
+
+    expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("rejects case-only ambiguous directory components before writing output", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide-a.md": "First guide.\n",
+      ".skillset/shared/references/guide-b.md": "Second guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide-a.md
+      to: references/Guide/a.md
+    - from: shared:references/guide-b.md
+      to: references/guide/b.md
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+        ".claude/skills/demo/references/Guide/a.md and " +
+        ".claude/skills/demo/references/guide/b.md " +
+        "(prefixes .claude/skills/demo/references/Guide and " +
+        ".claude/skills/demo/references/guide); rename one source destination"
+    );
+
+    expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("detects case-only ambiguous Windows-style directory components", () => {
+    expect(() => assertCasePortableRenderedPaths([
+      ".claude\\skills\\demo\\references\\Guide\\a.md",
+      ".claude\\skills\\demo\\references\\guide\\b.md",
+    ])).toThrow(
+      "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+        ".claude/skills/demo/references/Guide/a.md and " +
+        ".claude/skills/demo/references/guide/b.md " +
+        "(prefixes .claude/skills/demo/references/Guide and " +
+        ".claude/skills/demo/references/guide); rename one source destination"
+    );
   });
 
   it("applies managed file and directory output transitions transactionally", async () => {
