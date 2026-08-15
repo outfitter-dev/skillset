@@ -206,10 +206,8 @@ export function scanGeneratedPublicContent(
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
   for (const { line, text } of shellLogicalLines(content)) {
-    for (const { pattern, rule } of CLOSURE_PATTERNS) {
-      if (pattern.test(text)) {
-        violations.push({ file, line, rule, text: text.trim() });
-      }
+    for (const rule of matchingProtectedBoundaryRules(text)) {
+      violations.push({ file, line, rule, text: text.trim() });
     }
     if (
       !violations.some(
@@ -258,6 +256,15 @@ export function scanGeneratedPublicContent(
     }
   }
   return violations;
+}
+
+function matchingProtectedBoundaryRules(
+  text: string
+): readonly PublicClosureRule[] {
+  const normalizedText = text.replaceAll("\\", "/");
+  return CLOSURE_PATTERNS.filter(({ pattern }) =>
+    pattern.test(normalizedText)
+  ).map(({ rule }) => rule);
 }
 
 function shellLogicalLines(
@@ -523,16 +530,19 @@ export function findRepoInternalScriptAliases(
     for (const [name, command] of Object.entries(packageScripts)) {
       if (aliases.has(name)) continue;
       const commandLines = shellLogicalLines(command).map((line) => line.text);
-      const referencesInternalPath = repoInternalScripts.some((path) =>
-        commandLines.some((line) =>
-          hasRepoInternalScriptReference(line, path, repoRoot)
-        )
+      const referencesInternalBoundary = commandLines.some(
+        (line) =>
+          matchingProtectedBoundaryRules(line).length > 0 ||
+          hasRepoInternalScriptDirectoryReference(line, repoRoot) ||
+          repoInternalScripts.some((path) =>
+            hasRepoInternalScriptReference(line, path, repoRoot)
+          )
       );
       const referencesInternalAlias = invokedPackageScripts(
         command,
         packageScriptNames
       ).some((dependency) => aliases.has(dependency));
-      if (referencesInternalPath || referencesInternalAlias) {
+      if (referencesInternalBoundary || referencesInternalAlias) {
         aliases.add(name);
         changed = true;
       }

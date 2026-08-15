@@ -144,6 +144,25 @@ describe("generated public closure guard", () => {
     ).toEqual([]);
   });
 
+  test("SET-465: normalizes Windows separators before protected-boundary matching", () => {
+    const content = [
+      "Read docs\\development\\schema-contracts.md.",
+      "Inspect packages\\core\\src\\render.ts.",
+      "Use docs\\developmental and docs\\development.md.",
+      "Read docs\\reference\\features\\skills.md.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "development-docs" },
+      { line: 2, rule: "internal-package" },
+    ]);
+  });
+
   test("SET-465: synthetic public leak fails without scanning contributor surfaces", async () => {
     const root = await fixtureRoot();
     const publicSkill = join(
@@ -228,6 +247,51 @@ describe("generated public closure guard", () => {
       { line: 5, rule: "internal-script" },
       { line: 6, rule: "internal-script" },
       { line: 7, rule: "internal-script" },
+    ]);
+  });
+
+  test("SET-465: package aliases inherit every protected internal boundary", () => {
+    const packageScripts = {
+      "internal:contributor": "echo skillset-dev-schema",
+      "internal:docs": "echo docs\\development\\schema-contracts.md",
+      "internal:fixture": "bun fixtures/kitchen-sink/check.ts",
+      "internal:package":
+        "bun packages/core/src/__tests__/adapter-conformance.test.ts",
+      "internal:scoped": "bun @skillset/core/internal/build",
+      "public:docs": "echo docs/reference/features/skills.md",
+      "public:package": "bun @skillset/core",
+      "public:plugin-script": "bun .skillset/plugins/demo/scripts/check.ts",
+      "via:docs": "npm run internal:docs",
+      "via:package": "bun run via:docs && pnpm run internal:package",
+    };
+    const aliases = findRepoInternalScriptAliases(packageScripts, []);
+
+    expect([...aliases].toSorted()).toEqual([
+      "internal:contributor",
+      "internal:docs",
+      "internal:fixture",
+      "internal:package",
+      "internal:scoped",
+      "via:docs",
+      "via:package",
+    ]);
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        [
+          "Run `bun run internal:package`.",
+          "Run `npm run via:package`.",
+          "Run `pnpm run public:docs`.",
+          "Run `yarn run public:package`.",
+          "Run `bun run public:plugin-script`.",
+        ].join("\n"),
+        [],
+        aliases,
+        new Set(Object.keys(packageScripts))
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-script" },
+      { line: 2, rule: "internal-script" },
     ]);
   });
 
