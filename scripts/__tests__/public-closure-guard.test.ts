@@ -2064,6 +2064,95 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: wrapper chdir operands route into protected directories", () => {
+    const content = [
+      "```bash",
+      "env -C packages pwd",
+      "env --chdir packages pwd",
+      "env --chdir=docs/development pwd",
+      "env -Cfixtures pwd",
+      "sudo -D scripts ls",
+      "sudo --chdir=packages ls",
+      "sudo --chroot packages ls",
+      "sudo env -C packages rg TODO",
+      "env -C docs -C development pwd",
+      "env -C public pwd",
+      "env -C",
+      "env -C --chdir pwd",
+      "env PACKAGES=packages pwd",
+      "nice -n packages ls",
+      "exec -a packages ls",
+      "sudo -C packages ls",
+      "```",
+      "Run `env -C packages pwd`.",
+      "In prose, env -C packages pwd is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "development-docs" },
+      { line: 5, rule: "fixture-path" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-package" },
+      { line: 8, rule: "internal-package" },
+      { line: 9, rule: "internal-package" },
+      { line: 10, rule: "development-docs" },
+      { line: 19, rule: "internal-package" },
+    ]);
+  });
+
+  test("SET-465: resolves command-substitution working directories", () => {
+    const content = [
+      "```bash",
+      'cat "$(pwd)/packages/core/src/index.ts"',
+      'cd "$(pwd)/docs/development"',
+      "cat $( pwd )/fixtures/kitchen-sink/skillset.yaml",
+      "cat $(PWD)/scripts/private.ts",
+      "rg TODO `pwd`/packages",
+      "cd $(pwd)/docs/reference",
+      "echo $(pwdx)/packages",
+      "```",
+      "Print the working directory with `pwd`.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-package" },
+    ]);
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content,
+        ["scripts/private.ts"]
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "development-docs" },
+      { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-package" },
+    ]);
+  });
+
   test("SET-465: fd search-root operands close protected trees", () => {
     expect(
       [

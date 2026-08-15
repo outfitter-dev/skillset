@@ -333,6 +333,19 @@ const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
     ]),
     time: new Set(["--format", "--output", "-f", "-o"]),
   };
+// The subset of wrapper options whose operand is a directory the wrapped
+// command then runs inside. `env -C/--chdir` and `sudo -D/--chdir` change the
+// working directory; `sudo -R/--chroot` changes the filesystem root. The other
+// wrappers this guard unwraps take no directory operand: `command` and `nohup`
+// take no value flags, `exec -a` takes a process name, `nice -n` takes a number,
+// `sudo -C` is `--close-from` (a descriptor number, not a directory), and
+// `time -f/-o` take a format string and an output file.
+const SHELL_WRAPPER_DIRECTORY_VALUE_FLAGS: Readonly<
+  Record<string, ReadonlySet<string>>
+> = {
+  env: new Set(["--chdir", "-C"]),
+  sudo: new Set(["--chdir", "--chroot", "-D", "-R"]),
+};
 const GIT_GLOBAL_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "--config-env",
   "--git-dir",
@@ -360,8 +373,13 @@ const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
 const PATH_CANDIDATE_PATTERN =
   /(?<![a-z0-9_.:\\/-])(?:[a-z]:)?[\\/]?(?:[a-z0-9._-]+[\\/])+[a-z0-9._-]+/giu;
-// Literal shell working-directory expansions; `$pwd` is a different variable.
-const WORKING_DIRECTORY_VARIABLE_PATTERN = /\$\{PWD\}|\$PWD(?![A-Za-z0-9_])/gu;
+// Literal shell working-directory expansions. `$(pwd)` and the backtick
+// equivalent are command substitutions that Bash resolves to the same directory
+// as `$PWD`, and `$(PWD)` is the Make spelling of the same variable, so all of
+// them normalize together. Bare `$pwd` stays untouched: it is a different
+// variable, and `` `PWD` `` would be a differently named command.
+const WORKING_DIRECTORY_VARIABLE_PATTERN =
+  /\$\{PWD\}|\$\(\s*(?:pwd|PWD)\s*\)|`\s*pwd\s*`|\$PWD(?![A-Za-z0-9_])/gu;
 // Markdown inline destinations, Markdown reference definitions, and HTML
 // `href`/`src` attributes. The destination stops at shell/Markdown delimiters.
 const LINK_DESTINATION_PATTERN =
@@ -757,16 +775,17 @@ function hasProtectedPathOwnerReference(
 }
 
 /**
- * Resolves literal `$PWD` and `${PWD}` working-directory expansions against the
- * repository root so shell guidance cannot conceal a protected route behind the
- * variable prefix. Without a known root the expansion becomes `.`, which keeps
- * the remainder repository-relative.
+ * Resolves literal `$PWD`, `${PWD}`, `$(pwd)`, and `` `pwd` ``
+ * working-directory expansions against the repository root so shell guidance
+ * cannot conceal a protected route behind the expansion prefix. Without a known
+ * root the expansion becomes `.`, which keeps the remainder
+ * repository-relative.
  */
 function expandWorkingDirectoryVariables(
   text: string,
   repoRoot: string | undefined
 ): string {
-  if (!text.includes("$")) return text;
+  if (!(text.includes("$") || text.includes("`"))) return text;
   const normalizedRoot = repoRoot
     ?.replaceAll("\\", "/")
     .replace(/\/+$/u, "")
@@ -935,7 +954,12 @@ function hasProtectedRootCommandArgument(
           repoRoot,
           allowDirectOwner
         ) ||
-        hasGitProtectedDirectoryArgument(tokens, normalizedOwner)
+        hasGitProtectedDirectoryArgument(tokens, normalizedOwner) ||
+        hasShellWrapperProtectedDirectoryArgument(
+          segment,
+          normalizedOwner,
+          repoRoot
+        )
       );
     }
   );
@@ -1316,7 +1340,56 @@ function hasGitProtectedDirectoryArgument(
   });
 }
 
-function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
+/**
+ * Reads the directory operand a wrapper option routes into, covering the
+ * detached (`-C dir`, `--chdir dir`), attached long (`--chdir=dir`), and
+ * attached short (`-Cdir`) spellings GNU option parsing accepts.
+ */
+function shellWrapperDirectoryOperand(
+  wrapper: string,
+  token: string,
+  operand: string | undefined
+): string | undefined {
+  const directoryFlags = SHELL_WRAPPER_DIRECTORY_VALUE_FLAGS[wrapper];
+  if (!directoryFlags) return undefined;
+  if (directoryFlags.has(token)) {
+    return operand === undefined || operand.startsWith("-")
+      ? undefined
+      : operand;
+  }
+  const separator = token.indexOf("=");
+  if (
+    token.startsWith("--") &&
+    separator > 0 &&
+    directoryFlags.has(token.slice(0, separator))
+  ) {
+    const attached = token.slice(separator + 1);
+    return attached.length > 0 ? attached : undefined;
+  }
+  for (const flag of directoryFlags) {
+    if (
+      flag.length === 2 &&
+      !flag.startsWith("--") &&
+      token.startsWith(flag) &&
+      token.length > flag.length
+    ) {
+      return token.slice(flag.length);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Walks the wrapper prefix (`sudo env -C dir …`) that precedes the real command
+ * and reports both where the command starts and the directory operands the
+ * wrappers route through. The directories are returned rather than discarded so
+ * callers can check them before {@link unwrapShellCommand} drops them.
+ */
+function readShellWrapperPrefix(tokens: readonly string[]): {
+  readonly directories: readonly string[];
+  readonly index: number;
+} {
+  const directories: string[] = [];
   let index = 0;
   if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
   while (tokens[index] === "!") index += 1;
@@ -1343,20 +1416,56 @@ function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
         break;
       }
       if (wrapper === "command" && (token === "-v" || token === "-V")) {
-        return [];
+        return { directories, index: tokens.length };
       }
       if (wrapper === "env" && /^[a-z_][a-z0-9_]*=/iu.test(token)) {
         index += 1;
         continue;
       }
       if (!token.startsWith("-")) break;
+      const directory = shellWrapperDirectoryOperand(
+        wrapper,
+        token,
+        tokens[index + 1]
+      );
+      if (directory !== undefined) directories.push(directory);
       const valueFlags = SHELL_WRAPPER_VALUE_FLAGS[wrapper];
       index += valueFlags?.has(token) === true && !token.includes("=") ? 2 : 1;
     }
     skipAssignments();
   }
 
-  return tokens.slice(index);
+  return { directories, index };
+}
+
+function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
+  return tokens.slice(readShellWrapperPrefix(tokens).index);
+}
+
+/**
+ * Reports whether a wrapper prefix changes into a protected directory before
+ * the wrapped command runs, so `env -C packages pwd` cannot pass the closure
+ * check by hiding the route in an operand {@link unwrapShellCommand} skips.
+ * Direct owner routes always count here, matching `git -C`: an explicit
+ * `chdir` into the owner is a repository route even where a bare owner-named
+ * path would be read as plugin-local.
+ */
+function hasShellWrapperProtectedDirectoryArgument(
+  tokens: readonly string[],
+  normalizedOwner: string,
+  repoRoot?: string
+): boolean {
+  let directory = ".";
+  for (const operand of readShellWrapperPrefix(tokens).directories) {
+    const normalizedOperand = operand.replaceAll("\\", "/");
+    directory = posix.isAbsolute(normalizedOperand)
+      ? posix.normalize(normalizedOperand)
+      : posix.normalize(posix.join(directory, normalizedOperand));
+    if (searchCommandPathMatchesOwner(directory, normalizedOwner, repoRoot)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasGeneratedShellOwnerToken(
