@@ -1,6 +1,6 @@
 import type { JsonRecord, TargetName } from "@skillset/core/internal/types";
 import type { JsonValue } from "@skillset/core";
-import { readSourceAuthorRecord } from "@skillset/schema";
+import { readSourceAuthorRecord, validateSourceMetadata } from "@skillset/schema";
 
 export const PORTABLE_PLUGIN_METADATA_FIELDS = [
   "author",
@@ -113,13 +113,29 @@ export function firstPortablePluginMetadataValue(
 }
 
 /**
- * Providers whose native `author` is present but is not a readable author shape
- * (a string or an object). `author` is the one portable field Skillset
- * normalizes across providers, so an unreadable value has no canonical form:
- * conflict detection and canonicalization both have to skip it, and the
- * importer strips `author` from provider overrides as source-owned. Callers
- * must reject these providers first, otherwise a malformed native value is
- * indistinguishable from an absent one and disappears on import.
+ * Native `author` value normalized to the canonical source shape, or
+ * `undefined` when the value cannot become canonical source. String shorthand
+ * normalizes to a record, and every candidate record is checked against the
+ * shared source-metadata author contract, so shapes an object check alone would
+ * accept (`{}`, an email-only object, a missing or non-string `name`) are
+ * rejected here instead of being lifted into source that fails validation.
+ */
+function canonicalNativeAuthorRecord(
+  value: JsonValue | undefined
+): JsonRecord | undefined {
+  const author = readSourceAuthorRecord(value);
+  if (author === undefined) return undefined;
+  return validateSourceMetadata({ author }).ok ? author : undefined;
+}
+
+/**
+ * Providers whose native `author` is present but cannot form canonical source.
+ * `author` is the one portable field Skillset normalizes across providers, so
+ * such a value has no canonical form: conflict detection and canonicalization
+ * both have to skip it, and the importer strips `author` from provider
+ * overrides as source-owned. Callers must reject these providers first,
+ * otherwise a malformed native value is indistinguishable from an absent one
+ * and disappears on import.
  */
 export function unreadableNativeAuthorProviders(
   manifests: Iterable<ProviderPluginManifestEntry>
@@ -127,7 +143,7 @@ export function unreadableNativeAuthorProviders(
   const providers: TargetName[] = [];
   for (const [provider, manifest] of manifests) {
     if (manifest.author === undefined) continue;
-    if (readSourceAuthorRecord(manifest.author) !== undefined) continue;
+    if (canonicalNativeAuthorRecord(manifest.author) !== undefined) continue;
     providers.push(provider);
   }
   return providers.sort();
@@ -140,7 +156,7 @@ function authorMetadataConflicts(
   const values = new Map<string, Set<string>>();
   const providers = new Set<TargetName>();
   for (const [provider, manifest] of manifests) {
-    const author = readSourceAuthorRecord(manifest.author);
+    const author = canonicalNativeAuthorRecord(manifest.author);
     if (author === undefined) continue;
     providers.add(provider);
     for (const [key, value] of Object.entries(author)) {
@@ -161,7 +177,7 @@ function canonicalAuthorValue(
 ): JsonRecord | undefined {
   const author: Record<string, JsonValue> = {};
   for (const [, manifest] of manifests) {
-    const normalized = readSourceAuthorRecord(manifest.author);
+    const normalized = canonicalNativeAuthorRecord(manifest.author);
     if (normalized === undefined) continue;
     for (const [key, value] of Object.entries(normalized)) {
       if (value !== undefined && author[key] === undefined) author[key] = value;

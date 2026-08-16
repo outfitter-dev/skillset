@@ -11,6 +11,7 @@ import {
   type NativeListingMetadataConflict,
   portablePluginMetadataConflicts,
   type PortablePluginMetadataConflict,
+  unreadableNativeAuthorProviders,
 } from "./plugin-manifest-authority";
 
 export type PluginAdoptionRelation = "equivalent" | "single-source";
@@ -31,7 +32,8 @@ export interface PluginAdoptionDiagnostic {
     | "plugin-listing-conflict"
     | "plugin-metadata-conflict"
     | "plugin-version-conflict"
-    | "similar-plugin-sources";
+    | "similar-plugin-sources"
+    | "unreadable-plugin-author";
   readonly evidence: readonly string[];
   readonly identities?: readonly string[];
   readonly identity?: string;
@@ -263,6 +265,18 @@ async function inspectSource(
       severity: "error",
     });
   }
+  // Adoption inspects rather than writes, so nothing is dropped here. It is
+  // import's pre-flight, so it reports the native authors import will reject.
+  const unreadableAuthors = unreadableNativeAuthorProviders(manifests);
+  if (unreadableAuthors.length > 0) {
+    diagnostics.push(
+      unreadableAuthorDiagnostic(
+        distinctNames[0] ?? basename(sourcePath),
+        path,
+        unreadableAuthors
+      )
+    );
+  }
   const metadataConflicts = portablePluginMetadataConflicts(manifests);
   if (metadataConflicts.length > 0) {
     diagnostics.push(
@@ -360,6 +374,26 @@ function listingMetadataConflictDiagnostic(
     recommendation:
       "Skillset will preserve these values as provider overrides. Review them before choosing a shared canonical listing value.",
     severity: "warning",
+  };
+}
+
+function unreadableAuthorDiagnostic(
+  identity: string,
+  sourcePath: string,
+  providers: readonly TargetName[]
+): PluginAdoptionDiagnostic {
+  return {
+    code: "unreadable-plugin-author",
+    evidence: providers.map(
+      (provider) => `${provider} manifest author cannot become canonical source`
+    ),
+    identity,
+    message: `Native plugin manifests in \`${sourcePath}\` declare an author Skillset cannot lift into canonical source.`,
+    paths: [sourcePath],
+    providers,
+    recommendation:
+      "Give each provider manifest a non-empty string author or an object author with a non-empty name before adopting; import blocks these values instead of dropping them.",
+    severity: "error",
   };
 }
 

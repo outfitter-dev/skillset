@@ -926,7 +926,7 @@ async function writeImportedPluginConfig(
   const unreadableAuthors = unreadableNativeAuthorProviders(nativeManifests);
   if (unreadableAuthors.length > 0) {
     throw new Error(
-      `skillset: native plugin manifests declare an unreadable author: ${unreadableAuthors.join(", ")}; author must be a string or an object`
+      `skillset: native plugin manifests declare an unreadable author: ${unreadableAuthors.join(", ")}; author must be a non-empty string or an object with a non-empty name`
     );
   }
   const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);

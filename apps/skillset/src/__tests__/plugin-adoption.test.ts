@@ -291,6 +291,68 @@ test("SET-450: an unreadable native author blocks import instead of being droppe
   expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
 });
 
+for (const [label, author] of [
+  ["an empty object", {}],
+  ["an email-only object", { email: "team@example.com" }],
+  ["a non-string name", { name: 42 }],
+  ["an empty name", { name: "   " }],
+] as const) {
+  test(`SET-450: a native author object with ${label} blocks import instead of being dropped`, async () => {
+    const root = await pluginFixture({
+      "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+      "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author,
+      }),
+      "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author: { name: "Codex Team" },
+      }),
+      "native/skills/helper/SKILL.md": skill("shared"),
+    });
+
+    await expect(
+      importSource({
+        kind: "plugin",
+        rootPath: root,
+        sourcePath: join(root, "native"),
+      })
+    ).rejects.toThrow(
+      "native plugin manifests declare an unreadable author: claude; author must be a non-empty string or an object with a non-empty name"
+    );
+    expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+  });
+}
+
+for (const [label, author] of [
+  ["a scalar", 42],
+  ["an empty object", {}],
+  ["an email-only object", { email: "team@example.com" }],
+] as const) {
+  test(`SET-450: adoption reports ${label} native author as a blocking diagnostic`, async () => {
+    const root = await pluginFixture({
+      "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author,
+      }),
+      "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author: { name: "Codex Team" },
+      }),
+      "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+    });
+
+    const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
+
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "unreadable-plugin-author",
+        evidence: ["claude manifest author cannot become canonical source"],
+        identity: "demo",
+        paths: ["plugins/demo"],
+        providers: ["claude"],
+        severity: "error",
+      }),
+    ]);
+  });
+}
+
 test("SET-369: conflicting native listing metadata stays a provider-specific warning", async () => {
   const root = await pluginFixture({
     "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
@@ -611,6 +673,16 @@ for (const blocker of [
       "plugins/demo/skills/helper/SKILL.md": skill("shared"),
     },
     name: "a malformed provider manifest",
+  },
+  {
+    code: "unreadable-plugin-author",
+    files: {
+      "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
+        author: {},
+      }),
+      "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+    },
+    name: "a native author that cannot become canonical source",
   },
 ] as const) {
   test(`SET-225: adopt blocks ${blocker.name} before mutating the repo`, async () => {
