@@ -164,22 +164,51 @@ async function projectClaudeMarketplace(
  * marketplace. `mergeRecords` replaces the generated `plugins` array when the
  * root `claude.marketplace` override supplies one, so entries the override
  * dropped never carry their plugin's author to the destination. Membership is
- * decided by the name each source plugin rendered, which the supported
- * `claude.marketplace.name` override may have changed.
+ * decided by the identity each source plugin rendered — the name, which the
+ * supported `claude.marketplace.name` override may have changed, together with
+ * the source it resolves to.
  */
 function projectedSourcePlugins(
   entries: readonly (readonly [SourcePlugin, JsonRecord])[],
   document: JsonRecord
 ): readonly SourcePlugin[] {
-  const projectedNames = new Set(
-    (Array.isArray(document.plugins) ? document.plugins : []).flatMap((entry) =>
-      isJsonRecord(entry) && typeof entry.name === "string" ? [entry.name] : []
-    )
+  const projected = new Set(
+    (Array.isArray(document.plugins) ? document.plugins : []).flatMap((entry) => {
+      const identity = isJsonRecord(entry)
+        ? marketplaceEntryIdentity(entry)
+        : undefined;
+      return identity === undefined ? [] : [identity];
+    })
   );
-  return entries.flatMap(([plugin, entry]) =>
-    typeof entry.name === "string" && projectedNames.has(entry.name)
-      ? [plugin]
-      : []
+  return entries.flatMap(([plugin, entry]) => {
+    const identity = marketplaceEntryIdentity(entry);
+    return identity !== undefined && projected.has(identity) ? [plugin] : [];
+  });
+}
+
+/**
+ * Stable identity of a marketplace plugin entry: the published name plus the
+ * source it resolves to. Name alone would treat an override entry that reuses
+ * a local plugin's name while pointing at an unrelated source as that plugin's
+ * projection, and report the plugin's metadata as reaching a destination none
+ * of it appears in. Returns `undefined` for entries without a string name,
+ * which cannot identify a plugin at all.
+ */
+function marketplaceEntryIdentity(entry: JsonRecord): string | undefined {
+  return typeof entry.name === "string"
+    ? stableJson([entry.name, entry.source ?? null])
+    : undefined;
+}
+
+function stableJson(value: JsonValue): string {
+  return JSON.stringify(value, (_key, nested: JsonValue) =>
+    isJsonRecord(nested)
+      ? Object.fromEntries(
+          Object.entries(nested).sort(([left], [right]) =>
+            compareStrings(left, right)
+          )
+        )
+      : nested
   );
 }
 

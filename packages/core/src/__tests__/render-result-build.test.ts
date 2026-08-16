@@ -1205,6 +1205,58 @@ Help with the other task.
     );
   });
 
+  it("does not claim a plugin whose name an unrelated override entry reuses", async () => {
+    // The override replaces the generated array with an entry that reuses the
+    // local plugin's name but resolves to an unrelated remote source, so none
+    // of the plugin's metadata reaches the marketplace.
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-override
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+claude:
+  marketplace:
+    plugins:
+      - name: kept
+        source:
+          source: github
+          repo: acme/unrelated
+`,
+      ".skillset/plugins/kept/skillset.yaml": `
+skillset:
+  name: kept
+  author:
+    name: Kept Team
+    contributor: Kept Contributor
+`,
+      ".skillset/plugins/kept/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    expect(
+      preview.renderResults
+        .filter((outcome) => outcome.featureId === "marketplaces")
+        .flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([]);
+
+    // The plugin's extra canonical author field is absent from the
+    // marketplace, so it must not block the build.
+    await expect(
+      buildSkillsetResult(await fixture(files("")), { scopes: ["project"] })
+    ).resolves.toBeDefined();
+  });
+
   it("validates conventional app JSON before claiming structured output", async () => {
     const root = await fixture({
       "skillset.yaml": `
