@@ -1723,7 +1723,6 @@ function lockItemForProjectAgent(args: {
       args.graph,
       args.agent,
       args.result.target,
-      args.graph.root.compile.skillset.metadata,
       args.result.preprocessDependencies,
       args.graph.rootPath
     ),
@@ -1811,12 +1810,11 @@ function hashProjectAgentSource(
   graph: BuildGraph,
   agent: SourceProjectAgent,
   target: TargetName,
-  skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-project-agent-source-v3\0");
+  hash.update("skillset-project-agent-source-v4\0");
   hash.update(agent.relativePath);
   hash.update("\0");
   hash.update(agent.name);
@@ -1834,8 +1832,6 @@ function hashProjectAgentSource(
     enabled: agent.targets[target].enabled,
     options: agent.targets[target].options,
   }));
-  hash.update("\0skillset-metadata\0");
-  hash.update(String(skillsetMetadata));
   hash.update("\0");
   const adaptiveHooks = target === "claude"
     ? renderAdaptiveFrontmatterHooks(
