@@ -528,6 +528,27 @@ describe("provider format conformance", () => {
     ]);
   });
 
+  it("reports mixed Claude config array entries under their original index", () => {
+    const result = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            lspServers: ["./lsp.json", { ts: { command: 1, extensionToLanguage: { ts: "ts" } } }],
+            mcpServers: ["./mcp.json", { x: { command: 1 } }],
+            name: "mixed",
+            source: "./plugins/mixed",
+          },
+        ],
+      }),
+    ]);
+    expect(result.issues.map(({ message }) => message)).toEqual([
+      "destination field plugins[0].lspServers[1].ts.command must be a string",
+      "destination field plugins[0].mcpServers[1].x.command must be a string",
+    ]);
+  });
+
   it("rejects malformed structured Claude marketplace overrides", () => {
     const result = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {

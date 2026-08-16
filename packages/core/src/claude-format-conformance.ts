@@ -853,14 +853,15 @@ function checkClaudeConfigMapVariants(
   prefix: string,
   kind: "lsp" | "mcp"
 ): readonly ProviderFormatConformanceIssue[] {
-  const maps = isJsonRecord(value)
-    ? [value]
+  const maps: readonly (readonly [string, JsonRecord])[] = isJsonRecord(value)
+    ? [[prefix, value]]
     : Array.isArray(value)
-      ? value.filter(isJsonRecord)
+      ? value.flatMap((entry, index) =>
+          isJsonRecord(entry) ? [[`${prefix}[${index}]`, entry] as const] : []
+        )
       : [];
   const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [mapIndex, map] of maps.entries()) {
-    const mapPrefix = Array.isArray(value) ? `${prefix}[${mapIndex}]` : prefix;
+  for (const [mapPrefix, map] of maps) {
     for (const [name, config] of Object.entries(map)) {
       const configPrefix = `${mapPrefix}.${name}`;
       if (!isJsonRecord(config)) {
