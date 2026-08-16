@@ -2143,6 +2143,40 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: recognizes ln and install target directories", () => {
+    const content = [
+      "```bash",
+      "ln -t packages README.md",
+      "ln -tpackages README.md",
+      "ln --target-directory=scripts README.md",
+      "ln -s README.md packages",
+      "install --target-directory=packages README.md",
+      "install -t fixtures README.md",
+      "install -d packages",
+      "install README.md scripts",
+      "ln -t public README.md",
+      "install --target-directory= README.md",
+      "```",
+      "In prose, ln -t packages README.md is not a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "internal-package" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "fixture-path" },
+      { line: 8, rule: "internal-package" },
+      { line: 9, rule: "internal-script" },
+    ]);
+  });
+
   test("SET-465: resolves working-directory expansions in shell paths", () => {
     const content = [
       "```bash",

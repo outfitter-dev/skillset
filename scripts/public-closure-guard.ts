@@ -115,6 +115,13 @@ const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
   "deno",
   "du",
   "find",
+  // `install [-D] SOURCE... DIRECTORY`, `install -d DIRECTORY...`, and
+  // `ln TARGET... DIRECTORY` all name a directory the command writes into
+  // through a plain operand, so the generic
+  // `normalizedTokens.slice(1).includes(normalizedOwner)` membership check
+  // reaches both the trailing operand and the detached `-t packages` spelling.
+  "install",
+  "ln",
   "ls",
   "mv",
   "node",
@@ -145,6 +152,10 @@ const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
 //
 // Verified against the installed help output:
 // - `cp --help` / `mv --help` (GNU coreutils): `-t, --target-directory=DIRECTORY`.
+// - `ln --help` / `install --help` (GNU coreutils): `-t,
+//   --target-directory=DIRECTORY` names the directory links are created in and
+//   the directory sources are copied into, respectively. Their `-T` is
+//   `--no-target-directory`, which takes no value, so it stays out.
 // - `tar` (bsdtar) man page: `-C directory, --cd directory, --directory directory`.
 // - `rsync` man page: `--backup-dir directory`, `--compare-dest=directory`,
 //   `--copy-dest=directory`, `--link-dest=directory`, `--partial-dir=DIR`, and
@@ -162,6 +173,8 @@ const COMMAND_DIRECTORY_VALUE_FLAGS: Readonly<
 > = {
   bun: new Set(["--cwd"]),
   cp: new Set(["--target-directory", "-t"]),
+  install: new Set(["--target-directory", "-t"]),
+  ln: new Set(["--target-directory", "-t"]),
   mv: new Set(["--target-directory", "-t"]),
   realpath: new Set(["--relative-base", "--relative-to"]),
   rsync: new Set([
