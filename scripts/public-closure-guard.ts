@@ -118,6 +118,14 @@ const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
   "ls",
   "mv",
   "node",
+  // `pushd [-n] [+N | -N | dir]` changes the working directory like `cd`
+  // (bash `help pushd`); `-n` only suppresses the directory change on stack
+  // rotation and is not a value-taking flag, so the generic
+  // `normalizedTokens.slice(1).includes(normalizedOwner)` membership check
+  // already reaches a trailing `dir` operand. `popd` takes no directory
+  // operand (only `+N`/`-N` stack positions), so it is intentionally
+  // excluded.
+  "pushd",
   "realpath",
   "rm",
   "rsync",

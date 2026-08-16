@@ -144,6 +144,47 @@ describe("generated public closure guard", () => {
     ).toEqual([]);
   });
 
+  test("SET-465: recognizes pushd directory operands like cd", () => {
+    const fenced = [
+      "```bash",
+      "pushd packages",
+      "```",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        fenced
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([{ line: 2, rule: "internal-package" }]);
+
+    const inline = [
+      "Run `pushd packages`.",
+      // `-n` suppresses the directory change on stack rotation but is not a
+      // value-taking flag, so `packages` still names the boundary owner.
+      "Run `pushd -n packages`.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        inline
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 1, rule: "internal-package" },
+      { line: 2, rule: "internal-package" },
+    ]);
+
+    // popd takes no directory operand (only +N/-N stack positions), so it
+    // must not be treated as a protected-root command.
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/claude/skills/skillset/SKILL.md",
+        "Run `popd packages`."
+      )
+    ).toEqual([]);
+  });
+
   test("SET-465: normalizes Windows separators before protected-boundary matching", () => {
     const content = [
       "Read docs\\development\\schema-contracts.md.",
