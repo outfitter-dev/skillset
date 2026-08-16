@@ -488,6 +488,109 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("rejects a directory claim substituted before it is consumed", async () => {
+    await withWorkspace(async (root) => {
+      const sourceDirectory = nodePath.join(root, "skills/old");
+      const targetDirectory = nodePath.join(root, "skills/new");
+      await mkdir(sourceDirectory, { recursive: true });
+      await writeFile(nodePath.join(sourceDirectory, "SKILL.md"), "managed\n");
+      let transactionFailure: unknown;
+
+      try {
+        await applyWorkspaceTransaction(
+          root,
+          { moves: [{ from: "skills/old", to: "skills/new" }] },
+          {
+            testHooks: {
+              // Substitute the claim with a distinct empty directory: the
+              // entry a concurrent process would leave behind after removing
+              // this transaction's claim and taking the name for itself.
+              afterDirectoryClaim: async (path) => {
+                if (path !== "skills/new") {
+                  return;
+                }
+                await rm(targetDirectory, { recursive: true });
+                await mkdir(targetDirectory);
+              },
+            },
+          }
+        );
+      } catch (error) {
+        transactionFailure = error;
+      }
+
+      expect(transactionFailure).toBeInstanceOf(Error);
+      expect(transactionFailure).not.toBeInstanceOf(
+        WorkspaceTransactionRollbackError
+      );
+      expect((transactionFailure as Error).message).toBe(
+        "skillset: workspace transaction move target appeared before " +
+          "atomic install: skills/new"
+      );
+      expect(await readdir(targetDirectory)).toEqual([]);
+      expect(
+        await readFile(nodePath.join(sourceDirectory, "SKILL.md"), "utf-8")
+      ).toBe("managed\n");
+      expect(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith(".skillset-workspace-")
+        )
+      ).toEqual([]);
+    });
+  });
+
+  test("rejects a directory claim occupied before it is consumed", async () => {
+    await withWorkspace(async (root) => {
+      const sourceDirectory = nodePath.join(root, "skills/old");
+      const targetDirectory = nodePath.join(root, "skills/new");
+      await mkdir(sourceDirectory, { recursive: true });
+      await writeFile(nodePath.join(sourceDirectory, "SKILL.md"), "managed\n");
+      let transactionFailure: unknown;
+
+      try {
+        await applyWorkspaceTransaction(
+          root,
+          { moves: [{ from: "skills/old", to: "skills/new" }] },
+          {
+            testHooks: {
+              afterDirectoryClaim: async (path) => {
+                if (path !== "skills/new") {
+                  return;
+                }
+                await writeFile(
+                  nodePath.join(targetDirectory, "unmanaged.md"),
+                  "unmanaged\n"
+                );
+              },
+            },
+          }
+        );
+      } catch (error) {
+        transactionFailure = error;
+      }
+
+      expect(transactionFailure).toBeInstanceOf(Error);
+      expect(transactionFailure).not.toBeInstanceOf(
+        WorkspaceTransactionRollbackError
+      );
+      expect((transactionFailure as Error).message).toBe(
+        "skillset: workspace transaction move target appeared before " +
+          "atomic install: skills/new"
+      );
+      expect(
+        await readFile(nodePath.join(targetDirectory, "unmanaged.md"), "utf-8")
+      ).toBe("unmanaged\n");
+      expect(
+        await readFile(nodePath.join(sourceDirectory, "SKILL.md"), "utf-8")
+      ).toBe("managed\n");
+      expect(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith(".skillset-workspace-")
+        )
+      ).toEqual([]);
+    });
+  });
+
   test("enforces caller-approved absence during initial inspection", async () => {
     await withWorkspace(async (root) => {
       const targetPath = nodePath.join(root, "occupied.txt");
