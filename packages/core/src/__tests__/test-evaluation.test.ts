@@ -319,7 +319,9 @@ blocked:
   });
 
   it("recursively merges a partial Cursor manifest author override", async () => {
-    const { checks, manifest } = await evaluateCursorPluginManifest(`
+    const { checks, manifest } = await evaluatePluginManifest(
+      "cursor",
+      `
 skillset:
   name: tools
   author:
@@ -329,12 +331,36 @@ cursor:
   manifest:
     author:
       name: Cursor Author
-`);
+`
+    );
 
     expect(checks).toContainEqual({ kind: "pluginManifests", ok: true });
     expect(manifest.author).toEqual({
       email: "canonical@example.com",
       name: "Cursor Author",
+    });
+  });
+
+  it("recursively merges a partial Codex manifest interface override", async () => {
+    const { checks, manifest } = await evaluatePluginManifest(
+      "codex",
+      `
+skillset:
+  name: tools
+  listing:
+    display_name: Canonical Tools
+    category: Developer Tools
+codex:
+  manifest:
+    interface:
+      category: Productivity
+`
+    );
+
+    expect(checks).toContainEqual({ kind: "pluginManifests", ok: true });
+    expect(manifest.interface).toMatchObject({
+      category: "Productivity",
+      displayName: "Canonical Tools",
     });
   });
 
@@ -355,11 +381,14 @@ async function expectCursorPluginLicense(
   sourceLicense: "MIT" | "none",
   expectedLicense: "MIT" | undefined
 ): Promise<void> {
-  const { checks, manifest } = await evaluateCursorPluginManifest(`
+  const { checks, manifest } = await evaluatePluginManifest(
+    "cursor",
+    `
 skillset:
   name: tools
   license: ${sourceLicense}
-`);
+`
+  );
 
   expect(checks).toContainEqual({
     kind: "pluginManifests",
@@ -372,10 +401,14 @@ skillset:
   }
 }
 
-async function evaluateCursorPluginManifest(pluginConfig: string): Promise<{
+async function evaluatePluginManifest(
+  target: "codex" | "cursor",
+  pluginConfig: string
+): Promise<{
   checks: readonly { kind: string; ok: boolean }[];
   manifest: {
     author?: { email?: string; name?: string };
+    interface?: { category?: string; displayName?: string };
     license?: string;
   };
 }> {
@@ -383,9 +416,8 @@ async function evaluateCursorPluginManifest(pluginConfig: string): Promise<{
     "skillset.yaml": `
 skillset:
   name: license-evaluation-root
-claude: false
-codex: false
-cursor: true
+compile:
+  targets: [${target}]
 `,
     ".skillset/plugins/tools/skillset.yaml": pluginConfig,
     ".skillset/plugins/tools/skills/demo/SKILL.md": SOURCE,
@@ -421,11 +453,15 @@ plugin-license:
     );
     const manifest = JSON.parse(
       await readFile(
-        join(workspacePath, "plugins/tools/cursor/.cursor-plugin/plugin.json"),
+        join(
+          workspacePath,
+          `plugins/tools/${target}/.${target}-plugin/plugin.json`
+        ),
         "utf8"
       )
     ) as {
       author?: { email?: string; name?: string };
+      interface?: { category?: string; displayName?: string };
       license?: string;
     };
 

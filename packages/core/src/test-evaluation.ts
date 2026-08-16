@@ -18,6 +18,7 @@ import {
   pluginManifestPath as pluginManifestOutputPath,
   pluginTargetRoot,
 } from "./plugin-output";
+import { renderCodexInterface } from "./render-plugin-manifest";
 import { loadBuildGraph } from "./resolver";
 import {
   renderClaudeAuthor,
@@ -324,6 +325,14 @@ async function expectedPluginManifestFields(
     };
   }
   const base = stripUndefinedRecord({
+    // Codex lowers the canonical listing into a nested `interface` record before
+    // `codex.manifest` is merged over it. Seeding the rendered interface here
+    // keeps a partial override such as `codex.manifest.interface.category`
+    // recursive, instead of comparing the full rendered object against the
+    // fragment the author wrote.
+    ...(target === "codex"
+      ? { interface: renderCodexInterface(graph, plugin) }
+      : {}),
     author:
       target === "claude"
         ? (renderClaudeAuthor(metadata.author) ??
