@@ -128,6 +128,45 @@ const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
   "tsx",
   "zsh",
 ]);
+// Options on {@link PROTECTED_ROOT_PATH_COMMANDS} whose operand names a
+// directory the command then runs inside, reads through, or writes into, so the
+// operand is a route rather than an opaque value. The detached spellings
+// (`cp -t packages`) already surface the owner as its own token, so these tables
+// exist for the attached spellings (`--target-directory=packages`,
+// `-tpackages`) that fuse the operand into the option token.
+//
+// Verified against the installed help output:
+// - `cp --help` / `mv --help` (GNU coreutils): `-t, --target-directory=DIRECTORY`.
+// - `tar` (bsdtar) man page: `-C directory, --cd directory, --directory directory`.
+// - `rsync` man page: `--backup-dir directory`, `--compare-dest=directory`,
+//   `--copy-dest=directory`, `--link-dest=directory`, `--partial-dir=DIR`, and
+//   `-T, --temp-dir=directory`.
+// - `bun --help`: `--cwd=<val>` "Absolute path to resolve files & entry points
+//   from. This just changes the process' cwd."
+// - `realpath --help` (GNU coreutils): `--relative-to=DIR`, `--relative-base=DIR`.
+//
+// File-valued options stay out. A bare owner name in `tar -f packages`,
+// `du --files0-from=packages`, or `chmod --reference=packages` names a file the
+// command opens rather than a directory it routes through, and any real path
+// under the owner carries a separator the generic path scan already reads.
+const COMMAND_DIRECTORY_VALUE_FLAGS: Readonly<
+  Record<string, ReadonlySet<string>>
+> = {
+  bun: new Set(["--cwd"]),
+  cp: new Set(["--target-directory", "-t"]),
+  mv: new Set(["--target-directory", "-t"]),
+  realpath: new Set(["--relative-base", "--relative-to"]),
+  rsync: new Set([
+    "--backup-dir",
+    "--compare-dest",
+    "--copy-dest",
+    "--link-dest",
+    "--partial-dir",
+    "--temp-dir",
+    "-T",
+  ]),
+  tar: new Set(["--cd", "--directory", "-C"]),
+};
 const RIPGREP_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "--file",
   "--regexp",
@@ -952,7 +991,12 @@ function hasProtectedRootCommandArgument(
       );
       return (
         (PROTECTED_ROOT_PATH_COMMANDS.has(normalizedTokens[0] ?? "") &&
-          normalizedTokens.slice(1).includes(normalizedOwner)) ||
+          (normalizedTokens.slice(1).includes(normalizedOwner) ||
+            hasCommandDirectoryOptionRoute(
+              tokens,
+              normalizedOwner,
+              repoRoot
+            ))) ||
         hasSearchCommandProtectedPathArgument(
           tokens,
           normalizedOwner,
@@ -1352,6 +1396,64 @@ function hasGitProtectedDirectoryArgument(
       normalizedRoute.startsWith(`${normalizedOwner}/`)
     );
   });
+}
+
+/**
+ * Reads the operand fused into an option token, covering the attached long
+ * (`--target-directory=dir`) and attached short (`-tdir`, including the bundled
+ * `-rtdir`) spellings GNU option parsing accepts.
+ */
+function attachedOptionValue(
+  token: string,
+  flags: ReadonlySet<string>
+): string | undefined {
+  if (token.startsWith("--")) {
+    const separator = token.indexOf("=");
+    if (separator <= 0 || !flags.has(token.slice(0, separator))) {
+      return undefined;
+    }
+    const attached = token.slice(separator + 1);
+    return attached.length > 0 ? attached : undefined;
+  }
+  const shortValue = searchCommandShortValueFlag(token, flags);
+  return shortValue?.attached === true
+    ? token.slice(shortValue.valueStart)
+    : undefined;
+}
+
+/**
+ * Reports whether a generic command routes into a protected directory through
+ * an attached directory-valued option, so `cp README.md
+ * --target-directory=packages` cannot write into the protected tree while the
+ * closure check passes. Detached operands are already their own tokens, so the
+ * caller's owner-token check covers `cp -t packages`; only the fused spellings
+ * need parsing here. Direct owner routes count, matching `git -C` and the
+ * wrapper `chdir` options: naming the owner as a command's working, target, or
+ * destination directory is a repository route even where a bare owner-named
+ * path would read as plugin-local.
+ */
+function hasCommandDirectoryOptionRoute(
+  tokens: readonly string[],
+  normalizedOwner: string,
+  repoRoot?: string
+): boolean {
+  const directoryFlags =
+    COMMAND_DIRECTORY_VALUE_FLAGS[tokens[0]?.toLowerCase() ?? ""];
+  if (!directoryFlags) return false;
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? "";
+    // Everything after `--` is a file operand, never an option.
+    if (token === "--") break;
+    if (!token.startsWith("-")) continue;
+    const operand = attachedOptionValue(token, directoryFlags);
+    if (
+      operand !== undefined &&
+      searchCommandPathMatchesOwner(operand, normalizedOwner, repoRoot)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

@@ -2066,6 +2066,42 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: attached directory options route into protected directories", () => {
+    const content = [
+      "```bash",
+      "cp README.md --target-directory=packages",
+      "cp README.md -tpackages",
+      "cp README.md -t packages",
+      "mv README.md --target-directory=scripts",
+      "tar -xf bundle.tar -Cpackages",
+      "rsync -a README.md --backup-dir=fixtures",
+      "bun --cwd=packages run build",
+      "cp README.md --target-directory=public",
+      "cp README.md --target-directory=",
+      "cp -- --target-directory=packages out",
+      "rsync -a src dst --out-format=packages",
+      "bun --config=packages run build",
+      "echo cp README.md --target-directory=packages",
+      "```",
+      "In prose, cp README.md --target-directory=packages is not a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-package" },
+      { line: 4, rule: "internal-package" },
+      { line: 5, rule: "internal-script" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "fixture-path" },
+      { line: 8, rule: "internal-package" },
+    ]);
+  });
+
   test("SET-465: resolves working-directory expansions in shell paths", () => {
     const content = [
       "```bash",
