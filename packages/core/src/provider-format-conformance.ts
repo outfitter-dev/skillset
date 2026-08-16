@@ -1,4 +1,9 @@
-import { getProviderDestinationFormatSnapshot, isCursorSemver } from "@skillset/registry";
+import {
+  CURSOR_VARIABLES_REQUIRED_FIELDS,
+  CURSOR_VARIABLES_TYPE,
+  getProviderDestinationFormatSnapshot,
+  isCursorSemver,
+} from "@skillset/registry";
 
 import {
   checkClaudeAuthorObject,
@@ -305,12 +310,12 @@ function checkCursorPluginManifest(
     rules: "string",
     skills: "string",
     tags: "string-array",
-    variables: "object",
     version: "string",
   }));
   issues.push(
     ...checkCursorMinClientVersions(file, parsed.value.minClientVersions, "cursor-plugin", "minClientVersions")
   );
+  issues.push(...checkCursorVariables(file, parsed.value.variables, "cursor-plugin", "variables"));
   issues.push(...checkUnknownFields(file, parsed.value, "cursor", "cursor-plugin", [...allowedFields]));
   if (isJsonRecord(parsed.value.author)) {
     issues.push(
@@ -351,6 +356,54 @@ function checkCursorMinClientVersions(
         `destination field ${prefix}.${client} must be a semantic version string such as "3.13.0"`
       )
     );
+}
+
+/**
+ * The pinned Cursor plugin schema types `variables` as a nested JSON Schema:
+ * `type` is required and pinned to the `object` const, `properties` is an
+ * object, and `required` is a unique string array. Checking objectness alone
+ * would report conformance for an artifact Cursor rejects, so validate the
+ * declared members against the pinned contract. Additional keys stay allowed
+ * because the pinned definition does not close them.
+ */
+function checkCursorVariables(
+  file: ProviderFormatConformanceFile,
+  value: JsonValue | undefined,
+  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  if (value === undefined) return [];
+  if (!isJsonRecord(value)) {
+    return [issue(file, "cursor", providerRef, "invalid-field-type", `destination field ${prefix} must be an object`)];
+  }
+  const issues: ProviderFormatConformanceIssue[] = [
+    ...checkRequiredFields(file, value, "cursor", providerRef, CURSOR_VARIABLES_REQUIRED_FIELDS, prefix),
+  ];
+  if (value.type !== undefined && value.type !== CURSOR_VARIABLES_TYPE) {
+    issues.push(
+      issue(
+        file,
+        "cursor",
+        providerRef,
+        "invalid-field-type",
+        `destination field ${prefix}.type must be the string "${CURSOR_VARIABLES_TYPE}"`
+      )
+    );
+  }
+  issues.push(
+    ...checkFieldTypes(file, value, "cursor", providerRef, { properties: "object", required: "string-array" }, prefix)
+  );
+  const required = value.required;
+  if (
+    Array.isArray(required) &&
+    required.every((entry) => typeof entry === "string") &&
+    new Set(required).size !== required.length
+  ) {
+    issues.push(
+      issue(file, "cursor", providerRef, "invalid-shape", `destination field ${prefix}.required must not repeat a variable name`)
+    );
+  }
+  return issues;
 }
 
 function checkCursorMarketplace(

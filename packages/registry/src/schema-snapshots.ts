@@ -111,6 +111,18 @@ export function isCursorSemver(value: unknown): boolean {
   return typeof value === "string" && new RegExp(CURSOR_SEMVER_PATTERN, "u").test(value);
 }
 
+/**
+ * Keys the pinned `cursor-plugin-schema` snapshot requires inside `variables`.
+ * The field is a nested JSON Schema for user-configured plugin variables:
+ * `type` is required, `properties` is an object, `required` is a unique string
+ * array, and additional keys stay open because the pinned definition does not
+ * set `additionalProperties: false`.
+ */
+export const CURSOR_VARIABLES_REQUIRED_FIELDS = ["type"] as const;
+
+/** The `const` the pinned Cursor `variables` schema pins `type` to. */
+export const CURSOR_VARIABLES_TYPE = "object";
+
 const FETCHED_AT = "2026-06-23T09:51:15-04:00";
 
 const schemaSnapshots = [

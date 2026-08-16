@@ -2540,12 +2540,7 @@ function checkSourceMetadata(
   );
   checkOptionalLicense(value.license, `${path}.license`, diagnostics);
   checkSourceListing(value.listing, `${path}.listing`, diagnostics);
-  checkOptionalObject(
-    value.manifest,
-    `${path}.manifest`,
-    "schema/source-metadata/manifest",
-    diagnostics
-  );
+  checkSourcePortableManifest(value.manifest, `${path}.manifest`, diagnostics);
   checkOptionalObject(
     value.marketplace,
     `${path}.marketplace`,
@@ -2616,6 +2611,59 @@ function checkSourceMetadata(
     value.keywords,
     `${path}.keywords`,
     "schema/source-metadata/keywords",
+    diagnostics
+  );
+}
+
+/**
+ * Validates the portable `skillset.manifest` block. Keys with a rendering or
+ * omission meaning are validated against the shared contracts; unknown keys stay
+ * permitted, so this deliberately does not call `checkAllowedKeys`.
+ */
+function checkSourcePortableManifest(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        "schema/source-metadata/manifest",
+        `${path} must be an object`
+      )
+    );
+    return;
+  }
+  checkOptionalNonEmptyString(
+    value.category,
+    `${path}.category`,
+    "schema/source-metadata/manifest-category",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.displayName,
+    `${path}.displayName`,
+    "schema/source-metadata/manifest-display-name",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.logo,
+    `${path}.logo`,
+    "schema/source-metadata/manifest-logo",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.name,
+    `${path}.name`,
+    "schema/source-metadata/manifest-name",
+    diagnostics
+  );
+  checkOptionalNonEmptyStringArray(
+    value.tags,
+    `${path}.tags`,
+    "schema/source-metadata/manifest-tags",
     diagnostics
   );
 }

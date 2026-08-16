@@ -977,6 +977,12 @@ test("SET-369: canonical listing metadata wins before provider overrides", async
     "skillset.yaml": `
 skillset:
   name: listing-root
+compile:
+  # The Codex interface override below replaces the canonical listing category,
+  # so no enabled target renders the authored value and the Cursor manifest
+  # reports a lossy render result. This fixture is about override precedence,
+  # not about the unsupported-destination policy.
+  unsupportedDestination: warn
 claude: true
 codex: true
 cursor: true

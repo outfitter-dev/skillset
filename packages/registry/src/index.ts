@@ -511,6 +511,23 @@ export function listProviderPluginComponentManifestFields(
   return Object.freeze([...new Set(fields)].sort());
 }
 
+/** Manifest fields the pinned provider plugin manifest format accepts. */
+export function listProviderPluginManifestFields(
+  target: ProviderDestinationFormatTarget
+): readonly string[] {
+  const snapshot = providerDestinationFormatSnapshots.find(
+    (candidate) => candidate.target === target && candidate.destination === "plugin"
+  );
+  if (!isFormatRecord(snapshot?.format) || !isFormatRecord(snapshot.format.manifest)) {
+    return [];
+  }
+  const manifest = snapshot.format.manifest;
+  const fields = [manifest.requiredFields, manifest.optionalFields].flatMap((value) =>
+    Array.isArray(value) ? value.filter((entry) => typeof entry === "string") : []
+  );
+  return Object.freeze([...new Set(fields)].sort());
+}
+
 export function assertProviderDestinationFormatSnapshots(
   entries: readonly ProviderDestinationFormatSnapshot[]
 ): void {

@@ -1,6 +1,9 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import { listProviderPluginManifestFields } from "@skillset/registry";
+import { SOURCE_PORTABLE_MANIFEST_KEYS } from "@skillset/schema";
+
 import {
   resolveAdaptiveHookAttachmentsForTarget,
   type ResolvedAdaptiveHookAttachment,
@@ -24,6 +27,7 @@ import {
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
+import { codexInterfaceCategory } from "./render-plugin-manifest";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
@@ -450,10 +454,10 @@ function pluginManifestRenderFacts(
   target: TargetName | undefined
 ): PluginManifestRenderFacts | undefined {
   const authorFacts = pluginAuthorRenderFacts(graph, item, target);
-  if (item.kind !== "plugin" || target !== "cursor") return authorFacts;
+  if (item.kind !== "plugin" || target === undefined) return authorFacts;
   const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
   if (plugin === undefined) return authorFacts;
-  const omissions = cursorManifestOmissions(graph, plugin, item.sourcePath);
+  const omissions = pluginManifestOmissions(graph, plugin, target, item.sourcePath);
   if (omissions.length === 0) return authorFacts;
 
   const diagnostics = omissions.map((omission) => omission.diagnostic);
@@ -475,59 +479,86 @@ function pluginManifestRenderFacts(
   };
 }
 
-/** One canonical field the Cursor manifest renderer has no destination for. */
-interface CursorManifestOmission {
+/** One canonical field a plugin manifest renderer has no destination for. */
+interface PluginManifestOmission {
   readonly diagnostic: SkillsetRenderResultDiagnosticRef;
   readonly reason: string;
   readonly status: "degraded" | "lossy";
 }
 
 /**
- * Every canonical plugin field the Cursor manifest renderer drops, in a stable
- * order. Each dropped field must produce evidence: a Cursor manifest that
+ * Every canonical plugin field this target's manifest renderer drops, in a
+ * stable order. Each dropped field must produce evidence: a manifest that
  * quietly reported `rendered` would let default policy accept metadata loss.
  */
-function cursorManifestOmissions(
+function pluginManifestOmissions(
   graph: BuildGraph,
   plugin: SourcePlugin,
+  target: TargetName,
   sourcePath: string
-): readonly CursorManifestOmission[] {
+): readonly PluginManifestOmission[] {
   return [
-    ...cursorListingCategoryOmissions(graph, plugin, sourcePath),
-    ...cursorPortableManifestOmissions(plugin.metadata, sourcePath),
+    // The canonical listing category keeps its Cursor-scoped evidence: it names
+    // the `cursor.manifest` cutover that removed the destination. The identical
+    // Claude omission is a separate, wider decision because `listing.category`
+    // is a documented field that Claude-only workspaces already build with.
+    ...(target === "cursor"
+      ? cursorListingCategoryOmissions(graph, plugin, sourcePath)
+      : []),
+    ...portableManifestOmissions(plugin.metadata, target, sourcePath),
   ];
 }
 
 /**
  * Plugin-manifest destination each target renders the canonical listing
- * category into. Codex lowers it to `interface.category` in
- * `renderCodexInterface`; the pinned Claude and Cursor plugin manifest formats
- * have no category destination. Declared per target so a new target has to
- * state its own answer instead of inheriting one.
+ * category into, with the value that destination actually carries. Codex lowers
+ * the category to `interface.category` in `renderCodexInterface`; the pinned
+ * Claude and Cursor plugin manifest formats have no category destination.
+ * Declared per target so a new target has to state its own answer instead of
+ * inheriting one.
  */
 const PLUGIN_LISTING_CATEGORY_DESTINATIONS: Readonly<
-  Record<TargetName, string | undefined>
+  Record<TargetName, PluginListingCategoryDestination | undefined>
 > = {
   claude: undefined,
-  codex: "interface.category",
+  codex: {
+    effectiveValue: codexInterfaceCategory,
+    field: "interface.category",
+  },
   cursor: undefined,
 };
 
+interface PluginListingCategoryDestination {
+  /** Category the rendered manifest carries after provider overrides. */
+  readonly effectiveValue: (
+    graph: BuildGraph,
+    plugin: SourcePlugin
+  ) => string | undefined;
+  /** Provider manifest field that destination writes. */
+  readonly field: string;
+}
+
 /**
- * Faithful listing-category destinations this workspace actually renders.
- * `pluginTargetSelected` reads the compiled target set and the plugin's own
- * target selection, so a Cursor-only workspace correctly reports none.
+ * Enabled destinations that still render the authored category.
+ *
+ * Selection alone is not enough: a provider override such as
+ * `codex.interface.category` keeps the destination while replacing the authored
+ * value, which drops the canonical meaning just as completely as disabling the
+ * target. `pluginTargetSelected` reads the compiled target set and the plugin's
+ * own target selection, so a Cursor-only workspace correctly reports none.
  */
-function enabledListingCategoryDestinations(
+function faithfulListingCategoryDestinations(
   graph: BuildGraph,
-  pluginId: string
+  plugin: SourcePlugin,
+  category: string
 ): readonly string[] {
   return targetNames().flatMap((target) => {
     const destination = PLUGIN_LISTING_CATEGORY_DESTINATIONS[target];
     return destination === undefined ||
-      !pluginTargetSelected(graph, pluginId, target)
+      !pluginTargetSelected(graph, plugin.id, target) ||
+      destination.effectiveValue(graph, plugin) !== category
       ? []
-      : [`${targetLabel(target)} ${destination}`];
+      : [`${targetLabel(target)} ${destination.field}`];
   });
 }
 
@@ -535,17 +566,22 @@ function cursorListingCategoryOmissions(
   graph: BuildGraph,
   plugin: SourcePlugin,
   sourcePath: string
-): readonly CursorManifestOmission[] {
+): readonly PluginManifestOmission[] {
   // Derive through the shared listing reader so the compatibility spellings
   // (`skillset.category`, `skillset.presentation.category`) count exactly like
   // the canonical `skillset.listing.category`.
-  if (readString(readSourceListing(plugin.metadata), "category") === undefined) {
-    return [];
-  }
+  const category = readString(readSourceListing(plugin.metadata), "category");
+  if (category === undefined) return [];
   // The authored meaning only survives the workspace while another enabled
   // target still renders the same category. In a Cursor-only workspace nothing
-  // does, so the value is dropped outright and policy has to see it.
-  const faithfulDestinations = enabledListingCategoryDestinations(graph, plugin.id);
+  // does, and neither does a Codex target whose `interface.category` override
+  // replaced the authored value, so the value is dropped outright and policy
+  // has to see it.
+  const faithfulDestinations = faithfulListingCategoryDestinations(
+    graph,
+    plugin,
+    category
+  );
   const isFaithfulElsewhere = faithfulDestinations.length > 0;
   const reason =
     "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
@@ -583,27 +619,56 @@ function authoredListingCategoryKey(metadata: JsonRecord): string {
 }
 
 /**
- * Portable `skillset.manifest` fields the Cursor manifest renderer used to
- * consume. The pinned Cursor parser has no verified destination for them and no
- * other target renders them, so authored values are lost outright.
+ * Portable `skillset.manifest` keys each plugin manifest renderer consumes.
+ * `renderPluginManifest` reads `name` for every target, and
+ * `renderCursorPluginDisplayFields` adds the Cursor display fields. Declared per
+ * target so a new target has to state its own answer instead of inheriting one.
  */
-const CURSOR_OMITTED_PORTABLE_MANIFEST_FIELDS = ["category", "tags"] as const;
+const RENDERED_PORTABLE_MANIFEST_KEYS: Readonly<
+  Record<TargetName, readonly string[]>
+> = {
+  claude: ["name"],
+  codex: ["name"],
+  cursor: ["displayName", "logo", "name"],
+};
 
-function cursorPortableManifestOmissions(
+/**
+ * Declared portable manifest keys no target renders, so an authored value is
+ * dropped by every enabled target rather than by one provider. Derived from the
+ * shared `@skillset/schema` vocabulary and the per-target destinations above, so
+ * a new declared key or a new renderer destination moves this set instead of a
+ * hand-maintained provider list.
+ */
+const OMITTED_PORTABLE_MANIFEST_KEYS = SOURCE_PORTABLE_MANIFEST_KEYS.filter(
+  (key) =>
+    !targetNames().some((target) =>
+      RENDERED_PORTABLE_MANIFEST_KEYS[target].includes(key)
+    )
+);
+
+function portableManifestOmissions(
   metadata: JsonRecord,
+  target: TargetName,
   sourcePath: string
-): readonly CursorManifestOmission[] {
+): readonly PluginManifestOmission[] {
   const portableManifest = readRecord(metadata, "manifest") ?? {};
-  return CURSOR_OMITTED_PORTABLE_MANIFEST_FIELDS.filter(
+  const label = targetLabel(target);
+  return OMITTED_PORTABLE_MANIFEST_KEYS.filter(
     (field) => portableManifest[field] !== undefined
   ).map((field) => {
+    // Only advise a provider-native override where the pinned plugin manifest
+    // format actually accepts the field; elsewhere the advice would produce a
+    // nonconformant artifact.
+    const nativeOverride = listProviderPluginManifestFields(target).includes(field)
+      ? `; move the value to ${target}.manifest.${field} to keep the ${label}-native field`
+      : "";
     const reason =
-      `Cursor plugin output has no verified runtime destination for portable manifest.${field}; ` +
+      `${label} plugin output has no verified runtime destination for portable manifest.${field}; ` +
       `omitted canonical field: manifest.${field}; ` +
-      `move the value to cursor.manifest.${field} to keep the Cursor-native field`;
+      `no enabled target renders this field, so the authored value is dropped${nativeOverride}`;
     return {
       diagnostic: {
-        code: "render/cursor-portable-manifest-field-omitted",
+        code: `render/${target}-portable-manifest-field-omitted`,
         message: reason,
         path: `${sourcePath}: $.skillset.manifest.${field}`,
       },

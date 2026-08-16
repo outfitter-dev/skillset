@@ -33,6 +33,7 @@ import {
   renderCursorMarketplace,
 } from "../render-marketplaces";
 import {
+  codexInterfaceCategory,
   renderCodexInterface,
   renderPluginManifest,
   withOptionalSurfacePaths,
@@ -77,6 +78,7 @@ const OWNED_FUNCTIONS = {
   "render-plugin-manifest": [
     "renderPluginManifest",
     "renderCodexInterface",
+    "codexInterfaceCategory",
     "withOptionalSurfacePaths",
   ],
   "render-rules": ["renderRules"],
@@ -160,6 +162,7 @@ describe("render owner boundaries", () => {
         readExistingMarketplaceState,
         renderPluginManifest,
         renderCodexInterface,
+        codexInterfaceCategory,
         withOptionalSurfacePaths,
         renderRules,
         renderAdaptivePluginHookFiles,

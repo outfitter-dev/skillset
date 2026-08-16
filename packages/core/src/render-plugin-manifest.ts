@@ -139,6 +139,29 @@ function renderCursorPluginDisplayFields(
   };
 }
 
+/**
+ * Effective `interface.category` a rendered Codex plugin manifest carries.
+ *
+ * `renderPluginManifest` merges `codex.manifest` over the rendered manifest and
+ * `renderCodexInterface` merges `codex.interface` over the canonical base, so
+ * either override can replace the canonical `listing.category`. Callers that
+ * need to know whether the authored category survives must compare this value,
+ * not the presence of the destination.
+ */
+export function codexInterfaceCategory(
+  graph: BuildGraph,
+  plugin: SourcePlugin
+): string | undefined {
+  const manifestOverrides = readRecord(plugin.targets.codex.options, "manifest") ?? {};
+  return readString(
+    mergeRecords(
+      renderCodexInterface(graph, plugin),
+      readRecord(manifestOverrides, "interface") ?? {}
+    ),
+    "category"
+  );
+}
+
 export function renderCodexInterface(
   graph: BuildGraph,
   plugin: SourcePlugin

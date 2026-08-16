@@ -454,6 +454,79 @@ describe("provider format conformance", () => {
     ]);
   });
 
+  it("accepts pinned Cursor variables schemas", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        name: "alpha",
+        variables: { type: "object" },
+      }),
+      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+        name: "beta",
+        variables: {
+          // The pinned `variables` contract leaves additional keys open.
+          description: "User-configured plugin variables.",
+          properties: { token: { type: "string" } },
+          required: ["token"],
+          type: "object",
+        },
+      }),
+    ]);
+
+    expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
+  });
+
+  it("rejects Cursor plugin manifest variables that break the pinned contract", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        name: "alpha",
+        variables: { properties: { token: { type: "string" } } },
+      }),
+      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+        name: "beta",
+        variables: { type: "string" },
+      }),
+      rendered("plugins/gamma/cursor/.cursor-plugin/plugin.json", {
+        name: "gamma",
+        variables: { properties: ["token"], required: "token", type: "object" },
+      }),
+      rendered("plugins/delta/cursor/.cursor-plugin/plugin.json", {
+        name: "delta",
+        variables: { required: ["token", "token"], type: "object" },
+      }),
+      rendered("plugins/epsilon/cursor/.cursor-plugin/plugin.json", {
+        name: "epsilon",
+        variables: "object",
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "missing-required-field",
+        message: "missing required destination field variables.type",
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field variables.type must be the string "object"',
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field variables.required must not repeat a variable name",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field variables must be an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field variables.properties must be an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field variables.required must be an array of strings",
+      },
+    ]);
+  });
+
   it("validates Claude marketplace owner and plugin author objects", () => {
     const valid = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {

@@ -1022,6 +1022,22 @@ Help with the task.
     );
   });
 
+  const portableManifestReason = (target: string, field: string): string => {
+    const label =
+      target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Cursor";
+    // Only the pinned Cursor plugin manifest has a native destination field for
+    // these portable values, so only Cursor gets the escape-hatch advice.
+    const escape =
+      target === "cursor"
+        ? `; move the value to cursor.manifest.${field} to keep the Cursor-native field`
+        : "";
+    return (
+      `${label} plugin output has no verified runtime destination for portable manifest.${field}; ` +
+      `omitted canonical field: manifest.${field}; ` +
+      `no enabled target renders this field, so the authored value is dropped${escape}`
+    );
+  };
+
   const LISTING_CATEGORY_DEGRADED_REASON =
     "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
     "omitted canonical field: listing.category; " +
@@ -1211,6 +1227,118 @@ Help with the task.
   });
 
   it.each([
+    ["codex.interface", "codex:\n  interface:\n    category: Developer Tools"],
+    [
+      "codex.manifest.interface",
+      "codex:\n  manifest:\n    interface:\n      category: Developer Tools",
+    ],
+  ])(
+    "keeps the canonical listing category degraded when a %s override repeats it",
+    async (_label, overrideYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: listing-override-equal
+compile:
+  targets: [codex, cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+${overrideYaml}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        reason: LISTING_CATEGORY_DEGRADED_REASON,
+        status: "degraded",
+      });
+
+      const codexManifest = await readJson(
+        join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+      );
+      expect(
+        (codexManifest.interface as Record<string, unknown>).category
+      ).toBe("Developer Tools");
+    }
+  );
+
+  it.each([
+    ["codex.interface", "codex:\n  interface:\n    category: Productivity"],
+    [
+      "codex.manifest.interface",
+      "codex:\n  manifest:\n    interface:\n      category: Productivity",
+    ],
+  ])(
+    "reports the canonical listing category as lossy when a %s override replaces it",
+    async (_label, overrideYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: listing-override-differs
+compile:
+  targets: [codex, cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+${overrideYaml}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        reason: LISTING_CATEGORY_LOSSY_REASON,
+        status: "lossy",
+      });
+
+      // The Codex destination is selected, but it no longer carries the
+      // authored category, so no enabled target preserves the value.
+      const codexManifest = await readJson(
+        join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+      );
+      expect(
+        (codexManifest.interface as Record<string, unknown>).category
+      ).toBe("Productivity");
+    }
+  );
+
+  it.each([
     ["category", "category: Developer Tools"],
     ["presentation.category", "presentation:\n    category: Developer Tools"],
   ])(
@@ -1263,6 +1391,89 @@ Help with the task.
       expect(manifest.category).toBeUndefined();
     }
   );
+
+  it.each(["claude", "codex", "cursor"])(
+    "blocks default builds when portable manifest fields have no %s destination",
+    async (target) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: portable-manifest-single-target
+compile:
+  targets: [${target}]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      await expect(buildSkillsetResult(root)).rejects.toThrow(
+        SkillsetRenderResultError
+      );
+    }
+  );
+
+  it("reports portable manifest omissions on every enabled target", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-every-target
+compile:
+  targets: [claude, codex, cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+    tags: [review]
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests"
+    );
+    expect(
+      manifestResults.map((outcome) => [outcome.target, outcome.status])
+    ).toEqual([
+      ["claude", "lossy"],
+      ["codex", "lossy"],
+      ["cursor", "lossy"],
+    ]);
+    expect(
+      manifestResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).map((diagnostic) => diagnostic.message)
+      )
+    ).toEqual([
+      portableManifestReason("claude", "category"),
+      portableManifestReason("claude", "tags"),
+      portableManifestReason("codex", "category"),
+      portableManifestReason("codex", "tags"),
+      portableManifestReason("cursor", "category"),
+      portableManifestReason("cursor", "tags"),
+    ]);
+  });
 
   it.each(["category", "tags"])(
     "blocks default builds when portable manifest.%s has no Cursor destination",
@@ -1333,10 +1544,7 @@ Help with the task.
         diagnostics: [
           {
             code: "render/cursor-portable-manifest-field-omitted",
-            message:
-              `Cursor plugin output has no verified runtime destination for portable manifest.${field}; ` +
-              `omitted canonical field: manifest.${field}; ` +
-              `move the value to cursor.manifest.${field} to keep the Cursor-native field`,
+            message: portableManifestReason("cursor", field),
             path: `.skillset/plugins/tools: $.skillset.manifest.${field}`,
           },
         ],
