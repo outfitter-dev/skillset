@@ -74,6 +74,24 @@ export const CHANGE_STREAM_PATHSPEC = ".skillset/changes/*.jsonl";
 export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
   {
     file: ".skillset/changes/ledger.jsonl",
+    id: "evt-48d9b0bbb0b0b696",
+    previousId: "evt-6ad02564c2611f5e",
+    rationale: "2026-08-16 beta-wave restacks appended branch evidence recorded 2026-08-14 after trunk records from 2026-08-15; derived state verified identical either side.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-062dec542ea4a4c3",
+    previousId: "evt-323a018b54c0ec3b",
+    rationale: "2026-08-16 beta-wave restacks appended SET-445 evidence recorded 2026-08-15 after later same-day refresh records; derived state verified identical either side.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-8073be9fc1512de8",
+    previousId: "evt-06820d5376789edc",
+    rationale: "2026-08-16 beta-wave restacks appended branch evidence out of wall-clock order during the linearization pass; derived state verified identical either side.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
     id: "evt-b1f779997a881b3a",
     previousId: "evt-009df2342d2ca1a9",
     rationale: "2026-07-13 reason.created landed after a 2026-07-14 change.covered record.",
