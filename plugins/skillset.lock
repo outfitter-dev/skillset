@@ -136,7 +136,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:aaef55fe241f6287aa792eaed6554486315db20158373cec8111f7343ed2c8c5",
+  "provenanceHash": "sha256:5e0adaabea1924c9b7f67003836fc1be71c85581af97b6090ce3fffc1a45d0df",
   "renderResults": [
     {
       "destination": "plugin-manifest",
