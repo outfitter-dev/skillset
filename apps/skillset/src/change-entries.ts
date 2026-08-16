@@ -15,6 +15,7 @@ import {
 } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { readReleaseState } from "@skillset/core/internal/release-state";
 import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, JsonValue } from "@skillset/core/internal/types";
 import { workspaceChangesDir } from "@skillset/core";
@@ -130,7 +131,11 @@ async function validateChangeCheck(
 ): Promise<ChangeCheckReport> {
   const currentById = new Map(status.sourceUnits.map((unit) => [unit.id, unit]));
   const changedById = new Map(status.sourceChanges.map((change) => [change.id, change]));
-  const validScopeIds = new Set([...currentById.keys(), ...changedById.keys()]);
+  const validScopeIds = new Set([
+    ...currentById.keys(),
+    ...changedById.keys(),
+    ...(await readHistoricalScopeIds(rootPath, options)),
+  ]);
   const context: ChangeValidationContext = {
     currentById,
     changedById,
@@ -247,6 +252,27 @@ export async function readPendingChangeEntries(
     });
   }
   return entries.sort((left, right) => compareStrings(left.path, right.path));
+}
+
+/**
+ * Source-unit selectors that machine-owned workspace records already name.
+ *
+ * Scope validity asks whether a selector is a real source-unit identity, not
+ * whether it changed since the baseline. The ledger and release state are files
+ * inside the tree under audit, so a removed unit keeps its identity no matter
+ * which merge base git resolves. A selector nobody ever recorded stays invalid.
+ */
+async function readHistoricalScopeIds(
+  rootPath: string,
+  options: ChangeStatusOptions
+): Promise<ReadonlySet<string>> {
+  const ids = new Set<string>();
+  for (const event of await readChangeLedger(rootPath, options)) {
+    for (const unit of event.sourceUnits) ids.add(sourceUnitSelector(unit.selector));
+  }
+  const releaseState = await readReleaseState(rootPath, options);
+  for (const scope of Object.keys(releaseState.scopes)) ids.add(sourceUnitSelector(scope));
+  return ids;
 }
 
 async function readPendingLedgerFacts(
