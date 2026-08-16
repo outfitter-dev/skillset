@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:630b2606f0418d4fe157424d7899846e8d3c15a689ebf9a695670b22f2b76111",
+  "provenanceHash": "sha256:8183425937188177394575a93ae49f7d40fce79fd1c17ded57316f8f5c7af76b",
   "renderResults": [
     {
       "destination": "skill",
