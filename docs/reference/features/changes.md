@@ -98,3 +98,15 @@ Package-facing edits can require both ledgers: `.skillset/changes/` records [wor
 `ledger.jsonl` is the schema-versioned event stream for reason lifecycle, coverage, ignores, and release [projection](../../glossary.md#projection). Applied reasons remain in `history.jsonl`; release records remain in `releases.jsonl`; corrections append to amendment files. Nearby `skillset.lock` files continue to own generated paths and hashes.
 
 See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reason-Only Change Ledger and Derived State](../../adrs/0015-reason-only-change-ledger-derived-state.md) for the durable design.
+
+## Merging Change Streams
+
+These streams only gain records at the end, so parallel branches conflict on every merge even though both sides are compatible. Declare the built-in `union` merge strategy for them in `.gitattributes`:
+
+```gitattributes
+.skillset/changes/*.jsonl merge=union
+```
+
+`union` keeps both sides' appended records without a conflict, and being built in it needs no per-clone `git config` registration, so it applies the same way in CI, fresh clones, and worktrees.
+
+Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and no record lands above an older one. Record order is load-bearing because derived state folds events in file order and later records win. Global chronological order is not an invariant — inversions already committed stay valid — so verify only that a merge introduced no new one.

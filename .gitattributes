@@ -1,0 +1,7 @@
+# Append-only change streams (ADR-0014, ADR-0015). Records are only ever added
+# at the end, so a merge should keep both sides' records instead of conflicting.
+# `union` is a built-in git strategy: unlike a custom merge driver it needs no
+# per-clone `git config` registration, so it also applies in CI, fresh clones,
+# and worktrees. `bun run change-stream:guard` checks what union cannot —
+# valid JSONL, unique ids, and no newly introduced timestamp inversions.
+.skillset/changes/*.jsonl merge=union
