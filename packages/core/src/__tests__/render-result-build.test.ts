@@ -1893,6 +1893,94 @@ Help with the task.
     }
   });
 
+  it("derives Cursor marketplace owner evidence from the rendered owner override", async () => {
+    const cases = [
+      {
+        // The override replaces every canonical owner field, so no canonical
+        // owner value reaches this marketplace and there is nothing to lose.
+        expected: undefined,
+        ownerOverride: `
+  marketplace:
+    owner:
+      name: Cursor Publishing
+      email: cursor@example.com
+`,
+      },
+      {
+        // The override only adds an email, so the canonical name still renders
+        // and the dropped canonical fields remain real evidence.
+        expected:
+          "Cursor marketplace author output supports only name and email; omitted canonical fields: contributor, url",
+        ownerOverride: `
+  marketplace:
+    owner:
+      email: cursor@example.com
+`,
+      },
+    ] as const;
+
+    for (const { expected, ownerOverride } of cases) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: cursor-marketplace-owner-override
+  owner:
+    name: Publishing Team
+    url: https://example.com/publisher
+    contributor: Publisher
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+cursor:
+${ownerOverride}
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const preview = await diffSkillsetResult(root);
+      const ownerOutcomes = preview.renderResults.filter(
+        (outcome) =>
+          outcome.featureId === "marketplaces" &&
+          outcome.target === "cursor" &&
+          outcome.destination === "marketplace"
+      );
+      if (expected === undefined) {
+        expect(ownerOutcomes).toEqual([
+          expect.objectContaining({ status: "rendered", target: "cursor" }),
+        ]);
+        expect(
+          ownerOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+        ).toEqual([]);
+      } else {
+        expect(ownerOutcomes).toContainEqual(
+          expect.objectContaining({
+            diagnostics: [
+              expect.objectContaining({
+                code: "render/cursor-marketplace-author-fields-omitted",
+                path: "marketplace.owner",
+              }),
+            ],
+            reason: expected,
+            status: "lossy",
+            target: "cursor",
+          })
+        );
+      }
+    }
+  });
+
   it("tracks marketplace authors through a replaced Claude marketplace plugin array", async () => {
     const files = (args: {
       readonly droppedAuthor: string;

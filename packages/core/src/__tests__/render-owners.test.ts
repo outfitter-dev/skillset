@@ -26,6 +26,7 @@ import {
 } from "../render-hooks";
 import {
   claudeMarketplaceSourcePlugins,
+  cursorMarketplaceOwner,
   marketplaceLockProvenance,
   readExistingMarketplaceState,
   renderClaudeMarketplace,
@@ -69,6 +70,7 @@ const OWNED_FUNCTIONS = {
   ],
   "render-marketplaces": [
     "claudeMarketplaceSourcePlugins",
+    "cursorMarketplaceOwner",
     "renderClaudeMarketplace",
     "renderClaudeMarketplaceDocument",
     "renderCursorMarketplace",
@@ -155,6 +157,7 @@ describe("render owner boundaries", () => {
     expect(
       [
         claudeMarketplaceSourcePlugins,
+        cursorMarketplaceOwner,
         renderClaudeMarketplace,
         renderClaudeMarketplaceDocument,
         renderCursorMarketplace,

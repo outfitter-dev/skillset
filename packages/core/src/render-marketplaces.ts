@@ -384,6 +384,30 @@ function lockedClaudeProviderEntry(
     : storedClaudeMarketplaceProviderEntry(locked);
 }
 
+/**
+ * Effective marketplace owner a rendered Cursor marketplace carries.
+ *
+ * `renderCursorMarketplace` merges `cursor.marketplace` over the generated
+ * document, so a `cursor.marketplace.owner` override extends or replaces the
+ * canonical owner projection field by field. Callers that need to know which
+ * canonical owner fields survive must compare this value, not the authored
+ * owner.
+ */
+export function cursorMarketplaceOwner(
+  graph: BuildGraph
+): JsonValue | undefined {
+  const root = graph.root.metadata;
+  const generated =
+    renderCursorAuthor(root.owner) ?? renderCursorAuthor(root.author);
+  const override = (
+    readRecord(graph.root.targets.cursor.options, "marketplace") ?? {}
+  ).owner;
+  if (override === undefined) return generated;
+  return generated !== undefined && isJsonRecord(override)
+    ? mergeRecords(generated, override)
+    : override;
+}
+
 export async function renderCursorMarketplace(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
@@ -415,8 +439,7 @@ export async function renderCursorMarketplace(
   if (plugins.length === 0) return [];
 
   const root = graph.root.metadata;
-  const owner =
-    renderCursorAuthor(root.owner) ?? renderCursorAuthor(root.author);
+  const owner = cursorMarketplaceOwner(graph);
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
   const marketplace = mergeRecords(
     {

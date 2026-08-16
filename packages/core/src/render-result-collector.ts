@@ -31,11 +31,13 @@ import { codexInterfaceCategory } from "./render-plugin-manifest";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
+import { cursorMarketplaceOwner } from "./render-marketplaces";
 import {
   droppedClaudeAuthorKeys,
   omittedClaudeAuthorKeys,
   omittedCursorAuthorKeys,
   readAuthorName,
+  readAuthorRecord,
 } from "./source-author";
 import { readSourceListing } from "./source-listing";
 import {
@@ -278,16 +280,37 @@ function cursorMarketplaceAuthorOutcomes(
   );
   if (!rendered.some((file) => file.path === marketplacePath)) return [];
   const root = graph.root.metadata;
-  const owner =
-    readAuthorName(root.owner) !== undefined ? root.owner : root.author;
-  if (owner === undefined) return [];
+  const canonical = readAuthorRecord(
+    readAuthorName(root.owner) !== undefined ? root.owner : root.author
+  );
+  if (canonical === undefined) return [];
+  // `cursor.marketplace.owner` is merged over the generated owner field by
+  // field, so loss has to be read from the owner the marketplace actually
+  // carries. A canonical field the override replaces is not omitted by the
+  // Cursor format, and an override that replaces every canonical field means no
+  // canonical owner value reaches this marketplace at all — there is nothing
+  // left for the canonical projection to lose.
+  const carried = cursorMarketplaceOwner(graph);
+  const renderedOwner = isJsonRecord(carried) ? carried : {};
+  const survivingKeys = Object.keys(canonical).filter(
+    (key) => renderedOwner[key] === canonical[key]
+  );
+  const omitted =
+    survivingKeys.length === 0
+      ? []
+      : Object.keys(canonical)
+          .filter((key) => !survivingKeys.includes(key))
+          .sort();
   return [
     marketplaceAuthorOutcome({
       diagnosticPath: "marketplace.owner",
       included: includedPaths.has(marketplacePath),
       mapOutputPath,
       outputPath: marketplacePath,
-      reason: unsupportedCursorAuthorReason(owner),
+      reason:
+        omitted.length === 0
+          ? undefined
+          : `Cursor marketplace author output supports only name and email; omitted canonical fields: ${omitted.join(", ")}`,
       sourcePath: "skillset.yaml",
       sourceUnit: selectorForRootConfig(),
       target: "cursor",
