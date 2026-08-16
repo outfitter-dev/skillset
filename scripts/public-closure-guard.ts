@@ -2,6 +2,30 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, posix, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { NormalizedClosureText } from "./public-closure/closure-text";
+import { normalizeClosureText } from "./public-closure/closure-text";
+import { hasGitProtectedDirectoryArgument } from "./public-closure/git";
+import {
+  hasCommandDirectoryOptionRoute,
+  hasPackageRunnerProtectedDirectoryArgument,
+  isProtectedRootPathCommand,
+} from "./public-closure/path-commands";
+import type { SearchCommandOwner } from "./public-closure/search-dialects";
+import {
+  hasSearchCommandProtectedPathArgument,
+  searchCommandSegments,
+} from "./public-closure/search-dialects";
+import type { CommandToken } from "./public-closure/shell-tokens";
+import {
+  normalizeShellToken,
+  readCommandToken,
+  readShellSegments,
+} from "./public-closure/shell-tokens";
+import {
+  hasShellWrapperProtectedDirectoryArgument,
+  unwrapShellCommand,
+} from "./public-closure/shell-wrappers";
+
 export type PublicClosureRule =
   | "contributor-skill"
   | "development-docs"
@@ -30,15 +54,6 @@ interface ClosurePattern {
 interface ProtectedPathOwner {
   readonly path: string;
   readonly rule: PublicClosureRule;
-}
-
-interface SearchCommandDialect {
-  readonly commandValueFlags: ReadonlySet<string>;
-  readonly optionalAttachedValueFlags: ReadonlySet<string>;
-  readonly pathOnlyFlags: ReadonlySet<string>;
-  readonly pathValueFlags: ReadonlySet<string>;
-  readonly patternValueFlags: ReadonlySet<string>;
-  readonly valueFlags: ReadonlySet<string>;
 }
 
 type PackageScripts = Readonly<Record<string, string>>;
@@ -92,417 +107,11 @@ const PUBLIC_CLOSURE_RULE_ORDER: readonly PublicClosureRule[] = [
 ];
 const PROTECTED_PATH_ACTIONS =
   "browse|cd|edit|enter|inspect|list|open|read|visit";
-const PUBLIC_REPOSITORY_OWNER = "outfitter-dev";
-const PUBLIC_REPOSITORY_NAME = "skillset";
-// Canonical `github.com/<owner>/<repo>/<route>/<ref>/<path>` file views.
-const GITHUB_FILE_VIEW_ROUTES: ReadonlySet<string> = new Set([
-  "blame",
-  "blob",
-  "edit",
-  "raw",
-  "tree",
-]);
-const LITERAL_OPEN_BRACE = "\u{e000}";
-const LITERAL_CLOSE_BRACE = "\u{e001}";
-const PROTECTED_ROOT_PATH_COMMANDS: ReadonlySet<string> = new Set([
-  "bash",
-  "bun",
-  "cat",
-  "cd",
-  "chmod",
-  "chown",
-  "cp",
-  "deno",
-  "du",
-  "find",
-  // `install [-D] SOURCE... DIRECTORY`, `install -d DIRECTORY...`, and
-  // `ln TARGET... DIRECTORY` all name a directory the command writes into
-  // through a plain operand, so the generic
-  // `normalizedTokens.slice(1).includes(normalizedOwner)` membership check
-  // reaches both the trailing operand and the detached `-t packages` spelling.
-  "install",
-  "ln",
-  "ls",
-  "mv",
-  "node",
-  // `pushd [-n] [+N | -N | dir]` changes the working directory like `cd`
-  // (bash `help pushd`); `-n` only suppresses the directory change on stack
-  // rotation and is not a value-taking flag, so the generic
-  // `normalizedTokens.slice(1).includes(normalizedOwner)` membership check
-  // already reaches a trailing `dir` operand. `popd` takes no directory
-  // operand (only `+N`/`-N` stack positions), so it is intentionally
-  // excluded.
-  "pushd",
-  "realpath",
-  "rm",
-  "rsync",
-  "sh",
-  "stat",
-  "tar",
-  "tree",
-  "tsx",
-  "zsh",
-]);
-// Options on {@link PROTECTED_ROOT_PATH_COMMANDS} whose operand names a
-// directory the command then runs inside, reads through, or writes into, so the
-// operand is a route rather than an opaque value. The detached spellings
-// (`cp -t packages`) already surface the owner as its own token, so these tables
-// exist for the attached spellings (`--target-directory=packages`,
-// `-tpackages`) that fuse the operand into the option token.
-//
-// Verified against the installed help output:
-// - `cp --help` / `mv --help` (GNU coreutils): `-t, --target-directory=DIRECTORY`.
-// - `ln --help` / `install --help` (GNU coreutils): `-t,
-//   --target-directory=DIRECTORY` names the directory links are created in and
-//   the directory sources are copied into, respectively. Their `-T` is
-//   `--no-target-directory`, which takes no value, so it stays out.
-// - `tar` (bsdtar) man page: `-C directory, --cd directory, --directory directory`.
-// - `rsync` man page: `--backup-dir directory`, `--compare-dest=directory`,
-//   `--copy-dest=directory`, `--link-dest=directory`, `--partial-dir=DIR`, and
-//   `-T, --temp-dir=directory`.
-// - `bun --help`: `--cwd=<val>` "Absolute path to resolve files & entry points
-//   from. This just changes the process' cwd."
-// - `realpath --help` (GNU coreutils): `--relative-to=DIR`, `--relative-base=DIR`.
-//
-// File-valued options stay out. A bare owner name in `tar -f packages`,
-// `du --files0-from=packages`, or `chmod --reference=packages` names a file the
-// command opens rather than a directory it routes through, and any real path
-// under the owner carries a separator the generic path scan already reads.
-const COMMAND_DIRECTORY_VALUE_FLAGS: Readonly<
-  Record<string, ReadonlySet<string>>
-> = {
-  bun: new Set(["--cwd"]),
-  cp: new Set(["--target-directory", "-t"]),
-  install: new Set(["--target-directory", "-t"]),
-  ln: new Set(["--target-directory", "-t"]),
-  mv: new Set(["--target-directory", "-t"]),
-  realpath: new Set(["--relative-base", "--relative-to"]),
-  rsync: new Set([
-    "--backup-dir",
-    "--compare-dest",
-    "--copy-dest",
-    "--link-dest",
-    "--partial-dir",
-    "--temp-dir",
-    "-T",
-  ]),
-  tar: new Set(["--cd", "--directory", "-C"]),
-};
-const RIPGREP_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--file",
-  "--regexp",
-  "-e",
-  "-f",
-]);
-const RIPGREP_PATH_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--file",
-  "--ignore-file",
-  "-f",
-]);
-const RIPGREP_COMMAND_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--hostname-bin",
-  "--pre",
-]);
-const RIPGREP_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  ...RIPGREP_PATTERN_VALUE_FLAGS,
-  "--after-context",
-  "--before-context",
-  "--color",
-  "--colors",
-  "--context",
-  "--context-separator",
-  "--dfa-size-limit",
-  "--encoding",
-  "--engine",
-  "--field-context-separator",
-  "--field-match-separator",
-  "--generate",
-  "--glob",
-  "--hostname-bin",
-  "--hyperlink-format",
-  "--iglob",
-  "--ignore-file",
-  "--max-columns",
-  "--max-count",
-  "--max-depth",
-  "--max-filesize",
-  "--path-separator",
-  "--pre",
-  "--pre-glob",
-  "--regex-size-limit",
-  "--replace",
-  "--sort",
-  "--sortr",
-  "--threads",
-  "--type",
-  "--type-add",
-  "--type-clear",
-  "--type-not",
-  "-A",
-  "-B",
-  "-C",
-  "-d",
-  "-E",
-  "-g",
-  "-j",
-  "-m",
-  "-M",
-  "-r",
-  "-t",
-  "-T",
-]);
-const GREP_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--file",
-  "--regexp",
-  "-e",
-  "-f",
-]);
-const GREP_PATH_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--exclude-from",
-  "--file",
-  "-f",
-]);
-const GREP_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  ...GREP_PATTERN_VALUE_FLAGS,
-  "--after-context",
-  "--before-context",
-  "--binary-files",
-  "--color",
-  "--colour",
-  "--context",
-  "--devices",
-  "--directories",
-  "--exclude",
-  "--exclude-dir",
-  "--exclude-from",
-  "--group-separator",
-  "--include",
-  "--label",
-  "--max-count",
-  "-A",
-  "-B",
-  "-C",
-  "-d",
-  "-D",
-  "-m",
-]);
-// `fd --help` documents `fd [OPTIONS] [pattern] [path]...`, so fd shares the
-// generic "first operand is the pattern, later operands are search roots"
-// shape already used for grep and ripgrep.
-const FD_PATTERN_VALUE_FLAGS: ReadonlySet<string> = new Set(["--and"]);
-const FD_PATH_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--base-directory",
-  "--ignore-file",
-  "--search-path",
-]);
-const FD_COMMAND_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--exec",
-  "--exec-batch",
-  "-X",
-  "-x",
-]);
-const FD_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  ...FD_COMMAND_VALUE_FLAGS,
-  ...FD_PATH_VALUE_FLAGS,
-  ...FD_PATTERN_VALUE_FLAGS,
-  "--batch-size",
-  "--changed-after",
-  "--changed-before",
-  "--changed-within",
-  "--color",
-  "--exact-depth",
-  "--exclude",
-  "--extension",
-  "--format",
-  "--max-depth",
-  "--max-results",
-  "--min-depth",
-  "--newer",
-  "--older",
-  "--owner",
-  "--path-separator",
-  "--size",
-  "--threads",
-  "--type",
-  "-c",
-  "-d",
-  "-E",
-  "-e",
-  "-j",
-  "-o",
-  "-S",
-  "-t",
-]);
-const FD_SEARCH_COMMAND_DIALECT: SearchCommandDialect = {
-  commandValueFlags: FD_COMMAND_VALUE_FLAGS,
-  optionalAttachedValueFlags: new Set(),
-  pathOnlyFlags: new Set(),
-  pathValueFlags: FD_PATH_VALUE_FLAGS,
-  patternValueFlags: FD_PATTERN_VALUE_FLAGS,
-  valueFlags: FD_VALUE_FLAGS,
-};
-const SEARCH_COMMAND_DIALECTS: Readonly<Record<string, SearchCommandDialect>> =
-  {
-    fd: FD_SEARCH_COMMAND_DIALECT,
-    fdfind: FD_SEARCH_COMMAND_DIALECT,
-    grep: {
-      commandValueFlags: new Set(),
-      optionalAttachedValueFlags: new Set(["--color", "--colour"]),
-      pathOnlyFlags: new Set(),
-      pathValueFlags: GREP_PATH_VALUE_FLAGS,
-      patternValueFlags: GREP_PATTERN_VALUE_FLAGS,
-      valueFlags: GREP_VALUE_FLAGS,
-    },
-    rg: {
-      commandValueFlags: RIPGREP_COMMAND_VALUE_FLAGS,
-      optionalAttachedValueFlags: new Set(),
-      pathOnlyFlags: new Set(["--files"]),
-      pathValueFlags: RIPGREP_PATH_VALUE_FLAGS,
-      patternValueFlags: RIPGREP_PATTERN_VALUE_FLAGS,
-      valueFlags: RIPGREP_VALUE_FLAGS,
-    },
-  };
-const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
-  {
-    env: new Set(["--chdir", "--split-string", "--unset", "-C", "-S", "-u"]),
-    exec: new Set(["-a"]),
-    nice: new Set(["--adjustment", "-n"]),
-    sudo: new Set([
-      "--chdir",
-      "--chroot",
-      "--close-from",
-      "--command-timeout",
-      "--group",
-      "--host",
-      "--other-user",
-      "--prompt",
-      "--role",
-      "--type",
-      "--user",
-      "-C",
-      "-D",
-      "-g",
-      "-h",
-      "-p",
-      "-r",
-      "-R",
-      "-t",
-      "-T",
-      "-u",
-      "-U",
-    ]),
-    time: new Set(["--format", "--output", "-f", "-o"]),
-  };
-// The subset of wrapper options whose operand is a directory the wrapped
-// command then runs inside. `env -C/--chdir` and `sudo -D/--chdir` change the
-// working directory; `sudo -R/--chroot` changes the filesystem root. The other
-// wrappers this guard unwraps take no directory operand: `command` and `nohup`
-// take no value flags, `exec -a` takes a process name, `nice -n` takes a number,
-// `sudo -C` is `--close-from` (a descriptor number, not a directory), and
-// `time -f/-o` take a format string and an output file.
-const SHELL_WRAPPER_DIRECTORY_VALUE_FLAGS: Readonly<
-  Record<string, ReadonlySet<string>>
-> = {
-  env: new Set(["--chdir", "-C"]),
-  sudo: new Set(["--chdir", "--chroot", "-D", "-R"]),
-};
-// Git options whose operand names a directory the command then reads or writes
-// through, so the operand is a route into that directory rather than an opaque
-// value. Both are also listed in GIT_GLOBAL_VALUE_FLAGS, which keeps the flag
-// table complete; the route check runs first and consumes them.
-const GIT_DIRECTORY_ROUTE_FLAGS = ["--git-dir", "--work-tree"] as const;
-const GIT_GLOBAL_VALUE_FLAGS: ReadonlySet<string> = new Set([
-  "--config-env",
-  "--git-dir",
-  "--namespace",
-  "--work-tree",
-  "-c",
-]);
-// Git subcommands whose plain positional operands are pathspecs, so a bare
-// owner name reads or enumerates the protected tree the way `ls packages` does.
-// Verified against the Git 2.43 synopses, each of which spells the positionals
-// as paths with no revision operand to disambiguate:
-// `git add [<options>] [--] <pathspec>...`, `git check-ignore [<options>]
-// <pathname>...`, `git clean [<options>] [--] <path>...`, `git ls-files
-// [<options>] [<file>...]`, `git mv [<options>] <source>... <destination>`,
-// `git rm [<options>] [--] <pathspec>...`, and `git status [<options>] [--]
-// [<pathspec>...]`.
-//
-// Subcommands whose leading positionals can be revisions (`git log packages`,
-// `git grep TODO`) are deliberately absent: their operands only become
-// pathspecs after `--`, which {@link gitPathspecOperandRoutes} handles for
-// every subcommand.
-const GIT_PATHSPEC_OPERAND_SUBCOMMANDS: ReadonlySet<string> = new Set([
-  "add",
-  "check-ignore",
-  "clean",
-  "ls-files",
-  "mv",
-  "rm",
-  "status",
-]);
-const GIT_GLOBAL_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
-  "--bare",
-  "--glob-pathspecs",
-  "--icase-pathspecs",
-  "--literal-pathspecs",
-  "--no-advice",
-  "--no-lazy-fetch",
-  "--no-optional-locks",
-  "--no-pager",
-  "--no-replace-objects",
-  "--noglob-pathspecs",
-  "--paginate",
-  "-P",
-  "-p",
-]);
-
-// Package-runner options whose operand is a directory the runner then installs
-// into or runs its command inside, so the operand is a route into that
-// directory rather than an opaque value. These runners are not
-// {@link PROTECTED_ROOT_PATH_COMMANDS} members, and a bare owner name carries
-// no separator for the generic path scan to read, so without this table
-// `npm --prefix packages install` reaches into the protected tree unreported.
-//
-// Verified against the installed tools:
-// - npm 11.12.1: `prefix` is defined with `short: 'C'`, and nopt resolves both
-//   `--prefix packages` and `-C packages` to the prefix path.
-// - pnpm 11.7.0: `pnpm -C dir root` and `pnpm --dir=dir root` both report the
-//   directory's `node_modules`.
-// - Yarn's global `--cwd`, already tracked in RUNNER_VALUE_FLAGS.
-//
-// Only the detached (`--prefix packages`) and attached-long
-// (`--prefix=packages`) spellings are routes. The fused short spelling is
-// rejected by both parsers (nopt reads `-Cpackages` as the unknown option
-// `Cpackages`; pnpm errors with "Unknown option: 'Cpackages'"), matching
-// `git -C`. `bun --cwd` needs no entry: bun is a
-// {@link PROTECTED_ROOT_PATH_COMMANDS} member, so its detached operand is
-// already a checked token and its attached operand is covered by
-// {@link COMMAND_DIRECTORY_VALUE_FLAGS}.
-const RUNNER_DIRECTORY_ROUTE_FLAGS: Readonly<
-  Record<string, readonly string[]>
-> = {
-  npm: ["--prefix", "-C"],
-  pnpm: ["--dir", "-C"],
-  yarn: ["--cwd"],
-};
 
 const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
 const PATH_CANDIDATE_PATTERN =
   /(?<![a-z0-9_.:\\/-])(?:[a-z]:)?[\\/]?(?:[a-z0-9._-]+[\\/])+[a-z0-9._-]+/giu;
-// Literal shell working-directory expansions. `$(pwd)` and the backtick
-// equivalent are command substitutions that Bash resolves to the same directory
-// as `$PWD`, and `$(PWD)` is the Make spelling of the same variable, so all of
-// them normalize together. Bare `$pwd` stays untouched: it is a different
-// variable, and `` `PWD` `` would be a differently named command.
-const WORKING_DIRECTORY_VARIABLE_PATTERN =
-  /\$\{PWD\}|\$\(\s*(?:pwd|PWD)\s*\)|`\s*pwd\s*`|\$PWD(?![A-Za-z0-9_])/gu;
-// Markdown inline destinations, Markdown reference definitions, and HTML
-// `href`/`src` attributes. The destination stops at shell/Markdown delimiters.
-const LINK_DESTINATION_PATTERN =
-  /(\][(:]\s*<?|\b(?:href|src)\s*=\s*["']?)([^\s()<>"'`\r\n]+)/giu;
-const ABSOLUTE_LINK_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//iu;
 // Value-taking forms from `bun run --help`. Keeping this finite prevents an
 // unknown flag from swallowing the package-script token.
 const BUN_RUN_REQUIRED_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -689,11 +298,6 @@ const NPM_LIFECYCLE_SCRIPTS: Readonly<Record<string, string>> = {
   tst: "test",
 };
 
-interface CommandToken {
-  readonly end: number;
-  readonly value: string;
-}
-
 export function isGeneratedPublicPath(path: string): boolean {
   return path.startsWith(PUBLIC_ROOT) && path.length > PUBLIC_ROOT.length;
 }
@@ -758,30 +362,24 @@ function matchingProtectedBoundaryRules(
   context: ProtectedBoundaryContext,
   shellCommand = false
 ): readonly PublicClosureRule[] {
-  const shellText = expandWorkingDirectoryVariables(text, repoRoot);
-  const normalizedTextWithUrls = normalizeLiteralShellPathQuotes(
-    expandWorkingDirectoryVariables(
-      decodeRelativeLinkDestinations(text),
-      repoRoot
-    ).replaceAll("\\", "/")
+  const closure = normalizeClosureText(
+    text,
+    repoRoot,
+    context === "package-script" || shellCommand
   );
-  const normalizedText = withoutHttpUrls(normalizedTextWithUrls);
-  const repositoryPaths = repositoryHttpPaths(normalizedTextWithUrls);
   const rules = new Set<PublicClosureRule>(
-    CLOSURE_PATTERNS.filter(({ pattern }) => pattern.test(normalizedText)).map(
-      ({ rule }) => rule
-    )
+    CLOSURE_PATTERNS.filter(({ pattern }) =>
+      pattern.test(closure.pathText)
+    ).map(({ rule }) => rule)
   );
   for (const owner of PROTECTED_PATH_OWNERS) {
     if (
       hasProtectedPathOwnerReference(
-        normalizedText,
         owner.path,
+        closure,
         repoRoot,
         context,
-        repositoryPaths,
-        shellCommand,
-        shellText
+        shellCommand
       )
     ) {
       rules.add(owner.rule);
@@ -791,14 +389,13 @@ function matchingProtectedBoundaryRules(
 }
 
 function hasProtectedPathOwnerReference(
-  normalizedText: string,
   ownerPath: string,
+  closure: NormalizedClosureText,
   repoRoot: string | undefined,
   context: ProtectedBoundaryContext,
-  repositoryPaths: readonly string[],
-  shellCommand: boolean,
-  shellText: string
+  shellCommand: boolean
 ): boolean {
+  const normalizedText = closure.pathText;
   const normalizedOwner = ownerPath.toLowerCase();
   const owns = (candidate: string): boolean =>
     candidate === normalizedOwner ||
@@ -811,13 +408,7 @@ function hasProtectedPathOwnerReference(
     ? posix.normalize(`${normalizedRoot}/${normalizedOwner}`)
     : undefined;
 
-  const pathCandidateText = collapseRepeatedPathSeparators(
-    withoutSearchCommandSegments(
-      normalizedText,
-      context === "package-script" || shellCommand
-    )
-  );
-  for (const match of pathCandidateText.matchAll(PATH_CANDIDATE_PATTERN)) {
+  for (const match of closure.candidateText.matchAll(PATH_CANDIDATE_PATTERN)) {
     if (match[0].endsWith("/.")) continue;
     const candidate = posix
       .normalize(match[0].replace(/[!,.?:;]+$/u, ""))
@@ -840,7 +431,7 @@ function hasProtectedPathOwnerReference(
 
   if (
     absoluteOwnerPath !== undefined &&
-    fileUrlPaths(normalizedText).some(
+    closure.fileUrlPaths.some(
       (candidate) =>
         candidate === absoluteOwnerPath ||
         candidate.startsWith(`${absoluteOwnerPath}/`)
@@ -849,21 +440,25 @@ function hasProtectedPathOwnerReference(
     return true;
   }
 
-  if (repositoryPaths.some(owns)) return true;
+  if (closure.repositoryPaths.some(owns)) return true;
 
   if (
     (context === "package-script" &&
-      hasProtectedRootCommandArgument(shellText, normalizedOwner, repoRoot)) ||
+      hasProtectedRootCommandArgument(
+        closure.shellText,
+        normalizedOwner,
+        repoRoot
+      )) ||
     (context === "generated" &&
       (hasGeneratedShellOwnerToken(
-        shellText,
+        closure.shellText,
         normalizedOwner,
         repoRoot,
         ownerPath !== "scripts"
       ) ||
         (shellCommand &&
           hasProtectedRootCommandArgument(
-            shellText,
+            closure.shellText,
             normalizedOwner,
             repoRoot,
             ownerPath !== "scripts"
@@ -893,866 +488,61 @@ function hasProtectedPathOwnerReference(
 }
 
 /**
- * Resolves literal `$PWD`, `${PWD}`, `$(pwd)`, and `` `pwd` ``
- * working-directory expansions against the repository root so shell guidance
- * cannot conceal a protected route behind the expansion prefix. Without a known
- * root the expansion becomes `.`, which keeps the remainder
- * repository-relative.
+ * Binds an owner to the search-dialect parser, including the recursion back
+ * into {@link hasProtectedRootCommandArgument} that `fd --exec cat …` needs.
  */
-function expandWorkingDirectoryVariables(
-  text: string,
-  repoRoot: string | undefined
-): string {
-  if (!(text.includes("$") || text.includes("`"))) return text;
-  const normalizedRoot = repoRoot
-    ?.replaceAll("\\", "/")
-    .replace(/\/+$/u, "")
-    .trim();
-  const replacement =
-    normalizedRoot === undefined || normalizedRoot.length === 0
-      ? "."
-      : normalizedRoot;
-  return text.replace(WORKING_DIRECTORY_VARIABLE_PATTERN, () => replacement);
+function searchCommandOwner(
+  normalizedOwner: string,
+  repoRoot: string | undefined,
+  allowDirectOwner: boolean
+): SearchCommandOwner {
+  return {
+    allowDirectOwner,
+    matchesNestedCommand: (command) =>
+      hasProtectedRootCommandArgument(
+        command,
+        normalizedOwner,
+        repoRoot,
+        allowDirectOwner
+      ),
+    normalizedOwner,
+    repoRoot,
+  };
 }
 
 /**
- * Percent-decodes relative Markdown and HTML link destinations before the
- * closure rules run. Absolute URLs keep their own decoding path, and malformed
- * escapes degrade to per-escape decoding so a single invalid sequence neither
- * throws nor hides the valid escapes around it.
+ * Dispatches one command line across every tool grammar the guard knows. Each
+ * grammar reports whether the command routes into the protected owner; this is
+ * the only place that knows the full set.
  */
-function decodeRelativeLinkDestinations(text: string): string {
-  if (!text.includes("%")) return text;
-  return text.replace(
-    LINK_DESTINATION_PATTERN,
-    (match: string, prefix: string, destination: string) =>
-      isRelativeLinkDestination(destination)
-        ? `${prefix}${decodePercentEncodedPath(destination)}`
-        : match
-  );
-}
-
-function isRelativeLinkDestination(destination: string): boolean {
-  if (destination.length === 0 || destination.startsWith("#")) return false;
-  if (destination.startsWith("//")) return false;
-  return !ABSOLUTE_LINK_SCHEME_PATTERN.test(destination);
-}
-
-function decodePercentEncodedPath(value: string): string {
-  if (!value.includes("%")) return value;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value.replace(/%[0-9a-f]{2}/giu, (escape) => {
-      try {
-        return decodeURIComponent(escape);
-      } catch {
-        return escape;
-      }
-    });
-  }
-}
-
-function normalizeLiteralShellPathQuotes(text: string): string {
-  let normalized = text;
-  while (true) {
-    const next = normalized.replace(/(["'])([a-z0-9._@:+\/-]*)\1/giu, "$2");
-    if (next === normalized) return normalized;
-    normalized = next;
-  }
-}
-
-function collapseRepeatedPathSeparators(text: string): string {
-  return text.replace(/\/{2,}/gu, "/");
-}
-
-function withoutHttpUrls(text: string): string {
-  return text.replace(/\bhttps?:\/\/[^\s`"'<>]+/giu, " ");
-}
-
-function fileUrlPaths(text: string): readonly string[] {
-  const paths: string[] = [];
-  for (const match of text.matchAll(/\bfile:\/\/\/[^\s`"'<>]+/giu)) {
-    const value = match[0].replace(/[!,.?:;]+$/u, "");
-    try {
-      let path = decodeURIComponent(new URL(value).pathname).replaceAll(
-        "\\",
-        "/"
-      );
-      if (/^\/[a-z]:\//iu.test(path)) path = path.slice(1);
-      paths.push(posix.normalize(path).toLowerCase());
-    } catch {
-      // Malformed file URLs are not treated as repository paths.
-    }
-  }
-  return paths;
-}
-
-function repositoryHttpPaths(text: string): readonly string[] {
-  const paths: string[] = [];
-  const appendSuffixes = (
-    segments: readonly string[],
-    firstPathIndex: number
-  ): void => {
-    for (let index = firstPathIndex; index < segments.length; index += 1) {
-      paths.push(
-        posix.normalize(segments.slice(index).join("/")).toLowerCase()
-      );
-    }
-  };
-  for (const match of text.matchAll(/\bhttps?:\/\/[^\s`"'<>]+/giu)) {
-    const value = trimUrlClosingDelimiters(match[0].replace(/[!,.?:;]+$/u, ""));
-    try {
-      const url = new URL(value);
-      const segments = decodeURIComponent(url.pathname)
-        .split("/")
-        .filter(Boolean);
-      const host = url.hostname.toLowerCase();
-      const isRepository =
-        segments[0]?.toLowerCase() === PUBLIC_REPOSITORY_OWNER &&
-        segments[1]?.toLowerCase() === PUBLIC_REPOSITORY_NAME;
-      if (!isRepository) continue;
-
-      if (
-        host === "github.com" &&
-        GITHUB_FILE_VIEW_ROUTES.has(segments[2]?.toLowerCase() ?? "") &&
-        segments.length > 4
-      ) {
-        appendSuffixes(segments, 4);
-      } else if (host === "raw.githubusercontent.com" && segments.length > 3) {
-        appendSuffixes(segments, 3);
-      }
-    } catch {
-      // Malformed or undecodable URLs are not treated as repository paths.
-    }
-  }
-  return paths;
-}
-
-function trimUrlClosingDelimiters(value: string): string {
-  let trimmed = value;
-  for (const [opening, closing] of [
-    ["(", ")"],
-    ["[", "]"],
-    ["{", "}"],
-  ] as const) {
-    while (
-      trimmed.endsWith(closing) &&
-      [...trimmed].filter((character) => character === closing).length >
-        [...trimmed].filter((character) => character === opening).length
-    ) {
-      trimmed = trimmed.slice(0, -1);
-    }
-  }
-  return trimmed;
-}
-
-function normalizeShellToken(token: string): string {
-  return token.replace(/^\.\//u, "").replace(/\/+$/u, "");
-}
-
 function hasProtectedRootCommandArgument(
   command: string,
   normalizedOwner: string,
   repoRoot?: string,
   allowDirectOwner = true
 ): boolean {
-  return readShellCommandSegments(markLiteralShellBraces(command)).some(
-    (segment) => {
-      const tokens = unwrapShellCommand(segment);
-      const normalizedTokens = tokens.map((token) =>
-        normalizeShellToken(token).toLowerCase()
-      );
-      return (
-        (PROTECTED_ROOT_PATH_COMMANDS.has(normalizedTokens[0] ?? "") &&
-          (normalizedTokens.slice(1).includes(normalizedOwner) ||
-            hasCommandDirectoryOptionRoute(
-              tokens,
-              normalizedOwner,
-              repoRoot
-            ))) ||
-        hasSearchCommandProtectedPathArgument(
-          tokens,
-          normalizedOwner,
-          repoRoot,
-          allowDirectOwner
-        ) ||
-        hasGitProtectedDirectoryArgument(tokens, normalizedOwner) ||
-        hasPackageRunnerProtectedDirectoryArgument(
-          tokens,
-          normalizedOwner,
-          repoRoot
-        ) ||
-        hasShellWrapperProtectedDirectoryArgument(
-          segment,
-          normalizedOwner,
-          repoRoot
-        )
-      );
-    }
-  );
-}
-
-function hasSearchCommandProtectedPathArgument(
-  tokens: readonly string[],
-  normalizedOwner: string,
-  repoRoot?: string,
-  allowDirectOwner = true
-): boolean {
-  const dialect = SEARCH_COMMAND_DIALECTS[tokens[0]?.toLowerCase() ?? ""];
-  if (!dialect) return false;
-  let hasPattern = false;
-  let pathsOnly = false;
-  let parseOptions = true;
-
-  for (let index = 1; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
-    if (parseOptions && token === "--") {
-      parseOptions = false;
-      continue;
-    }
-    if (parseOptions && token.startsWith("-") && token !== "-") {
-      if (dialect.pathOnlyFlags.has(token)) {
-        pathsOnly = true;
-        continue;
-      }
-      const longFlag = token.split("=", 1)[0] ?? token;
-      const shortValue = searchCommandShortValueFlag(token, dialect.valueFlags);
-      const valueFlag = dialect.valueFlags.has(token)
-        ? token
-        : dialect.valueFlags.has(longFlag)
-          ? longFlag
-          : shortValue?.flag;
-      if (!valueFlag) continue;
-      if (dialect.patternValueFlags.has(valueFlag)) hasPattern = true;
-      const hasAttachedValue = token.startsWith("--")
-        ? token.includes("=")
-        : shortValue?.attached === true;
-      if (
-        dialect.optionalAttachedValueFlags.has(valueFlag) &&
-        !hasAttachedValue
-      ) {
-        continue;
-      }
-      let operand: ReturnType<typeof readSearchCommandShellWord>;
-      if (hasAttachedValue) {
-        const value = token.startsWith("--")
-          ? token.slice(token.indexOf("=") + 1)
-          : token.slice(shortValue?.valueStart ?? token.length);
-        operand = { lastIndex: index, values: [value] };
-      } else {
-        operand = readSearchCommandShellWord(tokens, index + 1);
-      }
-      if (!operand) return false;
-      if (
-        dialect.pathValueFlags.has(valueFlag) &&
-        operand.values.some((value) =>
-          searchCommandPathMatchesOwner(
-            value,
-            normalizedOwner,
-            repoRoot,
-            allowDirectOwner
-          )
-        )
-      ) {
-        return true;
-      }
-      if (
-        dialect.commandValueFlags.has(valueFlag) &&
-        operand.values.some(
-          (value) =>
-            searchCommandPathMatchesOwner(
-              value,
-              normalizedOwner,
-              repoRoot,
-              allowDirectOwner
-            ) ||
-            searchCommandValueMatchesOwner(
-              value,
-              normalizedOwner,
-              repoRoot,
-              allowDirectOwner
-            ) ||
-            hasProtectedRootCommandArgument(
-              value,
-              normalizedOwner,
-              repoRoot,
-              allowDirectOwner
-            )
-        )
-      ) {
-        return true;
-      }
-      if (!hasAttachedValue) {
-        index = operand.lastIndex;
-      }
-      continue;
-    }
-
-    const operand = readSearchCommandShellWord(tokens, index);
-    if (!operand) return false;
-    index = operand.lastIndex;
-    if (!(pathsOnly || hasPattern)) {
-      hasPattern = true;
-      continue;
-    }
-    if (
-      operand.values.some((value) =>
-        searchCommandPathMatchesOwner(
-          value,
-          normalizedOwner,
-          repoRoot,
-          allowDirectOwner
-        )
-      )
-    )
-      return true;
-  }
-  return false;
-}
-
-function searchCommandValueMatchesOwner(
-  command: string,
-  normalizedOwner: string,
-  repoRoot?: string,
-  allowDirectOwner = true
-): boolean {
-  return readShellCommandSegments(markLiteralShellBraces(command)).some(
-    (segment) => {
-      const tokens = unwrapShellCommand(segment);
-      return (
-        PROTECTED_ROOT_PATH_COMMANDS.has(tokens[0]?.toLowerCase() ?? "") &&
-        tokens
-          .slice(1)
-          .some((token) =>
-            searchCommandPathMatchesOwner(
-              token,
-              normalizedOwner,
-              repoRoot,
-              allowDirectOwner
-            )
-          )
-      );
-    }
-  );
-}
-
-function readSearchCommandShellWord(
-  tokens: readonly string[],
-  index: number
-):
-  | { readonly lastIndex: number; readonly values: readonly string[] }
-  | undefined {
-  const first = tokens[index];
-  if (first === undefined) return undefined;
-  const opening = first.indexOf("{");
-  if (opening < 0) return { lastIndex: index, values: [first] };
-
-  let lastIndex = index;
-  while (
-    lastIndex < tokens.length &&
-    !(tokens[lastIndex] ?? "").includes("}")
-  ) {
-    lastIndex += 1;
-  }
-  if (lastIndex >= tokens.length) return { lastIndex: index, values: [first] };
-  const combined = tokens.slice(index, lastIndex + 1).join(",");
-  const closing = combined.indexOf("}", opening + 1);
-  if (closing < 0) return { lastIndex: index, values: [first] };
-  const prefix = combined.slice(0, opening);
-  const suffix = combined.slice(closing + 1);
-  const alternatives = combined.slice(opening + 1, closing).split(",");
-  return {
-    lastIndex,
-    values: alternatives.map(
-      (alternative) => `${prefix}${alternative}${suffix}`
-    ),
-  };
-}
-
-function searchCommandPathMatchesOwner(
-  operand: string,
-  normalizedOwner: string,
-  repoRoot?: string,
-  allowDirectOwner = true
-): boolean {
-  const normalizedPath = posix
-    .normalize(
-      collapseRepeatedPathSeparators(
-        normalizeShellToken(operand.replaceAll("\\", "/"))
-      )
-    )
-    .toLowerCase();
-  const normalizedRoot = repoRoot
-    ?.replaceAll("\\", "/")
-    .replace(/\/+$/u, "")
-    .toLowerCase();
-  const absoluteOwner = normalizedRoot
-    ? posix.normalize(`${normalizedRoot}/${normalizedOwner}`)
-    : undefined;
-  if (posix.isAbsolute(normalizedPath)) {
-    if (!normalizedRoot) return false;
-    if (
-      absoluteOwner &&
-      (normalizedPath === absoluteOwner ||
-        normalizedPath.startsWith(`${absoluteOwner}/`))
-    ) {
-      return true;
-    }
-    if (!normalizedPath.startsWith(`${normalizedRoot}/`)) return false;
-    return searchCommandGlobContainsOwner(
-      normalizedPath.slice(normalizedRoot.length + 1),
-      normalizedOwner
+  return readShellSegments(command).some((segment) => {
+    const tokens = unwrapShellCommand(segment);
+    const normalizedTokens = tokens.map((token) =>
+      normalizeShellToken(token).toLowerCase()
     );
-  }
-  const repositoryRelative = normalizedPath.replace(/^(?:\.\.\/)+/u, "");
-  const isParentRelative = repositoryRelative !== normalizedPath;
-  return (
-    ((allowDirectOwner || isParentRelative) &&
-      (repositoryRelative === normalizedOwner ||
-        repositoryRelative.startsWith(`${normalizedOwner}/`))) ||
-    (allowDirectOwner &&
-      searchCommandGlobContainsOwner(repositoryRelative, normalizedOwner))
-  );
-}
-
-function searchCommandGlobContainsOwner(
-  operand: string,
-  normalizedOwner: string
-): boolean {
-  if (!/(?:\*|\?|\[)/u.test(operand)) return false;
-  const segments = operand.split("/");
-  const ownerSegments = normalizedOwner.split("/");
-  return segments.some((_, index) =>
-    ownerSegments.every(
-      (ownerSegment, offset) => segments[index + offset] === ownerSegment
-    )
-  );
-}
-
-function searchCommandShortValueFlag(
-  token: string,
-  valueFlags: ReadonlySet<string>
-):
-  | {
-      readonly attached: boolean;
-      readonly flag: string;
-      readonly valueStart: number;
-    }
-  | undefined {
-  if (!/^-[^-]/u.test(token)) return undefined;
-  for (let index = 1; index < token.length; index += 1) {
-    const flag = `-${token[index] ?? ""}`;
-    if (valueFlags.has(flag)) {
-      return {
-        attached: index + 1 < token.length,
-        flag,
-        valueStart: index + 1,
-      };
-    }
-  }
-  return undefined;
-}
-
-function withoutSearchCommandSegments(
-  text: string,
-  assumeShellCommand: boolean
-): string {
-  const withoutSegments = (command: string): string =>
-    readShellCommandSegments(markLiteralShellBraces(command))
-      .filter(
-        (segment) =>
-          SEARCH_COMMAND_DIALECTS[
-            unwrapShellCommand(segment)[0]?.toLowerCase() ?? ""
-          ] === undefined
-      )
-      .map((segment) => segment.join(" "))
-      .join(" ");
-  if (assumeShellCommand) return withoutSegments(text);
-  return text.replace(/`([^`\r\n]+)`/gu, (wrapped, command: string) => {
-    const remaining = withoutSegments(command);
-    return remaining === command ? wrapped : remaining;
-  });
-}
-
-function markLiteralShellBraces(text: string): string {
-  return text.replace(/'(?:[^']*)'|"(?:\\.|[^"])*"|\\[{}]/gu, (literal) =>
-    literal
-      .replaceAll("\\{", LITERAL_OPEN_BRACE)
-      .replaceAll("\\}", LITERAL_CLOSE_BRACE)
-      .replaceAll("{", LITERAL_OPEN_BRACE)
-      .replaceAll("}", LITERAL_CLOSE_BRACE)
-  );
-}
-
-function searchCommandSegments(
-  text: string,
-  assumeShellCommand: boolean
-): readonly (readonly string[])[] {
-  const commands = assumeShellCommand
-    ? [text]
-    : [...text.matchAll(/`([^`\r\n]+)`/gu)].map((match) => match[1] ?? "");
-  return commands.flatMap((command) =>
-    readShellCommandSegments(markLiteralShellBraces(command))
-      .map(unwrapShellCommand)
-      .filter(
-        (tokens) =>
-          SEARCH_COMMAND_DIALECTS[tokens[0]?.toLowerCase() ?? ""] !== undefined
-      )
-  );
-}
-
-/**
- * Collects the pathspec operands a Git subcommand reads or writes through, so
- * `git ls-files packages` and `git grep TODO -- packages` cannot enumerate or
- * search the protected tree while the closure check passes. Two operand shapes
- * carry pathspecs:
- *
- * - Every plain operand of a {@link GIT_PATHSPEC_OPERAND_SUBCOMMANDS} member,
- *   whose synopsis has no revision positional to disambiguate.
- * - Every operand after `--`, which Git universally reads as a pathspec.
- *
- * Option tokens are skipped rather than parsed for arity: Git's per-subcommand
- * option tables are too large to model, and a detached option value that spells
- * the owner (`git ls-files -x packages`) still names the protected tree in
- * public guidance, so treating it as a route errs toward reporting.
- */
-function gitPathspecOperandRoutes(
-  tokens: readonly string[],
-  subcommandIndex: number,
-  resolveAgainstDirectory: (operand: string) => string
-): string[] {
-  let pathspecsOnly = GIT_PATHSPEC_OPERAND_SUBCOMMANDS.has(
-    tokens[subcommandIndex]?.toLowerCase() ?? ""
-  );
-  const routes: string[] = [];
-  for (let index = subcommandIndex + 1; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
-    if (token === "--") {
-      pathspecsOnly = true;
-      continue;
-    }
-    if (!pathspecsOnly || token.length === 0 || token.startsWith("-")) continue;
-    routes.push(resolveAgainstDirectory(token));
-  }
-  return routes;
-}
-
-function hasGitProtectedDirectoryArgument(
-  tokens: readonly string[],
-  normalizedOwner: string
-): boolean {
-  if (tokens[0]?.toLowerCase() !== "git") return false;
-  let directory = ".";
-  const routes: string[] = [];
-  const resolveAgainstDirectory = (operand: string): string => {
-    const normalizedOperand = operand.replaceAll("\\", "/");
-    return posix.isAbsolute(normalizedOperand)
-      ? posix.normalize(normalizedOperand)
-      : posix.normalize(posix.join(directory, normalizedOperand));
-  };
-  for (let index = 1; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
-    // Only the detached spelling is a route. Git's top-level option parser is
-    // hand-rolled (`handle_options` in git.c compares whole arguments) rather
-    // than parse-options or getopt, so it rejects both the attached-short
-    // spelling (`git -Cscripts` -> "unknown option: -Cscripts") and bundling
-    // (`git -pC scripts`). This is why `-Cdir` is handled for shell wrappers,
-    // whose GNU getopt parsing does accept it, but deliberately not here.
-    if (token === "-C") {
-      const operand = tokens[index + 1];
-      if (operand === undefined || operand.startsWith("-")) return false;
-      directory = resolveAgainstDirectory(operand);
-      index += 1;
-      continue;
-    }
-    // `git --work-tree=<path>` points Git at a tree and `git --git-dir=<path>`
-    // points it at a repository, so both spellings of both options route into
-    // the named directory the way `-C` does. Git resolves each operand relative
-    // to the directory in effect where the option appears.
-    const routeFlag = GIT_DIRECTORY_ROUTE_FLAGS.find(
-      (flag) => token === flag || token.startsWith(`${flag}=`)
-    );
-    if (routeFlag !== undefined) {
-      let operand: string;
-      if (token === routeFlag) {
-        const detached = tokens[index + 1];
-        if (detached === undefined || detached.startsWith("-")) return false;
-        operand = detached;
-        index += 1;
-      } else {
-        operand = token.slice(routeFlag.length + 1);
-        if (operand.length === 0) continue;
-      }
-      routes.push(resolveAgainstDirectory(operand));
-      continue;
-    }
-    if (token === "--") break;
-    // The first plain token ends Git's global option parsing and names the
-    // subcommand, whose own operands can still be pathspecs into the protected
-    // tree.
-    if (!token.startsWith("-")) {
-      routes.push(
-        ...gitPathspecOperandRoutes(tokens, index, resolveAgainstDirectory)
-      );
-      break;
-    }
-    if (GIT_GLOBAL_VALUE_FLAGS.has(token)) {
-      if (!tokens[index + 1]) return false;
-      index += 1;
-      continue;
-    }
-    if (
-      GIT_GLOBAL_BOOLEAN_FLAGS.has(token) ||
-      token.startsWith("--exec-path=") ||
-      [...GIT_GLOBAL_VALUE_FLAGS].some(
-        (flag) => flag.startsWith("--") && token.startsWith(`${flag}=`)
-      )
-    ) {
-      continue;
-    }
-    return false;
-  }
-  return [directory, ...routes].some((route) => {
-    const normalizedRoute = route.toLowerCase();
     return (
-      normalizedRoute === normalizedOwner ||
-      normalizedRoute.startsWith(`${normalizedOwner}/`)
+      (isProtectedRootPathCommand(normalizedTokens[0] ?? "") &&
+        (normalizedTokens.slice(1).includes(normalizedOwner) ||
+          hasCommandDirectoryOptionRoute(tokens, normalizedOwner, repoRoot))) ||
+      hasSearchCommandProtectedPathArgument(
+        tokens,
+        searchCommandOwner(normalizedOwner, repoRoot, allowDirectOwner)
+      ) ||
+      hasGitProtectedDirectoryArgument(tokens, normalizedOwner) ||
+      hasPackageRunnerProtectedDirectoryArgument(tokens, normalizedOwner, repoRoot) ||
+      hasShellWrapperProtectedDirectoryArgument(
+        segment,
+        normalizedOwner,
+        repoRoot
+      )
     );
   });
-}
-
-/**
- * Reads the operand fused into an option token, covering the attached long
- * (`--target-directory=dir`) and attached short (`-tdir`, including the bundled
- * `-rtdir`) spellings GNU option parsing accepts.
- */
-function attachedOptionValue(
-  token: string,
-  flags: ReadonlySet<string>
-): string | undefined {
-  if (token.startsWith("--")) {
-    const separator = token.indexOf("=");
-    if (separator <= 0 || !flags.has(token.slice(0, separator))) {
-      return undefined;
-    }
-    const attached = token.slice(separator + 1);
-    return attached.length > 0 ? attached : undefined;
-  }
-  const shortValue = searchCommandShortValueFlag(token, flags);
-  return shortValue?.attached === true
-    ? token.slice(shortValue.valueStart)
-    : undefined;
-}
-
-/**
- * Reports whether a generic command routes into a protected directory through
- * an attached directory-valued option, so `cp README.md
- * --target-directory=packages` cannot write into the protected tree while the
- * closure check passes. Detached operands are already their own tokens, so the
- * caller's owner-token check covers `cp -t packages`; only the fused spellings
- * need parsing here. Direct owner routes count, matching `git -C` and the
- * wrapper `chdir` options: naming the owner as a command's working, target, or
- * destination directory is a repository route even where a bare owner-named
- * path would read as plugin-local.
- */
-function hasCommandDirectoryOptionRoute(
-  tokens: readonly string[],
-  normalizedOwner: string,
-  repoRoot?: string
-): boolean {
-  const directoryFlags =
-    COMMAND_DIRECTORY_VALUE_FLAGS[tokens[0]?.toLowerCase() ?? ""];
-  if (!directoryFlags) return false;
-  for (let index = 1; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
-    // Everything after `--` is a file operand, never an option.
-    if (token === "--") break;
-    if (!token.startsWith("-")) continue;
-    const operand = attachedOptionValue(token, directoryFlags);
-    if (
-      operand !== undefined &&
-      searchCommandPathMatchesOwner(operand, normalizedOwner, repoRoot)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Reports whether a package-runner invocation routes into a protected directory
- * through a directory-valued runner option, so `npm --prefix packages install`
- * cannot install into the protected tree while the closure check passes. The
- * runners are not {@link PROTECTED_ROOT_PATH_COMMANDS} members, so no bare
- * owner token is checked for them, and the operand carries no separator for the
- * generic path scan to read. Direct owner routes count, matching `git -C` and
- * the wrapper `chdir` options: naming the owner as a runner's working directory
- * is a repository route even where a bare owner-named path would read as
- * plugin-local.
- */
-function hasPackageRunnerProtectedDirectoryArgument(
-  tokens: readonly string[],
-  normalizedOwner: string,
-  repoRoot?: string
-): boolean {
-  const routeFlags =
-    RUNNER_DIRECTORY_ROUTE_FLAGS[tokens[0]?.toLowerCase() ?? ""];
-  if (!routeFlags) return false;
-  for (let index = 1; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
-    // Everything after `--` is forwarded to the invoked script, never parsed as
-    // a runner option.
-    if (token === "--") break;
-    const routeFlag = routeFlags.find(
-      (flag) =>
-        token === flag ||
-        (flag.startsWith("--") && token.startsWith(`${flag}=`))
-    );
-    if (routeFlag === undefined) continue;
-    let operand: string | undefined;
-    if (token === routeFlag) {
-      const detached = tokens[index + 1];
-      if (detached === undefined || detached.startsWith("-")) continue;
-      operand = detached;
-      index += 1;
-    } else {
-      operand = token.slice(routeFlag.length + 1);
-      if (operand.length === 0) continue;
-    }
-    if (searchCommandPathMatchesOwner(operand, normalizedOwner, repoRoot)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Reads the directory operand a wrapper option routes into, covering the
- * detached (`-C dir`, `--chdir dir`), attached long (`--chdir=dir`), and
- * attached short (`-Cdir`) spellings GNU option parsing accepts.
- */
-function shellWrapperDirectoryOperand(
-  wrapper: string,
-  token: string,
-  operand: string | undefined
-): string | undefined {
-  const directoryFlags = SHELL_WRAPPER_DIRECTORY_VALUE_FLAGS[wrapper];
-  if (!directoryFlags) return undefined;
-  if (directoryFlags.has(token)) {
-    return operand === undefined || operand.startsWith("-")
-      ? undefined
-      : operand;
-  }
-  const separator = token.indexOf("=");
-  if (
-    token.startsWith("--") &&
-    separator > 0 &&
-    directoryFlags.has(token.slice(0, separator))
-  ) {
-    const attached = token.slice(separator + 1);
-    return attached.length > 0 ? attached : undefined;
-  }
-  for (const flag of directoryFlags) {
-    if (
-      flag.length === 2 &&
-      !flag.startsWith("--") &&
-      token.startsWith(flag) &&
-      token.length > flag.length
-    ) {
-      return token.slice(flag.length);
-    }
-  }
-  return undefined;
-}
-
-/**
- * Walks the wrapper prefix (`sudo env -C dir …`) that precedes the real command
- * and reports both where the command starts and the directory operands the
- * wrappers route through. The directories are returned rather than discarded so
- * callers can check them before {@link unwrapShellCommand} drops them.
- */
-function readShellWrapperPrefix(tokens: readonly string[]): {
-  readonly directories: readonly string[];
-  readonly index: number;
-} {
-  const directories: string[] = [];
-  let index = 0;
-  if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
-  while (tokens[index] === "!") index += 1;
-  const skipAssignments = (): void => {
-    while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) index += 1;
-  };
-  skipAssignments();
-
-  while (index < tokens.length) {
-    const wrapper = (tokens[index] ?? "").toLowerCase();
-    if (
-      !["command", "env", "exec", "nice", "nohup", "sudo", "time"].includes(
-        wrapper
-      )
-    ) {
-      break;
-    }
-    index += 1;
-
-    while (index < tokens.length) {
-      const token = tokens[index] ?? "";
-      if (token === "--") {
-        index += 1;
-        break;
-      }
-      if (wrapper === "command" && (token === "-v" || token === "-V")) {
-        return { directories, index: tokens.length };
-      }
-      if (wrapper === "env" && /^[a-z_][a-z0-9_]*=/iu.test(token)) {
-        index += 1;
-        continue;
-      }
-      if (!token.startsWith("-")) break;
-      const directory = shellWrapperDirectoryOperand(
-        wrapper,
-        token,
-        tokens[index + 1]
-      );
-      if (directory !== undefined) directories.push(directory);
-      const valueFlags = SHELL_WRAPPER_VALUE_FLAGS[wrapper];
-      index += valueFlags?.has(token) === true && !token.includes("=") ? 2 : 1;
-    }
-    skipAssignments();
-  }
-
-  return { directories, index };
-}
-
-function unwrapShellCommand(tokens: readonly string[]): readonly string[] {
-  return tokens.slice(readShellWrapperPrefix(tokens).index);
-}
-
-/**
- * Reports whether a wrapper prefix changes into a protected directory before
- * the wrapped command runs, so `env -C packages pwd` cannot pass the closure
- * check by hiding the route in an operand {@link unwrapShellCommand} skips.
- * Direct owner routes always count here, matching `git -C`: an explicit
- * `chdir` into the owner is a repository route even where a bare owner-named
- * path would be read as plugin-local.
- */
-function hasShellWrapperProtectedDirectoryArgument(
-  tokens: readonly string[],
-  normalizedOwner: string,
-  repoRoot?: string
-): boolean {
-  let directory = ".";
-  for (const operand of readShellWrapperPrefix(tokens).directories) {
-    const normalizedOperand = operand.replaceAll("\\", "/");
-    directory = posix.isAbsolute(normalizedOperand)
-      ? posix.normalize(normalizedOperand)
-      : posix.normalize(posix.join(directory, normalizedOperand));
-    if (searchCommandPathMatchesOwner(directory, normalizedOwner, repoRoot)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function hasGeneratedShellOwnerToken(
@@ -1846,98 +636,6 @@ function markdownFenceDelimiter(
     info: (match?.groups?.info ?? "").trim(),
     length: marker.length,
   };
-}
-
-function readCommandToken(text: string, offset: number): CommandToken | null {
-  let start = offset;
-  while (/\s/u.test(text[start] ?? "")) start += 1;
-  while (text[start] === "`") start += 1;
-  let end = start;
-  let value = "";
-  let consumed = false;
-  while (end < text.length) {
-    const character = text[end] ?? "";
-    if (/[\s`();,<>|&]/u.test(character)) break;
-    if (character === '"' || character === "'") {
-      const quote = character;
-      consumed = true;
-      end += 1;
-      let closed = false;
-      while (end < text.length) {
-        const quotedCharacter = text[end] ?? "";
-        if (quotedCharacter === quote) {
-          closed = true;
-          end += 1;
-          break;
-        }
-        if (
-          quote === '"' &&
-          quotedCharacter === "\\" &&
-          end + 1 < text.length &&
-          /[$`"\\\n]/u.test(text[end + 1] ?? "")
-        ) {
-          end += 1;
-          value += text[end];
-        } else {
-          value += quotedCharacter;
-        }
-        end += 1;
-      }
-      if (!closed) return null;
-      continue;
-    }
-    if (character === "\\" && end + 1 < text.length) {
-      end += 1;
-      value += text[end];
-    } else {
-      value += character;
-    }
-    consumed = true;
-    end += 1;
-  }
-  return consumed ? { end, value } : null;
-}
-
-function readShellCommandSegments(
-  text: string
-): readonly (readonly string[])[] {
-  const segments: string[][] = [[]];
-  let offset = 0;
-  while (offset < text.length) {
-    while (/\s/u.test(text[offset] ?? "")) offset += 1;
-    if (
-      (segments.at(-1)?.length ?? 0) === 0 &&
-      text[offset] === ">" &&
-      /\s/u.test(text[offset + 1] ?? "")
-    ) {
-      segments.at(-1)?.push(">");
-      offset += 1;
-      continue;
-    }
-    const boundary = /^(?:&&|\|\||[;&|])/u.exec(text.slice(offset));
-    if (boundary) {
-      if ((segments.at(-1)?.length ?? 0) > 0) segments.push([]);
-      offset += boundary[0].length;
-      continue;
-    }
-    const redirection = /^(?:\d+)?(?:<>|>&|<&|>>|<<|>|<)/u.exec(
-      text.slice(offset)
-    );
-    if (redirection) {
-      offset += redirection[0].length;
-      const target = readCommandToken(text, offset);
-      offset = target?.end ?? offset;
-      continue;
-    }
-    const token = readCommandToken(text, offset);
-    if (token) {
-      segments.at(-1)?.push(token.value);
-      offset = token.end;
-    } else {
-      offset += 1;
-    }
-  }
-  return segments.filter((segment) => segment.length > 0);
 }
 
 function readRunnerTokens(
@@ -2285,29 +983,18 @@ function hasRepoInternalScriptReference(
   shellCommand = false
 ): boolean {
   const normalizedPath = path.replaceAll("\\", "/").toLowerCase();
+  const closure = normalizeClosureText(text, repoRoot, shellCommand);
   if (
-    searchCommandSegments(
-      expandWorkingDirectoryVariables(text, repoRoot),
-      shellCommand
-    ).some((tokens) =>
-      hasSearchCommandProtectedPathArgument(tokens, normalizedPath, repoRoot)
+    searchCommandSegments(closure.shellText, shellCommand).some((tokens) =>
+      hasSearchCommandProtectedPathArgument(
+        tokens,
+        searchCommandOwner(normalizedPath, repoRoot, true)
+      )
     )
   ) {
     return true;
   }
-  const normalizedText = collapseRepeatedPathSeparators(
-    withoutHttpUrls(
-      withoutSearchCommandSegments(
-        normalizeLiteralShellPathQuotes(
-          expandWorkingDirectoryVariables(
-            decodeRelativeLinkDestinations(text),
-            repoRoot
-          ).replaceAll("\\", "/")
-        ),
-        shellCommand
-      )
-    )
-  ).toLowerCase();
+  const normalizedText = closure.candidateText.toLowerCase();
   if (
     hasBarePathReference(normalizedText, normalizedPath) ||
     hasBarePathReference(normalizedText, `./${normalizedPath}`)
@@ -2326,6 +1013,17 @@ function hasRepoInternalScriptReference(
       : posix.normalize(
           `${repoRoot.replaceAll("\\", "/").replace(/\/+$/u, "").toLowerCase()}/${normalizedPath}`
         );
+
+  // URL routes reach the same file the bare path does. The owner rules already
+  // reject every repository URL under `scripts/`, so this only keeps the seam
+  // single: a URL spelling recognized once is recognized by both callers.
+  if (
+    closure.repositoryPaths.includes(normalizedPath) ||
+    (absoluteRepoPath !== undefined &&
+      closure.fileUrlPaths.includes(absoluteRepoPath))
+  ) {
+    return true;
+  }
 
   for (const match of normalizedText.matchAll(PATH_CANDIDATE_PATTERN)) {
     const candidate = posix.normalize(match[0].replace(/[!,.?:;]+$/u, ""));
