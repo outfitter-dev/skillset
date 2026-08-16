@@ -13,7 +13,11 @@ jobs:
   validate:
     runs-on: ubuntu-24.04
     steps:
+      # No git operation follows checkout, so the job token is never persisted
+      # into .git/config where pinned third-party validators could read it.
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: .bun-version

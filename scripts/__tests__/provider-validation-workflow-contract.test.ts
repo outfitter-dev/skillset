@@ -11,7 +11,7 @@ type Workflow = {
         readonly if?: string;
         readonly run?: string;
         readonly uses?: string;
-        readonly with?: Readonly<Record<string, string>>;
+        readonly with?: Readonly<Record<string, boolean | string>>;
       }[];
     }
   >;
@@ -48,6 +48,10 @@ describe("SET-463 provider-validation workflow", () => {
       job?.steps?.find((step) => step.uses?.startsWith("actions/setup-python@"))
         ?.with?.["python-version"]
     ).toBe("3.12.14");
+    expect(
+      job?.steps?.find((step) => step.uses?.startsWith("actions/checkout@"))
+        ?.with?.["persist-credentials"]
+    ).toBe(false);
     const setupUv = job?.steps?.find((step) =>
       step.uses?.startsWith("astral-sh/setup-uv@")
     );
