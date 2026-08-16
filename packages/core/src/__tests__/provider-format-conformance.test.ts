@@ -995,6 +995,51 @@ skillset:
     ]);
   });
 
+  it("rejects fully qualified archive hosts that end in a terminal dot", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            name: "fqdn-loopback",
+            source: { source: "archive", url: "https://localhost./plugin.zip" },
+          },
+          {
+            name: "fqdn-metadata",
+            source: { source: "archive", url: "https://Metadata.Google.Internal./plugin.zip" },
+          },
+          {
+            name: "fqdn-repeated-dots",
+            source: { source: "archive", url: "https://localhost../plugin.zip" },
+          },
+          {
+            name: "fqdn-public",
+            source: { source: "archive", url: "https://example.com./plugin.zip" },
+          },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[0].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[1].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+      {
+        code: "invalid-shape",
+        message:
+          "destination field plugins[2].source.url must not use a loopback, link-local, or cloud-metadata host",
+      },
+    ]);
+  });
+
   it("rejects archive URLs that cannot be parsed", () => {
     const report = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {

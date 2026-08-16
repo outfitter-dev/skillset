@@ -1053,9 +1053,14 @@ function isAbsoluteUrl(value: string): boolean {
  * Takes a parsed `URL` so an unparsable value can never reach the host checks.
  * Swallowing the parse failure here would report a malformed archive URL as an
  * allowed host instead of as a conformance failure.
+ *
+ * `URL.hostname` keeps the terminal dot of a fully qualified name, so trailing
+ * dots are stripped before comparison: DNS resolves `localhost.` exactly like
+ * `localhost`, and repeated dots are dropped too so a malformed spelling cannot
+ * evade the check either.
  */
 function isBlockedArchiveHost(url: URL): boolean {
-  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/gu, "");
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/gu, "").replace(/\.+$/u, "");
   if (hostname === "localhost" || hostname === "::1" || hostname === "metadata.google.internal") return true;
   if (isBlockedIpv4Host(hostname)) return true;
   const mapped = ipv4MappedIpv6Address(hostname);
