@@ -2234,6 +2234,42 @@ describe("generated public closure guard", () => {
     ]);
   });
 
+  test("SET-465: package-runner cwd operands route into protected directories", () => {
+    const content = [
+      "```bash",
+      "npm --prefix packages install --package-lock-only",
+      "npm --prefix=scripts install",
+      "npm -C fixtures ci",
+      "pnpm -C packages install",
+      "pnpm --dir=scripts run build",
+      "yarn --cwd packages install",
+      "yarn --cwd=fixtures run build",
+      "npm --prefix public install",
+      "npm --prefix",
+      "npm -Cpackages install",
+      "npm --loglevel packages install",
+      "npm run build -- --prefix packages",
+      "echo npm --prefix packages install",
+      "```",
+      "In prose, npm --prefix packages install is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "fixture-path" },
+      { line: 5, rule: "internal-package" },
+      { line: 6, rule: "internal-script" },
+      { line: 7, rule: "internal-package" },
+      { line: 8, rule: "fixture-path" },
+    ]);
+  });
+
   test("SET-465: resolves command-substitution working directories", () => {
     const content = [
       "```bash",

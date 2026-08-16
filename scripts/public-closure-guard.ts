@@ -421,6 +421,36 @@ const GIT_GLOBAL_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   "-p",
 ]);
 
+// Package-runner options whose operand is a directory the runner then installs
+// into or runs its command inside, so the operand is a route into that
+// directory rather than an opaque value. These runners are not
+// {@link PROTECTED_ROOT_PATH_COMMANDS} members, and a bare owner name carries
+// no separator for the generic path scan to read, so without this table
+// `npm --prefix packages install` reaches into the protected tree unreported.
+//
+// Verified against the installed tools:
+// - npm 11.12.1: `prefix` is defined with `short: 'C'`, and nopt resolves both
+//   `--prefix packages` and `-C packages` to the prefix path.
+// - pnpm 11.7.0: `pnpm -C dir root` and `pnpm --dir=dir root` both report the
+//   directory's `node_modules`.
+// - Yarn's global `--cwd`, already tracked in RUNNER_VALUE_FLAGS.
+//
+// Only the detached (`--prefix packages`) and attached-long
+// (`--prefix=packages`) spellings are routes. The fused short spelling is
+// rejected by both parsers (nopt reads `-Cpackages` as the unknown option
+// `Cpackages`; pnpm errors with "Unknown option: 'Cpackages'"), matching
+// `git -C`. `bun --cwd` needs no entry: bun is a
+// {@link PROTECTED_ROOT_PATH_COMMANDS} member, so its detached operand is
+// already a checked token and its attached operand is covered by
+// {@link COMMAND_DIRECTORY_VALUE_FLAGS}.
+const RUNNER_DIRECTORY_ROUTE_FLAGS: Readonly<
+  Record<string, readonly string[]>
+> = {
+  npm: ["--prefix", "-C"],
+  pnpm: ["--dir", "-C"],
+  yarn: ["--cwd"],
+};
+
 const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
 const PATH_CANDIDATE_PATTERN =
@@ -1012,6 +1042,11 @@ function hasProtectedRootCommandArgument(
           allowDirectOwner
         ) ||
         hasGitProtectedDirectoryArgument(tokens, normalizedOwner) ||
+        hasPackageRunnerProtectedDirectoryArgument(
+          tokens,
+          normalizedOwner,
+          repoRoot
+        ) ||
         hasShellWrapperProtectedDirectoryArgument(
           segment,
           normalizedOwner,
@@ -1458,6 +1493,53 @@ function hasCommandDirectoryOptionRoute(
       operand !== undefined &&
       searchCommandPathMatchesOwner(operand, normalizedOwner, repoRoot)
     ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Reports whether a package-runner invocation routes into a protected directory
+ * through a directory-valued runner option, so `npm --prefix packages install`
+ * cannot install into the protected tree while the closure check passes. The
+ * runners are not {@link PROTECTED_ROOT_PATH_COMMANDS} members, so no bare
+ * owner token is checked for them, and the operand carries no separator for the
+ * generic path scan to read. Direct owner routes count, matching `git -C` and
+ * the wrapper `chdir` options: naming the owner as a runner's working directory
+ * is a repository route even where a bare owner-named path would read as
+ * plugin-local.
+ */
+function hasPackageRunnerProtectedDirectoryArgument(
+  tokens: readonly string[],
+  normalizedOwner: string,
+  repoRoot?: string
+): boolean {
+  const routeFlags =
+    RUNNER_DIRECTORY_ROUTE_FLAGS[tokens[0]?.toLowerCase() ?? ""];
+  if (!routeFlags) return false;
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? "";
+    // Everything after `--` is forwarded to the invoked script, never parsed as
+    // a runner option.
+    if (token === "--") break;
+    const routeFlag = routeFlags.find(
+      (flag) =>
+        token === flag ||
+        (flag.startsWith("--") && token.startsWith(`${flag}=`))
+    );
+    if (routeFlag === undefined) continue;
+    let operand: string | undefined;
+    if (token === routeFlag) {
+      const detached = tokens[index + 1];
+      if (detached === undefined || detached.startsWith("-")) continue;
+      operand = detached;
+      index += 1;
+    } else {
+      operand = token.slice(routeFlag.length + 1);
+      if (operand.length === 0) continue;
+    }
+    if (searchCommandPathMatchesOwner(operand, normalizedOwner, repoRoot)) {
       return true;
     }
   }
