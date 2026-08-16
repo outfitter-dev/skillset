@@ -543,7 +543,7 @@ function pluginManifestOmissions(
     ...(target === "cursor"
       ? cursorListingCategoryOmissions(graph, plugin, sourcePath)
       : []),
-    ...portableManifestOmissions(plugin.metadata, target, sourcePath),
+    ...portableManifestOmissions(graph, plugin, target, sourcePath),
   ];
 }
 
@@ -671,29 +671,78 @@ const RENDERED_PORTABLE_MANIFEST_KEYS: Readonly<
 };
 
 /**
- * Declared portable manifest keys no target renders, so an authored value is
- * dropped by every enabled target rather than by one provider. Derived from the
- * shared `@skillset/schema` vocabulary and the per-target destinations above, so
- * a new declared key or a new renderer destination moves this set instead of a
- * hand-maintained provider list.
+ * Effective plugin-manifest value a target carries for a portable manifest key.
+ *
+ * `renderPluginManifest` merges `<target>.manifest` over the rendered manifest,
+ * so a provider-native override both supplies values the renderer has no
+ * destination for (`cursor.manifest.category`) and replaces values it does
+ * (`cursor.manifest.displayName`). Loss has to be read from the value the
+ * manifest actually carries, not from the destination table alone.
  */
-const OMITTED_PORTABLE_MANIFEST_KEYS = SOURCE_PORTABLE_MANIFEST_KEYS.filter(
-  (key) =>
-    !targetNames().some((target) =>
-      RENDERED_PORTABLE_MANIFEST_KEYS[target].includes(key)
-    )
-);
+function effectivePortableManifestValue(
+  plugin: SourcePlugin,
+  target: TargetName,
+  field: string
+): JsonValue | undefined {
+  const override = (readRecord(plugin.targets[target].options, "manifest") ?? {})[field];
+  if (override !== undefined) return override;
+  return RENDERED_PORTABLE_MANIFEST_KEYS[target].includes(field)
+    ? readString(readRecord(plugin.metadata, "manifest") ?? {}, field)
+    : undefined;
+}
+
+/**
+ * Enabled targets whose rendered plugin manifest still carries the authored
+ * portable value.
+ *
+ * Registered targets are not the right scope: a workspace compiled with
+ * `targets: [claude]` renders no Cursor manifest at all, so `displayName` and
+ * `logo` are dropped outright even though the Cursor renderer supports them
+ * somewhere. `pluginTargetSelected` reads the compiled target set and the
+ * plugin's own selection, matching `faithfulListingCategoryDestinations`.
+ */
+function faithfulPortableManifestTargets(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  field: string,
+  value: JsonValue
+): readonly TargetName[] {
+  return targetNames().filter(
+    (target) =>
+      pluginTargetSelected(graph, plugin.id, target) &&
+      sameJsonValue(effectivePortableManifestValue(plugin, target, field), value)
+  );
+}
+
+/**
+ * Structural comparison for authored-vs-rendered manifest values. Portable
+ * manifest values come from parsed source, so a canonical serialization is
+ * enough; anything that does not compare equal stays reported as omitted.
+ */
+function sameJsonValue(
+  left: JsonValue | undefined,
+  right: JsonValue | undefined
+): boolean {
+  return left === undefined || right === undefined
+    ? left === right
+    : JSON.stringify(left) === JSON.stringify(right);
+}
 
 function portableManifestOmissions(
-  metadata: JsonRecord,
+  graph: BuildGraph,
+  plugin: SourcePlugin,
   target: TargetName,
   sourcePath: string
 ): readonly PluginManifestOmission[] {
-  const portableManifest = readRecord(metadata, "manifest") ?? {};
+  const portableManifest = readRecord(plugin.metadata, "manifest") ?? {};
   const label = targetLabel(target);
-  return OMITTED_PORTABLE_MANIFEST_KEYS.filter(
-    (field) => portableManifest[field] !== undefined
-  ).map((field) => {
+  return SOURCE_PORTABLE_MANIFEST_KEYS.filter((field) => {
+    const authored = portableManifest[field];
+    return (
+      authored !== undefined &&
+      faithfulPortableManifestTargets(graph, plugin, field, authored).length === 0
+    );
+  }).map((field) => {
     // Only advise a provider-native override where the pinned plugin manifest
     // format actually accepts the field; elsewhere the advice would produce a
     // nonconformant artifact.

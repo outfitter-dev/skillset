@@ -1475,6 +1475,177 @@ Help with the task.
     ]);
   });
 
+  it("reports portable manifest display fields the enabled targets drop", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-display-fields
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    displayName: Tools
+    logo: ./logo.png
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests"
+    );
+    expect(
+      manifestResults.map((outcome) => [outcome.target, outcome.status])
+    ).toEqual([["claude", "lossy"]]);
+    expect(
+      manifestResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).map((diagnostic) => diagnostic.message)
+      )
+    ).toEqual([
+      portableManifestReason("claude", "displayName"),
+      portableManifestReason("claude", "logo"),
+    ]);
+  });
+
+  it("keeps portable manifest display fields evidence-free while Cursor is enabled", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-display-fields-cursor
+compile:
+  targets: [claude, cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    displayName: Tools
+    logo: ./logo.png
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    expect(
+      build.renderResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).filter((diagnostic) =>
+          diagnostic.code.endsWith("portable-manifest-field-omitted")
+        )
+      )
+    ).toEqual([]);
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.displayName).toBe("Tools");
+  });
+
+  it("accepts a matching Cursor-native override for portable manifest.category", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-native-override
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+    tags: [review]
+cursor:
+  manifest:
+    category: Developer Tools
+    tags: [review]
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    expect(
+      build.renderResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).filter((diagnostic) =>
+          diagnostic.code.endsWith("portable-manifest-field-omitted")
+        )
+      )
+    ).toEqual([]);
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.category).toBe("Developer Tools");
+    expect(manifest.tags).toEqual(["review"]);
+  });
+
+  it("still reports portable manifest.category when the Cursor-native override replaces it", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-replacing-override
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+cursor:
+  manifest:
+    category: Productivity
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/cursor-portable-manifest-field-omitted",
+          message: portableManifestReason("cursor", "category"),
+          path: ".skillset/plugins/tools: $.skillset.manifest.category",
+        },
+      ],
+      status: "lossy",
+    });
+  });
+
   it.each(["category", "tags"])(
     "blocks default builds when portable manifest.%s has no Cursor destination",
     async (field) => {
