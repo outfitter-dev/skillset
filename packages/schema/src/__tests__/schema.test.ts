@@ -1318,6 +1318,25 @@ describe("@skillset/schema contracts", () => {
       "schema/agent-frontmatter/skills",
     ]);
     expect(
+      validateAgentFrontmatter({
+        description: "Demo agent.",
+        metadata: "owner",
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/agent-frontmatter/metadata",
+      message: "$.metadata must be an object",
+      path: "$.metadata",
+    });
+    expect(
+      validateInstructionFrontmatter({
+        metadata: "owner",
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/instruction-frontmatter/metadata",
+      message: "$.metadata must be an object",
+      path: "$.metadata",
+    });
+    expect(
       validateSkillFrontmatter({ arbitrary_context: { count: 2 }, schema: 1 })
         .diagnostics
     ).toEqual([]);

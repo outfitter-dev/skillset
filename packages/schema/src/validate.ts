@@ -1713,6 +1713,12 @@ export function validateAgentFrontmatter(
     "schema/agent-frontmatter/hooks",
     diagnostics
   );
+  checkOptionalObject(
+    value.metadata,
+    `${path}.metadata`,
+    "schema/agent-frontmatter/metadata",
+    diagnostics
+  );
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
@@ -1804,6 +1810,12 @@ export function validateInstructionFrontmatter(
     value.cursor,
     `${path}.cursor`,
     "schema/instruction-frontmatter/target",
+    diagnostics
+  );
+  checkOptionalObject(
+    value.metadata,
+    `${path}.metadata`,
+    "schema/instruction-frontmatter/metadata",
     diagnostics
   );
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
