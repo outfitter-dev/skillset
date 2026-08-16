@@ -48,48 +48,69 @@
     },
     {
       "fileModes": {
-        "skillset-claude-development/SKILL.md": "0644"
+        "skillset-dev-compiler/SKILL.md": "0644",
+        "skillset-dev-compiler/references/package-map.md": "0644"
       },
       "files": [
-        "skillset-claude-development/SKILL.md"
+        "skillset-dev-compiler/SKILL.md",
+        "skillset-dev-compiler/references/package-map.md"
       ],
       "kind": "standalone-skill",
-      "name": "skillset-claude-development",
-      "outputHash": "sha256:3b3710629d304059031a2245c4d0b8ccb34dcfe509805c033f4180882864c5fe",
-      "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:9fd0ef73dfddddd039eb97e14b73a43794910659abbaa94e3b5469fc51cf21ef",
-      "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
+      "name": "skillset-dev-compiler",
+      "outputHash": "sha256:05e646a09e26db81c7950acc24b807887a34aa061947fa4c9b758c55ae47580f",
+      "outputPath": "skillset-dev-compiler/SKILL.md",
+      "sourceHash": "sha256:1621f41f71cd358d095e83424d4a93dad1f6f16784eb5efdf7e73b742bc49a66",
+      "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
       "version": "0.1.0"
     },
     {
       "fileModes": {
-        "skillset-codex-development/SKILL.md": "0644"
+        "skillset-dev-schema/SKILL.md": "0644",
+        "skillset-dev-schema/references/contract-workflow.md": "0644"
       },
       "files": [
-        "skillset-codex-development/SKILL.md"
+        "skillset-dev-schema/SKILL.md",
+        "skillset-dev-schema/references/contract-workflow.md"
       ],
       "kind": "standalone-skill",
-      "name": "skillset-codex-development",
-      "outputHash": "sha256:5ff1bb40786ee9e8306b59e169244301ebe89d15d38285e95333b2bd6dbc18cd",
-      "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:01674a7ef55804f1ed4d35af92cecfe8d22228ca5228d0e93b0515697c72fc3c",
-      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
-      "version": "0.1.1"
+      "name": "skillset-dev-schema",
+      "outputHash": "sha256:d7a6b810e236b60f57c95363ec10fa8fd0f5768e643e8816b33afb0add1fabbb",
+      "outputPath": "skillset-dev-schema/SKILL.md",
+      "sourceHash": "sha256:f4a90650fa20ff3b26b6f3bd508d915ff99afed28dfdc0034d0313eb572fb313",
+      "sourcePath": ".skillset/skills/skillset-dev-schema/SKILL.md",
+      "version": "0.1.0"
     },
     {
       "fileModes": {
-        "skillset-repo-test-fixtures/SKILL.md": "0644"
+        "skillset-dev-testing/SKILL.md": "0644",
+        "skillset-dev-testing/references/fixture-strategy.md": "0644"
       },
       "files": [
-        "skillset-repo-test-fixtures/SKILL.md"
+        "skillset-dev-testing/SKILL.md",
+        "skillset-dev-testing/references/fixture-strategy.md"
       ],
       "kind": "standalone-skill",
-      "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:1a90c2a647075447317686bc8d9a8abbe4351ec4b3f7038ce591e4aa74914082",
-      "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:cf5fe33d9da8c7f43458d226575f63d6f724fb910fdea0f91e9a3922f5e5d2df",
-      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
-      "version": "0.1.2"
+      "name": "skillset-dev-testing",
+      "outputHash": "sha256:9452cebc620b6162fefb04979fad18437545fd788a387a88334dcf46507a5e81",
+      "outputPath": "skillset-dev-testing/SKILL.md",
+      "sourceHash": "sha256:693b68f7d59b37c6d1af29c375bb20b284b47aa61e6815fe23e6641b4193fec6",
+      "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "fileModes": {
+        "skillset-dev/SKILL.md": "0644"
+      },
+      "files": [
+        "skillset-dev/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-dev",
+      "outputHash": "sha256:142a29f19cf7bcdb19dafd1fa53ef28bd15f2dd07dc108777f3a10fb584a187d",
+      "outputPath": "skillset-dev/SKILL.md",
+      "sourceHash": "sha256:86a678db8e6e529a044e8a682b3806259ecfa4c0e95a40bfdcdcdd6abb657550",
+      "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
+      "version": "0.1.0"
     }
   ],
   "outputRoot": ".cursor/skills",
@@ -191,12 +212,12 @@
       "outputs": [
         {
           "kind": "standalone-skill",
-          "path": ".cursor/skills/skillset-claude-development/SKILL.md"
+          "path": ".cursor/skills/skillset-dev/SKILL.md"
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
-      "sourceUnit": "skill:skillset-claude-development",
+      "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
+      "sourceUnit": "skill:skillset-dev",
       "status": "rendered",
       "target": "cursor"
     },
@@ -218,12 +239,16 @@
       "outputs": [
         {
           "kind": "standalone-skill",
-          "path": ".cursor/skills/skillset-codex-development/SKILL.md"
+          "path": ".cursor/skills/skillset-dev-compiler/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-dev-compiler/references/package-map.md"
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
-      "sourceUnit": "skill:skillset-codex-development",
+      "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
+      "sourceUnit": "skill:skillset-dev-compiler",
       "status": "rendered",
       "target": "cursor"
     },
@@ -245,12 +270,47 @@
       "outputs": [
         {
           "kind": "standalone-skill",
-          "path": ".cursor/skills/skillset-repo-test-fixtures/SKILL.md"
+          "path": ".cursor/skills/skillset-dev-schema/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-dev-schema/references/contract-workflow.md"
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
-      "sourceUnit": "skill:skillset-repo-test-fixtures",
+      "sourcePath": ".skillset/skills/skillset-dev-schema/SKILL.md",
+      "sourceUnit": "skill:skillset-dev-schema",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-dev-testing/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-dev-testing/references/fixture-strategy.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
+      "sourceUnit": "skill:skillset-dev-testing",
       "status": "rendered",
       "target": "cursor"
     }

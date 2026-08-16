@@ -48,9 +48,9 @@
       ],
       "kind": "rule",
       "name": "fixtures",
-      "outputHash": "sha256:2890f655f99d36aafaf0a6c06c3f5d0aca3f84b951120f07e2d594e099952bbd",
+      "outputHash": "sha256:96097dc24d136d495c3fe42f163f5e3f674cb115d4bc86692b784c64e1e611bc",
       "outputPath": ".cursor/rules/fixtures.mdc",
-      "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
+      "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules/fixtures.md",
       "version": "0.1.1"
     },
@@ -72,40 +72,6 @@
       "validation": "structured"
     },
     {
-      "feature": "skill",
-      "fileModes": {
-        ".skillset/skills/skillset-codex-development/CHANGELOG.md": "0644"
-      },
-      "files": [
-        ".skillset/skills/skillset-codex-development/CHANGELOG.md"
-      ],
-      "kind": "changelog",
-      "name": "skillset-codex-development",
-      "outputHash": "sha256:ec717d635067ba5aa296b1a5d2d24fd166e6928174eddbd6a7ab417ea1399cf9",
-      "outputPath": ".skillset/skills/skillset-codex-development/CHANGELOG.md",
-      "sourceHash": "sha256:dadaaadb8d4aa6e3381e066946f0eacc2ffe13b608bb942ebb12463d33090289",
-      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
-      "targetState": "generated",
-      "validation": "structured"
-    },
-    {
-      "feature": "skill",
-      "fileModes": {
-        ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md": "0644"
-      },
-      "files": [
-        ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"
-      ],
-      "kind": "changelog",
-      "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:3eefaa4c79a7665054a1cec74937b603471a9055b8033dd571de37adf261831a",
-      "outputPath": ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md",
-      "sourceHash": "sha256:8202341e691024a384c9cb66bf2802f5c0d9d826953dafd886b4e792b6bcc106",
-      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
-      "targetState": "generated",
-      "validation": "structured"
-    },
-    {
       "fileModes": {
         "apps/skillset/src/__tests__/AGENTS.md": "0644"
       },
@@ -114,9 +80,9 @@
       ],
       "kind": "rule",
       "name": "apps/skillset/src/__tests__/AGENTS.md",
-      "outputHash": "sha256:166971f6521e3fe443e6605ba6e2738e6f299995766f10e4f743c16fce9451d8",
+      "outputHash": "sha256:9e5f8d617e9bc6ac46f943dc3295140cf598bf2bff053620d4e5a707b2c199d6",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
-      "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
+      "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     },
@@ -129,9 +95,9 @@
       ],
       "kind": "rule",
       "name": "fixtures/AGENTS.md",
-      "outputHash": "sha256:2f165f1f6644db9ab38994d0a233a8a55fa664f37becd67e2ac51af682d39cf5",
+      "outputHash": "sha256:3bc1e0423b64f558fa90e3b9d73eb3f12f74dc3579bb1a51b21b85f377ffa8df",
       "outputPath": "fixtures/AGENTS.md",
-      "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
+      "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     }
@@ -157,48 +123,6 @@
       "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/plugins/skillset/skillset.yaml",
       "sourceUnit": ".skillset/plugins/skillset/skillset.yaml",
-      "status": "metadata_only"
-    },
-    {
-      "destination": "changelog",
-      "evidence": [
-        {
-          "kind": "test",
-          "note": "SET-38 release apply coverage",
-          "ref": "apps/skillset/src/__tests__/contract.test.ts"
-        }
-      ],
-      "featureId": "releases",
-      "outputs": [
-        {
-          "kind": "changelog",
-          "path": ".skillset/skills/skillset-codex-development/CHANGELOG.md"
-        }
-      ],
-      "schema": "skillset-render-result@1",
-      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
-      "sourceUnit": ".skillset/skills/skillset-codex-development/SKILL.md",
-      "status": "metadata_only"
-    },
-    {
-      "destination": "changelog",
-      "evidence": [
-        {
-          "kind": "test",
-          "note": "SET-38 release apply coverage",
-          "ref": "apps/skillset/src/__tests__/contract.test.ts"
-        }
-      ],
-      "featureId": "releases",
-      "outputs": [
-        {
-          "kind": "changelog",
-          "path": ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"
-        }
-      ],
-      "schema": "skillset-render-result@1",
-      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
-      "sourceUnit": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "status": "metadata_only"
     },
     {

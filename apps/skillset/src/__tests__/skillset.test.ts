@@ -1851,9 +1851,9 @@ Use the shared review checklist.
     ".skillset/shared/templates/prompt.md": `
 smallest complete review
 `,
-    ".skillset/skills/skillset-codex-development/SKILL.md": `
+    ".skillset/skills/skillset-dev-compiler/SKILL.md": `
 ---
-name: skillset-codex-development
+name: skillset-dev-compiler
 description: Develop Skillset safely.
 ---
 
@@ -1864,7 +1864,7 @@ Follow the Skillset development workflow.
 name: Code Reviewer
 description: Reviews project changes.
 skills:
-  - skillset-codex-development
+  - skillset-dev-compiler
 initialPrompt: "Start with the {{shared:templates/prompt.md }}"
 codex:
   model: gpt-5-codex
@@ -1887,7 +1887,7 @@ Tree:
   expect(claudeAgent).toContain(`description: Reviews project changes.`);
   expect(claudeAgent).toContain(`color: blue`);
   expect(claudeAgent).toContain("skills:");
-  expect(claudeAgent).toContain("- skillset-codex-development");
+  expect(claudeAgent).toContain("- skillset-dev-compiler");
   expect(claudeAgent).toContain(`generated: skillset@0.1.0`);
   expect(claudeAgent).toContain("Review diffs and call out correctness risks.");
   expect(claudeAgent).toContain("- reviewer.md");
@@ -1899,7 +1899,7 @@ Tree:
   expect(codexAgent).toContain(`model = "gpt-5-codex"`);
   expect(codexAgent).toContain(`developer_instructions = `);
   expect(codexAgent).toContain("Required skills:");
-  expect(codexAgent).toContain("- skillset-codex-development");
+  expect(codexAgent).toContain("- skillset-dev-compiler");
   expect(codexAgent).toContain("Review diffs and call out correctness risks.");
   expect(codexAgent).toContain("- reviewer.md");
   expect(codexAgent).toContain("Use the shared review checklist.");
