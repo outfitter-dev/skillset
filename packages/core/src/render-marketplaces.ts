@@ -55,22 +55,34 @@ export async function renderClaudeMarketplace(
 }
 
 /**
+ * A source plugin projected into the generated Claude marketplace, paired with
+ * the author its emitted entry actually carries. The effective author travels
+ * with the plugin because a `claude.marketplace` override can keep an entry's
+ * identity while replacing its author, and the source author alone would then
+ * describe metadata the destination never received.
+ */
+export interface ClaudeMarketplacePluginProjection {
+  readonly author: JsonValue | undefined;
+  readonly plugin: SourcePlugin;
+}
+
+/**
  * Source plugins whose metadata is projected into the generated Claude
- * marketplace, in the order rendering visits them. Marketplace entries may
- * rename themselves through the supported `claude.marketplace.name` override,
- * so consumers that need the source plugin behind an entry must take identity
- * from this projection instead of reading it back out of the generated
- * provider-native entry names.
+ * marketplace, in the order rendering visits them, each with the author its
+ * emitted entry carries. Marketplace entries may rename themselves through the
+ * supported `claude.marketplace.name` override, so consumers that need the
+ * source plugin behind an entry must take identity from this projection
+ * instead of reading it back out of the generated provider-native entry names.
  */
 export async function claudeMarketplaceSourcePlugins(
   graph: BuildGraph
-): Promise<readonly SourcePlugin[]> {
+): Promise<readonly ClaudeMarketplacePluginProjection[]> {
   return (await projectClaudeMarketplace(graph))?.sourcePlugins ?? [];
 }
 
 interface ClaudeMarketplaceProjection {
   readonly document: JsonRecord;
-  readonly sourcePlugins: readonly SourcePlugin[];
+  readonly sourcePlugins: readonly ClaudeMarketplacePluginProjection[];
 }
 
 /**
@@ -99,11 +111,15 @@ async function projectClaudeMarketplace(
       );
       if (providerEntry !== undefined) plugins.push(providerEntry);
     }
-    const sourcePlugins = catalogClaudeSourcePlugins(graph, catalog);
-    for (const plugin of sourcePlugins) {
-      plugins.push(
-        await renderClaudeMarketplacePlugin(graph, plugin, rootLicense)
+    const sourcePlugins: ClaudeMarketplacePluginProjection[] = [];
+    for (const plugin of catalogClaudeSourcePlugins(graph, catalog)) {
+      const entry = await renderClaudeMarketplacePlugin(
+        graph,
+        plugin,
+        rootLicense
       );
+      plugins.push(entry);
+      sourcePlugins.push({ author: entry.author, plugin });
     }
     return {
       document: renderClaudeMarketplaceDocument(
@@ -166,23 +182,28 @@ async function projectClaudeMarketplace(
  * dropped never carry their plugin's author to the destination. Membership is
  * decided by the identity each source plugin rendered — the name, which the
  * supported `claude.marketplace.name` override may have changed, together with
- * the source it resolves to.
+ * the source it resolves to. The surviving entry is kept, not just its
+ * identity, because an override may hold that identity while replacing the
+ * author, and the effective author is what the destination receives.
  */
 function projectedSourcePlugins(
   entries: readonly (readonly [SourcePlugin, JsonRecord])[],
   document: JsonRecord
-): readonly SourcePlugin[] {
-  const projected = new Set(
-    (Array.isArray(document.plugins) ? document.plugins : []).flatMap((entry) => {
-      const identity = isJsonRecord(entry)
-        ? marketplaceEntryIdentity(entry)
-        : undefined;
-      return identity === undefined ? [] : [identity];
-    })
-  );
+): readonly ClaudeMarketplacePluginProjection[] {
+  const projected = new Map<string, JsonRecord>();
+  for (const entry of Array.isArray(document.plugins) ? document.plugins : []) {
+    if (!isJsonRecord(entry)) continue;
+    const identity = marketplaceEntryIdentity(entry);
+    if (identity === undefined || projected.has(identity)) continue;
+    projected.set(identity, entry);
+  }
   return entries.flatMap(([plugin, entry]) => {
     const identity = marketplaceEntryIdentity(entry);
-    return identity !== undefined && projected.has(identity) ? [plugin] : [];
+    const effective =
+      identity === undefined ? undefined : projected.get(identity);
+    return effective === undefined
+      ? []
+      : [{ author: effective.author, plugin }];
   });
 }
 

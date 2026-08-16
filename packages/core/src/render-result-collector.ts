@@ -25,7 +25,12 @@ import {
 } from "./plugin-output";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
-import { omittedClaudeAuthorKeys, readAuthorName } from "./source-author";
+import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
+import {
+  droppedClaudeAuthorKeys,
+  omittedClaudeAuthorKeys,
+  readAuthorName,
+} from "./source-author";
 import {
   planToolsRealization,
   renderResultStatusForToolsTier,
@@ -51,12 +56,13 @@ type OutputPathMapper = (path: string) => string;
 
 interface CollectRenderResultsOptions {
   /**
-   * Source plugins projected into the generated Claude marketplace, from
-   * `claudeMarketplaceSourcePlugins`. Marketplace entries can be renamed by the
-   * `claude.marketplace.name` override, so marketplace render results must take
-   * plugin identity from rendering instead of the provider-native entry names.
+   * Source plugins projected into the generated Claude marketplace, with the
+   * author their emitted entries carry, from `claudeMarketplaceSourcePlugins`.
+   * Marketplace entries can be renamed by the `claude.marketplace.name`
+   * override, so marketplace render results must take plugin identity from
+   * rendering instead of the provider-native entry names.
    */
-  readonly claudeMarketplacePlugins: readonly SourcePlugin[];
+  readonly claudeMarketplacePlugins: readonly ClaudeMarketplacePluginProjection[];
   readonly includedPaths: ReadonlySet<string>;
   readonly mapOutputPath?: OutputPathMapper;
   readonly scopes?: readonly BuildScope[] | undefined;
@@ -151,7 +157,7 @@ function claudeMarketplaceAuthorOutcomes(
   rendered: readonly RenderedFile[],
   includedPaths: ReadonlySet<string>,
   mapOutputPath: OutputPathMapper,
-  marketplacePlugins: readonly SourcePlugin[]
+  marketplacePlugins: readonly ClaudeMarketplacePluginProjection[]
 ): readonly SkillsetRenderResult[] {
   const marketplacePath = claudeMarketplacePath(
     graph.root.outputs.plugins.claude
@@ -165,28 +171,28 @@ function claudeMarketplaceAuthorOutcomes(
   if (owner !== undefined) {
     outcomes.push(
       marketplaceAuthorOutcome({
-        author: owner,
         diagnosticPath: `marketplace.owner`,
         included,
         mapOutputPath,
         outputPath: marketplacePath,
+        reason: unsupportedClaudeAuthorReason(owner),
         sourcePath: "skillset.yaml",
         sourceUnit: selectorForRootConfig(),
       })
     );
   }
 
-  for (const plugin of marketplacePlugins) {
+  for (const { author: emittedAuthor, plugin } of marketplacePlugins) {
     const usesPluginAuthor = plugin.metadata.author !== undefined;
     const author = usesPluginAuthor ? plugin.metadata.author : root.author;
     if (author === undefined) continue;
     outcomes.push(
       marketplaceAuthorOutcome({
-        author,
         diagnosticPath: `marketplace.plugins.${plugin.id}.author`,
         included,
         mapOutputPath,
         outputPath: marketplacePath,
+        reason: marketplaceAuthorLossReason(author, emittedAuthor),
         sourcePath: usesPluginAuthor
           ? normalizeSourcePath(graph, plugin.path)
           : "skillset.yaml",
@@ -197,21 +203,51 @@ function claudeMarketplaceAuthorOutcomes(
   return outcomes;
 }
 
+/**
+ * Canonical author fields the destination cannot represent at all, which is
+ * all the owner projection can lose: the owner has no per-entry override that
+ * could keep it while replacing its author.
+ */
+function unsupportedClaudeAuthorReason(
+  author: JsonValue | undefined
+): string | undefined {
+  const omitted = omittedClaudeAuthorKeys(author);
+  return omitted.length === 0
+    ? undefined
+    : `Claude marketplace author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+}
+
+/**
+ * Author fields a marketplace plugin entry loses, from both causes: fields the
+ * Claude author output cannot represent, and supported fields the emitted
+ * entry does not carry because a `claude.marketplace` override replaced or
+ * omitted the author it kept.
+ */
+function marketplaceAuthorLossReason(
+  author: JsonValue | undefined,
+  emittedAuthor: JsonValue | undefined
+): string | undefined {
+  const dropped = droppedClaudeAuthorKeys(author, emittedAuthor);
+  const reasons = [
+    unsupportedClaudeAuthorReason(author),
+    dropped.length === 0
+      ? undefined
+      : `Claude marketplace entry drops canonical author fields: ${dropped.join(", ")}`,
+  ].filter((reason): reason is string => reason !== undefined);
+  return reasons.length === 0 ? undefined : reasons.join("; ");
+}
+
 function marketplaceAuthorOutcome(args: {
-  readonly author: JsonRecord | JsonValue;
   readonly diagnosticPath: string;
   readonly included: boolean;
   readonly mapOutputPath: OutputPathMapper;
   readonly outputPath: string;
+  readonly reason: string | undefined;
   readonly sourcePath: string;
   readonly sourceUnit: string;
 }): SkillsetRenderResult {
-  const omitted = omittedClaudeAuthorKeys(args.author);
   const evidence = evidenceFor("marketplaces", "claude");
-  const reason =
-    omitted.length === 0
-      ? undefined
-      : `Claude marketplace author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  const reason = args.reason;
   return defineRenderResult({
     destination: "marketplace",
     ...(args.included && reason !== undefined

@@ -1205,6 +1205,83 @@ Help with the other task.
     );
   });
 
+  it("reports author fields a Claude marketplace override drops from the emitted entry", async () => {
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-override
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+claude:
+  marketplace:
+    plugins:
+      - name: kept
+        source: ./plugins/kept/claude
+        author:
+          name: Kept Team
+`,
+      ".skillset/plugins/kept/skillset.yaml": `
+skillset:
+  name: kept
+  author:
+    name: Kept Team
+    email: kept@example.com
+`,
+      ".skillset/plugins/kept/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    // The override keeps the entry's identity but replaces its author with a
+    // name-only record, so the plugin's email never reaches the marketplace
+    // even though `email` is a provider-supported field.
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    const marketplaceOutcomes = preview.renderResults.filter(
+      (outcome) => outcome.featureId === "marketplaces"
+    );
+    expect(
+      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([
+      expect.objectContaining({
+        code: "render/claude-marketplace-author-fields-omitted",
+        message:
+          "Claude marketplace entry drops canonical author fields: email",
+        path: "marketplace.plugins.kept.author",
+      }),
+    ]);
+    expect(
+      marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+    ).toEqual([
+      expect.objectContaining({
+        sourceUnit: "plugin.kept.config:root",
+        status: "lossy",
+      }),
+    ]);
+
+    await buildSkillsetResult(warnRoot);
+    const marketplace = await readJson(
+      join(warnRoot, ".claude-plugin/marketplace.json")
+    );
+    expect(marketplace.plugins).toEqual([
+      expect.objectContaining({ author: { name: "Kept Team" }, name: "kept" }),
+    ]);
+
+    const errorRoot = await fixture(files(""));
+    await expect(
+      buildSkillsetResult(errorRoot, { scopes: ["project"] })
+    ).rejects.toThrow(
+      "Claude marketplace entry drops canonical author fields: email"
+    );
+  });
+
   it("does not claim a plugin whose name an unrelated override entry reuses", async () => {
     // The override replaces the generated array with an entry that reuses the
     // local plugin's name but resolves to an unrelated remote source, so none

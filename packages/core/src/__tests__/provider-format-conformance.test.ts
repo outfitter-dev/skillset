@@ -549,6 +549,73 @@ describe("provider format conformance", () => {
     ]);
   });
 
+  it("reports mixed Claude component path entries under their original index", () => {
+    const result = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team" },
+        plugins: [
+          {
+            hooks: [
+              { PreToolUse: [{ hooks: [{ command: "./guard.sh", type: "command" }] }] },
+              "hooks/config.json",
+            ],
+            lspServers: [
+              { ts: { command: "lsp", extensionToLanguage: { ts: "typescript" } } },
+              "lsp/config.json",
+            ],
+            name: "mixed-paths",
+            source: "./plugins/mixed-paths",
+          },
+        ],
+      }),
+    ]);
+    expect(result.issues.map(({ message }) => message)).toEqual([
+      "destination field plugins[0].hooks[1] must start with ./",
+      "destination field plugins[0].lspServers[1] must start with ./",
+    ]);
+  });
+
+  it("rejects Claude MCP OAuth metadata URLs that cannot be parsed", () => {
+    const oauthMarketplace = (
+      authServerMetadataUrl: string
+    ): Record<string, unknown> => ({
+      name: "example",
+      owner: { name: "Example Team" },
+      plugins: [
+        {
+          mcpServers: {
+            remote: {
+              oauth: { authServerMetadataUrl },
+              type: "http",
+              url: "https://example.com",
+            },
+          },
+          name: "oauth",
+          source: "./plugins/oauth",
+        },
+      ],
+    });
+    const malformed = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", oauthMarketplace("https://[bad")),
+    ]);
+    expect(malformed.issues.map(({ message }) => message)).toEqual([
+      "destination field plugins[0].mcpServers.remote.oauth.authServerMetadataUrl must be a parsable absolute URL",
+    ]);
+
+    const insecure = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", oauthMarketplace("http://example.com")),
+    ]);
+    expect(insecure.issues.map(({ message }) => message)).toEqual([
+      "destination field plugins[0].mcpServers.remote.oauth.authServerMetadataUrl must use HTTPS",
+    ]);
+
+    const uppercase = checkProviderFormatConformance([
+      rendered(".claude-plugin/marketplace.json", oauthMarketplace("HTTPS://example.com")),
+    ]);
+    expect(uppercase.issues.map(({ message }) => message)).toEqual([]);
+  });
+
   it("rejects malformed structured Claude marketplace overrides", () => {
     const result = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {

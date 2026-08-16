@@ -8,4 +8,4 @@ Native plugin authors that cannot form canonical source now **block import** rat
 
 Validation is per provider: an author that cannot be lifted is rejected even when a sibling provider declares a valid one, so no provider's author silently stands in for another's.
 
-Marketplace author evidence is also now scoped to the plugins actually projected into the effective marketplace, so a root `claude.marketplace.plugins` override no longer produces blocking evidence for plugins absent from the final output.
+Marketplace author evidence is also now scoped to the plugins actually projected into the effective marketplace, so a root `claude.marketplace.plugins` override no longer produces blocking evidence for plugins absent from the final output. Evidence follows the effective author too: an override that keeps an entry while replacing its author reports the canonical fields the emitted entry drops, instead of reporting the source author as fully rendered.

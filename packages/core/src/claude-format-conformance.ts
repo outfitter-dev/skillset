@@ -682,14 +682,20 @@ function checkClaudeComponentPaths(
   prefix: string,
   extension?: string
 ): readonly ProviderFormatConformanceIssue[] {
-  const paths = typeof value === "string"
-    ? [value]
+  // Labels are attached while the array is walked so a mixed array cannot
+  // renumber its string entries: filtering to strings first reports the string
+  // in `[{...}, "bad"]` under index 0.
+  const paths: readonly (readonly [string, string])[] = typeof value === "string"
+    ? [[prefix, value]]
     : Array.isArray(value)
-      ? value.filter((entry): entry is string => typeof entry === "string")
+      ? value.flatMap((entry, index) =>
+          typeof entry === "string"
+            ? [[`${prefix}[${index}]`, entry] as const]
+            : []
+        )
       : [];
   const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [index, path] of paths.entries()) {
-    const label = Array.isArray(value) ? `${prefix}[${index}]` : prefix;
+  for (const [label, path] of paths) {
     if (!path.startsWith("./")) {
       issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${label} must start with ./`));
       continue;
@@ -968,8 +974,16 @@ function checkClaudeMcpOauth(
   if (typeof oauth.callbackPort === "number" && (!Number.isInteger(oauth.callbackPort) || oauth.callbackPort <= 0)) {
     issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.callbackPort must be a positive integer`));
   }
-  if (typeof oauth.authServerMetadataUrl === "string" && !oauth.authServerMetadataUrl.startsWith("https://")) {
-    issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.authServerMetadataUrl must use HTTPS`));
+  if (typeof oauth.authServerMetadataUrl === "string") {
+    // A prefix test accepts values such as `https://[bad` that `URL` cannot
+    // parse and rejects an equivalent `HTTPS://` spelling, so the URL is
+    // parsed first and its normalized protocol is what the scheme check reads.
+    const parsed = parseAbsoluteUrl(oauth.authServerMetadataUrl);
+    if (parsed === undefined) {
+      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.authServerMetadataUrl must be a parsable absolute URL`));
+    } else if (parsed.protocol !== "https:") {
+      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.authServerMetadataUrl must use HTTPS`));
+    }
   }
   if (oauth.scopes === "") {
     issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.scopes must not be empty`));
