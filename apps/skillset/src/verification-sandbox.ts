@@ -1,6 +1,13 @@
 import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 export const TEST_SANDBOX_ENV = "SKILLSET_TEST_SANDBOX";
 export const TEST_SANDBOX_RETAIN_ENV = "SKILLSET_TEST_SANDBOX_RETAIN";
@@ -234,6 +241,14 @@ async function validateXdgRoot(
   const value = env[name];
   if (!value || !isAbsolute(value))
     throw new Error(`${name} must be an absolute path`);
+  const entry = await lstat(value).catch((error: unknown) => {
+    throw new Error(`${name} must name an existing sandbox directory`, {
+      cause: error,
+    });
+  });
+  if (!entry.isDirectory() || entry.isSymbolicLink()) {
+    throw new Error(`${name} must name a real sandbox directory`);
+  }
   const canonical = await realpath(value).catch((error: unknown) => {
     throw new Error(`${name} must name an existing sandbox directory`, {
       cause: error,
@@ -276,7 +291,12 @@ async function validateGitConfig(
 
 function isInside(parent: string, child: string): boolean {
   const path = relative(parent, child);
-  return path.length > 0 && !path.startsWith("..") && !isAbsolute(path);
+  return (
+    path.length > 0 &&
+    path !== ".." &&
+    !path.startsWith(`..${sep}`) &&
+    !isAbsolute(path)
+  );
 }
 
 async function hasGitAncestor(

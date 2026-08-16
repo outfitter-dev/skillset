@@ -20,8 +20,8 @@ import {
 } from "../cli-contract";
 
 describe("SET-275 final CLI contract", () => {
-  test("pins the exact 23-command top-level roster without retired aliases", () => {
-    expect(CLI_COMMANDS).toHaveLength(23);
+  test("pins the exact 24-command top-level roster without retired aliases", () => {
+    expect(CLI_COMMANDS).toHaveLength(24);
     expect(new Set(CLI_COMMANDS).size).toBe(CLI_COMMANDS.length);
     expect(CLI_COMMANDS).toEqual([
       "build",
@@ -43,6 +43,7 @@ describe("SET-275 final CLI contract", () => {
       "release",
       "reconcile",
       "rename",
+      "report",
       "restore",
       "status",
       "test",
@@ -140,6 +141,7 @@ describe("SET-275 final CLI contract", () => {
       "release apply": "skillset release apply ",
       "release audit": "skillset release audit ",
       "release plan": "skillset release plan ",
+      "report show": "skillset report show <id-or-path> ",
       restore: "skillset restore ",
       status: "skillset status ",
       test: "skillset test [name] ",

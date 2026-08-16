@@ -64,6 +64,24 @@ test("SET-388: nested validation rejects malformed, mismatched, and escaping sta
   ).rejects.toThrow("different repository root");
 });
 
+test("SET-453: nested validation requires real non-symlink XDG directories", async () => {
+  const fileFixture = await createDescriptor();
+  await rm(fileFixture.xdg.state, { recursive: true });
+  await writeFile(fileFixture.xdg.state, "not a directory\n");
+  await expect(validateTestSandbox(fixtureEnv(fileFixture))).rejects.toThrow(
+    "XDG_STATE_HOME must name a real sandbox directory"
+  );
+
+  const symlinkFixture = await createDescriptor();
+  const realState = join(symlinkFixture.sandboxPath, "real-state");
+  await mkdir(realState);
+  await rm(symlinkFixture.xdg.state, { recursive: true });
+  await symlink(realState, symlinkFixture.xdg.state);
+  await expect(validateTestSandbox(fixtureEnv(symlinkFixture))).rejects.toThrow(
+    "XDG_STATE_HOME must name a real sandbox directory"
+  );
+});
+
 test("SET-389: nested validation requires empty owned Git config and disabled prompts", async () => {
   const fixture = await createDescriptor();
   await expect(
@@ -254,6 +272,16 @@ test("SET-388: descriptors reject repository and HOME containment in either dire
     validateTestSandbox({
       ...fixtureEnv(homeDescendant),
       HOME: nestedHome,
+    })
+  ).rejects.toThrow("overlaps a repository or HOME");
+
+  const dottedHomeDescendant = await createDescriptor();
+  const dottedNestedHome = join(dottedHomeDescendant.sandboxPath, "..home");
+  await mkdir(dottedNestedHome);
+  await expect(
+    validateTestSandbox({
+      ...fixtureEnv(dottedHomeDescendant),
+      HOME: dottedNestedHome,
     })
   ).rejects.toThrow("overlaps a repository or HOME");
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   SKILLSET_SCHEMA_VERSION,
+  WORKSPACE_ID_MAX_LENGTH,
   agentFrontmatterContract,
   adaptiveHookContract,
   changeEntryContract,
@@ -75,6 +76,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/activation-proof-receipt.schema.json",
       "docs/reference/schemas/0.1.0/cli-result.schema.json",
       "docs/reference/schemas/0.1.0/cli-event.schema.json",
+      "docs/reference/schemas/0.1.0/report.schema.json",
     ]);
 
     const combined = artifacts[0]?.schema;
@@ -115,6 +117,7 @@ describe("@skillset/schema contracts", () => {
   it("derives maximal examples that validate against structural contracts", () => {
     const examples = deriveSkillsetExampleArtifacts();
     expect(examples.map((example) => example.path)).toEqual([
+      "docs/reference/examples/report.json",
       "docs/reference/examples/workspace-config.yaml",
       "docs/reference/examples/source-metadata.yaml",
       "docs/reference/examples/skill-frontmatter.yaml",
@@ -560,6 +563,7 @@ describe("@skillset/schema contracts", () => {
   });
 
   it("validates workspace config structure", () => {
+    const maximumCacheKey = "a".repeat(WORKSPACE_ID_MAX_LENGTH);
     const valid = validateWorkspaceConfig({
       compile: {
         build: "updated",
@@ -597,10 +601,22 @@ describe("@skillset/schema contracts", () => {
           },
         ],
       },
-      workspace: { cacheKey: "outfitter--skillset" },
+      workspace: { cacheKey: maximumCacheKey },
     });
 
     expect(valid).toEqual({ diagnostics: [], ok: true });
+  });
+
+  it("rejects workspace cache keys beyond the shared identity boundary", () => {
+    expect(
+      validateWorkspaceConfig({
+        workspace: { cacheKey: "a".repeat(WORKSPACE_ID_MAX_LENGTH + 1) },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/workspace-config/cache-key",
+      message: "workspace.cacheKey must be a lowercase repo cache key",
+      path: "$.workspace.cacheKey",
+    });
   });
 
   it("owns distinct root, split workspace, source manifest, and plugin key contracts", () => {

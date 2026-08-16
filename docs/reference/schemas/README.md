@@ -27,6 +27,7 @@ The examples are generated from typed fixtures and checked against the same sche
 
 | Contract | Example | Purpose |
 | --- | --- | --- |
+| `report` | [`report.json`](../examples/report.json) | Immutable Skillset operational report receipt. |
 | `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest for Skillset repos. |
 | `source-metadata` | [`source-metadata.yaml`](../examples/source-metadata.yaml) | Shared source metadata used under the skillset key. |
 | `skill-frontmatter` | [`skill-frontmatter.yaml`](../examples/skill-frontmatter.yaml) | Adaptive skill frontmatter. |

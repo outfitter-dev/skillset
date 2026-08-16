@@ -619,6 +619,24 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "report show",
+      args: [
+        "report",
+        "show",
+        "00000000-0000-4000-8000-000000000000",
+        "--json",
+      ],
+      expected: {
+        command: "report",
+        request: {
+          cwd: process.cwd(),
+          jsonOutput: true,
+          reference: "00000000-0000-4000-8000-000000000000",
+          reportSubcommand: "show",
+        },
+      },
+    },
+    {
       route: "test list",
       args: ["test", "list", "--root", ROOT, "--json"],
       expected: testRequest({ adHocSubcommand: "list" }),

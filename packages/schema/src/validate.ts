@@ -27,6 +27,7 @@ import {
   createSemverRegExp,
   formatList,
   isProviderNativeReferenceName,
+  isWorkspaceId,
 } from "./value-contracts";
 
 type KeySet = ReadonlySet<string>;
@@ -2453,7 +2454,7 @@ function checkWorkspace(
   if (
     value.cacheKey !== undefined &&
     (typeof value.cacheKey !== "string" ||
-      !/^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$/.test(value.cacheKey))
+      !isWorkspaceId(value.cacheKey))
   ) {
     diagnostics.push(
       diagnostic(

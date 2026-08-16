@@ -1,4 +1,11 @@
 export {
+  readReportBundle,
+  ReportStoreError,
+  type ReadReportBundleOptions,
+  type ReportStoreErrorCode,
+  type StoredReportBundle,
+} from "./report-store";
+export {
   declaredTestActivationProofHash,
   declaredTestActivationProofSourceUnits,
   listCurrentActivationProofDeclarations,

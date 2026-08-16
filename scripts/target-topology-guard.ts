@@ -39,13 +39,13 @@ export interface TargetTopologyDuplicateAllowlist extends TargetTopologyViolatio
 }
 
 export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] = [
-  allow("packages/schema/src/contracts.ts", 14, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
-  allow("packages/schema/src/examples.ts", 48, 18, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete targets field."),
-  allow("packages/schema/src/examples.ts", 94, 20, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete marketplace targets field."),
-  allow("packages/schema/src/examples.ts", 206, 24, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
-  allow("packages/schema/src/examples.ts", 362, 18, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
-  allow("packages/schema/src/examples.ts", 410, 32, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Skill eval example demonstrates an intentionally narrowed case target matrix."),
-  allow("packages/schema/src/examples.ts", 450, 16, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete activation targets field."),
+  allow("packages/schema/src/contracts.ts", 20, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
+  allow("packages/schema/src/examples.ts", 78, 18, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete targets field."),
+  allow("packages/schema/src/examples.ts", 124, 20, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete marketplace targets field."),
+  allow("packages/schema/src/examples.ts", 236, 24, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
+  allow("packages/schema/src/examples.ts", 392, 18, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
+  allow("packages/schema/src/examples.ts", 440, 32, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Skill eval example demonstrates an intentionally narrowed case target matrix."),
+  allow("packages/schema/src/examples.ts", 480, 16, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete activation targets field."),
   allow("packages/registry/src/index.ts", 10, 52, "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
   allow("packages/registry/src/schema-snapshots.ts", 5, 40, "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
   allow("scripts/source-layout-migration.ts", 72, 24, "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),

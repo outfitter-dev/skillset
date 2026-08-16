@@ -41,10 +41,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:a23cb1d261163fe25b33639dff76900b298868d9bc34bada96c24906809ec6ba",
+      "outputHash": "sha256:76aa0ef4d82dffdd3ba4e589ff4f64b2d9d9f610295ce7a9b194120615d11dfc",
       "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:8ee4d0f88cf8f3b0d8c6e0dbfa97dcc7b85b71f3ef735aee74f91a55e2f72a8d",
+      "sourceHash": "sha256:dfeec067f5495ec8a6febf562c4d237946a034870e911af8845345355b561c16",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -84,10 +84,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:a0c8b495d7b9528ab2ccb9baf44f9c2e939f666ec45baab6933a997f6baeaace",
+      "outputHash": "sha256:63484b43982571c49b4bbc8003d96896e141717d7e8d422c90ab24be2ac531cc",
       "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:8ee4d0f88cf8f3b0d8c6e0dbfa97dcc7b85b71f3ef735aee74f91a55e2f72a8d",
+      "sourceHash": "sha256:dfeec067f5495ec8a6febf562c4d237946a034870e911af8845345355b561c16",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -127,10 +127,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:5f5f01fae08abe5060aa1bff82467b4066f404f34fa868e65a2cb72996e8efda",
+      "outputHash": "sha256:3eaff4db4b3f0500937308bcbe38d2e3e0cc9be49a3aa088fd5eb14876de8ee9",
       "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:8ee4d0f88cf8f3b0d8c6e0dbfa97dcc7b85b71f3ef735aee74f91a55e2f72a8d",
+      "sourceHash": "sha256:dfeec067f5495ec8a6febf562c4d237946a034870e911af8845345355b561c16",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }

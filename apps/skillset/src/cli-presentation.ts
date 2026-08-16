@@ -285,6 +285,12 @@ const PRESENTATION = {
     summary: "Plan versions and changelog updates.",
     synopses: ["release plan [--json] [--root <path>]"],
   },
+  "report show": {
+    commandSummary: "Inspect immutable operational reports.",
+    group: "Inspect",
+    summary: "Show one validated report by ID or owned store path.",
+    synopses: ["report show <id-or-path> [--json]"],
+  },
   restore: {
     group: "Changes",
     summary: "Restore a recorded generated-output backup.",
