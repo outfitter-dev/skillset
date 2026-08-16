@@ -82,6 +82,11 @@ export interface WorkspaceTransactionTestHooks {
   ) => Promise<void> | void;
   /** Fires immediately before a directory destination name is claimed. */
   readonly beforeDirectoryInstall?: (path: string) => Promise<void> | void;
+  /**
+   * Fires immediately after a directory destination name is claimed and its
+   * claim identity recorded, before that claim is consumed.
+   */
+  readonly afterDirectoryClaim?: (path: string) => Promise<void> | void;
   readonly beforeWriteInstall?: (path: string) => Promise<void> | void;
   readonly beforeRollback?: (
     action: WorkspaceTransactionRollbackAction,
@@ -760,16 +765,19 @@ async function applyWrites(
 }
 
 /**
- * Installs one staged entry at its final path without ever replacing an entry
- * that appeared after inspection.
+ * Installs one staged entry at its final path, rejecting rather than replacing
+ * an entry that appeared after inspection.
  *
  * Both branches take the destination name with an exclusive create, so
- * occupancy detection and installation are one atomic step rather than a
+ * occupancy detection and taking the name are one atomic step rather than a
  * check followed by an overwrite-capable act. Regular files take it with
- * `link`. Directories cannot be hard-linked, so they take it with `mkdir`,
- * which fails with `EEXIST` for any existing entry — including an empty
- * directory or a symbolic link, neither of which it follows — and then move
- * onto the claim this transaction now owns.
+ * `link`, which completes the install: that path is atomically no-replace.
+ * Directories cannot be hard-linked, so they take it with `mkdir`, which fails
+ * with `EEXIST` for any existing entry — including an empty directory or a
+ * symbolic link, neither of which it follows — and then move onto the claim
+ * this transaction now owns. That second step cannot be made atomic with the
+ * available primitives; {@link moveOntoDirectoryClaim} states exactly what it
+ * guarantees instead.
  */
 async function installWithoutReplacing(
   hooks: WorkspaceTransactionTestHooks | undefined,
@@ -798,41 +806,117 @@ async function installWithoutReplacing(
     }
     throw error;
   }
-  return await moveOntoDirectoryClaim(sourcePath, target.absolute);
+  const claim = await describeDirectoryClaim(target.absolute);
+  await hooks?.afterDirectoryClaim?.(target.relative);
+  return await moveOntoDirectoryClaim(sourcePath, claim);
+}
+
+/**
+ * The identity of the empty directory this transaction created to claim a
+ * destination name, captured immediately after the claiming `mkdir`.
+ *
+ * `dev`/`ino` identify the claimed directory itself. `birthtimeNs` separates a
+ * recycled inode number from the original claim on filesystems that reuse
+ * them, and `ctimeNs` additionally changes if anything is created inside the
+ * claim, so a claim that is no longer both ours and empty is detectable.
+ */
+interface DirectoryClaim {
+  readonly birthtimeNs: bigint;
+  readonly ctimeNs: bigint;
+  readonly dev: bigint;
+  readonly ino: bigint;
+  readonly path: string;
 }
 
 /**
  * Moves a staged directory onto the destination name this transaction just
  * claimed.
  *
+ * The claim is verified immediately before each step that consumes it, and any
+ * mismatch reports the destination as occupied without touching the entry
+ * found there. This detects a claim that another process removed and replaced,
+ * which the claiming `mkdir` alone cannot prevent.
+ *
+ * This is detection that fails closed, not atomicity: neither Bun nor Node
+ * exposes a no-replace rename (`renameat2(RENAME_NOREPLACE)`,
+ * `renamex_np(RENAME_EXCL)`), so on POSIX a replacement that lands between the
+ * final verification and the `rename` itself is still replaced. Every
+ * consuming step also fails closed on the kernel's own refusals (`ENOTEMPTY`,
+ * `ENOTDIR`) in case a substitution slips past verification.
+ *
  * POSIX `rename` replaces an empty destination directory, so it consumes the
  * claim directly. Windows refuses to rename a directory onto any existing
  * entry, so there the claim is released first; that same refusal keeps the
- * retry no-replace, and `rmdir` fails closed when the claim is no longer the
- * empty directory this transaction created.
+ * retry no-replace.
  */
 async function moveOntoDirectoryClaim(
   sourcePath: string,
-  targetPath: string
+  claim: DirectoryClaim
 ): Promise<"installed" | "occupied"> {
+  if (!(await directoryClaimIsIntact(claim))) {
+    return "occupied";
+  }
   try {
-    await rename(sourcePath, targetPath);
+    await rename(sourcePath, claim.path);
     return "installed";
   } catch (error) {
+    if (isUnconsumableTarget(error)) {
+      return "occupied";
+    }
     if (!isAlreadyExists(error)) {
       throw error;
     }
   }
-  await rmdir(targetPath);
+  if (!(await directoryClaimIsIntact(claim))) {
+    return "occupied";
+  }
   try {
-    await rename(sourcePath, targetPath);
-    return "installed";
+    await rmdir(claim.path);
   } catch (error) {
-    if (isAlreadyExists(error)) {
+    if (isUnconsumableTarget(error) || isMissing(error)) {
       return "occupied";
     }
     throw error;
   }
+  try {
+    await rename(sourcePath, claim.path);
+    return "installed";
+  } catch (error) {
+    if (isAlreadyExists(error) || isUnconsumableTarget(error)) {
+      return "occupied";
+    }
+    throw error;
+  }
+}
+
+async function describeDirectoryClaim(path: string): Promise<DirectoryClaim> {
+  const entry = await lstat(path, { bigint: true });
+  return {
+    birthtimeNs: entry.birthtimeNs,
+    ctimeNs: entry.ctimeNs,
+    dev: entry.dev,
+    ino: entry.ino,
+    path,
+  };
+}
+
+async function directoryClaimIsIntact(claim: DirectoryClaim): Promise<boolean> {
+  const entry = await lstat(claim.path, { bigint: true }).catch(
+    (error: unknown) => {
+      if (isMissing(error)) {
+        return;
+      }
+      throw error;
+    }
+  );
+  return (
+    entry !== undefined &&
+    entry.isDirectory() &&
+    entry.dev === claim.dev &&
+    entry.ino === claim.ino &&
+    entry.birthtimeNs === claim.birthtimeNs &&
+    entry.ctimeNs === claim.ctimeNs
+  );
 }
 
 function writeReplacesPlannedEntry(
@@ -1250,6 +1334,19 @@ function isMissing(error: unknown): boolean {
 
 function isAlreadyExists(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "EEXIST";
+}
+
+/**
+ * The kernel refused an operation because the destination is not the empty
+ * directory this transaction claimed: it holds entries (`ENOTEMPTY`) or is no
+ * longer a directory at all (`ENOTDIR`). Either way the claim is gone.
+ */
+function isUnconsumableTarget(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "ENOTEMPTY" || error.code === "ENOTDIR")
+  );
 }
 
 function errorMessage(error: unknown): string {
