@@ -14,7 +14,7 @@
       ],
       "kind": "standalone-skill",
       "name": "review-notes",
-      "outputHash": "sha256:d7e45d1f26b5df36fee721eaa47cda653205534d8438362a98a5f84cfe40926b",
+      "outputHash": "sha256:e39a241c9b7f5da52ae39e16971d054ea167bbf05860513aca7c8a0ff4a14d12",
       "outputPath": "review-notes/SKILL.md",
       "sourceHash": "sha256:9b21f33653bd6e43148fb5f7eb1f59d9d0812b18d4dfaf88ab0757d2a45c35cf",
       "sourcePath": ".skillset/skills/review-notes/SKILL.md",
@@ -22,7 +22,7 @@
     }
   ],
   "outputRoot": ".agents/skills",
-  "provenanceHash": "sha256:d8295fcb53b1b1075621f3a74725e5f8751ade17f850c40426b8547f6ea4108d",
+  "provenanceHash": "sha256:615f651c3038a1f90093a763643805efc524cce0b609322cdcfe262b1df8c936",
   "renderResults": [
     {
       "destination": "skill",
