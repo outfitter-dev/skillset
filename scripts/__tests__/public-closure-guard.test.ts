@@ -378,6 +378,10 @@ describe("generated public closure guard", () => {
       "git -c=color.ui=false -C scripts status",
       "git --version -C scripts status",
       "git -h -C scripts status",
+      // A subcommand-position `-C` is not Git's global `-C`, so it routes
+      // nowhere. `scripts` is still reported, but as a `git status` pathspec
+      // operand: the guard does not model per-subcommand option arity, so an
+      // operand in pathspec position counts even when an option precedes it.
       "git status -C scripts",
       "echo git -C scripts",
       'git -C "scripts>/tmp" status',
@@ -411,6 +415,7 @@ describe("generated public closure guard", () => {
       { line: 11, rule: "internal-script" },
       { line: 12, rule: "internal-script" },
       { line: 13, rule: "internal-script" },
+      { line: 27, rule: "internal-script" },
     ]);
   });
 
@@ -454,6 +459,61 @@ describe("generated public closure guard", () => {
       { line: 7, rule: "internal-script" },
       { line: 8, rule: "internal-script" },
       { line: 10, rule: "internal-package" },
+    ]);
+  });
+
+  test("SET-465: treats git pathspec operands as protected routes", () => {
+    const content = [
+      "```bash",
+      // `git ls-files [<options>] [<file>...]`: every positional operand is a
+      // pathspec, so a bare owner name enumerates the protected tree.
+      "git ls-files packages",
+      "git ls-files -- scripts",
+      "git ls-files --cached scripts",
+      // Any subcommand's `--` separator introduces pathspecs, so `git grep`
+      // can search the protected tree without a slashed path candidate.
+      "git grep TODO -- packages",
+      "git log -- packages",
+      "git diff main -- scripts",
+      // Pathspec operands resolve against the directory `-C` put us in.
+      "git -C public ls-files ../scripts",
+      "git status packages",
+      "git add scripts",
+      "git rm -r scripts",
+      "git clean -fd packages",
+      "git check-ignore packages",
+      "git mv scripts other",
+      // Not routes: `git log <rev>` is revision-shaped without `--`, the
+      // subcommand itself is never an operand, `public` is unprotected, and a
+      // `-C`-relative operand can resolve outside the protected tree.
+      "git log packages",
+      "git show packages",
+      "git ls-files public",
+      "git -C public ls-files scripts",
+      "git status",
+      "```",
+      "In prose, git ls-files packages is not presented as a command.",
+    ].join("\n");
+
+    expect(
+      scanGeneratedPublicContent(
+        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        content
+      ).map(({ line, rule }) => ({ line, rule }))
+    ).toEqual([
+      { line: 2, rule: "internal-package" },
+      { line: 3, rule: "internal-script" },
+      { line: 4, rule: "internal-script" },
+      { line: 5, rule: "internal-package" },
+      { line: 6, rule: "internal-package" },
+      { line: 7, rule: "internal-script" },
+      { line: 8, rule: "internal-script" },
+      { line: 9, rule: "internal-package" },
+      { line: 10, rule: "internal-script" },
+      { line: 11, rule: "internal-script" },
+      { line: 12, rule: "internal-package" },
+      { line: 13, rule: "internal-package" },
+      { line: 14, rule: "internal-script" },
     ]);
   });
 
@@ -2087,6 +2147,11 @@ describe("generated public closure guard", () => {
       "git --work-tree",
       "git --work-tree= status",
       "git --work-tree --no-pager status",
+      // A subcommand-position `--work-tree` is not Git's global option, so it
+      // routes nowhere. `packages` is still reported, but as a `git status`
+      // pathspec operand: the guard does not model per-subcommand option arity,
+      // so an operand in pathspec position counts even when an option precedes
+      // it.
       "git status --work-tree packages",
       "```",
       "In prose, git --work-tree packages is not presented as a command.",
@@ -2104,6 +2169,7 @@ describe("generated public closure guard", () => {
       { line: 5, rule: "development-docs" },
       { line: 6, rule: "fixture-path" },
       { line: 7, rule: "internal-script" },
+      { line: 12, rule: "internal-package" },
     ]);
   });
 

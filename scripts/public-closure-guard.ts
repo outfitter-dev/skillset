@@ -418,6 +418,29 @@ const GIT_GLOBAL_VALUE_FLAGS: ReadonlySet<string> = new Set([
   "--work-tree",
   "-c",
 ]);
+// Git subcommands whose plain positional operands are pathspecs, so a bare
+// owner name reads or enumerates the protected tree the way `ls packages` does.
+// Verified against the Git 2.43 synopses, each of which spells the positionals
+// as paths with no revision operand to disambiguate:
+// `git add [<options>] [--] <pathspec>...`, `git check-ignore [<options>]
+// <pathname>...`, `git clean [<options>] [--] <path>...`, `git ls-files
+// [<options>] [<file>...]`, `git mv [<options>] <source>... <destination>`,
+// `git rm [<options>] [--] <pathspec>...`, and `git status [<options>] [--]
+// [<pathspec>...]`.
+//
+// Subcommands whose leading positionals can be revisions (`git log packages`,
+// `git grep TODO`) are deliberately absent: their operands only become
+// pathspecs after `--`, which {@link gitPathspecOperandRoutes} handles for
+// every subcommand.
+const GIT_PATHSPEC_OPERAND_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  "add",
+  "check-ignore",
+  "clean",
+  "ls-files",
+  "mv",
+  "rm",
+  "status",
+]);
 const GIT_GLOBAL_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   "--bare",
   "--glob-pathspecs",
@@ -1379,6 +1402,42 @@ function searchCommandSegments(
   );
 }
 
+/**
+ * Collects the pathspec operands a Git subcommand reads or writes through, so
+ * `git ls-files packages` and `git grep TODO -- packages` cannot enumerate or
+ * search the protected tree while the closure check passes. Two operand shapes
+ * carry pathspecs:
+ *
+ * - Every plain operand of a {@link GIT_PATHSPEC_OPERAND_SUBCOMMANDS} member,
+ *   whose synopsis has no revision positional to disambiguate.
+ * - Every operand after `--`, which Git universally reads as a pathspec.
+ *
+ * Option tokens are skipped rather than parsed for arity: Git's per-subcommand
+ * option tables are too large to model, and a detached option value that spells
+ * the owner (`git ls-files -x packages`) still names the protected tree in
+ * public guidance, so treating it as a route errs toward reporting.
+ */
+function gitPathspecOperandRoutes(
+  tokens: readonly string[],
+  subcommandIndex: number,
+  resolveAgainstDirectory: (operand: string) => string
+): string[] {
+  let pathspecsOnly = GIT_PATHSPEC_OPERAND_SUBCOMMANDS.has(
+    tokens[subcommandIndex]?.toLowerCase() ?? ""
+  );
+  const routes: string[] = [];
+  for (let index = subcommandIndex + 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? "";
+    if (token === "--") {
+      pathspecsOnly = true;
+      continue;
+    }
+    if (!pathspecsOnly || token.length === 0 || token.startsWith("-")) continue;
+    routes.push(resolveAgainstDirectory(token));
+  }
+  return routes;
+}
+
 function hasGitProtectedDirectoryArgument(
   tokens: readonly string[],
   normalizedOwner: string
@@ -1428,7 +1487,16 @@ function hasGitProtectedDirectoryArgument(
       routes.push(resolveAgainstDirectory(operand));
       continue;
     }
-    if (token === "--" || !token.startsWith("-")) break;
+    if (token === "--") break;
+    // The first plain token ends Git's global option parsing and names the
+    // subcommand, whose own operands can still be pathspecs into the protected
+    // tree.
+    if (!token.startsWith("-")) {
+      routes.push(
+        ...gitPathspecOperandRoutes(tokens, index, resolveAgainstDirectory)
+      );
+      break;
+    }
     if (GIT_GLOBAL_VALUE_FLAGS.has(token)) {
       if (!tokens[index + 1]) return false;
       index += 1;
