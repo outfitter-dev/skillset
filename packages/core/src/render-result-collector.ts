@@ -27,7 +27,10 @@ import {
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
-import { codexInterfaceCategory } from "./render-plugin-manifest";
+import {
+  codexInterfaceCategory,
+  pluginManifestAuthor,
+} from "./render-plugin-manifest";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
@@ -286,21 +289,11 @@ function cursorMarketplaceAuthorOutcomes(
   if (canonical === undefined) return [];
   // `cursor.marketplace.owner` is merged over the generated owner field by
   // field, so loss has to be read from the owner the marketplace actually
-  // carries. A canonical field the override replaces is not omitted by the
-  // Cursor format, and an override that replaces every canonical field means no
-  // canonical owner value reaches this marketplace at all — there is nothing
-  // left for the canonical projection to lose.
-  const carried = cursorMarketplaceOwner(graph);
-  const renderedOwner = isJsonRecord(carried) ? carried : {};
-  const survivingKeys = Object.keys(canonical).filter(
-    (key) => renderedOwner[key] === canonical[key]
+  // carries.
+  const omitted = omittedCanonicalAuthorKeys(
+    canonical,
+    cursorMarketplaceOwner(graph)
   );
-  const omitted =
-    survivingKeys.length === 0
-      ? []
-      : Object.keys(canonical)
-          .filter((key) => !survivingKeys.includes(key))
-          .sort();
   return [
     marketplaceAuthorOutcome({
       diagnosticPath: "marketplace.owner",
@@ -313,9 +306,30 @@ function cursorMarketplaceAuthorOutcomes(
           : `Cursor marketplace author output supports only name and email; omitted canonical fields: ${omitted.join(", ")}`,
       sourcePath: "skillset.yaml",
       sourceUnit: selectorForRootConfig(),
+      status: authorOmissionStatus("cursor", omitted),
       target: "cursor",
     }),
   ];
+}
+
+/**
+ * Canonical author fields a rendered provider author record does not carry.
+ *
+ * A canonical key the rendered author replaces with a different value is not
+ * omitted — the provider carries a native identity for that field. Only keys
+ * that are absent from the rendered author are lost. When the rendered author
+ * shares no canonical value at all, it replaced the identity wholesale, so no
+ * canonical value reaches that output and there is nothing left for the
+ * canonical projection to lose.
+ */
+function omittedCanonicalAuthorKeys(
+  canonical: JsonRecord,
+  rendered: JsonValue | undefined
+): readonly string[] {
+  if (!isJsonRecord(rendered)) return [];
+  const keys = Object.keys(canonical);
+  if (!keys.some((key) => rendered[key] === canonical[key])) return [];
+  return keys.filter((key) => rendered[key] === undefined).sort();
 }
 
 function marketplaceAuthorOutcome(args: {
@@ -326,6 +340,7 @@ function marketplaceAuthorOutcome(args: {
   readonly reason: string | undefined;
   readonly sourcePath: string;
   readonly sourceUnit: string;
+  readonly status?: "degraded" | "lossy";
   readonly target: "claude" | "cursor";
 }): SkillsetRenderResult {
   const evidence = evidenceFor("marketplaces", args.target);
@@ -365,7 +380,7 @@ function marketplaceAuthorOutcome(args: {
     status: args.included
       ? reason === undefined
         ? "rendered"
-        : authorOmissionStatus(args.target, omitted)
+        : (args.status ?? "lossy")
       : "intentionally_skipped",
     target: args.target,
   });
@@ -726,10 +741,16 @@ function pluginAuthorRenderFacts(
   const usesPluginAuthor = plugin.metadata.author !== undefined;
   const author = usesPluginAuthor ? plugin.metadata.author : graph.root.metadata.author;
   if (author === undefined) return undefined;
+  // `<target>.manifest.author` is merged over the canonical projection, so loss
+  // has to be read from the author the manifest actually carries.
+  const canonical = readAuthorRecord(author);
+  const effective = pluginManifestAuthor(graph, plugin, target);
   const omitted =
-    target === "cursor"
-      ? omittedCursorAuthorKeys(author)
-      : omittedClaudeAuthorKeys(author);
+    canonical === undefined || effective === undefined
+      ? target === "cursor"
+        ? omittedCursorAuthorKeys(author)
+        : omittedClaudeAuthorKeys(author)
+      : omittedCanonicalAuthorKeys(canonical, effective);
   if (omitted.length === 0) return undefined;
   const providerName =
     target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Cursor";

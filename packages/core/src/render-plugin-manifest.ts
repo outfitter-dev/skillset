@@ -28,6 +28,7 @@ import type {
   TargetName,
 } from "./types";
 import { pluginVersion } from "./versioning";
+import { isJsonRecord } from "./yaml";
 
 const DEFAULT_CODEX_COLOR = "#B06DFF";
 
@@ -50,15 +51,7 @@ export function renderPluginManifest(
       readString(listing, "description") ??
       readString(metadata, "description") ??
       plugin.id,
-    author:
-      target === "claude"
-        ? renderClaudeAuthor(metadata.author) ??
-          renderClaudeAuthor(graph.root.metadata.author)
-        : target === "codex"
-          ? renderCodexAuthor(metadata.author) ??
-            renderCodexAuthor(graph.root.metadata.author)
-          : renderCursorAuthor(metadata.author) ??
-            renderCursorAuthor(graph.root.metadata.author),
+    author: projectedPluginManifestAuthor(graph, plugin, target),
     homepage: metadata.homepage,
     repository: metadata.repository,
     license: license?.manifestValue,
@@ -137,6 +130,52 @@ function renderCursorPluginDisplayFields(
       readString(portableManifest, "logo") ??
       readString(listing, "logo"),
   };
+}
+
+/**
+ * Canonical author projection a rendered plugin manifest starts from.
+ *
+ * Provider author formats support different key sets, so the canonical author
+ * is projected per target before any `<target>.manifest.author` override is
+ * merged over it.
+ */
+function projectedPluginManifestAuthor(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): JsonRecord | undefined {
+  const author = plugin.metadata.author;
+  const rootAuthor = graph.root.metadata.author;
+  if (target === "claude") {
+    return renderClaudeAuthor(author) ?? renderClaudeAuthor(rootAuthor);
+  }
+  if (target === "codex") {
+    return renderCodexAuthor(author) ?? renderCodexAuthor(rootAuthor);
+  }
+  return renderCursorAuthor(author) ?? renderCursorAuthor(rootAuthor);
+}
+
+/**
+ * Effective `author` a rendered plugin manifest carries.
+ *
+ * `renderPluginManifest` merges `<target>.manifest` over the rendered manifest,
+ * so a `manifest.author` override can replace part or all of the canonical
+ * author projection. Callers that need to know which canonical author fields
+ * survive must compare this value, not the canonical author.
+ */
+export function pluginManifestAuthor(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): JsonValue | undefined {
+  const projected = projectedPluginManifestAuthor(graph, plugin, target);
+  const manifestOverrides =
+    readRecord(plugin.targets[target].options, "manifest") ?? {};
+  const override = manifestOverrides.author;
+  if (override === undefined) return projected;
+  return projected !== undefined && isJsonRecord(override)
+    ? mergeRecords(projected, override)
+    : override;
 }
 
 /**

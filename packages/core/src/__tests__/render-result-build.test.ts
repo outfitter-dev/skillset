@@ -1733,6 +1733,117 @@ Help with the task.
     );
   });
 
+  it.each([
+    [
+      "cursor",
+      `cursor:
+  manifest:
+    author:
+      name: Cursor Team
+      email: cursor@example.com
+`,
+    ],
+    [
+      "codex",
+      `codex:
+  manifest:
+    author:
+      name: Codex Team
+      email: codex@example.com
+      url: https://example.com/codex
+`,
+    ],
+  ])(
+    "evaluates the effective %s manifest author when the override replaces it",
+    async (target, overrideYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: effective-author
+compile:
+  targets: [${target}]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    url: https://example.com/tools
+    contributor: Example Contributor
+${overrideYaml}`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      expect(
+        build.renderResults.flatMap((outcome) =>
+          (outcome.diagnostics ?? []).filter((diagnostic) =>
+            diagnostic.code.endsWith("author-fields-omitted")
+          )
+        )
+      ).toEqual([]);
+      const manifest = await readJson(
+        join(root, `plugins/tools/${target}/.${target}-plugin/plugin.json`)
+      );
+      expect((manifest.author as Record<string, unknown>).name).toBe(
+        target === "cursor" ? "Cursor Team" : "Codex Team"
+      );
+    }
+  );
+
+  it("still reports omitted author fields when the manifest override only replaces one field", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: effective-author-partial
+compile:
+  targets: [codex]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    contributor: Example Contributor
+codex:
+  manifest:
+    author:
+      name: Codex Team
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/codex-author-fields-omitted",
+          }),
+        ],
+        reason:
+          "Codex author output supports only name, email, and url; omitted canonical fields: contributor",
+        status: "lossy",
+        target: "codex",
+      })
+    );
+  });
+
   it("reports Claude marketplace author omissions once per destination", async () => {
     const cases = [
       {
@@ -1979,6 +2090,60 @@ Help with the task.
         );
       }
     }
+  });
+
+  it("treats partially replaced Cursor marketplace owner fields as carried, not omitted", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: cursor-marketplace-owner-partial-override
+  owner:
+    name: Publishing Team
+    email: publisher@example.com
+    url: https://example.com/publisher
+compile:
+  targets: [cursor]
+cursor:
+  marketplace:
+    owner:
+      name: Cursor Publishing
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root, { isolated: true });
+    const ownerOutcomes = build.renderResults.filter(
+      (outcome) =>
+        outcome.featureId === "marketplaces" &&
+        outcome.target === "cursor" &&
+        outcome.destination === "marketplace"
+    );
+    expect(ownerOutcomes).toEqual([
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/cursor-marketplace-author-fields-omitted",
+            path: "marketplace.owner",
+          }),
+        ],
+        reason:
+          "Cursor marketplace author output supports only name and email; omitted canonical fields: url",
+        status: "degraded",
+        target: "cursor",
+      }),
+    ]);
   });
 
   it("tracks marketplace authors through a replaced Claude marketplace plugin array", async () => {
