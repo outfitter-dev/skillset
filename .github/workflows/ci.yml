@@ -2,6 +2,12 @@
 # `skillset init --include ci` scaffolds for adopting repos. The skillset-ci job
 # mirrors that template but runs the compiler from this repo's source.
 # Notes:
+# - Invariant: skillset-ci only concludes success when a gate actually ran —
+#   either `skillset check --ci` or, for generated release pull requests, the
+#   release package check. Stack position never skips the gate.
+# - Non-boundary stack pull requests (those with open child pull requests) run
+#   the gate read-only: no `--fix`, no mechanical-fix push, because rewriting a
+#   parent branch head mid-stack forces every child to restack.
 # - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if
 #   branch protection requires checks on the fixed commit, push with a PAT instead.
 # - The comment step prefers gh >= 2.68 (--create-if-none) and falls back to a new comment.
@@ -88,20 +94,21 @@ jobs:
           echo "child_count=$child_count" >> "$GITHUB_OUTPUT"
 
           if [ "$child_count" != "0" ]; then
-            echo "skip_skillset_ci=true" >> "$GITHUB_OUTPUT"
-            echo "Skipping skillset check --ci on non-boundary stack PR with $child_count child PR(s)." >> "$GITHUB_STEP_SUMMARY"
+            echo "read_only=true" >> "$GITHUB_OUTPUT"
+            echo "Running skillset check --ci read-only (no --fix) on non-boundary stack PR with $child_count child PR(s)." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "skip_skillset_ci=false" >> "$GITHUB_OUTPUT"
+            echo "read_only=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Check generated release package
+        id: release_package
         if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/changeset-release/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'changeset-release/main')
         run: bun scripts/publish.ts check
       - name: Run skillset check --ci
         id: skillset
-        if: steps.stack.outputs.skip_skillset_ci != 'true' && (github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/changeset-release/main') && (github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'changeset-release/main')
+        if: (github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/changeset-release/main') && (github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'changeset-release/main')
         run: >-
           bun run test:sandbox -- bun ./apps/skillset/src/cli.ts check --ci
-          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}
+          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.stack.outputs.read_only != 'true' && '--fix' || '' }}
           --report "$RUNNER_TEMP/skillset-ci-report.md"
         continue-on-error: true
       - name: Add report to job summary
@@ -111,7 +118,7 @@ jobs:
             cat "$RUNNER_TEMP/skillset-ci-report.md" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Push mechanical fixes
-        if: steps.stack.outputs.skip_skillset_ci != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: steps.stack.outputs.read_only != 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
@@ -135,6 +142,17 @@ jobs:
             --body-file "$RUNNER_TEMP/skillset-ci-report.md" \
           || gh pr comment "$PR_NUMBER" --repo "$GH_REPO" \
             --body-file "$RUNNER_TEMP/skillset-ci-report.md"
-      - name: Fail when problems remain
-        if: steps.skillset.outcome == 'failure'
-        run: exit 1
+      - name: Fail when the gate did not run or problems remain
+        if: ${{ !cancelled() }}
+        env:
+          SKILLSET_OUTCOME: ${{ steps.skillset.outcome }}
+          RELEASE_PACKAGE_OUTCOME: ${{ steps.release_package.outcome }}
+        run: |
+          if [ "$SKILLSET_OUTCOME" = "failure" ]; then
+            echo "skillset check --ci reported problems." >&2
+            exit 1
+          fi
+          if [ "$SKILLSET_OUTCOME" != "success" ] && [ "$RELEASE_PACKAGE_OUTCOME" != "success" ]; then
+            echo "No gate ran: skillset check --ci did not execute and the release package check did not succeed." >&2
+            exit 1
+          fi
