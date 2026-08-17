@@ -41,7 +41,7 @@ describe("documentation reference artifacts", () => {
     ).toBe(47);
     expect(model.support.targets).toHaveLength(3);
     expect(model.support.features).toHaveLength(40);
-    expect(first).toHaveLength(25);
+    expect(first).toHaveLength(26);
     expect(first.map(({ path }) => path)).toEqual(
       [...first.map(({ path }) => path)].toSorted()
     );
@@ -79,6 +79,7 @@ describe("documentation reference artifacts", () => {
       cliEnvironment: [],
       cliFlags: [],
       providers: [],
+      providerValidation: [],
       support: {
         features: [
           {

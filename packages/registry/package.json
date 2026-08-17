@@ -4,12 +4,13 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "dependencies": {
-    "@skillset/schema": "workspace:*"
-  },
   "exports": {
     ".": "./src/index.ts",
     "./provider-maintenance": "./src/provider-maintenance.ts",
-    "./provider-runtime-evidence": "./src/provider-runtime-evidence.ts"
+    "./provider-runtime-evidence": "./src/provider-runtime-evidence.ts",
+    "./provider-validation": "./src/provider-validation.ts"
+  },
+  "dependencies": {
+    "@skillset/schema": "workspace:*"
   }
 }

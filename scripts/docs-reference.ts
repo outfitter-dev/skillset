@@ -32,6 +32,7 @@ const FEATURE_REFERENCE_ROOTS = [
   "docs/reference/features",
 ] as const;
 const PROVIDER_INDEX_PATH = "docs/reference/providers/README.md";
+const PROVIDER_VALIDATION_PATH = "docs/reference/provider-validation.md";
 const PROVIDER_ROOT = "docs/reference/providers";
 const SUPPORT_MATRIX_PATH = "docs/reference/support-matrix.md";
 
@@ -48,11 +49,73 @@ export function buildDocsReferenceArtifacts(
       content: renderCliCommandPage(command),
       path: `${CLI_ROOT}/${command.command}.md`,
     })),
+    ...(model.providerValidation.length === 0
+      ? []
+      : [
+          {
+            content: renderProviderValidationReference(
+              model.providerValidation
+            ),
+            path: PROVIDER_VALIDATION_PATH,
+          },
+        ]),
     {
       content: renderSupportMatrix(model.support),
       path: SUPPORT_MATRIX_PATH,
     },
   ].toSorted((left, right) => left.path.localeCompare(right.path));
+}
+
+function renderProviderValidationReference(
+  lanes: DocsReferenceModel["providerValidation"]
+): string {
+  return [
+    "---",
+    "description: Records exact hosted provider-validation pins, covered surfaces, and explicit fallback boundaries.",
+    "---",
+    GENERATED_HEADER,
+    "",
+    "# Hosted Provider Validation",
+    "",
+    "> Generated from `@skillset/registry`. Ordinary Skillset builds and checks remain offline; this evidence runs only in the separate hosted workflow.",
+    "",
+    "| Lane | Authority | Exact pin | Targets | Covered surfaces |",
+    "| --- | --- | --- | --- | --- |",
+    ...lanes.map(
+      (lane) =>
+        `| \`${escapeTable(lane.id)}\` | ${escapeTable(lane.authority)} | \`${escapeTable(lane.pin)}\` | ${escapeTable(lane.targets.join(", "))} | ${escapeTable(lane.coveredSurfaces.join(", "))} |`
+    ),
+    "",
+    "## Acquisition Evidence",
+    "",
+    ...lanes.flatMap((lane) => [
+      `### ${lane.id}`,
+      "",
+      ...lane.acquisitions.map(
+        (source) =>
+          `- ${source.kind}: [immutable source](${source.url}) — \`${source.integrity}\``
+      ),
+      ...lane.dependencies.map((dependency) => {
+        const source =
+          dependency.url === undefined
+            ? ""
+            : ` ([artifact](${dependency.url}))`;
+        return `- dependency: \`${dependency.name}@${dependency.version}\`${source} — \`${dependency.integrity}\``;
+      }),
+      "",
+    ]),
+    "## Coverage Boundaries",
+    "",
+    ...lanes.flatMap((lane) => [
+      `### ${lane.id}`,
+      "",
+      `Negative canary: ${lane.negativeCanary}.`,
+      "",
+      ...lane.limitations.map((limitation) => `- ${limitation}`),
+      `- Internal conformance fallback: ${lane.fallback.surfaces.join(", ")} (\`${lane.fallback.owner}\`; ${lane.fallback.refs.map((ref) => `\`${ref}\``).join(", ")}).`,
+      "",
+    ]),
+  ].join("\n");
 }
 
 export async function generateDocsReferenceArtifacts(

@@ -22,6 +22,10 @@ import {
   type SkillsetFeatureStatus,
   type SkillsetTargetSupportStatus,
 } from "../../packages/core/src";
+import {
+  listProviderValidationLanes,
+  type ProviderValidationLane,
+} from "../../packages/registry/src/provider-validation";
 
 type ReferenceTargetName = ReturnType<typeof targetNames>[number];
 
@@ -105,6 +109,7 @@ export interface DocsReferenceModel {
   readonly cliEnvironment: readonly CliEnvironmentReference[];
   readonly cliFlags: readonly CliFlagReference[];
   readonly providers: readonly ProviderReference[];
+  readonly providerValidation: readonly ProviderValidationLane[];
   readonly support: SupportReference;
 }
 
@@ -115,6 +120,7 @@ export function buildDocsReferenceModel(): DocsReferenceModel {
     cliEnvironment: buildCliEnvironmentReferences(),
     cliFlags: buildCliFlagReferences(),
     providers: buildProviderReferences(support),
+    providerValidation: listProviderValidationLanes(),
     support,
   };
 }
