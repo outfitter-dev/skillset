@@ -645,8 +645,45 @@ describe("source rename planner", () => {
     await mkdir(join(root, ".claude/skills/new"), { recursive: true });
     await writeFile(join(root, ".claude/skills/new/SKILL.md"), "unmanaged\n");
     await expect(planSourceRename(request)).rejects.toThrow(
-      "generated destination is unmanaged"
+      "unmanaged-output-collision: .claude/skills/new/SKILL.md"
     );
+  });
+
+  test("refuses renames whose projected build is blocked, leaving an unmanaged destination intact", async () => {
+    const root = await fixture({
+      ".claude/skills/demo/SKILL.md": "hand written unmanaged guidance\n",
+      ".skillset/shared/old.txt": "old\n",
+      ".skillset/skills/demo/SKILL.md":
+        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\nUse {{@shared:old.txt}}\n",
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    const destination = join(root, ".claude/skills/demo/SKILL.md");
+    const destinationBefore = await readFile(destination);
+    const request = {
+      from: ".skillset/shared/old.txt",
+      rootPath: root,
+      to: ".skillset/shared/new.txt",
+    };
+
+    await expect(planSourceRename(request)).rejects.toBeInstanceOf(
+      SourceRenamePlanError
+    );
+    await expect(planSourceRename(request)).rejects.toThrow(
+      "projected generated output is blocked"
+    );
+    await expect(
+      renameSource({ ...request, expectedPlanHash: "unused" })
+    ).rejects.toThrow("projected generated output is blocked");
+
+    expect(await readFile(destination)).toEqual(destinationBefore);
+    expect(await readFile(join(root, ".skillset/shared/old.txt"), "utf-8")).toBe(
+      "old\n"
+    );
+    await expect(
+      access(join(root, ".skillset/shared/new.txt"))
+    ).rejects.toThrow();
+    await expect(access(join(root, ".skillset/snapshots"))).rejects.toThrow();
   });
 
   test("shadow preview includes repo-relative plugin feature sources", async () => {

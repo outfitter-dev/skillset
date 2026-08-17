@@ -9,7 +9,9 @@ import {
   checkSkillsetSourceReadiness,
   type SkillsetDiagnostic,
   type SkillsetDiff,
+  type SkillsetOutputStateEvidence,
 } from "@skillset/core";
+import { checkSkillsetSourceReadinessWithAuthority } from "@skillset/core/internal/source-readiness";
 import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
 import { runProviderFormatUpdates, type ProviderFormatUpdateReport } from "./provider-format-updates";
@@ -51,8 +53,12 @@ export interface CiReport {
   readonly outputEditedPaths: readonly string[];
   /** Diagnostics produced while deriving and validating generated output. */
   readonly outputDiagnostics: readonly SkillsetDiagnostic[];
+  /** Shared generated-output evidence classification. */
+  readonly outputState: SkillsetOutputStateEvidence;
   /** Drift owned by explicit provider-format migrations and therefore `update`. */
   readonly providerUpdatePaths: readonly string[];
+  /** Managed locks with affirmative evidence that explicit repair is safe. */
+  readonly repairableManagedLockPaths: readonly string[];
   /** Provider-format classification failure; recovery must fail closed. */
   readonly providerAnalysisError?: string;
   /** Ordered recovery guidance shared by terminal, Markdown, and JSON output. */
@@ -114,10 +120,11 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
 
   let drift = sourceReadiness.data.drift;
   let outputDiagnostics = sourceReadiness.data.outputDiagnostics;
+  let outputState = sourceReadiness.data.outputState;
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
-  const sourceSuggestions = buildError === undefined && hasDrift(drift)
+  const sourceSuggestions = buildError === undefined && outputState.state === "output-diverged"
     ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
     : [];
   let providerUpdatePaths: readonly string[] = [];
@@ -175,6 +182,17 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       return !isEstablishedMarketplaceIndex;
     }
   );
+  const repairableManagedLockPaths = (): readonly string[] =>
+    [...new Set([...outputEditedPaths, ...providerUpdatePaths])].filter(
+      (path) =>
+        isSkillsetLockPath(path) &&
+        outputDiagnostics.some(
+          (diagnostic) =>
+            (diagnostic.code === "managed-lock-provenance-stale" ||
+              diagnostic.code === "managed-lock-integrity-migration") &&
+            diagnostic.outputPath === path
+        )
+    ).sort();
   const recoveryInput = (): RecoveryGuidanceInput => ({
     ...(buildError === undefined ? {} : { buildError }),
     ...(changeError === undefined ? {} : { changeError }),
@@ -185,10 +203,14 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     lintIssues,
     mode: ci === true ? "ci" : "local",
     outputDiagnostics,
-    outputEditedPaths,
+    outputEditedPaths: outputEditedPaths.filter(
+      (path) => !repairableManagedLockPaths().includes(path)
+    ),
     ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
     ...(providerReport === undefined ? {} : { providerReport }),
-    providerUpdatePaths,
+    providerUpdatePaths: providerUpdatePaths.filter(
+      (path) => !repairableManagedLockPaths().includes(path)
+    ),
     sourceSuggestions,
     unmanagedOutputCollisions: hasUnmanagedOutputCollisions,
   });
@@ -198,18 +220,32 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   // that --fix will write when the operation itself would refuse.
   let fixedPaths: readonly string[] = [];
   if (fix === true && mechanicalFixEligibility(recoveryInput()).eligible) {
-    const rebuilt = await checkSkillsetSourceReadiness(rootPath, {
-      ...buildOptions,
-      write: "outputs",
-    });
+    const rebuilt = await checkSkillsetSourceReadinessWithAuthority(
+      rootPath,
+      {
+        ...buildOptions,
+        sourceDrivenOutputPaths: [...providerSourceDriftPaths],
+        write: "outputs",
+      },
+      repairableManagedLockPaths()
+    );
     buildError = sourceReadinessError(rebuilt.diagnostics);
     drift = rebuilt.data.drift;
     outputDiagnostics = rebuilt.data.outputDiagnostics;
+    outputState = rebuilt.data.outputState;
     outputEditedPaths = rebuilt.data.checks.managedOutputs.failures;
     fixedPaths = rebuilt.data.fixedPaths;
   }
 
   const recovery = classifyRecoveryGuidance(recoveryInput());
+  const reportedRepairableLockPaths = repairableManagedLockPaths();
+  const reportedRepairableLockPathSet = new Set(reportedRepairableLockPaths);
+  const reportedProviderUpdatePaths = providerUpdatePaths.filter(
+    (path) => !reportedRepairableLockPathSet.has(path)
+  );
+  const reportedSourceSuggestions = sourceSuggestions.filter(
+    (suggestion) => !reportedRepairableLockPathSet.has(suggestion.generatedPath)
+  );
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
@@ -233,13 +269,21 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       !hasDrift(drift),
     outputEditedPaths,
     outputDiagnostics,
+    outputState,
     ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
-    providerUpdatePaths,
+    providerUpdatePaths: reportedProviderUpdatePaths,
+    repairableManagedLockPaths: reportedRepairableLockPaths,
     recovery,
     ...(packageFiles.length === 0 ? {} : { packageFiles }),
-    ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
+    ...(reportedSourceSuggestions.length === 0
+      ? {}
+      : { sourceSuggestions: reportedSourceSuggestions }),
     warnings,
   };
+}
+
+function isSkillsetLockPath(path: string): boolean {
+  return path === "skillset.lock" || path.endsWith("/skillset.lock");
 }
 
 export function hasDrift(drift: SkillsetDiff): boolean {
@@ -249,6 +293,11 @@ export function hasDrift(drift: SkillsetDiff): boolean {
     drift.missing.length > 0 ||
     drift.removed.length > 0
   );
+}
+
+export function targetEditedOutputPaths(report: CiReport): readonly string[] {
+  const repairableLocks = new Set(report.repairableManagedLockPaths);
+  return report.outputEditedPaths.filter((path) => !repairableLocks.has(path));
 }
 
 /** Marker that lets CI workflows find and update an existing report comment. */
@@ -325,12 +374,25 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("");
   }
 
-  if (report.outputEditedPaths.length > 0) {
+  const targetEditedPaths = targetEditedOutputPaths(report);
+  if (targetEditedPaths.length > 0) {
     lines.push("### Target-side generated edits", "");
-    for (const path of report.outputEditedPaths) lines.push(`- \`${path}\``);
+    for (const path of targetEditedPaths) lines.push(`- \`${path}\``);
     lines.push(
       "",
       "Target-side edits are intentionally not overwritten by a mechanical rebuild; the recovery plan below keeps source/output authority explicit.",
+      ""
+    );
+  }
+
+  if (report.repairableManagedLockPaths.length > 0) {
+    lines.push("### Repairable managed locks", "");
+    for (const path of report.repairableManagedLockPaths) {
+      lines.push(`- \`${path}\``);
+    }
+    lines.push(
+      "",
+      "These locks contain recognized stale generated provenance. The recovery plan below can rebuild them explicitly after the remaining safety checks pass.",
       ""
     );
   }

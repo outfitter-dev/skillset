@@ -284,9 +284,11 @@ Demo.
     const lockPath = join(outputRoot, "skillset.lock");
     const legacy = await readJson(lockPath) as {
       items: Array<{ fileModes?: Record<string, string>; files: string[]; outputHash: string }>;
+      provenanceHash?: string;
       schemaVersion: number;
     };
     legacy.schemaVersion = 1;
+    delete legacy.provenanceHash;
     for (const item of legacy.items) {
       const hash = createHash("sha256");
       hash.update("skillset-output-v1\0");

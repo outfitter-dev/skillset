@@ -22,6 +22,7 @@
     }
   ],
   "outputRoot": ".claude/rules",
+  "provenanceHash": "sha256:6e469b0c88424c84eb8fb0501e323f166d52b2519e41f310f859833be69091e5",
   "renderResults": [
     {
       "destination": "instruction",

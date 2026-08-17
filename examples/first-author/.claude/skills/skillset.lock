@@ -22,6 +22,7 @@
     }
   ],
   "outputRoot": ".claude/skills",
+  "provenanceHash": "sha256:9a0dd7fbda9012dfab3bf28e2d7d1df970abc209cd182c1f82c7251b2b3bb6e9",
   "renderResults": [
     {
       "destination": "skill",

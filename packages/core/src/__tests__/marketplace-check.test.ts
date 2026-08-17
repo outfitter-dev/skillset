@@ -838,7 +838,13 @@ skillset:
   name: revision-tools
   version: 2.0.0
 `.trimStart());
-    await buildSkillsetResult(external);
+    const rebuilt = await buildSkillsetResult(external, {}, {
+      sourceDrivenOutputPaths: [
+        ".claude-plugin/marketplace.json",
+        ".cursor-plugin/marketplace.json",
+      ],
+    });
+    expect(rebuilt.ok).toBe(true);
     await runTestGit(external, "add", "--all");
     await runTestGit(external, "commit", "-m", "second fixture revision");
     const secondSha = await runTestGit(external, "rev-parse", "HEAD");

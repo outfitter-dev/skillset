@@ -185,8 +185,15 @@ export async function runDevWatchPreview(
       checkedSkills: lint.checkedSkills,
       diagnostics: diff.diagnostics,
       diff: diff.data,
+      ...(diff.ok
+        ? {}
+        : {
+            error: `generated output preview is blocked by ${diff.outputState.blockers
+              .map((blocker) => blocker.code)
+              .join(", ")}`,
+          }),
       mode: "preview",
-      ok: true,
+      ok: diff.ok,
       outputRoots: plan.outputRoots,
       reason,
       sourceRoot: plan.sourceRoot,
@@ -221,8 +228,9 @@ export async function runDevWatchApply(
       checkedSkills: lint.checkedSkills,
       diagnostics: build.diagnostics,
       diff: { added: [], changed: [], missing: [], removed: [] },
+      ...(build.ok ? {} : { error: "generated output write is blocked" }),
       mode: "write",
-      ok: true,
+      ok: build.ok,
       outputRoots: plan.outputRoots,
       reason,
       sourceRoot: plan.sourceRoot,

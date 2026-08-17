@@ -7,7 +7,7 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 
 import { seedReleaseBaselines } from "../adoption";
 import { explainPath, listGeneratedEntries } from "@skillset/core/internal/authoring";
-import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset } from "@skillset/core";
+import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, SkillsetBuildBlockedError } from "@skillset/core";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { addChangeEntry, readChangeHistory } from "../change-workflow";
 import { importSource } from "../import";
@@ -704,6 +704,57 @@ Changed before applying a dedicated workspace release.
   expect(await exists(join(root, ".skillset/changes/state.json"))).toBe(true);
   expect(await exists(join(root, added.entry.path))).toBe(false);
   expect(await exists(join(root, "skillset/changes/history.jsonl"))).toBe(false);
+});
+
+test("release apply restores pending state when generated output is blocked", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: blocked-release-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Existing release skill.
+version: 0.1.0
+---
+
+Existing skill.
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await Bun.write(join(root, ".skillset/skills/new-skill/SKILL.md"), `---
+name: new-skill
+description: New release skill.
+version: 0.1.0
+---
+
+New skill.
+`);
+  const collisionPath = join(root, ".claude/skills/new-skill/SKILL.md");
+  await Bun.write(collisionPath, "handwritten output\n");
+  const added = await addChangeEntry(root, {
+    bump: "patch",
+    reason: {
+      kind: "inline",
+      value: "Add a new skill while preserving an unmanaged destination collision.",
+    },
+    scopes: ["skill:new-skill"],
+  });
+
+  await expect(applyRelease(root)).rejects.toBeInstanceOf(
+    SkillsetBuildBlockedError
+  );
+
+  expect(await exists(join(root, added.entry.path))).toBe(true);
+  expect(await readFile(collisionPath, "utf8")).toBe("handwritten output\n");
+  expect(await exists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
+  expect(await exists(join(root, ".skillset/changes/releases.jsonl"))).toBe(false);
+  expect(await exists(join(root, ".skillset/changes/state.json"))).toBe(false);
 });
 
 test("dedicated 1.0 change history can read records while source units are absent", async () => {
@@ -3194,7 +3245,7 @@ skillset:
   expect(await exists(join(root, ".codex/skillset.lock"))).toBe(false);
 });
 
-test("project target-native islands back up unmanaged destination collisions", async () => {
+test("project target-native islands block unmanaged destination collisions", async () => {
   const root = await fixture({
     ".codex/rules/deny.rules": `
 match = "existing"
@@ -3220,11 +3271,10 @@ skillset:
     code: "unmanaged-output-collision",
     outputPath: ".codex/rules/deny.rules",
   }));
-  expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
-    action: "overwrite",
-    reason: "unmanaged-collision",
-    targetPath: ".codex/rules/deny.rules",
-  }));
+  expect(result.ok).toBe(false);
+  expect(result.writes.paths).toEqual([]);
+  expect(await readFile(join(root, ".codex/rules/deny.rules"), "utf8")).toContain('match = "existing"');
+  expect(await exists(join(root, ".skillset/snapshots"))).toBe(false);
 });
 
 test("project target-native islands reject project roots inside source root", async () => {
@@ -3841,7 +3891,7 @@ codex: false
   expect(await exists(join(root, ".claude/rules/docs/second.md"))).toBe(true);
 });
 
-test("rules back up unmanaged AGENTS collisions", async () => {
+test("rules block unmanaged AGENTS collisions", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -3862,8 +3912,11 @@ codex: true
     code: "unmanaged-output-collision",
     outputPath: "AGENTS.md",
   }));
-  expect(result.writes.backupRunId).toBeDefined();
-  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(true);
+  expect(result.ok).toBe(false);
+  expect(result.writes.paths).toEqual([]);
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(false);
+  expect(await exists(join(root, ".skillset/snapshots"))).toBe(false);
 });
 
 test("rules reject unknown skillset variables", async () => {

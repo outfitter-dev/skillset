@@ -16,6 +16,7 @@ import { doctorSkillset, explainPath, suggestSource } from "@skillset/core/inter
 import { importSource, importSources, normalizeCopiedImportPath } from "../import";
 import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { readReleaseState } from "@skillset/core/internal/release-state";
+import { prepareOutputBackups } from "@skillset/core/internal/output-safety";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { createSkillset, initSkillset } from "../setup";
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
@@ -735,13 +736,90 @@ Body.
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(1);
   const doctorReport = (JSON.parse(doctorJson.stdout) as {
-    readonly data: { buildDiagnostics: readonly { code: string; featureId: string; path?: string }[] };
+    readonly data: {
+      buildDiagnostics: readonly { code: string; featureId: string; path?: string }[];
+      outputState: { state: string };
+    };
   }).data;
+  expect(doctorReport.outputState.state).toBe("blocked");
   expect(doctorReport.buildDiagnostics).toContainEqual(expect.objectContaining({
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
     path: ".skillset/plugins/alpha/skillset.yaml",
   }));
+
+  for (const command of ["build", "diff", "check", "status"] as const) {
+    const result = await runSkillsetCli(command, "--root", root, "--json");
+    expect(result.exitCode).toBe(1);
+    const envelope = JSON.parse(result.stdout) as {
+      readonly data: { readonly outputState?: { readonly blockers: unknown; readonly state: string } };
+      readonly diagnostics: readonly { readonly code: string; readonly path?: string }[];
+    };
+    expect(envelope.data.outputState).toEqual(expect.objectContaining({
+      blockers: [{
+        code: "plugin-manifest-invalid",
+        path: ".skillset/plugins/alpha/skillset.yaml",
+      }],
+      state: "blocked",
+    }));
+    if (command === "build" || command === "diff") {
+      expect(envelope.diagnostics).toContainEqual(expect.objectContaining({
+        code: "plugin-manifest-invalid",
+        path: ".skillset/plugins/alpha/skillset.yaml",
+      }));
+      expect(result.stdout).not.toContain("cli.usage");
+    }
+  }
+});
+
+test("SET-451: status JSON reports corrupt managed locks as blocked output state", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: corrupt-status-lock
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await buildSkillset(root);
+  await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
+
+  const result = await runSkillsetCli("status", "--root", root, "--json");
+
+  expect(result.exitCode).toBe(1);
+  const envelope = JSON.parse(result.stdout) as {
+    readonly command: string;
+    readonly data: {
+      readonly buildError?: string;
+      readonly outputState: {
+        readonly blockers: readonly { readonly code: string }[];
+        readonly hasBaseline: boolean;
+        readonly state: string;
+      };
+    };
+    readonly ok: boolean;
+  };
+  expect(envelope).toMatchObject({
+    command: "status",
+    data: {
+      buildError: expect.stringContaining("workspace lock skillset.lock cannot guard generated state"),
+      outputState: {
+        blockers: [{ code: "output-derivation-failed" }],
+        hasBaseline: true,
+        state: "blocked",
+      },
+    },
+    ok: false,
+  });
+  expect(result.stdout).not.toContain("cli.usage");
 });
 
 async function fileExists(path: string): Promise<boolean> {
@@ -1592,6 +1670,77 @@ Body.
   const unchanged = await runSkillsetCli("build", "--root", root, "--yes");
   expect(unchanged.exitCode).toBe(0);
   expect(unchanged.stdout).toContain("wrote 0 generated files");
+});
+
+test("SET-451: unhashed v2 locks advertise their one-time integrity migration", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: lock-integrity-migration-root
+claude: false
+codex: true
+cursor: false
+`,
+    ".skillset/rules/root.md": "# Project instructions\n",
+  });
+  await buildSkillset(root);
+  const lockPath = join(root, "skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+  };
+  delete lock.provenanceHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const diff = await runSkillsetCli("diff", "--root", root);
+  expect(diff.exitCode).toBe(0);
+  expect(diff.stdout).toContain("~ skillset.lock");
+  expect(diff.stdout).toContain("run skillset build --yes to apply");
+  expect(diff.stdout).not.toContain("no generated changes");
+  expect(diff.stderr).toContain("does not include verifiable lock integrity provenance");
+  expect(diff.stderr).toContain("backed up before writing");
+
+  const planned = await runSkillsetCli("build", "--root", root);
+  expect(planned.exitCode).toBe(0);
+  expect(planned.stdout).toContain("~ skillset.lock");
+  expect(planned.stdout).toContain("rerun with --yes");
+  expect(planned.stdout).not.toContain("no generated changes");
+  expect(planned.stderr).toContain("does not include verifiable lock integrity provenance");
+
+  const checked = await runSkillsetCli("check", "--root", root);
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("next: skillset build --yes");
+  expect(checked.stdout).toContain("back up the previous lock");
+  expect(checked.stdout).not.toContain("recovery blocked manual-review");
+
+  const applied = await runSkillsetCli("build", "--root", root, "--yes");
+  expect(applied.exitCode).toBe(0);
+  expect(applied.stdout).toContain("backed up 1 overwritten output file");
+  expect(JSON.parse(await readFile(lockPath, "utf8")).provenanceHash).toMatch(
+    /^sha256:[a-f0-9]{64}$/
+  );
+});
+
+test("SET-451: blocked build previews never offer or perform an ordinary apply", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: blocked-plan-root
+claude: false
+codex: true
+`,
+    ".skillset/rules/root.md": "# Generated instructions\n",
+    "AGENTS.md": "# Unmanaged instructions\n",
+  });
+
+  const planned = await runSkillsetCli("build", "--root", root);
+  expect(planned.exitCode).toBe(1);
+  expect(planned.stdout).not.toContain("rerun with --yes");
+  expect(planned.stderr).toContain("build is blocked");
+
+  const applied = await runSkillsetCli("build", "--root", root, "--yes");
+  expect(applied.exitCode).toBe(1);
+  expect(applied.stderr).toContain("no generated files were written");
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Unmanaged instructions\n");
 });
 
 test("SET-109: distribute plan previews plugin distribution without writing", async () => {
@@ -7369,17 +7518,15 @@ codex: true
 	  });
 
 	  const previewBuild = await runSkillsetCli("build", "--root", root);
-	  expect(previewBuild.exitCode).toBe(0);
+	  expect(previewBuild.exitCode).toBe(1);
 	  expect(previewBuild.stderr).toContain("existing file is not owned by Skillset");
 	  expect(previewBuild.stderr).toContain("will be backed up");
-	  expect(previewBuild.stdout).toContain("rerun with --yes");
+	  expect(previewBuild.stderr).toContain("build is blocked");
+	  expect(previewBuild.stdout).not.toContain("rerun with --yes");
 	  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 	  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
 
-	  const build = await runSkillsetCli("build", "--root", root, "--yes");
-	  expect(build.exitCode).toBe(0);
-	  expect(build.stderr).toContain("existing file is not owned by Skillset");
-  const backupId = extractBackupId(build.stderr);
+  const backupId = await createExplicitUnmanagedBackup(root);
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
 
   const preview = await runSkillsetCli("restore", backupId, "--root", root);
@@ -7423,9 +7570,7 @@ codex: true
   expect(empty.stdout).toBe("skillset: no output backups found\n");
   expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 
-  const build = await runSkillsetCli("build", "--root", root, "--yes");
-  expect(build.exitCode).toBe(0);
-  const backupId = extractBackupId(build.stderr);
+  const backupId = await createExplicitUnmanagedBackup(root);
   const manifestPath = `.skillset/snapshots/${backupId}/manifest.json`;
   const manifestBefore = await readFile(join(root, manifestPath), "utf8");
 
@@ -9706,4 +9851,22 @@ async function runGit(root: string, ...args: readonly string[]): Promise<void> {
 
 async function sleepForMtime(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 25));
+}
+
+async function createExplicitUnmanagedBackup(root: string): Promise<string> {
+  const prepared = await prepareOutputBackups(
+    root,
+    [{
+      content: new TextEncoder().encode("# Generated Instructions\n"),
+      mode: 0o644,
+      path: "AGENTS.md",
+      sourcePath: ".skillset/rules/root.md",
+    }],
+    [],
+    { editedPaths: new Set(), hasBaseline: false, paths: new Set() }
+  );
+  const runId = prepared.backup?.runId;
+  if (runId === undefined) throw new Error("missing explicit backup id");
+  await writeFile(join(root, "AGENTS.md"), "# Generated Instructions\n");
+  return runId;
 }

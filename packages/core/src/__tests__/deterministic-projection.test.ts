@@ -9,6 +9,7 @@ import {
   formatDeterministicProjectionReport,
   ISOLATED_OUT_ROOT,
   runDeterministicProjection,
+  SkillsetBuildBlockedError,
 } from "@skillset/core";
 
 const DEMO_CONFIG = `
@@ -80,6 +81,25 @@ describe("deterministic projection runner", () => {
         }
       },
     })).rejects.toThrow("unstable.txt");
+  });
+
+  it("rejects two identically blocked projections instead of reporting deterministic success", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+
+    await expect(runDeterministicProjection(root, {
+      afterProjection: (run) => {
+        Object.assign(run.build, {
+          ok: false,
+          outputState: {
+            blockers: [{ code: "test-blocker" }],
+            hasBaseline: false,
+            outputChanges: [],
+            sourceChanges: [],
+            state: "blocked",
+          },
+        });
+      },
+    })).rejects.toBeInstanceOf(SkillsetBuildBlockedError);
   });
 
   it("fails when generated output leaks a temp workspace path", async () => {

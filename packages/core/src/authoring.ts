@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve, relative } from "node:path";
+import { join, resolve, relative } from "node:path";
 
 import {
   getSkillsetFeature,
@@ -11,8 +11,25 @@ import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-r
 import { collectRenderResults } from "./render-result-collector";
 import { SkillsetFeatureDiagnosticError, type SkillsetDiagnostic } from "./operation-result";
 
-import { diffSkillsetResult, scopedRenderedFiles, type SkillsetDiff } from "./build";
+import {
+  diffSkillsetResult,
+  includesProjectScope,
+  ISOLATED_OUT_ROOT,
+  scopedOutputRoots,
+  scopedRenderedFiles,
+  type SkillsetDiff,
+} from "./build";
 import { inspectSkillset } from "./lint";
+import {
+  createOperationalPathContext,
+  logicalOperationalPath,
+  resolveOperationalPath,
+} from "./operational-cache";
+import {
+  independentlyObservedOutputBaseline,
+  readManagedOutputState,
+} from "./output-safety";
+import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
@@ -436,6 +453,7 @@ export interface DoctorReport {
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly notableRenderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
+  readonly outputState: SkillsetOutputStateEvidence;
   readonly warnings: readonly string[];
 }
 
@@ -458,6 +476,10 @@ export async function doctorSkillset(
   } catch (error) {
     const buildDiagnostics = diagnosticsFromError(error);
     const renderResults = renderResultsFromError(error);
+    const hasBaseline = await independentlyObservedOutputBaseline(
+      rootPath,
+      options
+    );
     return {
       buildError: errorMessage(error),
       buildDiagnostics,
@@ -467,6 +489,7 @@ export async function doctorSkillset(
       renderResults,
       notableRenderResults: notableRenderResults(renderResults),
       ok: false,
+      outputState: classifySkillsetOutputFailure(error, hasBaseline),
       warnings: [],
     };
   }
@@ -476,14 +499,48 @@ export async function doctorSkillset(
   let buildDiagnostics: readonly SkillsetDiagnostic[] = [];
   let buildError: string | undefined;
   let renderResults: readonly SkillsetRenderResult[] = [];
+  const outPath =
+    options.isolated === true
+      ? (path: string) => join(ISOLATED_OUT_ROOT, path)
+      : (path: string) => path;
+  const pathContext = createOperationalPathContext(rootPath, {
+    ...(graph.root.workspace.cacheKey === undefined
+      ? {}
+      : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+    ...(options.xdg?.env === undefined ? {} : { env: options.xdg.env }),
+    ...(options.xdg?.homeDir === undefined
+      ? {}
+      : { homeDir: options.xdg.homeDir }),
+  });
+  let outputState = classifySkillsetOutputState({
+    blockers: [{ code: "build-error" }],
+    hasBaseline: false,
+  });
   try {
+    const managed = await readManagedOutputState(
+      rootPath,
+      scopedOutputRoots(graph, options.scopes),
+      includesProjectScope(options.scopes),
+      outPath,
+      (path) => resolveOperationalPath(pathContext, path),
+      (path) => logicalOperationalPath(pathContext, path)
+    );
+    outputState = classifySkillsetOutputState({
+      blockers: [{ code: "build-error" }],
+      hasBaseline: managed.hasBaseline,
+    });
     const diff = await diffSkillsetResult(rootPath, options);
     drift = diff.data;
+    outputState = diff.outputState;
     renderResults = diff.renderResults;
   } catch (error) {
     buildDiagnostics = diagnosticsFromError(error);
     buildError = errorMessage(error);
     renderResults = renderResultsFromError(error);
+    const hasBaseline =
+      outputState.hasBaseline ||
+      (await independentlyObservedOutputBaseline(rootPath, options));
+    outputState = classifySkillsetOutputFailure(error, hasBaseline);
   }
 
   const hasDrift =
@@ -499,6 +556,7 @@ export async function doctorSkillset(
     renderResults,
     notableRenderResults: notable,
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
+    outputState,
     warnings: graph.warnings,
   };
 }

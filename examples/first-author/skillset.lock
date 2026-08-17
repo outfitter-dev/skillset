@@ -22,6 +22,7 @@
     }
   ],
   "outputRoot": ".",
+  "provenanceHash": "sha256:2ed2350bd1a8b36018a4855f57a50c2d597c6466a727643c86a0bda1f7df2f84",
   "renderResults": [
     {
       "destination": "instruction",

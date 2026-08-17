@@ -114,6 +114,7 @@
     }
   ],
   "outputRoot": ".agents/skills",
+  "provenanceHash": "sha256:7c7606c8982850a760dd7202c03368c104669bcc1a20d3b797a2788eeda5cedf",
   "renderResults": [
     {
       "destination": "skill",

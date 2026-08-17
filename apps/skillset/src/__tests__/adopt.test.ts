@@ -383,6 +383,24 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(added.every((path) => path === "skillset.yaml" || path.startsWith(".skillset/"))).toBe(true);
 });
 
+test("SET-451: adopt reports a blocked isolated build instead of claiming success", async () => {
+  const root = await fixture(MARKETPLACE_FIXTURE);
+  const collisionPath = cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md"));
+  await mkdir(dirname(collisionPath), { recursive: true });
+  await writeFile(collisionPath, "user file\n", "utf8");
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("build blocked by unmanaged-output-collision");
+  expect(report.builtFiles).toBe(0);
+  expect(report.renderResults.length).toBeGreaterThan(0);
+  expect(await readFile(collisionPath, "utf8")).toBe("user file\n");
+  expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain(
+    "- build (isolated): failed"
+  );
+});
+
 test("adopt elevates a root native plugin without copying workspace config into plugin source", async () => {
   const root = await fixture({
     ".claude-plugin/plugin.json": JSON.stringify({

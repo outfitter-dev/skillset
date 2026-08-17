@@ -65,12 +65,28 @@ export type SkillsetRenderResultInput = Omit<SkillsetRenderResult, "schema"> & {
   readonly schema?: typeof RENDER_RESULT_SCHEMA;
 };
 
+/**
+ * Why a render result set stopped a derivation.
+ *
+ * `policy-blocked` carries the results the configured unsupported-destination
+ * policy rejected on their own merits. `no-usable-output` carries results a
+ * soft policy softened individually, but whose projection left no usable
+ * non-lock output; every carried result is blocking evidence in that case.
+ */
+export type SkillsetRenderResultErrorKind = "no-usable-output" | "policy-blocked";
+
 export class SkillsetRenderResultError extends Error {
+  readonly kind: SkillsetRenderResultErrorKind;
   readonly renderResults: readonly SkillsetRenderResult[];
 
-  constructor(message: string, renderResults: readonly SkillsetRenderResult[]) {
+  constructor(
+    message: string,
+    renderResults: readonly SkillsetRenderResult[],
+    kind: SkillsetRenderResultErrorKind = "policy-blocked"
+  ) {
     super(message);
     this.name = "SkillsetRenderResultError";
+    this.kind = kind;
     this.renderResults = renderResults.map(normalizeRenderResult);
   }
 }

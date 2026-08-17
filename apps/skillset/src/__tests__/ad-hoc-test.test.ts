@@ -66,6 +66,95 @@ Use this skill to answer fixture questions.
   expect(runs.map((run) => run.runId)).toContain(report.runId);
 });
 
+test("a blocked isolated projection fails before launching the provider", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: blocked-runtime-fixture
+compile:
+  targets: [codex]
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+    ".skillset/plugins/tools/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo blocked runtime skill.
+---
+
+Demo body.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const structuralReadme = cachePath(
+    root,
+    xdg,
+    ".skillset/cache/latest/plugins/README.md"
+  );
+  await Bun.write(structuralReadme, "handwritten isolated index\n");
+  const marker = join(root, "provider-launched");
+
+  const report = await startAdHocTestRun(root, {
+    env: {
+      ...process.env,
+      SKILLSET_TEST_CODEX_BIN: await invocationMarkerBin(root, marker),
+    },
+    prompt: "Do not launch.",
+    target: "codex",
+    xdg,
+  });
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
+
+  expect(report.state).toBe("failed");
+  expect(status.failureClass).toBe("render");
+  expect(status.error).toContain("isolated runtime build blocked before provider launch");
+  expect(await exists(marker)).toBe(false);
+  expect(await readFile(structuralReadme, "utf8")).toBe("handwritten isolated index\n");
+});
+
+test("a target-specific ad hoc run ignores unsupported destinations from other providers", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: target-filter-runtime-fixture
+compile:
+  targets: [claude, codex]
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+    ".skillset/plugins/tools/bin/run": "#!/bin/sh\nexit 0\n",
+    ".skillset/plugins/tools/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo target-filtered runtime skill.
+---
+
+Demo body.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+
+  const report = await startAdHocTestRun(root, {
+    env: {
+      ...process.env,
+      SKILLSET_TEST_CLAUDE_BIN: await fakeClaudeBin(root),
+    },
+    prompt: "Run only the Claude projection.",
+    target: "claude",
+    xdg,
+  });
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
+
+  expect(report.state).toBe("passed");
+  expect(status.target).toBe("claude");
+  expect(status.command?.join(" ")).toContain("fake-claude");
+  expect(status.error).toBeUndefined();
+});
+
 test("ad hoc retained lookups reject traversal-shaped run ids", async () => {
   const root = await fixture({
     "skillset.yaml": "skillset:\n  name: runtime-fixture\ncodex: true\n",
@@ -920,13 +1009,14 @@ checks:
   projection: true
 `,
   });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
   const report = await runSkillsetTest(root, "target-qualified-proof", {
     runtimeEnv: {
       ...process.env,
       SKILLSET_TEST_CLAUDE_BIN: await fakeClaudeBin(root),
       SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(root),
     },
-    xdg: { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } },
+    xdg,
   });
 
   expect(

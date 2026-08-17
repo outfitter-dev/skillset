@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
-import { buildSkillset, checkSkillsetSourceReadiness, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { buildSkillset, checkSkillsetSourceReadiness, classifySkillsetOutputState, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
 import {
@@ -162,6 +162,7 @@ test("check shares generated-only recovery guidance across terminal, Markdown, a
   const markdown = renderCiReportMarkdown(report);
 
   expect(terminal.exitCode).toBe(1);
+  expect(report.outputState.state).toBe("source-ahead");
   expect(terminal.stdout).toContain("recovery rebuild-generated-output:");
   expect(terminal.stdout).toContain("next: skillset check --write");
   expect(terminal.stdout).not.toContain("skillset check --ci --fix");
@@ -170,10 +171,14 @@ test("check shares generated-only recovery guidance across terminal, Markdown, a
   expect(markdown).toContain("rebuild-generated-output");
   expect(markdown).toContain("`skillset check --write`");
   expect(markdown).not.toContain("`skillset check --ci --fix`");
+  expect(markdown).not.toContain("### Reconciliation");
+  expect(report.sourceSuggestions).toBeUndefined();
 
   expect(json.exitCode).toBe(1);
-  expect(JSON.parse(json.stdout)).toMatchObject({
+  const jsonReport = JSON.parse(json.stdout) as { data: { sourceSuggestions?: unknown } };
+  expect(jsonReport).toMatchObject({
     data: {
+      outputState: { state: "source-ahead" },
       recovery: [expect.objectContaining({
         action: "rebuild-generated-output",
         commands: ["skillset check --write"],
@@ -181,6 +186,27 @@ test("check shares generated-only recovery guidance across terminal, Markdown, a
       })],
     },
   });
+  expect(jsonReport.data.sourceSuggestions).toBeUndefined();
+  expect(terminal.stdout).not.toContain("skillset reconcile");
+});
+
+test("check never offers reconciliation without an output baseline", async () => {
+  const root = await fixture(DEMO_FIXTURE);
+
+  const terminal = await runSkillsetCli("check", "--root", root);
+  const json = await runSkillsetCli("check", "--root", root, "--json");
+  const report = await ciSkillset(root);
+  const markdown = renderCiReportMarkdown(report);
+
+  expect(report.outputState.state).toBe("no-output-baseline");
+  expect(report.sourceSuggestions).toBeUndefined();
+  expect(terminal.stdout).not.toContain("skillset reconcile");
+  expect(markdown).not.toContain("### Reconciliation");
+  expect(JSON.parse(json.stdout)).toMatchObject({
+    data: { outputState: { state: "no-output-baseline" } },
+  });
+  expect(json.stdout).not.toContain("sourceSuggestions");
+  expect(json.stdout).not.toContain("skillset reconcile");
 });
 
 test("check suppresses mechanical rebuild guidance when change coverage also blocks", async () => {
@@ -245,7 +271,11 @@ test("check --only outputs supports structured output", async () => {
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
     command: "check",
-    data: { checkedFiles: expect.any(Number), failures: [] },
+    data: {
+      checkedFiles: expect.any(Number),
+      failures: [],
+      outputState: { state: "current" },
+    },
     diagnostics: [],
     exitCode: 0,
     kind: "diagnostics",
@@ -253,7 +283,7 @@ test("check --only outputs supports structured output", async () => {
   });
 });
 
-test("check --only outputs serializes drift diagnostics", async () => {
+test("check --only outputs serializes managed-edit and drift diagnostics without writing", async () => {
   const root = await builtFixture();
   await writeFile(join(root, GENERATED_SKILL), "stale\n");
 
@@ -262,11 +292,27 @@ test("check --only outputs serializes drift diagnostics", async () => {
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
-    diagnostics: [expect.objectContaining({ path: GENERATED_SKILL, severity: "error" })],
+    data: {
+      outputState: { state: "output-diverged" },
+    },
+    diagnostics: [
+      expect.objectContaining({
+        code: "managed-output-edited",
+        path: GENERATED_SKILL,
+        severity: "warning",
+      }),
+      expect.objectContaining({
+        code: "generated-output-changed",
+        path: GENERATED_SKILL,
+        severity: "error",
+      }),
+    ],
     exitCode: 1,
     kind: "diagnostics",
     ok: false,
   });
+  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toBe("stale\n");
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 });
 
 test("check preserves generated-output diagnostics without drift", async () => {
@@ -295,7 +341,12 @@ test("ci report explains generated changelog drift", () => {
     ok: false,
     outputEditedPaths: [],
     outputDiagnostics: [],
+    outputState: classifySkillsetOutputState({
+      hasBaseline: true,
+      sourceChanges: [".skillset/skills/demo/CHANGELOG.md"],
+    }),
     providerUpdatePaths: [],
+    repairableManagedLockPaths: [],
     warnings: [],
   });
 
@@ -320,7 +371,9 @@ test("ci report renders recovery guidance for successful warning-only change rep
     ok: true,
     outputEditedPaths: [],
     outputDiagnostics: [],
+    outputState: classifySkillsetOutputState({ hasBaseline: true }),
     providerUpdatePaths: [],
+    repairableManagedLockPaths: [],
     recovery: [{
       action: "change-migrate",
       commands: ["skillset change migrate", "skillset change migrate --yes"],
@@ -351,7 +404,12 @@ test("ci report uses a safe Markdown code fence for recovery commands containing
     ok: false,
     outputEditedPaths: [],
     outputDiagnostics: [],
+    outputState: classifySkillsetOutputState({
+      hasBaseline: true,
+      outputChanges: [path],
+    }),
     providerUpdatePaths: [],
+    repairableManagedLockPaths: [],
     recovery: [{ action: "reconcile", commands: [command], path, reason: "preview exact path" }],
     warnings: [],
   });
@@ -428,6 +486,95 @@ test("check --write refreshes stale locks after an output edit is reconciled", a
   expect(report.outputEditedPaths).toEqual([]);
   expect(report.fixedPaths.some((path) => path.endsWith("skillset.lock"))).toBe(true);
   expect(await readFile(generatedPath, "utf8")).toContain("Reconciled.");
+});
+
+test("check presents repairable lock provenance separately from target edits", async () => {
+  const root = await builtFixture();
+  const relativeLockPath = ".claude/skills/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    items: Array<{ sourceHash?: string }>;
+  };
+  lock.items[0]!.sourceHash = `sha256:${"0".repeat(64)}`;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root);
+  const markdown = renderCiReportMarkdown(report);
+  const terminal = await runSkillsetCli("check", "--root", root);
+
+  expect(report.ok).toBe(false);
+  expect(report.outputEditedPaths).toContain(relativeLockPath);
+  expect(report.repairableManagedLockPaths).toEqual([relativeLockPath]);
+  expect(report.recovery).toContainEqual(expect.objectContaining({
+    action: "rebuild-generated-output",
+  }));
+  expect(markdown).toContain("### Repairable managed locks");
+  expect(markdown).not.toContain("### Target-side generated edits");
+  expect(markdown).toContain("can rebuild them explicitly");
+  expect(terminal.exitCode).toBe(1);
+  expect(terminal.stdout).toContain(
+    `repairable managed lock ${relativeLockPath}`
+  );
+  expect(terminal.stdout).not.toContain("target-side generated edit");
+});
+
+test("check presents unhashed v2 locks as an explicit integrity migration", async () => {
+  const root = await builtFixture();
+  const relativeLockPath = ".claude/skills/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+  };
+  delete lock.provenanceHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root);
+
+  expect(report.repairableManagedLockPaths).toEqual([relativeLockPath]);
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
+    code: "managed-lock-integrity-migration",
+    outputPath: relativeLockPath,
+  }));
+  expect(report.recovery).toContainEqual(expect.objectContaining({
+    action: "rebuild-generated-output",
+    commands: ["skillset build --yes"],
+    path: relativeLockPath,
+    reason: expect.stringContaining("back up"),
+  }));
+  expect(report.recovery).not.toContainEqual(expect.objectContaining({
+    action: "manual-review",
+  }));
+});
+
+test("ci --fix refuses arbitrary managed lock provenance edits", async () => {
+  const root = await builtFixture();
+  const relativeLockPath = ".claude/skills/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    generatedBy: string;
+  };
+  lock.generatedBy = "skillset@9.9.9";
+  const edited = `${JSON.stringify(lock, null, 2)}\n`;
+  await writeFile(lockPath, edited, "utf8");
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(
+    sourcePath,
+    `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nUnrelated source drift.\n`,
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.outputEditedPaths).toContain(relativeLockPath);
+  expect(report.outputDiagnostics).not.toContainEqual(
+    expect.objectContaining({
+      code: "managed-lock-provenance-stale",
+      outputPath: relativeLockPath,
+    })
+  );
+  expect(await readFile(lockPath, "utf8")).toBe(edited);
 });
 
 test("ci --fix refuses unrepairable generated changelog drift", async () => {

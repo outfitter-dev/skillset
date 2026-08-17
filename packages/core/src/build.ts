@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path";
 
 import { compareStrings } from "./path";
+import { hasValidLockProvenance, withLockProvenance } from "./lock-provenance";
 import {
   applyGeneratedFileMode,
   formatGeneratedFileMode,
@@ -13,11 +14,17 @@ import { targetNames } from "./targets";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
+  discardOutputBackup,
   diagnoseOutputBackupPreflight,
-  prepareOutputBackups,
+  diagnoseOutputBackupPlan,
+  persistOutputBackupPlan,
+  planOutputBackups,
   readManagedOutputState,
   withBackupSummary,
+  type ManagedOutputState,
+  type OutputBackupSummary,
   type OutputPathResolver,
+  type OutputWritePreimage,
 } from "./output-safety";
 import {
   createOperationalPathContext,
@@ -34,6 +41,7 @@ import {
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
 } from "./operation-result";
+import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { SkillsetRenderResultError, defineRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
@@ -66,6 +74,47 @@ function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): 
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
+const LOCK_TOP_LEVEL_KEYS = new Set([
+  "buildMode",
+  "features",
+  "generatedBy",
+  "items",
+  "marketplaces",
+  "outputRoot",
+  "provenanceHash",
+  "renderResults",
+  "schemaVersion",
+  "selectedTargets",
+  "skillsetMetadata",
+  "sourceRoot",
+  "target",
+]);
+const LOCK_FEATURE_KEYS = new Set(["promptArguments"]);
+const LOCK_ITEM_KEYS = new Set([
+  "dependencies",
+  "feature",
+  "fileModes",
+  "files",
+  "includedSkills",
+  "kind",
+  "name",
+  "origin",
+  "outputHash",
+  "outputPath",
+  "plugin",
+  "preprocessDependencies",
+  "renderInputsHash",
+  "skillReferences",
+  "skippedSkills",
+  "sourceHash",
+  "sourceOrigin",
+  "sourcePath",
+  "sourcePointer",
+  "targetState",
+  "transforms",
+  "validation",
+  "version",
+]);
 
 /**
  * Codex truncates AGENTS.md content beyond `project_doc_max_bytes` (32 KiB by
@@ -94,18 +143,86 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
   return diagnostics;
 }
 
-export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]>;
+export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]> & {
+  readonly outputState: SkillsetOutputStateEvidence;
+};
+
+export class SkillsetBuildBlockedError extends Error {
+  readonly result: SkillsetBuildResult;
+
+  constructor(result: SkillsetBuildResult) {
+    super(`skillset: build blocked by ${result.outputState.blockers.map((blocker) => blocker.code).join(", ")}`);
+    this.name = "SkillsetBuildBlockedError";
+    this.result = result;
+  }
+}
 
 export async function buildSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<readonly RenderedFile[]> {
-  return (await buildSkillsetResult(rootPath, options)).data;
+  const result = await buildSkillsetResult(rootPath, options);
+  if (!result.ok) throw new SkillsetBuildBlockedError(result);
+  return result.data;
 }
 
 export async function buildSkillsetResult(
   rootPath: string,
-  options: SkillsetOptions = {}
+  options: SkillsetOptions = {},
+  inspectionOptions: SkillsetDiffInspectionOptions = {}
+): Promise<SkillsetBuildResult> {
+  return buildSkillsetResultInternal(rootPath, options, {
+    ...(inspectionOptions.sourceDrivenOutputPaths === undefined
+      ? {}
+      : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+  });
+}
+
+/** @internal Write-authority seam used by source readiness after app analysis. */
+export interface SkillsetBuildAuthorityHooks {
+  readonly afterBackupPersistence?: () => Promise<void> | void;
+  readonly afterBackupPlanning?: () => Promise<void> | void;
+  readonly beforeFinalWriteInspection?: () => Promise<void> | void;
+}
+
+export async function buildSkillsetResultWithAuthority(
+  rootPath: string,
+  options: SkillsetOptions,
+  inspectionOptions: SkillsetDiffInspectionOptions,
+  managedLockRepairPaths: readonly string[],
+  hooks: SkillsetBuildAuthorityHooks = {}
+): Promise<SkillsetBuildResult> {
+  return buildSkillsetResultInternal(rootPath, options, {
+    ...(hooks.afterBackupPersistence === undefined
+      ? {}
+      : { afterBackupPersistence: hooks.afterBackupPersistence }),
+    ...(hooks.afterBackupPlanning === undefined
+      ? {}
+      : { afterBackupPlanning: hooks.afterBackupPlanning }),
+    ...(hooks.beforeFinalWriteInspection === undefined
+      ? {}
+      : { beforeFinalWriteInspection: hooks.beforeFinalWriteInspection }),
+    managedLockRepairPaths,
+    ...(inspectionOptions.sourceDrivenOutputPaths === undefined
+      ? {}
+      : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+  });
+}
+
+interface SkillsetBuildInspectionOptions extends SkillsetDiffInspectionOptions {
+  /** @internal Deterministic race injection after backup persistence. */
+  readonly afterBackupPersistence?: () => Promise<void> | void;
+  /** @internal Deterministic race injection after backup planning. */
+  readonly afterBackupPlanning?: () => Promise<void> | void;
+  /** @internal Deterministic race injection immediately before final inspection. */
+  readonly beforeFinalWriteInspection?: () => Promise<void> | void;
+  readonly managedLockRepairPaths?: readonly string[];
+}
+
+async function buildSkillsetResultInternal(
+  rootPath: string,
+  options: SkillsetOptions,
+  inspectionOptions: SkillsetBuildInspectionOptions
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
@@ -137,26 +254,152 @@ export async function buildSkillsetResult(
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
   diagnostics.push(...await diagnoseMissingManagedOutputs(rendered, previousManagedState.paths, resolveOutputPath));
-
-  if (graph.root.compile.build === "all") {
-    const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, expectedPaths);
-    const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
-    diagnostics.push(...safety.diagnostics);
-
-    const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
-    const writtenPaths = await writeRenderedFiles(rendered, resolveOutputPath);
-    return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  const inspectionArgs = {
+    diagnostics,
+    expected: new Map(rendered.map((file) => [file.path, file])),
+    outputRoots,
+    pathContext,
+    previousManagedState,
+    rendered,
+    resolveOutputPath,
+    rootPath,
+    ...(inspectionOptions.managedLockRepairPaths === undefined
+      ? {}
+      : { managedLockRepairPaths: inspectionOptions.managedLockRepairPaths }),
+    ...(inspectionOptions.sourceDrivenOutputPaths === undefined
+      ? {}
+      : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+  };
+  const inspection = await inspectOutputPlan(inspectionArgs);
+  if (inspection.outputState.state === "blocked") {
+    diagnostics.push(...inspection.preflightDiagnostics);
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      inspection.outputState,
+      renderResultsWithDiagnostics
+    );
   }
 
-  const actualPaths = new Set(await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath));
-  const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, expectedPaths).filter((path) => actualPaths.has(path));
-  const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
+  let writeInspection = inspection;
+  if (inspectionOptions.managedLockRepairPaths !== undefined) {
+    await inspectionOptions.beforeFinalWriteInspection?.();
+    const finalManagedState = await readManagedOutputState(
+      rootPath,
+      liveOutputRoots,
+      includeWorkspaceLock,
+      outPath,
+      resolveOutputPath,
+      displayPathMapper(pathContext)
+    );
+    writeInspection = await inspectOutputPlan({
+      ...inspectionArgs,
+      previousManagedState: finalManagedState,
+    });
+    if (writeInspection.outputState.state === "blocked") {
+      diagnostics.push(...writeInspection.preflightDiagnostics);
+      return blockedBuildResult(
+        rendered,
+        diagnostics,
+        writeInspection.outputState,
+        renderResultsWithDiagnostics
+      );
+    }
+  }
+  const backupPlan = await planOutputBackups(
+    rootPath,
+    rendered,
+    writeInspection.staleManagedPaths,
+    writeInspection.managedState,
+    resolveOutputPath
+  );
+  await inspectionOptions.afterBackupPlanning?.();
+  const writePreimages = new Map(
+    backupPlan.preimages.map((preimage) => [preimage.targetPath, preimage])
+  );
+  const planInvalidationDiagnostics = (
+    await invalidatedOutputWritePaths(writePreimages, resolveOutputPath)
+  ).map(outputWriteInvalidatedDiagnostic);
+  if (planInvalidationDiagnostics.length > 0) {
+    diagnostics.push(...planInvalidationDiagnostics);
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      classifyWriteSafety(
+        writeInspection.outputState,
+        planInvalidationDiagnostics,
+        writeInspection.managedState.paths.size,
+        inspectionOptions.sourceDrivenOutputPaths ?? []
+      ),
+      renderResultsWithDiagnostics
+    );
+  }
+  const plannedSafetyDiagnostics = diagnoseOutputBackupPlan(backupPlan);
+  const plannedWriteOutputState = classifyWriteSafety(
+    writeInspection.outputState,
+    plannedSafetyDiagnostics,
+    writeInspection.managedState.paths.size,
+    inspectionOptions.sourceDrivenOutputPaths ?? []
+  );
+  if (plannedWriteOutputState.state === "blocked") {
+    diagnostics.push(...plannedSafetyDiagnostics);
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      plannedWriteOutputState,
+      renderResultsWithDiagnostics
+    );
+  }
+  const safety = await persistOutputBackupPlan(rootPath, backupPlan);
+  await inspectionOptions.afterBackupPersistence?.();
+  const persistedPlanInvalidationDiagnostics = (
+    await invalidatedOutputWritePaths(writePreimages, resolveOutputPath)
+  ).map(outputWriteInvalidatedDiagnostic);
+  if (persistedPlanInvalidationDiagnostics.length > 0) {
+    if (safety.backup !== undefined) {
+      await discardOutputBackup(rootPath, safety.backup);
+    }
+    diagnostics.push(...persistedPlanInvalidationDiagnostics);
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      classifyWriteSafety(
+        writeInspection.outputState,
+        persistedPlanInvalidationDiagnostics,
+        writeInspection.managedState.paths.size,
+        inspectionOptions.sourceDrivenOutputPaths ?? []
+      ),
+      renderResultsWithDiagnostics
+    );
+  }
   diagnostics.push(...safety.diagnostics);
+  const writeOutputState = classifyWriteSafety(
+    writeInspection.outputState,
+    safety.diagnostics,
+    writeInspection.managedState.paths.size,
+    inspectionOptions.sourceDrivenOutputPaths ?? []
+  );
+  if (writeOutputState.state === "blocked") {
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      writeOutputState,
+      renderResultsWithDiagnostics,
+      safety.backup
+    );
+  }
 
-  const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
-  const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, resolveOutputPath);
+  if (graph.root.compile.build === "all") {
+    const deletedPaths = await removeStaleGeneratedFiles(new Set(writeInspection.staleManagedPaths), expectedPaths, writePreimages, resolveOutputPath);
+    const writtenPaths = await writeRenderedFiles(rendered, writePreimages, resolveOutputPath);
+    return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  }
 
-  return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  const actualPaths = writeInspection.actualPaths;
+  const deletedPaths = await removeStaleGeneratedFiles(new Set(writeInspection.staleManagedPaths), expectedPaths, writePreimages, resolveOutputPath);
+  const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, writePreimages, resolveOutputPath);
+
+  return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
 export interface SkillsetDiff {
@@ -166,10 +409,512 @@ export interface SkillsetDiff {
   readonly removed: readonly string[];
 }
 
-export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff>;
+interface OutputPlanInspection {
+  readonly actualPaths: ReadonlySet<string>;
+  readonly diff: SkillsetDiff;
+  readonly managedState: ManagedOutputState;
+  readonly outputState: SkillsetOutputStateEvidence;
+  readonly preflightDiagnostics: readonly SkillsetDiagnostic[];
+  readonly staleManagedPaths: readonly string[];
+}
+
+async function inspectOutputPlan(args: {
+  readonly diagnostics: readonly SkillsetDiagnostic[];
+  readonly expected: ReadonlyMap<string, RenderedFile>;
+  readonly managedLockRepairPaths?: readonly string[];
+  readonly outputRoots: readonly string[];
+  readonly pathContext: OperationalPathContext;
+  readonly previousManagedState: ManagedOutputState;
+  readonly rendered: readonly RenderedFile[];
+  readonly resolveOutputPath: OutputPathResolver;
+  readonly rootPath: string;
+  readonly sourceDrivenOutputPaths?: readonly string[];
+}): Promise<OutputPlanInspection> {
+  const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
+  const actualPaths = new Set(actualPathList);
+  const staleManagedPaths = staleManagedOutputPaths(args.previousManagedState.paths, new Set(args.expected.keys())).filter((path) => actualPaths.has(path));
+  const added: string[] = [];
+  const changed: string[] = [];
+  const missing: string[] = [];
+  const removed: string[] = [];
+  const changedLocks = new Map<
+    string,
+    { readonly current: Uint8Array; readonly expected: Uint8Array }
+  >();
+
+  for (const file of args.rendered) {
+    if (!actualPaths.has(file.path)) {
+      if (args.previousManagedState.paths.has(file.path)) {
+        missing.push(file.path);
+      } else {
+        added.push(file.path);
+      }
+      continue;
+    }
+    const current = await readFile(args.resolveOutputPath(file.path));
+    if (!bytesEqual(current, file.content) || !(await generatedFileOnDiskMatchesMode(args.resolveOutputPath(file.path), file))) {
+      changed.push(file.path);
+      if (isLockFilePath(file.path)) {
+        changedLocks.set(file.path, { current, expected: file.content });
+      }
+    }
+  }
+  for (const path of actualPathList) {
+    if (!args.previousManagedState.paths.has(path)) continue;
+    if (!args.expected.has(path)) removed.push(path);
+  }
+
+  const diff: SkillsetDiff = {
+    added: added.sort(compareStrings),
+    changed: changed.sort(compareStrings),
+    missing: missing.sort(compareStrings),
+    removed: removed.sort(compareStrings),
+  };
+  const sourceDrivenPayloadChanges = new Set([
+    ...diff.added.filter((path) => !isLockFilePath(path)),
+    ...diff.changed.filter((path) =>
+      !isLockFilePath(path) && !args.previousManagedState.editedPaths.has(path)
+    ),
+    ...diff.removed.filter((path) =>
+      !isLockFilePath(path) && !args.previousManagedState.editedPaths.has(path)
+    ),
+  ]);
+  const removedPayloadChanges = new Set(
+    diff.removed.filter((path) => !isLockFilePath(path))
+  );
+  const lockProvenanceStates = new Map(
+    [...changedLocks].map(([path, contents]) => [
+      path,
+      args.previousManagedState.hasBaseline
+        ? classifyLockProvenance(
+            path,
+            contents.current,
+            contents.expected,
+            sourceDrivenPayloadChanges,
+            removedPayloadChanges,
+            args.previousManagedState.editedPaths
+          )
+        : "trusted",
+    ] as const)
+  );
+  const untrustedLockPaths = new Set(
+    [...lockProvenanceStates]
+      .filter(([, state]) => state !== "trusted")
+      .map(([path]) => path)
+  );
+  const repairableLockPaths = [...lockProvenanceStates]
+    .filter(([, state]) => isRepairableLockProvenance(state))
+    .map(([path]) => path)
+    .sort(compareStrings);
+  const driftPathSet = new Set([
+    ...diff.added,
+    ...diff.changed,
+    ...diff.missing,
+    ...diff.removed,
+  ]);
+  const requestedLockRepairPaths = new Set(
+    (args.managedLockRepairPaths ?? []).filter(isLockFilePath)
+  );
+  const approvedLockRepairPaths = new Set(
+    [...requestedLockRepairPaths].filter(
+      (path) => isRepairableLockProvenance(lockProvenanceStates.get(path))
+    )
+  );
+  const invalidatedLockRepairPaths = [
+    ...requestedLockRepairPaths,
+  ]
+    .filter(
+      (path) =>
+        driftPathSet.has(path) &&
+        !isRepairableLockProvenance(lockProvenanceStates.get(path))
+    )
+    .sort(compareStrings);
+  const allManagedEditPaths = new Set([
+    ...args.previousManagedState.editedPaths,
+    ...untrustedLockPaths,
+  ]);
+  const invalidatedLockRepairSet = new Set(invalidatedLockRepairPaths);
+  const unexpectedManagedEditPaths = args.managedLockRepairPaths === undefined
+    ? []
+    : [...allManagedEditPaths]
+        .filter(
+          (path) =>
+            driftPathSet.has(path) &&
+            !approvedLockRepairPaths.has(path) &&
+            !invalidatedLockRepairSet.has(path)
+        )
+        .sort(compareStrings);
+  const effectiveManagedEditPaths = new Set(allManagedEditPaths);
+  if (args.managedLockRepairPaths !== undefined) {
+    for (const path of approvedLockRepairPaths) {
+      effectiveManagedEditPaths.delete(path);
+    }
+  }
+  const managedState = {
+    ...args.previousManagedState,
+    editedPaths: effectiveManagedEditPaths,
+  };
+  const preflightDiagnostics = [
+    ...await diagnoseOutputBackupPreflight(
+      args.rootPath,
+      args.rendered,
+      staleManagedPaths,
+      managedState,
+      args.resolveOutputPath
+    ),
+    ...repairableLockPaths.map((path) =>
+      lockProvenanceStates.get(path) === "migration"
+        ? managedLockIntegrityMigrationDiagnostic(path)
+        : managedLockProvenanceStaleDiagnostic(path)
+    ),
+    ...invalidatedLockRepairPaths.map(
+      managedLockRepairInvalidatedDiagnostic
+    ),
+    ...unexpectedManagedEditPaths.map(
+      managedOutputWriteInvalidatedDiagnostic
+    ),
+  ];
+  const outputChanges = new Set([
+    ...diff.missing,
+    ...diff.changed.filter((path) => managedState.editedPaths.has(path)),
+    ...diff.removed.filter((path) => managedState.editedPaths.has(path)),
+  ]);
+  const candidateSourceChanges = [...diff.added, ...diff.changed, ...diff.removed]
+    .filter((path) => !outputChanges.has(path));
+  const blockers = outputBlockers(
+    [...args.diagnostics, ...preflightDiagnostics],
+    managedState.paths.size,
+    args.sourceDrivenOutputPaths ?? []
+  );
+  const blockedPaths = new Set(blockers.flatMap((blocker) => blocker.path === undefined ? [] : [blocker.path]));
+  const sourceChanges = candidateSourceChanges.filter((path) => !blockedPaths.has(path));
+
+  return {
+    actualPaths,
+    diff,
+    managedState,
+    outputState: classifySkillsetOutputState({
+      blockers,
+      hasBaseline: managedState.hasBaseline,
+      outputChanges: [...outputChanges],
+      sourceChanges,
+    }),
+    preflightDiagnostics,
+    staleManagedPaths,
+  };
+}
+
+function outputBlockers(
+  diagnostics: readonly SkillsetDiagnostic[],
+  managedOutputCount: number,
+  sourceDrivenOutputPaths: readonly string[]
+): SkillsetOutputStateEvidence["blockers"] {
+  return diagnostics
+    .filter((diagnostic) =>
+      diagnostic.severity === "error" ||
+      (diagnostic.code === "unmanaged-output-collision" &&
+        !isEstablishedSourceDrivenOutput(
+          diagnostic.outputPath ?? diagnostic.path,
+          managedOutputCount,
+          sourceDrivenOutputPaths
+        ))
+    )
+    .map((diagnostic) => ({
+      code: diagnostic.code,
+      ...(diagnostic.outputPath === undefined && diagnostic.path === undefined ? {} : { path: diagnostic.outputPath ?? diagnostic.path }),
+    }));
+}
+
+function classifyWriteSafety(
+  inspected: SkillsetOutputStateEvidence,
+  diagnostics: readonly SkillsetDiagnostic[],
+  managedOutputCount: number,
+  sourceDrivenOutputPaths: readonly string[]
+): SkillsetOutputStateEvidence {
+  const blockers = [
+    ...inspected.blockers,
+    ...outputBlockers(
+      diagnostics,
+      managedOutputCount,
+      sourceDrivenOutputPaths
+    ),
+  ];
+  const blockedPaths = new Set(
+    blockers.flatMap((blocker) => blocker.path === undefined ? [] : [blocker.path])
+  );
+  return classifySkillsetOutputState({
+    blockers,
+    hasBaseline: inspected.hasBaseline,
+    outputChanges: inspected.outputChanges,
+    sourceChanges: inspected.sourceChanges.filter((path) => !blockedPaths.has(path)),
+  });
+}
+
+type LockProvenanceState = "migration" | "repairable" | "trusted" | "unsafe";
+
+function isRepairableLockProvenance(
+  state: LockProvenanceState | undefined
+): boolean {
+  return state === "migration" || state === "repairable";
+}
+
+function classifyLockProvenance(
+  path: string,
+  current: Uint8Array,
+  expected: Uint8Array,
+  sourceDrivenPayloadChanges: ReadonlySet<string>,
+  removedPayloadChanges: ReadonlySet<string>,
+  editedOutputPaths: ReadonlySet<string>
+): LockProvenanceState {
+  const currentLock = JSON.parse(textDecoder.decode(current)) as unknown;
+  const expectedLock = JSON.parse(textDecoder.decode(expected)) as unknown;
+  if (!isJsonRecord(currentLock) || !isJsonRecord(expectedLock)) return "unsafe";
+  if (currentLock.generatedBy !== expectedLock.generatedBy) return "unsafe";
+  if (Object.keys(currentLock).some((key) => !LOCK_TOP_LEVEL_KEYS.has(key))) {
+    return "unsafe";
+  }
+  if (hasUnknownFixedShapeLockFields(currentLock)) return "unsafe";
+  const legacySchemaMigration =
+    currentLock.schemaVersion === 1 &&
+    expectedLock.schemaVersion === 2 &&
+    hasCoherentLegacyIntegrity(path, currentLock, editedOutputPaths);
+  if (
+    !legacySchemaMigration &&
+    currentLock.schemaVersion !== expectedLock.schemaVersion
+  ) {
+    return "unsafe";
+  }
+  if (currentLock.provenanceHash !== undefined) {
+    if (!hasValidLockProvenance(currentLock)) return "repairable";
+    return bytesEqual(
+      current,
+      textEncoder.encode(renderValidatedJson(currentLock, path))
+    )
+      ? "trusted"
+      : "repairable";
+  }
+  if (currentLock.schemaVersion === 2) return "migration";
+  if (
+    legacySchemaMigration &&
+    hasLegacyTopLevelChanges(currentLock, expectedLock)
+  ) {
+    return "repairable";
+  }
+
+  // Top-level fields are derived from config, render results, or target
+  // topology. Item provenance may also change from source, but only alongside
+  // a tracked payload change; otherwise the lock itself is the untrusted side.
+  if (JSON.stringify(currentLock.items) === JSON.stringify(expectedLock.items)) {
+    return "trusted";
+  }
+  if (
+    legacySchemaMigration &&
+    lockItemsWithoutGeneratedIntegrity(currentLock) ===
+      lockItemsWithoutGeneratedIntegrity(expectedLock)
+  ) {
+    return "trusted";
+  }
+  const outputRoot = outputRootForLockPath(path);
+  const currentItems = lockItemsByIdentity(currentLock);
+  const expectedItems = lockItemsByIdentity(expectedLock);
+  for (const identity of new Set([...currentItems.keys(), ...expectedItems.keys()])) {
+    const currentGroup = currentItems.get(identity) ?? [];
+    const expectedGroup = expectedItems.get(identity) ?? [];
+    if (JSON.stringify(currentGroup) === JSON.stringify(expectedGroup)) continue;
+    const trackedPaths = new Set(
+      [...currentGroup, ...expectedGroup]
+        .flatMap((item) => [...outputPathsForLockItem(outputRoot, item)])
+    );
+    if (
+      expectedGroup.length === 0 &&
+      currentGroup.length > 0 &&
+      [...removedPayloadChanges].some((payloadPath) => trackedPaths.has(payloadPath))
+    ) {
+      continue;
+    }
+    if (![...sourceDrivenPayloadChanges].some((payloadPath) => trackedPaths.has(payloadPath))) {
+      return "repairable";
+    }
+  }
+  return "trusted";
+}
+
+function managedLockProvenanceStaleDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-lock-provenance-stale",
+    featureId: "output-safety",
+    message:
+      "managed lock differs only in recognized generated provenance; an explicit repair may rebuild it",
+    outputPath,
+    severity: "warning",
+  };
+}
+
+function managedLockIntegrityMigrationDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-lock-integrity-migration",
+    featureId: "output-safety",
+    message:
+      "managed v2 lock does not include verifiable lock integrity provenance; run skillset build --yes to migrate it, with the previous lock backed up before writing",
+    outputPath,
+    severity: "warning",
+  };
+}
+
+function managedLockRepairInvalidatedDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-lock-repair-invalidated",
+    featureId: "output-safety",
+    message:
+      "managed lock no longer matches the approved repair evidence; rerun inspection before writing",
+    outputPath,
+    severity: "error",
+  };
+}
+
+function managedOutputWriteInvalidatedDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-output-write-invalidated",
+    featureId: "output-safety",
+    message:
+      "managed output changed after write safety approval; rerun inspection before writing",
+    outputPath,
+    severity: "error",
+  };
+}
+
+function outputWriteInvalidatedDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "output-write-preimage-invalidated",
+    featureId: "output-safety",
+    message:
+      "output changed after final write approval; rerun inspection before writing",
+    outputPath,
+    severity: "error",
+  };
+}
+
+function hasUnknownFixedShapeLockFields(lock: JsonRecord): boolean {
+  if (
+    !isJsonRecord(lock.features) ||
+    Object.keys(lock.features).some((key) => !LOCK_FEATURE_KEYS.has(key))
+  ) {
+    return true;
+  }
+  if (!Array.isArray(lock.items)) return true;
+  return lock.items.some(
+    (item) =>
+      !isJsonRecord(item) ||
+      Object.keys(item).some((key) => !LOCK_ITEM_KEYS.has(key))
+  );
+}
+
+function hasCoherentLegacyIntegrity(
+  path: string,
+  lock: JsonRecord,
+  editedOutputPaths: ReadonlySet<string>
+): boolean {
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  if (items.length === 0) return false;
+  const outputRoot = outputRootForLockPath(path);
+  for (const item of items) {
+    if (
+      !isJsonRecord(item) ||
+      item.fileModes !== undefined ||
+      typeof item.outputHash !== "string"
+    ) {
+      return false;
+    }
+    if (
+      [...outputPathsForLockItem(outputRoot, item)]
+        .some((outputPath) => editedOutputPaths.has(outputPath))
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function lockItemsWithoutGeneratedIntegrity(lock: JsonRecord): string {
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  return JSON.stringify(
+    items.map((item) => {
+      if (!isJsonRecord(item)) return item;
+      return Object.fromEntries(
+        Object.entries(item).filter(
+          ([key]) => key !== "fileModes" && key !== "outputHash"
+        )
+      );
+    })
+  );
+}
+
+function hasLegacyTopLevelChanges(
+  current: JsonRecord,
+  expected: JsonRecord
+): boolean {
+  const legacyComparableMetadata = (lock: JsonRecord): string =>
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(lock).filter(
+          ([key]) =>
+            key !== "items" &&
+            key !== "provenanceHash" &&
+            key !== "schemaVersion"
+        )
+      )
+    );
+  return legacyComparableMetadata(current) !== legacyComparableMetadata(expected);
+}
+
+function lockItemsByIdentity(
+  lock: JsonRecord
+): ReadonlyMap<string, readonly JsonRecord[]> {
+  const groups = new Map<string, JsonRecord[]>();
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  for (const item of items) {
+    if (!isJsonRecord(item)) continue;
+    const identity = JSON.stringify([
+      item.kind,
+      item.name,
+      item.sourcePath,
+      item.outputPath,
+    ]);
+    const group = groups.get(identity) ?? [];
+    group.push(item);
+    groups.set(identity, group);
+  }
+  return groups;
+}
+
+function isEstablishedSourceDrivenOutput(
+  path: string | undefined,
+  managedOutputCount: number,
+  sourceDrivenOutputPaths: readonly string[]
+): boolean {
+  return path !== undefined &&
+    managedOutputCount > 0 &&
+    sourceDrivenOutputPaths.includes(path);
+}
+
+export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff> & {
+  readonly outputState: SkillsetOutputStateEvidence;
+};
 
 export interface SkillsetDiffInspectionOptions {
   readonly enforceRenderPolicy?: boolean;
+  /** Paths proven source-driven by the calling analysis or operation. */
+  readonly sourceDrivenOutputPaths?: readonly string[];
 }
 
 /**
@@ -219,49 +964,26 @@ export async function diffSkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
-  const actualPaths = await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath);
-  const actual = new Set(actualPaths);
-  const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, new Set(expected.keys())).filter((path) => actual.has(path));
-  diagnostics.push(...await diagnoseOutputBackupPreflight(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath));
-
-  const added: string[] = [];
-  const changed: string[] = [];
-  const missing: string[] = [];
-  const removed: string[] = [];
-
-  for (const file of rendered) {
-    if (!actual.has(file.path)) {
-      if (previousManagedState.paths.has(file.path)) {
-        missing.push(file.path);
-      } else {
-        added.push(file.path);
-      }
-      continue;
-    }
-    const current = await readFile(resolveOutputPath(file.path));
-    if (
-      !bytesEqual(current, file.content) ||
-      !(await generatedFileOnDiskMatchesMode(resolveOutputPath(file.path), file))
-    ) {
-      changed.push(file.path);
-    }
-  }
-  for (const path of actualPaths) {
-    if (!previousManagedState.paths.has(path)) continue;
-    if (!expected.has(path)) removed.push(path);
-  }
-
-  const diff = {
-    added: [...added].sort(compareStrings),
-    changed: [...changed].sort(compareStrings),
-    missing: [...missing].sort(compareStrings),
-    removed: [...removed].sort(compareStrings),
-  };
-  return {
-    data: diff,
+  const inspectionResult = await inspectOutputPlan({
     diagnostics,
+    expected,
+    outputRoots,
+    pathContext,
+    previousManagedState,
+    rendered,
+    resolveOutputPath,
+    rootPath,
+    ...(inspection.sourceDrivenOutputPaths === undefined
+      ? {}
+      : { sourceDrivenOutputPaths: inspection.sourceDrivenOutputPaths }),
+  });
+  diagnostics.push(...inspectionResult.preflightDiagnostics);
+  return {
+    data: inspectionResult.diff,
+    diagnostics,
+    outputState: inspectionResult.outputState,
     renderResults: renderResultsWithDiagnostics,
-    ok: true,
+    ok: inspectionResult.outputState.state !== "blocked",
     operation: "diff",
     writes: {
       deletedPaths: [],
@@ -283,7 +1005,9 @@ export async function verifySkillset(
   return result.data;
 }
 
-export type SkillsetVerifyResult = SkillsetOperationResult<CheckResult>;
+export type SkillsetVerifyResult = SkillsetOperationResult<CheckResult> & {
+  readonly outputState: SkillsetOutputStateEvidence;
+};
 
 export async function verifySkillsetResult(
   rootPath: string,
@@ -318,8 +1042,19 @@ export async function verifySkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
-  const actualPaths = await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath);
-  const actual = new Set(actualPaths);
+  const inspection = await inspectOutputPlan({
+    diagnostics,
+    expected,
+    outputRoots,
+    pathContext,
+    previousManagedState,
+    rendered,
+    resolveOutputPath,
+    rootPath,
+  });
+  diagnostics.push(...inspection.preflightDiagnostics);
+  const actualPaths = [...inspection.actualPaths];
+  const actual = inspection.actualPaths;
   const failures: string[] = [];
   const driftDiagnostics: SkillsetDiagnostic[] = [];
 
@@ -367,8 +1102,9 @@ export async function verifySkillsetResult(
   return {
     data: { checkedFiles: rendered.length, failures },
     diagnostics: [...diagnostics, ...driftDiagnostics],
+    outputState: inspection.outputState,
     renderResults: renderResultsWithDiagnostics,
-    ok: failures.length === 0,
+    ok: failures.length === 0 && inspection.outputState.state !== "blocked",
     operation: "verify",
     writes: {
       deletedPaths: [],
@@ -472,23 +1208,52 @@ function enforceSoftPolicyHasUsableOutput(
       `skillset: unsupported destination policy ${unsupportedPolicy} produced no usable target output`,
       "at least one non-lock output must remain so unsupported source cannot look synchronized",
     ].join("\n"),
-    softened
+    softened,
+    "no-usable-output"
   );
 }
 
 function buildResult(
   rendered: readonly RenderedFile[],
   diagnostics: readonly SkillsetDiagnostic[],
+  outputState: SkillsetOutputStateEvidence,
   renderResults: readonly SkillsetRenderResult[],
   writes: SkillsetWriteSummary
 ): SkillsetBuildResult {
   return {
     data: rendered,
     diagnostics,
+    outputState,
     renderResults,
     ok: true,
     operation: "build",
     writes,
+  };
+}
+
+function blockedBuildResult(
+  rendered: readonly RenderedFile[],
+  diagnostics: readonly SkillsetDiagnostic[],
+  outputState: SkillsetOutputStateEvidence,
+  renderResults: readonly SkillsetRenderResult[],
+  backup?: OutputBackupSummary
+): SkillsetBuildResult {
+  return {
+    data: rendered,
+    diagnostics,
+    outputState,
+    renderResults,
+    ok: false,
+    operation: "build",
+    writes: withBackupSummary(
+      {
+        deletedPaths: [],
+        mode: "read",
+        paths: [],
+        writtenPaths: [],
+      },
+      backup
+    ),
   };
 }
 
@@ -537,15 +1302,15 @@ function withPersistedRenderResults(
   rendered: readonly RenderedFile[],
   renderResults: readonly SkillsetRenderResult[]
 ): readonly RenderedFile[] {
-  if (renderResults.length === 0) return rendered;
   return rendered.map((file) => {
     if (!isLockFilePath(file.path)) return file;
     const lock = parseLockFile(file);
     const lockOutcomes = renderResultsForLock(file.path, lock, renderResults);
-    const value: JsonRecord = {
+    const withoutHash: JsonRecord = {
       ...lock,
       ...(lockOutcomes.length === 0 ? {} : { renderResults: lockOutcomes as unknown as JsonValue }),
     };
+    const value = withLockProvenance(withoutHash);
     return {
       ...file,
       content: textEncoder.encode(renderValidatedJson(value, file.path)),
@@ -608,15 +1373,24 @@ function outputPathsForLock(outputRoot: string, lock: JsonRecord): ReadonlySet<s
   const paths = new Set<string>();
   for (const item of items) {
     if (!isJsonRecord(item)) continue;
-    let files: readonly string[] = [];
-    if (Array.isArray(item.files) && item.files.every((entry) => typeof entry === "string")) {
-      files = item.files;
-    } else if (typeof item.outputPath === "string") {
-      files = [item.outputPath];
-    }
-    for (const file of files) paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+    for (const path of outputPathsForLockItem(outputRoot, item)) paths.add(path);
   }
   return paths;
+}
+
+function outputPathsForLockItem(
+  outputRoot: string,
+  item: JsonRecord
+): ReadonlySet<string> {
+  let files: readonly string[] = [];
+  if (Array.isArray(item.files) && item.files.every((entry) => typeof entry === "string")) {
+    files = item.files;
+  } else if (typeof item.outputPath === "string") {
+    files = [item.outputPath];
+  }
+  return new Set(
+    files.map((file) => join(outputRoot, file).replaceAll("\\", "/"))
+  );
 }
 
 function outputRootForLockPath(lockPath: string): string {
@@ -650,13 +1424,17 @@ async function diagnoseMissingManagedOutputs(
 
 async function writeRenderedFiles(
   rendered: readonly RenderedFile[],
+  writePreimages: ReadonlyMap<string, OutputWritePreimage>,
   resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const writtenPaths: string[] = [];
   for (const file of rendered) {
     const outputPath = resolveOutputPath(file.path);
+    const preimage = await assertOutputWritePreimage(file.path, writePreimages, resolveOutputPath);
     await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, file.content);
+    await writeFile(outputPath, file.content, {
+      flag: preimage.state === "absent" ? "wx" : "w",
+    });
     await applyGeneratedFileMode(outputPath, file);
     writtenPaths.push(file.path);
   }
@@ -666,11 +1444,13 @@ async function writeRenderedFiles(
 async function writeChangedRenderedFiles(
   rendered: readonly RenderedFile[],
   actualPaths: ReadonlySet<string>,
+  writePreimages: ReadonlyMap<string, OutputWritePreimage>,
   resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const writtenPaths: string[] = [];
   for (const file of rendered) {
     const outputPath = resolveOutputPath(file.path);
+    const preimage = await assertOutputWritePreimage(file.path, writePreimages, resolveOutputPath);
     if (actualPaths.has(file.path)) {
       const current = await readFile(outputPath);
       if (bytesEqual(current, file.content)) {
@@ -681,7 +1461,9 @@ async function writeChangedRenderedFiles(
       }
     }
     await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, file.content);
+    await writeFile(outputPath, file.content, {
+      flag: preimage.state === "absent" ? "wx" : "w",
+    });
     await applyGeneratedFileMode(outputPath, file);
     writtenPaths.push(file.path);
   }
@@ -691,15 +1473,78 @@ async function writeChangedRenderedFiles(
 async function removeStaleGeneratedFiles(
   actualPaths: ReadonlySet<string>,
   expectedPaths: ReadonlySet<string>,
+  writePreimages: ReadonlyMap<string, OutputWritePreimage>,
   resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const deletedPaths: string[] = [];
   for (const path of actualPaths) {
     if (expectedPaths.has(path)) continue;
+    await assertOutputWritePreimage(path, writePreimages, resolveOutputPath);
     await rm(resolveOutputPath(path), { force: true });
     deletedPaths.push(path);
   }
   return deletedPaths.sort(compareStrings);
+}
+
+async function readOutputWritePreimage(
+  targetPath: string,
+  resolveOutputPath: OutputPathResolver
+): Promise<OutputWritePreimage> {
+  const absolutePath = resolveOutputPath(targetPath);
+  if (!(await exists(absolutePath))) return { state: "absent", targetPath };
+  const content = await readFile(absolutePath);
+  const currentStats = await stat(absolutePath);
+  return {
+    content,
+    ...(supportsGeneratedFileModes()
+      ? { mode: formatDiskMode(currentStats.mode) }
+      : {}),
+    state: "present",
+    targetPath,
+  };
+}
+
+async function invalidatedOutputWritePaths(
+  preimages: ReadonlyMap<string, OutputWritePreimage>,
+  resolveOutputPath: OutputPathResolver
+): Promise<readonly string[]> {
+  const invalidated: string[] = [];
+  for (const [targetPath, preimage] of preimages) {
+    const current = await readOutputWritePreimage(targetPath, resolveOutputPath);
+    if (!outputWritePreimagesEqual(preimage, current)) invalidated.push(targetPath);
+  }
+  return invalidated.sort(compareStrings);
+}
+
+async function assertOutputWritePreimage(
+  targetPath: string,
+  preimages: ReadonlyMap<string, OutputWritePreimage>,
+  resolveOutputPath: OutputPathResolver
+): Promise<OutputWritePreimage> {
+  const preimage = preimages.get(targetPath);
+  if (preimage === undefined) {
+    throw new Error(`skillset: missing write preimage for ${targetPath}`);
+  }
+  const current = await readOutputWritePreimage(targetPath, resolveOutputPath);
+  if (!outputWritePreimagesEqual(preimage, current)) {
+    throw new Error(
+      `skillset: output changed after final write approval: ${targetPath}`
+    );
+  }
+  return preimage;
+}
+
+function outputWritePreimagesEqual(
+  left: OutputWritePreimage,
+  right: OutputWritePreimage
+): boolean {
+  if (left.state !== right.state) return false;
+  if (left.state === "absent" || right.state === "absent") return true;
+  return bytesEqual(left.content, right.content) && left.mode === right.mode;
+}
+
+function formatDiskMode(mode: number): string {
+  return (mode & 0o777).toString(8).padStart(4, "0");
 }
 
 async function listOutputFiles(
@@ -849,7 +1694,7 @@ function isInsideOutputRoot(path: string, outputRoot: string): boolean {
   return path === outputRoot || path.startsWith(`${outputRoot}/`);
 }
 
-function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolean {
+export function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolean {
   return scopes === undefined || scopes.includes("project");
 }
 

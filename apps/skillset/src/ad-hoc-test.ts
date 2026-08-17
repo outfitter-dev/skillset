@@ -3,7 +3,7 @@ import { spawn as spawnNode } from "node:child_process";
 import { join, resolve } from "node:path";
 
 import {
-  buildSkillset,
+  buildSkillsetResult,
   ISOLATED_OUT_ROOT,
 } from "@skillset/core";
 
@@ -241,22 +241,36 @@ export async function executeAdHocTestRun(
   const runOptions: SkillsetOptions = {
     buildMode: "all",
     isolated: true,
-    ...(config.sourceDir === undefined ? {} : { sourceDir: config.sourceDir }),
     targetFilter: [target],
+    ...(config.sourceDir === undefined ? {} : { sourceDir: config.sourceDir }),
     ...(xdg === undefined ? {} : { xdg }),
   };
 
   let status = await readStatus(paths.absolute.statusPath);
   await appendEvent(paths, "status", "building isolated target output");
   status = await updateRunState(paths, status, "building");
+  let graph: BuildGraph;
   try {
-    await buildSkillset(root, runOptions);
+    graph = await loadBuildGraph(root, runOptions);
+    const build = await buildSkillsetResult(root, runOptions, {
+      sourceDrivenOutputPaths: [
+        join(
+          ISOLATED_OUT_ROOT,
+          graph.root.outputs.plugins[target],
+          "README.md"
+        ),
+      ],
+    });
+    if (!build.ok) {
+      throw new Error(
+        `skillset: isolated runtime build blocked before provider launch by ${build.outputState.blockers.map((blocker) => blocker.code).join(", ")}`
+      );
+    }
   } catch (error) {
     await failRun(paths, status, messageFor(error), "render");
     return;
   }
 
-  const graph = await loadBuildGraph(root, runOptions);
   let command: ReturnType<typeof runtimeCommand>;
   let result: Awaited<ReturnType<typeof runRuntimeProbe>>;
   try {

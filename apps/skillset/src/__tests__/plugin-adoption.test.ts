@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import {
   buildSkillset,
+  buildSkillsetResult,
   createOperationalPathContext,
   ISOLATED_OUT_ROOT,
   resolveOperationalPath,
@@ -13,6 +14,7 @@ import {
 import { classifyPluginAdoptionCandidates } from "../plugin-adoption";
 import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { importSource } from "../import";
+import { runProviderFormatUpdates } from "../provider-format-updates";
 
 test("SET-225: one source with Claude, Codex, and Cursor manifests stays one candidate", async () => {
   const root = await pluginFixture({
@@ -623,7 +625,13 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
       .replace("category: productivity", "category: collaboration")
   );
   await rm(join(root, ".skillset/plugins/demo/skills"), { recursive: true });
-  await buildSkillset(root, { isolated: true });
+  const providerAnalysis = await runProviderFormatUpdates(root, "check", {
+    isolated: true,
+  });
+  const rebuilt = await buildSkillsetResult(root, { isolated: true }, {
+    sourceDrivenOutputPaths: providerAnalysis.sourceDriftPaths,
+  });
+  expect(rebuilt.ok).toBe(true);
 
   const generatedRoot = resolveOperationalPath(
     createOperationalPathContext(root),

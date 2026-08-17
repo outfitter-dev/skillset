@@ -114,6 +114,51 @@ test("SET-210: dev preview reports clean generated-output state", async () => {
   expect(rendered).toContain("run skillset build --yes");
 });
 
+test("SET-451: dev preview reports blocked output collisions in text and JSONL", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-blocked-preview-"));
+  await Bun.write(
+    join(root, "skillset.yaml"),
+    "skillset:\n  name: blocked-preview\ncompile:\n  targets: [codex]\n"
+  );
+  await mkdir(join(root, ".skillset/rules"), { recursive: true });
+  await Bun.write(
+    join(root, ".skillset/rules/root.md"),
+    "# Generated project instructions\n"
+  );
+  await Bun.write(join(root, "AGENTS.md"), "# Unmanaged project instructions\n");
+
+  const report = await runDevWatchPreview(root, {}, "test");
+  const rendered = renderDevWatchPreview(report);
+  let output = "";
+  const stream = createDevWatchJsonlStream({
+    write: (chunk) => {
+      output += String(chunk);
+      return true;
+    },
+  });
+  stream.operation(report);
+  stream.completed("test");
+  const event = parseCliEventStream(output).find(
+    (entry) => entry.event === "operation"
+  );
+
+  expect(report.ok).toBe(false);
+  expect(report.error).toContain("unmanaged-output-collision");
+  expect(report.diagnostics).toContainEqual(
+    expect.objectContaining({ code: "unmanaged-output-collision" })
+  );
+  expect(rendered).toContain("skillset: dev preview failed (test)");
+  expect(rendered).toContain("unmanaged-output-collision");
+  expect(rendered).not.toContain("run skillset build --yes");
+  expect(event).toMatchObject({
+    event: "operation",
+    data: {
+      error: expect.stringContaining("unmanaged-output-collision"),
+      ok: false,
+    },
+  });
+});
+
 test("SET-212: dev write writes generated output with build safeguards", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
@@ -142,7 +187,7 @@ test("SET-212: dev write writes generated output with build safeguards", async (
   expect(freshRendered).toContain("generated output already fresh");
 });
 
-test("SET-212: dev write reports backup recovery guidance", async () => {
+test("SET-212: dev write blocks unmanaged collisions without backup writes", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-backup-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
@@ -154,11 +199,11 @@ test("SET-212: dev write reports backup recovery guidance", async () => {
   const report = await runDevWatchApply(root, {}, "test");
   const rendered = renderDevWatchPreview(report);
 
-  expect(report.ok).toBe(true);
-  expect(report.writes?.backupRunId).toBeString();
-  expect(report.writes?.backupManifestPath).toBe(`.skillset/snapshots/${report.writes?.backupRunId}/manifest.json`);
-  expect(rendered).toContain("backup: 1 file saved");
-  expect(rendered).toContain(`skillset restore ${report.writes?.backupRunId} --yes`);
+  expect(report.ok).toBe(false);
+  expect(report.writes?.paths).toEqual([]);
+  expect(rendered).not.toContain("backup:");
+  expect(await Bun.file(join(root, ".claude/skills/review-notes/SKILL.md")).text()).toBe("hand-authored collision\n");
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 });
 
 test("SET-212: dev write failures render recovery guidance", () => {

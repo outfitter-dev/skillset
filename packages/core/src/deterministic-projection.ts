@@ -5,6 +5,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import {
   buildSkillsetResult,
   ISOLATED_OUT_ROOT,
+  SkillsetBuildBlockedError,
   type SkillsetBuildResult,
 } from "./build";
 import { assertNoHostLeaks, type HostLeakDetectionOptions } from "./host-leak";
@@ -185,6 +186,7 @@ async function runProjection(
     isolated: true,
     xdg,
   });
+  if (!build.ok) throw new SkillsetBuildBlockedError(build);
   const run = {
     build,
     name,
@@ -199,6 +201,7 @@ async function runProjection(
     workspacePath,
   };
   await options.afterProjection?.(run);
+  if (!build.ok) throw new SkillsetBuildBlockedError(build);
   return run;
 }
 
