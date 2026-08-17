@@ -59,6 +59,7 @@ bun run package-ownership:guard
 bun run terminology:guard
 bun run public-closure:guard
 bun run target-topology:guard
+bun run change-stream:guard
 ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
 ```
 
@@ -67,6 +68,8 @@ bun run target-topology:guard
 `bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
 
 `bun run public-closure:guard` scans only generated public artifacts under `plugins/skillset/**` and rejects routes or references into contributor-only `skillset-dev*` material, development docs, fixtures, package internals, and repository scripts. Contributor and self-hosted `.agents/`, `.claude/`, `.cursor/`, and `.skillset/` trees are deliberately outside this public-closure scan.
+
+`bun run change-stream:guard` keeps the append-only `.skillset/changes/*.jsonl` streams safe to merge. `.gitattributes` declares the built-in `merge=union` strategy for them so cross-branch merges and restacks keep both sides' appended records instead of conflicting; the guard checks what union cannot — trailing newline, valid JSONL objects, unique record ids, the declared `merge=union` attribute, and no newly introduced timestamp inversion. Record order is load-bearing because release/pending state folds events in file order. Five inversions predate the guard and are recorded as exact `previousId -> id` pairs in `INVERSION_ALLOWANCES`; never sort a stream to fix a failure, reorder only the newly appended block.
 
 `bun run target-topology:guard` uses the TypeScript AST and the canonical schema target registry to reject hand-enumerated target collections, same-subject target equality subsets, and implicit multi-target dispatch fallbacks. Deliberate schema declarations, historical migrations, and provider-native format boundaries require exact per-match allowlist evidence.
 

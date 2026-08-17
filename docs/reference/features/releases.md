@@ -69,4 +69,6 @@ Skillset workspace releases own `.skillset/changes/`, source-unit versions, and 
 
 Release records include selected change ids, resolved versions, source hashes, and baseline metadata. Deleted scopes become tombstones. `skillset change status` uses ledger-derived release state as its durable baseline, even before the release commit exists.
 
+Release records are append-only and derived release state resolves per scope in file order, so keep `.skillset/changes/*.jsonl` on the `merge=union` strategy described in [Merging Change Streams](changes.md#merging-change-streams).
+
 See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), and [Reason-Only Change Ledger and Derived State](../../adrs/0015-reason-only-change-ledger-derived-state.md).
