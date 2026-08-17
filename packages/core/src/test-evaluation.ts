@@ -13,7 +13,7 @@ import {
   pluginTargetRoot,
 } from "./plugin-output";
 import { loadBuildGraph } from "./resolver";
-import { readAuthorName } from "./source-author";
+import { readAuthorName, renderClaudeAuthor } from "./source-author";
 import { readSourceListing } from "./source-listing";
 import type { SkillsetRenderResult } from "./render-result";
 import { targetDescriptor } from "./targets";
@@ -296,8 +296,11 @@ function expectedPluginManifestFields(
   }
   const base = stripUndefinedRecord({
     author:
-      readAuthorName(metadata.author) ??
-      readAuthorName(graph.root.metadata.author),
+      target === "claude"
+        ? renderClaudeAuthor(metadata.author) ??
+          renderClaudeAuthor(graph.root.metadata.author)
+        : readAuthorName(metadata.author) ??
+          readAuthorName(graph.root.metadata.author),
     description,
     homepage: metadata.homepage,
     keywords: listing.keywords ?? metadata.keywords,

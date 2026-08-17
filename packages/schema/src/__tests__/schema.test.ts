@@ -1040,6 +1040,32 @@ describe("@skillset/schema contracts", () => {
         "schema/source-metadata/strict",
       ])
     );
+    expect(
+      validateSourceMetadata({ author: { email: "team@example.com" } })
+        .diagnostics
+    ).toContainEqual({
+      code: "schema/source-metadata/author-name",
+      message: "$.author.name must be a non-empty string",
+      path: "$.author.name",
+    });
+    expect(
+      validateSourceMetadata({ owner: { email: "publisher@example.com" } })
+        .diagnostics
+    ).toContainEqual({
+      code: "schema/source-metadata/owner-name",
+      message: "$.owner.name must be a non-empty string",
+      path: "$.owner.name",
+    });
+    expect(
+      validateSourceMetadata({
+        author: {
+          contributor: "Example Contributor",
+          email: "team@example.com",
+          name: "Example Team",
+          url: "https://example.com/team",
+        },
+      }).diagnostics
+    ).toEqual([]);
 
     expect(
       validateSkillFrontmatter({

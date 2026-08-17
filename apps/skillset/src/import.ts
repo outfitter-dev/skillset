@@ -53,6 +53,7 @@ import {
   type NativeListingMetadataField,
   portablePluginMetadataConflicts,
   PORTABLE_PLUGIN_METADATA_FIELDS,
+  unreadableNativeAuthorProviders,
 } from "./plugin-manifest-authority";
 import type { ImportKind, ImportProvider } from "./source-arg-values";
 import { quoteShellArgument } from "./recovery-guidance";
@@ -918,6 +919,16 @@ async function writeImportedPluginConfig(
   readonly warnings: readonly string[];
 }> {
   const nativeManifests = await readNativePluginManifests(targetPath);
+  // `author` is source-owned, so it is stripped from provider overrides. A
+  // value Skillset cannot read has no canonical form to lift and no override to
+  // fall back to, and another provider's readable author would quietly stand in
+  // for it. Migration surfaces the ambiguity here instead of dropping it.
+  const unreadableAuthors = unreadableNativeAuthorProviders(nativeManifests);
+  if (unreadableAuthors.length > 0) {
+    throw new Error(
+      `skillset: native plugin manifests declare an unreadable author: ${unreadableAuthors.join(", ")}; author must be a non-empty string or an object with a non-empty name`
+    );
+  }
   const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);
   if (metadataConflicts.length > 0) {
     throw new Error(

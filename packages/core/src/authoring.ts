@@ -32,6 +32,7 @@ import {
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
+import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
 import { updateMarkdownSourceDocument } from "./source-document";
 import { readEffectiveToolsPolicy } from "./skill-policy";
@@ -128,6 +129,7 @@ export async function explainPath(
   const allRendered = await renderBuildGraph(graph);
   const rendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(rendered.map((file) => file.path)),
     scopes: options.scopes,
   });

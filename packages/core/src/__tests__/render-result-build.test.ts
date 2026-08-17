@@ -20,6 +20,7 @@ import {
 } from "@skillset/core";
 import { collectRenderResults } from "../render-result-collector";
 import { renderBuildGraph } from "../render";
+import { claudeMarketplaceSourcePlugins } from "../render-marketplaces";
 import { loadBuildGraph } from "../resolver";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
 
@@ -827,6 +828,7 @@ Help with the task.
       (file) => !file.path.endsWith("/SKILL.md")
     );
     const results = collectRenderResults(graph, rendered, {
+      claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
       includedPaths: new Set(rendered.map((file) => file.path)),
     });
     const dependency = results.find(
@@ -838,6 +840,498 @@ Help with the task.
       status: "unsupported",
     });
     expect(dependency?.outputs).toBeUndefined();
+  });
+
+  it("reports Claude author fields that cannot be represented", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    contributor: Example Contributor
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/claude-author-fields-omitted",
+            path: ".skillset/plugins/tools: $.skillset.author",
+          }),
+        ],
+        destination: "plugin-manifest",
+        featureId: "plugin-manifests",
+        reason:
+          "Claude author output supports only name, email, and url; omitted canonical fields: contributor",
+        sourcePath: ".skillset/plugins/tools",
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+        target: "claude",
+      })
+    );
+  });
+
+  it("attributes inherited Claude author omissions to root metadata", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+  author:
+    name: Root Team
+    contributor: Example Contributor
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/claude-author-fields-omitted",
+            path: "skillset.yaml: $.skillset.author",
+          }),
+        ],
+        destination: "plugin-manifest",
+        sourcePath: "skillset.yaml",
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+        target: "claude",
+      })
+    );
+  });
+
+  it("reports Claude marketplace author omissions once per destination", async () => {
+    const cases = [
+      {
+        expectedPath: "marketplace.owner",
+        pluginAuthor: `
+  author:
+    name: Plugin Team
+`,
+        rootIdentity: `
+  author:
+    name: Root Team
+  owner:
+    name: Publishing Team
+    contributor: Publisher
+`,
+      },
+      {
+        expectedPath: "marketplace.owner",
+        pluginAuthor: `
+  author:
+    name: Plugin Team
+`,
+        rootIdentity: `
+  author:
+    name: Root Team
+    contributor: Root Contributor
+`,
+      },
+      {
+        expectedPath: "marketplace.plugins.tools.author",
+        pluginAuthor: `
+  author:
+    name: Plugin Team
+    contributor: Plugin Contributor
+`,
+        rootIdentity: `
+  author:
+    name: Root Team
+`,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: marketplace-evidence
+${testCase.rootIdentity}
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+${testCase.pluginAuthor}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const preview = await diffSkillsetResult(root);
+      const marketplaceOutcomes = preview.renderResults.filter(
+        (outcome) => outcome.featureId === "marketplaces"
+      );
+      expect(marketplaceOutcomes).toHaveLength(2);
+      const diagnostics = marketplaceOutcomes.flatMap(
+        (outcome) => outcome.diagnostics ?? []
+      );
+      expect(diagnostics).toEqual([
+        expect.objectContaining({
+          code: "render/claude-marketplace-author-fields-omitted",
+          path: testCase.expectedPath,
+        }),
+      ]);
+      expect(
+        marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+      ).toHaveLength(1);
+    }
+  });
+
+  it("tracks marketplace authors through a renamed Claude marketplace entry", async () => {
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-evidence
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+    contributor: Plugin Contributor
+claude:
+  marketplace:
+    name: tools-renamed
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    const marketplaceOutcomes = preview.renderResults.filter(
+      (outcome) => outcome.featureId === "marketplaces"
+    );
+    expect(
+      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([
+      expect.objectContaining({
+        code: "render/claude-marketplace-author-fields-omitted",
+        path: "marketplace.plugins.tools.author",
+      }),
+    ]);
+    expect(
+      marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+    ).toEqual([
+      expect.objectContaining({
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+      }),
+    ]);
+
+    const built = await buildSkillsetResult(warnRoot);
+    const marketplace = await readJson(
+      join(warnRoot, ".claude-plugin/marketplace.json")
+    );
+    expect(built.writes.writtenPaths).toContain(
+      ".claude-plugin/marketplace.json"
+    );
+    expect(marketplace.plugins).toEqual([
+      expect.objectContaining({ name: "tools-renamed" }),
+    ]);
+
+    // A marketplace-scoped build excludes the plugin manifest, so the
+    // marketplace render result is the only record of the omission.
+    const errorRoot = await fixture(files(""));
+    await expect(
+      buildSkillsetResult(errorRoot, { scopes: ["project"] })
+    ).rejects.toThrow(
+      "Claude marketplace author output supports only name, email, and url; omitted canonical fields: contributor"
+    );
+  });
+
+  it("tracks marketplace authors through a replaced Claude marketplace plugin array", async () => {
+    const files = (args: {
+      readonly droppedAuthor: string;
+      readonly keptAuthor: string;
+      readonly unsupportedDestination: string;
+    }): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-override
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${args.unsupportedDestination}
+claude:
+  marketplace:
+    plugins:
+      - name: kept
+        source: ./plugins/kept/claude
+`,
+      ".skillset/plugins/kept/skillset.yaml": `
+skillset:
+  name: kept
+  author:
+    name: Kept Team
+${args.keptAuthor}
+`,
+      ".skillset/plugins/kept/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      ".skillset/plugins/dropped/skillset.yaml": `
+skillset:
+  name: dropped
+  author:
+    name: Dropped Team
+${args.droppedAuthor}
+`,
+      ".skillset/plugins/dropped/skills/helper/SKILL.md": `
+---
+description: Help with other repository tasks.
+---
+
+Help with the other task.
+`,
+    });
+
+    // The root override replaces the generated plugin array wholesale, so only
+    // `kept` reaches the marketplace.
+    const warnRoot = await fixture(
+      files({
+        droppedAuthor: "    sponsor: Dropped Sponsor",
+        keptAuthor: "    contributor: Kept Contributor",
+        unsupportedDestination: "  unsupportedDestination: warn",
+      })
+    );
+    const preview = await diffSkillsetResult(warnRoot);
+    const marketplaceOutcomes = preview.renderResults.filter(
+      (outcome) => outcome.featureId === "marketplaces"
+    );
+    expect(
+      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([
+      expect.objectContaining({
+        code: "render/claude-marketplace-author-fields-omitted",
+        path: "marketplace.plugins.kept.author",
+      }),
+    ]);
+    expect(
+      [...marketplaceOutcomes.map((outcome) => outcome.sourceUnit)].sort()
+    ).toEqual(["config:root", "plugin.kept.config:root"]);
+
+    const built = await buildSkillsetResult(warnRoot);
+    const marketplace = await readJson(
+      join(warnRoot, ".claude-plugin/marketplace.json")
+    );
+    expect(built.writes.writtenPaths).toContain(
+      ".claude-plugin/marketplace.json"
+    );
+    expect(marketplace.plugins).toEqual([
+      expect.objectContaining({ name: "kept" }),
+    ]);
+
+    // An extra canonical author field on the replaced-away plugin is absent
+    // from the marketplace, so it must not block the build.
+    const droppedOnlyRoot = await fixture(
+      files({
+        droppedAuthor: "    sponsor: Dropped Sponsor",
+        keptAuthor: "",
+        unsupportedDestination: "",
+      })
+    );
+    await expect(
+      buildSkillsetResult(droppedOnlyRoot, { scopes: ["project"] })
+    ).resolves.toBeDefined();
+
+    // The same extra field on the plugin the override keeps still blocks.
+    const keptOnlyRoot = await fixture(
+      files({
+        droppedAuthor: "",
+        keptAuthor: "    contributor: Kept Contributor",
+        unsupportedDestination: "",
+      })
+    );
+    await expect(
+      buildSkillsetResult(keptOnlyRoot, { scopes: ["project"] })
+    ).rejects.toThrow(
+      "Claude marketplace author output supports only name, email, and url; omitted canonical fields: contributor"
+    );
+  });
+
+  it("reports author fields a Claude marketplace override drops from the emitted entry", async () => {
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-override
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+claude:
+  marketplace:
+    plugins:
+      - name: kept
+        source: ./plugins/kept/claude
+        author:
+          name: Kept Team
+`,
+      ".skillset/plugins/kept/skillset.yaml": `
+skillset:
+  name: kept
+  author:
+    name: Kept Team
+    email: kept@example.com
+`,
+      ".skillset/plugins/kept/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    // The override keeps the entry's identity but replaces its author with a
+    // name-only record, so the plugin's email never reaches the marketplace
+    // even though `email` is a provider-supported field.
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    const marketplaceOutcomes = preview.renderResults.filter(
+      (outcome) => outcome.featureId === "marketplaces"
+    );
+    expect(
+      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([
+      expect.objectContaining({
+        code: "render/claude-marketplace-author-fields-omitted",
+        message:
+          "Claude marketplace entry drops canonical author fields: email",
+        path: "marketplace.plugins.kept.author",
+      }),
+    ]);
+    expect(
+      marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+    ).toEqual([
+      expect.objectContaining({
+        sourceUnit: "plugin.kept.config:root",
+        status: "lossy",
+      }),
+    ]);
+
+    await buildSkillsetResult(warnRoot);
+    const marketplace = await readJson(
+      join(warnRoot, ".claude-plugin/marketplace.json")
+    );
+    expect(marketplace.plugins).toEqual([
+      expect.objectContaining({ author: { name: "Kept Team" }, name: "kept" }),
+    ]);
+
+    const errorRoot = await fixture(files(""));
+    await expect(
+      buildSkillsetResult(errorRoot, { scopes: ["project"] })
+    ).rejects.toThrow(
+      "Claude marketplace entry drops canonical author fields: email"
+    );
+  });
+
+  it("does not claim a plugin whose name an unrelated override entry reuses", async () => {
+    // The override replaces the generated array with an entry that reuses the
+    // local plugin's name but resolves to an unrelated remote source, so none
+    // of the plugin's metadata reaches the marketplace.
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-override
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+claude:
+  marketplace:
+    plugins:
+      - name: kept
+        source:
+          source: github
+          repo: acme/unrelated
+`,
+      ".skillset/plugins/kept/skillset.yaml": `
+skillset:
+  name: kept
+  author:
+    name: Kept Team
+    contributor: Kept Contributor
+`,
+      ".skillset/plugins/kept/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    expect(
+      preview.renderResults
+        .filter((outcome) => outcome.featureId === "marketplaces")
+        .flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([]);
+
+    // The plugin's extra canonical author field is absent from the
+    // marketplace, so it must not block the build.
+    await expect(
+      buildSkillsetResult(await fixture(files("")), { scopes: ["project"] })
+    ).resolves.toBeDefined();
   });
 
   it("validates conventional app JSON before claiming structured output", async () => {

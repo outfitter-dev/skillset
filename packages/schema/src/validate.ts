@@ -2489,10 +2489,9 @@ function checkSourceMetadata(
     "schema/source-metadata/key",
     diagnostics
   );
-  checkOptionalStringOrObject(
+  checkOptionalSourceAuthor(
     value.author,
     `${path}.author`,
-    "schema/source-metadata/author",
     diagnostics
   );
   checkOptionalNonEmptyString(
@@ -2540,10 +2539,9 @@ function checkSourceMetadata(
     diagnostics
   );
   checkSourceOrigin(value.origin, `${path}.origin`, diagnostics);
-  checkOptionalObject(
+  checkOptionalSourceAuthorObject(
     value.owner,
     `${path}.owner`,
-    "schema/source-metadata/owner",
     diagnostics
   );
   checkOptionalObject(
@@ -2936,6 +2934,77 @@ function checkOptionalStringOrObject(
     diagnostics.push(
       diagnostic(path, code, `${path} must be a string or object`)
     );
+}
+
+function checkOptionalSourceAuthor(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (typeof value === "string") {
+    if (value.trim().length === 0)
+      diagnostics.push(
+        diagnostic(path, "schema/source-metadata/author", `${path} must not be empty`)
+      );
+    return;
+  }
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(path, "schema/source-metadata/author", `${path} must be a string or object`)
+    );
+    return;
+  }
+  checkRequiredNonEmptyString(
+    value.name,
+    `${path}.name`,
+    "schema/source-metadata/author-name",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.email,
+    `${path}.email`,
+    "schema/source-metadata/author-email",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.url,
+    `${path}.url`,
+    "schema/source-metadata/author-url",
+    diagnostics
+  );
+}
+
+function checkOptionalSourceAuthorObject(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(path, "schema/source-metadata/owner", `${path} must be an object`)
+    );
+    return;
+  }
+  checkRequiredNonEmptyString(
+    value.name,
+    `${path}.name`,
+    "schema/source-metadata/owner-name",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.email,
+    `${path}.email`,
+    "schema/source-metadata/owner-email",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.url,
+    `${path}.url`,
+    "schema/source-metadata/owner-url",
+    diagnostics
+  );
 }
 
 function checkOptionalStringOrPositiveInteger(

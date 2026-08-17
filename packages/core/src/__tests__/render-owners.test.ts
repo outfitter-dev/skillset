@@ -25,6 +25,7 @@ import {
   validateHookJson,
 } from "../render-hooks";
 import {
+  claudeMarketplaceSourcePlugins,
   marketplaceLockProvenance,
   readExistingMarketplaceState,
   renderClaudeMarketplace,
@@ -66,6 +67,7 @@ const OWNED_FUNCTIONS = {
     "validateHookJson",
   ],
   "render-marketplaces": [
+    "claudeMarketplaceSourcePlugins",
     "renderClaudeMarketplace",
     "renderClaudeMarketplaceDocument",
     "renderCursorMarketplace",
@@ -150,6 +152,7 @@ describe("render owner boundaries", () => {
   it("keeps each owner directly importable through its private module", () => {
     expect(
       [
+        claudeMarketplaceSourcePlugins,
         renderClaudeMarketplace,
         renderClaudeMarketplaceDocument,
         renderCursorMarketplace,

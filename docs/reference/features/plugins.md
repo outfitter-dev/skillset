@@ -44,6 +44,8 @@ skillset:
 
 Core identity and provenance fields live directly under `skillset`. Discovery and presentation fields live under `skillset.listing` with snake_case keys. The generated [plugin configuration schema](../schemas/README.md) owns the accepted fields; [project configuration](../../configuration/project-configuration.md) and [target overrides](../../configuration/target-overrides.md) own root selection and provider defaults.
 
+`skillset.author` accepts a name string as shorthand or an object with required `name` and optional `email` and `url`. Canonical source may retain additional author fields, but provider renderers emit only fields their native destination supports. A field that cannot be represented is named in the structured rendering result instead of being copied into generic destination metadata.
+
 Portable [skills](skills.md) and their [resources](resources.md) remain inside the plugin boundary. Other component paths have their own owners: [agents](agents.md), [instructions](instructions.md), [hooks](hooks.md), [MCP](mcp-servers.md), [executables](executables.md), and [provider source](target-native-islands.md). The generated matrix above is authoritative for provider availability.
 
 ## Provider Output

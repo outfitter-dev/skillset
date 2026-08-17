@@ -18,12 +18,19 @@ import {
 } from "./render-result";
 import { compareStrings } from "./path";
 import {
+  claudeMarketplacePath,
   pluginManifestPath,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
+import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
+import {
+  droppedClaudeAuthorKeys,
+  omittedClaudeAuthorKeys,
+  readAuthorName,
+} from "./source-author";
 import {
   planToolsRealization,
   renderResultStatusForToolsTier,
@@ -35,10 +42,11 @@ import {
   selectorForPluginFeature,
   selectorForPluginSkill,
   selectorForProjectAgent,
+  selectorForRootConfig,
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
 } from "./source-unit-selector";
-import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, RenderedFile, SourceSkill, TargetName } from "./types";
+import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, JsonValue, RenderedFile, SourcePlugin, SourceSkill, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const LOCK_FILE = "skillset.lock";
@@ -47,6 +55,14 @@ const TARGETS = targetNames();
 type OutputPathMapper = (path: string) => string;
 
 interface CollectRenderResultsOptions {
+  /**
+   * Source plugins projected into the generated Claude marketplace, with the
+   * author their emitted entries carry, from `claudeMarketplaceSourcePlugins`.
+   * Marketplace entries can be renamed by the `claude.marketplace.name`
+   * override, so marketplace render results must take plugin identity from
+   * rendering instead of the provider-native entry names.
+   */
+  readonly claudeMarketplacePlugins: readonly ClaudeMarketplacePluginProjection[];
   readonly includedPaths: ReadonlySet<string>;
   readonly mapOutputPath?: OutputPathMapper;
   readonly scopes?: readonly BuildScope[] | undefined;
@@ -118,6 +134,15 @@ export function collectRenderResults(
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
+  outcomes.push(
+    ...claudeMarketplaceAuthorOutcomes(
+      graph,
+      rendered,
+      options.includedPaths,
+      mapOutputPath,
+      options.claudeMarketplacePlugins
+    )
+  );
 
   return outcomes.sort((left, right) =>
     compareStrings(
@@ -125,6 +150,140 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+function claudeMarketplaceAuthorOutcomes(
+  graph: BuildGraph,
+  rendered: readonly RenderedFile[],
+  includedPaths: ReadonlySet<string>,
+  mapOutputPath: OutputPathMapper,
+  marketplacePlugins: readonly ClaudeMarketplacePluginProjection[]
+): readonly SkillsetRenderResult[] {
+  const marketplacePath = claudeMarketplacePath(
+    graph.root.outputs.plugins.claude
+  );
+  if (!rendered.some((file) => file.path === marketplacePath)) return [];
+  const included = includedPaths.has(marketplacePath);
+  const root = graph.root.metadata;
+  const ownerUsesOverride = readAuthorName(root.owner) !== undefined;
+  const owner = ownerUsesOverride ? root.owner : root.author;
+  const outcomes: SkillsetRenderResult[] = [];
+  if (owner !== undefined) {
+    outcomes.push(
+      marketplaceAuthorOutcome({
+        diagnosticPath: `marketplace.owner`,
+        included,
+        mapOutputPath,
+        outputPath: marketplacePath,
+        reason: unsupportedClaudeAuthorReason(owner),
+        sourcePath: "skillset.yaml",
+        sourceUnit: selectorForRootConfig(),
+      })
+    );
+  }
+
+  for (const { author: emittedAuthor, plugin } of marketplacePlugins) {
+    const usesPluginAuthor = plugin.metadata.author !== undefined;
+    const author = usesPluginAuthor ? plugin.metadata.author : root.author;
+    if (author === undefined) continue;
+    outcomes.push(
+      marketplaceAuthorOutcome({
+        diagnosticPath: `marketplace.plugins.${plugin.id}.author`,
+        included,
+        mapOutputPath,
+        outputPath: marketplacePath,
+        reason: marketplaceAuthorLossReason(author, emittedAuthor),
+        sourcePath: usesPluginAuthor
+          ? normalizeSourcePath(graph, plugin.path)
+          : "skillset.yaml",
+        sourceUnit: selectorForPluginConfig(plugin.id),
+      })
+    );
+  }
+  return outcomes;
+}
+
+/**
+ * Canonical author fields the destination cannot represent at all, which is
+ * all the owner projection can lose: the owner has no per-entry override that
+ * could keep it while replacing its author.
+ */
+function unsupportedClaudeAuthorReason(
+  author: JsonValue | undefined
+): string | undefined {
+  const omitted = omittedClaudeAuthorKeys(author);
+  return omitted.length === 0
+    ? undefined
+    : `Claude marketplace author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+}
+
+/**
+ * Author fields a marketplace plugin entry loses, from both causes: fields the
+ * Claude author output cannot represent, and supported fields the emitted
+ * entry does not carry because a `claude.marketplace` override replaced or
+ * omitted the author it kept.
+ */
+function marketplaceAuthorLossReason(
+  author: JsonValue | undefined,
+  emittedAuthor: JsonValue | undefined
+): string | undefined {
+  const dropped = droppedClaudeAuthorKeys(author, emittedAuthor);
+  const reasons = [
+    unsupportedClaudeAuthorReason(author),
+    dropped.length === 0
+      ? undefined
+      : `Claude marketplace entry drops canonical author fields: ${dropped.join(", ")}`,
+  ].filter((reason): reason is string => reason !== undefined);
+  return reasons.length === 0 ? undefined : reasons.join("; ");
+}
+
+function marketplaceAuthorOutcome(args: {
+  readonly diagnosticPath: string;
+  readonly included: boolean;
+  readonly mapOutputPath: OutputPathMapper;
+  readonly outputPath: string;
+  readonly reason: string | undefined;
+  readonly sourcePath: string;
+  readonly sourceUnit: string;
+}): SkillsetRenderResult {
+  const evidence = evidenceFor("marketplaces", "claude");
+  const reason = args.reason;
+  return defineRenderResult({
+    destination: "marketplace",
+    ...(args.included && reason !== undefined
+      ? {
+          diagnostics: [
+            {
+              code: "render/claude-marketplace-author-fields-omitted",
+              message: reason,
+              path: args.diagnosticPath,
+            },
+          ],
+        }
+      : {}),
+    ...(evidence === undefined ? {} : { evidence }),
+    featureId: "marketplaces",
+    ...(args.included
+      ? {
+          outputs: [
+            { kind: "marketplace", path: args.mapOutputPath(args.outputPath) },
+          ],
+        }
+      : { policy: "scope:excluded" as const }),
+    ...(args.included
+      ? reason === undefined
+        ? {}
+        : { reason }
+      : { reason: "excluded by build scope" }),
+    sourcePath: args.sourcePath,
+    sourceUnit: args.sourceUnit,
+    status: args.included
+      ? reason === undefined
+        ? "rendered"
+        : "lossy"
+      : "intentionally_skipped",
+    target: "claude",
+  });
 }
 
 function primaryOutputPathsForLockItem(
@@ -193,25 +352,67 @@ function outcomeForLockItem(
 ): SkillsetRenderResult {
   const target = targetForLockItem(graph, lock, item, outputPaths);
   const featureId = featureIdForLockItem(item);
-  const baseStatus = statusForLockItem(item, target);
+  const authorFacts = claudeAuthorRenderFacts(graph, item, target);
+  const baseStatus = authorFacts?.status ?? statusForLockItem(item, target);
   const isIncluded = outputPaths.some((path) => includedPaths.has(path));
   const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
   const policy: SkillsetRenderResultPolicy | undefined = isIncluded ? undefined : "scope:excluded";
-  const reason = isIncluded ? reasonForStatus(featureId, target, status) : "excluded by build scope";
+  const reason = isIncluded
+    ? authorFacts?.reason ?? reasonForStatus(featureId, target, status)
+    : "excluded by build scope";
   const evidence = evidenceFor(featureId, target);
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
+    ...(isIncluded && authorFacts?.diagnostics !== undefined
+      ? { diagnostics: authorFacts.diagnostics }
+      : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
     ...(policy === undefined ? {} : { policy }),
     ...(reason === undefined ? {} : { reason }),
-    sourcePath: item.sourcePath,
+    sourcePath: authorFacts?.sourcePath ?? item.sourcePath,
     sourceUnit: sourceUnitForLockItem(item, target),
     status,
     ...(target === undefined ? {} : { target }),
   });
+}
+
+function claudeAuthorRenderFacts(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName | undefined
+):
+  | {
+      readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
+      readonly reason?: string;
+      readonly sourcePath: string;
+      readonly status: SkillsetRenderResultStatus;
+    }
+  | undefined {
+  if (item.kind !== "plugin" || target !== "claude") return undefined;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
+  if (plugin === undefined) return undefined;
+  const usesPluginAuthor = plugin.metadata.author !== undefined;
+  const author = usesPluginAuthor ? plugin.metadata.author : graph.root.metadata.author;
+  if (author === undefined) return undefined;
+  const omitted = omittedClaudeAuthorKeys(author);
+  if (omitted.length === 0) return undefined;
+  const reason = `Claude author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  const authorSourcePath = usesPluginAuthor ? item.sourcePath : "skillset.yaml";
+  return {
+    diagnostics: [
+      {
+        code: "render/claude-author-fields-omitted",
+        message: reason,
+        path: `${authorSourcePath}: $.skillset.author`,
+      },
+    ],
+    reason,
+    sourcePath: authorSourcePath,
+    status: "lossy",
+  };
 }
 
 function outcomeForCompanionFile(

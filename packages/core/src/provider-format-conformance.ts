@@ -1,14 +1,23 @@
-import {
-  getProviderDestinationFormatSnapshot,
-  getProviderSchemaSnapshot,
-  providerSchemaManualOverlays,
-  type ProviderDestinationFormatSnapshotId,
-  type ProviderJsonSchemaSummary,
-  type ProviderSchemaManualOverlayId,
-  type ProviderSchemaSnapshotId,
-} from "@skillset/registry";
+import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
 
+import {
+  checkClaudeAuthorObject,
+  checkClaudeMarketplace,
+  isClaudeMarketplacePath,
+} from "./claude-format-conformance";
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
+import {
+  checkFieldTypes,
+  checkRequiredFields,
+  checkUnknownFields,
+  errorMessage,
+  issue,
+  jsonSchemaSummary,
+  parseJsonRecord,
+  parseTomlRecord,
+  type ProviderFormatConformanceFile,
+  type ProviderFormatConformanceIssue,
+} from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
 import type { SkillsetRenderResult } from "./render-result";
 import type { JsonRecord, RenderedFile, TargetName } from "./types";
@@ -16,23 +25,11 @@ import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
 
-export type ProviderFormatConformanceIssueCode =
-  | "invalid-json"
-  | "invalid-markdown"
-  | "invalid-toml"
-  | "invalid-shape"
-  | "invalid-field-type"
-  | "missing-required-field"
-  | "unknown-destination-field";
-
-export interface ProviderFormatConformanceIssue {
-  readonly code: ProviderFormatConformanceIssueCode;
-  readonly message: string;
-  readonly outputPath: string;
-  readonly providerRef: ProviderDestinationFormatSnapshotId | ProviderSchemaManualOverlayId | ProviderSchemaSnapshotId;
-  readonly sourcePath?: string;
-  readonly target: TargetName;
-}
+export type {
+  ProviderFormatConformanceFile,
+  ProviderFormatConformanceIssue,
+  ProviderFormatConformanceIssueCode,
+} from "./provider-format-conformance-validation";
 
 export interface ProviderFormatConformanceReport {
   readonly checkedFiles: number;
@@ -63,15 +60,6 @@ export function formatProviderFormatConformanceReport(
       `- ${issue.outputPath} ${issue.providerRef}: ${issue.message}`
     ),
   ].join("\n");
-}
-
-export interface ProviderFormatConformanceFile {
-  readonly content: Uint8Array;
-  readonly destination?: string;
-  readonly featureId?: string;
-  readonly path: string;
-  readonly sourcePath?: string;
-  readonly target?: TargetName;
 }
 
 export function providerFormatConformanceFiles(
@@ -120,6 +108,7 @@ function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): bool
 }
 
 function isProviderFormatConformanceFile(file: RenderedFile): boolean {
+  if (isClaudeMarketplacePath(file.path)) return true;
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
@@ -138,6 +127,9 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
 function checkProviderFormatConformanceFile(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
+  if (isClaudeMarketplacePath(file.path)) {
+    return checkClaudeMarketplace(file);
+  }
   if (file.path.endsWith("/.claude-plugin/plugin.json")) {
     return checkClaudePluginManifest(file);
   }
@@ -190,7 +182,7 @@ function checkClaudePluginManifest(
   issues.push(...checkFieldTypes(file, parsed.value, "claude", "claude-plugin-manifest-schema", {
     $schema: "string",
     agents: "string",
-    author: "string",
+    author: "object",
     commands: "string",
     dependencies: "object",
     description: "string",
@@ -217,6 +209,16 @@ function checkClaudePluginManifest(
       "experimental",
     ])
   );
+  if (isJsonRecord(parsed.value.author)) {
+    issues.push(
+      ...checkClaudeAuthorObject(
+        file,
+        parsed.value.author,
+        "claude-plugin-manifest-schema",
+        "author"
+      )
+    );
+  }
   if (isJsonRecord(parsed.value.experimental)) {
     issues.push(
       ...checkUnknownFields(file, parsed.value.experimental, "claude", "claude-plugin", [
@@ -493,124 +495,6 @@ function checkSkillMarkdown(
   ];
 }
 
-function parseJsonRecord(
-  file: ProviderFormatConformanceFile,
-  target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"]
-): { readonly issues: readonly ProviderFormatConformanceIssue[]; readonly ok: false } | { readonly ok: true; readonly value: JsonRecord } {
-  try {
-    const parsed = JSON.parse(textDecoder.decode(file.content)) as unknown;
-    if (!isJsonRecord(parsed)) {
-      return {
-        issues: [issue(file, target, providerRef, "invalid-shape", "JSON content must be an object")],
-        ok: false,
-      };
-    }
-    return { ok: true, value: parsed };
-  } catch (error) {
-    return {
-      issues: [issue(file, target, providerRef, "invalid-json", errorMessage(error))],
-      ok: false,
-    };
-  }
-}
-
-function parseTomlRecord(
-  file: ProviderFormatConformanceFile,
-  target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"]
-): { readonly issues: readonly ProviderFormatConformanceIssue[]; readonly ok: false } | { readonly ok: true; readonly value: JsonRecord } {
-  try {
-    const parsed = Bun.TOML.parse(textDecoder.decode(file.content)) as unknown;
-    if (!isJsonRecord(parsed)) {
-      return {
-        issues: [issue(file, target, providerRef, "invalid-shape", "TOML content must be an object")],
-        ok: false,
-      };
-    }
-    return { ok: true, value: parsed };
-  } catch (error) {
-    return {
-      issues: [issue(file, target, providerRef, "invalid-toml", errorMessage(error))],
-      ok: false,
-    };
-  }
-}
-
-function checkRequiredFields(
-  file: ProviderFormatConformanceFile,
-  value: JsonRecord,
-  target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
-  requiredFields: readonly string[]
-): readonly ProviderFormatConformanceIssue[] {
-  return requiredFields
-    .filter((field) => value[field] === undefined)
-    .map((field) =>
-      issue(file, target, providerRef, "missing-required-field", `missing required destination field ${field}`)
-    );
-}
-
-function checkUnknownFields(
-  file: ProviderFormatConformanceFile,
-  value: JsonRecord,
-  target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
-  allowedFields: readonly string[],
-  prefix?: string
-): readonly ProviderFormatConformanceIssue[] {
-  const allowed = new Set(allowedFields);
-  return Object.keys(value)
-    .filter((field) => !allowed.has(field))
-    .sort(compareStrings)
-    .map((field) => {
-      const label = prefix === undefined ? field : `${prefix}.${field}`;
-      return issue(
-        file,
-        target,
-        providerRef,
-        "unknown-destination-field",
-        `unknown destination field ${label}; allowed fields are ${[...allowed].sort(compareStrings).join(", ")}`
-      );
-    });
-}
-
-type FieldType = "object" | "string" | "string-array";
-
-function checkFieldTypes(
-  file: ProviderFormatConformanceFile,
-  value: JsonRecord,
-  target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
-  fields: Readonly<Record<string, FieldType>>
-): readonly ProviderFormatConformanceIssue[] {
-  const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [field, expected] of Object.entries(fields).sort(([left], [right]) => compareStrings(left, right))) {
-    const actual = value[field];
-    if (actual === undefined || matchesFieldType(actual, expected)) continue;
-    issues.push(issue(
-      file,
-      target,
-      providerRef,
-      "invalid-field-type",
-      `destination field ${field} must be ${fieldTypeLabel(expected)}`
-    ));
-  }
-  return issues;
-}
-
-function matchesFieldType(value: unknown, expected: FieldType): boolean {
-  if (expected === "object") return isJsonRecord(value);
-  if (expected === "string") return typeof value === "string";
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-
-function fieldTypeLabel(expected: FieldType): string {
-  if (expected === "object") return "an object";
-  if (expected === "string-array") return "an array of strings";
-  return "a string";
-}
-
 function pluginManifestFormat(id: "claude-plugin" | "codex-plugin" | "cursor-plugin"): {
   readonly interfaceFields: readonly string[];
   readonly optionalFields: readonly string[];
@@ -717,16 +601,6 @@ function cursorRuleFormat(): {
   };
 }
 
-function jsonSchemaSummary(id: ProviderSchemaSnapshotId): ProviderJsonSchemaSummary {
-  const summary = getProviderSchemaSnapshot(id)?.summary;
-  if (isJsonSchemaSummary(summary)) return summary;
-  return { schemaUri: "", properties: [], required: [] };
-}
-
-function isJsonSchemaSummary(value: unknown): value is ProviderJsonSchemaSummary {
-  return isJsonRecord(value) && typeof value.schemaUri === "string";
-}
-
 function readStringArray(record: JsonRecord, key: string): readonly string[] {
   const value = record[key];
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
@@ -829,28 +703,6 @@ function hasSegmentSequence(path: string, ...sequence: readonly string[]): boole
     segment === sequence[0] &&
     sequence.every((candidate, offset) => segments[index + offset] === candidate)
   );
-}
-
-function issue(
-  file: ProviderFormatConformanceFile,
-  target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
-  code: ProviderFormatConformanceIssueCode,
-  message: string
-): ProviderFormatConformanceIssue {
-  const overlay = providerSchemaManualOverlays.find((item) => item.id === providerRef);
-  return {
-    code,
-    message: overlay === undefined ? message : `${message} (${overlay.note})`,
-    outputPath: file.path,
-    providerRef,
-    ...(file.sourcePath === undefined ? {} : { sourcePath: file.sourcePath }),
-    target,
-  };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function compareIssues(

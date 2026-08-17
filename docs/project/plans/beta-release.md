@@ -683,9 +683,9 @@ semantics.
    changed, or unmanaged collision.
 6. Explain once that `.agents/skills/` is portable Agent Skills-compatible output
    consumed by Codex, while `.codex/` owns Codex-native repository components.
-   Keep the source families explicit: `.skillset/skills/` lowers into skill
+   Keep the source families explicit: `.skillset/skills/` renders into skill
    roots, while `.skillset/agents/` contains project-agent/subagent profiles and
-   lowers into provider agent destinations. It never maps to `.agents/`.
+   renders into provider agent destinations. It never maps to `.agents/`.
 7. Add glossary entries for output baseline, output state, reconcile, recovery
    snapshot, release state, and report.
 8. Defer content-level diff unless controlled-evaluation evidence makes it urgent.
@@ -705,7 +705,7 @@ Keep three surfaces distinct:
 2. The generated top-level `plugins/README.md` remains a concise mechanical
    inventory of generated artifacts rather than a consumer guide.
 3. Provider manifests and marketplace entries remain the authoritative
-   discovery and installation surfaces. Lower canonical metadata only into
+   discovery and installation surfaces. Render canonical metadata only into
    fields supported by that provider, and do not invent provider-specific
    installation claims without declared distribution evidence.
 

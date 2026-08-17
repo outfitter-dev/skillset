@@ -19,8 +19,8 @@ import {
   providerSourceForPlugin,
 } from "./plugin-output";
 import { parseRemoteRepositoryReference } from "./remote-repository-reference";
-import { GENERATED_BY, textFile, type LockRoot } from "./render-support";
-import { readAuthorRecord } from "./source-author";
+import { textFile, type LockRoot } from "./render-support";
+import { readAuthorRecord, renderClaudeAuthor } from "./source-author";
 import {
   readListingString,
   readListingStringArray,
@@ -43,60 +43,112 @@ import { isJsonRecord } from "./yaml";
 export async function renderClaudeMarketplace(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
+  const projection = await projectClaudeMarketplace(graph);
+  return projection === undefined
+    ? []
+    : [
+        textFile(
+          claudeMarketplacePath(graph.root.outputs.plugins.claude),
+          renderValidatedJson(projection.document, "Claude marketplace")
+        ),
+      ];
+}
+
+/**
+ * A source plugin projected into the generated Claude marketplace, paired with
+ * the author its emitted entry actually carries. The effective author travels
+ * with the plugin because a `claude.marketplace` override can keep an entry's
+ * identity while replacing its author, and the source author alone would then
+ * describe metadata the destination never received.
+ */
+export interface ClaudeMarketplacePluginProjection {
+  readonly author: JsonValue | undefined;
+  readonly plugin: SourcePlugin;
+}
+
+/**
+ * Source plugins whose metadata is projected into the generated Claude
+ * marketplace, in the order rendering visits them, each with the author its
+ * emitted entry carries. Marketplace entries may rename themselves through the
+ * supported `claude.marketplace.name` override, so consumers that need the
+ * source plugin behind an entry must take identity from this projection
+ * instead of reading it back out of the generated provider-native entry names.
+ */
+export async function claudeMarketplaceSourcePlugins(
+  graph: BuildGraph
+): Promise<readonly ClaudeMarketplacePluginProjection[]> {
+  return (await projectClaudeMarketplace(graph))?.sourcePlugins ?? [];
+}
+
+interface ClaudeMarketplaceProjection {
+  readonly document: JsonRecord;
+  readonly sourcePlugins: readonly ClaudeMarketplacePluginProjection[];
+}
+
+/**
+ * Renders the Claude marketplace document together with the source plugins it
+ * actually projects. Both facts come from one pass because a root
+ * `claude.marketplace.plugins` override replaces the generated plugin array
+ * wholesale; deriving the projected plugins separately would report source
+ * plugins the override removed.
+ */
+async function projectClaudeMarketplace(
+  graph: BuildGraph
+): Promise<ClaudeMarketplaceProjection | undefined> {
   const existingState = await readExistingMarketplaceState(graph.rootPath);
   const declaredCatalog = selectClaudeMarketplaceCatalog(graph, existingState);
+  const rootLicense = await resolveRootLicense(graph);
   if (declaredCatalog !== undefined) {
     const [catalogName, catalog] = declaredCatalog;
-    const rootLicense = await resolveRootLicense(graph);
     const plugins: JsonRecord[] = [];
     for (const entry of catalog.plugins) {
       if (!(entry.targets ?? catalog.targets).includes("claude")) continue;
-      if (entry.repo !== undefined) {
-        const providerEntry = lockedClaudeProviderEntry(
-          existingState.entries,
-          catalogName,
-          entry
-        );
-        if (providerEntry !== undefined) plugins.push(providerEntry);
-        continue;
-      }
-      const plugin = graph.plugins.find(
-        (candidate) => candidate.id === entry.plugin
+      if (entry.repo === undefined) continue;
+      const providerEntry = lockedClaudeProviderEntry(
+        existingState.entries,
+        catalogName,
+        entry
       );
-      if (plugin === undefined || !shouldRenderPlugin(graph, plugin, "claude"))
-        continue;
-      plugins.push(
-        await renderClaudeMarketplacePlugin(graph, plugin, rootLicense)
-      );
+      if (providerEntry !== undefined) plugins.push(providerEntry);
     }
-    return [
-      textFile(
-        claudeMarketplacePath(graph.root.outputs.plugins.claude),
-        renderValidatedJson(
-          renderClaudeMarketplaceDocument(graph, catalogName, catalog, plugins),
-          "Claude marketplace"
-        )
+    const sourcePlugins: ClaudeMarketplacePluginProjection[] = [];
+    for (const plugin of catalogClaudeSourcePlugins(graph, catalog)) {
+      const entry = await renderClaudeMarketplacePlugin(
+        graph,
+        plugin,
+        rootLicense
+      );
+      plugins.push(entry);
+      sourcePlugins.push({ author: entry.author, plugin });
+    }
+    return {
+      document: renderClaudeMarketplaceDocument(
+        graph,
+        catalogName,
+        catalog,
+        plugins
       ),
-    ];
+      sourcePlugins,
+    };
   }
 
-  const rootLicense = await resolveRootLicense(graph);
-  const plugins: JsonRecord[] = [];
-  for (const plugin of graph.plugins.filter((candidate) =>
-    shouldRenderPlugin(graph, candidate, "claude")
-  )) {
-    plugins.push(
-      await renderClaudeMarketplacePlugin(graph, plugin, rootLicense)
-    );
+  const entries: [SourcePlugin, JsonRecord][] = [];
+  for (const plugin of defaultClaudeSourcePlugins(graph)) {
+    entries.push([
+      plugin,
+      await renderClaudeMarketplacePlugin(graph, plugin, rootLicense),
+    ]);
   }
 
-  if (plugins.length === 0) return [];
+  if (entries.length === 0) return undefined;
 
   const root = graph.root.metadata;
   const owner =
-    readAuthorRecord(root.owner) ?? readAuthorRecord(root.author) ?? {};
+    renderClaudeAuthor(root.owner) ?? renderClaudeAuthor(root.author) ?? {
+      name: readString(root, "name") ?? "skillset",
+    };
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
-  const marketplace = mergeRecords(
+  const document = mergeRecords(
     {
       name:
         readString(portableMarketplace, "name") ??
@@ -114,19 +166,95 @@ export async function renderClaudeMarketplace(
         pluginRoot: isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude)
           ? "./plugins"
           : "./plugins",
-        generatedBy: "example content repo skillset compiler",
       },
-      plugins,
+      plugins: entries.map(([, entry]) => entry),
     },
     readRecord(graph.root.targets.claude.options, "marketplace") ?? {}
   );
 
-  return [
-    textFile(
-      claudeMarketplacePath(graph.root.outputs.plugins.claude),
-      renderValidatedJson(marketplace, "Claude marketplace")
-    ),
-  ];
+  return { document, sourcePlugins: projectedSourcePlugins(entries, document) };
+}
+
+/**
+ * Keeps the source plugins whose rendered entry survives into the effective
+ * marketplace. `mergeRecords` replaces the generated `plugins` array when the
+ * root `claude.marketplace` override supplies one, so entries the override
+ * dropped never carry their plugin's author to the destination. Membership is
+ * decided by the identity each source plugin rendered — the name, which the
+ * supported `claude.marketplace.name` override may have changed, together with
+ * the source it resolves to. The surviving entry is kept, not just its
+ * identity, because an override may hold that identity while replacing the
+ * author, and the effective author is what the destination receives.
+ */
+function projectedSourcePlugins(
+  entries: readonly (readonly [SourcePlugin, JsonRecord])[],
+  document: JsonRecord
+): readonly ClaudeMarketplacePluginProjection[] {
+  const projected = new Map<string, JsonRecord>();
+  for (const entry of Array.isArray(document.plugins) ? document.plugins : []) {
+    if (!isJsonRecord(entry)) continue;
+    const identity = marketplaceEntryIdentity(entry);
+    if (identity === undefined || projected.has(identity)) continue;
+    projected.set(identity, entry);
+  }
+  return entries.flatMap(([plugin, entry]) => {
+    const identity = marketplaceEntryIdentity(entry);
+    const effective =
+      identity === undefined ? undefined : projected.get(identity);
+    return effective === undefined
+      ? []
+      : [{ author: effective.author, plugin }];
+  });
+}
+
+/**
+ * Stable identity of a marketplace plugin entry: the published name plus the
+ * source it resolves to. Name alone would treat an override entry that reuses
+ * a local plugin's name while pointing at an unrelated source as that plugin's
+ * projection, and report the plugin's metadata as reaching a destination none
+ * of it appears in. Returns `undefined` for entries without a string name,
+ * which cannot identify a plugin at all.
+ */
+function marketplaceEntryIdentity(entry: JsonRecord): string | undefined {
+  return typeof entry.name === "string"
+    ? stableJson([entry.name, entry.source ?? null])
+    : undefined;
+}
+
+function stableJson(value: JsonValue): string {
+  return JSON.stringify(value, (_key, nested: JsonValue) =>
+    isJsonRecord(nested)
+      ? Object.fromEntries(
+          Object.entries(nested).sort(([left], [right]) =>
+            compareStrings(left, right)
+          )
+        )
+      : nested
+  );
+}
+
+function defaultClaudeSourcePlugins(
+  graph: BuildGraph
+): readonly SourcePlugin[] {
+  return graph.plugins.filter((plugin) =>
+    shouldRenderPlugin(graph, plugin, "claude")
+  );
+}
+
+function catalogClaudeSourcePlugins(
+  graph: BuildGraph,
+  catalog: MarketplaceCatalogConfig
+): readonly SourcePlugin[] {
+  return catalog.plugins.flatMap((entry) => {
+    if (entry.repo !== undefined) return [];
+    if (!(entry.targets ?? catalog.targets).includes("claude")) return [];
+    const plugin = graph.plugins.find(
+      (candidate) => candidate.id === entry.plugin
+    );
+    return plugin === undefined || !shouldRenderPlugin(graph, plugin, "claude")
+      ? []
+      : [plugin];
+  });
 }
 
 async function renderClaudeMarketplacePlugin(
@@ -151,8 +279,8 @@ async function renderClaudeMarketplacePlugin(
         plugin.id,
       version: pluginVersion(graph, plugin),
       author:
-        readAuthorRecord(metadata.author) ??
-        readAuthorRecord(graph.root.metadata.author),
+        renderClaudeAuthor(metadata.author) ??
+        renderClaudeAuthor(graph.root.metadata.author),
       repository: metadata.repository,
       license: pluginLicense?.manifestValue,
       keywords:
@@ -184,8 +312,8 @@ export function renderClaudeMarketplaceDocument(
   plugins: readonly JsonRecord[]
 ): JsonRecord {
   const root = graph.root.metadata;
-  const owner = readAuthorRecord(root.owner) ??
-    readAuthorRecord(root.author) ?? {
+  const owner = renderClaudeAuthor(root.owner) ??
+    renderClaudeAuthor(root.author) ?? {
       name: readString(root, "name") ?? catalogName,
     };
   return {
@@ -201,7 +329,6 @@ export function renderClaudeMarketplaceDocument(
         readListingString(root, "description") ??
         readString(root, "description") ??
         "Source-first Skillset plugins",
-      generatedBy: GENERATED_BY,
       version: rootVersion(graph),
     },
     plugins: [...plugins].sort((left, right) =>
