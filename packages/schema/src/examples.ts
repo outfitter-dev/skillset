@@ -19,17 +19,64 @@ export interface SkillsetExampleArtifact {
 
 export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
   {
-    description: "Immutable Skillset operational report receipt.",
+    description: "Immutable Skillset typed operational report receipt.",
     format: "json",
     id: "report",
     path: "report.json",
     value: {
       createdAt: "2026-08-14T21:30:00.000Z",
       id: "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5",
-      kind: "operation",
-      payload: {},
+      kind: "external-fixture",
+      payload: {
+        evidence: [
+          {
+            available: true,
+            bytes: 2048,
+            entries: 3,
+            id: "fixtures/browserbase/comparison",
+            sha256:
+              "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          },
+        ],
+        fixture: {
+          manifestEntryCount: 7,
+          manifestEntrySha256:
+            "f08904795a14bde76202c787d3b203481d93752800a1d897dcf3ebf8854e5706",
+          manifestSha256:
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          name: "browserbase",
+          pinnedCommit: "cccccccccccccccccccccccccccccccccccccccc",
+          repository: "github.com/browserbase/skills",
+          targets: ["claude", "codex"],
+        },
+        pipelinePassed: true,
+        phases: {
+          acquire: { exitClass: "success", status: "passed" },
+          init: { exitClass: "success", status: "passed" },
+          import: { exitClass: "success", status: "passed" },
+          lint: { exitClass: "success", status: "passed" },
+          build: { exitClass: "success", status: "passed" },
+          purity: { exitClass: "success", status: "passed" },
+          compare: { exitClass: "success", status: "passed" },
+        },
+        runtime: {
+          bunVersion: "1.3.14",
+        },
+        summaries: {
+          comparisonDifferences: 2,
+          importedUnits: 1,
+          migrationFlags: 1,
+          renderResults: {
+            failed: 0,
+            rendered: 2,
+            skipped: 0,
+            unsupported: 0,
+          },
+          surveyCandidates: 1,
+        },
+      },
       result: {
-        command: "check",
+        command: "conformance.external",
         exitCode: 0,
         ok: true,
       },

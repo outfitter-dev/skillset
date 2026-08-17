@@ -192,6 +192,16 @@ function renderSchemaReadme(): string {
 
 function validateSchemaValue(value: unknown, schema: SchemaJsonRecord, path: string): string[] {
   const diagnostics: string[] = [];
+  if (schema.oneOf !== undefined) {
+    const oneOf = asSchemaArray(schema.oneOf);
+    const matches = oneOf.filter(
+      (candidate) => validateSchemaValue(value, candidate, path).length === 0
+    ).length;
+    if (oneOf.length > 0 && matches !== 1) {
+      diagnostics.push(`${path} must match exactly one allowed shape`);
+      return diagnostics;
+    }
+  }
   if (schema.anyOf !== undefined) {
     const anyOf = asSchemaArray(schema.anyOf);
     if (anyOf.length > 0 && !anyOf.some((candidate) => validateSchemaValue(value, candidate, path).length === 0)) {
@@ -207,6 +217,7 @@ function validateSchemaValue(value: unknown, schema: SchemaJsonRecord, path: str
   validateType(value, schema, path, diagnostics);
 
   if (typeof value === "string") validateString(value, schema, path, diagnostics);
+  if (typeof value === "number") validateNumber(value, schema, path, diagnostics);
   if (Array.isArray(value)) validateArray(value, schema, path, diagnostics);
   if (isRecord(value)) validateObject(value, schema, path, diagnostics);
   return diagnostics;
@@ -227,6 +238,18 @@ function validateString(value: string, schema: SchemaJsonRecord, path: string, d
   if (typeof schema.pattern === "string" && !(new RegExp(schema.pattern).test(value))) {
     diagnostics.push(`${path} must match ${schema.pattern}`);
   }
+  if (typeof schema.maxLength === "number" && value.length > schema.maxLength) {
+    diagnostics.push(`${path} must be at most ${schema.maxLength} characters`);
+  }
+}
+
+function validateNumber(value: number, schema: SchemaJsonRecord, path: string, diagnostics: string[]): void {
+  if (typeof schema.minimum === "number" && value < schema.minimum) {
+    diagnostics.push(`${path} must be at least ${schema.minimum}`);
+  }
+  if (typeof schema.maximum === "number" && value > schema.maximum) {
+    diagnostics.push(`${path} must be at most ${schema.maximum}`);
+  }
 }
 
 function validateArray(value: readonly unknown[], schema: SchemaJsonRecord, path: string, diagnostics: string[]): void {
@@ -235,6 +258,9 @@ function validateArray(value: readonly unknown[], schema: SchemaJsonRecord, path
   }
   if (schema.uniqueItems === true && (new Set(value.map((item) => JSON.stringify(item))).size !== value.length)) {
     diagnostics.push(`${path} must contain unique items`);
+  }
+  if (typeof schema.maxItems === "number" && value.length > schema.maxItems) {
+    diagnostics.push(`${path} must contain at most ${schema.maxItems} items`);
   }
   if (isRecord(schema.items)) {
     for (const [index, item] of value.entries()) {

@@ -3,9 +3,21 @@ import { randomUUID } from "node:crypto";
 import {
   REPORT_KINDS,
   REPORT_SCHEMA_VERSION,
+  type SkillsetAdoptionReport,
+  type SkillsetAdoptionReportPayload,
+  type SkillsetExternalFixtureReport,
+  type SkillsetExternalFixturePhase,
+  type SkillsetExternalFixtureReportPayload,
+  type SkillsetExternalFixtureReportWorkspace,
+  type SkillsetImportReport,
+  type SkillsetImportReportPayload,
   type SkillsetOperationReport,
   type SkillsetReport,
+  type SkillsetReportEvidenceDescriptor,
+  type SkillsetReportRenderResultCounts,
   type SkillsetReportWorkspace,
+  type SkillsetTypedReportExitCode,
+  type SkillsetTypedReportResult,
   validateSkillsetReport,
 } from "@skillset/schema";
 
@@ -25,6 +37,27 @@ export interface CreateOperationReportInput {
   readonly workspace: SkillsetReportWorkspace;
 }
 
+interface CreateTypedReportInput<Payload> {
+  readonly exitCode: SkillsetTypedReportExitCode;
+  readonly payload: Payload;
+  readonly sentinels?: readonly string[] | undefined;
+  readonly skillsetVersion: string;
+  readonly workspace: SkillsetReportWorkspace;
+}
+
+export type CreateAdoptionReportInput =
+  CreateTypedReportInput<SkillsetAdoptionReportPayload>;
+
+export type CreateImportReportInput =
+  CreateTypedReportInput<SkillsetImportReportPayload>;
+
+export type CreateExternalFixtureReportInput = Omit<
+  CreateTypedReportInput<SkillsetExternalFixtureReportPayload>,
+  "workspace"
+> & {
+  readonly workspace: SkillsetExternalFixtureReportWorkspace;
+};
+
 /** @internal Import only through `@skillset/core/internal/report` in focused tests. */
 export interface CreateOperationReportOptions {
   /** Deterministic overrides reserved for focused tests. */
@@ -34,28 +67,55 @@ export interface CreateOperationReportOptions {
   };
 }
 
-export interface ReportKindDefinition {
-  readonly kind: SkillsetReport["kind"];
-  readonly renderPayload: (payload: Record<string, never>) => readonly string[];
+type ReportKind = SkillsetReport["kind"];
+type ReportForKind<Kind extends ReportKind> = Extract<
+  SkillsetReport,
+  { readonly kind: Kind }
+>;
+
+export interface ReportKindDefinition<Kind extends ReportKind = ReportKind> {
+  readonly kind: Kind;
+  readonly renderPayload: (
+    payload: ReportForKind<Kind>["payload"]
+  ) => readonly string[];
   readonly sanitizePayload: (
-    payload: Record<string, never>,
+    payload: ReportForKind<Kind>["payload"],
     sentinels: readonly string[]
-  ) => Record<string, never>;
+  ) => ReportForKind<Kind>["payload"];
 }
 
-export const reportKindRegistry: Readonly<
-  Record<(typeof REPORT_KINDS)[number], ReportKindDefinition>
-> = Object.freeze({
+type AnyReportKindDefinition = {
+  [Kind in ReportKind]: ReportKindDefinition<Kind>;
+}[ReportKind];
+
+export const reportKindRegistry: Readonly<{
+  [Kind in (typeof REPORT_KINDS)[number]]: ReportKindDefinition<Kind>;
+}> = Object.freeze({
   operation: Object.freeze({
     kind: "operation",
     renderPayload: () => [],
     sanitizePayload: () => ({}),
   }),
+  adoption: Object.freeze({
+    kind: "adoption",
+    renderPayload: renderAdoptionPayload,
+    sanitizePayload: cloneAdoptionPayload,
+  }),
+  import: Object.freeze({
+    kind: "import",
+    renderPayload: renderImportPayload,
+    sanitizePayload: cloneImportPayload,
+  }),
+  "external-fixture": Object.freeze({
+    kind: "external-fixture",
+    renderPayload: renderExternalFixturePayload,
+    sanitizePayload: cloneExternalFixturePayload,
+  }),
 });
 
 export function getReportKindDefinition(
   kind: string
-): ReportKindDefinition | undefined {
+): AnyReportKindDefinition | undefined {
   return reportKindRegistry[kind as keyof typeof reportKindRegistry];
 }
 
@@ -79,7 +139,81 @@ export function createOperationReport(
     },
     workspace: input.workspace,
   };
-  return sanitizeAndValidateSkillsetReport(report, input.sentinels);
+  return sanitizeAndValidateSkillsetReport(
+    report,
+    input.sentinels
+  ) as SkillsetOperationReport;
+}
+
+export function createAdoptionReport(
+  input: CreateAdoptionReportInput,
+  options: CreateOperationReportOptions = {}
+): SkillsetAdoptionReport {
+  return createStructuredReport("adoption", input, options);
+}
+
+export function createImportReport(
+  input: CreateImportReportInput,
+  options: CreateOperationReportOptions = {}
+): SkillsetImportReport {
+  return createStructuredReport("import", input, options);
+}
+
+export function createExternalFixtureReport(
+  input: CreateExternalFixtureReportInput,
+  options: CreateOperationReportOptions = {}
+): SkillsetExternalFixtureReport {
+  return createStructuredReport("external-fixture", input, options);
+}
+
+function createStructuredReport(
+  kind: "adoption",
+  input: CreateAdoptionReportInput,
+  options: CreateOperationReportOptions
+): SkillsetAdoptionReport;
+function createStructuredReport(
+  kind: "import",
+  input: CreateImportReportInput,
+  options: CreateOperationReportOptions
+): SkillsetImportReport;
+function createStructuredReport(
+  kind: "external-fixture",
+  input: CreateExternalFixtureReportInput,
+  options: CreateOperationReportOptions
+): SkillsetExternalFixtureReport;
+function createStructuredReport(
+  kind: Exclude<SkillsetReport["kind"], "operation">,
+  input:
+    | CreateAdoptionReportInput
+    | CreateExternalFixtureReportInput
+    | CreateImportReportInput,
+  options: CreateOperationReportOptions
+):
+  | SkillsetAdoptionReport
+  | SkillsetExternalFixtureReport
+  | SkillsetImportReport {
+  const common = {
+    createdAt: options.testHooks?.createdAt ?? new Date().toISOString(),
+    id: options.testHooks?.id ?? randomUUID(),
+    result: {
+      command:
+        kind === "adoption"
+          ? "init.adopt"
+          : kind === "import"
+            ? "import"
+            : "conformance.external",
+      exitCode: input.exitCode,
+      ok: input.exitCode === 0,
+    },
+    schemaVersion: REPORT_SCHEMA_VERSION,
+    skillset: { version: input.skillsetVersion },
+    workspace: input.workspace,
+  } as const;
+  const report = { ...common, kind, payload: input.payload };
+  return sanitizeAndValidateSkillsetReport(report, input.sentinels) as
+    | SkillsetAdoptionReport
+    | SkillsetExternalFixtureReport
+    | SkillsetImportReport;
 }
 
 export function sanitizeAndValidateSkillsetReport(
@@ -112,19 +246,9 @@ export function validateAndNormalizeSkillsetReport(
     throw new Error("skillset: invalid report: kind is not registered");
   }
 
-  const normalized: SkillsetReport = {
+  const common = {
     createdAt: source.createdAt,
     id: source.id,
-    kind: definition.kind,
-    payload: definition.sanitizePayload(
-      isEmptyRecord(source.payload) ? source.payload : {},
-      []
-    ),
-    result: {
-      command: source.result.command,
-      exitCode: source.result.exitCode,
-      ok: source.result.ok,
-    },
     schemaVersion: source.schemaVersion as typeof REPORT_SCHEMA_VERSION,
     skillset: {
       version: source.skillset.version,
@@ -150,8 +274,57 @@ export function validateAndNormalizeSkillsetReport(
             },
           }),
     },
+  } as const;
+  switch (source.kind) {
+    case "operation":
+      return {
+        ...common,
+        kind: "operation",
+        payload: {},
+        result: { ...source.result },
+      };
+    case "adoption":
+      return {
+        ...common,
+        kind: "adoption",
+        payload: reportKindRegistry.adoption.sanitizePayload(
+          source.payload,
+          []
+        ),
+        result: cloneTypedReportResult(source.result),
+      };
+    case "import":
+      return {
+        ...common,
+        kind: "import",
+        payload: reportKindRegistry.import.sanitizePayload(source.payload, []),
+        result: cloneTypedReportResult(source.result),
+      };
+    case "external-fixture":
+      return {
+        ...common,
+        kind: "external-fixture",
+        payload: reportKindRegistry["external-fixture"].sanitizePayload(
+          source.payload,
+          []
+        ),
+        result: cloneTypedReportResult(source.result),
+        workspace: common.workspace as SkillsetExternalFixtureReportWorkspace,
+      };
+  }
+}
+
+function cloneTypedReportResult<Command extends string>(
+  result: SkillsetTypedReportResult<Command>
+): SkillsetTypedReportResult<Command> {
+  if (result.exitCode === 0) {
+    return { command: result.command, exitCode: 0, ok: true };
+  }
+  return {
+    command: result.command,
+    exitCode: result.exitCode,
+    ok: false,
   };
-  return normalized;
 }
 
 export function serializeSkillsetReport(report: SkillsetReport): string {
@@ -197,10 +370,23 @@ export function renderSkillsetReportMarkdown(report: SkillsetReport): string {
     `- Outcome: ${validated.result.ok ? "success" : "failure"}`,
     `- Exit code: ${validated.result.exitCode}`
   );
-  lines.push(
-    ...reportKindRegistry[validated.kind].renderPayload(validated.payload)
-  );
+  lines.push(...renderReportPayload(validated));
   return `${lines.join("\n")}\n`;
+}
+
+function renderReportPayload(report: SkillsetReport): readonly string[] {
+  switch (report.kind) {
+    case "operation":
+      return reportKindRegistry.operation.renderPayload(report.payload);
+    case "adoption":
+      return reportKindRegistry.adoption.renderPayload(report.payload);
+    case "import":
+      return reportKindRegistry.import.renderPayload(report.payload);
+    case "external-fixture":
+      return reportKindRegistry["external-fixture"].renderPayload(
+        report.payload
+      );
+  }
 }
 
 export function containsSensitiveReportContent(
@@ -218,6 +404,252 @@ export function containsSensitiveReportContent(
     pattern.lastIndex = 0;
     return pattern.test(value);
   });
+}
+
+function cloneEvidenceDescriptor(
+  value: SkillsetReportEvidenceDescriptor
+): SkillsetReportEvidenceDescriptor {
+  return {
+    available: value.available,
+    bytes: value.bytes,
+    entries: value.entries,
+    id: value.id,
+    sha256: value.sha256,
+  };
+}
+
+function cloneRenderResultCounts(
+  value: SkillsetReportRenderResultCounts
+): SkillsetReportRenderResultCounts {
+  return {
+    failed: value.failed,
+    rendered: value.rendered,
+    skipped: value.skipped,
+    unsupported: value.unsupported,
+  };
+}
+
+function cloneAdoptionPayload(
+  value: SkillsetAdoptionReportPayload
+): SkillsetAdoptionReportPayload {
+  return {
+    alreadyAdopted: value.alreadyAdopted,
+    candidateIds: [...value.candidateIds],
+    destinations: [...value.destinations],
+    diagnosticCodes: [...value.diagnosticCodes],
+    importedUnitIds: [...value.importedUnitIds],
+    ...(value.isolatedOutput === undefined
+      ? {}
+      : { isolatedOutput: cloneEvidenceDescriptor(value.isolatedOutput) }),
+    listCounts: { ...value.listCounts },
+    migrationFlagCodes: [...value.migrationFlagCodes],
+    phases: {
+      build: { ...value.phases.build },
+      import: { ...value.phases.import },
+      lint: { ...value.phases.lint },
+      setup: { ...value.phases.setup },
+    },
+    renderResults: cloneRenderResultCounts(value.renderResults),
+  };
+}
+
+function cloneImportPayload(
+  value: SkillsetImportReportPayload
+): SkillsetImportReportPayload {
+  return {
+    destinations: [...value.destinations],
+    diagnosticCodes: [...value.diagnosticCodes],
+    fields: {
+      inferred: value.fields.inferred,
+      preserved: value.fields.preserved,
+      unsupported: value.fields.unsupported,
+    },
+    fileCount: value.fileCount,
+    importedUnitIds: [...value.importedUnitIds],
+    listCounts: { ...value.listCounts },
+    partial: value.partial,
+    requestedKind: value.requestedKind,
+    ...(value.requestedProvider === undefined
+      ? {}
+      : { requestedProvider: value.requestedProvider }),
+    renderResults: cloneRenderResultCounts(value.renderResults),
+    warningCodes: [...value.warningCodes],
+  };
+}
+
+function cloneExternalFixturePayload(
+  value: SkillsetExternalFixtureReportPayload
+): SkillsetExternalFixtureReportPayload {
+  return {
+    evidence: value.evidence.map(cloneEvidenceDescriptor),
+    fixture: {
+      manifestEntryCount: value.fixture.manifestEntryCount,
+      manifestEntrySha256: value.fixture.manifestEntrySha256,
+      manifestSha256: value.fixture.manifestSha256,
+      name: value.fixture.name,
+      pinnedCommit: value.fixture.pinnedCommit,
+      repository: value.fixture.repository,
+      targets: [...value.fixture.targets],
+    },
+    phases: {
+      acquire: cloneExternalFixturePhase(value.phases.acquire),
+      init: cloneExternalFixturePhase(value.phases.init),
+      import: cloneExternalFixturePhase(value.phases.import),
+      lint: cloneExternalFixturePhase(value.phases.lint),
+      build: cloneExternalFixturePhase(value.phases.build),
+      purity: cloneExternalFixturePhase(value.phases.purity),
+      compare: cloneExternalFixturePhase(value.phases.compare),
+    },
+    pipelinePassed: value.pipelinePassed,
+    runtime: { bunVersion: value.runtime.bunVersion },
+    summaries: {
+      comparisonDifferences: value.summaries.comparisonDifferences,
+      importedUnits: value.summaries.importedUnits,
+      migrationFlags: value.summaries.migrationFlags,
+      renderResults: cloneRenderResultCounts(value.summaries.renderResults),
+      surveyCandidates: value.summaries.surveyCandidates,
+    },
+  };
+}
+
+function cloneExternalFixturePhase(
+  value: SkillsetExternalFixturePhase
+): SkillsetExternalFixturePhase {
+  return { exitClass: value.exitClass, status: value.status };
+}
+
+function renderAdoptionPayload(
+  payload: SkillsetAdoptionReportPayload
+): readonly string[] {
+  return [
+    "",
+    "## Adoption",
+    "",
+    `- Already adopted: ${payload.alreadyAdopted ? "yes" : "no"}`,
+    ...renderPhaseSummary("Setup", payload.phases.setup),
+    ...renderPhaseSummary("Import", payload.phases.import),
+    ...renderPhaseSummary("Lint", payload.phases.lint),
+    ...renderPhaseSummary("Build", payload.phases.build),
+    ...renderRenderResultCounts(payload.renderResults),
+    `- Candidate IDs retained: ${payload.candidateIds.length}/${payload.listCounts.candidateIds}`,
+    `- Imported units retained: ${payload.importedUnitIds.length}/${payload.listCounts.importedUnitIds}`,
+    `- Destinations retained: ${payload.destinations.length}/${payload.listCounts.destinations}`,
+    ...renderStringList("Candidate IDs", payload.candidateIds),
+    ...renderStringList("Imported units", payload.importedUnitIds),
+    ...renderStringList("Destinations", payload.destinations),
+    ...renderStringList("Diagnostic codes", payload.diagnosticCodes),
+    ...renderStringList("Migration flags", payload.migrationFlagCodes),
+    ...(payload.isolatedOutput === undefined
+      ? []
+      : renderEvidenceDescriptor("Isolated output", payload.isolatedOutput)),
+  ];
+}
+
+function renderImportPayload(
+  payload: SkillsetImportReportPayload
+): readonly string[] {
+  return [
+    "",
+    "## Import",
+    "",
+    ...(payload.requestedProvider === undefined
+      ? []
+      : [
+          `- Requested provider: ${renderInlineCode(payload.requestedProvider)}`,
+        ]),
+    `- Requested kind: ${renderInlineCode(payload.requestedKind)}`,
+    `- Partial: ${payload.partial ? "yes" : "no"}`,
+    `- Files: ${payload.fileCount}`,
+    `- Imported units retained: ${payload.importedUnitIds.length}/${payload.listCounts.importedUnitIds}`,
+    `- Destinations retained: ${payload.destinations.length}/${payload.listCounts.destinations}`,
+    `- Inferred fields: ${payload.fields.inferred}`,
+    `- Preserved fields: ${payload.fields.preserved}`,
+    `- Unsupported fields: ${payload.fields.unsupported}`,
+    ...renderRenderResultCounts(payload.renderResults),
+    ...renderStringList("Imported units", payload.importedUnitIds),
+    ...renderStringList("Destinations", payload.destinations),
+    ...renderStringList("Diagnostic codes", payload.diagnosticCodes),
+    ...renderStringList("Warning codes", payload.warningCodes),
+  ];
+}
+
+function renderExternalFixturePayload(
+  payload: SkillsetExternalFixtureReportPayload
+): readonly string[] {
+  return [
+    "",
+    "## External fixture",
+    "",
+    `- Fixture: ${renderInlineCode(payload.fixture.name)}`,
+    `- Repository: ${renderInlineCode(payload.fixture.repository)}`,
+    `- Pinned commit: ${renderInlineCode(payload.fixture.pinnedCommit)}`,
+    `- Targets: ${payload.fixture.targets.map(renderInlineCode).join(", ")}`,
+    `- Manifest entry SHA-256: ${renderInlineCode(payload.fixture.manifestEntrySha256)}`,
+    `- Manifest SHA-256: ${renderInlineCode(payload.fixture.manifestSha256)}`,
+    `- Manifest entries: ${payload.fixture.manifestEntryCount}`,
+    `- Bun: ${renderInlineCode(payload.runtime.bunVersion)}`,
+    `- Pipeline passed: ${payload.pipelinePassed ? "yes" : "no"}`,
+    `- Survey candidates: ${payload.summaries.surveyCandidates}`,
+    `- Imported units: ${payload.summaries.importedUnits}`,
+    `- Migration flags: ${payload.summaries.migrationFlags}`,
+    `- Comparison differences: ${payload.summaries.comparisonDifferences}`,
+    ...renderRenderResultCounts(payload.summaries.renderResults),
+    ...renderExternalFixturePhase("Acquire", payload.phases.acquire),
+    ...renderExternalFixturePhase("Init", payload.phases.init),
+    ...renderExternalFixturePhase("Import", payload.phases.import),
+    ...renderExternalFixturePhase("Lint", payload.phases.lint),
+    ...renderExternalFixturePhase("Build", payload.phases.build),
+    ...renderExternalFixturePhase("Purity", payload.phases.purity),
+    ...renderExternalFixturePhase("Compare", payload.phases.compare),
+    ...payload.evidence.flatMap((descriptor) =>
+      renderEvidenceDescriptor("Evidence", descriptor)
+    ),
+  ];
+}
+
+function renderExternalFixturePhase(
+  label: string,
+  phase: SkillsetExternalFixturePhase
+): readonly string[] {
+  return [
+    `- Phase ${label}: ${renderInlineCode(phase.status)} (${renderInlineCode(phase.exitClass)})`,
+  ];
+}
+
+function renderRenderResultCounts(
+  counts: SkillsetReportRenderResultCounts
+): readonly string[] {
+  return [
+    `- Rendered: ${counts.rendered}`,
+    `- Unsupported: ${counts.unsupported}`,
+    `- Failed: ${counts.failed}`,
+    `- Skipped: ${counts.skipped}`,
+  ];
+}
+
+function renderPhaseSummary(
+  label: string,
+  phase: SkillsetAdoptionReportPayload["phases"]["build"]
+): readonly string[] {
+  return [`- ${label}: ${renderInlineCode(phase.status)} (${phase.count})`];
+}
+
+function renderStringList(
+  label: string,
+  values: readonly string[]
+): readonly string[] {
+  return values.length === 0
+    ? [`- ${label}: none`]
+    : [`- ${label}: ${values.map(renderInlineCode).join(", ")}`];
+}
+
+function renderEvidenceDescriptor(
+  label: string,
+  descriptor: SkillsetReportEvidenceDescriptor
+): readonly string[] {
+  return [
+    `- ${label}: ${renderInlineCode(descriptor.id)} (${descriptor.available ? "available" : "unavailable"}, ${descriptor.bytes} bytes, ${descriptor.entries} entries, sha256 ${renderInlineCode(descriptor.sha256)})`,
+  ];
 }
 
 function scrubString(value: unknown, sentinels: readonly string[]): string {
@@ -243,15 +675,6 @@ function scrubUnknown(value: unknown, sentinels: readonly string[]): unknown {
       key,
       scrubUnknown(item, sentinels),
     ])
-  );
-}
-
-function isEmptyRecord(value: unknown): value is Record<string, never> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value).length === 0
   );
 }
 

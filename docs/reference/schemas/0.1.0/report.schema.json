@@ -2,6 +2,1518 @@
   "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "operation",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "adoption",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "alreadyAdopted": {
+              "type": "boolean"
+            },
+            "candidateIds": {
+              "items": {
+                "maxLength": 256,
+                "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "destinations": {
+              "items": {
+                "maxLength": 256,
+                "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "diagnosticCodes": {
+              "items": {
+                "maxLength": 96,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "importedUnitIds": {
+              "items": {
+                "maxLength": 256,
+                "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "isolatedOutput": {
+              "additionalProperties": false,
+              "properties": {
+                "available": {
+                  "type": "boolean"
+                },
+                "bytes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "entries": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "maxLength": 256,
+                  "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "available",
+                "bytes",
+                "entries",
+                "id",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "listCounts": {
+              "additionalProperties": false,
+              "properties": {
+                "candidateIds": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "destinations": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "importedUnitIds": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "candidateIds",
+                "destinations",
+                "importedUnitIds"
+              ],
+              "type": "object"
+            },
+            "migrationFlagCodes": {
+              "items": {
+                "maxLength": 96,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "phases": {
+              "additionalProperties": false,
+              "properties": {
+                "build": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "count": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "import": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "count": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "lint": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "count": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "setup": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "count": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "build",
+                "import",
+                "lint",
+                "setup"
+              ],
+              "type": "object"
+            },
+            "renderResults": {
+              "additionalProperties": false,
+              "properties": {
+                "failed": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "rendered": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "skipped": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "unsupported": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "failed",
+                "rendered",
+                "skipped",
+                "unsupported"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "alreadyAdopted",
+            "candidateIds",
+            "destinations",
+            "diagnosticCodes",
+            "importedUnitIds",
+            "listCounts",
+            "migrationFlagCodes",
+            "phases",
+            "renderResults"
+          ],
+          "type": "object"
+        },
+        "result": {
+          "properties": {
+            "command": {
+              "const": "init.adopt",
+              "type": "string"
+            },
+            "exitCode": {
+              "maximum": 4
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "import",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "destinations": {
+              "items": {
+                "maxLength": 256,
+                "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "diagnosticCodes": {
+              "items": {
+                "maxLength": 96,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "fields": {
+              "additionalProperties": false,
+              "properties": {
+                "inferred": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "preserved": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "unsupported": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "inferred",
+                "preserved",
+                "unsupported"
+              ],
+              "type": "object"
+            },
+            "fileCount": {
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "importedUnitIds": {
+              "items": {
+                "maxLength": 256,
+                "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "listCounts": {
+              "additionalProperties": false,
+              "properties": {
+                "destinations": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "importedUnitIds": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "destinations",
+                "importedUnitIds"
+              ],
+              "type": "object"
+            },
+            "partial": {
+              "type": "boolean"
+            },
+            "renderResults": {
+              "additionalProperties": false,
+              "properties": {
+                "failed": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "rendered": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "skipped": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "unsupported": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "failed",
+                "rendered",
+                "skipped",
+                "unsupported"
+              ],
+              "type": "object"
+            },
+            "requestedKind": {
+              "enum": [
+                "auto",
+                "plugin",
+                "plugins",
+                "skill",
+                "skills"
+              ],
+              "type": "string"
+            },
+            "requestedProvider": {
+              "enum": [
+                "agents",
+                "claude",
+                "codex",
+                "cursor",
+                "skillset"
+              ],
+              "type": "string"
+            },
+            "warningCodes": {
+              "items": {
+                "maxLength": 96,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "destinations",
+            "diagnosticCodes",
+            "fields",
+            "fileCount",
+            "importedUnitIds",
+            "listCounts",
+            "partial",
+            "requestedKind",
+            "renderResults",
+            "warningCodes"
+          ],
+          "type": "object"
+        },
+        "result": {
+          "properties": {
+            "command": {
+              "const": "import",
+              "type": "string"
+            },
+            "exitCode": {
+              "maximum": 4
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "payload"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "external-fixture",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": false,
+          "oneOf": [
+            {
+              "properties": {
+                "phases": {
+                  "properties": {
+                    "acquire": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "build": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "compare": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "import": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "init": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "lint": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "purity": {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    }
+                  }
+                },
+                "pipelinePassed": {
+                  "const": true
+                }
+              }
+            },
+            {
+              "properties": {
+                "phases": {
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "acquire": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "init": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "import": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "lint": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "build": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "purity": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "compare": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "failed",
+                                "not-run",
+                                "skipped"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "pipelinePassed": {
+                  "const": false
+                }
+              }
+            }
+          ],
+          "properties": {
+            "evidence": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "available": {
+                    "type": "boolean"
+                  },
+                  "bytes": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "entries": {
+                    "maximum": 1000000,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "id": {
+                    "maxLength": 256,
+                    "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "available",
+                  "bytes",
+                  "entries",
+                  "id",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "maxItems": 40,
+              "type": "array"
+            },
+            "fixture": {
+              "additionalProperties": false,
+              "properties": {
+                "manifestEntryCount": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "manifestEntrySha256": {
+                  "description": "SHA-256 over canonical UTF-8 JSON of the parsed selected manifest entry after default-target expansion and fixed key ordering.",
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "manifestSha256": {
+                  "description": "SHA-256 over the manifest's raw file bytes.",
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "name": {
+                  "maxLength": 160,
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                  "type": "string"
+                },
+                "pinnedCommit": {
+                  "pattern": "^[0-9a-f]{40}$",
+                  "type": "string"
+                },
+                "repository": {
+                  "maxLength": 512,
+                  "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)+$",
+                  "type": "string"
+                },
+                "targets": {
+                  "items": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 3,
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "manifestEntryCount",
+                "manifestEntrySha256",
+                "manifestSha256",
+                "name",
+                "pinnedCommit",
+                "repository",
+                "targets"
+              ],
+              "type": "object"
+            },
+            "phases": {
+              "additionalProperties": false,
+              "properties": {
+                "acquire": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "build": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "compare": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "import": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "init": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "lint": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "purity": {
+                  "additionalProperties": false,
+                  "oneOf": [
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "success"
+                        },
+                        "status": {
+                          "const": "passed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "const": "not-run"
+                        },
+                        "status": {
+                          "enum": [
+                            "not-run",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "exitClass": {
+                          "enum": [
+                            "command-failure",
+                            "signal",
+                            "timeout"
+                          ]
+                        },
+                        "status": {
+                          "const": "failed"
+                        }
+                      },
+                      "required": [
+                        "exitClass",
+                        "status"
+                      ]
+                    }
+                  ],
+                  "properties": {
+                    "exitClass": {
+                      "enum": [
+                        "command-failure",
+                        "not-run",
+                        "signal",
+                        "success",
+                        "timeout"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "failed",
+                        "not-run",
+                        "passed",
+                        "skipped"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "exitClass",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "acquire",
+                "init",
+                "import",
+                "lint",
+                "build",
+                "purity",
+                "compare"
+              ],
+              "type": "object"
+            },
+            "pipelinePassed": {
+              "type": "boolean"
+            },
+            "runtime": {
+              "additionalProperties": false,
+              "properties": {
+                "bunVersion": {
+                  "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "bunVersion"
+              ],
+              "type": "object"
+            },
+            "summaries": {
+              "additionalProperties": false,
+              "properties": {
+                "comparisonDifferences": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "importedUnits": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "migrationFlags": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "renderResults": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "failed": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "rendered": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unsupported": {
+                      "maximum": 1000000,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "failed",
+                    "rendered",
+                    "skipped",
+                    "unsupported"
+                  ],
+                  "type": "object"
+                },
+                "surveyCandidates": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "comparisonDifferences",
+                "importedUnits",
+                "migrationFlags",
+                "renderResults",
+                "surveyCandidates"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "evidence",
+            "fixture",
+            "phases",
+            "pipelinePassed",
+            "runtime",
+            "summaries"
+          ],
+          "type": "object"
+        },
+        "result": {
+          "properties": {
+            "command": {
+              "const": "conformance.external",
+              "type": "string"
+            },
+            "exitCode": {
+              "maximum": 4
+            }
+          },
+          "required": [
+            "command"
+          ]
+        },
+        "workspace": {
+          "properties": {
+            "repository": {
+              "required": [
+                "commit",
+                "dirty",
+                "identity"
+              ]
+            }
+          },
+          "required": [
+            "repository"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "payload"
+      ]
+    }
+  ],
   "properties": {
     "createdAt": {
       "format": "date-time",
@@ -14,13 +1526,14 @@
     },
     "kind": {
       "enum": [
-        "operation"
+        "operation",
+        "adoption",
+        "import",
+        "external-fixture"
       ],
       "type": "string"
     },
     "payload": {
-      "additionalProperties": false,
-      "properties": {},
       "type": "object"
     },
     "result": {

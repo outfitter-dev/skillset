@@ -313,11 +313,11 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
   });
 
   test("allowlisting a declaration does not hide a co-located copy", () => {
-    const source = `${"\n".repeat(19)}export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;\nconst SHADOW_TARGETS = ["claude", "codex", "cursor"] as const;`;
+    const source = `${"\n".repeat(24)}export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;\nconst SHADOW_TARGETS = ["claude", "codex", "cursor"] as const;`;
     const violations = scanTargetTopologySource("packages/schema/src/contracts.ts", source);
 
     expect(violations).toHaveLength(1);
-    expect(violations[0]).toMatchObject({ line: 21, owner: "SHADOW_TARGETS", rule: "R1" });
+    expect(violations[0]).toMatchObject({ line: 26, owner: "SHADOW_TARGETS", rule: "R1" });
   });
 
   test("allowlisting one position does not hide an identical same-line match", () => {

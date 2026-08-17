@@ -11,6 +11,9 @@ describe("@skillset/core", () => {
     expect(core.readReportBundle).toBeFunction();
     for (const internalName of [
       "containsSensitiveReportContent",
+      "createAdoptionReport",
+      "createExternalFixtureReport",
+      "createImportReport",
       "createOperationReport",
       "createReportBundle",
       "importReportBundle",

@@ -5,7 +5,7 @@ import type {
   TargetName,
 } from "@skillset/core/internal/types";
 
-import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset } from "./adopt";
+import { adoptCandidateId, adoptSkillset } from "./adopt";
 import type { AdoptReport } from "./adopt";
 import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
 import { printCliJsonData } from "./cli-output";
@@ -17,6 +17,11 @@ import {
   createInteractiveSession,
   type InteractiveSession,
 } from "./interactive-session";
+import {
+  persistAdoptionReceipt,
+  printOperationReceipt,
+  type OperationReceiptReference,
+} from "./operation-receipt";
 import {
   formatScaffoldFileLine,
   formatScaffoldWriteHint,
@@ -82,6 +87,9 @@ export async function runInitCommand(
       ...(setupTargets === undefined ? {} : { targets: setupTargets }),
       write: writeMode,
     });
+    const receipt = writeMode
+      ? await persistAdoptionReceipt(report)
+      : undefined;
     const reason = scaffoldWriteReason(writeMode, report.write);
     if (jsonOutput && writeMode && report.ok) {
       await rememberKnownSkillsetWorkspace(report.rootPath, options, true);
@@ -91,13 +99,18 @@ export async function runInitCommand(
         "init.adopt",
         {
           report,
-          state: report.writtenPaths.length > 0 ? "written" : "planned",
+          ...(receipt === undefined ? {} : { receipt }),
+          state: writeMode
+            ? report.writtenPaths.length > 0
+              ? "written"
+              : "blocked"
+            : "planned",
           writes: report.writtenPaths,
         },
         report.ok ? 0 : 1
       );
     } else {
-      printAdoptReport(report, reason);
+      printAdoptReport(report, reason, receipt);
       if (!writeMode && report.ok && initAdopt !== undefined) {
         console.log(
           formatScaffoldWriteHint(
@@ -136,8 +149,12 @@ export async function runInitCommand(
       }
     );
     if (result.kind === "adopt") {
+      const receipt =
+        result.reason === "written" || result.reason === "blocked before write"
+          ? await persistAdoptionReceipt(result.report)
+          : undefined;
       if (result.reason !== "write confirmation declined") {
-        printAdoptReport(result.report, result.reason);
+        printAdoptReport(result.report, result.reason, receipt);
       }
       if (!result.report.ok) process.exitCode = 1;
       if (result.reason === "written" && result.report.ok) {
@@ -191,7 +208,11 @@ export async function runInitCommand(
   return;
 }
 
-function printAdoptReport(report: AdoptReport, reason: string): void {
+function printAdoptReport(
+  report: AdoptReport,
+  reason: string,
+  receipt?: OperationReceiptReference
+): void {
   console.log(`skillset: adopt ${report.rootPath} (${reason})`);
   if (report.acquisition.kind === "git") {
     console.log(
@@ -250,6 +271,6 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   if (report.cutover.length > 0) {
     console.log(`  cutover: ${report.cutover.join(", ")} (see report)`);
   }
-  console.log(`  report: ${ADOPT_REPORT_DIR}/report.md`);
+  if (receipt !== undefined) printOperationReceipt(receipt);
   console.log(`skillset: adopt ${report.ok ? "passed" : "found problems"}`);
 }
