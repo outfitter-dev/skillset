@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,6 +11,7 @@ import {
   inspectOutputBackups,
   restoreOutputBackup,
 } from "@skillset/core";
+import { assertCasePortableRenderedPaths } from "../render";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -31,6 +32,555 @@ Body.
 };
 
 describe("buildSkillsetResult", () => {
+  it("preserves an absent output target occupied after final approval", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const occupiedPath = join(root, ".claude/skills/demo/SKILL.md");
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeInitialInspection: async () => {
+            await mkdir(join(root, ".claude/skills/demo"), {
+              recursive: true,
+            });
+            await Bun.write(occupiedPath, "unmanaged late occupant\n");
+          },
+        },
+      },
+    })).rejects.toThrow(
+      "write target appeared after final approval: " +
+        ".claude/skills/demo/SKILL.md"
+    );
+
+    expect(await readFile(occupiedPath, "utf-8")).toBe(
+      "unmanaged late occupant\n"
+    );
+    expect(await Bun.file(
+      join(root, ".claude/skills/skillset.lock")
+    ).exists()).toBe(false);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("rolls back writes, modes, and stale deletions after a late transaction failure", async () => {
+    if (process.platform === "win32") return;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho before\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Before.
+`,
+      ".skillset/skills/stale/SKILL.md": `
+---
+name: stale
+description: Stale skill.
+---
+
+Stale.
+`,
+    });
+    const sourceScript = join(root, ".skillset/shared/scripts/run.sh");
+    const demoOutput = join(root, ".claude/skills/demo/SKILL.md");
+    const scriptOutput = join(root, ".claude/skills/demo/scripts/run.sh");
+    const staleOutput = join(root, ".claude/skills/stale/SKILL.md");
+    await chmod(sourceScript, 0o755);
+    await buildSkillsetResult(root);
+    const before = {
+      demo: await readFile(demoOutput),
+      script: await readFile(scriptOutput),
+      scriptMode: (await stat(scriptOutput)).mode & 0o777,
+      stale: await readFile(staleOutput),
+    };
+
+    await Bun.write(
+      join(root, ".skillset/skills/demo/SKILL.md"),
+      `
+---
+name: demo
+description: Demo skill.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+After.
+`
+    );
+    await chmod(sourceScript, 0o644);
+    await rm(join(root, ".skillset/skills/stale/SKILL.md"));
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeApply: (operation) => {
+            if (operation.kind === "delete") {
+              throw new Error("injected failure before stale deletion commit");
+            }
+          },
+        },
+      },
+    })).rejects.toThrow("injected failure before stale deletion commit");
+
+    expect(await readFile(demoOutput)).toEqual(before.demo);
+    expect(await readFile(scriptOutput)).toEqual(before.script);
+    expect((await stat(scriptOutput)).mode & 0o777).toBe(before.scriptMode);
+    expect(await readFile(staleOutput)).toEqual(before.stale);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("applies case-only resource destination renames transactionally", async () => {
+    if (process.platform === "win32") return;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Original guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/Guide.md
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const sourceResourcePath = join(
+      root,
+      ".skillset/shared/references/guide.md"
+    );
+    const resourceDirectory = join(root, ".claude/skills/demo/references");
+    const originalOutputPath = join(resourceDirectory, "Guide.md");
+    await chmod(sourceResourcePath, 0o644);
+    await buildSkillsetResult(root);
+    expect(await readdir(resourceDirectory)).toEqual(["Guide.md"]);
+    expect((await stat(originalOutputPath)).mode & 0o777).toBe(0o644);
+
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/Guide.md",
+        "to: references/guide.md"
+      )
+    );
+    await Bun.write(sourceResourcePath, "Updated guide.\n");
+    await chmod(sourceResourcePath, 0o755);
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeApply: (operation) => {
+            if (
+              operation.kind === "write" &&
+              operation.path === ".claude/skills/skillset.lock"
+            ) {
+              throw new Error(
+                "injected failure after case-only replacement write"
+              );
+            }
+          },
+        },
+      },
+    })).rejects.toThrow(
+      "injected failure after case-only replacement write"
+    );
+    expect(await readdir(resourceDirectory)).toEqual(["Guide.md"]);
+    expect(await readFile(originalOutputPath, "utf8")).toBe(
+      "Original guide.\n"
+    );
+    expect((await stat(originalOutputPath)).mode & 0o777).toBe(0o644);
+
+    const result = await buildSkillsetResult(root);
+
+    expect(await readdir(resourceDirectory)).toEqual(["guide.md"]);
+    expect(
+      await readFile(join(resourceDirectory, "guide.md"), "utf8")
+    ).toBe("Updated guide.\n");
+    expect(
+      (await stat(join(resourceDirectory, "guide.md"))).mode & 0o777
+    ).toBe(0o755);
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: "unmanaged-output-collision",
+    }));
+    expect(result.writes.deletedPaths).toContain(
+      ".claude/skills/demo/references/Guide.md"
+    );
+    expect(result.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide.md"
+    );
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("writes a case-only renamed destination when the managed source is missing", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/Guide.md
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const resourceDirectory = join(root, ".claude/skills/demo/references");
+    const originalOutputPath = join(resourceDirectory, "Guide.md");
+    const renamedOutputPath = join(resourceDirectory, "guide.md");
+    await buildSkillsetResult(root);
+    await rm(originalOutputPath);
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/Guide.md",
+        "to: references/guide.md"
+      )
+    );
+
+    const result = await buildSkillsetResult(root);
+
+    expect(await readFile(renamedOutputPath, "utf8")).toBe("Guide.\n");
+    expect(result.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide.md"
+    );
+    expect(result.writes.deletedPaths).not.toContain(
+      ".claude/skills/demo/references/Guide.md"
+    );
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("rejects case-only ambiguous destinations before writing output", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide-a.md": "First guide.\n",
+      ".skillset/shared/references/guide-b.md": "Second guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide-a.md
+      to: references/Guide.md
+    - from: shared:references/guide-b.md
+      to: references/guide.md
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+        ".claude/skills/demo/references/Guide.md and " +
+        ".claude/skills/demo/references/guide.md " +
+        "(prefixes .claude/skills/demo/references/Guide.md and " +
+        ".claude/skills/demo/references/guide.md); rename one source destination"
+    );
+
+    expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("rejects case-only ambiguous directory components before writing output", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide-a.md": "First guide.\n",
+      ".skillset/shared/references/guide-b.md": "Second guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide-a.md
+      to: references/Guide/a.md
+    - from: shared:references/guide-b.md
+      to: references/guide/b.md
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+        ".claude/skills/demo/references/Guide/a.md and " +
+        ".claude/skills/demo/references/guide/b.md " +
+        "(prefixes .claude/skills/demo/references/Guide and " +
+        ".claude/skills/demo/references/guide); rename one source destination"
+    );
+
+    expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("detects case-only ambiguous Windows-style directory components", () => {
+    expect(() => assertCasePortableRenderedPaths([
+      ".claude\\skills\\demo\\references\\Guide\\a.md",
+      ".claude\\skills\\demo\\references\\guide\\b.md",
+    ])).toThrow(
+      "skillset: generated output destinations use case-conflicting paths and are not portable: " +
+        ".claude/skills/demo/references/Guide/a.md and " +
+        ".claude/skills/demo/references/guide/b.md " +
+        "(prefixes .claude/skills/demo/references/Guide and " +
+        ".claude/skills/demo/references/guide); rename one source destination"
+    );
+  });
+
+  it("applies managed file and directory output transitions transactionally", async () => {
+    if (process.platform === "win32") return;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Original guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/guide
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const sourceResourcePath = join(
+      root,
+      ".skillset/shared/references/guide.md"
+    );
+    const outputPath = join(
+      root,
+      ".claude/skills/demo/references/guide"
+    );
+    await chmod(sourceResourcePath, 0o644);
+    await buildSkillsetResult(root);
+    expect(await readFile(outputPath, "utf8")).toBe("Original guide.\n");
+    expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/guide",
+        "to: references/guide/page.md"
+      )
+    );
+    await Bun.write(sourceResourcePath, "Nested guide.\n");
+    await chmod(sourceResourcePath, 0o755);
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeApply: (operation) => {
+            if (
+              operation.kind === "write" &&
+              operation.path === ".claude/skills/skillset.lock"
+            ) {
+              throw new Error("injected failure after file-to-directory write");
+            }
+          },
+        },
+      },
+    })).rejects.toThrow("injected failure after file-to-directory write");
+    expect(await readFile(outputPath, "utf8")).toBe("Original guide.\n");
+    expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+
+    const nested = await buildSkillsetResult(root);
+    const nestedOutputPath = join(outputPath, "page.md");
+    expect(await readFile(nestedOutputPath, "utf8")).toBe("Nested guide.\n");
+    expect((await stat(nestedOutputPath)).mode & 0o777).toBe(0o755);
+    expect(nested.writes.deletedPaths).toContain(
+      ".claude/skills/demo/references/guide"
+    );
+    expect(nested.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide/page.md"
+    );
+
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/guide/page.md",
+        "to: references/guide"
+      )
+    );
+    await Bun.write(sourceResourcePath, "Flat guide.\n");
+    await chmod(sourceResourcePath, 0o644);
+
+    await expect(buildSkillsetResult(root, {}, {
+      transactionOptions: {
+        testHooks: {
+          beforeApply: (operation) => {
+            if (
+              operation.kind === "write" &&
+              operation.path === ".claude/skills/skillset.lock"
+            ) {
+              throw new Error("injected failure after directory-to-file write");
+            }
+          },
+        },
+      },
+    })).rejects.toThrow("injected failure after directory-to-file write");
+    expect(await readFile(nestedOutputPath, "utf8")).toBe("Nested guide.\n");
+    expect((await stat(nestedOutputPath)).mode & 0o777).toBe(0o755);
+
+    const flat = await buildSkillsetResult(root);
+    expect(await readFile(outputPath, "utf8")).toBe("Flat guide.\n");
+    expect((await stat(outputPath)).mode & 0o777).toBe(0o644);
+    expect(flat.writes.deletedPaths).toContain(
+      ".claude/skills/demo/references/guide/page.md"
+    );
+    expect(flat.writes.writtenPaths).toContain(
+      ".claude/skills/demo/references/guide"
+    );
+    expect((await readdir(root)).filter((entry) =>
+      entry.startsWith(".skillset-workspace-transaction-")
+    )).toEqual([]);
+  });
+
+  it("refuses to replace a managed output directory containing unmanaged files", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Nested guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/guide/page.md
+---
+
+Body.
+`,
+    });
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const outputDirectory = join(
+      root,
+      ".claude/skills/demo/references/guide"
+    );
+    await buildSkillsetResult(root);
+    await Bun.write(join(outputDirectory, "unmanaged.txt"), "Keep me.\n");
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/guide/page.md",
+        "to: references/guide"
+      )
+    );
+
+    const result = await buildSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.outputState.state).toBe("blocked");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "unmanaged-output-collision",
+      outputPath:
+        ".claude/skills/demo/references/guide/unmanaged.txt",
+    }));
+    expect(await readFile(join(outputDirectory, "page.md"), "utf8")).toBe(
+      "Nested guide.\n"
+    );
+    expect(
+      await readFile(join(outputDirectory, "unmanaged.txt"), "utf8")
+    ).toBe("Keep me.\n");
+  });
+
+  it("blocks a distinct equal unmanaged case-variant resource destination", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/shared/references/guide.md": "Managed guide.\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  references:
+    - from: shared:references/guide.md
+      to: references/Guide.md
+---
+
+Body.
+`,
+    });
+    if (!(await supportsDistinctCasePaths(root))) return;
+
+    const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+    const resourceDirectory = join(root, ".claude/skills/demo/references");
+    await buildSkillsetResult(root);
+    const managedPath = join(resourceDirectory, "Guide.md");
+    const unmanagedPath = join(resourceDirectory, "guide.md");
+    const managedMode = (await stat(managedPath)).mode & 0o777;
+    await Bun.write(
+      sourcePath,
+      (await readFile(sourcePath, "utf8")).replace(
+        "to: references/Guide.md",
+        "to: references/guide.md"
+      )
+    );
+    await Bun.write(unmanagedPath, "Managed guide.\n");
+    await chmod(unmanagedPath, managedMode);
+    expect(await readFile(unmanagedPath, "utf8")).toBe(
+      await readFile(managedPath, "utf8")
+    );
+    expect((await stat(unmanagedPath)).mode & 0o777).toBe(managedMode);
+
+    const result = await buildSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.outputState.state).toBe("blocked");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "unmanaged-output-collision",
+      outputPath: ".claude/skills/demo/references/guide.md",
+    }));
+    expect(result.writes).toEqual({
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    });
+    expect((await readdir(resourceDirectory)).toSorted()).toEqual([
+      "Guide.md",
+      "guide.md",
+    ]);
+    expect(
+      await readFile(managedPath, "utf8")
+    ).toBe("Managed guide.\n");
+    expect(
+      await readFile(unmanagedPath, "utf8")
+    ).toBe("Managed guide.\n");
+    expect((await stat(managedPath)).mode & 0o777).toBe(managedMode);
+    expect((await stat(unmanagedPath)).mode & 0o777).toBe(managedMode);
+  });
+
   it("reports actual writes and deletions instead of planned managed paths", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
@@ -842,6 +1392,19 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function supportsDistinctCasePaths(root: string): Promise<boolean> {
+  const probeDirectory = join(root, ".skillset-case-probe");
+  await mkdir(probeDirectory);
+  try {
+    await Bun.write(join(probeDirectory, "Probe"), "upper\n");
+    await Bun.write(join(probeDirectory, "probe"), "lower\n");
+    const entries = await readdir(probeDirectory);
+    return entries.includes("Probe") && entries.includes("probe");
+  } finally {
+    await rm(probeDirectory, { force: true, recursive: true });
+  }
 }
 
 async function managedEditedBackup(content: string): Promise<{

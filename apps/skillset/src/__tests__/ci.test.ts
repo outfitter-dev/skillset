@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
@@ -201,12 +201,106 @@ test("check never offers reconciliation without an output baseline", async () =>
   expect(report.outputState.state).toBe("no-output-baseline");
   expect(report.sourceSuggestions).toBeUndefined();
   expect(terminal.stdout).not.toContain("skillset reconcile");
+  expect(markdown).toContain("No output baseline — run `skillset build --yes`.");
+  expect(markdown).not.toContain("### Stale generated output");
+  expect(markdown).not.toContain("### Recovery guidance");
   expect(markdown).not.toContain("### Reconciliation");
   expect(JSON.parse(json.stdout)).toMatchObject({
     data: { outputState: { state: "no-output-baseline" } },
   });
   expect(json.stdout).not.toContain("sourceSuggestions");
   expect(json.stdout).not.toContain("skillset reconcile");
+});
+
+test("SET-464: pristine check reports one no-baseline conclusion", async () => {
+  const root = await fixture(DEMO_FIXTURE);
+
+  const result = await runSkillsetCli("check", "--root", root);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stdout).toBe(
+    "skillset: no output baseline — run skillset build --yes\n"
+  );
+  expect(result.stdout).not.toContain("generated ");
+  expect(result.stdout).not.toContain("reconcile");
+  expect(result.stdout).not.toContain("recovery");
+});
+
+test("SET-464: check --write establishes a whole output baseline coherently", async () => {
+  const root = await fixture(DEMO_FIXTURE);
+
+  const result = await runSkillsetCli("check", "--write", "--root", root);
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toBe("skillset: check wrote the output baseline\n");
+  expect(result.stdout).not.toContain("fixed ");
+  expect(result.stdout).not.toContain("reconcile");
+  expect(result.stdout).not.toContain("recovery");
+  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toContain(
+    "Body."
+  );
+  expect((await ciSkillset(root)).outputState.state).toBe("current");
+
+  const markdownRoot = await fixture(DEMO_FIXTURE);
+  const report = await ciSkillset(markdownRoot, { fix: true });
+  const markdown = renderCiReportMarkdown(report);
+  expect(report.wroteOutputBaseline).toBe(true);
+  expect(markdown).toContain("This check wrote the output baseline.");
+  expect(markdown).not.toContain("Generated output was stale");
+  expect(markdown).not.toContain("### Rebuilt generated output");
+  expect(markdown).not.toContain("### Stale generated output");
+  expect(markdown).not.toContain("### Recovery guidance");
+
+  const jsonRoot = await fixture(DEMO_FIXTURE);
+  const json = await runSkillsetCli(
+    "check",
+    "--write",
+    "--root",
+    jsonRoot,
+    "--json"
+  );
+  expect(json.exitCode).toBe(0);
+  expect(JSON.parse(json.stdout)).toMatchObject({
+    data: {
+      outputState: { state: "current" },
+      wroteOutputBaseline: true,
+    },
+  });
+});
+
+test("SET-464: a failed whole-plan write does not report or leave an output baseline", async () => {
+  const root = await fixture({
+    ...DEMO_FIXTURE,
+    ".skillset/skills/other/SKILL.md": `
+---
+name: other
+description: Other.
+---
+
+Other.
+`,
+  });
+
+  const report = await ciSkillset(root, {
+    fix: true,
+    transactionOptions: {
+      testHooks: {
+        beforeApply: (_operation, index) => {
+          if (index === 1) throw new Error("injected mid-plan build failure");
+        },
+      },
+    },
+  });
+
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("injected mid-plan build failure");
+  expect(report.outputState.state).toBe("no-output-baseline");
+  expect(report.wroteOutputBaseline).toBeUndefined();
+  expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
+  expect(await Bun.file(join(root, ".claude/skills/other/SKILL.md")).exists()).toBe(false);
+  expect((await readdir(root)).filter((entry) =>
+    entry.startsWith(".skillset-workspace-transaction-")
+  )).toEqual([]);
 });
 
 test("check suppresses mechanical rebuild guidance when change coverage also blocks", async () => {

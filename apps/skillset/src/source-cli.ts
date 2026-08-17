@@ -20,6 +20,7 @@ import type {
   NewSourceScope,
 } from "./new-source";
 import { scaffoldSourceUnit } from "./new-source";
+import { quoteShellArgument } from "./recovery-guidance";
 import {
   formatScaffoldFileLine,
   formatScaffoldNextStep,
@@ -103,6 +104,9 @@ export async function runImportCommand({
       console.log(
         `  - ${imported.kind} ${imported.name}: ${imported.targetPath} (${imported.files} files)`
       );
+    }
+    for (const command of result.imports[0]?.nextChecks ?? []) {
+      console.log(formatScaffoldNextStep(command));
     }
   }
   if (!jsonOutput) {
@@ -278,7 +282,22 @@ function printImportReport(result: ImportReport): void {
   for (const warning of result.warnings) {
     console.warn(`  warning: ${warning}`);
   }
-  console.log(formatScaffoldNextStep(result.nextChecks.join(", ")));
+  for (const command of result.nextChecks) {
+    console.log(formatScaffoldNextStep(command));
+  }
+}
+
+function newSourceChecksAtRoot(rootPath: string): readonly string[] {
+  const commands = [
+    "skillset build",
+    "skillset build --yes",
+    "skillset check",
+  ];
+  if (resolve(rootPath) === resolve(process.cwd())) {
+    return commands;
+  }
+  const rootArgument = quoteShellArgument(rootPath);
+  return commands.map((command) => `${command} --root ${rootArgument}`);
 }
 
 function printNewSourceReport(result: NewSourceReport, reason: string): void {
@@ -290,7 +309,8 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
   console.log(`  source: ${result.sourceRoot}`);
   console.log(`  name: ${result.displayName}`);
   if (result.write) {
-    console.log(formatScaffoldNextStep("skillset build --yes"));
-    console.log(formatScaffoldNextStep("skillset check"));
+    for (const command of newSourceChecksAtRoot(result.rootPath)) {
+      console.log(formatScaffoldNextStep(command));
+    }
   }
 }

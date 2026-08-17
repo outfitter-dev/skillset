@@ -14,6 +14,7 @@ import {
 import { checkSkillsetSourceReadinessWithAuthority } from "@skillset/core/internal/source-readiness";
 import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
+import type { WorkspaceTransactionOptions } from "@skillset/core/internal/workspace-transaction";
 import { runProviderFormatUpdates, type ProviderFormatUpdateReport } from "./provider-format-updates";
 import { reconcileManagedPath } from "./reconcile";
 import {
@@ -30,6 +31,8 @@ export interface CiOptions extends SkillsetOptions {
   readonly fix?: boolean;
   /** Change-entry baseline ref, forwarded to `skillset change check`. */
   readonly since?: string;
+  /** Deterministic fault injection for ordinary output transaction tests. @internal */
+  readonly transactionOptions?: WorkspaceTransactionOptions;
 }
 
 export interface CiReport {
@@ -65,6 +68,8 @@ export interface CiReport {
   readonly recovery?: readonly RecoveryGuidance[];
   readonly sourceSuggestions?: readonly SourceSuggestionReport[];
   readonly warnings: readonly string[];
+  /** This invocation established the workspace's first trustworthy output baseline. */
+  readonly wroteOutputBaseline?: boolean;
 }
 
 /**
@@ -77,7 +82,7 @@ export interface CiReport {
  * warnings are advisory and never fail the run.
  */
 export async function ciSkillset(rootPath: string, options: CiOptions = {}): Promise<CiReport> {
-  const { ci, fix, since, ...buildOptions } = options;
+  const { ci, fix, since, transactionOptions, ...buildOptions } = options;
 
   const sourceReadiness = await checkSkillsetSourceReadiness(rootPath, buildOptions);
   const lintIssues = sourceReadiness.data.checks.lint.issues;
@@ -121,6 +126,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   let drift = sourceReadiness.data.drift;
   let outputDiagnostics = sourceReadiness.data.outputDiagnostics;
   let outputState = sourceReadiness.data.outputState;
+  const beganWithoutOutputBaseline = outputState.state === "no-output-baseline";
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
@@ -225,6 +231,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       {
         ...buildOptions,
         sourceDrivenOutputPaths: [...providerSourceDriftPaths],
+        ...(transactionOptions === undefined ? {} : { transactionOptions }),
         write: "outputs",
       },
       repairableManagedLockPaths()
@@ -279,6 +286,9 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       ? {}
       : { sourceSuggestions: reportedSourceSuggestions }),
     warnings,
+    ...(beganWithoutOutputBaseline && fixedPaths.length > 0 && !hasDrift(drift)
+      ? { wroteOutputBaseline: true }
+      : {}),
   };
 }
 
@@ -312,6 +322,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
   const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error");
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
   const outputWarnings = report.outputDiagnostics.filter((diagnostic) => diagnostic.severity !== "error");
+  const noOutputBaseline = report.outputState.state === "no-output-baseline";
 
   if (
     report.ok &&
@@ -327,18 +338,22 @@ export function renderCiReportMarkdown(report: CiReport): string {
 
   if (report.ok) {
     lines.push(
-      hasGeneratedChangelogPath(report.fixedPaths)
+      report.wroteOutputBaseline
+        ? "This check wrote the output baseline. Commit the generated output if it is not committed for you."
+        : hasGeneratedChangelogPath(report.fixedPaths)
         ? "Generated output was stale and has been rebuilt mechanically. Review rebuilt generated changelogs below in case the edit should be recovered through source-side change history."
         : report.fixedPaths.length > 0
         ? "Generated output was stale and has been rebuilt mechanically. No source changes are needed."
         : "All checks passed; the warnings and recovery guidance below are advisory and do not fail CI.",
       ""
     );
+  } else if (noOutputBaseline) {
+    lines.push("No output baseline — run `skillset build --yes`.", "");
   } else {
     lines.push("Skillset CI found problems; the sections below explain each one.", "");
   }
 
-  if (report.fixedPaths.length > 0) {
+  if (report.fixedPaths.length > 0 && !report.wroteOutputBaseline) {
     lines.push("### Rebuilt generated output", "");
     for (const path of report.fixedPaths) lines.push(`- \`${path}\``);
     if (hasGeneratedChangelogPath(report.fixedPaths)) {
@@ -359,7 +374,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("");
   }
 
-  if (hasDrift(report.drift)) {
+  if (!noOutputBaseline && hasDrift(report.drift)) {
     lines.push("### Stale generated output", "");
     for (const path of report.drift.added) lines.push(`- added: \`${path}\``);
     for (const path of report.drift.changed) lines.push(`- changed: \`${path}\``);
@@ -463,7 +478,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("### Provider-format analysis error", "", codeBlock(report.providerAnalysisError), "");
   }
 
-  if ((report.recovery?.length ?? 0) > 0) {
+  if (!noOutputBaseline && (report.recovery?.length ?? 0) > 0) {
     lines.push("### Recovery guidance", "");
     for (const item of report.recovery ?? []) {
       const location = item.path === undefined ? "" : ` ${markdownCode(item.path)}`;

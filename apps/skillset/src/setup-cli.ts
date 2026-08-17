@@ -1,7 +1,7 @@
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
 
 import { adoptCandidateId } from "./adopt";
-import { formatScaffoldFileLine } from "./scaffold-report";
+import { formatScaffoldFileLine, formatScaffoldNextStep } from "./scaffold-report";
 import type { SetupReport } from "./setup";
 
 export const printSetupReport = (result: SetupReport, reason: string): void => {
@@ -56,4 +56,9 @@ export const printSetupReport = (result: SetupReport, reason: string): void => {
   ];
   console.log(`skillset: ${result.kind} ${details.join(", ")} (${reason})`);
   console.log(`  root: ${result.rootPath}`);
+  if (result.write) {
+    for (const command of result.nextSteps) {
+      console.log(formatScaffoldNextStep(command));
+    }
+  }
 };

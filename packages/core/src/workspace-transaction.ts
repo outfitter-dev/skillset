@@ -3,9 +3,11 @@
 
 import {
   chmod,
+  link,
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   realpath,
   rename,
   rm,
@@ -21,6 +23,8 @@ import type { GeneratedFileMode } from "./types";
 /** A file written as part of a bounded workspace transaction. */
 export interface WorkspaceTransactionWrite {
   readonly content: string | Uint8Array;
+  /** The caller approved this target only while it was absent. */
+  readonly expectedAbsent?: boolean;
   readonly mode?: GeneratedFileMode;
   readonly path: string;
 }
@@ -68,10 +72,22 @@ export interface WorkspaceTransactionRollbackAction {
  * process-global fault state.
  */
 export interface WorkspaceTransactionTestHooks {
+  readonly beforeInitialInspection?: () => Promise<void> | void;
   readonly beforeApply?: (
     operation: WorkspaceTransactionOperation,
     index: number
   ) => Promise<void> | void;
+  readonly beforeDirectoryReplacementValidation?: (
+    path: string
+  ) => Promise<void> | void;
+  /** Fires immediately before a directory destination name is claimed. */
+  readonly beforeDirectoryInstall?: (path: string) => Promise<void> | void;
+  /**
+   * Fires immediately after a directory destination name is claimed and its
+   * claim identity recorded, before that claim is consumed.
+   */
+  readonly afterDirectoryClaim?: (path: string) => Promise<void> | void;
+  readonly beforeWriteInstall?: (path: string) => Promise<void> | void;
   readonly beforeRollback?: (
     action: WorkspaceTransactionRollbackAction,
     index: number
@@ -127,6 +143,7 @@ interface NormalizedMove {
 
 interface NormalizedWrite {
   readonly content: string | Uint8Array;
+  readonly expectedAbsent?: boolean;
   readonly mode?: GeneratedFileMode;
   readonly operation: Extract<
     WorkspaceTransactionOperation,
@@ -197,11 +214,14 @@ export async function applyWorkspaceTransaction(
 ): Promise<WorkspaceTransactionReport> {
   const resolvedWorkspaceRoot = await resolveWorkspaceRoot(workspaceRoot);
   const prepared = preparePlan(resolvedWorkspaceRoot, plan);
+  await options.testHooks?.beforeInitialInspection?.();
   const initialEntries = await inspectInitialEntries(
     resolvedWorkspaceRoot,
-    prepared
+    prepared,
+    options.testHooks
   );
-  assertMoveTargetCollisions(prepared, initialEntries);
+  assertExpectedAbsentWriteTargets(prepared, initialEntries);
+  await assertMoveTargetCollisions(prepared, initialEntries);
 
   const state: TransactionState = {
     appliedMoves: [],
@@ -227,12 +247,7 @@ export async function applyWorkspaceTransaction(
       options.testHooks,
       prepared.operations
     );
-    await applyWrites(
-      state,
-      prepared.writes,
-      options.testHooks,
-      prepared.operations
-    );
+    await applyWrites(state, prepared, options.testHooks);
     await applyDeletes(
       prepared.deletes,
       options.testHooks,
@@ -264,6 +279,9 @@ function preparePlan(
       const path = normalizePath(workspaceRoot, write.path);
       return {
         content: write.content,
+        ...(write.expectedAbsent === undefined
+          ? {}
+          : { expectedAbsent: write.expectedAbsent }),
         ...(write.mode === undefined ? {} : { mode: write.mode }),
         operation: { kind: "write" as const, path: path.relative },
         path,
@@ -320,6 +338,22 @@ function preparePlan(
     ],
     writes,
   };
+}
+
+function assertExpectedAbsentWriteTargets(
+  prepared: PreparedPlan,
+  entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>
+): void {
+  for (const write of prepared.writes) {
+    if (
+      write.expectedAbsent === true &&
+      entries.get(write.path.relative) !== undefined
+    ) {
+      throw transactionError(
+        `write target appeared after final approval: ${write.path.relative}`
+      );
+    }
+  }
 }
 
 function assertPlanPaths(
@@ -386,7 +420,10 @@ function assertPlanPaths(
         isAncestorPath(left.path, right.path) ||
         isAncestorPath(right.path, left.path)
       ) {
-        if (isWriteUnderMoveTarget(left, right)) {
+        if (
+          isWriteUnderMoveTarget(left, right) ||
+          isShapeTransitionCandidate(left, right)
+        ) {
           continue;
         }
         throw transactionError(
@@ -406,7 +443,8 @@ function assertUnique(paths: Set<string>, path: string, label: string): void {
 
 async function inspectInitialEntries(
   workspaceRoot: string,
-  prepared: PreparedPlan
+  prepared: PreparedPlan,
+  hooks: WorkspaceTransactionTestHooks | undefined
 ): Promise<ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>> {
   const paths = new Map<string, NormalizedPath>();
   for (const write of prepared.writes) {
@@ -424,8 +462,26 @@ async function inspectInitialEntries(
   for (const path of [...paths.values()].toSorted((left, right) =>
     compareStrings(left.relative, right.relative)
   )) {
-    entries.set(path.relative, await inspectPath(workspaceRoot, path));
+    const obscuringDelete = prepared.deletes.some(
+      (entry) => isAncestorPath(entry.path.relative, path.relative)
+    );
+    const isWrite = prepared.writes.some(
+      (write) => write.path.relative === path.relative
+    );
+    entries.set(
+      path.relative,
+      obscuringDelete && isWrite
+        ? undefined
+        : await inspectPath(workspaceRoot, path)
+    );
   }
+
+  await assertManagedShapeTransitionEntries(
+    workspaceRoot,
+    prepared,
+    entries,
+    hooks
+  );
 
   for (const move of prepared.moves) {
     const source = entries.get(move.from.relative);
@@ -448,6 +504,13 @@ async function inspectInitialEntries(
   }
   for (const write of prepared.writes) {
     const entry = entries.get(write.path.relative);
+    const replacesManagedDescendants = prepared.deletes.some(
+      (plannedDelete) =>
+        isAncestorPath(write.path.relative, plannedDelete.path.relative)
+    );
+    if (entry?.isDirectory() === true && replacesManagedDescendants) {
+      continue;
+    }
     if (entry !== undefined && !entry.isFile()) {
       throw transactionError(
         `write target is not a regular file: ${write.path.relative}`
@@ -463,20 +526,73 @@ async function inspectInitialEntries(
   return entries;
 }
 
-function assertMoveTargetCollisions(
+async function assertManagedShapeTransitionEntries(
+  workspaceRoot: string,
+  prepared: PreparedPlan,
+  entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>,
+  hooks: WorkspaceTransactionTestHooks | undefined
+): Promise<void> {
+  for (const write of prepared.writes) {
+    const ancestorDeletes = prepared.deletes.filter((plannedDelete) =>
+      isAncestorPath(plannedDelete.path.relative, write.path.relative)
+    );
+    for (const plannedDelete of ancestorDeletes) {
+      const deletedEntry = entries.get(plannedDelete.path.relative);
+      if (deletedEntry?.isFile() !== true) {
+        throw transactionError(
+          `delete ancestor must be an existing regular file before a descendant write: ${plannedDelete.path.relative}`
+        );
+      }
+    }
+
+    const descendantDeletes = prepared.deletes.filter((plannedDelete) =>
+      isAncestorPath(write.path.relative, plannedDelete.path.relative)
+    );
+    if (descendantDeletes.length === 0) {
+      continue;
+    }
+    const replacedEntry = entries.get(write.path.relative);
+    if (replacedEntry?.isDirectory() !== true) {
+      throw transactionError(
+        `write ancestor must be an existing directory before deleting descendants: ${write.path.relative}`
+      );
+    }
+    for (const plannedDelete of descendantDeletes) {
+      const deletedEntry = entries.get(plannedDelete.path.relative);
+      if (deletedEntry?.isFile() !== true) {
+        throw transactionError(
+          `delete descendant must be an existing regular file before an ancestor write: ${plannedDelete.path.relative}`
+        );
+      }
+    }
+    await hooks?.beforeDirectoryReplacementValidation?.(
+      write.path.relative
+    );
+    await assertDirectoryReplacementIsCovered(
+      workspaceRoot,
+      write.path,
+      descendantDeletes
+    );
+  }
+}
+
+async function assertMoveTargetCollisions(
   prepared: PreparedPlan,
   entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>
-): void {
+): Promise<void> {
   const moveSources = new Set(prepared.moves.map((move) => move.from.relative));
   const deletes = new Set(prepared.deletes.map((entry) => entry.path.relative));
   for (const move of prepared.moves) {
     if (entries.get(move.to.relative) === undefined) {
       continue;
     }
+    if (moveSources.has(move.to.relative) || deletes.has(move.to.relative)) {
+      continue;
+    }
     if (
-      moveSources.has(move.to.relative) ||
-      deletes.has(move.to.relative) ||
-      isCaseOnlyMove(move)
+      isCaseOnlyMove(move) &&
+      (await realpath(move.from.absolute)) ===
+        (await realpath(move.to.absolute))
     ) {
       continue;
     }
@@ -506,7 +622,17 @@ async function stagePreimages(
         move.to.relative === write.path.relative ||
         isAncestorPath(move.to.relative, write.path.relative)
     );
-    if (!installedByMove && entries.get(write.path.relative) !== undefined) {
+    const entry = entries.get(write.path.relative);
+    const replacedByDescendantDeletes =
+      entry?.isDirectory() === true &&
+      prepared.deletes.some((plannedDelete) =>
+        isAncestorPath(write.path.relative, plannedDelete.path.relative)
+      );
+    if (
+      !installedByMove &&
+      !replacedByDescendantDeletes &&
+      entry !== undefined
+    ) {
       paths.set(write.path.relative, write.path);
     }
   }
@@ -561,24 +687,44 @@ async function applyMoves(
       applied.currentPath = stagingPath;
       Object.assign(applied, { caseStagingDirectory });
     }
-    await rename(applied.currentPath, move.to.absolute);
+    const outcome = await installWithoutReplacing(
+      hooks,
+      applied.currentPath,
+      move.to
+    );
+    if (outcome === "occupied") {
+      preserveCreatedDirectoryAncestors(state, move.to.absolute);
+      throw transactionError(
+        `move target appeared before atomic install: ${move.to.relative}`
+      );
+    }
     applied.currentPath = move.to.absolute;
   }
 }
 
 async function applyWrites(
   state: TransactionState,
-  writes: readonly NormalizedWrite[],
-  hooks: WorkspaceTransactionTestHooks | undefined,
-  operations: readonly WorkspaceTransactionOperation[]
+  prepared: PreparedPlan,
+  hooks: WorkspaceTransactionTestHooks | undefined
 ): Promise<void> {
-  for (const [index, write] of writes.entries()) {
-    await invokeApplyHook(hooks, operations, write.operation);
+  for (const [index, write] of prepared.writes.entries()) {
+    await invokeApplyHook(hooks, prepared.operations, write.operation);
     await ensureSafeParent(state, write.path);
-    if (
-      !state.preimages.has(write.path.relative) &&
-      (await inspectPath(state.workspaceRoot, write.path)) !== undefined
-    ) {
+    const currentEntry = await inspectPath(state.workspaceRoot, write.path);
+    const stagedPreimage = state.preimages.has(write.path.relative);
+    if (stagedPreimage && currentEntry !== undefined) {
+      preserveCreatedDirectoryAncestors(state, write.path.absolute);
+      throw transactionError(
+        `write target reappeared after preimage staging: ${write.path.relative}`
+      );
+    }
+    if (!stagedPreimage && currentEntry !== undefined) {
+      if (!writeReplacesPlannedEntry(write, prepared)) {
+        preserveCreatedDirectoryAncestors(state, write.path.absolute);
+        throw transactionError(
+          `write target appeared after transaction inspection: ${write.path.relative}`
+        );
+      }
       const journalPath = nodePath.join(
         state.journalPath,
         "late-preimages",
@@ -602,9 +748,191 @@ async function applyWrites(
       write,
     };
     state.appliedWrites.push(applied);
-    await rename(applied.currentPath, write.path.absolute);
+    await hooks?.beforeWriteInstall?.(write.path.relative);
+    const outcome = await installWithoutReplacing(
+      hooks,
+      applied.currentPath,
+      write.path
+    );
+    if (outcome === "occupied") {
+      preserveCreatedDirectoryAncestors(state, write.path.absolute);
+      throw transactionError(
+        `write target appeared before atomic install: ${write.path.relative}`
+      );
+    }
     applied.currentPath = write.path.absolute;
   }
+}
+
+/**
+ * Installs one staged entry at its final path, rejecting rather than replacing
+ * an entry that appeared after inspection.
+ *
+ * Both branches take the destination name with an exclusive create, so
+ * occupancy detection and taking the name are one atomic step rather than a
+ * check followed by an overwrite-capable act. Regular files take it with
+ * `link`, which completes the install: that path is atomically no-replace.
+ * Directories cannot be hard-linked, so they take it with `mkdir`, which fails
+ * with `EEXIST` for any existing entry — including an empty directory or a
+ * symbolic link, neither of which it follows — and then move onto the claim
+ * this transaction now owns. That second step cannot be made atomic with the
+ * available primitives; {@link moveOntoDirectoryClaim} states exactly what it
+ * guarantees instead.
+ */
+async function installWithoutReplacing(
+  hooks: WorkspaceTransactionTestHooks | undefined,
+  sourcePath: string,
+  target: NormalizedPath
+): Promise<"installed" | "occupied"> {
+  const source = await lstat(sourcePath);
+  if (source.isFile()) {
+    try {
+      await link(sourcePath, target.absolute);
+    } catch (error) {
+      if (isAlreadyExists(error)) {
+        return "occupied";
+      }
+      throw error;
+    }
+    await rm(sourcePath);
+    return "installed";
+  }
+  await hooks?.beforeDirectoryInstall?.(target.relative);
+  try {
+    await mkdir(target.absolute);
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      return "occupied";
+    }
+    throw error;
+  }
+  const claim = await describeDirectoryClaim(target.absolute);
+  await hooks?.afterDirectoryClaim?.(target.relative);
+  return await moveOntoDirectoryClaim(sourcePath, claim);
+}
+
+/**
+ * The identity of the empty directory this transaction created to claim a
+ * destination name, captured immediately after the claiming `mkdir`.
+ *
+ * `dev`/`ino` identify the claimed directory itself. `birthtimeNs` separates a
+ * recycled inode number from the original claim on filesystems that reuse
+ * them, and `ctimeNs` additionally changes if anything is created inside the
+ * claim, so a claim that is no longer both ours and empty is detectable.
+ */
+interface DirectoryClaim {
+  readonly birthtimeNs: bigint;
+  readonly ctimeNs: bigint;
+  readonly dev: bigint;
+  readonly ino: bigint;
+  readonly path: string;
+}
+
+/**
+ * Moves a staged directory onto the destination name this transaction just
+ * claimed.
+ *
+ * The claim is verified immediately before each step that consumes it, and any
+ * mismatch reports the destination as occupied without touching the entry
+ * found there. This detects a claim that another process removed and replaced,
+ * which the claiming `mkdir` alone cannot prevent.
+ *
+ * This is detection that fails closed, not atomicity: neither Bun nor Node
+ * exposes a no-replace rename (`renameat2(RENAME_NOREPLACE)`,
+ * `renamex_np(RENAME_EXCL)`), so on POSIX a replacement that lands between the
+ * final verification and the `rename` itself is still replaced. Every
+ * consuming step also fails closed on the kernel's own refusals (`ENOTEMPTY`,
+ * `ENOTDIR`) in case a substitution slips past verification.
+ *
+ * POSIX `rename` replaces an empty destination directory, so it consumes the
+ * claim directly. Windows refuses to rename a directory onto any existing
+ * entry, so there the claim is released first; that same refusal keeps the
+ * retry no-replace.
+ */
+async function moveOntoDirectoryClaim(
+  sourcePath: string,
+  claim: DirectoryClaim
+): Promise<"installed" | "occupied"> {
+  if (!(await directoryClaimIsIntact(claim))) {
+    return "occupied";
+  }
+  try {
+    await rename(sourcePath, claim.path);
+    return "installed";
+  } catch (error) {
+    if (isUnconsumableTarget(error)) {
+      return "occupied";
+    }
+    if (!isAlreadyExists(error)) {
+      throw error;
+    }
+  }
+  if (!(await directoryClaimIsIntact(claim))) {
+    return "occupied";
+  }
+  try {
+    await rmdir(claim.path);
+  } catch (error) {
+    if (isUnconsumableTarget(error) || isMissing(error)) {
+      return "occupied";
+    }
+    throw error;
+  }
+  try {
+    await rename(sourcePath, claim.path);
+    return "installed";
+  } catch (error) {
+    if (isAlreadyExists(error) || isUnconsumableTarget(error)) {
+      return "occupied";
+    }
+    throw error;
+  }
+}
+
+async function describeDirectoryClaim(path: string): Promise<DirectoryClaim> {
+  const entry = await lstat(path, { bigint: true });
+  return {
+    birthtimeNs: entry.birthtimeNs,
+    ctimeNs: entry.ctimeNs,
+    dev: entry.dev,
+    ino: entry.ino,
+    path,
+  };
+}
+
+async function directoryClaimIsIntact(claim: DirectoryClaim): Promise<boolean> {
+  const entry = await lstat(claim.path, { bigint: true }).catch(
+    (error: unknown) => {
+      if (isMissing(error)) {
+        return;
+      }
+      throw error;
+    }
+  );
+  return (
+    entry !== undefined &&
+    entry.isDirectory() &&
+    entry.dev === claim.dev &&
+    entry.ino === claim.ino &&
+    entry.birthtimeNs === claim.birthtimeNs &&
+    entry.ctimeNs === claim.ctimeNs
+  );
+}
+
+function writeReplacesPlannedEntry(
+  write: NormalizedWrite,
+  prepared: PreparedPlan
+): boolean {
+  return (
+    prepared.moves.some(
+      (move) =>
+        move.to.relative === write.path.relative ||
+        isAncestorPath(move.to.relative, write.path.relative)
+    ) ||
+    prepared.deletes.some((entry) =>
+      isAncestorPath(write.path.relative, entry.path.relative)
+    )
+  );
 }
 
 async function applyDeletes(
@@ -704,7 +1032,7 @@ async function rollbackTransaction(
       { kind: "restore-preimage", path: preimage.path.relative },
       async () => {
         await ensureSafeParent(state, preimage.path);
-        await rename(preimage.journalPath, preimage.path.absolute);
+        await restorePreimageWithoutOverwrite(state, hooks, preimage);
       }
     );
   }
@@ -724,19 +1052,9 @@ async function rollbackTransaction(
     await run(
       { kind: "restore-preimage", path: preimage.path.relative },
       async () => {
+        await removeCreatedDirectoriesWithin(state, preimage.path.absolute);
         await ensureSafeParent(state, preimage.path);
-        await rename(preimage.journalPath, preimage.path.absolute);
-      }
-    );
-  }
-  for (const directory of [...state.createdDirectories].toReversed()) {
-    await run(
-      {
-        kind: "remove-created-directory",
-        path: nodePath.relative(state.workspaceRoot, directory),
-      },
-      async () => {
-        await removeEmptyDirectory(directory);
+        await restorePreimageWithoutOverwrite(state, hooks, preimage);
       }
     );
   }
@@ -751,6 +1069,26 @@ async function rollbackTransaction(
       }
     );
   }
+  for (const directory of [...state.createdDirectories].toReversed()) {
+    await run(
+      {
+        kind: "remove-created-directory",
+        path: nodePath.relative(state.workspaceRoot, directory),
+      },
+      async () => {
+        await removeEmptyDirectory(directory);
+      }
+    );
+  }
+  if (failures.length > 0) {
+    failures.push(
+      `recovery journal retained at ${nodePath.relative(
+        state.workspaceRoot,
+        state.journalPath
+      )}`
+    );
+    return failures;
+  }
   await run(
     {
       kind: "remove-created-directory",
@@ -761,6 +1099,45 @@ async function rollbackTransaction(
     }
   );
   return failures;
+}
+
+async function restorePreimageWithoutOverwrite(
+  state: TransactionState,
+  hooks: WorkspaceTransactionTestHooks | undefined,
+  preimage: Preimage
+): Promise<void> {
+  const outcome = await installWithoutReplacing(
+    hooks,
+    preimage.journalPath,
+    preimage.path
+  );
+  if (outcome === "occupied") {
+    throw transactionError(
+      `rollback target is occupied; preserved preimage at ${nodePath.relative(
+        state.workspaceRoot,
+        preimage.journalPath
+      )}`
+    );
+  }
+}
+
+function preserveCreatedDirectoryAncestors(
+  state: TransactionState,
+  targetPath: string
+): void {
+  for (
+    let index = state.createdDirectories.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const directory = state.createdDirectories[index];
+    if (
+      directory !== undefined &&
+      targetPath.startsWith(`${directory}${nodePath.sep}`)
+    ) {
+      state.createdDirectories.splice(index, 1);
+    }
+  }
 }
 
 async function removeEmptyDirectory(path: string): Promise<void> {
@@ -864,6 +1241,85 @@ function isWriteUnderMoveTarget(
   );
 }
 
+function isShapeTransitionCandidate(
+  left: { readonly path: string; readonly role: string },
+  right: { readonly path: string; readonly role: string }
+): boolean {
+  return (
+    (left.role === "delete" && right.role === "write") ||
+    (left.role === "write" && right.role === "delete")
+  );
+}
+
+async function assertDirectoryReplacementIsCovered(
+  workspaceRoot: string,
+  directory: NormalizedPath,
+  deletes: readonly NormalizedDelete[]
+): Promise<void> {
+  const deleteLeaves = new Set(
+    deletes.map((plannedDelete) => plannedDelete.path.relative)
+  );
+  const deleteAncestors = new Set<string>();
+  for (const leaf of deleteLeaves) {
+    let ancestor = nodePath.dirname(leaf);
+    while (
+      ancestor !== directory.relative &&
+      isAncestorPath(directory.relative, ancestor)
+    ) {
+      deleteAncestors.add(ancestor);
+      ancestor = nodePath.dirname(ancestor);
+    }
+  }
+
+  const inspectDirectory = async (absolute: string): Promise<void> => {
+    const entries = (await readdir(absolute, { withFileTypes: true }))
+      .toSorted((left, right) => compareStrings(left.name, right.name));
+    for (const entry of entries) {
+      const childAbsolute = nodePath.join(absolute, entry.name);
+      const childRelative = nodePath.relative(workspaceRoot, childAbsolute);
+      if (entry.isSymbolicLink()) {
+        throw transactionError(
+          `refusing to replace directory containing symbolic link: ${childRelative}`
+        );
+      }
+      const coveredFile = entry.isFile() && deleteLeaves.has(childRelative);
+      if (coveredFile) {
+        continue;
+      }
+      if (entry.isDirectory() && deleteAncestors.has(childRelative)) {
+        await inspectDirectory(childAbsolute);
+        continue;
+      }
+      throw transactionError(
+        `refusing to replace directory containing unmanaged entry: ${childRelative}`
+      );
+    }
+  };
+
+  await inspectDirectory(directory.absolute);
+}
+
+async function removeCreatedDirectoriesWithin(
+  state: TransactionState,
+  targetPath: string
+): Promise<void> {
+  for (
+    let index = state.createdDirectories.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const directory = state.createdDirectories[index];
+    if (directory === undefined) continue;
+    if (
+      directory === targetPath ||
+      directory.startsWith(`${targetPath}${nodePath.sep}`)
+    ) {
+      await removeEmptyDirectory(directory);
+      state.createdDirectories.splice(index, 1);
+    }
+  }
+}
+
 function isContainedRelativePath(relativePath: string): boolean {
   return (
     relativePath !== ".." &&
@@ -874,6 +1330,23 @@ function isContainedRelativePath(relativePath: string): boolean {
 
 function isMissing(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function isAlreadyExists(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "EEXIST";
+}
+
+/**
+ * The kernel refused an operation because the destination is not the empty
+ * directory this transaction claimed: it holds entries (`ENOTEMPTY`) or is no
+ * longer a directory at all (`ENOTDIR`). Either way the claim is gone.
+ */
+function isUnconsumableTarget(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "ENOTEMPTY" || error.code === "ENOTDIR")
+  );
 }
 
 function errorMessage(error: unknown): string {

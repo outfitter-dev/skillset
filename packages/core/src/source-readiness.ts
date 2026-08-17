@@ -39,12 +39,15 @@ import type {
   LintResult,
   SkillsetOptions,
 } from "./types";
+import type { WorkspaceTransactionOptions } from "./workspace-transaction";
 
 export interface CheckSkillsetSourceReadinessOptions extends SkillsetOptions {
   /** Explicitly request a generated-output-only rebuild. */
   readonly write?: "outputs";
   /** Output paths proven source-driven by the calling analysis or operation. */
   readonly sourceDrivenOutputPaths?: readonly string[];
+  /** Deterministic fault injection for ordinary output transaction tests. @internal */
+  readonly transactionOptions?: WorkspaceTransactionOptions;
 }
 
 export interface SkillsetSourceReadinessData {
@@ -113,6 +116,7 @@ export async function checkSkillsetSourceReadinessWithAuthority(
 ): Promise<SkillsetOperationResult<SkillsetSourceReadinessData>> {
   const {
     sourceDrivenOutputPaths,
+    transactionOptions,
     write,
     ...skillsetOptions
   } = options;
@@ -194,7 +198,10 @@ export async function checkSkillsetSourceReadinessWithAuthority(
     const build = await buildSkillsetResultWithAuthority(
       rootPath,
       skillsetOptions,
-      inspection,
+      {
+        ...inspection,
+        ...(transactionOptions === undefined ? {} : { transactionOptions }),
+      },
       managedLockRepairPaths,
       hooks
     );

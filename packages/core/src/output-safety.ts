@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
@@ -64,6 +64,7 @@ export type OutputWritePreimage =
     };
 
 export interface OutputBackupPlan {
+  readonly preflightDiagnostics: readonly SkillsetDiagnostic[];
   readonly preimages: readonly OutputWritePreimage[];
   readonly records: readonly (OutputBackupPlanRecord & {
     readonly content: Uint8Array;
@@ -325,17 +326,29 @@ export async function planOutputBackups(
   managedState: ManagedOutputState,
   resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path)
 ): Promise<OutputBackupPlan> {
-  const preimages = await collectOutputWritePreimages(
-    [...rendered.map((file) => file.path), ...deletePaths],
-    resolveOutputPath
-  );
+  const [caseOnlyManagedInspection, preflightDiagnostics, preimages] =
+    await Promise.all([
+      inspectCaseOnlyManagedAliases(
+        rendered,
+        deletePaths,
+        managedState,
+        resolveOutputPath
+      ),
+      diagnoseOutputShapeCollisions(rendered, deletePaths, resolveOutputPath),
+      collectOutputWritePreimages(
+        [...rendered.map((file) => file.path), ...deletePaths],
+        resolveOutputPath
+      ),
+    ]);
   return {
+    preflightDiagnostics,
     preimages,
     records: collectOutputBackupRecords(
       rendered,
       deletePaths,
       managedState,
-      new Map(preimages.map((preimage) => [preimage.targetPath, preimage]))
+      new Map(preimages.map((preimage) => [preimage.targetPath, preimage])),
+      caseOnlyManagedInspection
     ),
   };
 }
@@ -422,7 +435,10 @@ export async function diagnoseOutputBackupPreflight(
 export function diagnoseOutputBackupPlan(
   plan: OutputBackupPlan
 ): readonly SkillsetDiagnostic[] {
-  return plan.records.map(preflightBackupDiagnostic);
+  return [
+    ...plan.preflightDiagnostics,
+    ...plan.records.map(preflightBackupDiagnostic),
+  ];
 }
 
 export async function restoreOutputBackup(
@@ -677,23 +693,39 @@ function collectOutputBackupRecords(
   rendered: readonly RenderedFile[],
   deletePaths: readonly string[],
   managedState: ManagedOutputState,
-  preimages: ReadonlyMap<string, OutputWritePreimage>
+  preimages: ReadonlyMap<string, OutputWritePreimage>,
+  caseOnlyManagedInspection: Awaited<
+    ReturnType<typeof inspectCaseOnlyManagedAliases>
+  >
 ): Array<OutputBackupPlanRecord & { readonly content: Uint8Array }> {
   const records: Array<OutputBackupPlanRecord & { readonly content: Uint8Array }> = [];
   const renderedByPath = new Map(rendered.map((file) => [file.path, file]));
+  const caseOnlyManagedAliases = caseOnlyManagedInspection.aliases;
+  const caseOnlyManagedAliasSources = new Set(
+    caseOnlyManagedAliases.values()
+  );
 
   for (const file of rendered) {
     const preimage = preimages.get(file.path);
     if (preimage?.state !== "present") continue;
     const current = preimage.content;
-    if (
-      bytesEqual(current, file.content) &&
+    const managedPath = managedState.paths.has(file.path)
+      ? file.path
+      : caseOnlyManagedAliases.get(file.path);
+    const matchesRendered = bytesEqual(current, file.content) &&
       (!supportsGeneratedFileModes() ||
-        preimage.mode === formatGeneratedFileMode(file.mode))
-    ) continue;
+        preimage.mode === formatGeneratedFileMode(file.mode));
+    if (managedPath !== undefined && matchesRendered) continue;
+    if (
+      managedPath === undefined &&
+      !caseOnlyManagedInspection.targets.has(file.path) &&
+      matchesRendered
+    ) {
+      continue;
+    }
 
-    const reason = managedState.paths.has(file.path)
-      ? managedState.editedPaths.has(file.path)
+    const reason = managedPath !== undefined
+      ? managedState.editedPaths.has(managedPath)
         ? "managed-target-edit"
         : undefined
       : "unmanaged-collision";
@@ -713,6 +745,7 @@ function collectOutputBackupRecords(
   }
 
   for (const targetPath of deletePaths) {
+    if (caseOnlyManagedAliasSources.has(targetPath)) continue;
     if (!managedState.editedPaths.has(targetPath)) continue;
     if (renderedByPath.has(targetPath)) continue;
     const preimage = preimages.get(targetPath);
@@ -731,6 +764,135 @@ function collectOutputBackupRecords(
   return records.sort((left, right) => compareStrings(left.targetPath, right.targetPath));
 }
 
+async function diagnoseOutputShapeCollisions(
+  rendered: readonly RenderedFile[],
+  deletePaths: readonly string[],
+  resolveOutputPath: OutputPathResolver
+): Promise<readonly SkillsetDiagnostic[]> {
+  const diagnostics: SkillsetDiagnostic[] = [];
+  for (const file of rendered) {
+    const absolutePath = resolveOutputPath(file.path);
+    const entry = await lstat(absolutePath).catch((error: unknown) => {
+      if (isNotFound(error)) {
+        return;
+      }
+      throw error;
+    });
+    if (entry === undefined || entry.isFile()) {
+      continue;
+    }
+    if (!entry.isDirectory()) {
+      diagnostics.push(outputShapeCollisionDiagnostic(file.path));
+      continue;
+    }
+    const collision = await firstUnmanagedDirectoryEntry(
+      absolutePath,
+      file.path,
+      deletePaths
+    );
+    if (collision !== undefined) {
+      diagnostics.push(outputShapeCollisionDiagnostic(collision));
+    }
+  }
+  return diagnostics;
+}
+
+async function firstUnmanagedDirectoryEntry(
+  absoluteDirectory: string,
+  logicalDirectory: string,
+  deletePaths: readonly string[]
+): Promise<string | undefined> {
+  const entries = await readdir(absoluteDirectory, { withFileTypes: true });
+  for (const entry of entries.toSorted((left, right) =>
+    compareStrings(left.name, right.name)
+  )) {
+    const logicalPath = `${logicalDirectory}/${entry.name}`;
+    if (entry.isSymbolicLink()) {
+      return logicalPath;
+    }
+    const coveredByDelete = deletePaths.some(
+      (path) => path === logicalPath || logicalPath.startsWith(`${path}/`)
+    );
+    if (coveredByDelete) {
+      continue;
+    }
+    const containsManagedDelete = deletePaths.some((path) =>
+      path.startsWith(`${logicalPath}/`)
+    );
+    if (entry.isDirectory() && containsManagedDelete) {
+      const nested = await firstUnmanagedDirectoryEntry(
+        join(absoluteDirectory, entry.name),
+        logicalPath,
+        deletePaths
+      );
+      if (nested === undefined) {
+        continue;
+      }
+      return nested;
+    }
+    return logicalPath;
+  }
+  return undefined;
+}
+
+function outputShapeCollisionDiagnostic(path: string): SkillsetDiagnostic {
+  return {
+    code: "unmanaged-output-collision",
+    featureId: "output-safety",
+    message: `existing output shape is not fully owned by Skillset; refusing to replace ${path}`,
+    outputPath: path,
+    severity: "error",
+  };
+}
+
+async function inspectCaseOnlyManagedAliases(
+  rendered: readonly RenderedFile[],
+  deletePaths: readonly string[],
+  managedState: ManagedOutputState,
+  resolveOutputPath: OutputPathResolver
+): Promise<{
+  readonly aliases: ReadonlyMap<string, string>;
+  readonly targets: ReadonlySet<string>;
+}> {
+  const renderedByCase = new Map<string, RenderedFile[]>();
+  const staleManagedByCase = new Map<string, string[]>();
+  for (const file of rendered) {
+    const key = file.path.toLowerCase();
+    renderedByCase.set(key, [...(renderedByCase.get(key) ?? []), file]);
+  }
+  for (const path of deletePaths) {
+    if (!managedState.paths.has(path)) continue;
+    const key = path.toLowerCase();
+    staleManagedByCase.set(key, [
+      ...(staleManagedByCase.get(key) ?? []),
+      path,
+    ]);
+  }
+
+  const aliases = new Map<string, string>();
+  const candidateTargets = new Set<string>();
+  for (const [key, renderedTargets] of renderedByCase) {
+    const sources = staleManagedByCase.get(key) ?? [];
+    if (renderedTargets.length !== 1 || sources.length !== 1) continue;
+    const target = renderedTargets[0]?.path;
+    const source = sources[0];
+    if (target === undefined || source === undefined || target === source) {
+      continue;
+    }
+    candidateTargets.add(target);
+    try {
+      const [sourcePath, targetPath] = await Promise.all([
+        realpath(resolveOutputPath(source)),
+        realpath(resolveOutputPath(target)),
+      ]);
+      if (sourcePath === targetPath) aliases.set(target, source);
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+    }
+  }
+  return { aliases, targets: candidateTargets };
+}
+
 async function collectOutputWritePreimages(
   targetPaths: readonly string[],
   resolveOutputPath: OutputPathResolver
@@ -738,10 +900,15 @@ async function collectOutputWritePreimages(
   const preimages: OutputWritePreimage[] = [];
   for (const targetPath of [...new Set(targetPaths)].sort(compareStrings)) {
     const absolutePath = resolveOutputPath(targetPath);
-    if (!(await exists(absolutePath))) {
+    const entry = await lstat(absolutePath).catch((error: unknown) => {
+      if (isNotFound(error)) return;
+      throw error;
+    });
+    if (entry === undefined) {
       preimages.push({ state: "absent", targetPath });
       continue;
     }
+    if (entry.isDirectory()) continue;
     const content = await readFile(absolutePath);
     const currentStats = await stat(absolutePath);
     preimages.push({
@@ -1364,7 +1531,8 @@ async function exists(path: string): Promise<boolean> {
 }
 
 function isNotFound(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+  return typeof error === "object" && error !== null && "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR");
 }
 
 async function collectFiles(root: string): Promise<readonly string[]> {

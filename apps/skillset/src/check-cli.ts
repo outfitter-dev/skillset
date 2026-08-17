@@ -157,6 +157,7 @@ function ciReportDiagnostics(
 }
 
 function printCiReport(report: CiReport): void {
+  const noOutputBaseline = report.outputState.state === "no-output-baseline";
   printDiagnostics(report.outputDiagnostics);
   for (const warning of report.warnings) {
     console.log(`  warning: ${warning}`);
@@ -181,8 +182,10 @@ function printCiReport(report: CiReport): void {
   for (const issue of report.changesetIssues ?? []) {
     console.log(`  changeset error: ${issue}`);
   }
-  for (const path of report.fixedPaths) {
-    console.log(`  fixed ${path}`);
+  if (!report.wroteOutputBaseline) {
+    for (const path of report.fixedPaths) {
+      console.log(`  fixed ${path}`);
+    }
   }
   for (const path of targetEditedOutputPaths(report)) {
     console.log(`  target-side generated edit ${path}`);
@@ -194,17 +197,19 @@ function printCiReport(report: CiReport): void {
     console.log(`  provider-format update ${path}`);
   }
   const { drift } = report;
-  for (const path of drift.added) {
-    console.log(`  generated + ${path}`);
-  }
-  for (const path of drift.changed) {
-    console.log(`  generated ~ ${path}`);
-  }
-  for (const path of drift.missing) {
-    console.log(`  generated ! ${path}`);
-  }
-  for (const path of drift.removed) {
-    console.log(`  generated - ${path}`);
+  if (!noOutputBaseline) {
+    for (const path of drift.added) {
+      console.log(`  generated + ${path}`);
+    }
+    for (const path of drift.changed) {
+      console.log(`  generated ~ ${path}`);
+    }
+    for (const path of drift.missing) {
+      console.log(`  generated ! ${path}`);
+    }
+    for (const path of drift.removed) {
+      console.log(`  generated - ${path}`);
+    }
   }
   for (const suggestion of report.sourceSuggestions ?? []) {
     console.log(
@@ -221,7 +226,7 @@ function printCiReport(report: CiReport): void {
   if (report.providerAnalysisError !== undefined) {
     console.log(`  provider-format analysis error: ${report.providerAnalysisError}`);
   }
-  for (const recovery of report.recovery ?? []) {
+  for (const recovery of noOutputBaseline ? [] : (report.recovery ?? [])) {
     const location = recovery.path === undefined ? "" : ` ${recovery.path}`;
     const ref = recovery.ref === undefined ? "" : ` ${recovery.ref}`;
     const scope = recovery.scope === undefined ? "" : ` (${recovery.scope})`;
@@ -234,11 +239,19 @@ function printCiReport(report: CiReport): void {
   }
 
   if (report.ok) {
+    if (report.wroteOutputBaseline) {
+      console.log("skillset: check wrote the output baseline");
+      return;
+    }
     console.log(
       report.fixedPaths.length === 0
         ? "skillset: check passed"
         : `skillset: check passed after rebuilding ${report.fixedPaths.length} generated file${report.fixedPaths.length === 1 ? "" : "s"}`
     );
+    return;
+  }
+  if (noOutputBaseline) {
+    console.log("skillset: no output baseline — run skillset build --yes");
     return;
   }
   const changeErrors = report.changeIssues.filter(

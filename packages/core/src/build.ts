@@ -45,6 +45,8 @@ import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from ".
 import { SkillsetRenderResultError, defineRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
+import { applyWorkspaceTransaction } from "./workspace-transaction";
+import type { WorkspaceTransactionOptions } from "./workspace-transaction";
 
 /** Mirror root for isolated builds; the full projection lands under it. */
 export const ISOLATED_OUT_ROOT = ".skillset/cache/latest";
@@ -169,12 +171,15 @@ export async function buildSkillset(
 export async function buildSkillsetResult(
   rootPath: string,
   options: SkillsetOptions = {},
-  inspectionOptions: SkillsetDiffInspectionOptions = {}
+  inspectionOptions: SkillsetBuildInspectionOptions = {}
 ): Promise<SkillsetBuildResult> {
   return buildSkillsetResultInternal(rootPath, options, {
     ...(inspectionOptions.sourceDrivenOutputPaths === undefined
       ? {}
       : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+    ...(inspectionOptions.transactionOptions === undefined
+      ? {}
+      : { transactionOptions: inspectionOptions.transactionOptions }),
   });
 }
 
@@ -188,7 +193,7 @@ export interface SkillsetBuildAuthorityHooks {
 export async function buildSkillsetResultWithAuthority(
   rootPath: string,
   options: SkillsetOptions,
-  inspectionOptions: SkillsetDiffInspectionOptions,
+  inspectionOptions: SkillsetBuildInspectionOptions,
   managedLockRepairPaths: readonly string[],
   hooks: SkillsetBuildAuthorityHooks = {}
 ): Promise<SkillsetBuildResult> {
@@ -206,10 +211,13 @@ export async function buildSkillsetResultWithAuthority(
     ...(inspectionOptions.sourceDrivenOutputPaths === undefined
       ? {}
       : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
+    ...(inspectionOptions.transactionOptions === undefined
+      ? {}
+      : { transactionOptions: inspectionOptions.transactionOptions }),
   });
 }
 
-interface SkillsetBuildInspectionOptions extends SkillsetDiffInspectionOptions {
+interface SkillsetBuildInternalOptions extends SkillsetBuildInspectionOptions {
   /** @internal Deterministic race injection after backup persistence. */
   readonly afterBackupPersistence?: () => Promise<void> | void;
   /** @internal Deterministic race injection after backup planning. */
@@ -222,7 +230,7 @@ interface SkillsetBuildInspectionOptions extends SkillsetDiffInspectionOptions {
 async function buildSkillsetResultInternal(
   rootPath: string,
   options: SkillsetOptions,
-  inspectionOptions: SkillsetBuildInspectionOptions
+  inspectionOptions: SkillsetBuildInternalOptions
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
@@ -390,14 +398,57 @@ async function buildSkillsetResultInternal(
   }
 
   if (graph.root.compile.build === "all") {
-    const deletedPaths = await removeStaleGeneratedFiles(new Set(writeInspection.staleManagedPaths), expectedPaths, writePreimages, resolveOutputPath);
-    const writtenPaths = await writeRenderedFiles(rendered, writePreimages, resolveOutputPath);
+    const { deletedPaths, writtenPaths } = options.isolated === true
+      ? {
+          deletedPaths: await removeStaleGeneratedFiles(
+            new Set(writeInspection.staleManagedPaths),
+            expectedPaths,
+            writePreimages,
+            resolveOutputPath
+          ),
+          writtenPaths: await writeRenderedFiles(
+            rendered,
+            writePreimages,
+            resolveOutputPath
+          ),
+        }
+      : await applyRenderedFileTransaction(
+          rootPath,
+          rendered,
+          writeInspection.staleManagedPaths,
+          writePreimages,
+          resolveOutputPath,
+          true,
+          inspectionOptions.transactionOptions
+        );
     return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
   const actualPaths = writeInspection.actualPaths;
-  const deletedPaths = await removeStaleGeneratedFiles(new Set(writeInspection.staleManagedPaths), expectedPaths, writePreimages, resolveOutputPath);
-  const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, writePreimages, resolveOutputPath);
+  const { deletedPaths, writtenPaths } = options.isolated === true
+    ? {
+        deletedPaths: await removeStaleGeneratedFiles(
+          new Set(writeInspection.staleManagedPaths),
+          expectedPaths,
+          writePreimages,
+          resolveOutputPath
+        ),
+        writtenPaths: await writeChangedRenderedFiles(
+          rendered,
+          actualPaths,
+          writePreimages,
+          resolveOutputPath
+        ),
+      }
+    : await applyRenderedFileTransaction(
+        rootPath,
+        rendered,
+        writeInspection.staleManagedPaths,
+        writePreimages,
+        resolveOutputPath,
+        false,
+        inspectionOptions.transactionOptions
+      );
 
   return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
@@ -915,6 +966,12 @@ export interface SkillsetDiffInspectionOptions {
   readonly enforceRenderPolicy?: boolean;
   /** Paths proven source-driven by the calling analysis or operation. */
   readonly sourceDrivenOutputPaths?: readonly string[];
+}
+
+export interface SkillsetBuildInspectionOptions
+  extends SkillsetDiffInspectionOptions {
+  /** Deterministic fault injection for ordinary output transaction tests. @internal */
+  readonly transactionOptions?: WorkspaceTransactionOptions;
 }
 
 /**
@@ -1441,6 +1498,104 @@ async function writeRenderedFiles(
   return writtenPaths.sort(compareStrings);
 }
 
+async function applyRenderedFileTransaction(
+  rootPath: string,
+  rendered: readonly RenderedFile[],
+  staleManagedPaths: readonly string[],
+  writePreimages: ReadonlyMap<string, OutputWritePreimage>,
+  resolveOutputPath: OutputPathResolver,
+  writeAll: boolean,
+  transactionOptions: WorkspaceTransactionOptions | undefined
+): Promise<{
+  readonly deletedPaths: readonly string[];
+  readonly writtenPaths: readonly string[];
+}> {
+  const caseOnlyMoves: { readonly from: string; readonly to: string }[] = [];
+  const missingCaseOnlyMoveSources = new Set<string>();
+  for (const from of staleManagedPaths) {
+    const target = rendered.find(
+      (file) =>
+        file.path !== from &&
+        file.path.toLowerCase() === from.toLowerCase()
+    );
+    if (target === undefined) continue;
+    if (await exists(resolveOutputPath(from))) {
+      caseOnlyMoves.push({ from, to: target.path });
+    } else {
+      missingCaseOnlyMoveSources.add(from);
+    }
+  }
+  const caseOnlyMoveSources = new Set(caseOnlyMoves.map((move) => move.from));
+  const caseOnlyMoveTargets = new Set(caseOnlyMoves.map((move) => move.to));
+  const writes: RenderedFile[] = [];
+  for (const file of rendered) {
+    const outputPath = resolveOutputPath(file.path);
+    const existingEntry = !writeAll && !caseOnlyMoveTargets.has(file.path)
+      ? await stat(outputPath).catch((error: unknown) => {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error.code === "ENOENT" || error.code === "ENOTDIR")
+          ) {
+            return;
+          }
+          throw error;
+        })
+      : undefined;
+    if (existingEntry?.isFile() === true) {
+      const current = await readFile(outputPath);
+      if (
+        bytesEqual(current, file.content) &&
+        await generatedFileOnDiskMatchesMode(outputPath, file)
+      ) {
+        continue;
+      }
+    }
+    writes.push(file);
+  }
+  if (writes.length === 0 && staleManagedPaths.length === 0) {
+    return { deletedPaths: [], writtenPaths: [] };
+  }
+  await assertOutputWritePreimages(writePreimages, resolveOutputPath);
+  await applyWorkspaceTransaction(
+    rootPath,
+    {
+      deletes: staleManagedPaths.filter(
+        (path) =>
+          !caseOnlyMoveSources.has(path) &&
+          !missingCaseOnlyMoveSources.has(path)
+      ),
+      moves: caseOnlyMoves,
+      writes: writes.map((file) => ({
+        content: file.content,
+        ...(writePreimages.get(file.path)?.state === "absent"
+          ? { expectedAbsent: true }
+          : {}),
+        mode: file.mode,
+        path: file.path,
+      })),
+    },
+    transactionOptions
+  );
+  const deletedPaths = staleManagedPaths.filter(
+    (path) => !missingCaseOnlyMoveSources.has(path)
+  );
+  return {
+    deletedPaths: deletedPaths.sort(compareStrings),
+    writtenPaths: writes.map((file) => file.path).sort(compareStrings),
+  };
+}
+
+async function assertOutputWritePreimages(
+  preimages: ReadonlyMap<string, OutputWritePreimage>,
+  resolveOutputPath: OutputPathResolver
+): Promise<void> {
+  for (const targetPath of [...preimages.keys()].sort(compareStrings)) {
+    await assertOutputWritePreimage(targetPath, preimages, resolveOutputPath);
+  }
+}
+
 async function writeChangedRenderedFiles(
   rendered: readonly RenderedFile[],
   actualPaths: ReadonlySet<string>,
@@ -1777,7 +1932,12 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")
+    ) {
       return false;
     }
     throw error;

@@ -7,6 +7,7 @@ import { schemaUri } from "@skillset/schema";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument, validateWorkspaceConfigDocument } from "@skillset/core/internal/config";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { gitSafeEnv } from "./git-env";
 import { validateSlug } from "@skillset/core/internal/path";
 import { selectorForTargetNativeIsland } from "@skillset/core/internal/source-unit-selector";
@@ -19,6 +20,7 @@ import {
   type PluginAdoptionDiagnostic,
   type PluginAdoptionRelation,
 } from "./plugin-adoption";
+import { quoteShellArgument } from "./recovery-guidance";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
@@ -74,6 +76,7 @@ export interface SetupReport {
   readonly git?: SetupGit;
   readonly importCandidates: readonly SetupImportCandidate[];
   readonly kind: "create" | "init";
+  readonly nextSteps: readonly string[];
   readonly rootPath: string;
   readonly sourceDir: string;
   readonly surveyDiagnostics: readonly PluginAdoptionDiagnostic[];
@@ -198,6 +201,11 @@ async function applySetupPlan(
     ? await detectImportCandidates(rootPath, alreadyAdopted)
     : { candidates: [], diagnostics: [] };
   const surveySkips = kind === "init" ? await detectSurveySkips(rootPath) : [];
+  const nextSteps = await setupNextSteps(
+    rootPath,
+    importSurvey.candidates,
+    options.write === true || alreadyAdopted
+  );
 
   return {
     ...(baselineReport?.path === undefined ? {} : { baselinePath: baselineReport.path }),
@@ -206,12 +214,80 @@ async function applySetupPlan(
     ...(git === undefined ? {} : { git }),
     importCandidates: importSurvey.candidates,
     kind,
+    nextSteps,
     rootPath,
     sourceDir: ORDINARY_WORKSPACE_DIR,
     surveyDiagnostics: importSurvey.diagnostics,
     surveySkips,
     write: options.write === true,
   };
+}
+
+async function setupNextSteps(
+  rootPath: string,
+  importCandidates: readonly SetupImportCandidate[],
+  inspectActiveSource: boolean
+): Promise<readonly string[]> {
+  const commandRoot = await setupCommandRoot(rootPath);
+  if (inspectActiveSource) {
+    try {
+      const graph = await loadBuildGraph(rootPath);
+      if (
+        Object.keys(graph.root.marketplaces).length > 0 ||
+        graph.plugins.length > 0 ||
+        graph.projectAgents.length > 0 ||
+        graph.projectIslands.some((island) => island.relativePath !== ".gitkeep") ||
+        graph.rules.length > 0 ||
+        graph.standaloneSkills.length > 0
+      ) {
+        return setupCommandsAtRoot(
+          ["skillset build", "skillset build --yes", "skillset check"],
+          commandRoot
+        );
+      }
+    } catch (error) {
+      if (!isEmptySourceGraphError(error)) throw error;
+    }
+  }
+  if (importCandidates.length > 0) {
+    return setupCommandsAtRoot(
+      ["skillset init --adopt all --yes", "skillset import <path>"],
+      commandRoot
+    );
+  }
+  return setupCommandsAtRoot(
+    ["skillset new skill <name>", "skillset import <path>"],
+    commandRoot
+  );
+}
+
+function setupCommandsAtRoot(
+  commands: readonly string[],
+  rootPath: string | undefined
+): readonly string[] {
+  if (rootPath === undefined) return commands;
+  const rootArgument = quoteShellArgument(rootPath);
+  return commands.map((command) => `${command} --root ${rootArgument}`);
+}
+
+async function setupCommandRoot(rootPath: string): Promise<string | undefined> {
+  const callerCwd = process.cwd();
+  if (resolve(rootPath) === resolve(callerCwd)) return undefined;
+  try {
+    if (await realpath(rootPath) === await realpath(callerCwd)) {
+      return undefined;
+    }
+  } catch {
+    // A create preview may target a child that does not exist yet.
+  }
+  return rootPath;
+}
+
+function isEmptySourceGraphError(error: unknown): boolean {
+  return error instanceof Error &&
+    error.message.startsWith(
+      "skillset: no source plugins, skills, rules, project agents, or provider source found under "
+    );
 }
 
 async function resolveSetupLayout(
