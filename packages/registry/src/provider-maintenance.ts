@@ -275,7 +275,7 @@ async function refreshJsonSchemaSnapshot(
     provenance: {
       contentHash: snapshot.provenance.contentHash,
       fetchedAt: fetchedAt ?? snapshot.provenance.fetchedAt,
-      rollingLatest: true,
+      rollingLatest: snapshot.provenance.rollingLatest,
       sources,
     },
     summary: summarizeJsonSchema(schema),
@@ -321,7 +321,7 @@ async function refreshSchemaSetSnapshot(
     provenance: {
       contentHash: snapshot.provenance.contentHash,
       fetchedAt: fetchedAt ?? snapshot.provenance.fetchedAt,
-      rollingLatest: true,
+      rollingLatest: snapshot.provenance.rollingLatest,
       sources: [
         {
           ...(listingSource.note === undefined
@@ -548,7 +548,7 @@ export interface ProviderSchemaSource {
 export interface ProviderSchemaProvenance {
   readonly contentHash: string;
   readonly fetchedAt: string;
-  readonly rollingLatest: true;
+  readonly rollingLatest: boolean;
   readonly sources: readonly ProviderSchemaSource[];
 }
 

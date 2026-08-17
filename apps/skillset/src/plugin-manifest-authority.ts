@@ -78,7 +78,10 @@ function nativeListingMetadataValue(
 ): JsonValue | undefined {
   const listingField = field.slice("listing.".length);
   if (listingField === "keywords") {
-    return provider === "cursor" ? manifest.tags : manifest.keywords;
+    // Cursor tags are a provider-native discovery concept, not a portable
+    // spelling of canonical keywords. Portable manifest keywords are compared
+    // separately by portablePluginMetadataConflicts.
+    return undefined;
   }
   if (provider === "codex") {
     const interfaceMetadata = asRecord(manifest.interface);
@@ -86,6 +89,9 @@ function nativeListingMetadataValue(
     return interfaceMetadata?.[listingField];
   }
   if (provider === "cursor") {
+    // Cursor category is not authoritative for the shared listing category.
+    // Import preserves it in cursor.manifest instead of cross-projecting it.
+    if (listingField === "category") return undefined;
     if (listingField === "display_name") return manifest.displayName;
     return manifest[listingField];
   }

@@ -18,9 +18,9 @@ import {
   type SkillsetRenderResult,
   type SkillsetRenderResultStatus,
 } from "@skillset/core";
+import { claudeMarketplaceSourcePlugins } from "../render-marketplaces";
 import { collectRenderResults } from "../render-result-collector";
 import { renderBuildGraph } from "../render";
-import { claudeMarketplaceSourcePlugins } from "../render-marketplaces";
 import { loadBuildGraph } from "../resolver";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
 
@@ -977,6 +977,1044 @@ Help with the task.
     );
   });
 
+  it("reports Cursor author URL omission with plugin-local provenance", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    url: https://example.com/tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/cursor-author-fields-omitted",
+            path: ".skillset/plugins/tools: $.skillset.author",
+          }),
+        ],
+        destination: "plugin-manifest",
+        reason:
+          "Cursor author output supports only name and email; omitted canonical fields: url",
+        sourcePath: ".skillset/plugins/tools",
+        sourceUnit: "plugin.tools.config:root",
+        status: "degraded",
+        target: "cursor",
+      })
+    );
+  });
+
+  const portableManifestReason = (target: string, field: string): string => {
+    const label =
+      target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Cursor";
+    // Only the pinned Cursor plugin manifest has a native destination field for
+    // these portable values, so only Cursor gets the escape-hatch advice.
+    const escape =
+      target === "cursor"
+        ? `; move the value to cursor.manifest.${field} to keep the Cursor-native field`
+        : "";
+    return (
+      `${label} plugin output has no verified runtime destination for portable manifest.${field}; ` +
+      `omitted canonical field: manifest.${field}; ` +
+      `no enabled target renders this field, so the authored value is dropped${escape}`
+    );
+  };
+
+  const LISTING_CATEGORY_DEGRADED_REASON =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
+    "omitted canonical field: listing.category; " +
+    "still rendered by enabled target: Codex interface.category";
+  const LISTING_CATEGORY_LOSSY_REASON =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
+    "omitted canonical field: listing.category; " +
+    "no enabled target renders this category, so the authored value is dropped; " +
+    "move the value to cursor.manifest.category to keep the Cursor-native field";
+
+  it("reports canonical listing category omitted from Cursor plugin output while Codex still renders it", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-evidence
+compile:
+  targets: [codex, cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/cursor-listing-category-omitted",
+          message: LISTING_CATEGORY_DEGRADED_REASON,
+          path: ".skillset/plugins/tools: $.skillset.listing.category",
+        },
+      ],
+      destination: "plugin-manifest",
+      reason: LISTING_CATEGORY_DEGRADED_REASON,
+      sourcePath: ".skillset/plugins/tools",
+      status: "degraded",
+    });
+
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.category).toBeUndefined();
+    // The degraded classification is only true because this enabled Codex
+    // target really does render the same authored category.
+    const codexManifest = await readJson(
+      join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+    );
+    expect(
+      (codexManifest.interface as Record<string, unknown>).category
+    ).toBe("Developer Tools");
+  });
+
+  it("blocks default builds when no enabled target renders the canonical listing category", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-only-cursor
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      SkillsetRenderResultError
+    );
+  });
+
+  it("reports the canonical listing category as lossy in a Cursor-only workspace", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-only-cursor
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/cursor-listing-category-omitted",
+          message: LISTING_CATEGORY_LOSSY_REASON,
+          path: ".skillset/plugins/tools: $.skillset.listing.category",
+        },
+      ],
+      destination: "plugin-manifest",
+      reason: LISTING_CATEGORY_LOSSY_REASON,
+      sourcePath: ".skillset/plugins/tools",
+      status: "lossy",
+    });
+
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.category).toBeUndefined();
+  });
+
+  it("reports the canonical listing category as lossy when the plugin opts out of the faithful target", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: listing-plugin-optout
+compile:
+  targets: [codex, cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+codex: false
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      reason: LISTING_CATEGORY_LOSSY_REASON,
+      status: "lossy",
+    });
+  });
+
+  it.each([
+    ["codex.interface", "codex:\n  interface:\n    category: Developer Tools"],
+    [
+      "codex.manifest.interface",
+      "codex:\n  manifest:\n    interface:\n      category: Developer Tools",
+    ],
+  ])(
+    "keeps the canonical listing category degraded when a %s override repeats it",
+    async (_label, overrideYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: listing-override-equal
+compile:
+  targets: [codex, cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+${overrideYaml}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        reason: LISTING_CATEGORY_DEGRADED_REASON,
+        status: "degraded",
+      });
+
+      const codexManifest = await readJson(
+        join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+      );
+      expect(
+        (codexManifest.interface as Record<string, unknown>).category
+      ).toBe("Developer Tools");
+    }
+  );
+
+  it.each([
+    ["codex.interface", "codex:\n  interface:\n    category: Productivity"],
+    [
+      "codex.manifest.interface",
+      "codex:\n  manifest:\n    interface:\n      category: Productivity",
+    ],
+  ])(
+    "reports the canonical listing category as lossy when a %s override replaces it",
+    async (_label, overrideYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: listing-override-differs
+compile:
+  targets: [codex, cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    category: Developer Tools
+${overrideYaml}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        reason: LISTING_CATEGORY_LOSSY_REASON,
+        status: "lossy",
+      });
+
+      // The Codex destination is selected, but it no longer carries the
+      // authored category, so no enabled target preserves the value.
+      const codexManifest = await readJson(
+        join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+      );
+      expect(
+        (codexManifest.interface as Record<string, unknown>).category
+      ).toBe("Productivity");
+    }
+  );
+
+  it.each([
+    ["category", "category: Developer Tools"],
+    ["presentation.category", "presentation:\n    category: Developer Tools"],
+  ])(
+    "reports compatibility listing category %s omitted from Cursor plugin output",
+    async (authoredKey, authoredYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: listing-compat-evidence
+compile:
+  targets: [codex, cursor]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  ${authoredYaml}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        diagnostics: [
+          {
+            code: "render/cursor-listing-category-omitted",
+            message: LISTING_CATEGORY_DEGRADED_REASON,
+            path: `.skillset/plugins/tools: $.skillset.${authoredKey}`,
+          },
+        ],
+        destination: "plugin-manifest",
+        status: "degraded",
+      });
+
+      const manifest = await readJson(
+        join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      );
+      expect(manifest.category).toBeUndefined();
+    }
+  );
+
+  it.each(["claude", "codex", "cursor"])(
+    "blocks default builds when portable manifest fields have no %s destination",
+    async (target) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: portable-manifest-single-target
+compile:
+  targets: [${target}]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      await expect(buildSkillsetResult(root)).rejects.toThrow(
+        SkillsetRenderResultError
+      );
+    }
+  );
+
+  it("reports portable manifest omissions on every enabled target", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-every-target
+compile:
+  targets: [claude, codex, cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+    tags: [review]
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests"
+    );
+    expect(
+      manifestResults.map((outcome) => [outcome.target, outcome.status])
+    ).toEqual([
+      ["claude", "lossy"],
+      ["codex", "lossy"],
+      ["cursor", "lossy"],
+    ]);
+    expect(
+      manifestResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).map((diagnostic) => diagnostic.message)
+      )
+    ).toEqual([
+      portableManifestReason("claude", "category"),
+      portableManifestReason("claude", "tags"),
+      portableManifestReason("codex", "category"),
+      portableManifestReason("codex", "tags"),
+      portableManifestReason("cursor", "category"),
+      portableManifestReason("cursor", "tags"),
+    ]);
+  });
+
+  it("reports portable manifest display fields the enabled targets drop", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-display-fields
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    displayName: Tools
+    logo: ./logo.png
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests"
+    );
+    expect(
+      manifestResults.map((outcome) => [outcome.target, outcome.status])
+    ).toEqual([["claude", "lossy"]]);
+    expect(
+      manifestResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).map((diagnostic) => diagnostic.message)
+      )
+    ).toEqual([
+      portableManifestReason("claude", "displayName"),
+      portableManifestReason("claude", "logo"),
+    ]);
+  });
+
+  it("keeps portable manifest display fields evidence-free while Cursor is enabled", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-display-fields-cursor
+compile:
+  targets: [claude, cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    displayName: Tools
+    logo: ./logo.png
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    expect(
+      build.renderResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).filter((diagnostic) =>
+          diagnostic.code.endsWith("portable-manifest-field-omitted")
+        )
+      )
+    ).toEqual([]);
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.displayName).toBe("Tools");
+  });
+
+  it("accepts a matching Cursor-native override for portable manifest.category", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-native-override
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+    tags: [review]
+cursor:
+  manifest:
+    category: Developer Tools
+    tags: [review]
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    expect(
+      build.renderResults.flatMap((outcome) =>
+        (outcome.diagnostics ?? []).filter((diagnostic) =>
+          diagnostic.code.endsWith("portable-manifest-field-omitted")
+        )
+      )
+    ).toEqual([]);
+    const manifest = await readJson(
+      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(manifest.category).toBe("Developer Tools");
+    expect(manifest.tags).toEqual(["review"]);
+  });
+
+  it("still reports portable manifest.category when the Cursor-native override replaces it", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: portable-manifest-replacing-override
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    category: Developer Tools
+cursor:
+  manifest:
+    category: Productivity
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(manifestResults[0]).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/cursor-portable-manifest-field-omitted",
+          message: portableManifestReason("cursor", "category"),
+          path: ".skillset/plugins/tools: $.skillset.manifest.category",
+        },
+      ],
+      status: "lossy",
+    });
+  });
+
+  it.each(["category", "tags"])(
+    "blocks default builds when portable manifest.%s has no Cursor destination",
+    async (field) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: portable-manifest-evidence
+compile:
+  targets: [cursor]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    ${field === "tags" ? "tags: [review]" : "category: Developer Tools"}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      await expect(buildSkillsetResult(root)).rejects.toThrow(
+        SkillsetRenderResultError
+      );
+    }
+  );
+
+  it.each(["category", "tags"])(
+    "reports portable manifest.%s omitted from Cursor plugin output",
+    async (field) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: portable-manifest-evidence
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  manifest:
+    ${field === "tags" ? "tags: [review]" : "category: Developer Tools"}
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      const manifestResults = build.renderResults.filter(
+        (outcome) =>
+          outcome.sourceUnit === "plugin.tools.config:root" &&
+          outcome.featureId === "plugin-manifests" &&
+          outcome.target === "cursor"
+      );
+      expect(manifestResults).toHaveLength(1);
+      expect(manifestResults[0]).toMatchObject({
+        diagnostics: [
+          {
+            code: "render/cursor-portable-manifest-field-omitted",
+            message: portableManifestReason("cursor", field),
+            path: `.skillset/plugins/tools: $.skillset.manifest.${field}`,
+          },
+        ],
+        destination: "plugin-manifest",
+        status: "lossy",
+      });
+
+      const manifest = await readJson(
+        join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      );
+      expect(manifest[field]).toBeUndefined();
+    }
+  );
+
+  it("reports canonical listing and portable manifest omissions together", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: combined-manifest-evidence
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  category: Developer Tools
+  manifest:
+    category: Legacy Category
+    tags: [review]
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResults = build.renderResults.filter(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "cursor"
+    );
+    expect(manifestResults).toHaveLength(1);
+    expect(
+      manifestResults[0]?.diagnostics?.map((diagnostic) => diagnostic.path)
+    ).toEqual([
+      ".skillset/plugins/tools: $.skillset.category",
+      ".skillset/plugins/tools: $.skillset.manifest.category",
+      ".skillset/plugins/tools: $.skillset.manifest.tags",
+    ]);
+    expect(manifestResults[0]?.status).toBe("lossy");
+  });
+
+  it("allows default multi-provider builds when Cursor only omits author URL", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+  author:
+    name: Root Team
+    email: root@example.com
+    url: https://example.com/root
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root, { isolated: true });
+    const cursorAuthorOmissions = build.renderResults.filter((outcome) =>
+      outcome.diagnostics?.some((diagnostic) =>
+        diagnostic.code.includes("cursor") &&
+        diagnostic.code.endsWith("author-fields-omitted")
+      )
+    );
+    expect(cursorAuthorOmissions).toHaveLength(2);
+    expect(cursorAuthorOmissions.map((outcome) => outcome.status)).toEqual([
+      "degraded",
+      "degraded",
+    ]);
+    expect(
+      cursorAuthorOmissions.every((outcome) => outcome.reason?.endsWith("url"))
+    ).toBe(true);
+  });
+
+  it("keeps additional Cursor author omissions policy-blocking", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [cursor]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    url: https://example.com/tools
+    contributor: Example Contributor
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    try {
+      await buildSkillsetResult(root, { isolated: true });
+      throw new Error("expected a true Cursor author loss to block the build");
+    } catch (error) {
+      expect(error).toBeInstanceOf(SkillsetRenderResultError);
+      expect((error as SkillsetRenderResultError).renderResults).toContainEqual(
+        expect.objectContaining({
+          diagnostics: [
+            expect.objectContaining({
+              code: "render/cursor-author-fields-omitted",
+            }),
+          ],
+          reason:
+            "Cursor author output supports only name and email; omitted canonical fields: contributor, url",
+          status: "lossy",
+          target: "cursor",
+        })
+      );
+    }
+  });
+
+  it("reports unsupported Codex structured-author fields", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: author-evidence
+compile:
+  targets: [codex]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    contributor: Example Contributor
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/codex-author-fields-omitted",
+          }),
+        ],
+        reason:
+          "Codex author output supports only name, email, and url; omitted canonical fields: contributor",
+        status: "lossy",
+        target: "codex",
+      })
+    );
+  });
+
+  it.each([
+    [
+      "cursor",
+      `cursor:
+  manifest:
+    author:
+      name: Cursor Team
+      email: cursor@example.com
+`,
+    ],
+    [
+      "codex",
+      `codex:
+  manifest:
+    author:
+      name: Codex Team
+      email: codex@example.com
+      url: https://example.com/codex
+`,
+    ],
+  ])(
+    "evaluates the effective %s manifest author when the override replaces it",
+    async (target, overrideYaml) => {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: effective-author
+compile:
+  targets: [${target}]
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    url: https://example.com/tools
+    contributor: Example Contributor
+${overrideYaml}`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const build = await buildSkillsetResult(root);
+      expect(
+        build.renderResults.flatMap((outcome) =>
+          (outcome.diagnostics ?? []).filter((diagnostic) =>
+            diagnostic.code.endsWith("author-fields-omitted")
+          )
+        )
+      ).toEqual([]);
+      const manifest = await readJson(
+        join(root, `plugins/tools/${target}/.${target}-plugin/plugin.json`)
+      );
+      expect((manifest.author as Record<string, unknown>).name).toBe(
+        target === "cursor" ? "Cursor Team" : "Codex Team"
+      );
+    }
+  );
+
+  it("still reports omitted author fields when the manifest override only replaces one field", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: effective-author-partial
+compile:
+  targets: [codex]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Tools Team
+    email: tools@example.com
+    contributor: Example Contributor
+codex:
+  manifest:
+    author:
+      name: Codex Team
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const preview = await diffSkillsetResult(root);
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/codex-author-fields-omitted",
+          }),
+        ],
+        reason:
+          "Codex author output supports only name, email, and url; omitted canonical fields: contributor",
+        status: "lossy",
+        target: "codex",
+      })
+    );
+  });
+
   it("reports Claude marketplace author omissions once per destination", async () => {
     const cases = [
       {
@@ -1063,26 +2101,189 @@ Help with the task.
     }
   });
 
-  it("tracks marketplace authors through a renamed Claude marketplace entry", async () => {
-    const files = (unsupportedDestination: string): Record<string, string> => ({
-      "skillset.yaml": `
-skillset:
-  name: marketplace-evidence
+  it("reports Cursor marketplace owner omissions for explicit owner and author fallback", async () => {
+    const cases = [
+      {
+        rootIdentity: `
   author:
     name: Root Team
+  owner:
+    name: Publishing Team
+    url: https://example.com/publisher
+    contributor: Publisher
+`,
+      },
+      {
+        rootIdentity: `
+  author:
+    name: Root Team
+    url: https://example.com/root
+    contributor: Root Contributor
+`,
+      },
+    ];
+
+    for (const { rootIdentity } of cases) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: cursor-marketplace-author-evidence
+${rootIdentity}
 compile:
-  targets: [claude]
-${unsupportedDestination}
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const preview = await diffSkillsetResult(root);
+      expect(preview.renderResults).toContainEqual(
+        expect.objectContaining({
+          diagnostics: [
+            expect.objectContaining({
+              code: "render/cursor-marketplace-author-fields-omitted",
+              path: "marketplace.owner",
+            }),
+          ],
+          destination: "marketplace",
+          featureId: "marketplaces",
+          outputs: [
+            expect.objectContaining({
+              path: ".cursor-plugin/marketplace.json",
+            }),
+          ],
+          reason:
+            "Cursor marketplace author output supports only name and email; omitted canonical fields: contributor, url",
+          sourcePath: "skillset.yaml",
+          sourceUnit: "config:root",
+          status: "lossy",
+          target: "cursor",
+        })
+      );
+    }
+  });
+
+  it("derives Cursor marketplace owner evidence from the rendered owner override", async () => {
+    const cases = [
+      {
+        // The override replaces every canonical owner field, so no canonical
+        // owner value reaches this marketplace and there is nothing to lose.
+        expected: undefined,
+        ownerOverride: `
+  marketplace:
+    owner:
+      name: Cursor Publishing
+      email: cursor@example.com
+`,
+      },
+      {
+        // The override only adds an email, so the canonical name still renders
+        // and the dropped canonical fields remain real evidence.
+        expected:
+          "Cursor marketplace author output supports only name and email; omitted canonical fields: contributor, url",
+        ownerOverride: `
+  marketplace:
+    owner:
+      email: cursor@example.com
+`,
+      },
+    ] as const;
+
+    for (const { expected, ownerOverride } of cases) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: cursor-marketplace-owner-override
+  owner:
+    name: Publishing Team
+    url: https://example.com/publisher
+    contributor: Publisher
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+cursor:
+${ownerOverride}
+`,
+        ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+`,
+        ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+      });
+
+      const preview = await diffSkillsetResult(root);
+      const ownerOutcomes = preview.renderResults.filter(
+        (outcome) =>
+          outcome.featureId === "marketplaces" &&
+          outcome.target === "cursor" &&
+          outcome.destination === "marketplace"
+      );
+      if (expected === undefined) {
+        expect(ownerOutcomes).toEqual([
+          expect.objectContaining({ status: "rendered", target: "cursor" }),
+        ]);
+        expect(
+          ownerOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+        ).toEqual([]);
+      } else {
+        expect(ownerOutcomes).toContainEqual(
+          expect.objectContaining({
+            diagnostics: [
+              expect.objectContaining({
+                code: "render/cursor-marketplace-author-fields-omitted",
+                path: "marketplace.owner",
+              }),
+            ],
+            reason: expected,
+            status: "lossy",
+            target: "cursor",
+          })
+        );
+      }
+    }
+  });
+
+  it("treats partially replaced Cursor marketplace owner fields as carried, not omitted", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: cursor-marketplace-owner-partial-override
+  owner:
+    name: Publishing Team
+    email: publisher@example.com
+    url: https://example.com/publisher
+compile:
+  targets: [cursor]
+cursor:
+  marketplace:
+    owner:
+      name: Cursor Publishing
 `,
       ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
   author:
     name: Plugin Team
-    contributor: Plugin Contributor
-claude:
-  marketplace:
-    name: tools-renamed
 `,
       ".skillset/plugins/tools/skills/helper/SKILL.md": `
 ---
@@ -1093,47 +2294,27 @@ Help with the task.
 `,
     });
 
-    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
-    const preview = await diffSkillsetResult(warnRoot);
-    const marketplaceOutcomes = preview.renderResults.filter(
-      (outcome) => outcome.featureId === "marketplaces"
+    const build = await buildSkillsetResult(root, { isolated: true });
+    const ownerOutcomes = build.renderResults.filter(
+      (outcome) =>
+        outcome.featureId === "marketplaces" &&
+        outcome.target === "cursor" &&
+        outcome.destination === "marketplace"
     );
-    expect(
-      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
-    ).toEqual([
+    expect(ownerOutcomes).toEqual([
       expect.objectContaining({
-        code: "render/claude-marketplace-author-fields-omitted",
-        path: "marketplace.plugins.tools.author",
+        diagnostics: [
+          expect.objectContaining({
+            code: "render/cursor-marketplace-author-fields-omitted",
+            path: "marketplace.owner",
+          }),
+        ],
+        reason:
+          "Cursor marketplace author output supports only name and email; omitted canonical fields: url",
+        status: "degraded",
+        target: "cursor",
       }),
     ]);
-    expect(
-      marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
-    ).toEqual([
-      expect.objectContaining({
-        sourceUnit: "plugin.tools.config:root",
-        status: "lossy",
-      }),
-    ]);
-
-    const built = await buildSkillsetResult(warnRoot);
-    const marketplace = await readJson(
-      join(warnRoot, ".claude-plugin/marketplace.json")
-    );
-    expect(built.writes.writtenPaths).toContain(
-      ".claude-plugin/marketplace.json"
-    );
-    expect(marketplace.plugins).toEqual([
-      expect.objectContaining({ name: "tools-renamed" }),
-    ]);
-
-    // A marketplace-scoped build excludes the plugin manifest, so the
-    // marketplace render result is the only record of the omission.
-    const errorRoot = await fixture(files(""));
-    await expect(
-      buildSkillsetResult(errorRoot, { scopes: ["project"] })
-    ).rejects.toThrow(
-      "Claude marketplace author output supports only name, email, and url; omitted canonical fields: contributor"
-    );
   });
 
   it("tracks marketplace authors through a replaced Claude marketplace plugin array", async () => {
@@ -1912,6 +3093,79 @@ Body.
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         target: "codex",
       })
+    );
+  });
+
+  it("tracks marketplace authors through a renamed Claude marketplace entry", async () => {
+    const files = (unsupportedDestination: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-evidence
+  author:
+    name: Root Team
+compile:
+  targets: [claude]
+${unsupportedDestination}
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  author:
+    name: Plugin Team
+    contributor: Plugin Contributor
+claude:
+  marketplace:
+    name: tools-renamed
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const warnRoot = await fixture(files("  unsupportedDestination: warn"));
+    const preview = await diffSkillsetResult(warnRoot);
+    const marketplaceOutcomes = preview.renderResults.filter(
+      (outcome) => outcome.featureId === "marketplaces"
+    );
+    expect(
+      marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])
+    ).toEqual([
+      expect.objectContaining({
+        code: "render/claude-marketplace-author-fields-omitted",
+        path: "marketplace.plugins.tools.author",
+      }),
+    ]);
+    expect(
+      marketplaceOutcomes.filter((outcome) => outcome.status === "lossy")
+    ).toEqual([
+      expect.objectContaining({
+        sourceUnit: "plugin.tools.config:root",
+        status: "lossy",
+      }),
+    ]);
+
+    const built = await buildSkillsetResult(warnRoot);
+    const marketplace = await readJson(
+      join(warnRoot, ".claude-plugin/marketplace.json")
+    );
+    expect(built.writes.writtenPaths).toContain(
+      ".claude-plugin/marketplace.json"
+    );
+    expect(marketplace.plugins).toEqual([
+      expect.objectContaining({ name: "tools-renamed" }),
+    ]);
+
+    // A marketplace-scoped build excludes the plugin manifest, so the
+    // marketplace render result is the only record of the omission.
+    const errorRoot = await fixture(files(""));
+    await expect(
+      buildSkillsetResult(errorRoot, { scopes: ["project"] })
+    ).rejects.toThrow(
+      "Claude marketplace author output supports only name, email, and url; omitted canonical fields: contributor"
     );
   });
 });

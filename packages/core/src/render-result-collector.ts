@@ -1,12 +1,15 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import { listProviderPluginManifestFields } from "@skillset/registry";
+import { SOURCE_PORTABLE_MANIFEST_KEYS } from "@skillset/schema";
+
 import {
   resolveAdaptiveHookAttachmentsForTarget,
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
-import { readString, isOutputSelected } from "./config";
+import { readRecord, readString, isOutputSelected } from "./config";
 import { getSkillsetFeature, type SkillsetFeatureEvidence } from "./feature-registry";
 import { hookProviderCapabilities } from "./hook-capabilities";
 import {
@@ -19,18 +22,27 @@ import {
 import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
+  cursorMarketplacePath,
   pluginManifestPath,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
+import {
+  codexInterfaceCategory,
+  pluginManifestAuthor,
+} from "./render-plugin-manifest";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
+import { cursorMarketplaceOwner } from "./render-marketplaces";
 import {
   droppedClaudeAuthorKeys,
   omittedClaudeAuthorKeys,
+  omittedCursorAuthorKeys,
   readAuthorName,
+  readAuthorRecord,
 } from "./source-author";
+import { readSourceListing } from "./source-listing";
 import {
   planToolsRealization,
   renderResultStatusForToolsTier,
@@ -143,6 +155,14 @@ export function collectRenderResults(
       options.claudeMarketplacePlugins
     )
   );
+  outcomes.push(
+    ...cursorMarketplaceAuthorOutcomes(
+      graph,
+      rendered,
+      options.includedPaths,
+      mapOutputPath
+    )
+  );
 
   return outcomes.sort((left, right) =>
     compareStrings(
@@ -178,6 +198,7 @@ function claudeMarketplaceAuthorOutcomes(
         reason: unsupportedClaudeAuthorReason(owner),
         sourcePath: "skillset.yaml",
         sourceUnit: selectorForRootConfig(),
+        target: "claude",
       })
     );
   }
@@ -197,6 +218,7 @@ function claudeMarketplaceAuthorOutcomes(
           ? normalizeSourcePath(graph, plugin.path)
           : "skillset.yaml",
         sourceUnit: selectorForPluginConfig(plugin.id),
+        target: "claude",
       })
     );
   }
@@ -223,6 +245,19 @@ function unsupportedClaudeAuthorReason(
  * entry does not carry because a `claude.marketplace` override replaced or
  * omitted the author it kept.
  */
+/**
+ * Canonical author fields the Cursor marketplace owner output cannot
+ * represent; Cursor supports only name and email.
+ */
+function unsupportedCursorAuthorReason(
+  author: JsonValue | undefined
+): string | undefined {
+  const omitted = omittedCursorAuthorKeys(author);
+  return omitted.length === 0
+    ? undefined
+    : `Cursor marketplace author output supports only name and email; omitted canonical fields: ${omitted.join(", ")}`;
+}
+
 function marketplaceAuthorLossReason(
   author: JsonValue | undefined,
   emittedAuthor: JsonValue | undefined
@@ -237,6 +272,66 @@ function marketplaceAuthorLossReason(
   return reasons.length === 0 ? undefined : reasons.join("; ");
 }
 
+function cursorMarketplaceAuthorOutcomes(
+  graph: BuildGraph,
+  rendered: readonly RenderedFile[],
+  includedPaths: ReadonlySet<string>,
+  mapOutputPath: OutputPathMapper
+): readonly SkillsetRenderResult[] {
+  const marketplacePath = cursorMarketplacePath(
+    graph.root.outputs.plugins.cursor
+  );
+  if (!rendered.some((file) => file.path === marketplacePath)) return [];
+  const root = graph.root.metadata;
+  const canonical = readAuthorRecord(
+    readAuthorName(root.owner) !== undefined ? root.owner : root.author
+  );
+  if (canonical === undefined) return [];
+  // `cursor.marketplace.owner` is merged over the generated owner field by
+  // field, so loss has to be read from the owner the marketplace actually
+  // carries.
+  const omitted = omittedCanonicalAuthorKeys(
+    canonical,
+    cursorMarketplaceOwner(graph)
+  );
+  return [
+    marketplaceAuthorOutcome({
+      diagnosticPath: "marketplace.owner",
+      included: includedPaths.has(marketplacePath),
+      mapOutputPath,
+      outputPath: marketplacePath,
+      reason:
+        omitted.length === 0
+          ? undefined
+          : `Cursor marketplace author output supports only name and email; omitted canonical fields: ${omitted.join(", ")}`,
+      sourcePath: "skillset.yaml",
+      sourceUnit: selectorForRootConfig(),
+      status: authorOmissionStatus("cursor", omitted),
+      target: "cursor",
+    }),
+  ];
+}
+
+/**
+ * Canonical author fields a rendered provider author record does not carry.
+ *
+ * A canonical key the rendered author replaces with a different value is not
+ * omitted — the provider carries a native identity for that field. Only keys
+ * that are absent from the rendered author are lost. When the rendered author
+ * shares no canonical value at all, it replaced the identity wholesale, so no
+ * canonical value reaches that output and there is nothing left for the
+ * canonical projection to lose.
+ */
+function omittedCanonicalAuthorKeys(
+  canonical: JsonRecord,
+  rendered: JsonValue | undefined
+): readonly string[] {
+  if (!isJsonRecord(rendered)) return [];
+  const keys = Object.keys(canonical);
+  if (!keys.some((key) => rendered[key] === canonical[key])) return [];
+  return keys.filter((key) => rendered[key] === undefined).sort();
+}
+
 function marketplaceAuthorOutcome(args: {
   readonly diagnosticPath: string;
   readonly included: boolean;
@@ -245,8 +340,10 @@ function marketplaceAuthorOutcome(args: {
   readonly reason: string | undefined;
   readonly sourcePath: string;
   readonly sourceUnit: string;
+  readonly status?: "degraded" | "lossy";
+  readonly target: "claude" | "cursor";
 }): SkillsetRenderResult {
-  const evidence = evidenceFor("marketplaces", "claude");
+  const evidence = evidenceFor("marketplaces", args.target);
   const reason = args.reason;
   return defineRenderResult({
     destination: "marketplace",
@@ -254,7 +351,10 @@ function marketplaceAuthorOutcome(args: {
       ? {
           diagnostics: [
             {
-              code: "render/claude-marketplace-author-fields-omitted",
+              code:
+                args.target === "claude"
+                  ? "render/claude-marketplace-author-fields-omitted"
+                  : "render/cursor-marketplace-author-fields-omitted",
               message: reason,
               path: args.diagnosticPath,
             },
@@ -280,9 +380,9 @@ function marketplaceAuthorOutcome(args: {
     status: args.included
       ? reason === undefined
         ? "rendered"
-        : "lossy"
+        : (args.status ?? "lossy")
       : "intentionally_skipped",
-    target: "claude",
+    target: args.target,
   });
 }
 
@@ -352,67 +452,392 @@ function outcomeForLockItem(
 ): SkillsetRenderResult {
   const target = targetForLockItem(graph, lock, item, outputPaths);
   const featureId = featureIdForLockItem(item);
-  const authorFacts = claudeAuthorRenderFacts(graph, item, target);
-  const baseStatus = authorFacts?.status ?? statusForLockItem(item, target);
+  const manifestFacts = pluginManifestRenderFacts(graph, item, target);
+  const baseStatus = manifestFacts?.status ?? statusForLockItem(item, target);
   const isIncluded = outputPaths.some((path) => includedPaths.has(path));
   const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
   const policy: SkillsetRenderResultPolicy | undefined = isIncluded ? undefined : "scope:excluded";
   const reason = isIncluded
-    ? authorFacts?.reason ?? reasonForStatus(featureId, target, status)
+    ? manifestFacts?.reason ?? reasonForStatus(featureId, target, status)
     : "excluded by build scope";
   const evidence = evidenceFor(featureId, target);
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
-    ...(isIncluded && authorFacts?.diagnostics !== undefined
-      ? { diagnostics: authorFacts.diagnostics }
+    ...(isIncluded && manifestFacts?.diagnostics !== undefined
+      ? { diagnostics: manifestFacts.diagnostics }
       : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
     ...(policy === undefined ? {} : { policy }),
     ...(reason === undefined ? {} : { reason }),
-    sourcePath: authorFacts?.sourcePath ?? item.sourcePath,
+    sourcePath: manifestFacts?.sourcePath ?? item.sourcePath,
     sourceUnit: sourceUnitForLockItem(item, target),
     status,
     ...(target === undefined ? {} : { target }),
   });
 }
 
-function claudeAuthorRenderFacts(
+interface PluginManifestRenderFacts {
+  readonly diagnostics: readonly SkillsetRenderResultDiagnosticRef[];
+  readonly reason: string;
+  readonly sourcePath: string;
+  readonly status: SkillsetRenderResultStatus;
+}
+
+function pluginManifestRenderFacts(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName | undefined
+): PluginManifestRenderFacts | undefined {
+  const authorFacts = pluginAuthorRenderFacts(graph, item, target);
+  if (item.kind !== "plugin" || target === undefined) return authorFacts;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
+  if (plugin === undefined) return authorFacts;
+  const omissions = pluginManifestOmissions(graph, plugin, target, item.sourcePath);
+  if (omissions.length === 0) return authorFacts;
+
+  const diagnostics = omissions.map((omission) => omission.diagnostic);
+  const reason = omissions.map((omission) => omission.reason).join("; ");
+  const status = omissionStatus(omissions.map((omission) => omission.status));
+  if (authorFacts === undefined) {
+    return {
+      diagnostics,
+      reason,
+      sourcePath: item.sourcePath,
+      status,
+    };
+  }
+  return {
+    diagnostics: [...authorFacts.diagnostics, ...diagnostics],
+    reason: `${authorFacts.reason}; ${reason}`,
+    sourcePath: item.sourcePath,
+    status: omissionStatus([authorFacts.status, status]),
+  };
+}
+
+/** One canonical field a plugin manifest renderer has no destination for. */
+interface PluginManifestOmission {
+  readonly diagnostic: SkillsetRenderResultDiagnosticRef;
+  readonly reason: string;
+  readonly status: "degraded" | "lossy";
+}
+
+/**
+ * Every canonical plugin field this target's manifest renderer drops, in a
+ * stable order. Each dropped field must produce evidence: a manifest that
+ * quietly reported `rendered` would let default policy accept metadata loss.
+ */
+function pluginManifestOmissions(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  sourcePath: string
+): readonly PluginManifestOmission[] {
+  return [
+    // The canonical listing category keeps its Cursor-scoped evidence: it names
+    // the `cursor.manifest` cutover that removed the destination. The identical
+    // Claude omission is a separate, wider decision because `listing.category`
+    // is a documented field that Claude-only workspaces already build with.
+    ...(target === "cursor"
+      ? cursorListingCategoryOmissions(graph, plugin, sourcePath)
+      : []),
+    ...portableManifestOmissions(graph, plugin, target, sourcePath),
+  ];
+}
+
+/**
+ * Plugin-manifest destination each target renders the canonical listing
+ * category into, with the value that destination actually carries. Codex lowers
+ * the category to `interface.category` in `renderCodexInterface`; the pinned
+ * Claude and Cursor plugin manifest formats have no category destination.
+ * Declared per target so a new target has to state its own answer instead of
+ * inheriting one.
+ */
+const PLUGIN_LISTING_CATEGORY_DESTINATIONS: Readonly<
+  Record<TargetName, PluginListingCategoryDestination | undefined>
+> = {
+  claude: undefined,
+  codex: {
+    effectiveValue: codexInterfaceCategory,
+    field: "interface.category",
+  },
+  cursor: undefined,
+};
+
+interface PluginListingCategoryDestination {
+  /** Category the rendered manifest carries after provider overrides. */
+  readonly effectiveValue: (
+    graph: BuildGraph,
+    plugin: SourcePlugin
+  ) => string | undefined;
+  /** Provider manifest field that destination writes. */
+  readonly field: string;
+}
+
+/**
+ * Enabled destinations that still render the authored category.
+ *
+ * Selection alone is not enough: a provider override such as
+ * `codex.interface.category` keeps the destination while replacing the authored
+ * value, which drops the canonical meaning just as completely as disabling the
+ * target. `pluginTargetSelected` reads the compiled target set and the plugin's
+ * own target selection, so a Cursor-only workspace correctly reports none.
+ */
+function faithfulListingCategoryDestinations(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  category: string
+): readonly string[] {
+  return targetNames().flatMap((target) => {
+    const destination = PLUGIN_LISTING_CATEGORY_DESTINATIONS[target];
+    return destination === undefined ||
+      !pluginTargetSelected(graph, plugin.id, target) ||
+      destination.effectiveValue(graph, plugin) !== category
+      ? []
+      : [`${targetLabel(target)} ${destination.field}`];
+  });
+}
+
+function cursorListingCategoryOmissions(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  sourcePath: string
+): readonly PluginManifestOmission[] {
+  // Derive through the shared listing reader so the compatibility spellings
+  // (`skillset.category`, `skillset.presentation.category`) count exactly like
+  // the canonical `skillset.listing.category`.
+  const category = readString(readSourceListing(plugin.metadata), "category");
+  if (category === undefined) return [];
+  // The authored meaning only survives the workspace while another enabled
+  // target still renders the same category. In a Cursor-only workspace nothing
+  // does, and neither does a Codex target whose `interface.category` override
+  // replaced the authored value, so the value is dropped outright and policy
+  // has to see it.
+  const faithfulDestinations = faithfulListingCategoryDestinations(
+    graph,
+    plugin,
+    category
+  );
+  const isFaithfulElsewhere = faithfulDestinations.length > 0;
+  const reason =
+    "Cursor plugin output has no verified runtime destination for canonical listing.category; " +
+    "omitted canonical field: listing.category; " +
+    (isFaithfulElsewhere
+      ? `still rendered by enabled target: ${faithfulDestinations.join(", ")}`
+      : "no enabled target renders this category, so the authored value is dropped; " +
+        "move the value to cursor.manifest.category to keep the Cursor-native field");
+  return [
+    {
+      diagnostic: {
+        code: "render/cursor-listing-category-omitted",
+        message: reason,
+        path: `${sourcePath}: $.skillset.${authoredListingCategoryKey(plugin.metadata)}`,
+      },
+      reason,
+      status: isFaithfulElsewhere ? "degraded" : "lossy",
+    },
+  ];
+}
+
+/**
+ * Authored key that supplied the canonical listing category, using the same
+ * precedence `readSourceListing` merges with, so the diagnostic points at a key
+ * that exists in the author's source.
+ */
+function authoredListingCategoryKey(metadata: JsonRecord): string {
+  if (readString(readRecord(metadata, "listing") ?? {}, "category") !== undefined) {
+    return "listing.category";
+  }
+  if (readString(readRecord(metadata, "presentation") ?? {}, "category") !== undefined) {
+    return "presentation.category";
+  }
+  return "category";
+}
+
+/**
+ * Portable `skillset.manifest` keys each plugin manifest renderer consumes.
+ * `renderPluginManifest` reads `name` for every target, and
+ * `renderCursorPluginDisplayFields` adds the Cursor display fields. Declared per
+ * target so a new target has to state its own answer instead of inheriting one.
+ */
+const RENDERED_PORTABLE_MANIFEST_KEYS: Readonly<
+  Record<TargetName, readonly string[]>
+> = {
+  claude: ["name"],
+  codex: ["name"],
+  cursor: ["displayName", "logo", "name"],
+};
+
+/**
+ * Effective plugin-manifest value a target carries for a portable manifest key.
+ *
+ * `renderPluginManifest` merges `<target>.manifest` over the rendered manifest,
+ * so a provider-native override both supplies values the renderer has no
+ * destination for (`cursor.manifest.category`) and replaces values it does
+ * (`cursor.manifest.displayName`). Loss has to be read from the value the
+ * manifest actually carries, not from the destination table alone.
+ */
+function effectivePortableManifestValue(
+  plugin: SourcePlugin,
+  target: TargetName,
+  field: string
+): JsonValue | undefined {
+  const override = (readRecord(plugin.targets[target].options, "manifest") ?? {})[field];
+  if (override !== undefined) return override;
+  return RENDERED_PORTABLE_MANIFEST_KEYS[target].includes(field)
+    ? readString(readRecord(plugin.metadata, "manifest") ?? {}, field)
+    : undefined;
+}
+
+/**
+ * Enabled targets whose rendered plugin manifest still carries the authored
+ * portable value.
+ *
+ * Registered targets are not the right scope: a workspace compiled with
+ * `targets: [claude]` renders no Cursor manifest at all, so `displayName` and
+ * `logo` are dropped outright even though the Cursor renderer supports them
+ * somewhere. `pluginTargetSelected` reads the compiled target set and the
+ * plugin's own selection, matching `faithfulListingCategoryDestinations`.
+ */
+function faithfulPortableManifestTargets(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  field: string,
+  value: JsonValue
+): readonly TargetName[] {
+  return targetNames().filter(
+    (target) =>
+      pluginTargetSelected(graph, plugin.id, target) &&
+      sameJsonValue(effectivePortableManifestValue(plugin, target, field), value)
+  );
+}
+
+/**
+ * Structural comparison for authored-vs-rendered manifest values. Portable
+ * manifest values come from parsed source, so a canonical serialization is
+ * enough; anything that does not compare equal stays reported as omitted.
+ */
+function sameJsonValue(
+  left: JsonValue | undefined,
+  right: JsonValue | undefined
+): boolean {
+  return left === undefined || right === undefined
+    ? left === right
+    : JSON.stringify(left) === JSON.stringify(right);
+}
+
+function portableManifestOmissions(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  sourcePath: string
+): readonly PluginManifestOmission[] {
+  const portableManifest = readRecord(plugin.metadata, "manifest") ?? {};
+  const label = targetLabel(target);
+  return SOURCE_PORTABLE_MANIFEST_KEYS.filter((field) => {
+    const authored = portableManifest[field];
+    return (
+      authored !== undefined &&
+      faithfulPortableManifestTargets(graph, plugin, field, authored).length === 0
+    );
+  }).map((field) => {
+    // Only advise a provider-native override where the pinned plugin manifest
+    // format actually accepts the field; elsewhere the advice would produce a
+    // nonconformant artifact.
+    const nativeOverride = listProviderPluginManifestFields(target).includes(field)
+      ? `; move the value to ${target}.manifest.${field} to keep the ${label}-native field`
+      : "";
+    const reason =
+      `${label} plugin output has no verified runtime destination for portable manifest.${field}; ` +
+      `omitted canonical field: manifest.${field}; ` +
+      `no enabled target renders this field, so the authored value is dropped${nativeOverride}`;
+    return {
+      diagnostic: {
+        code: `render/${target}-portable-manifest-field-omitted`,
+        message: reason,
+        path: `${sourcePath}: $.skillset.manifest.${field}`,
+      },
+      reason,
+      // No target renders these portable fields any more, so the authored
+      // meaning is lost rather than degraded and policy has to see it.
+      status: "lossy" as const,
+    };
+  });
+}
+
+function omissionStatus(
+  statuses: readonly SkillsetRenderResultStatus[]
+): SkillsetRenderResultStatus {
+  return statuses.includes("lossy") ? "lossy" : "degraded";
+}
+
+function pluginAuthorRenderFacts(
   graph: BuildGraph,
   item: RenderedLockItem,
   target: TargetName | undefined
 ):
-  | {
-      readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
-      readonly reason?: string;
-      readonly sourcePath: string;
-      readonly status: SkillsetRenderResultStatus;
-    }
+  | PluginManifestRenderFacts
   | undefined {
-  if (item.kind !== "plugin" || target !== "claude") return undefined;
+  if (
+    item.kind !== "plugin" ||
+    (target !== "claude" && target !== "codex" && target !== "cursor")
+  )
+    return undefined;
   const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
   if (plugin === undefined) return undefined;
   const usesPluginAuthor = plugin.metadata.author !== undefined;
   const author = usesPluginAuthor ? plugin.metadata.author : graph.root.metadata.author;
   if (author === undefined) return undefined;
-  const omitted = omittedClaudeAuthorKeys(author);
+  // `<target>.manifest.author` is merged over the canonical projection, so loss
+  // has to be read from the author the manifest actually carries.
+  const canonical = readAuthorRecord(author);
+  const effective = pluginManifestAuthor(graph, plugin, target);
+  const omitted =
+    canonical === undefined || effective === undefined
+      ? target === "cursor"
+        ? omittedCursorAuthorKeys(author)
+        : omittedClaudeAuthorKeys(author)
+      : omittedCanonicalAuthorKeys(canonical, effective);
   if (omitted.length === 0) return undefined;
-  const reason = `Claude author output supports only name, email, and url; omitted canonical fields: ${omitted.join(", ")}`;
+  const providerName =
+    target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Cursor";
+  const supportedFields =
+    target === "cursor" ? "name and email" : "name, email, and url";
+  const reason = `${providerName} author output supports only ${supportedFields}; omitted canonical fields: ${omitted.join(", ")}`;
   const authorSourcePath = usesPluginAuthor ? item.sourcePath : "skillset.yaml";
   return {
     diagnostics: [
       {
-        code: "render/claude-author-fields-omitted",
+        code:
+          target === "claude"
+            ? "render/claude-author-fields-omitted"
+            : target === "codex"
+              ? "render/codex-author-fields-omitted"
+              : "render/cursor-author-fields-omitted",
         message: reason,
         path: `${authorSourcePath}: $.skillset.author`,
       },
     ],
     reason,
     sourcePath: authorSourcePath,
-    status: "lossy",
+    status: authorOmissionStatus(target, omitted),
   };
+}
+
+function authorOmissionStatus(
+  target: "claude" | "codex" | "cursor",
+  omitted: readonly string[]
+): "degraded" | "lossy" {
+  // Cursor has no author URL destination. The supported name/email projection
+  // remains useful and the omission stays visible, but it does not become
+  // policy-blocking unless additional authored fields are also dropped.
+  return target === "cursor" &&
+    omitted.length > 0 &&
+    omitted.every((key) => key === "url")
+    ? "degraded"
+    : "lossy";
 }
 
 function outcomeForCompanionFile(

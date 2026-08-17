@@ -207,6 +207,7 @@ const snapshots = [
           "termsOfServiceURL",
           "websiteURL",
         ],
+        authorFields: ["name", "email", "url"],
         path: ".codex-plugin/plugin.json",
         requiredFields: ["name"],
         optionalFields: [
@@ -232,9 +233,30 @@ const snapshots = [
     },
     id: "codex-plugin",
     provenance: {
-      contentHash: "sha256:ea1a87e3450a9c3959adfb9e1165fede2d9eca9fa9663d8e97f15d2a48ca3ae0",
-      fetchedAt: FETCHED_AT,
-      sources: [{ url: "https://developers.openai.com/codex/plugins/build" }],
+      contentHash: "sha256:a3f71fd04caea6157453b0cec7a6e6ff1e3ec51ac88a0c96409b9cee8737370b",
+      fetchedAt: "2026-08-14T00:00:00-04:00",
+      sources: [
+        {
+          note: "Released Codex 0.147.0 runtime manifest parser; author metadata is not required and hooks are accepted as native manifest input.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/manifest.rs",
+        },
+        {
+          note: "Released Codex 0.147.0 runtime loader; hooks/hooks.json is the conventional default hook source.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/loader.rs",
+        },
+        {
+          note: "Released Codex 0.147.0 runtime loader regressions for authorless manifests and default hook discovery.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/core-plugins/src/loader_tests.rs",
+        },
+        {
+          note: "Released Codex 0.147.0 plugin-creator handoff preflight; stricter than runtime ingestion.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py",
+        },
+        {
+          note: "Released Codex 0.147.0 plugin-creator authoring guidance; stricter than runtime ingestion.",
+          url: "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/references/plugin-json-spec.md",
+        },
+      ],
     },
     target: "codex",
     title: "Codex Plugin Destination Format",
@@ -316,19 +338,29 @@ const snapshots = [
         { defaultPath: "bin/", kind: "bin", manifestField: null, status: "unsupported" },
       ],
       manifest: {
+        authorFields: ["name", "email"],
         path: ".cursor-plugin/plugin.json",
-        requiredFields: ["name", "description"],
+        requiredFields: ["name"],
         optionalFields: [
           "agents",
+          "author",
           "category",
           "commands",
+          "description",
           "displayName",
           "hooks",
+          "homepage",
+          "keywords",
+          "license",
           "logo",
           "mcpServers",
+          "minClientVersions",
+          "publisher",
+          "repository",
           "rules",
           "skills",
           "tags",
+          "variables",
           "version",
         ],
       },
@@ -339,11 +371,13 @@ const snapshots = [
     },
     id: "cursor-plugin",
     provenance: {
-      contentHash: "sha256:1d87b97a074afb49078bda9fa1e399a653229001c134b8fe0a5a2937ccbde5f9",
-      fetchedAt: FETCHED_AT,
+      contentHash: "sha256:3e1929d4816292e8d1901324d31b4e5cd57857f73217a9951503901e602cfb5b",
+      fetchedAt: "2026-08-14T00:00:00-04:00",
       sources: [
-        { url: "https://cursor.com/docs/plugins" },
-        { url: "https://github.com/cursor/plugins" },
+        {
+          note: "Official pinned authoring schema; the installed 2026.07.23 Cursor Agent consuming parser differs on discovery-field placement, so Skillset emits the shared keywords field only.",
+          url: "https://github.com/cursor/plugins/blob/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/plugin.schema.json",
+        },
       ],
     },
     target: "cursor",
@@ -474,6 +508,23 @@ export function listProviderPluginComponentManifestFields(
     if (!isFormatRecord(component)) return [];
     return typeof component.manifestField === "string" ? [component.manifestField] : [];
   });
+  return Object.freeze([...new Set(fields)].sort());
+}
+
+/** Manifest fields the pinned provider plugin manifest format accepts. */
+export function listProviderPluginManifestFields(
+  target: ProviderDestinationFormatTarget
+): readonly string[] {
+  const snapshot = providerDestinationFormatSnapshots.find(
+    (candidate) => candidate.target === target && candidate.destination === "plugin"
+  );
+  if (!isFormatRecord(snapshot?.format) || !isFormatRecord(snapshot.format.manifest)) {
+    return [];
+  }
+  const manifest = snapshot.format.manifest;
+  const fields = [manifest.requiredFields, manifest.optionalFields].flatMap((value) =>
+    Array.isArray(value) ? value.filter((entry) => typeof entry === "string") : []
+  );
   return Object.freeze([...new Set(fields)].sort());
 }
 

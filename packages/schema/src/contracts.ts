@@ -155,6 +155,23 @@ export const SOURCE_LISTING_KEYS = [
   "website_url",
 ] as const;
 
+/**
+ * Portable `skillset.manifest` keys Skillset understands.
+ *
+ * `name`, `displayName`, and `logo` have plugin-manifest destinations;
+ * `category` and `tags` have none and are reported as omitted meaning. The
+ * block stays open to additional keys because workspaces carry portable
+ * manifest material Skillset does not consume, so this list is the validated
+ * vocabulary rather than a closed key set.
+ */
+export const SOURCE_PORTABLE_MANIFEST_KEYS = [
+  "category",
+  "displayName",
+  "logo",
+  "name",
+  "tags",
+] as const;
+
 export const COMMON_FRONTMATTER_KEYS = [
   "allowed_tools",
   "bin",
@@ -1076,7 +1093,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     keywords: arraySchema({ type: "string" }),
     license: enumSchema([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]),
     listing: sourceListingSchema(),
-    manifest: { type: "object" },
+    manifest: sourcePortableManifestSchema(),
     marketplace: { type: "object" },
     name: nonEmptyStringSchema(),
     origin: sourceOriginSchema(),
@@ -1104,6 +1121,22 @@ function sourceAuthorObjectSchema(): SchemaJsonRecord {
     required: ["name"],
     type: "object",
   };
+}
+
+/**
+ * Portable plugin manifest block. Keys with a rendering or omission meaning are
+ * declared and validated; additional keys stay explicitly permitted so the open
+ * shape workspaces already rely on is a stated contract rather than an accident
+ * of an untyped `object`.
+ */
+function sourcePortableManifestSchema(): SchemaJsonRecord {
+  return openObjectSchema({
+    category: nonEmptyStringSchema(),
+    displayName: nonEmptyStringSchema(),
+    logo: nonEmptyStringSchema(),
+    name: nonEmptyStringSchema(),
+    tags: arraySchema(nonEmptyStringSchema()),
+  });
 }
 
 function sourceListingSchema(): SchemaJsonRecord {
@@ -1907,6 +1940,17 @@ function strictObjectSchema(
 ): SchemaJsonRecord {
   return {
     additionalProperties: false,
+    properties,
+    type: "object",
+  };
+}
+
+/** Object schema that declares known properties and permits additional keys. */
+function openObjectSchema(
+  properties: Record<string, SchemaJsonRecord>
+): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
     properties,
     type: "object",
   };

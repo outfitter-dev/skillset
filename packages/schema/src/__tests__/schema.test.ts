@@ -923,6 +923,47 @@ describe("@skillset/schema contracts", () => {
     );
   });
 
+  it("validates the declared portable manifest keys and keeps the block open", () => {
+    expect(
+      validateSourceMetadata({
+        manifest: {
+          category: "Developer Tools",
+          displayName: "Demo",
+          logo: "./assets/logo.svg",
+          name: "demo",
+          // Additional keys stay allowed: the portable manifest block carries
+          // provider-agnostic material Skillset does not consume.
+          publisher: "Outfitter",
+          tags: ["docs", "agents"],
+        },
+      }).ok
+    ).toBe(true);
+    expect(
+      validateSourceMetadata({
+        manifest: {
+          category: "",
+          displayName: 1,
+          logo: "",
+          name: "",
+          tags: ["docs", ""],
+        },
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).toEqual([
+      "schema/source-metadata/manifest-category",
+      "schema/source-metadata/manifest-display-name",
+      "schema/source-metadata/manifest-logo",
+      "schema/source-metadata/manifest-name",
+      "schema/source-metadata/manifest-tags",
+    ]);
+    expect(
+      validateSourceMetadata({ manifest: "bad" }).diagnostics
+    ).toContainEqual({
+      code: "schema/source-metadata/manifest",
+      message: "$.manifest must be an object",
+      path: "$.manifest",
+    });
+  });
+
   it("validates shared source metadata and frontmatter", () => {
     expect(
       validateSourceMetadata({

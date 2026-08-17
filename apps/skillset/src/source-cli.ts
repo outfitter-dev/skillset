@@ -132,12 +132,10 @@ export async function runImportCommand({
     for (const command of result.imports[0]?.nextChecks ?? []) {
       console.log(formatScaffoldNextStep(command));
     }
-  }
-  if (!jsonOutput) printOperationReceipt(receipt);
-  if (!jsonOutput) {
     for (const warning of result.warnings)
       console.warn(`  warning: ${warning}`);
   }
+  if (!jsonOutput) printOperationReceipt(receipt);
   return;
 }
 

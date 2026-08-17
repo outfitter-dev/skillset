@@ -902,7 +902,7 @@ Body.
   expect(manifest.interface.brandColor).toBe("#B06DFF");
 });
 
-test("SET-369: Codex interface accepts plugin and root string authors", async () => {
+test("SET-485: Codex manifests accept plugin and root shorthand authors as objects", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -949,10 +949,10 @@ Body.
         "utf8"
       )
     ) as {
-      author?: string;
+      author?: Record<string, string>;
       interface: { developerName?: string };
     };
-    expect(manifest.author).toBe(expected);
+    expect(manifest.author).toEqual({ name: expected });
     expect(manifest.interface.developerName).toBe(expected);
   }
   const marketplace = JSON.parse(
@@ -977,6 +977,12 @@ test("SET-369: canonical listing metadata wins before provider overrides", async
     "skillset.yaml": `
 skillset:
   name: listing-root
+compile:
+  # The Codex interface override below replaces the canonical listing category,
+  # so no enabled target renders the authored value and the Cursor manifest
+  # reports a lossy render result. This fixture is about override precedence,
+  # not about the unsupported-destination policy.
+  unsupportedDestination: warn
 claude: true
 codex: true
 cursor: true
@@ -1026,7 +1032,7 @@ Body.
       join(root, "plugins/listing/codex/.codex-plugin/plugin.json"),
       "utf8"
     )
-  ) as { author?: string; interface: Record<string, unknown> };
+  ) as { author?: Record<string, string>; interface: Record<string, unknown> };
   const cursor = JSON.parse(
     await readFile(
       join(root, "plugins/listing/cursor/.cursor-plugin/plugin.json"),
@@ -1037,7 +1043,7 @@ Body.
   expect(claude.description).toBe("Canonical summary.");
   expect(claude.author).toEqual({ name: "Canonical developer" });
   expect(claude.keywords).toEqual(["canonical", "listing"]);
-  expect(codex.author).toBe("Canonical developer");
+  expect(codex.author).toEqual({ name: "Canonical developer" });
   expect(codex.interface).toEqual(
     expect.objectContaining({
       category: "Codex override",
@@ -1049,14 +1055,14 @@ Body.
   );
   expect(cursor).toEqual(
     expect.objectContaining({
-      category: "Canonical",
       displayName: "Canonical title",
+      keywords: ["canonical", "listing"],
       logo: "./logo.png",
-      tags: ["canonical", "listing"],
     })
   );
-  expect(cursor.author).toBeUndefined();
-  expect(cursor.keywords).toBeUndefined();
+  expect(cursor.author).toEqual({ name: "Canonical developer" });
+  expect(cursor.category).toBeUndefined();
+  expect(cursor.tags).toBeUndefined();
   expect(cursor.license).toBeUndefined();
 });
 
@@ -3212,9 +3218,6 @@ skillset:
   license: MIT
   keywords:
     - alpha
-  manifest:
-    tags:
-      - manifest-tag
 claude:
   manifest:
     name: alpha-claude
@@ -3224,6 +3227,8 @@ codex:
 cursor:
   manifest:
     name: alpha-cursor
+    tags:
+      - manifest-tag
 `,
     ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
@@ -3263,7 +3268,7 @@ Demo body.
   const codexManifest = JSON.parse(
     await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8")
   ) as {
-    author?: string;
+    author?: Record<string, string>;
     keywords?: string[];
     license?: string;
     name?: string;
@@ -3278,6 +3283,9 @@ Demo body.
       "utf8"
     )
   ) as {
+    author?: Record<string, string>;
+    keywords?: string[];
+    license?: string;
     name?: string;
     tags?: string[];
     version?: string;
@@ -3288,11 +3296,16 @@ Demo body.
   expect(claudeManifest.license).toBe("MIT");
   expect(claudeManifest.keywords).toEqual(["alpha"]);
   expect(codexManifest.name).toBe("alpha-codex");
-  expect(codexManifest.author).toBe("Alpha Author");
+  expect(codexManifest.author).toEqual({ name: "Alpha Author" });
   expect(codexManifest.version).toBe("2.3.4");
   expect(codexManifest.license).toBe("MIT");
   expect(codexManifest.keywords).toEqual(["alpha"]);
   expect(cursorManifest.name).toBe("alpha-cursor");
+  expect(cursorManifest.author).toEqual({ name: "Alpha Author" });
+  expect(cursorManifest.keywords).toEqual(["alpha"]);
+  expect(cursorManifest.license).toBe("MIT");
+  // Cursor discovery tags are provider-native: they come from cursor.manifest,
+  // never from a portable skillset.manifest field.
   expect(cursorManifest.tags).toEqual(["manifest-tag"]);
   expect(cursorManifest.version).toBe("2.3.4");
 });

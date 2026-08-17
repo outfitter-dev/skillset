@@ -278,8 +278,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "future",
       },
       cursor: {
-        evidence: [docs("docs/reference/features/marketplaces.md"), providerSnapshot("cursor-plugin")],
-        provider: { destinationFormat: "cursor-plugin" },
+        evidence: [docs("docs/reference/features/marketplaces.md"), providerSchemaSnapshot("cursor-marketplace-schema")],
+        provider: { schemaSnapshots: ["cursor-marketplace-schema"] },
         status: "native",
       },
     },
@@ -572,7 +572,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     }, {
       claude: { destinationFormat: "claude-plugin", schemaSnapshots: ["claude-plugin-manifest-schema"] },
       codex: { destinationFormat: "codex-plugin", manualOverlays: ["codex-plugin-manifest-overlay"] },
-      cursor: { destinationFormat: "cursor-plugin" },
+      cursor: { destinationFormat: "cursor-plugin", schemaSnapshots: ["cursor-plugin-schema"] },
     }),
     title: "Plugin Manifests",
     validationOwner: "packages/core/src/config.ts",

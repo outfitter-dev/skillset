@@ -11,7 +11,12 @@ import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { validateSlug } from "./path";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
-import { readAuthorName, renderClaudeAuthor } from "./source-author";
+import {
+  readAuthorName,
+  renderClaudeAuthor,
+  renderCodexAuthor,
+  renderCursorAuthor,
+} from "./source-author";
 import { readSourceListing } from "./source-listing";
 import type {
   BuildGraph,
@@ -23,6 +28,7 @@ import type {
   TargetName,
 } from "./types";
 import { pluginVersion } from "./versioning";
+import { isJsonRecord } from "./yaml";
 
 const DEFAULT_CODEX_COLOR = "#B06DFF";
 
@@ -45,23 +51,14 @@ export function renderPluginManifest(
       readString(listing, "description") ??
       readString(metadata, "description") ??
       plugin.id,
-    ...(target === "cursor"
-      ? {}
-      : {
-          author:
-            target === "claude"
-              ? renderClaudeAuthor(metadata.author) ??
-                renderClaudeAuthor(graph.root.metadata.author)
-              : readAuthorName(metadata.author) ??
-                readAuthorName(graph.root.metadata.author),
-          homepage: metadata.homepage,
-          repository: metadata.repository,
-          license: license?.manifestValue,
-          keywords: copyOptionalStrings(
-            readStringArray(listing, "keywords") ??
-              readStringArray(metadata, "keywords")
-          ),
-        }),
+    author: projectedPluginManifestAuthor(graph, plugin, target),
+    homepage: metadata.homepage,
+    repository: metadata.repository,
+    license: license?.manifestValue,
+    keywords: copyOptionalStrings(
+      readStringArray(listing, "keywords") ??
+        readStringArray(metadata, "keywords")
+    ),
   };
   const dependencies =
     target === "claude"
@@ -125,21 +122,83 @@ function renderCursorPluginDisplayFields(
   portableManifest: JsonRecord
 ): JsonRecord {
   const listing = readSourceListing(metadata);
-  const tags =
-    readStringArray(portableManifest, "tags") ??
-    readStringArray(listing, "keywords");
   return {
     displayName:
       readString(portableManifest, "displayName") ??
       readString(listing, "display_name"),
-    category:
-      readString(portableManifest, "category") ??
-      readString(listing, "category"),
     logo:
       readString(portableManifest, "logo") ??
       readString(listing, "logo"),
-    ...(tags === undefined ? {} : { tags: [...tags] }),
   };
+}
+
+/**
+ * Canonical author projection a rendered plugin manifest starts from.
+ *
+ * Provider author formats support different key sets, so the canonical author
+ * is projected per target before any `<target>.manifest.author` override is
+ * merged over it.
+ */
+function projectedPluginManifestAuthor(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): JsonRecord | undefined {
+  const author = plugin.metadata.author;
+  const rootAuthor = graph.root.metadata.author;
+  if (target === "claude") {
+    return renderClaudeAuthor(author) ?? renderClaudeAuthor(rootAuthor);
+  }
+  if (target === "codex") {
+    return renderCodexAuthor(author) ?? renderCodexAuthor(rootAuthor);
+  }
+  return renderCursorAuthor(author) ?? renderCursorAuthor(rootAuthor);
+}
+
+/**
+ * Effective `author` a rendered plugin manifest carries.
+ *
+ * `renderPluginManifest` merges `<target>.manifest` over the rendered manifest,
+ * so a `manifest.author` override can replace part or all of the canonical
+ * author projection. Callers that need to know which canonical author fields
+ * survive must compare this value, not the canonical author.
+ */
+export function pluginManifestAuthor(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): JsonValue | undefined {
+  const projected = projectedPluginManifestAuthor(graph, plugin, target);
+  const manifestOverrides =
+    readRecord(plugin.targets[target].options, "manifest") ?? {};
+  const override = manifestOverrides.author;
+  if (override === undefined) return projected;
+  return projected !== undefined && isJsonRecord(override)
+    ? mergeRecords(projected, override)
+    : override;
+}
+
+/**
+ * Effective `interface.category` a rendered Codex plugin manifest carries.
+ *
+ * `renderPluginManifest` merges `codex.manifest` over the rendered manifest and
+ * `renderCodexInterface` merges `codex.interface` over the canonical base, so
+ * either override can replace the canonical `listing.category`. Callers that
+ * need to know whether the authored category survives must compare this value,
+ * not the presence of the destination.
+ */
+export function codexInterfaceCategory(
+  graph: BuildGraph,
+  plugin: SourcePlugin
+): string | undefined {
+  const manifestOverrides = readRecord(plugin.targets.codex.options, "manifest") ?? {};
+  return readString(
+    mergeRecords(
+      renderCodexInterface(graph, plugin),
+      readRecord(manifestOverrides, "interface") ?? {}
+    ),
+    "category"
+  );
 }
 
 export function renderCodexInterface(

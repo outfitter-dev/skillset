@@ -1,4 +1,9 @@
-import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
+import {
+  CURSOR_VARIABLES_REQUIRED_FIELDS,
+  CURSOR_VARIABLES_TYPE,
+  getProviderDestinationFormatSnapshot,
+  isCursorSemver,
+} from "@skillset/registry";
 
 import {
   checkClaudeAuthorObject,
@@ -20,7 +25,7 @@ import {
 } from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
 import type { SkillsetRenderResult } from "./render-result";
-import type { JsonRecord, RenderedFile, TargetName } from "./types";
+import type { JsonRecord, JsonValue, RenderedFile, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -109,6 +114,7 @@ function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): bool
 
 function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (isClaudeMarketplacePath(file.path)) return true;
+  if (isCursorMarketplacePath(file.path)) return true;
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
@@ -129,6 +135,9 @@ function checkProviderFormatConformanceFile(
 ): readonly ProviderFormatConformanceIssue[] {
   if (isClaudeMarketplacePath(file.path)) {
     return checkClaudeMarketplace(file);
+  }
+  if (isCursorMarketplacePath(file.path)) {
+    return checkCursorMarketplace(file);
   }
   if (file.path.endsWith("/.claude-plugin/plugin.json")) {
     return checkClaudePluginManifest(file);
@@ -233,6 +242,9 @@ function checkClaudePluginManifest(
 function checkCodexPluginManifest(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
+  // Runtime ingestion is intentionally broader than the plugin-creator handoff
+  // preflight. Keep the generic destination contract sourced from the runtime
+  // loader; the self-hosted artifact exercises the stricter preflight separately.
   const parsed = parseJsonRecord(file, "codex", "codex-plugin-manifest-overlay");
   if (!parsed.ok) return parsed.issues;
 
@@ -242,7 +254,7 @@ function checkCodexPluginManifest(
   issues.push(...checkRequiredFields(file, parsed.value, "codex", "codex-plugin-manifest-overlay", format.requiredFields));
   issues.push(...checkFieldTypes(file, parsed.value, "codex", "codex-plugin-manifest-overlay", {
     apps: "string",
-    author: "string",
+    author: "object",
     description: "string",
     homepage: "string",
     hooks: "string",
@@ -256,6 +268,11 @@ function checkCodexPluginManifest(
     version: "string",
   }));
   issues.push(...checkUnknownFields(file, parsed.value, "codex", "codex-plugin-manifest-overlay", [...allowedFields]));
+  if (isJsonRecord(parsed.value.author)) {
+    issues.push(
+      ...checkAuthorObject(file, parsed.value.author, "codex", "codex-plugin-manifest-overlay", "author", ["email", "name", "url"])
+    );
+  }
   if (isJsonRecord(parsed.value.interface)) {
     issues.push(
       ...checkUnknownFields(file, parsed.value.interface, "codex", "codex-plugin-manifest-overlay", format.interfaceFields, "interface")
@@ -276,20 +293,169 @@ function checkCursorPluginManifest(
   issues.push(...checkRequiredFields(file, parsed.value, "cursor", "cursor-plugin", format.requiredFields));
   issues.push(...checkFieldTypes(file, parsed.value, "cursor", "cursor-plugin", {
     agents: "string",
+    author: "object",
     category: "string",
     commands: "string",
     description: "string",
     displayName: "string",
     hooks: "string",
+    homepage: "string",
+    keywords: "string-array",
+    license: "string",
     logo: "string",
     mcpServers: "string",
     name: "string",
+    publisher: "string",
+    repository: "string",
     rules: "string",
     skills: "string",
     tags: "string-array",
     version: "string",
   }));
+  issues.push(
+    ...checkCursorMinClientVersions(file, parsed.value.minClientVersions, "cursor-plugin", "minClientVersions")
+  );
+  issues.push(...checkCursorVariables(file, parsed.value.variables, "cursor-plugin", "variables"));
   issues.push(...checkUnknownFields(file, parsed.value, "cursor", "cursor-plugin", [...allowedFields]));
+  if (isJsonRecord(parsed.value.author)) {
+    issues.push(
+      ...checkAuthorObject(file, parsed.value.author, "cursor", "cursor-plugin", "author", ["email", "name"])
+    );
+  }
+  return issues;
+}
+
+/**
+ * The pinned Cursor plugin and marketplace schemas type `minClientVersions` as
+ * an object with `minProperties: 1` whose every member is a `semver` string.
+ * Checking objectness alone would report conformance for an artifact Cursor
+ * rejects, so validate the members against the pinned contract.
+ */
+function checkCursorMinClientVersions(
+  file: ProviderFormatConformanceFile,
+  value: JsonValue | undefined,
+  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  if (value === undefined) return [];
+  if (!isJsonRecord(value)) {
+    return [issue(file, "cursor", providerRef, "invalid-field-type", `destination field ${prefix} must be an object`)];
+  }
+  const clients = Object.keys(value).sort(compareStrings);
+  if (clients.length === 0) {
+    return [issue(file, "cursor", providerRef, "invalid-shape", `destination field ${prefix} must declare at least one client version`)];
+  }
+  return clients
+    .filter((client) => !isCursorSemver(value[client]))
+    .map((client) =>
+      issue(
+        file,
+        "cursor",
+        providerRef,
+        "invalid-field-type",
+        `destination field ${prefix}.${client} must be a semantic version string such as "3.13.0"`
+      )
+    );
+}
+
+/**
+ * The pinned Cursor plugin schema types `variables` as a nested JSON Schema:
+ * `type` is required and pinned to the `object` const, `properties` is an
+ * object, and `required` is a unique string array. Checking objectness alone
+ * would report conformance for an artifact Cursor rejects, so validate the
+ * declared members against the pinned contract. Additional keys stay allowed
+ * because the pinned definition does not close them.
+ */
+function checkCursorVariables(
+  file: ProviderFormatConformanceFile,
+  value: JsonValue | undefined,
+  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  if (value === undefined) return [];
+  if (!isJsonRecord(value)) {
+    return [issue(file, "cursor", providerRef, "invalid-field-type", `destination field ${prefix} must be an object`)];
+  }
+  const issues: ProviderFormatConformanceIssue[] = [
+    ...checkRequiredFields(file, value, "cursor", providerRef, CURSOR_VARIABLES_REQUIRED_FIELDS, prefix),
+  ];
+  if (value.type !== undefined && value.type !== CURSOR_VARIABLES_TYPE) {
+    issues.push(
+      issue(
+        file,
+        "cursor",
+        providerRef,
+        "invalid-field-type",
+        `destination field ${prefix}.type must be the string "${CURSOR_VARIABLES_TYPE}"`
+      )
+    );
+  }
+  issues.push(
+    ...checkFieldTypes(file, value, "cursor", providerRef, { properties: "object", required: "string-array" }, prefix)
+  );
+  const required = value.required;
+  if (
+    Array.isArray(required) &&
+    required.every((entry) => typeof entry === "string") &&
+    new Set(required).size !== required.length
+  ) {
+    issues.push(
+      issue(file, "cursor", providerRef, "invalid-shape", `destination field ${prefix}.required must not repeat a variable name`)
+    );
+  }
+  return issues;
+}
+
+function checkCursorMarketplace(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const parsed = parseJsonRecord(file, "cursor", "cursor-marketplace-schema");
+  if (!parsed.ok) return parsed.issues;
+  const issues: ProviderFormatConformanceIssue[] = [
+    ...checkRequiredFields(file, parsed.value, "cursor", "cursor-marketplace-schema", ["name", "plugins"]),
+    ...checkFieldTypes(file, parsed.value, "cursor", "cursor-marketplace-schema", {
+      name: "string",
+      metadata: "object",
+      owner: "object",
+      plugins: "array",
+    }),
+    ...checkUnknownFields(file, parsed.value, "cursor", "cursor-marketplace-schema", ["metadata", "name", "owner", "plugins"]),
+  ];
+  if (isJsonRecord(parsed.value.owner)) {
+    issues.push(
+      ...checkAuthorObject(file, parsed.value.owner, "cursor", "cursor-marketplace-schema", "owner", ["email", "name"])
+    );
+  }
+  if (Array.isArray(parsed.value.plugins)) {
+    for (const [index, plugin] of parsed.value.plugins.entries()) {
+      const prefix = `plugins[${index}]`;
+      if (!isJsonRecord(plugin)) {
+        issues.push(issue(file, "cursor", "cursor-marketplace-schema", "invalid-shape", `destination field ${prefix} must be an object`));
+        continue;
+      }
+      for (const field of ["name", "source"] as const) {
+        if (plugin[field] === undefined) {
+          issues.push(issue(file, "cursor", "cursor-marketplace-schema", "missing-required-field", `missing required destination field ${prefix}.${field}`));
+        }
+      }
+      for (const field of ["description", "name", "source"] as const) {
+        if (plugin[field] !== undefined && typeof plugin[field] !== "string") {
+          issues.push(issue(file, "cursor", "cursor-marketplace-schema", "invalid-field-type", `destination field ${prefix}.${field} must be a string`));
+        }
+      }
+      issues.push(
+        ...checkCursorMinClientVersions(
+          file,
+          plugin.minClientVersions,
+          "cursor-marketplace-schema",
+          `${prefix}.minClientVersions`
+        )
+      );
+      issues.push(
+        ...checkUnknownFields(file, plugin, "cursor", "cursor-marketplace-schema", ["description", "minClientVersions", "name", "source"], prefix)
+      );
+    }
+  }
   return issues;
 }
 
@@ -493,6 +659,59 @@ function checkSkillMarkdown(
       "references",
     ]),
   ];
+}
+
+function checkAuthorObject(
+  file: ProviderFormatConformanceFile,
+  author: JsonRecord,
+  target: TargetName,
+  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  prefix: string,
+  allowedFields: readonly string[]
+): readonly ProviderFormatConformanceIssue[] {
+  const issues: ProviderFormatConformanceIssue[] = [];
+  if (author.name === undefined) {
+    issues.push(
+      issue(
+        file,
+        target,
+        providerRef,
+        "missing-required-field",
+        `missing required destination field ${prefix}.name`
+      )
+    );
+  }
+  for (const key of allowedFields) {
+    const value = author[key];
+    if (value === undefined || typeof value === "string") continue;
+    issues.push(
+      issue(
+        file,
+        target,
+        providerRef,
+        "invalid-field-type",
+        `destination field ${prefix}.${key} must be a string`
+      )
+    );
+  }
+  issues.push(
+    ...checkUnknownFields(
+      file,
+      author,
+      target,
+      providerRef,
+      allowedFields,
+      prefix
+    )
+  );
+  return issues;
+}
+
+function isCursorMarketplacePath(path: string): boolean {
+  return (
+    path === ".cursor-plugin/marketplace.json" ||
+    path.endsWith("/.cursor-plugin/marketplace.json")
+  );
 }
 
 function pluginManifestFormat(id: "claude-plugin" | "codex-plugin" | "cursor-plugin"): {

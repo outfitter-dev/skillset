@@ -787,6 +787,32 @@
               "type": "object"
             },
             "manifest": {
+              "additionalProperties": true,
+              "properties": {
+                "category": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "displayName": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "logo": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tags": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
               "type": "object"
             },
             "marketplace": {
@@ -1463,6 +1489,32 @@
               "type": "object"
             },
             "manifest": {
+              "additionalProperties": true,
+              "properties": {
+                "category": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "displayName": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "logo": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tags": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
               "type": "object"
             },
             "marketplace": {
@@ -2270,6 +2322,32 @@
               "type": "object"
             },
             "manifest": {
+              "additionalProperties": true,
+              "properties": {
+                "category": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "displayName": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "logo": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tags": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
               "type": "object"
             },
             "marketplace": {
@@ -2604,6 +2682,32 @@
           "type": "object"
         },
         "manifest": {
+          "additionalProperties": true,
+          "properties": {
+            "category": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "displayName": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "logo": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "tags": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
           "type": "object"
         },
         "marketplace": {
@@ -3535,6 +3639,32 @@
               "type": "object"
             },
             "manifest": {
+              "additionalProperties": true,
+              "properties": {
+                "category": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "displayName": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "logo": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tags": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
               "type": "object"
             },
             "marketplace": {

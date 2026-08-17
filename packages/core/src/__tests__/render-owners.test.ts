@@ -26,6 +26,7 @@ import {
 } from "../render-hooks";
 import {
   claudeMarketplaceSourcePlugins,
+  cursorMarketplaceOwner,
   marketplaceLockProvenance,
   readExistingMarketplaceState,
   renderClaudeMarketplace,
@@ -33,6 +34,8 @@ import {
   renderCursorMarketplace,
 } from "../render-marketplaces";
 import {
+  codexInterfaceCategory,
+  pluginManifestAuthor,
   renderCodexInterface,
   renderPluginManifest,
   withOptionalSurfacePaths,
@@ -68,6 +71,7 @@ const OWNED_FUNCTIONS = {
   ],
   "render-marketplaces": [
     "claudeMarketplaceSourcePlugins",
+    "cursorMarketplaceOwner",
     "renderClaudeMarketplace",
     "renderClaudeMarketplaceDocument",
     "renderCursorMarketplace",
@@ -77,6 +81,8 @@ const OWNED_FUNCTIONS = {
   "render-plugin-manifest": [
     "renderPluginManifest",
     "renderCodexInterface",
+    "codexInterfaceCategory",
+    "pluginManifestAuthor",
     "withOptionalSurfacePaths",
   ],
   "render-rules": ["renderRules"],
@@ -153,6 +159,7 @@ describe("render owner boundaries", () => {
     expect(
       [
         claudeMarketplaceSourcePlugins,
+        cursorMarketplaceOwner,
         renderClaudeMarketplace,
         renderClaudeMarketplaceDocument,
         renderCursorMarketplace,
@@ -160,6 +167,8 @@ describe("render owner boundaries", () => {
         readExistingMarketplaceState,
         renderPluginManifest,
         renderCodexInterface,
+        codexInterfaceCategory,
+        pluginManifestAuthor,
         withOptionalSurfacePaths,
         renderRules,
         renderAdaptivePluginHookFiles,

@@ -15,9 +15,15 @@ const PROVIDER_FORMAT_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
 skillset:
   name: provider-format-root
+  author:
+    name: Root Team
+    email: root@example.com
+    url: https://example.com/root
 claude: true
 codex: true
 cursor: true
+compile:
+  unsupportedDestination: warn
 `,
   ".skillset/skills/repo-skill/SKILL.md": `
 ---
@@ -48,6 +54,13 @@ Review diffs carefully.
 skillset:
   name: alpha
   description: Alpha plugin.
+  author:
+    name: Alpha Team
+    email: alpha@example.com
+  homepage: https://example.com/alpha
+  repository: https://github.com/example/alpha
+  license: MIT
+  keywords: [alpha, tools]
 mcp: true
 `,
   ".skillset/plugins/alpha/.mcp.json": `
@@ -100,6 +113,7 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/AGENTS.md",
       ".skillset/cache/latest/.claude/agents/reviewer.md",
       ".skillset/cache/latest/.claude-plugin/marketplace.json",
+      ".skillset/cache/latest/.cursor-plugin/marketplace.json",
       ".skillset/cache/latest/plugins/alpha/claude/.claude-plugin/plugin.json",
       ".skillset/cache/latest/plugins/alpha/claude/hooks/hooks.json",
       ".skillset/cache/latest/plugins/alpha/codex/.codex-plugin/plugin.json",
@@ -112,6 +126,26 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/.cursor/rules/root.mdc",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
+
+    const codexManifest = files.find((file) =>
+      file.path.endsWith("/codex/.codex-plugin/plugin.json")
+    );
+    const cursorManifest = files.find((file) =>
+      file.path.endsWith("/cursor/.cursor-plugin/plugin.json")
+    );
+    expect(JSON.parse(new TextDecoder().decode(codexManifest?.content))).toMatchObject({
+      author: {
+        email: "alpha@example.com",
+        name: "Alpha Team",
+      },
+    });
+    expect(JSON.parse(new TextDecoder().decode(cursorManifest?.content))).toMatchObject({
+      author: { email: "alpha@example.com", name: "Alpha Team" },
+      homepage: "https://example.com/alpha",
+      keywords: ["alpha", "tools"],
+      license: "MIT",
+      repository: "https://github.com/example/alpha",
+    });
   });
 
   it("reports schema-backed missing and unknown fields with provider refs", () => {
@@ -213,7 +247,7 @@ describe("provider format conformance", () => {
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
     ]);
-    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("Codex plugin manifest structure is currently documented in prose");
+    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("runtime-loader behavior and the separate, stricter plugin-creator handoff preflight");
   });
 
   it("validates Claude's native author object fields", () => {
@@ -250,6 +284,245 @@ describe("provider format conformance", () => {
         code: "unknown-destination-field",
         message:
           "unknown destination field author.contributor; allowed fields are email, name, url",
+      },
+    ]);
+  });
+
+  it("validates Codex and Cursor provider-native author objects", () => {
+    const valid = checkProviderFormatConformance([
+      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
+        author: { email: "team@example.com", name: "Team", url: "https://example.com" },
+        name: "alpha",
+      }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        author: { email: "team@example.com", name: "Team" },
+        description: "Alpha.",
+        name: "alpha",
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 2, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
+        author: "Legacy Author",
+        name: "alpha",
+      }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        author: { name: "Team", url: "https://example.com" },
+        description: "Alpha.",
+        name: "alpha",
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: "destination field author must be an object (Codex 0.147.0 has no adopted JSON Schema source for plugin manifests; runtime-loader behavior and the separate, stricter plugin-creator handoff preflight are recorded as distinct primary sources for this manual overlay.)",
+      },
+      {
+        code: "unknown-destination-field",
+        message: "unknown destination field author.url; allowed fields are email, name",
+      },
+    ]);
+  });
+
+  it("keeps authorless manifests with hooks valid for the Codex runtime loader", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/runtime/codex/.codex-plugin/plugin.json", {
+        hooks: "./hooks/hooks.json",
+        name: "runtime",
+      }),
+      rendered("plugins/runtime/codex/hooks/hooks.json", { hooks: {} }),
+    ]);
+
+    expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
+  });
+
+  it("validates the pinned Cursor marketplace root and entry shapes", () => {
+    const valid = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        owner: { email: "team@example.com", name: "Example Team" },
+        plugins: [{ description: "Alpha.", name: "alpha", source: "plugins/alpha" }],
+      }),
+    ]);
+    expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
+
+    const invalid = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        owner: { name: "Example Team", url: "https://example.com" },
+        plugins: [{ name: "alpha", source: "plugins/alpha", tags: ["alpha"] }],
+      }),
+    ]);
+    expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "unknown-destination-field",
+        message: "unknown destination field owner.url; allowed fields are email, name",
+      },
+      {
+        code: "unknown-destination-field",
+        message: "unknown destination field plugins[0].tags; allowed fields are description, minClientVersions, name, source",
+      },
+    ]);
+  });
+
+  it("accepts pinned Cursor semver values for minClientVersions", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        plugins: [
+          {
+            minClientVersions: { cursor: "3.13.0", other: "1.0.0-rc.1" },
+            name: "alpha",
+            source: "plugins/alpha",
+          },
+        ],
+      }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        minClientVersions: { cursor: "3.13.0" },
+        name: "alpha",
+      }),
+    ]);
+
+    expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
+  });
+
+  it("rejects marketplace minClientVersions members that break the pinned semver contract", () => {
+    const report = checkProviderFormatConformance([
+      rendered(".cursor-plugin/marketplace.json", {
+        name: "example",
+        plugins: [
+          { minClientVersions: { cursor: 3 }, name: "alpha", source: "plugins/alpha" },
+          { minClientVersions: { cursor: "3.13" }, name: "beta", source: "plugins/beta" },
+          // Cursor's pinned semver contract rejects build metadata.
+          { minClientVersions: { cursor: "1.0.0+build.5" }, name: "gamma", source: "plugins/gamma" },
+          { minClientVersions: {}, name: "delta", source: "plugins/delta" },
+          { minClientVersions: "3.13.0", name: "epsilon", source: "plugins/epsilon" },
+        ],
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: 'destination field plugins[0].minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field plugins[1].minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field plugins[2].minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field plugins[4].minClientVersions must be an object",
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field plugins[3].minClientVersions must declare at least one client version",
+      },
+    ]);
+  });
+
+  it("rejects Cursor plugin manifest minClientVersions members that break the pinned semver contract", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        minClientVersions: { cursor: 3, other: "not-a-version" },
+        name: "alpha",
+      }),
+      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+        minClientVersions: {},
+        name: "beta",
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "invalid-field-type",
+        message: 'destination field minClientVersions.cursor must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field minClientVersions.other must be a semantic version string such as "3.13.0"',
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field minClientVersions must declare at least one client version",
+      },
+    ]);
+  });
+
+  it("accepts pinned Cursor variables schemas", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        name: "alpha",
+        variables: { type: "object" },
+      }),
+      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+        name: "beta",
+        variables: {
+          // The pinned `variables` contract leaves additional keys open.
+          description: "User-configured plugin variables.",
+          properties: { token: { type: "string" } },
+          required: ["token"],
+          type: "object",
+        },
+      }),
+    ]);
+
+    expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
+  });
+
+  it("rejects Cursor plugin manifest variables that break the pinned contract", () => {
+    const report = checkProviderFormatConformance([
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        name: "alpha",
+        variables: { properties: { token: { type: "string" } } },
+      }),
+      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+        name: "beta",
+        variables: { type: "string" },
+      }),
+      rendered("plugins/gamma/cursor/.cursor-plugin/plugin.json", {
+        name: "gamma",
+        variables: { properties: ["token"], required: "token", type: "object" },
+      }),
+      rendered("plugins/delta/cursor/.cursor-plugin/plugin.json", {
+        name: "delta",
+        variables: { required: ["token", "token"], type: "object" },
+      }),
+      rendered("plugins/epsilon/cursor/.cursor-plugin/plugin.json", {
+        name: "epsilon",
+        variables: "object",
+      }),
+    ]);
+
+    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
+      {
+        code: "missing-required-field",
+        message: "missing required destination field variables.type",
+      },
+      {
+        code: "invalid-field-type",
+        message: 'destination field variables.type must be the string "object"',
+      },
+      {
+        code: "invalid-shape",
+        message: "destination field variables.required must not repeat a variable name",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field variables must be an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field variables.properties must be an object",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field variables.required must be an array of strings",
       },
     ]);
   });

@@ -37,6 +37,15 @@ export function claudeMarketplacePath(outputRoot: string): string {
     : join(outputRoot, ".claude-plugin", "marketplace.json").replaceAll("\\", "/");
 }
 
+export function cursorMarketplacePath(outputRoot: string): string {
+  return isDefaultPluginOutputRoot(outputRoot)
+    ? ".cursor-plugin/marketplace.json"
+    : join(outputRoot, ".cursor-plugin", "marketplace.json").replaceAll(
+        "\\",
+        "/"
+      );
+}
+
 export function providerSourceForPlugin(
   outputRoot: string,
   target: TargetName,

@@ -267,93 +267,7 @@ test("SET-450: provider-native author imports still reject real conflicts", asyn
   expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
 });
 
-test("SET-450: an unreadable native author blocks import instead of being dropped", async () => {
-  const root = await pluginFixture({
-    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
-    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-      author: 42,
-    }),
-    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-      author: { name: "Codex Team" },
-    }),
-    "native/skills/helper/SKILL.md": skill("shared"),
-  });
-
-  await expect(
-    importSource({
-      kind: "plugin",
-      rootPath: root,
-      sourcePath: join(root, "native"),
-    })
-  ).rejects.toThrow(
-    "native plugin manifests declare an unreadable author: claude"
-  );
-  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
-});
-
-for (const [label, author] of [
-  ["an empty object", {}],
-  ["an email-only object", { email: "team@example.com" }],
-  ["a non-string name", { name: 42 }],
-  ["an empty name", { name: "   " }],
-] as const) {
-  test(`SET-450: a native author object with ${label} blocks import instead of being dropped`, async () => {
-    const root = await pluginFixture({
-      "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
-      "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-        author,
-      }),
-      "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-        author: { name: "Codex Team" },
-      }),
-      "native/skills/helper/SKILL.md": skill("shared"),
-    });
-
-    await expect(
-      importSource({
-        kind: "plugin",
-        rootPath: root,
-        sourcePath: join(root, "native"),
-      })
-    ).rejects.toThrow(
-      "native plugin manifests declare an unreadable author: claude; author must be a non-empty string or an object with a non-empty name"
-    );
-    expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
-  });
-}
-
-for (const [label, author] of [
-  ["a scalar", 42],
-  ["an empty object", {}],
-  ["an email-only object", { email: "team@example.com" }],
-] as const) {
-  test(`SET-450: adoption reports ${label} native author as a blocking diagnostic`, async () => {
-    const root = await pluginFixture({
-      "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-        author,
-      }),
-      "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-        author: { name: "Codex Team" },
-      }),
-      "plugins/demo/skills/helper/SKILL.md": skill("shared"),
-    });
-
-    const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
-
-    expect(result.diagnostics).toEqual([
-      expect.objectContaining({
-        code: "unreadable-plugin-author",
-        evidence: ["claude manifest author cannot become canonical source"],
-        identity: "demo",
-        paths: ["plugins/demo"],
-        providers: ["claude"],
-        severity: "error",
-      }),
-    ]);
-  });
-}
-
-test("SET-369: conflicting native listing metadata stays a provider-specific warning", async () => {
+test("SET-485: mixed-provider adoption keeps Cursor discovery metadata provider-native", async () => {
   const root = await pluginFixture({
     "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
       author: { name: "Canonical Author" },
@@ -373,26 +287,17 @@ test("SET-369: conflicting native listing metadata stays a provider-specific war
   const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
 
   expect(result.groups).toHaveLength(1);
-  expect(result.diagnostics).toEqual([
-    expect.objectContaining({
-      code: "plugin-listing-conflict",
-      evidence: [
-        "native listing.category differs across codex, cursor",
-        "native listing.keywords differs across codex, cursor",
-      ],
-      paths: ["plugins/demo"],
-      severity: "warning",
-    }),
-  ]);
+  expect(result.diagnostics).toEqual([]);
 
   const report = await adoptSkillset(root, { write: true });
   expect(report.ok).toBe(true);
-  expect(report.surveyDiagnostics).toEqual([
-    expect.objectContaining({
-      code: "plugin-listing-conflict",
-      severity: "warning",
-    }),
-  ]);
+  expect(report.surveyDiagnostics).toEqual([]);
+  expect(report.imports[0]?.warnings).toContain(
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers."
+  );
+  expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain(
+    "## Import warnings"
+  );
   const importedConfig = await readFile(
     join(root, ".skillset/plugins/demo/skillset.yaml"),
     "utf8"
@@ -429,9 +334,70 @@ test("SET-369: conflicting native listing metadata stays a provider-specific war
       ),
       "utf8"
     )
-  ) as { tags?: string[] };
+  ) as { category?: string; keywords?: string[]; tags?: string[] };
   expect(codexManifest.keywords).toEqual(["portable"]);
+  expect(cursorManifest.category).toBe("development");
+  expect(cursorManifest.keywords).toEqual(["portable"]);
   expect(cursorManifest.tags).toEqual(["cursor-only"]);
+});
+
+test("SET-485: Cursor-only import round-trips native discovery without seeding Codex", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": `
+skillset:
+  name: import-root
+compile:
+  targets: [codex, cursor]
+`,
+    "native/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      category: "cursor-productivity",
+      tags: ["cursor-native"],
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.warnings).toContain(
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers."
+  );
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("cursor:\n  manifest:\n    category: cursor-productivity");
+  expect(importedConfig).toContain("tags:\n      - cursor-native");
+  expect(importedConfig.match(/category: cursor-productivity/gu)).toHaveLength(1);
+
+  await buildSkillset(root, { isolated: true });
+  const generatedRoot = resolveOperationalPath(
+    createOperationalPathContext(root),
+    ISOLATED_OUT_ROOT
+  );
+  const codexManifest = JSON.parse(
+    await readFile(
+      join(generatedRoot, "plugins/demo/codex/.codex-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as { interface?: { category?: string }; keywords?: string[]; tags?: string[] };
+  const cursorManifest = JSON.parse(
+    await readFile(
+      join(generatedRoot, "plugins/demo/cursor/.cursor-plugin/plugin.json"),
+      "utf8"
+    )
+  ) as { category?: string; keywords?: string[]; tags?: string[] };
+  expect(cursorManifest).toMatchObject({
+    category: "cursor-productivity",
+    tags: ["cursor-native"],
+  });
+  expect(cursorManifest.keywords).toBeUndefined();
+  expect(codexManifest.interface?.category).toBe("Productivity");
+  expect(codexManifest.keywords).toBeUndefined();
+  expect(codexManifest.tags).toBeUndefined();
 });
 
 test("SET-369: native Codex developerName conflicts warn and stay provider-specific", async () => {
@@ -459,6 +425,44 @@ test("SET-369: native Codex developerName conflicts warn and stay provider-speci
   );
   expect(importedConfig).toContain("name: Canonical Author");
   expect(importedConfig).toContain("developerName: Codex Author");
+});
+
+test("SET-485: single import prints each distinct preservation warning once", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml":
+      "skillset:\n  name: import-root\ncodex: true\ncursor: true\n",
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Canonical Author" },
+      interface: { developerName: "Codex Author" },
+    }),
+    "native/.cursor-plugin/plugin.json": manifest(
+      "demo",
+      "Demo",
+      "1.0.0",
+      {
+        category: "cursor-productivity",
+        tags: ["cursor-native"],
+      }
+    ),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+  const cursorWarning =
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers.";
+  const codexWarning =
+    "Native Codex interface.developerName differs from canonical author.name; Skillset preserved the Codex-specific value instead of choosing a canonical author.";
+
+  const result = await runSkillsetCli(
+    "import",
+    join(root, "native"),
+    "--kind",
+    "plugin",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stderr.split(cursorWarning)).toHaveLength(2);
+  expect(result.stderr.split(codexWarning)).toHaveLength(2);
 });
 
 test("SET-369: direct native import rejects conflicting provider versions", async () => {
@@ -715,6 +719,7 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
     "plugins/codex-demo/skills/helper/SKILL.md": skill("shared"),
     "plugins/cursor-demo/.cursor-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
       category: "productivity",
+      tags: ["cursor-native"],
       skills: "./skills/",
     }),
     "plugins/cursor-demo/scripts/run.sh": "#!/bin/sh\necho run\n",
@@ -768,9 +773,13 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
   expect(importedConfig).toContain("name: Demo Author");
   expect(importedConfig).toContain("listing:");
   expect(importedConfig).not.toContain("interface:");
-  expect(importedConfig).not.toContain("cursor:");
+  expect(importedConfig).toContain("cursor:");
   expect(importedConfig).toContain("category: productivity");
-  expect(importedConfig.match(/category: productivity/gu)).toHaveLength(1);
+  expect(importedConfig.match(/category: productivity/gu)).toHaveLength(2);
+  expect(importedConfig).toContain("tags:\n      - cursor-native");
+  expect(report.imports[0]?.warnings).toContain(
+    "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers."
+  );
   await Bun.write(
     configPath,
     importedConfig
@@ -805,21 +814,23 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
       description?: string;
       homepage?: string;
       interface?: { category?: string; developerName?: string };
+      keywords?: string[];
       skills?: string;
+      tags?: string[];
     };
     expect(generatedManifest.description).toBe("Updated canonical description");
-    if (provider === "cursor") {
-      expect(generatedManifest.homepage).toBeUndefined();
-    } else {
-      expect(generatedManifest.homepage).toBe("https://example.com/demo");
-    }
+    expect(generatedManifest.homepage).toBe("https://example.com/demo");
     expect(generatedManifest.skills).toBeUndefined();
     if (provider === "codex") {
       expect(generatedManifest.interface?.category).toBe("collaboration");
       expect(generatedManifest.interface?.developerName).toBe("Updated Author");
+      expect(generatedManifest.keywords).toBeUndefined();
+      expect(generatedManifest.tags).toBeUndefined();
     }
     if (provider === "cursor") {
-      expect(generatedManifest.category).toBe("collaboration");
+      expect(generatedManifest.category).toBe("productivity");
+      expect(generatedManifest.keywords).toBeUndefined();
+      expect(generatedManifest.tags).toEqual(["cursor-native"]);
     }
   }
 });
@@ -977,4 +988,89 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+test("SET-450: an unreadable native author blocks import instead of being dropped", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: 42,
+    }),
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Codex Team" },
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "native plugin manifests declare an unreadable author: claude"
+  );
+  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+});
+
+for (const [label, author] of [
+  ["an empty object", {}],
+  ["an email-only object", { email: "team@example.com" }],
+  ["a non-string name", { name: 42 }],
+  ["an empty name", { name: "   " }],
+] as const) {
+  test(`SET-450: a native author object with ${label} blocks import instead of being dropped`, async () => {
+    const root = await pluginFixture({
+      "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+      "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author,
+      }),
+      "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author: { name: "Codex Team" },
+      }),
+      "native/skills/helper/SKILL.md": skill("shared"),
+    });
+
+    await expect(
+      importSource({
+        kind: "plugin",
+        rootPath: root,
+        sourcePath: join(root, "native"),
+      })
+    ).rejects.toThrow(
+      "native plugin manifests declare an unreadable author: claude; author must be a non-empty string or an object with a non-empty name"
+    );
+    expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+  });
+}
+
+for (const [label, author] of [
+  ["a scalar", 42],
+  ["an empty object", {}],
+  ["an email-only object", { email: "team@example.com" }],
+] as const) {
+  test(`SET-450: adoption reports ${label} native author as a blocking diagnostic`, async () => {
+    const root = await pluginFixture({
+      "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author,
+      }),
+      "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+        author: { name: "Codex Team" },
+      }),
+      "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+    });
+
+    const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
+
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "unreadable-plugin-author",
+        evidence: ["claude manifest author cannot become canonical source"],
+        identity: "demo",
+        paths: ["plugins/demo"],
+        providers: ["claude"],
+        severity: "error",
+      }),
+    ]);
+  });
 }
