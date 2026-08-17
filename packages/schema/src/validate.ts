@@ -5,6 +5,8 @@ import {
   CLI_RESULT_SCHEMA_VERSION,
   COMPILE_BUILD_MODES,
   PLUGIN_CONFIG_KEYS,
+  RENDERED_METADATA_SCHEMA_KEY,
+  RENDERED_METADATA_SCHEMA_VERSION,
   ROOT_SOURCE_MANIFEST_KEYS,
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
@@ -1558,7 +1560,7 @@ export function validateSkillFrontmatter(
     "schema/skill-frontmatter/dependencies",
     diagnostics
   );
-  checkGeneratedMetadata(
+  checkSkillMetadata(
     value.metadata,
     `${path}.metadata`,
     "schema/skill-frontmatter/metadata",
@@ -1711,6 +1713,12 @@ export function validateAgentFrontmatter(
     "schema/agent-frontmatter/hooks",
     diagnostics
   );
+  checkOptionalObject(
+    value.metadata,
+    `${path}.metadata`,
+    "schema/agent-frontmatter/metadata",
+    diagnostics
+  );
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
@@ -1802,6 +1810,12 @@ export function validateInstructionFrontmatter(
     value.cursor,
     `${path}.cursor`,
     "schema/instruction-frontmatter/target",
+    diagnostics
+  );
+  checkOptionalObject(
+    value.metadata,
+    `${path}.metadata`,
+    "schema/instruction-frontmatter/metadata",
     diagnostics
   );
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
@@ -3086,7 +3100,7 @@ function checkOptionalObject(
     diagnostics.push(diagnostic(path, code, `${path} must be an object`));
 }
 
-function checkGeneratedMetadata(
+function checkSkillMetadata(
   value: SchemaJsonValue | undefined,
   path: string,
   code: string,
@@ -3097,12 +3111,19 @@ function checkGeneratedMetadata(
     diagnostics.push(diagnostic(path, code, `${path} must be an object`));
     return;
   }
-  checkOptionalString(
-    value.generated,
-    `${path}.generated`,
-    `${code}-generated`,
-    diagnostics
-  );
+  const renderedSchema = value[RENDERED_METADATA_SCHEMA_KEY];
+  if (
+    renderedSchema !== undefined &&
+    renderedSchema !== RENDERED_METADATA_SCHEMA_VERSION
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.${RENDERED_METADATA_SCHEMA_KEY}`,
+        `${code}-skillset-schema`,
+        `${path}.${RENDERED_METADATA_SCHEMA_KEY} must be ${RENDERED_METADATA_SCHEMA_VERSION}`
+      )
+    );
+  }
   checkOptionalSemverString(
     value.version,
     `${path}.version`,

@@ -38,7 +38,7 @@ implicit_invocation:
 mcp:
   source: repo:.mcp.json
 metadata:
-  generated: skillset-schema@0.1.0
+  skillset.schema: "1"
   version: 1.0.0
 model: sonnet
 name: docs-cli

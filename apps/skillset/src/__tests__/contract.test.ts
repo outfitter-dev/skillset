@@ -136,7 +136,7 @@ Demo.
 
   await buildSkillset(root);
   const skill = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
-  expect(skill).not.toContain("schema:");
+  expect(skill).not.toContain("\nschema:");
 });
 
 test("SET-3/SET-5: root rules dir is accepted as canonical", async () => {

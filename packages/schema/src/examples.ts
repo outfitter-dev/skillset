@@ -294,7 +294,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         source: "repo:.mcp.json",
       },
       metadata: {
-        generated: "skillset-schema@0.1.0",
+        "skillset.schema": "1",
         version: "1.0.0",
       },
       model: "sonnet",
@@ -347,8 +347,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       initialPrompt: "Review the release notes before changing code.",
       metadata: {
-        generated: "skillset-schema@0.1.0",
-        version: "1.0.0",
+        owner: "release-engineering",
       },
       model: "release-review",
       name: "release-reviewer",
@@ -375,8 +374,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       dialect: "claude",
       metadata: {
-        generated: "skillset-schema@0.1.0",
-        version: "1.0.0",
+        owner: "source-platform",
       },
       name: "source-rules",
       skillset: {

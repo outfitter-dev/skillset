@@ -1,7 +1,7 @@
 ---
 description: Implement or review Skillset compiler behavior, package ownership, rendering, command composition, operation results, and generated-output semantics. Use for changes under apps/skillset or packages/core, registry, lint, transforms, toolkit, or workbench that are not primarily shared schema-contract changes.
 metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 0.1.0
 name: skillset-dev-compiler
 ---

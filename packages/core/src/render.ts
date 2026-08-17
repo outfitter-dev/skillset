@@ -3,6 +3,11 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve } from "node:path";
 
+import {
+  RENDERED_METADATA_SCHEMA_KEY,
+  RENDERED_METADATA_SCHEMA_VERSION,
+  RETIRED_RENDERED_SKILL_METADATA_KEYS,
+} from "@skillset/schema";
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
 import {
@@ -581,9 +586,6 @@ async function renderCursorProjectAgent(
       description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
       ...(skills === undefined ? {} : { skills: [...skills] }),
       ...(initialPrompt === undefined ? {} : { initialPrompt }),
-      ...(graph.root.compile.skillset.metadata
-        ? { metadata: { skillset: { generated: GENERATED_BY } } }
-        : {}),
     }
   );
   const body = await preprocessText(agent.body, {
@@ -647,19 +649,14 @@ async function renderClaudeProjectAgent(
     );
   }
   const frontmatter = mergeRecords(
-    mergeRecords(
-      mergeRecords(stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)), {
-        name: readString(targetOptions, "name") ?? agent.name,
-        description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
-        ...(skills === undefined ? {} : { skills: [...skills] }),
-        ...(initialPrompt === undefined ? {} : { initialPrompt }),
-        ...(adaptiveHooks === undefined ? {} : { hooks: adaptiveHooks }),
-      }),
-      stripAgentTargetOptions(targetOptions)
-    ),
-    graph.root.compile.skillset.metadata
-      ? { metadata: { skillset: { generated: GENERATED_BY } } }
-      : {}
+    mergeRecords(stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)), {
+      name: readString(targetOptions, "name") ?? agent.name,
+      description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
+      ...(skills === undefined ? {} : { skills: [...skills] }),
+      ...(initialPrompt === undefined ? {} : { initialPrompt }),
+      ...(adaptiveHooks === undefined ? {} : { hooks: adaptiveHooks }),
+    }),
+    stripAgentTargetOptions(targetOptions)
   );
   const body = await preprocessText(agent.body, {
     frontmatter: agent.frontmatter,
@@ -706,16 +703,11 @@ async function renderCodexProjectAgent(
     targetPath,
     preprocessDependencies
   );
-  const value = mergeRecords(
-    mergeRecords(stripAgentTargetOptions(targetOptions), {
-      name: readString(targetOptions, "name") ?? agent.name,
-      description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
-      developer_instructions: instructions,
-    }),
-    graph.root.compile.skillset.metadata
-      ? { metadata: { skillset: { generated: GENERATED_BY } } }
-      : {}
-  );
+  const value = mergeRecords(stripAgentTargetOptions(targetOptions), {
+    name: readString(targetOptions, "name") ?? agent.name,
+    description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
+    developer_instructions: instructions,
+  });
   return {
     file: textFile(
       targetPath,
@@ -1166,9 +1158,6 @@ async function renderSkillMarkdown(
   const withAdaptiveHooks = adaptiveHooks === undefined
     ? withClaudePolicy
     : mergeRecords(withClaudePolicy, { hooks: adaptiveHooks });
-  const withPortable = graph.root.compile.skillset.metadata
-    ? mergeRecords(withAdaptiveHooks, { metadata: { generated: GENERATED_BY, version } })
-    : withAdaptiveHooks;
   const targetFrontmatter = readRecord(targetOptions, "frontmatter") ?? {};
   if (adaptiveHooks !== undefined && targetFrontmatter.hooks !== undefined) {
     throw new Error(
@@ -1176,18 +1165,14 @@ async function renderSkillMarkdown(
     );
   }
   const withTargetFrontmatter = mergeRecords(
-    withPortable,
+    withAdaptiveHooks,
     targetFrontmatter
   );
-  const frontmatter = graph.root.compile.skillset.metadata
-    ? mergeRecords(withTargetFrontmatter, {
-        metadata: {
-          ...(readRecord(withTargetFrontmatter, "metadata") ?? {}),
-          generated: GENERATED_BY,
-          version,
-        },
-      })
-    : withTargetFrontmatter;
+  const frontmatter = renderSkillMetadata(
+    withTargetFrontmatter,
+    version,
+    graph.root.compile.skillset.metadata
+  );
 
   const preprocessDependencies = new Set<string>();
   const preprocessedBody = await preprocessText(skill.body, {
@@ -1233,6 +1218,33 @@ async function renderSkillMarkdown(
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
     transforms: translated.transforms,
   };
+}
+
+function renderSkillMetadata(
+  frontmatter: JsonRecord,
+  version: string,
+  includeCompilerMetadata: boolean
+): JsonRecord {
+  if (!includeCompilerMetadata) return frontmatter;
+
+  const rendered: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (key !== "metadata" && value !== undefined) rendered[key] = value;
+  }
+
+  const metadata: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(readRecord(frontmatter, "metadata") ?? {})) {
+    if (
+      !RETIRED_RENDERED_SKILL_METADATA_KEYS.some((retired) => retired === key) &&
+      value !== undefined
+    ) {
+      metadata[key] = value;
+    }
+  }
+  metadata.version = version;
+  metadata[RENDERED_METADATA_SCHEMA_KEY] = RENDERED_METADATA_SCHEMA_VERSION;
+  if (Object.keys(metadata).length > 0) rendered.metadata = metadata;
+  return rendered;
 }
 
 function renderCodexPromptArgumentsNotice(body: string): string | undefined {
@@ -1711,7 +1723,6 @@ function lockItemForProjectAgent(args: {
       args.graph,
       args.agent,
       args.result.target,
-      args.graph.root.compile.skillset.metadata,
       args.result.preprocessDependencies,
       args.graph.rootPath
     ),
@@ -1799,12 +1810,11 @@ function hashProjectAgentSource(
   graph: BuildGraph,
   agent: SourceProjectAgent,
   target: TargetName,
-  skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-project-agent-source-v3\0");
+  hash.update("skillset-project-agent-source-v4\0");
   hash.update(agent.relativePath);
   hash.update("\0");
   hash.update(agent.name);
@@ -1822,8 +1832,6 @@ function hashProjectAgentSource(
     enabled: agent.targets[target].enabled,
     options: agent.targets[target].options,
   }));
-  hash.update("\0skillset-metadata\0");
-  hash.update(String(skillsetMetadata));
   hash.update("\0");
   const adaptiveHooks = target === "claude"
     ? renderAdaptiveFrontmatterHooks(

@@ -254,6 +254,51 @@ skillset:
     expect((await stat(resourceOutput)).mode & 0o777).toBe(0o555);
   });
 
+  it("keeps project-agent source hashes stable when only compile.skillset.metadata changes", async () => {
+    const config = (metadata: boolean): string => `
+skillset:
+  name: agent-metadata-toggle
+compile:
+  build: all
+  skillset:
+    metadata: ${metadata}
+claude: true
+codex: false
+cursor: false
+`;
+    const root = await fixture({
+      "skillset.yaml": config(true),
+      ".skillset/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews code.
+---
+
+Review diffs carefully.
+`,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Demo.
+`,
+    });
+
+    await buildSkillsetResult(root);
+    const agentHash = await projectAgentSourceHash(root);
+    const skillHash = await skillSourceHash(root);
+    expect(agentHash).toBeDefined();
+    expect(skillHash).toBeDefined();
+
+    await writeFile(join(root, "skillset.yaml"), `${config(false).trim()}\n`);
+    await buildSkillsetResult(root);
+
+    expect(await projectAgentSourceHash(root)).toBe(agentHash);
+    expect(await skillSourceHash(root)).not.toBe(skillHash);
+  });
+
   it("upgrades schema-v1 output locks without false managed-edit backups", async () => {
     const root = await fixture({
       "skillset.yaml": `
@@ -1902,6 +1947,25 @@ async function fixture(files: Record<string, string>): Promise<string> {
 
 async function readJson(path: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
+}
+
+async function lockItemSourceHash(
+  lockPath: string,
+  kind: string
+): Promise<string | undefined> {
+  const lock = await readJson(lockPath);
+  const item = (lock.items as Array<Record<string, unknown>>).find(
+    (candidate) => candidate.kind === kind
+  );
+  return item?.sourceHash as string | undefined;
+}
+
+async function projectAgentSourceHash(root: string): Promise<string | undefined> {
+  return lockItemSourceHash(join(root, "skillset.lock"), "project-agent");
+}
+
+async function skillSourceHash(root: string): Promise<string | undefined> {
+  return lockItemSourceHash(join(root, ".claude/skills/skillset.lock"), "standalone-skill");
 }
 
 async function expectUnsupportedOutcome(

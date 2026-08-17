@@ -1,7 +1,7 @@
 ---
 description: Use when summarizing notes into decisions, follow-ups, and risks.
 metadata:
-  generated: skillset@0.1.0
+  skillset.schema: "1"
   version: 0.1.0
 name: review-notes
 ---

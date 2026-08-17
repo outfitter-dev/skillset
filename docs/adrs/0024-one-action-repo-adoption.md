@@ -4,7 +4,7 @@ slug: one-action-repo-adoption
 title: One-Action Repo Adoption
 status: accepted
 created: 2026-06-10
-updated: 2026-07-20
+updated: 2026-08-15
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 9, 12, 14, 18, 22]
 ---
@@ -132,7 +132,12 @@ explicitly deferred rather than implied by the stored evidence.
 
 - **Activation.** Adoption never installs, trusts, symlinks, or mutates Claude, Codex, or Cursor runtime config. The install/sync boundary from the global XDG draft is untouched.
 - **Refresh or upstream acquisition.** The accepted repo-local flow does not fetch, re-pin, regenerate from, or merge an external source.
-- **Perfect byte fidelity.** Generated projections legitimately differ from originals (normalized frontmatter, `metadata.generated` provenance). The round-trip target is substantial similarity with every difference explainable, not zero diff.
+- **Perfect byte fidelity.** Generated projections legitimately differ from
+  originals through normalized frontmatter and current compiler-owned
+  metadata. Earlier adoption fixtures included `metadata.generated`; SET-452
+  retired that field in favor of `metadata.version` plus the
+  `metadata["skillset.schema"]` contract. The round-trip target is substantial
+  similarity with every difference explainable, not zero diff.
 
 ## Consequences
 

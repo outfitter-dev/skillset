@@ -4,7 +4,7 @@ slug: open-standards-are-the-portability-floor
 title: Open Standards Are the Default Portability Floor
 status: accepted
 created: 2026-08-06
-updated: 2026-08-07
+updated: 2026-08-15
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 1, 3, 5, 6, 9, 18, 19]
 amends: [1, 5, 18]
@@ -384,7 +384,7 @@ The standard `SKILL.md` mapping is:
 | `description` | existing resolved description fallback chain |
 | `license` | resolved skill, plugin, or workspace license |
 | `compatibility` | a new optional top-level adaptive `compatibility` string; authored only, never derived from `supports` |
-| `metadata` | authored string-to-string `metadata`, plus string-valued `generated` and `version` when `compile.skillset.metadata` is enabled |
+| `metadata` | authored string-to-string `metadata`, plus string-valued `version` and `skillset.schema` when `compile.skillset.metadata` is enabled |
 | `allowed-tools` | explicit `allowed_tools.agents`, serialized in the standard space-separated form |
 
 The standard renderer permits only the standard frontmatter keys above. It
@@ -396,6 +396,12 @@ contracts. Authors must opt into the standards field explicitly through
 `allowed_tools.agents`. The bare `allowed_tools` value form continues to
 address providers only; it never feeds the standard field, and `agents` joins
 that map as an output-family member, not a provider target.
+
+SET-452 narrows the compiler-owned metadata named by the accepted profile. The
+earlier wording named `metadata.generated`; rendered skills now carry only
+`metadata.version` and `metadata["skillset.schema"]` when
+`compile.skillset.metadata` is enabled. Detailed source paths, hashes, compiler
+versions, and other build provenance stay in locks and operation results.
 
 The schema adds `compatibility` and the `agents` member of the existing
 `allowed_tools` target map. It also tightens standard-output validation so
