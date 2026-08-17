@@ -71,7 +71,12 @@ export function scanCliSurface(file: string, content: string): readonly CliSurfa
 
 function allowedRetiredFlagUse(file: string, text: string): boolean {
   if (file.startsWith(".skillset/skills/skillset-adrs/scripts/")) return true;
-  if (file === "scripts/npm-bootstrap.ts" && /^\s*"--dry-run",?\s*$/u.test(text)) return true;
+  if (
+    (file === "scripts/npm-bootstrap.ts" || file === "scripts/public-closure-guard.ts") &&
+    /^\s*"--dry-run",?\s*$/u.test(text)
+  ) {
+    return true;
+  }
   let remainder = text
     .replace(/\bnpm (?:install|i) --global\b/gu, "npm install")
     .replace(/\bbun add --global\b/gu, "bun add")

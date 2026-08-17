@@ -72,6 +72,10 @@ The same canonical inputs and compiler contract should produce deterministic, di
 
 Each provider's output should follow that provider's conventions. Skillset may normalize source authoring without forcing destinations into an unnatural common shape.
 
+### Public output stays closed
+
+Generated public artifacts may depend only on public product material. Contributor guidance may use and extend the public product, but public output must not route consumers into contributor-only skills, repository internals, development fixtures, or private release machinery.
+
 ### Provenance stays inspectable
 
 Provider artifacts should carry only lightweight metadata needed by their contract. Source paths, hashes, support decisions, skipped output, policy, and drift evidence belong in structured operation results and nearby locks.
