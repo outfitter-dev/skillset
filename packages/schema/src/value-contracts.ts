@@ -9,6 +9,11 @@ export const REPORT_WORKSPACE_NAME_PATTERN =
   "^(?!\\.{1,2}$)(?!~$)(?![A-Za-z]:)[^\\\\/\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]+$";
 export const REPORT_REPOSITORY_IDENTITY_PATTERN =
   "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)+$";
+export const REPORT_RELATIVE_ID_PATTERN =
+  "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$";
+export const REPORT_RELATIVE_ID_MAX_LENGTH = 256;
+export const REPORT_CODE_PATTERN = "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$";
+export const REPORT_CODE_MAX_LENGTH = 96;
 
 export type ListConjunction = "and" | "or";
 

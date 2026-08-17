@@ -2,6 +2,10 @@ import { sortSchemaRecord } from "./json";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 import {
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
+  REPORT_CODE_MAX_LENGTH,
+  REPORT_CODE_PATTERN,
+  REPORT_RELATIVE_ID_MAX_LENGTH,
+  REPORT_RELATIVE_ID_PATTERN,
   REPORT_REPOSITORY_IDENTITY_PATTERN,
   REPORT_WORKSPACE_NAME_PATTERN,
   SEMVER_PATTERN,
@@ -32,8 +36,6 @@ export const REPORT_EXTERNAL_FIXTURE_PHASES = [
   "purity",
   "compare",
 ] as const;
-export const REPORT_RELATIVE_ID_PATTERN =
-  "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$";
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = [
@@ -1514,15 +1516,15 @@ function reportOperationPayloadSchema(): SchemaJsonRecord {
 
 function reportCodeSchema(): SchemaJsonRecord {
   return {
-    maxLength: 96,
-    pattern: "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+    maxLength: REPORT_CODE_MAX_LENGTH,
+    pattern: REPORT_CODE_PATTERN,
     type: "string",
   };
 }
 
 function reportRelativeIdSchema(): SchemaJsonRecord {
   return {
-    maxLength: 256,
+    maxLength: REPORT_RELATIVE_ID_MAX_LENGTH,
     pattern: REPORT_RELATIVE_ID_PATTERN,
     type: "string",
   };
@@ -1651,10 +1653,7 @@ function reportImportPayloadSchema(): SchemaJsonRecord {
       ),
       fileCount: reportBoundedCountSchema(),
       importedUnitIds: reportIdListSchema(),
-      listCounts: reportListCountsSchema([
-        "destinations",
-        "importedUnitIds",
-      ]),
+      listCounts: reportListCountsSchema(["destinations", "importedUnitIds"]),
       partial: { type: "boolean" },
       requestedKind: enumSchema([
         "auto",

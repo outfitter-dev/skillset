@@ -1,7 +1,6 @@
 import {
   REPORT_EXTERNAL_FIXTURE_PHASES,
   REPORT_KINDS,
-  REPORT_RELATIVE_ID_PATTERN,
   REPORT_SCHEMA_VERSION,
   TARGET_NAMES,
 } from "./contracts";
@@ -14,6 +13,10 @@ import type {
 } from "./types";
 import {
   createSemverRegExp,
+  REPORT_CODE_MAX_LENGTH,
+  REPORT_CODE_PATTERN,
+  REPORT_RELATIVE_ID_MAX_LENGTH,
+  REPORT_RELATIVE_ID_PATTERN,
   REPORT_REPOSITORY_IDENTITY_PATTERN,
   REPORT_WORKSPACE_NAME_PATTERN,
   WORKSPACE_ID_MAX_LENGTH,
@@ -33,7 +36,7 @@ const repositoryIdentityPattern = new RegExp(
 );
 const FULL_GIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
-const REPORT_CODE_PATTERN = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
+const reportCodePattern = new RegExp(REPORT_CODE_PATTERN, "u");
 const reportRelativeIdPattern = new RegExp(REPORT_RELATIVE_ID_PATTERN, "u");
 const FIXTURE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 const REPORT_PHASE_STATUSES = [
@@ -697,7 +700,11 @@ function checkRetainedListCounts(
   if (!isSchemaRecord(value)) return;
   for (const [key, list] of Object.entries(lists)) {
     const count = value[key];
-    if (!Array.isArray(list) || typeof count !== "number" || !Number.isInteger(count))
+    if (
+      !Array.isArray(list) ||
+      typeof count !== "number" ||
+      !Number.isInteger(count)
+    )
       continue;
     const countIsImpossible =
       count < list.length || (list.length < 200 && count !== list.length);
@@ -1006,7 +1013,7 @@ function checkRelativeId(
 ): void {
   if (
     typeof value !== "string" ||
-    value.length > 256 ||
+    Array.from(value).length > REPORT_RELATIVE_ID_MAX_LENGTH ||
     !reportRelativeIdPattern.test(value)
   ) {
     diagnostics.push(
@@ -1046,7 +1053,13 @@ function checkCodeList(
   path: string,
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
-  checkStringList(value, path, REPORT_CODE_PATTERN, 96, diagnostics);
+  checkStringList(
+    value,
+    path,
+    reportCodePattern,
+    REPORT_CODE_MAX_LENGTH,
+    diagnostics
+  );
 }
 
 function checkStringList(
@@ -1170,7 +1183,7 @@ function checkPattern(
   if (
     typeof value !== "string" ||
     !pattern.test(value) ||
-    (maxLength !== undefined && value.length > maxLength)
+    (maxLength !== undefined && Array.from(value).length > maxLength)
   ) {
     diagnostics.push(
       diagnostic(
