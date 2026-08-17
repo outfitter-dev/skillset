@@ -3,9 +3,11 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import {
   bunRuntimeDiagnostics,
   distributionBundleDiagnostics,
+  distributionOutputGitDiagnostics,
   launcherRuntimeDiagnostics,
   licenseDiagnostics,
   packageBinDiagnostics,
@@ -204,6 +206,29 @@ describe("package metadata checks", () => {
       "skillset launcher must not duplicate the @skillset/cli Bun bundle",
     ]);
   });
+
+  test("keeps CLI distribution output ignored and untracked", async () => {
+    const root = await gitFixture({
+      ".gitignore": "dist/\n",
+      "apps/cli/dist/cli.js": "#!/usr/bin/env bun\n",
+    });
+    expect(await distributionOutputGitDiagnostics(root)).toEqual([]);
+
+    await runGit(root, "add", "-f", "apps/cli/dist/cli.js");
+    expect(await distributionOutputGitDiagnostics(root)).toEqual([
+      "apps/cli/dist must remain untracked",
+    ]);
+  });
+
+  test("requires CLI distribution output to stay ignored", async () => {
+    const root = await gitFixture({
+      ".gitignore": "node_modules/\n",
+      "apps/cli/dist/cli.js": "#!/usr/bin/env bun\n",
+    });
+    expect(await distributionOutputGitDiagnostics(root)).toEqual([
+      "apps/cli/dist must remain ignored",
+    ]);
+  });
 });
 
 async function fixture(files: Record<string, unknown>) {
@@ -216,4 +241,26 @@ async function fixture(files: Record<string, unknown>) {
     await writeFile(destination, content);
   }
   return root;
+}
+
+async function gitFixture(files: Record<string, unknown>) {
+  const root = await fixture(files);
+  await runGit(root, "init", "--quiet");
+  return root;
+}
+
+async function runGit(root: string, ...args: string[]) {
+  const process = Bun.spawn(["git", ...args], {
+    cwd: root,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stderr] = await Promise.all([
+    process.exited,
+    new Response(process.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`git ${args.join(" ")} failed: ${stderr.trim()}`);
+  }
 }

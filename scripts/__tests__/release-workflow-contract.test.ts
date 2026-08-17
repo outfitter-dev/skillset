@@ -139,15 +139,46 @@ describe("generated release PR workflow contract", () => {
       expect(job?.steps?.map((step) => step.run)).toContain(
         `npm install --location=global npm@${RELEASE_NPM_VERSION}`
       );
-      expect(
-        job?.steps?.find(
-          (step) => step.name === "Validate coordinated release before publish"
-        )?.run
-      ).toContain("publish:release-check");
-      expect(
-        job?.steps?.find((step) => step.name === "Publish package set")?.run
-      ).toContain("--native-out-dir");
+      const steps = job?.steps ?? [];
+      const preflightIndex = steps.findIndex(
+        (step) => step.name === "Validate coordinated release before publish"
+      );
+      const publishIndex = steps.findIndex(
+        (step) => step.name === "Publish package set"
+      );
+      const preflight = steps[preflightIndex]?.run ?? "";
+      const publish = steps[publishIndex]?.run ?? "";
+      expect(preflightIndex).toBeGreaterThan(-1);
+      expect(publishIndex).toBeGreaterThan(preflightIndex);
+      expect(preflight).toContain("publish:release-check");
+      expect(preflight).toContain(
+        '--stage-dir "$RUNNER_TEMP/release-tarballs"'
+      );
+      expect(publish).toContain("--native-out-dir");
+      expect(publish).toContain('--stage-dir "$RUNNER_TEMP/release-tarballs"');
     }
+  });
+
+  test("package checks and release staging build immediately before packing", async () => {
+    const packageManifest = JSON.parse(
+      await readFile(join(root, "package.json"), "utf8")
+    ) as { scripts?: Record<string, string> };
+    expect(packageManifest.scripts?.["check:pack"]).toBe(
+      "bun run build:npm && bun scripts/package-metadata.ts check && bun scripts/package-smoke.ts"
+    );
+
+    const stagingSource = await readFile(
+      join(root, "scripts", "release-tarballs.ts"),
+      "utf8"
+    );
+    const buildIndex = stagingSource.indexOf(
+      'await capture(["bun", "run", "build:npm"], options.rootPath);'
+    );
+    const packIndex = stagingSource.indexOf(
+      "packages.push(await packOne(spec, options.rootPath, stageDir));"
+    );
+    expect(buildIndex).toBeGreaterThan(-1);
+    expect(packIndex).toBeGreaterThan(buildIndex);
   });
 
   test("GitHub release recovery verifies signing, registry, attestations, and exact assets", async () => {
