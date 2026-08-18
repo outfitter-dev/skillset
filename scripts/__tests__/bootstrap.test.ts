@@ -300,6 +300,21 @@ describe("bootstrap repo policy", () => {
     });
   });
 
+  test("bootstrap rejects checkout mode normalization when Git cannot list tracked files", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const root = await createTestGitFixtureRoot(
+      "skillset-bootstrap-mode-failure-"
+    );
+    const work = await mkdtemp(join(root, "work-"));
+    try {
+      await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  });
+
   test("bootstrap leaves unmerged checkout modes untouched", async () => {
     if (process.platform === "win32") {
       return;
