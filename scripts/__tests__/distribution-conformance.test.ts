@@ -14,6 +14,7 @@ import { join } from "node:path";
 import productManifest from "../../apps/skillset/package.json";
 import {
   distributionCommandBase,
+  distributionRuntimePath,
   smokeDistribution,
 } from "../distribution-conformance";
 import { renderDistributionSizeReport } from "../distribution-size-report";
@@ -77,6 +78,23 @@ describe("SET-424 distribution conformance", () => {
       "@skillset/cli@1.2.3",
       "skillset",
     ]);
+  });
+
+  test("exposes Bun after sentinel tools only for the Bun runtime", () => {
+    expect(
+      distributionRuntimePath("bun", "C:\\smoke\\tools", "C:\\bun", ";")
+    ).toBe("C:\\smoke\\tools;C:\\bun");
+    expect(
+      distributionRuntimePath("native", "C:\\smoke\\tools", "C:\\bun", ";")
+    ).toBe("C:\\smoke\\tools");
+    expect(
+      distributionRuntimePath(
+        "node-launcher",
+        "C:\\smoke\\tools",
+        "C:\\bun",
+        ";"
+      )
+    ).toBe("C:\\smoke\\tools");
   });
 
   test("suppresses package installation noise without hiding command failures", async () => {
