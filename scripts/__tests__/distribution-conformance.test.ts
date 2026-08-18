@@ -72,10 +72,39 @@ describe("SET-424 distribution conformance", () => {
       "/tmp/bun.exe",
       "x",
       "--bun",
+      "--silent",
       "--package",
       "@skillset/cli@1.2.3",
       "skillset",
     ]);
+  });
+
+  test("suppresses package installation noise without hiding command failures", async () => {
+    const root = await temporaryRoot();
+    const packageRoot = join(root, "package");
+    const cli = join(packageRoot, "cli.ts");
+    await mkdir(packageRoot);
+    await writeFile(
+      join(packageRoot, "package.json"),
+      JSON.stringify({ bin: { skillset: "cli.ts" }, name: "conformance-package" })
+    );
+    await writeFile(
+      cli,
+      `#!/usr/bin/env bun
+const arg = process.argv[2];
+if (arg === "--version") console.log("1.2.3");
+else if (arg === "--help") console.log("Skillset\\n\\nUsage\\n  skillset <command>");
+else if (arg === "lookup") console.log(JSON.stringify({command:"lookup",exitCode:0,ok:true}));
+else { console.error("skillset: expected command\\nusage: skillset"); process.exit(1); }
+`
+    );
+    await chmod(cli, 0o755);
+
+    await smokeDistribution({
+      bunxPackage: packageRoot,
+      expectedVersion: "1.2.3",
+      runtime: "bun",
+    });
   });
 
   test("proves the shared command contract with Bun and native runtime boundaries", async () => {

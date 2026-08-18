@@ -50,6 +50,7 @@ export function distributionCommandBase(
       bunExecutable,
       "x",
       "--bun",
+      "--silent",
       "--package",
       options.bunxPackage,
       "skillset",
