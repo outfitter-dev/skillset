@@ -220,13 +220,21 @@ export const runRepoBootstrap = async (
   }
 
   if (has("git")) {
-    const normalized = await normalizeTrackedCheckoutModes(options.repoRoot);
-    const total = normalized.executable + normalized.regular;
-    success(
-      total === 0
-        ? "Tracked checkout modes already portable"
-        : `Normalized ${String(total)} tracked checkout modes (${String(normalized.regular)} regular, ${String(normalized.executable)} executable)`
-    );
+    try {
+      const normalized = await normalizeTrackedCheckoutModes(options.repoRoot);
+      const total = normalized.executable + normalized.regular;
+      success(
+        total === 0
+          ? "Tracked checkout modes already portable"
+          : `Normalized ${String(total)} tracked checkout modes (${String(normalized.regular)} regular, ${String(normalized.executable)} executable)`
+      );
+    } catch (error) {
+      warn(
+        error instanceof Error
+          ? `${error.message}; checkout modes were not normalized.`
+          : "Could not normalize tracked checkout modes."
+      );
+    }
   } else {
     warn("Git is unavailable; tracked checkout modes were not normalized.");
   }
