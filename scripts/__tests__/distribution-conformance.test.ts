@@ -71,6 +71,7 @@ describe("SET-424 distribution conformance", () => {
     ).toEqual([
       "/tmp/bun.exe",
       "x",
+      "--bun",
       "--package",
       "@skillset/cli@1.2.3",
       "skillset",
