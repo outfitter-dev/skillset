@@ -46,7 +46,14 @@ export function distributionCommandBase(
     throw new Error("Specify exactly one executable or Bun package runner");
   }
   if (options.bunxPackage) {
-    return [bunExecutable, "x", "--package", options.bunxPackage, "skillset"];
+    return [
+      bunExecutable,
+      "x",
+      "--bun",
+      "--package",
+      options.bunxPackage,
+      "skillset",
+    ];
   }
   const executable = resolve(options.executable ?? "");
   return options.runtime === "bun" &&

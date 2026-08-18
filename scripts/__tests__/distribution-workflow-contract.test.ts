@@ -92,6 +92,7 @@ describe("SET-424 published distribution workflow", () => {
       "macos-15",
       "macos-15-intel",
     ]);
+    expect(homebrewCommands).toContain("bun install --frozen-lockfile");
     expect(homebrewCommands).toContain(
       "brew install outfitter-dev/tap/skillset"
     );
