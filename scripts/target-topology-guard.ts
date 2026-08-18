@@ -50,7 +50,7 @@ export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] 
   allow("packages/registry/src/index.ts", 10, 52, "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
   allow("packages/registry/src/schema-snapshots.ts", 5, 40, "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
   allow("scripts/source-layout-migration.ts", 72, 24, "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),
-  allow("scripts/bootstrap/main.ts", 59, 15, "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex"', "Bootstrap exposes provider-specific setup commands only for the two supported runtimes."),
+  allow("scripts/bootstrap/main.ts", 61, 7, "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex" || command === "cursor"', "Bootstrap exposes provider-specific setup commands for the supported agent runtimes."),
   allow("packages/core/src/render-result-collector.ts", 1460, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Commands are provider-native companion formats for Claude and Cursor."),
   allow("packages/core/src/render-result-collector.ts", 1466, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Agents are provider-native companion formats for Claude and Cursor."),
   allow("packages/core/src/render-result-collector.ts", 805, 5, "pluginAuthorRenderFacts", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native author omission diagnostics use provider names."),
