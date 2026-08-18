@@ -1,5 +1,54 @@
 # skillset
 
+## 0.24.0
+
+### Minor Changes
+
+- 596cfbc: Render canonical author metadata into Claude's supported object shape, report omitted author fields explicitly, and remove unsupported marketplace provenance.
+
+  Native plugin authors that cannot form canonical source now **block import** rather than disappearing. Previously a malformed native `author` — a scalar such as `42`, or an object that cannot satisfy the canonical author contract (`{}`, email-only, a non-string or empty `name`) — was treated as absent: another provider's valid author became canonical, and the source-owned `author` was stripped, so the original value was silently lost. Import now rejects with the offending providers named, and `skillset adopt` surfaces a matching `unreadable-plugin-author` error diagnostic so the pre-flight reports what import will refuse.
+
+  Validation is per provider: an author that cannot be lifted is rejected even when a sibling provider declares a valid one, so no provider's author silently stands in for another's.
+
+  Marketplace author evidence is also now scoped to the plugins actually projected into the effective marketplace, so a root `claude.marketplace.plugins` override no longer produces blocking evidence for plugins absent from the final output. Evidence follows the effective author too: an override that keeps an entry while replacing its author reports the canonical fields the emitted entry drops, instead of reporting the source author as fully rendered.
+
+- 939c186: Expose one typed five-state generated-output evidence classifier across build, diff, check, and status results, with deterministic lock provenance that distinguishes intact source-driven refreshes from edited generated metadata.
+
+  Three operations that previously continued on a degraded projection now refuse:
+
+  - **Source rename** aborts during planning when the projected build is blocked, listing the blocker codes and paths, so no write and no backup occurs. Previously the planner consumed a shadow build that had returned `ok: false`, and with no ownership baseline could emit an `update` targeting an unmanaged file.
+  - **Test evaluation** rejects a returned build `Result` with `ok: false` instead of letting a build-only experiment pass.
+  - **Release finalization** aborts rather than proceeding from an unusable projection.
+
+  When a soft `unsupportedDestination` policy (`warn`, `skip`, `force`) leaves no usable non-lock output, the specific diagnostic codes and source paths now reach status, readiness, and CLI evidence instead of collapsing into a generic `output-derivation-failed` blocker. The ordinary soft-policy case is unchanged: individually softened results stay non-blocking when usable output exists.
+
+- 989cf2a: Render provider-native Codex author objects and preserve supported canonical plugin metadata in Cursor manifests, with explicit omission evidence for unsupported author fields, for the canonical listing category in every accepted spelling, and for portable `skillset.manifest.category` and `skillset.manifest.tags`, which now report a lossy render result naming the `cursor.manifest` cutover. The canonical listing category dropped by a Cursor manifest is degraded only while an enabled target still renders the authored value, and lossy — blocking under the default unsupported-destination policy — when none does, including a Cursor-only workspace and a Codex target whose `codex.interface.category` or `codex.manifest.interface.category` override replaces it. Portable manifest omissions now report on every enabled target's plugin manifest instead of Cursor alone, so a Claude-only or Codex-only build no longer drops those values silently.
+
+  `skillset.manifest` is no longer a free-form object: `name`, `displayName`, `logo`, `category`, and `tags` are declared and validated against the shared source contracts, while additional keys stay explicitly permitted. Provider format conformance also validates `minClientVersions` members against the pinned Cursor `semver` contract and `variables` against the pinned Cursor variables contract instead of accepting any object.
+
+- bfa996c: Make first-build checks and source-readiness guidance follow one truthful build transcript, and apply ordinary output plans transactionally.
+
+  Output writes and moves are now installed exclusively rather than with an overwrite-capable rename, so a workspace entry that appears between planning and install is rejected instead of silently replaced. Three cases that previously succeeded now fail loudly:
+
+  - a write or move target that becomes occupied after final approval is rejected rather than overwritten;
+  - on a case-sensitive filesystem, a build where a stale managed `guide.txt` and a distinct existing `Guide.txt` both exist is rejected rather than overwriting the unmanaged file;
+  - rollback no longer overwrites an entry that reappeared at a staged preimage's path; the preimage is preserved, the recovery journal is retained, and its recovery path is reported in the rollback failures.
+
+  Rollback also drains case-staging directories before removing directories the transaction created, so `ENOTEMPTY` no longer masks the original failure.
+
+  Exclusive install takes the destination name with an exclusive create rather than checking it first: regular files with `link()`, directories with `mkdir()`. Both refuse an existing entry — including an empty directory or a symbolic link, which is never followed — so a file install is atomically no-replace, and a directory install no longer discards an entry that is already there.
+
+  A directory install must then move onto the name it claimed, and POSIX `rename` replaces an empty directory. The claim's identity is now recorded when it is created and verified immediately before it is consumed, so a claim that another process removed and replaced — or wrote into — reports the destination as occupied and fails the transaction without touching the entry found there. This is detection that fails closed, not atomicity: neither Bun nor Node exposes a no-replace rename (`renameat2(RENAME_NOREPLACE)`, `renamex_np(RENAME_EXCL)`), so on POSIX a substitution that lands between that final verification and the `rename` itself is still replaced. Kernel refusals (`ENOTEMPTY`, `ENOTDIR`) also fail closed now instead of surfacing as raw filesystem errors.
+
+  Note for consumers on filesystems without hard-link support (exFAT/FAT32, some SMB mounts): file install uses `link()`, which fails there where `rename()` previously worked. This fails loudly rather than corrupting output.
+
+### Patch Changes
+
+- d8bbcc8: Make `change check` scope validation invariant across baseline resolution. A pending entry scoped to a removed source unit previously stayed valid only while the git merge base still contained that unit, so an identical tree passed on a feature branch and then failed on trunk with `change-scope-invalid` once the merge base advanced past the removal. Scope validity now also accepts selectors recorded by machine-owned workspace evidence — `sourceUnits[].selector` in `.skillset/changes/ledger.jsonl` and release scope keys derived from `release.applied` events plus the cached release state — all of which live in the tree under audit. Selectors that no machine-owned record has ever named still fail `change-scope-invalid`.
+- c533e95: Add a global immutable operational report store, schema-backed receipts, secure sandbox export, and skillset report show retrieval. Align `workspace.cacheKey` schema validation with the existing 160-character operational identity boundary.
+- da19f8f: Replace rendered skill `metadata.generated` stamps with the artifact version and `skillset.schema` rendered-contract marker, and stop injecting generic compiler metadata into rendered agents.
+- bf82dc6: Add closed adoption, import, and external-fixture payloads and fixed producer primitives to immutable operational reports.
+
 ## 0.23.0
 
 ### Minor Changes

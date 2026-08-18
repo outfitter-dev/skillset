@@ -1,7 +1,0 @@
----
-"skillset": minor
----
-
-Render provider-native Codex author objects and preserve supported canonical plugin metadata in Cursor manifests, with explicit omission evidence for unsupported author fields, for the canonical listing category in every accepted spelling, and for portable `skillset.manifest.category` and `skillset.manifest.tags`, which now report a lossy render result naming the `cursor.manifest` cutover. The canonical listing category dropped by a Cursor manifest is degraded only while an enabled target still renders the authored value, and lossy — blocking under the default unsupported-destination policy — when none does, including a Cursor-only workspace and a Codex target whose `codex.interface.category` or `codex.manifest.interface.category` override replaces it. Portable manifest omissions now report on every enabled target's plugin manifest instead of Cursor alone, so a Claude-only or Codex-only build no longer drops those values silently.
-
-`skillset.manifest` is no longer a free-form object: `name`, `displayName`, `logo`, `category`, and `tags` are declared and validated against the shared source contracts, while additional keys stay explicitly permitted. Provider format conformance also validates `minClientVersions` members against the pinned Cursor `semver` contract and `variables` against the pinned Cursor variables contract instead of accepting any object.
