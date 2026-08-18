@@ -81,18 +81,17 @@ describe("generated release PR workflow contract", () => {
     );
   });
 
-  test("release automation dispatches CI after updating and labeling the version PR", async () => {
+  test("release automation leaves generated PR CI behind GitHub's approval gate", async () => {
     const workflow = await readWorkflow("release.yml");
     const version = workflow.jobs?.version;
     const steps = version?.steps ?? [];
-    const labelIndex = steps.findIndex((step) => step.name === "Label version PR");
-    const dispatchIndex = steps.findIndex((step) => step.name === "Trigger version PR CI");
 
-    expect(version?.permissions?.actions).toBe("write");
-    expect(labelIndex).toBeGreaterThan(-1);
-    expect(dispatchIndex).toBeGreaterThan(labelIndex);
-    expect(steps[dispatchIndex]?.run).toBe(
-      "gh workflow run ci.yml --ref changeset-release/main"
+    expect(version?.permissions?.actions).toBeUndefined();
+    expect(
+      steps.find((step) => step.name === "Trigger version PR CI")
+    ).toBeUndefined();
+    expect(steps.map((step) => step.run ?? "").join("\n")).not.toContain(
+      "gh workflow run"
     );
   });
 
