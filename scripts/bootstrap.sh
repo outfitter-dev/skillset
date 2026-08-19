@@ -22,7 +22,7 @@ Commands:
   agent    Repo bootstrap plus agent lifecycle diagnostics
   codex    Codex agent bootstrap with provider-specific root detection
   claude   Claude agent bootstrap with provider-specific root detection
-  cursor   Cursor agent bootstrap with provider-specific root detection
+  cursor   Cursor agent bootstrap; repo root from the working directory
   doctor   Diagnostics only; no install, cleanup, or mutation
   teardown Conservative cleanup of configured local artifacts only
 
