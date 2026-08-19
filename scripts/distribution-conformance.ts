@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 
 import {
   FINITE_JSON_ROUTES,
@@ -46,13 +46,32 @@ export function distributionCommandBase(
     throw new Error("Specify exactly one executable or Bun package runner");
   }
   if (options.bunxPackage) {
-    return [bunExecutable, "x", "--package", options.bunxPackage, "skillset"];
+    return [
+      bunExecutable,
+      "x",
+      "--bun",
+      "--silent",
+      "--package",
+      options.bunxPackage,
+      "skillset",
+    ];
   }
   const executable = resolve(options.executable ?? "");
   return options.runtime === "bun" &&
     !(platform === "win32" && executable.toLowerCase().endsWith(".exe"))
     ? [bunExecutable, executable]
     : [executable];
+}
+
+export function distributionRuntimePath(
+  runtime: DistributionRuntime,
+  toolsDirectory: string,
+  bunDirectory = dirname(process.execPath),
+  separator = delimiter
+): string {
+  return runtime === "bun"
+    ? `${toolsDirectory}${separator}${bunDirectory}`
+    : toolsDirectory;
 }
 
 async function run(
@@ -157,7 +176,10 @@ export async function smokeDistribution(options: SmokeOptions): Promise<void> {
   const tools = join(root, "tools");
   await mkdir(tools, { recursive: true });
   const runtime = await exposeRuntime(tools, options.runtime, root);
-  const env = { ...process.env, PATH: tools } as Record<string, string>;
+  const env = {
+    ...process.env,
+    PATH: distributionRuntimePath(options.runtime, tools),
+  } as Record<string, string>;
   const invoke = (args: readonly string[]) => run(commandFor(base, args), env);
 
   try {

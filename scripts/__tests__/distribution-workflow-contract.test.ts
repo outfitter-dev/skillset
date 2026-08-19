@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-type Step = { name?: string; run?: string; uses?: string };
+type Step = {
+  name?: string;
+  run?: string;
+  uses?: string;
+  with?: Record<string, string>;
+};
 type Job = {
   needs?: string;
   steps?: Step[];
@@ -18,6 +23,13 @@ type Workflow = {
 };
 
 const root = join(import.meta.dir, "..", "..");
+const releaseTagRef = `refs/tags/\${{ inputs.tag }}`;
+const workflowCommitRef = `\${{ github.sha }}`;
+
+function checkoutRef(job: Job | undefined): string | undefined {
+  return job?.steps?.find((step) => step.uses?.startsWith("actions/checkout@"))
+    ?.with?.ref;
+}
 
 describe("SET-424 published distribution workflow", () => {
   test("gates exact inventory before five-host channels and two-host Homebrew", async () => {
@@ -46,9 +58,9 @@ describe("SET-424 published distribution workflow", () => {
       contents: "read",
     });
     expect(workflow.defaults?.run?.shell).toBe("bash");
-    expect(
-      source.match(/ref: refs\/tags\/\$\{\{ inputs\.tag \}\}/gu)
-    ).toHaveLength(3);
+    expect(checkoutRef(inventory)).toBe(releaseTagRef);
+    expect(checkoutRef(channels)).toBe(workflowCommitRef);
+    expect(checkoutRef(homebrew)).toBe(workflowCommitRef);
     expect(inventoryCommands).toContain("bun run test:distribution");
     expect(inventoryCommands).toContain("validate-release");
     expect(inventoryCommands).toContain("git rev-parse HEAD");
@@ -92,6 +104,7 @@ describe("SET-424 published distribution workflow", () => {
       "macos-15",
       "macos-15-intel",
     ]);
+    expect(homebrewCommands).toContain("bun install --frozen-lockfile");
     expect(homebrewCommands).toContain(
       "brew install outfitter-dev/tap/skillset"
     );

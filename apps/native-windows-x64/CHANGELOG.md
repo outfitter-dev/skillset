@@ -1,5 +1,7 @@
 # @skillset/native-win32-x64
 
+## 0.24.0
+
 ## 0.23.0
 
 ### Minor Changes

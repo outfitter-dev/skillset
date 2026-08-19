@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
+import { chmod, lstat } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { BunCheck } from "./bun";
@@ -6,7 +7,7 @@ import { checkBunVersion, installPinnedBun } from "./bun";
 import type { BootstrapConfig } from "./config";
 import { readWorktreeInfo } from "./git";
 import type { HostInfo } from "./host";
-import { info, runInherit, success, warn } from "./shared";
+import { has, info, run, runInherit, success, warn } from "./shared";
 import { collectToolStatus, printToolStatuses } from "./tools";
 
 export interface RepoBootstrapOptions {
@@ -29,10 +30,64 @@ export interface BunDeps {
   ) => Promise<void>;
 }
 
+export interface CheckoutModeNormalization {
+  readonly executable: number;
+  readonly regular: number;
+}
+
+export const normalizeTrackedCheckoutModes = async (
+  repoRoot: string,
+  platform: NodeJS.Platform = process.platform
+): Promise<CheckoutModeNormalization> => {
+  if (platform === "win32") {
+    return { executable: 0, regular: 0 };
+  }
+
+  const tracked = run(["git", "ls-files", "--stage", "-z"], repoRoot);
+  if (tracked.exitCode !== 0) {
+    throw new Error(
+      tracked.stderr.trim() ||
+        "git ls-files failed while normalizing checkout modes"
+    );
+  }
+
+  const normalized = await Promise.all(
+    tracked.stdout.split("\0").map(async (record) => {
+      const separator = record.indexOf("\t");
+      const [mode, , stage] = record.slice(0, separator).split(" ");
+      if (
+        record.length === 0 ||
+        separator === -1 ||
+        stage !== "0" ||
+        (mode !== "100644" && mode !== "100755")
+      ) {
+        return undefined;
+      }
+      const path = join(repoRoot, record.slice(separator + 1));
+      const entry = await lstat(path).catch(() => null);
+      if (entry === null || !entry.isFile()) {
+        return undefined;
+      }
+      const expected = mode === "100755" ? 0o755 : 0o644;
+      if (entry.mode % 0o1000 === expected) {
+        return undefined;
+      }
+      await chmod(path, expected);
+      return expected;
+    })
+  );
+  return {
+    executable: normalized.filter((mode) => mode === 0o755).length,
+    regular: normalized.filter((mode) => mode === 0o644).length,
+  };
+};
+
 export const listWorkspaceGlobs = async (
   repoRoot: string
 ): Promise<readonly string[]> => {
-  const packageJson = (await Bun.file(join(repoRoot, "package.json")).json()) as {
+  const packageJson = (await Bun.file(
+    join(repoRoot, "package.json")
+  ).json()) as {
     readonly workspaces?: readonly string[];
   };
   return Array.isArray(packageJson.workspaces) ? packageJson.workspaces : [];
@@ -162,6 +217,18 @@ export const runRepoBootstrap = async (
       );
     }
     await installDependencies(options.repoRoot, options.update);
+  }
+
+  if (has("git")) {
+    const normalized = await normalizeTrackedCheckoutModes(options.repoRoot);
+    const total = normalized.executable + normalized.regular;
+    success(
+      total === 0
+        ? "Tracked checkout modes already portable"
+        : `Normalized ${String(total)} tracked checkout modes (${String(normalized.regular)} regular, ${String(normalized.executable)} executable)`
+    );
+  } else {
+    warn("Git is unavailable; tracked checkout modes were not normalized.");
   }
 
   if (options.config.checks.optionalTools.length > 0) {

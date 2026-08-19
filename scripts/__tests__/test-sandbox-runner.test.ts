@@ -142,6 +142,39 @@ test("SET-388: nested runners reuse the validated descriptor", async () => {
   expect(result.stdout.trim().split("\n")).toHaveLength(1);
 });
 
+test("SET-388: child commands use a portable umask under restrictive callers", async () => {
+  if (process.platform === "win32") {
+    return;
+  }
+  const script =
+    "const fs=await import('node:fs/promises');const path=await import('node:path');const root=path.dirname(process.env.SKILLSET_TEST_SANDBOX);const probe=path.join(root,'mode-probe');await fs.writeFile(probe,'probe');console.log(JSON.stringify({mode:(await fs.stat(probe)).mode&0o777,umask:process.umask()}))";
+  const proc = Bun.spawn({
+    cmd: [
+      "sh",
+      "-c",
+      'umask 077\nexec "$@"',
+      "skillset-test",
+      "bun",
+      runner,
+      "--",
+      "bun",
+      "-e",
+      script,
+    ],
+    env: { ...process.env, SKILLSET_TEST_SANDBOX: "" },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  expect(exitCode, stderr).toBe(0);
+  expect(JSON.parse(stdout.trim())).toEqual({ mode: 0o644, umask: 0o022 });
+});
+
 test("SET-388: inherited worktree descriptors fail before child execution or cleanup", async () => {
   const worktree = await mkdtemp(join(tmpdir(), "skillset-worktree-forgery-"));
   const sandboxPath = join(worktree, "skillset-test-nested");
