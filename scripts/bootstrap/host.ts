@@ -3,7 +3,12 @@ import { resolve } from "node:path";
 import type { BootstrapConfig, BunPolicy } from "./config";
 import { DEFAULT_REPO_ROOT, isRepoRoot, run } from "./shared";
 
-export type HostProvider = "claude" | "codex" | "devin" | "generic";
+export type HostProvider =
+  | "claude"
+  | "codex"
+  | "cursor"
+  | "devin"
+  | "generic";
 
 export interface HostInfo {
   readonly bunPolicy: BunPolicy;
@@ -34,6 +39,9 @@ const detectProvider = (env: NodeJS.ProcessEnv): HostProvider => {
   ) {
     return "claude";
   }
+  if (env["CURSOR_AGENT"] !== undefined) {
+    return "cursor";
+  }
   if (env["GITHUB_WORKSPACE"] !== undefined) {
     return "devin";
   }
@@ -53,6 +61,9 @@ const providerRootEnvVars = (
     case "devin": {
       return ["GITHUB_WORKSPACE"];
     }
+    // Cursor agents run from the checked-out working directory and expose no
+    // root-pointing env var, so fall through to cwd / git-root resolution.
+    case "cursor":
     case "generic":
     case undefined: {
       return [];
