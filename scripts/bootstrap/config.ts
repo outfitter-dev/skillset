@@ -2,6 +2,7 @@ export type BootstrapCommand =
   | "agent"
   | "claude"
   | "codex"
+  | "cursor"
   | "doctor"
   | "repo"
   | "teardown";

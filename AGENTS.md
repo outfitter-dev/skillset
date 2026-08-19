@@ -60,7 +60,7 @@ bun run terminology:guard
 bun run public-closure:guard
 bun run target-topology:guard
 bun run change-stream:guard
-./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
+./scripts/bootstrap.sh [repo|agent|codex|claude|cursor|doctor|teardown]
 ```
 
 `bun run package-ownership:guard` blocks app-level package facade files from returning under `apps/skillset/src/`. Prefer importing an owned package root API or a documented private workspace internal directly instead of adding `export * from "@skillset/<package>/internal/*"` shims in the CLI app.
