@@ -815,10 +815,11 @@ async function installWithoutReplacing(
  * The identity of the empty directory this transaction created to claim a
  * destination name, captured immediately after the claiming `mkdir`.
  *
- * `dev`/`ino` identify the claimed directory itself. `birthtimeNs` separates a
- * recycled inode number from the original claim on filesystems that reuse
- * them, and `ctimeNs` additionally changes if anything is created inside the
- * claim, so a claim that is no longer both ours and empty is detectable.
+ * `dev`/`ino` identify the claimed directory itself. `birthtimeNs` can separate
+ * a recycled inode number from the original claim, and `ctimeNs` normally
+ * changes if anything is created inside the claim. These fields are evidence,
+ * not a portable ownership token: a filesystem may reuse the complete tuple
+ * after an immediate removal and recreation.
  */
 interface DirectoryClaim {
   readonly birthtimeNs: bigint;
@@ -832,17 +833,18 @@ interface DirectoryClaim {
  * Moves a staged directory onto the destination name this transaction just
  * claimed.
  *
- * The claim is verified immediately before each step that consumes it, and any
- * mismatch reports the destination as occupied without touching the entry
- * found there. This detects a claim that another process removed and replaced,
- * which the claiming `mkdir` alone cannot prevent.
+ * The claim is verified immediately before each step that consumes it. An
+ * observable mismatch reports the destination as occupied without touching the
+ * entry found there. Removal and replacement are not observable when the
+ * filesystem reuses every recorded identity field; some overlayfs-backed
+ * volumes do this for an immediate empty-directory recreation.
  *
- * This is detection that fails closed, not atomicity: neither Bun nor Node
+ * This is capability-dependent detection, not atomicity: neither Bun nor Node
  * exposes a no-replace rename (`renameat2(RENAME_NOREPLACE)`,
- * `renamex_np(RENAME_EXCL)`), so on POSIX a replacement that lands between the
- * final verification and the `rename` itself is still replaced. Every
- * consuming step also fails closed on the kernel's own refusals (`ENOTEMPTY`,
- * `ENOTDIR`) in case a substitution slips past verification.
+ * `renamex_np(RENAME_EXCL)`). On POSIX, a metadata-identical replacement or one
+ * that lands between the final verification and `rename` can therefore still
+ * be replaced. Kernel refusals (`ENOTEMPTY`, `ENOTDIR`) still fail closed when
+ * the substituted entry cannot be consumed.
  *
  * POSIX `rename` replaces an empty destination directory, so it consumes the
  * claim directly. Windows refuses to rename a directory onto any existing
