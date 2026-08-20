@@ -56,6 +56,45 @@ const detectCaseSensitiveWorkspaceVolume = async (): Promise<boolean> => {
 const caseSensitiveVolume = await detectCaseSensitiveWorkspaceVolume();
 const caseSensitiveTest = test.skipIf(!caseSensitiveVolume);
 
+const detectDirectoryClaimSubstitutionObservable =
+  async (): Promise<boolean> => {
+    const probeRoot = await mkdtemp(
+      nodePath.join(tmpdir(), "skillset-workspace-claim-probe-")
+    );
+    const claim = nodePath.join(probeRoot, "claim");
+    try {
+      await mkdir(claim);
+      const before = await stat(claim, { bigint: true });
+      await rm(claim, { recursive: true });
+      await mkdir(claim);
+      const after = await stat(claim, { bigint: true });
+      // Claim-substitution detection relies on the recreated directory having a
+      // distinct identity from the original claim. The identity fields mirror
+      // `directoryClaimIsIntact`: dev/ino identify the entry, while birth/change
+      // times separate a recycled inode from the original.
+      return (
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        before.birthtimeNs !== after.birthtimeNs ||
+        before.ctimeNs !== after.ctimeNs
+      );
+    } finally {
+      await rm(probeRoot, { force: true, recursive: true });
+    }
+  };
+
+/**
+ * The substitution fixture below swaps a claimed directory for a distinct empty
+ * one and expects the transaction to notice. That is only observable when the
+ * filesystem gives the recreated directory a distinct identity. Volumes that
+ * recycle the inode and copy birth/change timestamps (notably the overlayfs
+ * used by some container and CI runners) cannot surface the swap, so the fixture
+ * reports as skipped there rather than failing on an unobservable condition.
+ */
+const claimSubstitutionObservable =
+  await detectDirectoryClaimSubstitutionObservable();
+const claimSubstitutionTest = test.skipIf(!claimSubstitutionObservable);
+
 describe("workspace transactions", () => {
   test("applies writes, moves, and deletes in deterministic report order", async () => {
     await withWorkspace(async (root) => {
@@ -488,7 +527,7 @@ describe("workspace transactions", () => {
     });
   });
 
-  test("rejects a directory claim substituted before it is consumed", async () => {
+  claimSubstitutionTest("rejects a directory claim substituted before it is consumed (identity-stable volume)", async () => {
     await withWorkspace(async (root) => {
       const sourceDirectory = nodePath.join(root, "skills/old");
       const targetDirectory = nodePath.join(root, "skills/new");
