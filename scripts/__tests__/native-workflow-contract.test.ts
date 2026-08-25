@@ -48,6 +48,7 @@ describe("SET-419 native workflow contract", () => {
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("artifact-name");
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("source-sha");
     expect(workflow.on?.pull_request?.paths).toContain("apps/native-*/**");
+    expect(build?.["runs-on"]).toBe("macos-15");
     expect(buildStep?.run).toContain("build:native");
     expect(buildStep?.run).toContain("--required --reproducible");
     expect(verifyStep?.run).toContain("native:check");

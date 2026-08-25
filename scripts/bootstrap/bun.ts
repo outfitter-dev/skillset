@@ -18,48 +18,17 @@ interface PackageJson {
   };
 }
 
-const parseVersionPart = (part: string): number => {
-  const numeric = part.match(/^\d+/)?.[0] ?? "0";
-  return Number(numeric);
-};
-
-const parseVersion = (version: string): readonly [number, number, number] => {
-  const [major = "0", minor = "0", patch = "0"] = version.split(".");
-  return [
-    parseVersionPart(major),
-    parseVersionPart(minor),
-    parseVersionPart(patch),
-  ];
-};
-
 export const minimumFromEngineRange = (
   range: string | undefined
 ): string | undefined => range?.match(/(\d+\.\d+\.\d+)/)?.[1];
 
-export const isVersionAtLeast = (actual: string, minimum: string): boolean => {
-  const actualParts = parseVersion(actual);
-  const minimumParts = parseVersion(minimum);
-  for (let index = 0; index < minimumParts.length; index += 1) {
-    const actualPart = actualParts[index] ?? 0;
-    const minimumPart = minimumParts[index] ?? 0;
-    if (actualPart > minimumPart) return true;
-    if (actualPart < minimumPart) return false;
-  }
-  return true;
-};
+export const isVersionAtLeast = (actual: string, minimum: string): boolean =>
+  Bun.semver.satisfies(actual, `>=${minimum}`);
 
 export const isCompatibleBunVersion = (
   actual: string,
   pinned: string
-): boolean => {
-  const [actualMajor, actualMinor, actualPatch] = parseVersion(actual);
-  const [pinnedMajor, pinnedMinor, pinnedPatch] = parseVersion(pinned);
-  return (
-    actualMajor === pinnedMajor &&
-    actualMinor === pinnedMinor &&
-    actualPatch >= pinnedPatch
-  );
-};
+): boolean => Bun.semver.satisfies(actual, `~${pinned}`);
 
 export const isBunVersionAllowed = (
   actual: string,

@@ -234,6 +234,39 @@ async function compileTarget(
       `Native build failed for ${target.suffix} (${target.bunTarget}):\n${stdout}${stderr}`
     );
   }
+  await adHocSignDarwinExecutable(target, executablePath);
+}
+
+async function adHocSignDarwinExecutable(
+  target: NativeTarget,
+  executablePath: string
+): Promise<void> {
+  if (!target.suffix.startsWith("darwin-")) {
+    return;
+  }
+  if (process.platform !== "darwin") {
+    throw new Error(
+      `Native build for ${target.suffix} requires a macOS host for deterministic ad hoc code signing`
+    );
+  }
+  // Bun 1.4.0 standalone compilation leaves an invalid embedded signature on
+  // Darwin binaries. An ad hoc signature carries no developer identity and is
+  // distinct from the protected signing/notarization release policy, but it is
+  // required for the kernel to execute the compiled bytes.
+  const childProcess = Bun.spawn(
+    ["codesign", "--force", "--sign", "-", "--timestamp=none", executablePath],
+    { stderr: "pipe", stdout: "pipe" }
+  );
+  const [exitCode, stdout, stderr] = await Promise.all([
+    childProcess.exited,
+    new Response(childProcess.stdout).text(),
+    new Response(childProcess.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(
+      `Ad hoc code signing failed for ${target.suffix}:\n${stdout}${stderr}`
+    );
+  }
 }
 
 async function buildTarget(

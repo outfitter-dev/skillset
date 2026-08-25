@@ -141,7 +141,7 @@ describe("package metadata checks", () => {
 
   test("separates the Bun CLI floor from the dependency-free Node launcher", async () => {
     const root = await fixture({
-      "apps/cli/package.json": { engines: { bun: ">=1.3.14" } },
+      "apps/cli/package.json": { engines: { bun: ">=1.4.0" } },
       "apps/skillset/package.json": {
         engines: { node: ">=18" },
         optionalDependencies: {},

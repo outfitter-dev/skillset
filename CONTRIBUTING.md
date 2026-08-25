@@ -6,7 +6,7 @@ Thanks for helping improve Skillset. Contributions should preserve its source-fi
 
 Open an issue or discussion before investing in a large behavior, schema, or architecture change. Small fixes and focused documentation improvements can proceed directly when the intent is clear.
 
-Skillset uses Bun 1.3.14. From a fresh checkout:
+Skillset uses Bun 1.4.0. From a fresh checkout:
 
 ```bash
 ./scripts/bootstrap.sh repo

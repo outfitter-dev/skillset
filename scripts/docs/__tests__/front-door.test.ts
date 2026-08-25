@@ -72,7 +72,7 @@ test("distribution docs keep the global-first route and exact alternatives", () 
     "| npm global native | Node 18 and npm | Node 18 launcher; no Bun |",
     "| Homebrew native | Homebrew | Neither Bun nor Node |",
     "| GitHub native asset | archive tools | Neither Bun nor Node |",
-    "| Bun global | Bun 1.3.14 | Bun 1.3.14 |",
+    "| Bun global | Bun 1.4.0 | Bun 1.4.0 |",
     "",
     "npm install --global skillset",
     "brew install outfitter-dev/tap/skillset",

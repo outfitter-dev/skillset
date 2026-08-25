@@ -105,7 +105,7 @@ const externalFixturePayload = {
   },
   phases: passedExternalPhases,
   pipelinePassed: true,
-  runtime: { bunVersion: "1.3.14" },
+  runtime: { bunVersion: "1.4.0" },
   summaries: {
     comparisonDifferences: 2,
     importedUnits: 1,

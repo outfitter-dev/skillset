@@ -221,9 +221,9 @@ export async function bunRuntimeDiagnostics(rootPath: string) {
     join(rootPath, "apps", "cli", "package.json")
   );
   const engines = manifest.engines;
-  return isRecord(engines) && engines.bun === ">=1.3.14"
+  return isRecord(engines) && engines.bun === ">=1.4.0"
     ? []
-    : ["apps/cli/package.json must require Bun >=1.3.14"];
+    : ["apps/cli/package.json must require Bun >=1.4.0"];
 }
 
 export async function sourceWorkspaceDiagnostics(rootPath: string) {
