@@ -67,6 +67,11 @@ describe("SET-419 native workflow contract", () => {
     ).toContain("directory-rename-no-replace.test.ts");
     expect(
       smoke?.steps?.find(
+        (step) => step.name === "Prove workspace transaction directory race"
+      )?.run
+    ).toContain("workspace-transaction.test.ts");
+    expect(
+      smoke?.steps?.find(
         (step) => step.name === "Prove packaged atomic no-replace directory rename"
       )?.run
     ).toContain("native-directory-rename-smoke.ts");
