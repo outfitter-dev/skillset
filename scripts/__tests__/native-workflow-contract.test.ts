@@ -4,9 +4,8 @@ import { join } from "node:path";
 
 type Workflow = {
   on?: {
-    pull_request?: {
-      paths?: string[];
-    };
+    schedule?: Array<{ cron?: string }>;
+    workflow_dispatch?: Record<string, never>;
     workflow_call?: {
       inputs?: Record<string, unknown>;
     };
@@ -45,9 +44,11 @@ describe("SET-419 native workflow contract", () => {
     );
 
     expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.on).not.toHaveProperty("pull_request");
+    expect(workflow.on?.schedule).toEqual([{ cron: "17 9 1 * *" }]);
+    expect(workflow.on?.workflow_dispatch).toEqual({});
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("artifact-name");
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("source-sha");
-    expect(workflow.on?.pull_request?.paths).toContain("apps/native-*/**");
     expect(build?.["runs-on"]).toBe("macos-15");
     expect(buildStep?.run).toContain("build:native");
     expect(buildStep?.run).toContain("--required --reproducible");

@@ -1,19 +1,8 @@
 name: Native
 
 on:
-  pull_request:
-    paths:
-      - .bun-version
-      - .github/workflows/native.yml
-      - apps/cli/**
-      - apps/native-*/**
-      - apps/skillset/**
-      - packages/**
-      - scripts/native*.ts
-      - scripts/native-*.ts
-      - scripts/native-size-baseline.json
-      - bun.lock
-      - package.json
+  schedule:
+    - cron: "17 9 1 * *"
   workflow_dispatch: {}
   workflow_call:
     inputs:
