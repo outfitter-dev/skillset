@@ -79,6 +79,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Prove atomic no-replace directory rename
         run: bun test packages/core/src/__tests__/directory-rename-no-replace.test.ts
+      - name: Prove packaged atomic no-replace directory rename
+        run: bun scripts/native-directory-rename-smoke.ts
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: ${{ inputs.artifact-name || format('skillset-native-{0}', github.event.pull_request.head.sha || github.sha) }}

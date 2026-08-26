@@ -67,6 +67,11 @@ describe("SET-419 native workflow contract", () => {
     ).toContain("directory-rename-no-replace.test.ts");
     expect(
       smoke?.steps?.find(
+        (step) => step.name === "Prove packaged atomic no-replace directory rename"
+      )?.run
+    ).toContain("native-directory-rename-smoke.ts");
+    expect(
+      smoke?.steps?.find(
         (step) =>
           step.name ===
           "Run target-host smoke without system Bun in the child PATH"
