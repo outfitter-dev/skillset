@@ -1,5 +1,6 @@
 import { dlopen, read } from "bun:ffi";
 import type { Pointer } from "bun:ffi";
+import nodePath from "node:path";
 
 /** The result of asking the host to rename a directory without replacement. */
 export type DirectoryRenameNoReplaceResult =
@@ -167,6 +168,11 @@ const renameDirectoryNoReplaceLinux = (
   throw nativeFailure("Linux", errno, sourcePath, destinationPath);
 };
 
+// MoveFileExW still enforces MAX_PATH unless the path uses the extended \\?\
+// prefix. Node's rename applied that automatically; keep the same form here.
+export const toWindowsExtendedPath = (filePath: string): string =>
+  nodePath.win32.toNamespacedPath(filePath);
+
 const renameDirectoryNoReplaceWindows = (
   sourcePath: string,
   destinationPath: string
@@ -178,8 +184,14 @@ const renameDirectoryNoReplaceWindows = (
   } catch (error) {
     return unsupportedLibrary("Windows", error);
   }
-  const source = Buffer.from(`${sourcePath}\0`, "utf16le");
-  const destination = Buffer.from(`${destinationPath}\0`, "utf16le");
+  const source = Buffer.from(
+    `${toWindowsExtendedPath(sourcePath)}\0`,
+    "utf16le"
+  );
+  const destination = Buffer.from(
+    `${toWindowsExtendedPath(destinationPath)}\0`,
+    "utf16le"
+  );
   const result = library.symbols.MoveFileExW(source, destination, 0);
   if (result !== 0) {
     return { kind: "installed" };

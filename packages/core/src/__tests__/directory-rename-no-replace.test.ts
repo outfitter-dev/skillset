@@ -12,7 +12,10 @@ import {
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
 
-import { renameDirectoryNoReplace } from "../directory-rename-no-replace";
+import {
+  renameDirectoryNoReplace,
+  toWindowsExtendedPath,
+} from "../directory-rename-no-replace";
 import type { DirectoryRenameNoReplaceResult } from "../directory-rename-no-replace";
 
 const WORKER_FLAG = "--directory-rename-no-replace-worker";
@@ -58,6 +61,49 @@ if (import.meta.main && workerIndex !== -1) {
   );
 } else {
   describe("atomic no-replace directory rename", () => {
+    test("prefixes Windows paths so MoveFileExW can exceed MAX_PATH", () => {
+      expect(
+        toWindowsExtendedPath("C:\\Users\\alice\\.skillset\\skills\\demo")
+      ).toBe("\\\\?\\C:\\Users\\alice\\.skillset\\skills\\demo");
+      expect(toWindowsExtendedPath("\\\\server\\share\\skills\\demo")).toBe(
+        "\\\\?\\UNC\\server\\share\\skills\\demo"
+      );
+      expect(toWindowsExtendedPath("\\\\?\\C:\\Users\\alice\\demo")).toBe(
+        "\\\\?\\C:\\Users\\alice\\demo"
+      );
+    });
+
+    supportedPlatformTest(
+      "installs when the destination exceeds the Windows MAX_PATH limit",
+      async () => {
+        await withTemporaryDirectory(async (root) => {
+          const sourcePath = nodePath.join(root, "source");
+          await mkdir(sourcePath);
+          await writeFile(nodePath.join(sourcePath, "marker.txt"), "source\n");
+
+          let destParent = root;
+          while (nodePath.join(destParent, "destination").length < 280) {
+            destParent = nodePath.join(destParent, "nested-directory-segment");
+          }
+          await mkdir(destParent, { recursive: true });
+          const destinationPath = nodePath.join(destParent, "destination");
+
+          expect(renameDirectoryNoReplace(sourcePath, destinationPath)).toEqual(
+            {
+              kind: "installed",
+            }
+          );
+          expect(await missing(sourcePath)).toBe(true);
+          expect(
+            await readFile(
+              nodePath.join(destinationPath, "marker.txt"),
+              "utf-8"
+            )
+          ).toBe("source\n");
+        });
+      }
+    );
+
     supportedPlatformTest(
       "installs when the destination is absent",
       async () => {
