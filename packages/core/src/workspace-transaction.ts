@@ -55,6 +55,12 @@ export type WorkspaceTransactionOperation =
 /** The completed plan, normalized and ordered independently of input order. */
 export interface WorkspaceTransactionReport {
   readonly operations: readonly WorkspaceTransactionOperation[];
+  /**
+   * Planned delete paths that still had an entry on disk at commit time. The
+   * entry was recreated after preimage staging, so the unmanaged content wins
+   * and the path was not deleted.
+   */
+  readonly supersededDeletePaths: readonly string[];
   readonly workspaceRoot: string;
 }
 
@@ -244,14 +250,15 @@ export async function applyWorkspaceTransaction(
       prepared.operations
     );
     await applyWrites(state, prepared, options.testHooks);
-    await applyDeletes(
-      prepared.deletes,
-      options.testHooks,
-      prepared.operations
+    const supersededDeletePaths = await applyDeletes(
+      resolvedWorkspaceRoot,
+      prepared,
+      options.testHooks
     );
     await cleanupCommittedTransaction(state);
     return {
       operations: prepared.operations,
+      supersededDeletePaths,
       workspaceRoot: resolvedWorkspaceRoot,
     };
   } catch (error) {
@@ -813,13 +820,84 @@ function writeReplacesPlannedEntry(
 }
 
 async function applyDeletes(
-  deletes: readonly NormalizedDelete[],
-  hooks: WorkspaceTransactionTestHooks | undefined,
-  operations: readonly WorkspaceTransactionOperation[]
-): Promise<void> {
-  for (const entry of deletes) {
-    await invokeApplyHook(hooks, operations, entry.operation);
+  workspaceRoot: string,
+  prepared: PreparedPlan,
+  hooks: WorkspaceTransactionTestHooks | undefined
+): Promise<readonly string[]> {
+  // Deletion itself happens when preimage staging takes the entry into the
+  // journal. An entry present here was recreated afterwards; it survives, and
+  // the report must not claim the path was deleted.
+  const supersededDeletePaths: string[] = [];
+  for (const entry of prepared.deletes) {
+    await invokeApplyHook(hooks, prepared.operations, entry.operation);
+    if (deletePathConsumedByPlan(entry, prepared)) {
+      continue;
+    }
+    if (await recreatedDeleteEntryExists(workspaceRoot, entry.path)) {
+      supersededDeletePaths.push(entry.path.relative);
+    }
   }
+  return supersededDeletePaths.sort(compareStrings);
+}
+
+/**
+ * Reports whether an entry exists at the planned delete path without
+ * following symlinks in any ancestor segment. A symlink or non-directory
+ * ancestor means the workspace's real tree no longer contains the path, so
+ * the delete stands.
+ */
+async function recreatedDeleteEntryExists(
+  workspaceRoot: string,
+  path: NormalizedPath
+): Promise<boolean> {
+  const segments = path.relative.split(nodePath.sep);
+  let current = workspaceRoot;
+  for (const [index, segment] of segments.entries()) {
+    current = nodePath.join(current, segment);
+    const entry = await lstat(current).catch((error: unknown) => {
+      if (
+        isMissing(error) ||
+        (error instanceof Error && "code" in error && error.code === "ENOTDIR")
+      ) {
+        return;
+      }
+      throw error;
+    });
+    if (entry === undefined) {
+      return false;
+    }
+    if (
+      index < segments.length - 1 &&
+      (entry.isSymbolicLink() || !entry.isDirectory())
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * A planned write or move can legitimately take a delete path — a move onto a
+ * deleted entry, or a shape transition that rebuilds the path as a directory
+ * ancestor of new entries. Entries the plan itself installed there are not
+ * superseding recreations.
+ */
+function deletePathConsumedByPlan(
+  entry: NormalizedDelete,
+  prepared: PreparedPlan
+): boolean {
+  return (
+    prepared.writes.some(
+      (write) =>
+        write.path.relative === entry.path.relative ||
+        isAncestorPath(entry.path.relative, write.path.relative)
+    ) ||
+    prepared.moves.some(
+      (move) =>
+        move.to.relative === entry.path.relative ||
+        isAncestorPath(entry.path.relative, move.to.relative)
+    )
+  );
 }
 
 async function invokeApplyHook(

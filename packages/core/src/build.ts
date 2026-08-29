@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 
 import { compareStrings } from "./path";
 import { hasValidLockProvenance, withLockProvenance } from "./lock-provenance";
@@ -1562,7 +1562,7 @@ async function applyRenderedFileTransaction(
     return { deletedPaths: [], writtenPaths: [] };
   }
   await assertOutputWritePreimages(writePreimages, resolveOutputPath);
-  await applyWorkspaceTransaction(
+  const transactionReport = await applyWorkspaceTransaction(
     rootPath,
     {
       deletes: staleManagedPaths.filter(
@@ -1582,8 +1582,17 @@ async function applyRenderedFileTransaction(
     },
     transactionOptions
   );
+  // A delete target recreated after preimage staging survives on disk; the
+  // report must not claim it was deleted. The transaction reports platform
+  // separators while target paths use "/".
+  const supersededDeletePaths = new Set(
+    transactionReport.supersededDeletePaths.map((path) =>
+      path.split(sep).join("/")
+    )
+  );
   const deletedPaths = staleManagedPaths.filter(
-    (path) => !missingCaseOnlyMoveSources.has(path)
+    (path) =>
+      !missingCaseOnlyMoveSources.has(path) && !supersededDeletePaths.has(path)
   );
   return {
     deletedPaths: deletedPaths.sort(compareStrings),
