@@ -22,13 +22,20 @@ export const minimumFromEngineRange = (
   range: string | undefined
 ): string | undefined => range?.match(/(\d+\.\d+\.\d+)/)?.[1];
 
+// Bun canary and other prerelease builds report versions like
+// `1.4.1-canary.20`, and semver ranges never match prereleases. Compare on
+// the numeric base version so those builds pass, matching the shell gate in
+// scripts/bootstrap.sh.
+export const baseVersion = (version: string): string =>
+  version.match(/^\d+\.\d+\.\d+/)?.[0] ?? version;
+
 export const isVersionAtLeast = (actual: string, minimum: string): boolean =>
-  Bun.semver.satisfies(actual, `>=${minimum}`);
+  Bun.semver.satisfies(baseVersion(actual), `>=${minimum}`);
 
 export const isCompatibleBunVersion = (
   actual: string,
   pinned: string
-): boolean => Bun.semver.satisfies(actual, `~${pinned}`);
+): boolean => Bun.semver.satisfies(baseVersion(actual), `~${pinned}`);
 
 export const isBunVersionAllowed = (
   actual: string,

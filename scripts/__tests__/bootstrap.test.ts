@@ -162,6 +162,18 @@ describe("bootstrap repo policy", () => {
     expect(isBunVersionAllowed("1.4.1", "1.4.0", "strict")).toBe(false);
   });
 
+  test("Bun checks tolerate prerelease builds like the shell gate does", () => {
+    expect(isVersionAtLeast("1.4.1-canary.20+abc123", "1.4.0")).toBe(true);
+    expect(isVersionAtLeast("1.3.14-canary.2", "1.4.0")).toBe(false);
+    expect(isCompatibleBunVersion("1.4.1-canary.20+abc123", "1.4.0")).toBe(
+      true
+    );
+    expect(isCompatibleBunVersion("1.5.0-canary.1", "1.4.0")).toBe(false);
+    expect(isBunVersionAllowed("1.4.0-canary.1", "1.4.0", "strict")).toBe(
+      false
+    );
+  });
+
   test("repo root detection accepts current and migration workspace markers", () => {
     const ordinaryRoot = makeRepoRoot();
     const legacyRoot = makeRepoRoot();
