@@ -18,7 +18,7 @@ const loadDarwinLibrary = () =>
   dlopen("/usr/lib/libSystem.B.dylib", {
     __error: { args: [], returns: "ptr" },
     renamex_np: {
-      args: ["cstring", "cstring", "u32"],
+      args: ["ptr", "ptr", "u32"],
       returns: "i32",
     },
   });
@@ -29,7 +29,7 @@ const loadLinuxLibrary = () =>
     syscall: {
       // `syscall` is variadic in libc. This fixed signature covers exactly the
       // renameat2 call shape used below while avoiding the glibc 2.28 wrapper.
-      args: ["i64", "i64", "cstring", "i64", "cstring", "u32"],
+      args: ["i64", "i64", "ptr", "i64", "ptr", "u32"],
       returns: "i64",
     },
   });
@@ -43,10 +43,6 @@ const loadWindowsLibrary = () =>
     },
   });
 
-let darwinLibrary: ReturnType<typeof loadDarwinLibrary> | undefined;
-let linuxLibrary: ReturnType<typeof loadLinuxLibrary> | undefined;
-let windowsLibrary: ReturnType<typeof loadWindowsLibrary> | undefined;
-
 const unsupportedLibrary = (
   platform: string,
   error: unknown
@@ -57,6 +53,39 @@ const unsupportedLibrary = (
     reason: `${platform} native rename library could not be loaded: ${detail}`,
   };
 };
+
+type LibraryState<T> =
+  | { readonly library: T }
+  | { readonly failure: DirectoryRenameNoReplaceResult };
+
+// Both outcomes are memoized: a host that cannot load its native library
+// reports the same `unsupported` verdict on every call instead of paying for
+// a fresh dlopen attempt each time.
+const lazyLibrary = <T>(
+  platform: string,
+  load: () => T
+): (() => LibraryState<T>) => {
+  let state: LibraryState<T> | undefined;
+  return () => {
+    if (state === undefined) {
+      try {
+        state = { library: load() };
+      } catch (error) {
+        state = { failure: unsupportedLibrary(platform, error) };
+      }
+    }
+    return state;
+  };
+};
+
+const getDarwinLibrary = lazyLibrary("macOS", loadDarwinLibrary);
+const getLinuxLibrary = lazyLibrary("Linux", loadLinuxLibrary);
+const getWindowsLibrary = lazyLibrary("Windows", loadWindowsLibrary);
+
+// FFI string arguments are passed as NUL-terminated buffers so the call shape
+// is identical on every Bun version; passing JS strings to `cstring` arguments
+// relies on auto-encoding that only newer runtimes provide.
+const cString = (value: string): Buffer => Buffer.from(`${value}\0`, "utf8");
 
 const unsupportedNative = (
   platform: string,
@@ -90,16 +119,14 @@ const renameDirectoryNoReplaceDarwin = (
   sourcePath: string,
   destinationPath: string
 ): DirectoryRenameNoReplaceResult => {
-  let library: ReturnType<typeof loadDarwinLibrary>;
-  try {
-    library = darwinLibrary ?? loadDarwinLibrary();
-    darwinLibrary = library;
-  } catch (error) {
-    return unsupportedLibrary("macOS", error);
+  const state = getDarwinLibrary();
+  if ("failure" in state) {
+    return state.failure;
   }
+  const { library } = state;
   const result = library.symbols.renamex_np(
-    sourcePath,
-    destinationPath,
+    cString(sourcePath),
+    cString(destinationPath),
     DARWIN_RENAME_EXCL
   );
   if (result === 0) {
@@ -138,19 +165,17 @@ const renameDirectoryNoReplaceLinux = (
       reason: `renameat2 syscall number is not defined for Linux ${process.arch}`,
     };
   }
-  let library: ReturnType<typeof loadLinuxLibrary>;
-  try {
-    library = linuxLibrary ?? loadLinuxLibrary();
-    linuxLibrary = library;
-  } catch (error) {
-    return unsupportedLibrary("Linux", error);
+  const state = getLinuxLibrary();
+  if ("failure" in state) {
+    return state.failure;
   }
+  const { library } = state;
   const result = library.symbols.syscall(
     syscallNumber,
     AT_FDCWD,
-    sourcePath,
+    cString(sourcePath),
     AT_FDCWD,
-    destinationPath,
+    cString(destinationPath),
     LINUX_RENAME_NOREPLACE
   );
   if (result === 0n) {
@@ -177,13 +202,11 @@ const renameDirectoryNoReplaceWindows = (
   sourcePath: string,
   destinationPath: string
 ): DirectoryRenameNoReplaceResult => {
-  let library: ReturnType<typeof loadWindowsLibrary>;
-  try {
-    library = windowsLibrary ?? loadWindowsLibrary();
-    windowsLibrary = library;
-  } catch (error) {
-    return unsupportedLibrary("Windows", error);
+  const state = getWindowsLibrary();
+  if ("failure" in state) {
+    return state.failure;
   }
+  const { library } = state;
   const source = Buffer.from(
     `${toWindowsExtendedPath(sourcePath)}\0`,
     "utf16le"

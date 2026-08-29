@@ -790,7 +790,7 @@ async function installWithoutReplacing(
   const result = renameDirectoryNoReplace(sourcePath, target.absolute);
   if (result.kind === "unsupported") {
     throw transactionError(
-      `cannot atomically install directory ${target.relative}: ${result.reason}`
+      `cannot atomically install directory ${target.relative}: ${result.reason} (directory installs require atomic no-replace rename support; move the workspace to a supported local filesystem)`
     );
   }
   return result.kind;
