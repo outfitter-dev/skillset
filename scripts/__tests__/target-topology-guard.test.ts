@@ -277,15 +277,24 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
     const current = scanTargetTopologySources(sources, currentTargets, []);
     const observed = current.violations[0];
     expect(current).toMatchObject({
+      countMismatches: [],
       duplicateAllowlist: [],
       unmatchedAllowlist: [],
       violations: [{ rule: "R3", text: 'target === "claude" -> target === "codex" -> else [cursor]' }],
     });
     expect(observed).toBeDefined();
     if (observed === undefined) throw new Error("fixture must produce an R3 violation");
-    const exemption = { ...observed, rationale: "Fixture permits this exact current fallback." };
+    const exemption = {
+      file: observed.file,
+      occurrences: 1,
+      owner: observed.owner,
+      rationale: "Fixture permits this exact current fallback.",
+      rule: observed.rule,
+      text: observed.text,
+    };
 
     expect(scanTargetTopologySources(sources, currentTargets, [exemption])).toEqual({
+      countMismatches: [],
       duplicateAllowlist: [],
       unmatchedAllowlist: [],
       violations: [],
@@ -293,6 +302,7 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
 
     const futureTargets = ["claude", "codex", "cursor", "future"] as const;
     expect(scanTargetTopologySources(sources, futureTargets, [exemption])).toEqual({
+      countMismatches: [],
       duplicateAllowlist: [],
       unmatchedAllowlist: [exemption],
       violations: [{
@@ -300,6 +310,32 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
         text: 'target === "claude" -> target === "codex" -> else [cursor, future]',
       }],
     });
+  });
+
+  test("an exemption survives line drift above the construct it exempts", () => {
+    const construct = 'function render(target: string) { return target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Other"; }';
+    const exemption = {
+      file: "apps/example.ts",
+      occurrences: 1,
+      owner: "render",
+      rationale: "Fixture permits this exact fallback.",
+      rule: "R3" as const,
+      text: 'target === "claude" -> target === "codex" -> else [cursor]',
+    };
+    const targets = ["claude", "codex", "cursor"] as const;
+
+    for (const prefix of ["", "\n".repeat(40)]) {
+      expect(scanTargetTopologySources(
+        [{ content: `${prefix}${construct}`, file: "apps/example.ts" }],
+        targets,
+        [exemption]
+      )).toEqual({
+        countMismatches: [],
+        duplicateAllowlist: [],
+        unmatchedAllowlist: [],
+        violations: [],
+      });
+    }
   });
 
   test("filters generated, fixture, test, and non-TypeScript paths", () => {
@@ -314,52 +350,82 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
 
   test("allowlisting a declaration does not hide a co-located copy", () => {
     const source = `${"\n".repeat(32)}export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;\nconst SHADOW_TARGETS = ["claude", "codex", "cursor"] as const;`;
-    const violations = scanTargetTopologySource("packages/schema/src/contracts.ts", source);
-
-    expect(violations).toHaveLength(1);
-    expect(violations[0]).toMatchObject({ line: 34, owner: "SHADOW_TARGETS", rule: "R1" });
-  });
-
-  test("allowlisting one position does not hide an identical same-line match", () => {
-    const text = 'target === "claude" || target === "codex"';
-    const source = `function matches(target: string) { return [${text}, ${text}]; }`;
-    const allowlist = [{
-      column: 44,
-      file: "apps/example.ts",
-      line: 1,
-      owner: "matches",
-      rationale: "Fixture permits only the first identical AST match.",
-      rule: "R2" as const,
-      text,
-    }];
-    const violations = scanTargetTopologySource(
-      "apps/example.ts",
-      source,
+    const exemption = {
+      file: "packages/schema/src/contracts.ts",
+      occurrences: 1,
+      owner: "TARGET_NAMES",
+      rationale: "Fixture permits the canonical declaration only.",
+      rule: "R1" as const,
+      text: '["claude", "codex", "cursor"]',
+    };
+    const result = scanTargetTopologySources(
+      [{ content: source, file: "packages/schema/src/contracts.ts" }],
       ["claude", "codex", "cursor"],
-      allowlist
+      [exemption]
     );
 
-    expect(violations).toEqual([{
-      column: 87,
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toMatchObject({ line: 34, owner: "SHADOW_TARGETS", rule: "R1" });
+    expect(result.countMismatches).toEqual([]);
+    expect(result.unmatchedAllowlist).toEqual([]);
+  });
+
+  test("an exemption count below the observed occurrences fails the scan", () => {
+    const text = 'target === "claude" || target === "codex"';
+    const source = `function matches(target: string) { return [${text}, ${text}]; }`;
+    const exemption = {
       file: "apps/example.ts",
-      line: 1,
+      occurrences: 1,
       owner: "matches",
-      rule: "R2",
+      rationale: "Fixture permits only one identical AST match.",
+      rule: "R2" as const,
       text,
-    }]);
+    };
+    const result = scanTargetTopologySources(
+      [{ content: source, file: "apps/example.ts" }],
+      ["claude", "codex", "cursor"],
+      [exemption]
+    );
+
+    expect(result).toEqual({
+      countMismatches: [{ ...exemption, lines: [1, 1], observed: 2 }],
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [],
+      violations: [],
+    });
+    expect(formatTargetTopologyFailures(result)).toEqual([
+      `apps/example.ts: [ALLOWLIST COUNT R2] matches: ${text} (exemption covers 1 occurrence(s), observed 2 at line(s) 1, 1)`,
+    ]);
+  });
+
+  test("a matching exemption count covers every identical occurrence", () => {
+    const text = 'target === "claude" || target === "codex"';
+    const source = `function matches(target: string) { return [${text}, ${text}]; }`;
+    const exemption = {
+      file: "apps/example.ts",
+      occurrences: 2,
+      owner: "matches",
+      rationale: "Fixture permits both identical AST matches.",
+      rule: "R2" as const,
+      text,
+    };
 
     expect(scanTargetTopologySources(
       [{ content: source, file: "apps/example.ts" }],
       ["claude", "codex", "cursor"],
-      allowlist
-    )).toEqual({ duplicateAllowlist: [], unmatchedAllowlist: [], violations });
+      [exemption]
+    )).toEqual({
+      countMismatches: [],
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [],
+      violations: [],
+    });
   });
 
   test("complete scans fail a stale allowlist entry", () => {
     const stale = {
-      column: 17,
       file: "apps/example.ts",
-      line: 1,
+      occurrences: 1,
       owner: "targets",
       rationale: "Fixture exemption that no longer has an observed match.",
       rule: "R1" as const,
@@ -371,17 +437,21 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
       [stale]
     );
 
-    expect(result).toEqual({ duplicateAllowlist: [], unmatchedAllowlist: [stale], violations: [] });
+    expect(result).toEqual({
+      countMismatches: [],
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [stale],
+      violations: [],
+    });
     expect(formatTargetTopologyFailures(result)).toEqual([
-      'apps/example.ts:1:17: [ALLOWLIST R1] targets: ["claude", "codex"] (unmatched exemption: Fixture exemption that no longer has an observed match.)',
+      'apps/example.ts: [ALLOWLIST R1] targets: ["claude", "codex"] (unmatched exemption: Fixture exemption that no longer has an observed match.)',
     ]);
   });
 
   test("complete scans pass when every allowlist entry is observed", () => {
     const observed = {
-      column: 17,
       file: "apps/example.ts",
-      line: 1,
+      occurrences: 1,
       owner: "targets",
       rationale: "Fixture permits the exact declaration.",
       rule: "R1" as const,
@@ -392,14 +462,18 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
       [{ content: 'const targets = ["claude", "codex"];', file: "apps/example.ts" }],
       ["claude", "codex", "cursor"],
       [observed]
-    )).toEqual({ duplicateAllowlist: [], unmatchedAllowlist: [], violations: [] });
+    )).toEqual({
+      countMismatches: [],
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [],
+      violations: [],
+    });
   });
 
   test("complete scans fail duplicate allowlist identities even when observed", () => {
     const identity = {
-      column: 17,
       file: "apps/example.ts",
-      line: 1,
+      occurrences: 1,
       owner: "targets",
       rule: "R1" as const,
       text: '["claude", "codex"]',
@@ -408,48 +482,51 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
       [{ content: 'const targets = ["claude", "codex"];', file: "apps/example.ts" }],
       ["claude", "codex", "cursor"],
       [
-        { ...identity, rationale: "Second duplicate fixture." },
+        { ...identity, occurrences: 2, rationale: "Second duplicate fixture." },
         { ...identity, rationale: "First duplicate fixture." },
       ]
     );
 
+    // Conflicting duplicate counts must not add a misleading count-mismatch
+    // failure on top of the duplicate-identity failure.
     expect(result).toEqual({
+      countMismatches: [],
       duplicateAllowlist: [{
-        ...identity,
         count: 2,
+        file: identity.file,
+        owner: identity.owner,
         rationales: ["First duplicate fixture.", "Second duplicate fixture."],
+        rule: identity.rule,
+        text: identity.text,
       }],
       unmatchedAllowlist: [],
       violations: [],
     });
     expect(formatTargetTopologyFailures(result)).toEqual([
-      'apps/example.ts:1:17: [DUPLICATE ALLOWLIST R1] targets: ["claude", "codex"] (2 exemptions; rationales: ["First duplicate fixture.","Second duplicate fixture."])',
+      'apps/example.ts: [DUPLICATE ALLOWLIST R1] targets: ["claude", "codex"] (2 exemptions; rationales: ["First duplicate fixture.","Second duplicate fixture."])',
     ]);
   });
 
   test("complete scan failures have deterministic diagnostic order", () => {
     const staleZ = {
-      column: 1,
       file: "scripts/z.ts",
-      line: 9,
+      occurrences: 1,
       owner: "z",
       rationale: "Later stale fixture.",
       rule: "R2" as const,
       text: "z",
     };
     const staleA = {
-      column: 1,
       file: "apps/a.ts",
-      line: 9,
+      occurrences: 1,
       owner: "a",
       rationale: "Earlier stale fixture.",
       rule: "R2" as const,
       text: "a",
     };
     const duplicateIdentity = {
-      column: 17,
       file: "scripts/observed.ts",
-      line: 1,
+      occurrences: 1,
       owner: "targets",
       rule: "R1" as const,
       text: '["claude", "codex"]',
@@ -472,9 +549,9 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
     expect(formatTargetTopologyFailures(result)).toEqual([
       'apps/b.ts:1:17: [R1] targets: ["claude", "codex"]',
       'packages/z.ts:1:17: [R1] targets: ["claude", "cursor"]',
-      "apps/a.ts:9:1: [ALLOWLIST R2] a: a (unmatched exemption: Earlier stale fixture.)",
-      "scripts/z.ts:9:1: [ALLOWLIST R2] z: z (unmatched exemption: Later stale fixture.)",
-      'scripts/observed.ts:1:17: [DUPLICATE ALLOWLIST R1] targets: ["claude", "codex"] (2 exemptions; rationales: ["First duplicate fixture.","Second duplicate fixture."])',
+      "apps/a.ts: [ALLOWLIST R2] a: a (unmatched exemption: Earlier stale fixture.)",
+      "scripts/z.ts: [ALLOWLIST R2] z: z (unmatched exemption: Later stale fixture.)",
+      'scripts/observed.ts: [DUPLICATE ALLOWLIST R1] targets: ["claude", "codex"] (2 exemptions; rationales: ["First duplicate fixture.","Second duplicate fixture."])',
     ]);
   });
 });

@@ -18,8 +18,20 @@ export interface TargetTopologyViolation {
   readonly text: string;
 }
 
-export interface TargetTopologyAllowlistEntry extends TargetTopologyViolation {
+/**
+ * One exemption, keyed on the construct it exempts — (file, owner, rule,
+ * text) — rather than a line/column anchor, so it survives any edit that does
+ * not change the exempted construct and dies when the construct changes.
+ * `occurrences` declares how many identical matches the exemption covers; a
+ * new identical match in the same owner still fails the guard.
+ */
+export interface TargetTopologyAllowlistEntry {
+  readonly file: string;
+  readonly occurrences: number;
+  readonly owner: string;
   readonly rationale: string;
+  readonly rule: TargetTopologyRule;
+  readonly text: string;
 }
 
 export interface TargetTopologySource {
@@ -28,54 +40,55 @@ export interface TargetTopologySource {
 }
 
 export interface TargetTopologyScanResult {
+  readonly countMismatches: readonly TargetTopologyCountMismatch[];
   readonly duplicateAllowlist: readonly TargetTopologyDuplicateAllowlist[];
   readonly unmatchedAllowlist: readonly TargetTopologyAllowlistEntry[];
   readonly violations: readonly TargetTopologyViolation[];
 }
 
-export interface TargetTopologyDuplicateAllowlist extends TargetTopologyViolation {
+export interface TargetTopologyCountMismatch extends TargetTopologyAllowlistEntry {
+  readonly lines: readonly number[];
+  readonly observed: number;
+}
+
+export interface TargetTopologyDuplicateAllowlist {
   readonly count: number;
+  readonly file: string;
+  readonly owner: string;
   readonly rationales: readonly string[];
+  readonly rule: TargetTopologyRule;
+  readonly text: string;
 }
 
 export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] = [
-  allow("packages/schema/src/contracts.ts", 33, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
-  allow("packages/schema/src/examples.ts", 50, 20, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Report example documents an intentionally selected external-fixture target set."),
-  allow("packages/schema/src/examples.ts", 125, 18, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete targets field."),
-  allow("packages/schema/src/examples.ts", 171, 20, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete marketplace targets field."),
-  allow("packages/schema/src/examples.ts", 283, 24, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
-  allow("packages/schema/src/examples.ts", 437, 18, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema example documents an intentionally provider-scoped hook."),
-  allow("packages/schema/src/examples.ts", 485, 32, "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Skill eval example demonstrates an intentionally narrowed case target matrix."),
-  allow("packages/schema/src/examples.ts", 525, 16, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete activation targets field."),
-  allow("packages/registry/src/index.ts", 10, 52, "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
-  allow("packages/registry/src/schema-snapshots.ts", 5, 40, "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
-  allow("scripts/source-layout-migration.ts", 72, 24, "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),
-  allow("scripts/bootstrap/main.ts", 61, 7, "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex" || command === "cursor"', "Bootstrap exposes provider-specific setup commands for the supported agent runtimes."),
-  allow("packages/core/src/render-result-collector.ts", 1460, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Commands are provider-native companion formats for Claude and Cursor."),
-  allow("packages/core/src/render-result-collector.ts", 1466, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Agents are provider-native companion formats for Claude and Cursor."),
-  allow("packages/core/src/render-result-collector.ts", 805, 5, "pluginAuthorRenderFacts", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native author omission diagnostics use provider names."),
-  allow("packages/core/src/render-result-collector.ts", 814, 11, "pluginAuthorRenderFacts", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native author omission diagnostics use distinct stable codes."),
-  allow("packages/core/src/render.ts", 1405, 7, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor hooks require normalized provider-native output."),
-  allow("packages/core/src/render.ts", 1425, 10, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor skip copying Claude-native hook files."),
-  allow("apps/skillset/src/provider-format-updates.ts", 196, 10, "displayProvider", "R3", 'provider === "codex" -> provider === "claude" -> else [cursor]', "Provider display labels preserve unknown registry values."),
-  allow("packages/core/src/provider-format-conformance.ts", 633, 5, "checkSkillMarkdown", "R3", 'target === "codex" -> target === "cursor" -> else [claude]', "Provider-native skill formats use distinct registry references."),
-  allow("packages/core/src/render-plugin-manifest.ts", 149, 3, "projectedPluginManifestAuthor", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin author shapes are intentionally distinct."),
-  allow("packages/core/src/render-plugin-manifest.ts", 79, 5, "renderPluginManifest", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin manifests have distinct formats."),
-  allow("packages/core/src/render-plugin-manifest.ts", 301, 3, "withOptionalSurfacePaths", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin surfaces have distinct destination fields."),
-  allow("packages/core/src/render.ts", 1387, 5, "copyPluginCompanionFiles", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native companion file sets are intentionally distinct."),
-  allow("packages/core/src/render.ts", 312, 3, "marketplaceReadmeLines", "R3", 'target === "claude" -> target === "cursor" -> else [codex]', "Provider-native marketplace README guidance has distinct destination formats."),
+  allow("packages/schema/src/contracts.ts", "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
+  allow("packages/schema/src/examples.ts", "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema examples document intentionally provider-scoped sets: the report fixture, two hooks, and a skill-eval case matrix.", 4),
+  allow("packages/schema/src/examples.ts", "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema examples demonstrate the complete targets, marketplace targets, and activation targets fields.", 3),
+  allow("packages/registry/src/index.ts", "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
+  allow("packages/registry/src/schema-snapshots.ts", "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
+  allow("scripts/source-layout-migration.ts", "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),
+  allow("scripts/bootstrap/main.ts", "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex" || command === "cursor"', "Bootstrap exposes provider-specific setup commands for the supported agent runtimes."),
+  allow("packages/core/src/render-result-collector.ts", "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Commands and agents are provider-native companion formats for Claude and Cursor.", 2),
+  allow("packages/core/src/render-result-collector.ts", "pluginAuthorRenderFacts", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native author omission diagnostics use provider names and distinct stable codes.", 2),
+  allow("packages/core/src/render.ts", "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor hooks require normalized provider-native output and skip copying Claude-native hook files.", 2),
+  allow("apps/skillset/src/provider-format-updates.ts", "displayProvider", "R3", 'provider === "codex" -> provider === "claude" -> else [cursor]', "Provider display labels preserve unknown registry values."),
+  allow("packages/core/src/provider-format-conformance.ts", "checkSkillMarkdown", "R3", 'target === "codex" -> target === "cursor" -> else [claude]', "Provider-native skill formats use distinct registry references."),
+  allow("packages/core/src/render-plugin-manifest.ts", "projectedPluginManifestAuthor", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin author shapes are intentionally distinct."),
+  allow("packages/core/src/render-plugin-manifest.ts", "renderPluginManifest", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin manifests have distinct formats."),
+  allow("packages/core/src/render-plugin-manifest.ts", "withOptionalSurfacePaths", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native plugin surfaces have distinct destination fields."),
+  allow("packages/core/src/render.ts", "copyPluginCompanionFiles", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native companion file sets are intentionally distinct."),
+  allow("packages/core/src/render.ts", "marketplaceReadmeLines", "R3", 'target === "claude" -> target === "cursor" -> else [codex]', "Provider-native marketplace README guidance has distinct destination formats."),
 ] as const;
 
 function allow(
   file: string,
-  line: number,
-  column: number,
   owner: string,
   rule: TargetTopologyRule,
   text: string,
-  rationale: string
+  rationale: string,
+  occurrences = 1
 ): TargetTopologyAllowlistEntry {
-  return { column, file, line, owner, rationale, rule, text };
+  return { file, occurrences, owner, rationale, rule, text };
 }
 
 export function isTargetTopologySourcePath(path: string): boolean {
@@ -88,8 +101,7 @@ export function isTargetTopologySourcePath(path: string): boolean {
 export function scanTargetTopologySource(
   file: string,
   content: string,
-  registeredTargets: readonly string[] = TARGET_NAMES,
-  allowlist: readonly TargetTopologyAllowlistEntry[] = TARGET_TOPOLOGY_ALLOWLIST
+  registeredTargets: readonly string[] = TARGET_NAMES
 ): readonly TargetTopologyViolation[] {
   const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const targets = new Set(registeredTargets);
@@ -97,22 +109,14 @@ export function scanTargetTopologySource(
 
   const report = (node: ts.Node, rule: TargetTopologyRule, text: string) => {
     const start = source.getLineAndCharacterOfPosition(node.getStart(source));
-    const violation = {
+    violations.push({
       column: start.character + 1,
       file,
       line: start.line + 1,
       owner: ownerOf(node, source),
       rule,
       text,
-    } as const;
-    if (!allowlist.some((entry) =>
-      entry.column === violation.column &&
-      entry.file === violation.file &&
-      entry.line === violation.line &&
-      entry.owner === violation.owner &&
-      entry.rule === violation.rule &&
-      entry.text === violation.text
-    )) violations.push(violation);
+    });
   };
 
   const visit = (node: ts.Node): void => {
@@ -159,9 +163,15 @@ export function scanTargetTopologySources(
   allowlist: readonly TargetTopologyAllowlistEntry[] = TARGET_TOPOLOGY_ALLOWLIST
 ): TargetTopologyScanResult {
   const rawViolations = sources.flatMap(({ content, file }) =>
-    scanTargetTopologySource(file, content, registeredTargets, [])
+    scanTargetTopologySource(file, content, registeredTargets)
   );
-  const observedIdentities = new Set(rawViolations.map(targetTopologyIdentity));
+  const observedGroups = new Map<string, TargetTopologyViolation[]>();
+  for (const violation of rawViolations) {
+    const identity = targetTopologyIdentity(violation);
+    const group = observedGroups.get(identity);
+    if (group === undefined) observedGroups.set(identity, [violation]);
+    else group.push(violation);
+  }
   const allowlistIdentities = new Set(allowlist.map(targetTopologyIdentity));
   const allowlistGroups = new Map<string, TargetTopologyAllowlistEntry[]>();
   for (const entry of allowlist) {
@@ -170,22 +180,36 @@ export function scanTargetTopologySources(
     if (group === undefined) allowlistGroups.set(identity, [entry]);
     else group.push(entry);
   }
+  const countMismatches: TargetTopologyCountMismatch[] = [];
+  for (const [identity, entries] of allowlistGroups) {
+    // Duplicate identities already hard-fail below; checking counts against an
+    // arbitrary duplicate would report a misleading expectation.
+    if (entries.length > 1) continue;
+    const entry = entries[0]!;
+    const observed = observedGroups.get(identity) ?? [];
+    if (observed.length > 0 && observed.length !== entry.occurrences) {
+      countMismatches.push({
+        ...entry,
+        lines: observed.map(({ line }) => line).toSorted((left, right) => left - right),
+        observed: observed.length,
+      });
+    }
+  }
   return {
+    countMismatches: countMismatches.toSorted(compareTargetTopologyAllowlistEntry),
     duplicateAllowlist: [...allowlistGroups.values()]
       .filter((entries) => entries.length > 1)
       .map((entries): TargetTopologyDuplicateAllowlist => ({
-        column: entries[0]!.column,
         count: entries.length,
         file: entries[0]!.file,
-        line: entries[0]!.line,
         owner: entries[0]!.owner,
         rationales: entries.map(({ rationale }) => rationale).toSorted(),
         rule: entries[0]!.rule,
         text: entries[0]!.text,
       }))
-      .toSorted(compareTargetTopologyMatch),
+      .toSorted(compareTargetTopologyIdentityFields),
     unmatchedAllowlist: allowlist
-      .filter((entry) => !observedIdentities.has(targetTopologyIdentity(entry)))
+      .filter((entry) => !observedGroups.has(targetTopologyIdentity(entry)))
       .toSorted(compareTargetTopologyAllowlistEntry),
     violations: rawViolations
       .filter((violation) => !allowlistIdentities.has(targetTopologyIdentity(violation)))
@@ -199,23 +223,26 @@ export function formatTargetTopologyFailures(result: TargetTopologyScanResult): 
       `${violation.file}:${violation.line}:${violation.column}: [${violation.rule}] ${violation.owner}: ${violation.text}`
     ),
     ...result.unmatchedAllowlist.map((entry) =>
-      `${entry.file}:${entry.line}:${entry.column}: [ALLOWLIST ${entry.rule}] ${entry.owner}: ${entry.text} (unmatched exemption: ${entry.rationale})`
+      `${entry.file}: [ALLOWLIST ${entry.rule}] ${entry.owner}: ${entry.text} (unmatched exemption: ${entry.rationale})`
+    ),
+    ...result.countMismatches.map((entry) =>
+      `${entry.file}: [ALLOWLIST COUNT ${entry.rule}] ${entry.owner}: ${entry.text} (exemption covers ${entry.occurrences} occurrence(s), observed ${entry.observed} at line(s) ${entry.lines.join(", ")})`
     ),
     ...result.duplicateAllowlist.map((entry) =>
-      `${entry.file}:${entry.line}:${entry.column}: [DUPLICATE ALLOWLIST ${entry.rule}] ${entry.owner}: ${entry.text} (${entry.count} exemptions; rationales: ${JSON.stringify(entry.rationales)})`
+      `${entry.file}: [DUPLICATE ALLOWLIST ${entry.rule}] ${entry.owner}: ${entry.text} (${entry.count} exemptions; rationales: ${JSON.stringify(entry.rationales)})`
     ),
   ];
 }
 
-function targetTopologyIdentity(match: TargetTopologyViolation): string {
-  return JSON.stringify([
-    match.file,
-    match.line,
-    match.column,
-    match.rule,
-    match.owner,
-    match.text,
-  ]);
+interface TargetTopologyIdentityFields {
+  readonly file: string;
+  readonly owner: string;
+  readonly rule: TargetTopologyRule;
+  readonly text: string;
+}
+
+function targetTopologyIdentity(match: TargetTopologyIdentityFields): string {
+  return JSON.stringify([match.file, match.rule, match.owner, match.text]);
 }
 
 function compareTargetTopologyMatch(left: TargetTopologyViolation, right: TargetTopologyViolation): number {
@@ -227,11 +254,21 @@ function compareTargetTopologyMatch(left: TargetTopologyViolation, right: Target
     left.text.localeCompare(right.text);
 }
 
+function compareTargetTopologyIdentityFields(
+  left: TargetTopologyIdentityFields,
+  right: TargetTopologyIdentityFields
+): number {
+  return left.file.localeCompare(right.file) ||
+    left.rule.localeCompare(right.rule) ||
+    left.owner.localeCompare(right.owner) ||
+    left.text.localeCompare(right.text);
+}
+
 function compareTargetTopologyAllowlistEntry(
   left: TargetTopologyAllowlistEntry,
   right: TargetTopologyAllowlistEntry
 ): number {
-  return compareTargetTopologyMatch(left, right) || left.rationale.localeCompare(right.rationale);
+  return compareTargetTopologyIdentityFields(left, right) || left.rationale.localeCompare(right.rationale);
 }
 
 interface TargetEquality {
@@ -530,7 +567,7 @@ async function main(): Promise<void> {
   const result = scanTargetTopologySources(sources);
   const failures = formatTargetTopologyFailures(result);
   if (failures.length > 0) {
-    console.error(`skillset: target topology guard found ${result.violations.length} violation(s), ${result.unmatchedAllowlist.length} unmatched allowlist entry(s), and ${result.duplicateAllowlist.length} duplicate allowlist identity(s):`);
+    console.error(`skillset: target topology guard found ${result.violations.length} violation(s), ${result.unmatchedAllowlist.length} unmatched allowlist entry(s), ${result.countMismatches.length} allowlist count mismatch(es), and ${result.duplicateAllowlist.length} duplicate allowlist identity(s):`);
     for (const failure of failures) {
       console.error(`  ${failure}`);
     }
