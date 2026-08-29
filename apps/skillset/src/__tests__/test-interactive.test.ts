@@ -321,7 +321,11 @@ describe("SET-294 unified interactive test chooser", () => {
     await runTestCommand(request(root), { interactiveSession: session });
 
     adapter.assertComplete();
-    expect(Bun.stripANSI(output.read()?.toString() ?? "")).not.toContain(
+    expect(
+      Bun.stripANSI(
+        output.read(output.readableLength)?.toString() ?? ""
+      )
+    ).not.toContain(
       "Run tests:"
     );
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["select"]);

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "bunVersion": "1.3.14",
-  "observedVersion": "0.22.1",
+  "bunVersion": "1.4.0",
+  "observedVersion": "0.24.0",
   "policy": {
     "percent": 10,
     "minimumAllowanceBytes": 2097152
@@ -9,38 +9,38 @@
   "artifacts": [
     {
       "suffix": "darwin-arm64",
-      "rawSize": 64684514,
-      "archiveSize": 24146173
+      "rawSize": 64885200,
+      "archiveSize": 25749267
     },
     {
       "suffix": "darwin-x64",
-      "rawSize": 70402128,
-      "archiveSize": 26684840
+      "rawSize": 72039360,
+      "archiveSize": 28749416
     },
     {
       "suffix": "linux-arm64-glibc",
-      "rawSize": 94873744,
-      "archiveSize": 35777148
+      "rawSize": 83806200,
+      "archiveSize": 36738853
     },
     {
       "suffix": "linux-arm64-musl",
-      "rawSize": 90484600,
-      "archiveSize": 34394622
+      "rawSize": 76811376,
+      "archiveSize": 34091224
     },
     {
       "suffix": "linux-x64-glibc",
-      "rawSize": 94857344,
-      "archiveSize": 35714182
+      "rawSize": 83879112,
+      "archiveSize": 36844754
     },
     {
       "suffix": "linux-x64-musl",
-      "rawSize": 91654432,
-      "archiveSize": 34506592
+      "rawSize": 77624792,
+      "archiveSize": 34222075
     },
     {
       "suffix": "windows-x64",
-      "rawSize": 98976768,
-      "archiveSize": 38132746
+      "rawSize": 90161152,
+      "archiveSize": 40170910
     }
   ]
 }

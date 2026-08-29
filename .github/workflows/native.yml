@@ -1,19 +1,8 @@
 name: Native
 
 on:
-  pull_request:
-    paths:
-      - .bun-version
-      - .github/workflows/native.yml
-      - apps/cli/**
-      - apps/native-*/**
-      - apps/skillset/**
-      - packages/**
-      - scripts/native*.ts
-      - scripts/native-*.ts
-      - scripts/native-size-baseline.json
-      - bun.lock
-      - package.json
+  schedule:
+    - cron: "17 9 1 * *"
   workflow_dispatch: {}
   workflow_call:
     inputs:
@@ -31,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -77,6 +66,12 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      - name: Prove atomic no-replace directory rename
+        run: bun test packages/core/src/__tests__/directory-rename-no-replace.test.ts
+      - name: Prove workspace transaction directory race
+        run: bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
+      - name: Prove packaged atomic no-replace directory rename
+        run: bun scripts/native-directory-rename-smoke.ts
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: ${{ inputs.artifact-name || format('skillset-native-{0}', github.event.pull_request.head.sha || github.sha) }}

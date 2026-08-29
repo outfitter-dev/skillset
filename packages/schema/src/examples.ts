@@ -60,7 +60,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           compare: { exitClass: "success", status: "passed" },
         },
         runtime: {
-          bunVersion: "1.3.14",
+          bunVersion: "1.4.0",
         },
         summaries: {
           comparisonDifferences: 2,

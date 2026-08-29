@@ -4,9 +4,8 @@ import { join } from "node:path";
 
 type Workflow = {
   on?: {
-    pull_request?: {
-      paths?: string[];
-    };
+    schedule?: Array<{ cron?: string }>;
+    workflow_dispatch?: Record<string, never>;
     workflow_call?: {
       inputs?: Record<string, unknown>;
     };
@@ -45,9 +44,12 @@ describe("SET-419 native workflow contract", () => {
     );
 
     expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.on).not.toHaveProperty("pull_request");
+    expect(workflow.on?.schedule).toEqual([{ cron: "17 9 1 * *" }]);
+    expect(workflow.on?.workflow_dispatch).toEqual({});
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("artifact-name");
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("source-sha");
-    expect(workflow.on?.pull_request?.paths).toContain("apps/native-*/**");
+    expect(build?.["runs-on"]).toBe("macos-15");
     expect(buildStep?.run).toContain("build:native");
     expect(buildStep?.run).toContain("--required --reproducible");
     expect(verifyStep?.run).toContain("native:check");
@@ -59,6 +61,21 @@ describe("SET-419 native workflow contract", () => {
       { runner: "ubuntu-24.04", suffix: "linux-x64-glibc" },
       { runner: "windows-2025", suffix: "windows-x64" },
     ]);
+    expect(
+      smoke?.steps?.find(
+        (step) => step.name === "Prove atomic no-replace directory rename"
+      )?.run
+    ).toContain("directory-rename-no-replace.test.ts");
+    expect(
+      smoke?.steps?.find(
+        (step) => step.name === "Prove workspace transaction directory race"
+      )?.run
+    ).toContain("workspace-transaction.test.ts");
+    expect(
+      smoke?.steps?.find(
+        (step) => step.name === "Prove packaged atomic no-replace directory rename"
+      )?.run
+    ).toContain("native-directory-rename-smoke.ts");
     expect(
       smoke?.steps?.find(
         (step) =>

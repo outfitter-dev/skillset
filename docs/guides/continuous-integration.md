@@ -32,7 +32,7 @@ The scaffold uses the complete `@skillset/cli` Bun distribution because its Java
 bunx @skillset/cli check --ci --since origin/main
 ```
 
-This route requires Bun 1.3.14 or newer at command runtime. It exposes the same command surface as the native distribution; it is not a reduced CI product.
+This route requires Bun 1.4.0 or newer at command runtime. It exposes the same command surface as the native distribution; it is not a reduced CI product.
 
 If a runner already provides Node 18 and npm, the native route is also supported:
 

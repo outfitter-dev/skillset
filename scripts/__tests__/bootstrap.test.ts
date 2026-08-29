@@ -50,9 +50,9 @@ const makeRepoRoot = (): string => {
   mkdirSync(join(root, "apps/skillset/src"), { recursive: true });
   writeFileSync(
     join(root, "package.json"),
-    '{"name":"skillset-workspace","packageManager":"bun@1.3.14","engines":{"bun":">=1.3.14"},"workspaces":[]}\n'
+    '{"name":"skillset-workspace","packageManager":"bun@1.4.0","engines":{"bun":">=1.4.0"},"workspaces":[]}\n'
   );
-  writeFileSync(join(root, ".bun-version"), "1.3.14\n");
+  writeFileSync(join(root, ".bun-version"), "1.4.0\n");
   writeFileSync(
     join(root, "skillset.yaml"),
     "skillset:\n  name: skillset\n"
@@ -145,21 +145,33 @@ describe("bootstrap repo policy", () => {
   });
 
   test("Bun pin stays aligned across repo metadata", () => {
-    expect(readPinnedBunVersion(repoRoot)).toBe("1.3.14");
-    expect(readPackageManagerBunVersion(repoRoot)).toBe("1.3.14");
-    expect(minimumFromEngineRange(packageJson.engines?.bun)).toBe("1.3.14");
+    expect(readPinnedBunVersion(repoRoot)).toBe("1.4.0");
+    expect(readPackageManagerBunVersion(repoRoot)).toBe("1.4.0");
+    expect(minimumFromEngineRange(packageJson.engines?.bun)).toBe("1.4.0");
   });
 
   test("Bun checks distinguish package floors from repo pins", () => {
-    expect(minimumFromEngineRange(">=1.3.14")).toBe("1.3.14");
-    expect(isVersionAtLeast("1.3.14", "1.3.14")).toBe(true);
-    expect(isVersionAtLeast("1.3.15", "1.3.14")).toBe(true);
-    expect(isVersionAtLeast("1.4.0", "1.3.14")).toBe(true);
-    expect(isVersionAtLeast("1.3.13", "1.3.14")).toBe(false);
-    expect(isCompatibleBunVersion("1.3.15", "1.3.14")).toBe(true);
-    expect(isCompatibleBunVersion("1.4.0", "1.3.14")).toBe(false);
-    expect(isBunVersionAllowed("1.3.14", "1.3.14", "strict")).toBe(true);
-    expect(isBunVersionAllowed("1.3.15", "1.3.14", "strict")).toBe(false);
+    expect(minimumFromEngineRange(">=1.4.0")).toBe("1.4.0");
+    expect(isVersionAtLeast("1.4.0", "1.4.0")).toBe(true);
+    expect(isVersionAtLeast("1.4.1", "1.4.0")).toBe(true);
+    expect(isVersionAtLeast("1.5.0", "1.4.0")).toBe(true);
+    expect(isVersionAtLeast("1.3.14", "1.4.0")).toBe(false);
+    expect(isCompatibleBunVersion("1.4.1", "1.4.0")).toBe(true);
+    expect(isCompatibleBunVersion("1.5.0", "1.4.0")).toBe(false);
+    expect(isBunVersionAllowed("1.4.0", "1.4.0", "strict")).toBe(true);
+    expect(isBunVersionAllowed("1.4.1", "1.4.0", "strict")).toBe(false);
+  });
+
+  test("Bun checks tolerate prerelease builds like the shell gate does", () => {
+    expect(isVersionAtLeast("1.4.1-canary.20+abc123", "1.4.0")).toBe(true);
+    expect(isVersionAtLeast("1.3.14-canary.2", "1.4.0")).toBe(false);
+    expect(isCompatibleBunVersion("1.4.1-canary.20+abc123", "1.4.0")).toBe(
+      true
+    );
+    expect(isCompatibleBunVersion("1.5.0-canary.1", "1.4.0")).toBe(false);
+    expect(isBunVersionAllowed("1.4.0-canary.1", "1.4.0", "strict")).toBe(
+      false
+    );
   });
 
   test("repo root detection accepts current and migration workspace markers", () => {
@@ -206,17 +218,17 @@ describe("bootstrap repo policy", () => {
             checks += 1;
             return checks === 1
               ? {
-                  actual: "1.3.13",
+                  actual: "1.3.14",
                   ok: false,
-                  pinned: "1.3.14",
+                  pinned: "1.4.0",
                   policy,
                   reason:
-                    "Expected Bun 1.3.14 or newer compatible patch, found 1.3.13",
+                    "Expected Bun 1.4.0 or newer compatible patch, found 1.3.14",
                 }
               : {
-                  actual: "1.3.14",
+                  actual: "1.4.0",
                   ok: true,
-                  pinned: "1.3.14",
+                  pinned: "1.4.0",
                   policy,
                 };
           },

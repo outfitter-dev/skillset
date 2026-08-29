@@ -20,10 +20,10 @@ The npm package installs a small Node launcher plus the native package for the c
 | npm global native | Node 18 and npm | Node 18 launcher; no Bun | Cross-platform default and a system-wide `skillset` command |
 | Homebrew native | Homebrew on macOS | Neither Bun nor Node | Native macOS command managed by Homebrew |
 | GitHub native asset | Archive and checksum tools | Neither Bun nor Node | Direct, package-manager-free native installation |
-| Bun global | Bun 1.3.14 or newer | Bun 1.3.14 or newer | A global command using the smaller JavaScript distribution |
-| Bun one-shot | Bun 1.3.14 or newer | Bun 1.3.14 or newer | CI or occasional use without a global install |
-| Bun development dependency | Bun 1.3.14 or newer | Bun 1.3.14 or newer | A repository-pinned CLI version |
-| Contributor checkout | Git, curl, and the repository bootstrap | Bun 1.3.14 or newer | Developing Skillset itself |
+| Bun global | Bun 1.4.0 or newer | Bun 1.4.0 or newer | A global command using the smaller JavaScript distribution |
+| Bun one-shot | Bun 1.4.0 or newer | Bun 1.4.0 or newer | CI or occasional use without a global install |
+| Bun development dependency | Bun 1.4.0 or newer | Bun 1.4.0 or newer | A repository-pinned CLI version |
+| Contributor checkout | Git, curl, and the repository bootstrap | Bun 1.4.0 or newer | Developing Skillset itself |
 
 `@skillset/cli` is the complete Skillset command surface in the slimmer Bun distribution. It is not a reduced CI product. The native and Bun distributions use the same command contract.
 
@@ -73,7 +73,7 @@ bunx @skillset/cli --version
 bunx @skillset/cli init
 ```
 
-Both routes require Bun 1.3.14 or newer at command runtime.
+Both routes require Bun 1.4.0 or newer at command runtime.
 
 ## Repository development dependency
 

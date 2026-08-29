@@ -363,6 +363,11 @@ function fallbackSyntaxLocation(lines: readonly string[]): ParserErrorLocation {
   );
   if (danglingCollection !== -1) return { line: danglingCollection + 1 };
 
+  const unclosedTableHeader = lines.findIndex((line) =>
+    /^\s*\[{1,2}[^\]]*$/u.test(line)
+  );
+  if (unclosedTableHeader !== -1) return { line: unclosedTableHeader + 1 };
+
   const firstNonEmptyLine = lines.findIndex((line) => line.trim() !== "");
   if (firstNonEmptyLine !== -1) return { line: firstNonEmptyLine + 1 };
 

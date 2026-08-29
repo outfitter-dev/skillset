@@ -86,7 +86,7 @@
     "@skillset/schema": "workspace:*",
     "@skillset/toolkit": "workspace:*",
     "@skillset/transforms": "workspace:*",
-    "@types/bun": "^1.2.15",
+    "@types/bun": "^1.4.0",
     "@types/commonmark": "0.27.10",
     "commonmark": "0.31.2",
     "lefthook": "2.1.9",
@@ -97,7 +97,7 @@
     "yaml": "^2.8.1"
   },
   "engines": {
-    "bun": ">=1.3.14"
+    "bun": ">=1.4.0"
   },
-  "packageManager": "bun@1.3.14"
+  "packageManager": "bun@1.4.0"
 }

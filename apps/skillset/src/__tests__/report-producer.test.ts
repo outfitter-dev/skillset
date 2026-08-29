@@ -107,7 +107,7 @@ describe("CLI operational report producer", () => {
           purity: { exitClass: "not-run", status: "not-run" },
           compare: { exitClass: "not-run", status: "not-run" },
         },
-        runtime: { bunVersion: "1.3.14" },
+        runtime: { bunVersion: "1.4.0" },
         summaries: {
           comparisonDifferences: 0,
           importedUnits: 0,

@@ -60,6 +60,11 @@ try {
   });
   const env: Record<string, string | undefined> = {
     ...process.env,
+    // Bun 1.4 persists transpiled files larger than 50 KB under the ambient
+    // cache root. Tests use disposable source and own the complete sandbox, so
+    // the documented cache-disable switch keeps both nested and decoy runs
+    // write-contained.
+    BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
     GIT_CONFIG_GLOBAL: git.global,
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_SYSTEM: git.system,

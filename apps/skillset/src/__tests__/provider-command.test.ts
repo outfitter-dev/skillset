@@ -225,7 +225,11 @@ async function processIsRunning(pid: number): Promise<boolean> {
     const stat = await readFile(`/proc/${pid}/stat`, "utf8");
     return stat.slice(stat.lastIndexOf(") ") + 2, stat.lastIndexOf(") ") + 3) !== "Z";
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ESRCH")
+    ) {
       return false;
     }
     throw error;

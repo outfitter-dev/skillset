@@ -132,7 +132,7 @@ describe("typed operational reports", () => {
           },
           pipelinePassed: true,
           phases: passedExternalPhases,
-          runtime: { bunVersion: "1.3.14" },
+          runtime: { bunVersion: "1.4.0" },
           summaries: {
             comparisonDifferences: 2,
             importedUnits: 1,
@@ -149,7 +149,7 @@ describe("typed operational reports", () => {
 
     expect(report.result.command).toBe("conformance.external");
     expect(report.payload).not.toHaveProperty("semanticConclusion");
-    expect(report.payload.runtime).toEqual({ bunVersion: "1.3.14" });
+    expect(report.payload.runtime).toEqual({ bunVersion: "1.4.0" });
     expect(renderSkillsetReportMarkdown(report)).toContain(
       "Pipeline passed: yes"
     );
@@ -205,7 +205,7 @@ describe("typed operational reports", () => {
         compare: { exitClass: "command-failure", status: "failed" },
       },
       pipelinePassed: false,
-      runtime: { bunVersion: "1.3.14" },
+      runtime: { bunVersion: "1.4.0" },
       summaries: {
         comparisonDifferences: 0,
         importedUnits: 0,

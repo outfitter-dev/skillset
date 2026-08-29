@@ -66,7 +66,7 @@ describe("workbench parser", () => {
       checkWorkbenchSyntax({ content: 'name = "demo"\n[section\nkey = 1\n', path: "demo.toml" })
     ).toContainEqual(
       expect.objectContaining({
-        location: expect.objectContaining({ line: 3, path: "demo.toml" }),
+        location: expect.objectContaining({ line: 2, path: "demo.toml" }),
         ruleId: "syntax/toml",
         severity: "error",
       })

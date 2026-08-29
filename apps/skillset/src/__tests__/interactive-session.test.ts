@@ -447,7 +447,7 @@ describe("SET-291 prompt adapters", () => {
     expect(session).toBeDefined();
     session?.banner();
     session?.write("Plan\n");
-    const rendered = output.read()?.toString() ?? "";
+    const rendered = output.read(output.readableLength)?.toString() ?? "";
     expect(rendered).toContain("\u001b[2m");
     expect(Bun.stripANSI(rendered)).toMatch(
       /skillset v\d+\.\d+\.\d+\nPlan\n$/u
@@ -464,7 +464,7 @@ describe("SET-291 prompt adapters", () => {
     });
 
     session?.banner();
-    const rendered = output.read()?.toString() ?? "";
+    const rendered = output.read(output.readableLength)?.toString() ?? "";
     expect(rendered).not.toContain("\u001b[2m");
     expect(Bun.stripANSI(rendered)).toMatch(/skillset v\d+\.\d+\.\d+\n$/u);
   });

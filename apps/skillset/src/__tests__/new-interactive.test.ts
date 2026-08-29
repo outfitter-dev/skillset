@@ -106,7 +106,11 @@ describe("SET-293 derived new-source choices", () => {
     await runNewCommand(request(root), { interactiveSession: session });
 
     adapter.assertComplete();
-    expect(Bun.stripANSI(output.read()?.toString() ?? "")).not.toContain(
+    expect(
+      Bun.stripANSI(
+        output.read(output.readableLength)?.toString() ?? ""
+      )
+    ).not.toContain(
       "Create source:"
     );
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
@@ -338,7 +342,9 @@ describe("SET-293 derived new-source choices", () => {
     ).toEqual([
       expect.objectContaining({ value: "plugin:guard" }),
     ]);
-    const transcript = Bun.stripANSI(output.read()?.toString() ?? "");
+    const transcript = Bun.stripANSI(
+      output.read(output.readableLength)?.toString() ?? ""
+    );
     expect(transcript).toContain("Compatibility");
     expect(transcript).toContain("claude: compatible");
     expect(
@@ -411,7 +417,9 @@ describe("SET-293 derived new-source choices", () => {
     }), { interactiveSession: session });
     adapter.assertComplete();
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["confirm"]);
-    const transcript = Bun.stripANSI(output.read()?.toString() ?? "");
+    const transcript = Bun.stripANSI(
+      output.read(output.readableLength)?.toString() ?? ""
+    );
     expect(transcript).toContain("Codex has no faithful skill-local hook destination");
     expect(transcript).toContain("Cursor has no faithful skill-local hook destination");
   });

@@ -34,7 +34,8 @@ export function createTerminalRenderer(
   const apply = (
     format: Parameters<typeof styleText>[0],
     value: string
-  ): string => (color ? styleText(format, value) : value);
+  ): string =>
+    color ? styleText(format, value, { validateStream: false }) : value;
 
   return {
     accent: (value) => apply("cyan", value),

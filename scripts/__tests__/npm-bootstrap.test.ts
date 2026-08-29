@@ -313,7 +313,7 @@ describe("one-time npm package bootstrap", () => {
   test("binds native input artifacts to the exact staged source commit", () => {
     const manifest = {
       artifacts: [],
-      bunVersion: "1.3.14",
+      bunVersion: "1.4.0",
       cliContractSha256: "a".repeat(64),
       commit: sourceCommit,
       schemaVersion: 1,
