@@ -730,6 +730,113 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("falls back to exclusive create when the filesystem rejects hard links", async () => {
+    await withWorkspace(async (root) => {
+      const report = await applyWorkspaceTransaction(
+        root,
+        {
+          writes: [
+            { content: "tool\n", mode: 0o755, path: "bin/tool" },
+            { content: "plain\n", path: "plain.txt" },
+          ],
+        },
+        {
+          testHooks: {
+            failHardLink: (path) =>
+              path === "bin/tool" || path === "plain.txt"
+                ? Object.assign(
+                    new Error("EPERM: operation not permitted, link"),
+                    { code: "EPERM" }
+                  )
+                : undefined,
+          },
+        }
+      );
+
+      expect(report.operations).toEqual([
+        { kind: "write", path: "bin/tool" },
+        { kind: "write", path: "plain.txt" },
+      ]);
+      const toolPath = nodePath.join(root, "bin/tool");
+      expect(await readFile(toolPath, "utf-8")).toBe("tool\n");
+      expect((await stat(toolPath)).mode & 0o777).toBe(0o755);
+      expect(await readFile(nodePath.join(root, "plain.txt"), "utf-8")).toBe(
+        "plain\n"
+      );
+      const rootEntries = await readdir(root);
+      expect(
+        rootEntries.filter((entry) => entry.startsWith(".skillset-workspace-"))
+      ).toEqual([]);
+    });
+  });
+
+  test("exclusive-create fallback removes its partial target when a later write fails", async () => {
+    await withWorkspace(async (root) => {
+      await writeFile(nodePath.join(root, "target.txt"), "old\n");
+
+      let exclusiveWriteFailures = 0;
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          { writes: [{ content: "new\n", path: "target.txt" }] },
+          {
+            testHooks: {
+              // Fails only the transaction's own install so the rollback
+              // restore can complete through the same fallback.
+              failExclusiveCreateWrite: () =>
+                exclusiveWriteFailures++ === 0
+                  ? Object.assign(
+                      new Error("ENOSPC: no space left on device, write"),
+                      { code: "ENOSPC" }
+                    )
+                  : undefined,
+              failHardLink: () =>
+                Object.assign(
+                  new Error("EPERM: operation not permitted, link"),
+                  { code: "EPERM" }
+                ),
+            },
+          }
+        )
+      ).rejects.toThrow("ENOSPC");
+
+      // The partial fallback file was removed, so rollback restored the
+      // preimage instead of colliding with a leftover entry.
+      expect(await readFile(nodePath.join(root, "target.txt"), "utf-8")).toBe(
+        "old\n"
+      );
+    });
+  });
+
+  test("exclusive-create fallback still rejects an occupied target", async () => {
+    await withWorkspace(async (root) => {
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          { writes: [{ content: "managed\n", path: "target.txt" }] },
+          {
+            testHooks: {
+              beforeWriteInstall: async () => {
+                await writeFile(
+                  nodePath.join(root, "target.txt"),
+                  "interloper\n"
+                );
+              },
+              failHardLink: () =>
+                Object.assign(
+                  new Error("EPERM: operation not permitted, link"),
+                  { code: "EPERM" }
+                ),
+            },
+          }
+        )
+      ).rejects.toThrow("write target appeared before atomic install");
+      expect(await readFile(nodePath.join(root, "target.txt"), "utf-8")).toBe(
+        "interloper\n"
+      );
+    });
+  });
+
   test("supports validated file and directory shape transitions", async () => {
     await withWorkspace(async (root) => {
       const outputPath = nodePath.join(root, "references/guide");
