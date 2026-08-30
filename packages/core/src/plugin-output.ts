@@ -18,13 +18,35 @@ export function pluginTargetRoot(
     : join(outputRoot, "plugins", pluginId).replaceAll("\\", "/");
 }
 
+/** The bundle-owning identity of a plugin; `{ id }` keeps the default shape. */
+export interface PluginBundleSource {
+  readonly claudeBundlePath?: string;
+  readonly id: string;
+}
+
+/**
+ * The root that owns one plugin's complete bundle for one target. A plugin
+ * with its own claude bundle destination owns that exact path — no implicit
+ * `plugins/<id>` or provider segment is appended.
+ */
+export function pluginBundleRoot(
+  outputRoot: string,
+  target: TargetName,
+  plugin: PluginBundleSource
+): string {
+  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
+    return plugin.claudeBundlePath;
+  }
+  return pluginTargetRoot(outputRoot, target, plugin.id);
+}
+
 export function pluginManifestPath(
   outputRoot: string,
   target: TargetName,
-  pluginId: string
+  plugin: PluginBundleSource
 ): string {
   const manifestDirectory = pluginManifestDirectory(target);
-  return join(pluginTargetRoot(outputRoot, target, pluginId), manifestDirectory, "plugin.json").replaceAll("\\", "/");
+  return join(pluginBundleRoot(outputRoot, target, plugin), manifestDirectory, "plugin.json").replaceAll("\\", "/");
 }
 
 export function pluginManifestDirectory(target: TargetName): string {
@@ -49,17 +71,21 @@ export function cursorMarketplacePath(outputRoot: string): string {
 export function providerSourceForPlugin(
   outputRoot: string,
   target: TargetName,
-  pluginId: string
+  plugin: PluginBundleSource
 ): string {
+  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
+    return `./${plugin.claudeBundlePath}`;
+  }
   return isDefaultPluginOutputRoot(outputRoot)
-    ? `./plugins/${pluginId}/${target}`
-    : `./plugins/${pluginId}`;
+    ? `./plugins/${plugin.id}/${target}`
+    : `./plugins/${plugin.id}`;
 }
 
 export function pluginTargetForOutputPath(
   graph: BuildGraph,
   path: string
 ): TargetName | undefined {
+  if (bundleRootPluginForOutputPath(graph, path) !== undefined) return "claude";
   for (const target of targetNames()) {
     const outputRoot = graph.root.outputs.plugins[target];
     if (isDefaultPluginOutputRoot(outputRoot)) {
@@ -72,11 +98,34 @@ export function pluginTargetForOutputPath(
   return undefined;
 }
 
+function bundleRootPluginForOutputPath(
+  graph: BuildGraph,
+  path: string
+): PluginBundleSource | undefined {
+  return graph.plugins.find(
+    (plugin) =>
+      plugin.claudeBundlePath !== undefined &&
+      (path === plugin.claudeBundlePath ||
+        path.startsWith(`${plugin.claudeBundlePath}/`))
+  );
+}
+
 export function pluginPathPartsForOutput(
+  graph: BuildGraph,
   outputRoot: string,
   target: TargetName,
   path: string
 ): { readonly pluginId: string; readonly pluginPath: string } | undefined {
+  if (target === "claude") {
+    const bundleOwner = bundleRootPluginForOutputPath(graph, path);
+    if (bundleOwner?.claudeBundlePath !== undefined) {
+      if (path === bundleOwner.claudeBundlePath) return undefined;
+      return {
+        pluginId: bundleOwner.id,
+        pluginPath: path.slice(bundleOwner.claudeBundlePath.length + 1),
+      };
+    }
+  }
   const prefix = isDefaultPluginOutputRoot(outputRoot)
     ? `${outputRoot}/`
     : `${outputRoot}/plugins/`;

@@ -30,8 +30,8 @@ import { withLockProvenance } from "./lock-provenance";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 import {
   isDefaultPluginOutputRoot,
+  pluginBundleRoot,
   pluginManifestPath,
-  pluginTargetRoot,
 } from "./plugin-output";
 import {
   resolveDeclaredResourceReference,
@@ -337,7 +337,7 @@ async function renderPluginTarget(
 
   const rendered: RenderedFile[] = [];
   const outputRoot = graph.root.outputs.plugins[target];
-  const basePath = pluginTargetRoot(outputRoot, target, plugin.id);
+  const basePath = pluginBundleRoot(outputRoot, target, plugin);
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
   const dependencySummaries = pluginDependencySummaries(graph, plugin);
   if (target === "codex" && dependencySummaries.length > 0 && enabledSkills.length === 0) {
@@ -348,7 +348,7 @@ async function renderPluginTarget(
   const rootLicense = await resolveRootLicense(graph);
   const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
   const manifestFile = textFile(
-    pluginManifestPath(outputRoot, target, plugin.id),
+    pluginManifestPath(outputRoot, target, plugin),
     renderValidatedJson(
       renderPluginManifest(graph, plugin, target, enabledSkills, pluginLicense),
       `${plugin.id} ${target} plugin manifest`
@@ -1648,7 +1648,7 @@ async function lockItemForPluginFeature(args: {
     name: `${args.plugin.id}:${args.feature.key}`,
     origin: args.feature.origin,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: relative(args.outputRoot, join(pluginTargetRoot(args.outputRoot, args.target, args.plugin.id), targetPath)),
+    outputPath: relative(args.outputRoot, join(pluginBundleRoot(args.outputRoot, args.target, args.plugin), targetPath)),
     plugin: args.plugin.id,
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
