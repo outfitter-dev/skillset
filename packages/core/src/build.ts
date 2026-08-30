@@ -1427,7 +1427,10 @@ function noOutputOutcomeBelongsToLock(
       Array.isArray(lock.items) &&
       lock.items.length > 0 &&
       lock.items.every(
-        (item) => isJsonRecord(item) && item.plugin === pluginId
+        (item) =>
+          isJsonRecord(item) &&
+          (item.plugin === pluginId ||
+            (item.kind === "plugin" && item.name === pluginId))
       )
     );
   }

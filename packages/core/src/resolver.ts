@@ -226,6 +226,7 @@ export async function loadBuildGraph(
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
+  validatePluginBundleDestinations(outputs, plugins);
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
@@ -1472,6 +1473,36 @@ function configuredOutputRoots(
     ]),
     ...pluginBundleOutputRoots(plugins),
   ];
+}
+
+function validatePluginBundleDestinations(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[]
+): void {
+  const configured = new Map(
+    configuredOutputRoots(outputs).map((root) => [root.path, root.label])
+  );
+  // Case-insensitive keys reject destinations that collide on
+  // case-insensitive volumes.
+  const seen = new Map<string, SourcePlugin>();
+  for (const plugin of plugins) {
+    const path = plugin.claudeBundlePath;
+    if (path === undefined) continue;
+    const label = `plugins.${plugin.id}.claude.bundle`;
+    const configuredLabel = configured.get(path);
+    if (configuredLabel !== undefined) {
+      throw new Error(
+        `skillset: ${label} reuses output root ${path}; already used by ${configuredLabel}`
+      );
+    }
+    const existing = seen.get(path.toLowerCase());
+    if (existing !== undefined) {
+      throw new Error(
+        `skillset: ${label} reuses output root ${path}; already used by plugins.${existing.id}.claude.bundle`
+      );
+    }
+    seen.set(path.toLowerCase(), plugin);
+  }
 }
 
 function pluginBundleOutputRoots(
