@@ -740,6 +740,72 @@ describe("@skillset/schema contracts", () => {
     });
   });
 
+  it("validates per-plugin claude bundle destinations", () => {
+    expect(
+      validatePluginConfig({ claude: { bundle: { path: "plugin" } } })
+        .diagnostics
+    ).toEqual([]);
+    expect(
+      validatePluginConfig({ claude: { bundle: { path: "dist/plugin" } } })
+        .diagnostics
+    ).toEqual([]);
+
+    for (const path of [
+      "",
+      ".",
+      "..",
+      "../plugin",
+      "plugin/../other",
+      "/plugin",
+      "C:/plugin",
+      "plugin\\nested",
+      "plugin/",
+    ] as const) {
+      expect(
+        validatePluginConfig({ claude: { bundle: { path } } }).diagnostics
+      ).toContainEqual({
+        code: "schema/plugin-config/bundle",
+        message:
+          "$.claude.bundle.path must be a workspace-relative directory path using forward slashes without traversal",
+        path: "$.claude.bundle.path",
+      });
+    }
+
+    expect(
+      validatePluginConfig({ claude: { bundle: "plugin" } }).diagnostics
+    ).toContainEqual({
+      code: "schema/plugin-config/bundle",
+      message: "$.claude.bundle must be an object",
+      path: "$.claude.bundle",
+    });
+    expect(
+      validatePluginConfig({
+        claude: { bundle: { path: "plugin", target: "claude" } },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/plugin-config/bundle",
+      message: "unsupported key target",
+      path: "$.claude.bundle.target",
+    });
+    expect(
+      validatePluginConfig({ codex: { bundle: { path: "plugin" } } })
+        .diagnostics
+    ).toContainEqual({
+      code: "schema/plugin-config/bundle",
+      message:
+        "$.codex.bundle is not supported; bundle destinations are only available for the claude target",
+      path: "$.codex.bundle",
+    });
+    expect(
+      validateWorkspaceConfig({ claude: { bundle: { path: "plugin" } } })
+        .diagnostics
+    ).toContainEqual({
+      code: "schema/workspace-config/bundle",
+      message: "$.claude.bundle is only supported in a plugin skillset.yaml",
+      path: "$.claude.bundle",
+    });
+  });
+
   it("validates declared runtime test structure", () => {
     expect(
       validateTestDeclaration({
