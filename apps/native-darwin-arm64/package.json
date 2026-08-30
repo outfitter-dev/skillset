@@ -1,6 +1,6 @@
 {
   "name": "@skillset/native-darwin-arm64",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "Native Skillset executable for macOS arm64.",
   "license": "MIT",
   "os": [

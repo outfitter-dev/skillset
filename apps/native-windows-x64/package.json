@@ -1,6 +1,6 @@
 {
   "name": "@skillset/native-win32-x64",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "Native Skillset executable for Windows x64.",
   "license": "MIT",
   "os": [
