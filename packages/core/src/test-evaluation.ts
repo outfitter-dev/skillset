@@ -16,7 +16,7 @@ import { resolveLicense } from "./licenses";
 import { compareStrings, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
-  pluginTargetRoot,
+  pluginBundleRoot,
 } from "./plugin-output";
 import { renderCodexInterface } from "./render-plugin-manifest";
 import { loadBuildGraph } from "./resolver";
@@ -264,7 +264,7 @@ function pluginManifestPath(
   return pluginManifestOutputPath(
     graph.root.outputs.plugins[target],
     target,
-    pluginId
+    graph.plugins.find((plugin) => plugin.id === pluginId) ?? { id: pluginId }
   );
 }
 
@@ -397,13 +397,7 @@ function activationExpectationCandidatePaths(
   expect: SkillsetActivationExpectation
 ): readonly string[] {
   if (expect.kind === "plugin") {
-    return [
-      pluginManifestOutputPath(
-        graph.root.outputs.plugins[target],
-        target,
-        expect.name
-      ),
-    ];
+    return [pluginManifestPath(graph, target, expect.name)];
   }
 
   if (expect.kind === "agent") {
@@ -437,10 +431,10 @@ function activationExpectationCandidatePaths(
         .filter((skill) => skill.id === expect.name)
         .map((skill) =>
           join(
-            pluginTargetRoot(
+            pluginBundleRoot(
               graph.root.outputs.plugins[target],
               target,
-              plugin.id
+              plugin
             ),
             dirname(skill.relativePath),
             "SKILL.md"

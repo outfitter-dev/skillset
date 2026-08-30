@@ -1400,7 +1400,7 @@ function renderResultsForLock(
       if (target !== undefined && target !== "workspace" && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
       if (outputPaths.length === 0) {
-        return outputRoot === "." || noOutputOutcomeBelongsToLock(outcome, outputRoot);
+        return outputRoot === "." || noOutputOutcomeBelongsToLock(outcome, outputRoot, lock);
       }
       return outputPaths.some((path) => lockOutputs.has(path));
     })
@@ -1414,11 +1414,22 @@ function renderResultsForLock(
 
 function noOutputOutcomeBelongsToLock(
   outcome: SkillsetRenderResult,
-  outputRoot: string
+  outputRoot: string,
+  lock: JsonRecord
 ): boolean {
   if (outcome.sourceUnit.startsWith("plugin.")) {
     const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
-    return outputRoot.startsWith(`plugins/${pluginId}/`);
+    if (outputRoot.startsWith(`plugins/${pluginId}/`)) return true;
+    // A plugin-owned bundle root carries no `plugins/<id>` shape; a lock whose
+    // items all belong to this plugin identifies the owner instead.
+    return (
+      lock.target === "claude" &&
+      Array.isArray(lock.items) &&
+      lock.items.length > 0 &&
+      lock.items.every(
+        (item) => isJsonRecord(item) && item.plugin === pluginId
+      )
+    );
   }
   if (outcome.sourceUnit.startsWith("skill:")) {
     return outputRoot.endsWith("/skills") || outputRoot.endsWith(".agents/skills");

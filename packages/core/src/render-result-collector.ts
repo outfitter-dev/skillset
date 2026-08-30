@@ -988,12 +988,13 @@ function dependencyOutputPaths(
     const manifestPath = pluginManifestPath(
       graph.root.outputs.plugins[target],
       target,
-      pluginId
+      graph.plugins.find((plugin) => plugin.id === pluginId) ?? { id: pluginId }
     );
     return outputPaths.filter((path) => path === manifestPath);
   }
   return outputPaths.filter((path) => {
     const parts = pluginPathPartsForOutput(
+      graph,
       graph.root.outputs.plugins[target],
       target,
       path
@@ -1445,7 +1446,7 @@ function companionForPath(
   | undefined {
   for (const target of TARGETS) {
     const outputRoot = graph.root.outputs.plugins[target];
-    const parts = pluginPathPartsForOutput(outputRoot, target, path);
+    const parts = pluginPathPartsForOutput(graph, outputRoot, target, path);
     if (parts === undefined) continue;
     const { pluginId, pluginPath } = parts;
     if (pluginPath === "README.md") {

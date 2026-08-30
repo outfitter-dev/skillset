@@ -12,7 +12,10 @@ import {
   type MarketplaceRequestedRefPolicy,
 } from "./marketplace-ref-policy";
 import { compareStrings } from "./path";
-import { pluginManifestPath as pluginManifestOutputPath } from "./plugin-output";
+import {
+  marketplaceSourceForManifestPath,
+  pluginManifestPath as pluginManifestOutputPath,
+} from "./plugin-output";
 import {
   acquireRemoteRepository,
   parseRemoteRepositoryReference,
@@ -764,7 +767,7 @@ function pluginTargetRenderable(graph: BuildGraph, plugin: SourcePlugin, target:
 }
 
 function pluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): string {
-  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin.id);
+  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin);
 }
 
 function pluginOutputPaths(
@@ -787,12 +790,7 @@ function failuresForPath(failures: readonly string[], path: string): readonly st
 }
 
 function providerSource(path: string): string {
-  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex)\//);
-  if (defaultMatch !== null) return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
-  const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
-  if (overrideMatch === null) return path;
-  const pluginId = overrideMatch[2];
-  return pluginId === undefined ? path : `./plugins/${pluginId}`;
+  return marketplaceSourceForManifestPath(path);
 }
 
 function compareMarketplaceEntries(left: MarketplaceCheckEntryReport, right: MarketplaceCheckEntryReport): number {

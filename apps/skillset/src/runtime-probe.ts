@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { compareStrings } from "@skillset/core/internal/path";
-import { pluginTargetRoot } from "@skillset/core/internal/plugin-output";
+import { pluginBundleRoot } from "@skillset/core/internal/plugin-output";
 import type { BuildGraph, TargetName } from "@skillset/core/internal/types";
 
 import type { ClaudeSettingSources } from "./cli-arg-values";
@@ -238,7 +238,13 @@ function runtimeProbePluginDirs(
     .map((plugin) =>
       join(
         workspacePath,
-        pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin)
+        pluginBundleRoot(
+          graph.root.outputs.plugins[target],
+          target,
+          graph.plugins.find((candidate) => candidate.id === plugin) ?? {
+            id: plugin,
+          }
+        )
       )
     );
 }
