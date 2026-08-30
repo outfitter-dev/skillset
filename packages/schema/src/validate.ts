@@ -3209,7 +3209,7 @@ function checkTargetBundleDestinations(
   context: ConfigValidationContext,
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
-  for (const target of ["claude", "codex", "cursor"] as const) {
+  for (const target of TARGET_NAMES) {
     const block = value[target];
     if (!isSchemaRecord(block) || block.bundle === undefined) continue;
     const bundlePath = `${path}.${target}.bundle`;
