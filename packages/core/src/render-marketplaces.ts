@@ -271,7 +271,7 @@ async function renderClaudeMarketplacePlugin(
       source: providerSourceForPlugin(
         graph.root.outputs.plugins.claude,
         "claude",
-        plugin.id
+        plugin
       ),
       description:
         readListingString(metadata, "summary") ??
@@ -423,7 +423,7 @@ export async function renderCursorMarketplace(
           source: providerSourceForPlugin(
             graph.root.outputs.plugins.cursor,
             "cursor",
-            plugin.id
+            plugin
           ).replace(/^\.\//, ""),
           description:
             readListingString(metadata, "summary") ??
@@ -806,7 +806,7 @@ function marketplacePluginManifestPath(
   return pluginManifestPath(
     graph.root.outputs.plugins[target],
     target,
-    plugin.id
+    plugin
   );
 }
 

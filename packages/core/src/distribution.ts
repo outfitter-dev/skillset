@@ -8,7 +8,7 @@ import {
   formatGeneratedFileMode,
   generatedFileModeMatches,
 } from "./generated-file-mode";
-import { pluginTargetRoot } from "./plugin-output";
+import { pluginBundleRoot } from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { BuildGraph, DistributionConfig, RenderedFile, SkillsetOptions, SourcePlugin, StandaloneSkill, TargetName } from "./types";
@@ -162,7 +162,13 @@ function selectDistributionFiles(
   const plugin = parsePrefixedSelector(selector, "plugin");
   if (plugin !== undefined) {
     assertPluginExists(graph.plugins, plugin);
-    const sourcePrefix = pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin);
+    const sourcePrefix = pluginBundleRoot(
+      graph.root.outputs.plugins[target],
+      target,
+      graph.plugins.find((candidate) => candidate.id === plugin) ?? {
+        id: plugin,
+      }
+    );
     return {
       destinationPrefix,
       files: filesUnder(rendered, sourcePrefix, `distribution ${selector}`),
