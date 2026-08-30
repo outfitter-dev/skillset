@@ -53,6 +53,46 @@ export function pluginManifestDirectory(target: TargetName): string {
   return `.${target}-plugin`;
 }
 
+/**
+ * The root whose `skillset.lock` records one plugin's rendered output for one
+ * target. A plugin-owned claude bundle carries its own lock at the bundle
+ * destination; every other shape locks at the shared plugins root.
+ */
+export function pluginLockRootPath(
+  outputRoot: string,
+  target: TargetName,
+  plugin: PluginBundleSource
+): string {
+  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
+    return plugin.claudeBundlePath;
+  }
+  return outputRoot;
+}
+
+/**
+ * Maps a generated plugin manifest path back to the marketplace `source`
+ * string that installs it.
+ */
+export function marketplaceSourceForManifestPath(path: string): string {
+  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex|cursor)\//);
+  if (defaultMatch !== null) {
+    return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
+  }
+  const overrideMatch = path.match(/^(?:.*)\/plugins\/([^/]+)/);
+  if (overrideMatch?.[1] !== undefined) {
+    return `./plugins/${overrideMatch[1]}`;
+  }
+  // A plugin-owned bundle root: the manifest sits directly beneath the
+  // bundle destination.
+  const bundleMatch = path.match(
+    /^(.+)\/\.(?:claude|codex|cursor)-plugin\/plugin\.json$/
+  );
+  if (bundleMatch?.[1] !== undefined) {
+    return `./${bundleMatch[1]}`;
+  }
+  return path;
+}
+
 export function claudeMarketplacePath(outputRoot: string): string {
   return isDefaultPluginOutputRoot(outputRoot)
     ? ".claude-plugin/marketplace.json"

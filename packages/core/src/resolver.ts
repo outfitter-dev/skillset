@@ -1450,7 +1450,7 @@ async function outputRootsFor(
   const activeRoots = activeOutputRoots(outputs, plugins, standaloneSkills, rules);
   const roots = new Map(activeRoots.map((outputRoot) => [outputRoot.path, outputRoot]));
 
-  for (const outputRoot of configuredOutputRoots(outputs)) {
+  for (const outputRoot of configuredOutputRoots(outputs, plugins)) {
     if (roots.has(outputRoot.path)) continue;
     if (await exists(join(resolveInside(rootPath, outputRoot.path), "skillset.lock"))) {
       roots.set(outputRoot.path, outputRoot);
@@ -1460,14 +1460,28 @@ async function outputRootsFor(
   return [...roots.values()].sort((left, right) => compareStrings(left.path, right.path));
 }
 
-function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly ActiveOutputRoot[] {
+function configuredOutputRoots(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[] = []
+): readonly ActiveOutputRoot[] {
   return [
     { label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT },
     ...targetNames().flatMap((target) => [
       { label: `outputs.plugins.${target}`, path: outputs.plugins[target] },
       { label: `outputs.skills.${target}`, path: outputs.skills[target] },
     ]),
+    ...pluginBundleOutputRoots(plugins),
   ];
+}
+
+function pluginBundleOutputRoots(
+  plugins: readonly SourcePlugin[]
+): readonly ActiveOutputRoot[] {
+  return plugins.flatMap((plugin) =>
+    plugin.claudeBundlePath === undefined
+      ? []
+      : [{ label: `plugins.${plugin.id}.claude.bundle`, path: plugin.claudeBundlePath }]
+  );
 }
 
 function activeOutputRoots(
@@ -1481,8 +1495,17 @@ function activeOutputRoots(
     roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
   }
   for (const target of targetNames()) {
-    if (plugins.some((plugin) => plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id))) {
+    const enabledPlugins = plugins.filter((plugin) => plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id));
+    // A plugin with its own claude bundle root does not occupy the shared
+    // plugins root for that target; its root registers separately below.
+    const sharedRootPlugins = target === "claude"
+      ? enabledPlugins.filter((plugin) => plugin.claudeBundlePath === undefined)
+      : enabledPlugins;
+    if (sharedRootPlugins.length > 0) {
       roots.push({ label: `outputs.plugins.${target}`, path: outputs.plugins[target] });
+    }
+    if (target === "claude") {
+      roots.push(...pluginBundleOutputRoots(enabledPlugins));
     }
     if (standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))) {
       roots.push({ label: `outputs.skills.${target}`, path: outputs.skills[target] });
@@ -1582,6 +1605,27 @@ function validateOutputRoots(
     }
     seen.set(absoluteOutputRoot, outputRoot);
   }
+
+  // A plugin-owned bundle root owns its complete subtree, so it must not nest
+  // with any other output root in either direction.
+  const bundleRoots = outputRoots.filter((outputRoot) => isPluginBundleRootLabel(outputRoot.label));
+  for (const bundleRoot of bundleRoots) {
+    const absoluteBundleRoot = resolveInside(rootPath, bundleRoot.path);
+    for (const other of outputRoots) {
+      if (other === bundleRoot) continue;
+      const absoluteOther = resolveInside(rootPath, other.path);
+      if (absoluteBundleRoot === absoluteOther) continue;
+      if (isSameOrInside(absoluteBundleRoot, absoluteOther) || isSameOrInside(absoluteOther, absoluteBundleRoot)) {
+        throw new Error(
+          `skillset: ${bundleRoot.label} (${bundleRoot.path}) must not overlap output root ${other.label} (${other.path})`
+        );
+      }
+    }
+  }
+}
+
+function isPluginBundleRootLabel(label: string): boolean {
+  return label.startsWith("plugins.") && label.endsWith(".claude.bundle");
 }
 
 function canShareOutputRoot(left: ActiveOutputRoot, right: ActiveOutputRoot): boolean {
