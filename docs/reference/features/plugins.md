@@ -60,6 +60,29 @@ plugins/review-tools/cursor/.cursor-plugin/plugin.json
 
 The compiler derives component wiring from source layout and feature configuration. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`.
 
+### Plugin-Owned Claude Bundle Destinations
+
+A plugin may own the exact workspace-relative root of its Claude bundle with `claude.bundle.path` in its plugin-local `skillset.yaml`:
+
+```yaml
+skillset:
+  name: trails
+claude:
+  bundle:
+    path: plugin
+```
+
+The destination becomes the compiler-owned root for the complete Claude bundle — manifest, skills, hooks, agents, provider-native islands, executables, copied companions, and selected license artifacts — with no implicit `plugins/<plugin>` or provider segment:
+
+```text
+plugin/.claude-plugin/plugin.json
+plugin/skills/**
+plugin/hooks/**
+plugin/skillset.lock
+```
+
+This is independent of the workspace-wide `claude.plugins.path`, which moves the marketplace and every default-shaped bundle together. With a plugin-owned destination, the repository marketplace stays at `.claude-plugin/marketplace.json` and references the bundle with `source: ./<path>`. The destination carries its own `skillset.lock`, is validated like any other output root (no traversal, no overlap with other output roots or another plugin's destination), and participates in `explain`, `diff`, and `check --only outputs` provenance.
+
 ## Manifest Authority
 
 Every generated field has one writer:
