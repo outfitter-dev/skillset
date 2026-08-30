@@ -365,6 +365,7 @@ export function validateWorkspaceConfig(
     code: "workspace-config",
     keys: singleFileRootConfigKeys,
     label: "workspace config",
+    supportsBundleDestinations: false,
     supportsCompile: true,
     supportsHooks: false,
     supportsMarketplaces: true,
@@ -383,6 +384,7 @@ export function validateSingleFileRootConfig(
     code: "single-file-root-config",
     keys: singleFileRootConfigKeys,
     label: "single-file root config",
+    supportsBundleDestinations: false,
     supportsCompile: true,
     supportsHooks: false,
     supportsMarketplaces: true,
@@ -401,6 +403,7 @@ export function validateSplitWorkspaceConfig(
     code: "split-workspace-config",
     keys: splitWorkspaceConfigKeys,
     label: "split workspace config",
+    supportsBundleDestinations: false,
     supportsCompile: true,
     supportsHooks: false,
     supportsMarketplaces: true,
@@ -461,6 +464,7 @@ export function validatePluginConfig(
     code: "plugin-config",
     keys: pluginConfigKeys,
     label: "plugin config",
+    supportsBundleDestinations: true,
     supportsCompile: false,
     supportsHooks: true,
     supportsMarketplaces: false,
@@ -474,6 +478,7 @@ interface ConfigValidationContext {
   readonly code: string;
   readonly keys: ReadonlySet<string>;
   readonly label: string;
+  readonly supportsBundleDestinations: boolean;
   readonly supportsCompile: boolean;
   readonly supportsHooks: boolean;
   readonly supportsMarketplaces: boolean;
@@ -531,6 +536,7 @@ function validateConfigContext(
     `schema/${context.code}/target`,
     diagnostics
   );
+  checkTargetBundleDestinations(value, path, context, diagnostics);
   if (context.supportsCompile)
     checkCompile(
       value.compile,
@@ -3194,6 +3200,76 @@ function checkTargetBlock(
   )
     diagnostics.push(
       diagnostic(path, code, `${path} must be true, false, or an object`)
+    );
+}
+
+function checkTargetBundleDestinations(
+  value: SchemaJsonRecord,
+  path: string,
+  context: ConfigValidationContext,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  for (const target of ["claude", "codex", "cursor"] as const) {
+    const block = value[target];
+    if (!isSchemaRecord(block) || block.bundle === undefined) continue;
+    const bundlePath = `${path}.${target}.bundle`;
+    const code = `schema/${context.code}/bundle`;
+    if (!context.supportsBundleDestinations) {
+      diagnostics.push(
+        diagnostic(
+          bundlePath,
+          code,
+          `${bundlePath} is only supported in a plugin skillset.yaml`
+        )
+      );
+      continue;
+    }
+    if (target !== "claude") {
+      diagnostics.push(
+        diagnostic(
+          bundlePath,
+          code,
+          `${bundlePath} is not supported; bundle destinations are only available for the claude target`
+        )
+      );
+      continue;
+    }
+    const bundle = block.bundle;
+    if (!isSchemaRecord(bundle)) {
+      diagnostics.push(
+        diagnostic(bundlePath, code, `${bundlePath} must be an object`)
+      );
+      continue;
+    }
+    for (const key of Object.keys(bundle)) {
+      if (key !== "path") {
+        diagnostics.push(
+          diagnostic(`${bundlePath}.${key}`, code, `unsupported key ${key}`)
+        );
+      }
+    }
+    if (
+      typeof bundle.path !== "string" ||
+      !isPortableBundleDestination(bundle.path)
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${bundlePath}.path`,
+          code,
+          `${bundlePath}.path must be a workspace-relative directory path using forward slashes without traversal`
+        )
+      );
+    }
+  }
+}
+
+function isPortableBundleDestination(value: string): boolean {
+  if (value.length === 0 || value.includes("\\")) return false;
+  if (value.startsWith("/") || /^[A-Za-z]:/.test(value)) return false;
+  return value
+    .split("/")
+    .every(
+      (segment) => segment !== "" && segment !== "." && segment !== ".."
     );
 }
 
