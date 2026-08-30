@@ -7,7 +7,9 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  open,
   readdir,
+  readFile,
   realpath,
   rename,
   rm,
@@ -90,6 +92,17 @@ export interface WorkspaceTransactionTestHooks {
   /** Fires immediately before an atomic directory install is attempted. */
   readonly beforeDirectoryInstall?: (path: string) => Promise<void> | void;
   readonly beforeWriteInstall?: (path: string) => Promise<void> | void;
+  /**
+   * Simulates a `link` failure for one file install. A returned error is
+   * treated exactly as if the real `link` call had thrown it.
+   */
+  readonly failHardLink?: (path: string) => Error | undefined;
+  /**
+   * Simulates a write failure after the exclusive-create fallback has taken
+   * the destination. A returned error is treated exactly as if the content
+   * write had thrown it.
+   */
+  readonly failExclusiveCreateWrite?: (path: string) => Error | undefined;
   readonly beforeRollback?: (
     action: WorkspaceTransactionRollbackAction,
     index: number
@@ -783,12 +796,30 @@ async function installWithoutReplacing(
   const source = await lstat(sourcePath);
   if (source.isFile()) {
     try {
+      const injectedFailure = hooks?.failHardLink?.(target.relative);
+      if (injectedFailure !== undefined) {
+        throw injectedFailure;
+      }
       await link(sourcePath, target.absolute);
     } catch (error) {
       if (isAlreadyExists(error)) {
         return "occupied";
       }
-      throw error;
+      if (!isHardLinkUnsupported(error)) {
+        throw error;
+      }
+      // Filesystems without hard links (exFAT, FAT32, some SMB mounts) reject
+      // `link`. Exclusive create keeps the no-replace guarantee there while
+      // giving up content atomicity on those volumes only — matching the
+      // non-transactional write path's `wx` convention.
+      const outcome = await installFileByExclusiveCreate(
+        hooks,
+        sourcePath,
+        target
+      );
+      if (outcome === "occupied") {
+        return "occupied";
+      }
     }
     await rm(sourcePath);
     return "installed";
@@ -801,6 +832,56 @@ async function installWithoutReplacing(
     );
   }
   return result.kind;
+}
+
+function isHardLinkUnsupported(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "EPERM" ||
+      error.code === "ENOTSUP" ||
+      error.code === "EOPNOTSUPP")
+  );
+}
+
+async function installFileByExclusiveCreate(
+  hooks: WorkspaceTransactionTestHooks | undefined,
+  sourcePath: string,
+  target: NormalizedPath
+): Promise<"installed" | "occupied"> {
+  const content = await readFile(sourcePath);
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(target.absolute, "wx");
+  } catch (error) {
+    if (isAlreadyExists(error)) {
+      return "occupied";
+    }
+    throw error;
+  }
+  // Once the exclusive create succeeds the entry is ours. Any later failure
+  // must remove it, or a failed transaction leaves a partial file that blocks
+  // preimage restore during rollback.
+  try {
+    const injectedWriteFailure = hooks?.failExclusiveCreateWrite?.(
+      target.relative
+    );
+    if (injectedWriteFailure !== undefined) {
+      throw injectedWriteFailure;
+    }
+    await handle.writeFile(content);
+    if (supportsGeneratedFileModes()) {
+      const staged = await lstat(sourcePath);
+      // fchmod through our handle cannot follow a concurrently swapped path.
+      await handle.chmod(staged.mode & 0o777);
+    }
+    await handle.close();
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    await rm(target.absolute, { force: true });
+    throw error;
+  }
+  return "installed";
 }
 
 function writeReplacesPlannedEntry(
