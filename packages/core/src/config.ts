@@ -1057,6 +1057,28 @@ function readOutputSetting(raw: JsonValue, label: string): ParsedTargetOutputSet
   };
 }
 
+/**
+ * Reads a plugin's claude bundle destination override. Schema validation has
+ * already constrained the shape; this narrows defensively for direct callers.
+ */
+export function readClaudeBundlePath(
+  config: JsonRecord,
+  label: string
+): string | undefined {
+  const claude = config.claude;
+  if (!isJsonRecord(claude) || claude.bundle === undefined) return undefined;
+  if (!isJsonRecord(claude.bundle)) {
+    throw new Error(`skillset: expected ${label}.claude.bundle to be an object`);
+  }
+  const path = readString(claude.bundle, "path");
+  if (path === undefined) {
+    throw new Error(
+      `skillset: expected ${label}.claude.bundle.path to be a string`
+    );
+  }
+  return path;
+}
+
 function readStringArrayValue(value: JsonValue, label: string): readonly string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
     throw new Error(`skillset: expected ${label} to be a string array`);
