@@ -16,6 +16,8 @@ import {
   claudeMarketplacePath,
   cursorMarketplacePath,
   isDefaultPluginOutputRoot,
+  marketplaceSourceForManifestPath,
+  pluginLockRootPath,
   pluginManifestPath,
   providerSourceForPlugin,
 } from "./plugin-output";
@@ -516,7 +518,11 @@ export function marketplaceLockProvenance(
         const generatedPaths = renderable
           ? marketplaceGeneratedPaths(
               lockRoots,
-              graph.root.outputs.plugins[target],
+              pluginLockRootPath(
+                graph.root.outputs.plugins[target],
+                target,
+                plugin
+              ),
               target,
               entry.plugin
             )
@@ -811,13 +817,7 @@ function marketplacePluginManifestPath(
 }
 
 function marketplaceProviderSource(path: string): string {
-  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex|cursor)\//);
-  if (defaultMatch !== null)
-    return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
-  const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
-  if (overrideMatch === null) return path;
-  const pluginId = overrideMatch[2];
-  return pluginId === undefined ? path : `./plugins/${pluginId}`;
+  return marketplaceSourceForManifestPath(path);
 }
 
 function stripUndefinedJsonRecord(
