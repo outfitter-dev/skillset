@@ -25,6 +25,7 @@ import {
   readCompileTargets,
   readDistributionConfig,
   readMarketplaceCatalogConfig,
+  readClaudeBundlePath,
   readOutputConfig,
   readRecord,
   readSkillsetMetadata,
@@ -935,6 +936,7 @@ async function loadPlugin(
   const configPath = await resolvePluginConfigPath(pluginPath);
   const configRelativePath = relative(rootPath, configPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  let claudeBundlePath: string | undefined;
   let dependencies: SourcePlugin["dependencies"];
   let metadata: SourcePlugin["metadata"];
   let sourceOrigin: SourceOrigin | undefined;
@@ -943,6 +945,7 @@ async function loadPlugin(
   let targets: SourcePlugin["targets"];
   try {
     validateConfigDocument(config, configPath, { allowHooks: true });
+    claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
     await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);
@@ -997,6 +1000,7 @@ async function loadPlugin(
   return {
     configPath,
     adaptiveHooks,
+    ...(claudeBundlePath === undefined ? {} : { claudeBundlePath }),
     dependencies,
     features,
     hookAttachments,
