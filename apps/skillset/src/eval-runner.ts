@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 import { buildSkillset, listSkillEvals } from "@skillset/core";
-import { pluginTargetRoot } from "@skillset/core/internal/plugin-output";
+import { pluginBundleRoot } from "@skillset/core/internal/plugin-output";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { stageSkillsetSourceWorkspace } from "@skillset/core/internal/test-evaluation";
@@ -383,7 +383,7 @@ async function renderedSkillExists(workspacePath: string, graph: BuildGraph, ent
   const skill = plugin?.skills.find((candidate) => candidate.sourcePath === sourcePath);
   return plugin === undefined || skill === undefined
     ? false
-    : pathExists(join(workspacePath, pluginTargetRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin.id), dirname(skill.relativePath), "SKILL.md"));
+    : pathExists(join(workspacePath, pluginBundleRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin), dirname(skill.relativePath), "SKILL.md"));
 }
 
 function evalRunPaths(rootPath: string, graph: BuildGraph, runId: string, xdg: SkillsetOptions["xdg"] = undefined): EvalRunPaths {

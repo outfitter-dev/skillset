@@ -764,7 +764,7 @@ function pluginTargetRenderable(graph: BuildGraph, plugin: SourcePlugin, target:
 }
 
 function pluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): string {
-  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin.id);
+  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin);
 }
 
 function pluginOutputPaths(
