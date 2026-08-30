@@ -202,6 +202,12 @@ export interface SourcePluginDependency {
 
 export interface SourcePlugin {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
+  /**
+   * Workspace-relative root that owns this plugin's complete claude bundle.
+   * When set, the bundle renders at this exact path with no implicit
+   * `plugins/<id>` or provider segment.
+   */
+  readonly claudeBundlePath?: string;
   readonly configPath: string;
   readonly dependencies: readonly SourcePluginDependency[];
   readonly features: readonly SourcePluginFeature[];
