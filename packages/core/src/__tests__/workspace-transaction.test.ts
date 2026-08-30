@@ -73,6 +73,7 @@ describe("workspace transactions", () => {
       });
 
       expect(report.workspaceRoot).toBe(await realpath(root));
+      expect(report.supersededDeletePaths).toEqual([]);
       expect(report.operations).toEqual([
         { from: "move.txt", kind: "move", to: "nested/moved.txt" },
         { kind: "write", path: "created.txt" },
@@ -96,6 +97,58 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("reports a recreated delete target as superseded, not deleted", async () => {
+    await withWorkspace(async (root) => {
+      await writeFile(nodePath.join(root, "gone.txt"), "managed\n");
+      await writeFile(nodePath.join(root, "also-gone.txt"), "managed\n");
+      await mkdir(nodePath.join(root, "linked"));
+      await writeFile(nodePath.join(root, "linked/entry.txt"), "managed\n");
+      await mkdir(nodePath.join(root, "elsewhere"));
+      await writeFile(nodePath.join(root, "elsewhere/entry.txt"), "outside\n");
+
+      const linkedDeletePath = nodePath.join("linked", "entry.txt");
+      const report = await applyWorkspaceTransaction(
+        root,
+        { deletes: ["also-gone.txt", "gone.txt", "linked/entry.txt"] },
+        {
+          testHooks: {
+            beforeApply: async (operation) => {
+              if (operation.kind === "delete" && operation.path === "gone.txt") {
+                await writeFile(
+                  nodePath.join(root, "gone.txt"),
+                  "unmanaged\n"
+                );
+              }
+              if (
+                operation.kind === "delete" &&
+                operation.path === linkedDeletePath
+              ) {
+                // An ancestor swapped for a symlink must not read as a
+                // recreation through the link target.
+                await rm(nodePath.join(root, "linked"), {
+                  force: true,
+                  recursive: true,
+                });
+                await symlink(
+                  nodePath.join(root, "elsewhere"),
+                  nodePath.join(root, "linked")
+                );
+              }
+            },
+          },
+        }
+      );
+
+      expect(report.supersededDeletePaths).toEqual(["gone.txt"]);
+      expect(await readFile(nodePath.join(root, "gone.txt"), "utf-8")).toBe(
+        "unmanaged\n"
+      );
+      await expect(
+        access(nodePath.join(root, "also-gone.txt"))
+      ).rejects.toThrow();
+    });
+  });
+
   test("allows move targets only when their existing entry is explicitly moved or deleted", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "left.txt"), "left\n");
@@ -115,10 +168,13 @@ describe("workspace transactions", () => {
         "right\n"
       );
 
-      await applyWorkspaceTransaction(root, {
+      const report = await applyWorkspaceTransaction(root, {
         deletes: ["right.txt"],
         moves: [{ from: "left.txt", to: "right.txt" }],
       });
+      // The moved entry legitimately takes the deleted path; it is not a
+      // superseding recreation.
+      expect(report.supersededDeletePaths).toEqual([]);
       await expect(access(nodePath.join(root, "left.txt"))).rejects.toThrow();
       expect(await readFile(nodePath.join(root, "right.txt"), "utf-8")).toBe(
         "left\n"
@@ -681,7 +737,7 @@ describe("workspace transactions", () => {
       await writeFile(outputPath, "flat before\n");
       await chmod(outputPath, 0o644);
 
-      await applyWorkspaceTransaction(root, {
+      const report = await applyWorkspaceTransaction(root, {
         deletes: ["references/guide"],
         writes: [
           {
@@ -691,6 +747,9 @@ describe("workspace transactions", () => {
           },
         ],
       });
+      // The plan's own write rebuilt the deleted path as a directory; the
+      // delete is not superseded.
+      expect(report.supersededDeletePaths).toEqual([]);
 
       const nestedPath = nodePath.join(outputPath, "subdir/page.md");
       expect(await readFile(nestedPath, "utf-8")).toBe("nested after\n");
