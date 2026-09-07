@@ -60,6 +60,33 @@ plugins/review-tools/cursor/.cursor-plugin/plugin.json
 
 The compiler derives component wiring from source layout and feature configuration. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`.
 
+### Plugin-Owned Claude Bundle Destinations
+
+A plugin may own the exact workspace-relative root of its Claude bundle with `claude.bundle.path` in its plugin-local `skillset.yaml`:
+
+```yaml
+skillset:
+  name: trails
+claude:
+  bundle:
+    path: plugin
+```
+
+The destination becomes the compiler-owned root for the complete Claude bundle — manifest, skills, hooks, agents, provider-native islands, executables, copied companions, and selected license artifacts — with no implicit `plugins/<plugin>` or provider segment:
+
+```text
+plugin/.claude-plugin/plugin.json
+plugin/skills/**
+plugin/hooks/**
+plugin/skillset.lock
+```
+
+The workspace-wide `claude.plugins.path` continues to select the marketplace root and the container for default-shaped bundles. With its default value, the marketplace stays at `.claude-plugin/marketplace.json` and references this bundle as `source: ./plugin`. The [plugin configuration schema](../schemas/0.1.0/plugin-config.schema.json) owns `claude.bundle.path`; workspace configuration and other provider blocks reject this field.
+
+For a custom marketplace root, the bundle destination remains workspace-relative and must be beneath that root. For example, workspace `claude.plugins.path: dist` and plugin `claude.bundle.path: dist/trails` render `dist/.claude-plugin/marketplace.json`, `dist/trails/.claude-plugin/plugin.json`, and marketplace source `./trails`. A sibling destination such as `plugin` cannot be referenced from the `dist` marketplace: [Claude local marketplace sources](https://code.claude.com/docs/en/plugin-marketplaces#relative-paths) cannot leave the marketplace root. Skillset rejects this combination with the conflicting roots rather than relocating either output.
+
+Each explicit bundle carries its own `skillset.lock` and participates in `explain`, `diff`, and `check --only outputs` provenance. A custom marketplace container may hold both independently locked bundles and default-shaped sibling bundles. Destinations cannot reuse the container itself, overlap another plugin bundle, source tree, marketplace metadata directory, skill output root, or another target's output roots. Case-conflicting destinations are rejected consistently across hosts.
+
 ## Manifest Authority
 
 Every generated field has one writer:
