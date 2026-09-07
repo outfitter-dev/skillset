@@ -105,11 +105,14 @@ export function readShellWrapperPrefix(
   let index = 0;
   if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
   while (tokens[index] === "!") index += 1;
-  const skipAssignments = (): void => {
-    while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) {
+  const skipAssignments = (shellPrefix = false): void => {
+    const assignmentPattern = shellPrefix
+      ? /^[a-z_][a-z0-9_]*\+?=/iu
+      : /^[a-z_][a-z0-9_]*=/iu;
+    while (assignmentPattern.test(tokens[index] ?? "")) {
       const assignment = tokens[index] ?? "";
       const separator = assignment.indexOf("=");
-      const name = assignment.slice(0, separator);
+      const name = assignment.slice(0, separator).replace(/\+$/u, "");
       const value = assignment.slice(separator + 1);
       // Bare environment labels are data; a slash supplies path evidence.
       // PATH is a shell search list, so even its bare entries name directories.
@@ -119,7 +122,8 @@ export function readShellWrapperPrefix(
       index += 1;
     }
   };
-  skipAssignments();
+  // Bash/Zsh append assignment is shell syntax, not an env/sudo NAME=value.
+  skipAssignments(true);
 
   while (index < tokens.length) {
     const wrapper = (tokens[index] ?? "").toLowerCase();

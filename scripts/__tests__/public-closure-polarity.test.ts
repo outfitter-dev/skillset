@@ -121,6 +121,11 @@ describe("SET-489 default shell operand policy", () => {
   });
 
   test("checks each executable search path without splitting arbitrary labels", () => {
+    expect(rules("PATH+=:packages tool")).toEqual(["internal-package"]);
+    expect(rules("PATH+=:packages sudo tool")).toEqual(["internal-package"]);
+    expect(rules("PATH+=:public skillset explain packages/core")).toEqual([]);
+    expect(rules("env PATH+=:packages tool")).toEqual([]);
+    expect(rules("skillset check PATH+=:packages")).toEqual([]);
     expect(rules("PATH=$PATH:./packages/core/bin tool")).toEqual([
       "internal-package",
     ]);
