@@ -2273,6 +2273,8 @@ describe("generated public closure guard", () => {
       { line: 5, rule: "internal-script" },
       { line: 6, rule: "internal-package" },
       { line: 7, rule: "internal-script" },
+      // SET-491: an unresolved variable may also name the repository root.
+      { line: 9, rule: "internal-package" },
     ]);
 
     expect(
@@ -2288,6 +2290,8 @@ describe("generated public closure guard", () => {
       { line: 5, rule: "internal-script" },
       { line: 6, rule: "internal-package" },
       { line: 7, rule: "internal-script" },
+      // SET-491: an unresolved variable may also name the repository root.
+      { line: 9, rule: "internal-package" },
     ]);
   });
 
