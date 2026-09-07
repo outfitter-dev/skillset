@@ -8,6 +8,26 @@ import { checkMarketplaces } from "../marketplace-check";
 import { providerSourceForPlugin } from "../plugin-output";
 
 describe("plugin bundle root ownership", () => {
+  it("records no-output plugin results on the independently owned bundle lock", async () => {
+    const root = await fixture("plugin", "plugins");
+    const config = await readFile(join(root, "skillset.yaml"), "utf8");
+    await Bun.write(join(root, "skillset.yaml"), `${config}compile:\n  unsupportedDestination: warn\n`);
+    const pluginConfig = await readFile(join(root, ".skillset/plugins/trails/skillset.yaml"), "utf8");
+    await Bun.write(join(root, ".skillset/plugins/trails/skillset.yaml"),
+      `${pluginConfig}hooks:\n  Stop:\n    - hook: stop-policy\n      match: main\n`);
+    await Bun.write(join(root, ".skillset/plugins/trails/hooks/stop-policy.json"),
+      JSON.stringify({ events: ["Stop"], run: { command: "echo stop" } }));
+    const build = await buildSkillsetResult(root);
+    expect(build.ok).toBe(true);
+    const unsupported = build.renderResults.find((result) =>
+      result.sourceUnit === "plugin.trails.feature:hooks" && result.target === "claude"
+    );
+    expect(unsupported?.status).toBe("unsupported");
+    expect(unsupported?.outputs ?? []).toEqual([]);
+    const lock = JSON.parse(await readFile(join(root, "plugin/skillset.lock"), "utf8"));
+    expect(lock.renderResults).toContainEqual(unsupported);
+  });
+
   it("derives sources from plugin identity relative to the marketplace", () => {
     expect(providerSourceForPlugin("plugins", "claude", { id: "trails", claudeBundlePath: "dist/plugins/custom" })).toBe("./dist/plugins/custom");
     expect(providerSourceForPlugin("dist", "claude", { id: "trails", claudeBundlePath: "dist/plugins/custom" })).toBe("./plugins/custom");
