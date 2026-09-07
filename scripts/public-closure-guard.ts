@@ -303,6 +303,12 @@ export function isGeneratedPublicPath(path: string): boolean {
   return path.startsWith(PUBLIC_ROOT) && path.length > PUBLIC_ROOT.length;
 }
 
+/**
+ * Checks supported top-level/tokenized shell operands alongside prose routes.
+ * Nested process substitutions are not analyzed with outer-command resumption;
+ * that known limitation is tracked in SET-517. A clean scan of the current
+ * generated tree is not proof of complete POSIX/Bash shell analysis.
+ */
 export function scanGeneratedPublicContent(
   file: string,
   content: string,
@@ -1090,10 +1096,10 @@ function hasRepoInternalScriptReference(
   const assignmentPaths = commands.flatMap((command) =>
     readShellSegments(command).flatMap((segment) => {
       const wrapper = readShellWrapperPrefix(segment);
-      return wrapper.assignmentPaths.flatMap((value) => [
-        value,
-        resolveShellPath(wrapper.cwd, value),
-      ]);
+      return wrapper.assignmentPaths.flatMap((value) => {
+        const path = normalizeClosureText(value, repoRoot, false).shellText;
+        return [path, resolveShellPath(wrapper.cwd, path)];
+      });
     })
   );
   const candidates = [

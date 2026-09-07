@@ -120,6 +120,26 @@ describe("SET-489 default shell operand policy", () => {
     ]);
   });
 
+  test("checks each executable search path without splitting arbitrary labels", () => {
+    expect(rules("PATH=$PATH:./packages/core/bin tool")).toEqual([
+      "internal-package",
+    ]);
+    expect(rules("env PATH=public:./scripts tool")).toEqual(["internal-script"]);
+    expect(rules("PATH=public:$ROOT/scripts/private.ts tool")).toEqual([
+      "internal-script",
+    ]);
+    expect(rules("PATH=packages skillset check")).toEqual(["internal-package"]);
+    expect(rules("env -C docs PATH=public:development tool")).toEqual([
+      "development-docs",
+    ]);
+    expect(rules("PATH=/usr/bin:./public skillset explain packages/core")).toEqual(
+      []
+    );
+    expect(rules("LABEL=public:./packages skillset check")).toEqual([]);
+    expect(rules("URL=https://example.com/packages skillset check")).toEqual([]);
+    expect(rules("skillset check PATH=packages")).toEqual([]);
+  });
+
   test("preserves path-valued leading assignments outside exempt arguments", () => {
     for (const executable of ["tool", "skillset", "rg"]) {
       for (const command of [

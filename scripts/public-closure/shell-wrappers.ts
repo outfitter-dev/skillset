@@ -108,9 +108,14 @@ export function readShellWrapperPrefix(
   const skipAssignments = (): void => {
     while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) {
       const assignment = tokens[index] ?? "";
-      const value = assignment.slice(assignment.indexOf("=") + 1);
+      const separator = assignment.indexOf("=");
+      const name = assignment.slice(0, separator);
+      const value = assignment.slice(separator + 1);
       // Bare environment labels are data; a slash supplies path evidence.
-      if (/[/\\]/u.test(value)) assignmentPaths.push(value);
+      // PATH is a shell search list, so even its bare entries name directories.
+      if (name === "PATH")
+        assignmentPaths.push(...value.split(":").filter(Boolean));
+      else if (/[/\\]/u.test(value)) assignmentPaths.push(value);
       index += 1;
     }
   };
