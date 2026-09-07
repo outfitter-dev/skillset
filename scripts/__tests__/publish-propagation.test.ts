@@ -188,7 +188,7 @@ describe("npm propagation and immutable retry", () => {
     expect(incomplete.publishes()).toBe(0);
   });
 
-  test("coordinated preflight rereads a stale absent after a sibling occupied wait", async () => {
+  test("coordinated preflight polls a stale gap beyond its second absent read", async () => {
     const earlier = {
       name: "@skillset/native-darwin-arm64",
       version: publication.version,
@@ -211,7 +211,7 @@ describe("npm propagation and immutable retry", () => {
       read: async (name: string) => {
         if (name === earlier.name) {
           earlierReads += 1;
-          return earlierReads === 1 ? null : visible();
+          return earlierReads <= 2 ? null : visible();
         }
         laterReads += 1;
         return laterReads === 1 ? incomplete : visible();
@@ -227,11 +227,11 @@ describe("npm propagation and immutable retry", () => {
       [earlier.name, true],
       [later.name, true],
     ]);
-    expect(earlierReads).toBe(2);
+    expect(earlierReads).toBe(3);
     expect(elapsed).toBeGreaterThan(0);
   });
 
-  test("coordinated preflight rereads a genuine absent once and does not wait", async () => {
+  test("coordinated preflight does not poll an absent suffix", async () => {
     const published = {
       name: "@skillset/native-darwin-arm64",
       version: publication.version,
@@ -260,7 +260,7 @@ describe("npm propagation and immutable retry", () => {
     };
     const states = await readReleaseRegistryStates([published, missing], io);
     expect(states.map((state) => state.published)).toEqual([true, false]);
-    expect(missingReads).toBe(2);
+    expect(missingReads).toBe(1);
     expect(sleeps).toEqual([]);
   });
 

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 
 import { publishReleasePackages } from "../publish";
+import { readReleaseRegistryStates } from "../publish-propagation";
 import {
   NPM_PROVENANCE_PREDICATE,
   RELEASE_PACKAGE_SPECS,
@@ -145,5 +146,33 @@ test("final registry drift fails the production loop", async () => {
       probe.io
     )
   ).rejects.toThrow("Coordinated registry set did not complete");
+  expect(probe.calls).toEqual([]);
+});
+
+test("a persistent canonical gap times out before any npm publication", async () => {
+  const probe = releaseHarness(2);
+  probe.published.delete(RELEASE_PACKAGE_SPECS[0]!.name);
+  let elapsed = 0;
+  const io = {
+    ...probe.io,
+    now: () => elapsed,
+    sleep: async (ms: number) => {
+      elapsed += ms;
+    },
+  };
+  const attempt = async () => {
+    const states = await readReleaseRegistryStates(
+      RELEASE_PACKAGE_SPECS.map(({ name }) => ({ name, version, tag })),
+      io
+    );
+    return publishReleasePackages(
+      { version, tag },
+      planCoordinatedRelease(states, version, tag),
+      packages,
+      io
+    );
+  };
+  await expect(attempt()).rejects.toThrow("within 300s");
+  expect(elapsed).toBe(300_000);
   expect(probe.calls).toEqual([]);
 });

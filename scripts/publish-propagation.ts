@@ -148,6 +148,13 @@ export async function readReleaseRegistryState(
   if (document?.versions?.[publication.version]) {
     document = await waitForPublication(publication, io, document);
   }
+  return registryState(publication, document);
+}
+
+function registryState(
+  publication: Omit<Publication, "integrity">,
+  document: RegistryDocument | null
+): ReleaseRegistryState {
   const published = document?.versions?.[publication.version];
   return {
     name: publication.name,
@@ -165,25 +172,22 @@ export async function readReleaseRegistryState(
   };
 }
 
-/** After any sibling occupied wait, reread absents so a stale miss cannot freeze a false non-prefix. */
+/** A later published package makes earlier absences possible propagation gaps. */
 export async function readReleaseRegistryStates(
-  publications: readonly (Omit<Publication, "integrity">)[],
+  publications: readonly Omit<Publication, "integrity">[],
   io: Omit<PublicationIO, "publish">
 ): Promise<ReleaseRegistryState[]> {
   const states = await Promise.all(
     publications.map((publication) => readReleaseRegistryState(publication, io))
   );
-  if (
-    !states.some((state) => state.published) ||
-    states.every((state) => state.published)
-  ) {
-    return states;
-  }
+  const lastPublished = states.findLastIndex((state) => state.published);
   return Promise.all(
-    states.map((state, index) =>
-      state.published
-        ? state
-        : readReleaseRegistryState(publications[index]!, io)
-    )
+    states.map(async (state, index) => {
+      // A missing suffix is a valid resume point; only apparent prefix gaps wait.
+      if (state.published || index > lastPublished) return state;
+      const publication = publications[index]!;
+      const document = await waitForPublication(publication, io);
+      return registryState(publication, document);
+    })
   );
 }
