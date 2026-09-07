@@ -51,6 +51,16 @@ describe("plugin bundle root ownership", () => {
     expect((await verifySkillsetResult(root)).ok).toBe(true);
   });
 
+  for (const marketplaceRoot of ["dist/", "./dist"]) {
+    it(`accepts normalized custom marketplace root ${marketplaceRoot}`, async () => {
+      const root = await fixture("dist/trails", marketplaceRoot);
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const marketplace = JSON.parse(await readFile(join(root, "dist/.claude-plugin/marketplace.json"), "utf8"));
+      expect(marketplace.plugins.find((plugin: {name: string}) => plugin.name === "trails").source).toBe("./trails");
+      expect((await verifySkillsetResult(root)).ok).toBe(true);
+    });
+  }
+
   for (const path of ["plugin", "dist", "dist-other/trails", "parent"]) {
     it(`rejects unreferenceable or root-like custom-marketplace bundle ${path}`, async () => {
       const root = await fixture(path, path === "parent" ? "parent/marketplace" : "dist");
