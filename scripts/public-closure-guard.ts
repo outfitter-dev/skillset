@@ -4,25 +4,25 @@ import { fileURLToPath } from "node:url";
 
 import type { NormalizedClosureText } from "./public-closure/closure-text";
 import { normalizeClosureText } from "./public-closure/closure-text";
-import { hasGitProtectedDirectoryArgument } from "./public-closure/git";
-import {
-  hasCommandDirectoryOptionRoute,
-  hasPackageRunnerProtectedDirectoryArgument,
-  isProtectedRootPathCommand,
-} from "./public-closure/path-commands";
+import { gitPathContext, resolveShellPath } from "./public-closure/cwd-context";
 import type { SearchCommandOwner } from "./public-closure/search-dialects";
 import {
   hasSearchCommandProtectedPathArgument,
   searchCommandSegments,
+  searchCommandDialect,
 } from "./public-closure/search-dialects";
+import {
+  commandName,
+  commandOperandCandidates,
+  shellPathMatchesOwner,
+} from "./public-closure/shell-operands";
 import type { CommandToken } from "./public-closure/shell-tokens";
 import {
-  normalizeShellToken,
   readCommandToken,
   readShellSegments,
 } from "./public-closure/shell-tokens";
 import {
-  hasShellWrapperProtectedDirectoryArgument,
+  readShellWrapperPrefix,
   unwrapShellCommand,
 } from "./public-closure/shell-wrappers";
 
@@ -494,54 +494,81 @@ function hasProtectedPathOwnerReference(
 function searchCommandOwner(
   normalizedOwner: string,
   repoRoot: string | undefined,
-  allowDirectOwner: boolean
+  allowDirectOwner: boolean,
+  cwd = "."
 ): SearchCommandOwner {
   return {
     allowDirectOwner,
+    cwd,
     matchesNestedCommand: (command) =>
       hasProtectedRootCommandArgument(
         command,
         normalizedOwner,
         repoRoot,
-        allowDirectOwner
+        allowDirectOwner,
+        cwd
       ),
     normalizedOwner,
     repoRoot,
   };
 }
 
-/**
- * Dispatches one command line across every tool grammar the guard knows. Each
- * grammar reports whether the command routes into the protected owner; this is
- * the only place that knows the full set.
- */
+/** Checks every operand except positions known to contain non-path data. */
 function hasProtectedRootCommandArgument(
   command: string,
   normalizedOwner: string,
   repoRoot?: string,
-  allowDirectOwner = true
+  allowDirectOwner = true,
+  incomingCwd = "."
 ): boolean {
   return readShellSegments(command).some((segment) => {
     const tokens = unwrapShellCommand(segment);
-    const normalizedTokens = tokens.map((token) =>
-      normalizeShellToken(token).toLowerCase()
-    );
-    return (
-      (isProtectedRootPathCommand(normalizedTokens[0] ?? "") &&
-        (normalizedTokens.slice(1).includes(normalizedOwner) ||
-          hasCommandDirectoryOptionRoute(tokens, normalizedOwner, repoRoot))) ||
-      hasSearchCommandProtectedPathArgument(
-        tokens,
-        searchCommandOwner(normalizedOwner, repoRoot, allowDirectOwner)
-      ) ||
-      hasGitProtectedDirectoryArgument(tokens, normalizedOwner) ||
-      hasPackageRunnerProtectedDirectoryArgument(tokens, normalizedOwner, repoRoot) ||
-      hasShellWrapperProtectedDirectoryArgument(
-        segment,
+    const matches = (value: string): boolean =>
+      shellPathMatchesOwner(
+        normalizeClosureText(value, repoRoot, false).shellText,
         normalizedOwner,
-        repoRoot
+        repoRoot,
+        allowDirectOwner
+      );
+    const wrapper = readShellWrapperPrefix(segment, incomingCwd);
+    if (
+      wrapper.directories.some(matches) ||
+      wrapper.repositoryPaths.some((path) =>
+        shellPathMatchesOwner(path, normalizedOwner, repoRoot, true)
       )
-    );
+    )
+      return true;
+    const name = commandName(tokens[0]);
+    if (searchCommandDialect([name])) {
+      return hasSearchCommandProtectedPathArgument(
+        [name, ...tokens.slice(1)],
+        searchCommandOwner(
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner,
+          wrapper.cwd
+        )
+      );
+    }
+    const context = gitPathContext([name, ...tokens.slice(1)], wrapper.cwd);
+    if (
+      context.repositoryPaths.some((path) =>
+        shellPathMatchesOwner(path, normalizedOwner, repoRoot, true)
+      )
+    )
+      return true;
+    const cwd = context.cwd;
+    return commandOperandCandidates(tokens).some((value) => {
+      const path = normalizeClosureText(value, repoRoot, false).shellText;
+      return [path, resolveShellPath(cwd, path)].some((candidate) =>
+        shellPathMatchesOwner(
+          candidate,
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner
+        )
+      );
+    });
   });
 }
 
