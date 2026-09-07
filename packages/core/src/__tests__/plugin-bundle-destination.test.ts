@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { explainPath } from "../authoring";
 import {
   buildSkillsetResult,
   diffSkillsetResult,
@@ -27,10 +28,19 @@ const TRAILS_HOOKS = `{
   }
 }`;
 
+const TRAILS_NATIVE_LICENSE = new TextEncoder().encode(
+  "Trails native license terms.\r\n"
+);
+const TRAILS_CRLF_RULES = new TextEncoder().encode(
+  "allow git status\r\ndeny destructive commands\r\n"
+);
+const TRAILS_OPAQUE_RULES = new Uint8Array([0, 255, 13, 10, 20, 30]);
+
 const TRAILS_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
 skillset:
   name: bundle-root
+  license: none
 codex: false
 cursor: false
 `,
@@ -38,18 +48,32 @@ cursor: false
 skillset:
   name: trails
   description: Trails tooling plugin.
+  license: none
 claude:
   bundle:
     path: plugin
+`,
+  ".skillset/plugins/trails/agents/trail-guide.md": `
+# Trail Guide
+
+Review proposed routes.
+`,
+  ".skillset/plugins/trails/bin/trails": `#!/usr/bin/env bash
+echo trails
 `,
   ".skillset/plugins/trails/hooks/hooks.json": TRAILS_HOOKS,
   ".skillset/plugins/trails/hooks/detect-trails.sh": `#!/usr/bin/env bash
 echo trails
 `,
+  ".skillset/plugins/trails/scripts/inspect-trail.sh": `#!/usr/bin/env bash
+echo inspect
+`,
   ".skillset/plugins/trails/skills/hike/SKILL.md": `
 ---
 name: hike
 description: Plan a hike with Trails.
+skillset:
+  license: none
 ---
 
 Use Trails to plan hikes.
@@ -59,24 +83,75 @@ Use Trails to plan hikes.
 describe("per-plugin claude bundle destinations", () => {
   it("renders the complete bundle at the plugin-owned root with the marketplace at the repo root", async () => {
     const root = await fixture(TRAILS_FIXTURE);
-    await chmod(join(root, ".skillset/plugins/trails/hooks/detect-trails.sh"), 0o755);
+    const sourcePaths = {
+      bin: join(root, ".skillset/plugins/trails/bin/trails"),
+      hook: join(root, ".skillset/plugins/trails/hooks/detect-trails.sh"),
+      license: join(root, ".skillset/plugins/trails/_claude/LICENSE"),
+      opaqueRules: join(
+        root,
+        ".skillset/plugins/trails/_claude/rules/opaque.bin"
+      ),
+      script: join(root, ".skillset/plugins/trails/scripts/inspect-trail.sh"),
+      windowsRules: join(
+        root,
+        ".skillset/plugins/trails/_claude/rules/windows.raw"
+      ),
+    };
+    await Bun.write(sourcePaths.license, TRAILS_NATIVE_LICENSE);
+    await Bun.write(sourcePaths.windowsRules, TRAILS_CRLF_RULES);
+    await Bun.write(sourcePaths.opaqueRules, TRAILS_OPAQUE_RULES);
+    await chmod(sourcePaths.bin, 0o755);
+    await chmod(sourcePaths.hook, 0o755);
+    await chmod(sourcePaths.script, 0o755);
 
     const result = await buildSkillsetResult(root);
     expect(result.ok).toBe(true);
 
     const paths = result.writes.paths;
-    expect(paths).toContain(".claude-plugin/marketplace.json");
-    expect(paths).toContain("plugin/.claude-plugin/plugin.json");
-    expect(paths).toContain("plugin/skills/hike/SKILL.md");
-    expect(paths).toContain("plugin/hooks/hooks.json");
-    expect(paths).toContain("plugin/hooks/detect-trails.sh");
-    expect(paths).toContain("plugin/skillset.lock");
+    const expectedBundlePaths = [
+      ".claude-plugin/marketplace.json",
+      "plugin/.claude-plugin/plugin.json",
+      "plugin/LICENSE",
+      "plugin/agents/trail-guide.md",
+      "plugin/bin/trails",
+      "plugin/hooks/hooks.json",
+      "plugin/hooks/detect-trails.sh",
+      "plugin/rules/opaque.bin",
+      "plugin/rules/windows.raw",
+      "plugin/scripts/inspect-trail.sh",
+      "plugin/skills/hike/SKILL.md",
+      "plugin/skillset.lock",
+    ];
+    for (const path of expectedBundlePaths) {
+      expect(paths).toContain(path);
+    }
 
     // The bundle owns its exact destination: no implicit plugins/<id> or
     // provider segment anywhere.
-    expect(paths.filter((path) => path.startsWith("plugin/plugins/"))).toEqual([]);
-    expect(paths.filter((path) => path.startsWith("plugin/claude/"))).toEqual([]);
-    expect(paths.filter((path) => path.startsWith("plugins/trails/"))).toEqual([]);
+    expect(paths.filter((path) => path.startsWith("plugin/plugins/"))).toEqual(
+      []
+    );
+    expect(paths.filter((path) => path.startsWith("plugin/claude/"))).toEqual(
+      []
+    );
+    expect(paths.filter((path) => path.startsWith("plugins/trails/"))).toEqual(
+      []
+    );
+
+    // All adaptive license scopes opt out. The provider-native LICENSE island
+    // is selected once at the bundle root without synthesizing LICENSE.txt.
+    expect(paths.filter((path) => path.includes("LICENSE"))).toEqual([
+      "plugin/LICENSE",
+    ]);
+    expect([...(await readFile(join(root, "plugin/LICENSE")))]).toEqual([
+      ...TRAILS_NATIVE_LICENSE,
+    ]);
+    expect(await Bun.file(join(root, "plugin/LICENSE.txt")).exists()).toBe(
+      false
+    );
+    expect(
+      await Bun.file(join(root, "plugin/skills/hike/LICENSE.txt")).exists()
+    ).toBe(false);
 
     const marketplace = JSON.parse(
       await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
@@ -102,17 +177,41 @@ describe("per-plugin claude bundle destinations", () => {
       type: "command",
     });
 
+    expect([
+      ...(await readFile(join(root, "plugin/rules/windows.raw"))),
+    ]).toEqual([...TRAILS_CRLF_RULES]);
+    expect([
+      ...(await readFile(join(root, "plugin/rules/opaque.bin"))),
+    ]).toEqual([...TRAILS_OPAQUE_RULES]);
+
     if (supportsGeneratedFileModes()) {
-      const script = await stat(join(root, "plugin/hooks/detect-trails.sh"));
-      expect(script.mode & 0o777).toBe(0o755);
-      const skill = await stat(join(root, "plugin/skills/hike/SKILL.md"));
-      expect(skill.mode & 0o777).toBe(0o644);
+      for (const path of [
+        "plugin/bin/trails",
+        "plugin/hooks/detect-trails.sh",
+        "plugin/scripts/inspect-trail.sh",
+      ]) {
+        expect((await stat(join(root, path))).mode & 0o777).toBe(0o755);
+      }
+      for (const path of [
+        "plugin/agents/trail-guide.md",
+        "plugin/rules/opaque.bin",
+        "plugin/rules/windows.raw",
+        "plugin/skills/hike/SKILL.md",
+      ]) {
+        expect((await stat(join(root, path))).mode & 0o777).toBe(0o644);
+      }
     }
 
     const lock = JSON.parse(
       await readFile(join(root, "plugin/skillset.lock"), "utf8")
     ) as {
-      items: readonly { kind?: string; name?: string; plugin?: string }[];
+      items: readonly {
+        fileModes?: Readonly<Record<string, string>>;
+        kind?: string;
+        name?: string;
+        plugin?: string;
+        validation?: string;
+      }[];
       outputRoot: string;
       target: string;
     };
@@ -126,6 +225,64 @@ describe("per-plugin claude bundle destinations", () => {
           (item.kind === "plugin" && item.name === "trails")
       )
     ).toBe(true);
+    expect(lock.items).toContainEqual(
+      expect.objectContaining({
+        kind: "island",
+        validation: "opaque-copy",
+      })
+    );
+    expect(lock.items).toContainEqual(
+      expect.objectContaining({
+        feature: "bin",
+        fileModes: expect.objectContaining({ "bin/trails": "0755" }),
+        kind: "plugin-feature",
+      })
+    );
+
+    const sourceIsland = await explainPath(
+      root,
+      ".skillset/plugins/trails/_claude/rules/opaque.bin"
+    );
+    expect(sourceIsland.kind).toBe("source-island");
+    expect(sourceIsland.entries).toContainEqual(
+      expect.objectContaining({
+        outputPath: "plugin/rules/opaque.bin",
+        outputRoot: "plugin",
+        sourcePath: ".skillset/plugins/trails/_claude/rules/opaque.bin",
+        target: "claude",
+        validation: "opaque-copy",
+      })
+    );
+    const generatedIsland = await explainPath(root, "plugin/rules/opaque.bin");
+    expect(generatedIsland.kind).toBe("generated");
+    expect(generatedIsland.entries).toContainEqual(
+      expect.objectContaining({
+        outputRoot: "plugin",
+        sourcePath: ".skillset/plugins/trails/_claude/rules/opaque.bin",
+      })
+    );
+    const generatedLicense = await explainPath(root, "plugin/LICENSE");
+    expect(generatedLicense.kind).toBe("generated");
+    expect(generatedLicense.entries).toContainEqual(
+      expect.objectContaining({
+        outputPath: "plugin/LICENSE",
+        outputRoot: "plugin",
+        sourcePath: ".skillset/plugins/trails/_claude/LICENSE",
+        validation: "opaque-copy",
+      })
+    );
+    const generatedAgent = await explainPath(
+      root,
+      "plugin/agents/trail-guide.md"
+    );
+    expect(generatedAgent.kind).toBe("generated");
+    expect(generatedAgent.entries).toContainEqual(
+      expect.objectContaining({
+        kind: "plugin",
+        outputRoot: "plugin",
+        sourcePath: ".skillset/plugins/trails",
+      })
+    );
 
     const drift = await diffSkillsetResult(root);
     expect(drift.ok).toBe(true);
@@ -137,9 +294,15 @@ describe("per-plugin claude bundle destinations", () => {
     ]).toEqual([]);
 
     if (supportsGeneratedFileModes()) {
-      await chmod(join(root, "plugin/hooks/detect-trails.sh"), 0o644);
+      await chmod(join(root, "plugin/scripts/inspect-trail.sh"), 0o644);
       const modeDrift = await verifySkillsetResult(root);
       expect(modeDrift.ok).toBe(false);
+      expect(modeDrift.data.failures).toContain(
+        "stale generated file mode: plugin/scripts/inspect-trail.sh; expected 0755, found 0644"
+      );
+      expect((await diffSkillsetResult(root)).data.changed).toContain(
+        "plugin/scripts/inspect-trail.sh"
+      );
     }
   });
 
@@ -168,7 +331,7 @@ Body.
     });
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "plugins.trails.claude.bundle (plugins/nested) must not overlap output root outputs.plugins.claude (plugins)"
+      /plugins\.trails\.claude\.bundle \(plugins\/nested\) must not overlap output root outputs\.plugins\.claude \(plugins\)/
     );
   });
 
@@ -193,7 +356,7 @@ Body.
     });
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "reuses output root plugin; already used by plugins.switchback.claude.bundle"
+      /plugins\.(switchback|trails)\.claude\.bundle \(plugin\) must not overlap plugin (switchback|trails) Claude bundle \(plugin\)/
     );
   });
 

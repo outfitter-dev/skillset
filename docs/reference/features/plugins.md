@@ -81,7 +81,11 @@ plugin/hooks/**
 plugin/skillset.lock
 ```
 
-This is independent of the workspace-wide `claude.plugins.path`, which moves the marketplace and every default-shaped bundle together. With a plugin-owned destination, the repository marketplace stays at `.claude-plugin/marketplace.json` and references the bundle with `source: ./<path>`. The destination carries its own `skillset.lock`, is validated like any other output root (no traversal, no overlap with other output roots or another plugin's destination), and participates in `explain`, `diff`, and `check --only outputs` provenance.
+The workspace-wide `claude.plugins.path` continues to select the marketplace root and the container for default-shaped bundles. With its default value, the marketplace stays at `.claude-plugin/marketplace.json` and references this bundle as `source: ./plugin`. The [plugin configuration schema](../schemas/0.1.0/plugin-config.schema.json) owns `claude.bundle.path`; workspace configuration and other provider blocks reject this field.
+
+For a custom marketplace root, the bundle destination remains workspace-relative and must be beneath that root. For example, workspace `claude.plugins.path: dist` and plugin `claude.bundle.path: dist/trails` render `dist/.claude-plugin/marketplace.json`, `dist/trails/.claude-plugin/plugin.json`, and marketplace source `./trails`. A sibling destination such as `plugin` cannot be referenced from the `dist` marketplace: [Claude local marketplace sources](https://code.claude.com/docs/en/plugin-marketplaces#relative-paths) cannot leave the marketplace root. Skillset rejects this combination with the conflicting roots rather than relocating either output.
+
+Each explicit bundle carries its own `skillset.lock` and participates in `explain`, `diff`, and `check --only outputs` provenance. A custom marketplace container may hold both independently locked bundles and default-shaped sibling bundles. Destinations cannot reuse the container itself, overlap another plugin bundle, source tree, marketplace metadata directory, skill output root, or another target's output roots. Case-conflicting destinations are rejected consistently across hosts.
 
 ## Manifest Authority
 
