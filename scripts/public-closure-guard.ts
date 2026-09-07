@@ -19,6 +19,7 @@ import {
 import type { CommandToken } from "./public-closure/shell-tokens";
 import {
   readCommandToken,
+  readShellRedirectionTargets,
   readShellSegments,
 } from "./public-closure/shell-tokens";
 import {
@@ -521,6 +522,21 @@ function hasProtectedRootCommandArgument(
   allowDirectOwner = true,
   incomingCwd = "."
 ): boolean {
+  // The calling shell opens redirects before wrappers can change directory.
+  if (
+    readShellRedirectionTargets(command).some((target) => {
+      const path = normalizeClosureText(target, repoRoot, false).shellText;
+      return [path, resolveShellPath(incomingCwd, path)].some((candidate) =>
+        shellPathMatchesOwner(
+          candidate,
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner
+        )
+      );
+    })
+  )
+    return true;
   return readShellSegments(command).some((segment) => {
     const tokens = unwrapShellCommand(segment);
     const matches = (value: string): boolean =>
@@ -531,6 +547,13 @@ function hasProtectedRootCommandArgument(
         allowDirectOwner
       );
     const wrapper = readShellWrapperPrefix(segment, incomingCwd);
+    if (
+      wrapper.assignmentPaths.some((value) => {
+        const path = normalizeClosureText(value, repoRoot, false).shellText;
+        return [path, resolveShellPath(wrapper.cwd, path)].some(matches);
+      })
+    )
+      return true;
     if (
       wrapper.directories.some(matches) ||
       wrapper.repositoryPaths.some((path) =>
@@ -1059,8 +1082,30 @@ function hasRepoInternalScriptReference(
     return true;
   }
 
-  for (const match of normalizedText.matchAll(PATH_CANDIDATE_PATTERN)) {
-    const candidate = posix.normalize(match[0].replace(/[!,.?:;]+$/u, ""));
+  const commands = shellCommand
+    ? [closure.shellText]
+    : [...closure.shellText.matchAll(/`([^`\r\n]+)`/gu)].map(
+        (match) => match[1] ?? ""
+      );
+  const assignmentPaths = commands.flatMap((command) =>
+    readShellSegments(command).flatMap((segment) => {
+      const wrapper = readShellWrapperPrefix(segment);
+      return wrapper.assignmentPaths.flatMap((value) => [
+        value,
+        resolveShellPath(wrapper.cwd, value),
+      ]);
+    })
+  );
+  const candidates = [
+    ...[...normalizedText.matchAll(PATH_CANDIDATE_PATTERN)].map(
+      (match) => match[0]
+    ),
+    ...assignmentPaths,
+  ];
+  for (const value of candidates) {
+    const candidate = posix.normalize(
+      value.toLowerCase().replace(/[!,.?:;]+$/u, "")
+    );
     if (
       candidate === normalizedPath ||
       parentRelativePattern.test(candidate) ||

@@ -105,34 +105,45 @@ export function readCommandToken(
 }
 
 function readShellCommandSegments(
-  text: string
+  text: string,
+  redirectionTargets?: string[]
 ): readonly (readonly string[])[] {
   const segments: string[][] = [[]];
   let offset = 0;
   while (offset < text.length) {
     while (/\s/u.test(text[offset] ?? "")) offset += 1;
+    // Preserve the documented `> command` prompt spelling. A leading path
+    // destination is a redirect, just like one after the command.
     if (
       (segments.at(-1)?.length ?? 0) === 0 &&
       text[offset] === ">" &&
-      /\s/u.test(text[offset + 1] ?? "")
+      /\s/u.test(text[offset + 1] ?? "") &&
+      !readCommandToken(text, offset + 1)?.value.includes("/")
     ) {
       segments.at(-1)?.push(">");
       offset += 1;
+      continue;
+    }
+    const redirection = /^(?:\d+)?(<<<|<<-?|&>>|&>|<>|>&|<&|>>|>\||>|<)/u.exec(
+      text.slice(offset)
+    );
+    if (redirection) {
+      offset += redirection[0].length;
+      const target = readCommandToken(text, offset);
+      // Here data and fd duplication operands are not file destinations.
+      const operator = redirection[1] ?? "";
+      const duplicatesFd =
+        operator === "<&" ||
+        (operator === ">&" && /^\d/u.test(redirection[0]));
+      if (target && !operator.startsWith("<<") && !duplicatesFd)
+        redirectionTargets?.push(target.value);
+      offset = target?.end ?? offset;
       continue;
     }
     const boundary = /^(?:&&|\|\||[;&|])/u.exec(text.slice(offset));
     if (boundary) {
       if ((segments.at(-1)?.length ?? 0) > 0) segments.push([]);
       offset += boundary[0].length;
-      continue;
-    }
-    const redirection = /^(?:\d+)?(?:<>|>&|<&|>>|<<|>|<)/u.exec(
-      text.slice(offset)
-    );
-    if (redirection) {
-      offset += redirection[0].length;
-      const target = readCommandToken(text, offset);
-      offset = target?.end ?? offset;
       continue;
     }
     const token = readCommandToken(text, offset);
@@ -154,6 +165,13 @@ export function readShellSegments(
   command: string
 ): readonly (readonly string[])[] {
   return readShellCommandSegments(markLiteralShellBraces(command));
+}
+
+/** File destinations belong to the surrounding shell, not command arguments. */
+export function readShellRedirectionTargets(command: string): readonly string[] {
+  const targets: string[] = [];
+  readShellCommandSegments(markLiteralShellBraces(command), targets);
+  return targets;
 }
 
 /**

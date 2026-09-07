@@ -95,16 +95,24 @@ export function readShellWrapperPrefix(
   readonly directories: readonly string[];
   readonly cwd: string;
   readonly repositoryPaths: readonly string[];
+  readonly assignmentPaths: readonly string[];
   readonly index: number;
 } {
   const directories: string[] = [];
   let cwd = incomingCwd;
   const repositoryPaths: string[] = [];
+  const assignmentPaths: string[] = [];
   let index = 0;
   if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
   while (tokens[index] === "!") index += 1;
   const skipAssignments = (): void => {
-    while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) index += 1;
+    while (/^[a-z_][a-z0-9_]*=/iu.test(tokens[index] ?? "")) {
+      const assignment = tokens[index] ?? "";
+      const value = assignment.slice(assignment.indexOf("=") + 1);
+      // Bare environment labels are data; a slash supplies path evidence.
+      if (/[/\\]/u.test(value)) assignmentPaths.push(value);
+      index += 1;
+    }
   };
   skipAssignments();
 
@@ -121,10 +129,16 @@ export function readShellWrapperPrefix(
         break;
       }
       if (wrapper === "command" && (token === "-v" || token === "-V")) {
-        return { directories, cwd, repositoryPaths, index: tokens.length };
+        return {
+          directories,
+          cwd,
+          repositoryPaths,
+          assignmentPaths,
+          index: tokens.length,
+        };
       }
       if (wrapper === "env" && /^[a-z_][a-z0-9_]*=/iu.test(token)) {
-        index += 1;
+        skipAssignments();
         continue;
       }
       if (!token.startsWith("-")) break;
@@ -168,7 +182,7 @@ export function readShellWrapperPrefix(
     skipAssignments();
   }
 
-  return { directories, cwd, repositoryPaths, index };
+  return { directories, cwd, repositoryPaths, assignmentPaths, index };
 }
 
 export function unwrapShellCommand(

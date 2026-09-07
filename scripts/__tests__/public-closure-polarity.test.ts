@@ -120,6 +120,76 @@ describe("SET-489 default shell operand policy", () => {
     ]);
   });
 
+  test("preserves path-valued leading assignments outside exempt arguments", () => {
+    for (const executable of ["tool", "skillset", "rg"]) {
+      for (const command of [
+        `OUT=docs/development/out ${executable} check`,
+        `env -C docs OUT=development/out ${executable} check`,
+        `sudo -D docs OUT=development/out ${executable} check`,
+      ]) {
+        for (const text of [`\`\`\`sh\n${command}\n\`\`\``, `Run \`${command}\`.`]) {
+          expect(
+            scanGeneratedPublicContent(
+              "plugins/skillset/codex/skills/skillset/SKILL.md",
+              text
+            ).map(({ rule }) => rule)
+          ).toEqual(["development-docs"]);
+        }
+      }
+    }
+    for (const command of [
+      "OUT=scripts/private.ts skillset check",
+      "env -C scripts OUT=./private.ts skillset check",
+      "OUT=scripts/private.ts rg TODO public",
+    ]) expect(rules(command)).toEqual(["internal-script"]);
+    for (const command of [
+      "OUT=scripts/public.ts skillset check",
+      "env -C public OUT=./private.ts skillset check",
+      "LABEL=packages skillset check",
+      "env LABEL=packages rg TODO public",
+      "OUT=public/out skillset explain packages/core",
+      "skillset check OUT=packages/core",
+      "env -C docs OUT=/usr/local/out skillset check",
+      "sudo -u OUT=packages/core skillset check",
+    ]) expect(rules(command)).toEqual([]);
+  });
+
+  test("preserves redirection routes around exempt skillset arguments", () => {
+    for (const command of [
+      "skillset check > packages/core/out.txt",
+      "> packages/core/out.txt skillset explain public",
+      'skillset check >> "packages/core/out.txt"',
+      "skillset check < packages/core/input.txt",
+      "skillset check 2>packages/core/error.txt",
+      "skillset check &>packages/core/output.txt",
+      "skillset check >|packages/core/output.txt",
+      "env -C public skillset check > packages/core/out.txt",
+      "skillset check > public/out.txt; cat < packages/core/input.txt",
+    ]) {
+      for (const text of [`\`\`\`sh\n${command}\n\`\`\``, `Run \`${command}\`.`]) {
+        expect(
+          scanGeneratedPublicContent(
+            "plugins/skillset/codex/skills/skillset/SKILL.md",
+            text
+          ).map(({ rule }) => rule)
+        ).toEqual(["internal-package"]);
+      }
+    }
+    expect(rules("skillset check > scripts")).toEqual(["internal-script"]);
+    expect(rules("skillset check > fixtures")).toEqual(["fixture-path"]);
+    for (const command of [
+      "skillset explain packages/core > public/out.txt",
+      "> public/out.txt skillset explain packages/core",
+      "skillset explain packages/core 2>&1",
+      "skillset explain packages/core <&packages/core",
+      "skillset explain packages/core 2>&packages/core",
+      "skillset explain packages/core << packages",
+      "skillset explain packages/core <<< packages/core",
+      "env -C docs skillset explain packages/core > development/out.txt",
+      'skillset explain "packages/core > fixtures" > public/out.txt',
+    ]) expect(rules(command)).toEqual([]);
+  });
+
   test("checks executable paths before command-specific operand handling", () => {
     for (const executable of ["tool", "rg", "echo", "printf", "git", "skillset"]) {
       for (const text of [

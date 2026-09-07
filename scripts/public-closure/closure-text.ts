@@ -2,7 +2,7 @@ import { posix } from "node:path";
 
 import { collapseRepeatedPathSeparators } from "./owner-paths";
 import { withoutSearchCommandSegments } from "./search-dialects";
-import { readShellSegments } from "./shell-tokens";
+import { readShellRedirectionTargets, readShellSegments } from "./shell-tokens";
 import { unwrapShellCommand } from "./shell-wrappers";
 
 /**
@@ -85,9 +85,12 @@ function withoutSkillsetCommands(
     const publicCommand = (segment: readonly string[]): boolean =>
       unwrapShellCommand(segment)[0]?.toLowerCase() === "skillset";
     if (!segments.some(publicCommand)) return command;
-    return segments
+    const remaining = segments
       .filter((segment) => !publicCommand(segment))
       .map((segment) => segment.join(" "))
+      .join(" ; ");
+    return [remaining, ...readShellRedirectionTargets(command)]
+      .filter(Boolean)
       .join(" ; ");
   };
   return assumeShellCommand
