@@ -14,8 +14,7 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 BUN_VERSION_FILE="$REPO_ROOT/.bun-version"
 
 usage() {
-  cat <<'EOF'
-Usage: ./scripts/bootstrap.sh [repo|agent|codex|claude|cursor|doctor|teardown] [--force] [--update]
+  printf '%s\n' 'Usage: ./scripts/bootstrap.sh [repo|agent|codex|claude|cursor|doctor|teardown] [--force] [--update]
 
 Commands:
   repo     Make this checkout runnable (default)
@@ -29,8 +28,7 @@ Commands:
 Compatibility:
   ./scripts/bootstrap.sh --force
   ./scripts/bootstrap.sh --update
-  ./scripts/bootstrap.sh sweep
-EOF
+  ./scripts/bootstrap.sh sweep'
 }
 
 SUBCOMMAND="${1:-repo}"
