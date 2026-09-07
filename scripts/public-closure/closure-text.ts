@@ -2,7 +2,6 @@ import { posix } from "node:path";
 
 import { collapseRepeatedPathSeparators } from "./owner-paths";
 import { withoutSearchCommandSegments } from "./search-dialects";
-import { commandName } from "./shell-operands";
 import { readShellSegments } from "./shell-tokens";
 import { unwrapShellCommand } from "./shell-wrappers";
 
@@ -84,7 +83,7 @@ function withoutSkillsetCommands(
   const strip = (command: string): string => {
     const segments = readShellSegments(command);
     const publicCommand = (segment: readonly string[]): boolean =>
-      commandName(unwrapShellCommand(segment)[0]) === "skillset";
+      unwrapShellCommand(segment)[0]?.toLowerCase() === "skillset";
     if (!segments.some(publicCommand)) return command;
     return segments
       .filter((segment) => !publicCommand(segment))

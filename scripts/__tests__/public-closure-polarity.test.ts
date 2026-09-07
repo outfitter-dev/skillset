@@ -120,6 +120,37 @@ describe("SET-489 default shell operand policy", () => {
     ]);
   });
 
+  test("only bare skillset commands exempt protected executable routes", () => {
+    for (const [command, rule] of [
+      ["packages/core/skillset check", "internal-package"],
+      ["../packages/core/skillset check", "internal-package"],
+      ["/repo/packages/core/skillset check", "internal-package"],
+      ["sudo packages/core/skillset check", "internal-package"],
+      ["env -C docs development/skillset check", "development-docs"],
+      ["scripts/skillset check", "internal-script"],
+    ] as const) {
+      for (const text of [
+        "```sh\n" + command + "\n```",
+        "Run `" + command + "`.",
+      ]) {
+        expect(
+          scanGeneratedPublicContent(
+            "plugins/skillset/codex/skills/skillset/SKILL.md",
+            text,
+            ["scripts/skillset"],
+            new Set(),
+            undefined,
+            "/repo"
+          ).map(({ rule }) => rule)
+        ).toEqual([rule]);
+      }
+    }
+    expect(rules("skillset explain packages/core")).toEqual([]);
+    expect(rules("/usr/local/bin/skillset check")).toEqual([]);
+    expect(rules("./skillset check")).toEqual([]);
+    expect(rules("scripts/skillset check")).toEqual([]);
+  });
+
   test("cwd semantics supplement scanning without inventing joins", () => {
     for (const command of [
       "env -C docs rg TODO development",

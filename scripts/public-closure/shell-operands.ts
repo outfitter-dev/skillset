@@ -88,10 +88,17 @@ export function commandOperandCandidates(
   tokens: readonly string[]
 ): readonly string[] {
   const command = commandName(tokens[0]);
-  if (["skillset", "echo", "printf"].includes(command)) return [];
+  if (
+    tokens[0]?.toLowerCase() === "skillset" ||
+    ["echo", "printf"].includes(command)
+  )
+    return [];
   const nonPaths = NON_PATH_VALUE_FLAGS[command];
   const runner = ["bun", "npm", "pnpm", "yarn"].includes(command);
-  const operands: string[] = [];
+  // A path whose basename is skillset is itself a route, including when
+  // a wrapper cwd supplies its protected parent.
+  const operands: string[] =
+    command === "skillset" && tokens[0] ? [tokens[0]] : [];
   let optionValueNext = false;
   let parseOptions = true;
   let runnerCommandSeen = false;
