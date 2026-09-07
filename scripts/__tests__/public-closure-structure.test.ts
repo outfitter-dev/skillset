@@ -35,6 +35,17 @@ describe("SET-489 structural path extraction", () => {
         "internal-script",
       ]);
     }
+    for (const prefix of ["$REPO_ROOT", "${REPO_ROOT}", "$PWDX"]) {
+      expect(rules(`cat "${prefix}"/packages/core/src/index.ts`)).toEqual([
+        "internal-package",
+      ]);
+      expect(rules(`cd '${prefix}'/docs/development`)).toEqual([
+        "development-docs",
+      ]);
+      expect(rules(`cat "${prefix}"/scripts/private.ts`)).toEqual([
+        "internal-script",
+      ]);
+    }
   });
 
   test("external homes and literal parent trees stay outside repository ownership", () => {
@@ -49,6 +60,8 @@ describe("SET-489 structural path extraction", () => {
     ]) {
       expect(rules(`cat "${path}"`)).toEqual([]);
     }
+    expect(rules('cat "$HOME"/packages/core/src/index.ts')).toEqual([]);
+    expect(rules("cat '${HOME}'/scripts/private.ts")).toEqual([]);
   });
 
   test("normalization supplies the same expansion policy to shell and prose views", () => {
@@ -59,6 +72,13 @@ describe("SET-489 structural path extraction", () => {
     );
     expect(normalized.shellText).toBe('cat "./packages/core"');
     expect(normalized.pathText).toBe("cat ./packages/core");
+    const quotedExpansion = normalizeClosureText(
+      'cat "$ROOT"/packages/core',
+      "/repo",
+      true
+    );
+    expect(quotedExpansion.shellText).toBe("cat ./packages/core");
+    expect(quotedExpansion.pathText).toBe("cat ./packages/core");
   });
 
   test("own-repository URLs are scanned independently of route and ref spellings", () => {

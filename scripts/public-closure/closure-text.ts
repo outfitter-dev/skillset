@@ -95,6 +95,13 @@ function normalizePathExpansions(
   return (
     text
       .replace(WORKING_DIRECTORY_VARIABLE_PATTERN, () => replacement)
+      // POSIX path-quoting wraps only the expansion when the remainder is
+      // appended outside, as in `"$REPO_ROOT"/packages`. Unwrap those quotes
+      // so the leading-variable rewrite below still sees `$NAME/`.
+      .replace(
+        /(["'])(\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*))\1/gu,
+        "$2"
+      )
       // Unknown leading variables may name the checkout. Drop only expansion
       // prefixes, not literal parent directories. HOME is explicitly external;
       // plugin-local scripts still use the ordinary script-inventory policy.
