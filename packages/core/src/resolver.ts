@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, posix, relative, sep } from "node:path";
 
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 
@@ -1483,7 +1483,7 @@ function validatePluginBundleDestinations(
     ...configuredOutputRoots(outputs),
     { label: "Claude marketplace metadata", path: dirname(claudeMarketplacePath(outputs.plugins.claude)) },
     { label: "Cursor marketplace metadata", path: dirname(cursorMarketplacePath(outputs.plugins.cursor)) },
-  ];
+  ].map((root) => ({ ...root, path: posix.join(root.path.replaceAll("\\", "/"), ".") }));
   for (const plugin of plugins) {
     const path = plugin.claudeBundlePath;
     if (path === undefined) continue;
@@ -1498,11 +1498,11 @@ function validatePluginBundleDestinations(
       // A custom Claude output root contains its marketplace and default
       // bundles. It may contain an independently locked explicit bundle.
       if (root.label === "outputs.plugins.claude" &&
-          root.path !== DEFAULT_PLUGIN_OUTPUT_ROOT && path.startsWith(`${root.path}/`)) continue;
+          outputs.plugins.claude !== DEFAULT_PLUGIN_OUTPUT_ROOT && path.startsWith(`${root.path}/`)) continue;
       throw new Error(`skillset: ${label} (${path}) must not overlap output root ${root.label} (${root.path})`);
     }
-    const marketplaceRoot = outputs.plugins.claude;
-    if (marketplaceRoot !== DEFAULT_PLUGIN_OUTPUT_ROOT && !path.startsWith(`${marketplaceRoot}/`)) {
+    const marketplaceRoot = posix.join(outputs.plugins.claude.replaceAll("\\", "/"), ".");
+    if (outputs.plugins.claude !== DEFAULT_PLUGIN_OUTPUT_ROOT && !path.startsWith(`${marketplaceRoot}/`)) {
       throw new Error(`skillset: ${label} (${path}) must be beneath Claude marketplace root ${marketplaceRoot}; use a nested bundle destination or restore the default claude.plugins.path`);
     }
     for (const other of plugins) {
@@ -1660,7 +1660,7 @@ function validateOutputRoots(
       const absoluteOther = resolveInside(rootPath, other.path);
       if (absoluteBundleRoot === absoluteOther) continue;
       if (other.label === "outputs.plugins.claude" && other.path !== DEFAULT_PLUGIN_OUTPUT_ROOT &&
-          bundleRoot.path.startsWith(`${other.path}/`)) continue;
+          isSameOrInside(absoluteBundleRoot, absoluteOther)) continue;
       if (isSameOrInside(absoluteBundleRoot, absoluteOther) || isSameOrInside(absoluteOther, absoluteBundleRoot)) {
         throw new Error(
           `skillset: ${bundleRoot.label} (${bundleRoot.path}) must not overlap output root ${other.label} (${other.path})`
