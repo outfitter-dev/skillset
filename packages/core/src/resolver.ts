@@ -49,7 +49,7 @@ import {
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
-import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import { claudeMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
@@ -226,6 +226,7 @@ export async function loadBuildGraph(
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
+  validatePluginBundleDestinations(outputs, plugins);
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
@@ -1474,6 +1475,48 @@ function configuredOutputRoots(
   ];
 }
 
+function validatePluginBundleDestinations(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[]
+): void {
+  const configured = [
+    ...configuredOutputRoots(outputs),
+    { label: "Claude marketplace metadata", path: dirname(claudeMarketplacePath(outputs.plugins.claude)) },
+  ];
+  for (const plugin of plugins) {
+    const path = plugin.claudeBundlePath;
+    if (path === undefined) continue;
+    const label = `plugins.${plugin.id}.claude.bundle`;
+    const folded = path.toLowerCase();
+    for (const root of configured) {
+      const rootFolded = root.path.toLowerCase();
+      if (folded === rootFolded) {
+        throw new Error(`skillset: ${label} reuses output root ${path}; already used by ${root.label} (${root.path})`);
+      }
+      if (!pathsOverlap(folded, rootFolded)) continue;
+      // A custom Claude output root contains its marketplace and default
+      // bundles. It may contain an independently locked explicit bundle.
+      if (root.label === "outputs.plugins.claude" &&
+          root.path !== DEFAULT_PLUGIN_OUTPUT_ROOT && path.startsWith(`${root.path}/`)) continue;
+      throw new Error(`skillset: ${label} (${path}) must not overlap output root ${root.label} (${root.path})`);
+    }
+    const marketplaceRoot = outputs.plugins.claude;
+    if (marketplaceRoot !== DEFAULT_PLUGIN_OUTPUT_ROOT && !path.startsWith(`${marketplaceRoot}/`)) {
+      throw new Error(`skillset: ${label} (${path}) must be beneath Claude marketplace root ${marketplaceRoot}; use a nested bundle destination or restore the default claude.plugins.path`);
+    }
+    for (const other of plugins) {
+      if (other === plugin) continue;
+      const otherPath = pluginBundleRoot(outputs.plugins.claude, "claude", other);
+      if (!pathsOverlap(folded, otherPath.toLowerCase())) continue;
+      throw new Error(`skillset: ${label} (${path}) must not overlap plugin ${other.id} Claude bundle (${otherPath})`);
+    }
+  }
+}
+
+function pathsOverlap(left: string, right: string): boolean {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
 function pluginBundleOutputRoots(
   plugins: readonly SourcePlugin[]
 ): readonly ActiveOutputRoot[] {
@@ -1615,6 +1658,8 @@ function validateOutputRoots(
       if (other === bundleRoot) continue;
       const absoluteOther = resolveInside(rootPath, other.path);
       if (absoluteBundleRoot === absoluteOther) continue;
+      if (other.label === "outputs.plugins.claude" && other.path !== DEFAULT_PLUGIN_OUTPUT_ROOT &&
+          bundleRoot.path.startsWith(`${other.path}/`)) continue;
       if (isSameOrInside(absoluteBundleRoot, absoluteOther) || isSameOrInside(absoluteOther, absoluteBundleRoot)) {
         throw new Error(
           `skillset: ${bundleRoot.label} (${bundleRoot.path}) must not overlap output root ${other.label} (${other.path})`
@@ -1647,7 +1692,8 @@ function validateOutputRootNotInsideProtectedRoots(
 ): string {
   const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
   for (const protectedRoot of protectedRoots) {
-    if (isSameOrInside(absoluteOutputRoot, protectedRoot.path)) {
+    if (isSameOrInside(absoluteOutputRoot, protectedRoot.path) ||
+        (isPluginBundleRootLabel(outputRoot.label) && pathsOverlap(absoluteOutputRoot.toLowerCase(), protectedRoot.path.toLowerCase()))) {
       throw new Error(
         `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${relative(rootPath, protectedRoot.path)}`
       );

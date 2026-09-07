@@ -13,7 +13,7 @@ import {
 } from "./marketplace-ref-policy";
 import { compareStrings } from "./path";
 import {
-  marketplaceSourceForManifestPath,
+  providerSourceForPlugin,
   pluginManifestPath as pluginManifestOutputPath,
 } from "./plugin-output";
 import {
@@ -409,7 +409,7 @@ function checkMarketplaceEntry(
       lock,
       plugin: entry.plugin,
       provenance: baseLockEntry,
-      providerSource: providerSource(generatedPath),
+      providerSource: baseLockEntry.providerSource,
       reason: `${target} output is not enabled for plugin ${entry.plugin}`,
       readiness: "not-ready",
       ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -451,7 +451,7 @@ function checkMarketplaceEntry(
       lock,
       plugin: entry.plugin,
       provenance: lockEntry,
-      providerSource: providerSource(generatedPath),
+      providerSource: lockEntry.providerSource,
       reason: lock.reason,
       readiness: "not-ready",
       ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -470,7 +470,7 @@ function checkMarketplaceEntry(
     lock,
     plugin: entry.plugin,
     provenance: lockEntry,
-    providerSource: providerSource(generatedPath),
+    providerSource: lockEntry.providerSource,
     reason: "provider output is generated and verified",
     readiness: "marketplace-ready",
     ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -516,7 +516,7 @@ function notReady(
     lock,
     plugin: entry.plugin,
     provenance,
-    providerSource: generatedPath === undefined ? "" : providerSource(generatedPath),
+    providerSource: provenance.providerSource,
     reason,
     readiness: "not-ready",
     ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -571,7 +571,11 @@ function marketplaceLockEntryFor(args: {
   readonly requested: MarketplaceRequestedRefPolicy;
   readonly target: TargetName;
 }): MarketplaceLockEntry {
-  const provider = args.generatedPath === undefined ? "" : providerSource(args.generatedPath);
+  const graph = args.inspection?.graph;
+  const plugin = graph?.plugins.find((candidate) => candidate.id === args.entry.plugin);
+  const provider = graph === undefined || plugin === undefined || args.generatedPath === undefined
+    ? ""
+    : providerSourceForPlugin(graph.root.outputs.plugins[args.target], args.target, plugin);
   return {
     catalog: args.catalog,
     entryId: args.entry.id,
@@ -787,10 +791,6 @@ function pluginOutputPaths(
 
 function failuresForPath(failures: readonly string[], path: string): readonly string[] {
   return failures.filter((failure) => failure.includes(path));
-}
-
-function providerSource(path: string): string {
-  return marketplaceSourceForManifestPath(path);
 }
 
 function compareMarketplaceEntries(left: MarketplaceCheckEntryReport, right: MarketplaceCheckEntryReport): number {
