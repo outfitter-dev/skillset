@@ -843,6 +843,22 @@ describe("@skillset/schema contracts", () => {
       });
     }
 
+    for (const path of [
+      " ../plugin",
+      " /plugin",
+      " C:/plugin",
+      "plugin/.. ",
+    ] as const) {
+      expect(
+        validatePluginConfig({ claude: { bundle: { path } } }).diagnostics
+      ).toContainEqual({
+        code: "schema/plugin-config/bundle",
+        message:
+          "$.claude.bundle.path must be a workspace-relative directory path using forward slashes without traversal",
+        path: "$.claude.bundle.path",
+      });
+    }
+
     expect(
       validatePluginConfig({ claude: { bundle: "plugin" } }).diagnostics
     ).toContainEqual({
