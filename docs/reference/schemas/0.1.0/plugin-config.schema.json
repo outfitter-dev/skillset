@@ -31,8 +31,8 @@
               "additionalProperties": false,
               "properties": {
                 "path": {
-                  "description": "Exact workspace-relative root for this plugin's complete Claude bundle.",
-                  "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                  "description": "Exact workspace-relative root for this plugin's complete Claude bundle, without leading or trailing whitespace.",
+                  "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
                   "type": "string"
                 }
               },

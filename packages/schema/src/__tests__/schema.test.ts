@@ -810,6 +810,7 @@ describe("@skillset/schema contracts", () => {
     expect(bundlePathPattern).toBeString();
     const bundlePathRegExp = new RegExp(bundlePathPattern ?? "");
     expect(bundlePathRegExp.test("plugin")).toBe(true);
+    expect(bundlePathRegExp.test("plugin bundles/trails")).toBe(true);
     expect(bundlePathRegExp.test("dist/marketplace/plugins/example")).toBe(true);
 
     expect(
@@ -831,24 +832,17 @@ describe("@skillset/schema contracts", () => {
       "C:/plugin",
       "plugin\\nested",
       "plugin/",
+      " ../outside",
+      " /absolute",
+      " C:/absolute",
+      ".. ",
+      "plugin/.. ",
+      " plugin",
+      "plugin ",
+      "\t../outside",
+      "plugin\n",
     ] as const) {
       expect(bundlePathRegExp.test(path)).toBe(false);
-      expect(
-        validatePluginConfig({ claude: { bundle: { path } } }).diagnostics
-      ).toContainEqual({
-        code: "schema/plugin-config/bundle",
-        message:
-          "$.claude.bundle.path must be a workspace-relative directory path using forward slashes without traversal",
-        path: "$.claude.bundle.path",
-      });
-    }
-
-    for (const path of [
-      " ../plugin",
-      " /plugin",
-      " C:/plugin",
-      "plugin/.. ",
-    ] as const) {
       expect(
         validatePluginConfig({ claude: { bundle: { path } } }).diagnostics
       ).toContainEqual({

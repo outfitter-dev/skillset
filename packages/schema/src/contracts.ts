@@ -1539,9 +1539,9 @@ function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): Sche
             ...strictObjectSchema({
               path: {
                 description:
-                  "Exact workspace-relative root for this plugin's complete Claude bundle.",
+                  "Exact workspace-relative root for this plugin's complete Claude bundle, without leading or trailing whitespace.",
                 pattern:
-                  "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                  "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
                 type: "string",
               },
             }),

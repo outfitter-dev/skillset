@@ -3264,10 +3264,9 @@ function checkTargetBundleDestinations(
 }
 
 function isPortableBundleDestination(value: string): boolean {
-  const path = value.trim();
-  if (path.length === 0 || path.includes("\\")) return false;
-  if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) return false;
-  return path
+  if (value.length === 0 || value !== value.trim() || value.includes("\\")) return false;
+  if (value.startsWith("/") || /^[A-Za-z]:/.test(value)) return false;
+  return value
     .split("/")
     .every(
       (segment) => segment !== "" && segment !== "." && segment !== ".."
