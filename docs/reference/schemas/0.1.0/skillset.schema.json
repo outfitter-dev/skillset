@@ -1704,6 +1704,575 @@
       "title": "Instruction Frontmatter",
       "type": "object"
     },
+    "plugin-config": {
+      "additionalProperties": false,
+      "properties": {
+        "agents": {
+          "type": "object"
+        },
+        "bin": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "changes": {
+          "type": "object"
+        },
+        "claude": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "additionalProperties": true,
+              "properties": {
+                "bundle": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "description": "Exact workspace-relative root for this plugin's complete Claude bundle.",
+                      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ],
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "codex": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "additionalProperties": true,
+              "not": {
+                "required": [
+                  "bundle"
+                ]
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "additionalProperties": true,
+              "not": {
+                "required": [
+                  "bundle"
+                ]
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "defaults": {
+          "type": "object"
+        },
+        "dependencies": {
+          "additionalProperties": false,
+          "properties": {
+            "plugins": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "marketplace": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "plugin": {
+                        "type": "string"
+                      },
+                      "range": {
+                        "type": "string"
+                      },
+                      "unversioned": {
+                        "type": "boolean"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "hooks": {
+          "additionalProperties": {
+            "items": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "hook": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "match": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "providers": {
+                      "items": {
+                        "enum": [
+                          "claude",
+                          "codex",
+                          "cursor"
+                        ],
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "status": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "properties": {
+            "auto": {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "hook": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "match": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          {
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "providers": {
+                        "items": {
+                          "enum": [
+                            "claude",
+                            "codex",
+                            "cursor"
+                          ],
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array",
+                        "uniqueItems": true
+                      },
+                      "status": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "mcp": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "skillset": {
+          "additionalProperties": false,
+          "properties": {
+            "author": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": true,
+                  "properties": {
+                    "email": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "url": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "category": {
+              "type": "string"
+            },
+            "description": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "homepage": {
+              "type": "string"
+            },
+            "keywords": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "license": {
+              "enum": [
+                "Apache-2.0",
+                "BSD-2-Clause",
+                "BSD-3-Clause",
+                "ISC",
+                "MIT",
+                "MPL-2.0",
+                "none"
+              ],
+              "type": "string"
+            },
+            "listing": {
+              "additionalProperties": false,
+              "properties": {
+                "capabilities": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "category": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "color": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "composer_icon": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "default_prompt": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "display_name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "keywords": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "logo": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "privacy_policy_url": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "screenshots": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "summary": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "terms_of_service_url": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "website_url": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "manifest": {
+              "additionalProperties": true,
+              "properties": {
+                "category": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "displayName": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "logo": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tags": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "marketplace": {
+              "type": "object"
+            },
+            "name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "origin": {
+              "additionalProperties": false,
+              "dependentRequired": {
+                "ref": [
+                  "repo"
+                ],
+                "repo": [
+                  "ref"
+                ]
+              },
+              "properties": {
+                "path": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "ref": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "repo": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "type": "object"
+            },
+            "outputs": {
+              "type": "object"
+            },
+            "owner": {
+              "additionalProperties": true,
+              "properties": {
+                "email": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "url": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            },
+            "preprocess": {
+              "type": "boolean"
+            },
+            "presentation": {
+              "type": "object"
+            },
+            "repository": {
+              "type": "string"
+            },
+            "schema": {
+              "const": 1,
+              "type": "integer"
+            },
+            "strict": {
+              "type": "boolean"
+            },
+            "summary": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "version": {
+              "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "supports": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "onMismatch": {
+                        "enum": [
+                          "error",
+                          "warn"
+                        ],
+                        "type": "string"
+                      },
+                      "range": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "packages": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "onMismatch": {
+                            "enum": [
+                              "error",
+                              "warn"
+                            ],
+                            "type": "string"
+                          },
+                          "range": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "packages"
+              ],
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "title": "Plugin Config",
+      "type": "object"
+    },
     "skill-eval": {
       "additionalProperties": false,
       "properties": {
@@ -3244,6 +3813,12 @@
               "type": "boolean"
             },
             {
+              "additionalProperties": true,
+              "not": {
+                "required": [
+                  "bundle"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -3254,6 +3829,12 @@
               "type": "boolean"
             },
             {
+              "additionalProperties": true,
+              "not": {
+                "required": [
+                  "bundle"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -3317,6 +3898,12 @@
               "type": "boolean"
             },
             {
+              "additionalProperties": true,
+              "not": {
+                "required": [
+                  "bundle"
+                ]
+              },
               "type": "object"
             }
           ]

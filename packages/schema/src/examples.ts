@@ -207,6 +207,53 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     },
   },
   {
+    description: "Maximal plugin manifest for a Skillset plugin.",
+    id: "plugin-config",
+    path: "plugin-config.yaml",
+    value: {
+      agents: {
+        defaults: {
+          skillsPrompt: "Load the following skills first, if available:",
+        },
+      },
+      bin: true,
+      changes: {
+        minimumRefLength: 6,
+      },
+      claude: {
+        bundle: {
+          path: "dist/example-plugin",
+        },
+      },
+      codex: true,
+      cursor: true,
+      defaults: {
+        codex: {
+          agents: {
+            model: "gpt-5.1-codex",
+          },
+        },
+      },
+      dependencies: {
+        plugins: ["shared-tools"],
+      },
+      hooks: {
+        Stop: ["cleanup"],
+      },
+      mcp: {
+        source: "repo:features/example",
+      },
+      skillset: {
+        description: "Example generated plugin.",
+        name: "example-plugin",
+        schema: 1,
+      },
+      supports: {
+        packages: ["@example/plugin >=1.0.0"],
+      },
+    },
+  },
+  {
     description: "Shared source metadata used under the skillset key.",
     id: "source-metadata",
     path: "source-metadata.yaml",

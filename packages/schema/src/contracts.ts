@@ -232,9 +232,9 @@ export const workspaceConfigContract = contract(
     properties: {
       agents: { type: "object" },
       changes: { type: "object" },
-      claude: targetOverrideSchema(),
-      codex: targetOverrideSchema(),
-      cursor: targetOverrideSchema(),
+      claude: workspaceTargetOverrideSchema(),
+      codex: workspaceTargetOverrideSchema(),
+      cursor: workspaceTargetOverrideSchema(),
       compile: strictObjectSchema({
         build: enumSchema(COMPILE_BUILD_MODES),
         features: strictObjectSchema({
@@ -262,6 +262,30 @@ export const workspaceConfigContract = contract(
           type: "string",
         },
       }),
+    },
+    type: "object",
+  }
+);
+
+export const pluginConfigContract = contract(
+  "plugin-config",
+  "Plugin Config",
+  "Skillset plugin configuration.",
+  {
+    additionalProperties: false,
+    properties: {
+      agents: { type: "object" },
+      bin: targetOverrideSchema(),
+      changes: { type: "object" },
+      claude: pluginTargetOverrideSchema("claude"),
+      codex: pluginTargetOverrideSchema("codex"),
+      cursor: pluginTargetOverrideSchema("cursor"),
+      defaults: { type: "object" },
+      dependencies: dependenciesSchema(),
+      hooks: hookAttachmentSchema(),
+      mcp: targetOverrideSchema(),
+      skillset: sourceMetadataSchema(),
+      supports: supportsSchema(),
     },
     type: "object",
   }
@@ -943,6 +967,7 @@ export const cliEventContract = contract(
 
 export const skillsetSchemaContracts = [
   workspaceConfigContract,
+  pluginConfigContract,
   sourceMetadataContract,
   skillFrontmatterContract,
   agentFrontmatterContract,
@@ -1489,6 +1514,49 @@ function targetFeatureSchema(): SchemaJsonRecord {
 function targetOverrideSchema(): SchemaJsonRecord {
   return {
     anyOf: [{ type: "boolean" }, { type: "object" }],
+  };
+}
+
+function workspaceTargetOverrideSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      {
+        additionalProperties: true,
+        not: { required: ["bundle"] },
+        type: "object",
+      },
+    ],
+  };
+}
+
+function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): SchemaJsonRecord {
+  const objectSchema: SchemaJsonRecord = target === "claude"
+    ? {
+        additionalProperties: true,
+        properties: {
+          bundle: {
+            ...strictObjectSchema({
+              path: {
+                description:
+                  "Exact workspace-relative root for this plugin's complete Claude bundle.",
+                pattern:
+                  "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                type: "string",
+              },
+            }),
+            required: ["path"],
+          },
+        },
+        type: "object",
+      }
+    : {
+        additionalProperties: true,
+        not: { required: ["bundle"] },
+        type: "object",
+      };
+  return {
+    anyOf: [{ type: "boolean" }, objectSchema],
   };
 }
 
