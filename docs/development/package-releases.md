@@ -66,6 +66,28 @@ After the registry set is complete, the workflow verifies every GitHub attestati
 
 The publish wrapper derives the npm dist-tag from the version: stable versions publish to `latest`, and prerelease versions publish to their prerelease label such as `beta`.
 
+## Approval and Concurrency Waits
+
+Release retains its workflow-level concurrency group and protected `npm` / `npm-auto` environments. An unapproved gate can therefore keep a later run queued without jobs. The independent **Release Wait Diagnostic** workflow makes this visible without approving, cancelling, or blocking publication. Its job name is separate from the exact-SHA CI gates used by release policy; do not make the diagnostic a required release check.
+
+The diagnostic runs every 15 minutes at offset minutes 7, 22, 37, and 52, on Release requested/in-progress/completed events, and on manual dispatch. Automatic triggers become active after the workflow reaches the default branch. GitHub can delay or drop scheduled runs; event triggers improve responsiveness but do not replace periodic observation, and the requested event does not cover reruns. See [GitHub workflow events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
+
+A main-branch Release run at least **60 minutes old** that currently has a pending environment gate, a zero-job queue, or an unexplained `waiting` state produces a failed diagnostic with an Actions job summary and error annotation. The threshold allows normal setup and operator response while surfacing the recorded multi-hour waits. The age comes from run creation: GitHub does not expose a reliable required-reviewer wait-start timestamp, so a long build followed by a new approval gate can also trigger attention. The summary explicitly distinguishes run age from approval-wait duration, lists gate and eligible-reviewer links, and reports ordinary active work separately. Notification delivery follows the maintainer's GitHub Actions settings; the result is always available in the diagnostic's Actions run.
+
+The script excludes pull-request syntax-validation runs and queries each active main-branch status with pagination so an old waiting run is not hidden by newer completed runs. API failures, changed/truncated pagination, and unstable run observations fail as **evidence unavailable**, never as healthy state. A zero-job queue plus an older same-branch gated run is consistent with a held concurrency group, but the API does not expose lock ownership: the diagnostic does not claim a confirmed cause. See the [workflow runs API](https://docs.github.com/en/rest/actions/workflow-runs) and [workflow jobs API](https://docs.github.com/en/rest/actions/workflow-jobs).
+
+To inspect the same evidence without changing release state:
+
+```bash
+for status in requested queued pending in_progress waiting; do
+  gh api --paginate "repos/outfitter-dev/skillset/actions/workflows/release.yml/runs?branch=main&status=$status&per_page=100"
+done
+gh api --paginate 'repos/outfitter-dev/skillset/actions/runs/RUN_ID/jobs?filter=latest&per_page=100'
+gh api repos/outfitter-dev/skillset/actions/runs/RUN_ID/pending_deployments
+```
+
+Replace `RUN_ID` with the observed run ID. Inspect its linked environment protection rules and eligible reviewers before deciding whether to approve, cancel, or recover a release. Those actions retain their separate maintainer authority; the diagnostic never performs them.
+
 ## Homebrew Handoff
 
 Homebrew is the native macOS path for Apple Silicon and Intel systems. After a stable `latest` release is reconciled, the Release workflow calls the reusable `Publish Homebrew` workflow with the published tag. Prereleases and older stable tags are rejected so they cannot replace the current formula.
