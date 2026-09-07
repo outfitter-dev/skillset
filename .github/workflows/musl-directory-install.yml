@@ -1,0 +1,61 @@
+name: Alpine Directory Installs
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/musl-directory-install.yml
+      - .bun-version
+      - bun.lock
+      - packages/core/src/**
+      - scripts/native-directory-rename-smoke.ts
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/musl-directory-install.yml
+      - .bun-version
+      - bun.lock
+      - packages/core/src/**
+      - scripts/native-directory-rename-smoke.ts
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# This verifies directory installation, not the reserved musl distributions.
+jobs:
+  directory-install:
+    name: Alpine directory install (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+          - runner: ubuntu-24.04
+            arch: x64
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Prove source and compiled directory installation on musl
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        # oven/bun:1.4.0-alpine, multi-architecture manifest pinned to its bytes.
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" \
+            --workdir /workspace --env EXPECTED_ARCH \
+            oven/bun@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb \
+            sh -ec '
+              test "$(bun --version)" = "$(cat .bun-version)"
+              test "$(bun -p process.arch)" = "$EXPECTED_ARCH"
+              cat /etc/alpine-release
+              ldd /usr/local/bin/bun
+              bun test packages/core/src/__tests__/directory-rename-no-replace.test.ts
+              bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
+              bun scripts/native-directory-rename-smoke.ts
+            '

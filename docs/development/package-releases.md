@@ -80,6 +80,10 @@ For recovery, manually dispatch `Publish Homebrew` with the current published st
 
 The repository owns a focused native build path separate from the ordinary `bun run check` gate. The accepted release set is five targets: Apple arm64 and baseline x64, Linux glibc arm64 and baseline x64, and Windows baseline x64. Linux musl arm64 and baseline x64 remain buildable reserved targets; they are not part of the required manifest or public package set.
 
+Directory installation is separately verified on Alpine 3.22 under Bun 1.4.0 for arm64 and x64 by `.github/workflows/musl-directory-install.yml`. That workflow pins the Bun Alpine image, checks the repository's Bun version and host architecture, runs the atomic primitive suite and competing workspace transaction test, and compiles/runs the primitive smoke on the same musl host. It does not promote a musl distribution or prove full CLI channel conformance. Update the pinned image when updating `.bun-version`.
+
+The 0.25.0 changelog's blanket musl/Alpine limitation was too broad: musl resolves the existing `libc.so.6` load to its already loaded libc, and target-host checks confirm directory installs succeed. The implementation still reports `unsupported` when its library cannot load, the Linux architecture has no known syscall number, or the kernel/filesystem returns `ENOSYS`, `EINVAL`, or `EOPNOTSUPP`. It never substitutes a check-then-rename sequence. See [musl's dynamic loader](https://git.musl-libc.org/cgit/musl/tree/ldso/dynlink.c?h=v1.2.5) for libc-name resolution.
+
 ```bash
 bun run build:native -- --target darwin-arm64
 bun run native:check -- --allow-partial
