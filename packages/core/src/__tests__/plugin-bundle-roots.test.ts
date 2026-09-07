@@ -64,6 +64,22 @@ describe("plugin bundle root ownership", () => {
       await expect(buildSkillsetResult(root)).rejects.toThrow(/(output root|source root|overlap plugin)/);
     });
   }
+
+  for (const [bundle, cursorRoot] of [
+    [".cursor-plugin", "plugins"],
+    [".CURSOR-PLUGIN", "plugins"],
+    ["cursor-dist/.cursor-plugin", "cursor-dist"],
+  ] as const) {
+    it(`protects Cursor marketplace metadata from Claude bundle ${bundle}`, async () => {
+      const root = await fixture(bundle, "plugins");
+      const configPath = join(root, "skillset.yaml");
+      await writeFile(configPath, (await readFile(configPath, "utf8")).replace(
+        "cursor: false", `cursor:\n  plugins:\n    path: ${cursorRoot}`
+      ));
+      await expect(buildSkillsetResult(root)).rejects.toThrow(/(Cursor marketplace metadata|outputs\.plugins\.cursor)/);
+      expect(await Bun.file(join(root, bundle, "skillset.lock")).exists()).toBe(false);
+    });
+  }
 });
 
 async function fixture(bundle: string, marketplaceRoot: string, sibling = false): Promise<string> {

@@ -49,7 +49,7 @@ import {
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
-import { claudeMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
+import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
@@ -1482,6 +1482,7 @@ function validatePluginBundleDestinations(
   const configured = [
     ...configuredOutputRoots(outputs),
     { label: "Claude marketplace metadata", path: dirname(claudeMarketplacePath(outputs.plugins.claude)) },
+    { label: "Cursor marketplace metadata", path: dirname(cursorMarketplacePath(outputs.plugins.cursor)) },
   ];
   for (const plugin of plugins) {
     const path = plugin.claudeBundlePath;
