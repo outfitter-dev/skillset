@@ -9,6 +9,18 @@ export interface CommandToken {
   readonly value: string;
 }
 
+/**
+ * Candidate operands independent of a command's option vocabulary. An attached
+ * value is still guidance naming a path, even if the command rejects the flag.
+ * Retain the whole word too: an equals sign can be part of a literal filename.
+ */
+export function shellOperandCandidates(token: string): readonly string[] {
+  const separator = token.indexOf("=");
+  if (separator >= 0) return [token, token.slice(separator + 1)];
+  if (/^-[^-]./u.test(token)) return [token, token.slice(2)];
+  return [token];
+}
+
 const LITERAL_OPEN_BRACE = "\u{e000}";
 const LITERAL_CLOSE_BRACE = "\u{e001}";
 
