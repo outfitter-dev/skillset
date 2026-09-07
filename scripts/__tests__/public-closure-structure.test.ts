@@ -102,10 +102,8 @@ describe("SET-489 structural path extraction", () => {
       "--new-option=packages",
       "packages",
     ]);
-    expect(shellOperandCandidates("-Cpackages")).toEqual([
-      "-Cpackages",
-      "packages",
-    ]);
+    expect(shellOperandCandidates("-Cpackages")).toContain("packages");
+    expect(shellOperandCandidates("-rtpackages")).toContain("packages");
     expect(shellOperandCandidates("ROOT=packages/file=name")).toEqual([
       "ROOT=packages/file=name",
       "packages/file=name",

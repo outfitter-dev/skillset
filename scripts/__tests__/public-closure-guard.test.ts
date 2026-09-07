@@ -181,8 +181,8 @@ describe("generated public closure guard", () => {
       scanGeneratedPublicContent(
         "plugins/skillset/claude/skills/skillset/SKILL.md",
         "Run `popd packages`."
-      )
-    ).toEqual([]);
+      ).map(({ rule }) => rule)
+    ).toEqual(["internal-package"]);
   });
 
   test("SET-465: normalizes Windows separators before protected-boundary matching", () => {
@@ -366,11 +366,9 @@ describe("generated public closure guard", () => {
       "git -C public -C scripts status",
       "git -C",
       "git -C --no-pager status",
-      // Git's top-level parser compares whole arguments, so the attached-short
-      // ("unknown option: -Cscripts"), bundled, and attached-long-without-`=`
-      // spellings are all rejected by Git and never reach `scripts`. None of
-      // them is a directory route. Contrast the wrapper case below, where GNU
-      // getopt does accept `-Cfixtures`.
+      // SET-489 deliberately checks operands even when Git rejects the syntax.
+      // Attached -Cscripts and standalone scripts after unknown flags route
+      // readers into internals; this guard is not a Git option validator.
       "git -Cscripts status",
       "git -pC scripts status",
       "git --work-treescripts status",
@@ -415,6 +413,14 @@ describe("generated public closure guard", () => {
       { line: 11, rule: "internal-script" },
       { line: 12, rule: "internal-script" },
       { line: 13, rule: "internal-script" },
+      { line: 16, rule: "internal-script" },
+      { line: 17, rule: "internal-script" },
+      { line: 20, rule: "internal-script" },
+      { line: 21, rule: "internal-script" },
+      { line: 23, rule: "internal-script" },
+      { line: 24, rule: "internal-script" },
+      { line: 25, rule: "internal-script" },
+      { line: 26, rule: "internal-script" },
       { line: 27, rule: "internal-script" },
     ]);
   });
@@ -432,8 +438,8 @@ describe("generated public closure guard", () => {
       // `--work-tree`: `public` alone is unprotected, but the pair routes into
       // `scripts`.
       "git -C public --git-dir=../scripts/.git log",
-      // ...and the operand alone is not enough: this one resolves to
-      // `public/scripts/.git`, which is outside the protected tree.
+      // A script descendant stays plugin-local unless explicit repository
+      // context resolves it into the protected tree.
       "git -C public --git-dir=scripts/.git log",
       "git --no-pager --git-dir=packages/.git --work-tree=packages log",
       "git --git-dir=public/.git log",
@@ -483,9 +489,8 @@ describe("generated public closure guard", () => {
       "git clean -fd packages",
       "git check-ignore packages",
       "git mv scripts other",
-      // Not routes: `git log <rev>` is revision-shaped without `--`, the
-      // subcommand itself is never an operand, `public` is unprotected, and a
-      // `-C`-relative operand can resolve outside the protected tree.
+      // Revision-like tokens can also name paths. SET-489 conservatively
+      // checks them without enumerating Git subcommands; public stays clean.
       "git log packages",
       "git show packages",
       "git ls-files public",
@@ -514,6 +519,9 @@ describe("generated public closure guard", () => {
       { line: 12, rule: "internal-package" },
       { line: 13, rule: "internal-package" },
       { line: 14, rule: "internal-script" },
+      { line: 15, rule: "internal-package" },
+      { line: 16, rule: "internal-package" },
+      { line: 18, rule: "internal-script" },
     ]);
   });
 
@@ -2206,6 +2214,8 @@ describe("generated public closure guard", () => {
       { line: 6, rule: "internal-package" },
       { line: 7, rule: "fixture-path" },
       { line: 8, rule: "internal-package" },
+      { line: 12, rule: "internal-package" },
+      { line: 13, rule: "internal-package" },
     ]);
   });
 
@@ -2306,6 +2316,7 @@ describe("generated public closure guard", () => {
       "sudo --chdir=packages ls",
       "sudo --chroot packages ls",
       "sudo env -C packages rg TODO",
+      // BSD env and GNU env both use only the last -C, not cumulative cwd.
       "env -C docs -C development pwd",
       "env -C public pwd",
       "env -C",
@@ -2333,7 +2344,6 @@ describe("generated public closure guard", () => {
       { line: 7, rule: "internal-package" },
       { line: 8, rule: "internal-package" },
       { line: 9, rule: "internal-package" },
-      { line: 10, rule: "development-docs" },
       { line: 19, rule: "internal-package" },
     ]);
   });
@@ -2371,6 +2381,8 @@ describe("generated public closure guard", () => {
       { line: 6, rule: "internal-script" },
       { line: 7, rule: "internal-package" },
       { line: 8, rule: "fixture-path" },
+      { line: 11, rule: "internal-package" },
+      { line: 13, rule: "internal-package" },
     ]);
   });
 

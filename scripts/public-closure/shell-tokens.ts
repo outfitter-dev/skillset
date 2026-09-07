@@ -17,7 +17,16 @@ export interface CommandToken {
 export function shellOperandCandidates(token: string): readonly string[] {
   const separator = token.indexOf("=");
   if (separator >= 0) return [token, token.slice(separator + 1)];
-  if (/^-[^-]./u.test(token)) return [token, token.slice(2)];
+  if (/^-[^-]./u.test(token)) {
+    // A value may follow a short-flag cluster. Without an option vocabulary,
+    // each boundary is a possible value start (e.g. -rtpackages).
+    return [
+      token,
+      ...Array.from({ length: token.length - 2 }, (_, index) =>
+        token.slice(index + 2)
+      ),
+    ];
+  }
   return [token];
 }
 

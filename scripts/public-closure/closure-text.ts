@@ -2,6 +2,9 @@ import { posix } from "node:path";
 
 import { collapseRepeatedPathSeparators } from "./owner-paths";
 import { withoutSearchCommandSegments } from "./search-dialects";
+import { commandName } from "./shell-operands";
+import { readShellSegments } from "./shell-tokens";
+import { unwrapShellCommand } from "./shell-wrappers";
 
 /**
  * The single path-extraction seam. Every closure check reads its text through
@@ -59,16 +62,41 @@ export function normalizeClosureText(
       repoRoot
     ).replaceAll("\\", "/")
   );
-  const pathText = withoutHttpUrls(textWithUrls);
+  const visibleText = withoutSkillsetCommands(textWithUrls, assumeShellCommand);
+  const pathText = withoutHttpUrls(visibleText);
   return {
     candidateText: collapseRepeatedPathSeparators(
       withoutSearchCommandSegments(pathText, assumeShellCommand)
     ),
     fileUrlPaths: fileUrlPaths(pathText),
     pathText,
-    repositoryPaths: repositoryHttpPaths(textWithUrls),
+    repositoryPaths: repositoryHttpPaths(visibleText),
     shellText: normalizePathExpansions(text, repoRoot),
   };
+}
+
+/** Skillset arguments describe a consumer's own source. The shell view still
+ * retains wrapper prefixes so a cwd route before skillset is never hidden. */
+function withoutSkillsetCommands(
+  text: string,
+  assumeShellCommand: boolean
+): string {
+  const strip = (command: string): string => {
+    const segments = readShellSegments(command);
+    const publicCommand = (segment: readonly string[]): boolean =>
+      commandName(unwrapShellCommand(segment)[0]) === "skillset";
+    if (!segments.some(publicCommand)) return command;
+    return segments
+      .filter((segment) => !publicCommand(segment))
+      .map((segment) => segment.join(" "))
+      .join(" ; ");
+  };
+  return assumeShellCommand
+    ? strip(text)
+    : text.replace(/`([^`\r\n]+)`/gu, (wrapped, command: string) => {
+        const remaining = strip(command);
+        return remaining === command ? wrapped : remaining;
+      });
 }
 
 /**
