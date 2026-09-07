@@ -120,6 +120,26 @@ describe("SET-489 default shell operand policy", () => {
     ]);
   });
 
+  test("checks executable paths before command-specific operand handling", () => {
+    for (const executable of ["tool", "rg", "echo", "printf", "git", "skillset"]) {
+      for (const text of [
+        `\`\`\`sh\nenv -C docs development/${executable} --help\n\`\`\``,
+        `Run \`env -C docs development/${executable} --help\`.`,
+      ]) {
+        expect(
+          scanGeneratedPublicContent(
+            "plugins/skillset/codex/skills/skillset/SKILL.md",
+            text
+          ).map(({ rule }) => rule)
+        ).toEqual(["development-docs"]);
+      }
+    }
+    expect(rules("env -C docs development --help")).toEqual([]);
+    expect(rules("env -C docs /usr/local/bin/tool --help")).toEqual([]);
+    expect(rules("env -C docs ../public/tool --help")).toEqual([]);
+    expect(rules("./development/git -C docs --help")).toEqual([]);
+  });
+
   test("only bare skillset commands exempt protected executable routes", () => {
     for (const [command, rule] of [
       ["packages/core/skillset check", "internal-package"],

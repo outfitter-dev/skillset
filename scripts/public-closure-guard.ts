@@ -538,6 +538,13 @@ function hasProtectedRootCommandArgument(
       )
     )
       return true;
+    // The executable is resolved in the wrapper cwd before its own options run.
+    // Bare command names use PATH lookup and do not imply a relative route.
+    const executable = tokens[0];
+    if (executable && /[/\\]/u.test(executable)) {
+      const path = normalizeClosureText(executable, repoRoot, false).shellText;
+      if ([path, resolveShellPath(wrapper.cwd, path)].some(matches)) return true;
+    }
     const name = commandName(tokens[0]);
     if (searchCommandDialect([name])) {
       return hasSearchCommandProtectedPathArgument(
