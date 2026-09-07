@@ -12,7 +12,10 @@ import {
   type MarketplaceRequestedRefPolicy,
 } from "./marketplace-ref-policy";
 import { compareStrings } from "./path";
-import { pluginManifestPath as pluginManifestOutputPath } from "./plugin-output";
+import {
+  providerSourceForPlugin,
+  pluginManifestPath as pluginManifestOutputPath,
+} from "./plugin-output";
 import {
   acquireRemoteRepository,
   parseRemoteRepositoryReference,
@@ -406,7 +409,7 @@ function checkMarketplaceEntry(
       lock,
       plugin: entry.plugin,
       provenance: baseLockEntry,
-      providerSource: providerSource(generatedPath),
+      providerSource: baseLockEntry.providerSource,
       reason: `${target} output is not enabled for plugin ${entry.plugin}`,
       readiness: "not-ready",
       ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -448,7 +451,7 @@ function checkMarketplaceEntry(
       lock,
       plugin: entry.plugin,
       provenance: lockEntry,
-      providerSource: providerSource(generatedPath),
+      providerSource: lockEntry.providerSource,
       reason: lock.reason,
       readiness: "not-ready",
       ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -467,7 +470,7 @@ function checkMarketplaceEntry(
     lock,
     plugin: entry.plugin,
     provenance: lockEntry,
-    providerSource: providerSource(generatedPath),
+    providerSource: lockEntry.providerSource,
     reason: "provider output is generated and verified",
     readiness: "marketplace-ready",
     ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -513,7 +516,7 @@ function notReady(
     lock,
     plugin: entry.plugin,
     provenance,
-    providerSource: generatedPath === undefined ? "" : providerSource(generatedPath),
+    providerSource: provenance.providerSource,
     reason,
     readiness: "not-ready",
     ...(entry.repo === undefined ? {} : { repo: entry.repo }),
@@ -568,7 +571,11 @@ function marketplaceLockEntryFor(args: {
   readonly requested: MarketplaceRequestedRefPolicy;
   readonly target: TargetName;
 }): MarketplaceLockEntry {
-  const provider = args.generatedPath === undefined ? "" : providerSource(args.generatedPath);
+  const graph = args.inspection?.graph;
+  const plugin = graph?.plugins.find((candidate) => candidate.id === args.entry.plugin);
+  const provider = graph === undefined || plugin === undefined || args.generatedPath === undefined
+    ? ""
+    : providerSourceForPlugin(graph.root.outputs.plugins[args.target], args.target, plugin);
   return {
     catalog: args.catalog,
     entryId: args.entry.id,
@@ -764,7 +771,7 @@ function pluginTargetRenderable(graph: BuildGraph, plugin: SourcePlugin, target:
 }
 
 function pluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): string {
-  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin.id);
+  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin);
 }
 
 function pluginOutputPaths(
@@ -784,15 +791,6 @@ function pluginOutputPaths(
 
 function failuresForPath(failures: readonly string[], path: string): readonly string[] {
   return failures.filter((failure) => failure.includes(path));
-}
-
-function providerSource(path: string): string {
-  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex)\//);
-  if (defaultMatch !== null) return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
-  const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
-  if (overrideMatch === null) return path;
-  const pluginId = overrideMatch[2];
-  return pluginId === undefined ? path : `./plugins/${pluginId}`;
 }
 
 function compareMarketplaceEntries(left: MarketplaceCheckEntryReport, right: MarketplaceCheckEntryReport): number {

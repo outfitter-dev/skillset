@@ -30,8 +30,9 @@ import { withLockProvenance } from "./lock-provenance";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 import {
   isDefaultPluginOutputRoot,
+  pluginBundleRoot,
+  pluginLockRootPath,
   pluginManifestPath,
-  pluginTargetRoot,
 } from "./plugin-output";
 import {
   resolveDeclaredResourceReference,
@@ -336,8 +337,11 @@ async function renderPluginTarget(
   validateInternalPluginDependenciesForTarget(graph, plugin, target);
 
   const rendered: RenderedFile[] = [];
-  const outputRoot = graph.root.outputs.plugins[target];
-  const basePath = pluginTargetRoot(outputRoot, target, plugin.id);
+  const configuredOutputRoot = graph.root.outputs.plugins[target];
+  const basePath = pluginBundleRoot(configuredOutputRoot, target, plugin);
+  // A plugin-owned bundle root carries its own lock; lock items and their
+  // relative paths anchor to that root instead of the shared plugins root.
+  const outputRoot = pluginLockRootPath(configuredOutputRoot, target, plugin);
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
   const dependencySummaries = pluginDependencySummaries(graph, plugin);
   if (target === "codex" && dependencySummaries.length > 0 && enabledSkills.length === 0) {
@@ -348,7 +352,7 @@ async function renderPluginTarget(
   const rootLicense = await resolveRootLicense(graph);
   const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
   const manifestFile = textFile(
-    pluginManifestPath(outputRoot, target, plugin.id),
+    pluginManifestPath(outputRoot, target, plugin),
     renderValidatedJson(
       renderPluginManifest(graph, plugin, target, enabledSkills, pluginLicense),
       `${plugin.id} ${target} plugin manifest`
@@ -374,7 +378,7 @@ async function renderPluginTarget(
   pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
   const pluginOwnedFiles = coalesceRenderedFiles(pluginRootFiles);
-  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
+  lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
     lockItemForPlugin({
       files: pluginOwnedFiles,
       graph,
@@ -503,7 +507,7 @@ async function renderPluginSkillFiles(
   }
   rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
 
-  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
+  lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
     await lockItemForSkill({
       files: rendered,
       graph,
@@ -844,7 +848,7 @@ async function renderPluginIslands(
     const targetPath = join(basePath, island.relativePath);
     const result = await renderIslandFile(graph, island, targetPath);
     rendered.push(result.file);
-    lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
+    lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
       lockItemForIsland({ graph, island, outputRoot, outputPath: targetPath, result })
     );
   }
@@ -1451,7 +1455,7 @@ async function renderPluginFeatureFiles(
       );
     rendered.push(...files);
     if (files.length === 0) continue;
-    lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
+    lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
       await lockItemForPluginFeature({
         feature,
         files,
@@ -1510,6 +1514,17 @@ async function renderLockFiles(
   }
 
   return rendered;
+}
+
+function pluginLockRootTarget(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): TargetName | "workspace" {
+  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
+    return "claude";
+  }
+  return pluginLockTarget(graph, target);
 }
 
 function pluginLockTarget(graph: BuildGraph, target: TargetName): TargetName | "workspace" {
@@ -1648,7 +1663,7 @@ async function lockItemForPluginFeature(args: {
     name: `${args.plugin.id}:${args.feature.key}`,
     origin: args.feature.origin,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: relative(args.outputRoot, join(pluginTargetRoot(args.outputRoot, args.target, args.plugin.id), targetPath)),
+    outputPath: relative(args.outputRoot, join(pluginBundleRoot(args.outputRoot, args.target, args.plugin), targetPath)),
     plugin: args.plugin.id,
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),

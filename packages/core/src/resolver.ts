@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, posix, relative, sep } from "node:path";
 
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 
@@ -49,7 +49,7 @@ import {
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
-import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
@@ -226,6 +226,7 @@ export async function loadBuildGraph(
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
+  validatePluginBundleDestinations(outputs, plugins);
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
@@ -1450,7 +1451,7 @@ async function outputRootsFor(
   const activeRoots = activeOutputRoots(outputs, plugins, standaloneSkills, rules);
   const roots = new Map(activeRoots.map((outputRoot) => [outputRoot.path, outputRoot]));
 
-  for (const outputRoot of configuredOutputRoots(outputs)) {
+  for (const outputRoot of configuredOutputRoots(outputs, plugins)) {
     if (roots.has(outputRoot.path)) continue;
     if (await exists(join(resolveInside(rootPath, outputRoot.path), "skillset.lock"))) {
       roots.set(outputRoot.path, outputRoot);
@@ -1460,14 +1461,71 @@ async function outputRootsFor(
   return [...roots.values()].sort((left, right) => compareStrings(left.path, right.path));
 }
 
-function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly ActiveOutputRoot[] {
+function configuredOutputRoots(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[] = []
+): readonly ActiveOutputRoot[] {
   return [
     { label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT },
     ...targetNames().flatMap((target) => [
       { label: `outputs.plugins.${target}`, path: outputs.plugins[target] },
       { label: `outputs.skills.${target}`, path: outputs.skills[target] },
     ]),
+    ...pluginBundleOutputRoots(plugins),
   ];
+}
+
+function validatePluginBundleDestinations(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[]
+): void {
+  const configured = [
+    ...configuredOutputRoots(outputs),
+    { label: "Claude marketplace metadata", path: dirname(claudeMarketplacePath(outputs.plugins.claude)) },
+    { label: "Cursor marketplace metadata", path: dirname(cursorMarketplacePath(outputs.plugins.cursor)) },
+  ].map((root) => ({ ...root, path: posix.join(root.path.replaceAll("\\", "/"), ".") }));
+  for (const plugin of plugins) {
+    const path = plugin.claudeBundlePath;
+    if (path === undefined) continue;
+    const label = `plugins.${plugin.id}.claude.bundle`;
+    const folded = path.toLowerCase();
+    for (const root of configured) {
+      const rootFolded = root.path.toLowerCase();
+      if (folded === rootFolded) {
+        throw new Error(`skillset: ${label} reuses output root ${path}; already used by ${root.label} (${root.path})`);
+      }
+      if (!pathsOverlap(folded, rootFolded)) continue;
+      // A custom Claude output root contains its marketplace and default
+      // bundles. It may contain an independently locked explicit bundle.
+      if (root.label === "outputs.plugins.claude" &&
+          outputs.plugins.claude !== DEFAULT_PLUGIN_OUTPUT_ROOT && path.startsWith(`${root.path}/`)) continue;
+      throw new Error(`skillset: ${label} (${path}) must not overlap output root ${root.label} (${root.path})`);
+    }
+    const marketplaceRoot = posix.join(outputs.plugins.claude.replaceAll("\\", "/"), ".");
+    if (outputs.plugins.claude !== DEFAULT_PLUGIN_OUTPUT_ROOT && !path.startsWith(`${marketplaceRoot}/`)) {
+      throw new Error(`skillset: ${label} (${path}) must be beneath Claude marketplace root ${marketplaceRoot}; use a nested bundle destination or restore the default claude.plugins.path`);
+    }
+    for (const other of plugins) {
+      if (other === plugin) continue;
+      const otherPath = pluginBundleRoot(outputs.plugins.claude, "claude", other);
+      if (!pathsOverlap(folded, otherPath.toLowerCase())) continue;
+      throw new Error(`skillset: ${label} (${path}) must not overlap plugin ${other.id} Claude bundle (${otherPath})`);
+    }
+  }
+}
+
+function pathsOverlap(left: string, right: string): boolean {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
+function pluginBundleOutputRoots(
+  plugins: readonly SourcePlugin[]
+): readonly ActiveOutputRoot[] {
+  return plugins.flatMap((plugin) =>
+    plugin.claudeBundlePath === undefined
+      ? []
+      : [{ label: `plugins.${plugin.id}.claude.bundle`, path: plugin.claudeBundlePath }]
+  );
 }
 
 function activeOutputRoots(
@@ -1481,8 +1539,17 @@ function activeOutputRoots(
     roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
   }
   for (const target of targetNames()) {
-    if (plugins.some((plugin) => plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id))) {
+    const enabledPlugins = plugins.filter((plugin) => plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id));
+    // A plugin with its own claude bundle root does not occupy the shared
+    // plugins root for that target; its root registers separately below.
+    const sharedRootPlugins = target === "claude"
+      ? enabledPlugins.filter((plugin) => plugin.claudeBundlePath === undefined)
+      : enabledPlugins;
+    if (sharedRootPlugins.length > 0) {
       roots.push({ label: `outputs.plugins.${target}`, path: outputs.plugins[target] });
+    }
+    if (target === "claude") {
+      roots.push(...pluginBundleOutputRoots(enabledPlugins));
     }
     if (standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))) {
       roots.push({ label: `outputs.skills.${target}`, path: outputs.skills[target] });
@@ -1582,6 +1649,29 @@ function validateOutputRoots(
     }
     seen.set(absoluteOutputRoot, outputRoot);
   }
+
+  // A plugin-owned bundle root owns its complete subtree, so it must not nest
+  // with any other output root in either direction.
+  const bundleRoots = outputRoots.filter((outputRoot) => isPluginBundleRootLabel(outputRoot.label));
+  for (const bundleRoot of bundleRoots) {
+    const absoluteBundleRoot = resolveInside(rootPath, bundleRoot.path);
+    for (const other of outputRoots) {
+      if (other === bundleRoot) continue;
+      const absoluteOther = resolveInside(rootPath, other.path);
+      if (absoluteBundleRoot === absoluteOther) continue;
+      if (other.label === "outputs.plugins.claude" && other.path !== DEFAULT_PLUGIN_OUTPUT_ROOT &&
+          isSameOrInside(absoluteBundleRoot, absoluteOther)) continue;
+      if (isSameOrInside(absoluteBundleRoot, absoluteOther) || isSameOrInside(absoluteOther, absoluteBundleRoot)) {
+        throw new Error(
+          `skillset: ${bundleRoot.label} (${bundleRoot.path}) must not overlap output root ${other.label} (${other.path})`
+        );
+      }
+    }
+  }
+}
+
+function isPluginBundleRootLabel(label: string): boolean {
+  return label.startsWith("plugins.") && label.endsWith(".claude.bundle");
 }
 
 function canShareOutputRoot(left: ActiveOutputRoot, right: ActiveOutputRoot): boolean {
@@ -1603,7 +1693,8 @@ function validateOutputRootNotInsideProtectedRoots(
 ): string {
   const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
   for (const protectedRoot of protectedRoots) {
-    if (isSameOrInside(absoluteOutputRoot, protectedRoot.path)) {
+    if (isSameOrInside(absoluteOutputRoot, protectedRoot.path) ||
+        (isPluginBundleRootLabel(outputRoot.label) && pathsOverlap(absoluteOutputRoot.toLowerCase(), protectedRoot.path.toLowerCase()))) {
       throw new Error(
         `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${relative(rootPath, protectedRoot.path)}`
       );

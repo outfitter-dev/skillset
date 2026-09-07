@@ -16,6 +16,7 @@ import {
   claudeMarketplacePath,
   cursorMarketplacePath,
   isDefaultPluginOutputRoot,
+  pluginLockRootPath,
   pluginManifestPath,
   providerSourceForPlugin,
 } from "./plugin-output";
@@ -271,7 +272,7 @@ async function renderClaudeMarketplacePlugin(
       source: providerSourceForPlugin(
         graph.root.outputs.plugins.claude,
         "claude",
-        plugin.id
+        plugin
       ),
       description:
         readListingString(metadata, "summary") ??
@@ -423,7 +424,7 @@ export async function renderCursorMarketplace(
           source: providerSourceForPlugin(
             graph.root.outputs.plugins.cursor,
             "cursor",
-            plugin.id
+            plugin
           ).replace(/^\.\//, ""),
           description:
             readListingString(metadata, "summary") ??
@@ -516,15 +517,19 @@ export function marketplaceLockProvenance(
         const generatedPaths = renderable
           ? marketplaceGeneratedPaths(
               lockRoots,
-              graph.root.outputs.plugins[target],
+              pluginLockRootPath(
+                graph.root.outputs.plugins[target],
+                target,
+                plugin
+              ),
               target,
               entry.plugin
             )
           : [];
         const provider =
-          generatedPath === undefined
+          plugin === undefined
             ? ""
-            : marketplaceProviderSource(generatedPath);
+            : providerSourceForPlugin(graph.root.outputs.plugins[target], target, plugin);
         entries.push(
           stripUndefinedJsonRecord({
             catalog: catalogName,
@@ -806,18 +811,8 @@ function marketplacePluginManifestPath(
   return pluginManifestPath(
     graph.root.outputs.plugins[target],
     target,
-    plugin.id
+    plugin
   );
-}
-
-function marketplaceProviderSource(path: string): string {
-  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex|cursor)\//);
-  if (defaultMatch !== null)
-    return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
-  const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
-  if (overrideMatch === null) return path;
-  const pluginId = overrideMatch[2];
-  return pluginId === undefined ? path : `./plugins/${pluginId}`;
 }
 
 function stripUndefinedJsonRecord(

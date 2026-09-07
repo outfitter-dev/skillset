@@ -45,7 +45,7 @@ import {
   resolveOperationalPath,
 } from "../../packages/core/src/operational-cache";
 import { compareStrings, validateSlug } from "../../packages/core/src/path";
-import { pluginTargetRoot } from "../../packages/core/src/plugin-output";
+import { pluginBundleRoot } from "../../packages/core/src/plugin-output";
 import { loadBuildGraph } from "../../packages/core/src/resolver";
 import { isTargetName, TARGET_LIST_TEXT } from "../../packages/core/src/targets";
 import type { TargetName } from "../../packages/core/src/types";
@@ -443,11 +443,19 @@ export async function runExternalRepo(
   try {
     const graph = await loadBuildGraph(clonePath);
     for (const item of imported) {
+      const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
+      if (item.kind === "plugin" && plugin === undefined) {
+        throw new Error(`skillset: imported plugin ${item.name} is missing from the resolved graph`);
+      }
       for (const target of targets) {
         const generatedRoot = item.kind === "plugin"
           ? join(
               ISOLATED_OUT_ROOT,
-              pluginTargetRoot(graph.root.outputs.plugins[target], target, item.name)
+              pluginBundleRoot(
+                graph.root.outputs.plugins[target],
+                target,
+                plugin!
+              )
             )
           : join(ISOLATED_OUT_ROOT, graph.root.outputs.skills[target], item.name);
         const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
