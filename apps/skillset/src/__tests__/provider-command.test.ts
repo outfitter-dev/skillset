@@ -123,8 +123,8 @@ test("provider command abort and timeout terminate a detached descendant tree", 
 
   expect(pid).toBeDefined();
   expect(childPid).toBeDefined();
-  expect(await processIsRunning(pid!)).toBe(false);
-  expect(await processIsRunning(childPid!)).toBe(false);
+  expect(await processRemainsRunning(pid!, 1_000)).toBe(false);
+  expect(await processRemainsRunning(childPid!, 1_000)).toBe(false);
 
   const timeoutBin = await processTreeBin(root, "timeout-tree");
   let timeoutChildPid: number | undefined;
@@ -140,7 +140,7 @@ test("provider command abort and timeout terminate a detached descendant tree", 
   );
   expect(timeout.timedOut).toBe(true);
   expect(timeoutChildPid).toBeDefined();
-  expect(await processIsRunning(timeoutChildPid!)).toBe(false);
+  expect(await processRemainsRunning(timeoutChildPid!, 1_000)).toBe(false);
 });
 
 test("provider command classifies missing binaries without exposing spawn details", async () => {
@@ -208,6 +208,20 @@ async function processTreeBin(root: string, name: string): Promise<string> {
   // produces output; absorb it before the timed run.
   Bun.spawnSync({ cmd: [bin, "warmup"] });
   return bin;
+}
+
+async function processRemainsRunning(
+  pid: number,
+  timeoutMs: number
+): Promise<boolean> {
+  // Linux may report a descendant as running briefly after group SIGKILL and
+  // the direct parent's exit; wait for observation, without masking survivors.
+  const deadline = Date.now() + timeoutMs;
+  while (await processIsRunning(pid)) {
+    if (Date.now() >= deadline) return true;
+    await Bun.sleep(5);
+  }
+  return false;
 }
 
 async function processIsRunning(pid: number): Promise<boolean> {

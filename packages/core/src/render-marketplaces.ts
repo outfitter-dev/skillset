@@ -16,7 +16,6 @@ import {
   claudeMarketplacePath,
   cursorMarketplacePath,
   isDefaultPluginOutputRoot,
-  marketplaceSourceForManifestPath,
   pluginLockRootPath,
   pluginManifestPath,
   providerSourceForPlugin,
@@ -528,9 +527,9 @@ export function marketplaceLockProvenance(
             )
           : [];
         const provider =
-          generatedPath === undefined
+          plugin === undefined
             ? ""
-            : marketplaceProviderSource(generatedPath);
+            : providerSourceForPlugin(graph.root.outputs.plugins[target], target, plugin);
         entries.push(
           stripUndefinedJsonRecord({
             catalog: catalogName,
@@ -814,10 +813,6 @@ function marketplacePluginManifestPath(
     target,
     plugin
   );
-}
-
-function marketplaceProviderSource(path: string): string {
-  return marketplaceSourceForManifestPath(path);
 }
 
 function stripUndefinedJsonRecord(

@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { targetNames } from "./targets";
 import type { BuildGraph, TargetName } from "./types";
 
@@ -69,30 +69,6 @@ export function pluginLockRootPath(
   return outputRoot;
 }
 
-/**
- * Maps a generated plugin manifest path back to the marketplace `source`
- * string that installs it.
- */
-export function marketplaceSourceForManifestPath(path: string): string {
-  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex|cursor)\//);
-  if (defaultMatch !== null) {
-    return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
-  }
-  const overrideMatch = path.match(/^(?:.*)\/plugins\/([^/]+)/);
-  if (overrideMatch?.[1] !== undefined) {
-    return `./plugins/${overrideMatch[1]}`;
-  }
-  // A plugin-owned bundle root: the manifest sits directly beneath the
-  // bundle destination.
-  const bundleMatch = path.match(
-    /^(.+)\/\.(?:claude|codex|cursor)-plugin\/plugin\.json$/
-  );
-  if (bundleMatch?.[1] !== undefined) {
-    return `./${bundleMatch[1]}`;
-  }
-  return path;
-}
-
 export function claudeMarketplacePath(outputRoot: string): string {
   return isDefaultPluginOutputRoot(outputRoot)
     ? ".claude-plugin/marketplace.json"
@@ -114,7 +90,8 @@ export function providerSourceForPlugin(
   plugin: PluginBundleSource
 ): string {
   if (target === "claude" && plugin.claudeBundlePath !== undefined) {
-    return `./${plugin.claudeBundlePath}`;
+    const marketplaceRoot = isDefaultPluginOutputRoot(outputRoot) ? "." : outputRoot;
+    return `./${relative(marketplaceRoot, plugin.claudeBundlePath).replaceAll("\\", "/")}`;
   }
   return isDefaultPluginOutputRoot(outputRoot)
     ? `./plugins/${plugin.id}/${target}`
