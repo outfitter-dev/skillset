@@ -10,6 +10,7 @@ import {
   deriveSkillsetJsonSchemaArtifacts,
   instructionFrontmatterContract,
   PLUGIN_CONFIG_KEYS,
+  pluginConfigContract,
   RENDERED_METADATA_SCHEMA_KEY,
   RENDERED_METADATA_SCHEMA_VERSION,
   RENDERED_SKILL_METADATA_RESERVED_KEYS,
@@ -52,6 +53,7 @@ describe("@skillset/schema contracts", () => {
     ]);
     expect(skillsetSchemaContracts.map((contract) => contract.id)).toEqual([
       "workspace-config",
+      "plugin-config",
       "source-metadata",
       "skill-frontmatter",
       "agent-frontmatter",
@@ -65,6 +67,9 @@ describe("@skillset/schema contracts", () => {
     expect(workspaceConfigContract.schema.$id).toBe(
       "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json"
     );
+    expect(pluginConfigContract.schema.$id).toBe(
+      "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/plugin-config.schema.json"
+    );
     expect(adaptiveHookContract.schema.$id).toBe(
       "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/adaptive-hook.schema.json"
     );
@@ -75,6 +80,7 @@ describe("@skillset/schema contracts", () => {
     expect(artifacts.map((artifact) => artifact.path)).toEqual([
       "docs/reference/schemas/0.1.0/skillset.schema.json",
       "docs/reference/schemas/0.1.0/workspace-config.schema.json",
+      "docs/reference/schemas/0.1.0/plugin-config.schema.json",
       "docs/reference/schemas/0.1.0/source-metadata.schema.json",
       "docs/reference/schemas/0.1.0/skill-frontmatter.schema.json",
       "docs/reference/schemas/0.1.0/agent-frontmatter.schema.json",
@@ -109,6 +115,9 @@ describe("@skillset/schema contracts", () => {
       { $ref: "#/$defs/change-entry" },
       { $ref: "#/$defs/test-declaration" },
     ]);
+    expect(combined?.oneOf).not.toContainEqual({
+      $ref: "#/$defs/plugin-config",
+    });
     const defs = combined?.$defs as Record<string, Record<string, unknown>>;
     expect(Object.keys(defs).sort()).toEqual([
       "adaptive-hook",
@@ -116,6 +125,7 @@ describe("@skillset/schema contracts", () => {
       "change-entry",
       "hook",
       "instruction-frontmatter",
+      "plugin-config",
       "skill-eval",
       "skill-frontmatter",
       "source-metadata",
@@ -131,6 +141,7 @@ describe("@skillset/schema contracts", () => {
     expect(examples.map((example) => example.path)).toEqual([
       "docs/reference/examples/report.json",
       "docs/reference/examples/workspace-config.yaml",
+      "docs/reference/examples/plugin-config.yaml",
       "docs/reference/examples/source-metadata.yaml",
       "docs/reference/examples/skill-frontmatter.yaml",
       "docs/reference/examples/agent-frontmatter.yaml",
@@ -148,6 +159,7 @@ describe("@skillset/schema contracts", () => {
     expect(
       validateWorkspaceConfig(byId["workspace-config"]).diagnostics
     ).toEqual([]);
+    expect(validatePluginConfig(byId["plugin-config"]).diagnostics).toEqual([]);
     expect(validateSourceMetadata(byId["source-metadata"]).diagnostics).toEqual(
       []
     );
@@ -336,7 +348,14 @@ describe("@skillset/schema contracts", () => {
       type: "string",
     });
     expect(workspaceProperties.claude).toEqual({
-      anyOf: [{ type: "boolean" }, { type: "object" }],
+      anyOf: [
+        { type: "boolean" },
+        {
+          additionalProperties: true,
+          not: { required: ["bundle"] },
+          type: "object",
+        },
+      ],
     });
     expect(workspaceProperties.codex).toEqual(workspaceProperties.claude);
     expect(workspaceProperties.cursor).toEqual(workspaceProperties.claude);
@@ -737,6 +756,135 @@ describe("@skillset/schema contracts", () => {
       code: "schema/plugin-config/key",
       message: "unsupported key compile",
       path: "$.compile",
+    });
+  });
+
+  it("validates per-plugin claude bundle destinations", () => {
+    expect(pluginConfigContract.schema).toMatchObject({
+      properties: {
+        claude: {
+          anyOf: [
+            { type: "boolean" },
+            {
+              properties: {
+                bundle: {
+                  additionalProperties: false,
+                  required: ["path"],
+                },
+              },
+              type: "object",
+            },
+          ],
+        },
+        codex: {
+          anyOf: [
+            { type: "boolean" },
+            { not: { required: ["bundle"] }, type: "object" },
+          ],
+        },
+        cursor: {
+          anyOf: [
+            { type: "boolean" },
+            { not: { required: ["bundle"] }, type: "object" },
+          ],
+        },
+      },
+    });
+    const pluginProperties = pluginConfigContract.schema.properties as unknown as Record<
+      string,
+      {
+        readonly anyOf: readonly {
+          readonly properties?: {
+            readonly bundle?: {
+              readonly properties?: {
+                readonly path?: { readonly pattern?: string };
+              };
+            };
+          };
+        }[];
+      }
+    >;
+    const bundlePathPattern = pluginProperties.claude?.anyOf.find(
+      (candidate) => candidate.properties?.bundle !== undefined
+    )?.properties?.bundle?.properties?.path?.pattern;
+    expect(bundlePathPattern).toBeString();
+    const bundlePathRegExp = new RegExp(bundlePathPattern ?? "");
+    expect(bundlePathRegExp.test("plugin")).toBe(true);
+    expect(bundlePathRegExp.test("plugin bundles/trails")).toBe(true);
+    expect(bundlePathRegExp.test("dist/marketplace/plugins/example")).toBe(true);
+
+    expect(
+      validatePluginConfig({ claude: { bundle: { path: "plugin" } } })
+        .diagnostics
+    ).toEqual([]);
+    expect(
+      validatePluginConfig({ claude: { bundle: { path: "dist/plugin" } } })
+        .diagnostics
+    ).toEqual([]);
+
+    for (const path of [
+      "",
+      ".",
+      "..",
+      "../plugin",
+      "plugin/../other",
+      "/plugin",
+      "C:/plugin",
+      "plugin\\nested",
+      "plugin/",
+      " ../outside",
+      " /absolute",
+      " C:/absolute",
+      ".. ",
+      "plugin/.. ",
+      " plugin",
+      "plugin ",
+      "\t../outside",
+      "plugin\n",
+    ] as const) {
+      expect(bundlePathRegExp.test(path)).toBe(false);
+      expect(
+        validatePluginConfig({ claude: { bundle: { path } } }).diagnostics
+      ).toContainEqual({
+        code: "schema/plugin-config/bundle",
+        message:
+          "$.claude.bundle.path must be a workspace-relative directory path using forward slashes without traversal",
+        path: "$.claude.bundle.path",
+      });
+    }
+
+    expect(
+      validatePluginConfig({ claude: { bundle: "plugin" } }).diagnostics
+    ).toContainEqual({
+      code: "schema/plugin-config/bundle",
+      message: "$.claude.bundle must be an object",
+      path: "$.claude.bundle",
+    });
+    expect(
+      validatePluginConfig({
+        claude: { bundle: { path: "plugin", target: "claude" } },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/plugin-config/bundle",
+      message: "unsupported key target",
+      path: "$.claude.bundle.target",
+    });
+    expect(
+      validatePluginConfig({ codex: { bundle: { path: "plugin" } } })
+        .diagnostics
+    ).toContainEqual({
+      code: "schema/plugin-config/bundle",
+      message:
+        "$.codex.bundle is not supported; bundle destinations are only available for the claude target",
+      path: "$.codex.bundle",
+    });
+    expect(
+      validateWorkspaceConfig({ claude: { bundle: { path: "plugin" } } })
+        .diagnostics
+    ).toContainEqual({
+      code: "schema/workspace-config/bundle",
+      message: "$.claude.bundle is only supported in a plugin skillset.yaml",
+      path: "$.claude.bundle",
     });
   });
 

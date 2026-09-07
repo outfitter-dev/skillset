@@ -1,10 +1,20 @@
 {
-  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json",
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/plugin-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
     "agents": {
       "type": "object"
+    },
+    "bin": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
     },
     "changes": {
       "type": "object"
@@ -16,10 +26,21 @@
         },
         {
           "additionalProperties": true,
-          "not": {
-            "required": [
-              "bundle"
-            ]
+          "properties": {
+            "bundle": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "description": "Exact workspace-relative root for this plugin's complete Claude bundle, without leading or trailing whitespace.",
+                  "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "type": "object"
+            }
           },
           "type": "object"
         }
@@ -40,59 +61,6 @@
           "type": "object"
         }
       ]
-    },
-    "compile": {
-      "additionalProperties": false,
-      "properties": {
-        "build": {
-          "enum": [
-            "all",
-            "updated"
-          ],
-          "type": "string"
-        },
-        "features": {
-          "additionalProperties": false,
-          "properties": {
-            "promptArguments": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "skillset": {
-          "additionalProperties": false,
-          "properties": {
-            "metadata": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "targets": {
-          "items": {
-            "enum": [
-              "claude",
-              "codex",
-              "cursor"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "type": "array",
-          "uniqueItems": true
-        },
-        "unsupportedDestination": {
-          "enum": [
-            "error",
-            "warn",
-            "skip",
-            "force"
-          ],
-          "type": "string"
-        }
-      },
-      "type": "object"
     },
     "cursor": {
       "anyOf": [
@@ -150,96 +118,33 @@
       },
       "type": "object"
     },
-    "distributions": {
-      "type": "object"
-    },
-    "marketplaces": {
+    "hooks": {
       "additionalProperties": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "plugins": {
-            "items": {
+        "items": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
               "additionalProperties": false,
-              "allOf": [
-                {
-                  "not": {
-                    "required": [
-                      "channel",
-                      "ref"
-                    ]
-                  }
-                },
-                {
-                  "not": {
-                    "required": [
-                      "channel",
-                      "sha"
-                    ]
-                  }
-                },
-                {
-                  "not": {
-                    "required": [
-                      "channel",
-                      "version"
-                    ]
-                  }
-                },
-                {
-                  "not": {
-                    "required": [
-                      "ref",
-                      "sha"
-                    ]
-                  }
-                },
-                {
-                  "not": {
-                    "required": [
-                      "ref",
-                      "version"
-                    ]
-                  }
-                },
-                {
-                  "not": {
-                    "required": [
-                      "sha",
-                      "version"
-                    ]
-                  }
-                }
-              ],
               "properties": {
-                "channel": {
-                  "const": "latest",
+                "hook": {
+                  "minLength": 1,
                   "type": "string"
                 },
-                "id": {
-                  "pattern": "^[a-z0-9][a-z0-9-]*$",
-                  "type": "string"
+                "match": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    {
+                      "type": "object"
+                    }
+                  ]
                 },
-                "plugin": {
-                  "pattern": "^[a-z0-9][a-z0-9-]*$",
-                  "type": "string"
-                },
-                "ref": {
-                  "pattern": "^(?!.*(?:\\.\\.|//|@\\{|\\.lock$))[A-Za-z0-9][A-Za-z0-9._/-]*(?<![./])$",
-                  "type": "string"
-                },
-                "repo": {
-                  "pattern": "^(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?|[^:@/\\s]+@[^:\\s/]+:[^\\s]+|https://(?![^/]*@)[^\\s/?#]+/[^\\s?#]+|ssh://(?:[^:@\\s]+@)?[^\\s/?#]+/[^\\s?#]+)$",
-                  "type": "string"
-                },
-                "sha": {
-                  "pattern": "^[0-9a-f]{40}$",
-                  "type": "string"
-                },
-                "targets": {
+                "providers": {
                   "items": {
                     "enum": [
                       "claude",
@@ -252,46 +157,79 @@
                   "type": "array",
                   "uniqueItems": true
                 },
-                "version": {
-                  "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+                "status": {
+                  "minLength": 1,
                   "type": "string"
                 }
               },
-              "required": [
-                "plugin"
-              ],
               "type": "object"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "targets": {
-            "items": {
-              "enum": [
-                "claude",
-                "codex",
-                "cursor"
-              ],
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array",
-            "uniqueItems": true
-          },
-          "title": {
-            "minLength": 1,
-            "type": "string"
-          }
+            }
+          ]
         },
-        "required": [
-          "plugins"
-        ],
-        "type": "object"
+        "type": "array"
       },
-      "propertyNames": {
-        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      "properties": {
+        "auto": {
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "hook": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "match": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "providers": {
+                    "items": {
+                      "enum": [
+                        "claude",
+                        "codex",
+                        "cursor"
+                      ],
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "status": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        }
       },
       "type": "object"
+    },
+    "mcp": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
     },
     "skillset": {
       "additionalProperties": false,
@@ -626,19 +564,8 @@
           "type": "object"
         }
       ]
-    },
-    "workspace": {
-      "additionalProperties": false,
-      "properties": {
-        "cacheKey": {
-          "maxLength": 160,
-          "pattern": "^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$",
-          "type": "string"
-        }
-      },
-      "type": "object"
     }
   },
-  "title": "Workspace Config",
+  "title": "Plugin Config",
   "type": "object"
 }

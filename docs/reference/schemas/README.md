@@ -11,6 +11,7 @@ The combined schema is [`skillset.schema.json`](./0.1.0/skillset.schema.json). U
 | Contract | Artifact | Purpose |
 | --- | --- | --- |
 | `workspace-config` | [`workspace-config.schema.json`](./0.1.0/workspace-config.schema.json) | Skillset workspace configuration. |
+| `plugin-config` | [`plugin-config.schema.json`](./0.1.0/plugin-config.schema.json) | Skillset plugin configuration. |
 | `source-metadata` | [`source-metadata.schema.json`](./0.1.0/source-metadata.schema.json) | Shared source metadata for workspaces, plugins, and generated attribution. |
 | `skill-frontmatter` | [`skill-frontmatter.schema.json`](./0.1.0/skill-frontmatter.schema.json) | Adaptive Skillset skill frontmatter. |
 | `agent-frontmatter` | [`agent-frontmatter.schema.json`](./0.1.0/agent-frontmatter.schema.json) | Adaptive Skillset agent frontmatter. |
@@ -29,6 +30,7 @@ The examples are generated from typed fixtures and checked against the same sche
 | --- | --- | --- |
 | `report` | [`report.json`](../examples/report.json) | Immutable Skillset typed operational report receipt. |
 | `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest for Skillset repos. |
+| `plugin-config` | [`plugin-config.yaml`](../examples/plugin-config.yaml) | Maximal plugin manifest for a Skillset plugin. |
 | `source-metadata` | [`source-metadata.yaml`](../examples/source-metadata.yaml) | Shared source metadata used under the skillset key. |
 | `skill-frontmatter` | [`skill-frontmatter.yaml`](../examples/skill-frontmatter.yaml) | Adaptive skill frontmatter. |
 | `agent-frontmatter` | [`agent-frontmatter.yaml`](../examples/agent-frontmatter.yaml) | Adaptive project-agent frontmatter. |

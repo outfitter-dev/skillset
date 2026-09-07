@@ -29,6 +29,16 @@ describe("distribution runtime contract", () => {
 });
 
 describe("schema-owned config document contexts", () => {
+  it("rejects bundle paths before parser trimming can change their meaning", () => {
+    for (const path of [" ../outside", " /absolute", " C:/absolute", ".. ", "plugin/.. "]) {
+      expect(() => validateConfigDocument(
+        { claude: { bundle: { path } } },
+        ".skillset/plugins/demo/skillset.yaml",
+        { allowHooks: true }
+      )).toThrow("claude.bundle.path must be a workspace-relative directory path");
+    }
+  });
+
   it("keeps Core validation aligned with each schema-owned document vocabulary", () => {
     expect(() => validateConfigDocument({
       compile: { targets: ["cursor"] },

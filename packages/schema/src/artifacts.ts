@@ -12,6 +12,7 @@ import {
   cliResultContract,
   hookContract,
   instructionFrontmatterContract,
+  pluginConfigContract,
   reportContract,
   skillEvalContract,
   skillFrontmatterContract,
@@ -37,6 +38,7 @@ const schemaFileNames = {
   "cli-result": "cli-result.schema.json",
   hook: "hook.schema.json",
   "instruction-frontmatter": "instruction-frontmatter.schema.json",
+  "plugin-config": "plugin-config.schema.json",
   report: "report.schema.json",
   "skill-eval": "skill-eval.schema.json",
   "skill-frontmatter": "skill-frontmatter.schema.json",
@@ -116,6 +118,7 @@ export const skillsetSourceMetadataJsonSchema = sourceMetadataContract.schema;
 export const skillsetSkillFrontmatterJsonSchema = skillFrontmatterContract.schema;
 export const skillsetAgentFrontmatterJsonSchema = agentFrontmatterContract.schema;
 export const skillsetInstructionFrontmatterJsonSchema = instructionFrontmatterContract.schema;
+export const skillsetPluginConfigJsonSchema = pluginConfigContract.schema;
 export const skillsetSkillEvalJsonSchema = skillEvalContract.schema;
 export const skillsetHookJsonSchema = hookContract.schema;
 export const skillsetAdaptiveHookJsonSchema = adaptiveHookContract.schema;
