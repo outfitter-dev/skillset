@@ -2,4 +2,6 @@
 "@skillset/cli": minor
 ---
 
-Plugins can own the exact root of their Claude bundle with `claude.bundle.path` in the plugin-local `skillset.yaml`. The destination receives the complete bundle (manifest, skills, hooks, agents, islands, companions, licenses) with no implicit `plugins/<id>` or provider segment, carries its own `skillset.lock`, and is validated against traversal, root reuse, nesting, and cross-plugin collisions — while the repository marketplace stays at `.claude-plugin/marketplace.json` and references the bundle as `source: ./<path>`. This is independent of the workspace-wide `claude.plugins.path`, which continues to move the marketplace and default-shaped bundles together.
+Plugins can own the exact workspace-relative root of their complete Claude bundle with `claude.bundle.path` in the plugin-local `skillset.yaml`. The destination carries its own `skillset.lock` and includes the manifest, skills, hooks, agents, native files, executable companions, and explicitly selected licenses without implicit provider or plugin segments.
+
+With default marketplace placement, a bundle at `plugin` is referenced from `.claude-plugin/marketplace.json` as `./plugin`. With workspace `claude.plugins.path: dist`, a nested bundle at `dist/trails` is referenced from `dist/.claude-plugin/marketplace.json` as `./trails`. Validation rejects destinations outside a custom marketplace root, conflicts with source or provider metadata, and overlapping plugin ownership, while allowing independently locked bundles beneath their own marketplace container.
