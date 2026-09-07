@@ -3,13 +3,19 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  NPM_PROVENANCE_PREDICATE,
+  publishAndVerify,
+  readReleaseRegistryStates,
+  type PublicationIO,
+  type RegistryDocument,
+} from "./publish-propagation";
+import {
   RELEASE_PACKAGE_SPECS,
   npmPublishCommand,
   planCoordinatedRelease,
   readReleasePackageSet,
-  type ReleasePackageSpec,
   type ReleaseRegistryState,
+  type CoordinatedReleasePlan,
+  type ReleasePackageSpec,
 } from "./release-packages";
 import { resolveReleaseVersionCommit } from "./release-ref";
 import {
@@ -18,25 +24,7 @@ import {
   type StagedReleaseTarball,
 } from "./release-tarballs";
 
-type DistTags = Record<string, string | undefined>;
-
-type RegistryDocument = {
-  "dist-tags"?: DistTags;
-  versions?: Record<
-    string,
-    {
-      dist?: {
-        attestations?: {
-          provenance?: { predicateType?: unknown };
-        };
-        integrity?: unknown;
-      };
-    }
-  >;
-};
-
 interface RegistryState extends ReleaseRegistryState {
-  readonly document: RegistryDocument | null;
   readonly tag: string;
   readonly version: string;
 }
@@ -65,10 +53,14 @@ export function distTagForVersion(version: string) {
   return tag;
 }
 
-async function fetchRegistryDocument(name: string) {
+async function fetchRegistryDocument(
+  name: string,
+  signal = AbortSignal.timeout(30_000)
+) {
   const url = `${registryUrl}/${encodeURIComponent(name)}`;
   const response = await fetch(url, {
     headers: { accept: "application/json" },
+    signal,
   });
 
   if (response.status === 404) return null;
@@ -88,27 +80,25 @@ async function getRegistryStates(): Promise<{
 }> {
   const releaseSet = await readReleasePackageSet(rootDir);
   const tag = distTagForVersion(releaseSet.version);
-  const states = await Promise.all(
-    releaseSet.packages.map(async (spec): Promise<RegistryState> => {
-      const document = await fetchRegistryDocument(spec.name);
-      const publishedVersion = document?.versions?.[releaseSet.version];
-      return {
-        document,
-        integrity:
-          typeof publishedVersion?.dist?.integrity === "string"
-            ? publishedVersion.dist.integrity
-            : undefined,
+  const states = (
+    await readReleaseRegistryStates(
+      releaseSet.packages.map((spec) => ({
         name: spec.name,
-        provenancePredicateType:
-          typeof publishedVersion?.dist?.attestations?.provenance
-            ?.predicateType === "string"
-            ? publishedVersion.dist.attestations.provenance.predicateType
-            : undefined,
-        published: Boolean(publishedVersion),
-        tag,
-        taggedVersion: document?.["dist-tags"]?.[tag],
         version: releaseSet.version,
-      };
+        tag,
+      })),
+      {
+        read: fetchRegistryDocument,
+        sleep: Bun.sleep,
+        now: () => performance.now(),
+        log: console.error,
+      }
+    )
+  ).map(
+    (state): RegistryState => ({
+      ...state,
+      tag,
+      version: releaseSet.version,
     })
   );
   return { states, tag, version: releaseSet.version };
@@ -227,35 +217,6 @@ async function commandCheck() {
   await run(["bun", "run", "check:pack"]);
 }
 
-async function waitForPublished(
-  spec: ReleasePackageSpec,
-  version: string,
-  tag: string,
-  integrity: string
-): Promise<void> {
-  for (let attempt = 1; attempt <= 10; attempt += 1) {
-    const document = await fetchRegistryDocument(spec.name);
-    const published = document?.versions?.[version];
-    if (
-      published?.dist?.integrity === integrity &&
-      published.dist.attestations?.provenance?.predicateType ===
-        NPM_PROVENANCE_PREDICATE &&
-      document?.["dist-tags"]?.[tag] === version
-    ) {
-      return;
-    }
-
-    console.error(
-      `skillset: waiting for ${spec.name}@${version} registry propagation (${attempt}/10)`
-    );
-    await Bun.sleep(3000);
-  }
-
-  throw new Error(
-    `${spec.name}@${version} did not become visible with dist-tag ${tag}`
-  );
-}
-
 async function commandReleaseCheck(
   nativeOutputDir: string,
   stageDir: string
@@ -273,6 +234,74 @@ async function commandReleaseCheck(
     current.tag,
     expectedIntegrity(staged)
   );
+}
+
+export async function publishReleasePackages(
+  initial: { version: string; tag: string },
+  initialPlan: CoordinatedReleasePlan,
+  packages: readonly StagedReleaseTarball[],
+  io: Omit<PublicationIO, "publish"> & {
+    readonly states: () => Promise<{
+      states: readonly ReleaseRegistryState[];
+      version: string;
+      tag: string;
+    }>;
+    readonly publish: (
+      spec: ReleasePackageSpec,
+      tarballPath: string
+    ) => ReturnType<PublicationIO["publish"]>;
+  }
+): Promise<boolean> {
+  const stagedIntegrity = expectedIntegrity(packages);
+  let publishedAny = false;
+  for (const spec of RELEASE_PACKAGE_SPECS) {
+    if (!initialPlan.missing.includes(spec.name)) continue;
+    const tarball = packages.find((entry) => entry.name === spec.name)!;
+
+    if (spec.role === "launcher") {
+      const beforeLauncher = await io.states();
+      const launcherPlan = planCoordinatedRelease(
+        beforeLauncher.states,
+        beforeLauncher.version,
+        beforeLauncher.tag,
+        stagedIntegrity
+      );
+      if (
+        launcherPlan.mode !== "complete" &&
+        (launcherPlan.missing.length !== 1 ||
+          launcherPlan.missing[0] !== "skillset")
+      ) {
+        throw new Error(
+          `Refusing to publish skillset@${initial.version} before every prerequisite package is visible`
+        );
+      }
+    }
+
+    const published = await publishAndVerify(
+      {
+        name: spec.name,
+        version: initial.version,
+        tag: initial.tag,
+        integrity: tarball.integrity,
+      },
+      { ...io, publish: () => io.publish(spec, tarball.path) }
+    );
+    publishedAny ||= published;
+  }
+
+  const final = await io.states();
+  const finalPlan = planCoordinatedRelease(
+    final.states,
+    final.version,
+    final.tag,
+    stagedIntegrity
+  );
+  if (finalPlan.mode !== "complete") {
+    throw new Error(
+      `Coordinated registry set did not complete; missing ${finalPlan.missing.join(", ")}`
+    );
+  }
+  return publishedAny;
 }
 
 async function commandPublish(nativeOutputDir?: string, stageDir?: string) {
@@ -311,60 +340,40 @@ async function commandPublish(nativeOutputDir?: string, stageDir?: string) {
   }
   assertPublishAllowed();
 
-  let publishedAny = false;
-  for (const spec of RELEASE_PACKAGE_SPECS) {
-    if (!initialPlan.missing.includes(spec.name)) continue;
-    const tarball = staged.packages.find((entry) => entry.name === spec.name)!;
-
-    if (spec.role === "launcher") {
-      const beforeLauncher = await getRegistryStates();
-      const launcherPlan = planCoordinatedRelease(
-        beforeLauncher.states,
-        beforeLauncher.version,
-        beforeLauncher.tag,
-        stagedIntegrity
-      );
-      if (
-        launcherPlan.missing.length !== 1 ||
-        launcherPlan.missing[0] !== "skillset"
-      ) {
-        throw new Error(
-          `Refusing to publish skillset@${initial.version} before every prerequisite package is visible`
-        );
-      }
+  const publishedAny = await publishReleasePackages(
+    initial,
+    initialPlan,
+    staged.packages,
+    {
+      read: fetchRegistryDocument,
+      states: getRegistryStates,
+      sleep: Bun.sleep,
+      now: () => performance.now(),
+      log: console.error,
+      publish: async (spec, tarballPath) => {
+        const command = npmPublishCommand(spec, initial.tag, tarballPath);
+        console.error(`skillset: running ${command.join(" ")}`);
+        const subprocess = Bun.spawn([...command], {
+          cwd: resolve(rootDir, spec.directory),
+          stderr: "pipe",
+          stdin: "inherit",
+          stdout: "inherit",
+        });
+        const [exitCode, stderr] = await Promise.all([
+          subprocess.exited,
+          new Response(subprocess.stderr).text(),
+        ]);
+        process.stderr.write(stderr);
+        return { exitCode, stderr };
+      },
     }
-
-    await run(
-      npmPublishCommand(spec, initial.tag, tarball.path),
-      resolve(rootDir, spec.directory)
-    );
-    await waitForPublished(
-      spec,
-      initial.version,
-      initial.tag,
-      tarball.integrity
-    );
-    publishedAny = true;
-  }
-
-  const final = await getRegistryStates();
-  const finalPlan = planCoordinatedRelease(
-    final.states,
-    final.version,
-    final.tag,
-    stagedIntegrity
   );
-  if (finalPlan.mode !== "complete") {
-    throw new Error(
-      `Coordinated registry set did not complete; missing ${finalPlan.missing.join(", ")}`
-    );
-  }
   await writeGitHubOutput({
     name: "skillset",
     published: publishedAny,
     registry_complete: true,
-    tag: final.tag,
-    version: final.version,
+    tag: initial.tag,
+    version: initial.version,
   });
 }
 
