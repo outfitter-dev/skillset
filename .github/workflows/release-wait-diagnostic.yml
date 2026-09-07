@@ -1,0 +1,37 @@
+name: Release Wait Diagnostic
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_run:
+    workflows: [Release]
+    types: [requested, in_progress, completed]
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - .github/workflows/release-wait-diagnostic.yml
+
+permissions:
+  contents: read
+  actions: read
+
+# Independent of Release's held concurrency group and protected environments.
+# The PR trigger validates workflow syntax; observation runs only from main.
+jobs:
+  observe:
+    name: Release wait diagnostic
+    if: github.repository == 'outfitter-dev/skillset' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - name: Report approval gates and zero-job queues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/release-wait-diagnostic.ts
