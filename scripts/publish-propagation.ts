@@ -164,3 +164,26 @@ export async function readReleaseRegistryState(
     taggedVersion: document?.["dist-tags"]?.[publication.tag],
   };
 }
+
+/** After any sibling occupied wait, reread absents so a stale miss cannot freeze a false non-prefix. */
+export async function readReleaseRegistryStates(
+  publications: readonly (Omit<Publication, "integrity">)[],
+  io: Omit<PublicationIO, "publish">
+): Promise<ReleaseRegistryState[]> {
+  const states = await Promise.all(
+    publications.map((publication) => readReleaseRegistryState(publication, io))
+  );
+  if (
+    !states.some((state) => state.published) ||
+    states.every((state) => state.published)
+  ) {
+    return states;
+  }
+  return Promise.all(
+    states.map((state, index) =>
+      state.published
+        ? state
+        : readReleaseRegistryState(publications[index]!, io)
+    )
+  );
+}

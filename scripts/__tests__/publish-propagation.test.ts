@@ -4,6 +4,7 @@ import {
   isImmutableVersionConflict,
   publishAndVerify,
   readReleaseRegistryState,
+  readReleaseRegistryStates,
   type RegistryDocument,
 } from "../publish-propagation";
 import { NPM_PROVENANCE_PREDICATE } from "../release-packages";
@@ -185,6 +186,82 @@ describe("npm propagation and immutable retry", () => {
       readReleaseRegistryState(publication, incomplete.io)
     ).rejects.toThrow("within 300s");
     expect(incomplete.publishes()).toBe(0);
+  });
+
+  test("coordinated preflight rereads a stale absent after a sibling occupied wait", async () => {
+    const earlier = {
+      name: "@skillset/native-darwin-arm64",
+      version: publication.version,
+      tag: publication.tag,
+    };
+    const later = {
+      name: publication.name,
+      version: publication.version,
+      tag: publication.tag,
+    };
+    const incomplete = {
+      versions: {
+        [publication.version]: { dist: { integrity: publication.integrity } },
+      },
+    };
+    let earlierReads = 0;
+    let laterReads = 0;
+    let elapsed = 0;
+    const io = {
+      read: async (name: string) => {
+        if (name === earlier.name) {
+          earlierReads += 1;
+          return earlierReads === 1 ? null : visible();
+        }
+        laterReads += 1;
+        return laterReads === 1 ? incomplete : visible();
+      },
+      sleep: async (ms: number) => {
+        elapsed += ms;
+      },
+      now: () => elapsed,
+      log: () => {},
+    };
+    const states = await readReleaseRegistryStates([earlier, later], io);
+    expect(states.map((state) => [state.name, state.published])).toEqual([
+      [earlier.name, true],
+      [later.name, true],
+    ]);
+    expect(earlierReads).toBe(2);
+    expect(elapsed).toBeGreaterThan(0);
+  });
+
+  test("coordinated preflight rereads a genuine absent once and does not wait", async () => {
+    const published = {
+      name: "@skillset/native-darwin-arm64",
+      version: publication.version,
+      tag: publication.tag,
+    };
+    const missing = {
+      name: publication.name,
+      version: publication.version,
+      tag: publication.tag,
+    };
+    let missingReads = 0;
+    const sleeps: number[] = [];
+    const io = {
+      read: async (name: string) => {
+        if (name === missing.name) {
+          missingReads += 1;
+          return null;
+        }
+        return visible();
+      },
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+      now: () => 0,
+      log: () => {},
+    };
+    const states = await readReleaseRegistryStates([published, missing], io);
+    expect(states.map((state) => state.published)).toEqual([true, false]);
+    expect(missingReads).toBe(2);
+    expect(sleeps).toEqual([]);
   });
 
   test("a fresh occupied version with different bytes is rejected on its first document", async () => {

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   publishAndVerify,
-  readReleaseRegistryState,
+  readReleaseRegistryStates,
   type PublicationIO,
   type RegistryDocument,
 } from "./publish-propagation";
@@ -80,22 +80,25 @@ async function getRegistryStates(): Promise<{
 }> {
   const releaseSet = await readReleasePackageSet(rootDir);
   const tag = distTagForVersion(releaseSet.version);
-  const states = await Promise.all(
-    releaseSet.packages.map(async (spec): Promise<RegistryState> => {
-      const state = await readReleaseRegistryState(
-        { name: spec.name, version: releaseSet.version, tag },
-        {
-          read: fetchRegistryDocument,
-          sleep: Bun.sleep,
-          now: () => performance.now(),
-          log: console.error,
-        }
-      );
-      return {
-        ...state,
-        tag,
+  const states = (
+    await readReleaseRegistryStates(
+      releaseSet.packages.map((spec) => ({
+        name: spec.name,
         version: releaseSet.version,
-      };
+        tag,
+      })),
+      {
+        read: fetchRegistryDocument,
+        sleep: Bun.sleep,
+        now: () => performance.now(),
+        log: console.error,
+      }
+    )
+  ).map(
+    (state): RegistryState => ({
+      ...state,
+      tag,
+      version: releaseSet.version,
     })
   );
   return { states, tag, version: releaseSet.version };
