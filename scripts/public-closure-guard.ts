@@ -520,6 +520,21 @@ function searchCommandOwner(
   };
 }
 
+function shellSearchPathCandidates(
+  value: string,
+  cwd: string,
+  repoRoot: string | undefined
+): readonly string[] {
+  const path = normalizeClosureText(value, repoRoot, false).shellText;
+  const resolved = resolveShellPath(cwd, path);
+  // The seam has already reduced unresolved checkout roots to ./, losing
+  // their distinction from literal ./ paths. Retain that conservative route;
+  // other relative entries use only the lookup's cwd.
+  return path.startsWith("./")
+    ? [path, resolved]
+    : [resolved];
+}
+
 /** Checks every operand except positions known to contain non-path data. */
 function hasProtectedRootCommandArgument(
   command: string,
@@ -553,6 +568,12 @@ function hasProtectedRootCommandArgument(
         allowDirectOwner
       );
     const wrapper = readShellWrapperPrefix(segment, incomingCwd);
+    if (
+      wrapper.pathLookups.some(({ path: value, cwd }) =>
+        shellSearchPathCandidates(value, cwd, repoRoot).some(matches)
+      )
+    )
+      return true;
     if (
       wrapper.assignmentPaths.some((value) => {
         const path = normalizeClosureText(value, repoRoot, false).shellText;
@@ -1096,10 +1117,15 @@ function hasRepoInternalScriptReference(
   const assignmentPaths = commands.flatMap((command) =>
     readShellSegments(command).flatMap((segment) => {
       const wrapper = readShellWrapperPrefix(segment);
-      return wrapper.assignmentPaths.flatMap((value) => {
-        const path = normalizeClosureText(value, repoRoot, false).shellText;
-        return [path, resolveShellPath(wrapper.cwd, path)];
-      });
+      return [
+        ...wrapper.assignmentPaths.flatMap((value) => {
+          const path = normalizeClosureText(value, repoRoot, false).shellText;
+          return [path, resolveShellPath(wrapper.cwd, path)];
+        }),
+        ...wrapper.pathLookups.flatMap(({ path: value, cwd }) =>
+          shellSearchPathCandidates(value, cwd, repoRoot)
+        ),
+      ];
     })
   );
   const candidates = [

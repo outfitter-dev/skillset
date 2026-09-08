@@ -121,6 +121,41 @@ describe("SET-489 default shell operand policy", () => {
   });
 
   test("checks each executable search path without splitting arbitrary labels", () => {
+    expect(rules("env -C docs PATH=development env -C ../public tool")).toEqual([
+      "development-docs",
+    ]);
+    expect(rules("PATH=docs/development env -C public tool")).toEqual([
+      "development-docs",
+    ]);
+    for (const command of [
+      "env -C public PATH=../development env -C ../docs tool",
+      "env -C docs PATH=development PATH=public skillset check",
+      "env -C public PATH=bin:docs/development env tool",
+      "env -C public PATH=bin:scripts/private.ts env tool",
+      "env -C public PATH=bin:$HOME/scripts/private.ts env tool",
+    ]) expect(rules(command)).toEqual([]);
+    expect(rules("env -C public PATH=bin:$ROOT/scripts/private.ts env tool")).toEqual([
+      "internal-script",
+    ]);
+    expect(rules("env -C public PATH=bin:$ROOT/docs/development env tool")).toEqual([
+      "development-docs",
+    ]);
+    expect(rules("env -C public PATH=$ROOT/docs/development skillset check")).toEqual([
+      "development-docs",
+    ]);
+    expect(rules("env -C public PATH=$ROOT/scripts/private.ts skillset check")).toEqual([
+      "internal-script",
+    ]);
+    for (const command of [
+      "PATH=development PATH+=:public env -C docs tool",
+      "PATH=development PATH+=/tool env -C docs tool",
+      "PATH=development:public PATH+=suffix env -C docs tool",
+    ]) expect(rules(command)).toEqual(["development-docs"]);
+    expect(rules("PATH+=:packages PATH+=:public tool")).toEqual(["internal-package"]);
+    expect(rules("PATH=development PATH+=public env -C docs tool")).toEqual([]);
+    expect(
+      rules("PATH=development PATH+=:public PATH=public env -C docs tool")
+    ).toEqual([]);
     expect(rules("PATH+=:packages tool")).toEqual(["internal-package"]);
     expect(rules("PATH+=:packages sudo tool")).toEqual(["internal-package"]);
     expect(rules("PATH+=:public skillset explain packages/core")).toEqual([]);

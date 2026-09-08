@@ -96,12 +96,20 @@ export function readShellWrapperPrefix(
   readonly cwd: string;
   readonly repositoryPaths: readonly string[];
   readonly assignmentPaths: readonly string[];
+  readonly pathLookups: readonly { readonly path: string; readonly cwd: string }[];
   readonly index: number;
 } {
   const directories: string[] = [];
   let cwd = incomingCwd;
   const repositoryPaths: string[] = [];
   const assignmentPaths: string[] = [];
+  const pathLookups: { path: string; cwd: string }[] = [];
+  let pathEntries: string[] = [];
+  let legacyPathValue: string | undefined;
+  let modernPathValue: string | undefined;
+  const recordPathLookup = (): void => {
+    pathLookups.push(...pathEntries.map((path) => ({ path, cwd })));
+  };
   let index = 0;
   if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
   while (tokens[index] === "!") index += 1;
@@ -116,14 +124,26 @@ export function readShellWrapperPrefix(
       const value = assignment.slice(separator + 1);
       // Bare environment labels are data; a slash supplies path evidence.
       // PATH is a shell search list, so even its bare entries name directories.
-      if (name === "PATH")
-        assignmentPaths.push(...value.split(":").filter(Boolean));
-      else if (/[/\\]/u.test(value)) assignmentPaths.push(value);
+      if (name === "PATH") {
+        // Bash 3 replaces temporary += values; modern Bash/Zsh concatenate.
+        // Keep both concrete outcomes, without retaining overwritten entries.
+        legacyPathValue = value;
+        modernPathValue =
+          assignment[separator - 1] === "+"
+            ? (modernPathValue ?? "") + value
+            : value;
+        pathEntries = [
+          ...new Set(
+            [legacyPathValue, modernPathValue].flatMap((path) => path.split(":"))
+          ),
+        ].filter(Boolean);
+      } else if (/[/\\]/u.test(value)) assignmentPaths.push(value);
       index += 1;
     }
   };
   // Bash/Zsh append assignment is shell syntax, not an env/sudo NAME=value.
   skipAssignments(true);
+  recordPathLookup();
 
   while (index < tokens.length) {
     const wrapper = (tokens[index] ?? "").toLowerCase();
@@ -143,6 +163,7 @@ export function readShellWrapperPrefix(
           cwd,
           repositoryPaths,
           assignmentPaths,
+          pathLookups,
           index: tokens.length,
         };
       }
@@ -189,9 +210,12 @@ export function readShellWrapperPrefix(
       repositoryPaths.push(cwd);
     }
     skipAssignments();
+    // Each wrapper searches for its next executable before that executable
+    // can change cwd again. Preserve this boundary separately from final cwd.
+    recordPathLookup();
   }
 
-  return { directories, cwd, repositoryPaths, assignmentPaths, index };
+  return { directories, cwd, repositoryPaths, assignmentPaths, pathLookups, index };
 }
 
 export function unwrapShellCommand(
