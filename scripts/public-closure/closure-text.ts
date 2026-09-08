@@ -2,7 +2,11 @@ import { posix } from "node:path";
 
 import { collapseRepeatedPathSeparators } from "./owner-paths";
 import { withoutSearchCommandSegments } from "./search-dialects";
-import { readShellRedirectionTargets, readShellSegments } from "./shell-tokens";
+import {
+  readCommandToken,
+  readShellRedirectionTargets,
+  readShellSegments,
+} from "./shell-tokens";
 import { unwrapShellCommand } from "./shell-wrappers";
 
 /**
@@ -102,6 +106,29 @@ function withoutSkillsetCommands(
       });
 }
 
+function preserveExternalHomeAnchors(text: string): string {
+  let result = "";
+  let offset = 0;
+  for (const match of text.matchAll(
+    /(^|[\s`=<>()[\]{},;|&:])(?=["']?\$(?:HOME|\{HOME\})\/)/gu
+  )) {
+    const start = match.index + (match[1]?.length ?? 0);
+    if (start < offset) continue;
+    const token = readCommandToken(text, start);
+    if (!token) continue;
+    // HOME is symbolic and external. Parent traversal must not cancel the
+    // anchor; the existing token reader preserves quoted segments and spaces.
+    const value = token.value.replace(
+      /(\$(?:HOME|\{HOME\}))(\/[^:]*)/gu,
+      (_match: string, anchor: string, suffix: string) =>
+        `${anchor}${posix.normalize(suffix)}`
+    );
+    result += text.slice(offset, start) + JSON.stringify(value);
+    offset = token.end;
+  }
+  return result + text.slice(offset);
+}
+
 /**
  * Resolves literal `$PWD`, `${PWD}`, `$(pwd)`, and `` `pwd` ``
  * working-directory expansions against the repository root so shell guidance
@@ -123,7 +150,7 @@ function normalizePathExpansions(
     normalizedRoot === undefined || normalizedRoot.length === 0
       ? "."
       : normalizedRoot;
-  return (
+  return preserveExternalHomeAnchors(
     text
       // Quoting only an expansion does not separate it from a following slash.
       // Join those prefix pieces before applying the same HOME/owner policy.

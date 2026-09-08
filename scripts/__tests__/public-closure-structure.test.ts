@@ -75,6 +75,23 @@ describe("SET-489 structural path extraction", () => {
     }
   });
 
+  test("HOME parent traversal retains its external anchor", () => {
+    for (const path of [
+      '"$HOME"/../packages/core',
+      '"${HOME}"/../packages/core',
+      '"$HOME/../packages/core"',
+      '${HOME}/child/../../scripts/private.ts',
+      '$HOME/../../docs/development',
+      '"$HOME"/".."/packages/core',
+      '"$HOME"/child/".."/".."/fixtures',
+      '"$HOME/a b/../../packages/core"',
+    ]) {
+      expect(rules(`cat ${path}`)).toEqual([]);
+      expect(rules(`\`\`\`sh\ncat ${path}\n\`\`\``)).toEqual([]);
+    }
+    expect(rules('cat "$ROOT"/../packages/core')).toEqual(["internal-package"]);
+  });
+
   test("normalization supplies the same expansion policy to shell and prose views", () => {
     const normalized = normalizeClosureText(
       'cat "$ROOT/packages/core"',
