@@ -217,6 +217,7 @@ describe("SET-489 default shell operand policy", () => {
   test("preserves redirection routes around exempt skillset arguments", () => {
     for (const command of [
       "skillset check > packages/core/out.txt",
+      "> packages skillset check",
       "> packages/core/out.txt skillset explain public",
       'skillset check >> "packages/core/out.txt"',
       "skillset check < packages/core/input.txt",
@@ -237,10 +238,15 @@ describe("SET-489 default shell operand policy", () => {
     }
     expect(rules("skillset check > scripts")).toEqual(["internal-script"]);
     expect(rules("skillset check > fixtures")).toEqual(["fixture-path"]);
+    expect(rules("> scripts skillset check")).toEqual(["internal-script"]);
+    expect(rules("> fixtures skillset check")).toEqual(["fixture-path"]);
     for (const command of [
       "skillset explain packages/core > public/out.txt",
       "> public/out.txt skillset explain packages/core",
       "skillset explain packages/core 2>&1",
+      "skillset explain packages/core >&2",
+      "> skillset explain packages/core",
+      "> rg packages public",
       "skillset explain packages/core <&packages/core",
       "skillset explain packages/core 2>&packages/core",
       "skillset explain packages/core << packages",

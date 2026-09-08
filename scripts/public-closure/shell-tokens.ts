@@ -120,6 +120,10 @@ function readShellCommandSegments(
       /\s/u.test(text[offset + 1] ?? "") &&
       !readCommandToken(text, offset + 1)?.value.includes("/")
     ) {
+      // A bare word can also be a redirect destination. Retain that candidate
+      // without changing how documented prompt-prefixed commands are read.
+      const target = readCommandToken(text, offset + 1);
+      if (target) redirectionTargets?.push(target.value);
       segments.at(-1)?.push(">");
       offset += 1;
       continue;
