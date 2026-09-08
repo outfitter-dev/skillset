@@ -1133,6 +1133,9 @@ function hasRepoInternalScriptReference(
     ...[...normalizedText.matchAll(PATH_CANDIDATE_PATTERN)].map(
       (match) => match[0]
     ),
+    ...commands.flatMap(readShellRedirectionTargets).map(
+      (value) => normalizeClosureText(value, repoRoot, false).shellText
+    ),
     ...assignmentPaths,
   ];
   for (const value of candidates) {

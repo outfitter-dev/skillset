@@ -240,6 +240,15 @@ describe("SET-489 default shell operand policy", () => {
     expect(rules("skillset check > fixtures")).toEqual(["fixture-path"]);
     expect(rules("> scripts skillset check")).toEqual(["internal-script"]);
     expect(rules("> fixtures skillset check")).toEqual(["fixture-path"]);
+    for (const operator of [">", ">>", "<", "<>", "&>", "&>>", ">|", ">&"]) {
+      expect(rules(`cat x ${operator} scripts/private.ts`)).toEqual([
+        "internal-script",
+      ]);
+      expect(rules(`cat x ${operator} scripts/public.ts`)).toEqual([]);
+    }
+    expect(rules("env -C public cat x &> scripts/private.ts")).toEqual([
+      "internal-script",
+    ]);
     for (const command of [
       "skillset explain packages/core > public/out.txt",
       "> public/out.txt skillset explain packages/core",
