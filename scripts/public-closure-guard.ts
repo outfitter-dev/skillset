@@ -305,9 +305,10 @@ export function isGeneratedPublicPath(path: string): boolean {
 
 /**
  * Checks supported top-level/tokenized shell operands alongside prose routes.
- * Nested process substitutions are not analyzed with outer-command resumption;
- * that known limitation is tracked in SET-517. A clean scan of the current
- * generated tree is not proof of complete POSIX/Bash shell analysis.
+ * General nested command/process execution and outer-command resumption are
+ * deferred to SET-517; literal pwd expansions are still normalized explicitly.
+ * The Skillset exemption loses some baseline nested-command detections. A clean
+ * current tree is not proof of complete POSIX/Bash shell analysis.
  */
 export function scanGeneratedPublicContent(
   file: string,
