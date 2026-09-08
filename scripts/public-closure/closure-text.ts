@@ -2,6 +2,12 @@ import { posix } from "node:path";
 
 import { collapseRepeatedPathSeparators } from "./owner-paths";
 import { withoutSearchCommandSegments } from "./search-dialects";
+import {
+  readCommandToken,
+  readShellRedirectionTargets,
+  readShellSegments,
+} from "./shell-tokens";
+import { unwrapShellCommand } from "./shell-wrappers";
 
 /**
  * The single path-extraction seam. Every closure check reads its text through
@@ -43,8 +49,8 @@ export interface NormalizedClosureText {
 
 /**
  * Reduces one logical line to the views the closure rules consume. The steps
- * run in a fixed order: percent-decode link destinations, resolve
- * working-directory expansions, normalize separators and literal shell quotes,
+ * run in a fixed order: percent-decode link destinations, normalize path
+ * separators, resolve expansions, normalize literal shell quotes,
  * strip HTTP URLs into their own path list, then remove the search-command
  * segments whose operands are patterns rather than paths.
  */
@@ -55,20 +61,73 @@ export function normalizeClosureText(
 ): NormalizedClosureText {
   const textWithUrls = normalizeLiteralShellPathQuotes(
     normalizePathExpansions(
-      decodeRelativeLinkDestinations(text),
+      // Path spelling accepts either separator; shellText keeps escapes intact.
+      decodeRelativeLinkDestinations(text).replaceAll("\\", "/"),
       repoRoot
-    ).replaceAll("\\", "/")
+    )
   );
-  const pathText = withoutHttpUrls(textWithUrls);
+  const visibleText = withoutSkillsetCommands(textWithUrls, assumeShellCommand);
+  const pathText = withoutHttpUrls(visibleText);
   return {
     candidateText: collapseRepeatedPathSeparators(
       withoutSearchCommandSegments(pathText, assumeShellCommand)
     ),
     fileUrlPaths: fileUrlPaths(pathText),
     pathText,
-    repositoryPaths: repositoryHttpPaths(textWithUrls),
+    repositoryPaths: repositoryHttpPaths(visibleText),
     shellText: normalizePathExpansions(text, repoRoot),
   };
+}
+
+/** Skillset arguments describe a consumer's own source. The shell view still
+ * retains wrapper prefixes so a cwd route before skillset is never hidden. */
+function withoutSkillsetCommands(
+  text: string,
+  assumeShellCommand: boolean
+): string {
+  const strip = (command: string): string => {
+    const segments = readShellSegments(command);
+    const publicCommand = (segment: readonly string[]): boolean =>
+      unwrapShellCommand(segment)[0]?.toLowerCase() === "skillset";
+    if (!segments.some(publicCommand)) return command;
+    const remaining = segments
+      .filter((segment) => !publicCommand(segment))
+      .map((segment) => segment.join(" "))
+      .join(" ; ");
+    return [remaining, ...readShellRedirectionTargets(command)]
+      .filter(Boolean)
+      .join(" ; ");
+  };
+  return assumeShellCommand
+    ? strip(text)
+    : text.replace(/`([^`\r\n]+)`/gu, (wrapped, command: string) => {
+        const remaining = strip(command);
+        if (remaining === command) return wrapped;
+        return remaining.length === 0 ? "" : "`" + remaining + "`";
+      });
+}
+
+function preserveExternalHomeAnchors(text: string): string {
+  let result = "";
+  let offset = 0;
+  for (const match of text.matchAll(
+    /(^|[\s`=<>()[\]{},;|&:])(?=["']?\$(?:HOME|\{HOME\})\/)/gu
+  )) {
+    const start = match.index + (match[1]?.length ?? 0);
+    if (start < offset) continue;
+    const token = readCommandToken(text, start);
+    if (!token) continue;
+    // HOME is symbolic and external. Parent traversal must not cancel the
+    // anchor; the existing token reader preserves quoted segments and spaces.
+    const value = token.value.replace(
+      /(\$(?:HOME|\{HOME\}))(\/[^:]*)/gu,
+      (_match: string, anchor: string, suffix: string) =>
+        `${anchor}${posix.normalize(suffix)}`
+    );
+    result += text.slice(offset, start) + JSON.stringify(value);
+    offset = token.end;
+  }
+  return result + text.slice(offset);
 }
 
 /**
@@ -92,7 +151,7 @@ function normalizePathExpansions(
     normalizedRoot === undefined || normalizedRoot.length === 0
       ? "."
       : normalizedRoot;
-  return (
+  return preserveExternalHomeAnchors(
     text
       // Quoting only an expansion does not separate it from a following slash.
       // Join those prefix pieces before applying the same HOME/owner policy.

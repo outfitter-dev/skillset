@@ -61,6 +61,21 @@ describe("SET-489 structural path extraction", () => {
     }
   });
 
+  test("path-view separators normalize before variable prefixes", () => {
+    for (const path of [
+      String.raw`$REPO_ROOT\packages\core`,
+      String.raw`"$REPO_ROOT"\packages\core`,
+      '$REPO_ROOT/packages/core',
+      '"${REPO_ROOT}"/packages/core',
+    ]) expect(rules(`cat ${path}`)).toEqual(["internal-package"]);
+    for (const path of [
+      String.raw`$HOME\packages\core`,
+      '"${HOME}"\\..\\packages\\core',
+    ]) expect(rules(`cat ${path}`)).toEqual([]);
+    const escaped = String.raw`cat $REPO_ROOT\packages\core`;
+    expect(normalizeClosureText(escaped, "/repo", true).shellText).toBe(escaped);
+  });
+
   test("external homes and literal parent trees stay outside repository ownership", () => {
     for (const path of [
       "$HOME/packages/core/src/index.ts",
@@ -73,6 +88,23 @@ describe("SET-489 structural path extraction", () => {
     ]) {
       expect(rules(`cat "${path}"`)).toEqual([]);
     }
+  });
+
+  test("HOME parent traversal retains its external anchor", () => {
+    for (const path of [
+      '"$HOME"/../packages/core',
+      '"${HOME}"/../packages/core',
+      '"$HOME/../packages/core"',
+      '${HOME}/child/../../scripts/private.ts',
+      '$HOME/../../docs/development',
+      '"$HOME"/".."/packages/core',
+      '"$HOME"/child/".."/".."/fixtures',
+      '"$HOME/a b/../../packages/core"',
+    ]) {
+      expect(rules(`cat ${path}`)).toEqual([]);
+      expect(rules(`\`\`\`sh\ncat ${path}\n\`\`\``)).toEqual([]);
+    }
+    expect(rules('cat "$ROOT"/../packages/core')).toEqual(["internal-package"]);
   });
 
   test("normalization supplies the same expansion policy to shell and prose views", () => {
@@ -126,10 +158,8 @@ describe("SET-489 structural path extraction", () => {
       "--new-option=packages",
       "packages",
     ]);
-    expect(shellOperandCandidates("-Cpackages")).toEqual([
-      "-Cpackages",
-      "packages",
-    ]);
+    expect(shellOperandCandidates("-Cpackages")).toContain("packages");
+    expect(shellOperandCandidates("-rtpackages")).toContain("packages");
     expect(shellOperandCandidates("ROOT=packages/file=name")).toEqual([
       "ROOT=packages/file=name",
       "packages/file=name",

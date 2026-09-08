@@ -1,6 +1,11 @@
+import { resolveShellPath } from "./cwd-context";
 import { pathMatchesOwner } from "./owner-paths";
-import { isProtectedRootPathCommand } from "./path-commands";
-import { readShellSegments, shortValueFlag } from "./shell-tokens";
+import { shellPathMatchesOwner } from "./shell-operands";
+import {
+  readShellSegments,
+  shellOperandCandidates,
+  shortValueFlag,
+} from "./shell-tokens";
 import { unwrapShellCommand } from "./shell-wrappers";
 
 /**
@@ -22,6 +27,7 @@ interface SearchCommandDialect {
 export interface SearchCommandOwner {
   /** False for owners whose bare name is also public plugin vocabulary. */
   readonly allowDirectOwner: boolean;
+  readonly cwd?: string;
   /** Resolves a nested command (`fd --exec cat …`) through the full dispatch. */
   readonly matchesNestedCommand: (command: string) => boolean;
   readonly normalizedOwner: string;
@@ -203,7 +209,7 @@ const SEARCH_COMMAND_DIALECTS: Readonly<Record<string, SearchCommandDialect>> =
     },
   };
 
-function searchCommandDialect(
+export function searchCommandDialect(
   tokens: readonly string[]
 ): SearchCommandDialect | undefined {
   return SEARCH_COMMAND_DIALECTS[tokens[0]?.toLowerCase() ?? ""];
@@ -217,7 +223,9 @@ export function hasSearchCommandProtectedPathArgument(
   if (!dialect) return false;
   const { allowDirectOwner, normalizedOwner, repoRoot } = owner;
   const matchesPath = (value: string): boolean =>
-    pathMatchesOwner(value, normalizedOwner, repoRoot, allowDirectOwner);
+    [value, resolveShellPath(owner.cwd ?? ".", value)].some((path) =>
+      pathMatchesOwner(path, normalizedOwner, repoRoot, allowDirectOwner)
+    );
   let hasPattern = false;
   let pathsOnly = false;
   let parseOptions = true;
@@ -240,7 +248,29 @@ export function hasSearchCommandProtectedPathArgument(
         : dialect.valueFlags.has(longFlag)
           ? longFlag
           : shortValue?.flag;
-      if (!valueFlag) continue;
+      if (!valueFlag) {
+        // Unknown options may consume the following word. Check that possible
+        // value without discarding its alternative role as the first pattern.
+        const candidates = [...shellOperandCandidates(token)];
+        if (!token.includes("=")) {
+          const next = tokens[index + 1];
+          if (next && !next.startsWith("-")) candidates.push(next);
+        }
+        if (
+          candidates.some((value) =>
+            [value, resolveShellPath(owner.cwd ?? ".", value)].some((path) =>
+              shellPathMatchesOwner(
+                path,
+                normalizedOwner,
+                repoRoot,
+                allowDirectOwner
+              )
+            )
+          )
+        )
+          return true;
+        continue;
+      }
       if (dialect.patternValueFlags.has(valueFlag)) hasPattern = true;
       const hasAttachedValue = token.startsWith("--")
         ? token.includes("=")
@@ -270,10 +300,7 @@ export function hasSearchCommandProtectedPathArgument(
       if (
         dialect.commandValueFlags.has(valueFlag) &&
         operand.values.some(
-          (value) =>
-            matchesPath(value) ||
-            searchCommandValueMatchesOwner(value, owner) ||
-            owner.matchesNestedCommand(value)
+          (value) => matchesPath(value) || owner.matchesNestedCommand(value)
         )
       ) {
         return true;
@@ -294,32 +321,6 @@ export function hasSearchCommandProtectedPathArgument(
     if (operand.values.some(matchesPath)) return true;
   }
   return false;
-}
-
-/**
- * Reads a path-command operand out of a nested command string, for the
- * `--exec` family whose operand is itself a command line.
- */
-function searchCommandValueMatchesOwner(
-  command: string,
-  owner: SearchCommandOwner
-): boolean {
-  return readShellSegments(command).some((segment) => {
-    const tokens = unwrapShellCommand(segment);
-    return (
-      isProtectedRootPathCommand(tokens[0]?.toLowerCase() ?? "") &&
-      tokens
-        .slice(1)
-        .some((token) =>
-          pathMatchesOwner(
-            token,
-            owner.normalizedOwner,
-            owner.repoRoot,
-            owner.allowDirectOwner
-          )
-        )
-    );
-  });
 }
 
 /**

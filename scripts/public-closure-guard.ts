@@ -4,25 +4,26 @@ import { fileURLToPath } from "node:url";
 
 import type { NormalizedClosureText } from "./public-closure/closure-text";
 import { normalizeClosureText } from "./public-closure/closure-text";
-import { hasGitProtectedDirectoryArgument } from "./public-closure/git";
-import {
-  hasCommandDirectoryOptionRoute,
-  hasPackageRunnerProtectedDirectoryArgument,
-  isProtectedRootPathCommand,
-} from "./public-closure/path-commands";
+import { gitPathContext, resolveShellPath } from "./public-closure/cwd-context";
 import type { SearchCommandOwner } from "./public-closure/search-dialects";
 import {
   hasSearchCommandProtectedPathArgument,
   searchCommandSegments,
+  searchCommandDialect,
 } from "./public-closure/search-dialects";
+import {
+  commandName,
+  commandOperandCandidates,
+  shellPathMatchesOwner,
+} from "./public-closure/shell-operands";
 import type { CommandToken } from "./public-closure/shell-tokens";
 import {
-  normalizeShellToken,
   readCommandToken,
+  readShellRedirectionTargets,
   readShellSegments,
 } from "./public-closure/shell-tokens";
 import {
-  hasShellWrapperProtectedDirectoryArgument,
+  readShellWrapperPrefix,
   unwrapShellCommand,
 } from "./public-closure/shell-wrappers";
 
@@ -302,6 +303,13 @@ export function isGeneratedPublicPath(path: string): boolean {
   return path.startsWith(PUBLIC_ROOT) && path.length > PUBLIC_ROOT.length;
 }
 
+/**
+ * Checks supported top-level/tokenized shell operands alongside prose routes.
+ * General nested command/process execution and outer-command resumption are
+ * deferred to SET-517; literal pwd expansions are still normalized explicitly.
+ * The Skillset exemption loses some baseline nested-command detections. A clean
+ * current tree is not proof of complete POSIX/Bash shell analysis.
+ */
 export function scanGeneratedPublicContent(
   file: string,
   content: string,
@@ -494,54 +502,131 @@ function hasProtectedPathOwnerReference(
 function searchCommandOwner(
   normalizedOwner: string,
   repoRoot: string | undefined,
-  allowDirectOwner: boolean
+  allowDirectOwner: boolean,
+  cwd = "."
 ): SearchCommandOwner {
   return {
     allowDirectOwner,
+    cwd,
     matchesNestedCommand: (command) =>
       hasProtectedRootCommandArgument(
         command,
         normalizedOwner,
         repoRoot,
-        allowDirectOwner
+        allowDirectOwner,
+        cwd
       ),
     normalizedOwner,
     repoRoot,
   };
 }
 
-/**
- * Dispatches one command line across every tool grammar the guard knows. Each
- * grammar reports whether the command routes into the protected owner; this is
- * the only place that knows the full set.
- */
+function shellSearchPathCandidates(
+  value: string,
+  cwd: string,
+  repoRoot: string | undefined
+): readonly string[] {
+  const path = normalizeClosureText(value, repoRoot, false).shellText;
+  const resolved = resolveShellPath(cwd, path);
+  // The seam has already reduced unresolved checkout roots to ./, losing
+  // their distinction from literal ./ paths. Retain that conservative route;
+  // other relative entries use only the lookup's cwd.
+  return path.startsWith("./")
+    ? [path, resolved]
+    : [resolved];
+}
+
+/** Checks every operand except positions known to contain non-path data. */
 function hasProtectedRootCommandArgument(
   command: string,
   normalizedOwner: string,
   repoRoot?: string,
-  allowDirectOwner = true
+  allowDirectOwner = true,
+  incomingCwd = "."
 ): boolean {
+  // The calling shell opens redirects before wrappers can change directory.
+  if (
+    readShellRedirectionTargets(command).some((target) => {
+      const path = normalizeClosureText(target, repoRoot, false).shellText;
+      return [path, resolveShellPath(incomingCwd, path)].some((candidate) =>
+        shellPathMatchesOwner(
+          candidate,
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner
+        )
+      );
+    })
+  )
+    return true;
   return readShellSegments(command).some((segment) => {
     const tokens = unwrapShellCommand(segment);
-    const normalizedTokens = tokens.map((token) =>
-      normalizeShellToken(token).toLowerCase()
-    );
-    return (
-      (isProtectedRootPathCommand(normalizedTokens[0] ?? "") &&
-        (normalizedTokens.slice(1).includes(normalizedOwner) ||
-          hasCommandDirectoryOptionRoute(tokens, normalizedOwner, repoRoot))) ||
-      hasSearchCommandProtectedPathArgument(
-        tokens,
-        searchCommandOwner(normalizedOwner, repoRoot, allowDirectOwner)
-      ) ||
-      hasGitProtectedDirectoryArgument(tokens, normalizedOwner) ||
-      hasPackageRunnerProtectedDirectoryArgument(tokens, normalizedOwner, repoRoot) ||
-      hasShellWrapperProtectedDirectoryArgument(
-        segment,
+    const matches = (value: string): boolean =>
+      shellPathMatchesOwner(
+        normalizeClosureText(value, repoRoot, false).shellText,
         normalizedOwner,
-        repoRoot
+        repoRoot,
+        allowDirectOwner
+      );
+    const wrapper = readShellWrapperPrefix(segment, incomingCwd);
+    if (
+      wrapper.pathLookups.some(({ path: value, cwd }) =>
+        shellSearchPathCandidates(value, cwd, repoRoot).some(matches)
       )
-    );
+    )
+      return true;
+    if (
+      wrapper.assignmentPaths.some((value) => {
+        const path = normalizeClosureText(value, repoRoot, false).shellText;
+        return [path, resolveShellPath(wrapper.cwd, path)].some(matches);
+      })
+    )
+      return true;
+    if (
+      wrapper.directories.some(matches) ||
+      wrapper.repositoryPaths.some((path) =>
+        shellPathMatchesOwner(path, normalizedOwner, repoRoot, true)
+      )
+    )
+      return true;
+    // The executable is resolved in the wrapper cwd before its own options run.
+    // Bare command names use PATH lookup and do not imply a relative route.
+    const executable = tokens[0];
+    if (executable && /[/\\]/u.test(executable)) {
+      const path = normalizeClosureText(executable, repoRoot, false).shellText;
+      if ([path, resolveShellPath(wrapper.cwd, path)].some(matches)) return true;
+    }
+    const name = commandName(tokens[0]);
+    if (searchCommandDialect([name])) {
+      return hasSearchCommandProtectedPathArgument(
+        [name, ...tokens.slice(1)],
+        searchCommandOwner(
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner,
+          wrapper.cwd
+        )
+      );
+    }
+    const context = gitPathContext([name, ...tokens.slice(1)], wrapper.cwd);
+    if (
+      context.repositoryPaths.some((path) =>
+        shellPathMatchesOwner(path, normalizedOwner, repoRoot, true)
+      )
+    )
+      return true;
+    const cwd = context.cwd;
+    return commandOperandCandidates(tokens).some((value) => {
+      const path = normalizeClosureText(value, repoRoot, false).shellText;
+      return [path, resolveShellPath(cwd, path)].some((candidate) =>
+        shellPathMatchesOwner(
+          candidate,
+          normalizedOwner,
+          repoRoot,
+          allowDirectOwner
+        )
+      );
+    });
   });
 }
 
@@ -1025,8 +1110,38 @@ function hasRepoInternalScriptReference(
     return true;
   }
 
-  for (const match of normalizedText.matchAll(PATH_CANDIDATE_PATTERN)) {
-    const candidate = posix.normalize(match[0].replace(/[!,.?:;]+$/u, ""));
+  const commands = shellCommand
+    ? [closure.shellText]
+    : [...closure.shellText.matchAll(/`([^`\r\n]+)`/gu)].map(
+        (match) => match[1] ?? ""
+      );
+  const assignmentPaths = commands.flatMap((command) =>
+    readShellSegments(command).flatMap((segment) => {
+      const wrapper = readShellWrapperPrefix(segment);
+      return [
+        ...wrapper.assignmentPaths.flatMap((value) => {
+          const path = normalizeClosureText(value, repoRoot, false).shellText;
+          return [path, resolveShellPath(wrapper.cwd, path)];
+        }),
+        ...wrapper.pathLookups.flatMap(({ path: value, cwd }) =>
+          shellSearchPathCandidates(value, cwd, repoRoot)
+        ),
+      ];
+    })
+  );
+  const candidates = [
+    ...[...normalizedText.matchAll(PATH_CANDIDATE_PATTERN)].map(
+      (match) => match[0]
+    ),
+    ...commands.flatMap(readShellRedirectionTargets).map(
+      (value) => normalizeClosureText(value, repoRoot, false).shellText
+    ),
+    ...assignmentPaths,
+  ];
+  for (const value of candidates) {
+    const candidate = posix.normalize(
+      value.toLowerCase().replace(/[!,.?:;]+$/u, "")
+    );
     if (
       candidate === normalizedPath ||
       parentRelativePattern.test(candidate) ||

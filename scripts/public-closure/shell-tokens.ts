@@ -17,7 +17,16 @@ export interface CommandToken {
 export function shellOperandCandidates(token: string): readonly string[] {
   const separator = token.indexOf("=");
   if (separator >= 0) return [token, token.slice(separator + 1)];
-  if (/^-[^-]./u.test(token)) return [token, token.slice(2)];
+  if (/^-[^-]./u.test(token)) {
+    // A value may follow a short-flag cluster. Without an option vocabulary,
+    // each boundary is a possible value start (e.g. -rtpackages).
+    return [
+      token,
+      ...Array.from({ length: token.length - 2 }, (_, index) =>
+        token.slice(index + 2)
+      ),
+    ];
+  }
   return [token];
 }
 
@@ -96,34 +105,49 @@ export function readCommandToken(
 }
 
 function readShellCommandSegments(
-  text: string
+  text: string,
+  redirectionTargets?: string[]
 ): readonly (readonly string[])[] {
   const segments: string[][] = [[]];
   let offset = 0;
   while (offset < text.length) {
     while (/\s/u.test(text[offset] ?? "")) offset += 1;
+    // Preserve the documented `> command` prompt spelling. A leading path
+    // destination is a redirect, just like one after the command.
     if (
       (segments.at(-1)?.length ?? 0) === 0 &&
       text[offset] === ">" &&
-      /\s/u.test(text[offset + 1] ?? "")
+      /\s/u.test(text[offset + 1] ?? "") &&
+      !readCommandToken(text, offset + 1)?.value.includes("/")
     ) {
+      // A bare word can also be a redirect destination. Retain that candidate
+      // without changing how documented prompt-prefixed commands are read.
+      const target = readCommandToken(text, offset + 1);
+      if (target) redirectionTargets?.push(target.value);
       segments.at(-1)?.push(">");
       offset += 1;
+      continue;
+    }
+    const redirection = /^(?:\d+)?(<<<|<<-?|&>>|&>|<>|>&|<&|>>|>\||>|<)/u.exec(
+      text.slice(offset)
+    );
+    if (redirection) {
+      offset += redirection[0].length;
+      const target = readCommandToken(text, offset);
+      // Here data and fd duplication operands are not file destinations.
+      const operator = redirection[1] ?? "";
+      const duplicatesFd =
+        operator === "<&" ||
+        (operator === ">&" && /^\d/u.test(redirection[0]));
+      if (target && !operator.startsWith("<<") && !duplicatesFd)
+        redirectionTargets?.push(target.value);
+      offset = target?.end ?? offset;
       continue;
     }
     const boundary = /^(?:&&|\|\||[;&|])/u.exec(text.slice(offset));
     if (boundary) {
       if ((segments.at(-1)?.length ?? 0) > 0) segments.push([]);
       offset += boundary[0].length;
-      continue;
-    }
-    const redirection = /^(?:\d+)?(?:<>|>&|<&|>>|<<|>|<)/u.exec(
-      text.slice(offset)
-    );
-    if (redirection) {
-      offset += redirection[0].length;
-      const target = readCommandToken(text, offset);
-      offset = target?.end ?? offset;
       continue;
     }
     const token = readCommandToken(text, offset);
@@ -145,6 +169,13 @@ export function readShellSegments(
   command: string
 ): readonly (readonly string[])[] {
   return readShellCommandSegments(markLiteralShellBraces(command));
+}
+
+/** File destinations belong to the surrounding shell, not command arguments. */
+export function readShellRedirectionTargets(command: string): readonly string[] {
+  const targets: string[] = [];
+  readShellCommandSegments(markLiteralShellBraces(command), targets);
+  return targets;
 }
 
 /**
