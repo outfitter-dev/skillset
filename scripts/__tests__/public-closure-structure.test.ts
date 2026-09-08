@@ -61,6 +61,21 @@ describe("SET-489 structural path extraction", () => {
     }
   });
 
+  test("path-view separators normalize before variable prefixes", () => {
+    for (const path of [
+      String.raw`$REPO_ROOT\packages\core`,
+      String.raw`"$REPO_ROOT"\packages\core`,
+      '$REPO_ROOT/packages/core',
+      '"${REPO_ROOT}"/packages/core',
+    ]) expect(rules(`cat ${path}`)).toEqual(["internal-package"]);
+    for (const path of [
+      String.raw`$HOME\packages\core`,
+      '"${HOME}"\\..\\packages\\core',
+    ]) expect(rules(`cat ${path}`)).toEqual([]);
+    const escaped = String.raw`cat $REPO_ROOT\packages\core`;
+    expect(normalizeClosureText(escaped, "/repo", true).shellText).toBe(escaped);
+  });
+
   test("external homes and literal parent trees stay outside repository ownership", () => {
     for (const path of [
       "$HOME/packages/core/src/index.ts",

@@ -49,8 +49,8 @@ export interface NormalizedClosureText {
 
 /**
  * Reduces one logical line to the views the closure rules consume. The steps
- * run in a fixed order: percent-decode link destinations, resolve
- * working-directory expansions, normalize separators and literal shell quotes,
+ * run in a fixed order: percent-decode link destinations, normalize path
+ * separators, resolve expansions, normalize literal shell quotes,
  * strip HTTP URLs into their own path list, then remove the search-command
  * segments whose operands are patterns rather than paths.
  */
@@ -61,9 +61,10 @@ export function normalizeClosureText(
 ): NormalizedClosureText {
   const textWithUrls = normalizeLiteralShellPathQuotes(
     normalizePathExpansions(
-      decodeRelativeLinkDestinations(text),
+      // Path spelling accepts either separator; shellText keeps escapes intact.
+      decodeRelativeLinkDestinations(text).replaceAll("\\", "/"),
       repoRoot
-    ).replaceAll("\\", "/")
+    )
   );
   const visibleText = withoutSkillsetCommands(textWithUrls, assumeShellCommand);
   const pathText = withoutHttpUrls(visibleText);
