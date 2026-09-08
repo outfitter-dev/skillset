@@ -121,6 +121,25 @@ describe("SET-489 default shell operand policy", () => {
   });
 
   test("checks each executable search path without splitting arbitrary labels", () => {
+    for (const command of [
+      "PATH=. packages",
+      "PATH= packages",
+      "PATH=public: packages",
+    ])
+      expect(rules(command)).toEqual(["internal-package"]);
+    for (const command of [
+      "env -C docs PATH=. development",
+      "PATH=docs development",
+      "env -C public PATH=$ROOT/docs development",
+    ]) expect(rules(command)).toEqual(["development-docs"]);
+    expect(rules("PATH=scripts private.ts")).toEqual(["internal-script"]);
+    for (const command of [
+      "PATH=public packages",
+      "PATH=. ./public/packages",
+      "PATH=. /usr/bin/packages",
+      "PATH=. skillset explain packages/core",
+      "PATH=public/scripts public.ts",
+    ]) expect(rules(command)).toEqual([]);
     expect(rules("env -C docs PATH=development env -C ../public tool")).toEqual([
       "development-docs",
     ]);

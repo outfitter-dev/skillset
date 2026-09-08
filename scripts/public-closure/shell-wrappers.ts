@@ -108,7 +108,17 @@ export function readShellWrapperPrefix(
   let legacyPathValue: string | undefined;
   let modernPathValue: string | undefined;
   const recordPathLookup = (): void => {
-    pathLookups.push(...pathEntries.map((path) => ({ path, cwd })));
+    const executable = tokens[index];
+    // Static candidates only: preserve each directory and its bare executable
+    // route at this boundary, without probing the runtime filesystem.
+    pathLookups.push(
+      ...pathEntries.flatMap((path) => [
+        { path, cwd },
+        ...(executable && !/[/\\]/u.test(executable)
+          ? [{ path: `${path}/${executable}`, cwd }]
+          : []),
+      ])
+    );
   };
   let index = 0;
   if (["$", "%", ">"].includes(tokens[index] ?? "")) index += 1;
@@ -136,7 +146,7 @@ export function readShellWrapperPrefix(
           ...new Set(
             [legacyPathValue, modernPathValue].flatMap((path) => path.split(":"))
           ),
-        ].filter(Boolean);
+        ].map((path) => path || ".");
       } else if (/[/\\]/u.test(value)) assignmentPaths.push(value);
       index += 1;
     }
