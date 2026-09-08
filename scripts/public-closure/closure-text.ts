@@ -11,19 +11,11 @@ import { withoutSearchCommandSegments } from "./search-dialects";
 
 const PUBLIC_REPOSITORY_OWNER = "outfitter-dev";
 const PUBLIC_REPOSITORY_NAME = "skillset";
-// Canonical `github.com/<owner>/<repo>/<route>/<ref>/<path>` file views.
-const GITHUB_FILE_VIEW_ROUTES: ReadonlySet<string> = new Set([
-  "blame",
-  "blob",
-  "edit",
-  "raw",
-  "tree",
-]);
 // Literal shell working-directory expansions. `$(pwd)` and the backtick
 // equivalent are command substitutions that Bash resolves to the same directory
 // as `$PWD`, and `$(PWD)` is the Make spelling of the same variable, so all of
-// them normalize together. Bare `$pwd` stays untouched: it is a different
-// variable, and `` `PWD` `` would be a differently named command.
+// them normalize together. Other leading variables use the unresolved-prefix
+// rule below; `` `PWD` `` remains a differently named command.
 const WORKING_DIRECTORY_VARIABLE_PATTERN =
   /\$\{PWD\}|\$\(\s*(?:pwd|PWD)\s*\)|`\s*pwd\s*`|\$PWD(?![A-Za-z0-9_])/gu;
 // Markdown inline destinations, Markdown reference definitions, and HTML
@@ -62,7 +54,7 @@ export function normalizeClosureText(
   assumeShellCommand: boolean
 ): NormalizedClosureText {
   const textWithUrls = normalizeLiteralShellPathQuotes(
-    expandWorkingDirectoryVariables(
+    normalizePathExpansions(
       decodeRelativeLinkDestinations(text),
       repoRoot
     ).replaceAll("\\", "/")
@@ -75,7 +67,7 @@ export function normalizeClosureText(
     fileUrlPaths: fileUrlPaths(pathText),
     pathText,
     repositoryPaths: repositoryHttpPaths(textWithUrls),
-    shellText: expandWorkingDirectoryVariables(text, repoRoot),
+    shellText: normalizePathExpansions(text, repoRoot),
   };
 }
 
@@ -84,9 +76,10 @@ export function normalizeClosureText(
  * working-directory expansions against the repository root so shell guidance
  * cannot conceal a protected route behind the expansion prefix. Without a known
  * root the expansion becomes `.`, which keeps the remainder
- * repository-relative.
+ * repository-relative. Unknown leading variable segments are conservatively
+ * repository-relative too, except HOME, which explicitly names an external root.
  */
-function expandWorkingDirectoryVariables(
+function normalizePathExpansions(
   text: string,
   repoRoot: string | undefined
 ): string {
@@ -99,7 +92,27 @@ function expandWorkingDirectoryVariables(
     normalizedRoot === undefined || normalizedRoot.length === 0
       ? "."
       : normalizedRoot;
-  return text.replace(WORKING_DIRECTORY_VARIABLE_PATTERN, () => replacement);
+  return (
+    text
+      // Quoting only an expansion does not separate it from a following slash.
+      // Join those prefix pieces before applying the same HOME/owner policy.
+      .replace(
+        /(["'])([^"'\s]+)\1(?=\/)/gu,
+        (match: string, _quote: string, value: string) =>
+          /^(?:\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)(?:\/|$))+$/u.test(value)
+            ? value
+            : match
+      )
+      .replace(WORKING_DIRECTORY_VARIABLE_PATTERN, () => replacement)
+      // Unknown leading variables may name the checkout. Drop only expansion
+      // prefixes, not literal parent directories. HOME is explicitly external;
+      // plugin-local scripts still use the ordinary script-inventory policy.
+      .replace(
+        /(^|[\s`"'=<>()[\]{},;|&])((?:\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)\/)+)/gu,
+        (match: string, prefix: string, expansions: string) =>
+          /^\$(?:HOME\/|\{HOME\}\/)/u.test(expansions) ? match : `${prefix}./`
+      )
+  );
 }
 
 /**
@@ -196,12 +209,10 @@ function repositoryHttpPaths(text: string): readonly string[] {
         segments[1]?.toLowerCase() === PUBLIC_REPOSITORY_NAME;
       if (!isRepository) continue;
 
-      if (
-        host === "github.com" &&
-        GITHUB_FILE_VIEW_ROUTES.has(segments[2]?.toLowerCase() ?? "") &&
-        segments.length > 4
-      ) {
-        appendSuffixes(segments, 4);
+      if (host === "github.com") {
+        // Route/ref spellings are not a closed vocabulary. Only the own-repo
+        // identity is fixed; inspect every pathname suffix after it.
+        appendSuffixes(segments, 2);
       } else if (host === "raw.githubusercontent.com" && segments.length > 3) {
         appendSuffixes(segments, 3);
       }
