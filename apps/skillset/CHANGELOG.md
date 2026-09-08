@@ -1,5 +1,12 @@
 # skillset
 
+## 0.26.0
+
+### Minor Changes
+
+- 716578f: Render complete Claude plugin bundles at their explicit destinations, with independent locks and marketplace-relative source provenance. Validate bundle ownership and preserve nested destinations beneath custom marketplace roots.
+- b5b7201: Validate and parse plugin-local `claude.bundle.path` destinations, rejecting unsupported targets, workspace-level overrides, and non-portable directory paths.
+
 ## 0.25.0
 
 ## 0.24.0
