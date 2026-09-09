@@ -118,9 +118,20 @@ function isQuotedHeredocBody(node: Parser.SyntaxNode): boolean {
   return /['"\\]/u.test(start?.text ?? "");
 }
 
+function redirectedCommandTokens(node: Parser.SyntaxNode): readonly string[] {
+  return unwrapShellCommand(readShellSegments(node.text)[0] ?? []);
+}
+
 function redirectedCommandName(node: Parser.SyntaxNode): string {
-  const tokens = readShellSegments(node.text)[0] ?? [];
-  return commandName(unwrapShellCommand(tokens)[0]);
+  return commandName(redirectedCommandTokens(node)[0]);
+}
+
+function readsHeredocAsSourcedFile(node: Parser.SyntaxNode): boolean {
+  const [name, path] = redirectedCommandTokens(node);
+  return (
+    [".", "source"].includes(commandName(name)) &&
+    ["/dev/fd/0", "/dev/stdin", "/proc/self/fd/0"].includes(path ?? "")
+  );
 }
 
 function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
@@ -128,14 +139,18 @@ function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
   let insideSubstitution = false;
   while (ancestor) {
     if (ancestor.type === "redirected_statement") {
-      if (HEREDOC_INTERPRETERS.has(redirectedCommandName(ancestor)))
+      if (
+        HEREDOC_INTERPRETERS.has(redirectedCommandName(ancestor)) ||
+        readsHeredocAsSourcedFile(ancestor)
+      )
         return true;
     }
     if (ancestor.type === "command_substitution") insideSubstitution = true;
     if (
       insideSubstitution &&
       ancestor.type === "command" &&
-      redirectedCommandName(ancestor) === "eval"
+      (redirectedCommandName(ancestor) === "eval" ||
+        HEREDOC_INTERPRETERS.has(redirectedCommandName(ancestor)))
     )
       return true;
     ancestor = ancestor.parent;
