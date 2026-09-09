@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 
+import { readMarkdownCodeSpans } from "./markdown-code";
 import { collapseRepeatedPathSeparators } from "./owner-paths";
 import { withoutSearchCommandSegments } from "./search-dialects";
 import {
@@ -100,11 +101,20 @@ function withoutSkillsetCommands(
   };
   return assumeShellCommand
     ? strip(text)
-    : text.replace(/`([^`\r\n]+)`/gu, (wrapped, command: string) => {
-        const remaining = strip(command);
-        if (remaining === command) return wrapped;
-        return remaining.length === 0 ? "" : "`" + remaining + "`";
-      });
+    : (() => {
+        let result = "";
+        let offset = 0;
+        for (const span of readMarkdownCodeSpans(text)) {
+          result += text.slice(offset, span.start);
+          const remaining = strip(span.value);
+          if (remaining === span.value)
+            result += text.slice(span.start, span.end);
+          else if (remaining.length > 0)
+            result += span.marker + remaining + span.marker;
+          offset = span.end;
+        }
+        return result + text.slice(offset);
+      })();
 }
 
 function preserveExternalHomeAnchors(text: string): string {
@@ -158,7 +168,9 @@ function normalizePathExpansions(
       .replace(
         /(["'])([^"'\s]+)\1(?=\/)/gu,
         (match: string, _quote: string, value: string) =>
-          /^(?:\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)(?:\/|$))+$/u.test(value)
+          /^(?:\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)(?:\/|$))+$/u.test(
+            value
+          )
             ? value
             : match
       )

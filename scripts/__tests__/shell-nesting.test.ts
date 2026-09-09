@@ -1,0 +1,120 @@
+import { describe, expect, test } from "bun:test";
+
+import { analyzeShellNesting } from "../public-closure/shell-nesting";
+
+describe("SET-517 native shell nesting adapter", () => {
+  test("loads the native Bash grammar and classifies executed substitutions", () => {
+    const analysis = analyzeShellNesting(
+      'skillset check "$(cat packages/core)" <(cat public) >(tee public/out)'
+    );
+
+    expect(analysis.dialectSupport).toBe("bash");
+    expect(analysis.syntaxIssues).toEqual([]);
+    expect(
+      analysis.nestedCommands.map(({ command, kind }) => ({
+        command: command.trim(),
+        kind,
+      }))
+    ).toEqual([
+      { command: "cat packages/core", kind: "command" },
+      { command: "cat public", kind: "process-input" },
+      { command: "tee public/out", kind: "process-output" },
+    ]);
+    expect(analysis.directCommand).not.toContain("packages/core");
+  });
+
+  test("reports UTF-8 byte positions and masks descendants from parent bodies", () => {
+    const source = 'echo 😀 "$(echo "$(cat packages/core)")"';
+    const analysis = analyzeShellNesting(source);
+    const [outer, inner] = analysis.nestedCommands;
+
+    expect(outer?.command).not.toContain("cat packages/core");
+    expect(inner?.command.trim()).toBe("cat packages/core");
+    expect(inner?.source.start.offset).toBe(
+      Buffer.from(source.slice(0, source.indexOf("cat packages/core"))).length
+    );
+    expect(inner?.source.start).toMatchObject({ column: 21, row: 0 });
+  });
+
+  test("does not treat substitutions in shell comments as execution", () => {
+    const analysis = analyzeShellNesting(
+      "skillset check # $(cat packages/core/input)"
+    );
+
+    expect(analysis.nestedCommands).toEqual([]);
+    expect(analysis.syntaxIssues).toEqual([]);
+  });
+
+  test("recovers escaped nested legacy substitutions with original positions", () => {
+    const source = "skillset check `echo \\`cat packages/core/input\\``";
+    const analysis = analyzeShellNesting(source);
+    const nested = analysis.nestedCommands[1];
+
+    expect(analysis.nestedCommands.map(({ kind }) => kind)).toEqual([
+      "legacy-command",
+      "legacy-command",
+    ]);
+    expect(nested?.command).toBe("cat packages/core/input");
+    expect(nested?.source.start.offset).toBe(source.indexOf("cat"));
+    expect(nested?.source.start).toMatchObject({
+      column: source.indexOf("cat"),
+      row: 0,
+    });
+  });
+
+  test("retains recovered bodies and reports parse errors with positions", () => {
+    const analysis = analyzeShellNesting(
+      'skillset check "$(echo ${value//)/}; cat packages/core/input)"'
+    );
+
+    expect(analysis.nestedCommands).toHaveLength(1);
+    expect(analysis.nestedCommands[0]?.command).toContain(
+      "cat packages/core/input"
+    );
+    expect(analysis.syntaxIssues).toEqual([
+      {
+        kind: "parse-error",
+        message: "Tree-sitter recovered from unrecognized nested shell syntax",
+        source: {
+          end: { column: 35, offset: 35, row: 0 },
+          start: { column: 23, offset: 23, row: 0 },
+        },
+      },
+    ]);
+  });
+
+  test("reports missing syntax and unclosed substitutions instead of clean", () => {
+    const missing = analyzeShellNesting(
+      'skillset check "$(cat packages/core |)"'
+    );
+    const unclosed = analyzeShellNesting(
+      'skillset check "$(cat packages/core/input"'
+    );
+
+    expect(missing.syntaxIssues.map(({ kind }) => kind)).toContain(
+      "missing-syntax"
+    );
+    expect(unclosed.nestedCommands).toEqual([]);
+    expect(unclosed.syntaxIssues.map(({ kind }) => kind)).toContain(
+      "parse-error"
+    );
+  });
+
+  test("states the supported dialect boundary", () => {
+    const bash = analyzeShellNesting("echo $(cat public)", "bash");
+    const generic = analyzeShellNesting("echo $(cat public)", "shell");
+    const sh = analyzeShellNesting("echo <(cat public)", "sh");
+    const zsh = analyzeShellNesting("echo $(cat public)", "zsh");
+
+    expect(bash.dialectSupport).toBe("bash");
+    expect(generic.dialectSupport).toBe("generic-bash");
+    expect(sh.dialectSupport).toBe("posix-subset");
+    expect(sh.syntaxIssues.map(({ kind }) => kind)).toContain(
+      "unsupported-dialect"
+    );
+    expect(zsh.dialectSupport).toBe("unsupported-zsh");
+    expect(zsh.syntaxIssues.map(({ kind }) => kind)).toContain(
+      "unsupported-dialect"
+    );
+  });
+});
