@@ -1,6 +1,10 @@
 import Parser from "tree-sitter";
 import Bash from "tree-sitter-bash";
 
+import { commandName } from "./shell-operands";
+import { readShellSegments } from "./shell-tokens";
+import { unwrapShellCommand } from "./shell-wrappers";
+
 export type ShellDialect = "bash" | "sh" | "shell" | "zsh";
 export type ShellDialectSupport =
   | "bash"
@@ -57,6 +61,22 @@ export interface ShellNestingAnalysis {
   readonly syntaxIssues: readonly ShellSyntaxIssue[];
 }
 
+// Only commands known to execute stdin make the whole body shell-like guidance.
+// Other unquoted bodies still expose substitutions expanded by the outer shell.
+const HEREDOC_INTERPRETERS = new Set([
+  "bash",
+  "bun",
+  "dash",
+  "ksh",
+  "node",
+  "perl",
+  "python",
+  "python3",
+  "ruby",
+  "sh",
+  "zsh",
+]);
+
 let bashParser: Parser | undefined;
 
 function parser(): Parser {
@@ -89,6 +109,38 @@ function dialectSupport(dialect: ShellDialect): ShellDialectSupport {
   if (dialect === "sh") return "posix-subset";
   if (dialect === "zsh") return "unsupported-zsh";
   return "generic-bash";
+}
+
+function isQuotedHeredocBody(node: Parser.SyntaxNode): boolean {
+  const start = node.parent?.namedChildren.find(
+    (child) => child.type === "heredoc_start"
+  );
+  return /['"\\]/u.test(start?.text ?? "");
+}
+
+function redirectedCommandName(node: Parser.SyntaxNode): string {
+  const tokens = readShellSegments(node.text)[0] ?? [];
+  return commandName(unwrapShellCommand(tokens)[0]);
+}
+
+function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
+  let ancestor = node.parent;
+  let insideSubstitution = false;
+  while (ancestor) {
+    if (ancestor.type === "redirected_statement") {
+      if (HEREDOC_INTERPRETERS.has(redirectedCommandName(ancestor)))
+        return true;
+    }
+    if (ancestor.type === "command_substitution") insideSubstitution = true;
+    if (
+      insideSubstitution &&
+      ancestor.type === "command" &&
+      redirectedCommandName(ancestor) === "eval"
+    )
+      return true;
+    ancestor = ancestor.parent;
+  }
+  return false;
 }
 
 function sourcePosition(source: string, index: number): ShellSourcePosition {
@@ -318,6 +370,42 @@ export function analyzeShellNesting(
   }
   const nestedCommands = [
     ...entries.map(({ nested }) => nested),
+    ...heredocBodies.flatMap((node) => {
+      const commands: NestedShellCommand[] = [];
+      if (isExecutedHeredocBody(node))
+        commands.push({
+          command: node.text,
+          kind: "command",
+          source: sourceRange(source, node.startIndex, node.endIndex),
+        });
+      if (!isQuotedHeredocBody(node)) {
+        const bodyAnalysis = analyzeShellNesting(node.text, dialect);
+        const remapBodyRange = (range: ShellSourceRange): ShellSourceRange =>
+          sourceRange(
+            source,
+            node.startIndex +
+              utf16IndexAtByteOffset(node.text, range.start.offset),
+            node.startIndex +
+              utf16IndexAtByteOffset(node.text, range.end.offset)
+          );
+        commands.push(
+          ...bodyAnalysis.nestedCommands
+            .filter(({ kind }) => kind === "legacy-command")
+            .map(({ command, kind, source: range }) => ({
+              command,
+              kind,
+              source: remapBodyRange(range),
+            }))
+        );
+        issues.push(
+          ...bodyAnalysis.syntaxIssues.map((issue) => ({
+            ...issue,
+            source: remapBodyRange(issue.source),
+          }))
+        );
+      }
+      return commands;
+    }),
     ...escapedLegacyCommands,
   ].toSorted(
     (left, right) =>

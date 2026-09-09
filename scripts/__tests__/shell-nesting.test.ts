@@ -88,6 +88,29 @@ describe("SET-517 native shell nesting adapter", () => {
     });
   });
 
+  test("classifies interpreter-fed heredocs through shell wrappers", () => {
+    const analysis = analyzeShellNesting(
+      "env MODE=test /usr/bin/python3 <<'EOF'\nopen(\"packages/core/input\")\nEOF"
+    );
+
+    expect(analysis.nestedCommands).toHaveLength(1);
+    expect(analysis.nestedCommands[0]?.command).toContain(
+      'open("packages/core/input")'
+    );
+  });
+
+  test("remaps heredoc legacy syntax issues after Unicode", () => {
+    const source = "echo 😀; cat <<EOF\n`cat packages/core/input\nEOF";
+    const analysis = analyzeShellNesting(source);
+    const [issue] = analysis.syntaxIssues;
+
+    expect(issue?.kind).toBe("missing-syntax");
+    expect(issue?.source.start).toMatchObject({ column: 0, row: 2 });
+    expect(issue?.source.start.offset).toBe(
+      Buffer.byteLength(source.slice(0, source.lastIndexOf("EOF")), "utf8")
+    );
+  });
+
   test("retains recovered bodies and reports parse errors with positions", () => {
     const analysis = analyzeShellNesting(
       'skillset check "$(echo ${value//)/}; cat packages/core/input)"'

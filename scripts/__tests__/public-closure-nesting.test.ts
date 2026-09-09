@@ -181,7 +181,7 @@ describe("SET-517 nested shell execution", () => {
     ]);
   });
 
-  test("masks quoted heredoc data but scans unquoted heredoc substitutions", () => {
+  test("distinguishes executed heredocs from data and outer expansions", () => {
     const heredoc = (delimiter: string): readonly string[] =>
       scanGeneratedPublicContent(
         GENERATED_SKILL,
@@ -194,6 +194,42 @@ describe("SET-517 nested shell execution", () => {
 
     expect(heredoc('"EOF"')).toEqual([]);
     expect(heredoc("EOF")).toEqual(["internal-package"]);
+
+    for (const content of [
+      "```bash\nbash <<EOF\ncat packages/core/input\nEOF\n```",
+      "```bash\nbash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\npython <<'EOF'\nopen('packages/core/input')\nEOF\n```",
+      "```bash\nenv MODE=test /usr/bin/python3 <<'EOF'\nopen('packages/core/input')\nEOF\n```",
+      "```bash\ncat <<EOF\n`cat packages/core/input`\nEOF\n```",
+      '```bash\neval "$(cat <<EOF\ncat packages/core/input\nEOF\n)"\n```',
+    ]) {
+      expect(
+        scanGeneratedPublicContent(
+          GENERATED_SKILL,
+          content,
+          ["scripts/private.ts"],
+          new Set(),
+          undefined,
+          "/repo"
+        ).map(({ rule }) => rule)
+      ).toContain("internal-package");
+    }
+
+    for (const content of [
+      "```bash\ncat <<EOF\npackages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF'\n`cat packages/core/input`\nEOF\n```",
+    ]) {
+      expect(
+        scanGeneratedPublicContent(
+          GENERATED_SKILL,
+          content,
+          ["scripts/private.ts"],
+          new Set(),
+          undefined,
+          "/repo"
+        )
+      ).toEqual([]);
+    }
   });
 
   test("surfaces the parser reason and source position", () => {
