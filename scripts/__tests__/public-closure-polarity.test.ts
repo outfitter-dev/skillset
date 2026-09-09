@@ -333,6 +333,11 @@ describe("SET-489 default shell operand policy", () => {
     expect(rules("/usr/local/bin/skillset check")).toEqual([]);
     expect(rules("./skillset check")).toEqual([]);
     expect(rules("scripts/skillset check")).toEqual([]);
+    expect(rules("./skillset check scripts")).toEqual(["internal-script"]);
+    expect(rules("/usr/bin/skillset check scripts")).toEqual(["internal-script"]);
+    expect(rules("env -C docs ./skillset development")).toEqual([
+      "development-docs",
+    ]);
   });
 
   test("cwd semantics supplement scanning without inventing joins", () => {

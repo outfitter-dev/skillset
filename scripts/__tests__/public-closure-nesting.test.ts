@@ -124,6 +124,21 @@ describe("SET-517 nested shell execution", () => {
     );
   });
 
+  test("scans fenced comments for protected path mentions", () => {
+    expectForShellSurfaces("# see packages/core", ["internal-package"]);
+    expectForShellSurfaces("ls public # packages/core", ["internal-package"]);
+    expect(
+      scanGeneratedPublicContent(
+        GENERATED_SKILL,
+        "```bash\nls public\n# see packages/core\n```",
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      ).map(({ rule }) => rule)
+    ).toEqual(["internal-package"]);
+  });
+
   test("reports recovered or missing syntax without losing recovered routes", () => {
     expectForShellSurfaces(
       'skillset check "$(echo ${value//)/}; cat packages/core/input)"',

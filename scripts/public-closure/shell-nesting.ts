@@ -335,12 +335,36 @@ export function analyzeShellNesting(
   };
 }
 
-/** Splits a fenced shell script at grammar-owned top-level statement bounds. */
+/** Splits a fenced shell script at grammar-owned top-level statement bounds.
+ * Standalone comments stay in the scan as content. Same-line trailing comments
+ * stay attached to the preceding statement so Skillset stripping and comment
+ * non-execution keep their existing command context. */
 export function readShellStatements(source: string): readonly ShellStatement[] {
-  return parseShell(source)
-    .rootNode.namedChildren.filter((node) => node.type !== "comment")
-    .map((node) => ({
+  const statements: ShellStatement[] = [];
+  let previousEndRow = -1;
+  for (const node of parseShell(source).rootNode.namedChildren) {
+    const previous = statements.at(-1);
+    if (
+      previous !== undefined &&
+      node.type === "comment" &&
+      node.startPosition.row === previousEndRow
+    ) {
+      const startIndex = previous.source.start.offset;
+      statements[statements.length - 1] = {
+        command: source.slice(
+          utf16IndexAtByteOffset(source, startIndex),
+          utf16IndexAtByteOffset(source, node.endIndex)
+        ),
+        source: sourceRange(source, startIndex, node.endIndex),
+      };
+      previousEndRow = node.endPosition.row;
+      continue;
+    }
+    statements.push({
       command: node.text,
       source: sourceRange(source, node.startIndex, node.endIndex),
-    }));
+    });
+    previousEndRow = node.endPosition.row;
+  }
+  return statements;
 }

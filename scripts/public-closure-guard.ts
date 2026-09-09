@@ -682,11 +682,11 @@ function hasProtectedRootCommandArgumentDirect(
       if ([path, resolveShellPath(wrapper.cwd, path)].some(matches))
         return true;
     }
-    const name = commandName(tokens[0]);
-    // Skillset arguments name consumer-owned inputs. Wrapper cwd/PATH and
+    // Bare Skillset arguments name consumer-owned inputs. Wrapper cwd/PATH and
     // redirect routes above still belong to the calling shell and remain in
     // scope, as do substitutions scanned as independent executed commands.
-    if (name === "skillset") return false;
+    if (tokens[0]?.toLowerCase() === "skillset") return false;
+    const name = commandName(tokens[0]);
     if (searchCommandDialect([name])) {
       return hasSearchCommandProtectedPathArgument(
         [name, ...tokens.slice(1)],

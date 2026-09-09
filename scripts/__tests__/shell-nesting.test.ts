@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { analyzeShellNesting } from "../public-closure/shell-nesting";
+import {
+  analyzeShellNesting,
+  readShellStatements,
+} from "../public-closure/shell-nesting";
 
 describe("SET-517 native shell nesting adapter", () => {
   test("loads the native Bash grammar and classifies executed substitutions", () => {
@@ -43,6 +46,19 @@ describe("SET-517 native shell nesting adapter", () => {
 
     expect(analysis.nestedCommands).toEqual([]);
     expect(analysis.syntaxIssues).toEqual([]);
+  });
+
+  test("keeps standalone comments and same-line trailing comments in statements", () => {
+    const standalone = readShellStatements("# see packages/core\nls public");
+    const trailing = readShellStatements("ls public # packages/core");
+
+    expect(standalone.map(({ command }) => command)).toEqual([
+      "# see packages/core",
+      "ls public",
+    ]);
+    expect(trailing.map(({ command }) => command)).toEqual([
+      "ls public # packages/core",
+    ]);
   });
 
   test("recovers escaped nested legacy substitutions with original positions", () => {
