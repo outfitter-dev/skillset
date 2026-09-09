@@ -51,6 +51,9 @@ describe("SET-517 native shell nesting adapter", () => {
   test("keeps standalone comments and same-line trailing comments in statements", () => {
     const standalone = readShellStatements("# see packages/core\nls public");
     const trailing = readShellStatements("ls public # packages/core");
+    const afterUnicode = readShellStatements(
+      "echo 😀\nls public # packages/core"
+    );
 
     expect(standalone.map(({ command }) => command)).toEqual([
       "# see packages/core",
@@ -59,6 +62,13 @@ describe("SET-517 native shell nesting adapter", () => {
     expect(trailing.map(({ command }) => command)).toEqual([
       "ls public # packages/core",
     ]);
+    expect(afterUnicode[1]).toEqual({
+      command: "ls public # packages/core",
+      source: {
+        end: { column: 25, offset: 35, row: 1 },
+        start: { column: 0, offset: 10, row: 1 },
+      },
+    });
   });
 
   test("recovers escaped nested legacy substitutions with original positions", () => {
