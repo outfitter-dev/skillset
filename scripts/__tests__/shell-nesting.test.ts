@@ -91,10 +91,18 @@ describe("SET-517 native shell nesting adapter", () => {
   test("classifies interpreter-fed heredocs through shell wrappers", () => {
     const commands = [
       "env MODE=test /usr/bin/python3 <<'EOF'\nopen(\"packages/core/input\")\nEOF",
+      "/usr/bin/env bash <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/env python3 <<'EOF'\nopen(\"packages/core/input\")\nEOF",
+      "/usr/bin/sudo bash <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/timeout 5 bash <<'EOF'\ncat packages/core/input\nEOF",
+      "env -S bash <<'EOF'\ncat packages/core/input\nEOF",
+      "env -S 'bash -e' <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/env -S 'bash -e' <<'EOF'\ncat packages/core/input\nEOF",
       "true && bash <<'EOF'\ncat packages/core/input\nEOF",
       "printf ready | bash <<'EOF'\ncat packages/core/input\nEOF",
       "timeout 5 bash <<'EOF'\ncat packages/core/input\nEOF",
       "cat <<'EOF' | bash\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | /usr/bin/env bash\ncat packages/core/input\nEOF",
     ];
 
     for (const command of commands) {
@@ -109,8 +117,43 @@ describe("SET-517 native shell nesting adapter", () => {
     for (const command of [
       "bash | cat <<'EOF'\ncat packages/core/input\nEOF",
       "timeout 5 cat <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/env cat <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/sudo cat <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/timeout 5 cat <<'EOF'\ncat packages/core/input\nEOF",
+      "env -S cat <<'EOF'\ncat packages/core/input\nEOF",
+      "env -S 'cat -n' <<'EOF'\ncat packages/core/input\nEOF",
     ]) {
       expect(analyzeShellNesting(command).nestedCommands).toEqual([]);
+    }
+  });
+
+  test("classifies heredocs consumed through process substitutions", () => {
+    for (const command of [
+      "bash <(cat <<'EOF'\ncat packages/core/input\nEOF\n)",
+      "source <(cat <<'EOF'\ncat packages/core/input\nEOF\n)",
+      "tee >(bash) <<'EOF'\ncat packages/core/input\nEOF",
+      "tee >(python3) <<'EOF'\nopen('packages/core/input')\nEOF",
+      "cat <<'EOF' | tee >(bash)\ncat packages/core/input\nEOF",
+    ]) {
+      const analysis = analyzeShellNesting(command);
+
+      expect(analysis.nestedCommands).toHaveLength(2);
+      expect(analysis.nestedCommands.at(-1)?.command).toContain(
+        "packages/core/input"
+      );
+    }
+
+    for (const command of [
+      "cat <(cat <<'EOF'\ncat packages/core/input\nEOF\n)",
+      "tee >(cat) <<'EOF'\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(cat)\ncat packages/core/input\nEOF",
+    ]) {
+      const analysis = analyzeShellNesting(command);
+
+      expect(analysis.nestedCommands).toHaveLength(1);
+      expect(analysis.nestedCommands[0]?.command).not.toContain(
+        "packages/core/input"
+      );
     }
   });
 

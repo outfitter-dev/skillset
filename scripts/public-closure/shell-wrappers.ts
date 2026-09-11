@@ -3,7 +3,8 @@ import {
   wrapperRootOperand,
   wrapperWorkingDirectory,
 } from "./cwd-context";
-import { shellOperandCandidates } from "./shell-tokens";
+import { commandName } from "./shell-operands";
+import { readShellSegments, shellOperandCandidates } from "./shell-tokens";
 
 /**
  * The wrapper prefix grammar (`sudo env -C dir …`). Wrappers are the commands
@@ -23,7 +24,7 @@ const SHELL_WRAPPERS: ReadonlySet<string> = new Set([
 ]);
 const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
   {
-    env: new Set(["--chdir", "--split-string", "--unset", "-C", "-S", "-u"]),
+    env: new Set(["--chdir", "--unset", "-C", "-u"]),
     exec: new Set(["-a"]),
     nice: new Set(["--adjustment", "-n"]),
     sudo: new Set([
@@ -109,7 +110,10 @@ export function readShellWrapperPrefix(
   readonly cwd: string;
   readonly repositoryPaths: readonly string[];
   readonly assignmentPaths: readonly string[];
-  readonly pathLookups: readonly { readonly path: string; readonly cwd: string }[];
+  readonly pathLookups: readonly {
+    readonly path: string;
+    readonly cwd: string;
+  }[];
   readonly index: number;
 } {
   const directories: string[] = [];
@@ -125,6 +129,9 @@ export function readShellWrapperPrefix(
     // Static candidates only: preserve each directory and its bare executable
     // route at this boundary, without probing the runtime filesystem.
     pathLookups.push(
+      ...(executable && /[/\\]/u.test(executable)
+        ? [{ path: executable, cwd }]
+        : []),
       ...pathEntries.flatMap((path) => [
         { path, cwd },
         ...(executable && !/[/\\]/u.test(executable)
@@ -157,7 +164,9 @@ export function readShellWrapperPrefix(
             : value;
         pathEntries = [
           ...new Set(
-            [legacyPathValue, modernPathValue].flatMap((path) => path.split(":"))
+            [legacyPathValue, modernPathValue].flatMap((path) =>
+              path.split(":")
+            )
           ),
         ].map((path) => path || ".");
       } else if (/[/\\]/u.test(value)) assignmentPaths.push(value);
@@ -169,7 +178,7 @@ export function readShellWrapperPrefix(
   recordPathLookup();
 
   while (index < tokens.length) {
-    const wrapper = (tokens[index] ?? "").toLowerCase();
+    const wrapper = commandName(tokens[index]);
     if (!SHELL_WRAPPERS.has(wrapper)) break;
     index += 1;
     let selectedDirectory: string | undefined;
@@ -240,11 +249,24 @@ export function readShellWrapperPrefix(
     recordPathLookup();
   }
 
-  return { directories, cwd, repositoryPaths, assignmentPaths, pathLookups, index };
+  return {
+    directories,
+    cwd,
+    repositoryPaths,
+    assignmentPaths,
+    pathLookups,
+    index,
+  };
 }
 
 export function unwrapShellCommand(
   tokens: readonly string[]
 ): readonly string[] {
-  return tokens.slice(readShellWrapperPrefix(tokens).index);
+  const index = readShellWrapperPrefix(tokens).index;
+  const command = tokens.slice(index);
+  if (tokens[index - 1] === "-S" || tokens[index - 1] === "--split-string") {
+    const split = readShellSegments(command[0] ?? "")[0] ?? [];
+    return [...unwrapShellCommand(split), ...command.slice(1)];
+  }
+  return command;
 }

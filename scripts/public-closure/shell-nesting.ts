@@ -146,9 +146,33 @@ function executesHeredocInput(tokens: readonly string[]): boolean {
   );
 }
 
+function executesProcessInput(tokens: readonly string[]): boolean {
+  const name = commandName(tokens[0]);
+  return HEREDOC_INTERPRETERS.has(name) || [".", "source"].includes(name);
+}
+
+function processSubstitutionTokens(node: Parser.SyntaxNode): readonly string[] {
+  const body = node.namedChildren[0];
+  return unwrapShellCommand(
+    readShellSegments(body?.text ?? node.text.slice(2, -1))[0] ?? []
+  );
+}
+
+function teesInputToInterpreter(node: Parser.SyntaxNode): boolean {
+  const tokens = unwrapShellCommand(readShellSegments(node.text)[0] ?? []);
+  if (commandName(tokens[0]) !== "tee") return false;
+  return node.namedChildren.some(
+    (child) =>
+      child.type === "process_substitution" &&
+      child.text.startsWith(">(") &&
+      HEREDOC_INTERPRETERS.has(commandName(processSubstitutionTokens(child)[0]))
+  );
+}
+
 function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
   let ancestor = node.parent;
-  let insideSubstitution = false;
+  let insideCommandSubstitution = false;
+  let insideProcessInput = false;
   while (ancestor) {
     if (ancestor.type === "heredoc_redirect") {
       const downstream = ancestor.namedChildren.find(
@@ -156,23 +180,40 @@ function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
       );
       if (
         downstream &&
-        readShellSegments(downstream.text).some((tokens) =>
+        (readShellSegments(downstream.text).some((tokens) =>
           executesHeredocInput(unwrapShellCommand(tokens))
-        )
+        ) ||
+          downstream.namedChildren.some(
+            (child) => child.type === "command" && teesInputToInterpreter(child)
+          ))
       )
         return true;
     }
     if (ancestor.type === "redirected_statement") {
-      if (executesHeredocInput(redirectedCommandTokens(ancestor))) return true;
+      const body = ancestor.childForFieldName("body");
+      if (
+        executesHeredocInput(redirectedCommandTokens(ancestor)) ||
+        (body?.type === "command" && teesInputToInterpreter(body))
+      )
+        return true;
     }
-    if (ancestor.type === "command_substitution") insideSubstitution = true;
+    if (ancestor.type === "command_substitution")
+      insideCommandSubstitution = true;
     if (
-      insideSubstitution &&
-      ancestor.type === "command" &&
-      (redirectedCommandName(ancestor) === "eval" ||
-        HEREDOC_INTERPRETERS.has(redirectedCommandName(ancestor)))
+      ancestor.type === "process_substitution" &&
+      ancestor.text.startsWith("<(")
     )
-      return true;
+      insideProcessInput = true;
+    if (ancestor.type === "command") {
+      const tokens = redirectedCommandTokens(ancestor);
+      if (
+        (insideCommandSubstitution &&
+          (commandName(tokens[0]) === "eval" ||
+            HEREDOC_INTERPRETERS.has(commandName(tokens[0])))) ||
+        (insideProcessInput && executesProcessInput(tokens))
+      )
+        return true;
+    }
     ancestor = ancestor.parent;
   }
   return false;
