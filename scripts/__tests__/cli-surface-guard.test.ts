@@ -91,6 +91,16 @@ test("SET-285: CLI surface guard preserves deliberate history and migration evid
   expect(isCliSurfacePath("README.md")).toBe(true);
 });
 
+test("SET-520: CLI release history is excluded while active documentation stays guarded", () => {
+  expect(isCliSurfacePath("apps/cli/CHANGELOG.md")).toBe(false);
+  expect(isCliSurfacePath("apps/skillset/CHANGELOG.md")).toBe(false);
+
+  for (const path of ["apps/cli/README.md", "apps/skillset/src/cli.ts", "docs/reference/cli.md"]) {
+    expect(isCliSurfacePath(path)).toBe(true);
+    expect(scanCliSurface(path, "Run skillset verify.")).toHaveLength(1);
+  }
+});
+
 test("SET-285: CLI surface guard ignores inherited repository targeting", async () => {
   const root = await createTestGitFixtureRoot("skillset-cli-guard-git-");
   const gitDir = join(root, "foreign.git");
