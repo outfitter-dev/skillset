@@ -1,6 +1,6 @@
 {
   "name": "@skillset/cli",
-  "version": "0.26.0",
+  "version": "0.26.1",
   "description": "Source-first compiler for provider-native agent loadouts.",
   "keywords": [
     "agents",

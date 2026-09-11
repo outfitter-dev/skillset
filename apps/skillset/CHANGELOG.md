@@ -1,5 +1,11 @@
 # skillset
 
+## 0.26.1
+
+### Patch Changes
+
+- d828a10: Record the Tree-sitter Bash dependency resolution used by the repository's public-closure validation; packaged CLI runtime behavior is unchanged.
+
 ## 0.26.0
 
 ### Minor Changes

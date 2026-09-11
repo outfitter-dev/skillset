@@ -1,5 +1,11 @@
 # @skillset/cli
 
+## 0.26.1
+
+### Patch Changes
+
+- b284bf5: Normalize equivalent custom plugin output roots before rendering the repository README path so build, diff, and verify agree on the canonical generated file.
+
 ## 0.26.0
 
 ### Minor Changes
