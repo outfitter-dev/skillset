@@ -270,7 +270,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
       );
       rendered.push(
         textFile(
-          `${outputRoot}/README.md`,
+          join(outputRoot, "README.md").replaceAll("\\", "/"),
           [
             "# Skillset Plugins",
             "",
@@ -289,7 +289,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
     const outputRoot = graph.root.outputs.plugins[target];
     rendered.push(
       textFile(
-        `${outputRoot}/README.md`,
+        join(outputRoot, "README.md").replaceAll("\\", "/"),
         [
           isDefaultPluginOutputRoot(outputRoot) ? "# Skillset Plugins" : `# ${targetLabel(target)} Plugins`,
           "",
