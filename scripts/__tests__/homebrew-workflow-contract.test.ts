@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 
 interface Step {
   env?: Record<string, string>;
@@ -56,8 +57,51 @@ describe("SET-422 release workflow contract", () => {
       "needs.github-release.result == 'success'",
       "needs.publish-plan.result == 'success'",
       "needs.publish-plan.outputs.tag == 'latest'",
+      "(needs.publish-auto.result == 'success' || needs.publish.result == 'success')",
     ]);
-    expect(homebrew?.needs).toEqual(["github-release", "publish-plan"]);
+    expect(homebrew?.needs).toEqual([
+      "github-release", "publish-plan", "publish-auto", "publish",
+    ]);
+  });
+
+  test("runs only after a successful stable publisher and release", async () => {
+    const workflow = await readWorkflow("release.yml");
+    // This workflow condition uses JS-compatible boolean operators. Evaluate
+    // the actual YAML expression with only its job evidence and status function.
+    const condition = workflow.jobs?.homebrew?.if
+      ?.replace(/^\$\{\{\s*|\s*\}\}$/gu, "")
+      .replace(/needs\.([\w-]+)/gu, 'needs["$1"]');
+    expect(condition).toBeDefined();
+    const baseline = {
+      auto: "skipped", manual: "success", plan: "success",
+      release: "success", tag: "latest", cancelled: false,
+    };
+    const scenarios = [
+      ["manual publication", {}, true],
+      ["automatic publication", { auto: "success", manual: "skipped" }, true],
+      ["already-published reconciliation", { manual: "skipped" }, false],
+      ["failed manual publication", { manual: "failure" }, false],
+      ["failed automatic publication", { auto: "failure", manual: "skipped" }, false],
+      ["cancelled publisher", { manual: "cancelled" }, false],
+      ["failed release", { release: "failure" }, false],
+      ["skipped release", { release: "skipped" }, false],
+      ["failed plan", { plan: "failure" }, false],
+      ["prerelease", { tag: "beta" }, false],
+      ["cancelled run", { cancelled: true }, false],
+    ] as const;
+    for (const [scenario, overrides, expected] of scenarios) {
+      const state = { ...baseline, ...overrides };
+      const allowed: unknown = runInNewContext(condition ?? "false", {
+        cancelled: () => state.cancelled,
+        needs: {
+          "github-release": { result: state.release },
+          "publish-plan": { result: state.plan, outputs: { tag: state.tag } },
+          "publish-auto": { result: state.auto },
+          publish: { result: state.manual },
+        },
+      }, { timeout: 100 });
+      expect({ scenario, allowed }).toEqual({ scenario, allowed: expected });
+    }
   });
 
   test("calls the reusable handoff with the reconciled release tag", async () => {
@@ -77,7 +121,9 @@ describe("SET-422 release workflow contract", () => {
       'echo "channel=$DIST_TAG" >> "$GITHUB_OUTPUT"'
     );
     expect(releaseStep?.run).toContain('echo "tag=$tag" >> "$GITHUB_OUTPUT"');
-    expect(homebrew?.needs).toEqual(["github-release", "publish-plan"]);
+    expect(homebrew?.needs).toEqual([
+      "github-release", "publish-plan", "publish-auto", "publish",
+    ]);
     expect(homebrew?.if).toContain(
       "needs.publish-plan.outputs.tag == 'latest'"
     );
@@ -88,7 +134,7 @@ describe("SET-422 release workflow contract", () => {
       contents: "read",
     });
     expect(homebrew?.with?.tag).toBe(releaseTag);
-    expect(homebrew?.secrets).toBeUndefined();
+    expect(homebrew?.secrets).toEqual({ HOMEBREW_TAP_TOKEN: homebrewTapToken });
   });
 
   test("validates a published release and renders before checking out the tap", async () => {
@@ -124,7 +170,12 @@ describe("SET-422 release workflow contract", () => {
       "cancel-in-progress": false,
       group: "homebrew-skillset",
     });
-    expect(workflow.on?.workflow_call?.secrets).toBeUndefined();
+    expect(workflow.on?.workflow_call?.secrets).toEqual({
+      HOMEBREW_TAP_TOKEN: {
+        description: "Token for opening the verified Homebrew tap update",
+        required: true,
+      },
+    });
     expect(handoff.environment).toBe("homebrew");
     expect(handoff.if).toContain("github.event.release.prerelease == false");
     expect(validateIndex).toBeGreaterThan(-1);
