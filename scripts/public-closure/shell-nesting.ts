@@ -158,8 +158,12 @@ function processSubstitutionTokens(node: Parser.SyntaxNode): readonly string[] {
   );
 }
 
+function commandTokens(node: Parser.SyntaxNode): readonly string[] {
+  return unwrapShellCommand(readShellSegments(node.text)[0] ?? []);
+}
+
 function teesInputToInterpreter(node: Parser.SyntaxNode): boolean {
-  const tokens = unwrapShellCommand(readShellSegments(node.text)[0] ?? []);
+  const tokens = commandTokens(node);
   if (commandName(tokens[0]) !== "tee") return false;
   return node.namedChildren.some(
     (child) =>
@@ -167,6 +171,24 @@ function teesInputToInterpreter(node: Parser.SyntaxNode): boolean {
       child.text.startsWith(">(") &&
       HEREDOC_INTERPRETERS.has(commandName(processSubstitutionTokens(child)[0]))
   );
+}
+
+function pipelineInputConsumers(
+  node: Parser.SyntaxNode
+): readonly Parser.SyntaxNode[] {
+  if (node.type === "command") return [node];
+  if (node.type === "redirected_statement") {
+    const body = node.childForFieldName("body");
+    return body ? pipelineInputConsumers(body) : [];
+  }
+  if (node.type === "list") {
+    const first = node.namedChildren[0];
+    return first ? pipelineInputConsumers(first) : [];
+  }
+  if (node.type === "pipeline") {
+    return node.namedChildren.flatMap(pipelineInputConsumers);
+  }
+  return [];
 }
 
 function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
@@ -180,12 +202,11 @@ function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
       );
       if (
         downstream &&
-        (readShellSegments(downstream.text).some((tokens) =>
-          executesHeredocInput(unwrapShellCommand(tokens))
-        ) ||
-          downstream.namedChildren.some(
-            (child) => child.type === "command" && teesInputToInterpreter(child)
-          ))
+        pipelineInputConsumers(downstream).some(
+          (consumer) =>
+            executesHeredocInput(commandTokens(consumer)) ||
+            teesInputToInterpreter(consumer)
+        )
       )
         return true;
     }

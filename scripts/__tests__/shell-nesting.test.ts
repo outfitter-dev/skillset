@@ -98,11 +98,18 @@ describe("SET-517 native shell nesting adapter", () => {
       "env -S bash <<'EOF'\ncat packages/core/input\nEOF",
       "env -S 'bash -e' <<'EOF'\ncat packages/core/input\nEOF",
       "/usr/bin/env -S 'bash -e' <<'EOF'\ncat packages/core/input\nEOF",
+      "env -Sbash <<'EOF'\ncat packages/core/input\nEOF",
+      "env -S'bash -e' <<'EOF'\ncat packages/core/input\nEOF",
+      "env --split-string=bash <<'EOF'\ncat packages/core/input\nEOF",
+      "env --split-string='bash -e' <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/env -Sbash <<'EOF'\ncat packages/core/input\nEOF",
       "true && bash <<'EOF'\ncat packages/core/input\nEOF",
       "printf ready | bash <<'EOF'\ncat packages/core/input\nEOF",
       "timeout 5 bash <<'EOF'\ncat packages/core/input\nEOF",
       "cat <<'EOF' | bash\ncat packages/core/input\nEOF",
       "cat <<'EOF' | /usr/bin/env bash\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | bash && true\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | cat | bash\ncat packages/core/input\nEOF",
     ];
 
     for (const command of commands) {
@@ -122,6 +129,12 @@ describe("SET-517 native shell nesting adapter", () => {
       "/usr/bin/timeout 5 cat <<'EOF'\ncat packages/core/input\nEOF",
       "env -S cat <<'EOF'\ncat packages/core/input\nEOF",
       "env -S 'cat -n' <<'EOF'\ncat packages/core/input\nEOF",
+      "env -Scat <<'EOF'\ncat packages/core/input\nEOF",
+      "env -S'cat -n' <<'EOF'\ncat packages/core/input\nEOF",
+      "env --split-string=cat <<'EOF'\ncat packages/core/input\nEOF",
+      "env --split-string='cat -n' <<'EOF'\ncat packages/core/input\nEOF",
+      "/usr/bin/env -Scat <<'EOF'\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | cat && bash\ncat packages/core/input\nEOF",
     ]) {
       expect(analyzeShellNesting(command).nestedCommands).toEqual([]);
     }
@@ -134,6 +147,12 @@ describe("SET-517 native shell nesting adapter", () => {
       "tee >(bash) <<'EOF'\ncat packages/core/input\nEOF",
       "tee >(python3) <<'EOF'\nopen('packages/core/input')\nEOF",
       "cat <<'EOF' | tee >(bash)\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(bash) >/dev/null\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(bash) 2>/dev/null\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(bash) | cat\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(bash) && true\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | cat | tee >(bash)\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(cat) | bash\ncat packages/core/input\nEOF",
     ]) {
       const analysis = analyzeShellNesting(command);
 
@@ -147,6 +166,8 @@ describe("SET-517 native shell nesting adapter", () => {
       "cat <(cat <<'EOF'\ncat packages/core/input\nEOF\n)",
       "tee >(cat) <<'EOF'\ncat packages/core/input\nEOF",
       "cat <<'EOF' | tee >(cat)\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | tee >(cat) >/dev/null\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | cat && tee >(bash)\ncat packages/core/input\nEOF",
     ]) {
       const analysis = analyzeShellNesting(command);
 

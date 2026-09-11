@@ -96,6 +96,23 @@ const SHELL_WRAPPER_NON_PATH_FLAGS: Readonly<
   ]),
 };
 
+function envSplitString(
+  token: string,
+  next: string | undefined
+): { readonly source: string; readonly width: number } | undefined {
+  if (token === "-S" || token === "--split-string") {
+    return next === undefined ? undefined : { source: next, width: 2 };
+  }
+  if (token.startsWith("-S") && !token.startsWith("--")) {
+    return { source: token.slice(2), width: 1 };
+  }
+  const longPrefix = "--split-string=";
+  if (token.startsWith(longPrefix)) {
+    return { source: token.slice(longPrefix.length), width: 1 };
+  }
+  return undefined;
+}
+
 /**
  * Walks the wrapper prefix (`sudo env -C dir …`) that precedes the real command
  * and reports both where the command starts and the directory operands the
@@ -114,6 +131,7 @@ export function readShellWrapperPrefix(
     readonly path: string;
     readonly cwd: string;
   }[];
+  readonly splitString: string | undefined;
   readonly index: number;
 } {
   const directories: string[] = [];
@@ -124,8 +142,8 @@ export function readShellWrapperPrefix(
   let pathEntries: string[] = [];
   let legacyPathValue: string | undefined;
   let modernPathValue: string | undefined;
-  const recordPathLookup = (): void => {
-    const executable = tokens[index];
+  let splitString: string | undefined;
+  const recordPathLookup = (executable = tokens[index]): void => {
     // Static candidates only: preserve each directory and its bare executable
     // route at this boundary, without probing the runtime filesystem.
     pathLookups.push(
@@ -196,6 +214,7 @@ export function readShellWrapperPrefix(
           repositoryPaths,
           assignmentPaths,
           pathLookups,
+          splitString,
           index: tokens.length,
         };
       }
@@ -204,6 +223,15 @@ export function readShellWrapperPrefix(
         continue;
       }
       if (!token.startsWith("-")) break;
+      const split =
+        wrapper === "env"
+          ? envSplitString(token, tokens[index + 1])
+          : undefined;
+      if (split) {
+        splitString = split.source;
+        index += split.width;
+        break;
+      }
       selectedDirectory =
         wrapperWorkingDirectory(wrapper, token, tokens[index + 1]) ??
         selectedDirectory;
@@ -243,10 +271,16 @@ export function readShellWrapperPrefix(
       cwd = resolveShellPath(cwd, selectedDirectory);
       repositoryPaths.push(cwd);
     }
-    skipAssignments();
+    // A split string owns the executable and everything after it is command
+    // argv, even when an argument has an assignment-like spelling.
+    if (splitString === undefined) skipAssignments();
     // Each wrapper searches for its next executable before that executable
     // can change cwd again. Preserve this boundary separately from final cwd.
-    recordPathLookup();
+    const splitExecutable = splitString
+      ? unwrapShellCommand(readShellSegments(splitString)[0] ?? [])[0]
+      : undefined;
+    recordPathLookup(splitExecutable);
+    if (splitString !== undefined) break;
   }
 
   return {
@@ -255,6 +289,7 @@ export function readShellWrapperPrefix(
     repositoryPaths,
     assignmentPaths,
     pathLookups,
+    splitString,
     index,
   };
 }
@@ -262,11 +297,11 @@ export function readShellWrapperPrefix(
 export function unwrapShellCommand(
   tokens: readonly string[]
 ): readonly string[] {
-  const index = readShellWrapperPrefix(tokens).index;
-  const command = tokens.slice(index);
-  if (tokens[index - 1] === "-S" || tokens[index - 1] === "--split-string") {
-    const split = readShellSegments(command[0] ?? "")[0] ?? [];
-    return [...unwrapShellCommand(split), ...command.slice(1)];
+  const prefix = readShellWrapperPrefix(tokens);
+  const command = tokens.slice(prefix.index);
+  if (prefix.splitString !== undefined) {
+    const split = readShellSegments(prefix.splitString)[0] ?? [];
+    return [...unwrapShellCommand(split), ...command];
   }
   return command;
 }

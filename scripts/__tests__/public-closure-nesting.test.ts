@@ -106,6 +106,17 @@ describe("SET-517 nested shell execution", () => {
       expectForShellSurfaces(command, []);
   });
 
+  test("preserves arguments after env split-string commands", () => {
+    for (const command of [
+      "env -S 'skillset explain' OTHER=packages/core",
+      "env -S'skillset explain' OTHER=packages/core",
+      "env --split-string 'skillset explain' OTHER=packages/core",
+      "/usr/bin/env --split-string='skillset explain' OTHER=packages/core",
+    ]) {
+      expect(rules(command)).toEqual([]);
+    }
+  });
+
   test("resumes outer Skillset context after process substitutions", () => {
     for (const command of [
       "skillset explain <(cat public/input) packages/core",
@@ -210,6 +221,11 @@ describe("SET-517 nested shell execution", () => {
       "```bash\n/usr/bin/sudo bash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\nenv -S bash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\n/usr/bin/env -S 'bash -e' <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv -Sbash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv -S'bash -e' <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv --split-string=bash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv --split-string='bash -e' <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\n/usr/bin/env -Sbash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<EOF | bash\ncat packages/core/input\nEOF\n```",
       "```bash\ntee <<'EOF' | bash\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | /usr/bin/env bash\ncat packages/core/input\nEOF\n```",
@@ -218,6 +234,14 @@ describe("SET-517 nested shell execution", () => {
       "```bash\ntee >(bash) <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ntee >(python3) <<'EOF'\nopen('packages/core/input')\nEOF\n```",
       "```bash\ncat <<'EOF' | tee >(bash)\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(bash) >/dev/null\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(bash) 2>/dev/null\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(bash) | cat\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(bash) && true\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | bash && true\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | cat | bash\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | cat | tee >(bash)\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(cat) | bash\ncat packages/core/input\nEOF\n```",
       "```bash\nbash -c \"$(cat <<'EOF'\ncat packages/core/input\nEOF\n)\"\n```",
       "```bash\nsource /dev/stdin <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<EOF\n`cat packages/core/input`\nEOF\n```",
@@ -248,10 +272,18 @@ describe("SET-517 nested shell execution", () => {
       "```bash\n/usr/bin/sudo cat <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\nenv -S cat <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\n/usr/bin/env -S 'cat -n' <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv -Scat <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv -S'cat -n' <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv --split-string=cat <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nenv --split-string='cat -n' <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\n/usr/bin/env -Scat <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | cat\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <(cat <<'EOF'\ncat packages/core/input\nEOF\n)\n```",
       "```bash\ntee >(cat) <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | tee >(cat)\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(cat) >/dev/null\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | cat && tee >(bash)\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | cat && bash\ncat packages/core/input\nEOF\n```",
     ]) {
       expect(
         scanGeneratedPublicContent(
@@ -267,8 +299,10 @@ describe("SET-517 nested shell execution", () => {
 
     for (const content of [
       "```bash\n/usr/bin/env bash <<'EOF'\ncat public/input\nEOF\n```",
+      "```bash\n/usr/bin/env -Sbash <<'EOF'\ncat public/input\nEOF\n```",
       "```bash\nbash <(cat <<'EOF'\ncat public/input\nEOF\n)\n```",
       "```bash\ntee >(bash) <<'EOF'\ncat public/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | tee >(bash) >/dev/null\ncat public/input\nEOF\n```",
     ]) {
       expect(
         scanGeneratedPublicContent(
@@ -282,11 +316,15 @@ describe("SET-517 nested shell execution", () => {
       ).toEqual([]);
     }
 
-    for (const wrapper of ["scripts/env", "/repo/scripts/env"]) {
+    for (const wrapper of [
+      "scripts/env bash",
+      "scripts/env -Sbash",
+      "/repo/scripts/env --split-string='bash -e'",
+    ]) {
       expect(
         scanGeneratedPublicContent(
           GENERATED_SKILL,
-          `\`\`\`bash\n${wrapper} bash <<'EOF'\ncat public/input\nEOF\n\`\`\``,
+          `\`\`\`bash\n${wrapper} <<'EOF'\ncat public/input\nEOF\n\`\`\``,
           ["scripts/env"],
           new Set(),
           undefined,
