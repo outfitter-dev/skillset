@@ -127,10 +127,6 @@ function redirectedCommandTokens(node: Parser.SyntaxNode): readonly string[] {
   );
 }
 
-function redirectedCommandName(node: Parser.SyntaxNode): string {
-  return commandName(redirectedCommandTokens(node)[0]);
-}
-
 function readsHeredocAsSourcedFile(tokens: readonly string[]): boolean {
   const [name, path] = tokens;
   return (
