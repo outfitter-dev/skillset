@@ -387,7 +387,9 @@ jobs:
   homebrew:
     name: Update Homebrew tap
     needs: [github-release, publish-plan]
-    if: needs.github-release.result == 'success' && needs.publish-plan.outputs.tag == 'latest'
+    # The unused manual/automatic publisher is skipped upstream. Override the
+    # implicit success() check without running after cancellation or release failure.
+    if: ${{ !cancelled() && needs.github-release.result == 'success' && needs.publish-plan.result == 'success' && needs.publish-plan.outputs.tag == 'latest' }}
     uses: ./.github/workflows/publish-homebrew.yml
     permissions:
       attestations: read

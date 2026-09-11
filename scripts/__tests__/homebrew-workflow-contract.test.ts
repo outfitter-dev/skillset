@@ -44,6 +44,22 @@ const readWorkflow = async (name: string): Promise<Workflow> =>
   ) as Workflow;
 
 describe("SET-422 release workflow contract", () => {
+  test("allows a skipped alternate publisher but requires a successful stable release", async () => {
+    const workflow = await readWorkflow("release.yml");
+    const homebrew = workflow.jobs?.homebrew;
+    const condition = homebrew?.if?.replace(/^\$\{\{\s*|\s*\}\}$/gu, "");
+
+    // An explicit status function prevents the deliberately skipped manual or
+    // automatic publisher from propagating an implicit success() skip here.
+    expect(condition?.split(/\s*&&\s*/u)).toEqual([
+      "!cancelled()",
+      "needs.github-release.result == 'success'",
+      "needs.publish-plan.result == 'success'",
+      "needs.publish-plan.outputs.tag == 'latest'",
+    ]);
+    expect(homebrew?.needs).toEqual(["github-release", "publish-plan"]);
+  });
+
   test("calls the reusable handoff with the reconciled release tag", async () => {
     const workflow = await readWorkflow("release.yml");
     const release = workflow.jobs?.["github-release"];
