@@ -47,6 +47,7 @@ const EXCLUDED = [
   "docs/adrs/",
   "docs/development/package-ownership.md",
   "docs/reference/cli-flags.md",
+  "apps/cli/CHANGELOG.md",
   "apps/skillset/CHANGELOG.md",
   "scripts/cli-contract.ts",
   "scripts/cli-surface-guard.ts",
