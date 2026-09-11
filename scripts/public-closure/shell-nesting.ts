@@ -119,7 +119,12 @@ function isQuotedHeredocBody(node: Parser.SyntaxNode): boolean {
 }
 
 function redirectedCommandTokens(node: Parser.SyntaxNode): readonly string[] {
-  return unwrapShellCommand(readShellSegments(node.text)[0] ?? []);
+  const body = node.childForFieldName("body");
+  // A trailing redirect wraps its whole list or pipeline; the final segment is
+  // the command whose stdin actually receives the heredoc.
+  return unwrapShellCommand(
+    readShellSegments(body?.text ?? node.text).at(-1) ?? []
+  );
 }
 
 function redirectedCommandName(node: Parser.SyntaxNode): string {

@@ -200,6 +200,10 @@ describe("SET-517 nested shell execution", () => {
       "```bash\nbash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\npython <<'EOF'\nopen('packages/core/input')\nEOF\n```",
       "```bash\nenv MODE=test /usr/bin/python3 <<'EOF'\nopen('packages/core/input')\nEOF\n```",
+      "```bash\ntrue && bash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nfalse || bash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nprintf ready | bash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\ntimeout 5 bash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\nbash -c \"$(cat <<'EOF'\ncat packages/core/input\nEOF\n)\"\n```",
       "```bash\nsource /dev/stdin <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<EOF\n`cat packages/core/input`\nEOF\n```",
@@ -223,6 +227,8 @@ describe("SET-517 nested shell execution", () => {
       "```bash\neval <<EOF\ncat packages/core/input\nEOF\n```",
       "```bash\nsource <<EOF\ncat packages/core/input\nEOF\n```",
       "```bash\n. <<EOF\ncat packages/core/input\nEOF\n```",
+      "```bash\nbash | cat <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\ntimeout 5 cat <<'EOF'\ncat packages/core/input\nEOF\n```",
     ]) {
       expect(
         scanGeneratedPublicContent(

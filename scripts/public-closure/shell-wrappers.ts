@@ -19,6 +19,7 @@ const SHELL_WRAPPERS: ReadonlySet<string> = new Set([
   "nohup",
   "sudo",
   "time",
+  "timeout",
 ]);
 const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
   {
@@ -50,6 +51,7 @@ const SHELL_WRAPPER_VALUE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> =
       "-U",
     ]),
     time: new Set(["--format", "--output", "-f", "-o"]),
+    timeout: new Set(["--kill-after", "--signal", "-k", "-s"]),
   };
 // Known non-path wrapper values. Everything else remains a candidate, including
 // flags this scanner has never seen. Path-bearing options need no registry.
@@ -80,6 +82,17 @@ const SHELL_WRAPPER_NON_PATH_FLAGS: Readonly<
     "-U",
   ]),
   time: new Set(["--format", "-f"]),
+  timeout: new Set([
+    "--foreground",
+    "--help",
+    "--kill-after",
+    "--preserve-status",
+    "--signal",
+    "--verbose",
+    "--version",
+    "-k",
+    "-s",
+  ]),
 };
 
 /**
@@ -215,6 +228,8 @@ export function readShellWrapperPrefix(
       }
       index += valueFlags?.has(token) === true && !token.includes("=") ? 2 : 1;
     }
+    // timeout's required duration is data before the command it executes.
+    if (wrapper === "timeout" && index < tokens.length) index += 1;
     if (selectedDirectory !== undefined) {
       cwd = resolveShellPath(cwd, selectedDirectory);
       repositoryPaths.push(cwd);

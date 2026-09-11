@@ -89,14 +89,28 @@ describe("SET-517 native shell nesting adapter", () => {
   });
 
   test("classifies interpreter-fed heredocs through shell wrappers", () => {
-    const analysis = analyzeShellNesting(
-      "env MODE=test /usr/bin/python3 <<'EOF'\nopen(\"packages/core/input\")\nEOF"
-    );
+    const commands = [
+      "env MODE=test /usr/bin/python3 <<'EOF'\nopen(\"packages/core/input\")\nEOF",
+      "true && bash <<'EOF'\ncat packages/core/input\nEOF",
+      "printf ready | bash <<'EOF'\ncat packages/core/input\nEOF",
+      "timeout 5 bash <<'EOF'\ncat packages/core/input\nEOF",
+    ];
 
-    expect(analysis.nestedCommands).toHaveLength(1);
-    expect(analysis.nestedCommands[0]?.command).toContain(
-      'open("packages/core/input")'
-    );
+    for (const command of commands) {
+      const analysis = analyzeShellNesting(command);
+
+      expect(analysis.nestedCommands).toHaveLength(1);
+      expect(analysis.nestedCommands[0]?.command).toContain(
+        "packages/core/input"
+      );
+    }
+
+    for (const command of [
+      "bash | cat <<'EOF'\ncat packages/core/input\nEOF",
+      "timeout 5 cat <<'EOF'\ncat packages/core/input\nEOF",
+    ]) {
+      expect(analyzeShellNesting(command).nestedCommands).toEqual([]);
+    }
   });
 
   test("remaps heredoc legacy syntax issues after Unicode", () => {
