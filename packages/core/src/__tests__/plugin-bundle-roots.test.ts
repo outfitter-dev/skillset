@@ -81,6 +81,27 @@ describe("plugin bundle root ownership", () => {
     });
   }
 
+  for (const marketplaceRoot of ["dist", "dist/", "./dist"]) {
+    it(`SET-516: canonicalizes the default plugin repository README under ${marketplaceRoot}`, async () => {
+      const root = await fixture(undefined, marketplaceRoot);
+      const build = await buildSkillsetResult(root);
+
+      expect(build.ok).toBe(true);
+      expect(build.data.filter((file) => file.path.endsWith("/README.md")).map((file) => file.path)).toEqual([
+        "dist/README.md",
+      ]);
+      expect(build.writes.paths).toContain("dist/README.md");
+      expect(await Bun.file(join(root, "dist/README.md")).exists()).toBe(true);
+      expect((await verifySkillsetResult(root)).ok).toBe(true);
+      expect((await diffSkillsetResult(root)).data).toEqual({
+        added: [],
+        changed: [],
+        missing: [],
+        removed: [],
+      });
+    });
+  }
+
   for (const path of ["plugin", "dist", "dist-other/trails", "parent"]) {
     it(`rejects unreferenceable or root-like custom-marketplace bundle ${path}`, async () => {
       const root = await fixture(path, path === "parent" ? "parent/marketplace" : "dist");
@@ -112,11 +133,13 @@ describe("plugin bundle root ownership", () => {
   }
 });
 
-async function fixture(bundle: string, marketplaceRoot: string, sibling = false): Promise<string> {
+async function fixture(bundle: string | undefined, marketplaceRoot: string, sibling = false): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-bundle-roots-"));
   const files: Record<string, string> = {
     "skillset.yaml": `skillset:\n  name: bundles\nclaude:\n  plugins:\n    path: ${marketplaceRoot}\ncodex: false\ncursor: false\nmarketplaces:\n  local:\n    targets: [claude]\n    plugins:\n      - plugin: trails\n`,
-    ".skillset/plugins/trails/skillset.yaml": `skillset:\n  name: trails\nclaude:\n  bundle:\n    path: ${bundle}\n`,
+    ".skillset/plugins/trails/skillset.yaml": bundle === undefined
+      ? "skillset:\n  name: trails\n"
+      : `skillset:\n  name: trails\nclaude:\n  bundle:\n    path: ${bundle}\n`,
     ".skillset/plugins/trails/skills/hike/SKILL.md": "---\nname: hike\ndescription: Plan a hike.\n---\n\nHike.\n",
   };
   if (sibling) {
