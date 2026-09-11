@@ -386,13 +386,15 @@ jobs:
 
   homebrew:
     name: Update Homebrew tap
-    needs: [github-release, publish-plan]
+    needs: [github-release, publish-plan, publish-auto, publish]
     # The unused manual/automatic publisher is skipped upstream. Override the
     # implicit success() check without running after cancellation or release failure.
-    if: ${{ !cancelled() && needs.github-release.result == 'success' && needs.publish-plan.result == 'success' && needs.publish-plan.outputs.tag == 'latest' }}
+    if: ${{ !cancelled() && needs.github-release.result == 'success' && needs.publish-plan.result == 'success' && needs.publish-plan.outputs.tag == 'latest' && (needs.publish-auto.result == 'success' || needs.publish.result == 'success') }}
     uses: ./.github/workflows/publish-homebrew.yml
     permissions:
       attestations: read
       contents: read
     with:
       tag: ${{ needs.github-release.outputs.tag }}
+    secrets:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

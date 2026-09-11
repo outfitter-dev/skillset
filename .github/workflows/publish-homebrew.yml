@@ -15,6 +15,10 @@ on:
         description: Published Skillset release tag
         required: true
         type: string
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        description: Token for opening the verified Homebrew tap update
+        required: true
 
 concurrency:
   group: homebrew-skillset
