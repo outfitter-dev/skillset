@@ -68,6 +68,20 @@ bun run providers:update
 
 `providers:check` compares adopted sources with upstream. `providers:diff` reports readable changes and manual-review surfaces. `providers:update` rewrites checked-in snapshots only after review.
 
+### Hosted Provider Validation Refresh
+
+The registry maintainer owns the Claude, Codex, Cursor, and Agent Skills validation lanes. Check their authoritative upstream identities explicitly:
+
+```bash
+bun run providers:validate:check
+```
+
+The command reports each registry pin as `current`, `changed`, or `refresh-failed`; `refresh-failed` is the fetch-failed outcome and must not be treated as current evidence. Ordinary builds and checks remain offline. For a `changed` lane, review the provider release or commit, update its exact pin, source publication time, retrieval time, immutable acquisition URLs, hashes, and complete validator dependency closure in `packages/registry/src/provider-validation.ts`.
+
+Run `bun run providers:validate:hosted` in the hosted Linux workflow against the candidate. Its report distinguishes `validation-current`, `stale-verification`, `validation-pending`, acquisition failures, and validator failures. A validator-rejected candidate keeps the prior `lastSuccessfulValidation` receipt and known-good pin; do not advance that receipt from a fetch, source edit, or failed run. After the exact candidate passes, record the hosted run URL, completion time, and exact pin as `lastSuccessfulValidation`, then rerun both commands and review the generated provider-validation reference. A stale receipt requires the same hosted validation even when the upstream pin remains current.
+
+These lanes are separate from the provider schema snapshot commands above; `providers:check`, `providers:diff`, and `providers:update` do not refresh hosted CLI or helper pins.
+
 Run:
 
 ```bash
