@@ -5,12 +5,18 @@ import { fileURLToPath } from "node:url";
 import type { NormalizedClosureText } from "./public-closure/closure-text";
 import { normalizeClosureText } from "./public-closure/closure-text";
 import { gitPathContext, resolveShellPath } from "./public-closure/cwd-context";
+import { readMarkdownCodeSpans } from "./public-closure/markdown-code";
 import type { SearchCommandOwner } from "./public-closure/search-dialects";
 import {
   hasSearchCommandProtectedPathArgument,
   searchCommandSegments,
   searchCommandDialect,
 } from "./public-closure/search-dialects";
+import type { ShellDialect } from "./public-closure/shell-nesting";
+import {
+  analyzeShellNesting,
+  readShellStatements,
+} from "./public-closure/shell-nesting";
 import {
   commandName,
   commandOperandCandidates,
@@ -32,11 +38,13 @@ export type PublicClosureRule =
   | "development-docs"
   | "fixture-path"
   | "internal-package"
-  | "internal-script";
+  | "internal-script"
+  | "shell-analysis";
 
 export interface PublicClosureViolation {
   readonly file: string;
   readonly line: number;
+  readonly reason?: string;
   readonly rule: PublicClosureRule;
   readonly text: string;
 }
@@ -63,6 +71,7 @@ type ProtectedBoundaryContext = "generated" | "package-script";
 
 interface ShellLogicalLine {
   readonly line: number;
+  readonly shellDialect: ShellDialect | undefined;
   readonly shellCommand: boolean;
   readonly text: string;
 }
@@ -70,7 +79,7 @@ interface ShellLogicalLine {
 interface MarkdownFence {
   readonly character: "`" | "~";
   readonly length: number;
-  readonly shell: boolean;
+  readonly shellDialect: ShellDialect | undefined;
 }
 
 interface MarkdownFenceDelimiter {
@@ -105,6 +114,7 @@ const PUBLIC_CLOSURE_RULE_ORDER: readonly PublicClosureRule[] = [
   "fixture-path",
   "internal-package",
   "internal-script",
+  "shell-analysis",
 ];
 const PROTECTED_PATH_ACTIONS =
   "browse|cd|edit|enter|inspect|list|open|read|visit";
@@ -304,11 +314,9 @@ export function isGeneratedPublicPath(path: string): boolean {
 }
 
 /**
- * Checks supported top-level/tokenized shell operands alongside prose routes.
- * General nested command/process execution and outer-command resumption are
- * deferred to SET-517; literal pwd expansions are still normalized explicitly.
- * The Skillset exemption loses some baseline nested-command detections. A clean
- * current tree is not proof of complete POSIX/Bash shell analysis.
+ * Checks prose routes and shell operands, including commands executed inside
+ * command and process substitutions. Parser recovery and dialect uncertainty
+ * are reported explicitly instead of treating incomplete analysis as clean.
  */
 export function scanGeneratedPublicContent(
   file: string,
@@ -320,12 +328,16 @@ export function scanGeneratedPublicContent(
 ): readonly PublicClosureViolation[] {
   if (!isGeneratedPublicPath(file)) return [];
   const violations: PublicClosureViolation[] = [];
-  for (const { line, shellCommand, text } of shellLogicalLines(content, true)) {
+  for (const { line, shellCommand, shellDialect, text } of shellLogicalLines(
+    content,
+    true
+  )) {
     for (const rule of matchingProtectedBoundaryRules(
       text,
       repoRoot,
       "generated",
-      shellCommand
+      shellCommand,
+      shellDialect
     )) {
       violations.push({ file, line, rule, text: text.trim() });
     }
@@ -335,7 +347,13 @@ export function scanGeneratedPublicContent(
           violation.line === line && violation.rule === "internal-script"
       ) &&
       repoInternalScripts.some((path) =>
-        hasRepoInternalScriptReference(text, path, repoRoot, shellCommand)
+        hasRepoInternalScriptReference(
+          text,
+          path,
+          repoRoot,
+          shellCommand,
+          shellDialect
+        )
       )
     ) {
       violations.push({
@@ -349,14 +367,37 @@ export function scanGeneratedPublicContent(
         (violation) =>
           violation.line === line && violation.rule === "internal-script"
       ) &&
-      invokedPackageScripts(text, packageScriptNames).some((name) =>
-        repoInternalScriptAliases.has(name)
-      )
+      invokedGeneratedPackageScripts(
+        text,
+        shellCommand,
+        shellDialect,
+        packageScriptNames
+      ).some((name) => repoInternalScriptAliases.has(name))
     ) {
       violations.push({
         file,
         line,
         rule: "internal-script",
+        text: text.trim(),
+      });
+    }
+    const syntaxIssues = generatedShellAnalyses(text, shellDialect).flatMap(
+      ({ analysis, columnOffset }) =>
+        analysis.syntaxIssues.map((issue) => ({ columnOffset, issue }))
+    );
+    if (syntaxIssues.length > 0) {
+      violations.push({
+        file,
+        line,
+        reason: [
+          ...new Set(
+            syntaxIssues.map(
+              ({ columnOffset, issue }) =>
+                `${issue.kind} at ${line + issue.source.start.row}:${columnOffset + issue.source.start.column + 1}: ${issue.message}`
+            )
+          ),
+        ].join("; "),
+        rule: "shell-analysis",
         text: text.trim(),
       });
     }
@@ -368,8 +409,28 @@ function matchingProtectedBoundaryRules(
   text: string,
   repoRoot: string | undefined,
   context: ProtectedBoundaryContext,
-  shellCommand = false
+  shellCommand = false,
+  shellDialect?: ShellDialect,
+  shellAnalyzed = false
 ): readonly PublicClosureRule[] {
+  if (shellCommand && !shellAnalyzed) {
+    const rules = new Set(
+      shellExecutionCommands(
+        normalizeClosureText(text, repoRoot, true).shellText,
+        shellDialect ?? "shell"
+      ).flatMap((executed) =>
+        matchingProtectedBoundaryRules(
+          executed,
+          repoRoot,
+          context,
+          true,
+          shellDialect,
+          true
+        )
+      )
+    );
+    return PUBLIC_CLOSURE_RULE_ORDER.filter((rule) => rules.has(rule));
+  }
   const closure = normalizeClosureText(
     text,
     repoRoot,
@@ -387,7 +448,8 @@ function matchingProtectedBoundaryRules(
         closure,
         repoRoot,
         context,
-        shellCommand
+        shellCommand,
+        shellDialect
       )
     ) {
       rules.add(owner.rule);
@@ -401,7 +463,8 @@ function hasProtectedPathOwnerReference(
   closure: NormalizedClosureText,
   repoRoot: string | undefined,
   context: ProtectedBoundaryContext,
-  shellCommand: boolean
+  shellCommand: boolean,
+  shellDialect?: ShellDialect
 ): boolean {
   const normalizedText = closure.pathText;
   const normalizedOwner = ownerPath.toLowerCase();
@@ -455,7 +518,10 @@ function hasProtectedPathOwnerReference(
       hasProtectedRootCommandArgument(
         closure.shellText,
         normalizedOwner,
-        repoRoot
+        repoRoot,
+        true,
+        ".",
+        "shell"
       )) ||
     (context === "generated" &&
       (hasGeneratedShellOwnerToken(
@@ -469,7 +535,9 @@ function hasProtectedPathOwnerReference(
             closure.shellText,
             normalizedOwner,
             repoRoot,
-            ownerPath !== "scripts"
+            ownerPath !== "scripts",
+            ".",
+            shellDialect
           ))))
   ) {
     return true;
@@ -531,9 +599,7 @@ function shellSearchPathCandidates(
   // The seam has already reduced unresolved checkout roots to ./, losing
   // their distinction from literal ./ paths. Retain that conservative route;
   // other relative entries use only the lookup's cwd.
-  return path.startsWith("./")
-    ? [path, resolved]
-    : [resolved];
+  return path.startsWith("./") ? [path, resolved] : [resolved];
 }
 
 /** Checks every operand except positions known to contain non-path data. */
@@ -542,7 +608,26 @@ function hasProtectedRootCommandArgument(
   normalizedOwner: string,
   repoRoot?: string,
   allowDirectOwner = true,
-  incomingCwd = "."
+  incomingCwd = ".",
+  dialect: ShellDialect = "shell"
+): boolean {
+  return shellExecutionCommands(command, dialect).some((executed) =>
+    hasProtectedRootCommandArgumentDirect(
+      executed,
+      normalizedOwner,
+      repoRoot,
+      allowDirectOwner,
+      incomingCwd
+    )
+  );
+}
+
+function hasProtectedRootCommandArgumentDirect(
+  command: string,
+  normalizedOwner: string,
+  repoRoot: string | undefined,
+  allowDirectOwner: boolean,
+  incomingCwd: string
 ): boolean {
   // The calling shell opens redirects before wrappers can change directory.
   if (
@@ -594,8 +679,13 @@ function hasProtectedRootCommandArgument(
     const executable = tokens[0];
     if (executable && /[/\\]/u.test(executable)) {
       const path = normalizeClosureText(executable, repoRoot, false).shellText;
-      if ([path, resolveShellPath(wrapper.cwd, path)].some(matches)) return true;
+      if ([path, resolveShellPath(wrapper.cwd, path)].some(matches))
+        return true;
     }
+    // Bare Skillset arguments name consumer-owned inputs. Wrapper cwd/PATH and
+    // redirect routes above still belong to the calling shell and remain in
+    // scope, as do substitutions scanned as independent executed commands.
+    if (tokens[0]?.toLowerCase() === "skillset") return false;
     const name = commandName(tokens[0]);
     if (searchCommandDialect([name])) {
       return hasSearchCommandProtectedPathArgument(
@@ -636,78 +726,174 @@ function hasGeneratedShellOwnerToken(
   repoRoot?: string,
   allowDirectOwner = true
 ): boolean {
-  return [...text.matchAll(/`([^`\r\n]+)`/gu)].some((match) => {
-    const command = match[1] ?? "";
+  return readMarkdownCodeSpans(text).some(({ value: command }) => {
     return (
       /\s/u.test(command) &&
       hasProtectedRootCommandArgument(
         command,
         normalizedOwner,
         repoRoot,
-        allowDirectOwner
+        allowDirectOwner,
+        ".",
+        "shell"
       )
     );
   });
+}
+
+function shellExecutionCommands(
+  command: string,
+  dialect: ShellDialect
+): readonly string[] {
+  const analysis = analyzeShellNesting(command, dialect);
+  return [
+    analysis.directCommand,
+    ...analysis.nestedCommands.map(({ command: nested }) => nested),
+  ];
+}
+
+function generatedShellAnalyses(
+  text: string,
+  shellDialect?: ShellDialect
+): readonly {
+  readonly analysis: ReturnType<typeof analyzeShellNesting>;
+  readonly columnOffset: number;
+}[] {
+  const commands = shellDialect
+    ? [{ columnOffset: 0, command: text, dialect: shellDialect }]
+    : readMarkdownCodeSpans(text)
+        .map(({ value: command, valueStart: columnOffset }) => ({
+          columnOffset,
+          command,
+          dialect: "shell" as const,
+        }))
+        .filter(({ command }) => /\s|\$\(|[<>]\(|`/u.test(command));
+  return commands.map(({ columnOffset, command, dialect }) => ({
+    analysis: analyzeShellNesting(command, dialect),
+    columnOffset,
+  }));
 }
 
 function shellLogicalLines(
   content: string,
   recognizeMarkdownFences = false
 ): readonly ShellLogicalLine[] {
+  if (recognizeMarkdownFences) return markdownShellLogicalLines(content);
   const lines = content.split(/\r?\n/u);
   const logicalLines: ShellLogicalLine[] = [];
-  let fence: MarkdownFence | undefined;
   let line = 1;
-  let shellCommand = false;
   let text = "";
 
   for (const [index, physicalLine] of lines.entries()) {
     if (text.length === 0) {
       line = index + 1;
-      if (recognizeMarkdownFences) {
-        const delimiter = markdownFenceDelimiter(physicalLine);
-        if (delimiter && fence) {
-          if (
-            delimiter.character === fence.character &&
-            delimiter.length >= fence.length &&
-            delimiter.info.length === 0
-          ) {
-            fence = undefined;
-            logicalLines.push({
-              line,
-              shellCommand: false,
-              text: physicalLine,
-            });
-            continue;
-          }
-        } else if (delimiter) {
-          fence = {
-            character: delimiter.character,
-            length: delimiter.length,
-            shell:
-              /^(?:(?:bash|sh|shell|zsh)(?:\s|$)|\{\.(?:bash|sh|shell|zsh)(?:\s|\}))/iu.test(
-                delimiter.info
-              ),
-          };
-          logicalLines.push({
-            line,
-            shellCommand: false,
-            text: physicalLine,
-          });
-          continue;
-        }
-      }
-      shellCommand = fence?.shell === true;
     }
     if (physicalLine.endsWith("\\")) {
       text += physicalLine.slice(0, -1);
     } else {
-      logicalLines.push({ line, shellCommand, text: text + physicalLine });
+      logicalLines.push({
+        line,
+        shellDialect: undefined,
+        shellCommand: false,
+        text: text + physicalLine,
+      });
       text = "";
     }
   }
-  if (text.length > 0) logicalLines.push({ line, shellCommand, text });
+  if (text.length > 0)
+    logicalLines.push({
+      line,
+      shellDialect: undefined,
+      shellCommand: false,
+      text,
+    });
   return logicalLines;
+}
+
+function markdownShellLogicalLines(
+  content: string
+): readonly ShellLogicalLine[] {
+  const lines = content.split(/\r?\n/u);
+  const logicalLines: ShellLogicalLine[] = [];
+  let fence: MarkdownFence | undefined;
+  let shellBody: string[] = [];
+  let shellBodyLine = 1;
+  let ordinaryLine = 1;
+  let ordinaryText = "";
+
+  const appendOrdinary = (physicalLine: string, line: number): void => {
+    if (ordinaryText.length === 0) ordinaryLine = line;
+    if (physicalLine.endsWith("\\")) {
+      ordinaryText += physicalLine.slice(0, -1);
+      return;
+    }
+    logicalLines.push({
+      line: ordinaryLine,
+      shellDialect: undefined,
+      shellCommand: false,
+      text: ordinaryText + physicalLine,
+    });
+    ordinaryText = "";
+  };
+  const appendShellBody = (dialect: ShellDialect): void => {
+    const source = shellBody.join("\n");
+    for (const statement of readShellStatements(source)) {
+      logicalLines.push({
+        line: shellBodyLine + statement.source.start.row,
+        shellDialect: dialect,
+        shellCommand: true,
+        text: statement.command,
+      });
+    }
+    shellBody = [];
+  };
+
+  for (const [index, physicalLine] of lines.entries()) {
+    const line = index + 1;
+    const delimiter = markdownFenceDelimiter(physicalLine);
+    const closesFence =
+      delimiter !== undefined &&
+      fence !== undefined &&
+      delimiter.character === fence.character &&
+      delimiter.length >= fence.length &&
+      delimiter.info.length === 0;
+
+    if (fence?.shellDialect) {
+      if (closesFence) {
+        appendShellBody(fence.shellDialect);
+        fence = undefined;
+        appendOrdinary(physicalLine, line);
+      } else {
+        shellBody.push(physicalLine);
+      }
+      continue;
+    }
+    if (closesFence && ordinaryText.length === 0) {
+      fence = undefined;
+      appendOrdinary(physicalLine, line);
+      continue;
+    }
+    if (!(fence || ordinaryText) && delimiter) {
+      fence = {
+        character: delimiter.character,
+        length: delimiter.length,
+        shellDialect: markdownShellDialect(delimiter.info),
+      };
+      shellBodyLine = line + 1;
+      appendOrdinary(physicalLine, line);
+      continue;
+    }
+    appendOrdinary(physicalLine, line);
+  }
+  if (fence?.shellDialect) appendShellBody(fence.shellDialect);
+  if (ordinaryText.length > 0)
+    logicalLines.push({
+      line: ordinaryLine,
+      shellDialect: undefined,
+      shellCommand: false,
+      text: ordinaryText,
+    });
+  return logicalLines.toSorted((left, right) => left.line - right.line);
 }
 
 function markdownFenceDelimiter(
@@ -721,6 +907,11 @@ function markdownFenceDelimiter(
     info: (match?.groups?.info ?? "").trim(),
     length: marker.length,
   };
+}
+
+function markdownShellDialect(info: string): ShellDialect | undefined {
+  const match = /^(?:\{\.)?(bash|sh|shell|zsh)(?=\s|\}|$)/iu.exec(info);
+  return match?.[1]?.toLowerCase() as ShellDialect | undefined;
 }
 
 function readRunnerTokens(
@@ -909,6 +1100,32 @@ function invokedPackageScripts(
   );
 }
 
+function invokedGeneratedPackageScripts(
+  text: string,
+  shellCommand: boolean,
+  shellDialect: ShellDialect | undefined,
+  packageScriptNames?: ReadonlySet<string>
+): readonly string[] {
+  const commands = shellCommand
+    ? [text]
+    : readMarkdownCodeSpans(text).map(({ value }) => value);
+  return commands.flatMap((command) => {
+    const executed = shellExecutionCommands(command, shellDialect ?? "shell");
+    const segments = readShellSegments(executed[0] ?? "");
+    const onlySkillsetSegments =
+      segments.length > 0 &&
+      segments.every(
+        (segment) =>
+          unwrapShellCommand(segment)[0]?.toLowerCase() === "skillset"
+      );
+    if (!onlySkillsetSegments)
+      return invokedPackageScripts(command, packageScriptNames);
+    return executed
+      .slice(1)
+      .flatMap((nested) => invokedPackageScripts(nested, packageScriptNames));
+  });
+}
+
 function invokedPackageScriptsOnLine(
   text: string,
   packageScriptNames?: ReadonlySet<string>
@@ -1065,8 +1282,24 @@ function hasRepoInternalScriptReference(
   text: string,
   path: string,
   repoRoot?: string,
-  shellCommand = false
+  shellCommand = false,
+  shellDialect?: ShellDialect,
+  shellAnalyzed = false
 ): boolean {
+  if (shellCommand && !shellAnalyzed)
+    return shellExecutionCommands(
+      normalizeClosureText(text, repoRoot, true).shellText,
+      shellDialect ?? "shell"
+    ).some((executed) =>
+      hasRepoInternalScriptReference(
+        executed,
+        path,
+        repoRoot,
+        true,
+        shellDialect,
+        true
+      )
+    );
   const normalizedPath = path.replaceAll("\\", "/").toLowerCase();
   const closure = normalizeClosureText(text, repoRoot, shellCommand);
   if (
@@ -1112,10 +1345,11 @@ function hasRepoInternalScriptReference(
 
   const commands = shellCommand
     ? [closure.shellText]
-    : [...closure.shellText.matchAll(/`([^`\r\n]+)`/gu)].map(
-        (match) => match[1] ?? ""
-      );
-  const assignmentPaths = commands.flatMap((command) =>
+    : readMarkdownCodeSpans(closure.shellText).map(({ value }) => value);
+  const executedCommands = commands.flatMap((command) =>
+    shellExecutionCommands(command, shellDialect ?? "shell")
+  );
+  const assignmentPaths = executedCommands.flatMap((command) =>
     readShellSegments(command).flatMap((segment) => {
       const wrapper = readShellWrapperPrefix(segment);
       return [
@@ -1133,9 +1367,16 @@ function hasRepoInternalScriptReference(
     ...[...normalizedText.matchAll(PATH_CANDIDATE_PATTERN)].map(
       (match) => match[0]
     ),
-    ...commands.flatMap(readShellRedirectionTargets).map(
-      (value) => normalizeClosureText(value, repoRoot, false).shellText
+    ...executedCommands.flatMap((command) =>
+      [
+        ...normalizeClosureText(command, repoRoot, true).candidateText.matchAll(
+          PATH_CANDIDATE_PATTERN
+        ),
+      ].map((match) => match[0])
     ),
+    ...executedCommands
+      .flatMap(readShellRedirectionTargets)
+      .map((value) => normalizeClosureText(value, repoRoot, false).shellText),
     ...assignmentPaths,
   ];
   for (const value of candidates) {
@@ -1255,8 +1496,9 @@ async function main(): Promise<void> {
       `skillset: public closure guard found ${result.violations.length} contributor or internal reference(s):`
     );
     for (const violation of result.violations) {
+      const reason = violation.reason ? ` — ${violation.reason}` : "";
       console.error(
-        `  ${violation.file}:${violation.line}: [${violation.rule}] ${violation.text}`
+        `  ${violation.file}:${violation.line}: [${violation.rule}] ${violation.text}${reason}`
       );
     }
     process.exit(1);
