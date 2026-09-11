@@ -153,6 +153,9 @@ describe("SET-517 native shell nesting adapter", () => {
       "cat <<'EOF' | tee >(bash) && true\ncat packages/core/input\nEOF",
       "cat <<'EOF' | cat | tee >(bash)\ncat packages/core/input\nEOF",
       "cat <<'EOF' | tee >(cat) | bash\ncat packages/core/input\nEOF",
+      "true && tee >(bash) <<'EOF'\ncat packages/core/input\nEOF",
+      "false || tee >(bash) <<'EOF'\ncat packages/core/input\nEOF",
+      "printf ready | tee >(bash) <<'EOF'\ncat packages/core/input\nEOF",
     ]) {
       const analysis = analyzeShellNesting(command);
 
@@ -168,6 +171,8 @@ describe("SET-517 native shell nesting adapter", () => {
       "cat <<'EOF' | tee >(cat)\ncat packages/core/input\nEOF",
       "cat <<'EOF' | tee >(cat) >/dev/null\ncat packages/core/input\nEOF",
       "cat <<'EOF' | cat && tee >(bash)\ncat packages/core/input\nEOF",
+      "true && tee >(cat) <<'EOF'\ncat packages/core/input\nEOF",
+      "tee >(bash) | cat <<'EOF'\ncat packages/core/input\nEOF",
     ]) {
       const analysis = analyzeShellNesting(command);
 

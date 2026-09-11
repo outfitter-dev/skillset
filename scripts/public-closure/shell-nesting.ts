@@ -191,6 +191,21 @@ function pipelineInputConsumers(
   return [];
 }
 
+function redirectInputConsumer(
+  node: Parser.SyntaxNode
+): Parser.SyntaxNode | undefined {
+  if (node.type === "command") return node;
+  if (node.type === "redirected_statement") {
+    const body = node.childForFieldName("body");
+    return body ? redirectInputConsumer(body) : undefined;
+  }
+  if (node.type === "list" || node.type === "pipeline") {
+    const last = node.namedChildren.at(-1);
+    return last ? redirectInputConsumer(last) : undefined;
+  }
+  return undefined;
+}
+
 function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
   let ancestor = node.parent;
   let insideCommandSubstitution = false;
@@ -212,9 +227,11 @@ function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
     }
     if (ancestor.type === "redirected_statement") {
       const body = ancestor.childForFieldName("body");
+      const consumer = body ? redirectInputConsumer(body) : undefined;
       if (
-        executesHeredocInput(redirectedCommandTokens(ancestor)) ||
-        (body?.type === "command" && teesInputToInterpreter(body))
+        consumer &&
+        (executesHeredocInput(commandTokens(consumer)) ||
+          teesInputToInterpreter(consumer))
       )
         return true;
     }

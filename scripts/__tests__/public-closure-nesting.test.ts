@@ -242,6 +242,9 @@ describe("SET-517 nested shell execution", () => {
       "```bash\ncat <<'EOF' | cat | bash\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | cat | tee >(bash)\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | tee >(cat) | bash\ncat packages/core/input\nEOF\n```",
+      "```bash\ntrue && tee >(bash) <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nfalse || tee >(bash) <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\nprintf ready | tee >(bash) <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\nbash -c \"$(cat <<'EOF'\ncat packages/core/input\nEOF\n)\"\n```",
       "```bash\nsource /dev/stdin <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<EOF\n`cat packages/core/input`\nEOF\n```",
@@ -284,6 +287,8 @@ describe("SET-517 nested shell execution", () => {
       "```bash\ncat <<'EOF' | tee >(cat) >/dev/null\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | cat && tee >(bash)\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<'EOF' | cat && bash\ncat packages/core/input\nEOF\n```",
+      "```bash\ntrue && tee >(cat) <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\ntee >(bash) | cat <<'EOF'\ncat packages/core/input\nEOF\n```",
     ]) {
       expect(
         scanGeneratedPublicContent(
