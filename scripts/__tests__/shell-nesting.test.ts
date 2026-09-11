@@ -94,6 +94,7 @@ describe("SET-517 native shell nesting adapter", () => {
       "true && bash <<'EOF'\ncat packages/core/input\nEOF",
       "printf ready | bash <<'EOF'\ncat packages/core/input\nEOF",
       "timeout 5 bash <<'EOF'\ncat packages/core/input\nEOF",
+      "cat <<'EOF' | bash\ncat packages/core/input\nEOF",
     ];
 
     for (const command of commands) {
@@ -111,6 +112,32 @@ describe("SET-517 native shell nesting adapter", () => {
     ]) {
       expect(analyzeShellNesting(command).nestedCommands).toEqual([]);
     }
+  });
+
+  test("recovers substitutions hidden in parameter-removal patterns", () => {
+    for (const operator of ["#", "##", "%", "%%"]) {
+      const analysis = analyzeShellNesting(
+        `skillset check \${value${operator}$(cat packages/core/input)}`
+      );
+
+      expect(
+        analysis.nestedCommands.map(({ command }) => command.trim())
+      ).toEqual(["cat packages/core/input"]);
+      expect(analysis.syntaxIssues).toEqual([]);
+    }
+
+    expect(
+      analyzeShellNesting(
+        "skillset check ${value#'$(cat packages/core/input)'}"
+      ).nestedCommands
+    ).toEqual([]);
+
+    const unicodeSource =
+      "echo 😀; skillset check ${value#$(cat packages/core/input)}";
+    const [nested] = analyzeShellNesting(unicodeSource).nestedCommands;
+    expect(nested?.source.start.offset).toBe(
+      Buffer.byteLength(unicodeSource.slice(0, unicodeSource.indexOf("cat")))
+    );
   });
 
   test("remaps heredoc legacy syntax issues after Unicode", () => {

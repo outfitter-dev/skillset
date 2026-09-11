@@ -204,6 +204,8 @@ describe("SET-517 nested shell execution", () => {
       "```bash\nfalse || bash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\nprintf ready | bash <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ntimeout 5 bash <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<EOF | bash\ncat packages/core/input\nEOF\n```",
+      "```bash\ntee <<'EOF' | bash\ncat packages/core/input\nEOF\n```",
       "```bash\nbash -c \"$(cat <<'EOF'\ncat packages/core/input\nEOF\n)\"\n```",
       "```bash\nsource /dev/stdin <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ncat <<EOF\n`cat packages/core/input`\nEOF\n```",
@@ -229,6 +231,38 @@ describe("SET-517 nested shell execution", () => {
       "```bash\n. <<EOF\ncat packages/core/input\nEOF\n```",
       "```bash\nbash | cat <<'EOF'\ncat packages/core/input\nEOF\n```",
       "```bash\ntimeout 5 cat <<'EOF'\ncat packages/core/input\nEOF\n```",
+      "```bash\ncat <<'EOF' | cat\ncat packages/core/input\nEOF\n```",
+    ]) {
+      expect(
+        scanGeneratedPublicContent(
+          GENERATED_SKILL,
+          content,
+          ["scripts/private.ts"],
+          new Set(),
+          undefined,
+          "/repo"
+        )
+      ).toEqual([]);
+    }
+  });
+
+  test("scans substitutions in parameter-removal patterns", () => {
+    for (const operator of ["#", "##", "%", "%%"]) {
+      const result = scanGeneratedPublicContent(
+        GENERATED_SKILL,
+        `\`skillset check \${value${operator}$(cat packages/core/input)}\``,
+        ["scripts/private.ts"],
+        new Set(),
+        undefined,
+        "/repo"
+      );
+
+      expect(result.map(({ rule }) => rule)).toContain("internal-package");
+    }
+
+    for (const content of [
+      "`skillset check ${value#'$(cat packages/core/input)'}`",
+      "`skillset explain ${value#$(cat public/input)} packages/core`",
     ]) {
       expect(
         scanGeneratedPublicContent(

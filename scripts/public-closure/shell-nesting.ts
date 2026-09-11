@@ -131,11 +131,18 @@ function redirectedCommandName(node: Parser.SyntaxNode): string {
   return commandName(redirectedCommandTokens(node)[0]);
 }
 
-function readsHeredocAsSourcedFile(node: Parser.SyntaxNode): boolean {
-  const [name, path] = redirectedCommandTokens(node);
+function readsHeredocAsSourcedFile(tokens: readonly string[]): boolean {
+  const [name, path] = tokens;
   return (
     [".", "source"].includes(commandName(name)) &&
     ["/dev/fd/0", "/dev/stdin", "/proc/self/fd/0"].includes(path ?? "")
+  );
+}
+
+function executesHeredocInput(tokens: readonly string[]): boolean {
+  return (
+    HEREDOC_INTERPRETERS.has(commandName(tokens[0])) ||
+    readsHeredocAsSourcedFile(tokens)
   );
 }
 
@@ -143,12 +150,20 @@ function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
   let ancestor = node.parent;
   let insideSubstitution = false;
   while (ancestor) {
-    if (ancestor.type === "redirected_statement") {
+    if (ancestor.type === "heredoc_redirect") {
+      const downstream = ancestor.namedChildren.find(
+        (child) => child.type === "pipeline"
+      );
       if (
-        HEREDOC_INTERPRETERS.has(redirectedCommandName(ancestor)) ||
-        readsHeredocAsSourcedFile(ancestor)
+        downstream &&
+        readShellSegments(downstream.text).some((tokens) =>
+          executesHeredocInput(unwrapShellCommand(tokens))
+        )
       )
         return true;
+    }
+    if (ancestor.type === "redirected_statement") {
+      if (executesHeredocInput(redirectedCommandTokens(ancestor))) return true;
     }
     if (ancestor.type === "command_substitution") insideSubstitution = true;
     if (
@@ -329,11 +344,14 @@ export function analyzeShellNesting(
     "process_substitution",
   ]);
   const heredocBodies = root.descendantsOfType("heredoc_body");
+  const patternBodies = root
+    .descendantsOfType("regex")
+    .filter((node) => /\$\(|[<>]\(|`/u.test(node.text));
   const entries = nodes.map((node) => {
     const { closeWidth, kind, openWidth } = substitutionKind(source, node);
     const start = node.startIndex + openWidth;
     const end = Math.max(start, node.endIndex - closeWidth);
-    const descendants = [...nodes, ...heredocBodies].filter(
+    const descendants = [...nodes, ...heredocBodies, ...patternBodies].filter(
       (candidate) =>
         candidate !== node &&
         candidate.startIndex >= start &&
@@ -349,6 +367,29 @@ export function analyzeShellNesting(
     };
   });
   const issues = [...syntaxIssues(root, source)];
+  const patternCommands: NestedShellCommand[] = [];
+  for (const node of patternBodies) {
+    const analysis = analyzeShellNesting(node.text, dialect);
+    const remapPatternRange = (range: ShellSourceRange): ShellSourceRange =>
+      sourceRange(
+        source,
+        node.startIndex + utf16IndexAtByteOffset(node.text, range.start.offset),
+        node.startIndex + utf16IndexAtByteOffset(node.text, range.end.offset)
+      );
+    patternCommands.push(
+      ...analysis.nestedCommands.map(({ command, kind, source: range }) => ({
+        command,
+        kind,
+        source: remapPatternRange(range),
+      }))
+    );
+    issues.push(
+      ...analysis.syntaxIssues.map((issue) => ({
+        ...issue,
+        source: remapPatternRange(issue.source),
+      }))
+    );
+  }
   const escapedLegacyCommands: NestedShellCommand[] = [];
   for (const { bodyStart, nested } of entries) {
     if (nested.kind !== "legacy-command" || !nested.command.includes("\\`"))
@@ -390,6 +431,7 @@ export function analyzeShellNesting(
   }
   const nestedCommands = [
     ...entries.map(({ nested }) => nested),
+    ...patternCommands,
     ...heredocBodies.flatMap((node) => {
       const commands: NestedShellCommand[] = [];
       if (isExecutedHeredocBody(node))
@@ -437,6 +479,7 @@ export function analyzeShellNesting(
     directCommand: maskRanges(source, 0, source.length, [
       ...nodes,
       ...heredocBodies,
+      ...patternBodies,
     ]),
     nestedCommands,
     syntaxIssues: issues,
