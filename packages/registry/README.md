@@ -11,6 +11,7 @@ The package is also the reference contract for future provider registry packages
 - Hook evidence and provider capability facts.
 - Known provider migration classifications.
 - Candidate-standard compatibility evidence and bounded consumer profiles.
+- Candidate, adopted, and retired open-standard profiles with immutable instruction, skill, and plugin-schema evidence.
 - Shared registry types and validation helpers.
 
 ## Does Not Own
