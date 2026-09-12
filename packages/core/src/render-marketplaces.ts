@@ -165,9 +165,6 @@ async function projectClaudeMarketplace(
           readString(root, "description") ??
           "Source-first Skillset plugins",
         version: rootVersion(graph),
-        pluginRoot: isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude)
-          ? "./plugins"
-          : "./plugins",
       },
       plugins: entries.map(([, entry]) => entry),
     },
