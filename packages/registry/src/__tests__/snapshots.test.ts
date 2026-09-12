@@ -12,6 +12,7 @@ import {
   listProviderHookEvidence,
   listProviderDestinationFormatSnapshots,
   listProviderPluginComponentManifestFields,
+  listProviderSkillFrontmatterFields,
   listProviderSchemaSnapshots,
   normalizeProviderDestinationFormatSnapshot,
   normalizeProviderSchemaSnapshot,
@@ -56,11 +57,37 @@ describe("@skillset/registry snapshots", () => {
 
     for (const snapshot of providerDestinationFormatSnapshots) {
       expect(snapshot.schema).toBe(PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA);
-      expect(snapshot.provenance.fetchedAt).toMatch(/^2026-(?:06-23|08-14)T/u);
+      expect(snapshot.provenance.fetchedAt).toMatch(/^2026-(?:06-23|08-14|09-11)T/u);
       expect(snapshot.provenance.sources.length).toBeGreaterThan(0);
       expect(snapshot.provenance.contentHash).toBe(hashProviderDestinationFormatSnapshot(snapshot));
       expect(normalizeProviderDestinationFormatSnapshot(snapshot)).toEndWith("\n");
     }
+  });
+
+  it("captures Cursor explicit-only skill invocation frontmatter", () => {
+    const cursorSkill = getProviderDestinationFormatSnapshot("cursor-skill");
+    if (cursorSkill === undefined) throw new Error("expected Cursor skill snapshot");
+    const { format, provenance } = cursorSkill;
+    const frontmatter = (format as {
+      readonly frontmatter?: { readonly optionalFields?: readonly string[] };
+    }).frontmatter;
+
+    expect(frontmatter?.optionalFields).toContain("disable-model-invocation");
+    expect(listProviderSkillFrontmatterFields("cursor")).toContain(
+      "disable-model-invocation"
+    );
+    expect(listProviderSkillFrontmatterFields("claude")).toContain(
+      "disable-model-invocation"
+    );
+    expect(listProviderSkillFrontmatterFields("codex")).not.toContain(
+      "disable-model-invocation"
+    );
+    expect(provenance.sources).toContainEqual(
+      expect.objectContaining({
+        note: expect.stringContaining("explicit-only"),
+        url: "https://cursor.com/docs/skills#frontmatter-fields",
+      })
+    );
   });
 
   it("captures current unsupported destination facts for Codex plugin components", () => {

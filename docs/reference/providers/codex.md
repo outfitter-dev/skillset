@@ -55,6 +55,7 @@ For exact source and destination behavior, use the feature pages for [plugins](.
 | Resources | `implemented` | `native` | — | [1](../features/resources.md) |
 | Runtime Adapters | `planned` | `not_applicable` | — | [1](../../development/features/runtime-adapters.md) |
 | Runtime Context | `implemented` | `transformed` | Normalized fields are provider, hook.event, and session.id; raw Codex environment remains available to the hook command. | [1](../features/hooks.md), [2](../../development/features/hook-guardrails.md) |
+| Skill Invocation Policy | `implemented` | `transformed` | — | [1](../features/skills.md) |
 | Standalone Skills | `implemented` | `native` | — | [1](../features/skills.md) |
 | Supports | `implemented` | `metadata_only` | — | [1](../features/supports.md) |
 | Provider Source | `implemented` | `pass_through` | — | [1](../features/target-native-islands.md) |

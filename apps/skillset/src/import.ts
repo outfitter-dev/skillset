@@ -1,6 +1,7 @@
 import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import {
   classifyNativeHookLiftDiagnostics,
@@ -9,7 +10,10 @@ import {
   type NativeHookLiftDiagnostic,
   type SkillsetRenderResult,
 } from "@skillset/core";
-import { listProviderPluginComponentManifestFields } from "@skillset/registry";
+import {
+  listProviderPluginComponentManifestFields,
+  listProviderSkillFrontmatterFields,
+} from "@skillset/registry";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import {
@@ -112,7 +116,10 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
 
 export interface ImportOptions {
   readonly kind: SingularImportKind;
+  readonly mergeTargetNativeSkill?: boolean;
   readonly name?: string;
+  readonly provider?: ImportProvider;
+  readonly providers?: readonly ImportProvider[];
   readonly rootPath: string;
   readonly sourceDir?: string;
   readonly sourceOrigin?: (sourcePath: string, copiedFile?: string) => SourceOrigin;
@@ -121,8 +128,10 @@ export interface ImportOptions {
 
 export interface ImportSourcesOptions {
   readonly kind?: ImportKind;
+  readonly mergeTargetNativeSkill?: boolean;
   readonly name?: string;
   readonly provider?: ImportProvider;
+  readonly providers?: readonly ImportProvider[];
   readonly rootPath: string;
   readonly sourceDir?: string;
   readonly sourceOrigin?: (sourcePath: string, copiedFile?: string) => SourceOrigin;
@@ -176,14 +185,29 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
   const imports: ImportReport[] = [];
   for (const item of plan.items) {
     try {
-      imports.push(await importSource({
-        kind: item.kind,
-        rootPath: options.rootPath,
-        sourcePath: item.sourcePath,
-        ...(options.name === undefined ? {} : { name: options.name }),
-        ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
-        ...(options.sourceOrigin === undefined ? {} : { sourceOrigin: options.sourceOrigin }),
-      }));
+      imports.push(
+        await importSource({
+          kind: item.kind,
+          ...(options.mergeTargetNativeSkill === true
+            ? { mergeTargetNativeSkill: true }
+            : {}),
+          rootPath: options.rootPath,
+          sourcePath: item.sourcePath,
+          ...(options.name === undefined ? {} : { name: options.name }),
+          ...(options.provider === undefined
+            ? {}
+            : { provider: options.provider }),
+          ...(options.providers === undefined
+            ? {}
+            : { providers: options.providers }),
+          ...(options.sourceDir === undefined
+            ? {}
+            : { sourceDir: options.sourceDir }),
+          ...(options.sourceOrigin === undefined
+            ? {}
+            : { sourceOrigin: options.sourceOrigin }),
+        })
+      );
     } catch (error) {
       throw new ImportBatchError(errorMessage(error), imports);
     }
@@ -213,7 +237,9 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     join(sourceRoot, options.kind === "plugin" ? PLUGINS_DIR : SKILLS_DIR, name)
   );
 
-  if (await exists(targetPath)) {
+  const mayMergeTargetNativeSkill =
+    options.kind === "skill" && options.mergeTargetNativeSkill === true;
+  if ((await exists(targetPath)) && !mayMergeTargetNativeSkill) {
     throw new Error(
       `skillset: import target already exists: ${targetPath}. ` +
         "Import never overwrites; remove the existing source or import under a different --name."
@@ -224,6 +250,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   await mkdir(targetParent, { recursive: true });
   const stagingPath = await mkdtemp(join(targetParent, `.${basename(targetPath)}.tmp-`));
   let committed = false;
+  let mergedOriginal: string | undefined;
 
   try {
     const copied = await copyImportSource({
@@ -239,15 +266,33 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     }
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
     const classification = classifyFrontmatter(frontmatter);
+    const providers = importProviders(options);
+    const scopedInvocationProviders = importedInvocationScopeProviders(providers);
+    const pluginSkillFrontmatter = await readImportedPluginSkillFrontmatter(
+      stagingPath,
+      options.kind,
+      copiedFiles
+    );
+    await scopeImportedInvocationFrontmatter(
+      stagingPath,
+      options.kind,
+      scopedInvocationProviders,
+      frontmatter,
+      pluginSkillFrontmatter
+    );
 
     if (await exists(targetPath)) {
-      throw new Error(
-        `skillset: import target already exists: ${targetPath}. ` +
-          "Import never overwrites; remove the existing source or import under a different --name."
-      );
+      if (!mayMergeTargetNativeSkill) {
+        throw new Error(
+          `skillset: import target already exists: ${targetPath}. ` +
+            "Import never overwrites; remove the existing source or import under a different --name."
+        );
+      }
+      mergedOriginal = await mergeImportedProviderSkill(targetPath, stagingPath);
+      await rm(stagingPath, { force: true, recursive: true });
+    } else {
+      await rename(stagingPath, targetPath);
     }
-
-    await rename(stagingPath, targetPath);
     committed = true;
     let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
@@ -260,7 +305,11 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
         sourceDir,
       });
     } catch (error) {
-      await rm(targetPath, { force: true, recursive: true });
+      if (mergedOriginal === undefined) {
+        await rm(targetPath, { force: true, recursive: true });
+      } else {
+        await writeFile(join(targetPath, "SKILL.md"), mergedOriginal);
+      }
       throw error;
     }
 
@@ -269,6 +318,9 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       copiedFiles,
       kind: options.kind,
       name,
+      pluginSkillFrontmatter,
+      ...(options.provider === undefined ? {} : { provider: options.provider }),
+      ...(options.providers === undefined ? {} : { providers: options.providers }),
       rootPath: options.rootPath,
       targetPath,
     });
@@ -287,7 +339,13 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       sourcePath,
       targetPath,
       unsupportedFields: classification.unsupported,
-      warnings: [...importWarnings(classification), ...copied.warnings],
+      warnings: [
+        ...importWarnings(classification, scopedInvocationProviders),
+        ...pluginSkillFrontmatter.flatMap((skill) =>
+          importWarnings(skill.classification, scopedInvocationProviders)
+        ),
+        ...copied.warnings,
+      ],
     };
   } finally {
     if (!committed) {
@@ -385,7 +443,16 @@ interface FrontmatterClassification {
   readonly unsupported: readonly string[];
 }
 
-function classifyFrontmatter(frontmatter: JsonRecord): FrontmatterClassification {
+interface ImportedPluginSkillFrontmatter {
+  readonly classification: FrontmatterClassification;
+  readonly id: string;
+  readonly path: string;
+  readonly frontmatter: JsonRecord;
+}
+
+function classifyFrontmatter(
+  frontmatter: JsonRecord
+): FrontmatterClassification {
   const recognized: string[] = [];
   const targetNative: string[] = [];
   const unsupported: string[] = [];
@@ -399,11 +466,30 @@ function classifyFrontmatter(frontmatter: JsonRecord): FrontmatterClassification
   return { recognized, targetNative, unsupported };
 }
 
-function importWarnings(classification: FrontmatterClassification): readonly string[] {
+function importWarnings(
+  classification: FrontmatterClassification,
+  scopedInvocationProviders: readonly TargetName[]
+): readonly string[] {
   const warnings: string[] = [];
-  if (classification.targetNative.length > 0) {
+  const scopedCursorFields =
+    scopedInvocationProviders.length > 0 &&
+    classification.targetNative.includes("disable-model-invocation")
+      ? ["disable-model-invocation"]
+      : [];
+  const verbatimFields = classification.targetNative.filter(
+    (field) => !scopedCursorFields.includes(field)
+  );
+  if (scopedCursorFields.length > 0) {
+    const locations = scopedInvocationProviders
+      .map((provider) => `${provider}.frontmatter`)
+      .join(", ");
     warnings.push(
-      `preserved target-native fields verbatim: ${classification.targetNative.join(", ")}. ` +
+      `preserved target-native fields under ${locations}: ${scopedCursorFields.join(", ")}.`
+    );
+  }
+  if (verbatimFields.length > 0) {
+    warnings.push(
+      `preserved target-native fields verbatim: ${verbatimFields.join(", ")}. ` +
         "Consider moving them to a portable source key (e.g. tools, implicit_invocation) or a provider-specific block."
     );
   }
@@ -421,6 +507,9 @@ async function importRenderResults(args: {
   readonly copiedFiles: readonly string[];
   readonly kind: SingularImportKind;
   readonly name: string;
+  readonly pluginSkillFrontmatter: readonly ImportedPluginSkillFrontmatter[];
+  readonly provider?: ImportProvider;
+  readonly providers?: readonly ImportProvider[];
   readonly rootPath: string;
   readonly targetPath: string;
 }): Promise<readonly SkillsetRenderResult[]> {
@@ -434,32 +523,111 @@ function importFrontmatterRenderResults(args: {
   readonly classification: FrontmatterClassification;
   readonly kind: SingularImportKind;
   readonly name: string;
+  readonly pluginSkillFrontmatter: readonly ImportedPluginSkillFrontmatter[];
+  readonly provider?: ImportProvider;
+  readonly providers?: readonly ImportProvider[];
   readonly rootPath: string;
   readonly targetPath: string;
 }): readonly SkillsetRenderResult[] {
-  const toolPolicyFields = args.classification.targetNative.filter(isClaudeToolPolicyField);
-  if (toolPolicyFields.length === 0) return [];
-  const sourcePath = importSourcePath(args.rootPath, args.targetPath, args.kind);
+  const providers = importFrontmatterProviders(args.provider, args.providers);
+  if (providers.length === 0) return [];
+  const scopedProviders = importedInvocationScopeProviders(
+    args.providers ??
+      (args.provider === undefined ? undefined : [args.provider])
+  );
+  const sourcePath = importSourcePath(
+    args.rootPath,
+    args.targetPath,
+    args.kind
+  );
   return [
+    ...providers.flatMap((provider) =>
+      frontmatterPolicyRenderResults({
+        classification: args.classification,
+        provider,
+        scoped: args.kind === "skill" && scopedProviders.includes(provider),
+        sourcePath,
+        sourceUnit:
+          args.kind === "skill"
+            ? selectorForStandaloneSkill(args.name)
+            : selectorForPluginConfig(args.name),
+      })
+    ),
+    ...(args.provider === undefined && args.providers === undefined
+      ? []
+      : providers.flatMap((provider) =>
+          args.pluginSkillFrontmatter.flatMap((skill) =>
+            frontmatterPolicyRenderResults({
+              classification: skill.classification,
+              provider,
+              scoped: scopedProviders.includes(provider),
+              sourcePath: relative(
+                args.rootPath,
+                join(args.targetPath, skill.path)
+              ).replaceAll("\\", "/"),
+              sourceUnit: selectorForPluginSkill(args.name, skill.id),
+            })
+          )
+        )),
+  ];
+}
+
+function frontmatterPolicyRenderResults(args: {
+  readonly classification: FrontmatterClassification;
+  readonly provider: TargetName;
+  readonly scoped: boolean;
+  readonly sourcePath: string;
+  readonly sourceUnit: string;
+}): readonly SkillsetRenderResult[] {
+  const policies = [
+    ...(args.provider === "claude"
+      ? [
+          {
+            featureId: "tools-policy",
+            fields: args.classification.targetNative.filter(
+              isClaudeToolPolicyField
+            ),
+          },
+        ]
+      : []),
+    {
+      featureId: "skill-invocation-policy",
+      fields: providerSupportsNativeInvocationFrontmatter(args.provider)
+        ? args.classification.targetNative.filter(
+            (field) => field === "disable-model-invocation"
+          )
+        : [],
+    },
+  ].filter((policy) => policy.fields.length > 0);
+  if (policies.length === 0) return [];
+  return policies.map((policy) =>
     defineRenderResult({
       destination: "skill-frontmatter",
       diagnostics: [
         {
           code: "import-preserved-target-native-frontmatter",
-          message: `preserved target-native fields verbatim: ${toolPolicyFields.join(", ")}`,
-          path: sourcePath,
+          message: args.scoped
+            ? `preserved target-native fields under ${args.provider}.frontmatter: ${policy.fields.join(", ")}`
+            : `preserved target-native fields verbatim: ${policy.fields.join(", ")}`,
+          path: args.sourcePath,
         },
       ],
-      featureId: "tools-policy",
-      outputs: [{ kind: "imported-source", path: sourcePath }],
-      sourcePath,
-      sourceUnit: args.kind === "skill"
-        ? selectorForStandaloneSkill(args.name)
-        : selectorForPluginConfig(args.name),
+      featureId: policy.featureId,
+      outputs: [{ kind: "imported-source", path: args.sourcePath }],
+      sourcePath: args.sourcePath,
+      sourceUnit: args.sourceUnit,
       status: "target_native",
-      target: "claude",
-    }),
-  ];
+      target: args.provider,
+    })
+  );
+}
+
+function importFrontmatterProviders(
+  provider: ImportProvider | undefined,
+  providers: readonly ImportProvider[] | undefined
+): readonly TargetName[] {
+  const candidates = providers ?? (provider === undefined ? ["claude"] : [provider]);
+  return targetNames().filter((target) => candidates.includes(target));
 }
 
 async function importNativeHookRenderResults(args: {
@@ -551,11 +719,222 @@ async function importedNativePluginTargets(targetPath: string): Promise<readonly
 }
 
 function isClaudeToolPolicyField(field: string): boolean {
-  return field === "allowed-tools" || field === "disallowed-tools" || field === "disable-model-invocation";
+  return field === "allowed-tools" || field === "disallowed-tools";
 }
 
-function importSourcePath(rootPath: string, targetPath: string, kind: SingularImportKind): string {
-  const path = kind === "skill" ? join(targetPath, "SKILL.md") : join(targetPath, "skillset.yaml");
+async function scopeImportedInvocationFrontmatter(
+  targetPath: string,
+  kind: SingularImportKind,
+  providers: readonly TargetName[],
+  frontmatter: JsonRecord,
+  pluginSkillFrontmatter: readonly ImportedPluginSkillFrontmatter[]
+): Promise<void> {
+  if (providers.length === 0) return;
+  if (kind === "skill") {
+    await scopeSkillInvocationFrontmatter(
+      join(targetPath, "SKILL.md"),
+      frontmatter,
+      providers
+    );
+    return;
+  }
+  for (const skill of pluginSkillFrontmatter) {
+    await scopeSkillInvocationFrontmatter(
+      join(targetPath, skill.path),
+      skill.frontmatter,
+      providers
+    );
+  }
+}
+
+async function scopeSkillInvocationFrontmatter(
+  skillPath: string,
+  frontmatter: JsonRecord,
+  providers: readonly TargetName[]
+): Promise<void> {
+  const nativeValue = frontmatter["disable-model-invocation"];
+  if (nativeValue === undefined) return;
+  const source = await readFile(skillPath, "utf8");
+  await writeFile(
+    skillPath,
+    updateMarkdownSourceDocument(source, skillPath, (parts) => {
+      const { "disable-model-invocation": _nativeInvocation, ...portable } =
+        parts.frontmatter;
+      const scoped = Object.fromEntries(
+        providers.map((provider) => {
+          const target = readRecord(parts.frontmatter, provider) ?? {};
+          const targetFrontmatter = readRecord(target, "frontmatter") ?? {};
+          return [
+            provider,
+            {
+              ...target,
+              frontmatter: {
+                ...targetFrontmatter,
+                "disable-model-invocation": nativeValue,
+              },
+            },
+          ];
+        })
+      );
+      return {
+        ...parts,
+        frontmatter: {
+          ...portable,
+          ...scoped,
+        },
+      };
+    })
+  );
+}
+
+async function mergeImportedProviderSkill(
+  targetPath: string,
+  stagingPath: string
+): Promise<string> {
+  await assertMatchingImportedSkillResources(targetPath, stagingPath);
+  const targetSkillPath = join(targetPath, "SKILL.md");
+  const stagedSkillPath = join(stagingPath, "SKILL.md");
+  const targetSource = await readFile(targetSkillPath, "utf8");
+  const stagedSource = await readFile(stagedSkillPath, "utf8");
+  const targetParts = parseMarkdown(targetSource, targetSkillPath);
+  const stagedParts = parseMarkdown(stagedSource, stagedSkillPath);
+  if (
+    targetParts.body !== stagedParts.body ||
+    !isDeepStrictEqual(
+      portableImportedSkillFrontmatter(targetParts.frontmatter),
+      portableImportedSkillFrontmatter(stagedParts.frontmatter)
+    )
+  ) {
+    throw importedSkillMergeConflict(targetPath);
+  }
+
+  const stagedTargets = targetNames().flatMap((target) => {
+    const staged = stagedParts.frontmatter[target];
+    if (staged === undefined) return [];
+    const current = targetParts.frontmatter[target];
+    if (current !== undefined && !isDeepStrictEqual(current, staged)) {
+      throw importedSkillMergeConflict(targetPath);
+    }
+    return [[target, staged] as const];
+  });
+  await writeFile(
+    targetSkillPath,
+    updateMarkdownSourceDocument(targetSource, targetSkillPath, (parts) => ({
+      ...parts,
+      frontmatter: {
+        ...parts.frontmatter,
+        ...Object.fromEntries(stagedTargets),
+      },
+    }))
+  );
+  return targetSource;
+}
+
+function portableImportedSkillFrontmatter(frontmatter: JsonRecord): JsonRecord {
+  const targetKeys = new Set<string>(targetNames());
+  return Object.fromEntries(
+    Object.entries(frontmatter).filter(
+      ([key]) => key !== "skillset" && !targetKeys.has(key)
+    )
+  );
+}
+
+async function assertMatchingImportedSkillResources(
+  targetPath: string,
+  stagingPath: string
+): Promise<void> {
+  const targetFiles = (await collectFiles(targetPath))
+    .map((path) => relative(targetPath, path).replaceAll("\\", "/"))
+    .filter((path) => path !== "SKILL.md");
+  const stagedFiles = (await collectFiles(stagingPath))
+    .map((path) => relative(stagingPath, path).replaceAll("\\", "/"))
+    .filter((path) => path !== "SKILL.md");
+  if (!isDeepStrictEqual(targetFiles, stagedFiles)) {
+    throw importedSkillMergeConflict(targetPath);
+  }
+  for (const path of targetFiles) {
+    const targetFile = join(targetPath, path);
+    const stagedFile = join(stagingPath, path);
+    const [targetContent, stagedContent, targetStat, stagedStat] =
+      await Promise.all([
+        readFile(targetFile),
+        readFile(stagedFile),
+        stat(targetFile),
+        stat(stagedFile),
+      ]);
+    if (
+      !targetContent.equals(stagedContent) ||
+      normalizeGeneratedFileMode(targetStat.mode) !==
+        normalizeGeneratedFileMode(stagedStat.mode)
+    ) {
+      throw importedSkillMergeConflict(targetPath);
+    }
+  }
+}
+
+function importedSkillMergeConflict(targetPath: string): Error {
+  return new Error(
+    `skillset: import target already exists: ${targetPath}. ` +
+      "Provider-native adoption merge requires matching portable skill content and resources."
+  );
+}
+
+function importProviders(options: ImportOptions): readonly ImportProvider[] | undefined {
+  if (options.providers !== undefined) return options.providers;
+  if (options.provider !== undefined) return [options.provider];
+  return undefined;
+}
+
+function importedInvocationScopeProviders(
+  providers: readonly ImportProvider[] | undefined
+): readonly TargetName[] {
+  if (providers === undefined) return [];
+  return targetNames().filter(
+    (target) =>
+      providers.includes(target) && providerSupportsNativeInvocationFrontmatter(target)
+  );
+}
+
+function providerSupportsNativeInvocationFrontmatter(provider: TargetName): boolean {
+  return listProviderSkillFrontmatterFields(provider).includes(
+    "disable-model-invocation"
+  );
+}
+
+async function readImportedPluginSkillFrontmatter(
+  targetPath: string,
+  kind: SingularImportKind,
+  copiedFiles: readonly string[]
+): Promise<readonly ImportedPluginSkillFrontmatter[]> {
+  if (kind !== "plugin") return [];
+  const skills: ImportedPluginSkillFrontmatter[] = [];
+  for (const copiedFile of copiedFiles) {
+    const path = normalizeCopiedImportPath(copiedFile);
+    const match = /^skills\/([^/]+)\/SKILL\.md$/.exec(path);
+    if (match?.[1] === undefined) continue;
+    const frontmatter = parseMarkdown(
+      await readFile(join(targetPath, path), "utf8"),
+      join(targetPath, path)
+    ).frontmatter;
+    skills.push({
+      classification: classifyFrontmatter(frontmatter),
+      frontmatter,
+      id: match[1],
+      path,
+    });
+  }
+  return skills;
+}
+
+function importSourcePath(
+  rootPath: string,
+  targetPath: string,
+  kind: SingularImportKind
+): string {
+  const path =
+    kind === "skill"
+      ? join(targetPath, "SKILL.md")
+      : join(targetPath, "skillset.yaml");
   return relative(rootPath, path).replaceAll("\\", "/");
 }
 

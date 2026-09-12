@@ -45,6 +45,7 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 | Resources | `implemented` | `native` | `native` | `native` | [1](./features/resources.md) |
 | Runtime Adapters | `planned` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/runtime-adapters.md) |
 | Runtime Context | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/hooks.md), [2](../development/features/hook-guardrails.md) |
+| Skill Invocation Policy | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/skills.md) |
 | Standalone Skills | `implemented` | `native` | `native` | `native` | [1](./features/skills.md) |
 | Supports | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](./features/supports.md) |
 | Provider Source | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](./features/target-native-islands.md) |

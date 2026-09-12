@@ -113,6 +113,7 @@ Skill source can also use normalized policy keys:
 implicit_invocation:
   claude: false
   codex: false
+  cursor: false
 allowed_tools:
   claude:
     - Read
@@ -120,7 +121,7 @@ allowed_tools:
   cursor: false
 ```
 
-`implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex and Cursor have no confirmed skill-local allowed-tools equivalent, so leave their target values unset or set them to `false`.
+`implicit_invocation` renders to Claude and Cursor `disable-model-invocation` with inverted polarity, and to Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. Target-native frontmatter overrides the derived Claude or Cursor value when both are present. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex and Cursor have no confirmed skill-local allowed-tools equivalent, so leave their target values unset or set them to `false`.
 
 Use portable `tools` for known tool policy. The block records open-world policy and metadata; it is not a complete target-enforced sandbox on every provider:
 

@@ -388,6 +388,7 @@ const snapshots = [
     format: {
       directoryPattern: ".cursor/skills/<skill-name>/",
       frontmatter: {
+        optionalFields: ["disable-model-invocation"],
         requiredFields: ["name", "description"],
       },
       requiredFiles: ["SKILL.md"],
@@ -396,9 +397,13 @@ const snapshots = [
     },
     id: "cursor-skill",
     provenance: {
-      contentHash: "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
-      fetchedAt: FETCHED_AT,
+      contentHash: "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
+      fetchedAt: "2026-09-11T00:00:00-04:00",
       sources: [
+        {
+          note: "Documents disable-model-invocation for explicit-only skills.",
+          url: "https://cursor.com/docs/skills#frontmatter-fields",
+        },
         { url: "https://cursor.com/docs/plugins" },
         { url: "https://github.com/cursor/plugins" },
       ],
@@ -527,6 +532,27 @@ export function listProviderPluginManifestFields(
   }
   const manifest = snapshot.format.manifest;
   const fields = [manifest.requiredFields, manifest.optionalFields].flatMap((value) =>
+    Array.isArray(value) ? value.filter((entry) => typeof entry === "string") : []
+  );
+  return Object.freeze([...new Set(fields)].sort());
+}
+
+/** Frontmatter fields the pinned provider skill format accepts. */
+export function listProviderSkillFrontmatterFields(
+  target: ProviderDestinationFormatTarget
+): readonly string[] {
+  const snapshot = providerDestinationFormatSnapshots.find(
+    (candidate) => candidate.target === target && candidate.destination === "skill"
+  );
+  if (!isFormatRecord(snapshot?.format) || !isFormatRecord(snapshot.format.frontmatter)) {
+    return [];
+  }
+  const frontmatter = snapshot.format.frontmatter;
+  const fields = [
+    frontmatter.requiredFields,
+    frontmatter.recommendedFields,
+    frontmatter.optionalFields,
+  ].flatMap((value) =>
     Array.isArray(value) ? value.filter((entry) => typeof entry === "string") : []
   );
   return Object.freeze([...new Set(fields)].sort());

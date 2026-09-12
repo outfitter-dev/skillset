@@ -40,7 +40,7 @@ describe("documentation reference artifacts", () => {
       )
     ).toBe(47);
     expect(model.support.targets).toHaveLength(3);
-    expect(model.support.features).toHaveLength(40);
+    expect(model.support.features).toHaveLength(41);
     expect(first).toHaveLength(26);
     expect(first.map(({ path }) => path)).toEqual(
       [...first.map(({ path }) => path)].toSorted()

@@ -921,6 +921,43 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/reference/features/skills.md"],
+    evidence: [
+      test(
+        "packages/core/src/__tests__/skill-invocation-policy.test.ts",
+        "canonical invocation policy rendering and conformance"
+      ),
+    ],
+    id: "skill-invocation-policy",
+    kind: "source",
+    renderOwner: "packages/core/src/render.ts",
+    sourceShape: "skill implicit_invocation frontmatter",
+    status: "implemented",
+    summary: "Lowers canonical skill invocation eligibility into provider-native policy.",
+    targetSupport: bothTargetsWithTargetEvidence(
+      "transformed",
+      [docs("docs/reference/features/skills.md")],
+      {
+        claude: [providerSnapshot("claude-skill")],
+        codex: [providerSnapshot("codex-skill")],
+        cursor: [providerSnapshot("cursor-skill")],
+      },
+      {
+        claude: {
+          destinationFormat: "claude-skill",
+          manualOverlays: ["claude-skill-frontmatter-overlay"],
+        },
+        codex: {
+          destinationFormat: "codex-skill",
+          schemaSnapshots: ["codex-skill-metadata-schema"],
+        },
+        cursor: { destinationFormat: "cursor-skill" },
+      }
+    ),
+    title: "Skill Invocation Policy",
+    validationOwner: "packages/core/src/skill-policy.ts",
+  }),
+  feature({
+    docs: ["docs/reference/features/skills.md"],
     evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "standalone skill rendering coverage")],
     id: "standalone-skills",
     kind: "source",

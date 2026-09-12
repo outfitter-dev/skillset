@@ -59,6 +59,7 @@ const SEEDED_FEATURE_IDS = [
   "resources",
   "runtime-adapters",
   "runtime-context",
+  "skill-invocation-policy",
   "standalone-skills",
   "supports",
   "target-native-islands",

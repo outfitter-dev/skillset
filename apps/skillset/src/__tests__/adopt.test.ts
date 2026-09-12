@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 import { adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "@skillset/core";
@@ -449,7 +450,7 @@ test("failed instruction adoption reports its partial copied destination", async
   expect(await exists(join(root, ".skillset/rules/agents.md"))).toBe(true);
 });
 
-test("adopt elevates a root Cursor native plugin", async () => {
+test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor", async () => {
   const root = await fixture({
     ".cursor-plugin/plugin.json": JSON.stringify({
       description: "Root Cursor plugin.",
@@ -457,10 +458,14 @@ test("adopt elevates a root Cursor native plugin", async () => {
       version: "1.2.3",
     }),
     "README.md": "# Root Cursor plugin\n",
-    "skills/helper/SKILL.md": "---\nname: helper\ndescription: Helper skill.\n---\n\nBody.\n",
+    "skills/helper/SKILL.md":
+      "---\nname: helper\ndescription: Helper skill.\ndisable-model-invocation: true\n---\n\nBody.\n",
   });
 
-  const report = await adoptSkillset(root, { targets: ["cursor"], write: true });
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
 
   expect(report.ok).toBe(true);
   expect(report.candidates).toContainEqual({ kind: "plugin", path: "." });
@@ -471,17 +476,215 @@ test("adopt elevates a root Cursor native plugin", async () => {
   const pluginConfig = await readFile(join(root, ".skillset/plugins/cursor-native/skillset.yaml"), "utf8");
   expect(pluginConfig).toContain("name: cursor-native");
   expect(pluginConfig).toContain("path: .");
-  expect(await exists(join(root, ".skillset/plugins/cursor-native/.cursor-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, ".skillset/plugins/cursor-native/skills/helper/SKILL.md"))).toBe(true);
+  expect(
+    await exists(
+      join(root, ".skillset/plugins/cursor-native/.cursor-plugin/plugin.json")
+    )
+  ).toBe(true);
+  expect(
+    await exists(
+      join(root, ".skillset/plugins/cursor-native/skills/helper/SKILL.md")
+    )
+  ).toBe(true);
+  expect(report.renderResults).toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "plugin.cursor-native.skill:helper",
+      status: "target_native",
+      target: "cursor",
+    })
+  );
+  expect(
+    report.imports
+      .find((result) => result.candidate.kind === "plugin")
+      ?.warnings.join("\n")
+  ).toContain("under cursor.frontmatter");
+
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/plugins/cursor-native/skills/helper/SKILL.md"),
+      "utf8"
+    ),
+    "Cursor plugin skill source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    cursor: {
+      frontmatter: { "disable-model-invocation": true },
+    },
+  });
+
+  await rm(join(root, ".cursor-plugin"), { recursive: true });
+  await rm(join(root, "skills"), { recursive: true });
+  await buildSkillset(root);
+  const outputFrontmatter = async (path: string) =>
+    parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
+  const cursor = await outputFrontmatter(
+    join(root, "plugins/cursor-native/cursor/skills/helper/SKILL.md")
+  );
+  const claude = await outputFrontmatter(
+    join(root, "plugins/cursor-native/claude/skills/helper/SKILL.md")
+  );
+  const codex = await outputFrontmatter(
+    join(root, "plugins/cursor-native/codex/skills/helper/SKILL.md")
+  );
+  expect(cursor["disable-model-invocation"]).toBe(true);
+  expect(claude["disable-model-invocation"]).toBeUndefined();
+  expect(codex["disable-model-invocation"]).toBeUndefined();
+  expect(
+    await Bun.file(
+      join(root, "plugins/cursor-native/codex/skills/helper/agents/openai.yaml")
+    ).exists()
+  ).toBe(false);
 });
 
-test("adopt carries import render results into its domain report", async () => {
+test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to Codex", async () => {
+  const manifest = JSON.stringify({ name: "mixed-native", version: "1.0.0" });
+  const root = await fixture({
+    ".claude-plugin/plugin.json": manifest,
+    ".cursor-plugin/plugin.json": manifest,
+    "skills/helper/SKILL.md":
+      "---\nname: helper\ndescription: Shared native skill.\ndisable-model-invocation: true\n---\n\nBody.\n",
+  });
+
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
+
+  expect(report.ok).toBe(true);
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/plugins/mixed-native/skills/helper/SKILL.md"),
+      "utf8"
+    ),
+    "mixed provider plugin skill source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    claude: { frontmatter: { "disable-model-invocation": true } },
+    cursor: { frontmatter: { "disable-model-invocation": true } },
+  });
+  expect(source).not.toHaveProperty("codex.frontmatter.disable-model-invocation");
+
+  const invocationResults = report.renderResults.filter(
+    (result) =>
+      result.featureId === "skill-invocation-policy" &&
+      result.sourceUnit === "plugin.mixed-native.skill:helper"
+  );
+  expect(invocationResults.map((result) => result.target)).toEqual([
+    "claude",
+    "cursor",
+  ]);
+  for (const result of invocationResults) {
+    expect(result.diagnostics?.[0]?.message).toContain(
+      `${result.target}.frontmatter`
+    );
+  }
+  expect(invocationResults).not.toContainEqual(
+    expect.objectContaining({ target: "codex" })
+  );
+
+  await rm(join(root, ".claude-plugin"), { recursive: true });
+  await rm(join(root, ".cursor-plugin"), { recursive: true });
+  await rm(join(root, "skills"), { recursive: true });
+  await buildSkillset(root);
+  const outputFrontmatter = async (target: "claude" | "codex" | "cursor") => {
+    const path = join(
+      root,
+      `plugins/mixed-native/${target}/skills/helper/SKILL.md`
+    );
+    return parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
+  };
+  expect((await outputFrontmatter("claude"))["disable-model-invocation"]).toBe(
+    true
+  );
+  expect((await outputFrontmatter("cursor"))["disable-model-invocation"]).toBe(
+    true
+  );
+  expect(
+    (await outputFrontmatter("codex"))["disable-model-invocation"]
+  ).toBeUndefined();
+  expect(
+    await Bun.file(
+      join(
+        root,
+        "plugins/mixed-native/codex/skills/helper/agents/openai.yaml"
+      )
+    ).exists()
+  ).toBe(false);
+});
+
+test("SET-522: Cursor explicit-only skill adoption stays scoped to Cursor", async () => {
+  const root = await fixture({
+    ".cursor/skills/explicit-only/SKILL.md":
+      "---\nname: explicit-only\ndescription: Explicit-only Cursor skill.\ndisable-model-invocation: true\n---\n\nBody.\n",
+  });
+
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.renderResults).toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:explicit-only",
+      status: "target_native",
+      target: "cursor",
+    })
+  );
+
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/skills/explicit-only/SKILL.md"),
+      "utf8"
+    ),
+    "explicit-only source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    cursor: {
+      frontmatter: { "disable-model-invocation": true },
+    },
+  });
+
+  await rm(join(root, ".cursor/skills/explicit-only"), { recursive: true });
+  await buildSkillset(root);
+  const cursor = parseMarkdown(
+    await readFile(join(root, ".cursor/skills/explicit-only/SKILL.md"), "utf8"),
+    "Cursor explicit-only output"
+  ).frontmatter;
+  const claude = parseMarkdown(
+    await readFile(join(root, ".claude/skills/explicit-only/SKILL.md"), "utf8"),
+    "Claude explicit-only output"
+  ).frontmatter;
+  const codex = parseMarkdown(
+    await readFile(join(root, ".agents/skills/explicit-only/SKILL.md"), "utf8"),
+    "Codex explicit-only output"
+  ).frontmatter;
+
+  expect(cursor["disable-model-invocation"]).toBe(true);
+  expect(claude["disable-model-invocation"]).toBeUndefined();
+  expect(codex["disable-model-invocation"]).toBeUndefined();
+  expect(
+    await Bun.file(
+      join(root, ".agents/skills/explicit-only/agents/openai.yaml")
+    ).exists()
+  ).toBe(false);
+});
+
+test("SET-522: Claude explicit-only skill adoption stays scoped to Claude", async () => {
   const root = await fixture({
     ".claude/skills/native/SKILL.md":
       "---\nname: native\ndescription: Native skill.\nallowed-tools:\n  - Read\ndisable-model-invocation: true\n---\n\nBody.\n",
   });
 
-  const report = await adoptSkillset(root, { targets: ["claude"], write: true });
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
   const importOutcome = expect.objectContaining({
     diagnostics: expect.arrayContaining([
       expect.objectContaining({
@@ -498,7 +701,147 @@ test("adopt carries import render results into its domain report", async () => {
   expect(report.ok).toBe(true);
   expect(report.imports[0]?.renderResults).toContainEqual(importOutcome);
   expect(report.renderResults).toContainEqual(importOutcome);
+  expect(report.renderResults).toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:native",
+      status: "target_native",
+      target: "claude",
+    })
+  );
+  expect(report.renderResults).not.toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:native",
+      target: "codex",
+    })
+  );
+  expect(report.renderResults).not.toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:native",
+      target: "cursor",
+    })
+  );
 
+  const source = parseMarkdown(
+    await readFile(join(root, ".skillset/skills/native/SKILL.md"), "utf8"),
+    "Claude explicit-only source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    claude: { frontmatter: { "disable-model-invocation": true } },
+  });
+
+  await rm(join(root, ".claude/skills/native"), { recursive: true });
+  await buildSkillset(root);
+  const outputFrontmatter = async (path: string) =>
+    parseMarkdown(await readFile(join(root, path), "utf8"), path).frontmatter;
+  expect(
+    (await outputFrontmatter(".claude/skills/native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBe(true);
+  expect(
+    (await outputFrontmatter(".agents/skills/native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBeUndefined();
+  expect(
+    (await outputFrontmatter(".cursor/skills/native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBeUndefined();
+  expect(
+    await Bun.file(
+      join(root, ".agents/skills/native/agents/openai.yaml")
+    ).exists()
+  ).toBe(false);
+
+});
+
+test("SET-522: matching Claude and Cursor standalone skills merge provider policy", async () => {
+  const skill =
+    "---\nname: shared-native\ndescription: Shared native skill.\ndisable-model-invocation: true\n---\n\nBody.\n";
+  const root = await fixture({
+    ".claude/skills/shared-native/SKILL.md": skill,
+    ".cursor/skills/shared-native/SKILL.md": skill,
+  });
+
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(
+    report.imports.filter((result) => result.candidate.kind === "skills")
+  ).toHaveLength(2);
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/skills/shared-native/SKILL.md"),
+      "utf8"
+    ),
+    "merged provider skill source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    claude: { frontmatter: { "disable-model-invocation": true } },
+    cursor: { frontmatter: { "disable-model-invocation": true } },
+  });
+
+  await rm(join(root, ".claude/skills/shared-native"), { recursive: true });
+  await rm(join(root, ".cursor/skills/shared-native"), { recursive: true });
+  await buildSkillset(root);
+  const outputFrontmatter = async (path: string) =>
+    parseMarkdown(await readFile(join(root, path), "utf8"), path).frontmatter;
+  expect(
+    (await outputFrontmatter(".claude/skills/shared-native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBe(true);
+  expect(
+    (await outputFrontmatter(".cursor/skills/shared-native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBe(true);
+  expect(
+    (await outputFrontmatter(".agents/skills/shared-native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBeUndefined();
+});
+
+test("SET-522: provider skill adoption refuses a conflicting portable body", async () => {
+  const frontmatter =
+    "---\nname: shared-native\ndescription: Shared native skill.\ndisable-model-invocation: true\n---\n\n";
+  const root = await fixture({
+    ".claude/skills/shared-native/SKILL.md": `${frontmatter}Claude body.\n`,
+    ".cursor/skills/shared-native/SKILL.md": `${frontmatter}Cursor body.\n`,
+  });
+
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
+
+  expect(report.ok).toBe(false);
+  expect(report.imports.find((result) => result.ok === false)?.detail).toContain(
+    "requires matching portable skill content and resources"
+  );
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/skills/shared-native/SKILL.md"),
+      "utf8"
+    ),
+    "conflicting provider skill source"
+  );
+  expect(source.body).toContain("Claude body.");
+  expect(source.frontmatter).toHaveProperty(
+    "claude.frontmatter.disable-model-invocation",
+    true
+  );
+  expect(source.frontmatter).not.toHaveProperty("cursor");
 });
 
 test("adopt carries native hook lift diagnostics into its domain report", async () => {
