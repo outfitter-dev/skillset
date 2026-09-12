@@ -10,6 +10,7 @@ The package is also the reference contract for future provider registry packages
 - Provider schema snapshots and manual overlays.
 - Hook evidence and provider capability facts.
 - Known provider migration classifications.
+- Candidate-standard compatibility evidence and bounded consumer profiles.
 - Shared registry types and validation helpers.
 
 ## Does Not Own

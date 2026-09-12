@@ -5,6 +5,7 @@ export * from "./hook-evidence";
 export * from "./provider-runtime-evidence";
 export * from "./provider-locations";
 export * from "./schema-snapshots";
+export * from "./standard-compatibility";
 
 export const PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA = "skillset-provider-destination-format@1";
 
