@@ -20,6 +20,7 @@ import {
 import { gitSafeEnv } from "./git-env";
 import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
+import { targetNames } from "@skillset/core/internal/config";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { initSkillset, type SetupFile, type SetupImportCandidate, type SetupInclude, type SurveySkip } from "./setup";
 import type { PluginAdoptionDiagnostic } from "./plugin-adoption";
@@ -607,12 +608,20 @@ async function importCandidateSources(
   if (candidate.kind === "instructions") {
     throw new Error("skillset: instruction candidates use the dedicated instruction importer");
   }
-  const prepared = await preparePluginAdoptionSource(rootPath, candidate, allCandidates);
+  const providers = await providersForAdoptCandidate(rootPath, candidate);
+  const prepared = await preparePluginAdoptionSource(
+    rootPath,
+    candidate,
+    allCandidates
+  );
   if (candidate.kind === "plugin" && prepared !== undefined) {
     try {
       return await importSources({
         kind: "plugin",
-        ...(candidate.plugin?.relation === "equivalent" ? { name: candidate.plugin.identity } : {}),
+        ...(candidate.plugin?.relation === "equivalent"
+          ? { name: candidate.plugin.identity }
+          : {}),
+        ...(providers.length === 0 ? {} : { providers }),
         rootPath,
         sourceOrigin: (_sourcePath, copiedFile) =>
           sourceOriginFor(
@@ -628,11 +637,46 @@ async function importCandidateSources(
 
   return importSources({
     kind: candidate.kind,
+    ...(providers.length === 0 ? {} : { providers }),
     rootPath,
     sourceOrigin: (sourcePath, copiedFile) =>
       sourceOriginFor(acquisition, relativeOriginPath(rootPath, sourcePath, copiedFile)),
     sourcePath: join(rootPath, candidate.path),
   });
+}
+
+async function providersForAdoptCandidate(
+  rootPath: string,
+  candidate: SetupImportCandidate
+): Promise<readonly TargetName[]> {
+  if (candidate.kind === "skills") {
+    if (candidate.path === ".claude/skills") return ["claude"];
+    if (
+      candidate.path === ".codex/skills" ||
+      candidate.path === ".agents/skills"
+    ) {
+      return ["codex"];
+    }
+    if (candidate.path === ".cursor/skills") return ["cursor"];
+    return [];
+  }
+  if (candidate.kind !== "plugin") return [];
+
+  const declaredProviders = candidate.plugin?.providers;
+  if (declaredProviders !== undefined) return declaredProviders;
+
+  const providers = (
+    await Promise.all(
+      targetNames().map(async (target) =>
+        (await exists(
+          join(rootPath, candidate.path, `.${target}-plugin`, "plugin.json")
+        ))
+          ? target
+          : undefined
+      )
+    )
+  ).filter((target): target is TargetName => target !== undefined);
+  return providers;
 }
 
 /**

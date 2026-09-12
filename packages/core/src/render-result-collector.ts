@@ -34,7 +34,11 @@ import {
 } from "./render-plugin-manifest";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
-import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
+import {
+  readClaudeNativeToolRules,
+  readEffectiveToolsPolicy,
+  readImplicitInvocation,
+} from "./skill-policy";
 import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
 import { cursorMarketplaceOwner } from "./render-marketplaces";
 import {
@@ -984,6 +988,41 @@ function featureOutcomesForLockItem(
     );
   }
 
+  const invocationPolicy = invocationPolicyForLockItem(graph, item, target);
+  if (invocationPolicy !== undefined) {
+    const invocationOutputPaths = outputPaths.filter((path) =>
+      target === "codex"
+        ? path.endsWith("/agents/openai.yaml")
+        : path.endsWith("/SKILL.md") || path === "SKILL.md"
+    );
+    outcomes.push(
+      featureOutcome({
+        destination:
+          target === "codex" ? "skill-agent-config" : "skill-frontmatter",
+        ...(invocationPolicy.nativeOverride
+          ? {
+              diagnostics: [
+                {
+                  code: "skill-invocation-policy-native-override",
+                  message: `${target}.frontmatter.disable-model-invocation overrides the derived canonical invocation policy`,
+                  path: item.sourcePath,
+                },
+              ],
+            }
+          : {}),
+        featureId: "skill-invocation-policy",
+        isIncluded: invocationOutputPaths.some((path) => includedPaths.has(path)),
+        mapOutputPath,
+        outputKind: "metadata",
+        outputPaths: invocationOutputPaths,
+        sourcePath: item.sourcePath,
+        sourceUnit: sourceUnitForLockItem(item, target),
+        status: "transformed",
+        target,
+      })
+    );
+  }
+
   const claudeToolIntentOutputPaths =
     target === "claude" && skillHasClaudeToolIntent(graph, item)
       ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
@@ -1081,6 +1120,28 @@ function skillHasClaudeToolIntent(graph: BuildGraph, item: RenderedLockItem): bo
   if (skill === undefined) return false;
   const rules = readClaudeNativeToolRules(skill.frontmatter, skill.targets.claude.options, item.sourcePath);
   return rules.allow.length > 0 || rules.deny.length > 0;
+}
+
+function invocationPolicyForLockItem(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName | undefined
+): { readonly nativeOverride: boolean } | undefined {
+  if (target === undefined) return undefined;
+  const skill = sourceSkillForLockItem(graph, item);
+  if (skill === undefined) return undefined;
+  const implicitInvocation = readImplicitInvocation(
+    skill.frontmatter,
+    target,
+    item.sourcePath
+  );
+  if (implicitInvocation === undefined) return undefined;
+  const targetFrontmatter = readRecord(skill.targets[target].options, "frontmatter");
+  return {
+    nativeOverride:
+      target !== "codex" &&
+      targetFrontmatter?.["disable-model-invocation"] !== undefined,
+  };
 }
 
 function toolsRealizationPlanForLockItem(

@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:813dc52e284eb831920661d6bba54c57bf426c6b9a86de3f89aba130e25a2ebd",
+  "provenanceHash": "sha256:b0cdd802123ba34b4fc610d8a23afd30fc2a2bb9b0b7d47fa92f51b261b5b375",
   "renderResults": [
     {
       "destination": "skill",
@@ -125,9 +125,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
           "ref": "cursor-skill",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-11"
         }
       ],
       "featureId": "standalone-skills",
@@ -204,9 +204,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
           "ref": "cursor-skill",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-11"
         }
       ],
       "featureId": "standalone-skills",
@@ -231,9 +231,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
           "ref": "cursor-skill",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-11"
         }
       ],
       "featureId": "standalone-skills",
@@ -262,9 +262,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
           "ref": "cursor-skill",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-11"
         }
       ],
       "featureId": "standalone-skills",
@@ -293,9 +293,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
           "ref": "cursor-skill",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-11"
         }
       ],
       "featureId": "standalone-skills",

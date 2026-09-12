@@ -8,6 +8,7 @@ description: Skills define portable source, identity, provider output, validatio
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
 | `plugin-skills` | `implemented` | `native` | `native` | `native` |
+| `skill-invocation-policy` | `implemented` | `transformed` | `transformed` | `transformed` |
 | `standalone-skills` | `implemented` | `native` | `native` | `native` |
 <!-- skillset:generated:end feature-support -->
 

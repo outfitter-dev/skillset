@@ -1156,12 +1156,16 @@ async function renderSkillMarkdown(
   const withReferences = references === undefined ? base : mergeRecords(base, { references });
   const withClaudePolicy =
     target === "claude" ? mergeRecords(withReferences, renderClaudeSkillPolicy(skill, targetOptions)) : withReferences;
+  const withProviderPolicy =
+    target === "cursor"
+      ? mergeRecords(withClaudePolicy, renderNativeSkillInvocationPolicy(skill, target))
+      : withClaudePolicy;
   const adaptiveHooks = target === "claude"
     ? renderAdaptiveFrontmatterHooks(graph, skillScope(plugin, skill), target, relative(graph.rootPath, skill.sourcePath))
     : undefined;
   const withAdaptiveHooks = adaptiveHooks === undefined
-    ? withClaudePolicy
-    : mergeRecords(withClaudePolicy, { hooks: adaptiveHooks });
+    ? withProviderPolicy
+    : mergeRecords(withProviderPolicy, { hooks: adaptiveHooks });
   const targetFrontmatter = readRecord(targetOptions, "frontmatter") ?? {};
   if (adaptiveHooks !== undefined && targetFrontmatter.hooks !== undefined) {
     throw new Error(
@@ -1260,14 +1264,10 @@ function renderCodexPromptArgumentsNotice(body: string): string | undefined {
 
 function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
   const label = skill.sourcePath;
-  const implicitInvocation = readImplicitInvocation(skill.frontmatter, "claude", label);
   const allowedTools = readAllowedTools(skill.frontmatter, "claude", label);
   const nativeTools = readClaudeNativeToolRules(skill.frontmatter, targetOptions, label);
-  const policy: Record<string, JsonValue> = {};
+  const policy = renderNativeSkillInvocationPolicy(skill, "claude");
 
-  if (implicitInvocation !== undefined) {
-    policy["disable-model-invocation"] = !implicitInvocation;
-  }
   const allow = [
     ...(allowedTools !== undefined && allowedTools !== false ? allowedTools : []),
     ...nativeTools.allow,
@@ -1280,6 +1280,19 @@ function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord):
   }
 
   return policy;
+}
+
+function renderNativeSkillInvocationPolicy(
+  skill: SourceSkill,
+  target: "claude" | "cursor"
+): Record<string, JsonValue> {
+  const implicitInvocation = readImplicitInvocation(
+    skill.frontmatter,
+    target,
+    skill.sourcePath
+  );
+  if (implicitInvocation === undefined) return {};
+  return { "disable-model-invocation": !implicitInvocation };
 }
 
 async function renderCodexSkillAgentFile(
