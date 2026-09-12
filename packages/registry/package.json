@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./provider-maintenance": "./src/provider-maintenance.ts",
     "./provider-runtime-evidence": "./src/provider-runtime-evidence.ts",
-    "./provider-validation": "./src/provider-validation.ts"
+    "./provider-validation": "./src/provider-validation.ts",
+    "./standard-compatibility": "./src/standard-compatibility.ts"
   },
   "dependencies": {
     "@skillset/schema": "workspace:*"
