@@ -8,6 +8,8 @@ import {
   readRecord,
   readString,
 } from "./config";
+import { parseCurrentGeneratedLock } from "./generated-lock";
+import { hasValidLockProvenance } from "./lock-provenance";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { marketplaceRequestedRefPolicy } from "./marketplace-ref-policy";
 import { corruptWorkspaceLock } from "./output-safety";
@@ -609,6 +611,20 @@ export async function readExistingMarketplaceState(
     throw corruptWorkspaceLock(
       "skillset.lock",
       "it is missing a string generatedBy field"
+    );
+  }
+  try {
+    parseCurrentGeneratedLock(parsed, "workspace lock skillset.lock", {
+      provenance: "inspect",
+    });
+    if (!hasValidLockProvenance(parsed)) {
+      return EMPTY_MARKETPLACE_STATE;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw corruptWorkspaceLock(
+      "skillset.lock",
+      message.replace(/^skillset: /, "")
     );
   }
   const marketplaces = parsed.marketplaces;

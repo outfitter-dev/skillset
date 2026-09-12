@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { dirname, join, relative, sep } from "node:path";
+import { join, relative, sep } from "node:path";
 
 import {
   ACTIVATION_READINESS_SCHEMA,
@@ -24,7 +24,6 @@ import type {
   ActivationRequirementState,
 } from "@skillset/schema";
 
-import { readPluginDependencies } from "./dependencies";
 import {
   assertProviderActivationDescriptors,
   listProviderActivationDescriptors,
@@ -34,6 +33,8 @@ import type {
   ProviderActivationDescriptor,
 } from "./activation-policy";
 import { isOutputSelected } from "./config";
+import { readPluginDependencies } from "./dependencies";
+import { parseCurrentGeneratedLock } from "./generated-lock";
 import { compareStrings } from "./path";
 import type { SkillsetRenderResult } from "./render-result";
 import {
@@ -49,7 +50,6 @@ import type {
   SourcePluginDependency,
   TargetName,
 } from "./types";
-import { isJsonRecord } from "./yaml";
 
 export {
   ACTIVATION_READINESS_SCHEMA,
@@ -162,8 +162,7 @@ export function planActivationReadiness(
   const enabledTargets = targetNames().filter(
     (target) =>
       options.graph.root.targets[target].enabled &&
-      (!scopeTargets ||
-        subjects.some((subject) => subject.target === target))
+      (!scopeTargets || subjects.some((subject) => subject.target === target))
   );
   const descriptors =
     options.descriptors ?? listProviderActivationDescriptors();
@@ -296,9 +295,7 @@ export function createActivationProofIdentity(
     throw new Error("skillset: activation proof adapterId is required");
   }
   if (options.declarationHash.trim().length === 0) {
-    throw new Error(
-      "skillset: activation proof declarationHash is required"
-    );
+    throw new Error("skillset: activation proof declarationHash is required");
   }
   const requirementIds = [...new Set(options.requirementIds)].toSorted(
     compareStrings
@@ -442,11 +439,10 @@ export function evaluateActivationProofReceipts(input: {
     const successful = receipts
       .filter((receipt) => receipt.outcome === "passed")
       .toSorted(compareProofReceipts);
-    const matching = successful.find(
-      (receipt) =>
-        current.some((identity) =>
-          proofIdentityEquals(receipt.identity, identity)
-        )
+    const matching = successful.find((receipt) =>
+      current.some((identity) =>
+        proofIdentityEquals(receipt.identity, identity)
+      )
     );
     if (matching !== undefined) {
       evaluations.set(requirementId, {
@@ -611,7 +607,7 @@ export function summarizeActivationReadiness(
 function pluginDependencySubjects(
   graph: BuildGraph,
   plugin: BuildGraph["plugins"][number],
-  target: TargetName,
+  target: TargetName
 ): readonly ActivationSubject[] {
   const declarations = [
     ...plugin.dependencies.map((dependency) => ({
@@ -1037,7 +1033,7 @@ function relativeSourcePath(rootPath: string, sourcePath: string): string {
   return relative(rootPath, sourcePath).split(sep).join("/");
 }
 
-interface ActivationProofLockItem {
+export interface ActivationProofLockItem {
   readonly outputHash: string;
   readonly outputPaths: readonly string[];
   readonly renderInputsHash?: string;
@@ -1071,7 +1067,7 @@ function normalizeActivationProofClaims(
     );
 }
 
-function collectActivationProofLockItems(
+export function collectActivationProofLockItems(
   rendered: readonly RenderedFile[]
 ): readonly ActivationProofLockItem[] {
   const items = new Map<string, ActivationProofLockItem>();
@@ -1083,43 +1079,36 @@ function collectActivationProofLockItems(
     ) {
       continue;
     }
-    let lock: unknown;
+    let value: unknown;
     try {
-      lock = JSON.parse(decoder.decode(file.content));
+      value = JSON.parse(decoder.decode(file.content));
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(
         `skillset: activation proof identity cannot parse ${file.path}: ${detail}`
       );
     }
-    if (!isJsonRecord(lock) || !Array.isArray(lock.items)) continue;
-    const outputRoot = dirname(file.path);
+    const lock = parseCurrentGeneratedLock(
+      value,
+      `activation proof lock ${file.path}`
+    );
     for (const rawItem of lock.items) {
-      if (!isJsonRecord(rawItem)) continue;
       if (
-        typeof rawItem.sourceHash !== "string" ||
-        rawItem.sourceHash.length === 0 ||
-        typeof rawItem.outputHash !== "string" ||
-        rawItem.outputHash.length === 0
+        rawItem.sourceHash === undefined ||
+        rawItem.outputHash === undefined
       ) {
         continue;
       }
-      const files = Array.isArray(rawItem.files)
-        ? rawItem.files.filter(
-            (entry): entry is string => typeof entry === "string"
-          )
-        : typeof rawItem.outputPath === "string"
-          ? [rawItem.outputPath]
-          : [];
+      const files = rawItem.files;
       if (files.length === 0) continue;
       const item: ActivationProofLockItem = {
         outputHash: rawItem.outputHash,
         outputPaths: files
-          .map((path) => join(outputRoot, path).replaceAll("\\", "/"))
+          .map((path) => join(lock.outputRoot, path).replaceAll("\\", "/"))
           .toSorted(compareStrings),
-        ...(typeof rawItem.renderInputsHash === "string"
-          ? { renderInputsHash: rawItem.renderInputsHash }
-          : {}),
+        ...(rawItem.renderInputsHash === undefined
+          ? {}
+          : { renderInputsHash: rawItem.renderInputsHash }),
         sourceHash: rawItem.sourceHash,
       };
       const key = `${item.sourceHash}\0${item.outputHash}\0${item.renderInputsHash ?? ""}\0${item.outputPaths.join("\0")}`;

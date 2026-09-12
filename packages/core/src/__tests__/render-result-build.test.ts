@@ -19,10 +19,15 @@ import {
   type SkillsetRenderResultStatus,
 } from "@skillset/core";
 import { claudeMarketplaceSourcePlugins } from "../render-marketplaces";
-import { collectRenderResults } from "../render-result-collector";
+import {
+  collectRenderResults,
+  dependencyRenderStatus,
+} from "../render-result-collector";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
+import { withLockProvenance } from "../lock-provenance";
+import type { JsonRecord } from "../types";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -154,6 +159,87 @@ description: Beta skill.
 Use the beta plugin skill.
 `,
 };
+
+describe("dependency render identity", () => {
+  it("classifies standard-profile and missing identities without requiring a provider target", () => {
+    expect(dependencyRenderStatus("codex")).toBe("degraded");
+    expect(dependencyRenderStatus(undefined, "agent-plugins-1.0")).toBe(
+      "unsupported"
+    );
+    expect(dependencyRenderStatus(undefined)).toBe("unsupported");
+    expect(() =>
+      dependencyRenderStatus("codex", "agent-plugins-1.0")
+    ).toThrow("cannot name both a provider target and a standardProfile");
+  });
+
+  it("emits an actionable unsupported result for a standard consumer", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: standard-dependency-result
+compile:
+  targets: [codex]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+dependencies:
+  plugins:
+    - name: external-tools
+      range: ^1.0.0
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+    const graph = await loadBuildGraph(root);
+    let standardItemFound = false;
+    const rendered = (await renderBuildGraph(graph)).map((file) => {
+      if (!file.path.endsWith("skillset.lock")) return file;
+      const lock = JSON.parse(new TextDecoder().decode(file.content)) as {
+        items: Array<{
+          consumers?: unknown;
+          dependencies?: readonly string[];
+          owner?: unknown;
+        }>;
+      };
+      for (const item of lock.items) {
+        if ((item.dependencies?.length ?? 0) === 0) continue;
+        standardItemFound = true;
+        item.consumers = [
+          { phase: "baseline", standardProfile: "agent-plugins-1.0" },
+          { phase: "delta", target: "codex" },
+        ];
+        item.owner = { standardProfile: "agent-plugins-1.0" };
+      }
+      return {
+        ...file,
+        content: new TextEncoder().encode(
+          JSON.stringify(withLockProvenance(lock as unknown as JsonRecord))
+        ),
+      };
+    });
+    expect(standardItemFound).toBe(true);
+
+    const results = collectRenderResults(graph, rendered, {
+      claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
+      includedPaths: new Set(rendered.map((file) => file.path)),
+    });
+
+    expect(results).toContainEqual(expect.objectContaining({
+      featureId: "dependencies",
+      reason:
+        "agent-plugins-1.0 does not declare dependencies in its support envelope",
+      standardProfile: "agent-plugins-1.0",
+      status: "unsupported",
+    }));
+  });
+});
 
 describe("build render results", () => {
   it("preserves and repairs executable modes for resources and plugin scripts", async () => {
@@ -299,7 +385,7 @@ Demo.
     expect(await skillSourceHash(root)).not.toBe(skillHash);
   });
 
-  it("upgrades schema-v1 output locks without false managed-edit backups", async () => {
+  it("refuses to upgrade schema-v1 output locks in place", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -350,19 +436,15 @@ Demo.
     await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
     await chmod(outputScript, 0o644);
 
-    const migrated = await buildSkillsetResult(root);
-    expect(migrated.writes.backupRunId).toBeUndefined();
-    expect(migrated.writes.writtenPaths).toContain(
-      ".agents/skills/demo/scripts/run.sh"
+    const downgraded = await readFile(lockPath, "utf8");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
     );
-    expect(migrated.writes.writtenPaths).toContain(".agents/skills/skillset.lock");
-    expect((await stat(outputScript)).mode & 0o777).toBe(0o755);
-    expect((await readJson(lockPath)).schemaVersion).toBe(3);
-    expect((await readJson(lockPath)).selectedStandards).toEqual([]);
-    expect((await verifySkillsetResult(root)).ok).toBe(true);
+    expect(await readFile(lockPath, "utf8")).toBe(downgraded);
+    expect((await stat(outputScript)).mode & 0o777).toBe(0o644);
   });
 
-  it("upgrades coherent schema-v2 locks with file modes without a false managed-edit backup", async () => {
+  it("refuses to upgrade coherent schema-v2 output locks in place", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -401,15 +483,11 @@ Demo.
     delete legacy.selectedStandards;
     await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
 
-    const migrated = await buildSkillsetResult(root);
-    expect(migrated.writes.backupRunId).toBeUndefined();
-    expect(migrated.writes.backupRecords).toBeUndefined();
-    expect(migrated.diagnostics).not.toContainEqual(expect.objectContaining({
-      code: "managed-output-edited",
-      outputPath: ".agents/skills/skillset.lock",
-    }));
-    expect((await readJson(lockPath)).schemaVersion).toBe(3);
-    expect((await verifySkillsetResult(root)).ok).toBe(true);
+    const downgraded = await readFile(lockPath, "utf8");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 2; this generated state is rebuild-only"
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
 
   it("fails before writes for an explicit candidate standards selection", async () => {

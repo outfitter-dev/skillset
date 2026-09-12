@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 
 import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
-import { parseGeneratedLock, type ParsedGeneratedLockItem } from "./generated-lock";
+import {
+  parseCurrentGeneratedLock,
+  type ParsedGeneratedLockItem,
+} from "./generated-lock";
 import { compareStrings, resolveInside } from "./path";
 import {
   formatGeneratedFileMode,
@@ -143,9 +146,8 @@ interface LockFileEntry {
 }
 
 /**
- * Current logical projections used to distinguish an active provider's
- * recoverable files from stale standard-owned cleanup candidates in a shared
- * physical lock root.
+ * Current rendered paths distinguish repairable active output from stale paths
+ * that an invalid lock must not authorize for cleanup.
  */
 export interface ManagedOutputProvenancePolicy {
   readonly activeRenderedPaths: ReadonlySet<string>;
@@ -592,21 +594,23 @@ async function readManagedLock(
 
   let lock;
   try {
-    lock = parseGeneratedLock(
+    lock = parseCurrentGeneratedLock(
       parsed,
       displayLockPath,
       requireProvenance ? { provenance: "require" } : { provenance: "inspect" }
     );
     if (
       !requireProvenance &&
-      requiresProvenanceForStaleStandardCleanup(
+      requiresProvenanceForUnplannedPaths(
         lock,
         expectedOutputRoot,
         outPath,
         provenancePolicy
       )
     ) {
-      lock = parseGeneratedLock(parsed, displayLockPath, { provenance: "require" });
+      lock = parseCurrentGeneratedLock(parsed, displayLockPath, {
+        provenance: "require",
+      });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -622,7 +626,7 @@ async function readManagedLock(
   };
 }
 
-function requiresProvenanceForStaleStandardCleanup(
+function requiresProvenanceForUnplannedPaths(
   lock: ParsedLock,
   outputRoot: string,
   outPath: OutPath,
@@ -630,9 +634,11 @@ function requiresProvenanceForStaleStandardCleanup(
 ): boolean {
   if (policy === undefined) return false;
   return lock.items.some((item) =>
-    item.consumers.some((consumer) => "standardProfile" in consumer) &&
     item.files.some(
-      (file) => !policy.activeRenderedPaths.has(outPath(joinOutputRoot(outputRoot, file)))
+      (file) =>
+        !policy.activeRenderedPaths.has(
+          outPath(joinOutputRoot(outputRoot, file))
+        )
     )
   );
 }

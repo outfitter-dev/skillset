@@ -340,7 +340,7 @@ marketplaces:
     })]);
   });
 
-  test("reports stale marketplace lock provenance", async () => {
+  test("does not consume marketplace entries from invalid lock provenance", async () => {
     const root = await fixture(localMarketplaceFiles());
     await buildSkillsetResult(root);
     const lockPath = join(root, "skillset.lock");
@@ -353,15 +353,21 @@ marketplaces:
 
     const report = await checkMarketplaces(root, { name: "outfitter" });
 
-    expect(report.ok).toBe(false);
+    expect(report.ok).toBe(true);
     expect(report.entries).toContainEqual(expect.objectContaining({
       lock: expect.objectContaining({
-        reason: "marketplace lock entry is stale for the current resolution",
-        state: "stale",
+        state: "absent",
       }),
-      readiness: "not-ready",
+      readiness: "marketplace-ready",
       requestedTarget: "claude",
-      states: ["declared", "resolved", "renderable", "generated", "verified", "stale", "not-ready"],
+      states: [
+        "declared",
+        "resolved",
+        "renderable",
+        "generated",
+        "verified",
+        "marketplace-ready",
+      ],
     }));
   });
 

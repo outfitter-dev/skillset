@@ -9011,7 +9011,9 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
     generatedBy: "skillset@0.1.0",
     items: [],
     outputRoot: ".",
-    schemaVersion: 1,
+    provenanceHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+    schemaVersion: 3,
+    selectedStandards: [],
     selectedTargets: [],
     target: "workspace",
   });
