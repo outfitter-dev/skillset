@@ -637,6 +637,9 @@ async function importCandidateSources(
 
   return importSources({
     kind: candidate.kind,
+    ...(candidate.kind === "skills" && providers.length > 0
+      ? { mergeTargetNativeSkill: true }
+      : {}),
     ...(providers.length === 0 ? {} : { providers }),
     rootPath,
     sourceOrigin: (sourcePath, copiedFile) =>

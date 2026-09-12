@@ -760,6 +760,90 @@ test("SET-522: Claude explicit-only skill adoption stays scoped to Claude", asyn
 
 });
 
+test("SET-522: matching Claude and Cursor standalone skills merge provider policy", async () => {
+  const skill =
+    "---\nname: shared-native\ndescription: Shared native skill.\ndisable-model-invocation: true\n---\n\nBody.\n";
+  const root = await fixture({
+    ".claude/skills/shared-native/SKILL.md": skill,
+    ".cursor/skills/shared-native/SKILL.md": skill,
+  });
+
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(
+    report.imports.filter((result) => result.candidate.kind === "skills")
+  ).toHaveLength(2);
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/skills/shared-native/SKILL.md"),
+      "utf8"
+    ),
+    "merged provider skill source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    claude: { frontmatter: { "disable-model-invocation": true } },
+    cursor: { frontmatter: { "disable-model-invocation": true } },
+  });
+
+  await rm(join(root, ".claude/skills/shared-native"), { recursive: true });
+  await rm(join(root, ".cursor/skills/shared-native"), { recursive: true });
+  await buildSkillset(root);
+  const outputFrontmatter = async (path: string) =>
+    parseMarkdown(await readFile(join(root, path), "utf8"), path).frontmatter;
+  expect(
+    (await outputFrontmatter(".claude/skills/shared-native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBe(true);
+  expect(
+    (await outputFrontmatter(".cursor/skills/shared-native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBe(true);
+  expect(
+    (await outputFrontmatter(".agents/skills/shared-native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBeUndefined();
+});
+
+test("SET-522: provider skill adoption refuses a conflicting portable body", async () => {
+  const frontmatter =
+    "---\nname: shared-native\ndescription: Shared native skill.\ndisable-model-invocation: true\n---\n\n";
+  const root = await fixture({
+    ".claude/skills/shared-native/SKILL.md": `${frontmatter}Claude body.\n`,
+    ".cursor/skills/shared-native/SKILL.md": `${frontmatter}Cursor body.\n`,
+  });
+
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
+
+  expect(report.ok).toBe(false);
+  expect(report.imports.find((result) => result.ok === false)?.detail).toContain(
+    "requires matching portable skill content and resources"
+  );
+  const source = parseMarkdown(
+    await readFile(
+      join(root, ".skillset/skills/shared-native/SKILL.md"),
+      "utf8"
+    ),
+    "conflicting provider skill source"
+  );
+  expect(source.body).toContain("Claude body.");
+  expect(source.frontmatter).toHaveProperty(
+    "claude.frontmatter.disable-model-invocation",
+    true
+  );
+  expect(source.frontmatter).not.toHaveProperty("cursor");
+});
+
 test("adopt carries native hook lift diagnostics into its domain report", async () => {
   const hooks = {
     hooks: {
