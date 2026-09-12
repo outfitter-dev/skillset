@@ -85,6 +85,11 @@ export interface StandardProjectionOutputTopology {
   readonly standardProfile: StandardProfileId
 }
 
+export const STANDARD_PROJECTION_MANAGED_ROOTS = [
+  { path: '.agents/skills', scope: 'repo' },
+  { path: 'plugins', scope: 'plugins' },
+] as const
+
 /**
  * The three standards roots are fixed by the adopted profiles. They stay
  * separate from provider targets so a standard cannot become a fourth target.
@@ -131,6 +136,32 @@ export function standardProjectionManagedOutputRoots(
   if (plan.adopted.includes('agent-skills')) roots.push('.agents/skills')
   if (plan.adopted.includes('agent-plugins-1.0')) roots.push('plugins')
   return roots
+}
+
+/**
+ * Fixed standard roots remain discoverable after their projection is disabled.
+ * A validated prior lock, rather than current selection, grants cleanup
+ * authority; callers still decide whether a historical root actually exists.
+ */
+export function standardProjectionKnownManagedOutputRoots(): readonly {
+  readonly label: string
+  readonly path: string
+}[] {
+  return STANDARD_PROJECTION_MANAGED_ROOTS.map(root => ({
+    label: root.path === '.agents/skills'
+      ? 'standards.agent-skills'
+      : 'standards.agent-plugins-1.0',
+    path: root.path,
+  }))
+}
+
+export function standardProjectionManagedRootScope(
+  path: string
+): 'plugins' | 'repo' | undefined {
+  const root = STANDARD_PROJECTION_MANAGED_ROOTS.find(candidate =>
+    path === candidate.path || path.startsWith(`${candidate.path}/`)
+  )
+  return root?.scope
 }
 
 export function standardProjectionNonAdoptedDetail(

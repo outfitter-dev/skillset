@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join, sep } from "node:path";
 
 import { compareStrings } from "./path";
+import { mapPlannedOutputPaths, stalePlannedOutputPaths } from "./output-plan";
 import { hasValidLockProvenance, withLockProvenance } from "./lock-provenance";
 import {
   applyGeneratedFileMode,
@@ -20,7 +21,9 @@ import {
   persistOutputBackupPlan,
   planOutputBackups,
   readManagedOutputState,
+  WORKSPACE_LOCK_FILE,
   withBackupSummary,
+  type ManagedOutputProvenancePolicy,
   type ManagedOutputState,
   type OutputBackupSummary,
   type OutputPathResolver,
@@ -35,7 +38,12 @@ import {
 import { renderBuildGraph } from "./render";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
-import { standardProjectionNonAdoptedDetail, standardProjectionTopology } from "./standard-projections";
+import {
+  standardProjectionKnownManagedOutputRoots,
+  standardProjectionManagedRootScope,
+  standardProjectionNonAdoptedDetail,
+  standardProjectionTopology,
+} from "./standard-projections";
 import { renderValidatedJson } from "./structured-output";
 import {
   SkillsetFeatureDiagnosticError,
@@ -94,12 +102,20 @@ function mirroredRenderedFiles(
   outPath: OutPath
 ): readonly RenderedFile[] {
   if (outPath === livePath) return rendered;
-  return rendered.map((file) => ({ ...file, path: outPath(file.path) }));
+  return mapPlannedOutputPaths(rendered, outPath);
 }
 
 function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): readonly string[] {
   if (outPath === livePath) return outputRoots;
   return outputRoots.map((outputRoot) => outPath(outputRoot));
+}
+
+function managedOutputProvenancePolicy(
+  rendered: readonly RenderedFile[]
+): ManagedOutputProvenancePolicy {
+  return {
+    activeRenderedPaths: new Set(rendered.map((file) => file.path)),
+  };
 }
 
 const textDecoder = new TextDecoder();
@@ -287,11 +303,18 @@ async function buildSkillsetResultInternal(
     renderedWithoutOutcomeMetadata,
     renderResultsWithDiagnostics
   );
-  const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
+  const managedRoots = await managedOutputRootsForOperation(
+    graph,
+    options.scopes,
+    rendered,
+    outPath,
+    resolveOutputPath
+  );
+  const liveOutputRoots = managedRoots.roots;
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const expectedPaths = new Set(rendered.map((file) => file.path));
-  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
+  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
   diagnostics.push(...await diagnoseMissingManagedOutputs(rendered, previousManagedState.paths, resolveOutputPath));
   const inspectionArgs = {
     diagnostics,
@@ -329,7 +352,9 @@ async function buildSkillsetResultInternal(
       includeWorkspaceLock,
       outPath,
       resolveOutputPath,
-      displayPathMapper(pathContext)
+      displayPathMapper(pathContext),
+      managedRoots.strictRoots,
+      managedOutputProvenancePolicy(rendered)
     );
     writeInspection = await inspectOutputPlan({
       ...inspectionArgs,
@@ -514,7 +539,7 @@ async function inspectOutputPlan(args: {
 }): Promise<OutputPlanInspection> {
   const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
   const actualPaths = new Set(actualPathList);
-  const staleManagedPaths = staleManagedOutputPaths(args.previousManagedState.paths, new Set(args.expected.keys())).filter((path) => actualPaths.has(path));
+  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered).filter((path) => actualPaths.has(path));
   const added: string[] = [];
   const changed: string[] = [];
   const missing: string[] = [];
@@ -1119,10 +1144,17 @@ export async function diffSkillsetResult(
     renderResultsWithDiagnostics
   );
   const expected = new Map(rendered.map((file) => [file.path, file]));
-  const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
+  const managedRoots = await managedOutputRootsForOperation(
+    graph,
+    options.scopes,
+    rendered,
+    outPath,
+    resolveOutputPath
+  );
+  const liveOutputRoots = managedRoots.roots;
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
+  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
   const inspectionResult = await inspectOutputPlan({
     diagnostics,
     expected,
@@ -1199,10 +1231,17 @@ export async function verifySkillsetResult(
     renderResultsWithDiagnostics
   );
   const expected = new Map(rendered.map((file) => [file.path, file]));
-  const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
+  const managedRoots = await managedOutputRootsForOperation(
+    graph,
+    options.scopes,
+    rendered,
+    outPath,
+    resolveOutputPath
+  );
+  const liveOutputRoots = managedRoots.roots;
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
+  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
   const inspection = await inspectOutputPlan({
     diagnostics,
     expected,
@@ -1919,13 +1958,6 @@ function sortedUnique(paths: readonly string[]): readonly string[] {
   return [...new Set(paths)].sort(compareStrings);
 }
 
-function staleManagedOutputPaths(
-  previousManagedPaths: ReadonlySet<string>,
-  expectedPaths: ReadonlySet<string>
-): readonly string[] {
-  return [...previousManagedPaths].filter((path) => !expectedPaths.has(path)).sort(compareStrings);
-}
-
 function isInsideAnyOutputRoot(path: string, outputRoots: readonly string[]): boolean {
   return outputRoots.some(
     (outputRoot) => path === outputRoot || path.startsWith(`${outputRoot}/`)
@@ -1947,6 +1979,34 @@ export function scopedOutputRoots(
 ): readonly string[] {
   if (scopes === undefined) return graph.outputRoots;
   return graph.outputRoots.filter((outputRoot) => isPathInScopes(graph, outputRoot, scopes));
+}
+
+async function managedOutputRootsForOperation(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined,
+  rendered: readonly RenderedFile[],
+  outPath: OutPath,
+  resolveOutputPath: OutputPathResolver
+): Promise<{
+  readonly roots: readonly string[];
+  readonly strictRoots: ReadonlySet<string>;
+}> {
+  const roots = new Set(scopedOutputRoots(graph, scopes));
+  const strictRoots = new Set<string>();
+  for (const candidate of standardProjectionKnownManagedOutputRoots()) {
+    const scope = standardProjectionManagedRootScope(candidate.path);
+    if (scope === undefined || (scopes !== undefined && !scopes.includes(scope))) {
+      continue;
+    }
+    const lockPath = outPath(join(candidate.path, WORKSPACE_LOCK_FILE));
+    if (!(await exists(resolveOutputPath(lockPath)))) continue;
+    roots.add(candidate.path);
+    const mappedRoot = outPath(candidate.path);
+    if (!rendered.some((file) => isInsideOutputRoot(file.path, mappedRoot))) {
+      strictRoots.add(candidate.path);
+    }
+  }
+  return { roots: [...roots].sort(compareStrings), strictRoots };
 }
 
 function isPathInScopes(
@@ -1977,6 +2037,8 @@ function scopeForPath(graph: BuildGraph, path: string): BuildScope {
   ) {
     return "repo";
   }
+  const historicalStandardScope = standardProjectionManagedRootScope(path);
+  if (historicalStandardScope !== undefined) return historicalStandardScope;
   return "project";
 }
 
