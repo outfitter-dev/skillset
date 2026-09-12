@@ -240,4 +240,67 @@ describe("SET-513 standard compatibility evidence", () => {
       })
     ).toThrow("unique, non-empty, disjoint method sets");
   });
+
+  test("rejects invalid discriminants, empty required text, and consumer bounds above the standard", () => {
+    const standard = getStandardCompatibilityEntry("mcp-skills-extension");
+    const openai = getStandardConsumerProfile(
+      "openai-plugin-submission-skill-import"
+    );
+
+    for (const invalid of [
+      { ...standard, status: "proposed" as typeof standard.status },
+      { ...standard, extensionId: "" },
+      { ...standard, proposal: "   " },
+      { ...standard, protocolRevision: "" },
+      { ...standard, skillFormat: { ...standard.skillFormat, name: "" } },
+    ]) {
+      expect(() =>
+        assertStandardCompatibilityRegistry({
+          consumers: [],
+          standards: [invalid],
+        })
+      ).toThrow();
+    }
+    expect(() =>
+      assertStandardCompatibilityRegistry({
+        consumers: [{ ...openai, mode: "runtime" as typeof openai.mode }],
+        standards: [standard],
+      })
+    ).toThrow("requires submission-snapshot mode");
+    expect(() =>
+      assertStandardCompatibilityRegistry({
+        consumers: [{ ...openai, consumer: " " }],
+        standards: [standard],
+      })
+    ).toThrow("consumer is required");
+    expect(() =>
+      assertStandardCompatibilityRegistry({
+        consumers: [
+          {
+            ...openai,
+            limits: {
+              ...openai.limits,
+              maxResourcesPerSkill: standard.limits.maxResourcesPerSkill + 1,
+            },
+          },
+        ],
+        standards: [standard],
+      })
+    ).toThrow("exceeds standard mcp-skills-extension resource bounds");
+    expect(() =>
+      assertStandardCompatibilityRegistry({
+        consumers: [
+          {
+            ...openai,
+            limits: {
+              ...openai.limits,
+              maxTotalResourceBytesPerSkill:
+                standard.limits.maxTotalResourceBytesPerSkill + 1,
+            },
+          },
+        ],
+        standards: [standard],
+      })
+    ).toThrow("exceeds standard mcp-skills-extension byte bounds");
+  });
 });

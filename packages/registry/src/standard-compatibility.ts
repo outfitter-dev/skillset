@@ -72,6 +72,12 @@ const assertIdentifier = (value: string, label: string): void => {
   }
 };
 
+const assertRequiredText = (value: string, label: string): void => {
+  if (value.trim().length === 0) {
+    throw new Error(`skillset: ${label} is required`);
+  }
+};
+
 const assertObservedDate = (value: string, label: string): void => {
   const parsed = new Date(`${value}T00:00:00.000Z`);
   if (
@@ -131,15 +137,38 @@ const assertMethodSets = (entry: StandardCompatibilityEntry): void => {
 export const assertStandardCompatibilityRegistry = (
   registry: StandardCompatibilityRegistry
 ): void => {
-  const standardIds = new Set<string>();
+  const standardsById = new Map<string, StandardCompatibilityEntry>();
   for (const entry of registry.standards) {
     assertIdentifier(entry.id, "standard compatibility ID");
-    if (standardIds.has(entry.id)) {
+    if (standardsById.has(entry.id)) {
       throw new Error(
         `skillset: duplicate standard compatibility ID ${entry.id}`
       );
     }
-    standardIds.add(entry.id);
+    standardsById.set(entry.id, entry);
+    if (
+      !(["adopted", "candidate", "retired"] as const).includes(entry.status)
+    ) {
+      throw new Error(
+        `skillset: standard compatibility entry ${entry.id} has invalid status ${entry.status}`
+      );
+    }
+    assertRequiredText(
+      entry.extensionId,
+      `standard compatibility entry ${entry.id} extensionId`
+    );
+    assertRequiredText(
+      entry.proposal,
+      `standard compatibility entry ${entry.id} proposal`
+    );
+    assertRequiredText(
+      entry.protocolRevision,
+      `standard compatibility entry ${entry.id} protocolRevision`
+    );
+    assertRequiredText(
+      entry.skillFormat.name,
+      `standard compatibility entry ${entry.id} skill format name`
+    );
     if (!/^[a-f0-9]{40}$/u.test(entry.revision)) {
       throw new Error(
         `skillset: standard compatibility entry ${entry.id} requires a full immutable revision`
@@ -178,11 +207,21 @@ export const assertStandardCompatibilityRegistry = (
       );
     }
     consumerIds.add(profile.id);
-    if (!standardIds.has(profile.standardId)) {
+    const standard = standardsById.get(profile.standardId);
+    if (standard === undefined) {
       throw new Error(
         `skillset: standard consumer profile ${profile.id} references missing standard ${profile.standardId}`
       );
     }
+    if (profile.mode !== "submission-snapshot") {
+      throw new Error(
+        `skillset: standard consumer profile ${profile.id} requires submission-snapshot mode`
+      );
+    }
+    assertRequiredText(
+      profile.consumer,
+      `standard consumer profile ${profile.id} consumer`
+    );
     assertObservedDate(
       profile.observedAt,
       `standard consumer profile ${profile.id}`
@@ -192,6 +231,21 @@ export const assertStandardCompatibilityRegistry = (
       profile.limits,
       `standard consumer profile ${profile.id}`
     );
+    if (
+      profile.limits.maxResourcesPerSkill > standard.limits.maxResourcesPerSkill
+    ) {
+      throw new Error(
+        `skillset: standard consumer profile ${profile.id} exceeds standard ${standard.id} resource bounds`
+      );
+    }
+    if (
+      profile.limits.maxTotalResourceBytesPerSkill >
+      standard.limits.maxTotalResourceBytesPerSkill
+    ) {
+      throw new Error(
+        `skillset: standard consumer profile ${profile.id} exceeds standard ${standard.id} byte bounds`
+      );
+    }
   }
 };
 
