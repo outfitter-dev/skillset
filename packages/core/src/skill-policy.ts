@@ -3,6 +3,7 @@ import { targetNames } from "./targets";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_KEYS = targetNames();
+const ALLOWED_TOOLS_TARGET_KEYS = [...TARGET_KEYS, "agents"] as const;
 
 export const PORTABLE_TOOL_ASPECTS = ["mcp", "read", "search", "shell", "write"] as const;
 
@@ -19,6 +20,7 @@ const READONLY_TOOLS: JsonRecord = {
 export type ToolsPolicyLayer = "base" | "macro" | "provider-override";
 
 export type AllowedToolsValue = false | readonly string[];
+export type AllowedToolsTarget = TargetName | "agents";
 
 export interface ClaudeNativeToolRules {
   readonly allow: readonly string[];
@@ -57,10 +59,13 @@ export function readImplicitInvocation(
 
 export function readAllowedTools(
   record: JsonRecord,
-  target: TargetName,
+  target: AllowedToolsTarget,
   label: string
 ): AllowedToolsValue | undefined {
-  const value = readTargetedValue(record, "allowed_tools", target, label);
+  const value = readTargetedValue(record, "allowed_tools", target, label, {
+    allowBareValue: target !== "agents",
+    targetKeys: ALLOWED_TOOLS_TARGET_KEYS,
+  });
   if (value === undefined) return undefined;
   if (value === false) return false;
   if (typeof value === "string") return [readNonEmptyString(value, `${label}.allowed_tools`)];
@@ -129,24 +134,35 @@ export function readToolsPolicyMetadata(
   return metadata;
 }
 
-function hasTargetedValue(record: JsonRecord, key: string): boolean {
+function hasTargetedValue(
+  record: JsonRecord,
+  key: string,
+  targetKeys: readonly string[] = TARGET_KEYS
+): boolean {
   const value = record[key];
-  return isJsonRecord(value) && TARGET_KEYS.some((target) => value[target] !== undefined);
+  return isJsonRecord(value) && targetKeys.some((target) => value[target] !== undefined);
 }
 
 function readTargetedValue(
   record: JsonRecord,
   key: string,
-  target: TargetName,
-  label: string
+  target: string,
+  label: string,
+  options: {
+    readonly allowBareValue?: boolean;
+    readonly targetKeys?: readonly string[];
+  } = {}
 ): JsonValue | undefined {
   const value = record[key];
   if (value === undefined) return undefined;
-  if (!hasTargetedValue(record, key)) return value;
+  const targetKeys = options.targetKeys ?? TARGET_KEYS;
+  if (!hasTargetedValue(record, key, targetKeys)) {
+    return options.allowBareValue === false ? undefined : value;
+  }
   for (const mapKey of Object.keys(value as JsonRecord)) {
-    if (!TARGET_KEYS.includes(mapKey as TargetName)) {
+    if (!targetKeys.includes(mapKey)) {
       throw new Error(
-        `skillset: expected ${label}.${key} target map to contain only ${formatTargetKeys()} keys`
+        `skillset: expected ${label}.${key} target map to contain only ${formatTargetKeys(targetKeys)} keys`
       );
     }
   }
@@ -472,9 +488,9 @@ function mcpServerFromRule(rule: string): string | undefined {
   return match?.[1];
 }
 
-function formatTargetKeys(): string {
-  if (TARGET_KEYS.length <= 1) return TARGET_KEYS.join("");
-  return `${TARGET_KEYS.slice(0, -1).join(", ")}, or ${TARGET_KEYS.at(-1)}`;
+function formatTargetKeys(targetKeys: readonly string[] = TARGET_KEYS): string {
+  if (targetKeys.length <= 1) return targetKeys.join("");
+  return `${targetKeys.slice(0, -1).join(", ")}, or ${targetKeys.at(-1)}`;
 }
 
 function readNonEmptyString(value: string, label: string): string {

@@ -136,7 +136,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:4d01a6ff3dd0585f40a491594feb47f4faf8bfbd62d9b07c366a29a7fe8584c4",
+  "provenanceHash": "sha256:febe8243b81a0b9374c20b1b8fb4a77d2f8e09ee0f1b0c3cbfef77daad3b7df6",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -169,7 +169,7 @@
           "path": "plugins/skillset/claude/LICENSE.txt"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset",
       "sourceUnit": "plugin.skillset.config:root",
       "status": "rendered",
@@ -205,7 +205,7 @@
           "path": "plugins/skillset/codex/LICENSE.txt"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset",
       "sourceUnit": "plugin.skillset.config:root",
       "status": "rendered",
@@ -250,7 +250,7 @@
         }
       ],
       "reason": "Cursor plugin output has no verified runtime destination for canonical listing.category; omitted canonical field: listing.category; still rendered by enabled target: Codex interface.category",
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset",
       "sourceUnit": "plugin.skillset.config:root",
       "status": "degraded",
@@ -271,7 +271,7 @@
           "path": "plugins/skillset/claude/README.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/README.md",
       "sourceUnit": "plugin.skillset.feature:readme",
       "status": "target_native",
@@ -292,7 +292,7 @@
           "path": "plugins/skillset/codex/README.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/README.md",
       "sourceUnit": "plugin.skillset.feature:readme",
       "status": "target_native",
@@ -317,7 +317,7 @@
           "path": "plugins/skillset/cursor/README.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/README.md",
       "sourceUnit": "plugin.skillset.feature:readme",
       "status": "target_native",
@@ -353,7 +353,7 @@
           "path": "plugins/skillset/claude/skills/use-skillset/SKILL.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "sourceUnit": "plugin.skillset.skill:use-skillset",
       "status": "rendered",
@@ -390,7 +390,7 @@
           "path": "plugins/skillset/codex/skills/use-skillset/SKILL.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "sourceUnit": "plugin.skillset.skill:use-skillset",
       "status": "rendered",
@@ -421,14 +421,15 @@
           "path": "plugins/skillset/cursor/skills/use-skillset/SKILL.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "sourceUnit": "plugin.skillset.skill:use-skillset",
       "status": "rendered",
       "target": "cursor"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "selectedStandards": [],
   "selectedTargets": [
     "claude",
     "codex",

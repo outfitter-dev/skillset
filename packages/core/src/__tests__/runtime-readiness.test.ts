@@ -1145,7 +1145,7 @@ function renderResult(overrides: {
   readonly target: TargetName;
 }): SkillsetRenderResult {
   return {
-    schema: "skillset-render-result@1",
+    schema: "skillset-render-result@2",
     featureId: overrides.featureId,
     ...(overrides.outputs === undefined ? {} : { outputs: overrides.outputs }),
     ...(overrides.reason === undefined ? {} : { reason: overrides.reason }),

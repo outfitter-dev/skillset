@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:b0cdd802123ba34b4fc610d8a23afd30fc2a2bb9b0b7d47fa92f51b261b5b375",
+  "provenanceHash": "sha256:afc7c6b662108df5e473ec9fb761dfbd4c51cdf99aed7248fb6a19d3140ed222",
   "renderResults": [
     {
       "destination": "skill",
@@ -189,7 +189,7 @@
           "path": ".cursor/skills/skillset-adrs/scripts/lib/references.ts"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "sourceUnit": "skill:skillset-adrs",
       "status": "rendered",
@@ -216,7 +216,7 @@
           "path": ".cursor/skills/skillset-dev/SKILL.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
       "sourceUnit": "skill:skillset-dev",
       "status": "rendered",
@@ -247,7 +247,7 @@
           "path": ".cursor/skills/skillset-dev-compiler/references/package-map.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
       "sourceUnit": "skill:skillset-dev-compiler",
       "status": "rendered",
@@ -278,7 +278,7 @@
           "path": ".cursor/skills/skillset-dev-schema/references/contract-workflow.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-dev-schema/SKILL.md",
       "sourceUnit": "skill:skillset-dev-schema",
       "status": "rendered",
@@ -309,14 +309,15 @@
           "path": ".cursor/skills/skillset-dev-testing/references/fixture-strategy.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
       "sourceUnit": "skill:skillset-dev-testing",
       "status": "rendered",
       "target": "cursor"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "selectedStandards": [],
   "selectedTargets": [
     "claude",
     "codex",

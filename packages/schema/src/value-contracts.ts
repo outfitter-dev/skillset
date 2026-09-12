@@ -9,6 +9,11 @@ export const REPORT_WORKSPACE_NAME_PATTERN =
   "^(?!\\.{1,2}$)(?!~$)(?![A-Za-z]:)[^\\\\/\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]+$";
 export const REPORT_REPOSITORY_IDENTITY_PATTERN =
   "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)+$";
+export const STANDARD_PROFILE_ID_PATTERN =
+  "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$";
+
+/** A stable, registry-owned identifier for an adopted standards profile. */
+export type StandardProfileId = string;
 
 export type ListConjunction = "and" | "or";
 
@@ -26,6 +31,11 @@ export function isWorkspaceId(value: string): boolean {
     new RegExp(WORKSPACE_ID_PATTERN, "u").test(value)
   );
 }
+
+export const isStandardProfileId = (
+  value: string
+): value is StandardProfileId =>
+  new RegExp(STANDARD_PROFILE_ID_PATTERN, "u").test(value);
 
 export function formatList(
   values: readonly string[],

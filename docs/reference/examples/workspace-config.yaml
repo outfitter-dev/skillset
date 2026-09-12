@@ -1,7 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json
-agents:
-  defaults:
-    skillsPrompt: "Load the following skills first, if available:"
 changes:
   minimumRefLength: 6
 claude: true
@@ -9,6 +6,10 @@ codex:
   plugins:
     path: generated/codex
 compile:
+  agents:
+    instructions: true
+    plugins: true
+    skills: true
   build: updated
   features:
     promptArguments: true

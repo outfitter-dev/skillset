@@ -34,6 +34,8 @@ Use this checklist for any new source/config/frontmatter field:
 
 Provider-specific behavior belongs under explicit provider blocks such as `claude`, `codex`, and `cursor` unless the field is intentionally portable. Provider source can preserve native Claude, Codex, or Cursor files, but adaptive source should use the shared contract so compiler, Workbench, docs, and generated editor schemas agree.
 
+`compile.targets` remains the provider-selection list. The separate `compile.agents` boolean-or-object contract selects the Agent standards family (`instructions`, `skills`, and `plugins`) without adding `agents` to provider targets or target-keyed maps. Standard-profile resolution and projection behavior build on this source contract in their owning packages.
+
 ## Drift Signals
 
 Treat any of these as a contract drift smell:

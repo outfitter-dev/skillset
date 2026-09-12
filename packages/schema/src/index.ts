@@ -39,6 +39,8 @@ export {
 } from "./activation-proof";
 export {
   AGENT_FRONTMATTER_KEYS,
+  AGENT_STANDARD_KEYS,
+  ALLOWED_TOOLS_TARGET_KEYS,
   COMMON_FRONTMATTER_KEYS,
   COMPILE_BUILD_MODES,
   CLI_EVENT_SCHEMA_VERSION,
@@ -125,6 +127,7 @@ export {
   createSemverRegExp,
   formatList,
   isProviderNativeReferenceName,
+  isStandardProfileId,
   isWorkspaceId,
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
   REPORT_REPOSITORY_IDENTITY_PATTERN,
@@ -132,6 +135,8 @@ export {
   WORKSPACE_ID_MAX_LENGTH,
   WORKSPACE_ID_PATTERN,
   SEMVER_PATTERN,
+  STANDARD_PROFILE_ID_PATTERN,
+  type StandardProfileId,
   type ListConjunction,
 } from "./value-contracts";
 export type {

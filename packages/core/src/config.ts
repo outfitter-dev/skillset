@@ -16,6 +16,7 @@ import {
 import type {
   CompileBuildMode,
   CompileConfig,
+  AgentStandardsConfig,
   CompileFeatureConfig,
   CompileSkillsetConfig,
   UnsupportedDestinationPolicy,
@@ -116,6 +117,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   const compile = readCompileRecord(record, label);
   if (compile === undefined) {
     return {
+      agents: defaultAgentStandards(),
       build: "updated",
       features: { promptArguments: true },
       skillset: { metadata: true },
@@ -126,6 +128,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
 
   for (const key of Object.keys(compile)) {
     if (
+      key !== "agents" &&
       key !== "build" &&
       key !== "features" &&
       key !== "skillset" &&
@@ -139,6 +142,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   const unsupportedDestination = readUnsupportedDestinationPolicy(compile, `${label}.compile.unsupportedDestination`);
 
   return {
+    agents: readCompileAgentStandards(compile, `${label}.compile.agents`),
     build: readCompileBuildMode(compile, `${label}.compile.build`),
     features: readCompileFeatureConfig(compile, `${label}.compile.features`),
     skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
@@ -170,10 +174,6 @@ function readCompileTargetNames(record: JsonRecord, label: string): readonly Tar
   if (!Array.isArray(targets)) {
     throw new Error(`skillset: expected ${label} to be a string array`);
   }
-  if (targets.length === 0) {
-    throw new Error(`skillset: expected ${label} to include at least one target`);
-  }
-
   const enabledTargets = new Set<TargetName>();
   for (const target of targets) {
     if (!isTargetName(target)) {
@@ -188,6 +188,40 @@ function readCompileTargetNames(record: JsonRecord, label: string): readonly Tar
   }
 
   return [...enabledTargets];
+}
+
+function defaultAgentStandards(): AgentStandardsConfig {
+  return { instructions: true, plugins: true, skills: true };
+}
+
+function readCompileAgentStandards(
+  record: JsonRecord,
+  label: string
+): AgentStandardsConfig {
+  const value = record.agents;
+  if (value === undefined || value === true) return defaultAgentStandards();
+  if (value === false) return { instructions: false, plugins: false, skills: false };
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be a boolean or an object`);
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "instructions" && key !== "plugins" && key !== "skills") {
+      throw new Error(`skillset: unsupported Agent standards key ${key} in ${label}`);
+    }
+  }
+  return {
+    instructions: readAgentStandardEnabled(value.instructions, `${label}.instructions`),
+    plugins: readAgentStandardEnabled(value.plugins, `${label}.plugins`),
+    skills: readAgentStandardEnabled(value.skills, `${label}.skills`),
+  };
+}
+
+function readAgentStandardEnabled(value: JsonValue | undefined, label: string): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== "boolean") {
+    throw new Error(`skillset: expected ${label} to be a boolean`);
+  }
+  return value;
 }
 
 export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRecord {
@@ -615,8 +649,7 @@ function workspaceCompileTargetsMessage(record: JsonRecord, label: string): stri
   const compile = record.compile;
   const targets = isJsonRecord(compile) ? compile.targets : undefined;
   if (!Array.isArray(targets)) return `expected ${label}.compile.targets to be a string array`;
-  if (targets.length === 0) return `expected ${label}.compile.targets to include at least one target`;
-  return "compile.targets must be a non-empty array";
+  return "compile.targets must be an array";
 }
 
 function workspaceCompileBuildMessage(record: JsonRecord, label: string): string {

@@ -59,4 +59,48 @@ describe("target vocabulary", () => {
     expect(outputs.plugins.cursor).toBe("generated/cursor/plugins");
     expect(outputs.skills.cursor).toBe(".cursor/skills");
   });
+
+  it("normalizes the Agent standards family independently from provider targets", () => {
+    expect(readCompileConfig({}, "skillset.yaml").agents).toEqual({
+      instructions: true,
+      plugins: true,
+      skills: true,
+    });
+    expect(readCompileConfig({ compile: { agents: true } }, "skillset.yaml").agents).toEqual({
+      instructions: true,
+      plugins: true,
+      skills: true,
+    });
+    expect(readCompileConfig({ compile: { agents: {} } }, "skillset.yaml").agents).toEqual({
+      instructions: true,
+      plugins: true,
+      skills: true,
+    });
+    expect(readCompileConfig({ compile: { agents: { instructions: false } } }, "skillset.yaml").agents).toEqual({
+      instructions: false,
+      plugins: true,
+      skills: true,
+    });
+    expect(readCompileConfig({ compile: { agents: false } }, "skillset.yaml").agents).toEqual({
+      instructions: false,
+      plugins: false,
+      skills: false,
+    });
+    expect(readCompileConfig({ compile: { agents: {
+      instructions: false,
+      plugins: false,
+      skills: false,
+    } } }, "skillset.yaml").agents).toEqual(readCompileConfig({ compile: { agents: false } }, "skillset.yaml").agents);
+  });
+
+  it("allows an explicit empty provider target selection without inventing a target", () => {
+    const record: JsonRecord = { compile: { targets: [] } };
+
+    expect(readCompileConfig(record, "skillset.yaml").targets).toEqual([]);
+    expect(readCompileTargets(record, "skillset.yaml")).toEqual({
+      claude: { enabled: false, options: {} },
+      codex: { enabled: false, options: {} },
+      cursor: { enabled: false, options: {} },
+    });
+  });
 });

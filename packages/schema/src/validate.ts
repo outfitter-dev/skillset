@@ -1,6 +1,8 @@
 import { isActivationCapability } from "./activation-readiness";
 import {
   AGENT_FRONTMATTER_KEYS,
+  AGENT_STANDARD_KEYS,
+  ALLOWED_TOOLS_TARGET_KEYS,
   CLI_EVENT_SCHEMA_VERSION,
   CLI_RESULT_SCHEMA_VERSION,
   COMPILE_BUILD_MODES,
@@ -42,6 +44,8 @@ const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
 const sourceListingKeys = new Set<string>(SOURCE_LISTING_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
+const agentStandardKeys = new Set<string>(AGENT_STANDARD_KEYS);
+const allowedToolsTargetKeys = new Set<string>(ALLOWED_TOOLS_TARGET_KEYS);
 const targetListText = formatList(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
 const unsupportedDestinationPolicies = new Set<string>(
@@ -1530,6 +1534,7 @@ export function validateSkillFrontmatter(
     "schema/skill-frontmatter/description",
     diagnostics
   );
+  checkCompatibility(value.compatibility, `${path}.compatibility`, diagnostics);
   checkOptionalNonEmptyString(
     value.summary,
     `${path}.summary`,
@@ -2065,6 +2070,7 @@ function checkCompile(
   checkAllowedKeys(
     value,
     new Set([
+      "agents",
       "build",
       "features",
       "skillset",
@@ -2108,6 +2114,7 @@ function checkCompile(
       "compile.targets",
       codePrefix
     );
+  checkAgentStandards(value.agents, `${path}.agents`, diagnostics, codePrefix);
   checkBooleanRecord(
     value.features,
     `${path}.features`,
@@ -2124,6 +2131,29 @@ function checkCompile(
   );
 }
 
+function checkAgentStandards(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  codePrefix: string
+): void {
+  if (value === undefined || typeof value === "boolean") return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(path, `${codePrefix}/agents`, "compile.agents must be a boolean or an object")
+    );
+    return;
+  }
+  checkAllowedKeys(value, agentStandardKeys, path, `${codePrefix}/agents-key`, diagnostics);
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item !== "boolean") {
+      diagnostics.push(
+        diagnostic(`${path}.${key}`, `${codePrefix}/agents-value`, `${path}.${key} must be a boolean`)
+      );
+    }
+  }
+}
+
 function checkTargets(
   value: SchemaJsonValue,
   path: string,
@@ -2131,12 +2161,12 @@ function checkTargets(
   label = "compile.targets",
   codePrefix = "schema/workspace-config"
 ): void {
-  if (!Array.isArray(value) || value.length === 0) {
+  if (!Array.isArray(value)) {
     diagnostics.push(
       diagnostic(
         path,
         `${codePrefix}/targets`,
-        `${label} must be a non-empty array`
+        `${label} must be an array`
       )
     );
     return;
@@ -3353,6 +3383,21 @@ function checkOptionalDialect(
     );
 }
 
+function checkCompatibility(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (
+    value !== undefined &&
+    (typeof value !== "string" || [...value].length < 1 || [...value].length > 500)
+  ) {
+    diagnostics.push(
+      diagnostic(path, "schema/skill-frontmatter/compatibility", `${path} must be a string between 1 and 500 characters`)
+    );
+  }
+}
+
 function checkImplicitInvocation(
   value: SchemaJsonValue | undefined,
   path: string,
@@ -3418,7 +3463,7 @@ function checkAllowedTools(
   }
   checkAllowedKeys(
     value,
-    targetNames,
+    allowedToolsTargetKeys,
     path,
     "schema/skill-frontmatter/allowed-tools-key",
     diagnostics

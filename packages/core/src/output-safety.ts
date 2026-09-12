@@ -134,7 +134,7 @@ interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "recor
 interface ParsedLock {
   readonly items: readonly ParsedLockItem[];
   readonly legacyRoot?: boolean;
-  readonly schemaVersion: 1 | 2;
+  readonly schemaVersion: 1 | 2 | 3;
 }
 
 interface ParsedLockItem {
@@ -601,7 +601,7 @@ async function readManagedLock(
     throw corruptManagedLock(lockPath, displayLockPath, "its items field is not an array");
   }
 
-  const schemaVersion = parsed.schemaVersion === 2 ? 2 : 1;
+  const schemaVersion = parsed.schemaVersion === 3 ? 3 : parsed.schemaVersion === 2 ? 2 : 1;
   return {
     items: parsed.items.map((item) => parseLockItem(lockPath, displayLockPath, item, schemaVersion)),
     schemaVersion,
@@ -612,7 +612,7 @@ function parseLockItem(
   lockPath: string,
   displayLockPath: string,
   value: unknown,
-  schemaVersion: 1 | 2
+  schemaVersion: 1 | 2 | 3
 ): ParsedLockItem {
   if (!isRecord(value) || !Array.isArray(value.files)) {
     throw corruptManagedLock(lockPath, displayLockPath, "one of its items is missing a files array");
@@ -640,11 +640,11 @@ function parseLockFileModes(
   displayLockPath: string,
   value: unknown,
   files: readonly string[],
-  schemaVersion: 1 | 2
+  schemaVersion: 1 | 2 | 3
 ): Readonly<Record<string, "0644" | "0755">> | undefined {
   if (schemaVersion === 1 && value === undefined) return undefined;
   if (!isRecord(value)) {
-    throw corruptManagedLock(lockPath, displayLockPath, "one of its v2 items is missing a fileModes object");
+    throw corruptManagedLock(lockPath, displayLockPath, "one of its versioned items is missing a fileModes object");
   }
   const modes: Record<string, "0644" | "0755"> = {};
   for (const [file, mode] of Object.entries(value)) {
@@ -654,7 +654,7 @@ function parseLockFileModes(
     modes[file] = mode;
   }
   if (files.some((file) => modes[file] === undefined)) {
-    throw corruptManagedLock(lockPath, displayLockPath, "one of its v2 items has incomplete fileModes evidence");
+    throw corruptManagedLock(lockPath, displayLockPath, "one of its versioned items has incomplete fileModes evidence");
   }
   return modes;
 }
@@ -662,18 +662,18 @@ function parseLockFileModes(
 async function currentOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedLockItem,
-  schemaVersion: 1 | 2,
+  schemaVersion: 1 | 2 | 3,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
   const hash = createHash("sha256");
-  hash.update(schemaVersion === 2 ? "skillset-output-v2\0" : "skillset-output-v1\0");
+  hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
   for (const entry of files) {
     const outputPath = resolveOutputPath(entry.displayPath);
     if (!(await exists(outputPath))) return undefined;
     hash.update(entry.file);
     hash.update("\0");
-    if (schemaVersion === 2) {
+    if (schemaVersion !== 1) {
       const expectedMode = item.fileModes?.[entry.file];
       if (expectedMode === undefined) return undefined;
       const mode = supportsGeneratedFileModes()
