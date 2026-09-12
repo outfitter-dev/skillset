@@ -72,6 +72,12 @@
       "validation": "structured"
     },
     {
+      "consumers": [
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "apps/skillset/src/__tests__/AGENTS.md": "0644"
       },
@@ -82,11 +88,20 @@
       "name": "apps/skillset/src/__tests__/AGENTS.md",
       "outputHash": "sha256:9e5f8d617e9bc6ac46f943dc3295140cf598bf2bff053620d4e5a707b2c199d6",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
+      "owner": {
+        "target": "codex"
+      },
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     },
     {
+      "consumers": [
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "fixtures/AGENTS.md": "0644"
       },
@@ -97,13 +112,16 @@
       "name": "fixtures/AGENTS.md",
       "outputHash": "sha256:3bc1e0423b64f558fa90e3b9d73eb3f12f74dc3579bb1a51b21b85f377ffa8df",
       "outputPath": "fixtures/AGENTS.md",
+      "owner": {
+        "target": "codex"
+      },
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:48321ffba3db396727357d4c2085b82ed14b1b6185fc6ec9e3ecb690fefde672",
+  "provenanceHash": "sha256:a9d9295fcd64a8e76a00a9ecc4320b58ffb3b01c17d3f1db6d8e621bdd876b58",
   "renderResults": [
     {
       "destination": "changelog",

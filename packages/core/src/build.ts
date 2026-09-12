@@ -130,6 +130,7 @@ const LOCK_TOP_LEVEL_KEYS = new Set([
 ]);
 const LOCK_FEATURE_KEYS = new Set(["promptArguments"]);
 const LOCK_ITEM_KEYS = new Set([
+  "consumers",
   "dependencies",
   "feature",
   "fileModes",
@@ -140,6 +141,7 @@ const LOCK_ITEM_KEYS = new Set([
   "origin",
   "outputHash",
   "outputPath",
+  "owner",
   "plugin",
   "preprocessDependencies",
   "renderInputsHash",

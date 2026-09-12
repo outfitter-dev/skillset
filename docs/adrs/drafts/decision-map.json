@@ -216,7 +216,13 @@
       "amends": ["19", "22"],
       "created": "2026-08-14",
       "depends_on": ["0", "4", "19", "22", "23"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "[Global Immutable Operational Reports ADR](../../adrs/drafts/20260814-global-immutable-operational-reports.md).",
+          "from": "operational-reports",
+          "fromPath": "docs/reference/features/operational-reports.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md",
