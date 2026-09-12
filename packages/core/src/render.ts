@@ -1514,7 +1514,7 @@ async function renderLockFiles(
         ? marketplaceLockProvenance(graph, lockRoots, existingMarketplaceState)
         : {}),
       selectedTargets: [...graph.root.compile.targets],
-      selectedStandards: [],
+      selectedStandards: [...graph.standardProjections.adopted],
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
       schemaVersion: 3,
