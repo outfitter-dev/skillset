@@ -15,6 +15,7 @@ import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { applyRelease } from "../release";
 import { writeReleaseState } from "@skillset/core/internal/release-state";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { renderValidatedToml } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest } from "../test-runner";
 import {
@@ -4778,11 +4779,24 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    "plugins/skillset.lock": `
-{
-  "generatedBy": "skillset@0.1.0"
-}
-`,
+    "plugins/skillset.lock": `${JSON.stringify(withLockProvenance({
+      generatedBy: "skillset@0.1.0",
+      items: [{
+        consumers: [{ phase: "baseline", standardProfile: "agent-plugins-1.0" }],
+        fileModes: { "stale.txt": "0644" },
+        files: ["stale.txt"],
+        name: "alpha",
+        outputHash: "sha256:521f085b9b800cb4102507114ecd393b3eb52fb5a85a580c6f105d27485a0216",
+        outputPath: "stale.txt",
+        owner: { standardProfile: "agent-plugins-1.0" },
+        sourcePath: ".skillset/plugins/alpha",
+      }],
+      outputRoot: "plugins",
+      schemaVersion: 3,
+      selectedStandards: ["agent-plugins-1.0"],
+      selectedTargets: [],
+      target: "workspace",
+    }), null, 2)}\n`,
     "plugins/stale.txt": `
 stale
 `,
