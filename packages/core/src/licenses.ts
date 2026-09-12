@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { lstat, open, realpath, stat } from "node:fs/promises";
+import { lstat, open, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 
 import { SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE } from "@skillset/schema";
@@ -54,11 +54,17 @@ const licenseNotices: Readonly<Record<(typeof SOURCE_LICENSE_IDS)[number], {
 
 export async function resolveLicense(args: ResolveLicenseArgs): Promise<ResolvedLicense | undefined> {
   const localLicensePath = join(args.scopePath, "LICENSE.txt");
-  const localLicenseExists = await fileExists(localLicensePath);
+  const localLicenseContent = await readContainedLicenseFile({
+    label: args.label,
+    licensePath: localLicensePath,
+    rootPath: args.graph.rootPath,
+    scopePath: args.scopePath,
+    sourceRootPath: args.graph.sourceRootPath,
+  });
   const setting = readString(args.metadata, "license");
 
   if (setting === SOURCE_LICENSE_NONE) {
-    if (localLicenseExists) {
+    if (localLicenseContent !== undefined) {
       throw new Error(
         `skillset: ${args.label} sets skillset.license to none but also has ${relative(args.graph.rootPath, localLicensePath)}; remove one of them`
       );
@@ -74,15 +80,9 @@ export async function resolveLicense(args: ResolveLicenseArgs): Promise<Resolved
     };
   }
 
-  if (localLicenseExists) {
+  if (localLicenseContent !== undefined) {
     return {
-      content: await readContainedLicenseFile({
-        label: args.label,
-        licensePath: localLicensePath,
-        rootPath: args.graph.rootPath,
-        scopePath: args.scopePath,
-        sourceRootPath: args.graph.sourceRootPath,
-      }),
+      content: localLicenseContent,
       sourcePath: relative(args.graph.rootPath, localLicensePath),
     };
   }
@@ -106,40 +106,74 @@ export interface ContainedLicenseReadArgs {
 
 export async function readContainedLicenseFile(
   args: ContainedLicenseReadArgs
-): Promise<string> {
-  const [canonicalSourceRoot, canonicalScope, canonicalLicense] =
-    await Promise.all([
-      realpath(args.sourceRootPath),
-      realpath(args.scopePath),
-      realpath(args.licensePath),
-    ]);
-  if (
-    !isContainedPath(canonicalSourceRoot, canonicalScope) ||
-    !isContainedPath(canonicalScope, canonicalLicense)
-  ) {
-    throw new Error(
-      `skillset: ${args.label} license file resolves outside its source scope: ${relative(args.rootPath, args.licensePath)}`
+): Promise<string | undefined> {
+  let handle;
+  try {
+    handle = await open(
+      args.licensePath,
+      constants.O_RDONLY |
+        (constants.O_NOFOLLOW ?? 0) |
+        (constants.O_NONBLOCK ?? 0)
     );
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return undefined;
+    }
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error.code === "ELOOP" || error.code === "EMLINK")
+    ) {
+      throw new Error(
+        `skillset: license source ${relative(args.rootPath, args.licensePath)} must not be a symbolic link; license file resolves outside its source scope`
+      );
+    }
+    throw error;
   }
-
-  const handle = await open(
-    canonicalLicense,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)
-  );
   try {
     const before = await handle.stat();
-    await args.testHooks?.afterOpen?.(canonicalLicense);
-    const [currentScope, currentLicense, pathEntry] = await Promise.all([
-      realpath(args.scopePath),
-      realpath(canonicalLicense),
-      lstat(canonicalLicense),
-    ]);
+    if (!before.isFile()) {
+      throw new Error(
+        `skillset: license source ${relative(args.rootPath, args.licensePath)} must be a regular file`
+      );
+    }
+    await args.testHooks?.afterOpen?.(args.licensePath);
+    const pathEntry = await lstat(args.licensePath);
     if (
-      !before.isFile() ||
       pathEntry.isSymbolicLink() ||
       !pathEntry.isFile() ||
       before.dev !== pathEntry.dev ||
-      before.ino !== pathEntry.ino ||
+      before.ino !== pathEntry.ino
+    ) {
+      throw new Error(
+        `skillset: ${args.label} license file changed during containment validation`
+      );
+    }
+    const [canonicalSourceRoot, canonicalScope, canonicalLicense] =
+      await Promise.all([
+        realpath(args.sourceRootPath),
+        realpath(args.scopePath),
+        realpath(args.licensePath),
+      ]);
+    if (
+      !isContainedPath(canonicalSourceRoot, canonicalScope) ||
+      !isContainedPath(canonicalScope, canonicalLicense)
+    ) {
+      throw new Error(
+        `skillset: ${args.label} license file resolves outside its source scope: ${relative(args.rootPath, args.licensePath)}`
+      );
+    }
+    const [currentScope, currentLicense] = await Promise.all([
+      realpath(args.scopePath),
+      realpath(args.licensePath),
+    ]);
+    if (
       currentScope !== canonicalScope ||
       currentLicense !== canonicalLicense ||
       !isContainedPath(canonicalSourceRoot, currentScope) ||
@@ -151,7 +185,7 @@ export async function readContainedLicenseFile(
     }
 
     const content = await handle.readFile("utf8");
-    await args.testHooks?.afterRead?.(canonicalLicense);
+    await args.testHooks?.afterRead?.(args.licensePath);
     const after = await handle.stat();
     if (
       before.dev !== after.dev ||
@@ -202,15 +236,4 @@ function canonicalLicenseId(id: string, label: string): keyof typeof licenseNoti
     );
   }
   return id as keyof typeof licenseNotices;
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isFile();
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
 }

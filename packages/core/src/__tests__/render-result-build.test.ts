@@ -5,6 +5,7 @@ import { chmod, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
+import { renderResultsForLock } from "../build";
 
 import {
   buildSkillsetResult,
@@ -916,6 +917,33 @@ compile:
       })
     );
     expect(JSON.stringify(isolatedLock)).not.toContain(root);
+  });
+
+  it("keeps output-less standard outcomes in an isolated logical plugins lock", () => {
+    const outcome: SkillsetRenderResult = {
+      destination: "plugin-manifest",
+      featureId: "plugin-manifests",
+      policy: "unsupported:warn",
+      reason: "The plugin identity is outside the standard envelope.",
+      schema: "skillset-render-result@2",
+      sourceUnit: "plugin.bad--name.config:root",
+      standardProfile: "agent-plugins-1.0",
+      status: "unsupported",
+    };
+    const lock = {
+      items: [],
+      outputRoot: "plugins",
+      selectedStandards: ["agent-plugins-1.0"],
+      target: "workspace",
+    };
+
+    expect(
+      renderResultsForLock(
+        ".skillset/cache/latest/plugins/skillset.lock",
+        lock,
+        [outcome]
+      )
+    ).toEqual([outcome]);
   });
 
   it("covers the v1 outcome status matrix or documents deferrals", async () => {

@@ -1523,20 +1523,28 @@ function parseLockFile(file: RenderedFile): JsonRecord {
   return parsed;
 }
 
-function renderResultsForLock(
+/** @internal Selects persisted outcomes using a lock's logical output identity. */
+export function renderResultsForLock(
   lockPath: string,
   lock: JsonRecord,
   renderResults: readonly SkillsetRenderResult[]
 ): readonly SkillsetRenderResult[] {
   const target = typeof lock.target === "string" ? lock.target : undefined;
   const outputRoot = outputRootForLockPath(lockPath);
+  const logicalOutputRoot =
+    typeof lock.outputRoot === "string"
+      ? lock.outputRoot.replaceAll("\\", "/")
+      : outputRoot;
   const lockOutputs = outputPathsForLock(outputRoot, lock);
   return renderResults
     .filter((outcome) => {
       if (target !== undefined && target !== "workspace" && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
       if (outputPaths.length === 0) {
-        return outputRoot === "." || noOutputOutcomeBelongsToLock(outcome, outputRoot, lock);
+        return (
+          logicalOutputRoot === "." ||
+          noOutputOutcomeBelongsToLock(outcome, logicalOutputRoot, lock)
+        );
       }
       return outputPaths.some((path) => lockOutputs.has(path));
     })
@@ -1553,6 +1561,14 @@ function noOutputOutcomeBelongsToLock(
   outputRoot: string,
   lock: JsonRecord
 ): boolean {
+  if (
+    outputRoot === "plugins" &&
+    outcome.standardProfile === "agent-plugins-1.0" &&
+    Array.isArray(lock.selectedStandards) &&
+    lock.selectedStandards.includes("agent-plugins-1.0")
+  ) {
+    return true;
+  }
   if (outcome.sourceUnit.startsWith("plugin.")) {
     const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
     if (outputRoot.startsWith(`plugins/${pluginId}/`)) return true;
