@@ -47,10 +47,25 @@ export interface ParsedGeneratedLockItem {
   readonly owner?: GeneratedLockOwner;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
+  readonly renderInputsHash?: string;
   readonly sourcePath?: string;
+  readonly sourceHash?: string;
   readonly targetState?: string;
   readonly transforms?: readonly Record<string, unknown>[];
   readonly validation?: string;
+  readonly version?: string;
+}
+
+export interface ParsedGeneratedLockSourceUnit {
+  readonly hash: string;
+  readonly id: string;
+  readonly kind: string;
+  readonly sourcePath: string;
+}
+
+export interface ParsedGeneratedLockSourceInventory {
+  readonly hashSchema: string;
+  readonly units: readonly ParsedGeneratedLockSourceUnit[];
 }
 
 export interface ParsedGeneratedLock {
@@ -63,8 +78,16 @@ export interface ParsedGeneratedLock {
   readonly schemaVersion: GeneratedLockSchemaVersion;
   readonly selectedStandards: readonly StandardProfileId[];
   readonly selectedTargets: readonly TargetName[];
+  readonly sourceInventory?: ParsedGeneratedLockSourceInventory;
   readonly target: TargetName | "workspace";
 }
+
+export type ParsedCurrentGeneratedLock = Omit<
+  ParsedGeneratedLock,
+  "schemaVersion"
+> & {
+  readonly schemaVersion: 3;
+};
 
 export interface ParseGeneratedLockOptions {
   /**
@@ -97,11 +120,13 @@ export function parseGeneratedLock(
     throw invalidLock(label, "generatedBy must identify skillset");
   }
   const outputRoot = requiredString(value.outputRoot, label, "outputRoot");
+  assertOutputRoot(outputRoot, `${label}.outputRoot`);
   const target = parseLockTarget(value.target, label);
   const selectedTargets = parseTargets(value.selectedTargets, label);
   const selectedStandards =
     schemaVersion === 3 ? parseStandards(value.selectedStandards, label) : [];
   const buildMode = parseBuildMode(value.buildMode, label);
+  const sourceInventory = parseSourceInventory(value.sourceInventory, label);
 
   if (!Array.isArray(value.items)) {
     throw invalidLock(label, "items must be an array");
@@ -137,8 +162,63 @@ export function parseGeneratedLock(
     schemaVersion,
     selectedStandards,
     selectedTargets,
+    ...(sourceInventory === undefined ? {} : { sourceInventory }),
     target,
   };
+}
+
+/**
+ * Read generated state that may authorize current compiler behavior.
+ *
+ * Pre-v3 locks remain structurally recognizable for bounded diagnostics, but
+ * they are rebuild-only and must never supply ownership or cleanup authority.
+ */
+export function parseCurrentGeneratedLock(
+  value: unknown,
+  label = "generated lock",
+  options: ParseGeneratedLockOptions = {}
+): ParsedCurrentGeneratedLock {
+  if (
+    isJsonRecord(value) &&
+    (value.schemaVersion === 1 || value.schemaVersion === 2)
+  ) {
+    throw invalidLock(
+      label,
+      `uses pre-v3 schema ${value.schemaVersion}; this generated state is rebuild-only. Preserve canonical source and user edits, move only owner-reviewed generated output to a recoverable backup, then run skillset build --yes with the current Skillset release. The old lock cannot authorize cleanup`
+    );
+  }
+  return parseGeneratedLock(value, label, options) as ParsedCurrentGeneratedLock;
+}
+
+function parseSourceInventory(
+  value: unknown,
+  label: string
+): ParsedGeneratedLockSourceInventory | undefined {
+  if (value === undefined) return undefined;
+  if (!isJsonRecord(value)) {
+    throw invalidLock(label, "sourceInventory must be an object");
+  }
+  const hashSchema = requiredString(
+    value.hashSchema,
+    label,
+    "sourceInventory.hashSchema"
+  );
+  if (!Array.isArray(value.units)) {
+    throw invalidLock(label, "sourceInventory.units must be an array");
+  }
+  const units = value.units.map((unit, index) => {
+    const unitLabel = `${label}.sourceInventory.units[${index}]`;
+    if (!isJsonRecord(unit)) {
+      throw invalidLock(unitLabel, "must be an object");
+    }
+    const hash = requiredString(unit.hash, unitLabel, "hash");
+    const id = requiredString(unit.id, unitLabel, "id");
+    const kind = requiredString(unit.kind, unitLabel, "kind");
+    const sourcePath = requiredString(unit.sourcePath, unitLabel, "sourcePath");
+    assertManagedRelativePath(sourcePath, `${unitLabel}.sourcePath`);
+    return { hash, id, kind, sourcePath };
+  });
+  return { hashSchema, units };
 }
 
 function parseGeneratedLockItem(
@@ -183,9 +263,16 @@ function parseGeneratedLockItem(
     label,
     "preprocessDependencies"
   );
+  const renderInputsHash = optionalString(
+    value.renderInputsHash,
+    label,
+    "renderInputsHash"
+  );
+  const sourceHash = optionalString(value.sourceHash, label, "sourceHash");
   const targetState = optionalString(value.targetState, label, "targetState");
   const transforms = optionalRecordArray(value.transforms, label, "transforms");
   const validation = optionalString(value.validation, label, "validation");
+  const version = optionalString(value.version, label, "version");
 
   if (
     schemaVersion !== 3 &&
@@ -212,10 +299,13 @@ function parseGeneratedLockItem(
     ...(owner === undefined ? {} : { owner }),
     ...(plugin === undefined ? {} : { plugin }),
     ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
+    ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
     ...(sourcePath === undefined ? {} : { sourcePath }),
+    ...(sourceHash === undefined ? {} : { sourceHash }),
     ...(targetState === undefined ? {} : { targetState }),
     ...(transforms === undefined ? {} : { transforms }),
     ...(validation === undefined ? {} : { validation }),
+    ...(version === undefined ? {} : { version }),
   };
 }
 
@@ -453,6 +543,11 @@ function assertManagedRelativePath(value: string, label: string): void {
   ) {
     throw invalidLock(label, "must stay inside its output root");
   }
+}
+
+function assertOutputRoot(value: string, label: string): void {
+  if (value === ".") return;
+  assertManagedRelativePath(value.startsWith("./") ? value.slice(2) : value, label);
 }
 
 function optionalStringArray(

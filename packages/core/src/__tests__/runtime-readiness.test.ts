@@ -25,6 +25,7 @@ import { ACTIVATION_PROOF_RECEIPT_SCHEMA } from "@skillset/schema";
 import type { ActivationProofReceipt } from "@skillset/schema";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { withLockProvenance } from "../lock-provenance";
 import { loadBuildGraph } from "../resolver";
 import type { BuildGraph, SourcePlugin, TargetName } from "../types";
 
@@ -354,17 +355,27 @@ compile:
     const rendered = [
       {
         content: new TextEncoder().encode(
-          JSON.stringify({
-            items: [
-              {
-                files: ["tools/codex/.codex-plugin/plugin.json"],
-                outputHash: "sha256:output",
-                outputPath: "tools/codex/.codex-plugin/plugin.json",
-                sourceHash: "sha256:source",
-              },
-            ],
-            target: "codex",
-          })
+          JSON.stringify(
+            withLockProvenance({
+              generatedBy: "skillset@0.1.0",
+              items: [
+                {
+                  fileModes: {
+                    "tools/codex/.codex-plugin/plugin.json": "0644",
+                  },
+                  files: ["tools/codex/.codex-plugin/plugin.json"],
+                  outputHash: "sha256:output",
+                  outputPath: "tools/codex/.codex-plugin/plugin.json",
+                  sourceHash: "sha256:source",
+                },
+              ],
+              outputRoot: "plugins",
+              schemaVersion: 3,
+              selectedStandards: [],
+              selectedTargets: ["codex"],
+              target: "workspace",
+            })
+          )
         ),
         mode: 0o644 as const,
         path: "plugins/skillset.lock",

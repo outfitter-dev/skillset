@@ -7,6 +7,7 @@ import {
   type SkillsetFeatureEntry,
   type SkillsetTargetSupport,
 } from "./feature-registry";
+import { parseGeneratedLock } from "./generated-lock";
 import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
 import { collectRenderResults } from "./render-result-collector";
 import { SkillsetFeatureDiagnosticError, type SkillsetDiagnostic } from "./operation-result";
@@ -662,6 +663,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       continue;
     }
     if (!isJsonRecord(parsed)) continue;
+    parseGeneratedLock(parsed, `generated lock ${file.path}`);
     const outputRoot = typeof parsed.outputRoot === "string" ? parsed.outputRoot : ".";
     const target = typeof parsed.target === "string" ? parsed.target : "unknown";
     const items = Array.isArray(parsed.items) ? parsed.items : [];

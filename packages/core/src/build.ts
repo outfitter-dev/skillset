@@ -10,6 +10,7 @@ import {
   generatedFileOnDiskMatchesMode,
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
+import { parseGeneratedLock } from "./generated-lock";
 import { pluginTargetForOutputPath } from "./plugin-output";
 import { targetNames } from "./targets";
 import { collectRenderResults } from "./render-result-collector";
@@ -53,7 +54,7 @@ import {
   type SkillsetWriteSummary,
 } from "./operation-result";
 import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
-import { SkillsetRenderResultError, defineRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
+import { SkillsetRenderResultError, defineRenderResult, parseRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 import { applyWorkspaceTransaction } from "./workspace-transaction";
@@ -66,6 +67,14 @@ export const ISOLATED_OUT_ROOT = ".skillset/cache/latest";
 type OutPath = (path: string) => string;
 
 const livePath: OutPath = (path) => path;
+
+function managedOutputProvenancePolicy(
+  rendered: readonly RenderedFile[]
+): ManagedOutputProvenancePolicy {
+  return {
+    activeRenderedPaths: new Set(rendered.map((file) => file.path)),
+  };
+}
 
 function assertBuildProjection(graph: BuildGraph): void {
   assertNoExplicitNonAdoptedStandards(graph);
@@ -108,14 +117,6 @@ function mirroredRenderedFiles(
 function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): readonly string[] {
   if (outPath === livePath) return outputRoots;
   return outputRoots.map((outputRoot) => outPath(outputRoot));
-}
-
-function managedOutputProvenancePolicy(
-  rendered: readonly RenderedFile[]
-): ManagedOutputProvenancePolicy {
-  return {
-    activeRenderedPaths: new Set(rendered.map((file) => file.path)),
-  };
 }
 
 const textDecoder = new TextDecoder();
@@ -776,6 +777,14 @@ function classifyLockProvenance(
   const currentLock = JSON.parse(textDecoder.decode(current)) as unknown;
   const expectedLock = JSON.parse(textDecoder.decode(expected)) as unknown;
   if (!isJsonRecord(currentLock) || !isJsonRecord(expectedLock)) return "unsafe";
+  try {
+    parseGeneratedLock(currentLock, `generated lock ${path}`, {
+      provenance: "inspect",
+    });
+    parseGeneratedLock(expectedLock, `generated lock ${path}`);
+  } catch {
+    return "unsafe";
+  }
   if (currentLock.generatedBy !== expectedLock.generatedBy) return "unsafe";
   if (Object.keys(currentLock).some((key) => !LOCK_TOP_LEVEL_KEYS.has(key))) {
     return "unsafe";
@@ -1046,11 +1055,7 @@ function hasLegacyTopLevelChanges(
 
 function normalizeLegacyRenderResultSchemas(value: JsonValue | undefined): JsonValue | undefined {
   if (!Array.isArray(value)) return value;
-  return value.map((result) =>
-    isJsonRecord(result) && result.schema === "skillset-render-result@1"
-      ? { ...result, schema: "skillset-render-result@2" }
-      : result
-  );
+  return value.map((result) => parseRenderResult(result) as unknown as JsonValue);
 }
 
 function lockItemsByIdentity(

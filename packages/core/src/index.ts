@@ -399,12 +399,14 @@ export type {
   SourceHookAttachment,
 } from "./types";
 export {
+  LEGACY_RENDER_RESULT_SCHEMA,
   RENDER_RESULT_SCHEMA,
   RENDER_RESULT_STATUS_VALUES,
   SkillsetRenderResultError,
   assertRenderResult,
   defineRenderResult,
   normalizeRenderResult,
+  parseRenderResult,
   serializeRenderResult,
   type SkillsetRenderResult,
   type SkillsetRenderResultDiagnosticRef,
@@ -414,6 +416,19 @@ export {
   type SkillsetRenderResultPolicy,
   type SkillsetRenderResultStatus,
 } from "./render-result";
+export {
+  parseCurrentGeneratedLock,
+  parseGeneratedLock,
+  type GeneratedLockConsumer,
+  type GeneratedLockHashSchema,
+  type GeneratedLockOwner,
+  type GeneratedLockProviderConsumer,
+  type GeneratedLockSchemaVersion,
+  type GeneratedLockStandardConsumer,
+  type ParsedGeneratedLock,
+  type ParsedGeneratedLockItem,
+  type ParsedCurrentGeneratedLock,
+} from "./generated-lock";
 export {
   compareNormalizedOutputTreeEntries,
   compareNormalizedOutputTrees,

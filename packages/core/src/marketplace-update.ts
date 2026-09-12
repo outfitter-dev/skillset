@@ -12,6 +12,7 @@ import {
   type MarketplaceLockEntry,
 } from "./marketplace-check";
 import { compareStrings, resolveInside } from "./path";
+import { parseGeneratedLock } from "./generated-lock";
 import { withLockProvenance } from "./lock-provenance";
 import { claudeMarketplacePath } from "./plugin-output";
 import { renderBuildGraph } from "./render";
@@ -252,6 +253,7 @@ async function renderMarketplaceLock(
   const baseline = rendered.find((file) => file.path === "skillset.lock");
   if (baseline === undefined) throw new Error("skillset: marketplace update could not render skillset.lock");
   const existing = JSON.parse(new TextDecoder().decode(baseline.content)) as JsonRecord;
+  parseGeneratedLock(existing, "workspace lock skillset.lock");
   const selected = new Set(check.marketplaces);
   const previousEntries = marketplaceLockEntries(existing);
   const nextEntries = [

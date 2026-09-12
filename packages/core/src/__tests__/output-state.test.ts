@@ -1064,7 +1064,7 @@ cursor: false
     }));
   });
 
-  it("does not mistake a schema-downgraded v2 lock for a legacy migration", async () => {
+  it("treats a schema-downgraded workspace lock as rebuild-only", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1082,23 +1082,15 @@ codex: true
     lock.schemaVersion = 1;
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
-    const preview = await diffSkillsetResult(root);
+    const downgraded = await readFile(lockPath, "utf8");
 
-    expect(preview.outputState).toMatchObject({
-      outputChanges: ["skillset.lock"],
-      state: "output-diverged",
-    });
-    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
-      code: "managed-output-edited",
-      outputPath: "skillset.lock",
-    }));
-
-    const applied = await buildSkillsetResult(root);
-    expect(applied.ok).toBe(true);
-    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
-      reason: "managed-target-edit",
-      targetPath: "skillset.lock",
-    }));
+    await expect(diffSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
 
   it.each([
@@ -1112,7 +1104,7 @@ codex: true
       const features = lock.features as Record<string, unknown>;
       features.promptArguments = !features.promptArguments;
     }],
-  ] as const)("backs up edited schema-v1 %s during migration", async (_label, editLock) => {
+  ] as const)("does not trust edited schema-v1 %s during rebuild", async (_label, editLock) => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1129,22 +1121,15 @@ cursor: false
     editLock(lock);
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
-    const preview = await diffSkillsetResult(root);
+    const edited = await readFile(lockPath, "utf8");
 
-    expect(preview.outputState).toMatchObject({
-      outputChanges: ["skillset.lock"],
-      sourceChanges: [],
-      state: "output-diverged",
-    });
-    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
-      code: "managed-lock-provenance-stale",
-      outputPath: "skillset.lock",
-    }));
-    const applied = await buildSkillsetResult(root);
-    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
-      reason: "managed-target-edit",
-      targetPath: "skillset.lock",
-    }));
+    await expect(diffSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(edited);
   });
 
   it.each([
@@ -1158,7 +1143,7 @@ cursor: false
       const features = lock.features as Record<string, unknown>;
       features.promptArguments = !features.promptArguments;
     }],
-  ] as const)("does not let source drift excuse edited schema-v1 %s", async (_label, editLock) => {
+  ] as const)("does not let source drift authorize edited schema-v1 %s", async (_label, editLock) => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1179,23 +1164,20 @@ cursor: false
       "# Updated project instructions\n",
       "utf8"
     );
+    const edited = await readFile(lockPath, "utf8");
+    const generated = await readFile(join(root, "AGENTS.md"), "utf8");
 
-    const preview = await diffSkillsetResult(root);
-
-    expect(preview.outputState).toMatchObject({
-      outputChanges: ["skillset.lock"],
-      sourceChanges: ["AGENTS.md"],
-      state: "output-diverged",
-    });
-    const applied = await buildSkillsetResult(root);
-    expect(applied.writes.backupRecords).toContainEqual(expect.objectContaining({
-      reason: "managed-target-edit",
-      targetPath: "skillset.lock",
-    }));
-    expect(applied.writes.writtenPaths).toContain("AGENTS.md");
+    await expect(diffSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(edited);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(generated);
   });
 
-  it("keeps schema-v1 migration source changes source-driven", async () => {
+  it("blocks source changes behind a schema-v1 rebuild boundary", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1213,18 +1195,15 @@ cursor: false
       "# Updated project instructions\n",
       "utf8"
     );
+    const generated = await readFile(join(root, "AGENTS.md"), "utf8");
 
-    const preview = await diffSkillsetResult(root);
-
-    expect(preview.outputState).toMatchObject({
-      outputChanges: [],
-      sourceChanges: ["AGENTS.md", "skillset.lock"],
-      state: "source-ahead",
-    });
-    const applied = await buildSkillsetResult(root);
-    expect(applied.writes.backupRunId).toBeUndefined();
-    expect(applied.writes.writtenPaths).toContain("AGENTS.md");
-    expect(applied.writes.writtenPaths).toContain("skillset.lock");
+    await expect(diffSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v3 schema 1; this generated state is rebuild-only"
+    );
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(generated);
   });
 
   it("does not trust edited item provenance when tracked payloads are unchanged", async () => {
