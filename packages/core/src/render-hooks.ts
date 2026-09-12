@@ -70,7 +70,7 @@ export async function renderAdaptivePluginHookFiles(
     hooks[event] = eventGroups;
   }
 
-  const normalized = { hooks };
+  const normalized = normalizePluginHookEnvelope({ hooks }, target, `${plugin.id} adaptive hooks`);
   validateHookDefinition(normalized, {
     sourcePath: `${plugin.id} adaptive hooks -> ${join(basePath, "hooks", "hooks.json")}`,
     target,
@@ -105,7 +105,9 @@ function renderAdaptiveHookGroup(
     item.attachment.status ?? readString(item.definition.frontmatter, "status");
   const group: JsonRecord = {
     ...(matcher === undefined ? {} : { matcher }),
-    ...(statusMessage === undefined ? {} : { statusMessage }),
+    ...(target === "cursor" || statusMessage === undefined
+      ? {}
+      : { statusMessage }),
     hooks: [
       {
         command: adaptiveHookCommand(
@@ -514,11 +516,15 @@ export async function renderNormalizedPluginHookFile(
     isJsonRecord(parsed) && isJsonRecord(parsed.hooks)
       ? parsed
       : { hooks: parsed };
-  const providerNative = normalizePluginHookEventNames(
+  const providerNative = normalizePluginHookEnvelope(
     normalized,
     target,
     relative(graph.rootPath, canonicalSource)
   );
+  validateHookDefinition(providerNative, {
+    sourcePath: `${relative(graph.rootPath, canonicalSource)} -> ${join(basePath, "hooks", "hooks.json")}`,
+    target,
+  });
   return textFile(
     join(basePath, "hooks", "hooks.json"),
     renderValidatedJson(
@@ -529,7 +535,7 @@ export async function renderNormalizedPluginHookFile(
   );
 }
 
-function normalizePluginHookEventNames(
+function normalizePluginHookEnvelope(
   normalized: JsonRecord,
   target: TargetName,
   sourceLabel: string
@@ -537,6 +543,7 @@ function normalizePluginHookEventNames(
   if (target !== "cursor" || !isJsonRecord(normalized.hooks)) return normalized;
 
   const hooks: Record<string, JsonValue> = {};
+  let envelope: "flat" | "grouped" | undefined;
   for (const [event, groups] of Object.entries(normalized.hooks)) {
     if (groups === undefined) continue;
     const nativeEvent = nativeHookEventName(target, event);
@@ -545,10 +552,55 @@ function normalizePluginHookEventNames(
         `skillset: Cursor hook file ${sourceLabel} maps multiple events to ${nativeEvent}; keep only one canonical or native spelling.`
       );
     }
-    hooks[nativeEvent] = groups;
+    if (!Array.isArray(groups)) {
+      hooks[nativeEvent] = groups;
+      continue;
+    }
+    const eventEntries: JsonValue[] = [];
+    for (const entry of groups) {
+      if (!isJsonRecord(entry)) {
+        eventEntries.push(entry);
+        continue;
+      }
+      const entryEnvelope = Array.isArray(entry.hooks) ? "grouped" : "flat";
+      if (envelope !== undefined && envelope !== entryEnvelope) {
+        throw new Error(
+          `skillset: Cursor hook file ${sourceLabel} mixes grouped compatibility hooks with flat native handlers; choose one envelope.`
+        );
+      }
+      envelope = entryEnvelope;
+      if (entryEnvelope === "flat") {
+        eventEntries.push(entry);
+        continue;
+      }
+      for (const field of Object.keys(entry)) {
+        if (field !== "hooks" && field !== "matcher") {
+          throw new Error(
+            `skillset: Cursor hook file ${sourceLabel} cannot lower compatibility group field ${field} for ${event}; use a flat Cursor-native handler or remove the field.`
+          );
+        }
+      }
+      const matcher = entry.matcher;
+      for (const handler of entry.hooks as JsonValue[]) {
+        if (!isJsonRecord(handler)) {
+          eventEntries.push(handler);
+          continue;
+        }
+        if (matcher !== undefined && handler.matcher !== undefined) {
+          throw new Error(
+            `skillset: Cursor hook file ${sourceLabel} defines matcher on both the compatibility group and handler for ${event}.`
+          );
+        }
+        eventEntries.push({
+          ...handler,
+          ...(matcher === undefined ? {} : { matcher }),
+        });
+      }
+    }
+    hooks[nativeEvent] = eventEntries;
   }
 
-  return { ...normalized, hooks };
+  return { ...normalized, version: normalized.version ?? 1, hooks };
 }
 
 export async function validateHookJson(
@@ -570,5 +622,9 @@ export async function validateHookJson(
     );
   }
 
-  validateHookDefinition(parsed, { sourcePath: sourceLabel, target });
+  validateHookDefinition(parsed, {
+    acceptCompatibilityEnvelope: target === "cursor",
+    sourcePath: sourceLabel,
+    target,
+  });
 }

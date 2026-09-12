@@ -151,13 +151,18 @@ describe("hook provider capabilities", () => {
     expect(extended.nativeByCanonical.FutureCursorEvent).toBe("futureCursorEvent");
     expect(extended.canonicalByNative.futureCursorEvent).toBe("FutureCursorEvent");
     expect(nativeHookEventName("cursor", "AfterMCPExecution")).toBe("afterMCPExecution");
+    expect(nativeHookEventName("cursor", "UserPromptSubmit")).toBe("beforeSubmitPrompt");
+    expect(canonicalHookEventName("cursor", "UserPromptSubmit")).toBe("BeforeSubmitPrompt");
 
     const cursor = hookProviderCapabilities.cursor;
     expect(hookEventSupported("cursor", "SessionStart")).toBe(true);
+    expect(hookEventSupported("cursor", "UserPromptSubmit")).toBe(true);
     expect(hookEventSupported("cursor", "sessionStart")).toBe(true);
     expect(nativeHookEventName("cursor", "SessionStart")).toBe("sessionStart");
     expect(canonicalHookEventName("cursor", "sessionStart")).toBe("SessionStart");
-    expect([...hookHandlerTypesForEvent("cursor", "sessionStart")]).toEqual(["command"]);
+    expect([...hookHandlerTypesForEvent("cursor", "sessionStart")]).toEqual(["command", "prompt"]);
+    expect([...hookHandlerTypesForEvent("cursor", "workspaceOpen")]).toEqual(["command"]);
+    expect(cursor.configFields.handlerEnvelope).toBe("flat");
     expect(cursor.asyncCommand).toBe(false);
     expect(cursor.scopeSupport.plugin).toBe("native");
     expect(cursor.scopeSupport.skill).toBe("unsupported");

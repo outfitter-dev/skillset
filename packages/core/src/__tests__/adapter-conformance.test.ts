@@ -111,6 +111,106 @@ compile:
     expect(report).toEqual({ issues: [], ok: true });
   });
 
+  it("attributes supported Cursor hook attachments to adaptive hooks", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: cursor-adaptive-hook-result
+claude: false
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  auto:
+    - workspace-check
+`,
+      ".skillset/plugins/demo/hooks/workspace-check.json": JSON.stringify({
+        events: ["WorkspaceOpen"],
+        providers: ["cursor"],
+        run: { command: "echo ready" },
+      }),
+    });
+
+    const result = await diffSkillsetResult(root);
+    expect(
+      checkAdapterConformance(result.renderResults, [
+        {
+          featureId: "adaptive-hooks",
+          sourceUnit: "plugin.demo.feature:hooks",
+          target: "cursor",
+        },
+      ])
+    ).toEqual({ issues: [], ok: true });
+    expect(result.renderResults).toContainEqual(
+      expect.objectContaining({
+        destination: "hooks",
+        featureId: "adaptive-hooks",
+        outputs: [
+          expect.objectContaining({
+            path: "plugins/demo/cursor/hooks/hooks.json",
+          }),
+        ],
+        reason:
+          "Cursor supports plugin-level command hooks, but has no faithful skill-local or project-agent hook destination and uses provider-native lower-camel event names.",
+        sourceUnit: "plugin.demo.feature:hooks",
+        status: "degraded",
+        target: "cursor",
+      })
+    );
+    expect(result.renderResults).not.toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-hooks",
+        sourceUnit: "plugin.demo.feature:hooks",
+        target: "cursor",
+      })
+    );
+  });
+
+  it("keeps Cursor native aggregate hook source attributed to plugin hooks", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: cursor-native-hook-result
+claude: false
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
+        hooks: { workspaceOpen: [{ command: "echo ready" }] },
+        version: 1,
+      }),
+    });
+
+    const result = await diffSkillsetResult(root);
+    expect(result.renderResults).toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-hooks",
+        outputs: [
+          expect.objectContaining({
+            path: "plugins/demo/cursor/hooks/hooks.json",
+          }),
+        ],
+        sourceUnit: "plugin.demo.feature:hooks",
+        status: "target_native",
+        target: "cursor",
+      })
+    );
+    expect(result.renderResults).not.toContainEqual(
+      expect.objectContaining({
+        featureId: "adaptive-hooks",
+        sourceUnit: "plugin.demo.feature:hooks",
+        target: "cursor",
+      })
+    );
+  });
+
   it("can inspect adopted destination snapshots for conformance support claims", () => {
     const pluginManifest = getSkillsetFeature("plugin-manifests");
     const cursorEvidence = pluginManifest?.targetSupport.cursor.evidence ?? [];

@@ -39,6 +39,7 @@ describe("SET-463 provider-validation workflow", () => {
     expect(job?.["runs-on"]).toBe("ubuntu-24.04");
     expect(commands).toContain("providers:validate:hosted");
     expect(commands).toContain("$RUNNER_TEMP/provider-validation.md");
+    expect(commands).not.toContain("cursor-agent");
     expect(commands).not.toMatch(/publish|plugin install|plugin enable|trust/u);
     expect(
       job?.steps?.find((step) => step.uses?.startsWith("actions/setup-node@"))

@@ -649,6 +649,7 @@ skillset:
   name: adaptive-hook-definition-status
 claude: true
 codex: false
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -671,6 +672,48 @@ hooks:
           hooks: [{ command: "echo ok", type: "command" }],
           statusMessage: "Checking the definition",
         }],
+      },
+    });
+  });
+
+  test("omits portable hook status from Cursor native handlers without changing grouped targets", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-cursor-status
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+      status: Checking shell command
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "echo ok" },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const groupedHooks = {
+      hooks: {
+        PreToolUse: [{
+          hooks: [{ command: "echo ok", type: "command" }],
+          statusMessage: "Checking shell command",
+        }],
+      },
+    };
+    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual(groupedHooks);
+    expect(renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json")).toEqual(groupedHooks);
+    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
+      version: 1,
+      hooks: {
+        preToolUse: [{ command: "echo ok", type: "command" }],
       },
     });
   });
@@ -735,9 +778,11 @@ hooks:
       },
     });
     expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
+      version: 1,
       hooks: {
         workspaceOpen: [{
-          hooks: [{ command: "env CURSOR=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/cursor.sh'", type: "command" }],
+          command: "env CURSOR=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/cursor.sh'",
+          type: "command",
         }],
       },
     });
@@ -776,6 +821,165 @@ hooks:
     }));
 
     await expect(renderBuildGraph(graph)).rejects.toThrow("run.env key BAD-NAME is not a valid shell environment variable name");
+  });
+
+  test("lowers Claude-compatible aggregate groups to the Cursor native envelope without changing Claude", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: cursor-native-hook-envelope
+claude: true
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
+        hooks: {
+          UserPromptSubmit: [{
+            hooks: [{ command: "./hooks/check-prompt.sh", timeout: 12, type: "command" }],
+            matcher: "UserPromptSubmit",
+          }],
+        },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual({
+      hooks: {
+        UserPromptSubmit: [{
+          hooks: [{ command: "./hooks/check-prompt.sh", timeout: 12, type: "command" }],
+          matcher: "UserPromptSubmit",
+        }],
+      },
+    });
+    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
+      version: 1,
+      hooks: {
+        beforeSubmitPrompt: [{
+          command: "./hooks/check-prompt.sh",
+          matcher: "UserPromptSubmit",
+          timeout: 12,
+          type: "command",
+        }],
+      },
+    });
+  });
+
+  test("preserves the pinned Cursor native hook fixture and documented flat handler fields", async () => {
+    // https://github.com/cursor/plugins/blob/e87eaecc7bd3a06160035b5bc1a76d8cd695273a/ralph-loop/hooks/hooks.json
+    const pinnedRalphLoopHooks = {
+      version: 1,
+      hooks: {
+        afterAgentResponse: [{ command: "./hooks/capture-response.sh" }],
+        stop: [{ command: "./hooks/stop-hook.sh", loop_limit: null }],
+      },
+    };
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: cursor-native-hook-input
+claude: false
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
+        ...pinnedRalphLoopHooks,
+        hooks: {
+          ...pinnedRalphLoopHooks.hooks,
+          beforeShellExecution: [{
+            command: "./hooks/check-shell.sh",
+            failClosed: true,
+            matcher: "curl|wget",
+            timeout: 10,
+          }],
+          beforeSubmitPrompt: [{
+            model: "fast",
+            prompt: "Allow only read-only network inspection: $ARGUMENTS",
+            timeout: 10,
+            type: "prompt",
+          }],
+        },
+      }),
+    }));
+
+    const rendered = renderedJson(
+      await renderBuildGraph(graph),
+      "plugins/demo/cursor/hooks/hooks.json"
+    );
+    expect(rendered).toMatchObject(pinnedRalphLoopHooks);
+    expect(rendered).toEqual({
+      version: 1,
+      hooks: {
+        afterAgentResponse: [{ command: "./hooks/capture-response.sh" }],
+        beforeShellExecution: [{
+          command: "./hooks/check-shell.sh",
+          failClosed: true,
+          matcher: "curl|wget",
+          timeout: 10,
+        }],
+        beforeSubmitPrompt: [{
+          model: "fast",
+          prompt: "Allow only read-only network inspection: $ARGUMENTS",
+          timeout: 10,
+          type: "prompt",
+        }],
+        stop: [{ command: "./hooks/stop-hook.sh", loop_limit: null }],
+      },
+    });
+  });
+
+  test("rejects malformed flat Cursor handlers instead of bypassing validation", async () => {
+    const invalidCases = [
+      {
+        hooks: { stop: [{ command: "echo bypass", type: "http" }] },
+        message: "Cursor only runs type: command, type: prompt hook handlers for this event",
+      },
+      {
+        hooks: { stop: [{ type: "command" }] },
+        message: "command handler for stop requires a string command field",
+      },
+      {
+        hooks: { afterAgentResponse: [{ command: "echo ok", loop_limit: null }] },
+        message: "documents it only for stop and subagentStop",
+      },
+      {
+        hooks: { workspaceOpen: [{ prompt: "Inspect $ARGUMENTS", type: "prompt" }] },
+        message: "Cursor only runs type: command hook handlers for this event",
+      },
+      {
+        hooks: { stop: [{ command: "echo ok", mystery: true }] },
+        message: "uses unsupported field mystery on a flat command handler",
+      },
+    ];
+
+    for (const [index, invalid] of invalidCases.entries()) {
+      const graph = await loadBuildGraph(await fixture({
+        "skillset.yaml": `
+skillset:
+  name: cursor-invalid-flat-hook-${index}
+claude: false
+codex: false
+cursor: true
+`,
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+        ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
+          version: 1,
+          hooks: invalid.hooks,
+        }),
+      }));
+
+      await expect(renderBuildGraph(graph)).rejects.toThrow(invalid.message);
+    }
   });
 
   test("renders plugin hook run.env around the whole shell command", async () => {
@@ -916,19 +1120,18 @@ hooks:
       },
     });
     expect(cursorHooks).toEqual({
+      version: 1,
       hooks: {
         stop: [{
-          hooks: [{
-            command: 'skillset_hook_payload="$(mktemp)" && trap \'rm -f "$skillset_hook_payload"\' 0 && cat > "$skillset_hook_payload" && eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\' < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat )',
-            type: "command",
-          }],
+          command: 'skillset_hook_payload="$(mktemp)" && trap \'rm -f "$skillset_hook_payload"\' 0 && cat > "$skillset_hook_payload" && eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\' < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat )',
+          type: "command",
         }],
       },
     });
 
     const command = ((claudeHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
     const codexCommand = ((codexHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
-    const cursorCommand = ((cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
+    const cursorCommand = (cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[];
     const cursorPayload = '{"conversation_id":"cursor-hook-conversation","text":"payload"}\n';
     const [claudeResult, codexResult, cursorResult] = await Promise.all([
       runGeneratedHookCommand(String(command[0]?.command)),

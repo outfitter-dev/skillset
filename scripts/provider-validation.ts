@@ -27,6 +27,11 @@ import {
   stageValidationInputs,
   type ToolPaths,
 } from "./provider-validation-hosted";
+import {
+  stageCursorHookConformanceInputs,
+  type InternalAuthoringConformanceResult,
+  validateCursorHookConformance,
+} from "./provider-validation-hooks";
 
 export { enumerateProviderArtifacts } from "./provider-validation-artifacts";
 export type { ProviderArtifactInventory } from "./provider-validation-artifacts";
@@ -58,7 +63,10 @@ export interface ProviderValidationReport {
   readonly checkedAt: string;
   readonly failures: readonly {
     readonly diagnostic: string;
-    readonly lane: ProviderValidationLaneId | "all";
+    readonly lane:
+      | ProviderValidationLaneId
+      | "all"
+      | "skillset-internal-authoring";
     readonly stage:
       | "acquisition"
       | "freshness"
@@ -70,6 +78,7 @@ export interface ProviderValidationReport {
     readonly lane: ProviderValidationLaneId;
     readonly text: string;
   }[];
+  readonly internalAuthoringConformance: readonly InternalAuthoringConformanceResult[];
   readonly ok: boolean;
   readonly rows: readonly ProviderValidationReportRow[];
 }
@@ -214,11 +223,20 @@ export function buildValidationCommands(
 export async function executeValidationCommands(
   commands: readonly ValidationCommand[],
   runner: CommandRunner,
-  checkedAt = new Date().toISOString()
+  checkedAt = new Date().toISOString(),
+  internalAuthoringConformance: readonly InternalAuthoringConformanceResult[] = []
 ): Promise<ProviderValidationReport> {
   const failures: string[] = [];
   const status = new Map<ProviderValidationLaneId, boolean>();
   for (const lane of listProviderValidationLanes()) status.set(lane.id, true);
+  for (const check of internalAuthoringConformance) {
+    if (check.result === "passed") continue;
+    failures.push(
+      boundedDiagnostic(
+        `skillset-internal-authoring ${check.id}: ${check.diagnostic ?? "failed"}`
+      )
+    );
+  }
   for (const item of commands) {
     let result: CommandResult;
     try {
@@ -257,7 +275,7 @@ export async function executeValidationCommands(
     checkedAt,
     failures: boundedFailures.map((diagnostic) => ({
       diagnostic,
-      lane: diagnostic.split(" ", 1)[0] as ProviderValidationLaneId,
+      lane: diagnostic.split(" ", 1)[0] as ProviderValidationReport["failures"][number]["lane"],
       stage: "validation" as const,
     })),
     limitations: listProviderValidationLanes().flatMap((lane) =>
@@ -266,6 +284,7 @@ export async function executeValidationCommands(
         `Internal conformance fallback: ${lane.fallback.surfaces.join(", ")} (${lane.fallback.refs.join(", ")}).`,
       ].map((text) => ({ lane: lane.id, text }))
     ),
+    internalAuthoringConformance,
     ok: failures.length === 0,
     rows,
   } satisfies ProviderValidationReport;
@@ -313,6 +332,21 @@ export function renderProviderValidationReport(
       const lane = getProviderValidationLane(item.lane);
       return `| ${item.lane} | ${item.pin} | ${item.sourcePublishedAt} | ${lane.retrievedAt} | [${item.lastSuccessfulValidationAt}](${lane.lastSuccessfulValidation.url}) | ${item.ageDays} days | ${item.status} |`;
     }),
+    ...(report.internalAuthoringConformance.length === 0
+      ? []
+      : [
+          "",
+          "## Skillset internal authoring conformance",
+          "",
+          "Cursor's provider-source validate-plugins.mjs does not inspect hook files. These Skillset-owned checks cover authoring conformance only; they are not Cursor product or runtime proof.",
+          "",
+          "| Check | Attribution | Target | Surface | Result |",
+          "| --- | --- | --- | --- | --- |",
+          ...report.internalAuthoringConformance.map(
+            (check) =>
+              `| ${check.id} | ${check.attribution} | ${check.target} | ${check.surface} | ${check.result} |`
+          ),
+        ]),
     ...(report.failures.length === 0
       ? []
       : [
@@ -367,11 +401,15 @@ export async function runHostedProviderValidation(
     stage = "staging";
     const staged = await stageValidationInputs(root, temp, inventory, tools);
     stage = "validation";
+    const internalAuthoringConformance = await validateCursorHookConformance(
+      await stageCursorHookConformanceInputs(temp)
+    );
     try {
       report = await executeValidationCommands(
         buildValidationCommands(staged.inventory, tools, staged),
         spawnCommand,
-        checkedAt
+        checkedAt,
+        internalAuthoringConformance
       );
     } catch (error) {
       if (error instanceof ProviderValidationFailure) report = error.report;
@@ -567,6 +605,7 @@ function createFailedReport(
         `Internal conformance fallback: ${lane.fallback.surfaces.join(", ")} (${lane.fallback.refs.join(", ")}).`,
       ].map((text) => ({ lane: lane.id, text }))
     ),
+    internalAuthoringConformance: [],
     ok: false,
     rows: listProviderValidationLanes().map((lane) => ({
       count: 0,

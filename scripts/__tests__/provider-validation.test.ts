@@ -25,6 +25,10 @@ import {
   formatAcquisitionFailureDiagnostic,
   stageValidationInputs,
 } from "../provider-validation-hosted";
+import {
+  stageCursorHookConformanceInputs,
+  validateCursorHookConformance,
+} from "../provider-validation-hooks";
 
 describe("SET-463 hosted provider validation orchestration", () => {
   test("formats acquisition failures with an actual newline", () => {
@@ -223,6 +227,74 @@ describe("SET-463 hosted provider validation orchestration", () => {
       expect(markdown).toContain("| validation-current |");
     }
     expect(calls).toBe(commands.length);
+  });
+
+  test("reports generated Cursor hooks and the malformed-handler canary as internal authoring conformance", async () => {
+    const temp = await mkdtemp(join(tmpdir(), "skillset-cursor-hooks-hosted-"));
+    const inputs = await stageCursorHookConformanceInputs(temp);
+    const checks = await validateCursorHookConformance(inputs);
+
+    expect(inputs.valid).toStartWith(join(temp, "stage"));
+    expect(inputs.invalid).toStartWith(join(temp, "stage"));
+    expect(JSON.parse(await readFile(inputs.valid, "utf8"))).toEqual({
+      version: 1,
+      hooks: {
+        workspaceOpen: [
+          { command: "echo hosted-hook-conformance", type: "command" },
+        ],
+      },
+    });
+    expect(checks).toEqual([
+      {
+        attribution: "Skillset internal",
+        id: "cursor-hooks-generated-native",
+        result: "passed",
+        surface: "generated version:1 flat native hook file",
+        target: "cursor",
+      },
+      {
+        attribution: "Skillset internal",
+        id: "cursor-hooks-malformed-flat",
+        result: "passed",
+        surface: "malformed flat handler rejection canary",
+        target: "cursor",
+      },
+    ]);
+
+    const report = await executeValidationCommands([], async () => {
+      throw new Error("no external command expected");
+    }, "2026-09-12T00:02:00.000Z", checks);
+    const markdown = renderProviderValidationReport(report);
+    expect(markdown).toContain("## Skillset internal authoring conformance");
+    expect(markdown).toContain("validate-plugins.mjs does not inspect hook files");
+    expect(markdown).toContain("not Cursor product or runtime proof");
+    expect(markdown).toContain(
+      "| cursor-hooks-generated-native | Skillset internal | cursor | generated version:1 flat native hook file | passed |"
+    );
+    expect(markdown).toContain(
+      "| cursor-hooks-malformed-flat | Skillset internal | cursor | malformed flat handler rejection canary | passed |"
+    );
+
+    await writeFile(inputs.invalid, await readFile(inputs.valid));
+    const failedChecks = await validateCursorHookConformance(inputs);
+    await expect(
+      executeValidationCommands([], async () => {
+        throw new Error("no external command expected");
+      }, "2026-09-12T00:02:00.000Z", failedChecks)
+    ).rejects.toMatchObject({
+      report: {
+        failures: [
+          expect.objectContaining({
+            diagnostic: expect.stringContaining(
+              "Skillset accepted a Cursor handler with a non-string command field"
+            ),
+            lane: "skillset-internal-authoring",
+            stage: "validation",
+          }),
+        ],
+        ok: false,
+      },
+    });
   });
 
   test("bounds validator stdout and stderr with deterministic actionable evidence", async () => {
@@ -486,6 +558,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
             stage: "acquisition",
           },
         ],
+        internalAuthoringConformance: [],
         limitations: [],
         ok: false,
         rows: [],

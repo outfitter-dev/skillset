@@ -185,6 +185,7 @@ describe("provider format conformance", () => {
       ["codex-hooks-schema", "unknown-destination-field", "plugins/alpha/codex/hooks/hooks.json"],
       ["cursor-plugin", "invalid-field-type", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
       ["cursor-plugin", "unknown-destination-field", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
+      ["cursor-hooks", "invalid-shape", "plugins/alpha/cursor/hooks/hooks.json"],
       ["cursor-hooks", "unknown-destination-field", "plugins/alpha/cursor/hooks/hooks.json"],
     ]);
     expect(formatProviderFormatConformanceReport(report)).toContain("claude-plugin-manifest-schema");

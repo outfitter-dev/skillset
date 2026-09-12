@@ -23,6 +23,7 @@ import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
+  pluginBundleRoot,
   pluginManifestPath,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
@@ -31,6 +32,7 @@ import {
   codexInterfaceCategory,
   pluginManifestAuthor,
 } from "./render-plugin-manifest";
+import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import type { ClaudeMarketplacePluginProjection } from "./render-marketplaces";
@@ -136,6 +138,16 @@ export function collectRenderResults(
     }
   }
 
+  for (const item of adaptivePluginHookOutcomes(
+    graph,
+    renderedOutputPaths,
+    options.includedPaths,
+    mapOutputPath
+  )) {
+    for (const path of item.outputPaths) assignedOutputPaths.add(path);
+    outcomes.push(item.outcome);
+  }
+
   for (const file of rendered) {
     if (assignedOutputPaths.has(file.path) || file.path.endsWith(`/${LOCK_FILE}`) || file.path === LOCK_FILE) {
       continue;
@@ -170,6 +182,63 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+interface AdaptivePluginHookOutcome {
+  readonly outcome: SkillsetRenderResult;
+  readonly outputPaths: readonly string[];
+}
+
+function adaptivePluginHookOutcomes(
+  graph: BuildGraph,
+  renderedOutputPaths: readonly string[],
+  includedPaths: ReadonlySet<string>,
+  mapOutputPath: OutputPathMapper
+): readonly AdaptivePluginHookOutcome[] {
+  const featureId = "adaptive-hooks";
+  const outcomes: AdaptivePluginHookOutcome[] = [];
+  for (const plugin of graph.plugins) {
+    for (const target of TARGETS) {
+      if (!hasAdaptivePluginHookOutput(graph, plugin, target)) continue;
+      const hookRoot = normalizePath(
+        join(
+          pluginBundleRoot(
+            graph.root.outputs.plugins[target],
+            target,
+            plugin
+          ),
+          "hooks"
+        )
+      );
+      const aggregatePath = `${hookRoot}/hooks.json`;
+      const outputPaths = renderedOutputPaths.filter(
+        (path) => path === aggregatePath || path.startsWith(`${hookRoot}/`)
+      );
+      if (!outputPaths.includes(aggregatePath)) continue;
+      const support = getSkillsetFeature(featureId)?.targetSupport[target];
+      if (support?.status !== "transformed" && support?.status !== "degraded") {
+        throw new Error(
+          `skillset: adaptive hook render-result support for ${target} must be transformed or degraded`
+        );
+      }
+      outcomes.push({
+        outcome: featureOutcome({
+          destination: "hooks",
+          featureId,
+          isIncluded: includedPaths.has(aggregatePath),
+          mapOutputPath,
+          outputKind: "adaptive-hook",
+          outputPaths,
+          sourcePath: normalizeSourcePath(graph, plugin.configPath),
+          sourceUnit: selectorForPluginFeature(plugin.id, "hooks"),
+          status: support.status,
+          target,
+        }),
+        outputPaths,
+      });
+    }
+  }
+  return outcomes;
 }
 
 function claudeMarketplaceAuthorOutcomes(
