@@ -107,7 +107,7 @@ describe("SET-463 hosted provider validation registry", () => {
     ).toContain("not a whole-provider");
     expect(
       getProviderValidationLane("cursor-authoring").limitations.join(" ")
-    ).toContain("category and tags placement");
+    ).toContain("does not inspect hook files");
     expect(
       getProviderValidationLane("agent-skills-reference").limitations.join(" ")
     ).toContain("standards-floor");
@@ -117,6 +117,12 @@ describe("SET-463 hosted provider validation registry", () => {
     expect(
       getProviderValidationLane("cursor-authoring").fallback.surfaces
     ).toContain("runtime consumption");
+    expect(
+      getProviderValidationLane("cursor-authoring").fallback.surfaces
+    ).toContain("cursor hook authoring conformance");
+    expect(
+      getProviderValidationLane("cursor-authoring").fallback.refs
+    ).toContain("packages/core/src/hooks.ts");
   });
 
   test("integrity-owns the complete executable dependency closure", () => {

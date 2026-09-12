@@ -65,6 +65,7 @@ export interface ProviderHookEventEvidence {
 }
 
 export interface ProviderHookConfigEvidence {
+  readonly handlerEnvelope: "flat" | "grouped";
   readonly groupFields: readonly string[];
   readonly handlerCommonFields: readonly string[];
   readonly rootFields: readonly string[];
@@ -111,6 +112,7 @@ const CLAUDE_ALL_HANDLER_EVENTS: ReadonlySet<string> = new Set([
 
 const claudeHookEvidence = defineProviderHookEvidence({
   config: {
+    handlerEnvelope: "grouped",
     groupFields: ["matcher", "hooks", "statusMessage"],
     handlerCommonFields: ["type", "timeout", "async", "if"],
     rootFields: ["description", "hooks"],
@@ -193,30 +195,33 @@ const CURSOR_HOOK_EVENT_FACTS = [
   cursorFact("AfterAgentResponse", "ignored", false),
   cursorFact("AfterAgentThought", "ignored", false),
   cursorFact("AfterFileEdit", "file-name", false),
-  cursorFact("AfterMCPExecution", "mcp-server", false),
+  cursorFact("AfterMCPExecution", "mcp-server", false, { runtimeNotes: ["not-available-in-cloud"] }),
   cursorFact("AfterShellExecution", "ignored", false),
-  cursorFact("AfterTabFileEdit", "file-name", false),
-  cursorFact("BeforeMCPExecution", "mcp-server", true),
+  cursorFact("AfterTabFileEdit", "file-name", false, { runtimeNotes: ["ide-only"] }),
+  cursorFact("BeforeMCPExecution", "mcp-server", true, { runtimeNotes: ["not-available-in-cloud"] }),
   cursorFact("BeforeReadFile", "file-name", true),
   cursorFact("BeforeShellExecution", "ignored", true),
   cursorFact("BeforeSubmitPrompt", "ignored", true),
-  cursorFact("BeforeTabFileRead", "file-name", true),
+  cursorFact("BeforeTabFileRead", "file-name", true, { runtimeNotes: ["ide-only"] }),
   cursorFact("PostCompact", "compact-trigger", false, { matcherValues: ["manual", "auto"] }),
   cursorFact("PostToolUse", "tool", false),
   cursorFact("PostToolUseFailure", "tool", false),
   cursorFact("PreCompact", "compact-trigger", true, { matcherValues: ["manual", "auto"] }),
   cursorFact("PreToolUse", "tool", true),
-  cursorFact("SessionEnd", "session-end-reason", false),
-  cursorFact("SessionStart", "session-source", false, { matcherValues: ["startup", "resume", "clear", "compact"] }),
+  cursorFact("SessionEnd", "session-end-reason", false, { runtimeNotes: ["not-available-in-cloud"] }),
+  cursorFact("SessionStart", "session-source", false, {
+    matcherValues: ["startup", "resume", "clear", "compact"],
+    runtimeNotes: ["not-available-in-cloud"],
+  }),
   cursorFact("Stop", "ignored", true),
   cursorFact("SubagentStart", "agent-type", false),
   cursorFact("SubagentStop", "agent-type", true),
-  cursorFact("UserPromptSubmit", "ignored", true),
-  cursorFact("WorkspaceOpen", "ignored", false),
+  cursorFact("WorkspaceOpen", "ignored", false, { runtimeNotes: ["ide-only"] }),
 ] as const;
 
 const codexHookEvidence = defineProviderHookEvidence({
   config: {
+    handlerEnvelope: "grouped",
     groupFields: ["matcher", "hooks", "statusMessage"],
     handlerCommonFields: ["type", "command", "timeout", "async"],
     rootFields: ["hooks"],
@@ -237,17 +242,23 @@ const codexHookEvidence = defineProviderHookEvidence({
 
 const cursorHookEvidence = defineProviderHookEvidence({
   config: {
-    groupFields: ["matcher", "hooks"],
-    handlerCommonFields: ["type", "command", "timeout"],
-    rootFields: ["hooks"],
+    handlerEnvelope: "flat",
+    groupFields: [],
+    handlerCommonFields: ["type", "timeout", "loop_limit", "failClosed", "matcher"],
+    rootFields: ["version", "hooks"],
   },
   events: CURSOR_HOOK_EVENT_FACTS.map(cursorEvent),
   evidenceKind: "docs-backed-overlay",
   handlerTypes: [
-    { type: "command", fields: ["type", "command", "timeout"] },
+    { type: "command", fields: ["type", "command", "timeout", "loop_limit", "failClosed", "matcher"] },
+    { type: "prompt", fields: ["type", "prompt", "timeout", "loop_limit", "failClosed", "matcher", "model"] },
   ],
   providerRef: "cursor-hooks-docs",
-  sources: ["https://cursor.com/docs/hooks"],
+  sources: [
+    "https://cursor.com/docs/hooks",
+    "https://cursor.com/docs/reference/third-party-hooks",
+    "https://github.com/cursor/plugins/blob/e87eaecc7bd3a06160035b5bc1a76d8cd695273a/ralph-loop/hooks/hooks.json",
+  ],
   target: "cursor",
 });
 
@@ -405,10 +416,14 @@ function cursorFact(
 
 function cursorEvent(fact: (typeof CURSOR_HOOK_EVENT_FACTS)[number]): ProviderHookEventEvidence {
   const matcherEvaluation = fact.matcherKind === "ignored" ? "ignored" : fact.matcherValues.length > 0 ? "exact-values" : "provider-native";
+  const handlerTypes =
+    fact.name === "WorkspaceOpen" || fact.name === "BeforeTabFileRead" || fact.name === "AfterTabFileEdit"
+      ? ["command"]
+      : ["command", "prompt"];
   return {
     canBlock: fact.canBlock,
     evidenceKind: "docs-backed-overlay",
-    handlerTypes: ["command"],
+    handlerTypes,
     inputFields: [],
     matcherEvaluation,
     matcherKind: fact.matcherKind,
@@ -420,6 +435,7 @@ function cursorEvent(fact: (typeof CURSOR_HOOK_EVENT_FACTS)[number]): ProviderHo
     runtimeNotes: [
       ...fact.runtimeNotes,
       "native-event-names-are-lower-camel",
+      ...(handlerTypes.includes("prompt") ? ["prompt-handlers-unavailable-in-cloud"] : []),
       ...(matcherEvaluation === "provider-native" ? ["matcher-values-provider-native"] : []),
     ],
     unsupportedOutputFields: [],

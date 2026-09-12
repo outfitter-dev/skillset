@@ -197,7 +197,11 @@ async function lintHookFile(
   }
 
   try {
-    validateHookDefinition(parsed, { sourcePath: path, target });
+    validateHookDefinition(parsed, {
+      acceptCompatibilityEnvelope: target === "cursor",
+      sourcePath: path,
+      target,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [{ code: "hook-target-incompatible", featureId: "plugin-hooks", message, path, severity: "error" }];

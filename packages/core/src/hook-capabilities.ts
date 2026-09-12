@@ -22,6 +22,7 @@ export interface HookProviderCapability {
   readonly asyncCommand: boolean;
   readonly canBlockByEvent: Readonly<Record<string, boolean>>;
   readonly configFields: {
+    readonly handlerEnvelope: "flat" | "grouped";
     readonly groupFields: readonly string[];
     readonly handlerCommonFields: readonly string[];
     readonly rootFields: readonly string[];
@@ -76,6 +77,9 @@ const CURSOR_EVENT_NAMES = deriveCursorHookEventNames(
 );
 const CURSOR_NATIVE_EVENT_BY_CANONICAL = CURSOR_EVENT_NAMES.nativeByCanonical;
 const CURSOR_CANONICAL_EVENT_BY_NATIVE = CURSOR_EVENT_NAMES.canonicalByNative;
+const CURSOR_CANONICAL_EVENT_BY_COMPATIBILITY: Readonly<Record<string, string>> = {
+  UserPromptSubmit: "BeforeSubmitPrompt",
+};
 
 export const CLAUDE_HOOK_EVENTS: ReadonlySet<string> = eventSet(CLAUDE_HOOK_EVIDENCE);
 export const CODEX_HOOK_EVENTS: ReadonlySet<string> = eventSet(CODEX_HOOK_EVIDENCE);
@@ -167,12 +171,14 @@ export function hookEventSupported(provider: HookCapabilityProvider, event: stri
 
 export function canonicalHookEventName(provider: HookCapabilityProvider, event: string): string {
   if (provider !== "cursor") return event;
-  return CURSOR_CANONICAL_EVENT_BY_NATIVE[event] ?? event;
+  const compatibilityEvent = CURSOR_CANONICAL_EVENT_BY_COMPATIBILITY[event] ?? event;
+  return CURSOR_CANONICAL_EVENT_BY_NATIVE[compatibilityEvent] ?? compatibilityEvent;
 }
 
 export function nativeHookEventName(provider: HookCapabilityProvider, event: string): string {
   if (provider !== "cursor") return event;
-  return CURSOR_NATIVE_EVENT_BY_CANONICAL[event] ?? event;
+  const canonicalEvent = canonicalHookEventName(provider, event);
+  return CURSOR_NATIVE_EVENT_BY_CANONICAL[canonicalEvent] ?? event;
 }
 
 export function deriveCursorHookEventNames(events: readonly string[]): {

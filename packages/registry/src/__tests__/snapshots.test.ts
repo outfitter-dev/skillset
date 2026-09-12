@@ -335,10 +335,20 @@ describe("@skillset/registry hook evidence", () => {
     expect(cursorBeforeSubmitPrompt).toMatchObject({
       canBlock: true,
       evidenceKind: "docs-backed-overlay",
+      handlerTypes: ["command", "prompt"],
       matcherKind: "ignored",
       providerRef: "cursor-hooks-docs",
     });
+    expect(cursorBeforeSubmitPrompt?.runtimeNotes).toContain("prompt-handlers-unavailable-in-cloud");
     expect(cursorSessionStart?.matcherValues).toEqual(["startup", "resume", "clear", "compact"]);
     expect(cursorSessionStart?.runtimeNotes).toContain("native-event-names-are-lower-camel");
+    expect(cursor.config).toMatchObject({
+      handlerEnvelope: "flat",
+      rootFields: ["version", "hooks"],
+    });
+    expect(cursor.handlerTypes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "command" }),
+      expect.objectContaining({ type: "prompt" }),
+    ]));
   });
 });

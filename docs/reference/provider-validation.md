@@ -73,7 +73,7 @@ Negative canary: missing name in .codex-plugin/plugin.json.
 
 Negative canary: missing name in .cursor-plugin/plugin.json.
 
-- The provider-owned source validator is not a whole-provider runtime validator.
+- The provider-owned source validator covers marketplace and manifest authoring, but does not inspect hook files. The hosted hook probes are Skillset-owned internal authoring conformance, not Cursor product or runtime proof.
 - The public schema and shipped Cursor Agent 2026.07.23-e383d2b disagree on category and tags placement; Skillset preserves the conflict and does not synthesize either field from keywords.
 - The shipped Cursor Agent bundle is recorded as runtime-consumer evidence only (sha256:b3b9931f3817c1b269b49148be70965830811d52b2aee98b9513247675838040).
-- Internal conformance fallback: category and tags authority conflict, render-result coverage, runtime consumption (`packages/core/src/provider-format-conformance.ts`; `packages/core/src/__tests__/adapter-conformance-coverage.test.ts`, `packages/core/src/__tests__/adapter-conformance.test.ts`, `packages/core/src/__tests__/provider-format-conformance.test.ts`).
+- Internal conformance fallback: category and tags authority conflict, cursor hook authoring conformance, render-result coverage, runtime consumption (`packages/core/src/provider-format-conformance.ts`; `packages/core/src/__tests__/adapter-conformance-coverage.test.ts`, `packages/core/src/__tests__/adapter-conformance.test.ts`, `packages/core/src/__tests__/provider-format-conformance.test.ts`, `packages/core/src/hooks.ts`).
