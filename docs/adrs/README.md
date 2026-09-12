@@ -45,3 +45,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0028](0028-open-standards-are-the-portability-floor.md) | Open Standards Are the Default Portability Floor | Accepted |
 | [0029](0029-global-cli-native-distribution.md) | Global CLI and Native Distribution | Accepted |
 | [0030](0030-chatgpt-product-bundles-and-standards-only-builds.md) | ChatGPT Product Bundles and Standards-Only Builds | Accepted |
+| [0031](0031-agent-instructions-opt-out-owns-shared-agents-md.md) | Agent Instructions Opt-Out Owns Shared AGENTS.md | Accepted |

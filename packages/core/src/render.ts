@@ -1842,6 +1842,10 @@ function hashProjectAgentSource(
 
 function stripUndefinedLockItem(item: LockItem): JsonRecord {
   const value: Record<string, JsonValue | undefined> = {
+    consumers:
+      item.consumers === undefined
+        ? undefined
+        : item.consumers.map((consumer) => ({ ...consumer })),
     fileModes: item.fileModes,
     feature: item.feature,
     files: [...item.files],
@@ -1852,6 +1856,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     origin: item.origin,
     outputHash: item.outputHash,
     outputPath: item.outputPath,
+    owner: item.owner === undefined ? undefined : { ...item.owner },
     plugin: item.plugin,
     preprocessDependencies: item.preprocessDependencies === undefined ? undefined : [...item.preprocessDependencies],
     renderInputsHash: item.renderInputsHash,
