@@ -3,9 +3,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "agents": {
-      "type": "object"
-    },
     "changes": {
       "type": "object"
     },
@@ -44,6 +41,28 @@
     "compile": {
       "additionalProperties": false,
       "properties": {
+        "agents": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "instructions": {
+                  "type": "boolean"
+                },
+                "plugins": {
+                  "type": "boolean"
+                },
+                "skills": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
         "build": {
           "enum": [
             "all",
@@ -78,7 +97,6 @@
             ],
             "type": "string"
           },
-          "minItems": 1,
           "type": "array",
           "uniqueItems": true
         },

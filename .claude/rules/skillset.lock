@@ -22,7 +22,7 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:308ff8a28efefa1c7c4e3fab2d76fa36b0759d28d345c356fe3b58f036e1f851",
+  "provenanceHash": "sha256:82bfaeb5b5e3cdfda7d6aba16228809a0bc2eea6b7a9946b3a02ff6400b91380",
   "renderResults": [
     {
       "destination": "instruction",
@@ -39,14 +39,15 @@
           "path": ".claude/rules/fixtures.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules/fixtures.md",
       "sourceUnit": "instruction:fixtures",
       "status": "transformed",
       "target": "claude"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "selectedStandards": [],
   "selectedTargets": [
     "claude",
     "codex",

@@ -284,6 +284,7 @@ describe("lookupSkillsetReference", () => {
       "bin",
       "claude",
       "codex",
+      "compatibility",
       "cursor",
       "dependencies",
       "description",

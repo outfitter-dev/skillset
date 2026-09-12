@@ -31,6 +31,8 @@ export const RENDERED_SKILL_METADATA_RESERVED_KEYS = [
 ] as const;
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
+export const AGENT_STANDARD_KEYS = ["instructions", "skills", "plugins"] as const;
+export const ALLOWED_TOOLS_TARGET_KEYS = [...TARGET_NAMES, "agents"] as const;
 export const REPORT_EXTERNAL_FIXTURE_PHASES = [
   "acquire",
   "init",
@@ -61,7 +63,6 @@ export const SOURCE_LICENSE_IDS = [
 export const SOURCE_LICENSE_NONE = "none";
 
 const SHARED_CONFIG_KEYS = [
-  "agents",
   "changes",
   "claude",
   "codex",
@@ -83,7 +84,6 @@ export const SINGLE_FILE_ROOT_CONFIG_KEYS = [
 
 /** Allowed keys in split-layout `.skillset/config.yaml`. */
 export const SPLIT_WORKSPACE_CONFIG_KEYS = [
-  "agents",
   "changes",
   "claude",
   "codex",
@@ -176,6 +176,7 @@ export const COMMON_FRONTMATTER_KEYS = [
   "allowed_tools",
   "bin",
   "claude",
+  "compatibility",
   "codex",
   "cursor",
   "dependencies",
@@ -230,12 +231,12 @@ export const workspaceConfigContract = contract(
   {
     additionalProperties: false,
     properties: {
-      agents: { type: "object" },
       changes: { type: "object" },
       claude: workspaceTargetOverrideSchema(),
       codex: workspaceTargetOverrideSchema(),
       cursor: workspaceTargetOverrideSchema(),
       compile: strictObjectSchema({
+        agents: agentStandardsConfigSchema(),
         build: enumSchema(COMPILE_BUILD_MODES),
         features: strictObjectSchema({
           promptArguments: { type: "boolean" },
@@ -244,7 +245,6 @@ export const workspaceConfigContract = contract(
           metadata: { type: "boolean" },
         }),
         targets: arraySchema(enumSchema(TARGET_NAMES), {
-          minItems: 1,
           uniqueItems: true,
         }),
         unsupportedDestination: enumSchema(UNSUPPORTED_DESTINATION_POLICIES),
@@ -274,7 +274,6 @@ export const pluginConfigContract = contract(
   {
     additionalProperties: false,
     properties: {
-      agents: { type: "object" },
       bin: targetOverrideSchema(),
       changes: { type: "object" },
       claude: pluginTargetOverrideSchema("claude"),
@@ -308,6 +307,7 @@ export const skillFrontmatterContract = contract(
       allowed_tools: allowedToolsSchema(),
       bin: targetFeatureSchema(),
       claude: targetOverrideSchema(),
+      compatibility: { maxLength: 500, minLength: 1, type: "string" },
       codex: targetOverrideSchema(),
       cursor: targetOverrideSchema(),
       dependencies: dependenciesSchema(),
@@ -1478,9 +1478,23 @@ function allowedToolsSchema(): SchemaJsonRecord {
     anyOf: [
       ...value.anyOf,
       strictObjectSchema({
+        agents: value,
         claude: value,
         codex: value,
         cursor: value,
+      }),
+    ],
+  };
+}
+
+function agentStandardsConfigSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      strictObjectSchema({
+        instructions: { type: "boolean" },
+        plugins: { type: "boolean" },
+        skills: { type: "boolean" },
       }),
     ],
   };

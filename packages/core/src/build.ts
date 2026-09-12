@@ -37,6 +37,7 @@ import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import {
+  SkillsetFeatureDiagnosticError,
   sourceWarningDiagnostic,
   type SkillsetDiagnostic,
   type SkillsetOperationResult,
@@ -56,6 +57,18 @@ export const ISOLATED_OUT_ROOT = ".skillset/cache/latest";
 type OutPath = (path: string) => string;
 
 const livePath: OutPath = (path) => path;
+
+function assertProviderProjection(graph: BuildGraph): void {
+  if (graph.root.compile.targets.length > 0) return;
+  throw new SkillsetFeatureDiagnosticError({
+    code: "no-provider-projections",
+    featureId: "standard-projections",
+    message: [
+      "skillset: no provider projection is selected",
+      "compile.targets: [] is valid source configuration, but adopted standards projections are unavailable until SET-399; select at least one provider target before building",
+    ].join("\n"),
+  });
+}
 
 function outPathMapper(options: SkillsetOptions): OutPath {
   if (options.isolated !== true) return livePath;
@@ -87,6 +100,7 @@ const LOCK_TOP_LEVEL_KEYS = new Set([
   "provenanceHash",
   "renderResults",
   "schemaVersion",
+  "selectedStandards",
   "selectedTargets",
   "skillsetMetadata",
   "sourceRoot",
@@ -234,6 +248,7 @@ async function buildSkillsetResultInternal(
   inspectionOptions: SkillsetBuildInternalOptions
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  assertProviderProjection(graph);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -728,8 +743,8 @@ function classifyLockProvenance(
   }
   if (hasUnknownFixedShapeLockFields(currentLock)) return "unsafe";
   const legacySchemaMigration =
-    currentLock.schemaVersion === 1 &&
-    expectedLock.schemaVersion === 2 &&
+    (currentLock.schemaVersion === 1 || currentLock.schemaVersion === 2) &&
+    expectedLock.schemaVersion === 3 &&
     hasCoherentLegacyIntegrity(path, currentLock, editedOutputPaths);
   if (
     !legacySchemaMigration &&
@@ -746,7 +761,12 @@ function classifyLockProvenance(
       ? "trusted"
       : "repairable";
   }
-  if (currentLock.schemaVersion === 2) return "migration";
+  if (
+    !legacySchemaMigration &&
+    (currentLock.schemaVersion === 2 || currentLock.schemaVersion === 3)
+  ) {
+    return "migration";
+  }
   if (
     legacySchemaMigration &&
     hasLegacyTopLevelChanges(currentLock, expectedLock)
@@ -877,6 +897,17 @@ function hasCoherentLegacyIntegrity(
   lock: JsonRecord,
   editedOutputPaths: ReadonlySet<string>
 ): boolean {
+  if (lock.schemaVersion === 2) {
+    return hasCoherentLegacyV2Integrity(path, lock, editedOutputPaths);
+  }
+  return hasCoherentLegacyV1Integrity(path, lock, editedOutputPaths);
+}
+
+function hasCoherentLegacyV1Integrity(
+  path: string,
+  lock: JsonRecord,
+  editedOutputPaths: ReadonlySet<string>
+): boolean {
   const items = Array.isArray(lock.items) ? lock.items : [];
   if (items.length === 0) return false;
   const outputRoot = outputRootForLockPath(path);
@@ -896,6 +927,44 @@ function hasCoherentLegacyIntegrity(
     }
   }
   return true;
+}
+
+function hasCoherentLegacyV2Integrity(
+  path: string,
+  lock: JsonRecord,
+  editedOutputPaths: ReadonlySet<string>
+): boolean {
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  if (items.length === 0) return false;
+  const outputRoot = outputRootForLockPath(path);
+  for (const item of items) {
+    if (
+      !isJsonRecord(item) ||
+      !hasCoherentLegacyV2FileModes(item) ||
+      typeof item.outputHash !== "string"
+    ) {
+      return false;
+    }
+    if (
+      [...outputPathsForLockItem(outputRoot, item)]
+        .some((outputPath) => editedOutputPaths.has(outputPath))
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasCoherentLegacyV2FileModes(item: JsonRecord): boolean {
+  const { fileModes, files } = item;
+  if (!Array.isArray(files) || !isJsonRecord(fileModes)) return false;
+  if (!files.every((file): file is string => typeof file === "string" && file.length > 0)) {
+    return false;
+  }
+  return files.every((file) => {
+    const mode = fileModes[file];
+    return mode === "0644" || mode === "0755";
+  });
 }
 
 function lockItemsWithoutGeneratedIntegrity(lock: JsonRecord): string {
@@ -919,15 +988,30 @@ function hasLegacyTopLevelChanges(
   const legacyComparableMetadata = (lock: JsonRecord): string =>
     JSON.stringify(
       Object.fromEntries(
-        Object.entries(lock).filter(
+        Object.entries(lock)
+          .filter(
           ([key]) =>
             key !== "items" &&
             key !== "provenanceHash" &&
-            key !== "schemaVersion"
-        )
+            key !== "schemaVersion" &&
+            key !== "selectedStandards"
+          )
+          .map(([key, value]) => [
+            key,
+            key === "renderResults" ? normalizeLegacyRenderResultSchemas(value) : value,
+          ])
       )
     );
   return legacyComparableMetadata(current) !== legacyComparableMetadata(expected);
+}
+
+function normalizeLegacyRenderResultSchemas(value: JsonValue | undefined): JsonValue | undefined {
+  if (!Array.isArray(value)) return value;
+  return value.map((result) =>
+    isJsonRecord(result) && result.schema === "skillset-render-result@1"
+      ? { ...result, schema: "skillset-render-result@2" }
+      : result
+  );
 }
 
 function lockItemsByIdentity(
@@ -993,6 +1077,7 @@ export async function diffSkillsetResult(
   inspection: SkillsetDiffInspectionOptions = {}
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  assertProviderProjection(graph);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1074,6 +1159,7 @@ export async function verifySkillsetResult(
   options: SkillsetOptions = {}
 ): Promise<SkillsetVerifyResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  assertProviderProjection(graph);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);

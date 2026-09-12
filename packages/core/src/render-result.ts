@@ -1,8 +1,11 @@
+import { isStandardProfileId } from "@skillset/schema";
+import type { StandardProfileId } from "@skillset/schema";
+
 import { compareStrings } from "./path";
 import type { SkillsetFeatureEvidence } from "./feature-registry";
 import type { TargetName } from "./types";
 
-export const RENDER_RESULT_SCHEMA = "skillset-render-result@1";
+export const RENDER_RESULT_SCHEMA = "skillset-render-result@2";
 
 export const RENDER_RESULT_STATUS_VALUES = [
   "degraded",
@@ -57,6 +60,8 @@ export interface SkillsetRenderResult {
   readonly schema: typeof RENDER_RESULT_SCHEMA;
   readonly sourcePath?: string;
   readonly sourceUnit: string;
+  /** Standards identity stays separate from provider target identity. */
+  readonly standardProfile?: StandardProfileId;
   readonly status: SkillsetRenderResultStatus;
   readonly target?: TargetName;
 }
@@ -111,6 +116,7 @@ export function normalizeRenderResult(
     ...(outcome.sourcePath === undefined ? {} : { sourcePath: outcome.sourcePath }),
     featureId: outcome.featureId,
     ...(outcome.target === undefined ? {} : { target: outcome.target }),
+    ...(outcome.standardProfile === undefined ? {} : { standardProfile: outcome.standardProfile }),
     ...(outcome.destination === undefined ? {} : { destination: outcome.destination }),
     status: outcome.status,
     ...(outcome.reason === undefined ? {} : { reason: outcome.reason }),
@@ -134,6 +140,12 @@ export function assertRenderResult(outcome: SkillsetRenderResult): void {
   }
   if (outcome.featureId.trim().length === 0) {
     throw new Error("skillset: render result featureId is required");
+  }
+  if (outcome.standardProfile !== undefined && !isStandardProfileId(outcome.standardProfile)) {
+    throw new Error("skillset: render result standardProfile must be a standard profile id");
+  }
+  if (outcome.standardProfile !== undefined && outcome.target !== undefined) {
+    throw new Error("skillset: render result cannot name both a provider target and a standardProfile");
   }
   if (outcome.destination !== undefined && outcome.destination.trim().length === 0) {
     throw new Error("skillset: render result destination must be non-empty when present");

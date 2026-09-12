@@ -100,11 +100,6 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     id: "workspace-config",
     path: "workspace-config.yaml",
     value: {
-      agents: {
-        defaults: {
-          skillsPrompt: "Load the following skills first, if available:",
-        },
-      },
       changes: {
         minimumRefLength: 6,
       },
@@ -115,6 +110,11 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         },
       },
       compile: {
+        agents: {
+          instructions: true,
+          plugins: true,
+          skills: true,
+        },
         build: "updated",
         features: {
           promptArguments: true,
@@ -211,11 +211,6 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     id: "plugin-config",
     path: "plugin-config.yaml",
     value: {
-      agents: {
-        defaults: {
-          skillsPrompt: "Load the following skills first, if available:",
-        },
-      },
       bin: true,
       changes: {
         minimumRefLength: 6,
@@ -296,6 +291,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     path: "skill-frontmatter.yaml",
     value: {
       allowed_tools: {
+        agents: ["Read", "Write"],
         claude: ["Read", "Write"],
         codex: false,
         cursor: false,
@@ -306,6 +302,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       claude: {
         allowed_tools: ["Read", "Write"],
       },
+      compatibility: "Requires the docs CLI to be available in the workspace.",
       codex: {
         model: "gpt-5.1-codex",
       },

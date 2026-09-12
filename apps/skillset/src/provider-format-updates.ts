@@ -68,7 +68,10 @@ export async function runProviderFormatUpdates(
     skillsetOptions
   );
   const sourceDriftPaths = new Set(managedState.sourceDriftPaths);
-  if (sourceDriftPaths.size > 0) {
+  const hasLegacyLockMigration =
+    preview.outputState.state === "source-ahead" &&
+    (await hasLegacyV2LockDrift(rootPath, driftPaths));
+  if (sourceDriftPaths.size > 0 || hasLegacyLockMigration) {
     for (const path of driftPaths) {
       if (path === "skillset.lock" || path.endsWith("/skillset.lock")) sourceDriftPaths.add(path);
     }
@@ -286,6 +289,17 @@ function actionForEntry(
   };
 }
 
+async function hasLegacyV2LockDrift(
+  rootPath: string,
+  driftPaths: readonly string[]
+): Promise<boolean> {
+  for (const path of driftPaths) {
+    if (path !== "skillset.lock" && !path.endsWith("/skillset.lock")) continue;
+    if ((await readLock(rootPath, path))?.schemaVersion === 2) return true;
+  }
+  return false;
+}
+
 async function inspectManagedOutputState(
   rootPath: string,
   driftPaths: readonly string[],
@@ -418,14 +432,14 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
     return undefined;
   }
   const items: ParsedLockItem[] = [];
-  const schemaVersion = parsed.schemaVersion === 2 ? 2 : 1;
+  const schemaVersion = parsed.schemaVersion === 3 ? 3 : parsed.schemaVersion === 2 ? 2 : 1;
   for (const item of parsed.items) {
     if (!isRecord(item) || !Array.isArray(item.files)) continue;
     const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
     if (files.length === 0) continue;
     const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
     const fileModes = readFileModes(item.fileModes, files, schemaVersion);
-    if (schemaVersion === 2 && fileModes === undefined) continue;
+    if (schemaVersion !== 1 && fileModes === undefined) continue;
     const renderInputsHash = typeof item.renderInputsHash === "string" ? item.renderInputsHash : undefined;
     const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash : undefined;
     const version = typeof item.version === "string" ? item.version : undefined;
@@ -444,7 +458,7 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
 function readFileModes(
   value: unknown,
   files: readonly string[],
-  schemaVersion: 1 | 2
+  schemaVersion: 1 | 2 | 3
 ): Readonly<Record<string, "0644" | "0755">> | undefined {
   if (schemaVersion === 1 && value === undefined) return undefined;
   if (!isRecord(value)) return undefined;
@@ -462,7 +476,7 @@ async function currentOutputHash(
   item: LockItemState
 ): Promise<string | undefined> {
   const hash = createHash("sha256");
-  hash.update(item.schemaVersion === 2 ? "skillset-output-v2\0" : "skillset-output-v1\0");
+  hash.update(item.schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
   for (const entry of item.files) {
     let content: Uint8Array;
@@ -473,7 +487,7 @@ async function currentOutputHash(
     }
     hash.update(entry.file);
     hash.update("\0");
-    if (item.schemaVersion === 2) {
+    if (item.schemaVersion !== 1) {
       const expectedMode = item.fileModes?.[entry.file];
       if (expectedMode === undefined) return undefined;
       const mode = supportsGeneratedFileModes()
@@ -566,7 +580,7 @@ function compareStrings(left: string, right: string): number {
 interface ParsedLock {
   readonly items: readonly ParsedLockItem[];
   readonly outputRoot: string;
-  readonly schemaVersion: 1 | 2;
+  readonly schemaVersion: 1 | 2 | 3;
 }
 
 interface ParsedLockItem {
@@ -582,7 +596,7 @@ interface LockItemState {
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
   readonly files: readonly LockFileEntry[];
   readonly lockPath: string;
-  readonly schemaVersion: 1 | 2;
+  readonly schemaVersion: 1 | 2 | 3;
   readonly outputHash?: string;
   readonly renderInputsHash?: string;
   readonly sourceHash?: string;
