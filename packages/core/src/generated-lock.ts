@@ -372,6 +372,7 @@ function parseLockTarget(
 }
 
 function parseTargets(value: unknown, label: string): readonly TargetName[] {
+  if (value === undefined) return [];
   if (!Array.isArray(value)) {
     throw invalidLock(label, "selectedTargets must be an array");
   }
