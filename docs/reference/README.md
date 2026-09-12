@@ -10,6 +10,7 @@ Use these pages when you need exact command, compatibility, or source-contract f
 - [Source reference](source/README.md) documents the workspace layout, instructions, and preprocessing behavior.
 - [Configuration](../configuration/README.md) explains project settings, source frontmatter, target overrides, and tools policy.
 - [Provider reference](providers/README.md) explains target vocabulary and routes to Claude, Codex, Cursor, and the generated support matrix.
+- [Standard profiles](standard-profiles.md) records the independent Agent Instructions, Agent Skills, and Agent Plugins evidence floor.
 - [Feature reference](features/README.md) defines exact authoring, output, error, example, and caveat contracts by feature or workflow.
 - [Operational reports](features/operational-reports.md) explains immutable global receipts, retrieval, retention, and their boundary from workspace cache.
 - [Feature support matrix](support-matrix.md) shows registry-owned implementation and provider status.
