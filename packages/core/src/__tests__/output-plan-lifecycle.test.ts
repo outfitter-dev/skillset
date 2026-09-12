@@ -184,6 +184,35 @@ describe("coalesced output lifecycle", () => {
     ).toBe(false);
   });
 
+  test("rejects a pre-v3 inactive lock without granting cleanup ownership", async () => {
+    const root = await fixture(customCodexConfig());
+    await seedManagedStandardRoot(root, [
+      { phase: "baseline", standardProfile: "agent-skills" },
+    ]);
+    const lockPath = join(root, ".agents/skills/skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf-8"));
+    lock.schemaVersion = 2;
+    delete lock.provenanceHash;
+    delete lock.selectedStandards;
+    for (const item of lock.items) {
+      delete item.consumers;
+      delete item.owner;
+    }
+    await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+
+    await expect(
+      buildSkillsetResult(root, { scopes: ["repo"] })
+    ).rejects.toThrow("uses pre-v3 schema 2; this generated state is rebuild-only");
+    expect(
+      await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
+    ).toBe("previous standard output\n");
+    expect(
+      await Bun.file(
+        join(root, "generated/codex-skills/review/SKILL.md")
+      ).exists()
+    ).toBe(false);
+  });
+
   test("rejects a malformed inactive lock without granting legacy-root ownership", async () => {
     const root = await fixture(customCodexConfig());
     await seedManagedStandardRoot(root, [
@@ -263,7 +292,7 @@ describe("coalesced output lifecycle", () => {
     ).toBe(false);
   });
 
-  test("inspects invalid provenance on an active root so managed edits can be backed up", async () => {
+  test("inspects invalid provenance only for active paths so managed edits can be backed up", async () => {
     const root = await fixture(defaultCodexConfig());
     const initial = await buildSkillsetResult(root, { scopes: ["repo"] });
     expect(initial.ok).toBe(true);
@@ -279,6 +308,27 @@ describe("coalesced output lifecycle", () => {
     expect(result.ok).toBe(true);
     expect(result.writes.backupRunId).toBeDefined();
     expect(await readFile(outputPath, "utf-8")).toContain("Review the change.");
+  });
+
+  test("does not let invalid current provenance add a stale deletion path", async () => {
+    const root = await fixture(defaultCodexConfig());
+    const initial = await buildSkillsetResult(root, { scopes: ["repo"] });
+    expect(initial.ok).toBe(true);
+    const userPath = join(root, ".agents/skills/user-owned.txt");
+    await Bun.write(userPath, "keep me\n");
+    const lockPath = join(root, ".agents/skills/skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf-8"));
+    lock.items.push({
+      fileModes: { "user-owned.txt": "0644" },
+      files: ["user-owned.txt"],
+      outputHash: outputHash("user-owned.txt", "keep me\n"),
+    });
+    await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+
+    await expect(
+      buildSkillsetResult(root, { scopes: ["repo"] })
+    ).rejects.toThrow("invalid provenanceHash");
+    expect(await readFile(userPath, "utf-8")).toBe("keep me\n");
   });
 
   test("rejects invalid provenance when a current co-consumed Agent Plugins item shares a root with a stale former item", async () => {
@@ -299,7 +349,7 @@ describe("coalesced output lifecycle", () => {
     expect(await readFile(join(root, providerPath), "utf-8")).toBe(providerBefore);
   });
 
-  test("requires provenance for a stale standard item despite a legacy active-profile policy field", async () => {
+  test("requires provenance for any unplanned path at the direct managed-state reader seam", async () => {
     const root = await pluginFixture();
     const initial = await buildSkillsetResult(root, { scopes: ["plugins"] });
     const providerPath = providerOutputPath(initial.data, "plugins/");
@@ -307,13 +357,9 @@ describe("coalesced output lifecycle", () => {
       join(root, "plugins"),
       providerPath.slice("plugins/".length)
     );
-    const legacyPolicy: ManagedOutputProvenancePolicy & {
-      readonly activeStandardProfiles: ReadonlySet<"agent-plugins-1.0">;
-    } = {
+    const policy: ManagedOutputProvenancePolicy = {
       activeRenderedPaths: new Set(initial.data.map((file) => file.path)),
-      activeStandardProfiles: new Set(["agent-plugins-1.0"]),
     };
-
     await expect(
       readManagedOutputState(
         root,
@@ -323,7 +369,7 @@ describe("coalesced output lifecycle", () => {
         undefined,
         undefined,
         new Set(),
-        legacyPolicy
+        policy
       )
     ).rejects.toThrow("invalid provenanceHash");
   });

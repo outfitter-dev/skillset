@@ -766,7 +766,7 @@ test("SET-279: check refreshes legacy locks missing render input hashes", async 
   expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
 });
 
-test("SET-398: check migrates a coherent v2 lock with v1 render results", async () => {
+test("SET-398: check reports a coherent v2 lock as rebuild-only", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
@@ -782,15 +782,17 @@ test("SET-398: check migrates a coherent v2 lock with v1 render results", async 
     renderResult.schema = "skillset-render-result@1";
   }
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  const downgraded = await readFile(lockPath, "utf8");
 
   const report = await ciSkillset(root, { fix: true });
 
-  expect(report.ok).toBe(true);
-  expect(report.fixedPaths).toContain("plugins/skillset.lock");
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain(
+    "uses pre-v3 schema 2; this generated state is rebuild-only"
+  );
+  expect(report.fixedPaths).toEqual([]);
   expect(report.providerUpdatePaths).toEqual([]);
-  expect(JSON.parse(await readFile(lockPath, "utf8"))).toEqual(expect.objectContaining({
-    schemaVersion: 3,
-  }));
+  expect(await readFile(lockPath, "utf8")).toBe(downgraded);
 });
 
 test("SET-279: ownerless legacy plugin hashes stay visible beside provider updates", async () => {

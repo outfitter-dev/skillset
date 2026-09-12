@@ -1,7 +1,12 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-import { buildSkillsetResult, diffSkillsetResult } from "@skillset/core";
+import {
+  buildSkillsetResult,
+  diffSkillsetResult,
+  parseCurrentGeneratedLock,
+  type ParsedGeneratedLock,
+} from "@skillset/core";
 import {
   explainPath,
   listGeneratedEntries,
@@ -252,19 +257,12 @@ async function findLiveLockEntry(
 ): Promise<{ readonly entry: GeneratedEntry; readonly generatedPath: string } | undefined> {
   const generatedPath = normalizeManagedPath(rootPath, managedPath);
   for (const lockPath of lockCandidates(generatedPath)) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await readFile(resolve(rootPath, lockPath), "utf8")) as unknown;
-    } catch {
-      continue;
-    }
-    if (!isRecord(parsed) || typeof parsed.outputRoot !== "string" || !Array.isArray(parsed.items)) continue;
+    const parsed = await readReconcileLock(rootPath, lockPath);
+    if (parsed === undefined) continue;
     const outputRoot = normalizeReconcilePath(parsed.outputRoot);
     for (const item of parsed.items) {
-      if (!isRecord(item) || typeof item.outputPath !== "string" || typeof item.sourcePath !== "string") continue;
-      const files = Array.isArray(item.files)
-        ? item.files.filter((file): file is string => typeof file === "string")
-        : [];
+      if (item.outputPath === undefined || item.sourcePath === undefined) continue;
+      const files = item.files;
       const ownedPaths = [item.outputPath, ...files].map((path) =>
         normalizeReconcilePath(outputRoot === "." ? path : join(outputRoot, path))
       );
@@ -313,23 +311,39 @@ async function listLockedSiblingPaths(
 ): Promise<readonly string[]> {
   const siblings = new Set<string>();
   for (const outputRoot of new Set(entries.map((entry) => entry.outputRoot))) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await readFile(resolve(rootPath, outputRoot, "skillset.lock"), "utf8")) as unknown;
-    } catch {
-      continue;
-    }
-    if (!isRecord(parsed) || !Array.isArray(parsed.items)) continue;
+    const lockPath = normalizeReconcilePath(join(outputRoot, "skillset.lock"));
+    const parsed = await readReconcileLock(rootPath, lockPath);
+    if (parsed === undefined) continue;
     for (const item of parsed.items) {
-      if (!isRecord(item) || !sourcePaths.includes(readString(item.sourcePath))) continue;
-      if (typeof item.outputPath === "string") siblings.add(join(outputRoot, item.outputPath));
-      if (!Array.isArray(item.files)) continue;
-      for (const file of item.files) {
-        if (typeof file === "string") siblings.add(join(outputRoot, file));
-      }
+      if (item.sourcePath === undefined || !sourcePaths.includes(item.sourcePath)) continue;
+      if (item.outputPath !== undefined) siblings.add(join(outputRoot, item.outputPath));
+      for (const file of item.files) siblings.add(join(outputRoot, file));
     }
   }
   return [...siblings].sort();
+}
+
+export async function readReconcileLock(
+  rootPath: string,
+  lockPath: string
+): Promise<ParsedGeneratedLock | undefined> {
+  let raw: string;
+  try {
+    raw = await readFile(resolve(rootPath, lockPath), "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(raw) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`skillset: generated lock ${lockPath} is invalid JSON: ${message}`);
+  }
+  return parseCurrentGeneratedLock(value, `generated lock ${lockPath}`);
 }
 
 export function renderReconcileReport(report: ReconcileReport): string {
@@ -359,12 +373,4 @@ export function renderReconcileReport(report: ReconcileReport): string {
 
 function normalizeReconcilePath(path: string): string {
   return path.replaceAll("\\", "/");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }

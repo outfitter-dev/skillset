@@ -6,6 +6,7 @@ import { dirname, join, relative } from "node:path";
 import {
   diffSkillset,
   isTargetName,
+  parseCurrentGeneratedLock,
   targetNames,
   workspaceChangeFile,
   type SkillsetDiff,
@@ -1110,54 +1111,54 @@ function kindForSourceUnitId(id: string): SourceUnitKind {
   return "root-config";
 }
 
-async function sourceInventoryFromLock(
+export async function sourceInventoryFromLock(
   rootPath: string,
   _options: SkillsetOptions
 ): Promise<BaselineInventory | undefined> {
   const lockPath = resolveInside(rootPath, "skillset.lock");
   if (!(await exists(lockPath))) return undefined;
-  let parsed: unknown;
+  let value: unknown;
   try {
-    parsed = JSON.parse(await readFile(lockPath, "utf8")) as unknown;
-  } catch {
-    return undefined;
+    value = JSON.parse(await readFile(lockPath, "utf8")) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `skillset: workspace lock skillset.lock is invalid JSON: ${message}`
+    );
   }
-  if (!isJsonRecord(parsed) || !isJsonRecord(parsed.sourceInventory)) return undefined;
-  const rawInventory = parsed.sourceInventory;
-  const hashSchema = readString(rawInventory, "hashSchema");
-  const rawUnits = rawInventory.units;
-  if (hashSchema === undefined || !Array.isArray(rawUnits)) return undefined;
+  const parsed = parseCurrentGeneratedLock(
+    value,
+    "workspace lock skillset.lock"
+  );
+  const sourceInventory = parsed.sourceInventory;
+  if (sourceInventory === undefined) return undefined;
 
   const units: SourceUnit[] = [];
-  for (const rawUnit of rawUnits) {
-    if (!isJsonRecord(rawUnit)) continue;
-    const id = readString(rawUnit, "id");
-    const kind = readString(rawUnit, "kind");
-    const hash = readString(rawUnit, "hash");
-    const sourcePath = readString(rawUnit, "sourcePath");
-    if (
-      id === undefined ||
-      hash === undefined ||
-      sourcePath === undefined ||
-      !isSourceUnitKind(kind)
-    ) {
-      continue;
+  for (const rawUnit of sourceInventory.units) {
+    if (!isSourceUnitKind(rawUnit.kind)) {
+      throw new Error(
+        `skillset: workspace lock skillset.lock sourceInventory unit ${rawUnit.id} has invalid kind ${rawUnit.kind}`
+      );
     }
-    const selector = sourceUnitSelector(id);
+    const selector = sourceUnitSelector(rawUnit.id);
     units.push({
-      hash,
-      hashSchema,
+      hash: rawUnit.hash,
+      hashSchema: sourceInventory.hashSchema,
       id: selector,
       kind: kindForSourceUnitId(selector),
       regions: [],
-      sourcePath,
-      sourcePaths: [sourcePath],
+      sourcePath: rawUnit.sourcePath,
+      sourcePaths: [rawUnit.sourcePath],
     });
   }
   if (units.length === 0) return undefined;
   return {
-    baseline: { hashSchema, kind: "source-inventory", label: "skillset.lock" },
-    inventory: { hashSchema, units },
+    baseline: {
+      hashSchema: sourceInventory.hashSchema,
+      kind: "source-inventory",
+      label: "skillset.lock",
+    },
+    inventory: { hashSchema: sourceInventory.hashSchema, units },
   };
 }
 

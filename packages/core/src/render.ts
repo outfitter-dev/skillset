@@ -91,6 +91,7 @@ import {
   exists,
   GENERATED_BY,
   lockRootsFor,
+  normalizeManagedRelativePath,
   renderedFileModes,
   textFile,
   WORKSPACE_LOCK_ROOT,
@@ -1556,7 +1557,7 @@ function lockItemForPlugin(args: {
   const dependencies = pluginDependencySummaries(args.graph, args.plugin);
   const dependencyHashSummaries = pluginDependencyHashSummaries(args.graph, args.plugin, args.target);
   const files = args.files
-    .map((file) => relative(args.outputRoot, file.path))
+    .map((file) => normalizeManagedRelativePath(relative(args.outputRoot, file.path)))
     .sort();
 
   return {
@@ -1629,12 +1630,19 @@ async function lockItemForPluginFeature(args: {
   return {
     feature: args.feature.key,
     fileModes: renderedFileModes(args.outputRoot, args.files),
-    files: args.files.map((file) => relative(args.outputRoot, file.path)).sort(),
+    files: args.files
+      .map((file) => normalizeManagedRelativePath(relative(args.outputRoot, file.path)))
+      .sort(),
     kind: "plugin-feature",
     name: `${args.plugin.id}:${args.feature.key}`,
     origin: args.feature.origin,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: relative(args.outputRoot, join(pluginBundleRoot(args.outputRoot, args.target, args.plugin), targetPath)),
+    outputPath: normalizeManagedRelativePath(
+      relative(
+        args.outputRoot,
+        join(pluginBundleRoot(args.outputRoot, args.target, args.plugin), targetPath)
+      )
+    ),
     plugin: args.plugin.id,
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
@@ -1667,11 +1675,17 @@ function lockItemForIsland(args: {
 }): LockItem {
   return {
     fileModes: renderedFileModes(args.outputRoot, [args.result.file]),
-    files: [relative(args.outputRoot, args.result.file.path)],
+    files: [
+      normalizeManagedRelativePath(
+        relative(args.outputRoot, args.result.file.path)
+      ),
+    ],
     kind: "island",
     name: `${args.island.target}:${args.island.plugin ?? "project"}:${args.island.relativePath}`,
     outputHash: hashRenderedFiles(args.outputRoot, [args.result.file]),
-    outputPath: relative(args.outputRoot, args.outputPath),
+    outputPath: normalizeManagedRelativePath(
+      relative(args.outputRoot, args.outputPath)
+    ),
     preprocessDependencies: args.result.preprocessDependencies,
     sourceHash: hashIslandSource(args.island, args.result.preprocessDependencies, args.graph.rootPath),
     sourcePath: relative(args.graph.rootPath, args.island.sourcePath),
@@ -1689,7 +1703,7 @@ function lockItemForProjectAgent(args: {
   readonly result: RenderedProjectAgentFile;
 }): LockItem {
   const files = args.files
-    .map((file) => relative(args.outputRoot, file.path))
+    .map((file) => normalizeManagedRelativePath(relative(args.outputRoot, file.path)))
     .sort();
 
   return {
@@ -1731,7 +1745,7 @@ async function lockItemForSkill(args: {
   readonly transforms: readonly AppliedTransform[];
 }): Promise<LockItem> {
   const files = args.files
-    .map((file) => relative(args.outputRoot, file.path))
+    .map((file) => normalizeManagedRelativePath(relative(args.outputRoot, file.path)))
     .sort();
 
   return {
@@ -1970,7 +1984,7 @@ function hashPluginSource(
   }
   for (const file of [...sourceFiles].sort((left, right) => compareStrings(left.path, right.path))) {
     hash.update("\0companion\0");
-    hash.update(relative(outputRoot, file.path));
+    hash.update(normalizeManagedRelativePath(relative(outputRoot, file.path)));
     hash.update("\0");
     hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");
@@ -2140,7 +2154,7 @@ function hashRenderedFiles(outputRoot: string, files: readonly RenderedFile[]): 
   hash.update("skillset-output-v2\0");
 
   for (const file of [...files].sort((left, right) => compareStrings(left.path, right.path))) {
-    hash.update(relative(outputRoot, file.path));
+    hash.update(normalizeManagedRelativePath(relative(outputRoot, file.path)));
     hash.update("\0");
     hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");

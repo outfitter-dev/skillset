@@ -1,7 +1,11 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import { listProviderPluginManifestFields } from "@skillset/registry";
+import {
+  getStandardProfileSupportEnvelope,
+  listProviderPluginManifestFields,
+  type StandardProfileId,
+} from "@skillset/registry";
 import { SOURCE_PORTABLE_MANIFEST_KEYS } from "@skillset/schema";
 
 import {
@@ -11,6 +15,12 @@ import {
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
 import { readRecord, readString, isOutputSelected } from "./config";
 import { getSkillsetFeature, type SkillsetFeatureEvidence } from "./feature-registry";
+import {
+  parseGeneratedLock,
+  type GeneratedLockConsumer,
+  type GeneratedLockOwner,
+  type ParsedGeneratedLockItem,
+} from "./generated-lock";
 import { hookProviderCapabilities } from "./hook-capabilities";
 import {
   defineRenderResult,
@@ -72,6 +82,10 @@ const LOCK_FILE = "skillset.lock";
 const TARGETS = targetNames();
 
 type OutputPathMapper = (path: string) => string;
+type RenderResultSubject =
+  | { readonly standardProfile: StandardProfileId; readonly target?: never }
+  | { readonly standardProfile?: never; readonly target: TargetName }
+  | { readonly standardProfile?: undefined; readonly target?: undefined };
 
 interface CollectRenderResultsOptions {
   /**
@@ -94,11 +108,13 @@ interface RenderedLock {
 }
 
 interface RenderedLockItem {
+  readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
   readonly feature?: string;
   readonly files: readonly string[];
   readonly kind: string;
   readonly name: string;
+  readonly owner?: GeneratedLockOwner;
   readonly outputPath: string;
   readonly plugin?: string;
   readonly sourcePath: string;
@@ -128,18 +144,20 @@ export function collectRenderResults(
       const outputPaths = outputPathsForLockItem(lock.outputRoot, item);
       const primaryOutputPaths = primaryOutputPathsForLockItem(item, outputPaths);
       for (const path of primaryOutputPaths) assignedOutputPaths.add(path);
-      outcomes.push(outcomeForLockItem(graph, lock, item, primaryOutputPaths, options.includedPaths, mapOutputPath));
-      outcomes.push(
-        ...featureOutcomesForLockItem(
-          graph,
-          lock,
-          item,
-          outputPaths,
-          renderedOutputPaths,
-          options.includedPaths,
-          mapOutputPath
-        )
-      );
+      for (const subject of resultSubjectsForLockItem(graph, lock, item, outputPaths)) {
+        outcomes.push(outcomeForLockItem(graph, item, primaryOutputPaths, options.includedPaths, mapOutputPath, subject));
+        outcomes.push(
+          ...featureOutcomesForLockItem(
+            graph,
+            item,
+            outputPaths,
+            renderedOutputPaths,
+            options.includedPaths,
+            mapOutputPath,
+            subject
+          )
+        );
+      }
     }
   }
 
@@ -474,57 +492,55 @@ function primaryOutputPathsForLockItem(
 }
 
 function parseRenderedLock(file: RenderedFile): RenderedLock {
-  const parsed = JSON.parse(new TextDecoder().decode(file.content)) as unknown;
-  if (!isJsonRecord(parsed)) {
-    throw new Error(`skillset: generated lock ${file.path} cannot produce render results`);
-  }
-  const outputRoot = stringField(parsed, "outputRoot");
-  const target = stringField(parsed, "target");
-  const rawItems = parsed.items;
-  if (!Array.isArray(rawItems)) {
-    throw new Error(`skillset: generated lock ${file.path} cannot produce render results`);
-  }
+  const parsed = parseGeneratedLock(
+    JSON.parse(new TextDecoder().decode(file.content)) as unknown,
+    `generated lock ${file.path}`
+  );
   return {
-    items: rawItems.map((item) => parseRenderedLockItem(file.path, item)),
-    outputRoot,
-    target: isTargetName(target) ? target : "workspace",
+    items: parsed.items.map((item) => parseRenderedLockItem(file.path, item)),
+    outputRoot: parsed.outputRoot,
+    target: parsed.target,
   };
 }
 
-function parseRenderedLockItem(lockPath: string, raw: unknown): RenderedLockItem {
-  if (!isJsonRecord(raw)) {
+function parseRenderedLockItem(
+  lockPath: string,
+  raw: ParsedGeneratedLockItem
+): RenderedLockItem {
+  if (
+    raw.kind === undefined ||
+    raw.name === undefined ||
+    raw.outputPath === undefined ||
+    raw.sourcePath === undefined
+  ) {
     throw new Error(`skillset: generated lock ${lockPath} has an invalid item`);
   }
-  const dependencies = optionalStringArrayField(raw, "dependencies");
-  const feature = optionalStringField(raw, "feature");
-  const plugin = optionalStringField(raw, "plugin");
-  const targetState = optionalStringField(raw, "targetState");
-  const transforms = jsonRecordArrayField(raw, "transforms");
-  const validation = optionalStringField(raw, "validation");
   return {
-    ...(dependencies === undefined ? {} : { dependencies }),
-    ...(feature === undefined ? {} : { feature }),
-    files: stringArrayField(raw, "files"),
-    kind: stringField(raw, "kind"),
-    name: stringField(raw, "name"),
-    outputPath: stringField(raw, "outputPath"),
-    ...(plugin === undefined ? {} : { plugin }),
-    sourcePath: stringField(raw, "sourcePath"),
-    ...(targetState === undefined ? {} : { targetState }),
-    ...(transforms === undefined ? {} : { transforms }),
-    ...(validation === undefined ? {} : { validation }),
+    consumers: raw.consumers,
+    ...(raw.dependencies === undefined ? {} : { dependencies: raw.dependencies }),
+    ...(raw.feature === undefined ? {} : { feature: raw.feature }),
+    files: raw.files,
+    kind: raw.kind,
+    name: raw.name,
+    outputPath: raw.outputPath,
+    ...(raw.owner === undefined ? {} : { owner: raw.owner }),
+    ...(raw.plugin === undefined ? {} : { plugin: raw.plugin }),
+    sourcePath: raw.sourcePath,
+    ...(raw.targetState === undefined ? {} : { targetState: raw.targetState }),
+    ...(raw.transforms === undefined ? {} : { transforms: raw.transforms as readonly JsonRecord[] }),
+    ...(raw.validation === undefined ? {} : { validation: raw.validation }),
   };
 }
 
 function outcomeForLockItem(
   graph: BuildGraph,
-  lock: RenderedLock,
   item: RenderedLockItem,
   outputPaths: readonly string[],
   includedPaths: ReadonlySet<string>,
-  mapOutputPath: OutputPathMapper
+  mapOutputPath: OutputPathMapper,
+  subject: RenderResultSubject
 ): SkillsetRenderResult {
-  const target = targetForLockItem(graph, lock, item, outputPaths);
+  const { standardProfile, target } = subject;
   const featureId = featureIdForLockItem(item);
   const manifestFacts = pluginManifestRenderFacts(graph, item, target);
   const baseStatus = manifestFacts?.status ?? statusForLockItem(item, target);
@@ -532,7 +548,8 @@ function outcomeForLockItem(
   const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
   const policy: SkillsetRenderResultPolicy | undefined = isIncluded ? undefined : "scope:excluded";
   const reason = isIncluded
-    ? manifestFacts?.reason ?? reasonForStatus(featureId, target, status)
+    ? manifestFacts?.reason ??
+      reasonForStatus(featureId, target, status, standardProfile)
     : "excluded by build scope";
   const evidence = evidenceFor(featureId, target);
 
@@ -548,6 +565,7 @@ function outcomeForLockItem(
     ...(reason === undefined ? {} : { reason }),
     sourcePath: manifestFacts?.sourcePath ?? item.sourcePath,
     sourceUnit: sourceUnitForLockItem(item, target),
+    ...(standardProfile === undefined ? {} : { standardProfile }),
     status,
     ...(target === undefined ? {} : { target }),
   });
@@ -985,18 +1003,18 @@ function outcomeForCompanionFile(
 
 function featureOutcomesForLockItem(
   graph: BuildGraph,
-  lock: RenderedLock,
   item: RenderedLockItem,
   outputPaths: readonly string[],
   renderedOutputPaths: readonly string[],
   includedPaths: ReadonlySet<string>,
-  mapOutputPath: OutputPathMapper
+  mapOutputPath: OutputPathMapper,
+  subject: RenderResultSubject
 ): readonly SkillsetRenderResult[] {
-  const target = targetForLockItem(graph, lock, item, outputPaths);
+  const { standardProfile, target } = subject;
   const outcomes: SkillsetRenderResult[] = [];
 
   if (item.kind === "plugin" && item.dependencies !== undefined && item.dependencies.length > 0) {
-    const supportedDependencyStatus = dependencyRenderStatus(target);
+    const supportedDependencyStatus = dependencyRenderStatus(target, standardProfile);
     const dependencyDestination =
       supportedDependencyStatus === "rendered"
         ? "plugin-manifest"
@@ -1027,6 +1045,7 @@ function featureOutcomesForLockItem(
         sourcePath: item.sourcePath,
         sourceUnit: selectorForPluginFeature(item.name, "dependencies"),
         status: dependencyStatus,
+        ...(standardProfile === undefined ? {} : { standardProfile }),
         target,
       })
     );
@@ -1062,6 +1081,7 @@ function featureOutcomesForLockItem(
         sourcePath: item.sourcePath,
         sourceUnit: sourceUnitForLockItem(item, target),
         status: "transformed",
+        ...(standardProfile === undefined ? {} : { standardProfile }),
         target,
       })
     );
@@ -1085,6 +1105,7 @@ function featureOutcomesForLockItem(
         sourcePath: item.sourcePath,
         sourceUnit: sourceUnitForLockItem(item, target),
         status: toolsFrontmatterStatus(plan),
+        ...(standardProfile === undefined ? {} : { standardProfile }),
         target,
       })
     );
@@ -1105,6 +1126,7 @@ function featureOutcomesForLockItem(
         sourcePath: item.sourcePath,
         sourceUnit: sourceUnitForLockItem(item, target),
         status: renderResultStatusForToolsTier("metadata-only"),
+        ...(standardProfile === undefined ? {} : { standardProfile }),
         target,
       })
     );
@@ -1113,14 +1135,24 @@ function featureOutcomesForLockItem(
   return outcomes;
 }
 
-function dependencyRenderStatus(
-  target: TargetName | undefined
+export function dependencyRenderStatus(
+  target: TargetName | undefined,
+  standardProfile?: StandardProfileId
 ): SkillsetRenderResultStatus {
-  if (target === undefined) {
+  if (target !== undefined && standardProfile !== undefined) {
     throw new Error(
-      "skillset: plugin dependency render result requires a target"
+      "skillset: dependency render identity cannot name both a provider target and a standardProfile"
     );
   }
+  if (standardProfile !== undefined) {
+    return getStandardProfileSupportEnvelope(
+      standardProfile,
+      "dependencies"
+    )?.expectation === "required"
+      ? "rendered"
+      : "unsupported";
+  }
+  if (target === undefined) return "unsupported";
   const support = getSkillsetFeature("dependencies")?.targetSupport[target];
   if (support?.status === "native") return "rendered";
   if (support?.status === "degraded") return "degraded";
@@ -1402,12 +1434,20 @@ function featureOutcome(args: {
   readonly outputPaths: readonly string[];
   readonly sourcePath: string;
   readonly sourceUnit: string;
+  readonly standardProfile?: StandardProfileId;
   readonly status: SkillsetRenderResultStatus;
   readonly target: TargetName | undefined;
 }): SkillsetRenderResult {
   const status: SkillsetRenderResultStatus = args.isIncluded ? args.status : "intentionally_skipped";
   const evidence = args.evidence ?? evidenceFor(args.featureId, args.target);
-  const reason = args.isIncluded ? reasonForStatus(args.featureId, args.target, status) : "excluded by build scope";
+  const reason = args.isIncluded
+    ? reasonForStatus(
+        args.featureId,
+        args.target,
+        status,
+        args.standardProfile
+      )
+    : "excluded by build scope";
 
   return defineRenderResult({
     destination: args.destination,
@@ -1421,6 +1461,9 @@ function featureOutcome(args: {
     ...(reason === undefined ? {} : { reason }),
     sourcePath: args.sourcePath,
     sourceUnit: args.sourceUnit,
+    ...(args.standardProfile === undefined
+      ? {}
+      : { standardProfile: args.standardProfile }),
     status,
     ...(args.target === undefined ? {} : { target: args.target }),
   });
@@ -1579,6 +1622,30 @@ function statusForLockItem(item: RenderedLockItem, target: TargetName | undefine
   return "rendered";
 }
 
+function resultSubjectsForLockItem(
+  graph: BuildGraph,
+  lock: RenderedLock,
+  item: RenderedLockItem,
+  outputPaths: readonly string[]
+): readonly RenderResultSubject[] {
+  if (item.consumers.length > 0) {
+    return item.consumers.map((consumer) =>
+      "standardProfile" in consumer
+        ? { standardProfile: consumer.standardProfile }
+        : { target: consumer.target }
+    );
+  }
+  if (item.owner !== undefined) {
+    return [
+      "standardProfile" in item.owner
+        ? { standardProfile: item.owner.standardProfile }
+        : { target: item.owner.target },
+    ];
+  }
+  const target = targetForLockItem(graph, lock, item, outputPaths);
+  return [target === undefined ? {} : { target }];
+}
+
 function targetForLockItem(
   graph: BuildGraph,
   lock: RenderedLock,
@@ -1698,10 +1765,15 @@ function evidenceFor(featureId: string, target: TargetName | undefined) {
 function reasonForStatus(
   featureId: string,
   target: TargetName | undefined,
-  status: SkillsetRenderResultStatus
+  status: SkillsetRenderResultStatus,
+  standardProfile?: StandardProfileId
 ): string | undefined {
   if (status !== "degraded" && status !== "lossy" && status !== "unsupported" && status !== "failed") {
     return undefined;
+  }
+  if (standardProfile !== undefined) {
+    return getStandardProfileSupportEnvelope(standardProfile, featureId)?.note ??
+      `${standardProfile} does not declare ${featureId} in its support envelope`;
   }
   if (target === undefined) return undefined;
   return getSkillsetFeature(featureId)?.targetSupport[target].reason;
