@@ -72,8 +72,8 @@ export async function acquireTools(temp: string): Promise<ToolPaths> {
   await verifyNodePackages(
     claudeRoot,
     {
-      "@anthropic-ai/claude-code": "2.1.233",
-      "@anthropic-ai/claude-code-linux-x64": "2.1.233",
+      "@anthropic-ai/claude-code": claudeLane.version,
+      "@anthropic-ai/claude-code-linux-x64": claudeLane.version,
     },
     temp
   );
@@ -82,6 +82,10 @@ export async function acquireTools(temp: string): Promise<ToolPaths> {
   const codexValidator = join(tools, "codex", "validate_plugin.py");
   await mkdir(dirname(codexValidator), { recursive: true });
   await downloadVerified(codexLane.acquisitions[0]!, codexValidator);
+  await downloadVerified(
+    codexLane.acquisitions[1]!,
+    join(dirname(codexValidator), "identifier_validation.py")
+  );
   const codexVenv = join(tools, "codex", "venv");
   await runRequired(["python3", "-m", "venv", codexVenv], temp);
   const codexPython = join(codexVenv, "bin", "python");

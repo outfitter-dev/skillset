@@ -79,11 +79,13 @@ function renderProviderValidationReference(
     "",
     "> Generated from `@skillset/registry`. Ordinary Skillset builds and checks remain offline; this evidence runs only in the separate hosted workflow.",
     "",
-    "| Lane | Authority | Exact pin | Targets | Covered surfaces |",
-    "| --- | --- | --- | --- | --- |",
+    "The [maintainer runbook](../development/features/feature-registry.md#hosted-provider-validation-refresh) explains how to refresh, validate, and record this evidence.",
+    "",
+    "| Lane | Authority | Exact pin | Source published | Retrieved | Last successful validation | Targets | Covered surfaces |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...lanes.map(
       (lane) =>
-        `| \`${escapeTable(lane.id)}\` | ${escapeTable(lane.authority)} | \`${escapeTable(lane.pin)}\` | ${escapeTable(lane.targets.join(", "))} | ${escapeTable(lane.coveredSurfaces.join(", "))} |`
+        `| \`${escapeTable(lane.id)}\` | ${escapeTable(lane.authority)} | \`${escapeTable(lane.pin)}\` | ${escapeTable(lane.sourcePublishedAt)} | ${escapeTable(lane.retrievedAt)} | [${escapeTable(lane.lastSuccessfulValidation.at)}](${lane.lastSuccessfulValidation.url}) for \`${escapeTable(lane.lastSuccessfulValidation.pin)}\` | ${escapeTable(lane.targets.join(", "))} | ${escapeTable(lane.coveredSurfaces.join(", "))} |`
     ),
     "",
     "## Acquisition Evidence",

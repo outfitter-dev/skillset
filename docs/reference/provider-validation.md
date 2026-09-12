@@ -7,12 +7,14 @@ description: Records exact hosted provider-validation pins, covered surfaces, an
 
 > Generated from `@skillset/registry`. Ordinary Skillset builds and checks remain offline; this evidence runs only in the separate hosted workflow.
 
-| Lane | Authority | Exact pin | Targets | Covered surfaces |
-| --- | --- | --- | --- | --- |
-| `agent-skills-reference` | standards-reference | `69ef37e9424c0a7ea9dd2293b559e43ec8176379` | claude, codex, cursor | every generated SKILL.md |
-| `claude-product` | product-validator | `@anthropic-ai/claude-code@2.1.233` | claude | claude marketplace, claude plugin manifest, claude plugin skills |
-| `codex-authoring` | provider-source | `be6e8eac029b183056b7e4402879f15d2c85f61b` | codex | codex plugin manifest, codex plugin skills |
-| `cursor-authoring` | provider-source | `2a8044425c7bddf429c3bdedf3ab61e791d34d65` | cursor | cursor marketplace, cursor plugin manifest |
+The [maintainer runbook](../development/features/feature-registry.md#hosted-provider-validation-refresh) explains how to refresh, validate, and record this evidence.
+
+| Lane | Authority | Exact pin | Source published | Retrieved | Last successful validation | Targets | Covered surfaces |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `agent-skills-reference` | standards-reference | `69ef37e9424c0a7ea9dd2293b559e43ec8176379` | 2026-08-09T20:36:04.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `69ef37e9424c0a7ea9dd2293b559e43ec8176379` | claude, codex, cursor | every generated SKILL.md |
+| `claude-product` | product-validator | `@anthropic-ai/claude-code@2.1.269` | 2026-09-11T18:12:49.253Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `@anthropic-ai/claude-code@2.1.269` | claude | claude marketplace, claude plugin manifest, claude plugin skills |
+| `codex-authoring` | provider-source | `6b9826e3aa83b1a5947db50f4332cb9c65f1b340` | 2026-09-09T21:43:48.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `6b9826e3aa83b1a5947db50f4332cb9c65f1b340` | codex | codex plugin manifest, codex plugin skills |
+| `cursor-authoring` | provider-source | `f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d` | 2026-09-11T01:17:03.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d` | cursor | cursor marketplace, cursor plugin manifest |
 
 ## Acquisition Evidence
 
@@ -23,19 +25,20 @@ description: Records exact hosted provider-validation pins, covered surfaces, an
 
 ### claude-product
 
-- npm: [immutable source](https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.233.tgz) — `sha512-WS0ZSsNu2zkQonC+rW7HdByMCkPQ2l+hO1G0LdvWTj40kiYr0qAiSJjCBNRIbi0foBol4IFTCKwLHAN83qxxUQ==`
-- npm: [immutable source](https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.233.tgz) — `sha512-ubMVvBBlsks5NE0EmucELB2h/XZ64L86JgmMBUWShLgDAkrrzCh1zIf5qX1+SPskXAnMfKBFTMNeaT6UruxRkQ==`
+- npm: [immutable source](https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.269.tgz) — `sha512-osSbRU1KjlAfhVSgso7g+KxCr5DLNlfm7xeRPpm/c9s+7HGqQLHbkUYvjepbe6TiHJa9iSeirW/t7vW4sZhTIQ==`
+- npm: [immutable source](https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.269.tgz) — `sha512-Ti+9oKbf2p9pJuMMj1Fv+6YzljREpy9cx6SN7NV7Zik/vaaXPxC8u+cDiGF7HnPPJ5HsLbmwKoh3BnE3IhdAeQ==`
 
 ### codex-authoring
 
-- source: [immutable source](https://raw.githubusercontent.com/openai/codex/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py) — `sha256:ebda00d55d7518b127f675f062fb5c6e7a1ffdc0a99df1a55ac594400d7d3228`
+- source: [immutable source](https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py) — `sha256:f4eeadb733b28b0c3e714de263a76d6542866a672f3e99bdffcf4dbcdf85e944`
+- source: [immutable source](https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/identifier_validation.py) — `sha256:a6d51ce4a9a7e8f85626ff5808a467a67574e7f8cdf1167ffb467c5f67e57223`
 - dependency: `PyYAML@6.0.3` ([artifact](https://files.pythonhosted.org/packages/8b/9d/b3589d3877982d4f2329302ef98a8026e7f4443c765c46cfecc8858c6b4b/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl)) — `sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc`
 
 ### cursor-authoring
 
-- source: [immutable source](https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/scripts/validate-plugins.mjs) — `sha256:1b38ddfecf37f292acfa80a3c575f13bfca07d9e06f0ddfc9b72df3ed4dbb929`
-- source: [immutable source](https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/plugin.schema.json) — `sha256:a393b758901803fcf5cfe0d77bda8a83e987d32c3377dfce2d9edf445af884ed`
-- source: [immutable source](https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/marketplace.schema.json) — `sha256:1aae96a24c2796419933bc8bfe3a1255394e7199c35740b36325e0ce6dbc253d`
+- source: [immutable source](https://raw.githubusercontent.com/cursor/plugins/f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d/scripts/validate-plugins.mjs) — `sha256:1b38ddfecf37f292acfa80a3c575f13bfca07d9e06f0ddfc9b72df3ed4dbb929`
+- source: [immutable source](https://raw.githubusercontent.com/cursor/plugins/f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d/schemas/plugin.schema.json) — `sha256:31db124b1c7e43c22abb13ebf7e7c74556482e480fd492b80638d815c85b96b1`
+- source: [immutable source](https://raw.githubusercontent.com/cursor/plugins/f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d/schemas/marketplace.schema.json) — `sha256:50c85058bf329588401fd2fc93180a574fa64abbb6c2606400febfb6f4d094e8`
 - dependency: `ajv@8.20.0` ([artifact](https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz)) — `sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==`
 - dependency: `ajv-formats@3.0.1` ([artifact](https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz)) — `sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==`
 - dependency: `fast-deep-equal@3.1.3` ([artifact](https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz)) — `sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==`

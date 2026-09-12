@@ -60,6 +60,7 @@
     "providers:check": "bun scripts/provider-maintenance.ts check",
     "providers:diff": "bun scripts/provider-maintenance.ts diff",
     "providers:update": "bun scripts/provider-maintenance.ts update",
+    "providers:validate:check": "bun scripts/provider-validation-maintenance.ts check",
     "providers:validate:hosted": "bun scripts/provider-validation.ts run",
     "schema:check": "bun scripts/schema-artifacts.ts --check",
     "schema:generate": "bun scripts/schema-artifacts.ts",

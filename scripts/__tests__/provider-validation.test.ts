@@ -217,9 +217,10 @@ describe("SET-463 hosted provider validation orchestration", () => {
       expect(failure.report.ok).toBe(false);
       expect(failure.failures.join(" ")).toContain("spawn ENOENT");
       expect(failure.failures.join(" ")).toContain("expected failure, exit 0");
-      expect(renderProviderValidationReport(failure.report)).toContain(
-        "| codex-authoring | codex |"
-      );
+      const markdown = renderProviderValidationReport(failure.report);
+      expect(markdown).toContain("| codex-authoring | codex |");
+      expect(markdown).toContain("## Pin freshness");
+      expect(markdown).toContain("| validation-current |");
     }
     expect(calls).toBe(commands.length);
   });
@@ -476,6 +477,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
   test("normalizes the deepest temporary path before RUNNER_TEMP", () => {
     const report = normalizeProviderValidationReport(
       {
+        checkedAt: "2026-09-12T00:02:00.000Z",
         failures: [
           {
             diagnostic:
@@ -515,11 +517,43 @@ describe("SET-463 hosted provider validation orchestration", () => {
     process.env.RUNNER_TEMP = runnerTemp;
     try {
       await expect(
-        runHostedProviderValidation(root, reportPath)
+        runHostedProviderValidation(
+          root,
+          reportPath,
+          "2026-09-12T00:02:00.000Z"
+        )
       ).rejects.toThrow();
       const report = await readFile(reportPath, "utf8");
       expect(report).toContain("## Failure evidence");
       expect(report).toContain("**inventory / all:**");
+      expect(report).toContain("| not-run |");
+    } finally {
+      restoreEnvironment("GITHUB_ACTIONS", previousActions);
+      restoreEnvironment("RUNNER_TEMP", previousTemp);
+    }
+  });
+
+  test("writes stale verification as freshness failure evidence", async () => {
+    const runnerTemp = await mkdtemp(
+      join(tmpdir(), "skillset-provider-report-")
+    );
+    const root = await mkdtemp(join(tmpdir(), "skillset-provider-stale-"));
+    const reportPath = join(runnerTemp, "provider-validation.md");
+    const previousActions = process.env.GITHUB_ACTIONS;
+    const previousTemp = process.env.RUNNER_TEMP;
+    process.env.GITHUB_ACTIONS = "true";
+    process.env.RUNNER_TEMP = runnerTemp;
+    try {
+      await expect(
+        runHostedProviderValidation(
+          root,
+          reportPath,
+          "2026-10-13T00:01:37.001Z"
+        )
+      ).rejects.toThrow("provider validation evidence is stale");
+      const report = await readFile(reportPath, "utf8");
+      expect(report).toContain("**freshness / all:**");
+      expect(report).toContain("31 days old; maximum 30");
       expect(report).toContain("| not-run |");
     } finally {
       restoreEnvironment("GITHUB_ACTIONS", previousActions);
@@ -545,7 +579,11 @@ describe("SET-463 hosted provider validation orchestration", () => {
     process.env.RUNNER_TEMP = runnerTemp;
     try {
       await expect(
-        runHostedProviderValidation(root, reportPath)
+        runHostedProviderValidation(
+          root,
+          reportPath,
+          "2026-09-12T00:02:00.000Z"
+        )
       ).rejects.toThrow("rejects symlink report target");
       expect(await readFile(outside, "utf8")).toBe("unchanged");
     } finally {

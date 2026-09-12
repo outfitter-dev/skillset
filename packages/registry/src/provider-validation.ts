@@ -6,6 +6,37 @@ export type ProviderValidationLaneId =
   | "codex-authoring"
   | "cursor-authoring";
 
+export const PROVIDER_VALIDATION_MAX_AGE_DAYS = 30;
+
+export type ProviderValidationFreshnessStatus =
+  | "refresh-failed"
+  | "stale-verification"
+  | "upstream-changed"
+  | "validation-current"
+  | "validation-pending";
+
+export interface ProviderValidationRefreshObservation {
+  readonly error?: string;
+  readonly upstreamPin?: string;
+}
+
+export interface ProviderValidationFreshness {
+  readonly ageDays: number;
+  readonly checkedAt: string;
+  readonly expiresAt: string;
+  readonly lane: ProviderValidationLaneId;
+  readonly pin: string;
+  readonly sourcePublishedAt: string;
+  readonly status: ProviderValidationFreshnessStatus;
+  readonly lastSuccessfulValidationAt: string;
+}
+
+export interface ProviderValidationReceipt {
+  readonly at: string;
+  readonly pin: string;
+  readonly url: string;
+}
+
 export interface ProviderValidationAcquisition {
   readonly blob?: string;
   readonly integrity: `sha512-${string}` | `sha256:${string}`;
@@ -38,27 +69,35 @@ export interface ProviderValidationLane {
   readonly fallback: ProviderValidationFallback;
   readonly id: ProviderValidationLaneId;
   readonly limitations: readonly string[];
+  readonly lastSuccessfulValidation: ProviderValidationReceipt;
   readonly negativeCanary: string;
   readonly pin: string;
+  readonly retrievedAt: string;
+  readonly sourcePublishedAt: string;
   readonly targets: readonly (typeof PROVIDER_SCHEMA_TARGETS)[number][];
   readonly tool: string;
   readonly version: string;
 }
+
+const RETRIEVED_AT = "2026-09-11T23:20:27.000Z";
+const LAST_SUCCESSFUL_VALIDATION_AT = "2026-09-12T00:01:37.000Z";
+const LAST_SUCCESSFUL_VALIDATION_URL =
+  "https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080";
 
 const validationLanes = [
   {
     acquisitions: [
       {
         integrity:
-          "sha512-WS0ZSsNu2zkQonC+rW7HdByMCkPQ2l+hO1G0LdvWTj40kiYr0qAiSJjCBNRIbi0foBol4IFTCKwLHAN83qxxUQ==",
+          "sha512-osSbRU1KjlAfhVSgso7g+KxCr5DLNlfm7xeRPpm/c9s+7HGqQLHbkUYvjepbe6TiHJa9iSeirW/t7vW4sZhTIQ==",
         kind: "npm",
-        url: "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.233.tgz",
+        url: "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.269.tgz",
       },
       {
         integrity:
-          "sha512-ubMVvBBlsks5NE0EmucELB2h/XZ64L86JgmMBUWShLgDAkrrzCh1zIf5qX1+SPskXAnMfKBFTMNeaT6UruxRkQ==",
+          "sha512-Ti+9oKbf2p9pJuMMj1Fv+6YzljREpy9cx6SN7NV7Zik/vaaXPxC8u+cDiGF7HnPPJ5HsLbmwKoh3BnE3IhdAeQ==",
         kind: "npm",
-        url: "https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.233.tgz",
+        url: "https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.269.tgz",
       },
     ],
     authority: "product-validator",
@@ -81,24 +120,37 @@ const validationLanes = [
       ],
     },
     id: "claude-product",
+    lastSuccessfulValidation: validationReceipt(
+      "@anthropic-ai/claude-code@2.1.269"
+    ),
     limitations: [
       "Product validation proves authoring ingestion shape, not installation, trust, activation, or runtime behavior.",
     ],
     negativeCanary: "invalid JSON in .claude-plugin/plugin.json",
-    pin: "@anthropic-ai/claude-code@2.1.233",
+    pin: "@anthropic-ai/claude-code@2.1.269",
+    retrievedAt: RETRIEVED_AT,
+    sourcePublishedAt: "2026-09-11T18:12:49.253Z",
     targets: ["claude"],
     tool: "claude plugin validate --strict",
-    version: "2.1.233",
+    version: "2.1.269",
   },
   {
     acquisitions: [
       {
         integrity:
-          "sha256:ebda00d55d7518b127f675f062fb5c6e7a1ffdc0a99df1a55ac594400d7d3228",
+          "sha256:f4eeadb733b28b0c3e714de263a76d6542866a672f3e99bdffcf4dbcdf85e944",
         kind: "source",
-        blob: "88fae0fd00998ea32fa2393869042f0231a2b43b",
-        revision: "be6e8eac029b183056b7e4402879f15d2c85f61b",
-        url: "https://raw.githubusercontent.com/openai/codex/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py",
+        blob: "b5be462c3b4fe3ea6083cca948ccf52e05301546",
+        revision: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
+        url: "https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py",
+      },
+      {
+        integrity:
+          "sha256:a6d51ce4a9a7e8f85626ff5808a467a67574e7f8cdf1167ffb467c5f67e57223",
+        kind: "source",
+        blob: "41a1a2f1b503c165f5d4b93f7f0e99eb0b3add6e",
+        revision: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
+        url: "https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/identifier_validation.py",
       },
     ],
     authority: "provider-source",
@@ -122,14 +174,19 @@ const validationLanes = [
       surfaces: ["hooks", "runtime consumption", "render-result coverage"],
     },
     id: "codex-authoring",
+    lastSuccessfulValidation: validationReceipt(
+      "6b9826e3aa83b1a5947db50f4332cb9c65f1b340"
+    ),
     limitations: [
       "The released plugin-creator script is an authoring validator, not a whole-provider or runtime-hook validator.",
     ],
     negativeCanary: "missing name in .codex-plugin/plugin.json",
-    pin: "be6e8eac029b183056b7e4402879f15d2c85f61b",
+    pin: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
+    retrievedAt: RETRIEVED_AT,
+    sourcePublishedAt: "2026-09-09T21:43:48.000Z",
     targets: ["codex"],
     tool: "validate_plugin.py",
-    version: "Codex 0.147.0 source",
+    version: "Codex 0.154.0 source",
   },
   {
     acquisitions: [
@@ -138,22 +195,22 @@ const validationLanes = [
           "sha256:1b38ddfecf37f292acfa80a3c575f13bfca07d9e06f0ddfc9b72df3ed4dbb929",
         kind: "source",
         blob: "6a7870854d7c82a900a936fd0e34610c86702723",
-        revision: "2a8044425c7bddf429c3bdedf3ab61e791d34d65",
-        url: "https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/scripts/validate-plugins.mjs",
+        revision: "f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d",
+        url: "https://raw.githubusercontent.com/cursor/plugins/f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d/scripts/validate-plugins.mjs",
       },
       {
         integrity:
-          "sha256:a393b758901803fcf5cfe0d77bda8a83e987d32c3377dfce2d9edf445af884ed",
+          "sha256:31db124b1c7e43c22abb13ebf7e7c74556482e480fd492b80638d815c85b96b1",
         kind: "source",
-        revision: "2a8044425c7bddf429c3bdedf3ab61e791d34d65",
-        url: "https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/plugin.schema.json",
+        revision: "f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d",
+        url: "https://raw.githubusercontent.com/cursor/plugins/f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d/schemas/plugin.schema.json",
       },
       {
         integrity:
-          "sha256:1aae96a24c2796419933bc8bfe3a1255394e7199c35740b36325e0ce6dbc253d",
+          "sha256:50c85058bf329588401fd2fc93180a574fa64abbb6c2606400febfb6f4d094e8",
         kind: "source",
-        revision: "2a8044425c7bddf429c3bdedf3ab61e791d34d65",
-        url: "https://raw.githubusercontent.com/cursor/plugins/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/marketplace.schema.json",
+        revision: "f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d",
+        url: "https://raw.githubusercontent.com/cursor/plugins/f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d/schemas/marketplace.schema.json",
       },
     ],
     authority: "provider-source",
@@ -216,13 +273,18 @@ const validationLanes = [
       ],
     },
     id: "cursor-authoring",
+    lastSuccessfulValidation: validationReceipt(
+      "f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d"
+    ),
     limitations: [
       "The provider-owned source validator is not a whole-provider runtime validator.",
       "The public schema and shipped Cursor Agent 2026.07.23-e383d2b disagree on category and tags placement; Skillset preserves the conflict and does not synthesize either field from keywords.",
       "The shipped Cursor Agent bundle is recorded as runtime-consumer evidence only (sha256:b3b9931f3817c1b269b49148be70965830811d52b2aee98b9513247675838040).",
     ],
     negativeCanary: "missing name in .cursor-plugin/plugin.json",
-    pin: "2a8044425c7bddf429c3bdedf3ab61e791d34d65",
+    pin: "f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d",
+    retrievedAt: RETRIEVED_AT,
+    sourcePublishedAt: "2026-09-11T01:17:03.000Z",
     targets: ["cursor"],
     tool: "validate-plugins.mjs",
     version: "cursor/plugins source",
@@ -257,11 +319,16 @@ const validationLanes = [
       surfaces: ["provider-specific skill metadata and runtime behavior"],
     },
     id: "agent-skills-reference",
+    lastSuccessfulValidation: validationReceipt(
+      "69ef37e9424c0a7ea9dd2293b559e43ec8176379"
+    ),
     limitations: [
       "Agent Skills is a portable standards-floor reference check, not proof of any provider runtime contract.",
     ],
     negativeCanary: "SKILL.md without required description frontmatter",
     pin: "69ef37e9424c0a7ea9dd2293b559e43ec8176379",
+    retrievedAt: RETRIEVED_AT,
+    sourcePublishedAt: "2026-08-09T20:36:04.000Z",
     targets: PROVIDER_SCHEMA_TARGETS,
     tool: "skills-ref validate",
     version: "0.1.0",
@@ -309,6 +376,68 @@ export function getProviderValidationLane(
   return lane;
 }
 
+export function assessProviderValidationFreshness(
+  lane: ProviderValidationLane,
+  checkedAt: string,
+  observation: ProviderValidationRefreshObservation = {}
+): ProviderValidationFreshness {
+  const checkedAtMs = parseTimestamp(checkedAt, "checkedAt");
+  const validatedAtMs = parseTimestamp(
+    lane.lastSuccessfulValidation.at,
+    "lastSuccessfulValidation.at"
+  );
+  const maxAgeMs = PROVIDER_VALIDATION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const ageMs = checkedAtMs - validatedAtMs;
+  if (ageMs < 0)
+    throw new Error(
+      `skillset: provider validation lane ${lane.id} was validated in the future`
+    );
+  const status =
+    observation.error !== undefined
+      ? "refresh-failed"
+      : observation.upstreamPin !== undefined &&
+          observation.upstreamPin !== lane.pin
+        ? "upstream-changed"
+        : lane.lastSuccessfulValidation.pin !== lane.pin
+          ? "validation-pending"
+          : ageMs > maxAgeMs
+            ? "stale-verification"
+            : "validation-current";
+  return {
+    ageDays: Math.floor(ageMs / (24 * 60 * 60 * 1000)),
+    checkedAt,
+    expiresAt: new Date(validatedAtMs + maxAgeMs).toISOString(),
+    lane: lane.id,
+    pin: lane.pin,
+    sourcePublishedAt: lane.sourcePublishedAt,
+    status,
+    lastSuccessfulValidationAt: lane.lastSuccessfulValidation.at,
+  };
+}
+
+export function listProviderValidationFreshness(
+  checkedAt: string
+): readonly ProviderValidationFreshness[] {
+  return providerValidationLanes.map((lane) =>
+    assessProviderValidationFreshness(lane, checkedAt)
+  );
+}
+
+export function assertProviderValidationFreshness(checkedAt: string): void {
+  const stale = listProviderValidationFreshness(checkedAt).filter(
+    (item) => item.status === "stale-verification"
+  );
+  if (stale.length === 0) return;
+  throw new Error(
+    `skillset: provider validation evidence is stale: ${stale
+      .map(
+        (item) =>
+          `${item.lane} last passed ${item.lastSuccessfulValidationAt} (${item.ageDays} days old; maximum ${PROVIDER_VALIDATION_MAX_AGE_DAYS})`
+      )
+      .join("; ")}`
+  );
+}
+
 export function assertProviderValidationLanes(
   lanes: readonly ProviderValidationLane[]
 ): void {
@@ -322,6 +451,20 @@ export function assertProviderValidationLanes(
     if (!isExactPin(lane.pin))
       throw new Error(
         `skillset: provider validation lane ${lane.id} requires an exact pin`
+      );
+    parseTimestamp(lane.retrievedAt, "retrievedAt");
+    parseTimestamp(lane.sourcePublishedAt, "sourcePublishedAt");
+    parseTimestamp(
+      lane.lastSuccessfulValidation.at,
+      "lastSuccessfulValidation.at"
+    );
+    if (!isExactPin(lane.lastSuccessfulValidation.pin))
+      throw new Error(
+        `skillset: provider validation lane ${lane.id} success receipt requires an exact pin`
+      );
+    if (!lane.lastSuccessfulValidation.url.startsWith("https://"))
+      throw new Error(
+        `skillset: provider validation lane ${lane.id} success receipt requires a URL`
       );
     if (
       lane.coveredSurfaces.length === 0 ||
@@ -393,6 +536,26 @@ export function assertProviderValidationLanes(
     if (!ids.has(id))
       throw new Error(`skillset: missing provider validation lane ${id}`);
   }
+}
+
+function parseTimestamp(value: string, field: string): number {
+  const timestamp = Date.parse(value);
+  if (
+    !Number.isFinite(timestamp) ||
+    new Date(timestamp).toISOString() !== value
+  )
+    throw new Error(
+      `skillset: provider validation ${field} must be an ISO timestamp`
+    );
+  return timestamp;
+}
+
+function validationReceipt(pin: string): ProviderValidationReceipt {
+  return {
+    at: LAST_SUCCESSFUL_VALIDATION_AT,
+    pin,
+    url: LAST_SUCCESSFUL_VALIDATION_URL,
+  };
 }
 
 function isExactPin(value: string): boolean {

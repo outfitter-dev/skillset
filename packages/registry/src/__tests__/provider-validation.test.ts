@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  assessProviderValidationFreshness,
+  assertProviderValidationFreshness,
   defineProviderValidationLanes,
   getProviderValidationLane,
   listProviderValidationLanes,
@@ -22,17 +24,17 @@ describe("SET-463 hosted provider validation registry", () => {
       },
       {
         id: "claude-product",
-        pin: "@anthropic-ai/claude-code@2.1.233",
-        version: "2.1.233",
+        pin: "@anthropic-ai/claude-code@2.1.269",
+        version: "2.1.269",
       },
       {
         id: "codex-authoring",
-        pin: "be6e8eac029b183056b7e4402879f15d2c85f61b",
-        version: "Codex 0.147.0 source",
+        pin: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
+        version: "Codex 0.154.0 source",
       },
       {
         id: "cursor-authoring",
-        pin: "2a8044425c7bddf429c3bdedf3ab61e791d34d65",
+        pin: "f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d",
         version: "cursor/plugins source",
       },
     ]);
@@ -43,6 +45,60 @@ describe("SET-463 hosted provider validation registry", () => {
       expect(lane.fallback.surfaces.length).toBeGreaterThan(0);
       expect(Object.isFrozen(lane)).toBe(true);
     }
+  });
+
+  test("SET-500: gives exact-pin evidence a bounded age clock", () => {
+    const source = getProviderValidationLane("claude-product");
+    const lane = {
+      ...source,
+      lastSuccessfulValidation: {
+        ...source.lastSuccessfulValidation,
+        at: "2026-08-16T21:37:40.000Z",
+      },
+      pin: source.lastSuccessfulValidation.pin,
+    };
+
+    expect(
+      assessProviderValidationFreshness(lane, "2026-09-15T21:37:40.000Z")
+    ).toMatchObject({ ageDays: 30, status: "validation-current" });
+    expect(
+      assessProviderValidationFreshness(lane, "2026-09-16T21:37:40.001Z")
+    ).toMatchObject({ ageDays: 31, status: "stale-verification" });
+    expect(() =>
+      assertProviderValidationFreshness("2026-10-13T00:01:37.001Z")
+    ).toThrow("provider validation evidence is stale");
+  });
+
+  test("SET-500: a rejected candidate cannot advance successful validation", () => {
+    const source = getProviderValidationLane("claude-product");
+    const lane = {
+      ...source,
+      pin: "@anthropic-ai/claude-code@2.1.270",
+    };
+
+    expect(lane.pin).not.toBe(lane.lastSuccessfulValidation.pin);
+    expect(
+      assessProviderValidationFreshness(lane, "2026-09-12T00:02:00.000Z")
+    ).toMatchObject({
+      lastSuccessfulValidationAt: "2026-09-12T00:01:37.000Z",
+      status: "validation-pending",
+    });
+  });
+
+  test("SET-500: keeps upstream change and failed refresh distinct from age", () => {
+    const lane = getProviderValidationLane("claude-product");
+    const checkedAt = "2026-09-12T00:02:00.000Z";
+
+    expect(
+      assessProviderValidationFreshness(lane, checkedAt, {
+        upstreamPin: "@anthropic-ai/claude-code@2.1.270",
+      }).status
+    ).toBe("upstream-changed");
+    expect(
+      assessProviderValidationFreshness(lane, checkedAt, {
+        error: "registry unavailable",
+      }).status
+    ).toBe("refresh-failed");
   });
 
   test("keeps source validators and the Agent Skills floor bounded", () => {
@@ -64,6 +120,14 @@ describe("SET-463 hosted provider validation registry", () => {
   });
 
   test("integrity-owns the complete executable dependency closure", () => {
+    expect(
+      getProviderValidationLane("codex-authoring").acquisitions.map(
+        ({ blob }) => blob
+      )
+    ).toEqual([
+      "b5be462c3b4fe3ea6083cca948ccf52e05301546",
+      "41a1a2f1b503c165f5d4b93f7f0e99eb0b3add6e",
+    ]);
     expect(
       getProviderValidationLane("codex-authoring").dependencies.map(
         ({ name, version }) => `${name}@${version}`
@@ -136,5 +200,20 @@ describe("SET-463 hosted provider validation registry", () => {
         )
       )
     ).toThrow("requires coverage, limitations, and fallback");
+    expect(() =>
+      defineProviderValidationLanes(
+        base.map((lane) =>
+          lane.id === claude.id
+            ? {
+                ...lane,
+                lastSuccessfulValidation: {
+                  ...lane.lastSuccessfulValidation,
+                  at: "2026-08-16",
+                },
+              }
+            : lane
+        )
+      )
+    ).toThrow("lastSuccessfulValidation.at must be an ISO timestamp");
   });
 });

@@ -10,6 +10,9 @@ import {
 import { dirname, join, resolve } from "node:path";
 
 import {
+  assertProviderValidationFreshness,
+  getProviderValidationLane,
+  listProviderValidationFreshness,
   listProviderValidationLanes,
   type ProviderValidationLaneId,
 } from "../packages/registry/src/provider-validation";
@@ -52,10 +55,16 @@ export interface ProviderValidationReportRow {
 }
 
 export interface ProviderValidationReport {
+  readonly checkedAt: string;
   readonly failures: readonly {
     readonly diagnostic: string;
     readonly lane: ProviderValidationLaneId | "all";
-    readonly stage: "acquisition" | "inventory" | "staging" | "validation";
+    readonly stage:
+      | "acquisition"
+      | "freshness"
+      | "inventory"
+      | "staging"
+      | "validation";
   }[];
   readonly limitations: readonly {
     readonly lane: ProviderValidationLaneId;
@@ -204,7 +213,8 @@ export function buildValidationCommands(
 
 export async function executeValidationCommands(
   commands: readonly ValidationCommand[],
-  runner: CommandRunner
+  runner: CommandRunner,
+  checkedAt = new Date().toISOString()
 ): Promise<ProviderValidationReport> {
   const failures: string[] = [];
   const status = new Map<ProviderValidationLaneId, boolean>();
@@ -244,6 +254,7 @@ export async function executeValidationCommands(
   }));
   const boundedFailures = failures.map(boundedDiagnostic);
   const report = {
+    checkedAt,
     failures: boundedFailures.map((diagnostic) => ({
       diagnostic,
       lane: diagnostic.split(" ", 1)[0] as ProviderValidationLaneId,
@@ -281,6 +292,7 @@ export class ProviderValidationFailure extends Error {
 export function renderProviderValidationReport(
   report: ProviderValidationReport
 ): string {
+  const freshness = listProviderValidationFreshness(report.checkedAt);
   return [
     "# Hosted provider validation",
     "",
@@ -290,6 +302,17 @@ export function renderProviderValidationReport(
       (row) =>
         `| ${row.lane} | ${row.targets} | ${row.surface} | ${row.count} | ${row.result} |`
     ),
+    "",
+    "## Pin freshness",
+    "",
+    `Checked at: ${report.checkedAt}`,
+    "",
+    "| Lane | Exact pin | Source published | Retrieved | Last successful validation | Age | Status |",
+    "| --- | --- | --- | --- | --- | ---: | --- |",
+    ...freshness.map((item) => {
+      const lane = getProviderValidationLane(item.lane);
+      return `| ${item.lane} | ${item.pin} | ${item.sourcePublishedAt} | ${lane.retrievedAt} | [${item.lastSuccessfulValidationAt}](${lane.lastSuccessfulValidation.url}) | ${item.ageDays} days | ${item.status} |`;
+    }),
     ...(report.failures.length === 0
       ? []
       : [
@@ -311,7 +334,8 @@ export function renderProviderValidationReport(
 
 export async function runHostedProviderValidation(
   root: string,
-  reportPath: string
+  reportPath: string,
+  checkedAt = new Date().toISOString()
 ): Promise<ProviderValidationReport> {
   if (process.env.GITHUB_ACTIONS !== "true") {
     throw new Error(
@@ -330,8 +354,10 @@ export async function runHostedProviderValidation(
   let report: ProviderValidationReport | undefined;
   let failure: unknown;
   let stage: ProviderValidationReport["failures"][number]["stage"] =
-    "inventory";
+    "freshness";
   try {
+    assertProviderValidationFreshness(checkedAt);
+    stage = "inventory";
     temp = await mkdtemp(
       join(canonicalRunnerTemp, "skillset-provider-validation-")
     );
@@ -344,7 +370,8 @@ export async function runHostedProviderValidation(
     try {
       report = await executeValidationCommands(
         buildValidationCommands(staged.inventory, tools, staged),
-        spawnCommand
+        spawnCommand,
+        checkedAt
       );
     } catch (error) {
       if (error instanceof ProviderValidationFailure) report = error.report;
@@ -352,7 +379,7 @@ export async function runHostedProviderValidation(
     }
   } catch (error) {
     failure = error;
-    report ??= createFailedReport(stage, message(error));
+    report ??= createFailedReport(stage, message(error), checkedAt);
   } finally {
     try {
       if (report !== undefined) {
@@ -522,9 +549,11 @@ function countCommands(
 
 function createFailedReport(
   stage: ProviderValidationReport["failures"][number]["stage"],
-  diagnostic: string
+  diagnostic: string,
+  checkedAt: string
 ): ProviderValidationReport {
   return {
+    checkedAt,
     failures: [
       {
         diagnostic: boundedDiagnostic(diagnostic),
