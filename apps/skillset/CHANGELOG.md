@@ -1,5 +1,16 @@
 # skillset
 
+## 0.26.2
+
+### Patch Changes
+
+- cb9704c: Render canonical listing display names into Claude plugin manifests while preserving provider-native and marketplace label precedence.
+- efe5cc7: Render versioned, flat Cursor plugin hook handlers from existing grouped hook source, preserve validated Cursor-native handler fields, omit portable status text that has no Cursor destination, and reject malformed flat handlers that previously bypassed validation.
+- 24bb38b: Lower canonical `implicit_invocation` to Cursor `disable-model-invocation` with inverse polarity, preserve native override precedence, and scope adopted provider-native invocation policy so it cannot leak into unrelated targets.
+- 6008bf9: Add version-qualified provider location evidence for distinct Claude, Codex, Cursor, and ChatGPT surfaces and expose it through the static lookup API and CLI.
+- c338af7: Refresh the exact hosted provider validator evidence and expose receipt-based freshness assessment for maintenance tooling.
+- f5fb227: Track SEP-2640 as an immutable candidate standard and record OpenAI's separate plugin-submission skill importer limits.
+
 ## 0.26.1
 
 ### Patch Changes

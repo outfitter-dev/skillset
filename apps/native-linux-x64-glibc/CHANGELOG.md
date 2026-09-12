@@ -1,5 +1,7 @@
 # @skillset/native-linux-x64-glibc
 
+## 0.26.2
+
 ## 0.26.1
 
 ## 0.26.0
