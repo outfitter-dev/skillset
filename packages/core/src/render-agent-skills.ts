@@ -19,6 +19,7 @@ import {
   renderCodexSkillAgentFile,
   renderSkillToolsMetadataFile,
 } from "./render-codex-skill-sidecars";
+import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import {
   copyFileFromSource,
   copyPath,
@@ -215,6 +216,7 @@ async function renderAgentPluginSkillComponents(
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   for (const plugin of graph.plugins) {
+    if (classifyAgentPluginStandard(plugin).status !== "supported") continue;
     const pluginLicense = await resolvePluginLicense(
       graph,
       plugin,

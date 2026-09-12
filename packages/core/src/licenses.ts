@@ -1,5 +1,5 @@
-import { readFile, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { lstat, readFile, realpath } from "node:fs/promises";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import { SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE } from "@skillset/schema";
 
@@ -53,7 +53,10 @@ const licenseNotices: Readonly<Record<(typeof SOURCE_LICENSE_IDS)[number], {
 
 export async function resolveLicense(args: ResolveLicenseArgs): Promise<ResolvedLicense | undefined> {
   const localLicensePath = join(args.scopePath, "LICENSE.txt");
-  const localLicenseExists = await fileExists(localLicensePath);
+  const localLicenseExists = await safeLocalLicenseExists(
+    args,
+    localLicensePath
+  );
   const setting = readString(args.metadata, "license");
 
   if (setting === SOURCE_LICENSE_NONE) {
@@ -107,13 +110,53 @@ function canonicalLicenseId(id: string, label: string): keyof typeof licenseNoti
   return id as keyof typeof licenseNotices;
 }
 
-async function fileExists(path: string): Promise<boolean> {
+async function safeLocalLicenseExists(
+  args: ResolveLicenseArgs,
+  licensePath: string
+): Promise<boolean> {
+  let stats;
   try {
-    return (await stat(path)).isFile();
+    stats = await lstat(licensePath);
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
       return false;
     }
     throw error;
   }
+  const displayPath = relative(args.graph.rootPath, licensePath);
+  if (stats.isSymbolicLink()) {
+    throw new Error(
+      `skillset: license source ${displayPath} must not be a symbolic link`
+    );
+  }
+  if (!stats.isFile()) return false;
+
+  const [sourceRoot, scopeRoot, resolvedLicense] = await Promise.all([
+    realpath(args.graph.sourceRootPath),
+    realpath(args.scopePath),
+    realpath(licensePath),
+  ]);
+  assertContained(sourceRoot, scopeRoot, args.scopePath);
+  assertContained(scopeRoot, resolvedLicense, licensePath);
+  return true;
+}
+
+function assertContained(root: string, candidate: string, label: string): void {
+  const relativePath = relative(root, candidate);
+  if (
+    relativePath === "" ||
+    (!relativePath.startsWith(`..${sep}`) &&
+      relativePath !== ".." &&
+      !isAbsolute(relativePath))
+  ) {
+    return;
+  }
+  throw new Error(
+    `skillset: license source ${label} resolves outside its declared source scope`
+  );
 }
