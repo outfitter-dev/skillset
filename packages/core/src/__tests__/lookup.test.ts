@@ -15,6 +15,7 @@ describe("lookupSkillsetReference", () => {
     expect(report.subject).toBeUndefined();
     expect(report.subjects.map((subject) => subject.subject)).toEqual([
       "activation",
+      "locations",
       "skill",
       "agent",
       "instruction",
@@ -27,6 +28,7 @@ describe("lookupSkillsetReference", () => {
 
   it("derives applicable views from the owned lookup contracts", () => {
     expect(listLookupViews("activation")).toEqual(["compat"]);
+    expect(listLookupViews("locations")).toEqual(["compat"]);
     expect(listLookupViews("skill")).toEqual([
       "fields",
       "frontmatter",
@@ -101,6 +103,76 @@ describe("lookupSkillsetReference", () => {
         "cursor:none",
       ])
     );
+  });
+
+  it("exposes static provider-location evidence without command surfaces", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["codex-cli"],
+      subject: "locations",
+      targets: ["codex"],
+    });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(report.locations).toEqual([
+      expect.objectContaining({
+        providerVersion: "0.154.0",
+        surface: "codex-cli",
+        target: "codex",
+        verifiedAt: "2026-09-11",
+      }),
+    ]);
+    expect(JSON.stringify(report.locations)).not.toContain("argv");
+    expect(JSON.stringify(report.locations)).not.toContain("executable");
+  });
+
+  it("returns explicit unknown surface facts", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["chatgpt-web"],
+      subject: "locations",
+      targets: ["codex"],
+    });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(report.locations).toHaveLength(1);
+    expect(report.locations[0]?.facts.every((fact) => fact.status === "unknown")).toBe(true);
+  });
+
+  it("rejects provider and surface mismatches", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["cursor-ide"],
+      subject: "locations",
+      targets: ["claude"],
+    });
+
+    expect(report.locations).toEqual([]);
+    expect(report.diagnostics).toContainEqual({
+      code: "lookup/locations/surface-target-mismatch",
+      message:
+        "locations lookup surface cursor-ide belongs to cursor, which is not in the selected targets.",
+      severity: "error",
+    });
+  });
+
+  it("projects surface owners from implicit and multi-provider target sets", () => {
+    const implicit = lookupSkillsetReference({
+      aspects: ["claude-code-cli"],
+      subject: "locations",
+    });
+    const multiple = lookupSkillsetReference({
+      aspects: ["claude-code-cli", "cursor-ide"],
+      subject: "locations",
+      targets: ["claude", "cursor"],
+    });
+
+    expect(implicit.diagnostics).toEqual([]);
+    expect(implicit.locations.map((entry) => entry.target)).toEqual([
+      "claude",
+    ]);
+    expect(multiple.diagnostics).toEqual([]);
+    expect(multiple.locations.map((entry) => entry.target)).toEqual([
+      "claude",
+      "cursor",
+    ]);
   });
 
   it("rejects unknown activation aspects without widening the result", () => {
