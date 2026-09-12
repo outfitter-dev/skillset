@@ -1459,7 +1459,7 @@ async function renderLockFiles(
 
   for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const value: JsonRecord = {
-      buildMode: graph.root.compile.build,
+      buildMode: graph.configuredBuildMode,
       features: {
         promptArguments: graph.root.compile.features.promptArguments,
       },

@@ -259,6 +259,7 @@ export async function loadBuildGraph(
 
   const graph: BuildGraph = {
     adaptiveHooks,
+    configuredBuildMode: compileConfig.build,
     hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
