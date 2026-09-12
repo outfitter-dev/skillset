@@ -100,6 +100,14 @@ Every generated field has one writer:
 
 Provider manifest overrides remain target-local, but they cannot compete with compiler-owned component wiring or Claude dependency fields. Generated manifests are [generated output](../../glossary.md#generated-output), not authoring surfaces.
 
+For Claude Code 2.1.143 and later, `skillset.listing.display_name`
+renders to the plugin manifest's `displayName`. The provider-native
+`claude.manifest.displayName` override wins over that canonical default without
+changing `name` or component namespaces. A marketplace entry's `displayName`
+has UI precedence over the plugin manifest, so an explicit
+`claude.marketplace.displayName` is the narrowest label override and omission
+from the entry preserves Claude's manifest fallback.
+
 ## Errors and Caveats
 
 Skillset rejects identity conflicts, unsupported config keys, competing field authority, unsafe source pointers, generated-root overlap, divergent features targeting the same path, and unmanaged [destination](../../glossary.md#destination) collisions. It also rejects Codex-enabled plugin agents and Codex plugin `.rules` because neither has a documented Codex plugin surface.

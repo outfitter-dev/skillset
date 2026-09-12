@@ -14,6 +14,7 @@ import {
 import { classifyPluginAdoptionCandidates } from "../plugin-adoption";
 import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { importSource } from "../import";
+import { nativeListingMetadataConflicts } from "../plugin-manifest-authority";
 import { runProviderFormatUpdates } from "../provider-format-updates";
 
 test("SET-225: one source with Claude, Codex, and Cursor manifests stays one candidate", async () => {
@@ -425,6 +426,76 @@ test("SET-369: native Codex developerName conflicts warn and stay provider-speci
   );
   expect(importedConfig).toContain("name: Canonical Author");
   expect(importedConfig).toContain("developerName: Codex Author");
+});
+
+test("SET-523: Claude display labels lift and provider-specific differences round-trip", async () => {
+  const claudeOnly = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      displayName: "Demo Tools",
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+  const lifted = await importSource({
+    kind: "plugin",
+    rootPath: claudeOnly,
+    sourcePath: join(claudeOnly, "native"),
+  });
+  expect(lifted.warnings).toEqual([]);
+  const liftedConfig = await readFile(join(claudeOnly, ".skillset/plugins/demo/skillset.yaml"), "utf8");
+  expect(liftedConfig).toContain("listing:\n    display_name: Demo Tools");
+  expect(liftedConfig).not.toContain("displayName:");
+
+  await buildSkillset(claudeOnly, { isolated: true });
+  const liftedManifest = JSON.parse(
+    await readFile(
+      join(
+        resolveOperationalPath(createOperationalPathContext(claudeOnly), ISOLATED_OUT_ROOT),
+        "plugins/demo/claude/.claude-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { displayName?: string; name?: string };
+  expect(liftedManifest).toMatchObject({ displayName: "Demo Tools", name: "demo" });
+
+  const mixed = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      displayName: "Claude Tools",
+    }),
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      interface: { displayName: "Codex Tools" },
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+  const adoption = await classifyPluginAdoptionCandidates(mixed, ["native"]);
+  expect(adoption.diagnostics).toEqual([
+    expect.objectContaining({
+      code: "plugin-listing-conflict",
+      evidence: ["native listing.display_name differs across claude, codex"],
+      severity: "warning",
+    }),
+  ]);
+  const nativeLabels = [
+    ["claude", { displayName: "Claude Tools" }],
+    ["codex", { interface: { displayName: "Codex Tools" } }],
+  ] as const;
+  expect(nativeListingMetadataConflicts(nativeLabels)).toEqual(
+    nativeListingMetadataConflicts([...nativeLabels].reverse())
+  );
+
+  const preserved = await importSource({
+    kind: "plugin",
+    rootPath: mixed,
+    sourcePath: join(mixed, "native"),
+  });
+  expect(preserved.warnings).toContain(
+    "Native listing.display_name differs across claude, codex; Skillset preserved provider-specific values instead of choosing a canonical listing value."
+  );
+  const preservedConfig = await readFile(join(mixed, ".skillset/plugins/demo/skillset.yaml"), "utf8");
+  expect(preservedConfig).not.toContain("listing:");
+  expect(preservedConfig).toContain("claude:\n  manifest:\n    displayName: Claude Tools");
+  expect(preservedConfig).toContain("codex:\n  interface:\n    displayName: Codex Tools");
 });
 
 test("SET-485: single import prints each distinct preservation warning once", async () => {

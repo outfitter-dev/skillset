@@ -1041,6 +1041,7 @@ Body.
   ) as Record<string, unknown>;
 
   expect(claude.description).toBe("Canonical summary.");
+  expect(claude.displayName).toBe("Canonical title");
   expect(claude.author).toEqual({ name: "Canonical developer" });
   expect(claude.keywords).toEqual(["canonical", "listing"]);
   expect(codex.author).toEqual({ name: "Canonical developer" });
@@ -1064,6 +1065,100 @@ Body.
   expect(cursor.category).toBeUndefined();
   expect(cursor.tags).toBeUndefined();
   expect(cursor.license).toBeUndefined();
+});
+
+test("SET-523: Claude display labels preserve identity, version, and override precedence", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: claude-display-names
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+    ".skillset/plugins/canonical-only/skillset.yaml": `
+skillset:
+  name: canonical-only
+  version: 1.2.3
+  author: Outfitter
+  listing:
+    display_name: Canonical Only
+`,
+    ".skillset/plugins/native-only/skillset.yaml": `
+skillset:
+  name: native-only
+  version: 1.2.3
+  author: Outfitter
+claude:
+  manifest:
+    displayName: Native Only
+`,
+    ".skillset/plugins/equal/skillset.yaml": `
+skillset:
+  name: equal
+  version: 1.2.3
+  author: Outfitter
+  listing:
+    display_name: Equal Label
+claude:
+  manifest:
+    displayName: Equal Label
+`,
+    ".skillset/plugins/different/skillset.yaml": `
+skillset:
+  name: different
+  version: 1.2.3
+  author: Outfitter
+  listing:
+    display_name: Canonical Label
+claude:
+  manifest:
+    displayName: Native Label
+  marketplace:
+    displayName: Marketplace Label
+`,
+    ...Object.fromEntries(
+      ["canonical-only", "native-only", "equal", "different"].map(
+        (plugin) => [
+          `.skillset/plugins/${plugin}/skills/helper/SKILL.md`,
+          "---\nname: helper\ndescription: Helper.\n---\n\nHelp.\n",
+        ]
+      )
+    ),
+  });
+
+  await buildSkillset(root);
+  for (const [plugin, displayName] of [
+    ["canonical-only", "Canonical Only"],
+    ["native-only", "Native Only"],
+    ["equal", "Equal Label"],
+    ["different", "Native Label"],
+  ] as const) {
+    const manifest = JSON.parse(
+      await readFile(
+        join(root, `plugins/${plugin}/claude/.claude-plugin/plugin.json`),
+        "utf8"
+      )
+    ) as { displayName?: string; name?: string; version?: string };
+    expect(manifest).toMatchObject({ displayName, name: plugin, version: "1.2.3" });
+    expect(
+      await fileExists(
+        join(root, `plugins/${plugin}/claude/skills/helper/SKILL.md`)
+      )
+    ).toBe(true);
+  }
+
+  const marketplace = JSON.parse(
+    await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+  ) as { plugins: Array<{ displayName?: string; name: string }> };
+  expect(
+    marketplace.plugins.find(({ name }) => name === "canonical-only")
+      ?.displayName
+  ).toBeUndefined();
+  expect(
+    marketplace.plugins.find(({ name }) => name === "different")
+      ?.displayName
+  ).toBe("Marketplace Label");
 });
 
 test("SET-369: Codex short description falls back to listing description", async () => {

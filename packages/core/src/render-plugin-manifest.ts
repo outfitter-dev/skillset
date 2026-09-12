@@ -80,7 +80,7 @@ export function renderPluginManifest(
       ? withOptionalSurfacePaths(
           graph,
           mergeRecords(
-            base,
+            mergeRecords(base, renderClaudePluginDisplayFields(metadata)),
             dependencies === undefined ? {} : { dependencies }
           ),
           plugin,
@@ -115,6 +115,43 @@ export function renderPluginManifest(
   return mergeRecords(withOverrides, {
     version: pluginVersion(graph, plugin),
   });
+}
+
+function renderClaudePluginDisplayFields(metadata: JsonRecord): JsonRecord {
+  const listing = readSourceListing(metadata);
+  return {
+    displayName: readString(listing, "display_name"),
+  };
+}
+
+/** Effective display label after target-native manifest and interface overrides. */
+export function pluginManifestDisplayName(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): string | undefined {
+  const manifestOverrides =
+    readRecord(plugin.targets[target].options, "manifest") ?? {};
+  if (target === "codex") {
+    return readString(
+      mergeRecords(
+        renderCodexInterface(graph, plugin),
+        readRecord(manifestOverrides, "interface") ?? {}
+      ),
+      "displayName"
+    );
+  }
+  const projected =
+    target === "claude"
+      ? renderClaudePluginDisplayFields(plugin.metadata)
+      : renderCursorPluginDisplayFields(
+          plugin.metadata,
+          readRecord(plugin.metadata, "manifest") ?? {}
+        );
+  return readString(
+    mergeRecords(projected, manifestOverrides),
+    "displayName"
+  );
 }
 
 function renderCursorPluginDisplayFields(

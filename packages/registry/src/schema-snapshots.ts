@@ -20,6 +20,7 @@ export type ProviderSchemaSnapshotId =
 
 export type ProviderSchemaManualOverlayId =
   | "claude-hooks-overlay"
+  | "claude-plugin-manifest-overlay"
   | "claude-skill-frontmatter-overlay"
   | "claude-subagent-frontmatter-overlay"
   | "codex-agents-md-overlay"
@@ -75,6 +76,7 @@ export interface ProviderSchemaSetSummary {
 export interface ProviderSchemaManualOverlay {
   readonly formatSnapshotId:
     | "claude-hooks"
+    | "claude-plugin"
     | "claude-skill"
     | "claude-subagent"
     | "codex-agents-md"
@@ -596,6 +598,18 @@ export const providerSchemaManualOverlays = [
     id: "claude-hooks-overlay",
     note: "Claude hook configuration, matcher behavior, event payloads, and output semantics are documented in prose and tables; no adopted per-event JSON Schema source is available.",
     sources: [{ url: "https://code.claude.com/docs/en/hooks" }],
+    target: "claude",
+  }),
+  manualOverlay({
+    formatSnapshotId: "claude-plugin",
+    id: "claude-plugin-manifest-overlay",
+    note: "Claude's rolling SchemaStore plugin-manifest snapshot does not yet include displayName. Official product documentation and immutable validators establish it as a string UI label requiring Claude Code 2.1.143 or later: 2.1.142 rejects the field, 2.1.143 accepts it, and Skillset's pinned 2.1.233 validator accepts it under --strict.",
+    sources: [
+      { url: "https://code.claude.com/docs/en/plugins-reference#metadata-fields" },
+      { url: "https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.142.tgz" },
+      { url: "https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.143.tgz" },
+      { url: "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.233.tgz" },
+    ],
     target: "claude",
   }),
   manualOverlay({

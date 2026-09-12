@@ -4,7 +4,7 @@ slug: source-manifest-listing-metadata
 title: Source Manifest Listing Metadata
 status: accepted
 created: 2026-06-25
-updated: 2026-07-20
+updated: 2026-09-11
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 1]
 ---
@@ -102,7 +102,7 @@ The canonical listing fields are snake_case:
 
 | Source field | Meaning |
 | --- | --- |
-| `display_name` | Human-facing title for marketplace cards and Codex `interface.displayName`. |
+| `display_name` | Human-facing title for Claude `displayName`, marketplace cards, and Codex `interface.displayName`. |
 | `summary` | Short listing description for cards, search, and Codex `interface.shortDescription`. |
 | `description` | Optional listing-specific long description; falls back to `skillset.description`. |
 | `category` | Listing category. |
@@ -123,7 +123,7 @@ Targets render listing metadata in their native shape:
 | generated release state | `version` | entry `version` | `version` |
 | `skillset.description` | `description` fallback | entry description fallback | top-level `description`, `interface.longDescription` fallback |
 | `listing.summary` | `description` when present | entry description when present | `interface.shortDescription` |
-| `listing.display_name` | not rendered | marketplace display/title when supported | `interface.displayName` |
+| `listing.display_name` | `displayName` | marketplace entry `displayName` when explicitly overridden; otherwise the plugin manifest label | `interface.displayName` |
 | `author.name` | `author` | marketplace owner fallback | `interface.developerName` |
 | `listing.category` | not rendered | entry category when supported | `interface.category` |
 | `listing.capabilities` | not rendered | not rendered unless marketplace supports it | `interface.capabilities` |
@@ -132,6 +132,20 @@ Targets render listing metadata in their native shape:
 If a target lacks a matching slot, the listing field stays source-significant
 and may appear in locks, explain output, or distribution reports, but Skillset
 must not invent fake target behavior.
+
+Claude plugin-manifest display labels require Claude Code 2.1.143 or later.
+The boundary was verified against Anthropic's immutable packages on 2026-09-11:
+2.1.142 rejects `displayName` as an unrecognized key, 2.1.143 accepts it, and
+Skillset's pinned 2.1.233 product validator accepts the generated field with
+`claude plugin validate --strict`.
+
+The Claude precedence chain is explicit. `skillset.listing.display_name`
+provides the generated plugin-manifest default, then
+`claude.manifest.displayName` may replace it for that plugin bundle. For a
+marketplace install, an explicitly authored `claude.marketplace.displayName`
+replaces the plugin-manifest label in Claude's UI. Without that marketplace
+override, Claude falls back to the plugin manifest. None of these labels change
+the generated `name`, component namespace, or lookup identity.
 
 ### Policy And Version Placement
 
@@ -268,5 +282,9 @@ accepted contract.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - release state owns generated artifact versions.
 - [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt paths should rewrite mechanical target-shaped fields into canonical source.
 - [Codex provider reference](../reference/providers/codex.md) - current portable listing-to-interface rendering and companion boundaries.
+- [Claude plugin manifest metadata](https://code.claude.com/docs/en/plugins-reference#metadata-fields) - `displayName` UI behavior, fallback, identity boundary, and marketplace precedence.
+- [Claude Code 2.1.142 package](https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.142.tgz) - immutable negative-boundary validator artifact.
+- [Claude Code 2.1.143 package](https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.143.tgz) - immutable first-accepting validator artifact.
+- [Hosted provider validation](../reference/provider-validation.md) - Skillset's exact Claude Code 2.1.233 validation pin and evidence boundary.
 - Linear: SET-203 - manifest `listing` block and source vocabulary cutover.
 - Linear document: Skillset DX - manifest and change-state redesign.
