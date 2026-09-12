@@ -1273,6 +1273,7 @@ async function loadSkillsFromDirectory(
       label: sourcePath,
       ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
       sharedPath: resolveInside(rootPath, join(sourceDir, sourceRootDir, SHARED_DIR)),
+      sourceRootPath: resolveInside(rootPath, join(sourceDir, sourceRootDir)),
     });
 
     const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));

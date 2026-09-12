@@ -42,10 +42,8 @@ import {
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
-  readToolsPolicyMetadata,
   readImplicitInvocation,
 } from "./skill-policy";
-import { toolsMetadataSidecarTargets } from "./tools-realization";
 import {
   formatPreprocessDependency,
   preprocessText,
@@ -82,7 +80,7 @@ import type {
 } from "./types";
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
+import { parseMarkdown, stringifyJson } from "./yaml";
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
 import {
@@ -102,6 +100,15 @@ import {
   renderPluginManifest,
   withOptionalSurfacePaths,
 } from "./render-plugin-manifest";
+import {
+  renderAgentSkillStandards,
+  shouldCoalesceStandaloneCodexSkill,
+} from "./render-agent-skills";
+import {
+  renderCodexSkillAgentFile,
+  renderSkillToolsMetadataFile,
+  type RenderedSkillAuxiliaryFile,
+} from "./render-codex-skill-sidecars";
 import { renderRules } from "./render-rules";
 import {
   hasAdaptivePluginHookSources,
@@ -169,6 +176,20 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...renderRepositoryReadmes(graph));
   rendered.push(...(await renderClaudeMarketplace(graph)));
   rendered.push(...(await renderCursorMarketplace(graph)));
+  rendered.push(
+    ...(await renderAgentSkillStandards(
+      graph,
+      lockRoots,
+      lockItemForSkill,
+      (plugin, skill, baselineContent) =>
+        renderCodexSkillMarkdownFromStandard(
+          graph,
+          plugin,
+          skill,
+          baselineContent
+        )
+    ))
+  );
 
   for (const plugin of graph.plugins) {
     for (const target of targetNames()) {
@@ -895,6 +916,9 @@ async function renderStandaloneSkill(
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   if (!shouldRenderStandaloneSkill(graph, skill, target)) return [];
+  if (target === "codex" && shouldCoalesceStandaloneCodexSkill(graph, skill)) {
+    return [];
+  }
 
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
@@ -1067,11 +1091,6 @@ interface RenderedSkillMarkdown {
   readonly transforms: readonly AppliedTransform[];
 }
 
-interface RenderedSkillAuxiliaryFile {
-  readonly file: RenderedFile;
-  readonly preprocessDependencies: readonly string[];
-}
-
 function skillPreprocessDependencies(
   markdown: RenderedSkillMarkdown,
   auxiliary: RenderedSkillAuxiliaryFile | undefined
@@ -1158,21 +1177,16 @@ async function renderSkillMarkdown(
           ),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
-  const notices = [
-    target === "codex" && plugin !== undefined
-      ? renderCodexDependencyNotice(graph, plugin)
-      : undefined,
-    target === "codex" ? renderCodexPromptArgumentsNotice(preprocessedBody) : undefined,
-  ].filter((notice): notice is string => notice !== undefined);
-  const body = notices.length === 0
-    ? preprocessedBody
-    : `${notices.join("\n\n")}\n\n${preprocessedBody}`;
-  const linkedBody = rewriteResourceLinks(body, skill.resources, skill.sourcePath);
-  // Claude-dialect source lowers through the transform engine for the codex
-  // projection only; the claude projection stays byte-identical to source.
+  const linkedBody = rewriteResourceLinks(preprocessedBody, skill.resources, skill.sourcePath);
   const translated =
-    target === "codex" && skill.dialect === "claude"
-      ? translateClaudeDialect(linkedBody)
+    target === "codex"
+      ? renderCodexSkillBodyDelta(
+          graph,
+          plugin,
+          skill,
+          linkedBody,
+          preprocessedBody
+        )
       : { text: linkedBody, transforms: [] };
   return {
     content: renderValidatedMarkdown(
@@ -1183,6 +1197,54 @@ async function renderSkillMarkdown(
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
     transforms: translated.transforms,
   };
+}
+
+async function renderCodexSkillMarkdownFromStandard(
+  graph: BuildGraph,
+  plugin: SourcePlugin | undefined,
+  skill: SourceSkill,
+  baselineContent: string
+): Promise<RenderedSkillMarkdown> {
+  const baseline = parseMarkdown(
+    baselineContent,
+    `${relative(graph.rootPath, skill.sourcePath)} -> Agent Skills baseline`
+  );
+  const targetFrontmatter = readRecord(skill.targets.codex.options, "frontmatter") ?? {};
+  const translated = renderCodexSkillBodyDelta(
+    graph,
+    plugin,
+    skill,
+    baseline.body
+  );
+  return {
+    content: renderValidatedMarkdown(
+      mergeRecords(baseline.frontmatter, targetFrontmatter),
+      translated.text,
+      `${relative(graph.rootPath, skill.sourcePath)} -> coalesced Codex skill`
+    ),
+    preprocessDependencies: [],
+    transforms: translated.transforms,
+  };
+}
+
+function renderCodexSkillBodyDelta(
+  graph: BuildGraph,
+  plugin: SourcePlugin | undefined,
+  skill: SourceSkill,
+  body: string,
+  promptArgumentBody = body
+): TranslatedBody {
+  const notices = [
+    plugin === undefined ? undefined : renderCodexDependencyNotice(graph, plugin),
+    renderCodexPromptArgumentsNotice(promptArgumentBody),
+  ].filter((notice): notice is string => notice !== undefined);
+  const withNotices =
+    notices.length === 0 ? body : `${notices.join("\n\n")}\n\n${body}`;
+  // Claude-dialect source lowers through the transform engine for the Codex
+  // projection only; incompatible shared-baseline bytes fail output planning.
+  return skill.dialect === "claude"
+    ? translateClaudeDialect(withNotices)
+    : { text: withNotices, transforms: [] };
 }
 
 function renderSkillMetadata(
@@ -1252,70 +1314,6 @@ function renderNativeSkillInvocationPolicy(
   return { "disable-model-invocation": !implicitInvocation };
 }
 
-async function renderCodexSkillAgentFile(
-  graph: BuildGraph,
-  plugin: SourcePlugin | undefined,
-  skill: SourceSkill,
-  target: TargetName,
-  sourceDir: string,
-  targetSkillDir: string
-): Promise<RenderedSkillAuxiliaryFile | undefined> {
-  if (target !== "codex") return undefined;
-
-  const label = relative(graph.rootPath, skill.sourcePath);
-  const generated = renderCodexSkillAgentConfig(skill, label);
-  const sourceOpenAiPath = join(sourceDir, "agents/openai.yaml");
-  const hasSourceOpenAi = await exists(sourceOpenAiPath);
-  if (!hasSourceOpenAi && Object.keys(generated).length === 0) return undefined;
-
-  const preprocessDependencies = new Set<string>();
-  const source = hasSourceOpenAi
-    ? parseYamlRecord(
-        await preprocessText(await readFile(sourceOpenAiPath, "utf8"), {
-          frontmatter: skill.frontmatter,
-          preprocessDependencies,
-          rootPath: graph.rootPath,
-          sourcePath: sourceOpenAiPath,
-          sourceRoot: graph.sourceRoot,
-          target,
-          promptArguments: graph.root.compile.features.promptArguments,
-          renderPathReference: (reference) =>
-            reference.scheme === undefined
-              ? reference.specifier.replaceAll("\\", "/")
-              : resolveDeclaredResourceReference(
-                  reference.specifier,
-                  skill.resources,
-                  skill.sourcePath
-                ),
-          ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
-        }),
-        sourceOpenAiPath
-      )
-    : {};
-  const merged = mergeRecords(source, generated);
-  return {
-    file: textFile(
-      join(targetSkillDir, "agents/openai.yaml"),
-      renderValidatedYaml(merged, `${relative(graph.rootPath, sourceOpenAiPath)} -> ${join(targetSkillDir, "agents/openai.yaml")}`),
-      relative(graph.rootPath, sourceOpenAiPath)
-    ),
-    preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
-  };
-}
-
-function renderCodexSkillAgentConfig(skill: SourceSkill, label: string): JsonRecord {
-  const implicitInvocation = readImplicitInvocation(skill.frontmatter, "codex", label);
-  const allowedTools = readAllowedTools(skill.frontmatter, "codex", label);
-  if (allowedTools !== undefined && allowedTools !== false) {
-    throw new Error(
-      `skillset: ${label} allowed_tools has no Codex skill-local lowering; ` +
-        "set allowed_tools.codex: false or move Codex tool dependencies into agents/openai.yaml"
-    );
-  }
-  if (implicitInvocation === undefined) return {};
-  return { policy: { allow_implicit_invocation: implicitInvocation } };
-}
-
 function rejectCursorAllowedTools(skill: SourceSkill, label: string): void {
   const allowedTools = readAllowedTools(skill.frontmatter, "cursor", label);
   if (allowedTools !== undefined && allowedTools !== false) {
@@ -1324,30 +1322,6 @@ function rejectCursorAllowedTools(skill: SourceSkill, label: string): void {
         "set allowed_tools.cursor: false or express Cursor tool policy through tools"
     );
   }
-}
-
-function renderSkillToolsMetadataFile(
-  graph: BuildGraph,
-  skill: SourceSkill,
-  target: TargetName,
-  targetSkillDir: string
-): RenderedFile | undefined {
-  if (!toolsMetadataSidecarTargets().includes(target)) return undefined;
-
-  const label = relative(graph.rootPath, skill.sourcePath);
-  const tools = readToolsPolicyMetadata(skill.frontmatter, skill.targets[target].options, target, label);
-  if (Object.keys(tools).length === 0) return undefined;
-
-  return textFile(
-    join(targetSkillDir, ".skillset.tools.yaml"),
-    renderValidatedYaml({
-      generated: GENERATED_BY,
-      schema_version: 1,
-      target,
-      tools,
-    }, `${relative(graph.rootPath, skill.sourcePath)} -> ${join(targetSkillDir, ".skillset.tools.yaml")}`),
-    relative(graph.rootPath, skill.sourcePath)
-  );
 }
 
 async function copyPluginCompanionFiles(
