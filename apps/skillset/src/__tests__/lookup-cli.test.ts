@@ -355,7 +355,7 @@ test("SET-220: lookup compatibility values filter non-compat views", async () =>
   expect(report.targets).toEqual(["cursor"]);
   expect(report.diagnostics).toEqual([]);
   expect(report.events).toContainEqual(expect.objectContaining({
-    handlerTypes: ["command"],
+    handlerTypes: ["command", "prompt"],
     matcherEvaluation: "exact-values",
     matcherKind: "session-source",
     matcherValues: ["startup", "resume", "clear", "compact"],
