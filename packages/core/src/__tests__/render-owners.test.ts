@@ -36,6 +36,7 @@ import {
 import {
   codexInterfaceCategory,
   pluginManifestAuthor,
+  pluginManifestDisplayName,
   renderCodexInterface,
   renderPluginManifest,
   withOptionalSurfacePaths,
@@ -83,6 +84,7 @@ const OWNED_FUNCTIONS = {
     "renderCodexInterface",
     "codexInterfaceCategory",
     "pluginManifestAuthor",
+    "pluginManifestDisplayName",
     "withOptionalSurfacePaths",
   ],
   "render-rules": ["renderRules"],
