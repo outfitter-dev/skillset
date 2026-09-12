@@ -385,7 +385,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
     expect(formatSnapshotUnion).toBe(expectedFormatSnapshotUnion);
     expect(formatSnapshotUnion).toContain('| "claude-hooks"');
     expect(hashText(source)).toBe(
-      "sha256:3344d533f8790d099f58922ffcd1d098fb1aa46ff5fa3d2aa271de67b9604fb8"
+      "sha256:9756778acdb633ec25e63cf72f4f6031f10d1623aeed1e8bc74a56d1933970fe"
     );
     await writeFile(path, source);
     expect(typeDiagnostics(path)).toEqual([]);

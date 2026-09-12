@@ -30,6 +30,7 @@ import {
 } from "./plugin-output";
 import {
   codexInterfaceCategory,
+  pluginManifestDisplayName,
   pluginManifestAuthor,
 } from "./render-plugin-manifest";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
@@ -609,6 +610,9 @@ function pluginManifestOmissions(
   sourcePath: string
 ): readonly PluginManifestOmission[] {
   return [
+    ...(target === "claude"
+      ? claudeListingDisplayNameOmissions(graph, plugin, sourcePath)
+      : []),
     // The canonical listing category keeps its Cursor-scoped evidence: it names
     // the `cursor.manifest` cutover that removed the destination. The identical
     // Claude omission is a separate, wider decision because `listing.category`
@@ -617,6 +621,46 @@ function pluginManifestOmissions(
       ? cursorListingCategoryOmissions(graph, plugin, sourcePath)
       : []),
     ...portableManifestOmissions(graph, plugin, target, sourcePath),
+  ];
+}
+
+function claudeListingDisplayNameOmissions(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  sourcePath: string
+): readonly PluginManifestOmission[] {
+  const displayName = readString(
+    readSourceListing(plugin.metadata),
+    "display_name"
+  );
+  if (
+    displayName === undefined ||
+    pluginManifestDisplayName(graph, plugin, "claude") === displayName
+  ) {
+    return [];
+  }
+  const faithfulTargets = targetNames().filter(
+    (target) =>
+      pluginTargetSelected(graph, plugin.id, target) &&
+      pluginManifestDisplayName(graph, plugin, target) === displayName
+  );
+  const isFaithfulElsewhere = faithfulTargets.length > 0;
+  const reason =
+    "Claude manifest displayName is replaced by claude.manifest.displayName; " +
+    "omitted canonical field: listing.display_name; " +
+    (isFaithfulElsewhere
+      ? `still rendered by enabled target: ${faithfulTargets.map(targetLabel).join(", ")}`
+      : "no enabled target renders this display name");
+  return [
+    {
+      diagnostic: {
+        code: "render/claude-listing-display-name-replaced",
+        message: reason,
+        path: `${sourcePath}: $.skillset.listing.display_name`,
+      },
+      reason,
+      status: isFaithfulElsewhere ? "degraded" : "lossy",
+    },
   ];
 }
 

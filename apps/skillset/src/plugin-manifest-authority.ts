@@ -95,6 +95,9 @@ function nativeListingMetadataValue(
     if (listingField === "display_name") return manifest.displayName;
     return manifest[listingField];
   }
+  if (provider === "claude" && listingField === "display_name") {
+    return manifest.displayName;
+  }
   return undefined;
 }
 

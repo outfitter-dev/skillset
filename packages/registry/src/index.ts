@@ -78,7 +78,14 @@ const snapshots = [
       manifest: {
         path: ".claude-plugin/plugin.json",
         requiredFields: ["name", "description"],
-        optionalFields: ["version", "author", "homepage", "repository", "license"],
+        optionalFields: [
+          "version",
+          "author",
+          "displayName",
+          "homepage",
+          "repository",
+          "license",
+        ],
         unknownFields: "warn",
       },
       pathRules: {
@@ -88,11 +95,22 @@ const snapshots = [
     },
     id: "claude-plugin",
     provenance: {
-      contentHash: "sha256:c81a4328f9e1cba88b3496ae42181d03692186cefda4abd5d07428e15e835ae4",
-      fetchedAt: FETCHED_AT,
+      contentHash: "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877",
+      fetchedAt: "2026-09-11T00:00:00-04:00",
       sources: [
         { url: "https://code.claude.com/docs/en/plugins" },
-        { url: "https://code.claude.com/docs/en/plugins-reference" },
+        {
+          note: "Documents displayName as a UI-only label, its name fallback and identity boundary, marketplace precedence, and the Claude Code 2.1.143 minimum version.",
+          url: "https://code.claude.com/docs/en/plugins-reference#metadata-fields",
+        },
+        {
+          note: "Immutable last-rejecting product validator artifact: displayName is an unrecognized key in Claude Code 2.1.142.",
+          url: "https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.142.tgz",
+        },
+        {
+          note: "Immutable first-accepting product validator artifact: displayName validates in Claude Code 2.1.143.",
+          url: "https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.143.tgz",
+        },
       ],
     },
     target: "claude",

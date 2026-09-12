@@ -1025,12 +1025,14 @@ Help with the task.
   const portableManifestReason = (target: string, field: string): string => {
     const label =
       target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Cursor";
-    // Only the pinned Cursor plugin manifest has a native destination field for
-    // these portable values, so only Cursor gets the escape-hatch advice.
+    const nativeOverrideTarget =
+      target === "cursor" || (target === "claude" && field === "displayName")
+        ? target
+        : undefined;
     const escape =
-      target === "cursor"
-        ? `; move the value to cursor.manifest.${field} to keep the Cursor-native field`
-        : "";
+      nativeOverrideTarget === undefined
+        ? ""
+        : `; move the value to ${nativeOverrideTarget}.manifest.${field} to keep the ${label}-native field`;
     return (
       `${label} plugin output has no verified runtime destination for portable manifest.${field}; ` +
       `omitted canonical field: manifest.${field}; ` +
@@ -1422,6 +1424,57 @@ Help with the task.
       );
     }
   );
+
+  it("reports a Claude-native display label that replaces the canonical listing label", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: claude-display-name-override
+compile:
+  targets: [claude]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+  listing:
+    display_name: Canonical Tools
+claude:
+  manifest:
+    displayName: Claude Tools
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const build = await buildSkillsetResult(root);
+    const manifestResult = build.renderResults.find(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.tools.config:root" &&
+        outcome.featureId === "plugin-manifests" &&
+        outcome.target === "claude"
+    );
+    expect(manifestResult).toMatchObject({
+      diagnostics: [
+        {
+          code: "render/claude-listing-display-name-replaced",
+          path: ".skillset/plugins/tools: $.skillset.listing.display_name",
+        },
+      ],
+      destination: "plugin-manifest",
+      status: "lossy",
+    });
+    expect(
+      await readJson(
+        join(root, "plugins/tools/claude/.claude-plugin/plugin.json")
+      )
+    ).toMatchObject({ displayName: "Claude Tools", name: "tools" });
+  });
 
   it("reports portable manifest omissions on every enabled target", async () => {
     const root = await fixture({

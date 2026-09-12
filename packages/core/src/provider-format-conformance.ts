@@ -187,6 +187,12 @@ function checkClaudePluginManifest(
   const issues: ProviderFormatConformanceIssue[] = [];
   const schema = jsonSchemaSummary("claude-plugin-manifest-schema");
   const format = pluginManifestFormat("claude-plugin");
+  const allowedFields = new Set([
+    ...(schema.properties ?? []),
+    ...format.requiredFields,
+    ...format.optionalFields,
+    "experimental",
+  ]);
   issues.push(...checkRequiredFields(file, parsed.value, "claude", "claude-plugin", format.requiredFields));
   issues.push(...checkFieldTypes(file, parsed.value, "claude", "claude-plugin-manifest-schema", {
     $schema: "string",
@@ -195,6 +201,7 @@ function checkClaudePluginManifest(
     commands: "string",
     dependencies: "object",
     description: "string",
+    displayName: "string",
     experimental: "object",
     homepage: "string",
     hooks: "string",
@@ -213,10 +220,13 @@ function checkClaudePluginManifest(
     version: "string",
   }));
   issues.push(
-    ...checkUnknownFields(file, parsed.value, "claude", "claude-plugin-manifest-schema", [
-      ...(schema.properties ?? []),
-      "experimental",
-    ])
+    ...checkUnknownFields(
+      file,
+      parsed.value,
+      "claude",
+      "claude-plugin-manifest-schema",
+      [...allowedFields]
+    )
   );
   if (isJsonRecord(parsed.value.author)) {
     issues.push(

@@ -1452,6 +1452,12 @@ function importedManifestOverride(
     if (!hasListingConflict(listingConflicts, "listing.logo"))
       delete override.logo;
   }
+  if (
+    provider === "claude" &&
+    !hasListingConflict(listingConflicts, "listing.display_name")
+  ) {
+    delete override.displayName;
+  }
   const nativeDescription = readString(manifest, "description");
   if (
     nativeDescription !== undefined &&
@@ -1517,12 +1523,14 @@ function importedListing(
   conflicts: readonly NativeListingMetadataConflict[]
 ): JsonRecord | undefined {
   const codexInterface = readRecord(manifests.get("codex") ?? {}, "interface");
+  const claudeManifest = manifests.get("claude");
   const cursorManifest = manifests.get("cursor");
   const listing: JsonRecord = {
     display_name:
       hasListingConflict(conflicts, "listing.display_name")
         ? undefined
         : readString(codexInterface ?? {}, "displayName") ??
+          readString(claudeManifest ?? {}, "displayName") ??
           readString(cursorManifest ?? {}, "displayName"),
     summary: readString(codexInterface ?? {}, "shortDescription"),
     description: readString(codexInterface ?? {}, "longDescription"),

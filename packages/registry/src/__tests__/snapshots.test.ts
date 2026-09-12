@@ -57,7 +57,9 @@ describe("@skillset/registry snapshots", () => {
 
     for (const snapshot of providerDestinationFormatSnapshots) {
       expect(snapshot.schema).toBe(PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA);
-      expect(snapshot.provenance.fetchedAt).toMatch(/^2026-(?:06-23|08-14|09-11)T/u);
+      expect(snapshot.provenance.fetchedAt).toMatch(
+        /^2026-(?:06-23|08-14|09-11)T/u
+      );
       expect(snapshot.provenance.sources.length).toBeGreaterThan(0);
       expect(snapshot.provenance.contentHash).toBe(hashProviderDestinationFormatSnapshot(snapshot));
       expect(normalizeProviderDestinationFormatSnapshot(snapshot)).toEndWith("\n");
@@ -98,6 +100,33 @@ describe("@skillset/registry snapshots", () => {
     expect(() => (components as { kind: string; status: string }[]).push({ kind: "mutated", status: "native" })).toThrow();
     expect(components.some((component) => component.kind === "agents" && component.status === "unsupported")).toBe(true);
     expect(components.some((component) => component.kind === "bin" && component.status === "unsupported")).toBe(true);
+  });
+
+  it("SET-523: records Claude displayName support and its tested version floor", () => {
+    const claudePlugin = getProviderDestinationFormatSnapshot("claude-plugin");
+    const manifest = (claudePlugin?.format as {
+      readonly manifest?: { readonly optionalFields?: readonly string[] };
+    }).manifest;
+    const overlay = providerSchemaManualOverlays.find(
+      ({ id }) => id === "claude-plugin-manifest-overlay"
+    );
+    const overlayBeforeAssertions = JSON.stringify(overlay);
+
+    expect(manifest?.optionalFields).toContain("displayName");
+    expect(claudePlugin?.provenance.fetchedAt).toBe(
+      "2026-09-11T00:00:00-04:00"
+    );
+    expect(overlay?.formatSnapshotId).toBe("claude-plugin");
+    expect(overlay?.note).toContain("2.1.143 or later");
+    expect(overlay?.target).toBe("claude");
+    expect(overlay?.sources.map(({ url }) => url)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("claude-code-darwin-arm64-2.1.142.tgz"),
+        expect.stringContaining("claude-code-darwin-arm64-2.1.143.tgz"),
+        expect.stringContaining("claude-code-2.1.233.tgz"),
+      ])
+    );
+    expect(JSON.stringify(overlay)).toBe(overlayBeforeAssertions);
   });
 
   it("separates Codex runtime-loader evidence from creator-preflight evidence", () => {
@@ -296,6 +325,7 @@ describe("@skillset/registry schema snapshots", () => {
   it("documents current docs-only schema gaps as manual overlays", () => {
     expect(providerSchemaManualOverlays.map((overlay) => overlay.id)).toEqual([
       "claude-hooks-overlay",
+      "claude-plugin-manifest-overlay",
       "claude-skill-frontmatter-overlay",
       "claude-subagent-frontmatter-overlay",
       "codex-plugin-manifest-overlay",

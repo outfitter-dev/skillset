@@ -21,7 +21,7 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:12fdbeaa401dc0dfa40c7c23241859866acab329d6c6c2b32a003c6b3ac92980",
+      "outputHash": "sha256:17fedc0afc8694c829d3372ceb10b15eb3157b630b38ee51426e5980830700cd",
       "outputPath": "skillset/claude/.claude-plugin/plugin.json",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "skippedSkills": [],
@@ -136,7 +136,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:5a757125014c9d032a7709ab84d40a8538c0b8f4742430b9ae45f6683426ecef",
+  "provenanceHash": "sha256:4d01a6ff3dd0585f40a491594feb47f4faf8bfbd62d9b07c366a29a7fe8584c4",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -153,9 +153,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:c81a4328f9e1cba88b3496ae42181d03692186cefda4abd5d07428e15e835ae4",
+          "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877",
           "ref": "claude-plugin",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-11"
         }
       ],
       "featureId": "plugin-manifests",

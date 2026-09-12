@@ -10,7 +10,7 @@ The Claude [target](../../glossary.md#target) [renders](../../glossary.md#render
 
 ## Provider Shape
 
-Claude plugin manifests can declare native component roots for skills, commands, agents, hooks, MCP servers, LSP servers, output styles, themes, and monitors. Executable helpers under `bin/` are provider-native. Default plugin settings remain outside Skillset's [activation](../../glossary.md#activation) authority: a [build](../../glossary.md#build) may render definitions, but it does not enable a plugin or mutate live Claude settings.
+Claude plugin manifests can declare native component roots for skills, commands, agents, hooks, MCP servers, LSP servers, output styles, themes, and monitors. Skillset renders `skillset.listing.display_name` as the manifest's human-readable `displayName` for Claude Code 2.1.143 and later while preserving `skillset.name` as the component namespace and lookup identity. An explicit `claude.manifest.displayName` wins in the plugin manifest. For marketplace installs, Claude gives an entry-level `displayName` precedence over the manifest label, so `claude.marketplace.displayName` remains the narrower UI override. Executable helpers under `bin/` are provider-native. Default plugin settings remain outside Skillset's [activation](../../glossary.md#activation) authority: a [build](../../glossary.md#build) may render definitions, but it does not enable a plugin or mutate live Claude settings.
 
 Project agents render as Claude Markdown under `.claude/agents/`. Adaptive instruction source renders as Claude rules, preserving path scopes where the provider supports them. Provider-native files remain separate from adaptive source so Claude-specific semantics are visible rather than presented as portable.
 
