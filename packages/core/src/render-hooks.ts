@@ -105,7 +105,9 @@ function renderAdaptiveHookGroup(
     item.attachment.status ?? readString(item.definition.frontmatter, "status");
   const group: JsonRecord = {
     ...(matcher === undefined ? {} : { matcher }),
-    ...(statusMessage === undefined ? {} : { statusMessage }),
+    ...(target === "cursor" || statusMessage === undefined
+      ? {}
+      : { statusMessage }),
     hooks: [
       {
         command: adaptiveHookCommand(

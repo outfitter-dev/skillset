@@ -676,6 +676,48 @@ hooks:
     });
   });
 
+  test("omits portable hook status from Cursor native handlers without changing grouped targets", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-cursor-status
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+      status: Checking shell command
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "echo ok" },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const groupedHooks = {
+      hooks: {
+        PreToolUse: [{
+          hooks: [{ command: "echo ok", type: "command" }],
+          statusMessage: "Checking shell command",
+        }],
+      },
+    };
+    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual(groupedHooks);
+    expect(renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json")).toEqual(groupedHooks);
+    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
+      version: 1,
+      hooks: {
+        preToolUse: [{ command: "echo ok", type: "command" }],
+      },
+    });
+  });
+
   test("renders target-effective plugin hook definitions without leaking portable base values", async () => {
     const graph = await loadBuildGraph(await fixture({
       "skillset.yaml": `
