@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   defaultTargetNames,
+  readCompileAgentStandardsSelection,
   defaultTargets,
   readCompileConfig,
   readCompileTargets,
@@ -91,6 +92,21 @@ describe("target vocabulary", () => {
       plugins: false,
       skills: false,
     } } }, "skillset.yaml").agents).toEqual(readCompileConfig({ compile: { agents: false } }, "skillset.yaml").agents);
+  });
+
+  it("retains only explicit true Agent standards children for profile selection", () => {
+    expect(readCompileAgentStandardsSelection({}, "skillset.yaml").explicitFamilies).toEqual([]);
+    expect(readCompileAgentStandardsSelection({ compile: { agents: true } }, "skillset.yaml").explicitFamilies).toEqual([]);
+    expect(readCompileAgentStandardsSelection({ compile: { agents: {} } }, "skillset.yaml").explicitFamilies).toEqual([]);
+    expect(readCompileAgentStandardsSelection({
+      compile: { agents: { plugins: false } },
+    }, "skillset.yaml")).toEqual({
+      config: { instructions: true, plugins: false, skills: true },
+      explicitFamilies: [],
+    });
+    expect(readCompileAgentStandardsSelection({
+      compile: { agents: { plugins: true } },
+    }, "skillset.yaml").explicitFamilies).toEqual(["plugins"]);
   });
 
   it("allows an explicit empty provider target selection without inventing a target", () => {

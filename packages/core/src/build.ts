@@ -35,6 +35,7 @@ import {
 import { renderBuildGraph } from "./render";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
+import { standardProjectionNonAdoptedDetail, standardProjectionTopology } from "./standard-projections";
 import { renderValidatedJson } from "./structured-output";
 import {
   SkillsetFeatureDiagnosticError,
@@ -58,15 +59,28 @@ type OutPath = (path: string) => string;
 
 const livePath: OutPath = (path) => path;
 
-function assertProviderProjection(graph: BuildGraph): void {
+function assertBuildProjection(graph: BuildGraph): void {
+  assertNoExplicitNonAdoptedStandards(graph);
   if (graph.root.compile.targets.length > 0) return;
+  if (graph.standardProjections.adopted.length > 0) return;
+
   throw new SkillsetFeatureDiagnosticError({
-    code: "no-provider-projections",
+    code: "no-projections",
     featureId: "standard-projections",
     message: [
-      "skillset: no provider projection is selected",
-      "compile.targets: [] is valid source configuration, but adopted standards projections are unavailable until SET-399; select at least one provider target before building",
+      "skillset: no eligible build projection is selected",
+      "compile.targets: [] requires at least one applicable adopted Agent standards profile; enable a provider target or select an applicable adopted Agent standards profile",
     ].join("\n"),
+  });
+}
+
+function assertNoExplicitNonAdoptedStandards(graph: BuildGraph): void {
+  const detail = standardProjectionNonAdoptedDetail(graph.standardProjections);
+  if (detail === undefined) return;
+  throw new SkillsetFeatureDiagnosticError({
+    code: "standard-profile-not-adopted",
+    featureId: "standard-projections",
+    message: `skillset: ${detail}`,
   });
 }
 
@@ -248,7 +262,7 @@ async function buildSkillsetResultInternal(
   inspectionOptions: SkillsetBuildInternalOptions
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertProviderProjection(graph);
+  assertBuildProjection(graph);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1077,7 +1091,7 @@ export async function diffSkillsetResult(
   inspection: SkillsetDiffInspectionOptions = {}
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertProviderProjection(graph);
+  assertBuildProjection(graph);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1159,7 +1173,7 @@ export async function verifySkillsetResult(
   options: SkillsetOptions = {}
 ): Promise<SkillsetVerifyResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertProviderProjection(graph);
+  assertBuildProjection(graph);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1944,6 +1958,14 @@ function isPathInScopes(
 }
 
 function scopeForPath(graph: BuildGraph, path: string): BuildScope {
+  const standardDestination = standardProjectionTopology(
+    graph.standardProjections,
+    graph.plugins.map((plugin) => plugin.id)
+  ).find((destination) =>
+    isInsideOutputRoot(path, destination.path) ||
+    (destination.lockRoot !== "." && isInsideOutputRoot(path, destination.lockRoot))
+  );
+  if (standardDestination !== undefined) return standardDestination.scope;
   if (
     pluginTargetForOutputPath(graph, path) !== undefined ||
     targetNames().some((target) => isInsideOutputRoot(path, graph.root.outputs.plugins[target]))

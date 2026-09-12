@@ -412,7 +412,7 @@ Demo.
     expect((await verifySkillsetResult(root)).ok).toBe(true);
   });
 
-  it("fails before writes when no provider projection is selected", async () => {
+  it("fails before writes for an explicit candidate standards selection", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -442,16 +442,41 @@ Review code carefully.
 skillset:
   name: no-provider-projection
 compile:
-  agents: false
+  agents:
+    skills: true
   targets: []
 `, "utf8");
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "no provider projection is selected"
+      "agent-skills"
     );
     await expect(readFile(codexAgentPath)).resolves.toEqual(agentBefore);
     await expect(readFile(lockPath)).resolves.toEqual(lockBefore);
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
+  });
+
+  it("rejects an explicit candidate standards selection before provider output", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: explicit-candidate
+compile:
+  agents:
+    skills: true
+  targets: [claude]
+`,
+      ".skillset/skills/review/SKILL.md": `
+---
+name: review
+description: Review a change.
+---
+
+Review the change.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow("agent-skills");
+    expect(await Bun.file(join(root, ".claude/skills/review/SKILL.md")).exists()).toBe(false);
   });
 
   it("reports emitted, pass-through, transformed, unsupported, and scoped outcomes", async () => {

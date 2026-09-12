@@ -26,6 +26,7 @@ import {
   readDistributionConfig,
   readMarketplaceCatalogConfig,
   readClaudeBundlePath,
+  readCompileAgentStandardsSelection,
   readOutputConfig,
   readRecord,
   readSkillsetMetadata,
@@ -82,6 +83,12 @@ import { validateSchemaField, validateVersionField } from "./versioning";
 import { workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 import { readSkillsetWorkspaceConfig } from "./xdg";
+import {
+  resolveStandardProjectionPlan,
+  standardProjectionManagedOutputRoots,
+  standardProjectionSourceInventory,
+  standardProjectionTopology,
+} from "./standard-projections";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
@@ -226,13 +233,27 @@ export async function loadBuildGraph(
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
+  const standardProjections = resolveStandardProjectionPlan(
+    compile.agents,
+    standardProjectionSourceInventory({ plugins, rules, standaloneSkills }),
+    readCompileAgentStandardsSelection(rootConfig, workspace.configPath).explicitFamilies
+  );
   validatePluginBundleDestinations(outputs, plugins);
-  const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
+  const outputRootOwners = await outputRootsFor(
+    rootPath,
+    outputs,
+    plugins,
+    standaloneSkills,
+    rules,
+    standardProjections
+  );
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
     { label: "source root", path: sourceRootPath },
   ];
-  validateOutputRoots(rootPath, protectedRoots, outputRoots);
+  validateOutputRoots(rootPath, protectedRoots, outputRootOwners);
+  validateStandardProjectionTopology(rootPath, protectedRoots, standardProjections, plugins);
+  const outputRoots = dedupeOutputRoots(outputRootOwners);
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
 
   const graph: BuildGraph = {
@@ -253,6 +274,7 @@ export async function loadBuildGraph(
     sourcePath,
     sourceRoot,
     sourceRootPath,
+    standardProjections,
     standaloneSkills,
     warnings,
   };
@@ -1446,18 +1468,35 @@ async function outputRootsFor(
   outputs: BuildGraph["root"]["outputs"],
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
-  rules: readonly SourceRule[]
+  rules: readonly SourceRule[],
+  standardProjections: BuildGraph["standardProjections"]
 ): Promise<readonly ActiveOutputRoot[]> {
-  const activeRoots = activeOutputRoots(outputs, plugins, standaloneSkills, rules);
-  const roots = new Map(activeRoots.map((outputRoot) => [outputRoot.path, outputRoot]));
+  const activeRoots = activeOutputRoots(
+    outputs,
+    plugins,
+    standaloneSkills,
+    rules,
+    standardProjections
+  );
+  const roots = [...activeRoots];
+  const activePaths = new Set(activeRoots.map((outputRoot) => outputRoot.path));
 
   for (const outputRoot of configuredOutputRoots(outputs, plugins)) {
-    if (roots.has(outputRoot.path)) continue;
+    if (activePaths.has(outputRoot.path)) continue;
     if (await exists(join(resolveInside(rootPath, outputRoot.path), "skillset.lock"))) {
-      roots.set(outputRoot.path, outputRoot);
+      roots.push(outputRoot);
+      activePaths.add(outputRoot.path);
     }
   }
 
+  return roots.sort((left, right) => compareStrings(left.path, right.path));
+}
+
+function dedupeOutputRoots(outputRoots: readonly ActiveOutputRoot[]): readonly ActiveOutputRoot[] {
+  const roots = new Map<string, ActiveOutputRoot>();
+  for (const outputRoot of outputRoots) {
+    if (!roots.has(outputRoot.path)) roots.set(outputRoot.path, outputRoot);
+  }
   return [...roots.values()].sort((left, right) => compareStrings(left.path, right.path));
 }
 
@@ -1532,9 +1571,16 @@ function activeOutputRoots(
   outputs: BuildGraph["root"]["outputs"],
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
-  rules: readonly SourceRule[]
+  rules: readonly SourceRule[],
+  standardProjections: BuildGraph["standardProjections"]
 ): readonly ActiveOutputRoot[] {
-  const roots: ActiveOutputRoot[] = [];
+  const roots: ActiveOutputRoot[] = standardProjectionManagedOutputRoots(standardProjections)
+    .map((path) => ({
+      label: path === ".agents/skills"
+        ? "standards.agent-skills"
+        : "standards.agent-plugins-1.0",
+      path,
+    }));
   if (rules.some((rule) => rule.targets.claude.enabled)) {
     roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
   }
@@ -1571,6 +1617,23 @@ function normalizeWorkspacePath(path: string): string {
 function isInsidePath(path: string, root: string): boolean {
   const relativePath = relative(root, path);
   return relativePath === "" || (!relativePath.startsWith("..") && !relativePath.includes(`..${sep}`));
+}
+
+function validateStandardProjectionTopology(
+  rootPath: string,
+  protectedRoots: readonly ProtectedRoot[],
+  standardProjections: BuildGraph["standardProjections"],
+  plugins: readonly SourcePlugin[]
+): void {
+  for (const destination of standardProjectionTopology(
+    standardProjections,
+    plugins.map((plugin) => plugin.id)
+  )) {
+    validateOutputRootNotInsideProtectedRoots(rootPath, protectedRoots, {
+      label: "standards." + destination.standardProfile,
+      path: destination.path,
+    });
+  }
 }
 
 function validateProjectRoots(
@@ -1630,7 +1693,7 @@ function defaultProjectRoot(target: TargetName): string {
   return targetDescriptor(target).projectRoot;
 }
 
-function validateOutputRoots(
+export function validateOutputRoots(
   rootPath: string,
   protectedRoots: readonly ProtectedRoot[],
   outputRoots: readonly ActiveOutputRoot[]
@@ -1676,9 +1739,18 @@ function isPluginBundleRootLabel(label: string): boolean {
 
 function canShareOutputRoot(left: ActiveOutputRoot, right: ActiveOutputRoot): boolean {
   const labels = new Set([left.label, right.label]);
-  return left.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
-    right.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
-    [...labels].every((label) => label.startsWith("outputs.plugins."));
+  if (left.path === ".agents/skills" && right.path === ".agents/skills") {
+    return [...labels].every((label) =>
+      label === "standards.agent-skills" || label === "outputs.skills.codex"
+    );
+  }
+  if (left.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
+      right.path === DEFAULT_PLUGIN_OUTPUT_ROOT) {
+    return [...labels].every((label) =>
+      label === "standards.agent-plugins-1.0" || label.startsWith("outputs.plugins.")
+    );
+  }
+  return false;
 }
 
 interface ProtectedRoot {
