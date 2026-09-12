@@ -34,6 +34,27 @@ describe("plugin bundle root ownership", () => {
     expect(providerSourceForPlugin("dist", "claude", { id: "trails" })).toBe("./plugins/trails");
   });
 
+  for (const [catalog, marketplaceRoot] of [["implicit", "plugins"], ["declared", "plugins"], ["implicit", "dist"], ["declared", "dist"]] as const) {
+    it(`renders a ${catalog} Claude catalog without rebasing its explicit source under ${marketplaceRoot}`, async () => {
+      const root = await fixture(undefined, marketplaceRoot);
+      const configPath = join(root, "skillset.yaml");
+      if (catalog === "implicit") {
+        await writeFile(configPath, (await readFile(configPath, "utf8")).replace(
+          "marketplaces:\n  local:\n    targets: [claude]\n    plugins:\n      - plugin: trails\n", ""
+        ));
+      }
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const marketplacePath = marketplaceRoot === "plugins" ? ".claude-plugin/marketplace.json" : "dist/.claude-plugin/marketplace.json";
+      const marketplace = JSON.parse(await readFile(join(root, marketplacePath), "utf8")) as {
+        readonly metadata: Record<string, unknown>;
+        readonly plugins: readonly { readonly name: string; readonly source: string }[];
+      };
+      const expectedSource = marketplaceRoot === "plugins" ? "./plugins/trails/claude" : "./plugins/trails";
+      expect(marketplace.metadata.pluginRoot).toBeUndefined();
+      expect(marketplace.plugins).toContainEqual(expect.objectContaining({ name: "trails", source: expectedSource }));
+    });
+  }
+
   for (const marketplaceRoot of ["plugins", "dist"]) {
     it(`keeps nested-path marketplace and lock provenance consistent under ${marketplaceRoot}`, async () => {
       const root = await fixture("dist/plugins/custom", marketplaceRoot);
