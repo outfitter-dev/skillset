@@ -1707,9 +1707,6 @@
     "plugin-config": {
       "additionalProperties": false,
       "properties": {
-        "agents": {
-          "type": "object"
-        },
         "bin": {
           "anyOf": [
             {
@@ -2369,6 +2366,25 @@
             {
               "additionalProperties": false,
               "properties": {
+                "agents": {
+                  "anyOf": [
+                    {
+                      "const": false
+                    },
+                    {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  ]
+                },
                 "claude": {
                   "anyOf": [
                     {
@@ -2460,6 +2476,11 @@
               "type": "object"
             }
           ]
+        },
+        "compatibility": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
         },
         "cursor": {
           "anyOf": [
@@ -3801,9 +3822,6 @@
     "workspace-config": {
       "additionalProperties": false,
       "properties": {
-        "agents": {
-          "type": "object"
-        },
         "changes": {
           "type": "object"
         },
@@ -3842,6 +3860,28 @@
         "compile": {
           "additionalProperties": false,
           "properties": {
+            "agents": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "instructions": {
+                      "type": "boolean"
+                    },
+                    "plugins": {
+                      "type": "boolean"
+                    },
+                    "skills": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
             "build": {
               "enum": [
                 "all",
@@ -3876,7 +3916,6 @@
                 ],
                 "type": "string"
               },
-              "minItems": 1,
               "type": "array",
               "uniqueItems": true
             },

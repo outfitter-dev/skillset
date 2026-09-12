@@ -56,7 +56,15 @@ export interface CompileFeatureConfig {
   readonly promptArguments: boolean;
 }
 
+/** Selection for the adopted Agent standards family, independent of providers. */
+export interface AgentStandardsConfig {
+  readonly instructions: boolean;
+  readonly plugins: boolean;
+  readonly skills: boolean;
+}
+
 export interface CompileConfig {
+  readonly agents: AgentStandardsConfig;
   readonly build: CompileBuildMode;
   readonly features: CompileFeatureConfig;
   readonly skillset: CompileSkillsetConfig;

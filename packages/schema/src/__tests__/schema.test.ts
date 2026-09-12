@@ -41,6 +41,79 @@ import {
 } from "../index";
 
 describe("@skillset/schema contracts", () => {
+  it("models Agent standards separately from provider targets", () => {
+    for (const agents of [
+      undefined,
+      true,
+      false,
+      {},
+      { instructions: false },
+      { instructions: false, plugins: false, skills: false },
+    ]) {
+      expect(
+        validateWorkspaceConfig({
+          compile: {
+            ...(agents === undefined ? {} : { agents }),
+            targets: [],
+          },
+        }).diagnostics
+      ).toEqual([]);
+    }
+
+    for (const agents of [
+      "yes",
+      { instructions: "no" },
+      { plugins: true, unknown: false },
+    ]) {
+      expect(
+        validateWorkspaceConfig({ compile: { agents } }).diagnostics
+      ).not.toEqual([]);
+    }
+
+    expect(validateWorkspaceConfig({ agents: {} }).diagnostics.map((item) => item.code)).toContain(
+      "schema/workspace-config/key"
+    );
+    expect(validatePluginConfig({ agents: {} }).diagnostics.map((item) => item.code)).toContain(
+      "schema/plugin-config/key"
+    );
+  });
+
+  it("keeps Agent Skills compatibility authored and validates its standard bounds", () => {
+    expect(
+      validateSkillFrontmatter({
+        compatibility: "Requires a checked-out repository.",
+        description: "A compatible skill.",
+        allowed_tools: { agents: ["Read", "Search"] },
+        supports: ["bun >=1.0.0"],
+      }).diagnostics
+    ).toEqual([]);
+
+    expect(
+      validateSkillFrontmatter({
+        compatibility: "",
+        description: "A compatible skill.",
+      }).diagnostics.map((item) => item.code)
+    ).toContain("schema/skill-frontmatter/compatibility");
+    expect(
+      validateSkillFrontmatter({
+        compatibility: "a".repeat(501),
+        description: "A compatible skill.",
+      }).diagnostics.map((item) => item.code)
+    ).toContain("schema/skill-frontmatter/compatibility");
+    expect(
+      validateSkillFrontmatter({
+        compatibility: "😀".repeat(500),
+        description: "A compatible skill.",
+      }).diagnostics
+    ).toEqual([]);
+    expect(
+      validateSkillFrontmatter({
+        compatibility: "😀".repeat(501),
+        description: "A compatible skill.",
+      }).diagnostics.map((item) => item.code)
+    ).toContain("schema/skill-frontmatter/compatibility");
+  });
+
   it("exports stable contract descriptors", () => {
     expect(SKILLSET_SCHEMA_VERSION).toBe("0.1.0");
     expect(RENDERED_METADATA_SCHEMA_KEY).toBe("skillset.schema");
@@ -324,7 +397,6 @@ describe("@skillset/schema contracts", () => {
     const workspaceProperties = workspaceConfigContract.schema
       .properties as Record<string, unknown>;
     expect(Object.keys(workspaceProperties).sort()).toEqual([
-      "agents",
       "changes",
       "claude",
       "codex",
@@ -343,6 +415,20 @@ describe("@skillset/schema contracts", () => {
       properties: Record<string, unknown>;
     };
     expect(compile).toHaveProperty("additionalProperties", false);
+    expect(compile.properties.agents).toEqual({
+      anyOf: [
+        { type: "boolean" },
+        {
+          additionalProperties: false,
+          properties: {
+            instructions: { type: "boolean" },
+            plugins: { type: "boolean" },
+            skills: { type: "boolean" },
+          },
+          type: "object",
+        },
+      ],
+    });
     expect(compile.properties.unsupportedDestination).toEqual({
       enum: ["error", "warn", "skip", "force"],
       type: "string",
@@ -652,7 +738,6 @@ describe("@skillset/schema contracts", () => {
 
   it("owns distinct root, split workspace, source manifest, and plugin key contracts", () => {
     expect(SINGLE_FILE_ROOT_CONFIG_KEYS).toEqual([
-      "agents",
       "changes",
       "claude",
       "codex",
@@ -667,7 +752,6 @@ describe("@skillset/schema contracts", () => {
       "workspace",
     ]);
     expect(SPLIT_WORKSPACE_CONFIG_KEYS).toEqual([
-      "agents",
       "changes",
       "claude",
       "codex",
@@ -685,7 +769,6 @@ describe("@skillset/schema contracts", () => {
       "supports",
     ]);
     expect(PLUGIN_CONFIG_KEYS).toEqual([
-      "agents",
       "changes",
       "claude",
       "codex",

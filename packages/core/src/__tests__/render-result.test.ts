@@ -90,6 +90,19 @@ describe("render results", () => {
     expect(serializeRenderResult(outcome)).toContain('"status": "intentionally_skipped"');
   });
 
+  it("keeps standards identity separate from provider targets", () => {
+    const outcome = defineRenderResult({
+      featureId: "standalone-skills",
+      sourceUnit: "skill:demo",
+      standardProfile: "agent-skills",
+      status: "rendered",
+    });
+
+    expect(outcome.target).toBeUndefined();
+    expect(outcome.standardProfile).toBe("agent-skills");
+    expect(serializeRenderResult(outcome)).toContain('"standardProfile": "agent-skills"');
+  });
+
   it("can represent multiple outputs from one source unit", () => {
     const outcome = defineRenderResult({
       featureId: "plugin-manifests",
@@ -131,6 +144,15 @@ describe("render results", () => {
         status: "rendered",
       })
     ).toThrow("featureId is required");
+    expect(() =>
+      defineRenderResult({
+        featureId: "standalone-skills",
+        sourceUnit: "skill:demo",
+        standardProfile: "agent-skills",
+        status: "rendered",
+        target: "codex",
+      })
+    ).toThrow("cannot name both a provider target and a standardProfile");
     expect(() =>
       defineRenderResult({
         featureId: "project-instructions",

@@ -1,4 +1,7 @@
 allowed_tools:
+  agents:
+    - Read
+    - Write
   claude:
     - Read
     - Write
@@ -12,6 +15,7 @@ claude:
     - Write
 codex:
   model: gpt-5.1-codex
+compatibility: Requires the docs CLI to be available in the workspace.
 dependencies:
   plugins:
     - name: docs

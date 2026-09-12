@@ -357,8 +357,101 @@ Demo.
     );
     expect(migrated.writes.writtenPaths).toContain(".agents/skills/skillset.lock");
     expect((await stat(outputScript)).mode & 0o777).toBe(0o755);
-    expect((await readJson(lockPath)).schemaVersion).toBe(2);
+    expect((await readJson(lockPath)).schemaVersion).toBe(3);
+    expect((await readJson(lockPath)).selectedStandards).toEqual([]);
     expect((await verifySkillsetResult(root)).ok).toBe(true);
+  });
+
+  it("upgrades coherent schema-v2 locks with file modes without a false managed-edit backup", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: legacy-v2-lock-mode
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Demo.
+`,
+      ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho legacy\n",
+    });
+    const sourceScript = join(root, ".skillset/shared/scripts/run.sh");
+    await chmod(sourceScript, 0o755);
+    await buildSkillsetResult(root);
+
+    const outputRoot = join(root, ".agents/skills");
+    const lockPath = join(outputRoot, "skillset.lock");
+    const legacy = await readJson(lockPath) as {
+      items: Array<{ fileModes?: Record<string, string>; files: string[]; outputHash: string }>;
+      provenanceHash?: string;
+      schemaVersion: number;
+      selectedStandards?: unknown;
+    };
+    legacy.schemaVersion = 2;
+    delete legacy.provenanceHash;
+    delete legacy.selectedStandards;
+    await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
+
+    const migrated = await buildSkillsetResult(root);
+    expect(migrated.writes.backupRunId).toBeUndefined();
+    expect(migrated.writes.backupRecords).toBeUndefined();
+    expect(migrated.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      outputPath: ".agents/skills/skillset.lock",
+    }));
+    expect((await readJson(lockPath)).schemaVersion).toBe(3);
+    expect((await verifySkillsetResult(root)).ok).toBe(true);
+  });
+
+  it("fails before writes when no provider projection is selected", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: no-provider-projection
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews code.
+---
+
+Review code carefully.
+`,
+    });
+    await buildSkillsetResult(root);
+    const codexAgentPath = join(root, ".codex/agents/reviewer.toml");
+    const lockPath = join(root, "skillset.lock");
+    const [agentBefore, lockBefore] = await Promise.all([
+      readFile(codexAgentPath),
+      readFile(lockPath),
+    ]);
+
+    await writeFile(join(root, "skillset.yaml"), `
+skillset:
+  name: no-provider-projection
+compile:
+  agents: false
+  targets: []
+`, "utf8");
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "no provider projection is selected"
+    );
+    await expect(readFile(codexAgentPath)).resolves.toEqual(agentBefore);
+    await expect(readFile(lockPath)).resolves.toEqual(lockBefore);
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });
 
   it("reports emitted, pass-through, transformed, unsupported, and scoped outcomes", async () => {

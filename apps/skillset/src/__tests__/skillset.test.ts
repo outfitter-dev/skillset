@@ -5308,9 +5308,6 @@ skillset:
   await expect(loadBuildGraph(await withCompileTargets("codex"))).rejects.toThrow(
     "compile.targets to be a string array"
   );
-  await expect(loadBuildGraph(await withCompileTargets("[]"))).rejects.toThrow(
-    "compile.targets to include at least one target"
-  );
   await expect(loadBuildGraph(await withCompileTargets("[codex, agents]"))).rejects.toThrow(
     "unsupported target \"agents\""
   );
