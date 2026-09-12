@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 
 import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
+import { parseGeneratedLock, type ParsedGeneratedLockItem } from "./generated-lock";
 import { compareStrings, resolveInside } from "./path";
 import {
   formatGeneratedFileMode,
@@ -132,20 +133,22 @@ interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "recor
 }
 
 interface ParsedLock {
-  readonly items: readonly ParsedLockItem[];
-  readonly legacyRoot?: boolean;
+  readonly items: readonly ParsedGeneratedLockItem[];
   readonly schemaVersion: 1 | 2 | 3;
-}
-
-interface ParsedLockItem {
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
-  readonly files: readonly string[];
-  readonly outputHash?: string;
 }
 
 interface LockFileEntry {
   readonly displayPath: string;
   readonly file: string;
+}
+
+/**
+ * Current logical projections used to distinguish an active provider's
+ * recoverable files from stale standard-owned cleanup candidates in a shared
+ * physical lock root.
+ */
+export interface ManagedOutputProvenancePolicy {
+  readonly activeRenderedPaths: ReadonlySet<string>;
 }
 
 export async function readManagedOutputState(
@@ -154,18 +157,20 @@ export async function readManagedOutputState(
   includeWorkspaceLock: boolean,
   outPath: OutPath,
   resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path),
-  displayOutputPath: OutputPathDisplayMapper = (absolutePath) => relative(rootPath, absolutePath)
+  _displayOutputPath: OutputPathDisplayMapper = (absolutePath) => relative(rootPath, absolutePath),
+  strictOutputRoots: ReadonlySet<string> = new Set(),
+  provenancePolicy?: ManagedOutputProvenancePolicy
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
   const editedPaths = new Set<string>();
   let hasBaseline = false;
 
   if (includeWorkspaceLock) {
-    hasBaseline = (await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths, resolveOutputPath, displayOutputPath)) || hasBaseline;
+    hasBaseline = (await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths, resolveOutputPath, false, provenancePolicy)) || hasBaseline;
   }
 
   for (const outputRoot of liveOutputRoots) {
-    hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths, resolveOutputPath, displayOutputPath)) || hasBaseline;
+    hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths, resolveOutputPath, strictOutputRoots.has(outputRoot), provenancePolicy)) || hasBaseline;
   }
 
   return { editedPaths, hasBaseline, paths };
@@ -531,21 +536,23 @@ async function addManagedPathsFromLock(
   paths: Set<string>,
   editedPaths: Set<string>,
   resolveOutputPath: OutputPathResolver,
-  displayOutputPath: OutputPathDisplayMapper
+  requireProvenance: boolean,
+  provenancePolicy: ManagedOutputProvenancePolicy | undefined
 ): Promise<boolean> {
   const displayLockPath = outPath(lockPath);
   const absoluteLockPath = resolveOutputPath(displayLockPath);
   if (!(await exists(absoluteLockPath))) return false;
 
-  const lock = await readManagedLock(lockPath, displayLockPath, expectedOutputRoot, resolveOutputPath);
+  const lock = await readManagedLock(
+    lockPath,
+    displayLockPath,
+    expectedOutputRoot,
+    resolveOutputPath,
+    requireProvenance,
+    outPath,
+    provenancePolicy
+  );
   paths.add(displayLockPath);
-
-  if (lock.legacyRoot === true) {
-    const displayOutputRoot = outPath(expectedOutputRoot);
-    for (const file of await collectFiles(resolveOutputPath(displayOutputRoot))) {
-      paths.add(displayOutputPath(file));
-    }
-  }
 
   for (const item of lock.items) {
     const files = item.files
@@ -570,7 +577,10 @@ async function readManagedLock(
   lockPath: string,
   displayLockPath: string,
   expectedOutputRoot: string,
-  resolveOutputPath: OutputPathResolver
+  resolveOutputPath: OutputPathResolver,
+  requireProvenance: boolean,
+  outPath: OutPath,
+  provenancePolicy: ManagedOutputProvenancePolicy | undefined
 ): Promise<ParsedLock> {
   let parsed: unknown;
   try {
@@ -580,88 +590,56 @@ async function readManagedLock(
     throw corruptManagedLock(lockPath, displayLockPath, `it is not valid JSON: ${message}`);
   }
 
-  if (!isRecord(parsed) || typeof parsed.generatedBy !== "string") {
-    throw corruptManagedLock(lockPath, displayLockPath, "it is missing a string generatedBy field");
+  let lock;
+  try {
+    lock = parseGeneratedLock(
+      parsed,
+      displayLockPath,
+      requireProvenance ? { provenance: "require" } : { provenance: "inspect" }
+    );
+    if (
+      !requireProvenance &&
+      requiresProvenanceForStaleStandardCleanup(
+        lock,
+        expectedOutputRoot,
+        outPath,
+        provenancePolicy
+      )
+    ) {
+      lock = parseGeneratedLock(parsed, displayLockPath, { provenance: "require" });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw corruptManagedLock(lockPath, displayLockPath, message);
   }
-  if (!parsed.generatedBy.startsWith("skillset@")) {
-    throw corruptManagedLock(lockPath, displayLockPath, `its generatedBy ${JSON.stringify(parsed.generatedBy)} is not a skillset lock`);
-  }
-  if (
-    lockPath !== WORKSPACE_LOCK_FILE &&
-    parsed.outputRoot === undefined &&
-    parsed.items === undefined
-  ) {
-    return { items: [], legacyRoot: true, schemaVersion: 1 };
-  }
-  if (parsed.outputRoot !== expectedOutputRoot) {
+  if (lock.outputRoot !== expectedOutputRoot) {
     const expected = expectedOutputRoot === "." ? "the workspace root" : JSON.stringify(expectedOutputRoot);
-    throw corruptManagedLock(lockPath, displayLockPath, `its outputRoot ${JSON.stringify(parsed.outputRoot)} is not ${expected}`);
+    throw corruptManagedLock(lockPath, displayLockPath, `its outputRoot ${JSON.stringify(lock.outputRoot)} is not ${expected}`);
   }
-  if (!Array.isArray(parsed.items)) {
-    throw corruptManagedLock(lockPath, displayLockPath, "its items field is not an array");
-  }
-
-  const schemaVersion = parsed.schemaVersion === 3 ? 3 : parsed.schemaVersion === 2 ? 2 : 1;
   return {
-    items: parsed.items.map((item) => parseLockItem(lockPath, displayLockPath, item, schemaVersion)),
-    schemaVersion,
+    items: lock.items,
+    schemaVersion: lock.schemaVersion,
   };
 }
 
-function parseLockItem(
-  lockPath: string,
-  displayLockPath: string,
-  value: unknown,
-  schemaVersion: 1 | 2 | 3
-): ParsedLockItem {
-  if (!isRecord(value) || !Array.isArray(value.files)) {
-    throw corruptManagedLock(lockPath, displayLockPath, "one of its items is missing a files array");
-  }
-  const files = value.files.map((file) => {
-    if (typeof file !== "string" || file.trim().length === 0) {
-      throw corruptManagedLock(lockPath, displayLockPath, "one of its tracked file entries is not a non-empty string");
-    }
-    return file;
-  });
-  const outputHash = value.outputHash;
-  if (outputHash !== undefined && typeof outputHash !== "string") {
-    throw corruptManagedLock(lockPath, displayLockPath, "one of its items has a non-string outputHash");
-  }
-  const fileModes = parseLockFileModes(lockPath, displayLockPath, value.fileModes, files, schemaVersion);
-  return {
-    ...(fileModes === undefined ? {} : { fileModes }),
-    files,
-    ...(outputHash === undefined ? {} : { outputHash }),
-  };
-}
-
-function parseLockFileModes(
-  lockPath: string,
-  displayLockPath: string,
-  value: unknown,
-  files: readonly string[],
-  schemaVersion: 1 | 2 | 3
-): Readonly<Record<string, "0644" | "0755">> | undefined {
-  if (schemaVersion === 1 && value === undefined) return undefined;
-  if (!isRecord(value)) {
-    throw corruptManagedLock(lockPath, displayLockPath, "one of its versioned items is missing a fileModes object");
-  }
-  const modes: Record<string, "0644" | "0755"> = {};
-  for (const [file, mode] of Object.entries(value)) {
-    if ((mode !== "0644" && mode !== "0755")) {
-      throw corruptManagedLock(lockPath, displayLockPath, "one of its items has invalid fileModes evidence");
-    }
-    modes[file] = mode;
-  }
-  if (files.some((file) => modes[file] === undefined)) {
-    throw corruptManagedLock(lockPath, displayLockPath, "one of its versioned items has incomplete fileModes evidence");
-  }
-  return modes;
+function requiresProvenanceForStaleStandardCleanup(
+  lock: ParsedLock,
+  outputRoot: string,
+  outPath: OutPath,
+  policy: ManagedOutputProvenancePolicy | undefined
+): boolean {
+  if (policy === undefined) return false;
+  return lock.items.some((item) =>
+    item.consumers.some((consumer) => "standardProfile" in consumer) &&
+    item.files.some(
+      (file) => !policy.activeRenderedPaths.has(outPath(joinOutputRoot(outputRoot, file)))
+    )
+  );
 }
 
 async function currentOutputHash(
   files: readonly LockFileEntry[],
-  item: ParsedLockItem,
+  item: ParsedGeneratedLockItem,
   schemaVersion: 1 | 2 | 3,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
@@ -1533,21 +1511,6 @@ async function exists(path: string): Promise<boolean> {
 function isNotFound(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error &&
     (error.code === "ENOENT" || error.code === "ENOTDIR");
-}
-
-async function collectFiles(root: string): Promise<readonly string[]> {
-  if (!(await exists(root))) return [];
-  const entries = await readdir(root, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectFiles(path)));
-    } else if (entry.isFile()) {
-      files.push(path);
-    }
-  }
-  return files;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

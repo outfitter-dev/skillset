@@ -331,7 +331,7 @@ Body.
     });
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      /plugins\.trails\.claude\.bundle \(plugins\/nested\) must not overlap output root outputs\.plugins\.claude \(plugins\)/
+      /plugins\.trails\.claude\.bundle \(plugins\/nested\) must not overlap output root standards\.agent-plugins-1\.0 \(plugins\)/
     );
   });
 
@@ -373,7 +373,7 @@ claude:
     });
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      /plugins\.trails\.claude\.bundle reuses output root plugins; already used by outputs\.plugins\./
+      /plugins\.trails\.claude\.bundle reuses output root plugins; already used by standards\.agent-plugins-1\.0 \(plugins\)/
     );
   });
 });

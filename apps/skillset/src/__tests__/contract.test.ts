@@ -8260,7 +8260,7 @@ description: Demo.
 Body.
 `,
   });
-  await expect(buildSkillset(generatedRoot)).rejects.toThrow("inside generated output root outputs.plugins.claude");
+  await expect(buildSkillset(generatedRoot)).rejects.toThrow("inside generated output root standards.agent-plugins-1.0");
 
   const missingRoot = await contractFixture({
     "skillset.yaml": `
@@ -8978,6 +8978,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
     items: [],
     outputRoot: ".",
     schemaVersion: 1,
+    selectedTargets: [],
     target: "workspace",
   });
   expect(readme).toContain("# my-skillset");

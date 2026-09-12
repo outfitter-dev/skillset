@@ -861,6 +861,7 @@ function emptyWorkspaceLock(): string {
     "  \"generatedBy\": \"skillset@0.1.0\",",
     "  \"outputRoot\": \".\",",
     "  \"target\": \"workspace\",",
+    "  \"selectedTargets\": [],",
     "  \"items\": []",
     "}",
     "",

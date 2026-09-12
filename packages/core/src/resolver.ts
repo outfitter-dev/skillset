@@ -85,6 +85,7 @@ import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 import { readSkillsetWorkspaceConfig } from "./xdg";
 import {
   resolveStandardProjectionPlan,
+  standardProjectionKnownManagedOutputRoots,
   standardProjectionManagedOutputRoots,
   standardProjectionSourceInventory,
   standardProjectionTopology,
@@ -1505,6 +1506,7 @@ function configuredOutputRoots(
   plugins: readonly SourcePlugin[] = []
 ): readonly ActiveOutputRoot[] {
   return [
+    ...standardProjectionKnownManagedOutputRoots(),
     { label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT },
     ...targetNames().flatMap((target) => [
       { label: `outputs.plugins.${target}`, path: outputs.plugins[target] },
