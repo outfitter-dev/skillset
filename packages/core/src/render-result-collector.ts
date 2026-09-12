@@ -44,6 +44,10 @@ import {
   pluginManifestAuthor,
 } from "./render-plugin-manifest";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
+import {
+  agentSkillSourceUnit,
+  agentSkillStandardProjectionIssues,
+} from "./render-agent-skills-standard";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import {
   readClaudeNativeToolRules,
@@ -130,6 +134,7 @@ export function collectRenderResults(
 ): readonly SkillsetRenderResult[] {
   const mapOutputPath = options.mapOutputPath ?? ((path: string) => path);
   const outcomes: SkillsetRenderResult[] = [];
+  const lockOutcomes: SkillsetRenderResult[] = [];
   const assignedOutputPaths = new Set<string>();
   const renderedOutputPaths = rendered
     .filter(
@@ -145,7 +150,17 @@ export function collectRenderResults(
       const primaryOutputPaths = primaryOutputPathsForLockItem(item, outputPaths);
       for (const path of primaryOutputPaths) assignedOutputPaths.add(path);
       for (const subject of resultSubjectsForLockItem(graph, lock, item, outputPaths)) {
-        outcomes.push(outcomeForLockItem(graph, item, primaryOutputPaths, options.includedPaths, mapOutputPath, subject));
+        appendEquivalentLockOutcome(
+          lockOutcomes,
+          outcomeForLockItem(
+            graph,
+            item,
+            primaryOutputPaths,
+            options.includedPaths,
+            mapOutputPath,
+            subject
+          )
+        );
         outcomes.push(
           ...featureOutcomesForLockItem(
             graph,
@@ -160,6 +175,7 @@ export function collectRenderResults(
       }
     }
   }
+  outcomes.push(...lockOutcomes);
 
   for (const item of adaptivePluginHookOutcomes(
     graph,
@@ -181,6 +197,7 @@ export function collectRenderResults(
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
   outcomes.push(
     ...claudeMarketplaceAuthorOutcomes(
       graph,
@@ -205,6 +222,72 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+function appendEquivalentLockOutcome(
+  outcomes: SkillsetRenderResult[],
+  candidate: SkillsetRenderResult
+): void {
+  const candidateIdentity = renderResultWithoutOutputs(candidate);
+  const existingIndex = outcomes.findIndex(
+    (outcome) => renderResultWithoutOutputs(outcome) === candidateIdentity
+  );
+  if (existingIndex === -1) {
+    outcomes.push(candidate);
+    return;
+  }
+
+  const existing = outcomes[existingIndex];
+  if (existing === undefined) return;
+  const outputs = [...(existing.outputs ?? []), ...(candidate.outputs ?? [])]
+    .filter(
+      (output, index, all) =>
+        all.findIndex(
+          (item) => item.kind === output.kind && item.path === output.path
+        ) === index
+    )
+    .sort((left, right) =>
+      compareStrings(
+        `${left.path}\0${left.kind ?? ""}`,
+        `${right.path}\0${right.kind ?? ""}`
+      )
+    );
+  outcomes[existingIndex] = defineRenderResult({
+    ...existing,
+    ...(outputs.length === 0 ? {} : { outputs }),
+  });
+}
+
+function renderResultWithoutOutputs(outcome: SkillsetRenderResult): string {
+  const { outputs: _outputs, ...identity } = outcome;
+  return JSON.stringify(identity);
+}
+
+function unsupportedAgentSkillStandardOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  return agentSkillStandardProjectionIssues(graph, scopes).map((item) => {
+    const sourcePath = normalizePath(
+      relative(graph.rootPath, item.skill.sourcePath)
+    );
+    return defineRenderResult({
+      destination: "skill",
+      diagnostics: item.issues.map((issue) => ({
+        code: issue.code,
+        message: issue.message,
+        path: issue.path,
+      })),
+      featureId:
+        item.plugin === undefined ? "standalone-skills" : "plugin-skills",
+      policy: "unsupported:error",
+      reason: item.issues.map((issue) => issue.message).join("; "),
+      sourcePath,
+      sourceUnit: agentSkillSourceUnit(item.plugin, item.skill),
+      standardProfile: item.standardProfile,
+      status: "unsupported",
+    });
+  });
 }
 
 interface AdaptivePluginHookOutcome {
