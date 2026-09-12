@@ -197,6 +197,7 @@ export function collectRenderResults(
   }
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedMcpOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentPluginStandardOutcomes(graph, options.scopes));
@@ -1099,6 +1100,33 @@ function featureOutcomesForLockItem(
   const { standardProfile, target } = subject;
   const outcomes: SkillsetRenderResult[] = [];
 
+  if (item.kind === "plugin" && standardProfile === "agent-plugins-1.0") {
+    const mcpOutputPaths = outputPaths.filter((path) =>
+      path.endsWith("/agents/mcp.json")
+    );
+    const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
+    const feature = plugin?.features.find(
+      (candidate) => candidate.key === "mcp"
+    );
+    if (feature !== undefined && mcpOutputPaths.length > 0) {
+      outcomes.push(
+        featureOutcome({
+          destination: "mcp",
+          featureId: "plugin-mcp",
+          isIncluded: mcpOutputPaths.some((path) => includedPaths.has(path)),
+          mapOutputPath,
+          outputKind: "plugin",
+          outputPaths: mcpOutputPaths,
+          sourcePath: normalizeSourcePath(graph, feature.sourcePath),
+          sourceUnit: selectorForPluginFeature(item.name, "mcp"),
+          standardProfile,
+          status: "rendered",
+          target,
+        })
+      );
+    }
+  }
+
   if (item.kind === "plugin" && item.dependencies !== undefined && item.dependencies.length > 0) {
     const supportedDependencyStatus = dependencyRenderStatus(target, standardProfile);
     const dependencyDestination =
@@ -1696,6 +1724,92 @@ function unsupportedAgentPluginStandardOutcomes(
     }
   }
   return outcomes;
+}
+
+function unsupportedMcpOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (scopes !== undefined && !scopes.includes("plugins")) return [];
+  const outcomes: SkillsetRenderResult[] = [];
+  const standardSelected =
+    graph.root.compile.agents.plugins &&
+    graph.standardProjections.adopted.includes("agent-plugins-1.0");
+  for (const plugin of graph.plugins) {
+    const feature = plugin.features.find((candidate) => candidate.key === "mcp");
+    const model = feature?.portableMcp;
+    if (feature === undefined || model === undefined) continue;
+    const sourcePath = normalizePath(
+      relative(graph.rootPath, feature.sourcePath)
+    );
+    const sourceUnit = selectorForPluginFeature(plugin.id, feature.key);
+
+    if (standardSelected) {
+      for (const entry of model.unsupported) {
+        outcomes.push(
+          defineRenderResult({
+            destination: "mcp",
+            featureId: "plugin-mcp",
+            policy: "unsupported:error",
+            reason: unsupportedMcpReason(entry),
+            sourcePath,
+            sourceUnit,
+            standardProfile: "agent-plugins-1.0",
+            status: "unsupported",
+          })
+        );
+      }
+    }
+
+    for (const target of TARGETS) {
+      if (!pluginTargetSelected(graph, plugin.id, target)) continue;
+      for (const entry of model.unsupported) {
+        outcomes.push(
+          defineRenderResult({
+            destination: "mcp",
+            featureId: "plugin-mcp",
+            policy: "unsupported:error",
+            reason: unsupportedMcpReason(entry),
+            sourcePath,
+            sourceUnit,
+            status: "unsupported",
+            target,
+          })
+        );
+      }
+      for (const entry of model.providerUnsupported.filter(
+        (candidate) => candidate.target === target
+      )) {
+        outcomes.push(
+          defineRenderResult({
+            destination: "mcp",
+            evidence: entry.evidence.sources.map((source) => ({
+              kind: "external-docs",
+              note: source.note,
+              ref: source.url,
+              verifiedAt: entry.evidence.observedAt,
+            })),
+            featureId: "plugin-mcp",
+            policy: "unsupported:error",
+            reason: `MCP server ${entry.name} is unsupported: ${entry.reason}`,
+            sourcePath,
+            sourceUnit,
+            status: "unsupported",
+            target,
+          })
+        );
+      }
+    }
+  }
+  return outcomes;
+}
+
+function unsupportedMcpReason(entry: {
+  readonly fields: readonly string[];
+  readonly name: string;
+  readonly reason: string;
+}): string {
+  return `MCP server ${entry.name} is unsupported: ${entry.reason}; fields: ${entry.fields.join(", ")}`;
 }
 
 function unsupportedAgentPluginFeatureOutcome(args: {

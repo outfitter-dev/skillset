@@ -353,7 +353,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/render.ts",
     sourceShape: "plugin mcp/source pointer or conventional .mcp.json",
     status: "implemented",
-    summary: "Copies validated plugin MCP server definitions into generated provider plugin outputs.",
+    summary: "Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
       docs("docs/reference/features/mcp-servers.md"),
     ], {

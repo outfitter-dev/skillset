@@ -51,6 +51,7 @@ import {
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
+import { parsePortableMcpSource } from "./portable-mcp";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
@@ -1144,26 +1145,32 @@ async function loadPluginFeature(
     throw new Error(`skillset: plugin ${pluginId} feature bin source must be a directory`);
   }
 
+  if (key === "mcp") {
+    const portableMcp = await parsePortableMcpSource({
+      pluginRoot: pluginPath,
+      sourcePath,
+    });
+    return {
+      key,
+      origin,
+      portableMcp,
+      sourcePath,
+      ...(sourcePointer === undefined ? {} : { sourcePointer }),
+      subjects: [
+        ...Object.keys(portableMcp.servers),
+        ...portableMcp.unsupported.map((entry) => entry.name),
+      ].sort(compareStrings),
+      targetPath,
+    };
+  }
+
   return {
     key,
     origin,
     sourcePath,
     ...(sourcePointer === undefined ? {} : { sourcePointer }),
-    ...(key === "mcp" ? { subjects: await readMcpServerSubjects(sourcePath) } : {}),
     targetPath,
   };
-}
-
-async function readMcpServerSubjects(sourcePath: string): Promise<readonly string[]> {
-  let parsed: JsonValue;
-  try {
-    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
-  } catch {
-    // Existing structured-output validation owns the user-facing invalid JSON diagnostic.
-    return [];
-  }
-  if (!isJsonRecord(parsed) || !isJsonRecord(parsed.mcpServers)) return [];
-  return Object.keys(parsed.mcpServers).sort(compareStrings);
 }
 
 function pluginFeatureTargetPath(key: SourcePluginFeatureKey): string {

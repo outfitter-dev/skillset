@@ -106,8 +106,13 @@ import {
 } from "./render-agent-skills";
 import {
   classifyAgentPluginStandard,
+  copyAgentPluginSupportPath,
   renderAgentPluginStandardPackages,
 } from "./render-agent-plugins-standard";
+import {
+  providerMcpSupportPaths,
+  renderProviderMcp,
+} from "./portable-mcp";
 import {
   renderCodexSkillAgentFile,
   renderSkillToolsMetadataFile,
@@ -1433,7 +1438,35 @@ async function renderPluginFeatureFiles(
   for (const feature of plugin.features) {
     if (!pluginFeatureSupportsTarget(feature, target)) continue;
     const targetPath = pluginFeatureTargetPath(feature, target);
-    const files = (await copyPath(feature.sourcePath, join(basePath, targetPath)))
+    const featureFiles =
+      feature.key === "mcp"
+        ? [
+            textFile(
+              join(basePath, targetPath),
+              renderValidatedJson(
+                renderProviderMcp(requiredPortableMcp(feature), target),
+                `${plugin.id} ${target} MCP`
+              ),
+              relative(graph.rootPath, feature.sourcePath)
+            ),
+            ...(
+              await Promise.all(
+                providerMcpSupportPaths(
+                  requiredPortableMcp(feature),
+                  target
+                ).map((supportPath) =>
+                  copyAgentPluginSupportPath(
+                    graph,
+                    plugin,
+                    basePath,
+                    supportPath
+                  )
+                )
+              )
+            ).flat(),
+          ]
+        : await copyPath(feature.sourcePath, join(basePath, targetPath));
+    const files = featureFiles
       .filter((file) => !file.path.endsWith(".gitkeep"))
       .map((file) =>
         pluginFeatureValidation(feature) === "structured"
@@ -1454,6 +1487,13 @@ async function renderPluginFeatureFiles(
     );
   }
   return rendered;
+}
+
+function requiredPortableMcp(feature: SourcePluginFeature) {
+  if (feature.portableMcp !== undefined) return feature.portableMcp;
+  throw new Error(
+    `skillset: MCP feature ${feature.sourcePath} has no parsed portable model`
+  );
 }
 
 function pluginFeatureSupportsTarget(feature: SourcePluginFeature, target: TargetName): boolean {
