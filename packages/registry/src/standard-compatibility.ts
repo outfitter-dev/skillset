@@ -123,13 +123,12 @@ const assertMethodSets = (entry: StandardCompatibilityEntry): void => {
   const optional = new Set(entry.optionalMethods);
   if (
     required.size === 0 ||
-    optional.size === 0 ||
     required.size !== entry.requiredMethods.length ||
     optional.size !== entry.optionalMethods.length ||
     entry.requiredMethods.some((method) => optional.has(method))
   ) {
     throw new Error(
-      `skillset: standard compatibility entry ${entry.id} requires unique, non-empty, disjoint method sets`
+      `skillset: standard compatibility entry ${entry.id} requires unique, non-empty required methods disjoint from optional methods`
     );
   }
 };

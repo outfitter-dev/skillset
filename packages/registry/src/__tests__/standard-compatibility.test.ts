@@ -238,7 +238,15 @@ describe("SET-513 standard compatibility evidence", () => {
           },
         ],
       })
-    ).toThrow("unique, non-empty, disjoint method sets");
+    ).toThrow(
+      "unique, non-empty required methods disjoint from optional methods"
+    );
+    expect(() =>
+      defineStandardCompatibilityRegistry({
+        consumers: [],
+        standards: [{ ...standard, optionalMethods: [] }],
+      })
+    ).not.toThrow();
   });
 
   test("rejects invalid discriminants, empty required text, and consumer bounds above the standard", () => {
