@@ -136,8 +136,9 @@ must not invent fake target behavior.
 Claude plugin-manifest display labels require Claude Code 2.1.143 or later.
 The boundary was verified against Anthropic's immutable packages on 2026-09-11:
 2.1.142 rejects `displayName` as an unrecognized key, 2.1.143 accepts it, and
-Skillset's pinned 2.1.233 product validator accepts the generated field with
-`claude plugin validate --strict`.
+the generated field passed Skillset's then-pinned 2.1.233 product validator
+with `claude plugin validate --strict`. The current validation pin and hosted
+receipt are tracked in [Hosted provider validation](../reference/provider-validation.md).
 
 The Claude precedence chain is explicit. `skillset.listing.display_name`
 provides the generated plugin-manifest default, then
@@ -285,6 +286,6 @@ accepted contract.
 - [Claude plugin manifest metadata](https://code.claude.com/docs/en/plugins-reference#metadata-fields) - `displayName` UI behavior, fallback, identity boundary, and marketplace precedence.
 - [Claude Code 2.1.142 package](https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.142.tgz) - immutable negative-boundary validator artifact.
 - [Claude Code 2.1.143 package](https://registry.npmjs.org/@anthropic-ai/claude-code-darwin-arm64/-/claude-code-darwin-arm64-2.1.143.tgz) - immutable first-accepting validator artifact.
-- [Hosted provider validation](../reference/provider-validation.md) - Skillset's exact Claude Code 2.1.233 validation pin and evidence boundary.
+- [Hosted provider validation](../reference/provider-validation.md) - current Claude validation pin, hosted receipt, and evidence boundary; this ADR retains 2.1.233 only as SET-523 acceptance evidence.
 - Linear: SET-203 - manifest `listing` block and source vocabulary cutover.
 - Linear document: Skillset DX - manifest and change-state redesign.
