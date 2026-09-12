@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { chmod, mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  mkdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,6 +49,7 @@ import {
   withOptionalSurfacePaths,
 } from "../render-plugin-manifest";
 import { renderRules } from "../render-rules";
+import { planAgentInstructionProjections } from "../render-standard-instructions";
 import {
   copyPath,
   exists,
@@ -57,6 +65,7 @@ const OWNER_MODULES = [
   "render-marketplaces",
   "render-plugin-manifest",
   "render-rules",
+  "render-standard-instructions",
   "render-support",
 ] as const;
 
@@ -88,6 +97,7 @@ const OWNED_FUNCTIONS = {
     "withOptionalSurfacePaths",
   ],
   "render-rules": ["renderRules"],
+  "render-standard-instructions": ["planAgentInstructionProjections"],
   "render-support": [
     "copyFileFromSource",
     "copyPath",
@@ -133,6 +143,7 @@ describe("render owner boundaries", () => {
       "render-hooks->render-support",
       "render-marketplaces->render-support",
       "render-plugin-manifest->render-hooks",
+      "render-rules->render-standard-instructions",
       "render-rules->render-support",
     ]);
     expect(leafEdges.some((edge) => edge.endsWith("->render"))).toBe(false);
@@ -173,6 +184,7 @@ describe("render owner boundaries", () => {
         pluginManifestAuthor,
         withOptionalSurfacePaths,
         renderRules,
+        planAgentInstructionProjections,
         renderAdaptivePluginHookFiles,
         hasAdaptivePluginHookOutput,
         hasAdaptivePluginHookSources,

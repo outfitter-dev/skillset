@@ -4,6 +4,11 @@ import { dirname, join, relative, resolve } from "node:path";
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
 import { readString } from "./config";
+import type {
+  LogicalRenderedFile,
+  OutputConsumer,
+  OutputOwner,
+} from "./output-plan";
 import { compareStrings } from "./path";
 import {
   formatPreprocessDependency,
@@ -20,6 +25,7 @@ import {
   type LockRoot,
 } from "./render-support";
 import { renderValidatedMarkdown } from "./structured-output";
+import { planAgentInstructionProjections } from "./render-standard-instructions";
 import { targetDescriptor } from "./targets";
 import type {
   AppliedTransform,
@@ -41,7 +47,7 @@ export async function renderRules(
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   rendered.push(...(await renderClaudeRules(graph, lockRoots)));
-  rendered.push(...(await renderCodexAgentsFiles(graph, lockRoots)));
+  rendered.push(...(await renderAgentInstructionFiles(graph, lockRoots)));
   rendered.push(...(await renderCursorRules(graph, lockRoots)));
   return rendered;
 }
@@ -87,49 +93,79 @@ async function renderClaudeRules(
   return rendered;
 }
 
-async function renderCodexAgentsFiles(
+async function renderAgentInstructionFiles(
   graph: BuildGraph,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
-  const destinations = new Map<string, SourceRule[]>();
-
-  for (const rule of graph.rules.filter(
-    (sourceRule) => sourceRule.targets.codex.enabled
-  )) {
-    for (const destination of await codexRuleDestinations(graph, rule)) {
-      const existing = destinations.get(destination) ?? [];
-      destinations.set(destination, [...existing, rule]);
+  const projections = await planAgentInstructionProjections(
+    graph,
+    codexRuleDestinations
+  );
+  const rendered: LogicalRenderedFile[] = [];
+  const lockItems = new Map<
+    string,
+    {
+      readonly consumers: OutputConsumer[];
+      readonly file: LogicalRenderedFile;
+      readonly markdown: RenderedRuleMarkdown;
+      readonly owner: OutputOwner;
+      readonly rules: readonly SourceRule[];
     }
-  }
+  >();
 
-  const rendered: RenderedFile[] = [];
-  for (const [destination, rules] of [...destinations.entries()].sort(
-    ([left], [right]) => compareStrings(left, right)
-  )) {
+  for (const projection of projections) {
+    const { destination, outputProjection, rules } = projection;
     const markdown = await renderCodexAgentsMarkdown(graph, rules, destination);
     const sourcePath = workspaceRelativeSourcePath(
       graph,
       graph.instructionsDir
     );
-    const file = textFile(destination, markdown.content, sourcePath);
+    const file = {
+      ...textFile(destination, markdown.content, sourcePath),
+      outputProjection,
+    };
     rendered.push(file);
+    const existing = lockItems.get(destination);
+    const owner: OutputOwner =
+      outputProjection.consumer.phase === "baseline"
+        ? { standardProfile: outputProjection.consumer.standardProfile }
+        : { target: outputProjection.consumer.target };
+    lockItems.set(destination, {
+      consumers: [
+        ...(existing?.consumers ?? []),
+        outputProjection.consumer,
+      ],
+      file: existing?.file ?? file,
+      markdown: existing?.markdown ?? markdown,
+      owner:
+        outputProjection.consumer.phase === "baseline"
+          ? owner
+          : (existing?.owner ?? owner),
+      rules: existing?.rules ?? rules,
+    });
+  }
+
+  for (const [destination, item] of lockItems) {
+    const sourcePath = workspaceRelativeSourcePath(graph, graph.instructionsDir);
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace").items.push(
       lockItemForRule({
-        files: [file],
+        consumers: item.consumers,
+        files: [item.file],
         graph,
         name: destination,
+        owner: item.owner,
         outputRoot: WORKSPACE_LOCK_ROOT,
         outputPath: destination,
-        preprocessDependencies: markdown.preprocessDependencies,
+        preprocessDependencies: item.markdown.preprocessDependencies,
         sourceHash: hashRules(
-          rules,
-          markdown.preprocessDependencies,
+          item.rules,
+          item.markdown.preprocessDependencies,
           graph.rootPath
         ),
         sourcePath,
-        ...(markdown.transforms === undefined
+        ...(item.markdown.transforms === undefined
           ? {}
-          : { transforms: markdown.transforms }),
+          : { transforms: item.markdown.transforms }),
       })
     );
   }
@@ -521,9 +557,11 @@ function commonDirectory(directories: readonly string[]): string {
 }
 
 function lockItemForRule(args: {
+  readonly consumers?: readonly OutputConsumer[];
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
   readonly name: string;
+  readonly owner?: OutputOwner;
   readonly outputPath: string;
   readonly outputRoot: string;
   readonly preprocessDependencies: readonly string[];
@@ -533,6 +571,7 @@ function lockItemForRule(args: {
   readonly transforms?: readonly AppliedTransform[];
 }): LockItem {
   return {
+    ...(args.consumers === undefined ? {} : { consumers: args.consumers }),
     fileModes: renderedFileModes(args.outputRoot, args.files),
     files: args.files
       .map((file) => relative(args.outputRoot, file.path))
@@ -541,6 +580,7 @@ function lockItemForRule(args: {
     name: args.name,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: relative(args.outputRoot, args.outputPath),
+    ...(args.owner === undefined ? {} : { owner: args.owner }),
     ...(args.preprocessDependencies.length === 0
       ? {}
       : { preprocessDependencies: args.preprocessDependencies }),
