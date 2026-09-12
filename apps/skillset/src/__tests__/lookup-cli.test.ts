@@ -182,6 +182,88 @@ test("SET-392: lookup activation exposes registry-backed provider facts", async 
   expect(report.targets).toEqual(["claude", "cursor"]);
 });
 
+test("SET-524: lookup locations exposes versioned static paths and unknowns", async () => {
+  const known = await runSkillsetCli("lookup", "locations", "claude-code-cli", "--compat", "claude");
+  const unknown = await runSkillsetCli("lookup", "locations", "chatgpt-web", "--compat", "codex", "--json");
+
+  expect(known.exitCode).toBe(0);
+  expect(known.stdout).toContain("[claude] claude-code-cli 2.1.269 (verified 2026-09-11)");
+  expect(known.stdout).toContain("plugin-storage: ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>");
+  expect(known.stdout).not.toContain("argv");
+
+  expect(unknown.exitCode).toBe(0);
+  const report = readResultData(unknown.stdout) as {
+    readonly locations: readonly {
+      readonly facts: readonly { readonly status: string }[];
+      readonly surface: string;
+    }[];
+  };
+  expect(report.locations).toHaveLength(1);
+  expect(report.locations[0]?.surface).toBe("chatgpt-web");
+  expect(report.locations[0]?.facts.every((fact) => fact.status === "unknown")).toBe(true);
+});
+
+test("SET-524: lookup locations rejects a mismatched provider and surface", async () => {
+  const result = await runSkillsetCli(
+    "lookup",
+    "locations",
+    "claude-code-cli",
+    "--compat",
+    "codex",
+    "--json"
+  );
+
+  expect(result.exitCode).toBe(1);
+  const report = readResultData(result.stdout) as {
+    readonly diagnostics: readonly { readonly code: string }[];
+    readonly locations: readonly unknown[];
+  };
+  expect(report.locations).toEqual([]);
+  expect(report.diagnostics).toContainEqual(
+    expect.objectContaining({
+      code: "lookup/locations/surface-target-mismatch",
+    })
+  );
+});
+
+test("SET-524: lookup locations projects valid implicit and multi-provider owners", async () => {
+  const implicit = await runSkillsetCli(
+    "lookup",
+    "locations",
+    "claude-code-cli",
+    "--json"
+  );
+  const multiple = await runSkillsetCli(
+    "lookup",
+    "locations",
+    "claude-code-cli",
+    "cursor-ide",
+    "--compat",
+    "claude,cursor",
+    "--json"
+  );
+
+  expect(implicit.exitCode).toBe(0);
+  expect(multiple.exitCode).toBe(0);
+  for (const result of [implicit, multiple]) {
+    expect(readResultData(result.stdout)).toMatchObject({ diagnostics: [] });
+  }
+  expect(
+    (
+      readResultData(implicit.stdout) as {
+        readonly locations: readonly { readonly target: string }[];
+      }
+    ).locations.map((entry) => entry.target)
+  ).toEqual(["claude"]);
+  expect(
+    (
+      readResultData(multiple.stdout) as {
+        readonly locations: readonly { readonly target: string }[];
+      }
+    ).locations.map((entry) => entry.target)
+  ).toEqual(["claude", "cursor"]);
+});
+
 test("SET-392: lookup activation rejects unknown aspects without widening", async () => {
   const result = await runSkillsetCli("lookup", "activation", "unknown", "--json");
 

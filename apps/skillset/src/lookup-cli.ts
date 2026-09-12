@@ -56,13 +56,14 @@ export function readLookupSubject(value: string): LookupSubject {
     value === "agent" ||
     value === "hooks" ||
     value === "instruction" ||
+    value === "locations" ||
     value === "plugin" ||
     value === "skill" ||
     value === "workspace"
   ) {
     return value;
   }
-  throw new Error("skillset: expected lookup subject activation, skill, agent, instruction, workspace, hooks, or plugin");
+  throw new Error("skillset: expected lookup subject activation, locations, skill, agent, instruction, workspace, hooks, or plugin");
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {
@@ -203,6 +204,21 @@ function printLookupReport(
           `      next: ${action.label}${action.mutatesProviderState ? " (changes provider state)" : ""}`
         );
       }
+    }
+  }
+  if (report.locations.length > 0) {
+    writeLine(writer, "  locations:");
+    for (const entry of report.locations) {
+      writeLine(writer, `    [${entry.target}] ${entry.surface} ${entry.providerVersion} (verified ${entry.verifiedAt})`);
+      for (const fact of entry.facts) {
+        writeLine(
+          writer,
+          fact.status === "verified"
+            ? `      ${fact.kind}: ${fact.path}${fact.note === undefined ? "" : ` (${fact.note})`}`
+            : `      ${fact.kind}: unknown (${fact.reason})`
+        );
+      }
+      writeLine(writer, `      sources: ${entry.sources.map((source) => source.url).join(", ")}`);
     }
   }
   if (report.realizations.length > 0) {

@@ -313,6 +313,7 @@ export {
   type LookupEventField,
   type LookupExample,
   type LookupField,
+  type LookupProviderLocation,
   type LookupQuery,
   type LookupReport,
   type LookupSubject,
