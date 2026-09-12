@@ -297,6 +297,8 @@ export interface StandardProjectionPlan {
 
 export interface BuildGraph {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
+  /** Build mode declared in source, before a command-specific override is applied. */
+  readonly configuredBuildMode: CompileBuildMode;
   readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;

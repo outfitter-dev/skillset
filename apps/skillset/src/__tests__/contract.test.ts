@@ -2356,6 +2356,40 @@ Body.
   }
 });
 
+test("SET-534: a command build mode does not become generated lock provenance", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: ephemeral-build-mode
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const built = await runSkillsetCli("build", "--all", "--yes", "--root", root);
+  expect(built.exitCode).toBe(0);
+  expect(JSON.parse(await readFile(join(root, ".claude/skills/skillset.lock"), "utf8")).buildMode).toBe("updated");
+
+  const diff = await runSkillsetCli("diff", "--root", root);
+  const status = await runSkillsetCli("status", "--root", root);
+  const check = await runSkillsetCli("check", "--root", root);
+  const update = await runSkillsetCli("update", "--yes", "--root", root);
+  const allOutputs = await runSkillsetCli("check", "--only", "outputs", "--all", "--root", root);
+
+  for (const result of [diff, status, check, update, allOutputs]) {
+    expect(result.exitCode).toBe(0);
+  }
+  expect(update.stdout).toContain("found no generated-output drift");
+});
+
 test("SET-154: check fails on source authoring diagnostics", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
