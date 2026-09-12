@@ -6,7 +6,7 @@ import {
 } from "../provider-validation-maintenance";
 import type { ProviderValidationUpstreamFetch } from "../provider-validation-maintenance";
 
-const CHECKED_AT = "2026-09-12T00:00:00.000Z";
+const CHECKED_AT = "2026-09-12T00:02:00.000Z";
 
 describe("SET-500 provider validation upstream maintenance", () => {
   test("resolves all four authoritative upstream identities", async () => {
@@ -25,9 +25,9 @@ describe("SET-500 provider validation upstream maintenance", () => {
     ]);
     expect(report.results.map(({ freshness }) => freshness)).toEqual([
       "validation-current",
-      "validation-pending",
-      "validation-pending",
-      "validation-pending",
+      "validation-current",
+      "validation-current",
+      "validation-current",
     ]);
     expect(report.ok).toBe(true);
   });

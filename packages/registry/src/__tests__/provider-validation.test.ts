@@ -65,25 +65,29 @@ describe("SET-463 hosted provider validation registry", () => {
       assessProviderValidationFreshness(lane, "2026-09-16T21:37:40.001Z")
     ).toMatchObject({ ageDays: 31, status: "stale-verification" });
     expect(() =>
-      assertProviderValidationFreshness("2026-09-17T00:18:50.001Z")
+      assertProviderValidationFreshness("2026-10-13T00:01:37.001Z")
     ).toThrow("provider validation evidence is stale");
   });
 
   test("SET-500: a rejected candidate cannot advance successful validation", () => {
-    const lane = getProviderValidationLane("claude-product");
+    const source = getProviderValidationLane("claude-product");
+    const lane = {
+      ...source,
+      pin: "@anthropic-ai/claude-code@2.1.270",
+    };
 
     expect(lane.pin).not.toBe(lane.lastSuccessfulValidation.pin);
     expect(
-      assessProviderValidationFreshness(lane, "2026-09-12T00:00:00.000Z")
+      assessProviderValidationFreshness(lane, "2026-09-12T00:02:00.000Z")
     ).toMatchObject({
-      lastSuccessfulValidationAt: "2026-08-17T00:18:50.000Z",
+      lastSuccessfulValidationAt: "2026-09-12T00:01:37.000Z",
       status: "validation-pending",
     });
   });
 
   test("SET-500: keeps upstream change and failed refresh distinct from age", () => {
     const lane = getProviderValidationLane("claude-product");
-    const checkedAt = "2026-09-12T00:00:00.000Z";
+    const checkedAt = "2026-09-12T00:02:00.000Z";
 
     expect(
       assessProviderValidationFreshness(lane, checkedAt, {

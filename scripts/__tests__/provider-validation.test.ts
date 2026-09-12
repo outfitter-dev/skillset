@@ -220,7 +220,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
       const markdown = renderProviderValidationReport(failure.report);
       expect(markdown).toContain("| codex-authoring | codex |");
       expect(markdown).toContain("## Pin freshness");
-      expect(markdown).toContain("| validation-pending |");
+      expect(markdown).toContain("| validation-current |");
     }
     expect(calls).toBe(commands.length);
   });
@@ -477,7 +477,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
   test("normalizes the deepest temporary path before RUNNER_TEMP", () => {
     const report = normalizeProviderValidationReport(
       {
-        checkedAt: "2026-09-12T00:00:00.000Z",
+        checkedAt: "2026-09-12T00:02:00.000Z",
         failures: [
           {
             diagnostic:
@@ -520,7 +520,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-09-12T00:00:00.000Z"
+          "2026-09-12T00:02:00.000Z"
         )
       ).rejects.toThrow();
       const report = await readFile(reportPath, "utf8");
@@ -548,7 +548,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-09-17T00:18:50.001Z"
+          "2026-10-13T00:01:37.001Z"
         )
       ).rejects.toThrow("provider validation evidence is stale");
       const report = await readFile(reportPath, "utf8");
@@ -582,7 +582,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-09-12T00:00:00.000Z"
+          "2026-09-12T00:02:00.000Z"
         )
       ).rejects.toThrow("rejects symlink report target");
       expect(await readFile(outside, "utf8")).toBe("unchanged");
