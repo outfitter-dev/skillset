@@ -142,7 +142,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   const unsupportedDestination = readUnsupportedDestinationPolicy(compile, `${label}.compile.unsupportedDestination`);
 
   return {
-    agents: readCompileAgentStandards(compile, `${label}.compile.agents`),
+    agents: readCompileAgentStandardsSelectionRecord(compile, `${label}.compile.agents`).config,
     build: readCompileBuildMode(compile, `${label}.compile.build`),
     features: readCompileFeatureConfig(compile, `${label}.compile.features`),
     skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
@@ -194,25 +194,54 @@ function defaultAgentStandards(): AgentStandardsConfig {
   return { instructions: true, plugins: true, skills: true };
 }
 
-function readCompileAgentStandards(
+export interface CompileAgentStandardsSelection {
+  readonly config: AgentStandardsConfig;
+  /** Child keys authored as true, excluding inherited family defaults. */
+  readonly explicitFamilies: readonly ("instructions" | "plugins" | "skills")[];
+}
+
+export function readCompileAgentStandardsSelection(
   record: JsonRecord,
   label: string
-): AgentStandardsConfig {
+): CompileAgentStandardsSelection {
+  const compile = readCompileRecord(record, label);
+  if (compile === undefined) {
+    return { config: defaultAgentStandards(), explicitFamilies: [] };
+  }
+  return readCompileAgentStandardsSelectionRecord(compile, `${label}.compile.agents`);
+}
+
+function readCompileAgentStandardsSelectionRecord(
+  record: JsonRecord,
+  label: string
+): CompileAgentStandardsSelection {
   const value = record.agents;
-  if (value === undefined || value === true) return defaultAgentStandards();
-  if (value === false) return { instructions: false, plugins: false, skills: false };
+  if (value === undefined || value === true) {
+    return { config: defaultAgentStandards(), explicitFamilies: [] };
+  }
+  if (value === false) {
+    return {
+      config: { instructions: false, plugins: false, skills: false },
+      explicitFamilies: [],
+    };
+  }
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label} to be a boolean or an object`);
   }
+  const explicitFamilies: ("instructions" | "plugins" | "skills")[] = [];
   for (const key of Object.keys(value)) {
     if (key !== "instructions" && key !== "plugins" && key !== "skills") {
       throw new Error(`skillset: unsupported Agent standards key ${key} in ${label}`);
     }
+    if (value[key] === true) explicitFamilies.push(key);
   }
   return {
-    instructions: readAgentStandardEnabled(value.instructions, `${label}.instructions`),
-    plugins: readAgentStandardEnabled(value.plugins, `${label}.plugins`),
-    skills: readAgentStandardEnabled(value.skills, `${label}.skills`),
+    config: {
+      instructions: readAgentStandardEnabled(value.instructions, `${label}.instructions`),
+      plugins: readAgentStandardEnabled(value.plugins, `${label}.plugins`),
+      skills: readAgentStandardEnabled(value.skills, `${label}.skills`),
+    },
+    explicitFamilies,
   };
 }
 
