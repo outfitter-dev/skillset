@@ -105,6 +105,10 @@ import {
   shouldCoalesceStandaloneCodexSkill,
 } from "./render-agent-skills";
 import {
+  classifyAgentPluginStandard,
+  renderAgentPluginStandardPackages,
+} from "./render-agent-plugins-standard";
+import {
   renderCodexSkillAgentFile,
   renderSkillToolsMetadataFile,
   type RenderedSkillAuxiliaryFile,
@@ -176,6 +180,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...renderRepositoryReadmes(graph));
   rendered.push(...(await renderClaudeMarketplace(graph)));
   rendered.push(...(await renderCursorMarketplace(graph)));
+  rendered.push(...(await renderAgentPluginStandardPackages(graph, lockRoots)));
   rendered.push(
     ...(await renderAgentSkillStandards(
       graph,
@@ -236,11 +241,18 @@ function shouldRenderStandaloneSkill(
 
 function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
   const rendered: RenderedFile[] = [];
+  const renderAgentPlugins =
+    graph.root.compile.agents.plugins &&
+    graph.standardProjections.adopted.includes("agent-plugins-1.0") &&
+    graph.plugins.some(
+      (plugin) => classifyAgentPluginStandard(plugin).status === "supported"
+    );
   const activeTargets = targetNames().filter((target) =>
     graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, target))
   );
   const outputRoots = new Set(activeTargets.map((target) => graph.root.outputs.plugins[target]));
-  if (outputRoots.size === 1 && activeTargets.length > 0) {
+  if (renderAgentPlugins) outputRoots.add("plugins");
+  if (outputRoots.size === 1 && (activeTargets.length > 0 || renderAgentPlugins)) {
     const [outputRoot] = outputRoots;
     if (outputRoot !== undefined && isDefaultPluginOutputRoot(outputRoot)) {
       const bundleLines = activeTargets.map((target) =>
@@ -254,6 +266,11 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
             "",
             "Generated Skillset plugin repository.",
             "",
+            ...(renderAgentPlugins
+              ? [
+                  "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
+                ]
+              : []),
             ...bundleLines,
             "- `skillset.lock` records deterministic generated-state provenance.",
             "",
@@ -273,7 +290,33 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
           "",
           isDefaultPluginOutputRoot(outputRoot) ? "Generated Skillset plugin repository." : `Generated ${targetLabel(target)} plugin repository.`,
           "",
+          ...(renderAgentPlugins && isDefaultPluginOutputRoot(outputRoot)
+            ? [
+                "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
+              ]
+            : []),
           ...marketplaceReadmeLines(outputRoot, target),
+          "- `skillset.lock` records deterministic generated-state provenance.",
+          "",
+        ].join("\n")
+      )
+    );
+  }
+  if (
+    renderAgentPlugins &&
+    !activeTargets.some((target) =>
+      isDefaultPluginOutputRoot(graph.root.outputs.plugins[target])
+    )
+  ) {
+    rendered.push(
+      textFile(
+        "plugins/README.md",
+        [
+          "# Skillset Plugins",
+          "",
+          "Generated Skillset plugin repository.",
+          "",
+          "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
           "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")

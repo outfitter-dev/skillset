@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import {
@@ -48,6 +48,7 @@ import {
   agentSkillSourceUnit,
   agentSkillStandardProjectionIssues,
 } from "./render-agent-skills-standard";
+import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import {
   readClaudeNativeToolRules,
@@ -198,6 +199,7 @@ export function collectRenderResults(
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedAgentPluginStandardOutcomes(graph, options.scopes));
   outcomes.push(
     ...claudeMarketplaceAuthorOutcomes(
       graph,
@@ -570,6 +572,7 @@ function primaryOutputPathsForLockItem(
     path.endsWith("/.claude-plugin/plugin.json") ||
     path.endsWith("/.codex-plugin/plugin.json") ||
     path.endsWith("/.cursor-plugin/plugin.json") ||
+    path.endsWith("/agents/plugin.json") ||
     path.endsWith("/LICENSE.txt")
   );
 }
@@ -1605,14 +1608,132 @@ function unsupportedPluginFeatureOutcomes(
   return outcomes;
 }
 
+function unsupportedAgentPluginStandardOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (
+    (scopes !== undefined && !scopes.includes("plugins")) ||
+    !graph.root.compile.agents.plugins ||
+    !graph.standardProjections.adopted.includes("agent-plugins-1.0")
+  ) {
+    return [];
+  }
+
+  const outcomes: SkillsetRenderResult[] = [];
+  for (const plugin of graph.plugins) {
+    const pluginPath = normalizePath(relative(graph.rootPath, plugin.path));
+    const classification = classifyAgentPluginStandard(plugin);
+    if (classification.status === "unsupported") {
+      outcomes.push(
+        defineRenderResult({
+          destination: "plugin-manifest",
+          featureId: "plugin-manifests",
+          policy: "unsupported:error",
+          reason:
+            classification.reason ??
+            "plugin does not satisfy the Agent Plugins 1.0 manifest contract",
+          sourcePath: normalizeSourcePath(graph, plugin.configPath),
+          sourceUnit: selectorForPluginConfig(plugin.id),
+          standardProfile: "agent-plugins-1.0",
+          status: "unsupported",
+        })
+      );
+      continue;
+    }
+
+    for (const feature of plugin.features) {
+      if (feature.key !== "app" && feature.key !== "bin") continue;
+      const featureId = feature.key === "app" ? "plugin-apps" : "plugin-bin";
+      outcomes.push(
+        unsupportedAgentPluginFeatureOutcome({
+          destination: feature.key,
+          featureId,
+          plugin,
+          sourcePath: normalizeSourcePath(graph, feature.sourcePath),
+          sourceUnit: selectorForPluginFeature(plugin.id, feature.key),
+        })
+      );
+    }
+
+    for (const [relativePath, featureId] of [
+      ["hooks", "plugin-hooks"],
+      ["agents", "plugin-agents"],
+      ["commands", "plugin-commands"],
+      ["rules", "plugin-rules"],
+      [".lsp.json", "plugin-lsp-servers"],
+      ["settings.json", "future-companion-source-pointers"],
+      ["themes", "plugin-themes"],
+      ["monitors", "plugin-monitors"],
+      ["output-styles", "plugin-output-styles"],
+    ] as const) {
+      const sourcePath = join(plugin.path, relativePath);
+      if (!hasMeaningfulFiles(sourcePath)) continue;
+      outcomes.push(
+        unsupportedAgentPluginFeatureOutcome({
+          destination: relativePath,
+          featureId,
+          plugin,
+          sourcePath: `${pluginPath}/${relativePath}`,
+          sourceUnit: selectorForPluginFeature(plugin.id, relativePath),
+        })
+      );
+    }
+
+    if (
+      plugin.adaptiveHooks.length > 0 &&
+      !hasMeaningfulFiles(join(plugin.path, "hooks"))
+    ) {
+      outcomes.push(
+        unsupportedAgentPluginFeatureOutcome({
+          destination: "hooks",
+          featureId: "plugin-hooks",
+          plugin,
+          sourcePath: normalizeSourcePath(graph, plugin.configPath),
+          sourceUnit: selectorForPluginFeature(plugin.id, "hooks"),
+        })
+      );
+    }
+  }
+  return outcomes;
+}
+
+function unsupportedAgentPluginFeatureOutcome(args: {
+  readonly destination: string;
+  readonly featureId: string;
+  readonly plugin: SourcePlugin;
+  readonly sourcePath: string;
+  readonly sourceUnit: string;
+}): SkillsetRenderResult {
+  const evidence = evidenceFor(args.featureId, undefined);
+  return defineRenderResult({
+    destination: args.destination,
+    ...(evidence === undefined ? {} : { evidence }),
+    featureId: args.featureId,
+    policy: "unsupported:error",
+    reason: `agent-plugins-1.0 does not declare ${args.featureId} in its support envelope`,
+    sourcePath: args.sourcePath,
+    sourceUnit: args.sourceUnit,
+    standardProfile: "agent-plugins-1.0",
+    status: "unsupported",
+  });
+}
+
 function hasMeaningfulFiles(path: string): boolean {
-  if (!existsSync(path)) return false;
-  const stats = statSync(path);
+  let stats;
+  try {
+    stats = lstatSync(path);
+  } catch (error) {
+    if (isNodeError(error, "ENOENT")) return false;
+    throw error;
+  }
+  if (stats.isSymbolicLink()) return !isPlaceholderFile(path);
   if (stats.isFile()) return !isPlaceholderFile(path);
   if (!stats.isDirectory()) return false;
-  for (const entry of readdirSync(path)) {
-    if (isPlaceholderFile(entry)) continue;
-    if (hasMeaningfulFiles(join(path, entry))) return true;
+  for (const entry of readdirSync(path, { withFileTypes: true })) {
+    if (isPlaceholderFile(entry.name)) continue;
+    if (entry.isSymbolicLink()) return true;
+    if (hasMeaningfulFiles(join(path, entry.name))) return true;
   }
   return false;
 }
@@ -1620,6 +1741,15 @@ function hasMeaningfulFiles(path: string): boolean {
 function isPlaceholderFile(path: string): boolean {
   const name = path.split("/").pop();
   return name === ".gitkeep" || name === ".keep" || name === ".DS_Store";
+}
+
+function isNodeError(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === code
+  );
 }
 
 function outputPathsForLockItem(outputRoot: string, item: RenderedLockItem): readonly string[] {

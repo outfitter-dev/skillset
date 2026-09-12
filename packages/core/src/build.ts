@@ -1563,6 +1563,14 @@ function noOutputOutcomeBelongsToLock(
   outputRoot: string,
   lock: JsonRecord
 ): boolean {
+  if (
+    outputRoot === "plugins" &&
+    outcome.standardProfile === "agent-plugins-1.0" &&
+    Array.isArray(lock.selectedStandards) &&
+    lock.selectedStandards.includes("agent-plugins-1.0")
+  ) {
+    return true;
+  }
   if (outcome.sourceUnit.startsWith("plugin.")) {
     const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
     if (outputRoot.startsWith(`plugins/${pluginId}/`)) return true;
