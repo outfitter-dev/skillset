@@ -258,10 +258,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
     const classification = classifyFrontmatter(frontmatter);
     const providers = importProviders(options);
-    const scopedInvocationProviders = importedInvocationScopeProviders(
-      options.kind,
-      providers
-    );
+    const scopedInvocationProviders = importedInvocationScopeProviders(providers);
     const pluginSkillFrontmatter = await readImportedPluginSkillFrontmatter(
       stagingPath,
       options.kind,
@@ -518,7 +515,6 @@ function importFrontmatterRenderResults(args: {
   const providers = importFrontmatterProviders(args.provider, args.providers);
   if (providers.length === 0) return [];
   const scopedProviders = importedInvocationScopeProviders(
-    args.kind,
     args.providers ??
       (args.provider === undefined ? undefined : [args.provider])
   );
@@ -781,12 +777,9 @@ function importProviders(options: ImportOptions): readonly ImportProvider[] | un
 }
 
 function importedInvocationScopeProviders(
-  kind: SingularImportKind,
   providers: readonly ImportProvider[] | undefined
 ): readonly TargetName[] {
   if (providers === undefined) return [];
-  if (kind === "skill") return providers.length === 1 && providers[0] === "cursor" ? ["cursor"] : [];
-  if (providers.length === 1) return providers[0] === "cursor" ? ["cursor"] : [];
   return targetNames().filter(
     (target) =>
       providers.includes(target) && providerSupportsNativeInvocationFrontmatter(target)

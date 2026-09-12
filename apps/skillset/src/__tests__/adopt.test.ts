@@ -675,13 +675,16 @@ test("SET-522: Cursor explicit-only skill adoption stays scoped to Cursor", asyn
   ).toBe(false);
 });
 
-test("adopt carries import render results into its domain report", async () => {
+test("SET-522: Claude explicit-only skill adoption stays scoped to Claude", async () => {
   const root = await fixture({
     ".claude/skills/native/SKILL.md":
       "---\nname: native\ndescription: Native skill.\nallowed-tools:\n  - Read\ndisable-model-invocation: true\n---\n\nBody.\n",
   });
 
-  const report = await adoptSkillset(root, { targets: ["claude"], write: true });
+  const report = await adoptSkillset(root, {
+    targets: ["claude", "codex", "cursor"],
+    write: true,
+  });
   const importOutcome = expect.objectContaining({
     diagnostics: expect.arrayContaining([
       expect.objectContaining({
@@ -698,6 +701,62 @@ test("adopt carries import render results into its domain report", async () => {
   expect(report.ok).toBe(true);
   expect(report.imports[0]?.renderResults).toContainEqual(importOutcome);
   expect(report.renderResults).toContainEqual(importOutcome);
+  expect(report.renderResults).toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:native",
+      status: "target_native",
+      target: "claude",
+    })
+  );
+  expect(report.renderResults).not.toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:native",
+      target: "codex",
+    })
+  );
+  expect(report.renderResults).not.toContainEqual(
+    expect.objectContaining({
+      featureId: "skill-invocation-policy",
+      sourceUnit: "skill:native",
+      target: "cursor",
+    })
+  );
+
+  const source = parseMarkdown(
+    await readFile(join(root, ".skillset/skills/native/SKILL.md"), "utf8"),
+    "Claude explicit-only source"
+  ).frontmatter;
+  expect(source).not.toHaveProperty("disable-model-invocation");
+  expect(source).toMatchObject({
+    claude: { frontmatter: { "disable-model-invocation": true } },
+  });
+
+  await rm(join(root, ".claude/skills/native"), { recursive: true });
+  await buildSkillset(root);
+  const outputFrontmatter = async (path: string) =>
+    parseMarkdown(await readFile(join(root, path), "utf8"), path).frontmatter;
+  expect(
+    (await outputFrontmatter(".claude/skills/native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBe(true);
+  expect(
+    (await outputFrontmatter(".agents/skills/native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBeUndefined();
+  expect(
+    (await outputFrontmatter(".cursor/skills/native/SKILL.md"))[
+      "disable-model-invocation"
+    ]
+  ).toBeUndefined();
+  expect(
+    await Bun.file(
+      join(root, ".agents/skills/native/agents/openai.yaml")
+    ).exists()
+  ).toBe(false);
 
 });
 
