@@ -94,7 +94,12 @@ export function renderOpenAiMarketplacePlugin(args: {
         )
       );
   if (local && args.plugin !== undefined) {
-    validateLocalInterfaceAssets(args.plugin, args.entry.id, listingInterface);
+    validateLocalInterfaceAssets(
+      args.plugin,
+      args.entry.id,
+      listingInterface,
+      new Set(interfaceAssetPaths(generatedInterface))
+    );
   }
 
   const policy = readRecord(options, "policy") ?? {};
@@ -185,23 +190,46 @@ function localPluginSourcePath(
 function validateLocalInterfaceAssets(
   plugin: SourcePlugin,
   entryId: string,
-  interfaceValue: JsonRecord
+  interfaceValue: JsonRecord,
+  generatedAssetPaths: ReadonlySet<string>
 ): void {
   for (const field of ["composerIcon", "logo", "logoDark"] as const) {
     const value = readString(interfaceValue, field);
     if (value !== undefined)
-      validateLocalInterfaceAsset(plugin, entryId, field, value);
+      validateLocalInterfaceAsset(
+        plugin,
+        entryId,
+        field,
+        value,
+        generatedAssetPaths
+      );
   }
   for (const value of readStringArray(interfaceValue, "screenshots") ?? []) {
-    validateLocalInterfaceAsset(plugin, entryId, "screenshots", value);
+    validateLocalInterfaceAsset(
+      plugin,
+      entryId,
+      "screenshots",
+      value,
+      generatedAssetPaths
+    );
   }
+}
+
+function interfaceAssetPaths(interfaceValue: JsonRecord): readonly string[] {
+  return [
+    ...["composerIcon", "logo", "logoDark"]
+      .map((field) => readString(interfaceValue, field))
+      .filter((value): value is string => value !== undefined),
+    ...(readStringArray(interfaceValue, "screenshots") ?? []),
+  ];
 }
 
 function validateLocalInterfaceAsset(
   plugin: SourcePlugin,
   entryId: string,
   field: string,
-  value: string
+  value: string,
+  generatedAssetPaths: ReadonlySet<string>
 ): void {
   if (!value.startsWith("./") || value === "./") {
     throw new Error(
@@ -219,8 +247,9 @@ function validateLocalInterfaceAsset(
     }
     const [topLevel] = sourceRelativePath.split("/");
     if (
-      topLevel === undefined ||
-      !["assets", "scripts", "src"].includes(topLevel)
+      !generatedAssetPaths.has(value) &&
+      (topLevel === undefined ||
+        !["assets", "scripts", "src"].includes(topLevel))
     ) {
       throw new Error(
         `skillset: ChatGPT marketplace entry ${entryId} interface.${field} is not materialized in the local package`
