@@ -24,6 +24,7 @@ const ROOT_MARKETPLACES = [
 ] as const;
 
 export interface ProviderArtifactInventory {
+  readonly agentPlugins: readonly string[];
   readonly chatgptPlugins: readonly string[];
   readonly claudeMarketplaces: readonly string[];
   readonly claudePlugins: readonly string[];
@@ -234,6 +235,7 @@ export async function enumerateProviderArtifacts(
   root: string
 ): Promise<ProviderArtifactInventory> {
   const canonicalRoot = await realpath(root);
+  const agentPlugins = new Set<string>();
   const chatgptPlugins = new Set<string>();
   const claudePlugins = new Set<string>();
   const codexPlugins = new Set<string>();
@@ -275,6 +277,8 @@ export async function enumerateProviderArtifacts(
       }
       if (outputPath.endsWith("/.claude-plugin/plugin.json"))
         claudePlugins.add(dirname(dirname(outputPath)));
+      else if (outputPath.endsWith("/agents/plugin.json"))
+        agentPlugins.add(dirname(outputPath));
       else if (outputPath.endsWith("/chatgpt/plugin.json"))
         chatgptPlugins.add(dirname(outputPath));
       else if (outputPath.endsWith("/.codex-plugin/plugin.json"))
@@ -294,6 +298,7 @@ export async function enumerateProviderArtifacts(
     )
   );
   const inventory = {
+    agentPlugins: [...agentPlugins].toSorted(),
     chatgptPlugins: [...chatgptPlugins].toSorted(),
     claudeMarketplaces: [marketplaces[1]!],
     claudePlugins: [...claudePlugins].toSorted(),
@@ -305,6 +310,7 @@ export async function enumerateProviderArtifacts(
   } satisfies ProviderArtifactInventory;
   assertNonEmptyInventory(inventory);
   await Promise.all([
+    ...inventory.agentPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.chatgptPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.claudePlugins.map(assertTreeHasNoSymlinks),
     ...inventory.codexMarketplaces.map(assertTreeHasNoSymlinks),

@@ -30,6 +30,7 @@ import {
   validateCursorHookConformance,
 } from "./provider-validation-hooks";
 import { validateChatGptPluginConformance } from "./provider-validation-chatgpt";
+import { validateAgentPluginConformance } from "./provider-validation-agent-plugins";
 import {
   acquireTools,
   stageValidationInputs,
@@ -362,7 +363,7 @@ export function renderProviderValidationReport(
           "",
           "## Skillset internal authoring conformance",
           "",
-          "These Skillset-owned checks cover generated surfaces outside the pinned provider validators: ChatGPT root manifests and Cursor hook files, because Cursor's provider-source validate-plugins.mjs does not inspect hook files. They are authoring conformance only, not product or runtime proof.",
+          "These Skillset-owned checks cover generated surfaces outside the pinned provider validators: portable Agent Plugins manifests, ChatGPT root manifests, and Cursor hook files. They are authoring conformance only, not product or runtime proof.",
           "",
           "| Check | Attribution | Target | Surface | Result |",
           "| --- | --- | --- | --- | --- |",
@@ -442,6 +443,7 @@ export async function runHostedProviderValidation(
       ...(await validateChatGptPluginConformance(
         staged.inventory.chatgptPlugins
       )),
+      ...(await validateAgentPluginConformance(staged.inventory.agentPlugins)),
       ...(await validateCursorHookConformance(
         await stageCursorHookConformanceInputs(temp)
       )),

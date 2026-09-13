@@ -24,6 +24,7 @@ import {
   type ProviderArtifactInventory,
 } from "../provider-validation";
 import { validateCodexMarketplaceConsumer } from "../provider-validation-artifacts";
+import { validateAgentPluginConformance } from "../provider-validation-agent-plugins";
 import {
   formatAcquisitionFailureDiagnostic,
   stageValidationInputs,
@@ -52,6 +53,9 @@ describe("SET-463 hosted provider validation orchestration", () => {
     const canonicalRoot = await realpath(root);
     const inventory = await enumerateProviderArtifacts(root);
 
+    expect(inventory.agentPlugins).toEqual([
+      join(canonicalRoot, "plugins/demo/agents"),
+    ]);
     expect(inventory.chatgptPlugins).toEqual([
       join(canonicalRoot, "plugins/demo/chatgpt"),
     ]);
@@ -64,6 +68,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
     ]);
     expect(inventory.skills).toEqual([
       join(canonicalRoot, ".agents/skills/standalone/SKILL.md"),
+      join(canonicalRoot, "plugins/demo/agents/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/chatgpt/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/claude/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/cursor/skills/demo/SKILL.md"),
@@ -422,10 +427,8 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     );
     const markdown = renderProviderValidationReport(report);
     expect(markdown).toContain("## Skillset internal authoring conformance");
-    expect(markdown).toContain(
-      "validate-plugins.mjs does not inspect hook files"
-    );
-    expect(markdown).toContain("not Cursor product or runtime proof");
+    expect(markdown).toContain("portable Agent Plugins manifests and Cursor hook files");
+    expect(markdown).toContain("not product or runtime proof");
     expect(markdown).toContain(
       "| cursor-hooks-generated-native | Skillset internal | cursor | generated version:1 flat native hook file | passed |"
     );
@@ -458,6 +461,30 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         ok: false,
       },
     });
+  });
+
+  test("validates generated Agent Plugins manifests with a rejection canary", async () => {
+    const root = await fixtureRoot();
+    const checks = await validateAgentPluginConformance([
+      join(root, "plugins/demo/agents"),
+    ]);
+
+    expect(checks).toEqual([
+      {
+        attribution: "Skillset internal",
+        id: "agent-plugins-generated-native",
+        result: "passed",
+        surface: "1 generated plugin.json file",
+        target: "agent-plugins-1.0",
+      },
+      {
+        attribution: "Skillset internal",
+        id: "agent-plugins-unknown-field",
+        result: "passed",
+        surface: "unknown top-level field rejection canary",
+        target: "agent-plugins-1.0",
+      },
+    ]);
   });
 
   test("bounds validator stdout and stderr with deterministic actionable evidence", async () => {
@@ -861,6 +888,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
 
 function sampleInventory(): ProviderArtifactInventory {
   return {
+    agentPlugins: ["/tmp/stage/plugins/demo/agents"],
     chatgptPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
     claudeMarketplaces: ["/tmp/stage/.claude-plugin/marketplace.json"],
     claudePlugins: ["/tmp/stage/plugins/demo/claude"],
@@ -879,6 +907,7 @@ async function fixtureRoot(): Promise<string> {
     ".agents/skills/standalone",
     ".claude-plugin",
     ".cursor-plugin",
+    "plugins/demo/agents/skills/demo",
     "plugins/demo/claude/.claude-plugin",
     "plugins/demo/claude/skills/demo",
     "plugins/demo/chatgpt/skills/demo",
@@ -888,6 +917,8 @@ async function fixtureRoot(): Promise<string> {
     await mkdir(join(root, path), { recursive: true });
   for (const path of [
     ".agents/skills/standalone/SKILL.md",
+    "plugins/demo/agents/plugin.json",
+    "plugins/demo/agents/skills/demo/SKILL.md",
     "plugins/demo/claude/.claude-plugin/plugin.json",
     "plugins/demo/claude/skills/demo/SKILL.md",
     "plugins/demo/chatgpt/plugin.json",
@@ -897,7 +928,15 @@ async function fixtureRoot(): Promise<string> {
   ])
     await writeFile(
       join(root, path),
-      path.endsWith(".json")
+      path.endsWith("/agents/plugin.json")
+        ? `${JSON.stringify({
+            $schema:
+              "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+            description: "demo",
+            name: "demo",
+            version: "1.0.0",
+          })}\n`
+        : path.endsWith(".json")
         ? '{"name":"demo","version":"1.0.0"}\n'
         : `---\nname: ${basename(dirname(path))}\ndescription: demo\n---\n`
     );
@@ -938,6 +977,8 @@ async function fixtureRoot(): Promise<string> {
     [{ kind: "standalone-skill", outputPath: "standalone/SKILL.md" }]
   );
   await writeLock(join(root, "plugins/skillset.lock"), "plugins", [
+    { kind: "plugin", outputPath: "demo/agents/plugin.json" },
+    { kind: "plugin-skill", outputPath: "demo/agents/skills/demo/SKILL.md" },
     { kind: "plugin", outputPath: "demo/claude/.claude-plugin/plugin.json" },
     { kind: "plugin-skill", outputPath: "demo/claude/skills/demo/SKILL.md" },
     { kind: "plugin", outputPath: "demo/chatgpt/plugin.json" },
