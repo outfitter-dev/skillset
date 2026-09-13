@@ -300,6 +300,7 @@ describe("coalesced output lifecycle", () => {
     await Bun.write(outputPath, "user edit\n");
     const lockPath = join(root, ".agents/skills/skillset.lock");
     const lock = JSON.parse(await readFile(lockPath, "utf-8"));
+    lock.items[0].outputHash = outputHash("review/SKILL.md", "user edit\n");
     lock.provenanceHash = `sha256:${"0".repeat(64)}`;
     await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
@@ -307,6 +308,12 @@ describe("coalesced output lifecycle", () => {
 
     expect(result.ok).toBe(true);
     expect(result.writes.backupRunId).toBeDefined();
+    expect(result.writes.backupRecords).toContainEqual(
+      expect.objectContaining({
+        reason: "managed-target-edit",
+        targetPath: ".agents/skills/review/SKILL.md",
+      })
+    );
     expect(await readFile(outputPath, "utf-8")).toContain("Review the change.");
   });
 

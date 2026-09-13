@@ -10,6 +10,7 @@ import {
   parseGeneratedLock,
   type ParsedGeneratedLockItem,
 } from "./generated-lock";
+import { hasValidLockProvenance } from "./lock-provenance";
 import { compareStrings, resolveInside } from "./path";
 import {
   formatGeneratedFileMode,
@@ -138,6 +139,7 @@ interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "recor
 
 interface ParsedLock {
   readonly items: readonly ParsedGeneratedLockItem[];
+  readonly outputHashesTrusted: boolean;
   readonly schemaVersion: 1 | 2 | 3;
 }
 
@@ -562,6 +564,14 @@ async function addManagedPathsFromLock(
       .map((file) => ({ displayPath: outPath(joinOutputRoot(expectedOutputRoot, file)), file }))
       .sort((left, right) => compareStrings(left.file, right.file));
     for (const file of files) paths.add(file.displayPath);
+    if (!lock.outputHashesTrusted) {
+      for (const file of files) {
+        if (await exists(resolveOutputPath(file.displayPath))) {
+          editedPaths.add(file.displayPath);
+        }
+      }
+      continue;
+    }
     if (item.outputHash === undefined) continue;
     const currentHash = await currentOutputHash(files, item, lock.schemaVersion, resolveOutputPath);
     if (currentHash === undefined) {
@@ -632,12 +642,15 @@ async function readManagedLock(
   }
   return {
     items: lock.items,
+    outputHashesTrusted:
+      lock.schemaVersion !== 3 ||
+      (isJsonRecord(parsed) && hasValidLockProvenance(parsed)),
     schemaVersion: lock.schemaVersion,
   };
 }
 
 function requiresProvenanceForUnplannedPaths(
-  lock: ParsedLock,
+  lock: { readonly items: readonly ParsedGeneratedLockItem[] },
   outputRoot: string,
   outPath: OutPath,
   policy: ManagedOutputProvenancePolicy | undefined
