@@ -207,6 +207,37 @@ describe("provider format conformance", () => {
     expect(formatProviderFormatConformanceReport(report)).toContain("claude-plugin-manifest-schema");
   });
 
+  it("keeps Agent Skills validation independent from a disabled Codex target", () => {
+    const report = checkProviderFormatConformance([
+      {
+        ...textFile(".agents/skills/demo/SKILL.md", [
+          "---",
+          "name: demo",
+          "unexpected: true",
+          "---",
+          "",
+          "Use the demo skill.",
+          "",
+        ].join("\n")),
+        standardProfile: "agent-skills",
+      },
+    ]);
+
+    expect(report.issues).toEqual([
+      expect.objectContaining({
+        code: "missing-required-field",
+        providerRef: "agent-skills-reference",
+        standardProfile: "agent-skills",
+      }),
+      expect.objectContaining({
+        code: "unknown-destination-field",
+        providerRef: "agent-skills-reference",
+        standardProfile: "agent-skills",
+      }),
+    ]);
+    expect(report.issues.every((issue) => issue.target === undefined)).toBe(true);
+  });
+
   it("reports manual-overlay unknown destination fields", () => {
     const report = checkProviderFormatConformance([
       rendered("plugins/alpha/chatgpt/plugin.json", {

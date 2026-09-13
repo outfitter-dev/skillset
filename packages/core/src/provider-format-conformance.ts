@@ -1025,17 +1025,21 @@ function checkSkillMarkdown(
   const target = file.target ?? skillTarget(file.path) ?? "claude";
   const providerRef =
     target === "codex" ? "codex-skill" : target === "cursor" ? "cursor-skill" : "claude-skill-frontmatter-overlay";
+  const issueRef =
+    file.standardProfile === "agent-skills"
+      ? "agent-skills-reference"
+      : providerRef;
   const text = textDecoder.decode(file.content);
   let frontmatter: JsonRecord;
   try {
     frontmatter = parseMarkdown(text, file.path).frontmatter;
   } catch (error) {
-    return [issue(file, target, providerRef, "invalid-markdown", errorMessage(error))];
+    return [issue(file, target, issueRef, "invalid-markdown", errorMessage(error))];
   }
 
   if (file.standardProfile === "agent-skills") {
     return [
-      ...checkRequiredFields(file, frontmatter, "codex", "codex-skill", [
+      ...checkRequiredFields(file, frontmatter, "codex", issueRef, [
         "name",
         "description",
       ]),
@@ -1043,7 +1047,7 @@ function checkSkillMarkdown(
         file,
         frontmatter,
         "codex",
-        "codex-skill",
+        issueRef,
         AGENT_SKILLS_FRONTMATTER_KEYS
       ),
     ];
