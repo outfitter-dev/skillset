@@ -40,6 +40,10 @@ import { renderBuildGraph } from "./render";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
 import {
+  standardProfileStatuses,
+  type StandardProfileStatus,
+} from "./standard-profile-status";
+import {
   standardProjectionKnownManagedOutputRoots,
   standardProjectionManagedRootScope,
   standardProjectionTopology,
@@ -1082,6 +1086,7 @@ function isEstablishedSourceDrivenOutput(
 
 export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff> & {
   readonly outputState: SkillsetOutputStateEvidence;
+  readonly standardProfiles: readonly StandardProfileStatus[];
 };
 
 export interface SkillsetDiffInspectionOptions {
@@ -1171,6 +1176,10 @@ export async function diffSkillsetResult(
     diagnostics,
     outputState: inspectionResult.outputState,
     renderResults: renderResultsWithDiagnostics,
+    standardProfiles: standardProfileStatuses(
+      graph.standardProjections,
+      options.scopes
+    ),
     ok: inspectionResult.outputState.state !== "blocked",
     operation: "diff",
     writes: {

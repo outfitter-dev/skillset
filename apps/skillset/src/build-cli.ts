@@ -5,6 +5,7 @@ import {
   diffSkillsetResult,
   type SkillsetDiagnostic,
   type SkillsetOutputStateEvidence,
+  type SkillsetRenderResult,
 } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
@@ -16,6 +17,7 @@ import {
   printDiffPlan,
   printGeneratedChangelogDriftHint,
 } from "./cli-renderers";
+import { formatStandardProfileSummary } from "./projection-identity";
 
 export interface BuildCommandRequest {
   readonly jsonOutput: boolean;
@@ -186,7 +188,12 @@ export async function runDiffCommand({
     const exitCode = result.ok ? 0 : 1;
     printCliJsonData(
       "diff",
-      { ...result.data, outputState: result.outputState },
+      {
+        ...result.data,
+        outputState: result.outputState,
+        renderResults: result.renderResults,
+        standardProfiles: result.standardProfiles,
+      },
       exitCode,
       "data",
       serializeDiagnostics(result.diagnostics)
@@ -194,6 +201,9 @@ export async function runDiffCommand({
     return;
   }
   printDiagnostics(result.diagnostics);
+  console.log(
+    `  standards: ${formatStandardProfileSummary(result.standardProfiles)}`
+  );
   const { data: diff } = result;
   const total =
     diff.added.length +
@@ -205,16 +215,24 @@ export async function runDiffCommand({
     return;
   }
   for (const path of diff.added) {
-    console.log(`  + ${path}`);
+    console.log(
+      `  + ${formatDiffPathForPresentation(path, result.renderResults)}`
+    );
   }
   for (const path of diff.changed) {
-    console.log(`  ~ ${path}`);
+    console.log(
+      `  ~ ${formatDiffPathForPresentation(path, result.renderResults)}`
+    );
   }
   for (const path of diff.missing) {
-    console.log(`  ! ${path}`);
+    console.log(
+      `  ! ${formatDiffPathForPresentation(path, result.renderResults)}`
+    );
   }
   for (const path of diff.removed) {
-    console.log(`  - ${path}`);
+    console.log(
+      `  - ${formatDiffPathForPresentation(path, result.renderResults)}`
+    );
   }
   const suffix = result.ok
     ? " (run skillset build --yes to apply)"
@@ -225,6 +243,36 @@ export async function runDiffCommand({
   if (!result.ok) process.exitCode = 1;
   printGeneratedChangelogDriftHint(diff);
   return;
+}
+
+export function formatDiffPathForPresentation(
+  path: string,
+  outcomes: readonly SkillsetRenderResult[]
+): string {
+  const matches = outcomes.filter((outcome) =>
+    outcome.outputs?.some((output) => output.path === path)
+  );
+  const standards = [
+    ...new Set(
+      matches.flatMap((outcome) =>
+        outcome.standardProfile === undefined ? [] : [outcome.standardProfile]
+      )
+    ),
+  ];
+  const targets = [
+    ...new Set(
+      matches.flatMap((outcome) =>
+        outcome.target === undefined ? [] : [outcome.target]
+      )
+    ),
+  ];
+  const identities = [
+    ...standards.map((profile) => `${profile} baseline`),
+    ...targets.map((target) =>
+      standards.length === 0 ? target : `${target} delta`
+    ),
+  ];
+  return identities.length === 0 ? path : `${path} [${identities.join(" + ")}]`;
 }
 
 async function reportBlockedDerivation(
