@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".claude/skills",
-  "provenanceHash": "sha256:613a8c5f7a9f96181f24c7d38f21924f2d115f19b595c4234f1508ac19fa3566",
+  "provenanceHash": "sha256:f352bfd50fce98f4a42dd2707cfb743545cf1c2af9dbe008f4f14385aafc3807",
   "renderResults": [
     {
       "destination": "skill",
@@ -350,5 +350,6 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {},
   "target": "workspace"
 }

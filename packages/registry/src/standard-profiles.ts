@@ -49,7 +49,29 @@ export interface StandardProfileProvenance {
   readonly snapshots: readonly StandardProfileSnapshot[];
 }
 
+export const STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA =
+  "skillset-standard-profile-adoption@1" as const;
+
+/**
+ * Immutable pointer from a shipped adopted profile to its checked-in
+ * candidate conformance receipt. The profile contract hash deliberately does
+ * not include lifecycle or this adoption record, so a candidate receipt can
+ * name the exact contract that is later promoted.
+ */
+export interface StandardProfileAdoptionEvidence {
+  readonly profileContentHash: `sha256:${string}`;
+  readonly receipt: {
+    readonly contentHash: `sha256:${string}`;
+    readonly path: string;
+    readonly schema: "skillset.standards-conformance-receipt@1";
+  };
+  readonly rendererCommit: string;
+  readonly schema: typeof STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA;
+  readonly verifiedAt: string;
+}
+
 export interface StandardProfile {
+  readonly adoption?: StandardProfileAdoptionEvidence;
   readonly envelopes: readonly StandardProfileSupportEnvelope[];
   readonly id: StandardProfileId;
   readonly lifecycle: StandardProfileLifecycleState;
@@ -292,6 +314,7 @@ export function assertStandardProfiles(
           " hash drifted; expected " +
           entry.provenance.contentHash
       );
+    assertStandardProfileAdoption(entry);
   }
 }
 export function hashStandardProfileSnapshot(
@@ -313,7 +336,6 @@ export function normalizeStandardProfile(profile: StandardProfile): string {
         left.featureId.localeCompare(right.featureId)
       ),
       id: profile.id,
-      lifecycle: profile.lifecycle,
       provenance: {
         ...provenance,
         snapshots: [...provenance.snapshots].toSorted((left, right) =>
@@ -326,6 +348,64 @@ export function normalizeStandardProfile(profile: StandardProfile): string {
       version: profile.version,
     }) + "\n"
   );
+}
+
+function assertStandardProfileAdoption(profile: StandardProfile): void {
+  const adoption = profile.adoption;
+  if (profile.lifecycle === "adopted" && adoption === undefined) {
+    throw new Error(
+      "skillset: adopted standard profile " +
+        profile.id +
+        " requires candidate conformance evidence"
+    );
+  }
+  if (profile.lifecycle !== "adopted" && adoption !== undefined) {
+    throw new Error(
+      "skillset: non-adopted standard profile " +
+        profile.id +
+        " cannot claim adoption evidence"
+    );
+  }
+  if (adoption === undefined) return;
+  if (adoption.schema !== STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA) {
+    throw new Error(
+      "skillset: standard profile " +
+        profile.id +
+        " has invalid adoption evidence schema"
+    );
+  }
+  if (adoption.profileContentHash !== profile.provenance.contentHash) {
+    throw new Error(
+      "skillset: standard profile " +
+        profile.id +
+        " adoption evidence names another profile contract"
+    );
+  }
+  if (!/^sha256:[a-f0-9]{64}$/u.test(adoption.receipt.contentHash)) {
+    throw new Error(
+      "skillset: standard profile " +
+        profile.id +
+        " has invalid adoption receipt hash"
+    );
+  }
+  if (
+    adoption.receipt.schema !== "skillset.standards-conformance-receipt@1" ||
+    adoption.receipt.path !== `fixtures/standards/evidence/${profile.id}.json`
+  ) {
+    throw new Error(
+      "skillset: standard profile " +
+        profile.id +
+        " has invalid adoption receipt identity"
+    );
+  }
+  if (!/^[a-f0-9]{40}$/u.test(adoption.rendererCommit)) {
+    throw new Error(
+      "skillset: standard profile " +
+        profile.id +
+        " has invalid adoption renderer commit"
+    );
+  }
+  assertTimestamp(adoption.verifiedAt, "adoption.verifiedAt");
 }
 function makeProfile(
   input: Omit<StandardProfile, "provenance" | "schema"> & {

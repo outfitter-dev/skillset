@@ -147,7 +147,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:4e477279372263c26cc29d550612192fc97e30e07350d0a2bbc88d84611a79e3",
+  "provenanceHash": "sha256:27e2e7c9afa386fe633cfbe8eff383c83c74965ab9c7d897833ae046134c0157",
   "renderResults": [
     {
       "destination": "changelog",
@@ -354,5 +354,6 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {},
   "target": "workspace"
 }

@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:afc7c6b662108df5e473ec9fb761dfbd4c51cdf99aed7248fb6a19d3140ed222",
+  "provenanceHash": "sha256:17836404d9d6a35a581568a0808f0b52e1a4dec984b3947de62fa452c8ba9862",
   "renderResults": [
     {
       "destination": "skill",
@@ -325,5 +325,6 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {},
   "target": "workspace"
 }

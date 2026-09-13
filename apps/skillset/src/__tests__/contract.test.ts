@@ -9049,6 +9049,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
     outputRoot: ".",
     provenanceHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
     schemaVersion: 3,
+    standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: [],
     target: "workspace",

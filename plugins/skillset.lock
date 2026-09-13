@@ -136,7 +136,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:183dbf28c2d085a934156f88dfe83d0183d06ad2099b998692bedfc4ef15de78",
+  "provenanceHash": "sha256:a718dcc995986b8b3e993753af0c94a3224af293743bbcbb1ae152138bd5a96f",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -435,5 +435,6 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {},
   "target": "workspace"
 }

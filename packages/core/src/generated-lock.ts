@@ -79,6 +79,9 @@ export interface ParsedGeneratedLock {
   readonly outputRoot: string;
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly schemaVersion: GeneratedLockSchemaVersion;
+  readonly standardProfileEvidence: Readonly<
+    Partial<Record<StandardProfileId, string>>
+  >;
   readonly selectedStandards: readonly StandardProfileId[];
   readonly selectedTargets: readonly TargetName[];
   readonly sourceInventory?: ParsedGeneratedLockSourceInventory;
@@ -131,6 +134,14 @@ export function parseGeneratedLock(
       : parseTargets(value.selectedTargets, label);
   const selectedStandards =
     schemaVersion === 3 ? parseStandards(value.selectedStandards, label) : [];
+  const standardProfileEvidence =
+    schemaVersion === 3
+      ? parseStandardProfileEvidence(
+          value.standardProfileEvidence,
+          selectedStandards,
+          label
+        )
+      : {};
   const buildMode = parseBuildMode(value.buildMode, label);
   const sourceInventory = parseSourceInventory(value.sourceInventory, label);
 
@@ -166,6 +177,7 @@ export function parseGeneratedLock(
     outputRoot,
     renderResults,
     schemaVersion,
+    standardProfileEvidence,
     selectedStandards,
     selectedTargets,
     ...(sourceInventory === undefined ? {} : { sourceInventory }),
@@ -514,6 +526,59 @@ function parseStandards(
   return value.map((profile, index) =>
     parseStandardProfile(profile, `${label}.selectedStandards[${index}]`)
   );
+}
+
+function parseStandardProfileEvidence(
+  value: unknown,
+  selectedStandards: readonly StandardProfileId[],
+  label: string
+): Readonly<Partial<Record<StandardProfileId, string>>> {
+  // Early v3 locks predate receipt provenance. Preserve them only when they
+  // never claimed a selected standard; any standards-bearing v3 lock must
+  // carry the complete receipt key set.
+  if (value === undefined && selectedStandards.length === 0) return {};
+  if (!isJsonRecord(value)) {
+    throw invalidLock(
+      label,
+      "schema v3 standardProfileEvidence must be an object"
+    );
+  }
+
+  const evidence = Object.fromEntries(
+    Object.entries(value)
+      .map(([profile, contentHash]) => {
+        const profileId = parseStandardProfile(
+          profile,
+          `${label}.standardProfileEvidence key`
+        );
+        if (
+          typeof contentHash !== "string" ||
+          !/^sha256:[a-f0-9]{64}$/u.test(contentHash)
+        ) {
+          throw invalidLock(
+            label,
+            `standardProfileEvidence.${profile} must be a sha256 content hash`
+          );
+        }
+        return [profileId, contentHash] as const;
+      })
+      .sort(([left], [right]) => left.localeCompare(right))
+  ) as Partial<Record<StandardProfileId, string>>;
+
+  const evidenceProfiles = Object.keys(evidence).sort();
+  const selectedProfiles = [...selectedStandards].sort();
+  if (
+    evidenceProfiles.length !== selectedProfiles.length ||
+    evidenceProfiles.some(
+      (profile, index) => profile !== selectedProfiles[index]
+    )
+  ) {
+    throw invalidLock(
+      label,
+      "standardProfileEvidence must contain exactly the selectedStandards profiles"
+    );
+  }
+  return evidence;
 }
 
 function parseProviderTarget(value: unknown, label: string): TargetName {

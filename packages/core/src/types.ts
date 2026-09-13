@@ -381,6 +381,9 @@ export interface TargetOutputConfig {
 
 export interface StandardProjectionPlan {
   readonly adopted: readonly StandardProfileId[];
+  readonly adoptionReceiptHashes: Readonly<
+    Partial<Record<StandardProfileId, `sha256:${string}`>>
+  >;
 }
 
 export interface BuildGraph {

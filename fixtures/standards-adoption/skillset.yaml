@@ -1,0 +1,4 @@
+skillset:
+  name: standards-adoption
+compile:
+  targets: [codex]

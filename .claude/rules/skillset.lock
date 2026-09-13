@@ -22,7 +22,7 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:82bfaeb5b5e3cdfda7d6aba16228809a0bc2eea6b7a9946b3a02ff6400b91380",
+  "provenanceHash": "sha256:cfe2c8da2ed15a248f2aacecd2143d451c0f06c55f5d671b05418dd42ad108d1",
   "renderResults": [
     {
       "destination": "instruction",
@@ -55,5 +55,6 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {},
   "target": "claude"
 }

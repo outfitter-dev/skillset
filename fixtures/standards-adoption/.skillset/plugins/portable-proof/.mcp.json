@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "portable-proof": {
+      "command": "echo",
+      "args": ["SET411_AGENT_PLUGINS_SENTINEL"]
+    }
+  }
+}

@@ -1068,6 +1068,7 @@ function emptyWorkspaceLock(): string {
       items: [],
       outputRoot: ".",
       schemaVersion: 3,
+      standardProfileEvidence: {},
       selectedStandards: [],
       selectedTargets: [],
       target: "workspace",

@@ -164,9 +164,14 @@ function adopted(graph: BuildGraph): BuildGraph {
     ...graph,
     standardProjections: {
       adopted: ["agent-instructions"],
+      adoptionReceiptHashes: {
+        "agent-instructions": TEST_RECEIPT_HASH,
+      },
     },
   };
 }
+
+const TEST_RECEIPT_HASH = `sha256:${"a".repeat(64)}` as const;
 
 function instructionResults(
   graph: BuildGraph,

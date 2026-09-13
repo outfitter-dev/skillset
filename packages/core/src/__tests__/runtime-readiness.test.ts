@@ -371,6 +371,7 @@ compile:
               ],
               outputRoot: "plugins",
               schemaVersion: 3,
+              standardProfileEvidence: {},
               selectedStandards: [],
               selectedTargets: ["codex"],
               target: "workspace",

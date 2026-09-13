@@ -1,0 +1,5 @@
+skillset:
+  name: portable-proof
+  description: A minimal portable package for Agent Plugins 1.0 adoption evidence.
+  author:
+    name: Skillset maintainers

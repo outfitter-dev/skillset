@@ -543,6 +543,9 @@ async function appendInactiveStandardPluginItem(
     sourcePath: ".skillset/plugins/former/skillset.yaml",
   });
   lock.selectedStandards = ["agent-plugins-1.0"];
+  lock.standardProfileEvidence = {
+    "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
+  };
   lock.provenanceHash = `sha256:${"0".repeat(64)}`;
   await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
   return { content, path };
@@ -582,6 +585,9 @@ async function seedManagedStandardRoot(
     ],
     outputRoot: ".agents/skills",
     schemaVersion: 3,
+    standardProfileEvidence: {
+      "agent-skills": `sha256:${"a".repeat(64)}`,
+    },
     selectedStandards: ["agent-skills"],
     selectedTargets: consumers.some(
       (consumer) => "target" in consumer && consumer.target === "codex"
@@ -623,6 +629,9 @@ async function seedManagedPluginRoot(root: string): Promise<void> {
         ],
         outputRoot,
         schemaVersion: 3,
+        standardProfileEvidence: {
+          "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
+        },
         selectedStandards: ["agent-plugins-1.0"],
         selectedTargets: [],
         target: "workspace",

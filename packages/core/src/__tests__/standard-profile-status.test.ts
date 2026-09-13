@@ -8,6 +8,7 @@ describe("standardProfileStatuses", () => {
   it("keeps registry candidates inactive and maps their inherent scopes", () => {
     const statuses = standardProfileStatuses({
       adopted: ["agent-instructions", "agent-skills", "agent-plugins-1.0"],
+      adoptionReceiptHashes: {},
     });
 
     expect(statuses).toEqual([
@@ -46,6 +47,7 @@ describe("standardProfileStatuses", () => {
     const statuses = standardProfileStatuses(
       {
         adopted: ["agent-instructions", "agent-skills", "agent-plugins-1.0"],
+        adoptionReceiptHashes: {},
       },
       ["project"],
       profiles

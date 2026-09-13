@@ -1,0 +1,613 @@
+/* eslint-disable func-style, no-await-in-loop, no-use-before-define -- The maintainer workflow reads in execution order; helpers stay below the two entrypoints. */
+/* eslint-disable no-bitwise, unicorn/import-style -- File modes and Node path/fs primitives are evidence inputs. */
+import { createHash } from "node:crypto";
+import {
+  chmod,
+  cp,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve, sep } from "node:path";
+
+import { buildSkillsetResult } from "@skillset/core";
+import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
+import { getStandardProfile } from "@skillset/registry";
+import type { StandardProfileId } from "@skillset/registry";
+
+import {
+  AGENT_INSTRUCTIONS_CODEX_PIN,
+  runAgentInstructionsProbe,
+} from "./agent-instructions";
+import { runAgentPluginsProbe } from "./agent-plugins";
+import { runAgentSkillsProbe } from "./agent-skills";
+import {
+  createStandardsConformanceReceipt,
+  hashStandardsConformanceReceipt,
+  parseStandardsConformanceReceipt,
+  serializeStandardsConformanceReceipt,
+} from "./receipt";
+import type {
+  StandardsConformanceArtifact,
+  StandardsConformanceCanary,
+  StandardsConformanceConsumer,
+  StandardsConformanceReceipt,
+  StandardsConformanceValidator,
+} from "./receipt";
+
+const FIXTURE_PATH = "fixtures/standards-adoption";
+const RECEIPT_ROOT = ".skillset/cache/conformance/standards";
+const ROOT_SENTINEL = "SET411_ROOT_INSTRUCTIONS_SENTINEL";
+const NESTED_SENTINEL = "SET411_NESTED_INSTRUCTIONS_SENTINEL";
+
+interface TreeEntry {
+  readonly bytes: number;
+  readonly hash: `sha256:${string}`;
+  readonly mode: string;
+  readonly path: string;
+}
+
+interface TreeEvidence {
+  readonly entries: readonly TreeEntry[];
+  readonly hash: `sha256:${string}`;
+}
+
+export interface StandardsConformanceRunResult {
+  readonly path: string;
+  readonly receipt: StandardsConformanceReceipt;
+  readonly receiptHash: `sha256:${string}`;
+}
+
+export interface StandardsConformanceVerificationResult {
+  readonly artifactCount: number;
+  readonly profile: StandardProfileId;
+  readonly receiptHash: `sha256:${string}`;
+  readonly rendererCommit: string;
+}
+
+/**
+ * Render one candidate through the production standard renderer, prove its
+ * bytes with pinned external consumers, and persist an ignored review receipt.
+ */
+export async function runStandardsConformance(
+  profileId: StandardProfileId,
+  repositoryRoot = resolve(import.meta.dir, "../../..")
+): Promise<StandardsConformanceRunResult> {
+  const root = await realpath(repositoryRoot);
+  const fixtureRoot = await realpath(join(root, FIXTURE_PATH));
+  const rendererCommit = await requireCleanRenderer(root);
+  const profile = getStandardProfile(profileId);
+  if (profile.lifecycle !== "candidate") {
+    throw new Error(
+      `skillset: standards conformance run requires candidate lifecycle; ${profileId} is ${profile.lifecycle}`
+    );
+  }
+
+  const before = await treeEvidence(fixtureRoot);
+  const source = await treeEvidence(join(fixtureRoot, ".skillset"));
+  const rendered = await renderCandidateStandardProfile(fixtureRoot, profileId);
+  const probeRoot = await mkdtemp(
+    join(tmpdir(), `skillset-standards-${profileId}-`)
+  );
+  try {
+    const generatedRoot = join(probeRoot, "generated-repository");
+    const probeState = join(probeRoot, "probe-state");
+    await Promise.all([
+      mkdir(generatedRoot, { recursive: true }),
+      mkdir(probeState, { recursive: true }),
+    ]);
+    await materialize(rendered, generatedRoot);
+    const artifacts = artifactEvidence(rendered);
+    const probe = await runProfileProbe(
+      profileId,
+      generatedRoot,
+      probeState,
+      artifacts
+    );
+    const after = await treeEvidence(fixtureRoot);
+    const safetyRoot = FIXTURE_PATH;
+    const receipt = createStandardsConformanceReceipt({
+      artifacts,
+      canaries: probe.canaries,
+      consumers: probe.consumers,
+      lifecycle: "candidate",
+      limitations: probe.limitations,
+      observations: probe.observations,
+      profile: profileId,
+      profileSnapshot: {
+        contentHash: profile.provenance.contentHash as `sha256:${string}`,
+        snapshots: profile.provenance.snapshots.map((snapshot) => ({
+          contentHash: snapshot.contentHash as `sha256:${string}`,
+          kind: snapshot.kind,
+          revision: snapshotRevision(snapshot.url),
+          source: snapshot.url,
+        })),
+        version: profile.version,
+      },
+      recordedAt: new Date().toISOString(),
+      renderer: { clean: true, commit: rendererCommit },
+      safety: {
+        after: [{ hash: after.hash, root: safetyRoot }],
+        before: [{ hash: before.hash, root: safetyRoot }],
+        unchanged: true,
+      },
+      schemaVersion: "skillset.standards-conformance-receipt@1",
+      sourceTree: {
+        fileCount: source.entries.length,
+        sourceHash: source.hash,
+        treeHash: before.hash,
+      },
+      validators: probe.validators,
+    });
+    const receiptHash = hashStandardsConformanceReceipt(receipt);
+    const receiptPath = join(root, RECEIPT_ROOT, `${profileId}.json`);
+    await mkdir(dirname(receiptPath), { recursive: true });
+    await writeFile(
+      receiptPath,
+      serializeStandardsConformanceReceipt(receipt),
+      "utf-8"
+    );
+    return {
+      path: relative(root, receiptPath).replaceAll("\\", "/"),
+      receipt,
+      receiptHash,
+    };
+  } finally {
+    await rm(probeRoot, { force: true, recursive: true });
+  }
+}
+
+/**
+ * Rebuild the checked fixture through the ordinary adopted path and require
+ * exact equality with the candidate receipt's complete standard artifact set.
+ */
+export async function verifyAdoptedStandardsConformance(
+  profileId: StandardProfileId,
+  receiptPath: string,
+  repositoryRoot = resolve(import.meta.dir, "../../..")
+): Promise<StandardsConformanceVerificationResult> {
+  const root = await realpath(repositoryRoot);
+  await requireCleanRenderer(root);
+  const receipt = parseStandardsConformanceReceipt(
+    JSON.parse(await readFile(resolve(root, receiptPath), "utf-8"))
+  );
+  if (receipt.profile !== profileId) {
+    throw new Error(
+      `skillset: conformance receipt is for ${receipt.profile}, not ${profileId}`
+    );
+  }
+  const receiptHash = hashStandardsConformanceReceipt(receipt);
+  const profile = getStandardProfile(profileId);
+  if (profile.lifecycle !== "adopted" || profile.adoption === undefined) {
+    throw new Error(
+      `skillset: verify-adopted requires adopted registry evidence for ${profileId}`
+    );
+  }
+  if (
+    profile.adoption.receipt.contentHash !== receiptHash ||
+    profile.adoption.profileContentHash !==
+      receipt.profileSnapshot.contentHash ||
+    profile.adoption.rendererCommit !== receipt.renderer.commit
+  ) {
+    throw new Error(
+      `skillset: ${profileId} registry adoption evidence does not match the receipt`
+    );
+  }
+  await requireAncestor(root, receipt.renderer.commit);
+
+  const fixtureRoot = await realpath(join(root, FIXTURE_PATH));
+  const source = await treeEvidence(join(fixtureRoot, ".skillset"));
+  const fixture = await treeEvidence(fixtureRoot);
+  if (
+    source.entries.length !== receipt.sourceTree.fileCount ||
+    source.hash !== receipt.sourceTree.sourceHash ||
+    fixture.hash !== receipt.sourceTree.treeHash
+  ) {
+    throw new Error(
+      `skillset: ${profileId} adoption fixture changed after candidate validation`
+    );
+  }
+
+  const temp = await mkdtemp(
+    join(tmpdir(), `skillset-standards-adopted-${profileId}-`)
+  );
+  try {
+    const builtRoot = join(temp, "repository");
+    await cp(fixtureRoot, builtRoot, { recursive: true });
+    const build = await buildSkillsetResult(builtRoot);
+    if (!build.ok) {
+      throw new Error(
+        `skillset: adopted ${profileId} fixture build did not complete`
+      );
+    }
+    const adoptedArtifacts = await readAdoptedArtifacts(builtRoot, profileId);
+    if (
+      JSON.stringify(adoptedArtifacts) !== JSON.stringify(receipt.artifacts)
+    ) {
+      throw new Error(
+        `skillset: adopted ${profileId} bytes differ from candidate receipt`
+      );
+    }
+    return {
+      artifactCount: adoptedArtifacts.length,
+      profile: profileId,
+      receiptHash,
+      rendererCommit: receipt.renderer.commit,
+    };
+  } finally {
+    await rm(temp, { force: true, recursive: true });
+  }
+}
+
+async function runProfileProbe(
+  profileId: StandardProfileId,
+  generatedRoot: string,
+  probeState: string,
+  artifacts: readonly StandardsConformanceArtifact[]
+): Promise<{
+  readonly canaries: readonly StandardsConformanceCanary[];
+  readonly consumers: readonly StandardsConformanceConsumer[];
+  readonly limitations: readonly string[];
+  readonly observations: readonly string[];
+  readonly validators: readonly StandardsConformanceValidator[];
+}> {
+  if (profileId === "agent-instructions") {
+    const rootInstructions = await artifactText(
+      generatedRoot,
+      artifacts,
+      "AGENTS.md"
+    );
+    const nestedInstructions = await artifactText(
+      generatedRoot,
+      artifacts,
+      "nested/AGENTS.md"
+    );
+    const evidence = await runAgentInstructionsProbe({
+      nestedInstructions,
+      nestedSentinel: NESTED_SENTINEL,
+      rootInstructions,
+      rootSentinel: ROOT_SENTINEL,
+    });
+    const integrity = `sha256:${evidence.consumer.binarySha256}`;
+    return {
+      canaries: [
+        {
+          argv: evidence.invocations[1]?.argv ?? ["debug", "prompt-input"],
+          id: "codex-directory-scope-exclusion",
+          observed: "rejected",
+          path: "nested/AGENTS.md",
+        },
+      ],
+      consumers: [
+        {
+          id: "codex",
+          integrity,
+          pin: AGENT_INSTRUCTIONS_CODEX_PIN.binaryPath,
+          version: evidence.consumer.version,
+        },
+      ],
+      limitations: evidence.limitations,
+      observations: [
+        "Pinned Codex discovered the generated root AGENTS.md only at repository scope.",
+        "Pinned Codex discovered the generated nested AGENTS.md only at nested scope.",
+      ],
+      validators: [
+        {
+          argv: evidence.invocations.flatMap((invocation) => invocation.argv),
+          id: "codex-debug-prompt-input",
+          integrity,
+          outcome: "passed",
+          pin: AGENT_INSTRUCTIONS_CODEX_PIN.binaryPath,
+          version: evidence.consumer.version,
+        },
+      ],
+    };
+  }
+
+  if (profileId === "agent-skills") {
+    const evidence = await runAgentSkillsProbe({
+      repositoryRoot: generatedRoot,
+      skillsRoot: join(generatedRoot, ".agents", "skills"),
+      tempRoot: probeState,
+    });
+    const validatorCommands = evidence.validator.commands.filter((argv) =>
+      argv.includes("validate")
+    );
+    return {
+      canaries: [
+        {
+          argv:
+            validatorCommands.at(-1) ??
+            (["skills-ref", "validate", "negative-canary"] as const),
+          id: "skills-ref-missing-description",
+          observed: "rejected",
+          path: "canaries/agent-skills-missing-description/SKILL.md",
+        },
+      ],
+      consumers: [
+        {
+          id: "skills",
+          integrity: evidence.consumer.integrity,
+          pin: `${evidence.consumer.package}#${evidence.consumer.gitHead}`,
+          version: evidence.consumer.version,
+        },
+      ],
+      limitations: evidence.limitations,
+      observations: [
+        `skills-ref validated ${evidence.validator.validatedSkills.length} generated skill(s).`,
+        `skills@${evidence.consumer.version} discovered and copied every generated skill from the repository root with exact tree hashes.`,
+      ],
+      validators: evidence.validator.validatedSkills.map((skill, index) => ({
+        argv:
+          validatorCommands[index] ??
+          (["skills-ref", "validate", skill] as const),
+        id: `skills-ref:${skill}`,
+        integrity: evidence.validator.archiveIntegrity,
+        outcome: "passed" as const,
+        pin: evidence.validator.revision,
+        version: evidence.validator.version,
+      })),
+    };
+  }
+
+  const codex = {
+    binaryPath: AGENT_INSTRUCTIONS_CODEX_PIN.binaryPath,
+    sha256: `sha256:${AGENT_INSTRUCTIONS_CODEX_PIN.binarySha256}` as const,
+    version: AGENT_INSTRUCTIONS_CODEX_PIN.version.replace("codex-cli ", ""),
+  };
+  const evidence = await runAgentPluginsProbe({
+    codex,
+    packageRoot: join(generatedRoot, "plugins", "portable-proof", "agents"),
+  });
+  return {
+    canaries: evidence.schemas.map(({ artifact, negativeCanary }) => ({
+      argv: ["Ajv2020.compile", artifact, negativeCanary.mutation],
+      id: `agent-plugins-${artifact}-unknown-field`,
+      observed: "rejected" as const,
+      path: `canaries/agent-plugins/${artifact}`,
+    })),
+    consumers: [
+      {
+        id: "codex",
+        integrity: evidence.marketplace.codexBinaryHash,
+        pin: evidence.marketplace.pin.binaryPath,
+        version: evidence.marketplace.codexVersion,
+      },
+    ],
+    limitations: [
+      "Schema validation and read-only marketplace listing do not install, trust, enable, or activate the plugin.",
+    ],
+    observations: [
+      "Ajv draft 2020-12 validated complete plugin.json and mcp.json documents against immutable registry snapshots.",
+      `Pinned Codex listed ${evidence.marketplace.expectedPluginId} from an isolated local marketplace without installation.`,
+    ],
+    validators: evidence.schemas.map((schema) => ({
+      argv: ["Ajv2020.compile", schema.schemaId, schema.artifact],
+      id: `agent-plugins-schema:${schema.artifact}`,
+      integrity: "ajv@8.20.0+ajv-formats@3.0.1",
+      outcome: "passed" as const,
+      pin: schema.schemaHash,
+      version: "draft-2020-12",
+    })),
+  };
+}
+
+async function materialize(
+  files: readonly {
+    readonly content: Uint8Array;
+    readonly mode: number;
+    readonly path: string;
+  }[],
+  root: string
+): Promise<void> {
+  for (const file of files) {
+    const destination = resolve(root, file.path);
+    assertContained(root, destination);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, file.content);
+    await chmod(destination, file.mode);
+  }
+}
+
+function artifactEvidence(
+  files: readonly {
+    readonly content: Uint8Array;
+    readonly mode: number;
+    readonly path: string;
+  }[]
+): readonly StandardsConformanceArtifact[] {
+  return files
+    .map((file) => ({
+      bytes: file.content.byteLength,
+      hash: hash(file.content),
+      mode: fileMode(file.mode),
+      path: file.path.replaceAll("\\", "/"),
+    }))
+    .toSorted((left, right) => left.path.localeCompare(right.path));
+}
+
+function artifactText(
+  generatedRoot: string,
+  artifacts: readonly StandardsConformanceArtifact[],
+  path: string
+): Promise<string> {
+  if (!artifacts.some((artifact) => artifact.path === path)) {
+    throw new Error(`skillset: candidate renderer omitted ${path}`);
+  }
+  return readFile(join(generatedRoot, path), "utf-8");
+}
+
+async function readAdoptedArtifacts(
+  root: string,
+  profileId: StandardProfileId
+): Promise<readonly StandardsConformanceArtifact[]> {
+  const entries: TreeEntry[] = [];
+  if (profileId === "agent-instructions") {
+    await visitTree(
+      root,
+      root,
+      entries,
+      (path) =>
+        (path === "AGENTS.md" || path.endsWith("/AGENTS.md")) &&
+        !path.startsWith(".skillset/")
+    );
+  } else if (profileId === "agent-skills") {
+    await visitTree(
+      join(root, ".agents", "skills"),
+      root,
+      entries,
+      (path) =>
+        !path.endsWith("/skillset.lock") &&
+        path !== ".agents/skills/skillset.lock"
+    );
+  } else {
+    await visitTree(join(root, "plugins"), root, entries, (path) =>
+      path.includes("/agents/")
+    );
+  }
+  return entries
+    .map(({ bytes, hash: contentHash, mode, path }) => ({
+      bytes,
+      hash: contentHash,
+      mode,
+      path,
+    }))
+    .toSorted((left, right) => left.path.localeCompare(right.path));
+}
+
+async function treeEvidence(root: string): Promise<TreeEvidence> {
+  const canonical = await realpath(root);
+  const entries: TreeEntry[] = [];
+  await visitTree(canonical, canonical, entries, () => true);
+  const digest = createHash("sha256");
+  digest.update("skillset-standards-tree@1\0");
+  for (const entry of entries) {
+    digest.update(entry.path);
+    digest.update("\0");
+    digest.update(entry.mode);
+    digest.update("\0");
+    digest.update(String(entry.bytes));
+    digest.update("\0");
+    digest.update(entry.hash);
+    digest.update("\0");
+  }
+  return { entries, hash: `sha256:${digest.digest("hex")}` };
+}
+
+async function visitTree(
+  directory: string,
+  root: string,
+  entries: TreeEntry[],
+  include: (path: string) => boolean
+): Promise<void> {
+  const directoryEntries = await readdir(directory, { withFileTypes: true });
+  for (const entry of directoryEntries.toSorted((left, right) =>
+    left.name.localeCompare(right.name)
+  )) {
+    const candidate = join(directory, entry.name);
+    const metadata = await lstat(candidate);
+    const path = relative(root, candidate).replaceAll("\\", "/");
+    if (metadata.isSymbolicLink()) {
+      throw new Error(`skillset: standards evidence rejects symlink ${path}`);
+    }
+    if (metadata.isDirectory()) {
+      await visitTree(candidate, root, entries, include);
+      continue;
+    }
+    if (!metadata.isFile() || !include(path)) {
+      continue;
+    }
+    const bytes = await readFile(candidate);
+    entries.push({
+      bytes: bytes.byteLength,
+      hash: hash(bytes),
+      mode: fileMode(metadata.mode % 0o1000),
+      path,
+    });
+  }
+}
+
+function hash(bytes: Uint8Array): `sha256:${string}` {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function fileMode(mode: number): string {
+  return (0o10_0000 | mode).toString(8).padStart(6, "0");
+}
+
+function snapshotRevision(url: string): string {
+  const match = /\/(?<revision>[a-f0-9]{40})\//u.exec(new URL(url).pathname);
+  if (match?.groups?.revision === undefined) {
+    throw new Error(
+      `skillset: standard snapshot URL lacks immutable revision: ${url}`
+    );
+  }
+  return match.groups.revision;
+}
+
+async function requireCleanRenderer(root: string): Promise<string> {
+  const [head, unstaged, staged] = await Promise.all([
+    git(root, ["rev-parse", "HEAD"]),
+    git(root, ["diff", "--quiet"]),
+    git(root, ["diff", "--cached", "--quiet"]),
+  ]);
+  if (unstaged.exitCode !== 0 || staged.exitCode !== 0) {
+    throw new Error(
+      "skillset: standards conformance requires a clean tracked renderer commit"
+    );
+  }
+  const commit = head.stdout.trim();
+  if (!/^[a-f0-9]{40}$/u.test(commit)) {
+    throw new Error("skillset: could not resolve standards renderer commit");
+  }
+  return commit;
+}
+
+async function requireAncestor(root: string, commit: string): Promise<void> {
+  const result = await git(root, [
+    "merge-base",
+    "--is-ancestor",
+    commit,
+    "HEAD",
+  ]);
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `skillset: receipt renderer ${commit} is not an ancestor of the adopted head`
+    );
+  }
+}
+
+async function git(
+  cwd: string,
+  argv: readonly string[]
+): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+  const process = Bun.spawn(["git", ...argv], {
+    cwd,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stdout] = await Promise.all([
+    process.exited,
+    new Response(process.stdout).text(),
+  ]);
+  return { exitCode, stdout };
+}
+
+function assertContained(root: string, candidate: string): void {
+  const relativePath = relative(resolve(root), resolve(candidate));
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    resolve(candidate) === resolve(root)
+  ) {
+    throw new Error(
+      `skillset: refusing standards evidence path outside disposable root: ${candidate}`
+    );
+  }
+}

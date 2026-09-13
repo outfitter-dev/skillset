@@ -49,16 +49,56 @@ export function resolveStandardProjectionPlan(
   profiles: readonly StandardProfile[] = listStandardProfiles()
 ): StandardProjectionPlan {
   const adopted: StandardProfileId[] = []
+  const adoptionReceiptHashes: Partial<
+    Record<StandardProfileId, `sha256:${string}`>
+  > = {}
 
   for (const profile of profiles) {
     const family = PROFILE_FAMILIES[profile.id]
     if (profile.lifecycle !== 'adopted') continue
+    const receipt = profile.adoption?.receipt
+    if (receipt === undefined) {
+      throw new Error(
+        `skillset: adopted standard profile ${profile.id} has no adoption receipt evidence`
+      )
+    }
     if (inventory[family] > 0) {
       adopted.push(profile.id)
+      adoptionReceiptHashes[profile.id] = receipt.contentHash
     }
   }
 
-  return { adopted: requestedIds(adopted) }
+  return { adopted: requestedIds(adopted), adoptionReceiptHashes }
+}
+
+/**
+ * Resolve one candidate profile for the repository-internal conformance lane.
+ * This does not change registry state or make the profile eligible for normal
+ * builds; the returned plan is consumed only by the private candidate renderer.
+ */
+export function resolveCandidateStandardProjectionPlan(
+  inventory: StandardProjectionSourceInventory,
+  profileId: StandardProfileId,
+  profiles: readonly StandardProfile[] = listStandardProfiles()
+): StandardProjectionPlan {
+  const profile = profiles.find(candidate => candidate.id === profileId)
+  if (profile === undefined) {
+    throw new Error(`skillset: unknown standard profile ${profileId}`)
+  }
+  if (profile.lifecycle !== 'candidate') {
+    throw new Error(
+      `skillset: candidate conformance requires a candidate standard profile; ${profileId} is ${profile.lifecycle}`
+    )
+  }
+
+  const family = PROFILE_FAMILIES[profile.id]
+  if (inventory[family] === 0) {
+    throw new Error(
+      `skillset: candidate standard profile ${profileId} has no applicable ${family} source`
+    )
+  }
+
+  return { adopted: [profileId], adoptionReceiptHashes: {} }
 }
 
 function requestedIds(ids: readonly StandardProfileId[]): readonly StandardProfileId[] {

@@ -4,10 +4,12 @@ import {
   assertStandardProfiles,
   getStandardProfile,
   getStandardProfileSupportEnvelope,
+  hashStandardProfile,
   hashStandardProfileSnapshot,
   listStandardProfileSchemaSnapshots,
   listStandardProfiles,
   STANDARD_PROFILE_REGISTRY_SCHEMA,
+  STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
 } from "../index";
 
 describe("SET-397 standard profile registry", () => {
@@ -113,5 +115,34 @@ describe("SET-397 standard profile registry", () => {
         );
       }
     }
+  });
+
+  test("requires immutable candidate evidence before adoption without changing the contract hash", () => {
+    const candidate = getStandardProfile("agent-skills");
+    const adopted = {
+      ...candidate,
+      adoption: {
+        profileContentHash: candidate.provenance
+          .contentHash as `sha256:${string}`,
+        receipt: {
+          contentHash: `sha256:${"a".repeat(64)}` as const,
+          path: "fixtures/standards/evidence/agent-skills.json",
+          schema: "skillset.standards-conformance-receipt@1" as const,
+        },
+        rendererCommit: "b".repeat(40),
+        schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
+        verifiedAt: "2026-09-13T12:34:56.000Z",
+      },
+      lifecycle: "adopted" as const,
+    };
+
+    expect(hashStandardProfile(adopted)).toBe(candidate.provenance.contentHash);
+    expect(() => assertStandardProfiles([adopted])).not.toThrow();
+    expect(() =>
+      assertStandardProfiles([{ ...candidate, lifecycle: "adopted" }])
+    ).toThrow("requires candidate conformance evidence");
+    expect(() =>
+      assertStandardProfiles([{ ...candidate, adoption: adopted.adoption }])
+    ).toThrow("non-adopted standard profile");
   });
 });

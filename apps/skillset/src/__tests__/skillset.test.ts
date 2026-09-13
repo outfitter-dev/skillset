@@ -4700,6 +4700,9 @@ Alpha body.
       }],
       outputRoot: "plugins",
       schemaVersion: 3,
+      standardProfileEvidence: {
+        "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
+      },
       selectedStandards: ["agent-plugins-1.0"],
       selectedTargets: [],
       target: "workspace",
