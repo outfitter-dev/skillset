@@ -3,7 +3,10 @@ import { mkdtemp, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { StandardProfileId } from "@skillset/registry";
+import {
+  getStandardProfile,
+  type StandardProfileId,
+} from "@skillset/registry";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { renderBuildGraph } from "../render";
@@ -255,11 +258,23 @@ cursor: false
         ".skillset/plugins/demo/agents/reviewer.md": "Review.",
         ".skillset/plugins/demo/bin/demo": "#!/bin/sh\nexit 0",
         ".skillset/plugins/demo/commands/run.md": "Run.",
+        ".skillset/plugins/demo/.mcp.json": `
+{
+  "mcpServers": {
+    "oauth": {
+      "oauth": { "clientId": "example" },
+      "type": "streamable-http",
+      "url": "https://secure.example.com/mcp"
+    }
+  }
+}
+`,
         ".skillset/plugins/demo/settings.json": "{}",
         ".skillset/plugins/demo/skillset.yaml": `
 skillset:
   name: demo
 bin: true
+mcp: true
 dependencies:
   plugins:
     - name: external-tools
@@ -317,6 +332,23 @@ cursor: false
         standardProfile: "agent-plugins-1.0",
         status: "rendered",
       })
+    );
+    const standardMcp = results.find(
+      (result) =>
+        result.featureId === "plugin-mcp" &&
+        result.standardProfile === "agent-plugins-1.0"
+    );
+    const profile = getStandardProfile("agent-plugins-1.0");
+    expect(
+      standardMcp?.evidence?.map((evidence) => ({
+        ref: evidence.ref,
+        verifiedAt: evidence.verifiedAt,
+      }))
+    ).toEqual(
+      profile.provenance.snapshots.map((snapshot) => ({
+        ref: snapshot.url,
+        verifiedAt: profile.provenance.observedAt,
+      }))
     );
   });
 

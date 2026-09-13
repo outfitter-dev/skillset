@@ -41,7 +41,8 @@ export async function resolveInteractiveLookup(
   const views =
     selectedView === undefined ? request.lookupViews : [selectedView];
   const targets =
-    selectedView === "compat" || selectedView === "events"
+    (selectedView === "compat" && subject !== "standards") ||
+    selectedView === "events"
       ? await promptForTargets(session)
       : request.lookupTargets;
   const field =

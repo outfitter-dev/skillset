@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  adapterConformanceIdentityLabel,
   createAdapterConformanceCoverageReport,
   defineFeatureRegistry,
   formatAdapterConformanceCoverageReport,
@@ -9,6 +10,7 @@ import {
   type SkillsetFeatureRegistry,
   targetRecord,
 } from "@skillset/core";
+import { listStandardProfiles, type StandardProfile } from "@skillset/registry";
 
 describe("adapter conformance coverage", () => {
   it("reports stable JSON rows and gap rows from registry plus fixture refs", () => {
@@ -40,7 +42,7 @@ describe("adapter conformance coverage", () => {
     ], registry());
 
     expect(report.ok).toBe(false);
-    expect(report.entries.map((entry) => `${entry.featureId}:${entry.target}:${entry.coverage}:${entry.supportStatus ?? ""}`)).toEqual([
+    expect(report.entries.map((entry) => `${entry.featureId}:${adapterConformanceIdentityLabel(entry)}:${entry.coverage}:${entry.supportStatus ?? ""}`)).toEqual([
       "covered-feature:claude:covered:native",
       "covered-feature:codex:missing_fixture:transformed",
       "covered-feature:cursor:planned:planned",
@@ -52,7 +54,7 @@ describe("adapter conformance coverage", () => {
       "unsupported-feature:codex:unsupported_without_fixture:unsupported",
       "unsupported-feature:cursor:planned:planned",
     ]);
-    expect(report.gaps.map((entry) => `${entry.featureId}:${entry.target}:${entry.coverage}`)).toEqual([
+    expect(report.gaps.map((entry) => `${entry.featureId}:${adapterConformanceIdentityLabel(entry)}:${entry.coverage}`)).toEqual([
       "covered-feature:codex:missing_fixture",
       "deleted-feature:claude:stale_fixture",
       "future-feature:codex:invalid_fixture",
@@ -80,8 +82,43 @@ describe("adapter conformance coverage", () => {
     const report = createAdapterConformanceCoverageReport(cases);
     const covered = report.entries.filter((entry) => entry.coverage === "covered");
 
-    expect(covered.map((entry) => `${entry.featureId}:${entry.target}`)).toContain("plugin-bin:codex");
+    expect(covered.map((entry) => `${entry.featureId}:${adapterConformanceIdentityLabel(entry)}`)).toContain("plugin-bin:codex");
     expect(report.gaps.some((entry) => entry.coverage === "unsupported_without_fixture")).toBe(true);
+  });
+
+  it("keeps adopted standard envelope coverage separate from providers", () => {
+    const profiles = listStandardProfiles()
+      .filter((profile) => profile.id === "agent-skills")
+      .map((profile) => ({
+        ...profile,
+        lifecycle: "adopted" as const,
+      })) satisfies readonly StandardProfile[];
+    const report = createAdapterConformanceCoverageReport(
+      [
+        {
+          featureId: "standalone-skills",
+          fixtureRef: "fixtures/standards/agent-skills",
+          standardProfile: "agent-skills",
+        },
+      ],
+      undefined,
+      profiles
+    );
+    const entry = report.entries.find(
+      (candidate) =>
+        "standardProfile" in candidate &&
+        candidate.standardProfile === "agent-skills" &&
+        candidate.featureId === "standalone-skills"
+    );
+
+    expect(entry).toMatchObject({
+      coverage: "covered",
+      fixtureRefs: ["fixtures/standards/agent-skills"],
+      profileLifecycle: "adopted",
+      standardProfile: "agent-skills",
+      supportStatus: "required",
+    });
+    expect(entry?.evidenceRefs).not.toHaveLength(0);
   });
 });
 

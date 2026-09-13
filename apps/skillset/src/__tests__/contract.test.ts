@@ -1797,6 +1797,34 @@ Body.
   );
   const diff = await diffSkillset(root);
   expect(diff.changed).toContain(".claude/skills/demo/SKILL.md");
+  const cliDiff = await runSkillsetCli("diff", "--root", root);
+  expect(cliDiff.stdout).toContain(".claude/skills/demo/SKILL.md [claude]");
+  expect(cliDiff.stdout).toContain(
+    "standards: active none; registry agent-instructions candidate, agent-plugins-1.0 candidate, agent-skills candidate"
+  );
+  const jsonDiff = await runSkillsetCli("diff", "--root", root, "--json");
+  const jsonDiffData = (
+    JSON.parse(jsonDiff.stdout) as {
+      readonly data: {
+        readonly renderResults: readonly { readonly target?: string }[];
+        readonly standardProfiles: readonly {
+          readonly active: boolean;
+          readonly id: string;
+          readonly lifecycle: string;
+        }[];
+      };
+    }
+  ).data;
+  expect(jsonDiffData.renderResults).toContainEqual(
+    expect.objectContaining({ target: "claude" })
+  );
+  expect(jsonDiffData.standardProfiles).toContainEqual(
+    expect.objectContaining({
+      active: false,
+      id: "agent-skills",
+      lifecycle: "candidate",
+    })
+  );
   // diff is read-only: the on-disk output is still the old build.
   expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("Body.");
 });
@@ -9469,6 +9497,13 @@ Body.
     })
   );
   expect(source.notes.join("\n")).toContain("claude");
+  expect(source.standardProfiles).toContainEqual(
+    expect.objectContaining({
+      active: false,
+      id: "agent-skills",
+      lifecycle: "candidate",
+    })
+  );
 
   const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
   expect(generated.kind).toBe("generated");
@@ -9502,6 +9537,13 @@ Body.
   const okReport = await doctorSkillset(clean);
   expect(okReport.ok).toBe(true);
   expect(okReport.lintIssues).toEqual([]);
+  expect(okReport.standardProfiles).toContainEqual(
+    expect.objectContaining({
+      active: false,
+      id: "agent-skills",
+      lifecycle: "candidate",
+    })
+  );
 
   const problems = await contractFixture({
     "skillset.yaml": `
@@ -9576,6 +9618,11 @@ Audit body.
   expect(explainedJson.exitCode).toBe(0);
   const explainReport = (JSON.parse(explainedJson.stdout) as { readonly data: {
     renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
+    standardProfiles: readonly {
+      active: boolean;
+      id: string;
+      lifecycle: string;
+    }[];
   } }).data;
   expect(explainReport.renderResults).toContainEqual(
     expect.objectContaining({
@@ -9585,10 +9632,18 @@ Audit body.
       target: "codex",
     })
   );
+  expect(explainReport.standardProfiles).toContainEqual(
+    expect.objectContaining({
+      active: false,
+      id: "agent-skills",
+      lifecycle: "candidate",
+    })
+  );
 
   const doctor = await runSkillsetCli("status", "--root", root);
   expect(doctor.exitCode).toBe(0);
   expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> skill-body degraded");
+  expect(doctor.stdout).toContain("standards: active none; registry");
   expect(doctor.stdout).toContain("status found 1 render result advisory");
 
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
@@ -9596,6 +9651,11 @@ Audit body.
   const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
     notableRenderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
+    standardProfiles: readonly {
+      active: boolean;
+      id: string;
+      lifecycle: string;
+    }[];
   } }).data;
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
   expect(doctorReport.notableRenderResults).toEqual([
@@ -9606,6 +9666,13 @@ Audit body.
       target: "codex",
     }),
   ]);
+  expect(doctorReport.standardProfiles).toContainEqual(
+    expect.objectContaining({
+      active: false,
+      id: "agent-skills",
+      lifecycle: "candidate",
+    })
+  );
 
   const buildJson = await runSkillsetCli("build", "--root", root, "--json");
   expect(buildJson.exitCode).toBe(0);

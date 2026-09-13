@@ -6,6 +6,7 @@ import type {
   FeatureRegistryDriftIssue,
   FeatureRegistryDriftReport,
 } from "@skillset/core";
+import { adapterConformanceIdentityLabel } from "@skillset/core";
 
 import { createWorkbenchDiagnostic, sortWorkbenchDiagnostics } from "./diagnostics";
 import type {
@@ -50,6 +51,8 @@ function adapterConformanceDiagnostic(
   issue: AdapterConformanceIssue,
   options: WorkbenchCompatibilityDiagnosticOptions
 ): WorkbenchDiagnostic {
+  const identity = adapterConformanceIdentityLabel(issue);
+  const standard = "standardProfile" in issue;
   const help = compactHelp([
     issue.sourceUnit === undefined ? undefined : `Source unit: ${issue.sourceUnit}`,
     issue.expected === undefined ? undefined : `Expected: ${issue.expected.join(", ")}`,
@@ -60,13 +63,13 @@ function adapterConformanceDiagnostic(
     featureId: issue.featureId,
     ...(help === undefined ? {} : { help }),
     ...(diagnosticLocation === undefined ? {} : { location: diagnosticLocation }),
-    message: `${issue.target} ${issue.featureId}: ${issue.message}`,
+    message: `${identity} ${issue.featureId}: ${issue.message}`,
     ruleId: `compat/${issue.code}`,
-    scope: "provider",
+    scope: standard ? "workspace" : "provider",
     severity: "error",
     subject: {
-      id: `${issue.featureId}:${issue.target}`,
-      kind: "provider-compatibility",
+      id: `${issue.featureId}:${identity}`,
+      kind: standard ? "standard-compatibility" : "provider-compatibility",
       ...(issue.sourceUnit === undefined ? {} : { path: issue.sourceUnit }),
     },
   });
@@ -76,9 +79,15 @@ function adapterCoverageDiagnostic(
   entry: AdapterConformanceCoverageEntry,
   options: WorkbenchCompatibilityDiagnosticOptions
 ): WorkbenchDiagnostic {
+  const identity = adapterConformanceIdentityLabel(entry);
+  const standard = "standardProfile" in entry;
   const help = compactHelp([
     entry.title === undefined ? undefined : `Feature: ${entry.title}`,
     entry.supportStatus === undefined ? undefined : `Support: ${entry.supportStatus}`,
+    entry.profileLifecycle === undefined ? undefined : `Profile lifecycle: ${entry.profileLifecycle}`,
+    entry.evidenceRefs === undefined || entry.evidenceRefs.length === 0
+      ? undefined
+      : `Profile evidence: ${entry.evidenceRefs.join(", ")}`,
     entry.reason === undefined ? undefined : `Reason: ${entry.reason}`,
     entry.fixtureRefs.length === 0 ? undefined : `Fixtures: ${entry.fixtureRefs.join(", ")}`,
   ]);
@@ -87,14 +96,14 @@ function adapterCoverageDiagnostic(
     featureId: entry.featureId,
     ...(help === undefined ? {} : { help }),
     ...(diagnosticLocation === undefined ? {} : { location: diagnosticLocation }),
-    message: `${entry.target} ${entry.featureId}: ${entry.coverage}`,
+    message: `${identity} ${entry.featureId}: ${entry.coverage}`,
     ruleId: `compat/coverage/${entry.coverage}`,
     ruleLevel: "strict",
-    scope: "provider",
+    scope: standard ? "workspace" : "provider",
     severity: "warning",
     subject: {
-      id: `${entry.featureId}:${entry.target}`,
-      kind: "provider-coverage",
+      id: `${entry.featureId}:${identity}`,
+      kind: standard ? "standard-coverage" : "provider-coverage",
     },
   });
 }

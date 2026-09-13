@@ -8,7 +8,14 @@ import {
 import { hasValidLockProvenance } from "./lock-provenance";
 import { parseRenderResult, type SkillsetRenderResult } from "./render-result";
 import { isTargetName } from "./targets";
-import type { CompileBuildMode, JsonRecord, TargetName } from "./types";
+import type {
+  CompileBuildMode,
+  JsonRecord,
+  ProjectionConsumer,
+  ProjectionOwner,
+  SourceOrigin,
+  TargetName,
+} from "./types";
 import { isJsonRecord } from "./yaml";
 
 export type GeneratedLockSchemaVersion = 1 | 2 | 3;
@@ -16,23 +23,16 @@ export type GeneratedLockHashSchema =
   | "skillset-output-v1"
   | "skillset-output-v2";
 
-export interface GeneratedLockStandardConsumer {
-  readonly phase: "baseline";
-  readonly standardProfile: StandardProfileId;
-}
-
-export interface GeneratedLockProviderConsumer {
-  readonly phase: "delta";
-  readonly target: TargetName;
-}
-
-export type GeneratedLockConsumer =
-  | GeneratedLockStandardConsumer
-  | GeneratedLockProviderConsumer;
-
-export type GeneratedLockOwner =
-  | { readonly standardProfile: StandardProfileId }
-  | { readonly target: TargetName };
+export type GeneratedLockStandardConsumer = Extract<
+  ProjectionConsumer,
+  { readonly standardProfile: StandardProfileId }
+>;
+export type GeneratedLockProviderConsumer = Extract<
+  ProjectionConsumer,
+  { readonly target: TargetName }
+>;
+export type GeneratedLockConsumer = ProjectionConsumer;
+export type GeneratedLockOwner = ProjectionOwner;
 
 export interface ParsedGeneratedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
@@ -42,6 +42,7 @@ export interface ParsedGeneratedLockItem {
   readonly files: readonly string[];
   readonly kind?: string;
   readonly name?: string;
+  readonly origin?: string;
   readonly outputHash?: string;
   readonly outputPath?: string;
   readonly owner?: GeneratedLockOwner;
@@ -50,7 +51,9 @@ export interface ParsedGeneratedLockItem {
   readonly renderInputsHash?: string;
   readonly sourcePath?: string;
   readonly sourceHash?: string;
+  readonly sourceOrigin?: SourceOrigin;
   readonly targetState?: string;
+  readonly sourcePointer?: string;
   readonly transforms?: readonly Record<string, unknown>[];
   readonly validation?: string;
   readonly version?: string;
@@ -246,6 +249,7 @@ function parseGeneratedLockItem(
   const outputHash = optionalString(value.outputHash, label, "outputHash");
   const kind = optionalString(value.kind, label, "kind");
   const name = optionalString(value.name, label, "name");
+  const origin = optionalString(value.origin, label, "origin");
   const outputPath = optionalString(value.outputPath, label, "outputPath");
   if (outputPath !== undefined) {
     assertManagedRelativePath(outputPath, `${label}.outputPath`);
@@ -269,6 +273,12 @@ function parseGeneratedLockItem(
     "renderInputsHash"
   );
   const sourceHash = optionalString(value.sourceHash, label, "sourceHash");
+  const sourceOrigin = parseSourceOrigin(value.sourceOrigin, label);
+  const sourcePointer = optionalString(
+    value.sourcePointer,
+    label,
+    "sourcePointer"
+  );
   const targetState = optionalString(value.targetState, label, "targetState");
   const transforms = optionalRecordArray(value.transforms, label, "transforms");
   const validation = optionalString(value.validation, label, "validation");
@@ -294,6 +304,7 @@ function parseGeneratedLockItem(
     files,
     ...(kind === undefined ? {} : { kind }),
     ...(name === undefined ? {} : { name }),
+    ...(origin === undefined ? {} : { origin }),
     ...(outputHash === undefined ? {} : { outputHash }),
     ...(outputPath === undefined ? {} : { outputPath }),
     ...(owner === undefined ? {} : { owner }),
@@ -302,10 +313,30 @@ function parseGeneratedLockItem(
     ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
     ...(sourcePath === undefined ? {} : { sourcePath }),
     ...(sourceHash === undefined ? {} : { sourceHash }),
+    ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
+    ...(sourcePointer === undefined ? {} : { sourcePointer }),
     ...(targetState === undefined ? {} : { targetState }),
     ...(transforms === undefined ? {} : { transforms }),
     ...(validation === undefined ? {} : { validation }),
     ...(version === undefined ? {} : { version }),
+  };
+}
+
+function parseSourceOrigin(
+  value: unknown,
+  label: string
+): SourceOrigin | undefined {
+  if (value === undefined) return undefined;
+  if (!isJsonRecord(value)) {
+    throw invalidLock(label, "sourceOrigin must be an object");
+  }
+  const path = requiredString(value.path, label, "sourceOrigin.path");
+  const ref = optionalString(value.ref, label, "sourceOrigin.ref");
+  const repo = optionalString(value.repo, label, "sourceOrigin.repo");
+  return {
+    path,
+    ...(ref === undefined ? {} : { ref }),
+    ...(repo === undefined ? {} : { repo }),
   };
 }
 

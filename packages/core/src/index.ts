@@ -136,10 +136,12 @@ export {
   type NativeHookLiftDiagnosticsOptions,
 } from "./adaptive-hook-native-lift";
 export {
+  adapterConformanceIdentityLabel,
   assertAdapterConformance,
   checkAdapterConformance,
   formatAdapterConformanceReport,
   type AdapterConformanceCase,
+  type AdapterConformanceIdentity,
   type AdapterConformanceIssue,
   type AdapterConformanceIssueCode,
   type AdapterConformanceReport,
@@ -316,6 +318,7 @@ export {
   type LookupProviderLocation,
   type LookupQuery,
   type LookupReport,
+  type LookupStandardProfile,
   type LookupSubject,
   type LookupSubjectSummary,
   type LookupToolsRealization,
@@ -466,6 +469,10 @@ export {
   type OutputBackupSummary,
 } from "./output-safety";
 export type { SkillsetOptions } from "./types";
+export {
+  standardProfileStatuses,
+  type StandardProfileStatus,
+} from "./standard-profile-status";
 export {
   VERSION_DRIFT_STATUS_VALUES,
   auditVersions,

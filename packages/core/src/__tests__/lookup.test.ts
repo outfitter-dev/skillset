@@ -22,8 +22,78 @@ describe("lookupSkillsetReference", () => {
       "workspace",
       "hooks",
       "plugin",
+      "standards",
     ]);
     expect(report.diagnostics).toEqual([]);
+  });
+
+  it("lists standard lifecycle and pinned evidence without provider identity", () => {
+    const report = lookupSkillsetReference({ subject: "standards" });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(
+      report.standards.map(({ id, lifecycle }) => ({ id, lifecycle }))
+    ).toEqual([
+      { id: "agent-instructions", lifecycle: "candidate" },
+      { id: "agent-plugins-1.0", lifecycle: "candidate" },
+      { id: "agent-skills", lifecycle: "candidate" },
+    ]);
+    expect(report.standards[1]).toMatchObject({
+      envelopes: [
+        { expectation: "required", featureId: "plugin-manifests" },
+        { expectation: "required", featureId: "plugin-mcp" },
+        { expectation: "required", featureId: "plugin-skills" },
+      ],
+      id: "agent-plugins-1.0",
+      version: "1.0.0",
+    });
+    expect(report.standards[1]?.evidence).not.toHaveLength(0);
+    expect(report.compatibility).toEqual([]);
+  });
+
+  it("rejects provider filters for standards lookup", () => {
+    const report = lookupSkillsetReference({
+      subject: "standards",
+      targets: ["codex"],
+    });
+
+    expect(report.standards).toEqual([]);
+    expect(report.diagnostics).toEqual([
+      {
+        code: "lookup/standards/target-not-applicable",
+        message:
+          "standards lookup is independent of provider targets; remove --compat target filters.",
+        severity: "error",
+      },
+    ]);
+  });
+
+  it("rejects unknown profiles and non-compat standards views", () => {
+    const unknown = lookupSkillsetReference({
+      aspects: ["not-a-profile"],
+      subject: "standards",
+    });
+    const wrongView = lookupSkillsetReference({
+      subject: "standards",
+      views: ["schema"],
+    });
+
+    expect(unknown.standards).toEqual([]);
+    expect(unknown.diagnostics).toEqual([
+      {
+        code: "lookup/standards/aspect-not-found",
+        message: "standards lookup does not define profile not-a-profile.",
+        severity: "error",
+      },
+    ]);
+    expect(wrongView.diagnostics).toEqual([
+      {
+        code: "lookup/standards/view-not-applicable",
+        message:
+          "standards lookup exposes registry compatibility facts; use --compat.",
+        severity: "error",
+      },
+    ]);
   });
 
   it("derives applicable views from the owned lookup contracts", () => {
@@ -52,6 +122,7 @@ describe("lookupSkillsetReference", () => {
       "schema",
     ]);
     expect(listLookupViews("plugin")).toEqual(["compat"]);
+    expect(listLookupViews("standards")).toEqual(["compat"]);
   });
 
   it("returns registry-backed activation facts with target and capability lenses", () => {

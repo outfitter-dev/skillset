@@ -3,7 +3,11 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
+import {
+  getProviderDestinationFormatSnapshot,
+  listStandardProfiles,
+  type StandardProfile,
+} from "@skillset/registry";
 
 import {
   checkAdapterConformance,
@@ -261,6 +265,76 @@ echo alpha
     ]);
     expect(report.issues[0]?.message).toContain("reason does not match");
     expect(report.issues[2]?.observed).toEqual(["rendered", "unsupported"]);
+  });
+
+  it("joins standard results to adopted profile envelopes and pinned evidence", () => {
+    const profiles = listStandardProfiles().map((profile) =>
+      profile.id === "agent-skills"
+        ? { ...profile, lifecycle: "adopted" as const }
+        : profile
+    ) satisfies readonly StandardProfile[];
+    const profile = profiles.find((entry) => entry.id === "agent-skills")!;
+    const evidence = profile.provenance.snapshots[0]!;
+    const result: SkillsetRenderResult = {
+      evidence: [
+        {
+          kind: "external-docs",
+          ref: evidence.url,
+          verifiedAt: profile.provenance.observedAt,
+        },
+      ],
+      featureId: "standalone-skills",
+      schema: "skillset-render-result@2",
+      sourceUnit: "skill:repo-skill",
+      standardProfile: "agent-skills",
+      status: "rendered",
+    };
+
+    expect(
+      checkAdapterConformance(
+        [result],
+        [
+          {
+            featureId: "standalone-skills",
+            sourceUnit: "skill:repo-skill",
+            standardProfile: "agent-skills",
+          },
+        ],
+        undefined,
+        profiles
+      )
+    ).toEqual({ issues: [], ok: true });
+
+    expect(
+      checkAdapterConformance(
+        [result],
+        [
+          {
+            featureId: "standalone-skills",
+            standardProfile: "agent-skills",
+          },
+        ]
+      ).issues.map((issue) => issue.code)
+    ).toEqual(["standard-profile-not-adopted"]);
+
+    expect(
+      checkAdapterConformance(
+        [
+          {
+            ...result,
+            evidence: [{ kind: "test", ref: "not-profile-evidence" }],
+          },
+        ],
+        [
+          {
+            featureId: "standalone-skills",
+            standardProfile: "agent-skills",
+          },
+        ],
+        undefined,
+        profiles
+      ).issues.map((issue) => issue.code)
+    ).toEqual(["standard-profile-evidence-mismatch"]);
   });
 });
 

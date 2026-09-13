@@ -605,6 +605,14 @@ compile:
       ],
     });
     const renderResults: readonly SkillsetRenderResult[] = [
+      {
+        featureId: "dependencies",
+        reason: "A standard-profile outcome is not provider activation proof.",
+        schema: "skillset-render-result@2",
+        sourceUnit: "plugin.tools.feature:dependencies",
+        standardProfile: "agent-plugins-1.0",
+        status: "unsupported",
+      },
       renderResult({
         featureId: "dependencies",
         sourceUnit: "plugin.tools.feature:dependencies",

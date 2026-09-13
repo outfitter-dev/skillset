@@ -86,4 +86,50 @@ describe("SET-307 list presentation", () => {
     for (const line of output.split("\n"))
       expect(Bun.stringWidth(line)).toBeLessThanOrEqual(40);
   });
+
+  test("renders standards baselines separately from provider deltas", () => {
+    const output = renderGeneratedEntryList(
+      [
+        {
+          consumers: [
+            { phase: "baseline", standardProfile: "agent-skills" },
+            { phase: "delta", target: "codex" },
+          ],
+          kind: "standalone-skill",
+          outputPath: ".agents/skills/review/SKILL.md",
+          outputRoot: ".agents/skills",
+          owner: { standardProfile: "agent-skills" },
+          sourcePath: ".skillset/skills/review/SKILL.md",
+          target: "workspace",
+        },
+        {
+          consumers: [
+            {
+              phase: "baseline",
+              standardProfile: "agent-plugins-1.0",
+            },
+          ],
+          kind: "plugin",
+          outputPath: "plugins/demo/agents/plugin.json",
+          outputRoot: "plugins",
+          owner: { standardProfile: "agent-plugins-1.0" },
+          sourcePath: ".skillset/plugins/demo",
+          target: "workspace",
+        },
+      ],
+      true,
+      { color: false, width: 180 }
+    );
+
+    expect(output).toContain(
+      "[agent-skills baseline + codex delta] standalone-skill .skillset/skills/review/SKILL.md -> .agents/skills/review/SKILL.md"
+    );
+    expect(output).toContain(
+      "[agent-plugins-1.0 baseline] plugin .skillset/plugins/demo -> plugins/demo/agents/plugin.json"
+    );
+    expect(output).toContain("codex delta");
+    expect(output).toContain("agent-plugins-1.0 baseline");
+    expect(output).toContain("agent-skills baseline");
+    expect(output).not.toContain("agents delta");
+  });
 });

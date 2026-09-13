@@ -5,6 +5,22 @@ import type { SkillsetXdgOptions } from "./xdg";
 
 export type TargetName = "claude" | "codex" | "cursor";
 
+/** Logical identity of one standards baseline or provider delta consumer. */
+export type ProjectionConsumer =
+  | {
+      readonly phase: "baseline";
+      readonly standardProfile: StandardProfileId;
+    }
+  | {
+      readonly phase: "delta";
+      readonly target: TargetName;
+    };
+
+/** Sole physical owner selected from a generated path's logical consumers. */
+export type ProjectionOwner =
+  | { readonly standardProfile: StandardProfileId }
+  | { readonly target: TargetName };
+
 export type JsonScalar = boolean | null | number | string;
 export type JsonValue = JsonScalar | JsonValue[] | JsonRecord;
 
@@ -354,6 +370,8 @@ export interface SourceOrigin {
 }
 
 export interface GeneratedEntry {
+  /** Logical standards baseline and provider delta consumers, in render order. */
+  readonly consumers?: readonly ProjectionConsumer[];
   readonly dependencies?: readonly string[];
   readonly feature?: string;
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
@@ -363,6 +381,8 @@ export interface GeneratedEntry {
   readonly outputHash?: string;
   readonly outputPath: string;
   readonly outputRoot: string;
+  /** Sole physical writer for this generated path. */
+  readonly owner?: ProjectionOwner;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
   readonly skillReferences?: readonly ProjectAgentSkillProvenance[];

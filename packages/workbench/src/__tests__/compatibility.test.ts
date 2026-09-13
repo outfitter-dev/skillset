@@ -53,6 +53,36 @@ describe("workbench compatibility diagnostics", () => {
     });
   });
 
+  test("maps standard conformance issues without calling them providers", () => {
+    const report = {
+      issues: [
+        {
+          code: "standard-profile-evidence-mismatch",
+          featureId: "standalone-skills",
+          message:
+            "skill:demo does not cite pinned agent-skills profile evidence",
+          sourceUnit: "skill:demo",
+          standardProfile: "agent-skills",
+        },
+      ],
+      ok: false,
+    } satisfies AdapterConformanceReport;
+
+    const [diagnostic] =
+      workbenchDiagnosticsFromAdapterConformanceReport(report);
+
+    expect(formatWorkbenchDiagnostic(diagnostic!)).toBe(
+      "error: compat/standard-profile-evidence-mismatch: standard:agent-skills standalone-skills: skill:demo does not cite pinned agent-skills profile evidence"
+    );
+    expect(diagnostic).toMatchObject({
+      scope: "workspace",
+      subject: {
+        id: "standalone-skills:standard:agent-skills",
+        kind: "standard-compatibility",
+      },
+    });
+  });
+
   test("maps adapter coverage gaps into strict provider warnings", () => {
     const report = {
       entries: [],
