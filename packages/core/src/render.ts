@@ -1469,7 +1469,8 @@ async function renderPluginFeatureFiles(
     const files = featureFiles
       .filter((file) => !file.path.endsWith(".gitkeep"))
       .map((file) =>
-        pluginFeatureValidation(feature) === "structured"
+        pluginFeatureValidation(feature) === "structured" &&
+        file.sourcePath === undefined
           ? { ...file, sourcePath: relative(graph.rootPath, feature.sourcePath) }
           : file
       );

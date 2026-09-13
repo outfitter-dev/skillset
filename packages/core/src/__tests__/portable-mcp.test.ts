@@ -475,6 +475,7 @@ cursor: true
         candidate.path.endsWith(`plugins/tools/${target}/bin/server`)
       );
       expect(server?.mode).toBe(0o755);
+      expect(server?.sourcePath).toBe(".skillset/plugins/tools/bin/server");
       expect(output(`plugins/tools/${target}/bin/work/config.json`)).toBe(
         "{}\n"
       );
