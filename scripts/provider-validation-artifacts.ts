@@ -339,7 +339,7 @@ function parseLockItem(raw: unknown, lockPath: string): LockItem | undefined {
 
 function assertNonEmptyInventory(inventory: ProviderArtifactInventory): void {
   for (const [surface, values] of Object.entries(inventory)) {
-    if (surface === "codexPlugins") continue;
+    if (surface === "agentPlugins" || surface === "codexPlugins") continue;
     if (values.length === 0)
       throw new Error(`skillset: provider validation found no ${surface}`);
   }

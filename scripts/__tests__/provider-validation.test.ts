@@ -487,6 +487,22 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     ]);
   });
 
+  test("permits candidate branches without materialized Agent Plugins packages", async () => {
+    const root = await fixtureRoot();
+    const lockPath = join(root, "plugins/skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      items: { outputPath: string }[];
+    };
+    lock.items = lock.items.filter(
+      ({ outputPath }) => !outputPath.startsWith("demo/agents/")
+    );
+    await writeFile(lockPath, `${JSON.stringify(lock)}\n`);
+
+    await expect(enumerateProviderArtifacts(root)).resolves.toMatchObject({
+      agentPlugins: [],
+    });
+  });
+
   test("bounds validator stdout and stderr with deterministic actionable evidence", async () => {
     const commands = [
       {

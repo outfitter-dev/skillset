@@ -443,7 +443,9 @@ export async function runHostedProviderValidation(
       ...(await validateChatGptPluginConformance(
         staged.inventory.chatgptPlugins
       )),
-      ...(await validateAgentPluginConformance(staged.inventory.agentPlugins)),
+      ...(staged.inventory.agentPlugins.length === 0
+        ? []
+        : await validateAgentPluginConformance(staged.inventory.agentPlugins)),
       ...(await validateCursorHookConformance(
         await stageCursorHookConformanceInputs(temp)
       )),
