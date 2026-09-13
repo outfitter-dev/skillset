@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:8d41946d9c10be91aac4b62d062719e646d98f53540969b59c30ee46fc0e9d89",
+  "provenanceHash": "sha256:2bad77fbc325ceb9f1162d055a10a8c06c1f2a6ccae9513824e58e661b7b4677",
   "renderResults": [
     {
       "destination": "skill",
@@ -330,9 +330,9 @@
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
-    "agent-instructions": "sha256:dce9ff27203fc9a85c46150a60d0d979ee6839ae566f9216cdd7575f5eede6d4",
-    "agent-plugins-1.0": "sha256:098484bf5a22f45d7c85350e57aa127dda0a165818b2a56185b57b262519e82a",
-    "agent-skills": "sha256:acb0c1b3ffc78ab90e2c3b1313b5997524a2603b402b130597a05e7586c95e85"
+    "agent-instructions": "sha256:b206ce58a0510947e758be1ff9f8b3fa6dbcb3d2e3e80640a8d6f2d5f5249061",
+    "agent-plugins-1.0": "sha256:19f50c63e175f8bfe4e272b96bda66a794c7f5e1279ab83976e09a0e56ce2a43",
+    "agent-skills": "sha256:d0a3948896fbe324fccb75ace937fae2fe20ba263639f545a2bf90e6a42a296a"
   },
   "target": "workspace"
 }
