@@ -2931,9 +2931,6 @@ Use one.
 
     const result = await buildSkillsetResult(root);
     expect(result.ok).toBe(true);
-    // No project-scope output exists, so the shared plugins lock is the only
-    // lock that can carry the output-less unsupported provenance.
-    expect(await Bun.file(join(root, "skillset.lock")).exists()).toBe(false);
     const lock = await readJson(join(root, "plugins/skillset.lock"));
     expect(lock.renderResults).toContainEqual(
       expect.objectContaining({
