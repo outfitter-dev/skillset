@@ -31,7 +31,6 @@ export const RENDERED_SKILL_METADATA_RESERVED_KEYS = [
 ] as const;
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
-export const AGENT_STANDARD_KEYS = ["instructions", "skills", "plugins"] as const;
 export const ALLOWED_TOOLS_TARGET_KEYS = [...TARGET_NAMES, "agents"] as const;
 export const REPORT_EXTERNAL_FIXTURE_PHASES = [
   "acquire",
@@ -236,7 +235,6 @@ export const workspaceConfigContract = contract(
       codex: workspaceTargetOverrideSchema(),
       cursor: workspaceTargetOverrideSchema(),
       compile: strictObjectSchema({
-        agents: agentStandardsConfigSchema(),
         build: enumSchema(COMPILE_BUILD_MODES),
         features: strictObjectSchema({
           promptArguments: { type: "boolean" },
@@ -1482,19 +1480,6 @@ function allowedToolsSchema(): SchemaJsonRecord {
         claude: value,
         codex: value,
         cursor: value,
-      }),
-    ],
-  };
-}
-
-function agentStandardsConfigSchema(): SchemaJsonRecord {
-  return {
-    anyOf: [
-      { type: "boolean" },
-      strictObjectSchema({
-        instructions: { type: "boolean" },
-        plugins: { type: "boolean" },
-        skills: { type: "boolean" },
       }),
     ],
   };

@@ -1,7 +1,6 @@
 import { isActivationCapability } from "./activation-readiness";
 import {
   AGENT_FRONTMATTER_KEYS,
-  AGENT_STANDARD_KEYS,
   ALLOWED_TOOLS_TARGET_KEYS,
   CLI_EVENT_SCHEMA_VERSION,
   CLI_RESULT_SCHEMA_VERSION,
@@ -44,7 +43,6 @@ const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
 const sourceListingKeys = new Set<string>(SOURCE_LISTING_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
-const agentStandardKeys = new Set<string>(AGENT_STANDARD_KEYS);
 const allowedToolsTargetKeys = new Set<string>(ALLOWED_TOOLS_TARGET_KEYS);
 const targetListText = formatList(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
@@ -2070,7 +2068,6 @@ function checkCompile(
   checkAllowedKeys(
     value,
     new Set([
-      "agents",
       "build",
       "features",
       "skillset",
@@ -2114,7 +2111,6 @@ function checkCompile(
       "compile.targets",
       codePrefix
     );
-  checkAgentStandards(value.agents, `${path}.agents`, diagnostics, codePrefix);
   checkBooleanRecord(
     value.features,
     `${path}.features`,
@@ -2129,29 +2125,6 @@ function checkCompile(
     diagnostics,
     codePrefix
   );
-}
-
-function checkAgentStandards(
-  value: SchemaJsonValue | undefined,
-  path: string,
-  diagnostics: SkillsetSchemaDiagnostic[],
-  codePrefix: string
-): void {
-  if (value === undefined || typeof value === "boolean") return;
-  if (!isSchemaRecord(value)) {
-    diagnostics.push(
-      diagnostic(path, `${codePrefix}/agents`, "compile.agents must be a boolean or an object")
-    );
-    return;
-  }
-  checkAllowedKeys(value, agentStandardKeys, path, `${codePrefix}/agents-key`, diagnostics);
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item !== "boolean") {
-      diagnostics.push(
-        diagnostic(`${path}.${key}`, `${codePrefix}/agents-value`, `${path}.${key} must be a boolean`)
-      );
-    }
-  }
 }
 
 function checkTargets(

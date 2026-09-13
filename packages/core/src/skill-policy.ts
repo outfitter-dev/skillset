@@ -1,9 +1,10 @@
+import { ALLOWED_TOOLS_TARGET_KEYS } from "@skillset/schema";
+
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 import { targetNames } from "./targets";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_KEYS = targetNames();
-const ALLOWED_TOOLS_TARGET_KEYS = [...TARGET_KEYS, "agents"] as const;
 
 export const PORTABLE_TOOL_ASPECTS = ["mcp", "read", "search", "shell", "write"] as const;
 

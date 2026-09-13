@@ -2,4 +2,4 @@
 "skillset": minor
 ---
 
-Add the Agent standards source contract under `compile.agents`, including strict child selection, Agent Skills compatibility metadata, and `allowed_tools.agents`. The contract keeps standards identities separate from provider targets and allows an explicit empty `compile.targets` selection for later standards-only resolution.
+Remove standards selection from source configuration and add Agent Skills `compatibility` plus `allowed_tools.agents`. Standards remain distinct from provider targets, and an explicit empty `compile.targets` selection is available for applicable adopted standards output.

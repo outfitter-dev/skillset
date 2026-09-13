@@ -1,5 +1,7 @@
-import { isStandardProfileId } from "@skillset/schema";
-import type { StandardProfileId } from "@skillset/schema";
+import {
+  STANDARD_PROFILE_IDS,
+  type StandardProfileId,
+} from "@skillset/registry";
 
 import { compareStrings } from "./path";
 import type { SkillsetFeatureEvidence } from "./feature-registry";
@@ -141,7 +143,10 @@ export function assertRenderResult(outcome: SkillsetRenderResult): void {
   if (outcome.featureId.trim().length === 0) {
     throw new Error("skillset: render result featureId is required");
   }
-  if (outcome.standardProfile !== undefined && !isStandardProfileId(outcome.standardProfile)) {
+  if (
+    outcome.standardProfile !== undefined &&
+    !STANDARD_PROFILE_IDS.includes(outcome.standardProfile)
+  ) {
     throw new Error("skillset: render result standardProfile must be a standard profile id");
   }
   if (outcome.standardProfile !== undefined && outcome.target !== undefined) {

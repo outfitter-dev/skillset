@@ -935,7 +935,6 @@ function hasCoherentLegacyV2Integrity(
   editedOutputPaths: ReadonlySet<string>
 ): boolean {
   const items = Array.isArray(lock.items) ? lock.items : [];
-  if (items.length === 0) return false;
   const outputRoot = outputRootForLockPath(path);
   for (const item of items) {
     if (

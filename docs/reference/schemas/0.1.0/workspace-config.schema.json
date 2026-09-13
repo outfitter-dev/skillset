@@ -41,28 +41,6 @@
     "compile": {
       "additionalProperties": false,
       "properties": {
-        "agents": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "instructions": {
-                  "type": "boolean"
-                },
-                "plugins": {
-                  "type": "boolean"
-                },
-                "skills": {
-                  "type": "boolean"
-                }
-              },
-              "type": "object"
-            }
-          ]
-        },
         "build": {
           "enum": [
             "all",

@@ -60,37 +60,13 @@ describe("target vocabulary", () => {
     expect(outputs.skills.cursor).toBe(".cursor/skills");
   });
 
-  it("normalizes the Agent standards family independently from provider targets", () => {
-    expect(readCompileConfig({}, "skillset.yaml").agents).toEqual({
-      instructions: true,
-      plugins: true,
-      skills: true,
-    });
-    expect(readCompileConfig({ compile: { agents: true } }, "skillset.yaml").agents).toEqual({
-      instructions: true,
-      plugins: true,
-      skills: true,
-    });
-    expect(readCompileConfig({ compile: { agents: {} } }, "skillset.yaml").agents).toEqual({
-      instructions: true,
-      plugins: true,
-      skills: true,
-    });
-    expect(readCompileConfig({ compile: { agents: { instructions: false } } }, "skillset.yaml").agents).toEqual({
-      instructions: false,
-      plugins: true,
-      skills: true,
-    });
-    expect(readCompileConfig({ compile: { agents: false } }, "skillset.yaml").agents).toEqual({
-      instructions: false,
-      plugins: false,
-      skills: false,
-    });
-    expect(readCompileConfig({ compile: { agents: {
-      instructions: false,
-      plugins: false,
-      skills: false,
-    } } }, "skillset.yaml").agents).toEqual(readCompileConfig({ compile: { agents: false } }, "skillset.yaml").agents);
+  it("rejects standards selection instead of treating agents as a provider", () => {
+    expect(readCompileConfig({}, "skillset.yaml")).not.toHaveProperty("agents");
+    for (const agents of [true, false, {}, { instructions: false }]) {
+      expect(() =>
+        readCompileConfig({ compile: { agents } }, "skillset.yaml")
+      ).toThrow("unsupported compile key agents");
+    }
   });
 
   it("allows an explicit empty provider target selection without inventing a target", () => {

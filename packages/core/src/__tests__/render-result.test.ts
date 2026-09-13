@@ -101,6 +101,14 @@ describe("render results", () => {
     expect(outcome.target).toBeUndefined();
     expect(outcome.standardProfile).toBe("agent-skills");
     expect(serializeRenderResult(outcome)).toContain('"standardProfile": "agent-skills"');
+    expect(() =>
+      defineRenderResult({
+        featureId: "standalone-skills",
+        sourceUnit: "skill:demo",
+        standardProfile: "future-standard" as "agent-skills",
+        status: "rendered",
+      })
+    ).toThrow("standardProfile must be a standard profile id");
   });
 
   it("can represent multiple outputs from one source unit", () => {

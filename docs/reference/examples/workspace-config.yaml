@@ -6,10 +6,6 @@ codex:
   plugins:
     path: generated/codex
 compile:
-  agents:
-    instructions: true
-    plugins: true
-    skills: true
   build: updated
   features:
     promptArguments: true

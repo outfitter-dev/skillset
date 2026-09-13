@@ -412,7 +412,43 @@ Demo.
     expect((await verifySkillsetResult(root)).ok).toBe(true);
   });
 
-  it("fails before writes when no provider projection is selected", async () => {
+  it("upgrades coherent empty schema-v2 locks", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: legacy-v2-empty-lock
+compile:
+  targets: [claude]
+marketplaces:
+  external:
+    plugins:
+      - plugin: external-tools
+        repo: github:acme/external-tools
+    targets: [claude]
+`,
+    });
+    await buildSkillsetResult(root);
+
+    const lockPath = join(root, "skillset.lock");
+    const legacy = await readJson(lockPath) as {
+      items: unknown[];
+      provenanceHash?: string;
+      schemaVersion: number;
+      selectedStandards?: unknown;
+    };
+    expect(legacy.items).toEqual([]);
+    legacy.schemaVersion = 2;
+    delete legacy.provenanceHash;
+    delete legacy.selectedStandards;
+    await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
+
+    const migrated = await buildSkillsetResult(root);
+    expect(migrated.writes.backupRunId).toBeUndefined();
+    expect((await readJson(lockPath)).schemaVersion).toBe(3);
+    expect((await verifySkillsetResult(root)).ok).toBe(true);
+  });
+
+  it("rejects legacy standards selection before writes", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -447,7 +483,7 @@ compile:
 `, "utf8");
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "no provider projection is selected"
+      "unsupported compile key agents"
     );
     await expect(readFile(codexAgentPath)).resolves.toEqual(agentBefore);
     await expect(readFile(lockPath)).resolves.toEqual(lockBefore);

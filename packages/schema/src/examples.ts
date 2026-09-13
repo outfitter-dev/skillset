@@ -110,11 +110,6 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         },
       },
       compile: {
-        agents: {
-          instructions: true,
-          plugins: true,
-          skills: true,
-        },
         build: "updated",
         features: {
           promptArguments: true,

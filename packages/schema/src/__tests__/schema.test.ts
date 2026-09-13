@@ -41,41 +41,25 @@ import {
 } from "../index";
 
 describe("@skillset/schema contracts", () => {
-  it("models Agent standards separately from provider targets", () => {
-    for (const agents of [
-      undefined,
-      true,
-      false,
-      {},
-      { instructions: false },
-      { instructions: false, plugins: false, skills: false },
-    ]) {
+  it("rejects every standards-selection config surface", () => {
+    expect(
+      validateWorkspaceConfig({ compile: { targets: [] } }).diagnostics
+    ).toEqual([]);
+    for (const agents of [true, false, {}, { instructions: false }]) {
       expect(
-        validateWorkspaceConfig({
-          compile: {
-            ...(agents === undefined ? {} : { agents }),
-            targets: [],
-          },
-        }).diagnostics
-      ).toEqual([]);
+        validateWorkspaceConfig({ compile: { agents } }).diagnostics.map(
+          (item) => item.code
+        )
+      ).toContain("schema/workspace-config/compile-key");
     }
-
-    for (const agents of [
-      "yes",
-      { instructions: "no" },
-      { plugins: true, unknown: false },
-    ]) {
-      expect(
-        validateWorkspaceConfig({ compile: { agents } }).diagnostics
-      ).not.toEqual([]);
-    }
-
-    expect(validateWorkspaceConfig({ agents: {} }).diagnostics.map((item) => item.code)).toContain(
-      "schema/workspace-config/key"
-    );
-    expect(validatePluginConfig({ agents: {} }).diagnostics.map((item) => item.code)).toContain(
-      "schema/plugin-config/key"
-    );
+    expect(
+      validateWorkspaceConfig({ agents: {} }).diagnostics.map(
+        (item) => item.code
+      )
+    ).toContain("schema/workspace-config/key");
+    expect(
+      validatePluginConfig({ agents: {} }).diagnostics.map((item) => item.code)
+    ).toContain("schema/plugin-config/key");
   });
 
   it("keeps Agent Skills compatibility authored and validates its standard bounds", () => {
@@ -415,20 +399,7 @@ describe("@skillset/schema contracts", () => {
       properties: Record<string, unknown>;
     };
     expect(compile).toHaveProperty("additionalProperties", false);
-    expect(compile.properties.agents).toEqual({
-      anyOf: [
-        { type: "boolean" },
-        {
-          additionalProperties: false,
-          properties: {
-            instructions: { type: "boolean" },
-            plugins: { type: "boolean" },
-            skills: { type: "boolean" },
-          },
-          type: "object",
-        },
-      ],
-    });
+    expect(compile.properties.agents).toBeUndefined();
     expect(compile.properties.unsupportedDestination).toEqual({
       enum: ["error", "warn", "skip", "force"],
       type: "string",
