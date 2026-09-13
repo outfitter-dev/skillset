@@ -1,5 +1,5 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 
 import {
   AGENT_PLUGINS_MCP_SCHEMA,
@@ -516,6 +516,11 @@ async function validatePortableTree(
   for (const entry of entries) {
     if (entry.name === ".DS_Store") continue;
     const childRelative = `${relativePath}/${entry.name}`;
+    if (sep === "/" && entry.name.includes("\\")) {
+      throw new Error(
+        `skillset: Agent Plugins import cannot preserve non-portable backslash path ${childRelative}`
+      );
+    }
     if (entry.isSymbolicLink()) {
       throw new Error(
         `skillset: Agent Plugins import cannot preserve symbolic link ${childRelative}`

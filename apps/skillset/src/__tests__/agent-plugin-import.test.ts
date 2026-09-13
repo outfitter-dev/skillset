@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { renderBuildGraph } from "@skillset/core/internal/render";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
@@ -733,6 +733,56 @@ describe("Agent Plugins package import", () => {
     }
   );
 
+  test("rejects POSIX backslash filenames before they can escape import staging", async () => {
+    if (process.platform === "win32") return;
+    const { external, root } = await roots();
+    await writeJson(join(external, "plugin.json"), {
+      $schema: SCHEMA,
+      description: "Package with a non-portable source path.",
+      name: "unsafe-source-path",
+      version: "1.0.0",
+    });
+    await write(
+      join(external, "src", "..\\..\\escaped.txt"),
+      "must remain outside the workspace\n"
+    );
+
+    await expect(
+      importSource({ kind: "plugin", rootPath: root, sourcePath: external })
+    ).rejects.toThrow("non-portable backslash path");
+    expect(
+      await Bun.file(join(root, ".skillset/plugins/escaped.txt")).exists()
+    ).toBe(false);
+    expect(
+      await Bun.file(
+        join(root, ".skillset/plugins/unsafe-source-path")
+      ).exists()
+    ).toBe(false);
+  });
+
+  test("rejects POSIX backslash filenames at the shared generic import sink", async () => {
+    if (process.platform === "win32") return;
+    const { external, root } = await roots();
+    await write(
+      join(external, "skillset.yaml"),
+      "skillset:\n  name: generic-source\n"
+    );
+    await write(
+      join(external, "assets", "..\\..\\escaped.txt"),
+      "must remain outside the workspace\n"
+    );
+
+    await expect(
+      importSource({ kind: "plugin", rootPath: root, sourcePath: external })
+    ).rejects.toThrow("non-portable backslash path");
+    expect(
+      await Bun.file(join(root, ".skillset/plugins/escaped.txt")).exists()
+    ).toBe(false);
+    expect(
+      await Bun.file(join(root, ".skillset/plugins/generic-source")).exists()
+    ).toBe(false);
+  });
+
   test("requires an explicit mapping for a dotted package identity", async () => {
     const { external, root } = await roots();
     await writeJson(join(external, "plugin.json"), {
@@ -896,6 +946,42 @@ describe("Agent Plugins package import", () => {
     expect(writeAttempt.write).toBe(false);
     expect(await Bun.file(join(root, "skillset.yaml")).exists()).toBe(false);
     expect(await Bun.file(join(root, ".skillset")).exists()).toBe(false);
+  });
+
+  test("adoption preflight blocks POSIX backslash paths without setup writes", async () => {
+    if (process.platform === "win32") return;
+    const root = await mkdtemp(
+      join(tmpdir(), "skillset-agent-plugin-path-blocked-")
+    );
+    await writeJson(join(root, "plugin.json"), {
+      $schema: SCHEMA,
+      description: "Package with a non-portable source path.",
+      name: "unsafe-source-path",
+      version: "1.0.0",
+    });
+    const escapedName = `${basename(root)}-escaped.txt`;
+    await write(
+      join(root, "src", `..\\..\\${escapedName}`),
+      "must remain outside the workspace\n"
+    );
+
+    const preview = await adoptSkillset(root);
+    expect(preview.ok).toBe(false);
+    expect(preview.surveyDiagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "agent-plugin-import-blocked",
+        message: expect.stringContaining("non-portable backslash path"),
+      })
+    );
+
+    const writeAttempt = await adoptSkillset(root, { write: true });
+    expect(writeAttempt.ok).toBe(false);
+    expect(writeAttempt.write).toBe(false);
+    expect(await Bun.file(join(root, "skillset.yaml")).exists()).toBe(false);
+    expect(await Bun.file(join(root, ".skillset")).exists()).toBe(false);
+    expect(await Bun.file(join(dirname(root), escapedName)).exists()).toBe(
+      false
+    );
   });
 
   test("adoption blocks nested Agent Plugins packages with the same declared identity", async () => {

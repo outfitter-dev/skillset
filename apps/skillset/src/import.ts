@@ -1,6 +1,6 @@
 import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import {
@@ -1064,7 +1064,7 @@ async function copyImportSource(options: {
       : undefined;
   for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
-    const destination = join(targetPath, relativePath);
+    const destination = resolveImportDestination(targetPath, relativePath);
     await mkdir(dirname(destination), { recursive: true });
     await writeFile(destination, await readFile(file));
     if (supportsGeneratedFileModes()) {
@@ -1343,10 +1343,32 @@ function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
 
 function relativeImportPath(sourceRoot: string, file: string, kind: SingularImportKind): string {
   const relativePath = file.slice(sourceRoot.length + 1);
+  if (sep === "/" && relativePath.includes("\\")) {
+    throw new Error(
+      `skillset: import source contains non-portable backslash path: ${relativePath}`
+    );
+  }
   if (kind === "plugin" && (relativePath === "skillset.yaml" || relativePath === "config.yaml")) {
     return "skillset.yaml";
   }
   return normalizeCopiedImportPath(relativePath);
+}
+
+function resolveImportDestination(targetPath: string, relativePath: string): string {
+  const resolvedTarget = resolve(targetPath);
+  const destination = resolve(resolvedTarget, relativePath);
+  const relativeDestination = relative(resolvedTarget, destination);
+  if (
+    relativeDestination === "" ||
+    relativeDestination === ".." ||
+    relativeDestination.startsWith(`..${sep}`) ||
+    isAbsolute(relativeDestination)
+  ) {
+    throw new Error(
+      `skillset: import source path resolves outside staging root: ${relativePath}`
+    );
+  }
+  return destination;
 }
 
 export function normalizeCopiedImportPath(path: string): string {
