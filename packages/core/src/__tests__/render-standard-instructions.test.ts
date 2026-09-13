@@ -12,7 +12,7 @@ import type { BuildGraph, RenderedFile } from "../types";
 const textDecoder = new TextDecoder();
 
 describe("Agent Instructions rendering", () => {
-  test("preserves the candidate-era Codex projection", async () => {
+  test("coalesces the adopted standard with the Codex projection", async () => {
     const graph = await fixtureGraph(`
 compile:
   targets: [codex]
@@ -25,15 +25,28 @@ compile:
       1
     );
     expect(item).toMatchObject({
-      consumers: [{ phase: "delta", target: "codex" }],
-      owner: { target: "codex" },
+      consumers: [
+        { phase: "baseline", standardProfile: "agent-instructions" },
+        { phase: "delta", target: "codex" },
+      ],
+      owner: { standardProfile: "agent-instructions" },
       outputPath: "AGENTS.md",
     });
     expect(instructionResults(graph, rendered)).toEqual([
       expect.objectContaining({
         sourceUnit: "instruction:AGENTS.md",
+        standardProfile: "agent-instructions",
+        status: "transformed",
+      }),
+      expect.objectContaining({
+        sourceUnit: "instruction:AGENTS.md",
         status: "transformed",
         target: "codex",
+      }),
+      expect.objectContaining({
+        sourceUnit: "instruction:docs/AGENTS.md",
+        standardProfile: "agent-instructions",
+        status: "transformed",
       }),
       expect.objectContaining({
         sourceUnit: "instruction:docs/AGENTS.md",
@@ -99,8 +112,8 @@ compile:
   targets: [claude, codex, cursor]
 `);
 
-    const beforeAdoption = await renderBuildGraph(graph);
-    const afterAdoption = await renderBuildGraph(adopted(graph));
+    const beforeAdoption = await renderBuildGraph(withoutAdoptedStandard(graph));
+    const afterAdoption = await renderBuildGraph(graph);
 
     expect(fileBytes(beforeAdoption, isAgentsFile)).toEqual(
       fileBytes(afterAdoption, isAgentsFile)
@@ -146,7 +159,7 @@ compile:
     ]);
   });
 
-  test("does not render a candidate standard without a Codex consumer", async () => {
+  test("renders the adopted standard without a Codex consumer", async () => {
     const graph = await fixtureGraph(`
 compile:
   targets: [claude]
@@ -154,8 +167,18 @@ compile:
 
     const rendered = await renderBuildGraph(graph);
 
-    expect(rendered.filter(isAgentsFile)).toEqual([]);
-    expect(instructionItems(rendered, "AGENTS.md")).toEqual([]);
+    expect(rendered.filter(isAgentsFile).map((file) => file.path)).toEqual([
+      "AGENTS.md",
+      "docs/AGENTS.md",
+    ]);
+    expect(instructionItems(rendered, "AGENTS.md")).toEqual([
+      expect.objectContaining({
+        consumers: [
+          { phase: "baseline", standardProfile: "agent-instructions" },
+        ],
+        owner: { standardProfile: "agent-instructions" },
+      }),
+    ]);
   });
 });
 
@@ -168,6 +191,13 @@ function adopted(graph: BuildGraph): BuildGraph {
         "agent-instructions": TEST_RECEIPT_HASH,
       },
     },
+  };
+}
+
+function withoutAdoptedStandard(graph: BuildGraph): BuildGraph {
+  return {
+    ...graph,
+    standardProjections: { adopted: [], adoptionReceiptHashes: {} },
   };
 }
 

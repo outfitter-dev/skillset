@@ -179,7 +179,7 @@ test("ci reports lint warnings without failing", async () => {
 test("ci fails on error-severity lint issues", async () => {
   const root = await fixture({
     "skillset.yaml":
-      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\ncompile:\n  unsupportedDestination: warn\n",
     ".skillset/skills/demo/SKILL.md": `---\nname: demo\ndescription: ${"x".repeat(1030)}\n---\n\nBody.\n`,
   });
   await commitFixture(root);

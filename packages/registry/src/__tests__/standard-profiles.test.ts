@@ -13,7 +13,7 @@ import {
 } from "../index";
 
 describe("SET-397 standard profile registry", () => {
-  test("ships the three candidate profiles through the registry root contract", () => {
+  test("ships the three adopted profiles through the registry root contract", () => {
     expect(
       listStandardProfiles().map(({ id, lifecycle, version }) => ({
         id,
@@ -23,17 +23,17 @@ describe("SET-397 standard profile registry", () => {
     ).toEqual([
       {
         id: "agent-instructions",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         version: "unversioned",
       },
       {
         id: "agent-plugins-1.0",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         version: "1.0.0",
       },
       {
         id: "agent-skills",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         version: "unversioned",
       },
     ]);
@@ -47,6 +47,17 @@ describe("SET-397 standard profile registry", () => {
     expect(
       getStandardProfileSupportEnvelope("agent-instructions", "plugin-mcp")
     ).toBeUndefined();
+    for (const profile of listStandardProfiles()) {
+      expect(profile.adoption).toMatchObject({
+        profileContentHash: profile.provenance.contentHash,
+        receipt: {
+          path: `fixtures/standards/evidence/${profile.id}.json`,
+          schema: "skillset.standards-conformance-receipt@1",
+        },
+        rendererCommit: "d059c53e66d2080ea6677cc6846676bf99b956e6",
+        schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
+      });
+    }
   });
 
   test("keeps the complete Agent Plugins schemas available and hash-pinned offline", () => {
@@ -118,7 +129,9 @@ describe("SET-397 standard profile registry", () => {
   });
 
   test("requires immutable candidate evidence before adoption without changing the contract hash", () => {
-    const candidate = getStandardProfile("agent-skills");
+    const shipped = getStandardProfile("agent-skills");
+    const { adoption: _adoption, ...candidateProfile } = shipped;
+    const candidate = { ...candidateProfile, lifecycle: "candidate" as const };
     const adopted = {
       ...candidate,
       adoption: {

@@ -192,21 +192,30 @@ describe('standard projection resolution', () => {
     ).toThrow('outputs.skills.custom reuses output root .agents/skills')
   })
 
-  test('keeps candidate profiles out of production resolution', () => {
+  test('activates the shipped adopted profiles in production resolution', () => {
     const plan = resolveStandardProjectionPlan(allSource)
 
-    expect(plan.adopted).toEqual([])
+    expect(plan.adopted).toEqual([
+      'agent-instructions',
+      'agent-plugins-1.0',
+      'agent-skills',
+    ])
   })
 
   test('admits only applicable candidate profiles through the private conformance plan', () => {
     expect(
-      resolveCandidateStandardProjectionPlan(allSource, 'agent-skills')
+      resolveCandidateStandardProjectionPlan(
+        allSource,
+        'agent-skills',
+        candidateProfiles()
+      )
     ).toEqual({ adopted: ['agent-skills'], adoptionReceiptHashes: {} })
 
     expect(() =>
       resolveCandidateStandardProjectionPlan(
         { ...allSource, skills: 0 },
-        'agent-skills'
+        'agent-skills',
+        candidateProfiles()
       )
     ).toThrow('agent-skills has no applicable skills source')
 
@@ -260,6 +269,13 @@ function adoptedProfiles(): readonly StandardProfile[] {
     },
     lifecycle: 'adopted' as const,
   }))
+}
+
+function candidateProfiles(): readonly StandardProfile[] {
+  return listStandardProfiles().map(profile => {
+    const { adoption: _adoption, ...candidate } = profile
+    return { ...candidate, lifecycle: 'candidate' as const }
+  })
 }
 
 function retiredSkillsProfiles(): readonly StandardProfile[] {

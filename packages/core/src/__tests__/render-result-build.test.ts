@@ -36,6 +36,8 @@ skillset:
   name: outcome-root
   marketplace:
     name: outcome-market
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 cursor: false
@@ -250,6 +252,8 @@ describe("build render results", () => {
       "skillset.yaml": `
 skillset:
   name: executable-output
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 cursor: false
@@ -297,7 +301,12 @@ skillset:
     }));
     const pluginLock = await readJson(join(root, "plugins/skillset.lock"));
     const pluginItem = (pluginLock.items as Array<Record<string, unknown>>)
-      .find((item) => item.name === "demo" && item.kind === "plugin");
+      .find(
+        (item) =>
+          item.name === "demo" &&
+          item.kind === "plugin" &&
+          (item.files as string[]).includes("demo/chatgpt/plugin.json")
+      );
     expect(pluginItem?.files).toEqual(expect.arrayContaining([
       "demo/chatgpt/hooks/hooks.json",
       "demo/chatgpt/scripts/detect.sh",
@@ -310,7 +319,12 @@ skillset:
     await buildSkillsetResult(root);
     const pluginModeChangedLock = await readJson(join(root, "plugins/skillset.lock"));
     const pluginModeChangedItem = (pluginModeChangedLock.items as Array<Record<string, unknown>>)
-      .find((item) => item.name === "demo" && item.kind === "plugin");
+      .find(
+        (item) =>
+          item.name === "demo" &&
+          item.kind === "plugin" &&
+          (item.files as string[]).includes("demo/chatgpt/plugin.json")
+      );
     expect(pluginModeChangedItem?.sourceHash).not.toBe(pluginItem?.sourceHash);
     expect(pluginModeChangedItem?.fileModes).toEqual(expect.objectContaining({
       "demo/chatgpt/scripts/detect.sh": "0644",
@@ -926,6 +940,10 @@ compile:
     const scoped = await diffSkillsetResult(root, { scopes: ["repo"] });
     const unsupportedRoot = await fixture({
       ...OUTCOME_FIXTURE,
+      "skillset.yaml": OUTCOME_FIXTURE["skillset.yaml"]!.replace(
+        "unsupportedDestination: warn",
+        "unsupportedDestination: error"
+      ),
       ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
@@ -972,6 +990,10 @@ echo alpha
   it("enforces unsupported outcome policy with actionable render errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,
+      "skillset.yaml": OUTCOME_FIXTURE["skillset.yaml"]!.replace(
+        "unsupportedDestination: warn",
+        "unsupportedDestination: error"
+      ),
       ".skillset/plugins/alpha/agents/reviewer.md": `
 # Plugin Reviewer
 
@@ -987,6 +1009,10 @@ Review plugin output.
 
     const binRoot = await fixture({
       ...OUTCOME_FIXTURE,
+      "skillset.yaml": OUTCOME_FIXTURE["skillset.yaml"]!.replace(
+        "unsupportedDestination: warn",
+        "unsupportedDestination: error"
+      ),
       ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
@@ -1046,7 +1072,7 @@ Help with the task.
       ),
     });
     await expect(diffSkillsetResult(errorRoot)).rejects.toThrow(
-      "unsupported destination policy blocked 1 render result"
+      "unsupported destination policy blocked"
     );
   });
 
@@ -1726,6 +1752,7 @@ Help with the task.
     expect(
       manifestResults.map((outcome) => [outcome.target, outcome.status])
     ).toEqual([
+      [undefined, "rendered"],
       ["claude", "lossy"],
       ["codex", "lossy"],
       ["cursor", "lossy"],
@@ -1777,7 +1804,10 @@ Help with the task.
     );
     expect(
       manifestResults.map((outcome) => [outcome.target, outcome.status])
-    ).toEqual([["claude", "lossy"]]);
+    ).toEqual([
+      [undefined, "rendered"],
+      ["claude", "lossy"],
+    ]);
     expect(
       manifestResults.flatMap((outcome) =>
         (outcome.diagnostics ?? []).map((diagnostic) => diagnostic.message)
@@ -1902,8 +1932,12 @@ Help with the task.
         outcome.sourceUnit === "plugin.tools.config:root" &&
         outcome.featureId === "plugin-manifests"
     );
-    expect(manifestResults).toHaveLength(1);
-    expect(manifestResults[0]).toMatchObject({
+    expect(manifestResults).toHaveLength(2);
+    expect(manifestResults).toContainEqual(expect.objectContaining({
+      standardProfile: "agent-plugins-1.0",
+      status: "rendered",
+    }));
+    expect(manifestResults).toContainEqual(expect.objectContaining({
       diagnostics: [
         {
           code: "render/cursor-portable-manifest-field-omitted",
@@ -1912,7 +1946,8 @@ Help with the task.
         },
       ],
       status: "lossy",
-    });
+      target: "cursor",
+    }));
   });
 
   it.each(["category", "tags"])(
@@ -2604,7 +2639,7 @@ skillset:
     name: Dropped Team
 ${args.droppedAuthor}
 `,
-      ".skillset/plugins/dropped/skills/helper/SKILL.md": `
+      ".skillset/plugins/dropped/skills/dropped-helper/SKILL.md": `
 ---
 description: Help with other repository tasks.
 ---
@@ -3212,6 +3247,8 @@ hooks:
       "skillset.yaml": `
 skillset:
   name: adaptive-hook-policy-provider-override
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -3527,8 +3564,8 @@ async function expectUnsupportedOutcome(
   const usesOpenAiEvidence =
     target === "codex" &&
     (expected.featureId === "plugin-bin" || expected.featureId === "adaptive-hooks");
-  await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
-  await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
+  await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked");
+  await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked");
   try {
     await diffSkillsetResult(root);
     throw new Error("expected diffSkillsetResult to reject");
@@ -3558,7 +3595,7 @@ async function expectUnsupportedOutcome(
       })
     );
     const message = error instanceof Error ? error.message : String(error);
-    expect(message).toContain("unsupported destination policy blocked 1 render result");
+    expect(message).toContain("unsupported destination policy blocked");
     expect(message).toContain(expected.featureId);
     expect(message).toContain(target);
     expect(message).toContain("unsupported");

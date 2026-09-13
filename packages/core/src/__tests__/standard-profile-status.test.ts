@@ -5,7 +5,7 @@ import { listStandardProfiles } from "@skillset/registry";
 import { standardProfileStatuses } from "@skillset/core";
 
 describe("standardProfileStatuses", () => {
-  it("keeps registry candidates inactive and maps their inherent scopes", () => {
+  it("marks adopted registry profiles active and maps their inherent scopes", () => {
     const statuses = standardProfileStatuses({
       adopted: ["agent-instructions", "agent-skills", "agent-plugins-1.0"],
       adoptionReceiptHashes: {},
@@ -13,25 +13,25 @@ describe("standardProfileStatuses", () => {
 
     expect(statuses).toEqual([
       {
-        active: false,
+        active: true,
         id: "agent-instructions",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         scope: "project",
         title: "Agent Instructions",
         version: "unversioned",
       },
       {
-        active: false,
+        active: true,
         id: "agent-plugins-1.0",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         scope: "plugins",
         title: "Agent Plugins 1.0",
         version: "1.0.0",
       },
       {
-        active: false,
+        active: true,
         id: "agent-skills",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         scope: "repo",
         title: "Agent Skills",
         version: "unversioned",

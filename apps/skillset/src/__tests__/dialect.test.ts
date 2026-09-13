@@ -20,7 +20,9 @@ const DIALECT_FIXTURE: Record<string, string> = {
 skillset:
   name: dialect-root
 claude: true
-codex: true
+codex:
+  skills:
+    path: generated/codex-skills
 `,
   ".skillset/skills/x/SKILL.md": `---
 name: x
@@ -47,27 +49,30 @@ const TRANSLATED_BODY = [
   "Use $ARGUMENTS verbatim.",
 ].join("\n");
 
-test("dialect: claude lowers the codex skill projection and only that projection", async () => {
+test("dialect: claude lowers only the separate Codex delta while preserving the adopted baseline", async () => {
   const root = await fixture(DIALECT_FIXTURE);
   await buildSkillset(root);
 
-  // Codex projection: transformable constructs lowered, $ARGUMENTS untouched.
-  const codex = await readFile(join(root, ".agents/skills/x/SKILL.md"), "utf8");
+  const baseline = await readFile(join(root, ".agents/skills/x/SKILL.md"), "utf8");
+  expect(parseMarkdown(baseline, "agent skill").body.trim()).toBe(SKILL_BODY);
+
+  const codex = await readFile(
+    join(root, "generated/codex-skills/x/SKILL.md"),
+    "utf8"
+  );
   expect(parseMarkdown(codex, "codex skill").body.trim()).toBe(TRANSLATED_BODY);
 
-  // Claude projection: byte-identical to the source body.
   const claude = await readFile(join(root, ".claude/skills/x/SKILL.md"), "utf8");
   expect(parseMarkdown(claude, "claude skill").body.trim()).toBe(SKILL_BODY);
   expect(claude).toContain(".claude/skills/x");
   expect(claude).not.toContain(".agents/skills/x");
 
-  // The source-only dialect key never reaches generated frontmatter.
+  expect(baseline).not.toContain("dialect: claude");
   expect(codex).not.toContain("dialect: claude");
   expect(claude).not.toContain("dialect: claude");
 
-  // Codex lock entry records applied transforms, sorted by intent.
   const codexLock = JSON.parse(
-    await readFile(join(root, ".agents/skills/skillset.lock"), "utf8")
+    await readFile(join(root, "generated/codex-skills/skillset.lock"), "utf8")
   ) as { items: readonly { name: string; transforms?: readonly unknown[] }[] };
   const codexItem = codexLock.items.find((item) => item.name === "x");
   expect(codexItem?.transforms).toEqual([
@@ -77,16 +82,23 @@ test("dialect: claude lowers the codex skill projection and only that projection
     { count: 1, intent: "path.user-config-dir" },
   ]);
 
-  // Claude lock entry carries no transforms; neither does the untranslated skill.
   const claudeLock = JSON.parse(
     await readFile(join(root, ".claude/skills/skillset.lock"), "utf8")
-  ) as { items: readonly { name: string; transforms?: readonly unknown[] }[] };
-  expect(claudeLock.items.find((item) => item.name === "x")?.transforms).toBeUndefined();
-  expect(codexLock.items.find((item) => item.name === "y")?.transforms).toBeUndefined();
+  ) as { items: readonly { transforms?: readonly unknown[] }[] };
+  expect(
+    claudeLock.items.every((item) => item.transforms === undefined)
+  ).toBe(true);
+  expect(
+    codexLock.items.find((item) => item.name === "y")?.transforms
+  ).toBeUndefined();
 
-  // No declaration, no translation: the portable skill keeps its body as-is.
-  const portableCodex = await readFile(join(root, ".agents/skills/y/SKILL.md"), "utf8");
-  expect(parseMarkdown(portableCodex, "portable codex skill").body.trim()).toBe(SKILL_BODY);
+  const portableCodex = await readFile(
+    join(root, "generated/codex-skills/y/SKILL.md"),
+    "utf8"
+  );
+  expect(
+    parseMarkdown(portableCodex, "portable codex skill").body.trim()
+  ).toBe(SKILL_BODY);
 });
 
 test("unknown dialect values fail the build loudly", async () => {

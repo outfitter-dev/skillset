@@ -66,19 +66,19 @@ describe("diffSkillset", () => {
       expect.objectContaining({
         active: false,
         id: "agent-instructions",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         scope: "project",
       }),
       expect.objectContaining({
         active: false,
         id: "agent-plugins-1.0",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         scope: "plugins",
       }),
       expect.objectContaining({
-        active: false,
+        active: true,
         id: "agent-skills",
-        lifecycle: "candidate",
+        lifecycle: "adopted",
         scope: "repo",
       }),
     ]);

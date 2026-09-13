@@ -550,6 +550,34 @@ cursor: false
     );
   });
 
+  test("keeps the provider repository README stable in a combined build", async () => {
+    const graph = adopted(
+      await fixtureGraph({
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+        "skillset.yaml": `
+skillset:
+  name: combined-workspace
+claude: false
+codex: true
+cursor: false
+`,
+      }),
+      ["agent-plugins-1.0"]
+    );
+
+    const rendered = await renderBuildGraph(graph);
+    expect(text(rendered, "plugins/README.md")).toBe(
+      "# Skillset Plugins\n\n" +
+        "Generated Skillset plugin repository.\n\n" +
+        "- `<plugin-id>/chatgpt/` contains each ChatGPT product bundle selected through the Codex target.\n" +
+        "- `skillset.lock` records deterministic generated-state provenance.\n"
+    );
+    expect(paths(rendered)).toContain("plugins/demo/agents/plugin.json");
+  });
+
   test("renders only closed standard metadata with plugin author precedence", async () => {
     const graph = adopted(
       await fixtureGraph({

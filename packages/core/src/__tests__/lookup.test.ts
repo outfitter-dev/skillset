@@ -34,9 +34,9 @@ describe("lookupSkillsetReference", () => {
     expect(
       report.standards.map(({ id, lifecycle }) => ({ id, lifecycle }))
     ).toEqual([
-      { id: "agent-instructions", lifecycle: "candidate" },
-      { id: "agent-plugins-1.0", lifecycle: "candidate" },
-      { id: "agent-skills", lifecycle: "candidate" },
+      { id: "agent-instructions", lifecycle: "adopted" },
+      { id: "agent-plugins-1.0", lifecycle: "adopted" },
+      { id: "agent-skills", lifecycle: "adopted" },
     ]);
     expect(report.standards[1]).toMatchObject({
       envelopes: [

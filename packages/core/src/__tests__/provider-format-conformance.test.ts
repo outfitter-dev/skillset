@@ -117,6 +117,11 @@ describe("provider format conformance", () => {
 
     const files = providerFormatConformanceFiles(build.data, build.renderResults);
     const report = checkProviderFormatConformance(files);
+    const flattenedPluginSkill = files.find(
+      (file) =>
+        file.path ===
+        ".skillset/cache/latest/.agents/skills/plugin-skill/SKILL.md"
+    );
 
     expect(files.map((file) => file.path).sort()).toEqual(expect.arrayContaining([
       ".skillset/cache/latest/AGENTS.md",
@@ -133,6 +138,15 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/.cursor/rules/root.mdc",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
+    expect(flattenedPluginSkill).toMatchObject({ standardProfile: "agent-skills" });
+    expect(new TextDecoder().decode(flattenedPluginSkill?.content)).toContain("license: MIT");
+    expect(
+      providerFormatConformanceFiles(build.data, build.renderResults.toReversed()).find(
+        (file) =>
+          file.path ===
+          ".skillset/cache/latest/.agents/skills/plugin-skill/SKILL.md"
+      )
+    ).toMatchObject({ standardProfile: "agent-skills" });
 
     const codexManifest = files.find((file) =>
       file.path.endsWith("/chatgpt/plugin.json")

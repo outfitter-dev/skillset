@@ -105,6 +105,19 @@ const AGENT_PLUGINS_MCP_SCHEMA = Buffer.from(
 
 const profiles = [
   makeProfile({
+    adoption: {
+      profileContentHash:
+        "sha256:150449953919d7e62cc08a1609de61821fa31335f9793bba2ca26b0369899e17",
+      receipt: {
+        contentHash:
+          "sha256:dce9ff27203fc9a85c46150a60d0d979ee6839ae566f9216cdd7575f5eede6d4",
+        path: "fixtures/standards/evidence/agent-instructions.json",
+        schema: "skillset.standards-conformance-receipt@1",
+      },
+      rendererCommit: "d059c53e66d2080ea6677cc6846676bf99b956e6",
+      schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
+      verifiedAt: "2026-09-13T16:49:20.206Z",
+    },
     envelopes: [
       required(
         "project-instructions",
@@ -112,7 +125,7 @@ const profiles = [
       ),
     ],
     id: "agent-instructions",
-    lifecycle: "candidate",
+    lifecycle: "adopted",
     observedAt: OBSERVED_AT,
     snapshots: [
       specification(
@@ -127,6 +140,19 @@ const profiles = [
     version: "unversioned",
   }),
   makeProfile({
+    adoption: {
+      profileContentHash:
+        "sha256:2d5eed27ec970558f46500d4408cc86a746d1f4065b2b7e3d58f3f52a9e210ff",
+      receipt: {
+        contentHash:
+          "sha256:acb0c1b3ffc78ab90e2c3b1313b5997524a2603b402b130597a05e7586c95e85",
+        path: "fixtures/standards/evidence/agent-skills.json",
+        schema: "skillset.standards-conformance-receipt@1",
+      },
+      rendererCommit: "d059c53e66d2080ea6677cc6846676bf99b956e6",
+      schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
+      verifiedAt: "2026-09-13T16:49:23.461Z",
+    },
     envelopes: [
       required(
         "standalone-skills",
@@ -138,7 +164,7 @@ const profiles = [
       ),
     ],
     id: "agent-skills",
-    lifecycle: "candidate",
+    lifecycle: "adopted",
     observedAt: OBSERVED_AT,
     snapshots: [
       specification(
@@ -153,6 +179,19 @@ const profiles = [
     version: "unversioned",
   }),
   makeProfile({
+    adoption: {
+      profileContentHash:
+        "sha256:d992e4ff4ae49c4fd814c8c0faf05cb8f109a516b471769b63f6a45023f22d52",
+      receipt: {
+        contentHash:
+          "sha256:098484bf5a22f45d7c85350e57aa127dda0a165818b2a56185b57b262519e82a",
+        path: "fixtures/standards/evidence/agent-plugins-1.0.json",
+        schema: "skillset.standards-conformance-receipt@1",
+      },
+      rendererCommit: "d059c53e66d2080ea6677cc6846676bf99b956e6",
+      schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
+      verifiedAt: "2026-09-13T16:49:24.039Z",
+    },
     envelopes: [
       required(
         "plugin-manifests",
@@ -165,7 +204,7 @@ const profiles = [
       required("plugin-mcp", "The portable package may own a root mcp.json."),
     ],
     id: "agent-plugins-1.0",
-    lifecycle: "candidate",
+    lifecycle: "adopted",
     observedAt: OBSERVED_AT,
     snapshots: [
       specification(

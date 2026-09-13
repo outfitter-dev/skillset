@@ -22,7 +22,14 @@ import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { targetNames } from "@skillset/core/internal/config";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
-import { initSkillset, type SetupFile, type SetupImportCandidate, type SetupInclude, type SurveySkip } from "./setup";
+import {
+  initSkillset,
+  initSkillsetForAdoption,
+  type SetupFile,
+  type SetupImportCandidate,
+  type SetupInclude,
+  type SurveySkip,
+} from "./setup";
 import type { PluginAdoptionDiagnostic } from "./plugin-adoption";
 import {
   preparePluginAdoptionSource,
@@ -340,7 +347,8 @@ async function adoptResolvedRoot(
     return report;
   }
 
-  const init = await initSkillset({
+  const initialize = candidates.length > 0 ? initSkillsetForAdoption : initSkillset;
+  const init = await initialize({
     cwd: resolvedRoot,
     useGitRoot: false,
     write: true,

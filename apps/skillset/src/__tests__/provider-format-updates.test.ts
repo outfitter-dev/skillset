@@ -15,6 +15,7 @@ import {
 } from "../provider-format-updates";
 
 const CODEX_PLUGIN_MANIFEST = "plugins/alpha/chatgpt/plugin.json";
+const AGENT_PLUGIN_MANIFEST = "plugins/alpha/agents/plugin.json";
 const CODEX_AGENT = ".codex/agents/reviewer.toml";
 
 test("SET-531: legacy Codex migrations do not rewrite ChatGPT manifests", async () => {
@@ -70,6 +71,32 @@ test("SET-278: check writes provider paths when their drift is source-owned", as
   expect(checked.exitCode).toBe(0);
   expect(checked.stdout).not.toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
   expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
+  expect(await readFile(join(root, AGENT_PLUGIN_MANIFEST), "utf8")).toContain(
+    "Updated plugin."
+  );
+});
+
+test("SET-411: source drift does not overwrite an edited Agent Plugins manifest", async () => {
+  const root = await builtFixture(pluginFixture());
+  const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
+  const manifestPath = join(root, AGENT_PLUGIN_MANIFEST);
+  const edited = `${await readFile(manifestPath, "utf8")}\nhand edit\n`;
+  await writeFile(manifestPath, edited, "utf8");
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace(
+      "  name: alpha",
+      "  name: alpha\n  description: Updated plugin."
+    ),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.outputEditedPaths).toContain(AGENT_PLUGIN_MANIFEST);
+  expect(await readFile(manifestPath, "utf8")).toBe(edited);
 });
 
 test("SET-278: update ignores ordinary source-driven drift", async () => {
@@ -141,6 +168,9 @@ test("SET-278: check writes generated drift caused by target defaults", async ()
     "skillset.yaml": `
 skillset:
   name: config-drift
+  outputs:
+    skills:
+      codex: .codex/skills
 defaults:
   codex:
     skills:
@@ -152,7 +182,7 @@ codex: true
     ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
   });
   const configPath = join(root, "skillset.yaml");
-  const generatedPath = ".agents/skills/demo/SKILL.md";
+  const generatedPath = ".codex/skills/demo/SKILL.md";
   await writeFile(
     configPath,
     (await readFile(configPath, "utf8")).replace("review-state: initial", "review-state: updated"),
@@ -360,6 +390,8 @@ test("SET-278: check writes inherited plugin license metadata drift", async () =
 
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(AGENT_PLUGIN_MANIFEST);
+  expect(report.fixedPaths).toContain("plugins/alpha/agents/LICENSE.txt");
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
   expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/LICENSE.txt");
 });
@@ -732,8 +764,8 @@ test("SET-279: unrelated legacy lock items block otherwise safe migrations", asy
   const root = await builtFixture({
     ...pluginFixture(),
     ".skillset/plugins/beta/skillset.yaml": "skillset:\n  name: beta\n",
-    ".skillset/plugins/beta/skills/demo/SKILL.md":
-      "---\nname: demo\ndescription: Beta demo.\n---\n\nBody.\n",
+    ".skillset/plugins/beta/skills/beta-demo/SKILL.md":
+      "---\nname: beta-demo\ndescription: Beta demo.\n---\n\nBody.\n",
   });
   const alphaManifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   await writeFile(
@@ -805,11 +837,16 @@ test("SET-279: ownerless legacy plugin hashes stay visible beside provider updat
     provenanceHash?: string;
     readonly items: Array<{
       kind?: string;
+      outputPath?: string;
       renderInputsHash?: string;
       sourceHash?: string;
     }>;
   };
-  const plugin = lock.items.find((item) => item.kind === "plugin");
+  const plugin = lock.items.find(
+    (item) =>
+      item.kind === "plugin" &&
+      item.outputPath === CODEX_PLUGIN_MANIFEST.replace("plugins/", "")
+  );
   if (plugin === undefined) throw new Error("missing plugin lock item");
   plugin.sourceHash = "sha256:dcc61b5427f850699c111bbc08d10b9c2be3d248aece8d12208a9a51513d3a4e";
   delete plugin.renderInputsHash;
@@ -1127,6 +1164,8 @@ function pluginFixture(): Record<string, string> {
     "skillset.yaml": `
 skillset:
   name: provider-update-root
+compile:
+  unsupportedDestination: warn
 claude: false
 codex: true
 `,

@@ -52,7 +52,7 @@ describe("SET-397 standard profile maintenance", () => {
     });
     expect(
       report.results.find((result) => result.id === "agent-plugins-1.0")
-    ).toMatchObject({ lifecycle: "candidate", status: "changed" });
+    ).toMatchObject({ lifecycle: "adopted", status: "changed" });
   });
 
   test("distinguishes an unavailable current source from a changed source", async () => {

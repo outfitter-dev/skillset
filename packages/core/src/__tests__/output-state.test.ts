@@ -450,7 +450,7 @@ cursor: false
       state: "blocked",
     });
     expect(codexStatus.outputState).toMatchObject({
-      hasBaseline: false,
+      hasBaseline: true,
       state: "blocked",
     });
   });
@@ -1379,8 +1379,8 @@ codex: true
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
     await Bun.write(
-      join(root, ".skillset/plugins/local-tools/skillset.yaml"),
-      "skillset:\n  name: local-tools\n  description: Updated plugin.\n"
+      join(root, ".skillset/plugins/local--tools/skillset.yaml"),
+      "skillset:\n  name: local--tools\n  description: Updated plugin.\n"
     );
 
     const rebuilt = await buildSkillsetResult(root, {}, {
@@ -1395,8 +1395,8 @@ codex: true
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
     await Bun.write(
-      join(root, ".skillset/plugins/local-tools/skillset.yaml"),
-      "skillset:\n  name: local-tools\n  description: Updated plugin.\n"
+      join(root, ".skillset/plugins/local--tools/skillset.yaml"),
+      "skillset:\n  name: local--tools\n  description: Updated plugin.\n"
     );
     const relativeMarketplacePath = ".cursor-plugin/marketplace.json";
     const marketplacePath = join(root, relativeMarketplacePath);
@@ -1431,8 +1431,8 @@ codex: true
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
     await Bun.write(
-      join(root, ".skillset/plugins/local-tools/skillset.yaml"),
-      "skillset:\n  name: local-tools\n  description: Updated plugin.\n"
+      join(root, ".skillset/plugins/local--tools/skillset.yaml"),
+      "skillset:\n  name: local--tools\n  description: Updated plugin.\n"
     );
     const relativeMarketplacePath = ".cursor-plugin/marketplace.json";
     const marketplacePath = join(root, relativeMarketplacePath);
@@ -1505,6 +1505,8 @@ codex: true
       "skillset.yaml": `
 skillset:
   name: scoped-output-state
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -1517,24 +1519,14 @@ description: Repo skill.
 
 Repo body.
 `,
-      ".skillset/plugins/demo/skillset.yaml": `
+      ".skillset/plugins/demo--plugin/skillset.yaml": `
 skillset:
-  name: demo
+  name: demo--plugin
 `,
-      ".skillset/plugins/demo/skills/plugin-skill/SKILL.md": `
----
-name: plugin-skill
-description: Plugin skill.
----
-
-Plugin body.
-`,
+      ".skillset/plugins/demo--plugin/README.md": "# Demo plugin\n",
     });
     await buildSkillsetResult(root);
-    const pluginSource = join(
-      root,
-      ".skillset/plugins/demo/skills/plugin-skill/SKILL.md"
-    );
+    const pluginSource = join(root, ".skillset/plugins/demo--plugin/README.md");
     await Bun.write(
       pluginSource,
       `${await Bun.file(pluginSource).text()}\nPlugin change.\n`
@@ -1546,7 +1538,7 @@ Plugin body.
     expect(repoOnly.renderResults).toContainEqual(
       expect.objectContaining({
         policy: "scope:excluded",
-        sourceUnit: "plugin.demo.skill:plugin-skill",
+        sourceUnit: "plugin.demo--plugin.feature:readme",
       })
     );
     expect((await diffSkillsetResult(root)).outputState.state).toBe(
@@ -1604,14 +1596,15 @@ skillset:
   name: marketplace-output-state
 compile:
   targets: [${target}]
+  unsupportedDestination: warn
 marketplaces:
   outfitter:
     targets: [${target}]
     plugins:
-      - plugin: local-tools
+      - plugin: local--tools
 `,
-    ".skillset/plugins/local-tools/skillset.yaml": "skillset:\n  name: local-tools\n",
-    ".skillset/plugins/local-tools/skills/demo/SKILL.md": `
+    ".skillset/plugins/local--tools/skillset.yaml": "skillset:\n  name: local--tools\n",
+    ".skillset/plugins/local--tools/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.

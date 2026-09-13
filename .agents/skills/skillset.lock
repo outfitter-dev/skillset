@@ -6,6 +6,16 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-skills"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "skillset-adrs/SKILL.md": "0644",
         "skillset-adrs/assets/adr-management.md": "0644",
@@ -42,11 +52,24 @@
       "name": "skillset-adrs",
       "outputHash": "sha256:8cc20e3092bcd52a9281654cb0709be39949f30424a102bd73c0f553d6416e29",
       "outputPath": "skillset-adrs/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-skills"
+      },
       "sourceHash": "sha256:3ef13c4d2acaa0035139e3f84a4f90383188138cb38ab336940b3ae762728336",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-skills"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "skillset-dev-compiler/SKILL.md": "0644",
         "skillset-dev-compiler/references/package-map.md": "0644"
@@ -59,11 +82,24 @@
       "name": "skillset-dev-compiler",
       "outputHash": "sha256:34dd1cfd0952443ece50a7b4d3a508eb01cc1283ea189f23dc6ad478bb5f1395",
       "outputPath": "skillset-dev-compiler/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-skills"
+      },
       "sourceHash": "sha256:1621f41f71cd358d095e83424d4a93dad1f6f16784eb5efdf7e73b742bc49a66",
       "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
       "version": "0.1.0"
     },
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-skills"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "skillset-dev-schema/SKILL.md": "0644",
         "skillset-dev-schema/references/contract-workflow.md": "0644"
@@ -76,11 +112,24 @@
       "name": "skillset-dev-schema",
       "outputHash": "sha256:a519b66deb359b8601c4f99eaf409aa8c8993b6c3140cfdfc89b5aa5691e0579",
       "outputPath": "skillset-dev-schema/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-skills"
+      },
       "sourceHash": "sha256:f4a90650fa20ff3b26b6f3bd508d915ff99afed28dfdc0034d0313eb572fb313",
       "sourcePath": ".skillset/skills/skillset-dev-schema/SKILL.md",
       "version": "0.1.0"
     },
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-skills"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "skillset-dev-testing/SKILL.md": "0644",
         "skillset-dev-testing/references/fixture-strategy.md": "0644"
@@ -93,11 +142,24 @@
       "name": "skillset-dev-testing",
       "outputHash": "sha256:1841c270c928765b1e13d45a3ac3fe642bfca6e866305476337e0925eeb22112",
       "outputPath": "skillset-dev-testing/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-skills"
+      },
       "sourceHash": "sha256:693b68f7d59b37c6d1af29c375bb20b284b47aa61e6815fe23e6641b4193fec6",
       "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
       "version": "0.1.0"
     },
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-skills"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "skillset-dev/SKILL.md": "0644"
       },
@@ -108,14 +170,195 @@
       "name": "skillset-dev",
       "outputHash": "sha256:6f14891db95c130d4c60d3aa828e0f372b4cc31a2239d9a28325737bb0063296",
       "outputPath": "skillset-dev/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-skills"
+      },
       "sourceHash": "sha256:7fb6df764de2875ceeae0e75133124b945fe041e297c91a4c4d37c0d61413ac6",
       "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
       "version": "0.1.0"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-skills"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
+      "fileModes": {
+        "use-skillset/LICENSE.txt": "0644",
+        "use-skillset/SKILL.md": "0644"
+      },
+      "files": [
+        "use-skillset/LICENSE.txt",
+        "use-skillset/SKILL.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "use-skillset",
+      "outputHash": "sha256:2a42b202d58da07bfd535f8347a6eb209039e0a92642725a5d849a854c002f30",
+      "outputPath": "use-skillset/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-skills"
+      },
+      "plugin": "skillset",
+      "sourceHash": "sha256:e778f5ded89ce60e65f991a4d5cf8738e9611534d7e5a9af69dcddae77258451",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "version": "0.1.1"
     }
   ],
   "outputRoot": ".agents/skills",
-  "provenanceHash": "sha256:dfa2581c2d9b766e97d3d479a7e8cd4ddd0b079771e3308cd9491be643d1ff73",
+  "provenanceHash": "sha256:fb40f4201ccb177307c3f05110fc1d4f878cdc8113397439a3483fbdc4cd42a8",
   "renderResults": [
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Skills unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": ".agents/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": ".agents/skills/use-skillset/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "standardProfile": "agent-skills",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": ".agents/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": ".agents/skills/use-skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/chatgpt/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/chatgpt/skills/use-skillset/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "status": "rendered",
+      "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Skills unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/assets/adr-management.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/__tests__/amendments.test.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/__tests__/promote-rewrite.test.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/adr.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/amendments.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/cli.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/decision-map.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/discovery.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/frontmatter.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/git.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/index.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/paths.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/references.ts"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
+      "sourceUnit": "skill:skillset-adrs",
+      "standardProfile": "agent-skills",
+      "status": "rendered"
+    },
     {
       "destination": "skill",
       "evidence": [
@@ -205,6 +448,29 @@
       "destination": "skill",
       "evidence": [
         {
+          "kind": "external-docs",
+          "note": "Agent Skills unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
+      "sourceUnit": "skill:skillset-dev",
+      "standardProfile": "agent-skills",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
           "kind": "docs",
           "ref": "docs/reference/features/skills.md"
         },
@@ -233,6 +499,33 @@
       "sourceUnit": "skill:skillset-dev",
       "status": "rendered",
       "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Skills unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev-compiler/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev-compiler/references/package-map.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
+      "sourceUnit": "skill:skillset-dev-compiler",
+      "standardProfile": "agent-skills",
+      "status": "rendered"
     },
     {
       "destination": "skill",
@@ -275,6 +568,33 @@
       "destination": "skill",
       "evidence": [
         {
+          "kind": "external-docs",
+          "note": "Agent Skills unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev-schema/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev-schema/references/contract-workflow.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/skills/skillset-dev-schema/SKILL.md",
+      "sourceUnit": "skill:skillset-dev-schema",
+      "standardProfile": "agent-skills",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
           "kind": "docs",
           "ref": "docs/reference/features/skills.md"
         },
@@ -307,6 +627,33 @@
       "sourceUnit": "skill:skillset-dev-schema",
       "status": "rendered",
       "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Skills unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev-testing/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-dev-testing/references/fixture-strategy.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
+      "sourceUnit": "skill:skillset-dev-testing",
+      "standardProfile": "agent-skills",
+      "status": "rendered"
     },
     {
       "destination": "skill",
@@ -347,7 +694,11 @@
     }
   ],
   "schemaVersion": 3,
-  "selectedStandards": [],
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-plugins-1.0",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex",
@@ -355,6 +706,10 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
-  "standardProfileEvidence": {},
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:dce9ff27203fc9a85c46150a60d0d979ee6839ae566f9216cdd7575f5eede6d4",
+    "agent-plugins-1.0": "sha256:098484bf5a22f45d7c85350e57aa127dda0a165818b2a56185b57b262519e82a",
+    "agent-skills": "sha256:acb0c1b3ffc78ab90e2c3b1313b5997524a2603b402b130597a05e7586c95e85"
+  },
   "target": "workspace"
 }

@@ -27,14 +27,18 @@ import type {
 } from "./types";
 import { skillVersion } from "./versioning";
 
-const STANDARD_FRONTMATTER_KEYS = new Set([
+export const AGENT_SKILLS_FRONTMATTER_KEYS = [
   "allowed-tools",
   "compatibility",
   "description",
   "license",
   "metadata",
   "name",
-]);
+] as const;
+
+const STANDARD_FRONTMATTER_KEYS = new Set<string>(
+  AGENT_SKILLS_FRONTMATTER_KEYS
+);
 
 type SkillStandardProfile = Extract<
   StandardProfileId,

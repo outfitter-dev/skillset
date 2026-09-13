@@ -1110,6 +1110,7 @@ skillset:
   name: activation-cli
 compile:
   targets: ${targets}
+  unsupportedDestination: warn
 `,
   };
   await Promise.all(

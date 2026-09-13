@@ -294,10 +294,10 @@ Body.
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
       "skillset: generated output destinations use case-conflicting paths and are not portable: " +
-        ".claude/skills/demo/references/Guide.md and " +
-        ".claude/skills/demo/references/guide.md " +
-        "(prefixes .claude/skills/demo/references/Guide.md and " +
-        ".claude/skills/demo/references/guide.md); rename one source destination"
+        ".agents/skills/demo/references/Guide.md and " +
+        ".agents/skills/demo/references/guide.md " +
+        "(prefixes .agents/skills/demo/references/Guide.md and " +
+        ".agents/skills/demo/references/guide.md); rename one source destination"
     );
 
     expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
@@ -329,10 +329,10 @@ Body.
 
     await expect(buildSkillsetResult(root)).rejects.toThrow(
       "skillset: generated output destinations use case-conflicting paths and are not portable: " +
-        ".claude/skills/demo/references/Guide/a.md and " +
-        ".claude/skills/demo/references/guide/b.md " +
-        "(prefixes .claude/skills/demo/references/Guide and " +
-        ".claude/skills/demo/references/guide); rename one source destination"
+        ".agents/skills/demo/references/Guide/a.md and " +
+        ".agents/skills/demo/references/guide/b.md " +
+        "(prefixes .agents/skills/demo/references/Guide and " +
+        ".agents/skills/demo/references/guide); rename one source destination"
     );
 
     expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
@@ -614,9 +614,18 @@ Stale.
     await rm(join(root, ".skillset/skills/stale/SKILL.md"));
     const third = await buildSkillsetResult(root);
 
-    expect(third.writes.writtenPaths).toEqual([".claude/skills/skillset.lock"]);
-    expect(third.writes.deletedPaths).toEqual([staleOutput]);
-    expect(third.writes.paths).toEqual([".claude/skills/skillset.lock", staleOutput]);
+    expect(third.writes.writtenPaths).toEqual([
+      ".agents/skills/skillset.lock",
+      ".claude/skills/skillset.lock",
+    ]);
+    const staleAgentOutput = ".agents/skills/stale/SKILL.md";
+    expect(third.writes.deletedPaths).toEqual([staleAgentOutput, staleOutput]);
+    expect(third.writes.paths).toEqual([
+      ".agents/skills/skillset.lock",
+      staleAgentOutput,
+      ".claude/skills/skillset.lock",
+      staleOutput,
+    ]);
   });
 
   it("backs up managed target edits and restores the original safely", async () => {

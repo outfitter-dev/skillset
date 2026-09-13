@@ -99,6 +99,7 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
 
 test("adaptive hooks fixture builds authoring recipes", async () => {
   const root = await adaptiveHooksFixture();
+  await allowUnsupportedStandardDestinations(root);
 
   await buildSkillset(root);
   await verifySkillset(root);
@@ -380,6 +381,8 @@ test("hook lint skips hooks for excluded plugin outputs", async () => {
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: false
 codex:
   plugins:
@@ -463,6 +466,8 @@ test("Claude hook validation follows provider capability registry", async () => 
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -496,6 +501,8 @@ Alpha body.
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -527,6 +534,8 @@ Alpha body.
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -622,6 +631,16 @@ async function adaptiveHooksFixture(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-adaptive-hooks-"));
   await cp(ADAPTIVE_HOOKS_FIXTURE, root, { recursive: true });
   return root;
+}
+
+async function allowUnsupportedStandardDestinations(root: string): Promise<void> {
+  const configPath = join(root, "skillset.yaml");
+  const config = await readFile(configPath, "utf8");
+  await writeFile(
+    configPath,
+    config.replace("compile:\n", "compile:\n  unsupportedDestination: warn\n"),
+    "utf8"
+  );
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {

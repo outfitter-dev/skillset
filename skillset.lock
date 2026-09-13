@@ -100,6 +100,10 @@
     {
       "consumers": [
         {
+          "phase": "baseline",
+          "standardProfile": "agent-instructions"
+        },
+        {
           "phase": "delta",
           "target": "codex"
         }
@@ -115,7 +119,7 @@
       "outputHash": "sha256:9e5f8d617e9bc6ac46f943dc3295140cf598bf2bff053620d4e5a707b2c199d6",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
       "owner": {
-        "target": "codex"
+        "standardProfile": "agent-instructions"
       },
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
@@ -123,6 +127,10 @@
     },
     {
       "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-instructions"
+        },
         {
           "phase": "delta",
           "target": "codex"
@@ -139,7 +147,7 @@
       "outputHash": "sha256:3bc1e0423b64f558fa90e3b9d73eb3f12f74dc3579bb1a51b21b85f377ffa8df",
       "outputPath": "fixtures/AGENTS.md",
       "owner": {
-        "target": "codex"
+        "standardProfile": "agent-instructions"
       },
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
@@ -147,7 +155,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:27e2e7c9afa386fe633cfbe8eff383c83c74965ab9c7d897833ae046134c0157",
+  "provenanceHash": "sha256:9c118c9e8795eece547454af6538446e4180f59044c20ca0429f2e86eb9d46d2",
   "renderResults": [
     {
       "destination": "changelog",
@@ -218,6 +226,29 @@
       "destination": "instruction",
       "evidence": [
         {
+          "kind": "external-docs",
+          "note": "Agent Instructions unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "apps/skillset/src/__tests__/AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/rules",
+      "sourceUnit": "instruction:apps/skillset/src/__tests__/AGENTS.md",
+      "standardProfile": "agent-instructions",
+      "status": "transformed"
+    },
+    {
+      "destination": "instruction",
+      "evidence": [
+        {
           "kind": "docs",
           "ref": "docs/reference/features/instructions.md"
         },
@@ -272,6 +303,29 @@
       "sourceUnit": "instruction:fixtures",
       "status": "transformed",
       "target": "cursor"
+    },
+    {
+      "destination": "instruction",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Instructions unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "fixtures/AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/rules",
+      "sourceUnit": "instruction:fixtures/AGENTS.md",
+      "standardProfile": "agent-instructions",
+      "status": "transformed"
     },
     {
       "destination": "instruction",
@@ -346,7 +400,11 @@
     }
   ],
   "schemaVersion": 3,
-  "selectedStandards": [],
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-plugins-1.0",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex",
@@ -354,6 +412,10 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
-  "standardProfileEvidence": {},
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:dce9ff27203fc9a85c46150a60d0d979ee6839ae566f9216cdd7575f5eede6d4",
+    "agent-plugins-1.0": "sha256:098484bf5a22f45d7c85350e57aa127dda0a165818b2a56185b57b262519e82a",
+    "agent-skills": "sha256:acb0c1b3ffc78ab90e2c3b1313b5997524a2603b402b130597a05e7586c95e85"
+  },
   "target": "workspace"
 }

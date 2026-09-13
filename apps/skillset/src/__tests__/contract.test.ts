@@ -627,6 +627,8 @@ test("SET-2: a shared hooks/hooks.json emits to both Claude and Codex hook paths
     "skillset.yaml": `
 skillset:
   name: hook-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 `,
@@ -916,9 +918,9 @@ skillset:
   name: plugin-author
   author: Plugin Author
 `,
-    ".skillset/plugins/plugin-author/skills/demo/SKILL.md": `
+    ".skillset/plugins/plugin-author/skills/plugin-author-demo/SKILL.md": `
 ---
-name: demo
+name: plugin-author-demo
 description: Demo.
 ---
 
@@ -928,9 +930,9 @@ Body.
 skillset:
   name: root-author
 `,
-    ".skillset/plugins/root-author/skills/demo/SKILL.md": `
+    ".skillset/plugins/root-author/skills/root-author-demo/SKILL.md": `
 ---
-name: demo
+name: root-author-demo
 description: Demo.
 ---
 
@@ -1121,8 +1123,8 @@ claude:
     ...Object.fromEntries(
       ["canonical-only", "native-only", "equal", "different"].map(
         (plugin) => [
-          `.skillset/plugins/${plugin}/skills/helper/SKILL.md`,
-          "---\nname: helper\ndescription: Helper.\n---\n\nHelp.\n",
+          `.skillset/plugins/${plugin}/skills/${plugin}-helper/SKILL.md`,
+          `---\nname: ${plugin}-helper\ndescription: Helper.\n---\n\nHelp.\n`,
         ]
       )
     ),
@@ -1144,7 +1146,7 @@ claude:
     expect(manifest).toMatchObject({ displayName, name: plugin, version: "1.2.3" });
     expect(
       await fileExists(
-        join(root, `plugins/${plugin}/claude/skills/helper/SKILL.md`)
+        join(root, `plugins/${plugin}/claude/skills/${plugin}-helper/SKILL.md`)
       )
     ).toBe(true);
   }
@@ -1801,7 +1803,7 @@ Body.
   const cliDiff = await runSkillsetCli("diff", "--root", root);
   expect(cliDiff.stdout).toContain(".claude/skills/demo/SKILL.md [claude]");
   expect(cliDiff.stdout).toContain(
-    "standards: active none; registry agent-instructions candidate, agent-plugins-1.0 candidate, agent-skills candidate"
+    "standards: active agent-skills (repo); registry agent-instructions adopted, agent-plugins-1.0 adopted"
   );
   const jsonDiff = await runSkillsetCli("diff", "--root", root, "--json");
   const jsonDiffData = (
@@ -1821,9 +1823,9 @@ Body.
   );
   expect(jsonDiffData.standardProfiles).toContainEqual(
     expect.objectContaining({
-      active: false,
+      active: true,
       id: "agent-skills",
-      lifecycle: "candidate",
+      lifecycle: "adopted",
     })
   );
   // diff is read-only: the on-disk output is still the old build.
@@ -2784,7 +2786,7 @@ Demo body.
   expect(await fileExists(cachePath(root, join(firstLatest.runPath, "report.json")))).toBe(true);
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/build/tests"))).toBe(false);
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
   const firstReport = JSON.parse(await readFile(cachePath(root, join(firstLatest.runPath, "report.json")), "utf8")) as {
@@ -4140,6 +4142,7 @@ skillset:
   name: dependency-root
 compile:
   targets: [claude, codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
@@ -4472,6 +4475,7 @@ skillset:
   name: codex-dependency-notice-root
 compile:
   targets: [codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
@@ -8039,6 +8043,8 @@ test("SET-26: mcp source pointer copies repo file with manifest and lock provena
     "skillset.yaml": `
 skillset:
   name: feature-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 `,
@@ -8097,6 +8103,8 @@ test("SET-26: false disables conventional mcp discovery", async () => {
     "skillset.yaml": `
 skillset:
   name: feature-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 `,
@@ -8174,6 +8182,8 @@ test("SET-26: conventional bin discovery copies Claude-only feature with provena
     "skillset.yaml": `
 skillset:
   name: feature-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -8212,6 +8222,8 @@ test("SET-26: explicit bin source pointer copies Claude-only feature with proven
     "skillset.yaml": `
 skillset:
   name: feature-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: false
@@ -9508,9 +9520,9 @@ Body.
   expect(source.notes.join("\n")).toContain("claude");
   expect(source.standardProfiles).toContainEqual(
     expect.objectContaining({
-      active: false,
+      active: true,
       id: "agent-skills",
-      lifecycle: "candidate",
+      lifecycle: "adopted",
     })
   );
 
@@ -9548,9 +9560,9 @@ Body.
   expect(okReport.lintIssues).toEqual([]);
   expect(okReport.standardProfiles).toContainEqual(
     expect.objectContaining({
-      active: false,
+      active: true,
       id: "agent-skills",
-      lifecycle: "candidate",
+      lifecycle: "adopted",
     })
   );
 
@@ -9584,6 +9596,8 @@ test("SET-83: explain and doctor surface render results in text and JSON", async
     "skillset.yaml": `
 skillset:
   name: outcome-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 cursor: false
@@ -9643,23 +9657,25 @@ Audit body.
   );
   expect(explainReport.standardProfiles).toContainEqual(
     expect.objectContaining({
-      active: false,
+      active: true,
       id: "agent-skills",
-      lifecycle: "candidate",
+      lifecycle: "adopted",
     })
   );
 
   const doctor = await runSkillsetCli("status", "--root", root);
   expect(doctor.exitCode).toBe(0);
   expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> skill-body degraded");
-  expect(doctor.stdout).toContain("standards: active none; registry");
-  expect(doctor.stdout).toContain("status found 1 render result advisory");
+  expect(doctor.stdout).toContain(
+    "standards: active agent-plugins-1.0 (plugins), agent-skills (repo); registry agent-instructions adopted"
+  );
+  expect(doctor.stdout).toContain("status found 3 render result advisories");
 
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
   const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
-    notableRenderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
+    notableRenderResults: readonly { destination?: string; featureId: string; standardProfile?: string; status: string; target?: string }[];
     standardProfiles: readonly {
       active: boolean;
       id: string;
@@ -9667,19 +9683,32 @@ Audit body.
     }[];
   } }).data;
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
-  expect(doctorReport.notableRenderResults).toEqual([
-    expect.objectContaining({
-      destination: "skill-body",
-      featureId: "dependencies",
-      status: "degraded",
-      target: "codex",
-    }),
-  ]);
+  expect(doctorReport.notableRenderResults).toHaveLength(3);
+  expect(doctorReport.notableRenderResults).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        featureId: "dependencies",
+        standardProfile: "agent-plugins-1.0",
+        status: "unsupported",
+      }),
+      expect.objectContaining({
+        featureId: "plugin-skills",
+        standardProfile: "agent-skills",
+        status: "unsupported",
+      }),
+      expect.objectContaining({
+        destination: "skill-body",
+        featureId: "dependencies",
+        status: "degraded",
+        target: "codex",
+      }),
+    ])
+  );
   expect(doctorReport.standardProfiles).toContainEqual(
     expect.objectContaining({
-      active: false,
+      active: true,
       id: "agent-skills",
-      lifecycle: "candidate",
+      lifecycle: "adopted",
     })
   );
 

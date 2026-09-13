@@ -119,6 +119,23 @@ interface PlannedFile {
 }
 
 export async function initSkillset(options: SetupOptions = {}): Promise<SetupReport> {
+  return initSkillsetWithScaffold(options);
+}
+
+/**
+ * Adoption-only scaffold for a newly created workspace. Imported provider-native
+ * capabilities can produce honest unsupported standard projections, so the
+ * migration workspace records the softer policy explicitly. Existing configs
+ * are validated and preserved by the ordinary init collision rules.
+ */
+export async function initSkillsetForAdoption(options: SetupOptions = {}): Promise<SetupReport> {
+  return initSkillsetWithScaffold(options, "warn");
+}
+
+async function initSkillsetWithScaffold(
+  options: SetupOptions,
+  scaffoldUnsupportedDestination?: "warn"
+): Promise<SetupReport> {
   const rootPath = await initRootPath(options);
   if (!await pathExists(rootPath)) {
     throw new Error(`skillset: init directory does not exist: ${rootPath}`);
@@ -126,7 +143,7 @@ export async function initSkillset(options: SetupOptions = {}): Promise<SetupRep
   if (!(await stat(rootPath)).isDirectory()) {
     throw new Error(`skillset: init target is not a directory: ${rootPath}`);
   }
-  return applySetupPlan("init", rootPath, options);
+  return applySetupPlan("init", rootPath, options, scaffoldUnsupportedDestination);
 }
 
 export async function createSkillset(options: SetupOptions = {}): Promise<SetupReport> {
@@ -154,7 +171,8 @@ export function defaultGlobalSourcePath(homeDir = process.env.HOME ?? "~"): stri
 async function applySetupPlan(
   kind: SetupReport["kind"],
   rootPath: string,
-  options: SetupOptions
+  options: SetupOptions,
+  scaffoldUnsupportedDestination?: "warn"
 ): Promise<SetupReport> {
   const name = options.name === undefined
     ? defaultSetupName(kind, rootPath)
@@ -165,7 +183,17 @@ async function applySetupPlan(
   // the repo look pre-adopted to the survey.
   const alreadyAdopted = await setupWorkspaceExists(rootPath, layout);
   const targets = normalizeTargets(options.targets);
-  const plannedFiles = setupFiles({ ...options, kind, resolvedLayout: layout, name, targets, workspaceManifestPath });
+  const plannedFiles = setupFiles({
+    ...options,
+    kind,
+    resolvedLayout: layout,
+    name,
+    targets,
+    workspaceManifestPath,
+    ...(scaffoldUnsupportedDestination === undefined
+      ? {}
+      : { scaffoldUnsupportedDestination }),
+  });
   const git = await setupGit(kind, rootPath, options);
   const files: SetupFile[] = [];
 
@@ -939,6 +967,7 @@ function setupFiles(
   options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions & {
     readonly kind: SetupReport["kind"];
     readonly resolvedLayout: SetupLayout;
+    readonly scaffoldUnsupportedDestination?: "warn";
     readonly workspaceManifestPath: string;
   }
 ): readonly PlannedFile[] {
@@ -947,7 +976,11 @@ function setupFiles(
   const files: PlannedFile[] = [
     {
       path: options.workspaceManifestPath,
-      content: workspaceManifest(options.name, options.targets),
+      content: workspaceManifest(
+        options.name,
+        options.targets,
+        options.scaffoldUnsupportedDestination
+      ),
     },
     {
       path: `${sourceRoot}/.gitkeep`,
@@ -1041,22 +1074,32 @@ async function initializeGit(rootPath: string): Promise<void> {
   }
 }
 
-function rootConfig(targets: readonly TargetName[]): string {
+function rootConfig(
+  targets: readonly TargetName[],
+  unsupportedDestination?: "warn"
+): string {
   const targetLines = targets.map((target) => `    - ${target}`).join("\n");
   return [
     "compile:",
     "  targets:",
     targetLines,
+    ...(unsupportedDestination === undefined
+      ? []
+      : [`  unsupportedDestination: ${unsupportedDestination}`]),
     "",
   ].join("\n");
 }
 
-function workspaceManifest(name: string, targets: readonly TargetName[]): string {
+function workspaceManifest(
+  name: string,
+  targets: readonly TargetName[],
+  unsupportedDestination?: "warn"
+): string {
   return [
     `# yaml-language-server: $schema=${schemaUri("workspace-config")}`,
     "skillset:",
     `  name: ${name}`,
-    rootConfig(targets).trimEnd(),
+    rootConfig(targets, unsupportedDestination).trimEnd(),
     "",
   ].join("\n");
 }

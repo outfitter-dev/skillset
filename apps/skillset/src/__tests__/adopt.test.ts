@@ -413,6 +413,7 @@ test("adopt elevates a root native plugin without copying workspace config into 
 
   const workspaceConfig = await readFile(join(root, "skillset.yaml"), "utf8");
   expect(workspaceConfig).toContain("compile:");
+  expect(workspaceConfig).toContain("unsupportedDestination: warn");
   const pluginConfig = await readFile(join(root, ".skillset/plugins/root-native/skillset.yaml"), "utf8");
   expect(pluginConfig).not.toContain("compile:");
   expect(pluginConfig).toContain("name: root-native");
@@ -420,6 +421,24 @@ test("adopt elevates a root native plugin without copying workspace config into 
   expect(await exists(join(root, ".skillset/plugins/root-native/.claude-plugin/plugin.json"))).toBe(true);
   expect(await exists(join(root, ".skillset/plugins/root-native/commands/hello.md"))).toBe(true);
   expect(await exists(join(root, ".skillset/plugins/root-native/skills/helper/SKILL.md"))).toBe(true);
+});
+
+test("adopt preserves an authored destination policy when the integrated build blocks", async () => {
+  const config = "compile:\n  targets: [claude]\n";
+  const root = await fixture({
+    "skillset.yaml": config,
+    ".claude-plugin/plugin.json": JSON.stringify({
+      name: "authored-policy",
+      version: "1.0.0",
+    }),
+    "commands/hello.md": "---\ndescription: Say hello.\n---\n\nSay hello.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("unsupported destination policy blocked");
+  expect(await readFile(join(root, "skillset.yaml"), "utf8")).toBe(config);
 });
 
 test("blocked reusable adoption does not persist nested audit artifacts", async () => {
@@ -855,6 +874,7 @@ test("adopt carries native hook lift diagnostics into its domain report", async 
     },
   };
   const root = await fixture({
+    "skillset.yaml": "compile:\n  targets: [claude]\n  unsupportedDestination: warn\n",
     ".claude-plugin/plugin.json": JSON.stringify({
       name: "native-hooks",
       version: "1.0.0",
@@ -1043,6 +1063,7 @@ test("adopt leaves files with only no-lowering matches undeclared", async () => 
 
 test("adopt normalizes Claude arguments to Skillset prompt argument placeholders", async () => {
   const root = await fixture({
+    "skillset.yaml": "compile:\n  targets: [claude]\n  unsupportedDestination: warn\n",
     ".claude/skills/args/SKILL.md":
       "---\nname: args\ndescription: Uses $ARGUMENTS literally in metadata.\n---\n\nRun $ARGUMENTS, $ARGUMENTS[0], $ARGUMENTS[1], and $ARGUMENTS.limit.\nKeep {{$ARGUMENTS}} literal.\n",
   });

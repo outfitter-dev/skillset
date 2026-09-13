@@ -114,7 +114,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:17836404d9d6a35a581568a0808f0b52e1a4dec984b3947de62fa452c8ba9862",
+  "provenanceHash": "sha256:8d41946d9c10be91aac4b62d062719e646d98f53540969b59c30ee46fc0e9d89",
   "renderResults": [
     {
       "destination": "skill",
@@ -317,7 +317,11 @@
     }
   ],
   "schemaVersion": 3,
-  "selectedStandards": [],
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-plugins-1.0",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex",
@@ -325,6 +329,10 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
-  "standardProfileEvidence": {},
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:dce9ff27203fc9a85c46150a60d0d979ee6839ae566f9216cdd7575f5eede6d4",
+    "agent-plugins-1.0": "sha256:098484bf5a22f45d7c85350e57aa127dda0a165818b2a56185b57b262519e82a",
+    "agent-skills": "sha256:acb0c1b3ffc78ab90e2c3b1313b5997524a2603b402b130597a05e7586c95e85"
+  },
   "target": "workspace"
 }

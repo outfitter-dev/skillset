@@ -329,7 +329,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
             "",
             "Generated Skillset plugin repository.",
             "",
-            ...(renderAgentPlugins
+            ...(renderAgentPlugins && activeTargets.length === 0
               ? [
                   "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
                 ]

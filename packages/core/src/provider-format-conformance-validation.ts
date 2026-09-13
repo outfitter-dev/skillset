@@ -5,6 +5,7 @@ import {
   type ProviderJsonSchemaSummary,
   type ProviderSchemaManualOverlayId,
   type ProviderSchemaSnapshotId,
+  type StandardProfileId,
 } from "@skillset/registry";
 
 import { compareStrings } from "./path";
@@ -37,6 +38,7 @@ export interface ProviderFormatConformanceFile {
   readonly featureId?: string;
   readonly path: string;
   readonly sourcePath?: string;
+  readonly standardProfile?: StandardProfileId;
   readonly target?: TargetName;
 }
 

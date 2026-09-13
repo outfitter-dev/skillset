@@ -41,6 +41,8 @@ const TRAILS_FIXTURE: Record<string, string> = {
 skillset:
   name: bundle-root
   license: none
+compile:
+  unsupportedDestination: warn
 codex: false
 cursor: false
 `,
@@ -126,17 +128,20 @@ describe("per-plugin claude bundle destinations", () => {
       expect(paths).toContain(path);
     }
 
-    // The bundle owns its exact destination: no implicit plugins/<id> or
-    // provider segment anywhere.
+    // The Claude bundle owns its exact destination without a nested provider
+    // segment. Adopted standards render their own package at the canonical
+    // Agent Plugins root instead of changing the Claude bundle destination.
     expect(paths.filter((path) => path.startsWith("plugin/plugins/"))).toEqual(
       []
     );
     expect(paths.filter((path) => path.startsWith("plugin/claude/"))).toEqual(
       []
     );
-    expect(paths.filter((path) => path.startsWith("plugins/trails/"))).toEqual(
-      []
-    );
+    expect(paths.filter((path) => path.startsWith("plugins/trails/"))).toEqual([
+      "plugins/trails/agents/plugin.json",
+      "plugins/trails/agents/scripts/inspect-trail.sh",
+      "plugins/trails/agents/skills/hike/SKILL.md",
+    ]);
 
     // All adaptive license scopes opt out. The provider-native LICENSE island
     // is selected once at the bundle root without synthesizing LICENSE.txt.

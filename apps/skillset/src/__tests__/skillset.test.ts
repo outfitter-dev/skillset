@@ -103,6 +103,7 @@ skillset:
     name: cursor-market
 compile:
   targets: [cursor]
+  unsupportedDestination: warn
 cursor: true
 `,
     ".skillset/skills/standalone/SKILL.md": `
@@ -246,6 +247,7 @@ skillset:
   name: cursor-root
 compile:
   targets: [cursor]
+  unsupportedDestination: warn
 cursor: true
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
@@ -1547,6 +1549,7 @@ skillset:
 compile:
   targets: [codex]
   build: all
+  unsupportedDestination: warn
   skillset:
     metadata: false
 `,
@@ -1558,6 +1561,10 @@ skillset:
 ---
 name: plain
 description: Plain skill.
+dependencies:
+  plugins:
+    - name: fixture-runtime
+      range: ^1.0.0
 metadata:
   authored: keep
   generated: manual-provider-value
@@ -1702,6 +1709,8 @@ skillset:
   version: 1.0.0
   marketplace:
     name: test-market
+compile:
+  unsupportedDestination: warn
 claude:
   plugins: true
   skills: true
@@ -1728,6 +1737,10 @@ title: Alpha Skill
 summary: Portable alpha summary.
 description: Alpha skill.
 version: 2.1.0
+dependencies:
+  plugins:
+    - name: fixture-runtime
+      range: ^1.0.0
 metadata:
   author: fixture
 skillset:
@@ -1820,6 +1833,8 @@ skillset:
   name: test-root
   marketplace:
     name: test-market
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 `,
@@ -2235,6 +2250,8 @@ test("Codex plugin agent diagnostics honor root plugin output selection", async 
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex:
   plugins:
@@ -2421,6 +2438,8 @@ test("preprocessing expands this references and partials in Claude skill markdow
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: false
 `,
@@ -2514,7 +2533,9 @@ test("preprocessing adapts prompt argument placeholders for Claude and shims Cod
 skillset:
   name: test-root
 claude: true
-codex: true
+codex:
+  skills:
+    path: generated/codex-skills
 `,
     ".skillset/skills/argument-runner/SKILL.md": `
 ---
@@ -2540,7 +2561,10 @@ Literal marker: {{{ $ARGUMENTS }}}
   expect(claudeSkill).toContain("Literal marker: {{$ARGUMENTS}}");
   expect(claudeSkill).not.toContain("Before using commands");
 
-  const codexSkill = await readFile(join(root, ".agents/skills/argument-runner/SKILL.md"), "utf8");
+  const codexSkill = await readFile(
+    join(root, "generated/codex-skills/argument-runner/SKILL.md"),
+    "utf8"
+  );
   expect(codexSkill).toContain(
     "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments."
   );
@@ -3322,7 +3346,7 @@ skillset:
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "claude.projectRoot must not overlap active output root outputs.plugins.claude (plugins)"
+    "claude.projectRoot must not overlap active output root standards.agent-plugins-1.0 (plugins)"
   );
 });
 
@@ -3855,7 +3879,7 @@ codex: true
   expect(claudeRule).toContain("- Source rule: .skillset/rules/root.md");
 });
 
-test("rules concatenate Codex AGENTS output and honor target opt-outs", async () => {
+test("rules concatenate adopted Agent Instructions output independently of provider opt-outs", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -3890,7 +3914,7 @@ codex: false
 
   const docsAgents = await readFile(join(root, "docs/AGENTS.md"), "utf8");
   expect(docsAgents).toContain("# First Docs Rule");
-  expect(docsAgents).not.toContain("# Second Docs Rule");
+  expect(docsAgents).toContain("# Second Docs Rule");
   expect(await exists(join(root, ".claude/rules/docs/first.md"))).toBe(false);
   expect(await exists(join(root, ".claude/rules/docs/second.md"))).toBe(true);
 });
@@ -4714,7 +4738,7 @@ stale
 
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
   await buildSkillset(root);
-  expect(await exists(join(root, "plugins/skillset.lock"))).toBe(false);
+  expect(await exists(join(root, "plugins/skillset.lock"))).toBe(true);
   expect(await exists(join(root, "plugins/stale.txt"))).toBe(false);
 });
 
@@ -4817,6 +4841,8 @@ test("source versions override target-native version overrides", async () => {
     "skillset.yaml": `
 skillset:
   name: test-root
+compile:
+  unsupportedDestination: warn
 claude: true
 codex: true
 `,
@@ -4833,6 +4859,10 @@ claude:
 name: alpha-skill
 description: Alpha skill.
 version: 2.0.0
+dependencies:
+  plugins:
+    - name: fixture-runtime
+      range: ^1.0.0
 claude:
   frontmatter:
     metadata:
