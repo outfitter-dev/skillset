@@ -1556,13 +1556,14 @@ function noOutputOutcomeBelongsToLock(
   if (outcome.sourceUnit.startsWith("plugin.")) {
     const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
     if (outputRoot.startsWith(`plugins/${pluginId}/`)) return true;
-    // A plugin-owned bundle root carries no `plugins/<id>` shape; a lock whose
-    // items all belong to this plugin identifies the owner instead.
+    // Shared roots (the default `plugins` root, which is also the Agent
+    // Plugins standard root) and plugin-owned bundle roots carry no
+    // `plugins/<id>` shape; a lock item this plugin owns identifies membership
+    // instead, so output-less provenance is not dropped when no workspace lock
+    // exists to carry it.
     return (
-      lock.target === "claude" &&
       Array.isArray(lock.items) &&
-      lock.items.length > 0 &&
-      lock.items.every(
+      lock.items.some(
         (item) =>
           isJsonRecord(item) &&
           (item.plugin === pluginId ||
