@@ -18,7 +18,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 
 import { buildSkillsetResult } from "@skillset/core";
 import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
-import { getStandardProfile } from "@skillset/registry";
+import { getStandardProfile, listStandardProfiles } from "@skillset/registry";
 import type { StandardProfileId } from "@skillset/registry";
 
 import {
@@ -72,6 +72,30 @@ export interface StandardsConformanceVerificationResult {
 }
 
 /**
+ * Reprove every adopted registry profile from checked-in evidence only. This
+ * is the normal-check path, so it deliberately has no Git or network preconditions.
+ */
+export async function verifyAllAdoptedStandardsConformance(
+  repositoryRoot = resolve(import.meta.dir, "../../..")
+): Promise<readonly StandardsConformanceVerificationResult[]> {
+  const root = await realpath(repositoryRoot);
+  const results: StandardsConformanceVerificationResult[] = [];
+  for (const profile of listStandardProfiles()) {
+    if (profile.lifecycle !== "adopted" || profile.adoption === undefined) {
+      continue;
+    }
+    results.push(
+      await verifyAdoptedStandardsReceipt(
+        profile.id,
+        profile.adoption.receipt.path,
+        root
+      )
+    );
+  }
+  return results;
+}
+
+/**
  * Render one candidate through the production standard renderer, prove its
  * bytes with pinned external consumers, and persist an ignored review receipt.
  */
@@ -120,16 +144,7 @@ export async function runStandardsConformance(
       limitations: probe.limitations,
       observations: probe.observations,
       profile: profileId,
-      profileSnapshot: {
-        contentHash: profile.provenance.contentHash as `sha256:${string}`,
-        snapshots: profile.provenance.snapshots.map((snapshot) => ({
-          contentHash: snapshot.contentHash as `sha256:${string}`,
-          kind: snapshot.kind,
-          revision: snapshotRevision(snapshot.url),
-          source: snapshot.url,
-        })),
-        version: profile.version,
-      },
+      profileSnapshot: profileSnapshotEvidence(profile),
       recordedAt: new Date().toISOString(),
       renderer: { clean: true, commit: rendererCommit },
       safety: {
@@ -174,8 +189,38 @@ export async function verifyAdoptedStandardsConformance(
 ): Promise<StandardsConformanceVerificationResult> {
   const root = await realpath(repositoryRoot);
   await requireCleanRenderer(root);
+  const result = await verifyAdoptedStandardsReceipt(
+    profileId,
+    receiptPath,
+    root
+  );
+  await requireAncestor(root, result.rendererCommit);
+  return result;
+}
+
+async function verifyAdoptedStandardsReceipt(
+  profileId: StandardProfileId,
+  receiptPath: string,
+  root: string
+): Promise<StandardsConformanceVerificationResult> {
+  const profile = getStandardProfile(profileId);
+  if (profile.lifecycle !== "adopted" || profile.adoption === undefined) {
+    throw new Error(
+      `skillset: verify-adopted requires adopted registry evidence for ${profileId}`
+    );
+  }
+  const canonicalReceiptPath = await realpath(resolve(root, receiptPath));
+  const repositoryReceiptPath = relative(root, canonicalReceiptPath).replaceAll(
+    "\\",
+    "/"
+  );
+  if (repositoryReceiptPath !== profile.adoption.receipt.path) {
+    throw new Error(
+      `skillset: ${profileId} registry adoption evidence names ${profile.adoption.receipt.path}, not ${repositoryReceiptPath}`
+    );
+  }
   const receipt = parseStandardsConformanceReceipt(
-    JSON.parse(await readFile(resolve(root, receiptPath), "utf-8"))
+    JSON.parse(await readFile(canonicalReceiptPath, "utf-8"))
   );
   if (receipt.profile !== profileId) {
     throw new Error(
@@ -183,23 +228,16 @@ export async function verifyAdoptedStandardsConformance(
     );
   }
   const receiptHash = hashStandardsConformanceReceipt(receipt);
-  const profile = getStandardProfile(profileId);
-  if (profile.lifecycle !== "adopted" || profile.adoption === undefined) {
-    throw new Error(
-      `skillset: verify-adopted requires adopted registry evidence for ${profileId}`
-    );
-  }
   if (
     profile.adoption.receipt.contentHash !== receiptHash ||
-    profile.adoption.profileContentHash !==
-      receipt.profileSnapshot.contentHash ||
+    JSON.stringify(receipt.profileSnapshot) !==
+      JSON.stringify(profileSnapshotEvidence(profile)) ||
     profile.adoption.rendererCommit !== receipt.renderer.commit
   ) {
     throw new Error(
       `skillset: ${profileId} registry adoption evidence does not match the receipt`
     );
   }
-  await requireAncestor(root, receipt.renderer.commit);
 
   const fixtureRoot = await realpath(join(root, FIXTURE_PATH));
   const source = await treeEvidence(join(fixtureRoot, ".skillset"));
@@ -243,6 +281,21 @@ export async function verifyAdoptedStandardsConformance(
   } finally {
     await rm(temp, { force: true, recursive: true });
   }
+}
+
+function profileSnapshotEvidence(
+  profile: ReturnType<typeof getStandardProfile>
+): StandardsConformanceReceipt["profileSnapshot"] {
+  return {
+    contentHash: profile.provenance.contentHash as `sha256:${string}`,
+    snapshots: profile.provenance.snapshots.map((snapshot) => ({
+      contentHash: snapshot.contentHash as `sha256:${string}`,
+      kind: snapshot.kind,
+      revision: snapshotRevision(snapshot.url),
+      source: snapshot.url,
+    })),
+    version: profile.version,
+  };
 }
 
 async function runProfileProbe(

@@ -1,5 +1,10 @@
 /* eslint-disable func-style, sort-keys -- The fixture helper leads the cases, and the canonicalization case intentionally reverses key order. */
 import { describe, expect, test } from "bun:test";
+import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import { listStandardProfiles } from "@skillset/registry";
 
 import {
   createStandardsConformanceReceipt,
@@ -10,6 +15,7 @@ import {
   STANDARDS_CONFORMANCE_RECEIPT_SCHEMA_VERSION,
 } from "./receipt";
 import type { StandardsConformanceReceipt } from "./receipt";
+import { verifyAllAdoptedStandardsConformance } from "./run";
 
 const HASH = `sha256:${"a".repeat(64)}` as const;
 const OTHER_HASH = `sha256:${"b".repeat(64)}` as const;
@@ -74,6 +80,55 @@ function sampleReceipt(): StandardsConformanceReceipt {
 }
 
 describe("SET-411 standards conformance receipt", () => {
+  test("reproves every adopted receipt from registry evidence and fixture bytes without a Git checkout", async () => {
+    const repositoryRoot = path.resolve(import.meta.dir, "../../..");
+    const isolatedRoot = await mkdtemp(
+      path.join(tmpdir(), "skillset-adopted-standards-check-")
+    );
+    try {
+      await mkdir(path.join(isolatedRoot, "fixtures", "standards"), {
+        recursive: true,
+      });
+      await Promise.all([
+        cp(
+          path.join(repositoryRoot, "fixtures", "standards-adoption"),
+          path.join(isolatedRoot, "fixtures", "standards-adoption"),
+          { recursive: true }
+        ),
+        cp(
+          path.join(repositoryRoot, "fixtures", "standards", "evidence"),
+          path.join(isolatedRoot, "fixtures", "standards", "evidence"),
+          { recursive: true }
+        ),
+      ]);
+
+      const results = await verifyAllAdoptedStandardsConformance(isolatedRoot);
+      const adoptedProfiles = listStandardProfiles()
+        .filter((profile) => profile.lifecycle === "adopted")
+        .map((profile) => {
+          if (profile.adoption === undefined) {
+            throw new Error(`missing adoption evidence for ${profile.id}`);
+          }
+          return profile;
+        });
+
+      expect(results.map((result) => result.profile)).toEqual(
+        adoptedProfiles.map((profile) => profile.id)
+      );
+      for (const [index, result] of results.entries()) {
+        const profile = adoptedProfiles[index];
+        if (profile?.adoption === undefined) {
+          throw new Error(`missing result profile at index ${index}`);
+        }
+        expect(result.artifactCount).toBeGreaterThan(0);
+        expect(result.receiptHash).toBe(profile.adoption.receipt.contentHash);
+        expect(result.rendererCommit).toBe(profile.adoption.rendererCommit);
+      }
+    } finally {
+      await rm(isolatedRoot, { force: true, recursive: true });
+    }
+  });
+
   test("accepts one complete per-profile candidate receipt and deeply freezes a clone", () => {
     const input = sampleReceipt();
     const receipt = createStandardsConformanceReceipt(input);
