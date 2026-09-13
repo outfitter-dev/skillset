@@ -1,5 +1,6 @@
 import type { StandardProfileId } from "@skillset/registry";
 
+import type { PortableMcpModel } from "./portable-mcp";
 import type { SkillsetXdgOptions } from "./xdg";
 
 export type TargetName = "claude" | "codex" | "cursor";
@@ -236,6 +237,8 @@ export type SourcePluginFeatureOrigin = "conventional" | "explicit";
 export interface SourcePluginFeature {
   readonly key: SourcePluginFeatureKey;
   readonly origin: SourcePluginFeatureOrigin;
+  /** Parsed once by the resolver and shared by every MCP renderer. */
+  readonly portableMcp?: PortableMcpModel;
   readonly sourcePath: string;
   readonly sourcePointer?: string;
   /** Canonical capability subjects discovered from structured feature source. */

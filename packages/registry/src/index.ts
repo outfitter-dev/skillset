@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 export * from "./migrations";
 export * from "./hook-evidence";
 export * from "./provider-runtime-evidence";
+export * from "./provider-mcp-evidence";
 export * from "./provider-locations";
 export * from "./schema-snapshots";
 export * from "./standard-compatibility";

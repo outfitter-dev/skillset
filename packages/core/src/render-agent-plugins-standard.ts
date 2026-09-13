@@ -8,6 +8,8 @@ import { readString, readStringArray } from "./config";
 import { pluginDependencySummaries } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
+import { renderAgentPluginsMcp } from "./portable-mcp";
+import type { PortableMcpModel } from "./portable-mcp";
 import {
   copyFileFromSource,
   lockRootsFor,
@@ -25,6 +27,7 @@ import type {
   JsonValue,
   RenderedFile,
   SourcePlugin,
+  SourcePluginFeature,
 } from "./types";
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
@@ -128,9 +131,38 @@ export async function renderAgentPluginStandardPackages(
         )
       );
     }
+    const mcpFeature = plugin.features.find((feature) => feature.key === "mcp");
+    if (mcpFeature !== undefined) {
+      const portableMcp = requiredPortableMcp(mcpFeature);
+      const mcp = renderAgentPluginsMcp(portableMcp);
+      if (mcp !== undefined) {
+        rootFiles.push(
+          textFile(
+            path.posix.join(packageRoot, "mcp.json"),
+            renderValidatedJson(mcp, `${plugin.id} Agent Plugins MCP`),
+            normalizePath(path.relative(graph.rootPath, mcpFeature.sourcePath))
+          )
+        );
+        for (const supportPath of portableMcp.supportPaths) {
+          rootFiles.push(
+            ...(await copyAgentPluginSupportPath(
+              graph,
+              plugin,
+              packageRoot,
+              supportPath
+            ))
+          );
+        }
+      }
+    }
     for (const supportPath of SUPPORT_PATHS) {
       rootFiles.push(
-        ...(await copySupportPath(graph, plugin, packageRoot, supportPath))
+        ...(await copyAgentPluginSupportPath(
+          graph,
+          plugin,
+          packageRoot,
+          supportPath
+        ))
       );
     }
     const packageFiles = rootFiles
@@ -170,6 +202,13 @@ export function renderAgentPluginManifest(
     repository: readString(plugin.metadata, "repository"),
     version: pluginVersion(graph, plugin),
   });
+}
+
+function requiredPortableMcp(feature: SourcePluginFeature): PortableMcpModel {
+  if (feature.portableMcp !== undefined) return feature.portableMcp;
+  throw new Error(
+    `skillset: MCP feature ${feature.sourcePath} has no parsed portable model`
+  );
 }
 
 /** Validate output against the closed, pinned Agent Plugins manifest schema. */
@@ -292,7 +331,7 @@ function agentPluginManifestSchema(): AgentPluginManifestSchema {
   };
 }
 
-async function copySupportPath(
+export async function copyAgentPluginSupportPath(
   graph: BuildGraph,
   plugin: SourcePlugin,
   packageRoot: string,
