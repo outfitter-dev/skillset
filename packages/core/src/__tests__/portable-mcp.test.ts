@@ -431,6 +431,10 @@ cursor: true
       "#!/bin/sh\n"
     );
     await writeFile(
+      join(root, ".skillset/plugins/tools/bin/arg-server.js"),
+      "console.log('ready');\n"
+    );
+    await writeFile(
       join(root, ".skillset/plugins/tools/bin/unrelated"),
       "do not package\n"
     );
@@ -499,7 +503,7 @@ cursor: true
         rendered.some((file) =>
           file.path.endsWith(`plugins/tools/${target}/bin/arg-server.js`)
         )
-      ).toBe(false);
+      ).toBe(true);
       expect(
         rendered.some((file) =>
           file.path.endsWith(`plugins/tools/${target}/bin/unrelated`)
@@ -532,10 +536,10 @@ cursor: true
     ).toBe(0o755);
     expect(output("plugins/tools/agents/bin/work/config.json")).toBe("{}\n");
     expect(
-      rendered.some((file) =>
+      rendered.find((file) =>
         file.path.endsWith("plugins/tools/agents/bin/arg-server.js")
-      )
-    ).toBe(false);
+      )?.sourcePath
+    ).toBe(".skillset/plugins/tools/bin/arg-server.js");
     expect(
       rendered.some((file) =>
         file.path.endsWith("plugins/tools/agents/bin/unrelated")
@@ -827,7 +831,7 @@ cursor: true
     }
   });
 
-  it("validates plugin-root command and cwd references through real paths", async () => {
+  it("validates plugin-root command, arg, and cwd references through real paths", async () => {
     const input = await fixture({
       mcpServers: {
         local: { command: "./bin/server", cwd: "./bin/work" },
@@ -889,11 +893,32 @@ cursor: true
         },
       },
     });
-    expect((await parsePortableMcpSource(opaqueArg)).supportPaths).toEqual([]);
+    await expect(parsePortableMcpSource(opaqueArg)).rejects.toThrow(
+      "does not exist"
+    );
 
     const outside = await mkdtemp(
       join(tmpdir(), "skillset-portable-mcp-outside-")
     );
+    const outsideFile = join(outside, "server.js");
+    await writeFile(outsideFile, "");
+    await symlink(outsideFile, join(input.pluginRoot, "bin/arg-escape.js"));
+    await writeFile(
+      input.sourcePath,
+      JSON.stringify({
+        $schema: AGENT_PLUGINS_MCP_SCHEMA,
+        mcpServers: {
+          local: {
+            args: ["${PLUGIN_ROOT}/bin/arg-escape.js"],
+            command: "node",
+          },
+        },
+      })
+    );
+    await expect(parsePortableMcpSource(input)).rejects.toThrow(
+      "resolves outside the plugin root"
+    );
+
     await symlink(outside, join(input.pluginRoot, "bin/escape"));
     await writeFile(
       input.sourcePath,
@@ -904,6 +929,46 @@ cursor: true
     );
     await expect(parsePortableMcpSource(input)).rejects.toThrow(
       "resolves outside the plugin root"
+    );
+  });
+
+  it("collects plugin-root argument support paths deterministically", async () => {
+    const input = await fixture({
+      mcpServers: {
+        local: {
+          args: [
+            "${PLUGIN_ROOT}/scripts/z.js",
+            "${PLUGIN_ROOT}/bin/a.js",
+            "${PLUGIN_ROOT}/scripts/z.js",
+          ],
+          command: "node",
+        },
+      },
+    });
+    await mkdir(join(input.pluginRoot, "bin"));
+    await mkdir(join(input.pluginRoot, "scripts"));
+    await writeFile(join(input.pluginRoot, "bin/a.js"), "");
+    await writeFile(join(input.pluginRoot, "scripts/z.js"), "");
+
+    expect((await parsePortableMcpSource(input)).supportPaths).toEqual([
+      "bin/a.js",
+      "scripts/z.js",
+    ]);
+
+    await writeFile(
+      input.sourcePath,
+      JSON.stringify({
+        $schema: AGENT_PLUGINS_MCP_SCHEMA,
+        mcpServers: {
+          local: {
+            args: ["--server=${PLUGIN_ROOT}/bin/a.js"],
+            command: "node",
+          },
+        },
+      })
+    );
+    await expect(parsePortableMcpSource(input)).rejects.toThrow(
+      "must use a standalone ${PLUGIN_ROOT}/<path> reference"
     );
   });
 });

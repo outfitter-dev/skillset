@@ -392,7 +392,7 @@ export function providerMcpSupportPaths(
   const supportPaths = new Set<string>();
   for (const [name, server] of Object.entries(model.servers)) {
     if (omitted.has(name) || server.type !== "stdio") continue;
-    for (const value of [server.command, server.cwd]) {
+    for (const value of [server.command, ...(server.args ?? []), server.cwd]) {
       if (value === undefined) continue;
       const supportPath = pluginRootSupportPath(value);
       if (supportPath !== undefined) {
@@ -438,6 +438,13 @@ async function parseStdioServer(
   for (const [index, arg] of (args ?? []).entries()) {
     const label = `${name}.args[${index}]`;
     validateExpandableString(arg, label);
+    await collectPluginRootArgumentSupportPath(
+      arg,
+      pluginRoot,
+      pluginRealRoot,
+      label,
+      supportPaths
+    );
   }
   const env = readOptionalStringMap(raw, "env", name);
   for (const [key, value] of Object.entries(env ?? {})) {
@@ -586,6 +593,41 @@ async function validatePluginFile(
     throw new Error(`skillset: MCP server ${label} ${value} must be a file`);
   }
   await assertRealPathInside(source, pluginRealRoot, label);
+}
+
+async function collectPluginRootArgumentSupportPath(
+  value: string,
+  pluginRoot: string,
+  pluginRealRoot: string,
+  label: string,
+  supportPaths: Set<string>
+): Promise<void> {
+  const marker = "${PLUGIN_ROOT}/";
+  if (!value.includes(marker)) return;
+  if (!value.startsWith(marker) || value.indexOf(marker, marker.length) !== -1) {
+    throw new Error(
+      `skillset: MCP server ${label} must use a standalone \${PLUGIN_ROOT}/<path> reference so its support files can be packaged`
+    );
+  }
+  const relativePath = value.slice(marker.length);
+  if (!isContainedPortablePath(relativePath)) {
+    throw new Error(`skillset: MCP server ${label} escapes the plugin root`);
+  }
+  assertStandardSupportPath(relativePath, label);
+  const source = resolve(pluginRoot, relativePath);
+  let sourceStat;
+  try {
+    sourceStat = await stat(source);
+  } catch {
+    throw new Error(`skillset: MCP server ${label} ${value} does not exist`);
+  }
+  if (!sourceStat.isFile() && !sourceStat.isDirectory()) {
+    throw new Error(
+      `skillset: MCP server ${label} ${value} must be a file or directory`
+    );
+  }
+  await assertRealPathInside(source, pluginRealRoot, label);
+  collectReferencedSupportPath(relativePath, supportPaths);
 }
 
 async function assertRealPathInside(
