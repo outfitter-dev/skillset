@@ -54,7 +54,7 @@ describe("SET-397 standard profile registry", () => {
           path: `fixtures/standards/evidence/${profile.id}.json`,
           schema: "skillset.standards-conformance-receipt@1",
         },
-        rendererCommit: "d059c53e66d2080ea6677cc6846676bf99b956e6",
+        rendererCommit: "4a4cb160e63ec934a6d46dddbc557032743e2717",
         schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
       });
     }
