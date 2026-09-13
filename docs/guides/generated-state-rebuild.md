@@ -32,7 +32,7 @@ bunx @skillset/cli@0.27.0 status --json --root /absolute/path/to/repository
 bunx @skillset/cli@0.27.0 check --only outputs --root /absolute/path/to/repository
 ```
 
-For pre-v3 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
+For schema-v1 or nonempty schema-v2 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. A coherent schema-v2 lock with `items: []` carries no cleanup authority and upgrades automatically to schema v3 on the next confirmed build; it does not require a manual backup. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
 
 After moving only those reviewed paths, rebuild from canonical source and verify the new ownership model:
 
