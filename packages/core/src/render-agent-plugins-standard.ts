@@ -4,7 +4,10 @@ import path from "node:path";
 
 import { listStandardProfileSchemaSnapshots } from "@skillset/registry";
 
-import { readString, readStringArray } from "./config";
+import {
+  AGENT_PLUGIN_MANIFEST_SCHEMA,
+  renderAgentPluginManifest,
+} from "./agent-plugin-manifest";
 import { pluginDependencySummaries } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
@@ -18,8 +21,6 @@ import {
   type LockItem,
   type LockRoot,
 } from "./render-support";
-import { renderCodexAuthor } from "./source-author";
-import { readSourceListing } from "./source-listing";
 import { renderValidatedJson } from "./structured-output";
 import type {
   BuildGraph,
@@ -32,8 +33,7 @@ import type {
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
 
-export const AGENT_PLUGIN_MANIFEST_SCHEMA =
-  "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
+export { AGENT_PLUGIN_MANIFEST_SCHEMA } from "./agent-plugin-manifest";
 
 const AGENT_PLUGIN_PROFILE = "agent-plugins-1.0" as const;
 const AGENT_PLUGIN_OUTPUT_ROOT = "plugins";
@@ -173,34 +173,6 @@ export async function renderAgentPluginStandardPackages(
     );
   }
   return rendered;
-}
-
-export function renderAgentPluginManifest(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  license: ResolvedLicense | undefined
-): JsonRecord {
-  const listing = readSourceListing(plugin.metadata);
-  const keywords =
-    readStringArray(listing, "keywords") ??
-    readStringArray(plugin.metadata, "keywords");
-  return omitUndefined({
-    $schema: AGENT_PLUGIN_MANIFEST_SCHEMA,
-    author:
-      renderCodexAuthor(plugin.metadata.author) ??
-      renderCodexAuthor(graph.root.metadata.author),
-    description:
-      readString(listing, "summary") ??
-      readString(listing, "description") ??
-      readString(plugin.metadata, "description") ??
-      plugin.id,
-    homepage: readString(plugin.metadata, "homepage"),
-    keywords: keywords === undefined ? undefined : [...keywords],
-    license: license?.manifestValue,
-    name: plugin.id,
-    repository: readString(plugin.metadata, "repository"),
-    version: pluginVersion(graph, plugin),
-  });
 }
 
 function requiredPortableMcp(feature: SourcePluginFeature): PortableMcpModel {

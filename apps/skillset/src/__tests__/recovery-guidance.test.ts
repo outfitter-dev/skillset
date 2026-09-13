@@ -120,7 +120,7 @@ test("only offers update confirmation for unblocked safe provider actions", () =
     safeUpdates: [providerAction("safe")],
   });
 
-  const providerUpdatePaths = ["plugins/skillset/codex/.codex-plugin/plugin.json"];
+  const providerUpdatePaths = ["plugins/skillset/chatgpt/plugin.json"];
   expect(classifyRecoveryGuidance(input({ providerReport: safe, providerUpdatePaths }))).toContainEqual(expect.objectContaining({
     action: "update",
     commands: ["skillset update", "skillset update --yes"],
@@ -344,7 +344,7 @@ function providerReport(overrides: Partial<ProviderFormatUpdateReport> = {}): Pr
 
 function providerAction(id: string) {
   return {
-    affectedPaths: ["plugins/skillset/codex/.codex-plugin/plugin.json"],
+    affectedPaths: ["plugins/skillset/chatgpt/plugin.json"],
     description: `${id} description`,
     id,
     provider: "codex",

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export * from "./migrations";
 export * from "./hook-evidence";
+export * from "./openai-agent-plugin-evidence";
 export * from "./provider-runtime-evidence";
 export * from "./provider-mcp-evidence";
 export * from "./provider-locations";

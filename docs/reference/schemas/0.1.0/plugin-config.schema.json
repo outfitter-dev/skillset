@@ -336,6 +336,10 @@
               "minLength": 1,
               "type": "string"
             },
+            "logo_dark": {
+              "minLength": 1,
+              "type": "string"
+            },
             "privacy_policy_url": {
               "minLength": 1,
               "type": "string"

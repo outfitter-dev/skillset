@@ -76,8 +76,8 @@ export async function enumerateProviderArtifacts(
       }
       if (outputPath.endsWith("/.claude-plugin/plugin.json"))
         claudePlugins.add(dirname(dirname(outputPath)));
-      else if (outputPath.endsWith("/.codex-plugin/plugin.json"))
-        codexPlugins.add(dirname(dirname(outputPath)));
+      else if (outputPath.endsWith("/chatgpt/plugin.json"))
+        codexPlugins.add(dirname(outputPath));
       else if (outputPath.endsWith("/.cursor-plugin/plugin.json"))
         cursorPlugins.add(dirname(dirname(outputPath)));
       else

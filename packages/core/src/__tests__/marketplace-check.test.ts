@@ -78,7 +78,7 @@ marketplaces:
       states: ["declared", "resolved", "renderable", "generated", "verified", "locked", "marketplace-ready"],
     }));
     expect(report.entries).toContainEqual(expect.objectContaining({
-      generatedPath: "plugins/local-tools/codex/.codex-plugin/plugin.json",
+      generatedPath: "plugins/local-tools/chatgpt/plugin.json",
       requestedTarget: "codex",
     }));
   });

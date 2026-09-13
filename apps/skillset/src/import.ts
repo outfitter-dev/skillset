@@ -1651,16 +1651,24 @@ async function writeImportedPluginConfig(
   // Lift every manifest field the generated projection round-trips. The
   // discovered version is migration input for release-state seeding, not a
   // second authority in newly synthesized source.
-  const listing = importedListing(nativeManifests, listingConflicts);
   const description = firstMetadataValue("description");
+  const nativeCodexInterface = readRecord(
+    nativeManifests.get("codex") ?? {},
+    "interface"
+  );
   const canonicalManifestDescription =
-    readString(listing ?? {}, "summary") ??
-    readString(listing ?? {}, "description") ??
     (typeof description === "string" ? description : undefined) ??
+    readString(nativeCodexInterface ?? {}, "shortDescription") ??
+    readString(nativeCodexInterface ?? {}, "longDescription") ??
     name;
+  const listing = importedListing(
+    nativeManifests,
+    listingConflicts,
+    canonicalManifestDescription
+  );
   const metadata: JsonRecord = {
     name,
-    description,
+    description: canonicalManifestDescription,
     listing,
     author: canonicalAuthor,
     homepage: firstMetadataValue("homepage"),
@@ -1682,7 +1690,9 @@ async function writeImportedPluginConfig(
         const interfaceOverride = importedCodexInterfaceOverride(
           manifest,
           listingConflicts,
-          canonicalAuthorName
+          canonicalAuthorName,
+          canonicalManifestDescription,
+          listing
         );
         if (Object.keys(interfaceOverride).length > 0) {
           providerConfig.interface = interfaceOverride;
@@ -1809,9 +1819,18 @@ const LIFTED_CODEX_INTERFACE_FIELDS: ReadonlySet<string> = new Set([
 function importedCodexInterfaceOverride(
   manifest: JsonRecord,
   listingConflicts: readonly NativeListingMetadataConflict[],
-  canonicalAuthorName: string | undefined
+  canonicalAuthorName: string | undefined,
+  canonicalManifestDescription: string,
+  listing: JsonRecord | undefined
 ): JsonRecord {
   const nativeInterface = readRecord(manifest, "interface") ?? {};
+  const canonicalShortDescription =
+    readString(listing ?? {}, "summary") ??
+    readString(listing ?? {}, "description") ??
+    canonicalManifestDescription;
+  const canonicalLongDescription =
+    readString(listing ?? {}, "description") ??
+    canonicalManifestDescription;
   return Object.fromEntries(
     Object.entries(nativeInterface).filter(
       ([field, value]) =>
@@ -1820,7 +1839,19 @@ function importedCodexInterfaceOverride(
           typeof value === "string" &&
           value === canonicalAuthorName
         ) &&
+        !(
+          field === "shortDescription" &&
+          typeof value === "string" &&
+          value === canonicalShortDescription
+        ) &&
+        !(
+          field === "longDescription" &&
+          typeof value === "string" &&
+          value === canonicalLongDescription
+        ) &&
         (shouldKeepCodexInterfaceField(field, listingConflicts) ||
+          field === "shortDescription" ||
+          field === "longDescription" ||
           !LIFTED_CODEX_INTERFACE_FIELDS.has(field)) &&
         value !== undefined
     )
@@ -1842,11 +1873,22 @@ function shouldKeepCodexInterfaceField(
 
 function importedListing(
   manifests: ReadonlyMap<TargetName, JsonRecord>,
-  conflicts: readonly NativeListingMetadataConflict[]
+  conflicts: readonly NativeListingMetadataConflict[],
+  canonicalManifestDescription: string
 ): JsonRecord | undefined {
   const codexInterface = readRecord(manifests.get("codex") ?? {}, "interface");
   const claudeManifest = manifests.get("claude");
   const cursorManifest = manifests.get("cursor");
+  const nativeShortDescription = readString(codexInterface ?? {}, "shortDescription");
+  const nativeLongDescription = readString(codexInterface ?? {}, "longDescription");
+  const summary =
+    nativeShortDescription === canonicalManifestDescription
+      ? nativeShortDescription
+      : undefined;
+  const description =
+    summary !== undefined || nativeLongDescription === canonicalManifestDescription
+      ? nativeLongDescription
+      : undefined;
   const listing: JsonRecord = {
     display_name:
       hasListingConflict(conflicts, "listing.display_name")
@@ -1854,8 +1896,8 @@ function importedListing(
         : readString(codexInterface ?? {}, "displayName") ??
           readString(claudeManifest ?? {}, "displayName") ??
           readString(cursorManifest ?? {}, "displayName"),
-    summary: readString(codexInterface ?? {}, "shortDescription"),
-    description: readString(codexInterface ?? {}, "longDescription"),
+    summary,
+    description,
     category:
       hasListingConflict(conflicts, "listing.category")
         ? undefined

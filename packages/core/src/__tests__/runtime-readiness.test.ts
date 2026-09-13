@@ -299,7 +299,7 @@ compile:
     const renderResults = [
       renderResult({
         featureId: "dependencies",
-        outputs: [{ path: "plugins/tools/codex/.codex-plugin/plugin.json" }],
+        outputs: [{ path: "plugins/tools/chatgpt/plugin.json" }],
         sourceUnit: "plugin.tools.feature:dependencies",
         status: "rendered",
         target: "codex",
@@ -361,11 +361,11 @@ compile:
               items: [
                 {
                   fileModes: {
-                    "tools/codex/.codex-plugin/plugin.json": "0644",
+                    "tools/chatgpt/plugin.json": "0644",
                   },
-                  files: ["tools/codex/.codex-plugin/plugin.json"],
+                  files: ["tools/chatgpt/plugin.json"],
                   outputHash: "sha256:output",
-                  outputPath: "tools/codex/.codex-plugin/plugin.json",
+                  outputPath: "tools/chatgpt/plugin.json",
                   sourceHash: "sha256:source",
                 },
               ],
@@ -398,7 +398,7 @@ compile:
         renderResults,
         requirementIds: claim.requirementIds,
         untrustedOutputPaths: [
-          "plugins/tools/codex/.codex-plugin/plugin.json",
+          "plugins/tools/chatgpt/plugin.json",
         ],
       })
     ).toThrow("requires current generated output");
@@ -689,7 +689,7 @@ compile:
         pluginFixture({ id: "shared" }),
       ],
     });
-    const outputPath = "plugins/tools/codex/.codex-plugin/plugin.json";
+    const outputPath = "plugins/tools/chatgpt/plugin.json";
     const report = planActivationReadiness({
       graph,
       renderResults: [

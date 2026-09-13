@@ -358,7 +358,7 @@ codex:
     );
 
     expect(checks).toContainEqual({ kind: "pluginManifests", ok: true });
-    expect(manifest.interface).toMatchObject({
+    expect(manifest.extensions?.["com.openai"]?.interface).toMatchObject({
       category: "Productivity",
       displayName: "Canonical Tools",
     });
@@ -408,6 +408,11 @@ async function evaluatePluginManifest(
   checks: readonly { kind: string; ok: boolean }[];
   manifest: {
     author?: { email?: string; name?: string };
+    extensions?: {
+      "com.openai"?: {
+        interface?: { category?: string; displayName?: string };
+      };
+    };
     interface?: { category?: string; displayName?: string };
     license?: string;
   };
@@ -455,12 +460,19 @@ plugin-license:
       await readFile(
         join(
           workspacePath,
-          `plugins/tools/${target}/.${target}-plugin/plugin.json`
+          target === "codex"
+            ? "plugins/tools/chatgpt/plugin.json"
+            : `plugins/tools/${target}/.${target}-plugin/plugin.json`
         ),
         "utf8"
       )
     ) as {
       author?: { email?: string; name?: string };
+      extensions?: {
+        "com.openai"?: {
+          interface?: { category?: string; displayName?: string };
+        };
+      };
       interface?: { category?: string; displayName?: string };
       license?: string;
     };

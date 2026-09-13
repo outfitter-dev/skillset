@@ -328,6 +328,7 @@ describe("@skillset/registry schema snapshots", () => {
       "claude-plugin-manifest-overlay",
       "claude-skill-frontmatter-overlay",
       "claude-subagent-frontmatter-overlay",
+      "openai-agent-plugin-extension-overlay",
       "codex-plugin-manifest-overlay",
       "codex-subagent-toml-overlay",
       "codex-agents-md-overlay",

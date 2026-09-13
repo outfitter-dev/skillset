@@ -175,7 +175,7 @@ describe("feature registry", () => {
       expect.objectContaining({ kind: "provider-snapshot", ref: "claude-plugin" })
     );
     expect(getSkillsetFeature("plugin-manifests")?.targetSupport.codex.evidence).toContainEqual(
-      expect.objectContaining({ kind: "provider-snapshot", ref: "codex-plugin" })
+      expect.objectContaining({ kind: "source", ref: "packages/registry/src/openai-agent-plugin-evidence.ts" })
     );
     expect(getSkillsetFeature("project-agents")?.targetSupport.codex.evidence).toContainEqual(
       expect.objectContaining({ kind: "provider-snapshot", ref: "codex-subagent" })
@@ -191,12 +191,10 @@ describe("feature registry", () => {
       schemaSnapshots: ["claude-plugin-manifest-schema"],
     });
     expect(getSkillsetFeature("plugin-manifests")?.targetSupport.codex.provider).toEqual({
-      destinationFormat: "codex-plugin",
-      manualOverlays: ["codex-plugin-manifest-overlay"],
+      manualOverlays: ["openai-agent-plugin-extension-overlay"],
     });
     expect(getSkillsetFeature("plugin-hooks")?.targetSupport.codex.provider).toEqual({
-      destinationFormat: "codex-plugin",
-      schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"],
+      manualOverlays: ["openai-agent-plugin-extension-overlay"],
     });
     expect(getSkillsetFeature("project-agents")?.targetSupport.codex.provider).toEqual({
       destinationFormat: "codex-subagent",
@@ -207,7 +205,6 @@ describe("feature registry", () => {
       manualOverlays: ["codex-agents-md-overlay"],
     });
     expect(getSkillsetFeature("plugin-bin")?.targetSupport.codex.provider).toEqual({
-      destinationFormat: "codex-plugin",
       unsupportedDestinations: ["bin"],
     });
     expect(getSkillsetFeature("plugin-agents")?.targetSupport.codex.provider).toEqual({
@@ -219,7 +216,7 @@ describe("feature registry", () => {
       expect.objectContaining({ kind: "provider-schema", ref: "claude-plugin-manifest-schema" })
     );
     expect(getSkillsetFeature("plugin-manifests")?.targetSupport.codex.evidence).toContainEqual(
-      expect.objectContaining({ kind: "provider-overlay", ref: "codex-plugin-manifest-overlay" })
+      expect.objectContaining({ kind: "source", ref: "packages/registry/src/openai-agent-plugin-evidence.ts" })
     );
   });
 
@@ -229,7 +226,7 @@ describe("feature registry", () => {
       status: "unsupported",
     }));
     expect(getSkillsetFeature("dependencies")?.targetSupport.codex.status).toBe("degraded");
-    expect(getSkillsetFeature("dependencies")?.targetSupport.codex.reason).toContain("Codex");
+    expect(getSkillsetFeature("dependencies")?.targetSupport.codex.reason).toContain("ChatGPT");
     expect(getSkillsetFeature("plugin-commands")?.targetSupport.codex.status).toBe("not_applicable");
     expect(getSkillsetFeature("plugin-assets")?.targetSupport.codex.status).toBe("pass_through");
     expect(getSkillsetFeature("supports")?.targetSupport.claude.status).toBe("metadata_only");

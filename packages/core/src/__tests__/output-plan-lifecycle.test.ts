@@ -497,7 +497,7 @@ function providerOutputPath(
   const path = files.find(
     (file) =>
       file.path.startsWith(prefix) &&
-      file.path.includes("/codex/") &&
+      file.path.includes("/chatgpt/") &&
       !file.path.endsWith("/skillset.lock")
   )?.path;
   if (path === undefined) {

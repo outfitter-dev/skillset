@@ -320,10 +320,7 @@ test("SET-485: mixed-provider adoption keeps Cursor discovery metadata provider-
   );
   const codexManifest = JSON.parse(
     await readFile(
-      join(
-        generatedRoot,
-        "plugins/demo/codex/.codex-plugin/plugin.json"
-      ),
+      join(generatedRoot, "plugins/demo/chatgpt/plugin.json"),
       "utf8"
     )
   ) as { keywords?: string[] };
@@ -381,10 +378,14 @@ compile:
   );
   const codexManifest = JSON.parse(
     await readFile(
-      join(generatedRoot, "plugins/demo/codex/.codex-plugin/plugin.json"),
+      join(generatedRoot, "plugins/demo/chatgpt/plugin.json"),
       "utf8"
     )
-  ) as { interface?: { category?: string }; keywords?: string[]; tags?: string[] };
+  ) as {
+    extensions?: { "com.openai"?: { interface?: { category?: string } } };
+    keywords?: string[];
+    tags?: string[];
+  };
   const cursorManifest = JSON.parse(
     await readFile(
       join(generatedRoot, "plugins/demo/cursor/.cursor-plugin/plugin.json"),
@@ -396,9 +397,65 @@ compile:
     tags: ["cursor-native"],
   });
   expect(cursorManifest.keywords).toBeUndefined();
-  expect(codexManifest.interface?.category).toBe("Productivity");
+  expect(codexManifest.extensions?.["com.openai"]?.interface?.category).toBeUndefined();
   expect(codexManifest.keywords).toBeUndefined();
   expect(codexManifest.tags).toBeUndefined();
+});
+
+test("SET-531: legacy Codex interface copy imports through the typed OpenAI boundary", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\ncompile:\n  targets: [codex]\n",
+    "native/.codex-plugin/plugin.json": manifest("demo", "Portable description", "1.0.0", {
+      interface: {
+        category: "Developer Tools",
+        longDescription: "Detailed native copy.",
+        privacyPolicyURL: "https://example.com/privacy",
+        shortDescription: "Short native copy.",
+        termsOfServiceURL: "https://example.com/terms",
+        websiteURL: "https://example.com",
+      },
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("description: Portable description");
+  expect(importedConfig).toContain("codex:\n  interface:\n    longDescription: Detailed native copy.");
+  expect(importedConfig).toContain("shortDescription: Short native copy.");
+  expect(importedConfig).toContain("category: Developer Tools");
+  expect(importedConfig).toContain("website_url: https://example.com");
+  expect(importedConfig).toContain("privacy_policy_url: https://example.com/privacy");
+  expect(importedConfig).toContain("terms_of_service_url: https://example.com/terms");
+
+  await buildSkillset(root, { isolated: true });
+  const generatedRoot = resolveOperationalPath(
+    createOperationalPathContext(root),
+    ISOLATED_OUT_ROOT
+  );
+  const generated = JSON.parse(
+    await readFile(join(generatedRoot, "plugins/demo/chatgpt/plugin.json"), "utf8")
+  ) as {
+    extensions?: {
+      "com.openai"?: { interface?: Record<string, unknown> };
+    };
+  };
+  expect(generated.extensions?.["com.openai"]?.interface).toMatchObject({
+    category: "Developer Tools",
+    longDescription: "Detailed native copy.",
+    privacyPolicyUrl: "https://example.com/privacy",
+    shortDescription: "Short native copy.",
+    termsOfServiceUrl: "https://example.com/terms",
+    websiteUrl: "https://example.com",
+  });
 });
 
 test("SET-369: native Codex developerName conflicts warn and stay provider-specific", async () => {
@@ -851,6 +908,9 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
   expect(report.imports[0]?.warnings).toContain(
     "import-preserved-cursor-native-discovery: preserved Cursor manifest fields category, tags under cursor.manifest; Skillset does not infer portable listing meaning or project them to other providers."
   );
+  // Complete the compatibility-input migration before changing canonical
+  // meaning; leaving the legacy manifest would correctly create a conflict.
+  await rm(join(root, ".skillset/plugins/demo/.codex-plugin/plugin.json"));
   await Bun.write(
     configPath,
     importedConfig
@@ -872,19 +932,26 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
     ISOLATED_OUT_ROOT
   );
   for (const provider of ["claude", "codex", "cursor"] as const) {
-    const manifestPath = join(
-      generatedRoot,
-      "plugins",
-      "demo",
-      provider,
-      `.${provider}-plugin`,
-      "plugin.json"
-    );
+    const manifestPath =
+      provider === "codex"
+        ? join(generatedRoot, "plugins", "demo", "chatgpt", "plugin.json")
+        : join(
+            generatedRoot,
+            "plugins",
+            "demo",
+            provider,
+            `.${provider}-plugin`,
+            "plugin.json"
+          );
     const generatedManifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
       category?: string;
       description?: string;
+      extensions?: {
+        "com.openai"?: {
+          interface?: { category?: string; developerName?: string };
+        };
+      };
       homepage?: string;
-      interface?: { category?: string; developerName?: string };
       keywords?: string[];
       skills?: string;
       tags?: string[];
@@ -893,8 +960,12 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
     expect(generatedManifest.homepage).toBe("https://example.com/demo");
     expect(generatedManifest.skills).toBeUndefined();
     if (provider === "codex") {
-      expect(generatedManifest.interface?.category).toBe("collaboration");
-      expect(generatedManifest.interface?.developerName).toBe("Updated Author");
+      expect(generatedManifest.extensions?.["com.openai"]?.interface?.category).toBe(
+        "collaboration"
+      );
+      expect(generatedManifest.extensions?.["com.openai"]?.interface?.developerName).toBe(
+        "Updated Author"
+      );
       expect(generatedManifest.keywords).toBeUndefined();
       expect(generatedManifest.tags).toBeUndefined();
     }

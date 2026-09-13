@@ -101,6 +101,15 @@ Use the plugin skill.
 `,
 };
 
+function chatGptManifest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+    extensions: { "com.openai": { interface: {} } },
+    name: "alpha",
+    ...overrides,
+  };
+}
+
 describe("provider format conformance", () => {
   it("validates generated provider outputs against adopted snapshots", async () => {
     const root = await fixture(PROVIDER_FORMAT_FIXTURE);
@@ -116,9 +125,7 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/.cursor-plugin/marketplace.json",
       ".skillset/cache/latest/plugins/alpha/claude/.claude-plugin/plugin.json",
       ".skillset/cache/latest/plugins/alpha/claude/hooks/hooks.json",
-      ".skillset/cache/latest/plugins/alpha/codex/.codex-plugin/plugin.json",
-      ".skillset/cache/latest/plugins/alpha/codex/hooks/hooks.json",
-      ".skillset/cache/latest/plugins/alpha/codex/skills/plugin-skill/SKILL.md",
+      ".skillset/cache/latest/plugins/alpha/chatgpt/plugin.json",
       ".skillset/cache/latest/plugins/alpha/cursor/.cursor-plugin/plugin.json",
       ".skillset/cache/latest/plugins/alpha/cursor/hooks/hooks.json",
       ".skillset/cache/latest/plugins/alpha/cursor/skills/plugin-skill/SKILL.md",
@@ -128,7 +135,7 @@ describe("provider format conformance", () => {
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
 
     const codexManifest = files.find((file) =>
-      file.path.endsWith("/codex/.codex-plugin/plugin.json")
+      file.path.endsWith("/chatgpt/plugin.json")
     );
     const cursorManifest = files.find((file) =>
       file.path.endsWith("/cursor/.cursor-plugin/plugin.json")
@@ -155,10 +162,6 @@ describe("provider format conformance", () => {
         keywords: "not-an-array",
         unexpected: true,
       }),
-      rendered("plugins/alpha/codex/hooks/hooks.json", {
-        hooks: {},
-        stale: true,
-      }),
       rendered("plugins/alpha/claude/hooks/hooks.json", {
         hooks: {},
         stale: true,
@@ -182,7 +185,6 @@ describe("provider format conformance", () => {
       ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/claude/.claude-plugin/plugin.json"],
       ["claude-plugin-manifest-schema", "unknown-destination-field", "plugins/alpha/claude/.claude-plugin/plugin.json"],
       ["claude-hooks", "unknown-destination-field", "plugins/alpha/claude/hooks/hooks.json"],
-      ["codex-hooks-schema", "unknown-destination-field", "plugins/alpha/codex/hooks/hooks.json"],
       ["cursor-plugin", "invalid-field-type", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
       ["cursor-plugin", "unknown-destination-field", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
       ["cursor-hooks", "invalid-shape", "plugins/alpha/cursor/hooks/hooks.json"],
@@ -193,12 +195,10 @@ describe("provider format conformance", () => {
 
   it("reports manual-overlay unknown destination fields", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
-        interface: {
-          displayName: "Alpha",
-          mysteryPanel: true,
-        },
-        name: "alpha",
+      rendered("plugins/alpha/chatgpt/plugin.json", {
+        ...chatGptManifest({
+          extensions: { "com.openai": { interface: { displayName: "Alpha", mysteryPanel: true } } },
+        }),
         strange: true,
       }),
       textFile(".codex/agents/reviewer.toml", [
@@ -245,10 +245,33 @@ describe("provider format conformance", () => {
       ["codex-subagent-toml-overlay", "unknown-destination-field"],
       ["cursor-agent", "unknown-destination-field"],
       ["cursor-rules", "unknown-destination-field"],
-      ["codex-plugin-manifest-overlay", "unknown-destination-field"],
-      ["codex-plugin-manifest-overlay", "unknown-destination-field"],
+      ["openai-agent-plugin-extension-overlay", "unknown-destination-field"],
+      ["openai-agent-plugin-extension-overlay", "unknown-destination-field"],
     ]);
-    expect(report.issues.map((issue) => issue.message).join("\n")).toContain("runtime-loader behavior and the separate, stricter plugin-creator handoff preflight");
+    expect(report.issues.map((issue) => issue.message).join("\n")).toContain(
+      "released Codex 0.154.0 Agent Plugins consumer"
+    );
+  });
+
+  it("requires the pinned Agent Plugins schema on ChatGPT root manifests", () => {
+    const report = checkProviderFormatConformance([
+      rendered(
+        "plugins/alpha/chatgpt/plugin.json",
+        chatGptManifest({
+          $schema: "https://developers.openai.com/chatgpt/plugins/schema.json",
+        })
+      ),
+    ]);
+
+    expect(report.ok).toBe(false);
+    expect(report.issues).toContainEqual(
+      expect.objectContaining({
+        code: "invalid-shape",
+        message:
+          "destination field $schema must equal https://agent-plugins.org/schemas/1.0.0/plugin.schema.json (The released Codex 0.154.0 Agent Plugins consumer layers the closed extensions.com.openai interface, app, and hook contract over the Agent Plugins 1.0 root manifest and fixed components.)",
+        providerRef: "openai-agent-plugin-extension-overlay",
+      })
+    );
   });
 
   it("validates Claude's native author object fields", () => {
@@ -291,9 +314,8 @@ describe("provider format conformance", () => {
 
   it("validates Codex and Cursor provider-native author objects", () => {
     const valid = checkProviderFormatConformance([
-      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
-        author: { email: "team@example.com", name: "Team", url: "https://example.com" },
-        name: "alpha",
+      rendered("plugins/alpha/chatgpt/plugin.json", {
+        ...chatGptManifest({ author: { email: "team@example.com", name: "Team", url: "https://example.com" } }),
       }),
       rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
         author: { email: "team@example.com", name: "Team" },
@@ -304,9 +326,8 @@ describe("provider format conformance", () => {
     expect(valid).toEqual({ checkedFiles: 2, issues: [], ok: true });
 
     const invalid = checkProviderFormatConformance([
-      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
-        author: "Legacy Author",
-        name: "alpha",
+      rendered("plugins/alpha/chatgpt/plugin.json", {
+        ...chatGptManifest({ author: "Legacy Author" }),
       }),
       rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
         author: { name: "Team", url: "https://example.com" },
@@ -317,7 +338,7 @@ describe("provider format conformance", () => {
     expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
       {
         code: "invalid-field-type",
-        message: "destination field author must be an object (Codex 0.147.0 has no adopted JSON Schema source for plugin manifests; runtime-loader behavior and the separate, stricter plugin-creator handoff preflight are recorded as distinct primary sources for this manual overlay.)",
+        message: "destination field author must be an object (The released Codex 0.154.0 Agent Plugins consumer layers the closed extensions.com.openai interface, app, and hook contract over the Agent Plugins 1.0 root manifest and fixed components.)",
       },
       {
         code: "unknown-destination-field",
@@ -328,11 +349,13 @@ describe("provider format conformance", () => {
 
   it("keeps authorless manifests with hooks valid for the Codex runtime loader", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/runtime/codex/.codex-plugin/plugin.json", {
-        hooks: "./hooks/hooks.json",
-        name: "runtime",
+      rendered("plugins/runtime/chatgpt/plugin.json", {
+        ...chatGptManifest({
+          extensions: { "com.openai": { hooks: "./hooks/hooks.json", interface: {} } },
+          name: "runtime",
+        }),
       }),
-      rendered("plugins/runtime/codex/hooks/hooks.json", { hooks: {} }),
+      rendered("plugins/runtime/chatgpt/hooks/hooks.json", { hooks: {} }),
     ]);
 
     expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });

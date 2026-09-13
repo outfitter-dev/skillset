@@ -217,7 +217,7 @@ skillset:
     ).resolves.toContain("SPDX-License-Identifier: MIT");
     await expect(
       Bun.file(
-        join(root, "plugins/demo/codex/skills/override/LICENSE.txt")
+        join(root, "plugins/demo/chatgpt/skills/override/LICENSE.txt")
       ).text()
     ).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
     const inheritedManifest = JSON.parse(

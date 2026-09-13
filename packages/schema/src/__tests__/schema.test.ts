@@ -473,6 +473,7 @@ describe("@skillset/schema contracts", () => {
       "display_name",
       "keywords",
       "logo",
+      "logo_dark",
       "privacy_policy_url",
       "screenshots",
       "summary",

@@ -24,7 +24,7 @@ import {
 } from "../prompt-adapter";
 import { ScriptedPromptAdapter } from "../prompt-adapter";
 
-const GENERATED_PATH = "plugins/demo/codex/skills/demo/SKILL.md";
+const GENERATED_PATH = "plugins/demo/chatgpt/skills/demo/SKILL.md";
 const SOURCE_PATH = ".skillset/plugins/demo/skills/demo/SKILL.md";
 
 const ttyInput = (): PassThrough & { isTTY: true } =>

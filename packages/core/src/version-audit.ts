@@ -188,6 +188,10 @@ function identifyVersionPath(
   if (path === ".claude-plugin/marketplace.json" || path.endsWith("/.claude-plugin/marketplace.json")) {
     return { scope: selectorForRootConfig(), target: target ?? "claude" };
   }
+  const chatGptManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/chatgpt\/plugin\.json$/);
+  if (chatGptManifest?.[1] !== undefined) {
+    return { scope: `plugin:${chatGptManifest[1]}`, target: target ?? "codex" };
+  }
   const pluginFirstManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/(?:claude|codex)\/\.(?:claude|codex)-plugin\/plugin\.json$/);
   if (pluginFirstManifest?.[1] !== undefined) {
     return { scope: `plugin:${pluginFirstManifest[1]}`, ...(target === undefined ? {} : { target }) };

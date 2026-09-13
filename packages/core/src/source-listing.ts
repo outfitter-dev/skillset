@@ -85,6 +85,7 @@ function normalizeLegacyPresentation(presentation: JsonRecord): JsonRecord {
       "composerIcon"
     ),
     logo: readString(presentation, "logo"),
+    logo_dark: readAliasString(presentation, "logo_dark", "logoDark"),
     screenshots: copyStringArray(readStringArray(presentation, "screenshots")),
   };
 }

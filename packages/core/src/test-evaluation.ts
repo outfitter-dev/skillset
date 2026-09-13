@@ -19,11 +19,10 @@ import {
   pluginManifestPath as pluginManifestOutputPath,
   pluginBundleRoot,
 } from "./plugin-output";
-import { renderCodexInterface } from "./render-plugin-manifest";
+import { renderPluginManifest } from "./render-plugin-manifest";
 import { loadBuildGraph } from "./resolver";
 import {
   renderClaudeAuthor,
-  renderCodexAuthor,
   renderCursorAuthor,
 } from "./source-author";
 import { readSourceListing } from "./source-listing";
@@ -294,6 +293,9 @@ async function expectedPluginManifestFields(
     scopePath: plugin.path,
     sourcePath: plugin.configPath,
   });
+  if (target === "codex") {
+    return renderPluginManifest(graph, plugin, target, [], pluginLicense);
+  }
   const description =
     readString(listing, "summary") ??
     readString(listing, "description") ??
@@ -326,20 +328,9 @@ async function expectedPluginManifestFields(
     };
   }
   const base = stripUndefinedRecord({
-    // Codex lowers the canonical listing into a nested `interface` record before
-    // `codex.manifest` is merged over it. Seeding the rendered interface here
-    // keeps a partial override such as `codex.manifest.interface.category`
-    // recursive, instead of comparing the full rendered object against the
-    // fragment the author wrote.
-    ...(target === "codex"
-      ? { interface: renderCodexInterface(graph, plugin) }
-      : {}),
     author:
-      target === "claude"
-        ? (renderClaudeAuthor(metadata.author) ??
-          renderClaudeAuthor(graph.root.metadata.author))
-        : (renderCodexAuthor(metadata.author) ??
-          renderCodexAuthor(graph.root.metadata.author)),
+      renderClaudeAuthor(metadata.author) ??
+      renderClaudeAuthor(graph.root.metadata.author),
     description,
     homepage: metadata.homepage,
     keywords: listing.keywords ?? metadata.keywords,

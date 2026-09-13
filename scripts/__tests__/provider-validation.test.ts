@@ -52,15 +52,15 @@ describe("SET-463 hosted provider validation orchestration", () => {
       join(canonicalRoot, "plugins/demo/claude"),
     ]);
     expect(inventory.codexPlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/codex"),
+      join(canonicalRoot, "plugins/demo/chatgpt"),
     ]);
     expect(inventory.cursorPlugins).toEqual([
       join(canonicalRoot, "plugins/demo/cursor"),
     ]);
     expect(inventory.skills).toEqual([
       join(canonicalRoot, ".agents/skills/standalone/SKILL.md"),
+      join(canonicalRoot, "plugins/demo/chatgpt/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/claude/skills/demo/SKILL.md"),
-      join(canonicalRoot, "plugins/demo/codex/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/cursor/skills/demo/SKILL.md"),
     ]);
     expect(inventory.claudeMarketplaces).toEqual([
@@ -91,7 +91,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
     const root = await fixtureRoot();
     await symlink(
       join(root, ".cursor-plugin/marketplace.json"),
-      join(root, "plugins/demo/codex/nested-link")
+      join(root, "plugins/demo/chatgpt/nested-link")
     );
 
     await expect(enumerateProviderArtifacts(root)).rejects.toThrow(
@@ -162,7 +162,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
     ).toEqual([
       "/tmp/tools/python",
       "/tmp/tools/validate_plugin.py",
-      "/tmp/stage/plugins/demo/codex",
+      "/tmp/stage/plugins/demo/chatgpt",
     ]);
   });
 
@@ -670,7 +670,7 @@ function sampleInventory(): ProviderArtifactInventory {
   return {
     claudeMarketplaces: ["/tmp/stage/.claude-plugin/marketplace.json"],
     claudePlugins: ["/tmp/stage/plugins/demo/claude"],
-    codexPlugins: ["/tmp/stage/plugins/demo/codex"],
+    codexPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
     cursorMarketplaces: ["/tmp/stage/.cursor-plugin/marketplace.json"],
     cursorPlugins: ["/tmp/stage/plugins/demo/cursor"],
     skills: ["/tmp/stage/.agents/skills/demo/SKILL.md"],
@@ -685,8 +685,7 @@ async function fixtureRoot(): Promise<string> {
     ".cursor-plugin",
     "plugins/demo/claude/.claude-plugin",
     "plugins/demo/claude/skills/demo",
-    "plugins/demo/codex/.codex-plugin",
-    "plugins/demo/codex/skills/demo",
+    "plugins/demo/chatgpt/skills/demo",
     "plugins/demo/cursor/.cursor-plugin",
     "plugins/demo/cursor/skills/demo",
   ])
@@ -695,8 +694,8 @@ async function fixtureRoot(): Promise<string> {
     ".agents/skills/standalone/SKILL.md",
     "plugins/demo/claude/.claude-plugin/plugin.json",
     "plugins/demo/claude/skills/demo/SKILL.md",
-    "plugins/demo/codex/.codex-plugin/plugin.json",
-    "plugins/demo/codex/skills/demo/SKILL.md",
+    "plugins/demo/chatgpt/plugin.json",
+    "plugins/demo/chatgpt/skills/demo/SKILL.md",
     "plugins/demo/cursor/.cursor-plugin/plugin.json",
     "plugins/demo/cursor/skills/demo/SKILL.md",
   ])
@@ -728,8 +727,8 @@ async function fixtureRoot(): Promise<string> {
   await writeLock(join(root, "plugins/skillset.lock"), "plugins", [
     { kind: "plugin", outputPath: "demo/claude/.claude-plugin/plugin.json" },
     { kind: "plugin-skill", outputPath: "demo/claude/skills/demo/SKILL.md" },
-    { kind: "plugin", outputPath: "demo/codex/.codex-plugin/plugin.json" },
-    { kind: "plugin-skill", outputPath: "demo/codex/skills/demo/SKILL.md" },
+    { kind: "plugin", outputPath: "demo/chatgpt/plugin.json" },
+    { kind: "plugin-skill", outputPath: "demo/chatgpt/skills/demo/SKILL.md" },
     { kind: "plugin", outputPath: "demo/cursor/.cursor-plugin/plugin.json" },
     { kind: "plugin-skill", outputPath: "demo/cursor/skills/demo/SKILL.md" },
   ]);

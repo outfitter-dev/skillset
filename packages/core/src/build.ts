@@ -2107,6 +2107,7 @@ function generatedVersion(
   if (
     path.endsWith("/.claude-plugin/plugin.json") ||
     path.endsWith("/.codex-plugin/plugin.json") ||
+    path.endsWith("/chatgpt/plugin.json") ||
     path.endsWith("/.cursor-plugin/plugin.json")
   ) {
     return generatedPluginVersion(content);

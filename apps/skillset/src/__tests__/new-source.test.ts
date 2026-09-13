@@ -375,7 +375,7 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   });
   for (const target of ["claude", "codex", "cursor"]) {
     expect(
-      await fileExists(join(root, "plugins/guard", target, "hooks/hooks.json"))
+      await fileExists(join(root, "plugins/guard", target === "codex" ? "chatgpt" : target, "hooks/hooks.json"))
     ).toBe(true);
   }
   await expect(runSkillsetCli("check", "--root", root)).resolves.toMatchObject({

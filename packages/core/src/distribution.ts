@@ -90,6 +90,7 @@ async function planDistribution(
       const mode = formatGeneratedFileMode(file.mode);
       const destinationPath = joinWorkspacePath(selected.destinationPrefix, stripRequiredPrefix(file.path, selected.sourcePrefix));
       const destination = await distributionDestinationState(graph, config, destinationPath, file);
+      const closedManifest = isClosedChatGptManifest(file.path);
       return {
         bytes: file.content.byteLength,
         destinationPath,
@@ -98,14 +99,14 @@ async function planDistribution(
         ownership: mergeDestinationOwnership(
           classifyDestinationOwnership({
             content: file.content,
-            path: destinationPath,
+            path: file.path,
             target: config.from.target,
           }),
-          destination.content === undefined
+          destination.content === undefined || closedManifest
             ? undefined
             : classifyDestinationOwnership({
               content: destination.content,
-              path: destinationPath,
+              path: file.path,
               target: config.from.target,
             })
         ),
@@ -131,6 +132,10 @@ async function planDistribution(
     noOp: distributionNoOp(sortedFiles),
     sourceDigest: distributionDigest(sortedFiles),
   };
+}
+
+function isClosedChatGptManifest(path: string): boolean {
+  return path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json";
 }
 
 function selectDistributionFiles(

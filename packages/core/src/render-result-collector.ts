@@ -576,6 +576,7 @@ function primaryOutputPathsForLockItem(
     path.endsWith("/.claude-plugin/plugin.json") ||
     path.endsWith("/.codex-plugin/plugin.json") ||
     path.endsWith("/.cursor-plugin/plugin.json") ||
+    path.endsWith("/chatgpt/plugin.json") ||
     path.endsWith("/agents/plugin.json") ||
     path.endsWith("/LICENSE.txt")
   );
@@ -1145,11 +1146,6 @@ function featureOutcomesForLockItem(
       renderedOutputPaths,
       dependencyDestination
     );
-    const dependencyStatus =
-      supportedDependencyStatus === "degraded" &&
-      dependencyOutputs.length === 0
-        ? "unsupported"
-        : supportedDependencyStatus;
     outcomes.push(
       featureOutcome({
         destination: dependencyDestination,
@@ -1161,7 +1157,7 @@ function featureOutcomesForLockItem(
         outputPaths: dependencyOutputs,
         sourcePath: item.sourcePath,
         sourceUnit: selectorForPluginFeature(item.name, "dependencies"),
-        status: dependencyStatus,
+        status: supportedDependencyStatus,
         ...(standardProfile === undefined ? {} : { standardProfile }),
         target,
       })
@@ -1290,6 +1286,10 @@ function dependencyOutputPaths(
   destination: "plugin" | "plugin-manifest" | "skill-body"
 ): readonly string[] {
   if (target === undefined) return [];
+  // ChatGPT uses a fixed Agent Skills component. Unlike the legacy Codex
+  // derivation, it must not imply that dependency notices were written into
+  // SKILL.md merely because the package contains skills.
+  if (target === "codex" && destination === "skill-body") return [];
   if (destination === "plugin") return [];
   if (destination === "plugin-manifest") {
     const manifestPath = pluginManifestPath(

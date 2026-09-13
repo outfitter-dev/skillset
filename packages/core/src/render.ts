@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 import {
   RENDERED_METADATA_SCHEMA_KEY,
@@ -105,12 +105,14 @@ import {
   renderAgentSkillStandards,
   shouldCoalesceStandaloneCodexSkill,
 } from "./render-agent-skills";
+import { renderAgentSkillStandardMarkdown } from "./render-agent-skills-standard";
 import {
   classifyAgentPluginStandard,
   copyAgentPluginSupportPath,
   renderAgentPluginStandardPackages,
 } from "./render-agent-plugins-standard";
 import {
+  renderAgentPluginsMcp,
   providerMcpSupportPaths,
   renderProviderMcp,
 } from "./portable-mcp";
@@ -261,7 +263,9 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
     const [outputRoot] = outputRoots;
     if (outputRoot !== undefined && isDefaultPluginOutputRoot(outputRoot)) {
       const bundleLines = activeTargets.map((target) =>
-        `- \`<plugin-id>/${target}/\` contains each ${targetLabel(target)} plugin bundle.`
+        target === "codex"
+          ? "- `<plugin-id>/chatgpt/` contains each ChatGPT product bundle selected through the Codex target."
+          : `- \`<plugin-id>/${target}/\` contains each ${targetLabel(target)} plugin bundle.`
       );
       rendered.push(
         textFile(
@@ -349,7 +353,7 @@ function marketplaceReadmeLines(outputRoot: string, target: TargetName): readonl
     ];
   }
   return [
-    isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/codex/` contains each Codex plugin bundle." : "- `plugins/<plugin-id>/` contains each Codex plugin bundle.",
+    isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/chatgpt/` contains each ChatGPT product bundle selected through the Codex target." : "- `plugins/<plugin-id>/` contains each ChatGPT product bundle selected through the Codex target.",
   ];
 }
 
@@ -370,11 +374,6 @@ async function renderPluginTarget(
   const outputRoot = pluginLockRootPath(configuredOutputRoot, target, plugin);
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
   const dependencySummaries = pluginDependencySummaries(graph, plugin);
-  if (target === "codex" && dependencySummaries.length > 0 && enabledSkills.length === 0) {
-    throw new Error(
-      `skillset: plugin ${plugin.id} declares dependencies but has no enabled Codex skills to carry the dependency notice`
-    );
-  }
   const rootLicense = await resolveRootLicense(graph);
   const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
   const manifestFile = textFile(
@@ -448,7 +447,31 @@ async function renderPluginSkillFiles(
   const relativeSkillDir = dirname(skill.relativePath);
   const targetSkillDir = join(basePath, relativeSkillDir);
   const targetSkillFile = join(targetSkillDir, "SKILL.md");
-  const generatedCodexAgentFile = await renderCodexSkillAgentFile(
+  const skillLicense = await resolveLicense({
+    graph,
+    label: relative(graph.rootPath, skill.sourcePath),
+    metadata: skill.metadata,
+    ...(inheritedLicense === undefined ? {} : { parent: inheritedLicense }),
+    scopePath: sourceDir,
+    sourcePath: skill.sourcePath,
+  });
+  // A ChatGPT product bundle is an Agent Plugins package plus an OpenAI
+  // extension. Its fixed skills component therefore receives the portable
+  // baseline, never Codex sidecars, prompt notices, or dialect lowering.
+  const standardMarkdown = target === "codex"
+    ? await renderAgentSkillStandardMarkdown(
+        graph,
+        plugin,
+        skill,
+        targetSkillDir,
+        skillLicense?.manifestValue,
+        "agent-plugins-1.0"
+      )
+    : undefined;
+  if (standardMarkdown !== undefined && "code" in standardMarkdown) {
+    throw new Error(`skillset: ${standardMarkdown.path}: ${standardMarkdown.message}`);
+  }
+  const generatedCodexAgentFile = target === "codex" ? undefined : await renderCodexSkillAgentFile(
     graph,
     plugin,
     skill,
@@ -456,7 +479,7 @@ async function renderPluginSkillFiles(
     sourceDir,
     targetSkillDir
   );
-  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
+  const generatedToolsMetadataFile = target === "codex" ? undefined : renderSkillToolsMetadataFile(
     graph,
     skill,
     target,
@@ -469,7 +492,13 @@ async function renderPluginSkillFiles(
   );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
-  const skillMarkdown = await renderSkillMarkdown(graph, plugin, skill, target);
+  const skillMarkdown = standardMarkdown === undefined
+    ? await renderSkillMarkdown(graph, plugin, skill, target)
+    : {
+        content: standardMarkdown.content,
+        preprocessDependencies: standardMarkdown.preprocessDependencies,
+        transforms: [],
+      };
   pushSkillRenderedFile(
     rendered,
     textFile(
@@ -499,14 +528,6 @@ async function renderPluginSkillFiles(
       `${skill.sourcePath}.tools`
     );
   }
-  const skillLicense = await resolveLicense({
-    graph,
-    label: relative(graph.rootPath, skill.sourcePath),
-    metadata: skill.metadata,
-    ...(inheritedLicense === undefined ? {} : { parent: inheritedLicense }),
-    scopePath: sourceDir,
-    sourcePath: skill.sourcePath,
-  });
   if (skillLicense !== undefined) {
     pushSkillRenderedFile(
       rendered,
@@ -522,6 +543,12 @@ async function renderPluginSkillFiles(
     if (relativeFile === "SKILL.md") continue;
     if (relativeFile === "CHANGELOG.md") continue;
     if (relativeFile === "LICENSE.txt") continue;
+    if (
+      target === "codex" &&
+      (relativeFile === ".skillset.tools.yaml" || relativeFile.startsWith(`agents${sep}`))
+    ) {
+      continue;
+    }
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
@@ -1438,22 +1465,32 @@ async function renderPluginFeatureFiles(
   for (const feature of plugin.features) {
     if (!pluginFeatureSupportsTarget(feature, target)) continue;
     const targetPath = pluginFeatureTargetPath(feature, target);
+    const portableMcp = feature.key === "mcp"
+      ? requiredPortableMcp(feature)
+      : undefined;
+    const agentPluginsMcp = portableMcp === undefined || target !== "codex"
+      ? undefined
+      : renderAgentPluginsMcp(portableMcp);
     const featureFiles =
       feature.key === "mcp"
-        ? [
+        ? agentPluginsMcp === undefined && target === "codex"
+          ? []
+          : [
             textFile(
               join(basePath, targetPath),
               renderValidatedJson(
-                renderProviderMcp(requiredPortableMcp(feature), target),
+                target === "codex"
+                  ? agentPluginsMcp ?? {}
+                  : renderProviderMcp(portableMcp!, target),
                 `${plugin.id} ${target} MCP`
               ),
               relative(graph.rootPath, feature.sourcePath)
             ),
             ...(
               await Promise.all(
-                providerMcpSupportPaths(
-                  requiredPortableMcp(feature),
-                  target
+                (target === "codex"
+                  ? portableMcp!.supportPaths
+                  : providerMcpSupportPaths(portableMcp!, target)
                 ).map((supportPath) =>
                   copyAgentPluginSupportPath(
                     graph,
@@ -1507,7 +1544,15 @@ function pluginFeatureSupportsTarget(feature: SourcePluginFeature, target: Targe
 }
 
 function pluginFeatureTargetPath(feature: SourcePluginFeature, target: TargetName): string {
-  if (feature.key === "mcp" && target === "cursor") return "mcp.json";
+  if (feature.key === "mcp") {
+    switch (target) {
+      case "claude":
+        return feature.targetPath;
+      case "codex":
+      case "cursor":
+        return "mcp.json";
+    }
+  }
   return feature.targetPath;
 }
 

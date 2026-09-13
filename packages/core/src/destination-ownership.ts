@@ -38,6 +38,13 @@ export function classifyDestinationOwnership(args: {
 }
 
 function classifyFileOwnership(path: string, target: TargetName): DestinationOwnershipEntry {
+  if (path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
+    return {
+      owner: "generated",
+      reason: "ChatGPT Agent Plugins root manifests are generated from portable Skillset source.",
+      selector: path,
+    };
+  }
   if (path.endsWith("/.codex-plugin/plugin.json") || path === ".codex-plugin/plugin.json") {
     return {
       owner: "generated",
@@ -75,6 +82,13 @@ function classifyFieldOwnership(path: string, target: TargetName, content: Uint8
     record = parsed;
   } catch {
     return [];
+  }
+  if (path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
+    return Object.keys(record).sort(compareStrings).map((key) => ({
+      owner: "generated" as const,
+      reason: "Skillset owns the closed ChatGPT Agent Plugins manifest contract.",
+      selector: fieldSelector(path, key),
+    }));
   }
   if (path.endsWith("/.codex-plugin/plugin.json") || path === ".codex-plugin/plugin.json") {
     return classifyCodexPluginManifest(path, record);

@@ -45,6 +45,7 @@ import {
   pluginManifestAuthor,
   pluginManifestDisplayName,
   renderCodexInterface,
+  renderEffectiveOpenAiInterface,
   renderPluginManifest,
   withOptionalSurfacePaths,
 } from "../render-plugin-manifest";
@@ -93,6 +94,7 @@ const OWNED_FUNCTIONS = {
   "render-plugin-manifest": [
     "renderPluginManifest",
     "renderCodexInterface",
+    "renderEffectiveOpenAiInterface",
     "codexInterfaceCategory",
     "pluginManifestAuthor",
     "pluginManifestDisplayName",

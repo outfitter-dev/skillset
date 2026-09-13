@@ -4,7 +4,7 @@ import { scanGeneratedPublicContent } from "../public-closure-guard";
 import { normalizeClosureText } from "../public-closure/closure-text";
 import { shellOperandCandidates } from "../public-closure/shell-tokens";
 
-const publicFile = "plugins/skillset/codex/skills/skillset/SKILL.md";
+const publicFile = "plugins/skillset/chatgpt/skills/skillset/SKILL.md";
 
 function rules(text: string): readonly string[] {
   return scanGeneratedPublicContent(

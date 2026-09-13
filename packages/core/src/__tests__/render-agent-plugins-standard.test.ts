@@ -18,6 +18,442 @@ import type { BuildGraph, RenderedFile } from "../types";
 const decoder = new TextDecoder();
 
 describe("Agent Plugins standard rendering", () => {
+  test("renders the Codex projection as a ChatGPT product bundle without a target alias", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  listing:
+    display_name: Demo Plugin
+    summary: Short description.
+    description: Long description.
+    logo_dark: ./assets/dark.svg
+    screenshots: [./assets/shot.png]
+  author:
+    name: Demo Team
+codex:
+  interface:
+    category: Developer Tools
+mcp: true
+`,
+      ".skillset/plugins/demo/.mcp.json": `
+{ "mcpServers": { "demo": { "command": "demo" } } }
+`,
+      ".skillset/plugins/demo/hooks/hooks.json": `
+{ "hooks": { "PreToolUse": [] } }
+`,
+      ".skillset/plugins/demo/assets/dark.svg": "dark",
+      ".skillset/plugins/demo/assets/shot.png": "shot",
+      "skillset.yaml": `
+skillset:
+  name: chatgpt-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    const rendered = await renderBuildGraph(graph);
+    expect(json(rendered, "plugins/demo/chatgpt/plugin.json")).toEqual({
+      $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+      author: { name: "Demo Team" },
+      description: "Short description.",
+      extensions: {
+        "com.openai": {
+          hooks: "./hooks/hooks.json",
+          interface: {
+            category: "Developer Tools",
+            developerName: "Demo Team",
+            displayName: "Demo Plugin",
+            logoDark: "./assets/dark.svg",
+            longDescription: "Long description.",
+            screenshots: ["./assets/shot.png"],
+            shortDescription: "Short description.",
+          },
+        },
+      },
+      name: "demo",
+      version: "0.1.0",
+    });
+    expect(text(rendered, "plugins/demo/chatgpt/mcp.json")).toContain("mcpServers");
+    expect(text(rendered, "plugins/demo/chatgpt/hooks/hooks.json")).toContain("PreToolUse");
+    expect(rendered.some((file) => file.path.includes("/codex/"))).toBe(false);
+  });
+
+  test("rejects extension redirects and legacy root overrides before rendering", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex:
+  manifest:
+    extensions:
+      com.openai:
+        skills: ./other-skills
+`,
+      "skillset.yaml": `
+skillset:
+  name: chatgpt-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+    await expect(renderBuildGraph(graph)).rejects.toThrow(
+      "extensions.com.openai.skills is unsupported"
+    );
+  });
+
+  test("renders the complete typed OpenAI interface with canonical app and hook paths", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.app.json": `
+{ "apps": { "Demo": { "id": "demo-connector", "category": "productivity" } } }
+`,
+      ".skillset/plugins/demo/assets/composer.svg": "composer",
+      ".skillset/plugins/demo/assets/dark.svg": "dark",
+      ".skillset/plugins/demo/assets/logo.svg": "logo",
+      ".skillset/plugins/demo/assets/shot.png": "shot",
+      ".skillset/plugins/demo/hooks/hooks.json": `
+{ "hooks": { "Stop": [] } }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  listing:
+    display_name: Demo
+    summary: Summary
+    description: Description
+    capabilities: [Read, Write]
+    category: Developer Tools
+    website_url: https://example.com
+    privacy_policy_url: https://example.com/privacy
+    terms_of_service_url: https://example.com/terms
+    default_prompt: [Help with this project]
+    color: '#112233'
+    composer_icon: ./assets/composer.svg
+    logo: ./assets/logo.svg
+    logo_dark: ./assets/dark.svg
+    screenshots: [./assets/shot.png]
+  author:
+    name: Demo Team
+`,
+      "skillset.yaml": `
+skillset:
+  name: complete-interface-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    const manifest = json(
+      await renderBuildGraph(graph),
+      "plugins/demo/chatgpt/plugin.json"
+    );
+    expect(manifest.extensions).toEqual({
+      "com.openai": {
+        apps: "./.app.json",
+        hooks: "./hooks/hooks.json",
+        interface: {
+          brandColor: "#112233",
+          capabilities: ["Read", "Write"],
+          category: "Developer Tools",
+          composerIcon: "./assets/composer.svg",
+          defaultPrompt: ["Help with this project"],
+          developerName: "Demo Team",
+          displayName: "Demo",
+          logo: "./assets/logo.svg",
+          logoDark: "./assets/dark.svg",
+          longDescription: "Description",
+          privacyPolicyUrl: "https://example.com/privacy",
+          screenshots: ["./assets/shot.png"],
+          shortDescription: "Summary",
+          termsOfServiceUrl: "https://example.com/terms",
+          websiteUrl: "https://example.com",
+        },
+      },
+    });
+  });
+
+  test("maps reviewed legacy .codex-plugin interface input into the modern extension", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.codex-plugin/plugin.json": `
+{ "name": "demo", "interface": { "category": "Developer Tools" } }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      "skillset.yaml": `
+skillset:
+  name: legacy-input-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    expect(
+      json(await renderBuildGraph(graph), "plugins/demo/chatgpt/plugin.json")
+    ).toMatchObject({
+      extensions: { "com.openai": { interface: { category: "Developer Tools" } } },
+    });
+  });
+
+  test("retains reviewed legacy interface fields beside an authored modern hook", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.codex-plugin/plugin.json": `
+{ "name": "demo", "interface": { "category": "Developer Tools" } }
+`,
+      ".skillset/plugins/demo/hooks/hooks.json": `
+{ "hooks": { "Stop": [] } }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex:
+  manifest:
+    extensions:
+      com.openai:
+        hooks: ./hooks/hooks.json
+`,
+      "skillset.yaml": `
+skillset:
+  name: legacy-modern-merge-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    expect(
+      json(await renderBuildGraph(graph), "plugins/demo/chatgpt/plugin.json")
+    ).toMatchObject({
+      extensions: {
+        "com.openai": {
+          hooks: "./hooks/hooks.json",
+          interface: { category: "Developer Tools" },
+        },
+      },
+    });
+  });
+
+  test("rejects a fixed extension path when its component is absent", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex:
+  manifest:
+    extensions:
+      com.openai:
+        apps: ./.app.json
+`,
+      "skillset.yaml": `
+skillset:
+  name: missing-app-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    await expect(renderBuildGraph(graph)).rejects.toThrow(
+      "extensions.com.openai.apps requires an authored .app.json component"
+    );
+  });
+
+  test("stops unmappable legacy component redirects before producing a ChatGPT package", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.codex-plugin/plugin.json": `
+{ "name": "demo", "skills": "./other-skills" }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      "skillset.yaml": `
+skillset:
+  name: legacy-input-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    await expect(renderBuildGraph(graph)).rejects.toThrow(
+      "legacy .codex-plugin/plugin.json.skills must use the fixed ./skills/ component path"
+    );
+  });
+
+  test("accepts the exact legacy fixed skills path without copying it into the modern manifest", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.codex-plugin/plugin.json": `
+{ "name": "demo", "skills": "./skills/" }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/skills/example/SKILL.md": `---
+name: example
+description: Example skill.
+---
+
+Use the example skill.
+`,
+      "skillset.yaml": `
+skillset:
+  name: legacy-fixed-skills-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    const rendered = await renderBuildGraph(graph);
+    const manifest = JSON.parse(
+      text(rendered, "plugins/demo/chatgpt/plugin.json")
+    ) as Record<string, unknown>;
+    expect(manifest.skills).toBeUndefined();
+    expect(text(rendered, "plugins/demo/chatgpt/skills/example/SKILL.md")).toContain(
+      "Example skill."
+    );
+    expect(
+      (manifest.extensions as Record<string, Record<string, unknown>>)["com.openai"]?.skills
+    ).toBeUndefined();
+  });
+
+  test("validates legacy redirects even when an explicit modern extension wins precedence", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.codex-plugin/plugin.json": `
+{ "name": "demo", "skills": "./other-skills" }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex:
+  manifest:
+    extensions:
+      com.openai:
+        interface:
+          category: Developer Tools
+`,
+      "skillset.yaml": `
+skillset:
+  name: legacy-precedence-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    await expect(renderBuildGraph(graph)).rejects.toThrow(
+      "legacy .codex-plugin/plugin.json.skills must use the fixed ./skills/ component path"
+    );
+  });
+
+  test("keeps SSE in the portable MCP component while reporting the Codex runtime gap", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.mcp.json": `
+{ "mcpServers": { "events": { "type": "sse", "url": "https://mcp.example.com/events" } } }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+mcp: true
+`,
+      "skillset.yaml": `
+skillset:
+  name: sse-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+    const rendered = await renderBuildGraph(graph);
+    expect(json(rendered, "plugins/demo/chatgpt/mcp.json")).toMatchObject({
+      mcpServers: { events: { type: "sse" } },
+    });
+    expect(
+      collectRenderResults(graph, rendered, {
+        claudeMarketplacePlugins: [],
+        includedPaths: new Set(paths(rendered)),
+        scopes: ["plugins"],
+      })
+    ).toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-mcp",
+        status: "unsupported",
+        target: "codex",
+      })
+    );
+  });
+
+  test("keeps Codex-specific skill sidecars out of the ChatGPT fixed skills component", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/skills/review/SKILL.md": `
+---
+name: review
+description: Portable review instructions.
+metadata:
+  local: value
+---
+
+Review the change.
+`,
+      ".skillset/plugins/demo/skills/review/agents/openai.yaml": `
+policy:
+  allow_implicit_invocation: true
+`,
+      "skillset.yaml": `
+skillset:
+  name: chatgpt-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+    const rendered = await renderBuildGraph(graph);
+    const skill = text(rendered, "plugins/demo/chatgpt/skills/review/SKILL.md");
+    expect(skill).toContain("Portable review instructions.");
+    expect(skill).not.toContain("allow_implicit_invocation");
+    expect(rendered.some((file) => file.path.endsWith("chatgpt/skills/review/agents/openai.yaml"))).toBe(false);
+  });
+
+  test("rejects a ChatGPT interface asset symlink that escapes the plugin", async () => {
+    const root = await fixtureRoot({
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  listing:
+    logo: ./assets/logo.svg
+`,
+      ".skillset/plugins/demo/assets/.keep": "keep\n",
+      "skillset.yaml": `
+skillset:
+  name: chatgpt-asset-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+    const outside = await mkdtemp(join(tmpdir(), "skillset-chatgpt-asset-"));
+    await Bun.write(join(outside, "logo.svg"), "outside asset\n");
+    await symlink(
+      join(outside, "logo.svg"),
+      join(root, ".skillset/plugins/demo/assets/logo.svg")
+    );
+
+    await expect(renderBuildGraph(await loadBuildGraph(root))).rejects.toThrow(
+      "resolves outside the plugin root"
+    );
+  });
+
   test("renders a valid minimal package without skills or MCP", async () => {
     const graph = adopted(
       await fixtureGraph({

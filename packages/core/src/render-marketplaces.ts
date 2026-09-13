@@ -818,6 +818,7 @@ function marketplaceGeneratedPaths(
   const lock = lockRoots.get(outputRoot);
   if (lock === undefined) return [];
   const paths = new Set<string>();
+  const bundleSegment = target === "codex" ? "chatgpt" : target;
   for (const item of lock.items) {
     if (
       item.plugin !== pluginId &&
@@ -827,7 +828,7 @@ function marketplaceGeneratedPaths(
     for (const file of item.files) {
       if (
         isDefaultPluginOutputRoot(outputRoot) &&
-        !file.startsWith(`${pluginId}/${target}/`)
+        !file.startsWith(`${pluginId}/${bundleSegment}/`)
       )
         continue;
       paths.add(join(outputRoot, file).replaceAll("\\", "/"));

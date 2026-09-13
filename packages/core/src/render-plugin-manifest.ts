@@ -1,5 +1,5 @@
-import { readdirSync, statSync } from "node:fs";
-import { basename, join } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   mergeRecords,
@@ -11,6 +11,7 @@ import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { validateSlug } from "./path";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
+import { renderAgentPluginManifest } from "./agent-plugin-manifest";
 import {
   readAuthorName,
   renderClaudeAuthor,
@@ -30,8 +31,6 @@ import type {
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
 
-const DEFAULT_CODEX_COLOR = "#B06DFF";
-
 export function renderPluginManifest(
   graph: BuildGraph,
   plugin: SourcePlugin,
@@ -39,6 +38,9 @@ export function renderPluginManifest(
   enabledSkills: readonly SourceSkill[],
   license: ResolvedLicense | undefined
 ): JsonRecord {
+  if (target === "codex") {
+    return renderChatGptPluginManifest(graph, plugin, license);
+  }
   const metadata = plugin.metadata;
   const targetOptions = plugin.targets[target].options;
   const portableManifest = readRecord(metadata, "manifest") ?? {};
@@ -87,19 +89,6 @@ export function renderPluginManifest(
           enabledSkills,
           target
         )
-      : target === "codex"
-        ? mergeRecords(
-            withOptionalSurfacePaths(
-              graph,
-              base,
-              plugin,
-              enabledSkills,
-              target
-            ),
-            {
-              interface: renderCodexInterface(graph, plugin),
-            }
-          )
         : withOptionalSurfacePaths(
             graph,
             mergeRecords(
@@ -133,13 +122,7 @@ export function pluginManifestDisplayName(
   const manifestOverrides =
     readRecord(plugin.targets[target].options, "manifest") ?? {};
   if (target === "codex") {
-    return readString(
-      mergeRecords(
-        renderCodexInterface(graph, plugin),
-        readRecord(manifestOverrides, "interface") ?? {}
-      ),
-      "displayName"
-    );
+    return readString(renderEffectiveOpenAiInterface(graph, plugin), "displayName");
   }
   const projected =
     target === "claude"
@@ -228,13 +211,26 @@ export function codexInterfaceCategory(
   graph: BuildGraph,
   plugin: SourcePlugin
 ): string | undefined {
-  const manifestOverrides = readRecord(plugin.targets.codex.options, "manifest") ?? {};
-  return readString(
-    mergeRecords(
-      renderCodexInterface(graph, plugin),
-      readRecord(manifestOverrides, "interface") ?? {}
-    ),
-    "category"
+  return readString(renderEffectiveOpenAiInterface(graph, plugin), "category");
+}
+
+/** The one effective OpenAI interface used for bytes and outcome evidence. */
+export function renderEffectiveOpenAiInterface(
+  graph: BuildGraph,
+  plugin: SourcePlugin
+): JsonRecord {
+  const manifestOverrides =
+    readRecord(plugin.targets.codex.options, "manifest") ?? {};
+  const extensions = readRecord(manifestOverrides, "extensions") ?? {};
+  const authoredExtension = readRecord(extensions, "com.openai") ?? {};
+  const legacyExtension = readLegacyOpenAiExtension(graph, plugin);
+  const canonical = mergeRecords(
+    renderCodexInterface(graph, plugin),
+    readRecord(manifestOverrides, "interface") ?? {}
+  );
+  return mergeRecords(
+    mergeRecords(canonical, readRecord(legacyExtension, "interface") ?? {}),
+    readRecord(authoredExtension, "interface") ?? {}
   );
 }
 
@@ -244,20 +240,13 @@ export function renderCodexInterface(
 ): JsonRecord {
   const metadata = plugin.metadata;
   const listing = readSourceListing(metadata);
-  const legacyPresentation = mergeRecords(
-    readRecord(metadata, "ui") ?? {},
-    readRecord(metadata, "presentation") ?? {}
-  );
   const authorName =
     readAuthorName(metadata.author) ??
     readAuthorName(graph.root.metadata.author) ??
     readAuthorName(graph.root.metadata.owner);
   const targetOptions = plugin.targets.codex.options;
   const interfaceOverrides = readRecord(targetOptions, "interface") ?? {};
-  const color =
-    readString(targetOptions, "color") ??
-    readString(listing, "color") ??
-    DEFAULT_CODEX_COLOR;
+  const color = readString(targetOptions, "color") ?? readString(listing, "color");
   const website =
     readString(listing, "website_url") ??
     readString(metadata, "homepage") ??
@@ -266,60 +255,334 @@ export function renderCodexInterface(
   const defaultPrompt = readStringArray(listing, "default_prompt");
   const screenshots = readStringArray(listing, "screenshots");
 
-  const base: JsonRecord = {
+  const base = omitUndefined({
     displayName:
-      readString(listing, "display_name") ??
-      titleize(plugin.id),
-    shortDescription:
-      readString(listing, "summary") ??
-      readString(listing, "description") ??
-      readString(metadata, "description") ??
-      plugin.id,
-    longDescription:
-      readString(listing, "description") ??
-      readString(metadata, "description") ??
-      readString(listing, "summary") ??
-      plugin.id,
-    developerName:
-      authorName ??
-      readAliasString(
-        legacyPresentation,
-        "developer_name",
-        "developerName"
-      ) ??
-      "Skillset Maintainers",
-    category:
-      readString(listing, "category") ??
-      "Productivity",
-    capabilities: [...(capabilities ?? ["Interactive", "Write"])],
-    websiteURL: website,
-    privacyPolicyURL: readString(listing, "privacy_policy_url"),
-    termsOfServiceURL: readString(listing, "terms_of_service_url"),
+      readString(listing, "display_name"),
+    shortDescription: firstDefined(
+      readString(listing, "summary"),
+      readString(listing, "description"),
+      readString(metadata, "description"),
+      plugin.id
+    ),
+    longDescription: firstDefined(
+      readString(listing, "description"),
+      readString(metadata, "description"),
+      readString(listing, "summary"),
+      plugin.id
+    ),
+    developerName: authorName,
+    category: readString(listing, "category"),
+    capabilities: capabilities === undefined ? undefined : [...capabilities],
+    websiteUrl: website,
+    privacyPolicyUrl: readString(listing, "privacy_policy_url"),
+    termsOfServiceUrl: readString(listing, "terms_of_service_url"),
     defaultPrompt: defaultPrompt ? [...defaultPrompt] : undefined,
     brandColor: color,
     composerIcon: readString(listing, "composer_icon"),
     logo: readString(listing, "logo"),
-    screenshots: [...(screenshots ?? [])],
-  };
+    logoDark: readString(listing, "logo_dark"),
+    screenshots: screenshots === undefined ? undefined : [...screenshots],
+  });
 
   return mergeRecords(base, interfaceOverrides);
 }
 
-function readAliasString(
-  record: JsonRecord,
-  ...keys: readonly string[]
-): string | undefined {
-  for (const key of keys) {
-    const value = readString(record, key);
-    if (value !== undefined) return value;
+/**
+ * Render the modern ChatGPT product bundle from the same Agent Plugins
+ * baseline used for the portable package. The OpenAI extension is deliberately
+ * a closed provider delta; it cannot redirect portable skills or MCP.
+ */
+function renderChatGptPluginManifest(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  license: ResolvedLicense | undefined
+): JsonRecord {
+  const targetOptions = plugin.targets.codex.options;
+  const manifestOverrides = readRecord(targetOptions, "manifest") ?? {};
+  const extensionOverrides = readRecord(manifestOverrides, "extensions") ?? {};
+  for (const key of Object.keys(manifestOverrides)) {
+    if (key !== "extensions" && key !== "interface") {
+      throw new Error(
+        `skillset: plugin ${plugin.id} codex.manifest.${key} cannot override the portable ChatGPT root manifest`
+      );
+    }
   }
-  return undefined;
+  for (const key of Object.keys(extensionOverrides)) {
+    if (key !== "com.openai") {
+      throw new Error(
+        `skillset: plugin ${plugin.id} codex.manifest.extensions.${key} is not a supported ChatGPT extension`
+      );
+    }
+  }
+  const authoredExtension = readRecord(extensionOverrides, "com.openai") ?? {};
+  const legacyExtension = readLegacyOpenAiExtension(graph, plugin);
+  const hasApp = plugin.features.some((feature) => feature.key === "app");
+  const hasHooks =
+    pluginHasPath(plugin, "hooks/hooks.json") ||
+    hasAdaptivePluginHookOutput(graph, plugin, "codex");
+  const extension = mergeRecords(
+    mergeRecords(
+      {
+        ...(hasApp ? { apps: "./.app.json" } : {}),
+        ...(hasHooks ? { hooks: "./hooks/hooks.json" } : {}),
+      },
+      mergeRecords(legacyExtension, authoredExtension)
+    ),
+    { interface: renderEffectiveOpenAiInterface(graph, plugin) }
+  );
+  validateOpenAiExtension(plugin, extension);
+  if (extension.apps !== undefined && !hasApp) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} extensions.com.openai.apps requires an authored .app.json component`
+    );
+  }
+  if (extension.hooks !== undefined && !hasHooks) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} extensions.com.openai.hooks requires an authored or adaptive hooks component`
+    );
+  }
+  return mergeRecords(renderAgentPluginManifest(graph, plugin, license), {
+    extensions: { "com.openai": extension },
+  });
+}
+
+/**
+ * A legacy native manifest is an import boundary, never an output overlay.
+ * Preserve only the reviewed OpenAI meaning that has an exact modern home;
+ * anything that could redirect a fixed portable component fails before write.
+ */
+function readLegacyOpenAiExtension(
+  graph: BuildGraph,
+  plugin: SourcePlugin
+): JsonRecord {
+  const path = join(plugin.path, ".codex-plugin", "plugin.json");
+  if (!pluginHasPath(plugin, ".codex-plugin/plugin.json")) return {};
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8")) as JsonValue;
+  } catch {
+    throw new Error(`skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json must contain JSON`);
+  }
+  if (!isJsonRecord(parsed)) {
+    throw new Error(`skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json must be an object`);
+  }
+  const allowed = new Set([
+    "name", "description", "version", "author", "homepage", "repository",
+    "license", "keywords", "interface", "apps", "hooks", "skills",
+  ]);
+  for (const key of Object.keys(parsed)) {
+    if (!allowed.has(key)) {
+      throw new Error(
+        `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.${key} cannot be preserved in the modern ChatGPT bundle`
+      );
+    }
+  }
+  const expectedName = plugin.id;
+  if (parsed.name !== undefined && parsed.name !== expectedName) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.name conflicts with the canonical plugin id`
+    );
+  }
+  const expectedDescription = readString(renderAgentPluginManifest(graph, plugin, undefined), "description");
+  if (
+    parsed.description !== undefined &&
+    parsed.description !== expectedDescription
+  ) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.description cannot be preserved without changing portable metadata`
+    );
+  }
+  const canonical = renderAgentPluginManifest(graph, plugin, undefined);
+  for (const key of [
+    "author",
+    "homepage",
+    "keywords",
+    "license",
+    "repository",
+    "version",
+  ] as const) {
+    if (parsed[key] === undefined) continue;
+    if (!sameJsonValue(parsed[key], canonical[key])) {
+      throw new Error(
+        `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.${key} conflicts with canonical portable metadata`
+      );
+    }
+  }
+  for (const key of ["apps", "hooks", "skills"] as const) {
+    const value = parsed[key];
+    if (value === undefined) continue;
+    const expected =
+      key === "apps"
+        ? "./.app.json"
+        : key === "hooks"
+          ? "./hooks/hooks.json"
+          : "./skills/";
+    if (value !== expected) {
+      throw new Error(
+        `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.${key} must use the fixed ${expected} component path`
+      );
+    }
+  }
+  const interfaceValue = parsed.interface;
+  if (interfaceValue !== undefined && !isJsonRecord(interfaceValue)) {
+    throw new Error(`skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.interface must be an object`);
+  }
+  return omitUndefined({
+    apps: parsed.apps,
+    hooks: parsed.hooks,
+    interface:
+      interfaceValue === undefined
+        ? undefined
+        : canonicalizeLegacyOpenAiInterface(plugin, interfaceValue),
+  });
+}
+
+function canonicalizeLegacyOpenAiInterface(
+  plugin: SourcePlugin,
+  value: JsonRecord
+): JsonRecord {
+  const aliases = {
+    privacyPolicyURL: "privacyPolicyUrl",
+    termsOfServiceURL: "termsOfServiceUrl",
+    websiteURL: "websiteUrl",
+  } as const;
+  const normalized = { ...value };
+  for (const [legacyKey, canonicalKey] of Object.entries(aliases)) {
+    const legacy = normalized[legacyKey];
+    if (legacy === undefined) continue;
+    const canonical = normalized[canonicalKey];
+    if (canonical !== undefined && !sameJsonValue(canonical, legacy)) {
+      throw new Error(
+        `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.interface.${legacyKey} conflicts with ${canonicalKey}`
+      );
+    }
+    normalized[canonicalKey] = legacy;
+    delete normalized[legacyKey];
+  }
+  return normalized;
+}
+
+function validateOpenAiExtension(plugin: SourcePlugin, value: JsonRecord): void {
+  const pluginId = plugin.id;
+  const allowed = new Set(["interface", "apps", "hooks"]);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.${key} is unsupported; portable skills and MCP have fixed component paths`);
+    }
+  }
+  const interfaceValue = value.interface;
+  if (!isJsonRecord(interfaceValue)) {
+    throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface must be an object`);
+  }
+  const interfaceKeys = new Set([
+    "displayName", "shortDescription", "longDescription", "developerName",
+    "category", "capabilities", "websiteUrl", "privacyPolicyUrl",
+    "termsOfServiceUrl", "defaultPrompt", "brandColor", "composerIcon",
+    "logo", "logoDark", "screenshots",
+  ]);
+  for (const [key, field] of Object.entries(interfaceValue)) {
+    if (!interfaceKeys.has(key)) {
+      throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface.${key} is unknown`);
+    }
+    if ((key === "capabilities" || key === "defaultPrompt" || key === "screenshots")) {
+      if (!Array.isArray(field) || field.some((item) => typeof item !== "string" || item.trim() === "")) {
+        throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface.${key} must be a non-empty string array`);
+      }
+      const strings = field as readonly string[];
+      if (key === "defaultPrompt" && (strings.length > 3 || strings.some((item) => item.length > 128))) {
+        throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface.defaultPrompt permits at most three 128-character prompts`);
+      }
+    } else if (typeof field !== "string" || field.trim() === "") {
+      throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface.${key} must be a non-empty string`);
+    }
+  }
+  for (const key of ["composerIcon", "logo", "logoDark"] as const) {
+    const field = interfaceValue[key];
+    if (field !== undefined) validateOpenAiAssetPath(plugin, key, field);
+  }
+  const screenshots = interfaceValue.screenshots;
+  if (Array.isArray(screenshots)) {
+    for (const screenshot of screenshots) {
+      validateOpenAiAssetPath(plugin, "screenshots", screenshot);
+    }
+  }
+  for (const key of ["apps", "hooks"] as const) {
+    const field = value[key];
+    if (field === undefined) continue;
+    const expected = key === "apps" ? "./.app.json" : "./hooks/hooks.json";
+    if (field !== expected) {
+      throw new Error(
+        `skillset: plugin ${pluginId} extensions.com.openai.${key} must use the fixed ${expected} component path`
+      );
+    }
+  }
+}
+
+function validateOpenAiAssetPath(
+  plugin: SourcePlugin,
+  field: string,
+  value: JsonValue
+): void {
+  if (typeof value !== "string" || !value.startsWith("./") || value === "./") {
+    throw new Error(`skillset: plugin ${plugin.id} extensions.com.openai.interface.${field} must be a contained ./ asset path`);
+  }
+  try {
+    const pluginRoot = realpathSync(plugin.path);
+    const sourcePath = resolve(pluginRoot, value);
+    if (!isPathContainedBy(pluginRoot, sourcePath)) {
+      throw new Error(`skillset: plugin ${plugin.id} extensions.com.openai.interface.${field} resolves outside the plugin root`);
+    }
+    if (!statSync(sourcePath).isFile()) {
+      throw new Error(`skillset: plugin ${plugin.id} extensions.com.openai.interface.${field} must reference a file`);
+    }
+    const assetPath = realpathSync(sourcePath);
+    if (!isPathContainedBy(pluginRoot, assetPath)) {
+      throw new Error(`skillset: plugin ${plugin.id} extensions.com.openai.interface.${field} resolves outside the plugin root`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("skillset:")) throw error;
+    throw new Error(`skillset: plugin ${plugin.id} extensions.com.openai.interface.${field} references a missing asset ${value}`);
+  }
+}
+
+function isPathContainedBy(root: string, candidate: string): boolean {
+  const contained = relative(root, candidate);
+  return (
+    contained !== "" &&
+    contained !== ".." &&
+    !contained.startsWith(`..${"/"}`) &&
+    !contained.startsWith(`..${"\\"}`) &&
+    !isAbsolute(contained)
+  );
 }
 
 function copyOptionalStrings(
   value: readonly string[] | undefined
 ): string[] | undefined {
   return value === undefined ? undefined : [...value];
+}
+
+function omitUndefined(value: JsonRecord): JsonRecord {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, field]) => field !== undefined)
+  );
+}
+
+function firstDefined<T>(...values: readonly (T | undefined)[]): T | undefined {
+  return values.find((value): value is T => value !== undefined);
+}
+
+function sameJsonValue(left: JsonValue | undefined, right: JsonValue | undefined): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => sameJsonValue(value, right[index]));
+  }
+  if (isJsonRecord(left) && isJsonRecord(right)) {
+    const leftKeys = Object.keys(left).sort();
+    const rightKeys = Object.keys(right).sort();
+    return leftKeys.length === rightKeys.length && leftKeys.every((key, index) => key === rightKeys[index] && sameJsonValue(left[key], right[key]));
+  }
+  return false;
 }
 
 export function withOptionalSurfacePaths(
@@ -467,12 +730,4 @@ function hasRenderableContent(path: string): boolean {
 function isIgnoredCompanionFile(path: string): boolean {
   const name = basename(path);
   return name === ".DS_Store" || name === ".gitkeep";
-}
-
-function titleize(value: string): string {
-  return value
-    .split("-")
-    .filter((part) => part.length > 0)
-    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
-    .join(" ");
 }

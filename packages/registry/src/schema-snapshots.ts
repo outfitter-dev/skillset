@@ -25,7 +25,8 @@ export type ProviderSchemaManualOverlayId =
   | "claude-subagent-frontmatter-overlay"
   | "codex-agents-md-overlay"
   | "codex-plugin-manifest-overlay"
-  | "codex-subagent-toml-overlay";
+  | "codex-subagent-toml-overlay"
+  | "openai-agent-plugin-extension-overlay";
 
 export type ProviderSchemaJsonValue =
   | boolean
@@ -625,6 +626,18 @@ export const providerSchemaManualOverlays = [
     note: "Claude subagent Markdown/frontmatter structure is currently documented in prose; no adopted JSON Schema source is available.",
     sources: [{ url: "https://code.claude.com/docs/en/sub-agents" }],
     target: "claude",
+  }),
+  manualOverlay({
+    formatSnapshotId: "codex-plugin",
+    id: "openai-agent-plugin-extension-overlay",
+    note: "The released Codex 0.154.0 Agent Plugins consumer layers the closed extensions.com.openai interface, app, and hook contract over the Agent Plugins 1.0 root manifest and fixed components.",
+    sources: [
+      { url: "https://github.com/openai/codex/blob/36eab01061df3cde5f95ec20a526777b430091ba/codex-rs/core-plugins/src/manifest.rs" },
+      { url: "https://github.com/openai/codex/blob/36eab01061df3cde5f95ec20a526777b430091ba/codex-rs/core-plugins/src/agent_plugin_manifest.rs" },
+      { url: "https://github.com/openai/codex/blob/36eab01061df3cde5f95ec20a526777b430091ba/codex-rs/config/src/hook_config.rs" },
+      { url: "https://github.com/openai/codex/blob/36eab01061df3cde5f95ec20a526777b430091ba/codex-rs/connectors/src/plugin_config.rs" },
+    ],
+    target: "codex",
   }),
   manualOverlay({
     formatSnapshotId: "codex-plugin",

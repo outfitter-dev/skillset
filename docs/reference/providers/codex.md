@@ -6,11 +6,11 @@ description: Explains how Skillset renders adaptive and Codex-native source into
 
 Provider id: `codex`
 
-The Codex [target](../../glossary.md#target) [renders](../../glossary.md#render) project guidance and configuration under `.codex/`, directory-local `AGENTS.md` files, and plugin bundles with a native `.codex-plugin/plugin.json` interface as [generated output](../../glossary.md#generated-output). [Adaptive source](../../glossary.md#adaptive-source) remains [canonical source](../../glossary.md#canonical-source); Codex-only behavior belongs in explicit [provider-native](../../glossary.md#provider-native) source or Codex-scoped overrides.
+The Codex [target](../../glossary.md#target) [renders](../../glossary.md#render) project guidance and configuration under `.codex/`, directory-local `AGENTS.md` files, and ChatGPT product bundles under `plugins/<plugin>/chatgpt/` as [generated output](../../glossary.md#generated-output). Each product bundle uses the closed Agent Plugins root manifest and fixed portable components, with reviewed Codex-native interface, app, and hook meaning under `extensions.com.openai`. [Adaptive source](../../glossary.md#adaptive-source) remains [canonical source](../../glossary.md#canonical-source); Codex-only behavior belongs in explicit [provider-native](../../glossary.md#provider-native) source or Codex-scoped overrides.
 
 ## Provider Shape
 
-Portable listing metadata renders to the Codex plugin `interface` fields. The Codex provider format has companion locations for hooks, MCP servers, apps, assets, scripts, and source files; format availability alone is not a Skillset implementation claim, so the generated registry table below reports current support for each feature. Codex does not currently expose a plugin-local agent or executable-bin surface equivalent to Claude's, so Skillset reports those [destinations](../../glossary.md#destination) as unsupported instead of copying incompatible files.
+Portable listing metadata renders to `extensions.com.openai.interface`. The ChatGPT bundle has fixed locations for portable skills and MCP servers plus reviewed OpenAI extension locations for hooks and apps; neutral assets, scripts, and source files stay inside the package boundary. Format availability alone is not a Skillset implementation claim, so the generated registry table below reports current support for each feature. Codex does not currently expose a plugin-local agent or executable-bin surface equivalent to Claude's, so Skillset reports those [destinations](../../glossary.md#destination) as unsupported instead of copying incompatible files.
 
 Adaptive project agents render as TOML under `.codex/agents/`. Adaptive instruction source renders to directory-local `AGENTS.md` files. Codex `.rules` files are command-execution policy, not prose guidance, and remain a provider-native surface rather than an alternative rendering of instructions. Tool policy that has no skill-local Codex enforcement surface remains visible metadata rather than a false [activation](../../glossary.md#activation) claim.
 
@@ -24,12 +24,12 @@ For exact source and destination behavior, use the feature pages for [plugins](.
 | Activation Probes | `implemented` | `not_applicable` | — | [1](../features/tests-and-evals.md) |
 | Adaptive Hooks | `implemented` | `degraded` | Codex supports plugin-level command hooks, but has no faithful skill-local or project-agent hook destination and narrower event/matcher support. | [1](../features/hooks.md) |
 | Changes | `implemented` | `not_applicable` | — | [1](../features/changes.md) |
-| Dependencies | `implemented` | `degraded` | Codex gets generated dependency notices rather than a native plugin dependency resolver. | [1](../features/dependencies.md) |
+| Dependencies | `implemented` | `degraded` | The ChatGPT Agent Plugins bundle has no portable plugin dependency component. | [1](../features/dependencies.md) |
 | Dev Watch | `implemented` | `not_applicable` | — | [1](../features/dev-watch.md) |
 | Distributions | `implemented` | `not_applicable` | — | [1](../features/distributions.md) |
 | Feature Registry | `implemented` | `not_applicable` | — | [1](../../development/features/feature-registry.md) |
 | Future Companion Source Pointers | `planned` | `planned` | — | [1](../features/apps.md), [2](../features/hooks.md), [3](../features/commands.md), [4](../features/settings.md) |
-| Marketplaces | `implemented` | `future` | Codex plugin bundles are renderable, but Codex marketplace activation is currently a runtime config surface rather than a provider-owned generated index. | [1](../features/marketplaces.md) |
+| Marketplaces | `implemented` | `future` | ChatGPT product bundles are renderable through the Codex target, but marketplace activation remains a runtime config surface rather than a provider-owned generated index. | [1](../features/marketplaces.md) |
 | Output Safety | `implemented` | `not_applicable` | — | [1](../features/output-safety.md) |
 | Plugin Agents | `implemented` | `unsupported` | Codex plugin documentation does not include a plugin agents component. | [1](../features/agents.md) |
 | Codex Plugin Apps | `implemented` | `pass_through` | — | [1](../features/apps.md) |

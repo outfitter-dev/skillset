@@ -4,7 +4,7 @@ import { scanGeneratedPublicContent } from "../public-closure-guard";
 
 function rules(command: string): readonly string[] {
   return scanGeneratedPublicContent(
-    "plugins/skillset/codex/skills/skillset/SKILL.md",
+    "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
     `\`\`\`sh\n${command}\n\`\`\``,
     ["scripts/private.ts"],
     new Set(),
@@ -95,7 +95,7 @@ describe("SET-489 default shell operand policy", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Use `skillset explain packages/core` for your source. Then run `make -C packages`."
       ).map(({ rule }) => rule)
     ).toEqual(["internal-package"]);
@@ -104,7 +104,7 @@ describe("SET-489 default shell operand policy", () => {
   test("skillset siblings retain their inline command context", () => {
     const inlineRules = (command: string): readonly string[] =>
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Run `" + command + "`."
       ).map(({ rule }) => rule);
     for (const command of [
@@ -209,7 +209,7 @@ describe("SET-489 default shell operand policy", () => {
         for (const text of [`\`\`\`sh\n${command}\n\`\`\``, `Run \`${command}\`.`]) {
           expect(
             scanGeneratedPublicContent(
-              "plugins/skillset/codex/skills/skillset/SKILL.md",
+              "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
               text
             ).map(({ rule }) => rule)
           ).toEqual(["development-docs"]);
@@ -249,7 +249,7 @@ describe("SET-489 default shell operand policy", () => {
       for (const text of [`\`\`\`sh\n${command}\n\`\`\``, `Run \`${command}\`.`]) {
         expect(
           scanGeneratedPublicContent(
-            "plugins/skillset/codex/skills/skillset/SKILL.md",
+            "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
             text
           ).map(({ rule }) => rule)
         ).toEqual(["internal-package"]);
@@ -292,7 +292,7 @@ describe("SET-489 default shell operand policy", () => {
       ]) {
         expect(
           scanGeneratedPublicContent(
-            "plugins/skillset/codex/skills/skillset/SKILL.md",
+            "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
             text
           ).map(({ rule }) => rule)
         ).toEqual(["development-docs"]);
@@ -319,7 +319,7 @@ describe("SET-489 default shell operand policy", () => {
       ]) {
         expect(
           scanGeneratedPublicContent(
-            "plugins/skillset/codex/skills/skillset/SKILL.md",
+            "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
             text,
             ["scripts/skillset"],
             new Set(),
@@ -379,7 +379,7 @@ describe("SET-489 default shell operand policy", () => {
   test("percent-decoding remains an explicit one-off, outside the eight structural fixes", () => {
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "[source](../../../pack%61ges/core/src/index.ts)"
       ).map(({ rule }) => rule)
     ).toEqual(["internal-package"]);

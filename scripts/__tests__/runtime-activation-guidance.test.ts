@@ -6,7 +6,7 @@ const ROOT = join(import.meta.dir, "..", "..");
 const GUIDANCE_PATHS = [
   ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
   "plugins/skillset/claude/skills/use-skillset/SKILL.md",
-  "plugins/skillset/codex/skills/use-skillset/SKILL.md",
+  "plugins/skillset/chatgpt/skills/use-skillset/SKILL.md",
   "plugins/skillset/cursor/skills/use-skillset/SKILL.md",
 ] as const;
 

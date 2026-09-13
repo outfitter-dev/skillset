@@ -299,11 +299,12 @@ skillset:
     const pluginItem = (pluginLock.items as Array<Record<string, unknown>>)
       .find((item) => item.name === "demo" && item.kind === "plugin");
     expect(pluginItem?.files).toEqual(expect.arrayContaining([
-      "demo/claude/hooks/hooks.json",
-      "demo/claude/scripts/detect.sh",
+      "demo/chatgpt/hooks/hooks.json",
+      "demo/chatgpt/scripts/detect.sh",
+      "demo/chatgpt/plugin.json",
     ]));
     expect(pluginItem?.fileModes).toEqual(expect.objectContaining({
-      "demo/claude/scripts/detect.sh": "0755",
+      "demo/chatgpt/scripts/detect.sh": "0755",
     }));
     await chmod(pluginSource, 0o644);
     await buildSkillsetResult(root);
@@ -312,7 +313,7 @@ skillset:
       .find((item) => item.name === "demo" && item.kind === "plugin");
     expect(pluginModeChangedItem?.sourceHash).not.toBe(pluginItem?.sourceHash);
     expect(pluginModeChangedItem?.fileModes).toEqual(expect.objectContaining({
-      "demo/claude/scripts/detect.sh": "0644",
+      "demo/chatgpt/scripts/detect.sh": "0644",
     }));
 
     await chmod(resourceOutput, 0o555);
@@ -639,7 +640,7 @@ compile:
       expect.objectContaining({
         featureId: "plugin-hooks",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/alpha/codex/hooks/hooks.json" }),
+          expect.objectContaining({ path: "plugins/alpha/chatgpt/hooks/hooks.json" }),
         ]),
         sourceUnit: "plugin.alpha.feature:hooks",
         status: "target_native",
@@ -665,13 +666,7 @@ compile:
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "dependencies",
-        outputs: expect.arrayContaining([
-          expect.objectContaining({
-            kind: "plugin-skill",
-            path: "plugins/alpha/codex/skills/plugin-skill/SKILL.md",
-          }),
-        ]),
-        reason: expect.stringContaining("Codex"),
+        reason: expect.stringContaining("ChatGPT"),
         sourceUnit: "plugin.alpha.feature:dependencies",
         status: "degraded",
         target: "codex",
@@ -688,14 +683,10 @@ compile:
         target: "claude",
       })
     );
-    expect(preview.renderResults).toContainEqual(
+    expect(preview.renderResults).not.toContainEqual(
       expect.objectContaining({
         featureId: "tools-policy",
-        outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/alpha/codex/skills/plugin-skill/.skillset.tools.yaml" }),
-        ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
-        status: "metadata_only",
         target: "codex",
       })
     );
@@ -719,19 +710,19 @@ compile:
       },
       {
         featureId: "plugin-assets",
-        path: "plugins/alpha/codex/assets/icon.txt",
+        path: "plugins/alpha/chatgpt/assets/icon.txt",
         sourceUnit: "plugin.alpha.feature:assets",
         target: "codex",
       },
       {
         featureId: "plugin-scripts",
-        path: "plugins/alpha/codex/scripts/setup.sh",
+        path: "plugins/alpha/chatgpt/scripts/setup.sh",
         sourceUnit: "plugin.alpha.feature:scripts",
         target: "codex",
       },
       {
         featureId: "plugin-src",
-        path: "plugins/alpha/codex/src/index.js",
+        path: "plugins/alpha/chatgpt/src/index.js",
         sourceUnit: "plugin.alpha.feature:src",
         target: "codex",
       },
@@ -828,15 +819,6 @@ compile:
         policy: "scope:excluded",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         status: "intentionally_skipped",
-        target: "codex",
-      })
-    );
-    expect(scoped.renderResults).toContainEqual(
-      expect.objectContaining({
-        featureId: "tools-policy",
-        policy: "scope:excluded",
-        sourceUnit: "plugin.alpha.skill:plugin-skill",
-        status: "intentionally_skipped",
         target: "claude",
       })
     );
@@ -865,14 +847,6 @@ compile:
     );
     expect(pluginOutcomes).toContainEqual(
       expect.objectContaining({
-        featureId: "dependencies",
-        sourceUnit: "plugin.alpha.feature:dependencies",
-        status: "degraded",
-        target: "codex",
-      })
-    );
-    expect(pluginOutcomes).toContainEqual(
-      expect.objectContaining({
         sourceUnit: "plugin.beta.feature:bin",
         target: "claude",
       })
@@ -884,7 +858,7 @@ compile:
       })
     );
 
-    const codexSkill = await readFile(join(root, "plugins/alpha/codex/skills/plugin-skill/SKILL.md"), "utf8");
+    const codexSkill = await readFile(join(root, "plugins/alpha/chatgpt/skills/plugin-skill/SKILL.md"), "utf8");
     expect(codexSkill).not.toContain("renderResults");
     expect(JSON.stringify(pluginLock)).not.toContain(root);
   });
@@ -908,7 +882,7 @@ compile:
       expect.objectContaining({
         outputs: expect.arrayContaining([
           expect.objectContaining({
-            path: ".skillset/cache/latest/plugins/alpha/codex/skills/plugin-skill/SKILL.md",
+            path: ".skillset/cache/latest/plugins/alpha/chatgpt/skills/plugin-skill/SKILL.md",
           }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
@@ -967,14 +941,13 @@ echo alpha
     expect(producedStatuses).toEqual([
       "degraded",
       "intentionally_skipped",
-      "metadata_only",
       "rendered",
       "target_native",
       "transformed",
       "unsupported",
     ]);
 
-    const documentedDeferrals = ["externally_managed", "failed", "lossy"] satisfies readonly SkillsetRenderResultStatus[];
+    const documentedDeferrals = ["externally_managed", "failed", "lossy", "metadata_only"] satisfies readonly SkillsetRenderResultStatus[];
     expect(statusesInVocabularyOrder([...producedStatuses, ...documentedDeferrals])).toEqual([
       ...RENDER_RESULT_STATUS_VALUES,
     ]);
@@ -1077,7 +1050,7 @@ Help with the task.
     );
   });
 
-  it("does not claim a degraded Codex dependency without an emitted notice", async () => {
+  it("reports a degraded ChatGPT dependency without inventing an emitted notice", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1117,7 +1090,7 @@ Help with the task.
     );
     expect(dependency).toMatchObject({
       sourceUnit: "plugin.tools.feature:dependencies",
-      status: "unsupported",
+      status: "degraded",
     });
     expect(dependency?.outputs).toBeUndefined();
   });
@@ -1337,10 +1310,10 @@ Help with the task.
     // The degraded classification is only true because this enabled Codex
     // target really does render the same authored category.
     const codexManifest = await readJson(
-      join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+      join(root, "plugins/tools/chatgpt/plugin.json")
     );
     expect(
-      (codexManifest.interface as Record<string, unknown>).category
+      (codexManifest.extensions as Record<string, { readonly interface?: Record<string, unknown> }> | undefined)?.["com.openai"]?.interface?.category
     ).toBe("Developer Tools");
   });
 
@@ -1469,6 +1442,10 @@ Help with the task.
       "codex.manifest.interface",
       "codex:\n  manifest:\n    interface:\n      category: Developer Tools",
     ],
+    [
+      "codex.manifest.extensions.com.openai.interface",
+      "codex:\n  manifest:\n    extensions:\n      com.openai:\n        interface:\n          category: Developer Tools",
+    ],
   ])(
     "keeps the canonical listing category degraded when a %s override repeats it",
     async (_label, overrideYaml) => {
@@ -1510,10 +1487,10 @@ Help with the task.
       });
 
       const codexManifest = await readJson(
-        join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+        join(root, "plugins/tools/chatgpt/plugin.json")
       );
       expect(
-        (codexManifest.interface as Record<string, unknown>).category
+        (codexManifest.extensions as Record<string, { readonly interface?: Record<string, unknown> }> | undefined)?.["com.openai"]?.interface?.category
       ).toBe("Developer Tools");
     }
   );
@@ -1523,6 +1500,10 @@ Help with the task.
     [
       "codex.manifest.interface",
       "codex:\n  manifest:\n    interface:\n      category: Productivity",
+    ],
+    [
+      "codex.manifest.extensions.com.openai.interface",
+      "codex:\n  manifest:\n    extensions:\n      com.openai:\n        interface:\n          category: Productivity",
     ],
   ])(
     "reports the canonical listing category as lossy when a %s override replaces it",
@@ -1567,10 +1548,10 @@ Help with the task.
       // The Codex destination is selected, but it no longer carries the
       // authored category, so no enabled target preserves the value.
       const codexManifest = await readJson(
-        join(root, "plugins/tools/codex/.codex-plugin/plugin.json")
+        join(root, "plugins/tools/chatgpt/plugin.json")
       );
       expect(
-        (codexManifest.interface as Record<string, unknown>).category
+        (codexManifest.extensions as Record<string, { readonly interface?: Record<string, unknown> }> | undefined)?.["com.openai"]?.interface?.category
       ).toBe("Productivity");
     }
   );
@@ -2202,16 +2183,6 @@ Help with the task.
       email: cursor@example.com
 `,
     ],
-    [
-      "codex",
-      `codex:
-  manifest:
-    author:
-      name: Codex Team
-      email: codex@example.com
-      url: https://example.com/codex
-`,
-    ],
   ])(
     "evaluates the effective %s manifest author when the override replaces it",
     async (target, overrideYaml) => {
@@ -2251,9 +2222,7 @@ Help with the task.
       const manifest = await readJson(
         join(root, `plugins/tools/${target}/.${target}-plugin/plugin.json`)
       );
-      expect((manifest.author as Record<string, unknown>).name).toBe(
-        target === "cursor" ? "Cursor Team" : "Codex Team"
-      );
+      expect((manifest.author as Record<string, unknown>).name).toBe("Cursor Team");
     }
   );
 
@@ -2287,19 +2256,8 @@ Help with the task.
 `,
     });
 
-    const preview = await diffSkillsetResult(root);
-    expect(preview.renderResults).toContainEqual(
-      expect.objectContaining({
-        diagnostics: [
-          expect.objectContaining({
-            code: "render/codex-author-fields-omitted",
-          }),
-        ],
-        reason:
-          "Codex author output supports only name, email, and url; omitted canonical fields: contributor",
-        status: "lossy",
-        target: "codex",
-      })
+    await expect(diffSkillsetResult(root)).rejects.toThrow(
+      "codex.manifest.author cannot override the portable ChatGPT root manifest"
     );
   });
 
@@ -3419,9 +3377,9 @@ Body.
     expect(claudeSkillDestinations).toContain("skill");
     expect(claudeSkillDestinations).toContain("skill-frontmatter");
 
-    // The same skill under codex carries a distinct tools-policy destination,
-    // proving destination varies by scope while target stays the provider.
-    expect(preview.renderResults).toContainEqual(
+    // The ChatGPT fixed Agent Skills component intentionally has no Codex
+    // tool-sidecar destination, so provider-only bytes cannot leak into it.
+    expect(preview.renderResults).not.toContainEqual(
       expect.objectContaining({
         destination: "skill-tools",
         featureId: "tools-policy",
@@ -3566,6 +3524,9 @@ async function expectUnsupportedOutcome(
 ): Promise<void> {
   const target = expected.target ?? "codex";
   const snapshotRef = target === "claude" ? "claude-hooks" : "codex-plugin";
+  const usesOpenAiEvidence =
+    target === "codex" &&
+    (expected.featureId === "plugin-bin" || expected.featureId === "adaptive-hooks");
   await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   try {
@@ -3580,13 +3541,17 @@ async function expectUnsupportedOutcome(
         featureId: expected.featureId,
         policy: "unsupported:error",
         reason: expected.reason,
-        evidence: expect.arrayContaining([
-          expect.objectContaining({
-            kind: "provider-snapshot",
-            note: getProviderDestinationFormatSnapshot(snapshotRef)?.provenance.contentHash,
-            ref: snapshotRef,
-          }),
-        ]),
+        evidence: expect.arrayContaining(
+          usesOpenAiEvidence
+            ? [expect.objectContaining({ kind: "source", ref: "packages/registry/src/openai-agent-plugin-evidence.ts" })]
+            : [
+                expect.objectContaining({
+                  kind: "provider-snapshot",
+                  note: getProviderDestinationFormatSnapshot(snapshotRef)?.provenance.contentHash,
+                  ref: snapshotRef,
+                }),
+              ]
+        ),
         sourceUnit: expected.sourceUnit,
         status: "unsupported",
         target,

@@ -106,7 +106,6 @@ compile:
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },
       { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
-      { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
       { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "cursor" },
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "cursor" },
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "cursor" },
