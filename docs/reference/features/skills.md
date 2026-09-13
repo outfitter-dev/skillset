@@ -21,6 +21,8 @@ A skill is a portable [source unit](../../glossary.md#source-unit) stored in one
 | Standalone | `.skillset/skills/<skill>/SKILL.md` | `.claude/skills/`, `.agents/skills/`, `.cursor/skills/` |
 | Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/<target>/skills/` for each enabled [target](../../glossary.md#target) |
 
+The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone and plugin-owned skills also inherently flatten into `.agents/skills/`; when Agent Plugins 1.0 is adopted, plugin-owned skills also remain inside `plugins/<plugin>/agents/skills/`. Neither projection has an `agents` provider target or an opt-out field.
+
 The directory name is the stable skill identity. Top-level `name`, when present, must agree with it. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are invalid; version authority uses top-level `version` until [workspace](../../glossary.md#workspace) release state supersedes it.
 
 ## Source Contract
@@ -45,7 +47,7 @@ Skill bodies support the expressions documented in [source preprocessing](../sou
 
 ## Provider Output
 
-Every enabled [target](../../glossary.md#target) receives its native `SKILL.md` shape. Plugin boundaries remain intact. Codex may also receive compiler-owned sidecars such as `agents/openai.yaml` and `.skillset.tools.yaml` when authored policy requires them.
+Every enabled [target](../../glossary.md#target) receives its native `SKILL.md` shape. Agent Skills and Agent Plugins baselines are derived independently from adopted profile lifecycle and source applicability. Codex may share a compatible Agent Skills `SKILL.md` while retaining compiler-owned sidecars such as `agents/openai.yaml` and `.skillset.tools.yaml` as provider deltas.
 
 Release state supplies generated version metadata after `skillset release apply`; inline versions remain the fallback before release state exists. Disabling generated Skillset metadata does not remove lock provenance.
 
@@ -57,7 +59,7 @@ Skillset rejects identity conflicts, unsupported source schema versions, malform
 
 Generated skills are [generated output](../../glossary.md#generated-output), not authoring surfaces. [`skillset check --only outputs`](../cli/check.md) reports missing, stale, or edited managed files; [`skillset explain`](../cli/explain.md) shows the deciding source, target, resources, preprocessing dependencies, and policy realization.
 
-Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use and writes only when confirmation is explicit.
+Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use, writes only when confirmation is explicit, and rejects ids outside Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens.
 
 ## Provenance
 

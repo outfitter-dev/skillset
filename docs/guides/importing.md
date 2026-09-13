@@ -4,7 +4,7 @@ description: Adopts supported provider-native material into canonical Skillset s
 
 # Import Existing Work
 
-Importing turns selected [provider-native](../glossary.md#provider-native) material into reviewable [canonical source](../glossary.md#canonical-source). Choose the workflow by scope: survey a whole repository with `init --adopt`, or import one known skill or plugin with `import`.
+Importing turns selected [provider-native](../glossary.md#provider-native) or Agent standards material into reviewable [canonical source](../glossary.md#canonical-source). Choose the workflow by scope: survey a whole repository with `init --adopt`, or import one known skill or plugin with `import`.
 
 ## Survey a repository
 
@@ -41,19 +41,20 @@ skillset import /path/to/plugin
 
 Direct import writes source immediately; it has no `--yes` preview mode. Skillset stages and writes each imported [source unit](../glossary.md#source-unit) separately and refuses to overwrite an existing source path. During a collection import, an earlier unit can remain written if a later unit fails. If a directory is ambiguous, use `--kind` as documented in the generated [`import` reference](../reference/cli/import.md).
 
-Provider shortcuts are an explicit request to inspect a known local provider origin:
+Origin shortcuts are an explicit request to inspect a known local provider or Agent Skills origin:
 
 ```bash
 skillset import claude
+skillset import agents
 ```
 
-Use them deliberately. Import does not silently scan user-level provider locations during ordinary [build](../glossary.md#build) or check operations.
+`claude`, `codex`, and `cursor` name providers. `agents` names the Agent Skills standard root at `~/.agents/skills`; it is not a provider. Use shortcuts deliberately. Import does not silently scan user-level origins during ordinary [build](../glossary.md#build) or check operations.
 
 ## Preserve imported material
 
 A skill import treats the containing skill directory as the unit, even when the selected path is its `SKILL.md`. Sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars are copied into canonical source with it. Collection imports follow linked skill directories but de-duplicate identical real paths.
 
-Plugin imports accept Skillset source plugins and supported Claude, Codex, or Cursor native plugin directories. Native manifests are preserved, and Skillset synthesizes a minimal source `skillset.yaml` when the imported plugin has no source config.
+Plugin imports accept Skillset source plugins, supported Claude, Codex, or Cursor native plugin directories, and closed Agent Plugins 1.0 packages. Agent Plugins import maps the portable manifest, immediate-child skills, MCP model, and recognized neutral support files back into canonical source; unmappable extensions or extra files block the write rather than disappearing. Native manifests are preserved, and Skillset synthesizes a minimal source `skillset.yaml` when the imported plugin has no source config.
 
 Import preserves recognized source frontmatter, provider-native fields, and unknown fields instead of silently dropping them. Review the report's copied files, inferred source fields, preserved provider-native fields, unsupported fields, warnings, and next checks before building. These categories describe what Skillset understood and what still needs human judgment; they do not claim every preserved field is portable.
 

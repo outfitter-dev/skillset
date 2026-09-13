@@ -50,6 +50,8 @@ Authors should supply information only they know. Skillset should derive stable 
 
 Overrides are healthy when derivation is wrong. They should be explicit, narrowly scoped, validated, and visible in resolved output or provenance. Frequent broad overrides are evidence that the derivation rule needs revision.
 
+The adopted open-standards floor is deliberately inherent rather than selectable. Applicable adaptive source produces its adopted Agent Instructions, Agent Skills, or Agent Plugins projection; provider configuration controls only provider-native output and deltas. A standards opt-out would create two meanings for the same portable source and is not an override surface.
+
 ### Builds do not imply trust
 
 [Build](../glossary.md#build) and [activation](../glossary.md#activation) have different authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. The complete operational boundary lives in [Build Versus Activation](../start/build-versus-activation.md).
@@ -102,7 +104,7 @@ Name the desired behavior first, then define each provider [projection](../gloss
 
 ### Prefer defaults and scoped overrides
 
-Choose useful defaults for adaptive source. Let narrower source units override or opt out only where the resolver can explain the deciding layer.
+Choose useful defaults for adaptive source. Let narrower source units override or opt out only where the resolver can explain the deciding layer. Adopted Agent standards are the portability baseline, so their applicability follows source and registry lifecycle rather than a source-unit opt-out.
 
 ### Keep escape hatches visible
 

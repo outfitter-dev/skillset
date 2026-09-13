@@ -34,6 +34,8 @@ The generated [instruction-frontmatter schema and example](../schemas/README.md)
 
 Instruction-body expressions, partials, resolve-only references, escaping, and `skillset.preprocess: false` belong to [source preprocessing](../source/preprocessing.md). The broader path and ownership rules live in the [instruction source reference](../source/instructions.md).
 
+When Agent Instructions is adopted, every applicable instruction inherently contributes to the root or scoped `AGENTS.md` standard baseline. There is no workspace, plugin, or frontmatter opt-out. A candidate or retired profile produces no standard output.
+
 ## Provider Output
 
 | Source | Claude | Codex | Cursor |
@@ -42,7 +44,7 @@ Instruction-body expressions, partials, resolve-only references, escaping, and `
 | `.skillset/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a |
 | Plugin `rules/` | n/a | n/a | plugin `rules/` |
 
-Claude preserves path scope. Cursor translates it to Cursor rule frontmatter. Codex strips source frontmatter and combines contributing instructions in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped instructions contribute to the repository root.
+Claude preserves path scope. Cursor translates it to Cursor rule frontmatter. Codex strips source frontmatter and combines contributing instructions in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped instructions contribute to the repository root. When Codex and Agent Instructions both consume a compatible `AGENTS.md`, the standard owns one physical file and Codex is recorded as a logical delta consumer.
 
 Codex `.rules` files are [provider-native](../../glossary.md#provider-native) command-execution policy, not instruction prose. Plugin `rules/` are Cursor-native companions. Neither path is another portable instruction [source root](../../glossary.md#source-root).
 
@@ -50,10 +52,10 @@ Codex `.rules` files are [provider-native](../../glossary.md#provider-native) co
 
 Skillset rejects invalid frontmatter, unsupported preprocessing expressions, unsafe partial paths, output collisions, unsupported symlink mode, and attempts to render Markdown instruction prose as Codex `.rules`. A generated `AGENTS.md` that exceeds Codex's default project-document byte limit emits a warning; narrower path scopes avoid silent provider truncation.
 
-Provider toggles can make one instruction unavailable to a [target](../../glossary.md#target). They do not change the instruction's shared meaning.
+Provider toggles can make one instruction unavailable to a [target](../../glossary.md#target). They do not change the instruction's shared meaning or suppress its applicable adopted Agent Instructions projection.
 
 Use [`skillset new instruction`](../cli/new.md) to scaffold source and [`skillset explain`](../cli/explain.md) to trace a source instruction or [generated output](../../glossary.md#generated-output) to its lock-backed destinations.
 
 ## Provenance
 
-The root `skillset.lock` records instruction source paths, destination paths, target, hashes, deterministic aggregation, and preprocessing dependencies.
+The root `skillset.lock` records instruction source paths, destination paths, standard owner, provider consumers, hashes, deterministic aggregation, and preprocessing dependencies.

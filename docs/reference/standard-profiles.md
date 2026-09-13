@@ -8,6 +8,8 @@ The independent @skillset/registry standard-profile registry records the portabl
 
 The initial Agent Instructions, Agent Skills, and Agent Plugins 1.0 profiles are all candidate. Agent Plugins stores the complete pinned plugin.json and mcp.json JSON Schema bodies for offline validation. Each profile also owns its expected feature envelopes for later adapter conformance.
 
+Lifecycle and source applicability are the complete selection model. An adopted applicable profile renders inherently; a candidate or retired profile does not participate in normal output, locks, or claims. Workspace, plugin, and frontmatter configuration has no standards selector or opt-out. `compile.targets` remains provider-only, and a provider may consume a compatible standard-owned physical file as a recorded delta.
+
 Every snapshot stores the byte-for-byte body fetched from an immutable raw source revision. The registry records both that revision URL and the matching current raw URL for the same repository path. The current URL is used only by explicit maintenance commands, so a comparison is between the same source format and never an extracted or normalized website response. Normal builds remain offline.
 
 | Profile | Immutable revision | Current comparison source |

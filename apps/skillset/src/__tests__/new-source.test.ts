@@ -38,6 +38,38 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   expect(check.exitCode).toBe(0);
 });
 
+test("SET-408: new skill rejects ids outside the Agent Skills naming contract", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-standard-name-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  for (const args of [
+    ["--id", "bad--name", "--name", "Bad Name"],
+    ["a".repeat(65)],
+  ]) {
+    const result = await runSkillsetCli(
+      "new",
+      "skill",
+      ...args,
+      "--root",
+      root,
+      "--yes"
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      "satisfy Agent Skills naming (1-64 lowercase letters, digits, and single hyphens)"
+    );
+  }
+
+  expect(await fileExists(join(root, ".skillset/skills/bad--name"))).toBe(
+    false
+  );
+  expect(
+    await fileExists(join(root, ".skillset/skills", "a".repeat(65)))
+  ).toBe(false);
+});
+
 test("SET-464: new guidance preserves the selected workspace root", async () => {
   const caller = await mkdtemp(join(tmpdir(), "skillset-new-caller-"));
   const root = join(

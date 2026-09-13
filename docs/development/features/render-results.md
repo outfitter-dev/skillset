@@ -12,7 +12,7 @@ description: The render-result contract defines how maintainers record, enforce,
 
 Related vocabulary: [Support Vocabulary](../../reference/features/README.md#support-vocabulary)
 
-A render result records what one operation did with one [source unit](../../glossary.md#source-unit) for a [target](../../glossary.md#target) and [destination](../../glossary.md#destination). The feature registry owns static capability; render results own operation-specific facts such as rendered, transformed, degraded, skipped, unsupported, or failed output.
+A render result records what one operation did with one [source unit](../../glossary.md#source-unit) for a provider [target](../../glossary.md#target), an adopted `standardProfile`, or both logical consumers of one [destination](../../glossary.md#destination). The feature registry owns static capability; render results own operation-specific facts such as rendered, transformed, degraded, skipped, unsupported, or failed output.
 
 ## Ownership and Inputs
 
@@ -27,6 +27,7 @@ The schema fields are:
 | `sourcePath` | Optional review and diagnostic path. |
 | `featureId` | Required feature-registry id or event id. |
 | `target` | Optional provider target for target-specific facts. |
+| `standardProfile` | Optional Agent standard identity for standard-owned facts; never a provider target. |
 | `destination` | Optional non-empty artifact or scope beneath the target. |
 | `status` | Required render-result status. |
 | `reason` | Required for `degraded`, `lossy`, `unsupported`, and `failed`. |
@@ -60,13 +61,15 @@ Build, diff, and output checks return render results through structured operatio
 
 Ordinary provider artifacts do not receive debug sentinels or render-result payloads. Conformance uses the structured records to compare produced outcomes with feature-registry claims.
 
+An applicable adopted standard produces standard-profile results without author selection. Candidate and retired profiles produce no normal output or claims. If a provider reuses the same physical file, the lock and result model preserve the standard owner and provider consumer rather than fabricating `target: agents`.
+
 ## Changing the Contract
 
 When adding a producer, status, policy, destination, or diagnostic:
 
 1. Change the schema and validation owner first.
 2. Update the collector or operation that has enough context to produce the fact.
-3. Preserve the distinction between provider target and concrete destination.
+3. Preserve the distinction among provider target, standard profile, and concrete destination.
 4. Add policy tests for any blocking behavior and build tests for the emitted record.
 5. Update registry evidence or support claims when the result reveals a capability change.
 

@@ -2,12 +2,13 @@
 id: 31
 slug: agent-instructions-opt-out-owns-shared-agents-md
 title: Agent Instructions Opt-Out Owns Shared AGENTS.md
-status: accepted
+status: superseded
 created: 2026-09-12
 updated: 2026-09-12
-owners: ["[galligan](https://github.com/galligan)"]
+owners: ['[galligan](https://github.com/galligan)']
 depends_on: [28, 30]
 amends: [28]
+superseded_by: ['32']
 ---
 
 # ADR-0031: Agent Instructions Opt-Out Owns Shared AGENTS.md

@@ -936,6 +936,12 @@ test("init --include ci scaffolds a valid workflow and keeps user edits", async 
   expect(parsed.name).toBe("Skillset CI");
   expect(parsed.jobs).toBeDefined();
   expect(content).toContain("@skillset/cli is the complete, smaller Bun distribution");
+  expect(content).toContain(
+    "Agent standards are inherent for applicable source when their registry profiles are adopted"
+  );
+  expect(content).toContain(
+    ".skillset/agents contains project-agent source"
+  );
   expect(content).toContain("@skillset/cli check --ci");
   expect(content).toContain("--fix");
 

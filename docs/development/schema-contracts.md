@@ -34,7 +34,7 @@ Use this checklist for any new source/config/frontmatter field:
 
 Provider-specific behavior belongs under explicit provider blocks such as `claude`, `codex`, and `cursor` unless the field is intentionally portable. Provider source can preserve native Claude, Codex, or Cursor files, but adaptive source should use the shared contract so compiler, Workbench, docs, and generated editor schemas agree.
 
-`compile.targets` remains the provider-selection list. Agent standards have no source selection field: adopted profiles derive their applicable projections from the resolved source inventory without adding `agents` to provider targets or target-keyed maps. Standard-profile resolution and projection behavior build on this source contract in their owning packages.
+`compile.targets` remains the provider-selection list. Under [ADR-0032](../adrs/0032-standards-compilation-is-inherent.md), standards have no source selection field: the compiler derives every applicable adopted standard profile from the resolved source inventory and registry lifecycle. `agents` does not become a provider target or target-keyed map, and it does not move to any root, plugin, or frontmatter configuration field. Standard-profile resolution and projection behavior build on this source contract in their owning packages.
 
 ## Drift Signals
 

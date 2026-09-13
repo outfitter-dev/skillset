@@ -41,10 +41,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:4edf560e57de4a5f21f6a023c11355cd520c87cf4256862f627e2b247d40d743",
+      "outputHash": "sha256:a97c6518da87ac87872fcff525f74de63460a59b63fc13806e8c28920ae4d2b9",
       "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:fb0072eece735f7bc928069fc362ac81ea2bb74622bb4535969a698938662ba6",
+      "sourceHash": "sha256:6b95e4a36c407ea223ad11fd3dbe516ea2686e9cd9f9bb837b0684a6c47f6583",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -84,10 +84,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:50d2e3b1fee573078b833b7934c32ae66a8480a136c8dbd4f9feb989b87257f7",
+      "outputHash": "sha256:0cf68ea8055e710edf68a11d2fdfb5b905c4307ed7698f9a8e1a93e8396d4ba5",
       "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:fb0072eece735f7bc928069fc362ac81ea2bb74622bb4535969a698938662ba6",
+      "sourceHash": "sha256:6b95e4a36c407ea223ad11fd3dbe516ea2686e9cd9f9bb837b0684a6c47f6583",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -127,16 +127,16 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:be3dc82828d6d776ab2b095f98555ab1672e0fe3bff61f3007a8cb24dc097861",
+      "outputHash": "sha256:c71098bef2a1fcc1b2a41cbe821372e3934a11b8ef8318dab49c78e71dfe0730",
       "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:fb0072eece735f7bc928069fc362ac81ea2bb74622bb4535969a698938662ba6",
+      "sourceHash": "sha256:6b95e4a36c407ea223ad11fd3dbe516ea2686e9cd9f9bb837b0684a6c47f6583",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:febe8243b81a0b9374c20b1b8fb4a77d2f8e09ee0f1b0c3cbfef77daad3b7df6",
+  "provenanceHash": "sha256:5f67fc56a6b2efd99f273ba2325a986b4e0a464b6c0862f883631319c6698987",
   "renderResults": [
     {
       "destination": "plugin-manifest",

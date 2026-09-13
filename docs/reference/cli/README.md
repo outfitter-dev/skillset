@@ -10,9 +10,9 @@ These pages are generated from the same typed presentation and flag contracts us
 ## Author
 
 - [`skillset create`](./create.md) — Create a named Skillset repository.
-- [`skillset import`](./import.md) — Import provider-native skills or plugins into source.
+- [`skillset import`](./import.md) — Import provider-native or Agent standards skills and plugins into source.
 - [`skillset init`](./init.md) — Initialize Skillset in an existing directory.
-- [`skillset new`](./new.md) — Create a new skill, agent, instruction, or hook in source.
+- [`skillset new`](./new.md) — Create a new skill, project agent, instruction, or hook in source.
 - [`skillset rename`](./rename.md) — Preview and atomically rename an authored source path.
 
 ## Build
