@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { buildSkillsetResult } from "@skillset/core";
+import { getStandardProfile } from "@skillset/registry";
 
 const SKILLS_VERSION = "1.5.26";
 const SKILLS_COMMIT = "d667282815248da03a08a18272b5d2eef9caf77c";
@@ -37,7 +38,9 @@ try {
       )
     )
   );
-  await assertPortableConsumerInstall(root, environment);
+  if (getStandardProfile("agent-skills").lifecycle === "adopted") {
+    await assertPortableConsumerInstall(root, environment);
+  }
 } finally {
   if (process.env.SKILLSET_RETAIN_EXTERNAL_CONFORMANCE === "1") {
     console.error(`skillset: retained Skills consumer fixture ${root}`);
