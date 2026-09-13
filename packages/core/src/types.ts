@@ -114,12 +114,91 @@ export interface MarketplaceCatalogConfig {
 
 export interface MarketplacePluginEntryConfig {
   readonly channel?: string;
+  readonly codex?: CodexMarketplacePluginConfig;
   readonly id: string;
   readonly plugin: string;
   readonly ref?: string;
   readonly repo?: string;
   readonly sha?: string;
   readonly targets?: readonly TargetName[];
+  readonly version?: string;
+}
+
+export type CodexMarketplacePluginSource =
+  | {
+      readonly path: string;
+      readonly source: "local";
+    }
+  | {
+      readonly path?: string;
+      readonly ref?: string;
+      readonly sha?: string;
+      readonly source: "url";
+      readonly url: string;
+    }
+  | {
+      readonly path: string;
+      readonly ref?: string;
+      readonly sha?: string;
+      readonly source: "git-subdir";
+      readonly url: string;
+    }
+  | {
+      readonly package: string;
+      readonly registry?: string;
+      readonly source: "npm";
+      readonly version?: string;
+    };
+
+export type CodexMarketplaceInstallationPolicy =
+  | "AVAILABLE"
+  | "INSTALLED_BY_DEFAULT"
+  | "NOT_AVAILABLE";
+export type CodexMarketplaceAuthenticationPolicy = "ON_INSTALL" | "ON_USE";
+export type CodexMarketplaceProduct = "atlas" | "chatgpt" | "codex";
+
+export interface CodexMarketplacePluginPolicy {
+  readonly authentication?: CodexMarketplaceAuthenticationPolicy;
+  readonly installation?: CodexMarketplaceInstallationPolicy;
+  /** Omission means unrestricted; an explicit empty list preserves deny-all intent. */
+  readonly products?: readonly CodexMarketplaceProduct[];
+}
+
+export interface CodexMarketplaceInterface {
+  readonly brandColor?: string;
+  readonly capabilities?: readonly string[];
+  readonly category?: string;
+  readonly composerIcon?: string;
+  readonly defaultPrompt?: readonly string[];
+  readonly developerName?: string;
+  readonly displayName?: string;
+  readonly logo?: string;
+  readonly logoDark?: string;
+  readonly longDescription?: string;
+  readonly privacyPolicyUrl?: string;
+  readonly screenshots?: readonly string[];
+  readonly shortDescription?: string;
+  readonly termsOfServiceUrl?: string;
+  readonly websiteUrl?: string;
+}
+
+export interface CodexMarketplaceAuthor {
+  readonly email?: string;
+  readonly name: string;
+  readonly url?: string;
+}
+
+export interface CodexMarketplacePluginConfig {
+  readonly author?: CodexMarketplaceAuthor;
+  readonly category?: string;
+  readonly description?: string;
+  /** @deprecated Input compatibility only; normalized to interface.displayName. */
+  readonly displayName?: string;
+  readonly homepage?: string;
+  readonly interface?: CodexMarketplaceInterface;
+  readonly keywords?: readonly string[];
+  readonly policy?: CodexMarketplacePluginPolicy;
+  readonly source?: CodexMarketplacePluginSource;
   readonly version?: string;
 }
 

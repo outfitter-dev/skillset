@@ -6,6 +6,32 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "consumers": [
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
+      "feature": "marketplaces",
+      "fileModes": {
+        ".agents/plugins/marketplace.json": "0644"
+      },
+      "files": [
+        ".agents/plugins/marketplace.json"
+      ],
+      "kind": "plugin-feature",
+      "name": "chatgpt-marketplace",
+      "outputHash": "sha256:1b54e5132ec254603f34327f053c8b870d6fdcfffda9bbdf29f7486da2c988a0",
+      "outputPath": ".agents/plugins/marketplace.json",
+      "owner": {
+        "target": "codex"
+      },
+      "sourceHash": "sha256:7680c3a23037f235a7d68f4dfbe8a6c6f2e07e32768b511e169abdc3be9e8cec",
+      "sourcePath": "skillset.yaml",
+      "targetState": "generated",
+      "validation": "structured"
+    },
+    {
       "fileModes": {
         ".claude/settings.json": "0644"
       },
@@ -121,7 +147,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:a9d9295fcd64a8e76a00a9ecc4320b58ffb3b01c17d3f1db6d8e621bdd876b58",
+  "provenanceHash": "sha256:4e477279372263c26cc29d550612192fc97e30e07350d0a2bbc88d84611a79e3",
   "renderResults": [
     {
       "destination": "changelog",
@@ -277,6 +303,45 @@
       "sourcePath": ".skillset/rules",
       "sourceUnit": "instruction:fixtures/AGENTS.md",
       "status": "transformed",
+      "target": "codex"
+    },
+    {
+      "destination": "marketplaces",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/marketplaces.md"
+        },
+        {
+          "kind": "source",
+          "ref": "packages/core/src/openai-marketplace.ts"
+        },
+        {
+          "kind": "source",
+          "ref": "packages/registry/src/openai-marketplace-evidence.ts"
+        },
+        {
+          "kind": "test",
+          "note": "SET-530 ChatGPT marketplace catalog rendering coverage",
+          "ref": "packages/core/src/__tests__/openai-marketplace.test.ts"
+        },
+        {
+          "kind": "test",
+          "note": "SET-530 Codex 0.154 marketplace consumer conformance",
+          "ref": "scripts/__tests__/provider-validation.test.ts"
+        }
+      ],
+      "featureId": "marketplaces",
+      "outputs": [
+        {
+          "kind": "plugin-feature",
+          "path": ".agents/plugins/marketplace.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": "skillset.yaml",
+      "sourceUnit": "skillset.yaml",
+      "status": "target_native",
       "target": "codex"
     }
   ],

@@ -114,6 +114,7 @@ function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): bool
 }
 
 function isProviderFormatConformanceFile(file: RenderedFile): boolean {
+  if (isChatGptMarketplacePath(file.path)) return true;
   if (isClaudeMarketplacePath(file.path)) return true;
   if (isCursorMarketplacePath(file.path)) return true;
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
@@ -135,6 +136,9 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
 function checkProviderFormatConformanceFile(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
+  if (isChatGptMarketplacePath(file.path)) {
+    return checkChatGptMarketplace(file);
+  }
   if (isClaudeMarketplacePath(file.path)) {
     return checkClaudeMarketplace(file);
   }
@@ -196,6 +200,221 @@ function isChatGptPluginManifest(
       file.featureId === "plugin-manifests" &&
       file.target === "codex"
     );
+}
+
+function checkChatGptMarketplace(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const providerRef = "openai-agent-plugin-extension-overlay" as const;
+  const parsed = parseJsonRecord(file, "codex", providerRef);
+  if (!parsed.ok) return parsed.issues;
+  const issues: ProviderFormatConformanceIssue[] = [
+    ...checkRequiredFields(file, parsed.value, "codex", providerRef, [
+      "name",
+      "plugins",
+    ]),
+    ...checkFieldTypes(file, parsed.value, "codex", providerRef, {
+      interface: "object",
+      name: "string",
+    }),
+    ...checkUnknownFields(file, parsed.value, "codex", providerRef, [
+      "interface",
+      "name",
+      "plugins",
+    ]),
+  ];
+  if (!Array.isArray(parsed.value.plugins)) {
+    issues.push(
+      issue(
+        file,
+        "codex",
+        providerRef,
+        "invalid-field-type",
+        "destination field plugins must be an array"
+      )
+    );
+    return issues;
+  }
+  if (isJsonRecord(parsed.value.interface)) {
+    issues.push(
+      ...checkFieldTypes(file, parsed.value.interface, "codex", providerRef, {
+        displayName: "string",
+      }, "interface"),
+      ...checkUnknownFields(
+        file,
+        parsed.value.interface,
+        "codex",
+        providerRef,
+        ["displayName"],
+        "interface"
+      )
+    );
+  }
+  for (const [index, plugin] of parsed.value.plugins.entries()) {
+    if (!isJsonRecord(plugin)) {
+      issues.push(
+        issue(
+          file,
+          "codex",
+          providerRef,
+          "invalid-field-type",
+          `destination field plugins[${index}] must be an object`
+        )
+      );
+      continue;
+    }
+    const prefix = `plugins[${index}]`;
+    issues.push(
+      ...checkRequiredFields(file, plugin, "codex", providerRef, [
+        "name",
+        "source",
+        "policy",
+        "category",
+      ], prefix),
+      ...checkFieldTypes(file, plugin, "codex", providerRef, {
+        author: "object",
+        category: "string",
+        description: "string",
+        homepage: "string",
+        interface: "object",
+        keywords: "string-array",
+        name: "string",
+        policy: "object",
+        source: "object",
+        version: "string",
+      }, prefix),
+      ...checkUnknownFields(file, plugin, "codex", providerRef, [
+        "author",
+        "category",
+        "description",
+        "homepage",
+        "interface",
+        "keywords",
+        "name",
+        "policy",
+        "source",
+        "version",
+      ], prefix)
+    );
+    if (isJsonRecord(plugin.source)) {
+      issues.push(...checkChatGptMarketplaceSource(file, plugin.source, prefix));
+    }
+    if (isJsonRecord(plugin.policy)) {
+      issues.push(...checkChatGptMarketplacePolicy(file, plugin.policy, prefix));
+    }
+    if (isJsonRecord(plugin.interface)) {
+      issues.push(...checkChatGptMarketplaceInterface(file, plugin.interface, prefix));
+    }
+  }
+  return issues;
+}
+
+function checkChatGptMarketplaceSource(
+  file: ProviderFormatConformanceFile,
+  source: JsonRecord,
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  const providerRef = "openai-agent-plugin-extension-overlay" as const;
+  const kind = source.source;
+  const allowed =
+    kind === "local"
+      ? ["path", "source"]
+      : kind === "url"
+        ? ["ref", "sha", "source", "url"]
+        : kind === "git-subdir"
+          ? ["path", "ref", "sha", "source", "url"]
+          : kind === "npm"
+            ? ["package", "registry", "source", "version"]
+            : ["source"];
+  const required =
+    kind === "local"
+      ? ["source", "path"]
+      : kind === "url"
+        ? ["source", "url"]
+        : kind === "git-subdir"
+          ? ["source", "url", "path"]
+          : kind === "npm"
+            ? ["source", "package"]
+            : ["source"];
+  const issues = [
+    ...checkRequiredFields(file, source, "codex", providerRef, required, `${prefix}.source`),
+    ...checkUnknownFields(file, source, "codex", providerRef, allowed, `${prefix}.source`),
+  ];
+  if (!["local", "url", "git-subdir", "npm"].includes(String(kind))) {
+    issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.source.source must be local, url, git-subdir, or npm`));
+  }
+  for (const key of allowed.filter((field) => field !== "source")) {
+    if (source[key] !== undefined && typeof source[key] !== "string") {
+      issues.push(issue(file, "codex", providerRef, "invalid-field-type", `destination field ${prefix}.source.${key} must be a string`));
+    }
+  }
+  if (
+    kind === "git-subdir" &&
+    typeof source.path === "string" &&
+    !source.path.startsWith("./")
+  ) {
+    issues.push(
+      issue(
+        file,
+        "codex",
+        providerRef,
+        "invalid-shape",
+        `${prefix}.source.path must be ./-prefixed and repository-root-relative`
+      )
+    );
+  }
+  return issues;
+}
+
+function checkChatGptMarketplacePolicy(
+  file: ProviderFormatConformanceFile,
+  policy: JsonRecord,
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  const providerRef = "openai-agent-plugin-extension-overlay" as const;
+  const issues = [
+    ...checkRequiredFields(file, policy, "codex", providerRef, ["installation", "authentication"], `${prefix}.policy`),
+    ...checkFieldTypes(file, policy, "codex", providerRef, {
+      authentication: "string",
+      installation: "string",
+      products: "string-array",
+    }, `${prefix}.policy`),
+    ...checkUnknownFields(file, policy, "codex", providerRef, ["authentication", "installation", "products"], `${prefix}.policy`),
+  ];
+  if (typeof policy.installation === "string" && !["AVAILABLE", "INSTALLED_BY_DEFAULT", "NOT_AVAILABLE"].includes(policy.installation)) {
+    issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.policy.installation has an unsupported value`));
+  }
+  if (typeof policy.authentication === "string" && !["ON_INSTALL", "ON_USE"].includes(policy.authentication)) {
+    issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.policy.authentication has an unsupported value`));
+  }
+  if (Array.isArray(policy.products) && policy.products.some((product) => !["ATLAS", "CHATGPT", "CODEX"].includes(String(product)))) {
+    issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.policy.products contains an unsupported product`));
+  }
+  return issues;
+}
+
+function checkChatGptMarketplaceInterface(
+  file: ProviderFormatConformanceFile,
+  value: JsonRecord,
+  prefix: string
+): readonly ProviderFormatConformanceIssue[] {
+  const providerRef = "openai-agent-plugin-extension-overlay" as const;
+  const fields = [
+    "displayName", "shortDescription", "longDescription", "developerName",
+    "category", "capabilities", "websiteUrl", "privacyPolicyUrl",
+    "termsOfServiceUrl", "defaultPrompt", "brandColor", "composerIcon",
+    "logo", "logoDark", "screenshots",
+  ];
+  return [
+    ...checkFieldTypes(file, value, "codex", providerRef, {
+      brandColor: "string", capabilities: "string-array", category: "string",
+      composerIcon: "string", defaultPrompt: "string-array", developerName: "string",
+      displayName: "string", logo: "string", logoDark: "string",
+      longDescription: "string", privacyPolicyUrl: "string", screenshots: "string-array",
+      shortDescription: "string", termsOfServiceUrl: "string", websiteUrl: "string",
+    }, `${prefix}.interface`),
+    ...checkUnknownFields(file, value, "codex", providerRef, fields, `${prefix}.interface`),
+  ];
 }
 
 function checkClaudePluginManifest(
@@ -865,6 +1084,13 @@ function isCursorMarketplacePath(path: string): boolean {
   return (
     path === ".cursor-plugin/marketplace.json" ||
     path.endsWith("/.cursor-plugin/marketplace.json")
+  );
+}
+
+function isChatGptMarketplacePath(path: string): boolean {
+  return (
+    path === ".agents/plugins/marketplace.json" ||
+    path.endsWith("/.agents/plugins/marketplace.json")
   );
 }
 

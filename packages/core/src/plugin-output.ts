@@ -104,6 +104,10 @@ export function cursorMarketplacePath(outputRoot: string): string {
       );
 }
 
+export function chatGptMarketplacePath(): string {
+  return ".agents/plugins/marketplace.json";
+}
+
 export function providerSourceForPlugin(
   outputRoot: string,
   target: TargetName,

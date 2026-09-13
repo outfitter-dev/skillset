@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   DISTRIBUTION_RUNTIME_TARGETS,
   NON_DISTRIBUTABLE_RUNTIME_IDS,
+  readMarketplaceCatalogConfig,
   validateConfigDocument,
   validateRootSourceManifestDocument,
   validateWorkspaceConfigDocument,
@@ -71,5 +72,197 @@ describe("schema-owned config document contexts", () => {
     expect(() => validateConfigDocument({ compile: {} }, ".skillset/plugins/demo/skillset.yaml", { allowHooks: true })).toThrow(
       "unsupported top-level key compile"
     );
+  });
+});
+
+describe("Codex marketplace config", () => {
+  it("preserves configured catalog and plugin order with typed native metadata", () => {
+    const catalogs = readMarketplaceCatalogConfig(
+      {
+        marketplaces: {
+          zeta: {
+            plugins: [{ plugin: "zeta" }],
+            targets: ["claude"],
+          },
+          alpha: {
+            plugins: [
+              {
+                codex: {
+                  displayName: "Legacy Alpha",
+                  policy: { products: [] },
+                  source: {
+                    ref: "main",
+                    sha: "a".repeat(40),
+                    source: "git-subdir",
+                    path: "./plugins/alpha",
+                    url: "github:acme/plugins",
+                  },
+                },
+                plugin: "alpha",
+              },
+              { plugin: "beta" },
+            ],
+            targets: ["codex"],
+          },
+        },
+      },
+      "skillset.yaml"
+    );
+
+    expect(Object.keys(catalogs)).toEqual(["zeta", "alpha"]);
+    expect(catalogs.alpha?.plugins.map((entry) => entry.id)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+    expect(catalogs.alpha?.plugins[0]?.codex).toMatchObject({
+      interface: { displayName: "Legacy Alpha" },
+      policy: { products: [] },
+      source: {
+        path: "./plugins/alpha",
+        ref: "main",
+        sha: "a".repeat(40),
+        source: "git-subdir",
+      },
+    });
+  });
+
+  it("normalizes native source and product aliases without narrowing Git forms", () => {
+    const catalogs = readMarketplaceCatalogConfig(
+      {
+        marketplaces: {
+          native: {
+            plugins: [
+              {
+                codex: {
+                  policy: { products: ["ATLAS", "CHATGPT", "CODEX"] },
+                  source: "./plugins/local",
+                },
+                plugin: "local",
+              },
+              {
+                codex: {
+                  source: {
+                    path: "./plugins/nested",
+                    source: "url",
+                    url: "file:///tmp/plugins.git",
+                  },
+                },
+                plugin: "file-git",
+              },
+              {
+                codex: {
+                  source: {
+                    source: "url",
+                    url: "/tmp/plugins.git",
+                  },
+                },
+                plugin: "absolute-git",
+              },
+            ],
+            targets: ["codex"],
+          },
+        },
+      },
+      "skillset.yaml"
+    );
+
+    expect(catalogs.native?.plugins[0]?.codex).toMatchObject({
+      policy: { products: ["atlas", "chatgpt", "codex"] },
+      source: { path: "./plugins/local", source: "local" },
+    });
+    expect(catalogs.native?.plugins[1]?.codex?.source).toEqual({
+      path: "./plugins/nested",
+      source: "url",
+      url: "file:///tmp/plugins.git",
+    });
+    expect(catalogs.native?.plugins[2]?.codex?.source).toEqual({
+      source: "url",
+      url: "/tmp/plugins.git",
+    });
+  });
+
+  it("rejects duplicate effective ids and non-registry npm selectors", () => {
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        {
+          marketplaces: {
+            duplicate: {
+              plugins: [
+                { plugin: "shared" },
+                { id: "shared", plugin: "other" },
+              ],
+            },
+          },
+        },
+        "skillset.yaml"
+      )
+    ).toThrow("unique effective ids; duplicate shared");
+
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        {
+          marketplaces: {
+            unsafe: {
+              plugins: [
+                {
+                  codex: {
+                    source: {
+                      package: "@acme/plugin",
+                      source: "npm",
+                      version: "file:../payload",
+                    },
+                  },
+                  plugin: "unsafe",
+                },
+              ],
+            },
+          },
+        },
+        "skillset.yaml"
+      )
+    ).toThrow("npm registry version, tag, or range");
+  });
+
+  it("rejects multiple Codex catalogs and redacts credential-bearing URLs", () => {
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        {
+          marketplaces: {
+            first: { plugins: [{ plugin: "first" }], targets: ["codex"] },
+            second: { plugins: [{ plugin: "second" }], targets: ["codex"] },
+          },
+        },
+        "skillset.yaml"
+      )
+    ).toThrow("Codex supports exactly one marketplace catalog");
+
+    let message = "";
+    try {
+      readMarketplaceCatalogConfig(
+        {
+          marketplaces: {
+            first: {
+              plugins: [
+                {
+                  codex: {
+                    source: {
+                      source: "url",
+                      url: "https://user:SENTINEL@git.example/acme/plugin.git",
+                    },
+                  },
+                  plugin: "first",
+                },
+              ],
+              targets: ["codex"],
+            },
+          },
+        },
+        "skillset.yaml"
+      );
+    } catch (error) {
+      message = String(error);
+    }
+    expect(message).toContain("credential-free remote Git URL");
+    expect(message).not.toContain("SENTINEL");
   });
 });

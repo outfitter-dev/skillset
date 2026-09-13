@@ -51,6 +51,45 @@ export const UNSUPPORTED_DESTINATION_POLICIES = [
   "skip",
   "force",
 ] as const;
+export const CODEX_MARKETPLACE_SOURCE_KINDS = [
+  "git-subdir",
+  "local",
+  "npm",
+  "url",
+] as const;
+export const CODEX_MARKETPLACE_INSTALLATION_POLICIES = [
+  "AVAILABLE",
+  "INSTALLED_BY_DEFAULT",
+  "NOT_AVAILABLE",
+] as const;
+export const CODEX_MARKETPLACE_AUTHENTICATION_POLICIES = [
+  "ON_INSTALL",
+  "ON_USE",
+] as const;
+export const CODEX_MARKETPLACE_PRODUCTS = ["atlas", "chatgpt", "codex"] as const;
+export const CODEX_MARKETPLACE_PRODUCT_INPUTS = [
+  ...CODEX_MARKETPLACE_PRODUCTS,
+  "ATLAS",
+  "CHATGPT",
+  "CODEX",
+] as const;
+export const CODEX_MARKETPLACE_INTERFACE_KEYS = [
+  "brandColor",
+  "capabilities",
+  "category",
+  "composerIcon",
+  "defaultPrompt",
+  "developerName",
+  "displayName",
+  "logo",
+  "logoDark",
+  "longDescription",
+  "privacyPolicyUrl",
+  "screenshots",
+  "shortDescription",
+  "termsOfServiceUrl",
+  "websiteUrl",
+] as const;
 export const SOURCE_LICENSE_IDS = [
   "Apache-2.0",
   "BSD-2-Clause",
@@ -1264,6 +1303,7 @@ function marketplacePluginEntrySchema(): SchemaJsonRecord {
   return {
     ...strictObjectSchema({
       channel: { const: "latest", type: "string" },
+      codex: codexMarketplacePluginSchema(),
       id: { pattern: "^[a-z0-9][a-z0-9-]*$", type: "string" },
       plugin: { pattern: "^[a-z0-9][a-z0-9-]*$", type: "string" },
       ref: {
@@ -1293,6 +1333,132 @@ function marketplacePluginEntrySchema(): SchemaJsonRecord {
     ].map((required) => ({ not: { required } })),
     required: ["plugin"],
   };
+}
+
+function codexMarketplacePluginSchema(): SchemaJsonRecord {
+  return strictObjectSchema({
+    author: {
+      ...strictObjectSchema({
+        email: nonEmptyStringSchema(),
+        name: nonEmptyStringSchema(),
+        url: nonEmptyStringSchema(),
+      }),
+      required: ["name"],
+    },
+    category: nonEmptyStringSchema(),
+    description: nonEmptyStringSchema(),
+    displayName: nonEmptyStringSchema(),
+    homepage: nonEmptyStringSchema(),
+    interface: codexMarketplaceInterfaceSchema(),
+    keywords: arraySchema(nonEmptyStringSchema(), { minItems: 1 }),
+    policy: strictObjectSchema({
+      authentication: enumSchema(CODEX_MARKETPLACE_AUTHENTICATION_POLICIES),
+      installation: enumSchema(CODEX_MARKETPLACE_INSTALLATION_POLICIES),
+      products: arraySchema(enumSchema(CODEX_MARKETPLACE_PRODUCT_INPUTS), {
+        uniqueItems: true,
+      }),
+    }),
+    source: codexMarketplaceSourceSchema(),
+    version: semverStringSchema(),
+  });
+}
+
+function codexMarketplaceSourceSchema(): SchemaJsonRecord {
+  const localPath = {
+    pattern:
+      "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+    type: "string",
+  };
+  const gitUrl = {
+    pattern:
+      "^(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?|[^:@/\\s]+@[^:\\s/]+:[^\\s]+|https://(?![^/]*@)[^\\s/?#]+/[^\\s?#]+|ssh://(?:[^:@\\s]+@)?[^\\s/?#]+/[^\\s?#]+|file:///[^\\s]+|/[^\\s]+)$",
+    type: "string",
+  };
+  const gitSelectors = {
+    ref: {
+      pattern:
+        "^(?!.*(?:\\.\\.|//|@\\{|\\.lock$))[A-Za-z0-9][A-Za-z0-9._/-]*(?<![./])$",
+      type: "string",
+    },
+    sha: { pattern: "^[0-9a-f]{40}$", type: "string" },
+  };
+  return {
+    oneOf: [
+      localPath,
+      {
+        ...strictObjectSchema({
+          path: localPath,
+          source: { const: "local", type: "string" },
+        }),
+        required: ["path", "source"],
+      },
+      {
+        ...strictObjectSchema({
+          ...gitSelectors,
+          path: localPath,
+          source: { const: "url", type: "string" },
+          url: gitUrl,
+        }),
+        required: ["source", "url"],
+      },
+      {
+        ...strictObjectSchema({
+          ...gitSelectors,
+          path: localPath,
+          source: { const: "git-subdir", type: "string" },
+          url: gitUrl,
+        }),
+        required: ["path", "source", "url"],
+      },
+      {
+        ...strictObjectSchema({
+          package: {
+            pattern:
+              "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+            type: "string",
+          },
+          registry: {
+            pattern: "^https://(?![^/]*@)[^\\s/?#]+(?:/[^\\s?#]*)?$",
+            type: "string",
+          },
+          source: { const: "npm", type: "string" },
+          version: {
+            pattern: "^(?!\\.?\\.?$)(?!\\s)(?!.*\\s$)[^/\\\\:]+$",
+            type: "string",
+          },
+        }),
+        required: ["package", "source"],
+      },
+    ],
+  };
+}
+
+function codexMarketplaceInterfaceSchema(): SchemaJsonRecord {
+  const assetPath = {
+    pattern:
+      "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+    type: "string",
+  };
+  return strictObjectSchema({
+    brandColor: nonEmptyStringSchema(),
+    capabilities: arraySchema(nonEmptyStringSchema(), { minItems: 1 }),
+    category: nonEmptyStringSchema(),
+    composerIcon: assetPath,
+    defaultPrompt: arraySchema(
+      { maxLength: 128, ...nonEmptyStringSchema() },
+      { maxItems: 3, minItems: 1 }
+    ),
+    developerName: nonEmptyStringSchema(),
+    displayName: nonEmptyStringSchema(),
+    logo: assetPath,
+    logoDark: assetPath,
+    longDescription: nonEmptyStringSchema(),
+    privacyPolicyUrl: nonEmptyStringSchema(),
+    screenshots: arraySchema(assetPath, { minItems: 1 }),
+    shortDescription: nonEmptyStringSchema(),
+    termsOfServiceUrl: nonEmptyStringSchema(),
+    websiteUrl: nonEmptyStringSchema(),
+  });
 }
 
 function supportsSchema(): SchemaJsonRecord {

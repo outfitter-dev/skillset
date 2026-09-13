@@ -260,7 +260,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ],
     id: "marketplaces",
     kind: "workflow",
-    renderOwner: "packages/core/src/marketplace-update.ts",
+    renderOwner: "packages/core/src/render-marketplaces.ts",
     sourceShape: "workspace skillset.yaml marketplaces",
     status: "implemented",
     summary: "Declares curated provider marketplace catalogs, resolves local or remote-cached plugin readiness with portable lock provenance, and renders provider-supported marketplace indexes.",
@@ -271,9 +271,20 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "native",
       },
       codex: {
-        evidence: [docs("docs/reference/features/marketplaces.md"), source("packages/registry/src/openai-agent-plugin-evidence.ts")],
-        reason: "ChatGPT product bundles are renderable through the Codex target, but marketplace activation remains a runtime config surface rather than a provider-owned generated index.",
-        status: "future",
+        evidence: [
+          docs("docs/reference/features/marketplaces.md"),
+          source("packages/core/src/openai-marketplace.ts"),
+          source("packages/registry/src/openai-marketplace-evidence.ts"),
+          test(
+            "packages/core/src/__tests__/openai-marketplace.test.ts",
+            "SET-530 ChatGPT marketplace catalog rendering coverage"
+          ),
+          test(
+            "scripts/__tests__/provider-validation.test.ts",
+            "SET-530 Codex 0.154 marketplace consumer conformance"
+          ),
+        ],
+        status: "native",
       },
       cursor: {
         evidence: [docs("docs/reference/features/marketplaces.md"), providerSchemaSnapshot("cursor-marketplace-schema")],

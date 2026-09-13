@@ -5,6 +5,11 @@ import {
   CLI_EVENT_SCHEMA_VERSION,
   CLI_RESULT_SCHEMA_VERSION,
   COMPILE_BUILD_MODES,
+  CODEX_MARKETPLACE_AUTHENTICATION_POLICIES,
+  CODEX_MARKETPLACE_INSTALLATION_POLICIES,
+  CODEX_MARKETPLACE_INTERFACE_KEYS,
+  CODEX_MARKETPLACE_PRODUCT_INPUTS,
+  CODEX_MARKETPLACE_SOURCE_KINDS,
   PLUGIN_CONFIG_KEYS,
   RENDERED_METADATA_SCHEMA_KEY,
   RENDERED_METADATA_SCHEMA_VERSION,
@@ -75,6 +80,21 @@ const toolsProviderKeys = new Set<string>([
 const semverPattern = createSemverRegExp();
 const fullGitShaPattern = /^[0-9a-f]{40}$/;
 const safeGitRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
+const codexMarketplaceSourceKinds = new Set<string>(
+  CODEX_MARKETPLACE_SOURCE_KINDS
+);
+const codexMarketplaceInstallationPolicies = new Set<string>(
+  CODEX_MARKETPLACE_INSTALLATION_POLICIES
+);
+const codexMarketplaceAuthenticationPolicies = new Set<string>(
+  CODEX_MARKETPLACE_AUTHENTICATION_POLICIES
+);
+const codexMarketplaceProductInputs = new Set<string>(
+  CODEX_MARKETPLACE_PRODUCT_INPUTS
+);
+const codexMarketplaceInterfaceKeys = new Set<string>(
+  CODEX_MARKETPLACE_INTERFACE_KEYS
+);
 
 export function validateCliResult(
   value: unknown,
@@ -2184,6 +2204,7 @@ function checkMarketplaceCatalogs(
     );
     return;
   }
+  let codexCatalog: string | undefined;
   for (const [name, catalog] of Object.entries(value)) {
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
       diagnostics.push(
@@ -2195,6 +2216,23 @@ function checkMarketplaceCatalogs(
       );
     }
     checkMarketplaceCatalog(catalog, `${path}.${name}`, diagnostics);
+    if (
+      isSchemaRecord(catalog) &&
+      (catalog.targets === undefined ||
+        (Array.isArray(catalog.targets) && catalog.targets.includes("codex")))
+    ) {
+      if (codexCatalog !== undefined) {
+        diagnostics.push(
+          diagnostic(
+            `${path}.${name}.targets`,
+            "schema/workspace-config/codex-marketplace-count",
+            `Codex supports exactly one catalog; ${codexCatalog} already targets codex`
+          )
+        );
+      } else {
+        codexCatalog = name;
+      }
+    }
   }
 }
 
@@ -2249,12 +2287,36 @@ function checkMarketplaceCatalog(
     );
     return;
   }
+  const effectiveIds = new Map<string, number>();
   for (const [index, entry] of value.plugins.entries()) {
     checkMarketplacePluginEntry(
       entry,
       `${path}.plugins[${index}]`,
       diagnostics
     );
+    if (isSchemaRecord(entry)) {
+      const effectiveId =
+        typeof entry.id === "string"
+          ? entry.id
+          : typeof entry.plugin === "string"
+            ? entry.plugin
+            : undefined;
+      if (effectiveId !== undefined) {
+        const effectiveIdKey = typeof entry.id === "string" ? "id" : "plugin";
+        const previousIndex = effectiveIds.get(effectiveId);
+        if (previousIndex !== undefined) {
+          diagnostics.push(
+            diagnostic(
+              `${path}.plugins[${index}].${effectiveIdKey}`,
+              "schema/workspace-config/marketplace-plugin-id-duplicate",
+              `marketplace plugin effective id ${effectiveId} duplicates plugins[${previousIndex}]`
+            )
+          );
+        } else {
+          effectiveIds.set(effectiveId, index);
+        }
+      }
+    }
   }
 }
 
@@ -2277,6 +2339,7 @@ function checkMarketplacePluginEntry(
     value,
     new Set([
       "channel",
+      "codex",
       "id",
       "plugin",
       "ref",
@@ -2290,6 +2353,7 @@ function checkMarketplacePluginEntry(
     diagnostics
   );
   checkOptionalMarketplaceId(value.id, `${path}.id`, diagnostics);
+  checkCodexMarketplacePlugin(value.codex, `${path}.codex`, diagnostics);
   if (value.plugin === undefined) {
     diagnostics.push(
       diagnostic(
@@ -2366,6 +2430,549 @@ function checkMarketplacePluginEntry(
       diagnostics,
       "marketplace plugin targets"
     );
+}
+
+function checkCodexMarketplacePlugin(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        "schema/workspace-config/codex-marketplace-plugin",
+        "codex marketplace plugin metadata must be an object"
+      )
+    );
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set([
+      "author",
+      "category",
+      "description",
+      "displayName",
+      "homepage",
+      "interface",
+      "keywords",
+      "policy",
+      "source",
+      "version",
+    ]),
+    path,
+    "schema/workspace-config/codex-marketplace-plugin-key",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.category,
+    `${path}.category`,
+    "schema/workspace-config/codex-marketplace-category",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.description,
+    `${path}.description`,
+    "schema/workspace-config/codex-marketplace-description",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.displayName,
+    `${path}.displayName`,
+    "schema/workspace-config/codex-marketplace-display-name",
+    diagnostics
+  );
+  checkOptionalNonEmptyString(
+    value.homepage,
+    `${path}.homepage`,
+    "schema/workspace-config/codex-marketplace-homepage",
+    diagnostics
+  );
+  checkOptionalNonEmptyStringArray(
+    value.keywords,
+    `${path}.keywords`,
+    "schema/workspace-config/codex-marketplace-keywords",
+    diagnostics
+  );
+  if (Array.isArray(value.keywords) && value.keywords.length === 0) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.keywords`,
+        "schema/workspace-config/codex-marketplace-keywords",
+        `${path}.keywords must be a non-empty string array`
+      )
+    );
+  }
+  checkOptionalSemverString(
+    value.version,
+    `${path}.version`,
+    "schema/workspace-config/codex-marketplace-version",
+    diagnostics
+  );
+  checkCodexMarketplaceAuthor(value.author, `${path}.author`, diagnostics);
+  checkCodexMarketplaceInterface(
+    value.interface,
+    `${path}.interface`,
+    diagnostics
+  );
+  checkCodexMarketplacePolicy(value.policy, `${path}.policy`, diagnostics);
+  checkCodexMarketplaceSource(value.source, `${path}.source`, diagnostics);
+}
+
+function checkCodexMarketplaceAuthor(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        "schema/workspace-config/codex-marketplace-author",
+        `${path} must be an object`
+      )
+    );
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set(["email", "name", "url"]),
+    path,
+    "schema/workspace-config/codex-marketplace-author-key",
+    diagnostics
+  );
+  checkRequiredNonEmptyString(
+    value.name,
+    `${path}.name`,
+    "schema/workspace-config/codex-marketplace-author-name",
+    diagnostics
+  );
+  for (const key of ["email", "url"] as const) {
+    checkOptionalNonEmptyString(
+      value[key],
+      `${path}.${key}`,
+      `schema/workspace-config/codex-marketplace-author-${key}`,
+      diagnostics
+    );
+  }
+}
+
+function checkCodexMarketplaceInterface(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        "schema/workspace-config/codex-marketplace-interface",
+        `${path} must be an object`
+      )
+    );
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    codexMarketplaceInterfaceKeys,
+    path,
+    "schema/workspace-config/codex-marketplace-interface-key",
+    diagnostics
+  );
+  for (const key of [
+    "brandColor",
+    "category",
+    "developerName",
+    "displayName",
+    "longDescription",
+    "privacyPolicyUrl",
+    "shortDescription",
+    "termsOfServiceUrl",
+    "websiteUrl",
+  ] as const) {
+    checkOptionalNonEmptyString(
+      value[key],
+      `${path}.${key}`,
+      "schema/workspace-config/codex-marketplace-interface-field",
+      diagnostics
+    );
+  }
+  for (const key of ["composerIcon", "logo", "logoDark"] as const) {
+    if (
+      value[key] !== undefined &&
+      (typeof value[key] !== "string" ||
+        !isCodexMarketplaceLocalPath(value[key]))
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.${key}`,
+          "schema/workspace-config/codex-marketplace-interface-asset",
+          `${path}.${key} must be a contained ./ asset path`
+        )
+      );
+    }
+  }
+  for (const key of ["capabilities", "defaultPrompt", "screenshots"] as const) {
+    const field = value[key];
+    if (field === undefined) continue;
+    checkStringArray(
+      field,
+      `${path}.${key}`,
+      `${path}.${key}`,
+      "schema/workspace-config/codex-marketplace-interface-field",
+      diagnostics,
+      false
+    );
+    if (
+      key === "defaultPrompt" &&
+      Array.isArray(field) &&
+      (field.length > 3 ||
+        field.some((item) => typeof item === "string" && item.length > 128))
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.${key}`,
+          "schema/workspace-config/codex-marketplace-default-prompt",
+          `${path}.${key} permits at most three 128-character prompts`
+        )
+      );
+    }
+    if (
+      key === "screenshots" &&
+      Array.isArray(field) &&
+      field.some(
+        (item) => typeof item !== "string" || !isCodexMarketplaceLocalPath(item)
+      )
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.${key}`,
+          "schema/workspace-config/codex-marketplace-interface-asset",
+          `${path}.${key} entries must be contained ./ asset paths`
+        )
+      );
+    }
+  }
+}
+
+function checkCodexMarketplacePolicy(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        "schema/workspace-config/codex-marketplace-policy",
+        `${path} must be an object`
+      )
+    );
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set(["authentication", "installation", "products"]),
+    path,
+    "schema/workspace-config/codex-marketplace-policy-key",
+    diagnostics
+  );
+  if (
+    value.installation !== undefined &&
+    (typeof value.installation !== "string" ||
+      !codexMarketplaceInstallationPolicies.has(value.installation))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.installation`,
+        "schema/workspace-config/codex-marketplace-installation",
+        `${path}.installation must be AVAILABLE, INSTALLED_BY_DEFAULT, or NOT_AVAILABLE`
+      )
+    );
+  }
+  if (
+    value.authentication !== undefined &&
+    (typeof value.authentication !== "string" ||
+      !codexMarketplaceAuthenticationPolicies.has(value.authentication))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.authentication`,
+        "schema/workspace-config/codex-marketplace-authentication",
+        `${path}.authentication must be ON_INSTALL or ON_USE`
+      )
+    );
+  }
+  if (value.products !== undefined) {
+    if (!Array.isArray(value.products)) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.products`,
+          "schema/workspace-config/codex-marketplace-products",
+          `${path}.products must be an array`
+        )
+      );
+    } else {
+      for (const [index, product] of value.products.entries()) {
+        if (
+          typeof product !== "string" ||
+          !codexMarketplaceProductInputs.has(product)
+        ) {
+          diagnostics.push(
+            diagnostic(
+              `${path}.products[${index}]`,
+              "schema/workspace-config/codex-marketplace-products",
+              `${path}.products entries must be atlas, chatgpt, or codex`
+            )
+          );
+        }
+      }
+      const normalizedProducts = value.products.map((product) =>
+        typeof product === "string" ? product.toLowerCase() : product
+      );
+      if (new Set(normalizedProducts).size !== normalizedProducts.length) {
+        diagnostics.push(
+          diagnostic(
+            `${path}.products`,
+            "schema/workspace-config/codex-marketplace-products",
+            `${path}.products entries must be unique`
+          )
+        );
+      }
+    }
+  }
+}
+
+function checkCodexMarketplaceSource(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (typeof value === "string") {
+    if (!isCodexMarketplaceLocalPath(value)) {
+      diagnostics.push(
+        diagnostic(
+          path,
+          "schema/workspace-config/codex-marketplace-source-path",
+          `${path} must be a contained ./ path relative to the marketplace root`
+        )
+      );
+    }
+    return;
+  }
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        "schema/workspace-config/codex-marketplace-source",
+        `${path} must be an object`
+      )
+    );
+    return;
+  }
+  const kind = value.source;
+  if (typeof kind !== "string" || !codexMarketplaceSourceKinds.has(kind)) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.source`,
+        "schema/workspace-config/codex-marketplace-source-kind",
+        `${path}.source must be git-subdir, local, npm, or url`
+      )
+    );
+    return;
+  }
+  const allowed =
+    kind === "local"
+      ? new Set(["path", "source"])
+      : kind === "npm"
+        ? new Set(["package", "registry", "source", "version"])
+        : kind === "git-subdir"
+          ? new Set(["path", "ref", "sha", "source", "url"])
+          : new Set(["path", "ref", "sha", "source", "url"]);
+  checkAllowedKeys(
+    value,
+    allowed,
+    path,
+    "schema/workspace-config/codex-marketplace-source-key",
+    diagnostics
+  );
+  if (kind === "local") {
+    if (
+      typeof value.path !== "string" ||
+      !isCodexMarketplaceLocalPath(value.path)
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.path`,
+          "schema/workspace-config/codex-marketplace-source-path",
+          `${path}.path must be a contained ./ path relative to the marketplace root`
+        )
+      );
+    }
+    return;
+  }
+  if (kind === "npm") {
+    if (
+      typeof value.package !== "string" ||
+      !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(
+        value.package
+      )
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.package`,
+          "schema/workspace-config/codex-marketplace-source-package",
+          `${path}.package must be an npm package name`
+        )
+      );
+    }
+    checkOptionalNonEmptyString(
+      value.version,
+      `${path}.version`,
+      "schema/workspace-config/codex-marketplace-source-version",
+      diagnostics
+    );
+    if (
+      typeof value.version === "string" &&
+      !isRegistryNpmVersionSelector(value.version)
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.version`,
+          "schema/workspace-config/codex-marketplace-source-version",
+          `${path}.version must be an npm registry version, tag, or range`
+        )
+      );
+    }
+    if (
+      value.registry !== undefined &&
+      (typeof value.registry !== "string" ||
+        !isCredentialFreeHttpsUrl(value.registry))
+    ) {
+      diagnostics.push(
+        diagnostic(
+          `${path}.registry`,
+          "schema/workspace-config/codex-marketplace-source-registry",
+          `${path}.registry must be a credential-free HTTPS URL`
+        )
+      );
+    }
+    return;
+  }
+  if (
+    typeof value.url !== "string" ||
+    !isSupportedCodexMarketplaceGitUrl(value.url)
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.url`,
+        "schema/workspace-config/codex-marketplace-source-url",
+        `${path}.url must be a credential-free remote Git URL, file URL, or absolute path`
+      )
+    );
+  }
+  if (
+    value.path !== undefined &&
+    (typeof value.path !== "string" || !isCodexMarketplaceLocalPath(value.path))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.path`,
+        "schema/workspace-config/codex-marketplace-source-path",
+        `${path}.path must be a contained ./ path relative to the repository root`
+      )
+    );
+  }
+  if (
+    value.ref !== undefined &&
+    (typeof value.ref !== "string" || !isSafeGitRef(value.ref))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.ref`,
+        "schema/workspace-config/codex-marketplace-source-ref",
+        `${path}.ref must be a safe Git ref`
+      )
+    );
+  }
+  if (
+    value.sha !== undefined &&
+    (typeof value.sha !== "string" || !fullGitShaPattern.test(value.sha))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.sha`,
+        "schema/workspace-config/codex-marketplace-source-sha",
+        `${path}.sha must be a full lowercase 40-character commit`
+      )
+    );
+  }
+}
+
+function isRegistryNpmVersionSelector(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value === value.trim() &&
+    value !== "." &&
+    value !== ".." &&
+    !/[\\/:]/u.test(value)
+  );
+}
+
+function isCodexMarketplaceLocalPath(value: string): boolean {
+  return value.startsWith("./") && isCodexMarketplaceRemoteSubdir(value.slice(2));
+}
+
+function isSupportedCodexMarketplaceGitUrl(value: string): boolean {
+  if (value.startsWith("/")) return !value.includes("\\0");
+  if (value.startsWith("file://")) {
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === "file:" &&
+        url.username.length === 0 &&
+        url.password.length === 0 &&
+        url.search.length === 0 &&
+        url.hash.length === 0 &&
+        url.pathname.startsWith("/")
+      );
+    } catch {
+      return false;
+    }
+  }
+  return isSupportedRemoteRepository(value);
+}
+
+function isCodexMarketplaceRemoteSubdir(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value === value.trim() &&
+    !value.startsWith("/") &&
+    !value.includes("\\") &&
+    value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..")
+  );
+}
+
+function isCredentialFreeHttpsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.hostname.length > 0 &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+    );
+  } catch {
+    return false;
+  }
 }
 
 function checkOptionalMarketplaceId(

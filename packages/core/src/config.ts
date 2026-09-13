@@ -1,4 +1,9 @@
 import {
+  CODEX_MARKETPLACE_AUTHENTICATION_POLICIES,
+  CODEX_MARKETPLACE_INSTALLATION_POLICIES,
+  CODEX_MARKETPLACE_INTERFACE_KEYS,
+  CODEX_MARKETPLACE_PRODUCT_INPUTS,
+  CODEX_MARKETPLACE_SOURCE_KINDS,
   COMPILE_BUILD_MODES as SCHEMA_COMPILE_BUILD_MODES,
   PLUGIN_CONFIG_KEYS as SCHEMA_PLUGIN_CONFIG_KEYS,
   ROOT_SOURCE_MANIFEST_KEYS as SCHEMA_ROOT_SOURCE_MANIFEST_KEYS,
@@ -14,6 +19,12 @@ import {
 } from "@skillset/schema";
 
 import type {
+  CodexMarketplaceAuthor,
+  CodexMarketplaceInterface,
+  CodexMarketplacePluginConfig,
+  CodexMarketplacePluginPolicy,
+  CodexMarketplaceProduct,
+  CodexMarketplacePluginSource,
   CompileBuildMode,
   CompileConfig,
   CompileFeatureConfig,
@@ -67,6 +78,21 @@ const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_ROOT_SOURCE_M
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES as readonly CompileBuildMode[]);
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>(
   SCHEMA_UNSUPPORTED_DESTINATION_POLICIES as readonly UnsupportedDestinationPolicy[]
+);
+const CODEX_MARKETPLACE_SOURCE_KIND_SET = new Set<string>(
+  CODEX_MARKETPLACE_SOURCE_KINDS
+);
+const CODEX_MARKETPLACE_INSTALLATION_POLICY_SET = new Set<string>(
+  CODEX_MARKETPLACE_INSTALLATION_POLICIES
+);
+const CODEX_MARKETPLACE_AUTHENTICATION_POLICY_SET = new Set<string>(
+  CODEX_MARKETPLACE_AUTHENTICATION_POLICIES
+);
+const CODEX_MARKETPLACE_PRODUCT_SET = new Set<string>(
+  CODEX_MARKETPLACE_PRODUCT_INPUTS
+);
+const CODEX_MARKETPLACE_INTERFACE_KEY_SET = new Set<string>(
+  CODEX_MARKETPLACE_INTERFACE_KEYS
 );
 export const DISTRIBUTION_RUNTIME_TARGETS: Readonly<Record<TargetName, readonly SkillsetRuntimeId[]>> = {
   claude: ["claude-code"],
@@ -313,7 +339,8 @@ export function readMarketplaceCatalogConfig(
   }
 
   const result: Record<string, MarketplaceCatalogConfig> = {};
-  for (const name of Object.keys(raw).sort()) {
+  let codexCatalog: string | undefined;
+  for (const name of Object.keys(raw)) {
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
       throw new Error(`skillset: expected ${label}.marketplaces key ${JSON.stringify(name)} to be a lowercase id`);
     }
@@ -326,7 +353,19 @@ export function readMarketplaceCatalogConfig(
         throw new Error(`skillset: unsupported marketplace key ${key} in ${label}.marketplaces.${name}`);
       }
     }
-    result[name] = readMarketplaceCatalogObject(value, `${label}.marketplaces.${name}`);
+    const catalog = readMarketplaceCatalogObject(
+      value,
+      `${label}.marketplaces.${name}`
+    );
+    if (catalog.targets.includes("codex")) {
+      if (codexCatalog !== undefined) {
+        throw new Error(
+          `skillset: Codex supports exactly one marketplace catalog; ${codexCatalog} and ${name} both target codex`
+        );
+      }
+      codexCatalog = name;
+    }
+    result[name] = catalog;
   }
   return result;
 }
@@ -755,9 +794,22 @@ function readMarketplaceCatalogObject(record: JsonRecord, label: string): Market
     throw new Error(`skillset: expected ${label}.plugins to be a non-empty array`);
   }
 
+  const plugins = rawPlugins.map((entry, index) =>
+    readMarketplacePluginEntry(entry, `${label}.plugins[${index}]`)
+  );
+  const seenIds = new Set<string>();
+  for (const entry of plugins) {
+    if (seenIds.has(entry.id)) {
+      throw new Error(
+        `skillset: expected ${label}.plugins to have unique effective ids; duplicate ${entry.id}`
+      );
+    }
+    seenIds.add(entry.id);
+  }
+
   return {
     ...(description === undefined ? {} : { description }),
-    plugins: rawPlugins.map((entry, index) => readMarketplacePluginEntry(entry, `${label}.plugins[${index}]`)),
+    plugins,
     targets,
     ...(title === undefined ? {} : { title }),
   };
@@ -768,12 +820,13 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
     throw new Error(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(raw)) {
-    if (key !== "channel" && key !== "id" && key !== "plugin" && key !== "ref" && key !== "repo" && key !== "sha" && key !== "targets" && key !== "version") {
+    if (key !== "channel" && key !== "codex" && key !== "id" && key !== "plugin" && key !== "ref" && key !== "repo" && key !== "sha" && key !== "targets" && key !== "version") {
       throw new Error(`skillset: unsupported marketplace plugin key ${key} in ${label}`);
     }
   }
 
   const plugin = readRequiredString(raw, "plugin", `${label}.plugin`);
+  const codex = readCodexMarketplacePluginConfig(raw.codex, `${label}.codex`);
   const id = readOptionalString(raw, "id", `${label}.id`) ?? plugin;
   validateMarketplaceId(id, `${label}.id`);
   validateMarketplaceId(plugin, `${label}.plugin`);
@@ -796,6 +849,7 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
   if (version !== undefined) validateRemoteRepositoryRevision({ kind: "version", version });
   return {
     ...(channel === undefined ? {} : { channel }),
+    ...(codex === undefined ? {} : { codex }),
     id,
     plugin,
     ...(ref === undefined ? {} : { ref }),
@@ -804,6 +858,428 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
     ...(targets === undefined ? {} : { targets }),
     ...(version === undefined ? {} : { version }),
   };
+}
+
+function readCodexMarketplacePluginConfig(
+  raw: JsonValue | undefined,
+  label: string
+): CodexMarketplacePluginConfig | undefined {
+  if (raw === undefined) return undefined;
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  const allowed = new Set([
+    "author",
+    "category",
+    "description",
+    "displayName",
+    "homepage",
+    "interface",
+    "keywords",
+    "policy",
+    "source",
+    "version",
+  ]);
+  rejectUnknownKeys(raw, allowed, label, "Codex marketplace plugin");
+  const author = readCodexMarketplaceAuthor(raw.author, `${label}.author`);
+  const category = readOptionalString(raw, "category", `${label}.category`);
+  const description = readOptionalString(
+    raw,
+    "description",
+    `${label}.description`
+  );
+  const homepage = readOptionalString(raw, "homepage", `${label}.homepage`);
+  const displayName = readOptionalString(
+    raw,
+    "displayName",
+    `${label}.displayName`
+  );
+  const authoredInterface = readCodexMarketplaceInterface(
+    raw.interface,
+    `${label}.interface`
+  );
+  const interfaceConfig =
+    displayName === undefined || authoredInterface?.displayName !== undefined
+      ? authoredInterface
+      : { ...(authoredInterface ?? {}), displayName };
+  const keywords = readOptionalNonEmptyStringArray(
+    raw.keywords,
+    `${label}.keywords`
+  );
+  const policy = readCodexMarketplacePolicy(raw.policy, `${label}.policy`);
+  const source = readCodexMarketplaceSource(raw.source, `${label}.source`);
+  const version = readOptionalString(raw, "version", `${label}.version`);
+  if (version !== undefined) {
+    validateRemoteRepositoryRevision({ kind: "version", version });
+  }
+  return {
+    ...(author === undefined ? {} : { author }),
+    ...(category === undefined ? {} : { category }),
+    ...(description === undefined ? {} : { description }),
+    ...(homepage === undefined ? {} : { homepage }),
+    ...(interfaceConfig === undefined ? {} : { interface: interfaceConfig }),
+    ...(keywords === undefined ? {} : { keywords }),
+    ...(policy === undefined ? {} : { policy }),
+    ...(source === undefined ? {} : { source }),
+    ...(version === undefined ? {} : { version }),
+  };
+}
+
+function readCodexMarketplaceAuthor(
+  raw: JsonValue | undefined,
+  label: string
+): CodexMarketplaceAuthor | undefined {
+  if (raw === undefined) return undefined;
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  rejectUnknownKeys(
+    raw,
+    new Set(["email", "name", "url"]),
+    label,
+    "Codex marketplace author"
+  );
+  const name = readRequiredString(raw, "name", `${label}.name`);
+  const email = readOptionalString(raw, "email", `${label}.email`);
+  const url = readOptionalString(raw, "url", `${label}.url`);
+  return {
+    ...(email === undefined ? {} : { email }),
+    name,
+    ...(url === undefined ? {} : { url }),
+  };
+}
+
+function readCodexMarketplaceInterface(
+  raw: JsonValue | undefined,
+  label: string
+): CodexMarketplaceInterface | undefined {
+  if (raw === undefined) return undefined;
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  rejectUnknownKeys(
+    raw,
+    CODEX_MARKETPLACE_INTERFACE_KEY_SET,
+    label,
+    "Codex marketplace interface"
+  );
+  const result: Record<string, string | readonly string[]> = {};
+  for (const key of CODEX_MARKETPLACE_INTERFACE_KEYS) {
+    if (key === "capabilities" || key === "defaultPrompt" || key === "screenshots") {
+      const strings = readOptionalNonEmptyStringArray(
+        raw[key],
+        `${label}.${key}`
+      );
+      if (strings === undefined) continue;
+      if (
+        key === "defaultPrompt" &&
+        (strings.length > 3 || strings.some((value) => value.length > 128))
+      ) {
+        throw new Error(
+          `skillset: ${label}.defaultPrompt permits at most three 128-character prompts`
+        );
+      }
+      if (
+        key === "screenshots" &&
+        strings.some((value) => !isCodexMarketplaceLocalPath(value))
+      ) {
+        throw new Error(
+          `skillset: expected ${label}.screenshots entries to be contained ./ asset paths`
+        );
+      }
+      result[key] = strings;
+      continue;
+    }
+    const value = readOptionalString(raw, key, `${label}.${key}`);
+    if (value === undefined) continue;
+    if (
+      (key === "composerIcon" || key === "logo" || key === "logoDark") &&
+      !isCodexMarketplaceLocalPath(value)
+    ) {
+      throw new Error(
+        `skillset: expected ${label}.${key} to be a contained ./ asset path`
+      );
+    }
+    result[key] = value;
+  }
+  return result as CodexMarketplaceInterface;
+}
+
+function readCodexMarketplacePolicy(
+  raw: JsonValue | undefined,
+  label: string
+): CodexMarketplacePluginPolicy | undefined {
+  if (raw === undefined) return undefined;
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  rejectUnknownKeys(
+    raw,
+    new Set(["authentication", "installation", "products"]),
+    label,
+    "Codex marketplace policy"
+  );
+  const installation = readOptionalString(
+    raw,
+    "installation",
+    `${label}.installation`
+  );
+  if (
+    installation !== undefined &&
+    !CODEX_MARKETPLACE_INSTALLATION_POLICY_SET.has(installation)
+  ) {
+    throw new Error(
+      `skillset: expected ${label}.installation to be AVAILABLE, INSTALLED_BY_DEFAULT, or NOT_AVAILABLE`
+    );
+  }
+  const authentication = readOptionalString(
+    raw,
+    "authentication",
+    `${label}.authentication`
+  );
+  if (
+    authentication !== undefined &&
+    !CODEX_MARKETPLACE_AUTHENTICATION_POLICY_SET.has(authentication)
+  ) {
+    throw new Error(
+      `skillset: expected ${label}.authentication to be ON_INSTALL or ON_USE`
+    );
+  }
+  const products = readCodexMarketplaceProducts(
+    raw.products,
+    `${label}.products`
+  );
+  return {
+    ...(authentication === undefined ? {} : { authentication }),
+    ...(installation === undefined ? {} : { installation }),
+    ...(products === undefined ? {} : { products }),
+  } as CodexMarketplacePluginPolicy;
+}
+
+function readCodexMarketplaceSource(
+  raw: JsonValue | undefined,
+  label: string
+): CodexMarketplacePluginSource | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw === "string") {
+    if (!isCodexMarketplaceLocalPath(raw)) {
+      throw new Error(
+        `skillset: expected ${label} to be a contained ./ path relative to the marketplace root`
+      );
+    }
+    return { path: raw, source: "local" };
+  }
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be a local path or source object`);
+  }
+  const source = readRequiredString(raw, "source", `${label}.source`);
+  if (!CODEX_MARKETPLACE_SOURCE_KIND_SET.has(source)) {
+    throw new Error(
+      `skillset: expected ${label}.source to be git-subdir, local, npm, or url`
+    );
+  }
+  if (source === "local") {
+    rejectUnknownKeys(
+      raw,
+      new Set(["path", "source"]),
+      label,
+      "Codex marketplace local source"
+    );
+    const path = readRequiredString(raw, "path", `${label}.path`);
+    if (!isCodexMarketplaceLocalPath(path)) {
+      throw new Error(
+        `skillset: expected ${label}.path to be a contained ./ path relative to the marketplace root`
+      );
+    }
+    return { path, source };
+  }
+  if (source === "npm") {
+    rejectUnknownKeys(
+      raw,
+      new Set(["package", "registry", "source", "version"]),
+      label,
+      "Codex marketplace npm source"
+    );
+    const packageName = readRequiredString(raw, "package", `${label}.package`);
+    if (!/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u.test(packageName)) {
+      throw new Error(`skillset: expected ${label}.package to be an npm package name`);
+    }
+    const registry = readOptionalString(raw, "registry", `${label}.registry`);
+    if (registry !== undefined && !isCredentialFreeHttpsUrl(registry)) {
+      throw new Error(
+        `skillset: expected ${label}.registry to be a credential-free HTTPS URL`
+      );
+    }
+    const version = readOptionalString(raw, "version", `${label}.version`);
+    if (version !== undefined && !isRegistryNpmVersionSelector(version)) {
+      throw new Error(
+        `skillset: expected ${label}.version to be an npm registry version, tag, or range`
+      );
+    }
+    return {
+      package: packageName,
+      ...(registry === undefined ? {} : { registry }),
+      source,
+      ...(version === undefined ? {} : { version }),
+    };
+  }
+  rejectUnknownKeys(
+    raw,
+    new Set(["path", "ref", "sha", "source", "url"]),
+    label,
+    `Codex marketplace ${source} source`
+  );
+  const url = readRequiredString(raw, "url", `${label}.url`);
+  validateCodexMarketplaceGitUrl(url, `${label}.url`);
+  const path = readOptionalString(raw, "path", `${label}.path`);
+  if (source === "git-subdir" && path === undefined) {
+    throw new Error(`skillset: expected ${label}.path to be a non-empty string`);
+  }
+  if (path !== undefined && !isCodexMarketplaceLocalPath(path)) {
+    throw new Error(
+      `skillset: expected ${label}.path to be a contained ./ path relative to the repository root`
+    );
+  }
+  const ref = readOptionalString(raw, "ref", `${label}.ref`);
+  const sha = readOptionalString(raw, "sha", `${label}.sha`);
+  if (ref !== undefined) validateRemoteRepositoryRevision({ kind: "ref", ref });
+  if (sha !== undefined) validateRemoteRepositoryRevision({ kind: "sha", sha });
+  return {
+    ...(path === undefined ? {} : { path }),
+    ...(ref === undefined ? {} : { ref }),
+    ...(sha === undefined ? {} : { sha }),
+    source,
+    url,
+  } as CodexMarketplacePluginSource;
+}
+
+function readCodexMarketplaceProducts(
+  raw: JsonValue | undefined,
+  label: string
+): readonly CodexMarketplaceProduct[] | undefined {
+  if (raw === undefined) return undefined;
+  if (
+    !Array.isArray(raw) ||
+    raw.some(
+      (value) =>
+        typeof value !== "string" || !CODEX_MARKETPLACE_PRODUCT_SET.has(value)
+    )
+  ) {
+    throw new Error(`skillset: expected ${label} entries to be atlas, chatgpt, or codex`);
+  }
+  const products = raw.map(
+    (value) => String(value).toLowerCase() as CodexMarketplaceProduct
+  );
+  if (new Set(products).size !== products.length) {
+    throw new Error(`skillset: expected ${label} entries to be unique`);
+  }
+  return products;
+}
+
+function isRegistryNpmVersionSelector(value: string): boolean {
+  return value !== "." && value !== ".." && !/[\\/:]/u.test(value);
+}
+
+function rejectUnknownKeys(
+  record: JsonRecord,
+  allowed: ReadonlySet<string>,
+  label: string,
+  subject: string
+): void {
+  for (const key of Object.keys(record)) {
+    if (!allowed.has(key)) {
+      throw new Error(`skillset: unsupported ${subject} key ${key} in ${label}`);
+    }
+  }
+}
+
+function readOptionalNonEmptyStringArray(
+  raw: JsonValue | undefined,
+  label: string
+): readonly string[] | undefined {
+  if (raw === undefined) return undefined;
+  if (
+    !Array.isArray(raw) ||
+    raw.length === 0 ||
+    raw.some((value) => typeof value !== "string" || value.trim().length === 0)
+  ) {
+    throw new Error(`skillset: expected ${label} to be a non-empty string array`);
+  }
+  return raw.map((value) => String(value));
+}
+
+function readOptionalEnumArray(
+  raw: JsonValue | undefined,
+  label: string,
+  allowed: ReadonlySet<string>,
+  expected: string,
+  allowEmpty: boolean
+): readonly string[] | undefined {
+  if (raw === undefined) return undefined;
+  if (
+    !Array.isArray(raw) ||
+    (!allowEmpty && raw.length === 0) ||
+    raw.some((value) => typeof value !== "string" || !allowed.has(value))
+  ) {
+    throw new Error(`skillset: expected ${label} entries to be ${expected}`);
+  }
+  if (new Set(raw).size !== raw.length) {
+    throw new Error(`skillset: expected ${label} entries to be unique`);
+  }
+  return raw.map((value) => String(value));
+}
+
+function validateCodexMarketplaceGitUrl(value: string, label: string): void {
+  if (isCodexMarketplaceFileGitUrl(value) || value.startsWith("/")) return;
+  try {
+    parseRemoteRepositoryReference(value);
+  } catch {
+    throw new Error(
+      `skillset: expected ${label} to be a credential-free remote Git URL, file URL, or absolute path`
+    );
+  }
+}
+
+function isCodexMarketplaceFileGitUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "file:" &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.search.length === 0 &&
+      url.hash.length === 0 &&
+      url.pathname.startsWith("/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isCodexMarketplaceLocalPath(value: string): boolean {
+  return value.startsWith("./") && isCodexMarketplaceRemoteSubdir(value.slice(2));
+}
+
+function isCodexMarketplaceRemoteSubdir(value: string): boolean {
+  return value.length > 0 &&
+    value === value.trim() &&
+    !value.startsWith("/") &&
+    !value.includes("\\") &&
+    value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
+function isCredentialFreeHttpsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.hostname.length > 0 &&
+      url.search.length === 0 &&
+      url.hash.length === 0;
+  } catch {
+    return false;
+  }
 }
 
 function readOptionalTargetNames(raw: JsonValue | undefined, label: string): readonly TargetName[] | undefined {

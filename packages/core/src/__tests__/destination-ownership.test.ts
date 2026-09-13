@@ -62,4 +62,25 @@ describe("destination ownership classifier", () => {
       expect.objectContaining({ owner: "generated", selector: "plugin.json#/name" })
     );
   });
+
+  it("classifies the closed ChatGPT marketplace catalog as generated", () => {
+    const classification = classifyDestinationOwnership({
+      content: encoder.encode(
+        JSON.stringify({
+          interface: { displayName: "Demo plugins" },
+          name: "demo",
+          plugins: [],
+        })
+      ),
+      path: ".agents/plugins/marketplace.json",
+      target: "codex",
+    });
+
+    expect(classification.file.owner).toBe("generated");
+    expect(classification.fields).toEqual([
+      expect.objectContaining({ owner: "generated", selector: "marketplace.json#/interface" }),
+      expect.objectContaining({ owner: "generated", selector: "marketplace.json#/name" }),
+      expect.objectContaining({ owner: "generated", selector: "marketplace.json#/plugins" }),
+    ]);
+  });
 });

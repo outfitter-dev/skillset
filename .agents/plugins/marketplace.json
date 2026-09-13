@@ -1,0 +1,48 @@
+{
+  "interface": {
+    "displayName": "Skillset"
+  },
+  "name": "skillset",
+  "plugins": [
+    {
+      "author": {
+        "name": "Skillset Maintainers"
+      },
+      "category": "Developer Tools",
+      "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
+      "interface": {
+        "brandColor": "#B06DFF",
+        "capabilities": [
+          "Read",
+          "Write",
+          "Developer"
+        ],
+        "category": "Developer Tools",
+        "defaultPrompt": [
+          "Build or check this skillset source tree."
+        ],
+        "developerName": "Skillset Maintainers",
+        "displayName": "Skillset",
+        "longDescription": "Skillset compiles portable source skills and plugin bundles into target-native Claude, Codex, and Cursor artifacts.",
+        "shortDescription": "Build source skills and plugins into Claude, Codex, and Cursor outputs."
+      },
+      "keywords": [
+        "skillset",
+        "skills",
+        "plugins",
+        "claude",
+        "codex"
+      ],
+      "name": "skillset",
+      "policy": {
+        "authentication": "ON_INSTALL",
+        "installation": "AVAILABLE"
+      },
+      "source": {
+        "path": "./plugins/skillset/chatgpt",
+        "source": "local"
+      },
+      "version": "0.1.1"
+    }
+  ]
+}

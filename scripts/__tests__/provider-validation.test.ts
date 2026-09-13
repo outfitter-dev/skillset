@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -21,6 +22,7 @@ import {
   runHostedProviderValidation,
   type ProviderArtifactInventory,
 } from "../provider-validation";
+import { validateCodexMarketplaceConsumer } from "../provider-validation-artifacts";
 import {
   formatAcquisitionFailureDiagnostic,
   stageValidationInputs,
@@ -71,6 +73,39 @@ describe("SET-463 hosted provider validation orchestration", () => {
     expect(inventory.cursorMarketplaces).toEqual([
       join(canonicalRoot, ".cursor-plugin/marketplace.json"),
     ]);
+  });
+
+  test("runs the pinned Codex marketplace consumer with isolated ephemeral config", async () => {
+    const root = await fixtureRoot();
+    const codex = join(root, "fake-codex");
+    await writeFile(
+      codex,
+      `#!/usr/bin/env bun
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === "--version") {
+  console.log("codex-cli 0.154.0");
+  process.exit(0);
+}
+if (!args.includes("--available") || !args.includes("marketplaces.skillset_validation.source_type=\\\"local\\\"")) {
+  console.error("missing read-only marketplace consumer arguments");
+  process.exit(2);
+}
+for (const key of ["CODEX_HOME", "HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME"]) {
+  if (!process.env[key]?.includes("skillset-codex-marketplace-consumer-")) {
+    console.error(\`unisolated environment: \${key}\`);
+    process.exit(3);
+  }
+}
+console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: [] }));
+`
+    );
+    await chmod(codex, 0o755);
+
+    await expect(validateCodexMarketplaceConsumer(root, codex)).resolves.toEqual({
+      catalogName: "demo",
+      codexVersion: "codex-cli 0.154.0",
+      pluginIds: ["demo@demo"],
+    });
   });
 
   test("rejects symlink path components before resolving outside the repository", async () => {
@@ -721,6 +756,7 @@ function sampleInventory(): ProviderArtifactInventory {
 async function fixtureRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-provider-validation-"));
   for (const path of [
+    ".agents/plugins",
     ".agents/skills/standalone",
     ".claude-plugin",
     ".cursor-plugin",
@@ -746,6 +782,23 @@ async function fixtureRoot(): Promise<string> {
         ? '{"name":"demo","version":"1.0.0"}\n'
         : `---\nname: ${basename(dirname(path))}\ndescription: demo\n---\n`
     );
+  await writeFile(
+    join(root, ".agents/plugins/marketplace.json"),
+    `${JSON.stringify({
+      interface: { displayName: "Demo" },
+      name: "demo",
+      plugins: [
+        {
+          name: "demo",
+          policy: {
+            authentication: "ON_INSTALL",
+            installation: "AVAILABLE",
+          },
+          source: { path: "./plugins/demo/chatgpt", source: "local" },
+        },
+      ],
+    })}\n`
+  );
   await writeFile(
     join(root, ".claude-plugin/marketplace.json"),
     `${JSON.stringify({
