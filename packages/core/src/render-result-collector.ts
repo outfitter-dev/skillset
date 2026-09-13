@@ -2,6 +2,7 @@ import { lstatSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import {
+  getStandardProfile,
   getStandardProfileSupportEnvelope,
   listProviderPluginManifestFields,
   type StandardProfileId,
@@ -274,6 +275,8 @@ function unsupportedAgentSkillStandardOutcomes(
     const sourcePath = normalizePath(
       relative(graph.rootPath, item.skill.sourcePath)
     );
+    const featureId =
+      item.plugin === undefined ? "standalone-skills" : "plugin-skills";
     return defineRenderResult({
       destination: "skill",
       diagnostics: item.issues.map((issue) => ({
@@ -281,8 +284,8 @@ function unsupportedAgentSkillStandardOutcomes(
         message: issue.message,
         path: issue.path,
       })),
-      featureId:
-        item.plugin === undefined ? "standalone-skills" : "plugin-skills",
+      evidence: evidenceFor(featureId, undefined, item.standardProfile) ?? [],
+      featureId,
       policy: "unsupported:error",
       reason: item.issues.map((issue) => issue.message).join("; "),
       sourcePath,
@@ -638,7 +641,7 @@ function outcomeForLockItem(
     ? manifestFacts?.reason ??
       reasonForStatus(featureId, target, status, standardProfile)
     : "excluded by build scope";
-  const evidence = evidenceFor(featureId, target);
+  const evidence = evidenceFor(featureId, target, standardProfile);
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
@@ -1553,7 +1556,9 @@ function featureOutcome(args: {
   readonly target: TargetName | undefined;
 }): SkillsetRenderResult {
   const status: SkillsetRenderResultStatus = args.isIncluded ? args.status : "intentionally_skipped";
-  const evidence = args.evidence ?? evidenceFor(args.featureId, args.target);
+  const evidence =
+    args.evidence ??
+    evidenceFor(args.featureId, args.target, args.standardProfile);
   const reason = args.isIncluded
     ? reasonForStatus(
         args.featureId,
@@ -1656,6 +1661,9 @@ function unsupportedAgentPluginStandardOutcomes(
       outcomes.push(
         defineRenderResult({
           destination: "plugin-manifest",
+          evidence:
+            evidenceFor("plugin-manifests", undefined, "agent-plugins-1.0") ??
+            [],
           featureId: "plugin-manifests",
           policy: "unsupported:error",
           reason:
@@ -1749,6 +1757,8 @@ function unsupportedMcpOutcomes(
         outcomes.push(
           defineRenderResult({
             destination: "mcp",
+            evidence:
+              evidenceFor("plugin-mcp", undefined, "agent-plugins-1.0") ?? [],
             featureId: "plugin-mcp",
             policy: "unsupported:error",
             reason: unsupportedMcpReason(entry),
@@ -1819,7 +1829,7 @@ function unsupportedAgentPluginFeatureOutcome(args: {
   readonly sourcePath: string;
   readonly sourceUnit: string;
 }): SkillsetRenderResult {
-  const evidence = evidenceFor(args.featureId, undefined);
+  const evidence = evidenceFor(args.featureId, undefined, "agent-plugins-1.0");
   return defineRenderResult({
     destination: args.destination,
     ...(evidence === undefined ? {} : { evidence }),
@@ -2082,7 +2092,20 @@ function providerListAllows(providers: readonly TargetName[] | undefined, target
   return providers === undefined || providers.includes(target);
 }
 
-function evidenceFor(featureId: string, target: TargetName | undefined) {
+function evidenceFor(
+  featureId: string,
+  target: TargetName | undefined,
+  standardProfile?: StandardProfileId
+): readonly SkillsetFeatureEvidence[] | undefined {
+  if (standardProfile !== undefined) {
+    const profile = getStandardProfile(standardProfile);
+    return profile.provenance.snapshots.map((snapshot) => ({
+      kind: "external-docs" as const,
+      note: `${profile.title} ${profile.version} ${snapshot.kind}`,
+      ref: snapshot.url,
+      verifiedAt: profile.provenance.observedAt,
+    }));
+  }
   const feature = getSkillsetFeature(featureId);
   if (feature === undefined) return undefined;
   if (target === undefined) return feature.evidence.length === 0 ? undefined : feature.evidence;

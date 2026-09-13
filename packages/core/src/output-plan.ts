@@ -1,23 +1,14 @@
 /* eslint-disable func-style, no-use-before-define -- Named planner phases and hoisted guards keep the ownership algorithm readable. */
 
-import type { StandardProfileId } from "@skillset/registry";
-
 import { compareStrings } from "./path";
-import type { RenderedFile, TargetName } from "./types";
+import type {
+  ProjectionConsumer,
+  ProjectionOwner,
+  RenderedFile,
+} from "./types";
 
-export type OutputConsumer =
-  | {
-      readonly phase: "baseline";
-      readonly standardProfile: StandardProfileId;
-    }
-  | {
-      readonly phase: "delta";
-      readonly target: TargetName;
-    };
-
-export type OutputOwner =
-  | { readonly standardProfile: StandardProfileId }
-  | { readonly target: TargetName };
+export type OutputConsumer = ProjectionConsumer;
+export type OutputOwner = ProjectionOwner;
 
 export type OutputOwnership = "managed" | "provider-native";
 

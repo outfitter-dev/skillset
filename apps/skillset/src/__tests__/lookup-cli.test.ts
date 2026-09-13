@@ -140,7 +140,69 @@ test("SET-220: lookup without a subject lists static reference subjects", async 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("skillset lookup subjects");
   expect(result.stdout).toContain("skill: Adaptive skill source frontmatter");
+  expect(result.stdout).toContain("standards: Agent standards profiles");
   expect(result.stdout).toContain("--frontmatter --fields --field <path>");
+});
+
+test("SET-406: lookup standards distinguishes candidate profiles from targets", async () => {
+  const text = await runSkillsetCli("lookup", "standards");
+  const json = await runSkillsetCli("lookup", "standards", "--json");
+  const invalid = await runSkillsetCli(
+    "lookup",
+    "standards",
+    "--compat",
+    "codex",
+    "--json"
+  );
+  const unknown = await runSkillsetCli(
+    "lookup",
+    "standards",
+    "not-a-profile",
+    "--json"
+  );
+  const wrongView = await runSkillsetCli(
+    "lookup",
+    "standards",
+    "--schema",
+    "--json"
+  );
+
+  expect(text.exitCode).toBe(0);
+  expect(text.stdout).toContain("agent-skills: candidate (unversioned)");
+  expect(text.stdout).toContain("standalone-skills: required");
+  expect(text.stdout).toContain("evidence: specification https://");
+  expect(json.exitCode).toBe(0);
+  expect(readResultData(json.stdout)).toMatchObject({
+    compatibility: [],
+    standards: [
+      { id: "agent-instructions", lifecycle: "candidate" },
+      { id: "agent-plugins-1.0", lifecycle: "candidate" },
+      { id: "agent-skills", lifecycle: "candidate" },
+    ],
+    subject: "standards",
+    targets: [],
+  });
+  expect(invalid.exitCode).toBe(1);
+  expect(readResultData(invalid.stdout)).toMatchObject({
+    diagnostics: [
+      { code: "lookup/standards/target-not-applicable", severity: "error" },
+    ],
+    standards: [],
+  });
+  expect(unknown.exitCode).toBe(1);
+  expect(readResultData(unknown.stdout)).toMatchObject({
+    diagnostics: [
+      { code: "lookup/standards/aspect-not-found", severity: "error" },
+    ],
+    standards: [],
+  });
+  expect(wrongView.exitCode).toBe(1);
+  expect(readResultData(wrongView.stdout)).toMatchObject({
+    diagnostics: [
+      { code: "lookup/standards/view-not-applicable", severity: "error" },
+    ],
+    standards: [],
+  });
 });
 
 test("SET-392: lookup activation exposes registry-backed provider facts", async () => {

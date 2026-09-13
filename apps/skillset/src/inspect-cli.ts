@@ -36,6 +36,12 @@ import {
   resolveInteractiveLookup,
 } from "./lookup-interactive";
 import { withProcessSignalAbort } from "./process-signals";
+import {
+  formatGeneratedEntryIdentity,
+  formatGeneratedEntryOwner,
+  formatRenderResultIdentity,
+  formatStandardProfileSummary,
+} from "./projection-identity";
 
 export interface ListCommandRequest {
   readonly details: boolean;
@@ -228,11 +234,19 @@ function printExplainResult(
   writer: FiniteCommandWriter
 ): void {
   writeLine(writer, `skillset: ${result.path} (${result.kind})`);
+  writeLine(
+    writer,
+    `  standards: ${formatStandardProfileSummary(result.standardProfiles)}`
+  );
   for (const entry of result.entries) {
     writeLine(
       writer,
-      `  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`
+      `  [${formatGeneratedEntryIdentity(entry)}] ${entry.sourcePath} -> ${entry.outputPath}`
     );
+    const owner = formatGeneratedEntryOwner(entry.owner);
+    if (owner !== undefined) {
+      writeLine(writer, `    owner: ${owner}`);
+    }
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
     }
@@ -403,6 +417,10 @@ function printStatusReport(
   },
   writer: FiniteCommandWriter
 ): void {
+  writeLine(
+    writer,
+    `  standards: ${formatStandardProfileSummary(report.standardProfiles)}`
+  );
   for (const issue of report.lintIssues) {
     writeLine(
       writer,
@@ -533,12 +551,13 @@ function printRenderResult(
     readonly policy?: string;
     readonly reason?: string;
     readonly sourceUnit: string;
+    readonly standardProfile?: string;
     readonly status: string;
     readonly target?: string;
   },
   writer: FiniteCommandWriter
 ): void {
-  const target = outcome.target ?? "workspace";
+  const target = formatRenderResultIdentity(outcome);
   const destination =
     outcome.destination === undefined ? "" : ` -> ${outcome.destination}`;
   const policy =

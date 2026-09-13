@@ -16,6 +16,11 @@ import {
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { GeneratedEntry } from "@skillset/core/internal/types";
 
+import {
+  formatGeneratedEntryIdentity,
+  formatGeneratedEntryOwner,
+} from "./projection-identity";
+
 export type ReconcileChoice = "output" | "source";
 
 export interface ReconcileReport {
@@ -269,12 +274,14 @@ async function findLiveLockEntry(
       if (!ownedPaths.includes(generatedPath)) continue;
       return {
         entry: {
+          ...(item.consumers.length === 0 ? {} : { consumers: item.consumers }),
           files: ownedPaths,
           ...(typeof item.kind === "string" ? { kind: item.kind } : {}),
           outputPath: normalizeReconcilePath(outputRoot === "." ? item.outputPath : join(outputRoot, item.outputPath)),
           outputRoot,
+          ...(item.owner === undefined ? {} : { owner: item.owner }),
           sourcePath: item.sourcePath,
-          target: "live-lock",
+          target: parsed.target,
         },
         generatedPath,
       };
@@ -347,9 +354,25 @@ export async function readReconcileLock(
 }
 
 export function renderReconcileReport(report: ReconcileReport): string {
+  const identities = [
+    ...new Set(
+      report.outputResolution.entries.map(formatGeneratedEntryIdentity)
+    ),
+  ];
+  const owners = [
+    ...new Set(
+      report.outputResolution.entries
+        .map((entry) => formatGeneratedEntryOwner(entry.owner))
+        .filter((value): value is string => value !== undefined)
+    ),
+  ];
   const lines = [
     `skillset: reconcile ${report.generatedPath}`,
     `  source: ${report.sourcePath ?? "unknown"}`,
+    ...(identities.length === 0
+      ? []
+      : [`  consumers: ${identities.join(", ")}`]),
+    ...(owners.length === 0 ? [] : [`  owner: ${owners.join(", ")}`]),
     `  source wins: ${report.sourceResolutionAvailable ? "available; re-render managed output from source" : "refused; source resolution is unavailable"}`,
     `  output wins: ${report.outputResolution.wouldWrite ? "available" : "refused"}; ${report.outputResolution.message}`,
   ];

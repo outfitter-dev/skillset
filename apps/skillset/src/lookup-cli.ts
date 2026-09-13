@@ -59,11 +59,12 @@ export function readLookupSubject(value: string): LookupSubject {
     value === "locations" ||
     value === "plugin" ||
     value === "skill" ||
+    value === "standards" ||
     value === "workspace"
   ) {
     return value;
   }
-  throw new Error("skillset: expected lookup subject activation, locations, skill, agent, instruction, workspace, hooks, or plugin");
+  throw new Error("skillset: expected lookup subject activation, locations, skill, agent, instruction, workspace, hooks, plugin, or standards");
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {
@@ -219,6 +220,26 @@ function printLookupReport(
         );
       }
       writeLine(writer, `      sources: ${entry.sources.map((source) => source.url).join(", ")}`);
+    }
+  }
+  if (report.standards.length > 0) {
+    writeLine(writer, "  standards:");
+    for (const profile of report.standards) {
+      writeLine(
+        writer,
+        `    ${profile.id}: ${profile.lifecycle} (${profile.version})`
+      );
+      writeLine(writer, `      ${profile.summary}`);
+      for (const envelope of profile.envelopes) {
+        writeLine(
+          writer,
+          `      ${envelope.featureId}: ${envelope.expectation} (${envelope.note})`
+        );
+      }
+      writeLine(
+        writer,
+        `      evidence: ${profile.evidence.map((evidence) => `${evidence.kind} ${evidence.url} (observed ${evidence.observedAt})`).join(", ")}`
+      );
     }
   }
   if (report.realizations.length > 0) {

@@ -38,8 +38,12 @@ import { loadBuildGraph } from "./resolver";
 import { updateMarkdownSourceDocument } from "./source-document";
 import { readEffectiveToolsPolicy } from "./skill-policy";
 import { targetNames, targetRecord } from "./targets";
+import {
+  standardProfileStatuses,
+  type StandardProfileStatus,
+} from "./standard-profile-status";
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
-import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, SourceOrigin, TargetName } from "./types";
+import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -60,6 +64,7 @@ export interface ExplainResult {
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly notes: readonly string[];
   readonly path: string;
+  readonly standardProfiles: readonly StandardProfileStatus[];
   readonly toolsRealization: readonly ExplainToolsRealization[];
 }
 
@@ -127,6 +132,10 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  const standardProfiles = standardProfileStatuses(
+    graph.standardProjections,
+    options.scopes
+  );
   const allRendered = await renderBuildGraph(graph);
   const rendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
@@ -142,6 +151,7 @@ export async function explainPath(
     const matchedRenderResults = explainRenderResults(target, asSource, renderResults);
     return {
       path: target,
+      standardProfiles,
       kind: explainSourceKind(graph, target),
       entries: asSource.map((item) => item.entry),
       features: featureCapabilitiesForPath(graph, target, asSource, matchedRenderResults),
@@ -162,6 +172,7 @@ export async function explainPath(
     });
     return {
       path: target,
+      standardProfiles,
       kind: "generated",
       entries: asGenerated.map((item) => item.entry),
       features: featureCapabilitiesForPath(graph, target, asGenerated, matchedRenderResults),
@@ -178,6 +189,7 @@ export async function explainPath(
     const matchedRenderResults = explainRenderResults(target, prefixMatch, renderResults);
     return {
       path: target,
+      standardProfiles,
       kind: "source-plugin",
       entries: prefixMatch.map((item) => item.entry),
       features: featureCapabilitiesForPath(graph, target, prefixMatch, matchedRenderResults),
@@ -191,6 +203,7 @@ export async function explainPath(
   if (sourceOnlyOutcomes.length > 0) {
     return {
       path: target,
+      standardProfiles,
       kind: explainSourceKind(graph, target),
       entries: [],
       features: featureCapabilitiesForPath(graph, target, [], sourceOnlyOutcomes),
@@ -202,6 +215,7 @@ export async function explainPath(
 
   return {
     path: target,
+    standardProfiles,
     kind: "unknown",
     entries: [],
     features: [],
@@ -457,6 +471,7 @@ export interface DoctorReport {
   readonly notableRenderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly outputState: SkillsetOutputStateEvidence;
+  readonly standardProfiles: readonly StandardProfileStatus[];
   readonly warnings: readonly string[];
 }
 
@@ -493,6 +508,13 @@ export async function doctorSkillset(
       notableRenderResults: notableRenderResults(renderResults),
       ok: false,
       outputState: classifySkillsetOutputFailure(error, hasBaseline),
+      standardProfiles: standardProfileStatuses(
+        {
+          adopted: [],
+          explicitNonAdopted: [],
+        },
+        options.scopes
+      ),
       warnings: [],
     };
   }
@@ -560,6 +582,10 @@ export async function doctorSkillset(
     notableRenderResults: notable,
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
     outputState,
+    standardProfiles: standardProfileStatuses(
+      graph.standardProjections,
+      options.scopes
+    ),
     warnings: graph.warnings,
   };
 }
@@ -603,7 +629,7 @@ function explainRenderResults(
     ) {
       continue;
     }
-    const key = `${outcome.sourceUnit}\0${outcome.target ?? ""}\0${outcome.featureId}\0${outcome.status}\0${sourcePath ?? ""}`;
+    const key = `${outcome.sourceUnit}\0${outcome.standardProfile ?? ""}\0${outcome.target ?? ""}\0${outcome.featureId}\0${outcome.status}\0${sourcePath ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     matched.push(outcome);
@@ -625,10 +651,19 @@ function notableRenderResults(
     )
     .sort((left, right) =>
       compareStrings(
-        `${left.target ?? "workspace"}\0${left.sourceUnit}\0${left.featureId}\0${left.status}`,
-        `${right.target ?? "workspace"}\0${right.sourceUnit}\0${right.featureId}\0${right.status}`
+        `${renderResultIdentity(left)}\0${left.sourceUnit}\0${left.featureId}\0${left.status}`,
+        `${renderResultIdentity(right)}\0${right.sourceUnit}\0${right.featureId}\0${right.status}`
       )
     );
+}
+
+function renderResultIdentity(outcome: SkillsetRenderResult): string {
+  if (outcome.standardProfile !== undefined) {
+    return `standard:${outcome.standardProfile}`;
+  }
+  return outcome.target === undefined
+    ? "workspace"
+    : `target:${outcome.target}`;
 }
 
 function renderResultsFromError(error: unknown): readonly SkillsetRenderResult[] {
@@ -663,26 +698,20 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       continue;
     }
     if (!isJsonRecord(parsed)) continue;
-    parseGeneratedLock(parsed, `generated lock ${file.path}`);
-    const outputRoot = typeof parsed.outputRoot === "string" ? parsed.outputRoot : ".";
-    const target = typeof parsed.target === "string" ? parsed.target : "unknown";
-    const items = Array.isArray(parsed.items) ? parsed.items : [];
-    for (const rawItem of items) {
-      if (!isJsonRecord(rawItem)) continue;
-      const sourcePath = typeof rawItem.sourcePath === "string" ? rawItem.sourcePath : "";
-      const outputPath = typeof rawItem.outputPath === "string" ? rawItem.outputPath : "";
-      const preprocessDependencies = Array.isArray(rawItem.preprocessDependencies)
-        ? rawItem.preprocessDependencies.filter((value): value is string => typeof value === "string")
-        : undefined;
-      const files = Array.isArray(rawItem.files)
-        ? rawItem.files.filter((value): value is string => typeof value === "string")
-        : [];
-      const fileModes = readGeneratedFileModes(rawItem.fileModes, files, outputRoot);
-      const dependencies = Array.isArray(rawItem.dependencies)
-        ? rawItem.dependencies.filter((value): value is string => typeof value === "string")
-        : undefined;
-      const skillReferences = Array.isArray(rawItem.skillReferences)
-        ? rawItem.skillReferences.flatMap<ProjectAgentSkillProvenance>((value) => {
+    const lock = parseGeneratedLock(parsed, `generated lock ${file.path}`);
+    const outputRoot = lock.outputRoot;
+    const target = lock.target;
+    const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+    for (const [index, item] of lock.items.entries()) {
+      if (item.sourcePath === undefined || item.outputPath === undefined) continue;
+      const rawItem = rawItems[index];
+      const rawRecord = isJsonRecord(rawItem) ? rawItem : {};
+      const sourcePath = item.sourcePath;
+      const outputPath = item.outputPath;
+      const files = item.files;
+      const fileModes = readGeneratedFileModes(item.fileModes, files, outputRoot);
+      const skillReferences = Array.isArray(rawRecord.skillReferences)
+        ? rawRecord.skillReferences.flatMap<ProjectAgentSkillProvenance>((value) => {
             const ownership = isJsonRecord(value) ? value.ownership : undefined;
             if (
               !isJsonRecord(value) ||
@@ -695,14 +724,13 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
             return [{ authored: value.authored, ownership, rendered: value.rendered }];
           })
         : undefined;
-      const transforms = Array.isArray(rawItem.transforms)
-        ? rawItem.transforms.flatMap((value) =>
+      const transforms = Array.isArray(item.transforms)
+        ? item.transforms.flatMap((value) =>
             isJsonRecord(value) && typeof value.intent === "string" && typeof value.count === "number"
               ? [{ count: value.count, intent: value.intent }]
               : []
           )
         : undefined;
-      const sourceOrigin = readSourceOrigin(rawItem.sourceOrigin);
       matches.push({
         sourcePath,
         outputPath: joinOutputRoot(outputRoot, outputPath),
@@ -713,25 +741,27 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           target,
           sourcePath,
           outputPath: joinOutputRoot(outputRoot, outputPath),
-          ...(dependencies === undefined ? {} : { dependencies }),
-          ...(typeof rawItem.feature === "string" ? { feature: rawItem.feature } : {}),
+          ...(item.consumers.length === 0 ? {} : { consumers: item.consumers }),
+          ...(item.dependencies === undefined ? {} : { dependencies: item.dependencies }),
+          ...(item.feature === undefined ? {} : { feature: item.feature }),
           ...(fileModes === undefined ? {} : { fileModes }),
           ...(files.length === 0 ? {} : { files: files.map((file) => joinOutputRoot(outputRoot, file)) }),
-          ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
-          ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
-          ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
-          ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
-          ...(typeof rawItem.renderInputsHash === "string" ? { renderInputsHash: rawItem.renderInputsHash } : {}),
+          ...(item.kind === undefined ? {} : { kind: item.kind }),
+          ...(item.origin === undefined ? {} : { origin: item.origin }),
+          ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+          ...(item.owner === undefined ? {} : { owner: item.owner }),
+          ...(item.preprocessDependencies === undefined ? {} : { preprocessDependencies: item.preprocessDependencies }),
+          ...(item.renderInputsHash === undefined ? {} : { renderInputsHash: item.renderInputsHash }),
           ...(skillReferences === undefined || skillReferences.length === 0
             ? {}
             : { skillReferences }),
-          ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
-          ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
-          ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),
+          ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
+          ...(item.sourceOrigin === undefined ? {} : { sourceOrigin: item.sourceOrigin }),
+          ...(item.sourcePointer === undefined ? {} : { sourcePointer: item.sourcePointer }),
           ...(transforms === undefined || transforms.length === 0 ? {} : { transforms }),
-          ...(typeof rawItem.version === "string" ? { version: rawItem.version } : {}),
-          ...(typeof rawItem.targetState === "string" ? { targetState: rawItem.targetState } : {}),
-          ...(typeof rawItem.validation === "string" ? { validation: rawItem.validation } : {}),
+          ...(item.version === undefined ? {} : { version: item.version }),
+          ...(item.targetState === undefined ? {} : { targetState: item.targetState }),
+          ...(item.validation === undefined ? {} : { validation: item.validation }),
         },
       });
     }
@@ -751,15 +781,6 @@ function readGeneratedFileModes(
     modes[joinOutputRoot(outputRoot, file)] = mode;
   }
   return modes;
-}
-
-function readSourceOrigin(value: unknown): SourceOrigin | undefined {
-  if (!isJsonRecord(value) || typeof value.path !== "string") return undefined;
-  return {
-    path: value.path,
-    ...(typeof value.ref === "string" ? { ref: value.ref } : {}),
-    ...(typeof value.repo === "string" ? { repo: value.repo } : {}),
-  };
 }
 
 function joinOutputRoot(outputRoot: string, file: string): string {
