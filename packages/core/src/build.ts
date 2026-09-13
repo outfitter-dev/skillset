@@ -59,9 +59,12 @@ type OutPath = (path: string) => string;
 
 const livePath: OutPath = (path) => path;
 
-function assertBuildProjection(graph: BuildGraph): void {
+function assertBuildProjection(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): void {
   if (graph.root.compile.targets.length > 0) return;
-  if (graph.standardProjections.adopted.length > 0) return;
+  if (scopedOutputRoots(graph, scopes).length > 0) return;
 
   throw new SkillsetFeatureDiagnosticError({
     code: "no-projections",
@@ -251,7 +254,7 @@ async function buildSkillsetResultInternal(
   inspectionOptions: SkillsetBuildInternalOptions
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertBuildProjection(graph);
+  assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1079,7 +1082,7 @@ export async function diffSkillsetResult(
   inspection: SkillsetDiffInspectionOptions = {}
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertBuildProjection(graph);
+  assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1161,7 +1164,7 @@ export async function verifySkillsetResult(
   options: SkillsetOptions = {}
 ): Promise<SkillsetVerifyResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertBuildProjection(graph);
+  assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
