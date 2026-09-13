@@ -186,4 +186,3 @@ publication, installation, trust, or activation requirements.
 - [ADR-0028: Open Standards Are the Default Portability Floor](0028-open-standards-are-the-portability-floor.md) - amended to remove user standards selection while retaining adoption and profile identity.
 - [ADR-0030: ChatGPT Product Bundles and Standards-Only Builds](0030-chatgpt-product-bundles-and-standards-only-builds.md) - amended to make standards-only eligibility inherent for applicable adopted source while retaining package and lock safety.
 - [ADR-0031: Agent Instructions Opt-Out Owns Shared AGENTS.md](0031-agent-instructions-opt-out-owns-shared-agents-md.md) - superseded because its opt-out generation-gate premise is wholly replaced.
-- [Portable skills interview packet](../../.agents/goals/2026-09-12-chatgpt-portable-skills/INTERVIEW.md) - records the accepted one-time internal cutover, existing release scope, and paused execution context.
