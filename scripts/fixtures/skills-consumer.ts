@@ -1,6 +1,6 @@
 /* eslint-disable func-style, no-use-before-define -- Keep the fixture's setup and assertions in execution order. */
 /* eslint-disable unicorn/import-style -- Node's standard named imports keep the fixture concise. */
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -74,7 +74,9 @@ async function assertConsumerInstall(
   const fixtureRoot = join(parent, `${catalog}-${outputRoot}`);
   const consumer = join(fixtureRoot, "consumer");
   const consumerSource =
-    outputRoot === "plugins" ? fixtureRoot : join(fixtureRoot, "dist");
+    outputRoot === "plugins"
+      ? join(fixtureRoot, "marketplace-consumer-source")
+      : join(fixtureRoot, "dist");
   await writeFixture(fixtureRoot, catalog, outputRoot);
   await mkdir(consumer, { recursive: true });
 
@@ -153,6 +155,13 @@ async function assertConsumerInstall(
     })
   );
 
+  if (outputRoot === "plugins") {
+    // Skills 1.5.26 prefers a conventional `.agents/skills` root over Claude
+    // marketplace metadata. Keep these cases marketplace-only; the portable
+    // consumer below proves the conventional discovery path separately.
+    await stageMarketplaceConsumerSource(fixtureRoot, consumerSource);
+  }
+
   // Mutate source after generation. The consumer must follow the marketplace
   // entry to the generated bundle, never fall back to this raw source.
   await mutateAdaptiveSource(fixtureRoot);
@@ -169,6 +178,24 @@ async function assertConsumerInstall(
     "CLAUDE-SENTINEL\n"
   );
   await assertFullDepthBoundary(consumerSource, consumer, environment);
+}
+
+async function stageMarketplaceConsumerSource(
+  fixtureRoot: string,
+  consumerSource: string
+): Promise<void> {
+  await Promise.all([
+    cp(
+      join(fixtureRoot, ".claude-plugin"),
+      join(consumerSource, ".claude-plugin"),
+      { recursive: true }
+    ),
+    cp(
+      join(fixtureRoot, "plugins", "consumer-plugin", "claude"),
+      join(consumerSource, "plugins", "consumer-plugin", "claude"),
+      { recursive: true }
+    ),
+  ]);
 }
 
 async function assertPortableConsumerInstall(
