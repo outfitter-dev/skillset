@@ -152,9 +152,19 @@ const validationLanes = [
         revision: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
         url: "https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/identifier_validation.py",
       },
+      {
+        integrity:
+          "sha512-a4FI3A8sGtwGrOqltrPbrS2hajrHQG591EwmRfiRoLMb10VxdBtUGW4gu6IJVYENiYGA7k3P4jlRHEoCZU/s9Q==",
+        kind: "npm",
+        url: "https://registry.npmjs.org/@openai/codex/-/codex-0.154.0-linux-x64.tgz",
+      },
     ],
     authority: "provider-source",
-    coveredSurfaces: ["codex plugin manifest", "codex plugin skills"],
+    coveredSurfaces: [
+      "codex marketplace source resolution",
+      "codex plugin manifest",
+      "codex plugin skills",
+    ],
     dependencies: [
       {
         integrity:
@@ -179,14 +189,15 @@ const validationLanes = [
     ),
     limitations: [
       "The released plugin-creator script is an authoring validator, not a whole-provider or runtime-hook validator.",
+      "The released Codex consumer proves read-only marketplace discovery and local source resolution, not installation, trust, activation, or runtime behavior.",
     ],
     negativeCanary: "missing name in .codex-plugin/plugin.json",
     pin: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
     retrievedAt: RETRIEVED_AT,
     sourcePublishedAt: "2026-09-09T21:43:48.000Z",
     targets: ["codex"],
-    tool: "validate_plugin.py",
-    version: "Codex 0.154.0 source",
+    tool: "validate_plugin.py and codex plugin list --available --json",
+    version: "Codex 0.154.0 source and consumer",
   },
   {
     acquisitions: [

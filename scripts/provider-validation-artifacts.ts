@@ -18,6 +18,7 @@ const LOCK_PATHS = [
   "plugins/skillset.lock",
 ] as const;
 const ROOT_MARKETPLACES = [
+  ".agents/plugins/marketplace.json",
   ".claude-plugin/marketplace.json",
   ".cursor-plugin/marketplace.json",
 ] as const;
@@ -26,6 +27,7 @@ export interface ProviderArtifactInventory {
   readonly chatgptPlugins: readonly string[];
   readonly claudeMarketplaces: readonly string[];
   readonly claudePlugins: readonly string[];
+  readonly codexMarketplaces: readonly string[];
   readonly codexPlugins: readonly string[];
   readonly cursorMarketplaces: readonly string[];
   readonly cursorPlugins: readonly string[];
@@ -95,7 +97,12 @@ export async function validateCodexMarketplaceConsumer(
       XDG_STATE_HOME: join(isolatedRoot, "xdg/state"),
     });
 
-    const version = await runCodexConsumer(codexBin, ["--version"], canonicalRoot, environment);
+    const version = await runCodexConsumer(
+      codexBin,
+      ["--version"],
+      canonicalRoot,
+      environment
+    );
     const codexVersion = version.stdout.trim();
     if (!/^codex-cli 0\.154\.0(?:\b|-)/u.test(codexVersion)) {
       throw new Error(
@@ -172,7 +179,10 @@ function parseMarketplaceCatalog(
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`skillset: invalid ChatGPT marketplace catalog ${path}`);
   }
-  const record = value as { readonly name?: unknown; readonly plugins?: unknown };
+  const record = value as {
+    readonly name?: unknown;
+    readonly plugins?: unknown;
+  };
   if (typeof record.name !== "string" || !Array.isArray(record.plugins)) {
     throw new Error(`skillset: invalid ChatGPT marketplace catalog ${path}`);
   }
@@ -183,7 +193,9 @@ function parseMarketplaceCatalog(
       Array.isArray(plugin) ||
       typeof (plugin as { readonly name?: unknown }).name !== "string"
     ) {
-      throw new Error(`skillset: invalid ChatGPT marketplace plugin in ${path}`);
+      throw new Error(
+        `skillset: invalid ChatGPT marketplace plugin in ${path}`
+      );
     }
     return (plugin as { readonly name: string }).name;
   });
@@ -193,7 +205,9 @@ function parseMarketplaceCatalog(
 function parseCodexPluginIds(stdout: string): readonly string[] {
   const value = JSON.parse(stdout) as unknown;
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("skillset: Codex marketplace consumer returned invalid JSON");
+    throw new Error(
+      "skillset: Codex marketplace consumer returned invalid JSON"
+    );
   }
   const available = (value as { readonly available?: unknown }).available;
   if (!Array.isArray(available)) {
@@ -281,10 +295,11 @@ export async function enumerateProviderArtifacts(
   );
   const inventory = {
     chatgptPlugins: [...chatgptPlugins].toSorted(),
-    claudeMarketplaces: [marketplaces[0]!],
+    claudeMarketplaces: [marketplaces[1]!],
     claudePlugins: [...claudePlugins].toSorted(),
+    codexMarketplaces: [marketplaces[0]!],
     codexPlugins: [...codexPlugins].toSorted(),
-    cursorMarketplaces: [marketplaces[1]!],
+    cursorMarketplaces: [marketplaces[2]!],
     cursorPlugins: [...cursorPlugins].toSorted(),
     skills: [...skills].toSorted(),
   } satisfies ProviderArtifactInventory;
@@ -292,6 +307,7 @@ export async function enumerateProviderArtifacts(
   await Promise.all([
     ...inventory.chatgptPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.claudePlugins.map(assertTreeHasNoSymlinks),
+    ...inventory.codexMarketplaces.map(assertTreeHasNoSymlinks),
     ...inventory.codexPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.cursorPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.skills.map((path) => assertTreeHasNoSymlinks(dirname(path))),

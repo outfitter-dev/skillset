@@ -20,6 +20,7 @@ import {
   ProviderValidationFailure,
   renderProviderValidationReport,
   runHostedProviderValidation,
+  validateHostedCodexMarketplaceConsumers,
   type ProviderArtifactInventory,
 } from "../provider-validation";
 import { validateCodexMarketplaceConsumer } from "../provider-validation-artifacts";
@@ -70,6 +71,9 @@ describe("SET-463 hosted provider validation orchestration", () => {
     expect(inventory.claudeMarketplaces).toEqual([
       join(canonicalRoot, ".claude-plugin/marketplace.json"),
     ]);
+    expect(inventory.codexMarketplaces).toEqual([
+      join(canonicalRoot, ".agents/plugins/marketplace.json"),
+    ]);
     expect(inventory.cursorMarketplaces).toEqual([
       join(canonicalRoot, ".cursor-plugin/marketplace.json"),
     ]);
@@ -101,11 +105,81 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
     );
     await chmod(codex, 0o755);
 
-    await expect(validateCodexMarketplaceConsumer(root, codex)).resolves.toEqual({
+    await expect(
+      validateCodexMarketplaceConsumer(root, codex)
+    ).resolves.toEqual({
       catalogName: "demo",
       codexVersion: "codex-cli 0.154.0",
       pluginIds: ["demo@demo"],
     });
+  });
+
+  test("runs staged Codex marketplace consumption through hosted production orchestration and records the receipt", async () => {
+    const root = await fixtureRoot();
+    const temp = await mkdtemp(join(tmpdir(), "skillset-codex-hosted-"));
+    const codex = join(temp, "fake-codex");
+    await writeFile(
+      codex,
+      `#!/usr/bin/env bun
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === "--version") {
+  console.log("codex-cli 0.154.0");
+  process.exit(0);
+}
+const source = args.find((arg) => arg.startsWith("marketplaces.skillset_validation.source="));
+const root = JSON.parse(source.split("=").slice(1).join("="));
+const catalog = await Bun.file(root + "/.agents/plugins/marketplace.json").json();
+const plugin = catalog.plugins[0];
+if (!(await Bun.file(root + "/" + plugin.source.path + "/plugin.json").exists())) {
+  console.error("local marketplace source was not staged");
+  process.exit(2);
+}
+console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog.name }] }));
+`
+    );
+    await chmod(codex, 0o755);
+    const tools = {
+      agentSkills: join(temp, "agent-tool"),
+      claude: join(temp, "claude-tool"),
+      codex,
+      codexPython: join(temp, "python"),
+      codexValidator: join(temp, "codex-validator"),
+      cursor: await fixtureCursorTool(temp),
+    };
+    const staged = await stageValidationInputs(
+      root,
+      temp,
+      await enumerateProviderArtifacts(root),
+      tools
+    );
+
+    const receipts = await validateHostedCodexMarketplaceConsumers(
+      staged.codexMarketplaceRoots,
+      tools.codex
+    );
+    const report = await executeValidationCommands(
+      [],
+      async () => {
+        throw new Error("no validator command expected");
+      },
+      "2026-09-12T00:02:00.000Z",
+      [],
+      receipts
+    );
+
+    expect(receipts).toEqual([
+      {
+        catalogName: "demo",
+        codexVersion: "codex-cli 0.154.0",
+        pluginIds: ["demo@demo"],
+      },
+    ]);
+    expect(
+      report.rows.find(({ lane }) => lane === "codex-authoring")?.count
+    ).toBe(1);
+    expect(renderProviderValidationReport(report)).toContain(
+      "| demo | codex-cli 0.154.0 | demo@demo |"
+    );
   });
 
   test("rejects symlink path components before resolving outside the repository", async () => {
@@ -143,6 +217,7 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
       {
         agentSkills: "/tmp/tools/skills-ref",
         claude: "/tmp/tools/claude",
+        codex: "/tmp/tools/codex",
         codexPython: "/tmp/tools/python",
         codexValidator: "/tmp/tools/validate_plugin.py",
         cursor: "/tmp/tools/cursor",
@@ -209,6 +284,7 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
       {
         agentSkills: "/tools/skills-ref",
         claude: "/tools/claude",
+        codex: "/tools/codex",
         codexPython: "/tools/python",
         codexValidator: "/tools/validate.py",
         cursor: "/tools/cursor",
@@ -336,12 +412,19 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
       },
     ]);
 
-    const report = await executeValidationCommands([], async () => {
-      throw new Error("no external command expected");
-    }, "2026-09-12T00:02:00.000Z", checks);
+    const report = await executeValidationCommands(
+      [],
+      async () => {
+        throw new Error("no external command expected");
+      },
+      "2026-09-12T00:02:00.000Z",
+      checks
+    );
     const markdown = renderProviderValidationReport(report);
     expect(markdown).toContain("## Skillset internal authoring conformance");
-    expect(markdown).toContain("validate-plugins.mjs does not inspect hook files");
+    expect(markdown).toContain(
+      "validate-plugins.mjs does not inspect hook files"
+    );
     expect(markdown).toContain("not Cursor product or runtime proof");
     expect(markdown).toContain(
       "| cursor-hooks-generated-native | Skillset internal | cursor | generated version:1 flat native hook file | passed |"
@@ -353,9 +436,14 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
     await writeFile(inputs.invalid, await readFile(inputs.valid));
     const failedChecks = await validateCursorHookConformance(inputs);
     await expect(
-      executeValidationCommands([], async () => {
-        throw new Error("no external command expected");
-      }, "2026-09-12T00:02:00.000Z", failedChecks)
+      executeValidationCommands(
+        [],
+        async () => {
+          throw new Error("no external command expected");
+        },
+        "2026-09-12T00:02:00.000Z",
+        failedChecks
+      )
     ).rejects.toMatchObject({
       report: {
         failures: [
@@ -484,6 +572,7 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
     const staged = await stageValidationInputs(root, temp, inventory, {
       agentSkills: join(temp, "agent-tool"),
       claude: join(temp, "claude-tool"),
+      codex: join(temp, "codex"),
       codexPython: join(temp, "python"),
       codexValidator: join(temp, "codex-validator"),
       cursor,
@@ -551,11 +640,37 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
       stageValidationInputs(root, temp, inventory, {
         agentSkills: join(temp, "agent-tool"),
         claude: join(temp, "claude-tool"),
+        codex: join(temp, "codex"),
         codexPython: join(temp, "python"),
         codexValidator: join(temp, "codex-validator"),
         cursor,
       })
     ).rejects.toThrow("shadows the pinned validator");
+  });
+
+  test("rejects Codex marketplace catalogs that omit generated plugin sources", async () => {
+    const root = await fixtureRoot();
+    await writeFile(
+      join(root, ".agents/plugins/marketplace.json"),
+      `${JSON.stringify({ interface: { displayName: "Demo" }, name: "demo", plugins: [] })}\n`
+    );
+    const temp = await mkdtemp(join(tmpdir(), "skillset-provider-codex-gap-"));
+
+    await expect(
+      stageValidationInputs(
+        root,
+        temp,
+        await enumerateProviderArtifacts(root),
+        {
+          agentSkills: join(temp, "agent-tool"),
+          claude: join(temp, "claude-tool"),
+          codex: join(temp, "codex"),
+          codexPython: join(temp, "python"),
+          codexValidator: join(temp, "codex-validator"),
+          cursor: await fixtureCursorTool(temp),
+        }
+      )
+    ).rejects.toThrow("Codex marketplace omits generated plugins");
   });
 
   test("rejects marketplace source paths that resolve differently under staging", async () => {
@@ -581,6 +696,7 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
         stageValidationInputs(root, temp, inventory, {
           agentSkills: join(temp, "agent-tool"),
           claude: join(temp, "claude-tool"),
+          codex: join(temp, "codex"),
           codexPython: join(temp, "python"),
           codexValidator: join(temp, "codex-validator"),
           cursor,
@@ -612,6 +728,7 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
           stageValidationInputs(root, temp, inventory, {
             agentSkills: join(temp, "agent-tool"),
             claude: join(temp, "claude-tool"),
+            codex: join(temp, "codex"),
             codexPython: join(temp, "python"),
             codexValidator: join(temp, "codex-validator"),
             cursor: await fixtureCursorTool(temp),
@@ -625,6 +742,7 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
     const report = normalizeProviderValidationReport(
       {
         checkedAt: "2026-09-12T00:02:00.000Z",
+        codexMarketplaceConsumers: [],
         failures: [
           {
             diagnostic:
@@ -746,6 +864,7 @@ function sampleInventory(): ProviderArtifactInventory {
     chatgptPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
     claudeMarketplaces: ["/tmp/stage/.claude-plugin/marketplace.json"],
     claudePlugins: ["/tmp/stage/plugins/demo/claude"],
+    codexMarketplaces: ["/tmp/stage/.agents/plugins/marketplace.json"],
     codexPlugins: ["/tmp/stage/plugins/demo/codex"],
     cursorMarketplaces: ["/tmp/stage/.cursor-plugin/marketplace.json"],
     cursorPlugins: ["/tmp/stage/plugins/demo/cursor"],
