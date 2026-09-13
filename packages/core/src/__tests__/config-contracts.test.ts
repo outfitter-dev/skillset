@@ -181,6 +181,50 @@ describe("Codex marketplace config", () => {
     });
   });
 
+  it("matches schema fidelity for normalized products, git subdirs, and Unicode prompts", () => {
+    const workspace = (codex: JsonRecord): JsonRecord => ({
+      marketplaces: {
+        native: {
+          plugins: [{ codex, plugin: "demo" }],
+          targets: ["codex"],
+        },
+      },
+    });
+
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        workspace({ policy: { products: ["chatgpt", "CHATGPT"] } }),
+        "skillset.yaml"
+      )
+    ).toThrow("products entries to be unique");
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        workspace({
+          source: {
+            source: "git-subdir",
+            url: "https://git.example/acme/plugins.git",
+          },
+        }),
+        "skillset.yaml"
+      )
+    ).toThrow("source.path to be a non-empty string");
+
+    const prompt = "😀".repeat(128);
+    const catalogs = readMarketplaceCatalogConfig(
+      workspace({ interface: { defaultPrompt: [prompt] } }),
+      "skillset.yaml"
+    );
+    expect(catalogs.native?.plugins[0]?.codex?.interface?.defaultPrompt).toEqual([
+      prompt,
+    ]);
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        workspace({ interface: { defaultPrompt: ["😀".repeat(129)] } }),
+        "skillset.yaml"
+      )
+    ).toThrow("at most three 128-character prompts");
+  });
+
   it("rejects duplicate effective ids and non-registry npm selectors", () => {
     expect(() =>
       readMarketplaceCatalogConfig(

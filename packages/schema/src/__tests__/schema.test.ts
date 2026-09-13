@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import Ajv2020 from "ajv/dist/2020";
 
 import {
   SKILLSET_SCHEMA_VERSION,
@@ -1209,6 +1210,52 @@ describe("@skillset/schema contracts", () => {
         },
       }).diagnostics
     ).toEqual([]);
+  });
+
+  it("keeps Codex marketplace JSON Schema and shared validation aligned", () => {
+    const validateSchema = new Ajv2020({ allErrors: true, strict: false }).compile(
+      workspaceConfigContract.schema
+    );
+    const workspace = (codex: Record<string, unknown>) => ({
+      marketplaces: {
+        outfitter: {
+          plugins: [{ codex, plugin: "demo" }],
+          targets: ["codex"],
+        },
+      },
+    });
+    const cases = [
+      {
+        config: workspace({ policy: { products: ["ATLAS", "CHATGPT", "CODEX"] } }),
+        valid: true,
+      },
+      {
+        config: workspace({ policy: { products: ["chatgpt", "CHATGPT"] } }),
+        valid: false,
+      },
+      {
+        config: workspace({
+          source: {
+            source: "git-subdir",
+            url: "https://git.example/acme/plugins.git",
+          },
+        }),
+        valid: false,
+      },
+      {
+        config: workspace({ interface: { defaultPrompt: ["😀".repeat(128)] } }),
+        valid: true,
+      },
+      {
+        config: workspace({ interface: { defaultPrompt: ["😀".repeat(129)] } }),
+        valid: false,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      expect(validateWorkspaceConfig(testCase.config).ok).toBe(testCase.valid);
+      expect(validateSchema(testCase.config)).toBe(testCase.valid);
+    }
   });
 
   it("rejects ambiguous or unsafe Codex marketplace declarations", () => {

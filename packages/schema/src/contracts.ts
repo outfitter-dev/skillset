@@ -1354,9 +1354,19 @@ function codexMarketplacePluginSchema(): SchemaJsonRecord {
     policy: strictObjectSchema({
       authentication: enumSchema(CODEX_MARKETPLACE_AUTHENTICATION_POLICIES),
       installation: enumSchema(CODEX_MARKETPLACE_INSTALLATION_POLICIES),
-      products: arraySchema(enumSchema(CODEX_MARKETPLACE_PRODUCT_INPUTS), {
-        uniqueItems: true,
-      }),
+      products: {
+        ...arraySchema(enumSchema(CODEX_MARKETPLACE_PRODUCT_INPUTS), {
+          uniqueItems: true,
+        }),
+        allOf: CODEX_MARKETPLACE_PRODUCTS.map((product) => ({
+          not: {
+            allOf: [
+              { contains: { const: product } },
+              { contains: { const: product.toUpperCase() } },
+            ],
+          },
+        })),
+      },
     }),
     source: codexMarketplaceSourceSchema(),
     version: semverStringSchema(),

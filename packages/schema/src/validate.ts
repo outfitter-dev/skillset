@@ -2631,7 +2631,7 @@ function checkCodexMarketplaceInterface(
       key === "defaultPrompt" &&
       Array.isArray(field) &&
       (field.length > 3 ||
-        field.some((item) => typeof item === "string" && item.length > 128))
+        field.some((item) => typeof item === "string" && [...item].length > 128))
     ) {
       diagnostics.push(
         diagnostic(
@@ -2878,8 +2878,9 @@ function checkCodexMarketplaceSource(
     );
   }
   if (
-    value.path !== undefined &&
-    (typeof value.path !== "string" || !isCodexMarketplaceLocalPath(value.path))
+    (kind === "git-subdir" && value.path === undefined) ||
+    (value.path !== undefined &&
+      (typeof value.path !== "string" || !isCodexMarketplaceLocalPath(value.path)))
   ) {
     diagnostics.push(
       diagnostic(

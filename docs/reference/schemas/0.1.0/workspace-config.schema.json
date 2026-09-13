@@ -362,6 +362,56 @@
                           "type": "string"
                         },
                         "products": {
+                          "allOf": [
+                            {
+                              "not": {
+                                "allOf": [
+                                  {
+                                    "contains": {
+                                      "const": "atlas"
+                                    }
+                                  },
+                                  {
+                                    "contains": {
+                                      "const": "ATLAS"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "not": {
+                                "allOf": [
+                                  {
+                                    "contains": {
+                                      "const": "chatgpt"
+                                    }
+                                  },
+                                  {
+                                    "contains": {
+                                      "const": "CHATGPT"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "not": {
+                                "allOf": [
+                                  {
+                                    "contains": {
+                                      "const": "codex"
+                                    }
+                                  },
+                                  {
+                                    "contains": {
+                                      "const": "CODEX"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
                           "items": {
                             "enum": [
                               "atlas",

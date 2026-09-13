@@ -973,7 +973,7 @@ function readCodexMarketplaceInterface(
       if (strings === undefined) continue;
       if (
         key === "defaultPrompt" &&
-        (strings.length > 3 || strings.some((value) => value.length > 128))
+        (strings.length > 3 || strings.some((value) => [...value].length > 128))
       ) {
         throw new Error(
           `skillset: ${label}.defaultPrompt permits at most three 128-character prompts`
