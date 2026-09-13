@@ -110,13 +110,13 @@ const profiles = [
         "sha256:150449953919d7e62cc08a1609de61821fa31335f9793bba2ca26b0369899e17",
       receipt: {
         contentHash:
-          "sha256:b206ce58a0510947e758be1ff9f8b3fa6dbcb3d2e3e80640a8d6f2d5f5249061",
+          "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
         path: "fixtures/standards/evidence/agent-instructions.json",
         schema: "skillset.standards-conformance-receipt@1",
       },
-      rendererCommit: "4a4cb160e63ec934a6d46dddbc557032743e2717",
+      rendererCommit: "dade1c128d2ec52452297d829bd2045b35517f92",
       schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
-      verifiedAt: "2026-09-13T20:38:36.654Z",
+      verifiedAt: "2026-09-13T20:54:06.048Z",
     },
     envelopes: [
       required(
@@ -145,13 +145,13 @@ const profiles = [
         "sha256:2d5eed27ec970558f46500d4408cc86a746d1f4065b2b7e3d58f3f52a9e210ff",
       receipt: {
         contentHash:
-          "sha256:d0a3948896fbe324fccb75ace937fae2fe20ba263639f545a2bf90e6a42a296a",
+          "sha256:984d0c3d846d1a89cb0fdadb09f2bb82e476dd81217688cfeab3ecdee16e58b2",
         path: "fixtures/standards/evidence/agent-skills.json",
         schema: "skillset.standards-conformance-receipt@1",
       },
-      rendererCommit: "4a4cb160e63ec934a6d46dddbc557032743e2717",
+      rendererCommit: "dade1c128d2ec52452297d829bd2045b35517f92",
       schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
-      verifiedAt: "2026-09-13T20:38:39.724Z",
+      verifiedAt: "2026-09-13T20:54:09.306Z",
     },
     envelopes: [
       required(
@@ -184,13 +184,13 @@ const profiles = [
         "sha256:d992e4ff4ae49c4fd814c8c0faf05cb8f109a516b471769b63f6a45023f22d52",
       receipt: {
         contentHash:
-          "sha256:19f50c63e175f8bfe4e272b96bda66a794c7f5e1279ab83976e09a0e56ce2a43",
+          "sha256:f1b89300d6c879de1c7a89f060faee2e6e6c76c71bbbcd9b0909d8ec00c18984",
         path: "fixtures/standards/evidence/agent-plugins-1.0.json",
         schema: "skillset.standards-conformance-receipt@1",
       },
-      rendererCommit: "4a4cb160e63ec934a6d46dddbc557032743e2717",
+      rendererCommit: "dade1c128d2ec52452297d829bd2045b35517f92",
       schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
-      verifiedAt: "2026-09-13T20:38:40.319Z",
+      verifiedAt: "2026-09-13T20:54:09.947Z",
     },
     envelopes: [
       required(
