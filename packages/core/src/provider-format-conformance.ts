@@ -147,7 +147,7 @@ function checkProviderFormatConformanceFile(
   if (file.path.endsWith("/.codex-plugin/plugin.json")) {
     return checkCodexPluginManifest(file);
   }
-  if (file.path.endsWith("/chatgpt/plugin.json")) {
+  if (isChatGptPluginManifest(file)) {
     return checkChatGptPluginManifest(file);
   }
   // The ChatGPT product package deliberately reuses the Agent Plugins and
@@ -185,6 +185,17 @@ function checkProviderFormatConformanceFile(
     return checkSkillMarkdown(file);
   }
   return [];
+}
+
+function isChatGptPluginManifest(
+  file: ProviderFormatConformanceFile
+): boolean {
+  return file.path.endsWith("/chatgpt/plugin.json") ||
+    (
+      file.path.endsWith("/plugin.json") &&
+      file.featureId === "plugin-manifests" &&
+      file.target === "codex"
+    );
 }
 
 function checkClaudePluginManifest(

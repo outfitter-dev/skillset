@@ -25,6 +25,7 @@ import {
   formatAcquisitionFailureDiagnostic,
   stageValidationInputs,
 } from "../provider-validation-hosted";
+import { validateChatGptPluginConformance } from "../provider-validation-chatgpt";
 import {
   stageCursorHookConformanceInputs,
   validateCursorHookConformance,
@@ -228,6 +229,44 @@ describe("SET-463 hosted provider validation orchestration", () => {
       expect(markdown).toContain("| validation-current |");
     }
     expect(calls).toBe(commands.length);
+  });
+
+  test("validates every staged ChatGPT root manifest as internal authoring conformance", async () => {
+    const temp = await mkdtemp(join(tmpdir(), "skillset-chatgpt-hosted-"));
+    const valid = join(temp, "valid");
+    const invalid = join(temp, "invalid");
+    await mkdir(valid, { recursive: true });
+    await mkdir(invalid, { recursive: true });
+    await writeFile(
+      join(valid, "plugin.json"),
+      `${JSON.stringify({
+        $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        description: "Valid plugin.",
+        extensions: { "com.openai": { interface: {} } },
+        name: "valid",
+        version: "1.0.0",
+      })}\n`
+    );
+    await writeFile(
+      join(invalid, "plugin.json"),
+      `${JSON.stringify({ name: "invalid", unexpected: true })}\n`
+    );
+
+    const checks = await validateChatGptPluginConformance([valid, invalid]);
+
+    expect(checks).toEqual([
+      expect.objectContaining({
+        id: "chatgpt-plugin-generated-manifest",
+        result: "passed",
+        target: "codex",
+      }),
+      expect.objectContaining({
+        diagnostic: expect.stringContaining("unexpected"),
+        id: "chatgpt-plugin-generated-manifest",
+        result: "failed",
+        target: "codex",
+      }),
+    ]);
   });
 
   test("reports generated Cursor hooks and the malformed-handler canary as internal authoring conformance", async () => {

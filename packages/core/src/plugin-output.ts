@@ -57,6 +57,22 @@ export function pluginManifestDirectory(target: TargetName): string {
   return `.${target}-plugin`;
 }
 
+export function isPluginManifestOutputPath(
+  graph: BuildGraph,
+  path: string,
+  target: TargetName
+): boolean {
+  const parts = pluginPathPartsForOutput(
+    graph,
+    graph.root.outputs.plugins[target],
+    target,
+    path
+  );
+  const directory = pluginManifestDirectory(target);
+  return parts?.pluginPath ===
+    (directory === "" ? "plugin.json" : `${directory}/plugin.json`);
+}
+
 /**
  * The root whose `skillset.lock` records one plugin's rendered output for one
  * target. A plugin-owned claude bundle carries its own lock at the bundle

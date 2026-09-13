@@ -175,6 +175,35 @@ cursor: false
     });
   });
 
+  test("copies contained interface assets outside the conventional companion roots", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/icons/logo.png": "logo bytes",
+      ".skillset/plugins/demo/media/shot.png": "screenshot bytes",
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  listing:
+    logo: ./icons/logo.png
+    screenshots: [./media/shot.png]
+`,
+      "skillset.yaml": `
+skillset:
+  name: interface-assets-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    const rendered = await renderBuildGraph(graph);
+    expect(text(rendered, "plugins/demo/chatgpt/icons/logo.png")).toBe(
+      "logo bytes\n"
+    );
+    expect(text(rendered, "plugins/demo/chatgpt/media/shot.png")).toBe(
+      "screenshot bytes\n"
+    );
+  });
+
   test("maps reviewed legacy .codex-plugin interface input into the modern extension", async () => {
     const graph = await fixtureGraph({
       ".skillset/plugins/demo/.codex-plugin/plugin.json": `
@@ -198,6 +227,30 @@ cursor: false
     ).toMatchObject({
       extensions: { "com.openai": { interface: { category: "Developer Tools" } } },
     });
+  });
+
+  test("accepts a legacy license that matches resolved canonical metadata", async () => {
+    const graph = await fixtureGraph({
+      ".skillset/plugins/demo/.codex-plugin/plugin.json": `
+{ "name": "demo", "license": "MIT" }
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  license: MIT
+`,
+      "skillset.yaml": `
+skillset:
+  name: legacy-license-root
+claude: false
+codex: true
+cursor: false
+`,
+    });
+
+    expect(
+      json(await renderBuildGraph(graph), "plugins/demo/chatgpt/plugin.json")
+    ).toMatchObject({ license: "MIT" });
   });
 
   test("retains reviewed legacy interface fields beside an authored modern hook", async () => {

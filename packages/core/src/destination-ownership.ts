@@ -28,17 +28,33 @@ export interface DestinationOwnershipClassification {
 const textDecoder = new TextDecoder();
 
 export function classifyDestinationOwnership(args: {
+  readonly chatGptManifest?: boolean;
   readonly content?: Uint8Array;
   readonly path: string;
   readonly target: TargetName;
 }): DestinationOwnershipClassification {
-  const file = classifyFileOwnership(args.path, args.target);
-  const fields = args.content === undefined ? [] : classifyFieldOwnership(args.path, args.target, args.content);
+  const file = classifyFileOwnership(
+    args.path,
+    args.target,
+    args.chatGptManifest === true
+  );
+  const fields = args.content === undefined
+    ? []
+    : classifyFieldOwnership(
+        args.path,
+        args.target,
+        args.content,
+        args.chatGptManifest === true
+      );
   return { fields, file };
 }
 
-function classifyFileOwnership(path: string, target: TargetName): DestinationOwnershipEntry {
-  if (path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
+function classifyFileOwnership(
+  path: string,
+  target: TargetName,
+  chatGptManifest: boolean
+): DestinationOwnershipEntry {
+  if (chatGptManifest || path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
     return {
       owner: "generated",
       reason: "ChatGPT Agent Plugins root manifests are generated from portable Skillset source.",
@@ -73,7 +89,12 @@ function classifyFileOwnership(path: string, target: TargetName): DestinationOwn
   };
 }
 
-function classifyFieldOwnership(path: string, target: TargetName, content: Uint8Array): readonly DestinationOwnershipEntry[] {
+function classifyFieldOwnership(
+  path: string,
+  target: TargetName,
+  content: Uint8Array,
+  chatGptManifest: boolean
+): readonly DestinationOwnershipEntry[] {
   if (!path.endsWith("plugin.json") && !path.endsWith("marketplace.json")) return [];
   let record;
   try {
@@ -83,7 +104,7 @@ function classifyFieldOwnership(path: string, target: TargetName, content: Uint8
   } catch {
     return [];
   }
-  if (path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
+  if (chatGptManifest || path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
     return Object.keys(record).sort(compareStrings).map((key) => ({
       owner: "generated" as const,
       reason: "Skillset owns the closed ChatGPT Agent Plugins manifest contract.",

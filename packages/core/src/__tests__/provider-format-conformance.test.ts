@@ -1487,8 +1487,25 @@ skillset:
   name: provider-format-root
 claude: false
 codex:
+  plugins:
+    path: generated/openai-plugins
   skills:
     path: generated/openai-skills
+cursor: false
+`,
+      ".skillset/plugins/repo-plugin/skillset.yaml": `
+skillset:
+  name: repo-plugin
+  description: Repo plugin.
+codex: true
+`,
+      ".skillset/plugins/repo-plugin/skills/plugin-skill/SKILL.md": `
+---
+name: plugin-skill
+description: Plugin skill.
+---
+
+Use the plugin skill.
 `,
       ".skillset/skills/repo-skill/SKILL.md": `
 ---
@@ -1505,9 +1522,20 @@ Use the repo skill.
     const customSkill = files.find((file) =>
       file.path === ".skillset/cache/latest/generated/openai-skills/repo-skill/SKILL.md"
     );
+    const customPlugin = files.find((file) =>
+      file.path === ".skillset/cache/latest/generated/openai-plugins/plugins/repo-plugin/plugin.json"
+    );
+
+    expect(files.map((file) => file.path)).toContain(
+      ".skillset/cache/latest/generated/openai-plugins/plugins/repo-plugin/plugin.json"
+    );
 
     expect(customSkill).toMatchObject({
       destination: "skill",
+      target: "codex",
+    });
+    expect(customPlugin).toMatchObject({
+      destination: "plugin-manifest",
       target: "codex",
     });
     expect(checkProviderFormatConformance(files)).toEqual({ checkedFiles: files.length, issues: [], ok: true });

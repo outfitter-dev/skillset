@@ -48,4 +48,18 @@ describe("destination ownership classifier", () => {
       selector: "plugin.json#/xMarketplaceReviewId",
     }));
   });
+
+  it("classifies a custom-root ChatGPT manifest from semantic target context", () => {
+    const classification = classifyDestinationOwnership({
+      chatGptManifest: true,
+      content: encoder.encode(JSON.stringify({ name: "demo" })),
+      path: "generated/openai/plugins/demo/plugin.json",
+      target: "codex",
+    });
+
+    expect(classification.file.owner).toBe("generated");
+    expect(classification.fields).toContainEqual(
+      expect.objectContaining({ owner: "generated", selector: "plugin.json#/name" })
+    );
+  });
 });

@@ -8,7 +8,10 @@ import {
   formatGeneratedFileMode,
   generatedFileModeMatches,
 } from "./generated-file-mode";
-import { pluginBundleRoot } from "./plugin-output";
+import {
+  isPluginManifestOutputPath,
+  pluginBundleRoot,
+} from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { BuildGraph, DistributionConfig, RenderedFile, SkillsetOptions, SourcePlugin, StandaloneSkill, TargetName } from "./types";
@@ -90,7 +93,11 @@ async function planDistribution(
       const mode = formatGeneratedFileMode(file.mode);
       const destinationPath = joinWorkspacePath(selected.destinationPrefix, stripRequiredPrefix(file.path, selected.sourcePrefix));
       const destination = await distributionDestinationState(graph, config, destinationPath, file);
-      const closedManifest = isClosedChatGptManifest(file.path);
+      const closedManifest = isClosedChatGptManifest(
+        graph,
+        file.path,
+        config.from.target
+      );
       return {
         bytes: file.content.byteLength,
         destinationPath,
@@ -98,6 +105,7 @@ async function planDistribution(
         mode,
         ownership: mergeDestinationOwnership(
           classifyDestinationOwnership({
+            ...(closedManifest ? { chatGptManifest: true } : {}),
             content: file.content,
             path: file.path,
             target: config.from.target,
@@ -105,6 +113,7 @@ async function planDistribution(
           destination.content === undefined || closedManifest
             ? undefined
             : classifyDestinationOwnership({
+              ...(closedManifest ? { chatGptManifest: true } : {}),
               content: destination.content,
               path: file.path,
               target: config.from.target,
@@ -134,8 +143,12 @@ async function planDistribution(
   };
 }
 
-function isClosedChatGptManifest(path: string): boolean {
-  return path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json";
+function isClosedChatGptManifest(
+  graph: BuildGraph,
+  path: string,
+  target: TargetName
+): boolean {
+  return target === "codex" && isPluginManifestOutputPath(graph, path, target);
 }
 
 function selectDistributionFiles(

@@ -376,10 +376,17 @@ async function renderPluginTarget(
   const dependencySummaries = pluginDependencySummaries(graph, plugin);
   const rootLicense = await resolveRootLicense(graph);
   const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
+  const pluginManifest = renderPluginManifest(
+    graph,
+    plugin,
+    target,
+    enabledSkills,
+    pluginLicense
+  );
   const manifestFile = textFile(
     pluginManifestPath(outputRoot, target, plugin),
     renderValidatedJson(
-      renderPluginManifest(graph, plugin, target, enabledSkills, pluginLicense),
+      pluginManifest,
       `${plugin.id} ${target} plugin manifest`
     ),
     relative(graph.rootPath, plugin.configPath)
@@ -398,7 +405,13 @@ async function renderPluginTarget(
 
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
   const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
-  const companionFiles = await copyPluginCompanionFiles(graph, plugin, target, basePath);
+  const companionFiles = await copyPluginCompanionFiles(
+    graph,
+    plugin,
+    target,
+    basePath,
+    pluginManifest
+  );
   rendered.push(...adaptiveHookFiles, ...companionFiles);
   pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
@@ -1403,7 +1416,8 @@ async function copyPluginCompanionFiles(
   graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
-  basePath: string
+  basePath: string,
+  manifest: JsonRecord
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   const candidates =
@@ -1450,7 +1464,41 @@ async function copyPluginCompanionFiles(
     rendered.push(...(await copyPath(sourcePath, join(basePath, candidate))));
   }
 
+  if (target === "codex") {
+    const renderedPaths = new Set(rendered.map((file) => file.path));
+    for (const assetPath of chatGptInterfaceAssetPaths(manifest)) {
+      const relativeAssetPath = assetPath.slice(2);
+      for (const file of await copyPath(
+        join(plugin.path, relativeAssetPath),
+        join(basePath, relativeAssetPath)
+      )) {
+        if (renderedPaths.has(file.path)) continue;
+        rendered.push(file);
+        renderedPaths.add(file.path);
+      }
+    }
+  }
+
   return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
+}
+
+function chatGptInterfaceAssetPaths(
+  manifest: JsonRecord
+): readonly string[] {
+  const extensions = readRecord(manifest, "extensions");
+  const openAi = extensions === undefined
+    ? undefined
+    : readRecord(extensions, "com.openai");
+  const interfaceValue = openAi === undefined
+    ? undefined
+    : readRecord(openAi, "interface");
+  if (interfaceValue === undefined) return [];
+  return [
+    ...["composerIcon", "logo", "logoDark"]
+      .map((key) => readString(interfaceValue, key))
+      .filter((value): value is string => value !== undefined),
+    ...(readStringArray(interfaceValue, "screenshots") ?? []),
+  ].toSorted(compareStrings);
 }
 
 async function renderPluginFeatureFiles(

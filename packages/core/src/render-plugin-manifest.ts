@@ -217,13 +217,15 @@ export function codexInterfaceCategory(
 /** The one effective OpenAI interface used for bytes and outcome evidence. */
 export function renderEffectiveOpenAiInterface(
   graph: BuildGraph,
-  plugin: SourcePlugin
+  plugin: SourcePlugin,
+  validatedLegacyExtension?: JsonRecord
 ): JsonRecord {
   const manifestOverrides =
     readRecord(plugin.targets.codex.options, "manifest") ?? {};
   const extensions = readRecord(manifestOverrides, "extensions") ?? {};
   const authoredExtension = readRecord(extensions, "com.openai") ?? {};
-  const legacyExtension = readLegacyOpenAiExtension(graph, plugin);
+  const legacyExtension = validatedLegacyExtension ??
+    readLegacyOpenAiExtension(graph, plugin);
   const canonical = mergeRecords(
     renderCodexInterface(graph, plugin),
     readRecord(manifestOverrides, "interface") ?? {}
@@ -315,7 +317,12 @@ function renderChatGptPluginManifest(
     }
   }
   const authoredExtension = readRecord(extensionOverrides, "com.openai") ?? {};
-  const legacyExtension = readLegacyOpenAiExtension(graph, plugin);
+  const canonicalManifest = renderAgentPluginManifest(graph, plugin, license);
+  const legacyExtension = readLegacyOpenAiExtension(
+    graph,
+    plugin,
+    canonicalManifest
+  );
   const hasApp = plugin.features.some((feature) => feature.key === "app");
   const hasHooks =
     pluginHasPath(plugin, "hooks/hooks.json") ||
@@ -328,7 +335,7 @@ function renderChatGptPluginManifest(
       },
       mergeRecords(legacyExtension, authoredExtension)
     ),
-    { interface: renderEffectiveOpenAiInterface(graph, plugin) }
+    { interface: renderEffectiveOpenAiInterface(graph, plugin, legacyExtension) }
   );
   validateOpenAiExtension(plugin, extension);
   if (extension.apps !== undefined && !hasApp) {
@@ -341,7 +348,7 @@ function renderChatGptPluginManifest(
       `skillset: plugin ${plugin.id} extensions.com.openai.hooks requires an authored or adaptive hooks component`
     );
   }
-  return mergeRecords(renderAgentPluginManifest(graph, plugin, license), {
+  return mergeRecords(canonicalManifest, {
     extensions: { "com.openai": extension },
   });
 }
@@ -353,7 +360,8 @@ function renderChatGptPluginManifest(
  */
 function readLegacyOpenAiExtension(
   graph: BuildGraph,
-  plugin: SourcePlugin
+  plugin: SourcePlugin,
+  canonical?: JsonRecord
 ): JsonRecord {
   const path = join(plugin.path, ".codex-plugin", "plugin.json");
   if (!pluginHasPath(plugin, ".codex-plugin/plugin.json")) return {};
@@ -383,8 +391,11 @@ function readLegacyOpenAiExtension(
       `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.name conflicts with the canonical plugin id`
     );
   }
-  const expectedDescription = readString(renderAgentPluginManifest(graph, plugin, undefined), "description");
+  const expectedDescription = canonical === undefined
+    ? undefined
+    : readString(canonical, "description");
   if (
+    canonical !== undefined &&
     parsed.description !== undefined &&
     parsed.description !== expectedDescription
   ) {
@@ -392,7 +403,6 @@ function readLegacyOpenAiExtension(
       `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.description cannot be preserved without changing portable metadata`
     );
   }
-  const canonical = renderAgentPluginManifest(graph, plugin, undefined);
   for (const key of [
     "author",
     "homepage",
@@ -401,6 +411,7 @@ function readLegacyOpenAiExtension(
     "repository",
     "version",
   ] as const) {
+    if (canonical === undefined) break;
     if (parsed[key] === undefined) continue;
     if (!sameJsonValue(parsed[key], canonical[key])) {
       throw new Error(
