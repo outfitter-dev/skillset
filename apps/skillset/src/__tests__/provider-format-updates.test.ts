@@ -7,6 +7,7 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 import { buildSkillset, checkSkillsetSourceReadiness } from "@skillset/core";
+import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { ciSkillset } from "../ci";
 import {
   renderProviderFormatUpdateReport,
@@ -49,8 +50,7 @@ test("SET-278: check write modes leave provider-format updates to update", async
 
   expect(local.exitCode).toBe(1);
   expect(local.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
-  expect(local.stdout).toContain("recovery blocked manual-review");
-  expect(local.stdout).toContain("invalid provenanceHash");
+  expect(local.stdout).toContain("no registered safe provider-format update");
   expect(ci.exitCode).toBe(1);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
@@ -623,10 +623,11 @@ test("SET-279: source drift defers an overlapping provider migration", async () 
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 
   const checked = await ciSkillset(root, { fix: true });
-  expect(checked.ok).toBe(false);
-  expect(checked.fixedPaths).toEqual([]);
-  expect(checked.outputEditedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+  expect(checked.ok).toBe(true);
+  expect(checked.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(checked.outputEditedPaths).toEqual([]);
+  expect(checked.providerUpdatePaths).toEqual([]);
+  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
 test("SET-279: root owner drift defers an overlapping Codex manifest migration", async () => {
@@ -848,7 +849,7 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
 
 test("SET-279: invalid v3 locks do not route ordinary source drift through update", async () => {
   const root = await builtFixture(pluginFixture());
-  await removePluginRenderInputsHash(root);
+  await invalidatePluginRenderInputsHash(root);
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
   await writeFile(
     sourcePath,
@@ -1026,6 +1027,16 @@ async function removePluginRenderInputsHash(root: string): Promise<void> {
     readonly items: Array<{ renderInputsHash?: string }>;
   };
   for (const item of lock.items) delete item.renderInputsHash;
+  await writeLockWithCurrentProvenance(lockPath, lock);
+}
+
+async function invalidatePluginRenderInputsHash(root: string): Promise<void> {
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+    readonly items: Array<{ renderInputsHash?: string }>;
+  };
+  for (const item of lock.items) delete item.renderInputsHash;
   delete lock.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
@@ -1045,8 +1056,7 @@ async function removePluginRenderInputsHashForPath(
   ));
   if (item === undefined) throw new Error(`missing lock item for ${generatedPath}`);
   delete item.renderInputsHash;
-  delete lock.provenanceHash;
-  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  await writeLockWithCurrentProvenance(lockPath, lock);
 }
 
 async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: string): Promise<void> {
@@ -1070,7 +1080,22 @@ async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: st
   ));
   if (item?.files === undefined) throw new Error("missing plugin manifest lock item");
   item.outputHash = await hashLockItem(root, lock.outputRoot, item.files, lock.schemaVersion, item.fileModes);
-  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  await writeLockWithCurrentProvenance(lockPath, lock);
+}
+
+async function writeLockWithCurrentProvenance(
+  lockPath: string,
+  lock: unknown
+): Promise<void> {
+  await writeFile(
+    lockPath,
+    `${JSON.stringify(
+      withLockProvenance(lock as Parameters<typeof withLockProvenance>[0]),
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 }
 
 async function hashLockItem(
