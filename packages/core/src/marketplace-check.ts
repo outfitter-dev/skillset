@@ -6,7 +6,6 @@ import { promisify } from "node:util";
 
 import { isOutputSelected } from "./config";
 import { parseCurrentGeneratedLock } from "./generated-lock";
-import { hasValidLockProvenance } from "./lock-provenance";
 import { storedClaudeMarketplaceProviderEntry } from "./claude-marketplace";
 import {
   marketplaceRequestedRefPolicy,
@@ -748,12 +747,8 @@ async function readMarketplaceLockEntries(rootPath: string): Promise<readonly Ma
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`skillset: workspace lock skillset.lock is invalid: ${message}`);
   }
-  parseCurrentGeneratedLock(parsed, "workspace lock skillset.lock", {
-    provenance: "inspect",
-  });
-  if (!isRecord(parsed) || !hasValidLockProvenance(parsed as JsonRecord)) {
-    return [];
-  }
+  parseCurrentGeneratedLock(parsed, "workspace lock skillset.lock");
+  if (!isRecord(parsed)) return [];
   if (!isRecord(parsed.marketplaces) || !Array.isArray(parsed.marketplaces.entries)) return [];
   return parsed.marketplaces.entries
     .filter(isMarketplaceLockEntry)
