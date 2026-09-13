@@ -1556,6 +1556,10 @@ function noOutputOutcomeBelongsToLock(
   if (outcome.sourceUnit.startsWith("plugin.")) {
     const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
     if (outputRoot.startsWith(`plugins/${pluginId}/`)) return true;
+    // Scope exclusion describes this invocation, not the output root: an
+    // unscoped build never emits it, so persisting it here would make scoped
+    // and unscoped locks disagree.
+    if (outcome.policy === "scope:excluded") return false;
     // Shared roots (the default `plugins` root, which is also the Agent
     // Plugins standard root) and plugin-owned bundle roots carry no
     // `plugins/<id>` shape; a lock item this plugin owns identifies membership
