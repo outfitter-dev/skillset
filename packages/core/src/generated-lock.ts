@@ -98,7 +98,10 @@ export function parseGeneratedLock(
   }
   const outputRoot = requiredString(value.outputRoot, label, "outputRoot");
   const target = parseLockTarget(value.target, label);
-  const selectedTargets = parseTargets(value.selectedTargets, label);
+  const selectedTargets =
+    schemaVersion === 1 && value.selectedTargets === undefined
+      ? []
+      : parseTargets(value.selectedTargets, label);
   const selectedStandards =
     schemaVersion === 3 ? parseStandards(value.selectedStandards, label) : [];
   const buildMode = parseBuildMode(value.buildMode, label);

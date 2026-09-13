@@ -14,6 +14,7 @@ import {
   SkillsetBuildBlockedError,
   verifySkillsetResult,
 } from "../build";
+import { parseGeneratedLock } from "../generated-lock";
 import { SkillsetFeatureDiagnosticError } from "../operation-result";
 import {
   classifySkillsetOutputFailure,
@@ -26,6 +27,18 @@ import {
 } from "../source-readiness";
 
 describe("output-state evidence classifier", () => {
+  it("preserves the empty target default of setup-created schema-v1 locks", () => {
+    const lock = parseGeneratedLock({
+      generatedBy: "skillset@0.1.0",
+      items: [],
+      outputRoot: ".",
+      schemaVersion: 1,
+      target: "workspace",
+    });
+
+    expect(lock.selectedTargets).toEqual([]);
+  });
+
   it.each([
     {
       expected: "blocked",
