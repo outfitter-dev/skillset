@@ -55,6 +55,34 @@ describe("plugin bundle root ownership", () => {
     });
   }
 
+  it("preserves pluginRoot for an override-supplied Claude plugin array", async () => {
+    const root = await fixture(undefined, "plugins");
+    const configPath = join(root, "skillset.yaml");
+    const config = (await readFile(configPath, "utf8")).replace(
+      "marketplaces:\n  local:\n    targets: [claude]\n    plugins:\n      - plugin: trails\n",
+      ""
+    );
+    await writeFile(
+      configPath,
+      config.replace(
+        "claude:\n  plugins:\n    path: plugins\n",
+        "claude:\n  plugins:\n    path: plugins\n  marketplace:\n    plugins:\n      - name: kept\n        source: ./kept/claude\n"
+      )
+    );
+
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const marketplace = JSON.parse(
+      await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+    ) as {
+      readonly metadata: Record<string, unknown>;
+      readonly plugins: readonly { readonly name: string; readonly source: string }[];
+    };
+    expect(marketplace.metadata.pluginRoot).toBe("./plugins");
+    expect(marketplace.plugins).toEqual([
+      { name: "kept", source: "./kept/claude" },
+    ]);
+  });
+
   for (const marketplaceRoot of ["plugins", "dist"]) {
     it(`keeps nested-path marketplace and lock provenance consistent under ${marketplaceRoot}`, async () => {
       const root = await fixture("dist/plugins/custom", marketplaceRoot);
