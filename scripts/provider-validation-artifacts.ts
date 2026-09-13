@@ -14,6 +14,7 @@ const ROOT_MARKETPLACES = [
 ] as const;
 
 export interface ProviderArtifactInventory {
+  readonly chatgptPlugins: readonly string[];
   readonly claudeMarketplaces: readonly string[];
   readonly claudePlugins: readonly string[];
   readonly codexPlugins: readonly string[];
@@ -36,6 +37,7 @@ export async function enumerateProviderArtifacts(
   root: string
 ): Promise<ProviderArtifactInventory> {
   const canonicalRoot = await realpath(root);
+  const chatgptPlugins = new Set<string>();
   const claudePlugins = new Set<string>();
   const codexPlugins = new Set<string>();
   const cursorPlugins = new Set<string>();
@@ -77,7 +79,9 @@ export async function enumerateProviderArtifacts(
       if (outputPath.endsWith("/.claude-plugin/plugin.json"))
         claudePlugins.add(dirname(dirname(outputPath)));
       else if (outputPath.endsWith("/chatgpt/plugin.json"))
-        codexPlugins.add(dirname(outputPath));
+        chatgptPlugins.add(dirname(outputPath));
+      else if (outputPath.endsWith("/.codex-plugin/plugin.json"))
+        codexPlugins.add(dirname(dirname(outputPath)));
       else if (outputPath.endsWith("/.cursor-plugin/plugin.json"))
         cursorPlugins.add(dirname(dirname(outputPath)));
       else
@@ -93,6 +97,7 @@ export async function enumerateProviderArtifacts(
     )
   );
   const inventory = {
+    chatgptPlugins: [...chatgptPlugins].toSorted(),
     claudeMarketplaces: [marketplaces[0]!],
     claudePlugins: [...claudePlugins].toSorted(),
     codexPlugins: [...codexPlugins].toSorted(),
@@ -102,6 +107,7 @@ export async function enumerateProviderArtifacts(
   } satisfies ProviderArtifactInventory;
   assertNonEmptyInventory(inventory);
   await Promise.all([
+    ...inventory.chatgptPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.claudePlugins.map(assertTreeHasNoSymlinks),
     ...inventory.codexPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.cursorPlugins.map(assertTreeHasNoSymlinks),
@@ -128,6 +134,7 @@ function parseLockItem(raw: unknown, lockPath: string): LockItem | undefined {
 
 function assertNonEmptyInventory(inventory: ProviderArtifactInventory): void {
   for (const [surface, values] of Object.entries(inventory)) {
+    if (surface === "codexPlugins") continue;
     if (values.length === 0)
       throw new Error(`skillset: provider validation found no ${surface}`);
   }

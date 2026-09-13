@@ -48,12 +48,13 @@ describe("SET-463 hosted provider validation orchestration", () => {
     const canonicalRoot = await realpath(root);
     const inventory = await enumerateProviderArtifacts(root);
 
+    expect(inventory.chatgptPlugins).toEqual([
+      join(canonicalRoot, "plugins/demo/chatgpt"),
+    ]);
     expect(inventory.claudePlugins).toEqual([
       join(canonicalRoot, "plugins/demo/claude"),
     ]);
-    expect(inventory.codexPlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/chatgpt"),
-    ]);
+    expect(inventory.codexPlugins).toEqual([]);
     expect(inventory.cursorPlugins).toEqual([
       join(canonicalRoot, "plugins/demo/cursor"),
     ]);
@@ -162,7 +163,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
     ).toEqual([
       "/tmp/tools/python",
       "/tmp/tools/validate_plugin.py",
-      "/tmp/stage/plugins/demo/chatgpt",
+      "/tmp/stage/plugins/demo/codex",
     ]);
   });
 
@@ -668,9 +669,10 @@ describe("SET-463 hosted provider validation orchestration", () => {
 
 function sampleInventory(): ProviderArtifactInventory {
   return {
+    chatgptPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
     claudeMarketplaces: ["/tmp/stage/.claude-plugin/marketplace.json"],
     claudePlugins: ["/tmp/stage/plugins/demo/claude"],
-    codexPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
+    codexPlugins: ["/tmp/stage/plugins/demo/codex"],
     cursorMarketplaces: ["/tmp/stage/.cursor-plugin/marketplace.json"],
     cursorPlugins: ["/tmp/stage/plugins/demo/cursor"],
     skills: ["/tmp/stage/.agents/skills/demo/SKILL.md"],

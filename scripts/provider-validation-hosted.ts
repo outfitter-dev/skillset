@@ -294,6 +294,13 @@ export async function stageValidationInputs(
     stagedClaudePlugins.add(destination);
   }
 
+  const stagedChatGptPlugins: string[] = [];
+  for (const [index, plugin] of inventory.chatgptPlugins.entries()) {
+    const destination = join(stage, "chatgpt-plugins", `plugin-${index}`);
+    await cp(plugin, destination, { recursive: true });
+    stagedChatGptPlugins.push(destination);
+  }
+
   const stagedCodexPlugins: string[] = [];
   for (const [index, plugin] of inventory.codexPlugins.entries()) {
     const destination = join(stage, "codex-plugins", `plugin-${index}`);
@@ -429,6 +436,7 @@ export async function stageValidationInputs(
     cursorRoots,
     environment,
     inventory: {
+      chatgptPlugins: stagedChatGptPlugins,
       claudeMarketplaces: stagedClaudeMarketplaces,
       claudePlugins: [...stagedClaudePlugins].toSorted(),
       codexPlugins: stagedCodexPlugins,
