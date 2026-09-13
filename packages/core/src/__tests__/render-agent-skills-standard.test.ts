@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, symlink } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { StandardProfileId } from "@skillset/registry";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { readContainedLicenseFile } from "../licenses";
 import { renderBuildGraph } from "../render";
 import {
   agentSkillStandardProjectionIssues,
@@ -173,6 +174,161 @@ Review the change.
       "Apache-2.0"
     );
   });
+
+  test.each([
+    ["workspace", ".skillset/LICENSE.txt"],
+    ["plugin", ".skillset/plugins/demo/LICENSE.txt"],
+    ["skill", ".skillset/plugins/demo/skills/review/LICENSE.txt"],
+  ])(
+    "rejects a %s license symlink that escapes the source root",
+    async (_scope, licensePath) => {
+      const root = await fixtureRoot({
+        "skillset.yaml": `
+skillset:
+  name: escaped-license
+codex: false
+`,
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex: false
+`,
+        ".skillset/plugins/demo/skills/review/SKILL.md": `
+---
+name: review
+description: Review a change.
+---
+
+Review the change.
+`,
+      });
+      const outside = await mkdtemp(join(tmpdir(), "skillset-outside-license-"));
+      const secretPath = join(outside, "secret.txt");
+      await Bun.write(secretPath, "outside-secret\n");
+      await symlink(secretPath, join(root, licensePath));
+      const graph = adopted(await loadBuildGraph(root), ["agent-skills"]);
+
+      await expect(renderBuildGraph(graph)).rejects.toThrow(
+        "license file resolves outside its source scope"
+      );
+    }
+  );
+
+  test("rejects a license path swapped after its file handle opens", async () => {
+    const root = await fixtureRoot({
+      ".skillset/skills/review/LICENSE.txt": "safe-license",
+      ".skillset/skills/review/SKILL.md": `
+---
+name: review
+description: Review a change.
+---
+
+Review.
+`,
+      "skillset.yaml": "skillset:\n  name: license-race\n",
+    });
+    const outside = await mkdtemp(join(tmpdir(), "skillset-license-race-"));
+    const outsideSecret = join(outside, "secret.txt");
+    await Bun.write(outsideSecret, "outside-secret\n");
+    const licensePath = join(root, ".skillset/skills/review/LICENSE.txt");
+
+    await expect(
+      readContainedLicenseFile({
+        label: ".skillset/skills/review/SKILL.md",
+        licensePath,
+        rootPath: root,
+        scopePath: join(root, ".skillset/skills/review"),
+        sourceRootPath: join(root, ".skillset"),
+        testHooks: {
+          afterOpen: async () => {
+            await rm(licensePath);
+            await symlink(outsideSecret, licensePath);
+          },
+        },
+      })
+    ).rejects.toThrow("license file changed during containment validation");
+  });
+
+  test("rejects license bytes mutated while its file handle is being read", async () => {
+    const root = await fixtureRoot({
+      ".skillset/skills/review/LICENSE.txt": "safe-license",
+      ".skillset/skills/review/SKILL.md": `
+---
+name: review
+description: Review a change.
+---
+
+Review.
+`,
+      "skillset.yaml": "skillset:\n  name: license-read-race\n",
+    });
+    const licensePath = join(root, ".skillset/skills/review/LICENSE.txt");
+
+    await expect(
+      readContainedLicenseFile({
+        label: ".skillset/skills/review/SKILL.md",
+        licensePath,
+        rootPath: root,
+        scopePath: join(root, ".skillset/skills/review"),
+        sourceRootPath: join(root, ".skillset"),
+        testHooks: {
+          afterRead: async () => {
+            await writeFile(licensePath, "mutated-license-content\n", "utf8");
+          },
+        },
+      })
+    ).rejects.toThrow("license file changed while it was being read");
+  });
+
+  test.each([
+    [
+      "plugin into workspace",
+      ".skillset/plugins/demo/LICENSE.txt",
+      ".skillset/private-workspace.txt",
+    ],
+    [
+      "skill into plugin",
+      ".skillset/plugins/demo/skills/review/LICENSE.txt",
+      ".skillset/plugins/demo/private-plugin.txt",
+    ],
+    [
+      "skill into workspace",
+      ".skillset/plugins/demo/skills/review/LICENSE.txt",
+      ".skillset/private-workspace.txt",
+    ],
+  ])(
+    "rejects a %s license symlink that escapes its declaring scope",
+    async (_case, licensePath, targetPath) => {
+      const root = await fixtureRoot({
+        "skillset.yaml": `
+skillset:
+  name: escaped-license-scope
+codex: false
+`,
+        ".skillset/private-workspace.txt": "workspace-secret",
+        ".skillset/plugins/demo/private-plugin.txt": "plugin-secret",
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex: false
+`,
+        ".skillset/plugins/demo/skills/review/SKILL.md": `
+---
+name: review
+description: Review a change.
+---
+
+Review the change.
+`,
+      });
+      await symlink(join(root, targetPath), join(root, licensePath));
+      const graph = adopted(await loadBuildGraph(root), ["agent-skills"]);
+
+      await expect(renderBuildGraph(graph)).rejects.toThrow(
+        "license file resolves outside its source scope"
+      );
+    }
+  );
 
   test("keeps authored metadata but does not synthesize metadata or allowed-tools when disabled", async () => {
     const graph = adopted(

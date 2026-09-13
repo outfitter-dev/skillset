@@ -1,5 +1,6 @@
-import { readFile, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { constants } from "node:fs";
+import { lstat, open, realpath, stat } from "node:fs/promises";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import { SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE } from "@skillset/schema";
 
@@ -75,12 +76,108 @@ export async function resolveLicense(args: ResolveLicenseArgs): Promise<Resolved
 
   if (localLicenseExists) {
     return {
-      content: await readFile(localLicensePath, "utf8"),
+      content: await readContainedLicenseFile({
+        label: args.label,
+        licensePath: localLicensePath,
+        rootPath: args.graph.rootPath,
+        scopePath: args.scopePath,
+        sourceRootPath: args.graph.sourceRootPath,
+      }),
       sourcePath: relative(args.graph.rootPath, localLicensePath),
     };
   }
 
   return args.parent;
+}
+
+export interface ContainedLicenseReadTestHooks {
+  readonly afterOpen?: (licensePath: string) => Promise<void> | void;
+  readonly afterRead?: (licensePath: string) => Promise<void> | void;
+}
+
+export interface ContainedLicenseReadArgs {
+  readonly label: string;
+  readonly licensePath: string;
+  readonly rootPath: string;
+  readonly scopePath: string;
+  readonly sourceRootPath: string;
+  readonly testHooks?: ContainedLicenseReadTestHooks;
+}
+
+export async function readContainedLicenseFile(
+  args: ContainedLicenseReadArgs
+): Promise<string> {
+  const [canonicalSourceRoot, canonicalScope, canonicalLicense] =
+    await Promise.all([
+      realpath(args.sourceRootPath),
+      realpath(args.scopePath),
+      realpath(args.licensePath),
+    ]);
+  if (
+    !isContainedPath(canonicalSourceRoot, canonicalScope) ||
+    !isContainedPath(canonicalScope, canonicalLicense)
+  ) {
+    throw new Error(
+      `skillset: ${args.label} license file resolves outside its source scope: ${relative(args.rootPath, args.licensePath)}`
+    );
+  }
+
+  const handle = await open(
+    canonicalLicense,
+    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)
+  );
+  try {
+    const before = await handle.stat();
+    await args.testHooks?.afterOpen?.(canonicalLicense);
+    const [currentScope, currentLicense, pathEntry] = await Promise.all([
+      realpath(args.scopePath),
+      realpath(canonicalLicense),
+      lstat(canonicalLicense),
+    ]);
+    if (
+      !before.isFile() ||
+      pathEntry.isSymbolicLink() ||
+      !pathEntry.isFile() ||
+      before.dev !== pathEntry.dev ||
+      before.ino !== pathEntry.ino ||
+      currentScope !== canonicalScope ||
+      currentLicense !== canonicalLicense ||
+      !isContainedPath(canonicalSourceRoot, currentScope) ||
+      !isContainedPath(currentScope, currentLicense)
+    ) {
+      throw new Error(
+        `skillset: ${args.label} license file changed during containment validation`
+      );
+    }
+
+    const content = await handle.readFile("utf8");
+    await args.testHooks?.afterRead?.(canonicalLicense);
+    const after = await handle.stat();
+    if (
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.ctimeMs !== after.ctimeMs ||
+      before.mtimeMs !== after.mtimeMs
+    ) {
+      throw new Error(
+        `skillset: ${args.label} license file changed while it was being read`
+      );
+    }
+    return content;
+  } finally {
+    await handle.close();
+  }
+}
+
+function isContainedPath(parent: string, candidate: string): boolean {
+  const relativePath = relative(parent, candidate);
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." &&
+      !relativePath.startsWith(`..${sep}`) &&
+      !isAbsolute(relativePath))
+  );
 }
 
 function renderLicenseNotice(id: string, label: string): string {
