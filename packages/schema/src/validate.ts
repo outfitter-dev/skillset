@@ -2188,6 +2188,18 @@ function checkTargets(
   }
 }
 
+function validTargetValues(
+  value: SchemaJsonValue | undefined
+): readonly string[] | undefined {
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || !targetNames.has(item))
+  ) {
+    return undefined;
+  }
+  return value as readonly string[];
+}
+
 function checkMarketplaceCatalogs(
   value: SchemaJsonValue | undefined,
   path: string,
@@ -2287,7 +2299,8 @@ function checkMarketplaceCatalog(
     );
     return;
   }
-  const effectiveIds = new Map<string, number>();
+  const effectiveIds = new Map<string, Map<string, number>>();
+  const catalogTargets = validTargetValues(value.targets) ?? TARGET_NAMES;
   for (const [index, entry] of value.plugins.entries()) {
     checkMarketplacePluginEntry(
       entry,
@@ -2303,7 +2316,11 @@ function checkMarketplaceCatalog(
             : undefined;
       if (effectiveId !== undefined) {
         const effectiveIdKey = typeof entry.id === "string" ? "id" : "plugin";
-        const previousIndex = effectiveIds.get(effectiveId);
+        const entryTargets = validTargetValues(entry.targets) ?? catalogTargets;
+        const previousByTarget = effectiveIds.get(effectiveId) ?? new Map<string, number>();
+        const previousIndex = entryTargets
+          .map((target) => previousByTarget.get(target))
+          .find((candidate): candidate is number => candidate !== undefined);
         if (previousIndex !== undefined) {
           diagnostics.push(
             diagnostic(
@@ -2312,9 +2329,9 @@ function checkMarketplaceCatalog(
               `marketplace plugin effective id ${effectiveId} duplicates plugins[${previousIndex}]`
             )
           );
-        } else {
-          effectiveIds.set(effectiveId, index);
         }
+        for (const target of entryTargets) previousByTarget.set(target, index);
+        effectiveIds.set(effectiveId, previousByTarget);
       }
     }
   }

@@ -114,6 +114,44 @@ cursor: false
     );
   });
 
+  test.each([
+    [
+      "repository",
+      "repo: https://github.com/outfitter-dev/remote-plugin.git",
+    ],
+    [
+      "URL source",
+      `codex:
+          source:
+            source: url
+            url: https://example.com/remote-plugin.git`,
+    ],
+  ])("does not render a %s catalog entry when Codex is disabled", async (_kind, entry) => {
+    const graph = await fixtureGraph({
+      "skillset.yaml": `
+skillset:
+  name: disabled-codex-catalog
+claude: false
+codex: false
+cursor: false
+marketplaces:
+  remote:
+    targets: [codex]
+    plugins:
+      - plugin: remote
+        ${entry}
+`,
+    });
+
+    const rendered = await renderBuildGraph(graph);
+    expect(
+      rendered.some((file) => file.path === ".agents/plugins/marketplace.json")
+    ).toBe(false);
+    expect(
+      JSON.stringify(rendered).includes('"name":"chatgpt-marketplace"')
+    ).toBe(false);
+  });
+
   test("points implicit entries at a custom modern bundle root", async () => {
     const graph = await fixtureGraph({
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools",

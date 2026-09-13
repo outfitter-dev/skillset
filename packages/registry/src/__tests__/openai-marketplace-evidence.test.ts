@@ -83,7 +83,10 @@ describe("SET-530 immutable OpenAI marketplace evidence", () => {
         optional: ["version", "registry"],
         required: ["source", "package"],
       },
-      url: { optional: ["ref", "sha"], required: ["source", "url"] },
+      url: {
+        optional: ["path", "ref", "sha"],
+        required: ["source", "url"],
+      },
     });
     expect(OPENAI_MARKETPLACE_POLICY_MATRIX).toEqual({
       authentication: ["ON_INSTALL", "ON_USE"],
@@ -99,7 +102,7 @@ describe("SET-530 immutable OpenAI marketplace evidence", () => {
       assetFields: ["composerIcon", "logo", "logoDark", "screenshots"],
       catalogPath: ".agents/plugins/marketplace.json",
       relativeTo: "marketplace-root",
-      requiresDotSlash: ["local.path", "git-subdir.path"],
+      requiresDotSlash: ["local.path", "git-subdir.path", "url.path"],
     });
   });
 });

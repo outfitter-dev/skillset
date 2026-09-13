@@ -797,14 +797,17 @@ function readMarketplaceCatalogObject(record: JsonRecord, label: string): Market
   const plugins = rawPlugins.map((entry, index) =>
     readMarketplacePluginEntry(entry, `${label}.plugins[${index}]`)
   );
-  const seenIds = new Set<string>();
+  const seenIds = new Map<string, Set<TargetName>>();
   for (const entry of plugins) {
-    if (seenIds.has(entry.id)) {
+    const effectiveTargets = entry.targets ?? targets;
+    const seenTargets = seenIds.get(entry.id) ?? new Set<TargetName>();
+    if (effectiveTargets.some((target) => seenTargets.has(target))) {
       throw new Error(
-        `skillset: expected ${label}.plugins to have unique effective ids; duplicate ${entry.id}`
+        `skillset: expected ${label}.plugins to have unique effective ids per target; duplicate ${entry.id}`
       );
     }
-    seenIds.add(entry.id);
+    for (const target of effectiveTargets) seenTargets.add(target);
+    seenIds.set(entry.id, seenTargets);
   }
 
   return {

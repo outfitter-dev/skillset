@@ -320,7 +320,7 @@ function checkChatGptMarketplaceSource(
     kind === "local"
       ? ["path", "source"]
       : kind === "url"
-        ? ["ref", "sha", "source", "url"]
+        ? ["path", "ref", "sha", "source", "url"]
         : kind === "git-subdir"
           ? ["path", "ref", "sha", "source", "url"]
           : kind === "npm"
@@ -349,9 +349,15 @@ function checkChatGptMarketplaceSource(
     }
   }
   if (
-    kind === "git-subdir" &&
+    (kind === "git-subdir" || kind === "url") &&
     typeof source.path === "string" &&
-    !source.path.startsWith("./")
+    (
+      !source.path.startsWith("./") ||
+      source.path === "./" ||
+      source.path.slice(2).split("/").some((segment) =>
+        segment === "" || segment === "." || segment === ".."
+      )
+    )
   ) {
     issues.push(
       issue(

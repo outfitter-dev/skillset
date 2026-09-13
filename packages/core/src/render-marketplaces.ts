@@ -49,6 +49,7 @@ import { isJsonRecord } from "./yaml";
 export async function renderChatGptMarketplace(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
+  if (!graph.root.targets.codex.enabled) return [];
   const selected = selectChatGptMarketplaceCatalog(graph);
   const rootLicense = await resolveRootLicense(graph);
   const plugins: JsonRecord[] = [];

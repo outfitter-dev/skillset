@@ -427,7 +427,9 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     );
     const markdown = renderProviderValidationReport(report);
     expect(markdown).toContain("## Skillset internal authoring conformance");
-    expect(markdown).toContain("portable Agent Plugins manifests and Cursor hook files");
+    expect(markdown).toContain(
+      "portable Agent Plugins manifests, ChatGPT root manifests, and Cursor hook files"
+    );
     expect(markdown).toContain("not product or runtime proof");
     expect(markdown).toContain(
       "| cursor-hooks-generated-native | Skillset internal | cursor | generated version:1 flat native hook file | passed |"

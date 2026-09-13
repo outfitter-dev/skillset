@@ -230,6 +230,22 @@ describe("Codex marketplace config", () => {
       readMarketplaceCatalogConfig(
         {
           marketplaces: {
+            disjoint: {
+              plugins: [
+                { plugin: "shared", targets: ["claude"] },
+                { id: "shared", plugin: "other", targets: ["codex"] },
+              ],
+            },
+          },
+        },
+        "skillset.yaml"
+      )
+    ).not.toThrow();
+
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        {
+          marketplaces: {
             duplicate: {
               plugins: [
                 { plugin: "shared" },
@@ -240,7 +256,23 @@ describe("Codex marketplace config", () => {
         },
         "skillset.yaml"
       )
-    ).toThrow("unique effective ids; duplicate shared");
+    ).toThrow("unique effective ids per target; duplicate shared");
+
+    expect(() =>
+      readMarketplaceCatalogConfig(
+        {
+          marketplaces: {
+            overlapping: {
+              plugins: [
+                { plugin: "shared", targets: ["claude", "codex"] },
+                { id: "shared", plugin: "other", targets: ["codex"] },
+              ],
+            },
+          },
+        },
+        "skillset.yaml"
+      )
+    ).toThrow("unique effective ids per target; duplicate shared");
 
     expect(() =>
       readMarketplaceCatalogConfig(

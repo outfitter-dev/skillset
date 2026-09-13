@@ -1330,6 +1330,35 @@ describe("@skillset/schema contracts", () => {
     expect(
       validateWorkspaceConfig({
         marketplaces: {
+          disjoint: {
+            plugins: [
+              { plugin: "shared", targets: ["claude"] },
+              { id: "shared", plugin: "other", targets: ["codex"] },
+            ],
+          },
+        },
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).not.toContain(
+      "schema/workspace-config/marketplace-plugin-id-duplicate"
+    );
+
+    expect(
+      validateWorkspaceConfig({
+        marketplaces: {
+          inherited: {
+            plugins: [
+              { plugin: "shared" },
+              { id: "shared", plugin: "other", targets: ["codex"] },
+            ],
+            targets: ["claude", "codex"],
+          },
+        },
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).toContain("schema/workspace-config/marketplace-plugin-id-duplicate");
+
+    expect(
+      validateWorkspaceConfig({
+        marketplaces: {
           one: {
             plugins: [
               {

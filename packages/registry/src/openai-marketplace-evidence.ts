@@ -84,7 +84,7 @@ export const OPENAI_MARKETPLACE_SOURCE_MATRIX = {
     required: ["source", "package"],
   },
   url: {
-    optional: ["ref", "sha"],
+    optional: ["path", "ref", "sha"],
     required: ["source", "url"],
   },
 } as const;
@@ -104,5 +104,5 @@ export const OPENAI_MARKETPLACE_PATH_RULES = {
   assetFields: ["composerIcon", "logo", "logoDark", "screenshots"],
   catalogPath: ".agents/plugins/marketplace.json",
   relativeTo: "marketplace-root",
-  requiresDotSlash: ["local.path", "git-subdir.path"],
+  requiresDotSlash: ["local.path", "git-subdir.path", "url.path"],
 } as const;
