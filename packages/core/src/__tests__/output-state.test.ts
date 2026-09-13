@@ -1066,8 +1066,8 @@ cursor: false
     const preview = await diffSkillsetResult(root);
 
     expect(preview.outputState).toMatchObject({
-      outputChanges: ["skillset.lock"],
-      sourceChanges: ["AGENTS.md"],
+      outputChanges: ["AGENTS.md", "skillset.lock"],
+      sourceChanges: [],
       state: "output-diverged",
     });
     const applied = await buildSkillsetResult(root);
@@ -1308,8 +1308,8 @@ paths:
     const preview = await diffSkillsetResult(root);
 
     expect(preview.outputState).toMatchObject({
-      outputChanges: ["docs/AGENTS.md", "skillset.lock"],
-      sourceChanges: ["src/AGENTS.md"],
+      outputChanges: ["docs/AGENTS.md", "skillset.lock", "src/AGENTS.md"],
+      sourceChanges: [],
       state: "output-diverged",
     });
     expect(preview.diagnostics).toContainEqual(expect.objectContaining({
