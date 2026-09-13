@@ -1135,12 +1135,18 @@ function featureOutcomesForLockItem(
   }
 
   const invocationPolicy = invocationPolicyForLockItem(graph, item, target);
-  if (invocationPolicy !== undefined) {
-    const invocationOutputPaths = outputPaths.filter((path) =>
-      target === "codex"
-        ? path.endsWith("/agents/openai.yaml")
-        : path.endsWith("/SKILL.md") || path === "SKILL.md"
-    );
+  const invocationOutputPaths =
+    invocationPolicy === undefined
+      ? []
+      : outputPaths.filter((path) =>
+          target === "codex"
+            ? path.endsWith("/agents/openai.yaml")
+            : path.endsWith("/SKILL.md") || path === "SKILL.md"
+        );
+  // A coalesced Agent Skills baseline item is also visited for its Codex
+  // consumer, but the policy lives on the Codex-owned auxiliary item; only the
+  // item that carries the policy file reports the feature.
+  if (invocationPolicy !== undefined && invocationOutputPaths.length > 0) {
     outcomes.push(
       featureOutcome({
         destination:
