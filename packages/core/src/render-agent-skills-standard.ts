@@ -6,6 +6,7 @@ import {
   RENDERED_METADATA_SCHEMA_VERSION,
 } from "@skillset/schema";
 
+import { classifyIndividualAgentSkillPublication } from "./agent-skill-publication";
 import { readRecord, readString } from "./config";
 import type { LogicalRenderedFile } from "./output-plan";
 import { formatPreprocessDependency, preprocessText } from "./preprocess";
@@ -294,13 +295,29 @@ function pushStandardIssue(
   const standardIssue = classificationIssue(
     classifyAgentSkillStandard(graph, plugin, skill)
   );
-  if (standardIssue === undefined) return;
+  const publicationIssues = classifyIndividualAgentSkillPublication(
+    graph,
+    plugin,
+    skill
+  ).blockers.map((blocker) => ({
+    code: `agent-skills-${blocker.code}`,
+    message: blocker.message,
+    path: publicationBlockerPath(graph, blocker.paths[0] ?? skill.sourcePath),
+  }));
+  const skillIssues = [standardIssue, ...publicationIssues].filter(
+    (item): item is AgentSkillStandardIssue => item !== undefined
+  );
+  if (skillIssues.length === 0) return;
   issues.push({
-    issues: [standardIssue],
+    issues: skillIssues,
     ...(plugin === undefined ? {} : { plugin }),
     skill,
     standardProfile: "agent-skills",
   });
+}
+
+function publicationBlockerPath(graph: BuildGraph, value: string): string {
+  return path.isAbsolute(value) ? path.relative(graph.rootPath, value) : value;
 }
 
 function classificationIssue(

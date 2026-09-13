@@ -3,10 +3,7 @@ import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  getStandardProfile,
-  type StandardProfileId,
-} from "@skillset/registry";
+import { getStandardProfile, type StandardProfileId } from "@skillset/registry";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { readContainedLicenseFile } from "../licenses";
@@ -703,6 +700,177 @@ Review the change.
         target: "codex",
       })
     );
+  });
+
+  test("keeps dependency-bearing plugin skills packaged while rejecting individual publication", async () => {
+    const graph = adopted(
+      await fixtureGraph({
+        "skillset.yaml": `
+skillset:
+  name: dependent-plugin-skills
+claude: false
+codex: false
+cursor: false
+`,
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex: false
+`,
+        ".skillset/plugins/demo/skills/dependent/SKILL.md": `
+---
+name: dependent
+description: Requires a companion plugin.
+dependencies:
+  plugins:
+    - name: runtime-tools
+      range: ^1.0.0
+---
+
+Use the runtime.
+`,
+        ".skillset/plugins/demo/skills/sibling/SKILL.md": `
+---
+name: sibling
+description: Shares the containing plugin dependency.
+---
+
+Use the sibling.
+`,
+      }),
+      ["agent-plugins-1.0", "agent-skills"]
+    );
+
+    const rendered = await renderBuildGraph(graph);
+    expect(paths(rendered)).not.toContain(".agents/skills/dependent/SKILL.md");
+    expect(paths(rendered)).not.toContain(".agents/skills/sibling/SKILL.md");
+    expect(paths(rendered)).toEqual(
+      expect.arrayContaining([
+        "plugins/demo/agents/skills/dependent/SKILL.md",
+        "plugins/demo/agents/skills/sibling/SKILL.md",
+      ])
+    );
+
+    const results = collectRenderResults(graph, rendered, {
+      claudeMarketplacePlugins: [],
+      includedPaths: new Set(paths(rendered)),
+    });
+    for (const skillId of ["dependent", "sibling"]) {
+      expect(results).toContainEqual(
+        expect.objectContaining({
+          diagnostics: expect.arrayContaining([
+            expect.objectContaining({
+              code: "agent-skills-plugin-dependency-required",
+            }),
+          ]),
+          featureId: "plugin-skills",
+          sourceUnit: `plugin.demo.skill:${skillId}`,
+          standardProfile: "agent-skills",
+          status: "unsupported",
+        })
+      );
+    }
+  });
+
+  test("publishes self-contained plugin skills without copying unrelated plugin capabilities", async () => {
+    const graph = adopted(
+      await fixtureGraph({
+        "skillset.yaml": `
+skillset:
+  name: portable-plugin-skills
+  license: MIT
+claude: false
+codex: false
+cursor: false
+`,
+        ".skillset/shared/guide.md": "PORTABLE-GUIDE\n",
+        ".skillset/plugins/demo/.mcp.json": `
+{"mcpServers":{"demo":{"command":"demo-server"}}}
+`,
+        ".skillset/plugins/demo/agents/reviewer.md": "Review changes.\n",
+        ".skillset/plugins/demo/commands/review.md": "Review a change.\n",
+        ".skillset/plugins/demo/hooks/plugin-cleanup/hook.json": `
+{"events":["Stop"],"run":{"command":"echo cleanup"}}
+`,
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+mcp: true
+hooks:
+  Stop: [plugin-cleanup]
+codex: false
+`,
+        ".skillset/plugins/demo/skills/portable/SKILL.md": `
+---
+name: portable
+description: A self-contained plugin skill.
+resources:
+  references: [shared:guide.md]
+---
+
+Use references/guide.md.
+`,
+        ".skillset/plugins/demo/skills/hooked/SKILL.md": `
+---
+name: hooked
+description: A skill with a local hook.
+---
+
+Run the hook.
+`,
+        ".skillset/plugins/demo/skills/hooked/hooks/cleanup/hook.json": `
+{"events":["Stop"],"run":{"command":"echo cleanup"}}
+`,
+      }),
+      ["agent-plugins-1.0", "agent-skills"]
+    );
+
+    const rendered = await renderBuildGraph(graph);
+    expect(paths(rendered)).toEqual(
+      expect.arrayContaining([
+        ".agents/skills/portable/SKILL.md",
+        ".agents/skills/portable/LICENSE.txt",
+        ".agents/skills/portable/references/guide.md",
+        "plugins/demo/agents/skills/hooked/SKILL.md",
+      ])
+    );
+    expect(paths(rendered)).not.toContain(".agents/skills/hooked/SKILL.md");
+    expect(
+      paths(rendered).some((renderedPath) =>
+        renderedPath.startsWith(".agents/skills/portable/hooks/")
+      )
+    ).toBe(false);
+    expect(
+      paths(rendered).some((renderedPath) =>
+        renderedPath.startsWith(".agents/skills/portable/agents/")
+      )
+    ).toBe(false);
+    expect(text(rendered, ".agents/skills/portable/SKILL.md")).toContain(
+      "Use references/guide.md."
+    );
+    expect(text(rendered, ".agents/skills/portable/LICENSE.txt")).toContain(
+      "MIT License"
+    );
+
+    const issues = agentSkillStandardProjectionIssues(graph, undefined);
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: "agent-skills-adaptive-hook-required",
+          }),
+        ]),
+        skill: expect.objectContaining({ id: "hooked" }),
+        standardProfile: "agent-skills",
+      })
+    );
+    expect(
+      issues.some(
+        (item) =>
+          item.skill.id === "portable" &&
+          item.standardProfile === "agent-skills"
+      )
+    ).toBe(false);
   });
 
   test("rejects hidden package skill layouts without rejecting their root flattening", async () => {

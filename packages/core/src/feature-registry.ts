@@ -630,7 +630,17 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/reference/features/plugins.md", "docs/reference/features/skills.md"],
-    evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "plugin skill rendering coverage")],
+    evidence: [
+      test(
+        "apps/skillset/src/__tests__/skillset.test.ts",
+        "plugin skill rendering coverage"
+      ),
+      test(
+        "packages/core/src/__tests__/render-agent-skills-standard.test.ts",
+        "individual Agent Skill eligibility and package-retention coverage"
+      ),
+      fixture("scripts/fixtures/skills-consumer.ts"),
+    ],
     id: "plugin-skills",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",

@@ -11,6 +11,7 @@ Skillset has no general `publish` command. Choose the workflow that owns the thi
 | Version and release a [workspace](../glossary.md#workspace) [source unit](../glossary.md#source-unit) | `skillset change` and `skillset release` |
 | Inspect a downstream sync of built files | `skillset distribute plan` |
 | Curate provider catalog entries | [Marketplace workflow](marketplaces.md) |
+| Make individual skills installable from a repository | Commit eligible generated `.agents/skills/` output |
 | Publish the `skillset` npm package | Maintainer-owned Changesets and GitHub Actions |
 
 A workspace release can refresh [generated output](../glossary.md#generated-output), but it does not upload it to an external [destination](../glossary.md#destination) or prove runtime [activation](../glossary.md#activation).
@@ -65,6 +66,27 @@ skillset distribute plan codex-marketplace
 Distribution is plan-only. The command does not accept `--yes`; it does not copy files, commit, push, open a pull request, or install runtime configuration. Local plans can report `add`, `change`, and `unchanged`; Git destinations remain `unknown` until a sync workflow is implemented to inspect them.
 
 See [Distributions](../reference/features/distributions.md) for configuration, selection, and downstream ownership, and the generated [`distribute` reference](../reference/cli/distribute.md) for command syntax.
+
+## Publish Individual Agent Skills
+
+When Agent Skills is adopted, Skillset intrinsically renders each eligible standalone or plugin-owned skill under `.agents/skills/<skill>/`. To make those individual skills available from a Git repository, commit the generated skill directories and their nearby `skillset.lock` after a successful build and check:
+
+```bash
+skillset build
+skillset check
+```
+
+A downstream consumer can then select one skill from the repository root. For example, the pinned Skills consumer used by this repository accepts:
+
+```bash
+npx skills add <repository> --skill <skill> --agent codex --copy --yes
+```
+
+Repository-root discovery is the preferred route. The pinned consumer finds the conventional `.agents/skills` tree before a valid manifest-resolved Claude duplicate and selects by the exact skill frontmatter name. Treat a root `SKILL.md` or same-name root `skills/` entry as a conflict: the current consumer checks those locations first, and a root `SKILL.md` stops broader discovery. `--full-depth` broadens discovery into nested paths and should be reserved for repositories that intentionally need that wider scan. When a repository cannot remove a higher-priority conflict, scope discovery explicitly to `<repository>/.agents/skills`.
+
+Not every package skill is independently publishable. Plugin dependencies—including dependencies declared by child skills and hoisted to the containing plugin—and plugin-owned skill-local hook definitions or attachments cannot travel in an Agent Skill. Skillset omits only that individual projection and reports it as unsupported; the skill remains inside applicable Agent Plugins and provider packages. Unrelated plugin-level MCP, hooks, agents, commands, binaries, and other native companions do not disqualify or get copied into an otherwise portable skill. Standalone and plugin-owned sources with the same public skill identity are an output collision; Skillset fails instead of silently renaming or choosing one.
+
+Generation and consumer installation are separate actions. `skillset build` does not upload, publish, install, trust, or activate anything, and it does not change user-level configuration. If a repository previously exposed a Claude marketplace bundle as an interim individual-skill source, keep that native catalog correct and publish the generated `.agents/skills` tree alongside it; do not repoint the Claude catalog at a cross-provider path.
 
 ## Publish the Compiler Package
 

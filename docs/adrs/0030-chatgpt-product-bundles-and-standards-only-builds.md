@@ -4,7 +4,7 @@ slug: chatgpt-product-bundles-and-standards-only-builds
 title: ChatGPT Product Bundles and Standards-Only Builds
 status: accepted
 created: 2026-09-12
-updated: 2026-09-12
+updated: 2026-09-13
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [1, 7, 28]
 amends: [1, 7, 28]
@@ -230,22 +230,28 @@ into standard output, or authorize field-by-field general merging. A legacy
 island must never silently disappear, and replacement must not silently lose
 metadata.
 
-### Standalone and plugin-owned skills have distinct output controls
+### Repository-wide and package-contained skills have distinct ownership
 
-`compile.agents.skills` controls the repository-scope standalone Agent Skills
-projection at `.agents/skills`. When enabled, it includes every adaptive
-standalone skill and every plugin-owned adaptive skill, flattening each through
-the same Agent Skills baseline, resource, and license renderer at
-`.agents/skills/<identity>/`. This repository-scope projection is independent
-of plugin-bundle selection and provider toggles, and owns its own standards
-claim.
+As amended by ADR-0032, the adopted Agent Skills profile intrinsically renders
+applicable standalone and plugin-owned adaptive skills at
+`.agents/skills/<identity>/`. There is no `compile.agents.skills` switch or
+replacement opt-out. The repository-wide projection is independent of plugin
+package selection and provider toggles, uses the shared Agent Skills baseline,
+resource, and license renderer, and owns its own standards claim.
 
-`compile.agents.skills` does not control `skills/` inside an enabled Agent
-Plugins package or ChatGPT product bundle. Those package components remain
-required by the selected package projection even when the flattened
-repository-scope output is opted out. This narrowly amends ADR-0028's
-applicable-source behavior for standalone Agent Skills without making a
-plugin-owned skill depend on its package bundle being selected.
+Individual publication must preserve the skill's operative meaning without its
+containing plugin. A declared plugin dependency, including a dependency hoisted
+from any child skill to the containing plugin, makes every skill in that plugin
+ineligible for the flattened projection. A plugin-owned skill-local adaptive
+hook definition or hook attachment also makes that skill ineligible. These
+cases produce an actionable unsupported Agent Skills result instead of an
+incomplete individual skill.
+
+The eligibility boundary applies only to the repository-wide individual
+projection. A plugin-owned skill remains inside an applicable Agent Plugins
+package or ChatGPT product bundle even when it cannot be published on its own.
+Unrelated plugin-level agents, commands, MCP configuration, hooks, and native
+companions neither disqualify nor enter an otherwise portable individual skill.
 
 A flattened standalone skill receives `agents/openai.yaml` only when a proven
 logical `codex` provider consumer requires that sidecar. A standards-only
@@ -276,7 +282,9 @@ skill.
 Unrelated plugin hooks and MCP configuration neither disqualify an otherwise
 portable individual skill nor get copied into that skill's standalone output.
 They remain plugin-level provider/native or standard-package concerns with
-their own coverage and diagnostics.
+their own coverage and diagnostics. Skill-local hook definitions and
+attachments are different: they are operative meaning owned by the skill and
+therefore block incomplete individual publication.
 
 ### Candidate conformance is evidence, never production selection
 
