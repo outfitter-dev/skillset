@@ -32,6 +32,7 @@ import {
 import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
+import type { ImportProvider } from "./source-arg-values";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly candidates?: readonly string[];
@@ -651,7 +652,7 @@ async function importCandidateSources(
 async function providersForAdoptCandidate(
   rootPath: string,
   candidate: SetupImportCandidate
-): Promise<readonly TargetName[]> {
+): Promise<readonly ImportProvider[]> {
   if (candidate.kind === "skills") {
     if (candidate.path === ".claude/skills") return ["claude"];
     if (
@@ -664,6 +665,10 @@ async function providersForAdoptCandidate(
     return [];
   }
   if (candidate.kind !== "plugin") return [];
+
+  if (candidate.plugin?.standardProfile === "agent-plugins-1.0") {
+    return ["agents"];
+  }
 
   const declaredProviders = candidate.plugin?.providers;
   if (declaredProviders !== undefined) return declaredProviders;

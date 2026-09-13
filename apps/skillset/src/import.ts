@@ -68,6 +68,14 @@ import {
 } from "./plugin-manifest-authority";
 import type { ImportKind, ImportProvider } from "./source-arg-values";
 import { quoteShellArgument } from "./recovery-guidance";
+import {
+  agentPluginCanonicalSkillFrontmatter,
+  agentPluginIdentityWarnings,
+  agentPluginSourceMetadata,
+  hasAgentPluginManifest,
+  inspectAgentPluginImport,
+  type AgentPluginImportInspection,
+} from "./agent-plugin-import";
 
 export type { ImportKind, ImportProvider } from "./source-arg-values";
 
@@ -238,7 +246,18 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   const sourcePath = resolve(options.sourcePath);
   const sourceDir = await resolveImportSourceDir(options.rootPath, options.sourceDir);
   const sourceRoot = sourceDir;
-  const name = await resolveImportName(sourcePath, options);
+  const agentPluginImport =
+    options.kind === "plugin" &&
+    (await shouldInspectAgentPluginImport(
+      sourcePath,
+      options.provider,
+      options.providers
+    ))
+      ? await inspectAgentPluginImport(sourcePath, {
+          ignoreSetupScaffold: await isSamePath(sourcePath, options.rootPath),
+        })
+      : undefined;
+  const name = await resolveImportName(sourcePath, options, agentPluginImport);
   const targetPath = resolveInside(
     options.rootPath,
     join(sourceRoot, options.kind === "plugin" ? PLUGINS_DIR : SKILLS_DIR, name)
@@ -266,6 +285,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       rootPath: options.rootPath,
       sourcePath,
       targetPath: stagingPath,
+      ...(agentPluginImport === undefined ? {} : { agentPluginImport }),
     });
     const providers = importProviders(options);
     const copiedFiles =
@@ -273,7 +293,8 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
         ? await rewriteImportedPluginMcp(
             stagingPath,
             copied.files,
-            providers
+            providers,
+            agentPluginImport !== undefined
           )
         : copied.files;
     if (options.sourceOrigin !== undefined) {
@@ -964,7 +985,11 @@ async function readImportedFrontmatter(targetPath: string, kind: SingularImportK
   return parseYamlRecord(await readFile(configPath, "utf8"), configPath);
 }
 
-async function resolveImportName(sourcePath: string, options: ImportOptions): Promise<string> {
+async function resolveImportName(
+  sourcePath: string,
+  options: ImportOptions,
+  agentPluginImport: AgentPluginImportInspection | undefined
+): Promise<string> {
   if (options.name !== undefined) {
     return validateSlug(options.name, "import name");
   }
@@ -976,6 +1001,18 @@ async function resolveImportName(sourcePath: string, options: ImportOptions): Pr
     return validateSlug(
       readSkillsetName(metadata, readString(parts.frontmatter, "name") ?? basename(dirname(skillPath)), skillPath),
       `skillset.name in ${skillPath}`
+    );
+  }
+
+  if (agentPluginImport !== undefined) {
+    if (!isSlug(agentPluginImport.manifestName)) {
+      throw new Error(
+        `skillset: Agent Plugins manifest name ${JSON.stringify(agentPluginImport.manifestName)} is not a Skillset plugin id; pass --name <slug> to map it explicitly`
+      );
+    }
+    return validateSlug(
+      agentPluginImport.manifestName,
+      "Agent Plugins manifest name"
     );
   }
 
@@ -1001,12 +1038,13 @@ async function copyImportSource(options: {
   readonly rootPath: string;
   readonly sourcePath: string;
   readonly targetPath: string;
+  readonly agentPluginImport?: AgentPluginImportInspection;
 }): Promise<{
   readonly baselineVersion?: string;
   readonly files: readonly string[];
   readonly warnings: readonly string[];
 }> {
-  const { kind, name, rootPath, sourcePath, targetPath } = options;
+  const { agentPluginImport, kind, name, rootPath, sourcePath, targetPath } = options;
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
     if (kind !== "skill" || basename(sourcePath) !== "SKILL.md") {
@@ -1019,7 +1057,11 @@ async function copyImportSource(options: {
   const copied: string[] = [];
   let baselineVersion: string | undefined;
   let warnings: readonly string[] = [];
-  const exclude = rootPluginImport ? (path: string) => isRootPluginImportScaffold(copyRoot, path) : undefined;
+  const exclude =
+    rootPluginImport || agentPluginImport !== undefined
+      ? (path: string) =>
+          isImportScaffold(copyRoot, path, rootPluginImport)
+      : undefined;
   for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
     const destination = join(targetPath, relativePath);
@@ -1031,10 +1073,26 @@ async function copyImportSource(options: {
     copied.push(relativePath);
   }
 
+  if (agentPluginImport !== undefined) {
+    await normalizeImportedAgentPluginPackage(targetPath, copied);
+  }
+
   if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
-    const importedConfig = await writeImportedPluginConfig(targetPath, name);
+    const importedConfig =
+      agentPluginImport === undefined
+        ? await writeImportedPluginConfig(targetPath, name)
+        : await writeImportedAgentPluginConfig(
+            targetPath,
+            name,
+            agentPluginImport
+          );
     baselineVersion = importedConfig.baselineVersion;
     warnings = importedConfig.warnings;
+    if (agentPluginImport !== undefined) {
+      await rm(join(targetPath, "plugin.json"));
+      const manifestIndex = copied.indexOf("plugin.json");
+      if (manifestIndex >= 0) copied.splice(manifestIndex, 1);
+    }
     copied.push("skillset.yaml");
   }
 
@@ -1045,10 +1103,41 @@ async function copyImportSource(options: {
   };
 }
 
+async function normalizeImportedAgentPluginPackage(
+  targetPath: string,
+  copiedFiles: string[]
+): Promise<void> {
+  const licenseIndex = copiedFiles.indexOf("LICENSE");
+  if (licenseIndex !== -1) {
+    const canonicalLicense = join(targetPath, "LICENSE.txt");
+    if (await exists(canonicalLicense)) {
+      throw new Error(
+        "skillset: Agent Plugins package contains both LICENSE and LICENSE.txt; remove one before importing"
+      );
+    }
+    await rename(join(targetPath, "LICENSE"), canonicalLicense);
+    copiedFiles[licenseIndex] = "LICENSE.txt";
+  }
+
+  for (const file of copiedFiles) {
+    if (!/^skills\/[^/]+\/SKILL\.md$/u.test(file)) continue;
+    const skillPath = join(targetPath, file);
+    const source = await readFile(skillPath, "utf8");
+    await writeFile(
+      skillPath,
+      updateMarkdownSourceDocument(source, skillPath, (parts) => ({
+        ...parts,
+        frontmatter: agentPluginCanonicalSkillFrontmatter(parts.frontmatter),
+      }))
+    );
+  }
+}
+
 async function rewriteImportedPluginMcp(
   targetPath: string,
   copiedFiles: readonly string[],
-  providers: readonly ImportProvider[] | undefined
+  providers: readonly ImportProvider[] | undefined,
+  agentPluginImport: boolean
 ): Promise<readonly string[]> {
   const hiddenPath = join(targetPath, ".mcp.json");
   const visiblePath = join(targetPath, "mcp.json");
@@ -1088,7 +1177,8 @@ async function rewriteImportedPluginMcp(
   const dialect = await importedMcpDialect(
     targetPath,
     basename(sourcePath),
-    providers
+    providers,
+    agentPluginImport
   );
   let parsed: JsonValue;
   try {
@@ -1158,8 +1248,10 @@ async function importedManifestMcpSource(
 async function importedMcpDialect(
   targetPath: string,
   sourceName: string,
-  providers: readonly ImportProvider[] | undefined
+  providers: readonly ImportProvider[] | undefined,
+  agentPluginImport: boolean
 ): Promise<TargetName | "agent-plugins"> {
+  if (agentPluginImport) return "agent-plugins";
   if (providers?.includes("agents")) return "agent-plugins";
   if (providers?.includes("skillset")) return "agent-plugins";
   const explicitTargets = targetNames().filter((target) =>
@@ -1273,15 +1365,20 @@ function isSlug(value: string): boolean {
   return /^[a-z0-9][a-z0-9-]*$/.test(value);
 }
 
-function isRootPluginImportScaffold(rootPath: string, path: string): boolean {
+function isImportScaffold(
+  rootPath: string,
+  path: string,
+  rootPluginImport: boolean
+): boolean {
   const relativePath = relative(rootPath, path).replaceAll("\\", "/");
   return (
     relativePath === ".git" ||
     relativePath.startsWith(".git/") ||
-    relativePath === ".skillset" ||
-    relativePath.startsWith(".skillset/") ||
-    relativePath === "skillset.yaml" ||
-    relativePath === "skillset.lock"
+    (rootPluginImport &&
+      (relativePath === ".skillset" ||
+        relativePath.startsWith(".skillset/") ||
+        relativePath === "skillset.yaml" ||
+        relativePath === "skillset.lock"))
   );
 }
 
@@ -1297,6 +1394,17 @@ async function resolvePluginConfig(sourcePath: string): Promise<string | undefin
     if (await exists(candidate)) return candidate;
   }
   return undefined;
+}
+
+async function shouldInspectAgentPluginImport(
+  sourcePath: string,
+  provider: ImportProvider | undefined,
+  providers: readonly ImportProvider[] | undefined
+): Promise<boolean> {
+  if (!(await exists(join(sourcePath, "plugin.json")))) return false;
+  if (provider === "agents" || providers?.includes("agents")) return true;
+  if (!(await hasAgentPluginManifest(sourcePath))) return false;
+  return provider === undefined && providers === undefined;
 }
 
 async function collectFiles(root: string, exclude?: (path: string) => boolean): Promise<readonly string[]> {
@@ -1414,6 +1522,7 @@ async function isPluginSource(sourcePath: string): Promise<boolean> {
   return (
     (await exists(join(sourcePath, "skillset.yaml"))) ||
     (await exists(join(sourcePath, "config.yaml"))) ||
+    (await hasAgentPluginManifest(sourcePath)) ||
     (await nativePluginManifestPath(sourcePath)) !== undefined
   );
 }
@@ -1590,6 +1699,34 @@ async function writeImportedPluginConfig(
           ]
         : []),
     ],
+  };
+}
+
+async function writeImportedAgentPluginConfig(
+  targetPath: string,
+  name: string,
+  inspection: AgentPluginImportInspection
+): Promise<{
+  readonly baselineVersion?: string;
+  readonly warnings: readonly string[];
+}> {
+  if (inspection.version !== undefined) {
+    validateVersionField(
+      { version: inspection.version },
+      "Agent Plugins manifest version"
+    );
+  }
+  await writeFile(
+    join(targetPath, "skillset.yaml"),
+    stringifyYamlSourceDocument({
+      skillset: agentPluginSourceMetadata(inspection, name),
+    })
+  );
+  return {
+    ...(inspection.version === undefined
+      ? {}
+      : { baselineVersion: inspection.version }),
+    warnings: agentPluginIdentityWarnings(inspection, name),
   };
 }
 
