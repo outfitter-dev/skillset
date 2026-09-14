@@ -6,6 +6,8 @@ description: Configure provider-specific output and behavior without duplicating
 
 A [target](../glossary.md#target) is a provider selected for a compiler run. `compile.targets` establishes the root plan; target overrides refine that plan or, at supported lower-level scopes, explicitly opt a provider back in.
 
+Agent standards are not targets. Applicable adaptive source produces each adopted standard profile inherently. No `agents` target, root `agents`, plugin field, or frontmatter field enables or disables that floor; `.skillset/agents/` and `defaults.<provider>.agents` keep their project-agent meanings.
+
 ## Distinguish Selection from Configuration
 
 These layers have different jobs:
@@ -15,6 +17,8 @@ These layers have different jobs:
 3. Target defaults fill omitted values for `agents`, `instructions`, `plugins`, or `skills`.
 4. Plugin and [source-unit](../glossary.md#source-unit) provider toggles refine one scope and may opt a provider back in.
 5. A [target-native island](../glossary.md#target-native-island) preserves a native file whose meaning is not portable.
+
+These layers can change provider participation or a provider delta, but they do not suppress an applicable adopted Agent Instructions, Agent Skills, or Agent Plugins projection.
 
 Do not add a bare top-level `targets` key. Keep root selection in `compile.targets`, and use lower-level provider toggles only for deliberate scoped divergence.
 

@@ -281,12 +281,31 @@ export async function discoverNewSourceContainers(
 }
 
 function resolveSourceId(options: NewSourceOptions): string {
-  if (options.id !== undefined) return validateSlug(options.id, `${options.kind} id`);
+  if (options.id !== undefined) {
+    return validateSourceId(options.kind, options.id, `${options.kind} id`);
+  }
   const name = options.name ?? options.displayName;
   if (name === undefined || name.trim().length === 0) {
     throw new Error(`skillset: new ${options.kind} requires a name or --id`);
   }
-  return validateSlug(kebabCase(name), `${options.kind} id`);
+  return validateSourceId(options.kind, kebabCase(name), `${options.kind} id`);
+}
+
+function validateSourceId(
+  kind: NewSourceKind,
+  value: string,
+  label: string
+): string {
+  const id = validateSlug(value, label);
+  if (
+    kind === "skill" &&
+    (id.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id))
+  ) {
+    throw new Error(
+      `skillset: expected ${label} to satisfy Agent Skills naming (1-64 lowercase letters, digits, and single hyphens), received ${JSON.stringify(value)}`
+    );
+  }
+  return id;
 }
 
 function resolveDisplayName(options: NewSourceOptions, id: string): string {

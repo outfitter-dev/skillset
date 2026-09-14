@@ -29,10 +29,10 @@ The examples are generated from typed fixtures and checked against the same sche
 | Contract | Example | Purpose |
 | --- | --- | --- |
 | `report` | [`report.json`](../examples/report.json) | Immutable Skillset typed operational report receipt. |
-| `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest for Skillset repos. |
+| `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest; defaults.codex.agents configures project-agent rendering, not Agent standards selection. |
 | `plugin-config` | [`plugin-config.yaml`](../examples/plugin-config.yaml) | Maximal plugin manifest for a Skillset plugin. |
 | `source-metadata` | [`source-metadata.yaml`](../examples/source-metadata.yaml) | Shared source metadata used under the skillset key. |
-| `skill-frontmatter` | [`skill-frontmatter.yaml`](../examples/skill-frontmatter.yaml) | Adaptive skill frontmatter. |
+| `skill-frontmatter` | [`skill-frontmatter.yaml`](../examples/skill-frontmatter.yaml) | Adaptive skill frontmatter; allowed_tools.agents is Agent Skills tool policy, not a provider or standards selector. |
 | `agent-frontmatter` | [`agent-frontmatter.yaml`](../examples/agent-frontmatter.yaml) | Adaptive project-agent frontmatter. |
 | `instruction-frontmatter` | [`instruction-frontmatter.yaml`](../examples/instruction-frontmatter.yaml) | Adaptive instruction/rules frontmatter. |
 | `hook` | [`hook.yaml`](../examples/hook.yaml) | Hook definition source object. |

@@ -176,7 +176,8 @@ const PRESENTATION = {
   },
   import: {
     group: "Author",
-    summary: "Import provider-native skills or plugins into source.",
+    summary:
+      "Import provider-native or Agent standards skills and plugins into source.",
     synopses: [
       "import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--json] [--root <path>]",
       "import <claude|codex|cursor|agents> [--json] [--root <path>]",
@@ -237,7 +238,7 @@ const PRESENTATION = {
   },
   new: {
     group: "Author",
-    summary: "Create a new skill, agent, instruction, or hook in source.",
+    summary: "Create a new skill, project agent, instruction, or hook in source.",
     synopses: [
       "new [skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
     ],

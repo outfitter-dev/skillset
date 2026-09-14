@@ -96,7 +96,8 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     },
   },
   {
-    description: "Maximal workspace manifest for Skillset repos.",
+    description:
+      "Maximal workspace manifest; defaults.codex.agents configures project-agent rendering, not Agent standards selection.",
     id: "workspace-config",
     path: "workspace-config.yaml",
     value: {
@@ -281,7 +282,8 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     },
   },
   {
-    description: "Adaptive skill frontmatter.",
+    description:
+      "Adaptive skill frontmatter; allowed_tools.agents is Agent Skills tool policy, not a provider or standards selector.",
     id: "skill-frontmatter",
     path: "skill-frontmatter.yaml",
     value: {

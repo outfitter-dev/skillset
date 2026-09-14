@@ -14,7 +14,7 @@ Registry feature: `workflows`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-A build scope filters the [destinations](../../glossary.md#destination) that Skillset previews, writes, or inspects. It does not change [canonical source](../../glossary.md#canonical-source), provider meaning, or source-change coverage.
+A build scope filters the [destinations](../../glossary.md#destination) that Skillset previews, writes, or inspects. It does not change [canonical source](../../glossary.md#canonical-source), provider meaning, source-change coverage, or which standard profiles are adopted and applicable.
 
 ## Choose a Build Mode
 
@@ -42,13 +42,15 @@ The generated [`build` reference](../cli/build.md) owns the exact flags. The [de
 
 | Scope     | Selected destination                              |
 | --------- | ------------------------------------------------- |
-| `repo`    | Repo-local standalone generated skill roots       |
-| `plugins` | Generated plugin bundles                          |
-| `project` | Project instructions, agents, and provider source |
+| `repo`    | Agent Skills and provider standalone skill roots  |
+| `plugins` | Agent Plugins packages and provider plugin bundles |
+| `project` | Agent Instructions, project agents, and provider source |
 | `user`    | Reserved; no build output exists today            |
 | `all`     | Every configured destination                      |
 
-Scopes are not entity selectors. They cannot substitute for plugin or skill ids, and `change status` and `change check` reject them because those commands measure source coverage rather than generated destinations.
+Scopes are not entity or standards selectors. They cannot substitute for plugin or skill ids, enable or disable a standard profile, or change provider targets. `change status` and `change check` reject them because those commands measure source coverage rather than generated destinations.
+
+`compile.targets: []` requests no provider output. It is valid only when the selected scopes still contain at least one applicable adopted Agent standard projection; otherwise the build fails with an actionable no-projections diagnostic.
 
 ## Use an Isolated Mirror
 
@@ -83,4 +85,4 @@ Dry-run commands never write generated files, locks, [target](../../glossary.md#
 
 ## Provenance
 
-Nearby `skillset.lock` files record resolved build mode, source and generated hashes, target state, preprocessing dependencies, warnings, and skipped or unsupported facts. Generated frontmatter remains lightweight; use [`status`](../cli/status.md) or [`explain`](../cli/explain.md) to inspect the lock-backed decision.
+Nearby `skillset.lock` files record the configured build mode, source and generated hashes, target state, preprocessing dependencies, warnings, and skipped or unsupported facts. One-off `--all` and `--updated` flags select the current operation without changing that persisted workspace default. Generated frontmatter remains lightweight; use [`status`](../cli/status.md) or [`explain`](../cli/explain.md) to inspect the lock-backed decision.

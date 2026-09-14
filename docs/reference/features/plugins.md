@@ -25,6 +25,8 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 A plugin is a source container that preserves one product identity while generating separate [provider-native](../../glossary.md#provider-native) bundles. Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; default output lives at `plugins/<plugin>/<target>/`.
 
+When Agent Plugins 1.0 is adopted, each applicable plugin also inherently produces `plugins/<plugin>/agents/`. This standard package is independent of provider selection; plugin and root provider toggles control only provider-native bundles and deltas.
+
 ## Source Contract
 
 The directory name is the plugin identity. `skillset.name`, when present, must agree with it; `skillset.id` is invalid.
@@ -57,6 +59,8 @@ plugins/review-tools/claude/.claude-plugin/plugin.json
 plugins/review-tools/codex/.codex-plugin/plugin.json
 plugins/review-tools/cursor/.cursor-plugin/plugin.json
 ```
+
+The Agent Plugins baseline uses `plugins/review-tools/agents/plugin.json`, immediate-child `skills/`, portable `mcp.json`, and recognized neutral support files. It is standard-owned rather than a fourth provider bundle. Provider-only components remain outside the package and appear as standard coverage results when they have no portable representation.
 
 The compiler derives component wiring from source layout and feature configuration. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`.
 

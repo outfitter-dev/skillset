@@ -567,6 +567,8 @@ export function renderCiWorkflow(): string {
     "# Scaffolded by skillset init --include ci. Skillset does not manage this file; edit freely.",
     "# Consider pinning skillset to an exact version for reproducible CI runs.",
     "# @skillset/cli is the complete, smaller Bun distribution; use the native skillset package when the runner should not require Bun.",
+    "# Agent standards are inherent for applicable source when their registry profiles are adopted; compile.targets selects providers only.",
+    "# .skillset/agents contains project-agent source, and defaults.<provider>.agents configures provider rendering.",
     "# Notes:",
     "# - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if your",
     "#   branch protection requires checks on the fixed commit, push with a PAT instead.",

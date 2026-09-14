@@ -13,7 +13,9 @@ description: Agents define project roles, skill references, provider output, com
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skillset has two agent contracts:
+The `.skillset/agents/` directory contains project-agent role source. It is unrelated to the Agent Instructions, Agent Skills, and Agent Plugins standards family, and it is not a standards selector. Likewise, `defaults.<provider>.agents` configures only that provider's project-agent rendering.
+
+Skillset has two project-role contracts:
 
 | Kind | Source | Portability |
 | --- | --- | --- |
