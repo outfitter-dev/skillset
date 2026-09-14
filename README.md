@@ -64,7 +64,7 @@ Skillset renders files. It does not install, trust, activate, symlink, or mutate
 
 Skillset currently handles standalone skills, project instructions and agents, plugins, resources, hooks, provider-native components, change records, and release projections. Support is intentionally explicit: see the generated [feature support matrix](docs/reference/support-matrix.md) for current target evidence and the [CLI reference](docs/reference/cli/README.md) for every public command.
 
-Generated output follows the applicable standard and provider contracts. A shared instruction contributes to the standard-owned `AGENTS.md`, which Codex can consume, alongside Claude rules and Cursor `.mdc` rules. A feature without a faithful destination is diagnosed or handled by the workspace's explicit unsupported-destination policy.
+Generated output follows the applicable standard and provider contracts. A shared instruction contributes to the standard-owned `AGENTS.md`, which Codex can consume, alongside root `CLAUDE.md` for unscoped Claude guidance, path-scoped Claude rules, and Cursor `.mdc` rules. A feature without a faithful destination is diagnosed or handled by the workspace's explicit unsupported-destination policy.
 
 ## Work safely
 

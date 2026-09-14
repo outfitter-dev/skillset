@@ -44,8 +44,7 @@ The checked-in standard and provider output is:
 .claude/skills/skillset.lock
 .agents/skills/review-notes/SKILL.md
 .agents/skills/skillset.lock
-.claude/rules/team-guidance.md
-.claude/rules/skillset.lock
+CLAUDE.md
 AGENTS.md
 skillset.lock
 ```

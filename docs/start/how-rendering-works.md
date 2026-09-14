@@ -1,5 +1,5 @@
 ---
-description: Traces canonical Skillset source through validation and target rendering into deterministic provider-native destinations.
+description: Traces canonical Skillset source through validation and rendering into deterministic standard and provider destinations.
 ---
 
 # How Rendering Works
@@ -32,7 +32,7 @@ When a target cannot represent an intent faithfully, the build reports that boun
 
 Rendering has two independent axes. Each applicable adopted Agent standard produces its portable baseline from the source graph; `compile.targets` selects provider [renderers](../glossary.md#render), which emit independent [provider-native](../glossary.md#provider-native) files or add a native delta to a compatible baseline. There is no standards selector in workspace, plugin, or frontmatter configuration.
 
-In the first-author fixture, one instruction inherently produces the root `AGENTS.md` baseline and also becomes a Claude rule. When Codex is selected, it consumes the compatible standard-owned `AGENTS.md`; the planner writes that physical file once and records the standard owner plus the provider consumer.
+In the first-author fixture, one unscoped instruction inherently produces the root `AGENTS.md` baseline and also contributes to root `CLAUDE.md`. When Codex is selected, it consumes the compatible standard-owned `AGENTS.md`; the planner writes that physical file once and records the standard owner plus the provider consumer.
 
 A destination is the concrete path and format receiving one output. A render is the transformation that produces it. The complete deterministic set is a [projection](../glossary.md#projection).
 

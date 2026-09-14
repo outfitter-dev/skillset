@@ -359,10 +359,10 @@ Body.
   });
 });
 
-// SET-5: canonical source instructions live in .skillset/rules/. Claude
-// lowers to .claude/rules, and Codex lowers to AGENTS.md.
+// SET-5: canonical source instructions live in .skillset/rules/. Unscoped
+// Claude instructions aggregate in CLAUDE.md, and Codex lowers to AGENTS.md.
 
-test("SET-5: canonical instructions lower to Claude rules and Codex AGENTS.md", async () => {
+test("SET-5: canonical instructions lower to Claude and Codex root instructions", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -382,7 +382,7 @@ codex: true
   expect(graph.warnings).toEqual([]);
 
   await buildSkillset(root);
-  expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Be tidy.");
+  expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toContain("Be tidy.");
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Be tidy.");
 });
 
@@ -4772,7 +4772,7 @@ description: Demo.
   expect(changedIds).toContain("skill:demo");
   const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
   expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
-  expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
+  expect(report.generatedDrift.changed).toContain("CLAUDE.md");
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
 
