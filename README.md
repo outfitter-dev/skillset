@@ -2,7 +2,7 @@
 
 Skillset is a source-first compiler for provider-native agent loadouts.
 
-Write a skill, instruction, agent, hook, or plugin once in a repository-owned source tree. Skillset validates that source, then renders reviewable Claude, Codex, and Cursor files without installing or activating them.
+Write a skill, instruction, agent, hook, or plugin once in a repository-owned source tree. Skillset validates that source, then renders applicable Agent standards and reviewable Claude, Codex, and Cursor files without installing or activating them.
 
 ## Install
 
@@ -45,7 +45,7 @@ skillset.yaml + .skillset/ authored source
                     |
           validate, derive, render
                     |
-       provider-native repository files
+       Agent standards + provider-native files
 ```
 
 - [`skillset.yaml`](docs/configuration/project-configuration.md) selects targets and workspace behavior.
@@ -54,13 +54,17 @@ skillset.yaml + .skillset/ authored source
 - `skillset build` previews a deterministic output plan.
 - `skillset build --yes` writes repo-local provider output and lock provenance.
 
+Applicable instructions generate root or scoped `AGENTS.md`, portable skills generate `.agents/skills/`, and portable plugins generate `plugins/<plugin>/agents/`. These standards are inherent; `compile.agents` is not a configuration option. Claude, Codex, and Cursor are enabled by default, with provider-specific opt-outs such as `claude: false`.
+
+You can use Skillset just for [working inside a project](docs/guides/project-local-authoring.md). Project-local skills, instructions, and agent roles do not require a plugin or marketplace.
+
 Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. [Build and activation are separate workflows](docs/start/build-versus-activation.md).
 
 ## What it can author
 
 Skillset currently handles standalone skills, project instructions and agents, plugins, resources, hooks, provider-native components, change records, and release projections. Support is intentionally explicit: see the generated [feature support matrix](docs/reference/support-matrix.md) for current target evidence and the [CLI reference](docs/reference/cli/README.md) for every public command.
 
-Generated output stays native to each provider. A shared instruction may become Claude rules, a directory-local Codex `AGENTS.md`, and Cursor `.mdc` rules. A feature without a faithful destination is diagnosed or handled by the workspace's explicit unsupported-destination policy.
+Generated output follows the applicable standard and provider contracts. A shared instruction contributes to the standard-owned `AGENTS.md`, which Codex can consume, alongside Claude rules and Cursor `.mdc` rules. A feature without a faithful destination is diagnosed or handled by the workspace's explicit unsupported-destination policy.
 
 ## Work safely
 

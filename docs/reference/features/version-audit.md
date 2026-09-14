@@ -38,7 +38,7 @@ The current implementation audits:
 - Claude and Codex plugin-bound and standalone skill manifests;
 - Claude `.claude-plugin/marketplace.json` plugin-entry versions.
 
-Cursor version loci are not currently audited. Codex marketplace metadata is also outside the current audit because Skillset does not emit a Codex-owned marketplace index. The generated support marker describes the workflow's registry status, not a claim that every provider has an audited version surface.
+Cursor version loci are not currently audited. The generated ChatGPT catalog at `.agents/plugins/marketplace.json` is also outside the current audit because its entries are not implemented version loci for this command. The generated support marker describes the workflow's registry status, not a claim that every provider has an audited version surface.
 
 Release state is authoritative when a release scope exists; otherwise source version metadata and inheritance rules supply the expected version. A `supports` range is dependency compatibility metadata, not the artifact's own version.
 

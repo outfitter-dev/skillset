@@ -12,9 +12,26 @@ The Codex [target](../../glossary.md#target) [renders](../../glossary.md#render)
 
 Portable listing metadata renders to `extensions.com.openai.interface`. The ChatGPT bundle has fixed locations for portable skills and MCP servers plus reviewed OpenAI extension locations for hooks and apps; neutral assets, scripts, and source files stay inside the package boundary. Format availability alone is not a Skillset implementation claim, so the generated registry table below reports current support for each feature. Codex does not currently expose a plugin-local agent or executable-bin surface equivalent to Claude's, so Skillset reports those [destinations](../../glossary.md#destination) as unsupported instead of copying incompatible files.
 
-An ordinary build also owns `.agents/plugins/marketplace.json`. With no declared catalog targeting `codex`, Skillset derives one from enabled local ChatGPT bundles; otherwise it renders the one declared Codex-targeted catalog in entry order. Local `./` source paths resolve from the repository catalog root. The file makes packages discoverable to compatible local clients, but does not install, trust, enable, activate, register, sync, upload, or publish them. Repository discovery is distinct from explicit `codex plugin marketplace add` runtime registration, and `skillset marketplace update` remains a Claude-only writer.
+When a Codex-enabled workspace has at least one eligible ChatGPT catalog entry, an ordinary build also owns `.agents/plugins/marketplace.json`. With no declared catalog targeting `codex`, Skillset derives entries from enabled local ChatGPT bundles; otherwise it renders eligible entries from the one declared Codex-targeted catalog in source order. It emits no empty catalog. Local `./` source paths resolve from the repository catalog root. The file makes packages discoverable to compatible local clients, but does not install, trust, enable, activate, register, sync, upload, or publish them. Repository discovery is distinct from explicit `codex plugin marketplace add` runtime registration, and `skillset marketplace update` remains a Claude-only writer.
 
 Adaptive project agents render as TOML under `.codex/agents/`. Adaptive instruction source renders to directory-local `AGENTS.md` files. Codex `.rules` files are command-execution policy, not prose guidance, and remain a provider-native surface rather than an alternative rendering of instructions. Tool policy that has no skill-local Codex enforcement surface remains visible metadata rather than a false [activation](../../glossary.md#activation) claim.
+
+## Standards and Codex-Specific Output
+
+The `codex` target does not enable the Agent standards family. Those standards are inherent whenever their adopted profiles apply, even when `codex: false`. Selecting Codex adds the OpenAI-specific projection and any compatible logical consumption of a standard-owned file:
+
+| Source intent | Inherent standard output | Codex-specific output or behavior |
+| --- | --- | --- |
+| Project instructions | Root or scoped `AGENTS.md` | Codex is recorded as a logical consumer when its projection matches the standard-owned file. |
+| Standalone and eligible plugin-owned skills | `.agents/skills/<skill>/` and, for plugin-owned skills, the Agent Plugins package copy | `agents/openai.yaml` invocation policy and `.skillset.tools.yaml` metadata may live beside the shared Agent Skill; ChatGPT bundle skills omit those standalone Codex sidecars. |
+| Project-agent roles | None | `.codex/agents/<name>.toml` subagent definitions with `developer_instructions`; shared skill references become an explicit instructions preface because Codex has no equivalent enforced skill-reference field. |
+| Plugins | `plugins/<plugin>/agents/` | `plugins/<plugin>/chatgpt/` product bundle with the closed `extensions.com.openai` interface, app, and hook delta. |
+| Marketplace catalog | None | `.agents/plugins/marketplace.json`, derived from enabled local ChatGPT bundles or one declared Codex catalog. |
+| Provider-native project files | None | `.skillset/_codex/**` mirrors supported files under `.codex/**`, including command-policy `.rules` and reviewed runtime hook definitions. |
+
+This distinction is why `.skillset/agents/` means portable project roles and Codex subagents, while `.agents/` contains adopted standard output and the ChatGPT repository catalog. A Codex-enabled plugin containing plugin-local `agents/` still fails: Agent Plugins and the ChatGPT extension do not define a plugin-agent component.
+
+Plugin-owned skills with effective plugin dependencies or skill-local adaptive hooks do not publish individually into `.agents/skills/`; see the [individual-skill publication restrictions](../features/skills.md).
 
 For exact source and destination behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [instructions](../features/instructions.md), [hooks](../features/hooks.md), [apps](../features/apps.md), and [tools policy](../features/tools-policy.md).
 

@@ -189,34 +189,6 @@
         }
       ],
       "fileModes": {
-        "skillset-fix/SKILL.md": "0644"
-      },
-      "files": [
-        "skillset-fix/SKILL.md"
-      ],
-      "kind": "standalone-skill",
-      "name": "skillset-fix",
-      "outputHash": "sha256:3a51fe4e176afb419fc88e76c3b07d0c9257a8e4cb6d8c38a77fcfb6ce154329",
-      "outputPath": "skillset-fix/SKILL.md",
-      "owner": {
-        "standardProfile": "agent-skills"
-      },
-      "sourceHash": "sha256:092a88ad7da6c21a8f931873da7d9e38deeebb8a7352bfbd07d34064f97d63ec",
-      "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
-      "version": "0.4.0"
-    },
-    {
-      "consumers": [
-        {
-          "phase": "baseline",
-          "standardProfile": "agent-skills"
-        },
-        {
-          "phase": "delta",
-          "target": "codex"
-        }
-      ],
-      "fileModes": {
         "use-skillset/LICENSE.txt": "0644",
         "use-skillset/SKILL.md": "0644"
       },
@@ -226,19 +198,19 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:2a42b202d58da07bfd535f8347a6eb209039e0a92642725a5d849a854c002f30",
+      "outputHash": "sha256:c8d35452b2b9a41fcc2c7245d45fef98acb00cf8cc42cbf17f170368a2233a5b",
       "outputPath": "use-skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-skills"
       },
       "plugin": "skillset",
-      "sourceHash": "sha256:e778f5ded89ce60e65f991a4d5cf8738e9611534d7e5a9af69dcddae77258451",
+      "sourceHash": "sha256:0029a90335c667b36a7c49fd4acd488ad64e68cdef66f15f8e27c38001a318a2",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
   ],
   "outputRoot": ".agents/skills",
-  "provenanceHash": "sha256:0a29dff0d16bf69d7c259536d9bac10fe7c6985d2861ca3d59fc5cc9cfaee2cb",
+  "provenanceHash": "sha256:e33f80fef67654485074c912c249f53d1099aa80521363ae505a7e6730dcc4b4",
   "renderResults": [
     {
       "destination": "skill",
@@ -717,62 +689,6 @@
       "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
       "sourceUnit": "skill:skillset-dev-testing",
-      "status": "rendered",
-      "target": "codex"
-    },
-    {
-      "destination": "skill",
-      "evidence": [
-        {
-          "kind": "external-docs",
-          "note": "Agent Skills unversioned specification",
-          "ref": "https://raw.githubusercontent.com/agentskills/agentskills/69ef37e9424c0a7ea9dd2293b559e43ec8176379/docs/specification.mdx",
-          "verifiedAt": "2026-09-12T15:34:39.000Z"
-        }
-      ],
-      "featureId": "standalone-skills",
-      "outputs": [
-        {
-          "kind": "standalone-skill",
-          "path": ".agents/skills/skillset-fix/SKILL.md"
-        }
-      ],
-      "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
-      "sourceUnit": "skill:skillset-fix",
-      "standardProfile": "agent-skills",
-      "status": "rendered"
-    },
-    {
-      "destination": "skill",
-      "evidence": [
-        {
-          "kind": "docs",
-          "ref": "docs/reference/features/skills.md"
-        },
-        {
-          "kind": "provider-schema",
-          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
-          "ref": "codex-skill-metadata-schema",
-          "verifiedAt": "2026-06-23"
-        },
-        {
-          "kind": "provider-snapshot",
-          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
-          "ref": "codex-skill",
-          "verifiedAt": "2026-06-23"
-        }
-      ],
-      "featureId": "standalone-skills",
-      "outputs": [
-        {
-          "kind": "standalone-skill",
-          "path": ".agents/skills/skillset-fix/SKILL.md"
-        }
-      ],
-      "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
-      "sourceUnit": "skill:skillset-fix",
       "status": "rendered",
       "target": "codex"
     }

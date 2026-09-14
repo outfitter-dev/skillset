@@ -27,8 +27,8 @@ mcp:
 
 | Source | Claude output | Codex output | Cursor output | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Conventional `.mcp.json` | `.mcp.json` and manifest `mcpServers` | `.mcp.json` and manifest `mcpServers` | `mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Parsed once as portable MCP and rendered in the provider dialect. |
-| `mcp.source` | `.mcp.json` and manifest `mcpServers` | `.mcp.json` and manifest `mcpServers` | `mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Source pointer must use `repo:` and stay outside generated roots; rendering uses the same typed model. |
+| Conventional `.mcp.json` | `.mcp.json` and manifest `mcpServers` | ChatGPT bundle `mcp.json` fixed component | `mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Parsed once as portable MCP and rendered in the provider dialect. The ChatGPT `plugin.json` does not redirect its fixed Agent Plugins MCP component. |
+| `mcp.source` | `.mcp.json` and manifest `mcpServers` | ChatGPT bundle `mcp.json` fixed component | `mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Source pointer must use `repo:` and stay outside generated roots; rendering uses the same typed model. |
 
 Portable source uses `stdio`, `streamable-http`, and `sse`, with `${PLUGIN_ROOT}` and `${PLUGIN_DATA}` placeholders. A command entry without `type` infers `stdio`; a URL entry must declare its transport. Provider spellings such as `type: http` or `${CLAUDE_PLUGIN_ROOT}` fail with a canonical fix-it. When Agent Plugins 1.0 is adopted, applicable plugin MCP source inherently emits `plugins/<plugin>/agents/mcp.json` with the fixed 1.0 schema identifier, independent of provider targets. Authored source may omit `$schema`, but a conflicting value is rejected.
 
