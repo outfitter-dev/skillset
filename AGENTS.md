@@ -20,7 +20,8 @@ For repository documentation, follow [docs/development/documentation-system.md](
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
 - Emit target-native plugin bundles under `plugins/<plugin>/<provider>/` by default, with shared generated provenance in `plugins/skillset.lock`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
-- Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
+- Emit applicable Agent standards inherently; provider settings do not disable that baseline, and `compile.agents` is not a supported setting.
+- Emit source instructions from `<source-root>/rules/**/*.md` to standard-owned root/scoped `AGENTS.md`, root `CLAUDE.md` for Claude-enabled unscoped guidance, and `.claude/rules/**/*.md` for path-scoped Claude guidance, without overwriting unmanaged instructions.
 - Preserve plugin boundaries across Claude and Codex outputs.
 - Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata["skillset.schema"]` fields.
 - Write deterministic `skillset.lock` files near generated outputs.

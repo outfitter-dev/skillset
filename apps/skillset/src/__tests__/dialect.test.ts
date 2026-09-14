@@ -119,7 +119,7 @@ Body.
   );
 });
 
-test("dialect: claude instructions translate AGENTS.md but not .claude/rules", async () => {
+test("dialect: claude instructions translate AGENTS.md but not CLAUDE.md", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -140,8 +140,11 @@ Keep CLAUDE.md current; agents live under .claude/agents.
   expect(agents).toContain("Keep AGENTS.md current; agents live under .codex/agents.");
   expect(agents).not.toContain("CLAUDE.md current");
 
-  const rule = await readFile(join(root, ".claude/rules/conventions.md"), "utf8");
-  expect(rule).toBe("Keep CLAUDE.md current; agents live under .claude/agents.\n");
+  const claude = await readFile(join(root, "CLAUDE.md"), "utf8");
+  expect(claude).toContain(
+    "Keep CLAUDE.md current; agents live under .claude/agents."
+  );
+  expect(claude).not.toContain("Keep AGENTS.md current");
 
   const workspaceLock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
     items: readonly { name: string; transforms?: readonly unknown[] }[];
@@ -151,10 +154,9 @@ Keep CLAUDE.md current; agents live under .claude/agents.
     { count: 1, intent: "path.project-config-dir" },
   ]);
 
-  const rulesLock = JSON.parse(
-    await readFile(join(root, ".claude/rules/skillset.lock"), "utf8")
-  ) as { items: readonly { transforms?: readonly unknown[] }[] };
-  expect(rulesLock.items.every((item) => item.transforms === undefined)).toBe(true);
+  expect(
+    workspaceLock.items.find((item) => item.name === "CLAUDE.md")?.transforms
+  ).toBeUndefined();
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {

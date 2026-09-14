@@ -359,10 +359,10 @@ Body.
   });
 });
 
-// SET-5: canonical source instructions live in .skillset/rules/. Claude
-// lowers to .claude/rules, and Codex lowers to AGENTS.md.
+// SET-5: canonical source instructions live in .skillset/rules/. Unscoped
+// Claude instructions aggregate in CLAUDE.md, and Codex lowers to AGENTS.md.
 
-test("SET-5: canonical instructions lower to Claude rules and Codex AGENTS.md", async () => {
+test("SET-5: canonical instructions lower to Claude and Codex root instructions", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -382,7 +382,7 @@ codex: true
   expect(graph.warnings).toEqual([]);
 
   await buildSkillset(root);
-  expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Be tidy.");
+  expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toContain("Be tidy.");
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Be tidy.");
 });
 
@@ -4772,7 +4772,7 @@ description: Demo.
   expect(changedIds).toContain("skill:demo");
   const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
   expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
-  expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
+  expect(report.generatedDrift.changed).toContain("CLAUDE.md");
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
 
@@ -8833,10 +8833,13 @@ test("SET-464: create guidance targets the created child root", async () => {
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain(
-    `next: skillset new skill <name> --root ${createdRoot}\n`
+    `next: skillset build --root ${createdRoot}\n`
   );
   expect(result.stdout).toContain(
-    `next: skillset import <path> --root ${createdRoot}\n`
+    `next: skillset build --yes --root ${createdRoot}\n`
+  );
+  expect(result.stdout).toContain(
+    `next: skillset check --root ${createdRoot}\n`
   );
 });
 
@@ -9030,7 +9033,8 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("my-skillset");
   expect(preview.stdout).toContain("+ README.md");
-  expect(preview.stdout).toContain("+ AGENTS.md");
+  expect(preview.stdout).toContain("+ .skillset/rules/skillset-workflow.md");
+  expect(preview.stdout).not.toContain("+ AGENTS.md");
   expect(preview.stdout).toContain("+ .git");
   expect(preview.stdout).toContain("+ skillset.yaml");
   expect(await fileExists(join(parent, "my-skillset/skillset.yaml"))).toBe(false);
@@ -9040,7 +9044,10 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   expect(written.exitCode).toBe(0);
   const config = await readFile(join(parent, "my-skillset/skillset.yaml"), "utf8");
   const readme = await readFile(join(parent, "my-skillset/README.md"), "utf8");
-  const agents = await readFile(join(parent, "my-skillset/AGENTS.md"), "utf8");
+  const workflow = await readFile(
+    join(parent, "my-skillset/.skillset/rules/skillset-workflow.md"),
+    "utf8"
+  );
   const gitignore = await readFile(join(parent, "my-skillset/.gitignore"), "utf8");
   const lock = await readFile(join(parent, "my-skillset/skillset.lock"), "utf8");
   const createdRoot = join(parent, "my-skillset");
@@ -9068,7 +9075,8 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build");
-  expect(agents).toContain("Treat `.skillset/` as editable Skillset source");
+  expect(workflow).toContain("Treat `.skillset/` as editable Skillset source");
+  expect(await fileExists(join(createdRoot, "AGENTS.md"))).toBe(false);
   expect(await fileExists(join(createdRoot, ".git/config"))).toBe(true);
   await mkdir(join(createdRoot, ".skillset/cache"), { recursive: true });
   await writeFile(join(createdRoot, ".skillset/cache/runtime.txt"), "ignored\n");
@@ -9076,6 +9084,74 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   await runGit(createdRoot, "add", ".");
   await expect(runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/cache/.gitignore")).rejects.toThrow();
   await runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/snapshots/.gitignore");
+});
+
+test("create keeps workflow guidance canonical through the first build", async () => {
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-setup-create-build-"
+  );
+  const parent = await mkdtemp(join(disposableRoot, "parent-"));
+  const createdRoot = join(parent, "project-loadout");
+
+  const created = await runSkillsetCli(
+    "create",
+    "project-loadout",
+    "--root",
+    parent,
+    "--yes",
+    "--json"
+  );
+  expect(created.exitCode).toBe(0);
+  expect(await fileExists(join(createdRoot, "AGENTS.md"))).toBe(false);
+  const workflowPath = join(
+    createdRoot,
+    ".skillset/rules/skillset-workflow.md"
+  );
+  const workflow = await readFile(workflowPath, "utf8");
+  expect(workflow).toContain(
+    "Treat `.skillset/` as editable Skillset source and source-adjacent state."
+  );
+
+  const added = await runSkillsetCli(
+    "new",
+    "instruction",
+    "project-guidance",
+    "--root",
+    createdRoot,
+    "--yes",
+    "--json"
+  );
+  expect(added.exitCode).toBe(0);
+
+  const firstBuild = await runSkillsetCli(
+    "build",
+    "--root",
+    createdRoot,
+    "--yes",
+    "--json"
+  );
+  expect(firstBuild.exitCode).toBe(0);
+  const firstResult = JSON.parse(firstBuild.stdout);
+  expect(firstResult.data.state).toBe("written");
+  const agents = await readFile(join(createdRoot, "AGENTS.md"), "utf8");
+  expect(agents).toContain(
+    "Treat `.skillset/` as editable Skillset source and source-adjacent state."
+  );
+  expect(agents).toContain("Add repository instructions here.");
+  expect(await readFile(workflowPath, "utf8")).toBe(workflow);
+
+  const secondBuild = await runSkillsetCli(
+    "build",
+    "--root",
+    createdRoot,
+    "--yes",
+    "--json"
+  );
+  expect(secondBuild.exitCode).toBe(0);
+  const secondResult = JSON.parse(secondBuild.stdout);
+  expect(secondResult.data.report.outputState.state).toBe("current");
+  expect(secondResult.data.writes).toEqual([]);
+  expect(await readFile(workflowPath, "utf8")).toBe(workflow);
 });
 
 test("SET-312: create uses its normalized name as directory and identity", async () => {

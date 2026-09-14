@@ -27,6 +27,7 @@ Bring existing [provider-native](../glossary.md#provider-native) work into Skill
 Keep source and generated output current while you edit.
 
 - [Development loop](../guides/development-loop.md) covers check, preview, write, watch, inspect, and commit.
+- [Project-local authoring](../guides/project-local-authoring.md) configures skills, instructions, and agent roles for working inside a repository without creating a plugin.
 - [Troubleshooting](../troubleshooting.md) starts from observable symptoms when that loop fails.
 
 ## Ship

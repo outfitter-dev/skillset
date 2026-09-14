@@ -44,6 +44,10 @@ test("SET-210: dev watch plan covers ordinary source and ignores generated churn
   expect(shouldRunDevPreviewForPath(plan, ".skillset/snapshots/run/manifest.json")).toBe(false);
   expect(shouldRunDevPreviewForPath(plan, "skillset.lock")).toBe(false);
   expect(shouldRunDevPreviewForPath(plan, "AGENTS.md")).toBe(false);
+  expect(shouldRunDevPreviewForPath(plan, "CLAUDE.md")).toBe(false);
+  expect(
+    shouldRunDevPreviewForPath(plan, ".skillset/shared/CLAUDE.md")
+  ).toBe(true);
   expect(shouldRunDevPreviewForPath(plan, undefined)).toBe(true);
 });
 
