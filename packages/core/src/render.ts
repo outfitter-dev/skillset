@@ -27,6 +27,7 @@ import {
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
 import { withLockProvenance } from "./lock-provenance";
+import { assertCasePortableRenderedPaths, planRenderedFiles } from "./output-plan";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 import {
   isDefaultPluginOutputRoot,
@@ -82,6 +83,8 @@ import type {
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
+
+export { assertCasePortableRenderedPaths } from "./output-plan";
 import {
   copyFileFromSource,
   copyPath,
@@ -187,55 +190,9 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
   }
   rendered.push(...(await renderLockFiles(graph, lockRoots)));
-  return [...coalesceRenderedFiles(rendered)]
+  return [...planRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
     .map((file) => validateRenderedFile(file));
-}
-
-function coalesceRenderedFiles(files: readonly RenderedFile[]): readonly RenderedFile[] {
-  const byPath = new Map<string, RenderedFile>();
-  assertCasePortableRenderedPaths(files.map((file) => file.path));
-  for (const file of files) {
-    const existing = byPath.get(file.path);
-    if (existing === undefined) {
-      byPath.set(file.path, file);
-      continue;
-    }
-    if (bytesEqual(existing.content, file.content) && existing.mode === file.mode) continue;
-    throw new Error(
-      `skillset: generated output collision at ${file.path} from ` +
-        `${existing.sourcePath ?? "generated output"} and ${file.sourcePath ?? "generated output"}`
-    );
-  }
-  return [...byPath.values()];
-}
-
-export function assertCasePortableRenderedPaths(paths: readonly string[]): void {
-  const byCaseInsensitivePrefix = new Map<
-    string,
-    { readonly destination: string; readonly prefix: string }
-  >();
-  for (const path of paths) {
-    const destination = path.replaceAll("\\", "/");
-    let prefix = "";
-    for (const segment of path.split(/[\\/]/u)) {
-      prefix = prefix === "" ? segment : `${prefix}/${segment}`;
-      const caseVariant = byCaseInsensitivePrefix.get(prefix.toLowerCase());
-      if (caseVariant !== undefined && caseVariant.prefix !== prefix) {
-        const [left, right] = [caseVariant.destination, destination].sort(compareStrings);
-        const [leftPrefix, rightPrefix] = [caseVariant.prefix, prefix].sort(compareStrings);
-        throw new Error(
-          "skillset: generated output destinations use case-conflicting paths and are not portable: " +
-            `${left} and ${right} (prefixes ${leftPrefix} and ${rightPrefix}); ` +
-            "rename one source destination"
-        );
-      }
-      byCaseInsensitivePrefix.set(prefix.toLowerCase(), {
-        destination,
-        prefix,
-      });
-    }
-  }
 }
 
 function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
@@ -377,7 +334,7 @@ async function renderPluginTarget(
   rendered.push(...adaptiveHookFiles, ...companionFiles);
   pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
-  const pluginOwnedFiles = coalesceRenderedFiles(pluginRootFiles);
+  const pluginOwnedFiles = planRenderedFiles(pluginRootFiles);
   lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
     lockItemForPlugin({
       files: pluginOwnedFiles,
@@ -2208,14 +2165,6 @@ async function collectFiles(root: string): Promise<readonly string[]> {
   }
 
   return files;
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.byteLength !== right.byteLength) return false;
-  for (let index = 0; index < left.byteLength; index += 1) {
-    if (left[index] !== right[index]) return false;
-  }
-  return true;
 }
 
 function validateRenderedFile(file: RenderedFile): RenderedFile {
