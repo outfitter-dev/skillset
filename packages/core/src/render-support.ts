@@ -98,8 +98,15 @@ export function renderedFileModes(
   return Object.fromEntries(
     [...files]
       .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
-      .map((file) => [relative(outputRoot, file.path), formatGeneratedFileMode(file.mode)])
+      .map((file) => [
+        normalizeManagedRelativePath(relative(outputRoot, file.path)),
+        formatGeneratedFileMode(file.mode),
+      ])
   );
+}
+
+export function normalizeManagedRelativePath(path: string): string {
+  return path.replaceAll("\\", "/");
 }
 
 export async function exists(path: string): Promise<boolean> {

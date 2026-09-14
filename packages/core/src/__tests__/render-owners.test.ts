@@ -47,6 +47,8 @@ import {
   exists,
   GENERATED_BY,
   lockRootsFor,
+  normalizeManagedRelativePath,
+  renderedFileModes,
   textFile,
   WORKSPACE_LOCK_ROOT,
   type LockRoot,
@@ -93,6 +95,7 @@ const OWNED_FUNCTIONS = {
     "copyPath",
     "exists",
     "lockRootsFor",
+    "normalizeManagedRelativePath",
     "renderedFileModes",
     "textFile",
   ],
@@ -229,6 +232,18 @@ describe("render owner boundaries", () => {
       );
       expect(GENERATED_BY).toMatch(/^skillset@/);
       expect(WORKSPACE_LOCK_ROOT).toBe(".");
+      expect(
+        normalizeManagedRelativePath("demo\\codex\\plugin.json")
+      ).toBe("demo/codex/plugin.json");
+      expect(
+        renderedFileModes(".", [
+          {
+            content: new Uint8Array(),
+            mode: 0o644,
+            path: "demo\\codex\\plugin.json",
+          },
+        ])
+      ).toEqual({ "demo/codex/plugin.json": "0644" });
 
       const roots = new Map<string, LockRoot>();
       const claude = lockRootsFor(roots, "plugins/demo", "claude");

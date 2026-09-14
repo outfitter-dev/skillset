@@ -4,6 +4,7 @@ import {
   RENDER_RESULT_SCHEMA,
   RENDER_RESULT_STATUS_VALUES,
   defineRenderResult,
+  parseRenderResult,
   serializeRenderResult,
   type SkillsetRenderResult,
 } from "@skillset/core";
@@ -106,6 +107,39 @@ describe("render results", () => {
         featureId: "standalone-skills",
         sourceUnit: "skill:demo",
         standardProfile: "future-standard" as "agent-skills",
+        status: "rendered",
+      })
+    ).toThrow("standardProfile must be a standard profile id");
+  });
+
+  it("parses current standard results and rejects invalid current identities", () => {
+    expect(
+      parseRenderResult({
+        featureId: "standalone-skills",
+        schema: RENDER_RESULT_SCHEMA,
+        sourceUnit: "skill:demo",
+        standardProfile: "agent-skills",
+        status: "rendered",
+      })
+    ).toMatchObject({
+      schema: RENDER_RESULT_SCHEMA,
+      standardProfile: "agent-skills",
+    });
+    expect(() =>
+      parseRenderResult({
+        featureId: "standalone-skills",
+        schema: RENDER_RESULT_SCHEMA,
+        sourceUnit: "skill:demo",
+        status: "rendered",
+        target: "agents",
+      })
+    ).toThrow("target must be a provider target");
+    expect(() =>
+      parseRenderResult({
+        featureId: "standalone-skills",
+        schema: RENDER_RESULT_SCHEMA,
+        sourceUnit: "skill:demo",
+        standardProfile: "future-standard",
         status: "rendered",
       })
     ).toThrow("standardProfile must be a standard profile id");

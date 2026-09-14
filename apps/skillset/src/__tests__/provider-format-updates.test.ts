@@ -46,7 +46,8 @@ test("SET-278: check write modes leave provider-format updates to update", async
 
   expect(local.exitCode).toBe(1);
   expect(local.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
-  expect(local.stdout).toContain("next: skillset update");
+  expect(local.stdout).toContain("recovery blocked manual-review");
+  expect(local.stdout).toContain("invalid provenanceHash");
   expect(ci.exitCode).toBe(1);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
@@ -620,11 +621,10 @@ test("SET-279: source drift defers an overlapping provider migration", async () 
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 
   const checked = await ciSkillset(root, { fix: true });
-  expect(checked.ok).toBe(true);
-  expect(checked.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(checked.outputEditedPaths).toEqual([]);
-  expect(checked.providerUpdatePaths).toEqual([]);
-  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
+  expect(checked.ok).toBe(false);
+  expect(checked.fixedPaths).toEqual([]);
+  expect(checked.outputEditedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
 test("SET-279: root owner drift defers an overlapping Codex manifest migration", async () => {
@@ -766,7 +766,7 @@ test("SET-279: check refreshes legacy locks missing render input hashes", async 
   expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
 });
 
-test("SET-398: check migrates a coherent v2 lock with v1 render results", async () => {
+test("SET-398: check reports a coherent v2 lock as rebuild-only", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
@@ -782,15 +782,17 @@ test("SET-398: check migrates a coherent v2 lock with v1 render results", async 
     renderResult.schema = "skillset-render-result@1";
   }
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  const downgraded = await readFile(lockPath, "utf8");
 
   const report = await ciSkillset(root, { fix: true });
 
-  expect(report.ok).toBe(true);
-  expect(report.fixedPaths).toContain("plugins/skillset.lock");
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain(
+    "uses pre-v3 schema 2; this generated state is rebuild-only"
+  );
+  expect(report.fixedPaths).toEqual([]);
   expect(report.providerUpdatePaths).toEqual([]);
-  expect(JSON.parse(await readFile(lockPath, "utf8"))).toEqual(expect.objectContaining({
-    schemaVersion: 3,
-  }));
+  expect(await readFile(lockPath, "utf8")).toBe(downgraded);
 });
 
 test("SET-279: ownerless legacy plugin hashes stay visible beside provider updates", async () => {
@@ -856,7 +858,7 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
-test("SET-279: legacy locks do not route ordinary source drift through update", async () => {
+test("SET-279: invalid v3 locks do not route ordinary source drift through update", async () => {
   const root = await builtFixture(pluginFixture());
   await removePluginRenderInputsHash(root);
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
@@ -871,13 +873,10 @@ test("SET-279: legacy locks do not route ordinary source drift through update", 
 
   const report = await ciSkillset(root, { fix: true });
 
-  expect(report.ok).toBe(true);
-  expect(report.providerUpdatePaths).toEqual([]);
-  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/skillset.lock");
-  expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain(
-    "Updated source description."
-  );
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.outputEditedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.repairableManagedLockPaths).toContain("plugins/skillset.lock");
 });
 
 test("SET-279: legacy lock drift does not report clean provider outputs", async () => {

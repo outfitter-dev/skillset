@@ -12,6 +12,7 @@ import {
   readString,
   readStringArray,
 } from "./config";
+import { parseCurrentGeneratedLock } from "./generated-lock";
 import { resolveLicense } from "./licenses";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -565,21 +566,16 @@ async function copyWorkspaceManagedFiles(
   sourceDir: string
 ): Promise<void> {
   if (!(await pathExists(workspaceLockPath))) return;
-  let lock: unknown;
-  try {
-    lock = JSON.parse(await readFile(workspaceLockPath, "utf8")) as unknown;
-  } catch {
-    return;
-  }
-  if (!isJsonRecord(lock) || !Array.isArray(lock.items)) return;
+  const lock = parseCurrentGeneratedLock(
+    JSON.parse(await readFile(workspaceLockPath, "utf8")) as unknown,
+    "workspace lock skillset.lock"
+  );
   const ignoredOperationalPaths = ignoredSourceOperationalPaths(
     rootPath,
     sourceDir
   );
   for (const item of lock.items) {
-    if (!isJsonRecord(item) || !Array.isArray(item.files)) continue;
     for (const file of item.files) {
-      if (typeof file !== "string") continue;
       const sourcePath = resolveInside(rootPath, file);
       if (
         ignoredOperationalPaths.some((ignoredPath) =>

@@ -10,6 +10,7 @@ import { validateConfigDocument, validateWorkspaceConfigDocument } from "@skills
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { gitSafeEnv } from "./git-env";
 import { validateSlug } from "@skillset/core/internal/path";
+import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { selectorForTargetNativeIsland } from "@skillset/core/internal/source-unit-selector";
 import { isTargetName, targetNames } from "@skillset/core/internal/config";
 import type { TargetName } from "@skillset/core/internal/types";
@@ -855,17 +856,19 @@ function workspaceManifest(name: string, targets: readonly TargetName[]): string
 }
 
 function emptyWorkspaceLock(): string {
-  return [
-    "{",
-    "  \"schemaVersion\": 1,",
-    "  \"generatedBy\": \"skillset@0.1.0\",",
-    "  \"outputRoot\": \".\",",
-    "  \"target\": \"workspace\",",
-    "  \"selectedTargets\": [],",
-    "  \"items\": []",
-    "}",
-    "",
-  ].join("\n");
+  return `${JSON.stringify(
+    withLockProvenance({
+      generatedBy: "skillset@0.1.0",
+      items: [],
+      outputRoot: ".",
+      schemaVersion: 3,
+      selectedStandards: [],
+      selectedTargets: [],
+      target: "workspace",
+    }),
+    null,
+    2
+  )}\n`;
 }
 
 function createReadme(name: string, targets: readonly TargetName[]): string {

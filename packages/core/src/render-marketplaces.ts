@@ -8,6 +8,11 @@ import {
   readRecord,
   readString,
 } from "./config";
+import {
+  parseCurrentGeneratedLock,
+  parseGeneratedLock,
+} from "./generated-lock";
+import { hasValidLockProvenance } from "./lock-provenance";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { marketplaceRequestedRefPolicy } from "./marketplace-ref-policy";
 import { corruptWorkspaceLock } from "./output-safety";
@@ -614,6 +619,32 @@ export async function readExistingMarketplaceState(
     throw corruptWorkspaceLock(
       "skillset.lock",
       "it is missing a string generatedBy field"
+    );
+  }
+  try {
+    if (
+      parsed.schemaVersion === 2 &&
+      Array.isArray(parsed.items) &&
+      parsed.items.length === 0
+    ) {
+      // An empty v2 lock carries no ownership or cleanup authority, so it can
+      // safely preserve marketplace selection while the build migrates it.
+      parseGeneratedLock(parsed, "workspace lock skillset.lock", {
+        provenance: "inspect",
+      });
+    } else {
+      parseCurrentGeneratedLock(parsed, "workspace lock skillset.lock", {
+        provenance: "inspect",
+      });
+      if (!hasValidLockProvenance(parsed)) {
+        return EMPTY_MARKETPLACE_STATE;
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw corruptWorkspaceLock(
+      "skillset.lock",
+      message.replace(/^skillset: /, "")
     );
   }
   const marketplaces = parsed.marketplaces;

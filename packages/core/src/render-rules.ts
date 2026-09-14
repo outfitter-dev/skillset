@@ -13,6 +13,7 @@ import {
 import {
   GENERATED_BY,
   lockRootsFor,
+  normalizeManagedRelativePath,
   renderedFileModes,
   textFile,
   WORKSPACE_LOCK_ROOT,
@@ -535,12 +536,14 @@ function lockItemForRule(args: {
   return {
     fileModes: renderedFileModes(args.outputRoot, args.files),
     files: args.files
-      .map((file) => relative(args.outputRoot, file.path))
+      .map((file) => normalizeManagedRelativePath(relative(args.outputRoot, file.path)))
       .sort(),
     kind: "rule",
     name: args.name,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: relative(args.outputRoot, args.outputPath),
+    outputPath: normalizeManagedRelativePath(
+      relative(args.outputRoot, args.outputPath)
+    ),
     ...(args.preprocessDependencies.length === 0
       ? {}
       : { preprocessDependencies: args.preprocessDependencies }),
@@ -645,7 +648,7 @@ function hashRenderedFiles(
   for (const file of [...files].sort((left, right) =>
     compareStrings(left.path, right.path)
   )) {
-    hash.update(relative(outputRoot, file.path));
+    hash.update(normalizeManagedRelativePath(relative(outputRoot, file.path)));
     hash.update("\0");
     hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");

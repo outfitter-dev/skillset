@@ -340,7 +340,7 @@ marketplaces:
     })]);
   });
 
-  test("reports stale marketplace lock provenance", async () => {
+  test("blocks marketplace readiness on invalid lock provenance", async () => {
     const root = await fixture(localMarketplaceFiles());
     await buildSkillsetResult(root);
     const lockPath = join(root, "skillset.lock");
@@ -351,18 +351,9 @@ marketplaces:
     lock.marketplaces.entries[0]!.resolved.generatedPaths = ["plugins/local-tools/claude/stale.json"];
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
-    const report = await checkMarketplaces(root, { name: "outfitter" });
-
-    expect(report.ok).toBe(false);
-    expect(report.entries).toContainEqual(expect.objectContaining({
-      lock: expect.objectContaining({
-        reason: "marketplace lock entry is stale for the current resolution",
-        state: "stale",
-      }),
-      readiness: "not-ready",
-      requestedTarget: "claude",
-      states: ["declared", "resolved", "renderable", "generated", "verified", "stale", "not-ready"],
-    }));
+    await expect(
+      checkMarketplaces(root, { name: "outfitter" })
+    ).rejects.toThrow("workspace lock skillset.lock has invalid provenanceHash");
   });
 
   test("blocks pinned marketplace entries when the source sha cannot be verified", async () => {
@@ -530,10 +521,10 @@ Use this demo skill.
       `${JSON.stringify(tamperedIndex, null, 2)}\n`
     );
 
-    const tamperedCheck = await checkMarketplaces(marketplace, { name: "outfitter", xdg: remote.xdg });
+    await expect(
+      checkMarketplaces(marketplace, { name: "outfitter", xdg: remote.xdg })
+    ).rejects.toThrow("workspace lock skillset.lock has invalid provenanceHash");
     const tamperedVerify = await verifySkillsetResult(marketplace, { xdg: remote.xdg });
-    expect(tamperedCheck.ok).toBe(false);
-    expect(tamperedCheck.entries[0]?.lock.state).toBe("absent");
     expect(tamperedVerify.data.failures).toContain("stale generated file: skillset.lock");
   });
 
