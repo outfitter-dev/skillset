@@ -8414,7 +8414,7 @@ Body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("invalid generated output");
+  await expect(buildSkillset(root)).rejects.toThrow("MCP source");
 });
 
 test("SET-26: divergent feature and island outputs fail with both sources", async () => {

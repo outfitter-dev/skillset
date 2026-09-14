@@ -6,6 +6,8 @@ import { isDeepStrictEqual } from "node:util";
 import {
   classifyNativeHookLiftDiagnostics,
   defineRenderResult,
+  normalizeImportedMcpSource,
+  parsePortableMcpSource,
   type JsonValue,
   type NativeHookLiftDiagnostic,
   type SkillsetRenderResult,
@@ -48,7 +50,12 @@ import {
   updateMarkdownSourceDocument,
   updateYamlSourceDocument,
 } from "@skillset/core/internal/source-document";
-import { isJsonRecord, parseMarkdown, parseYamlRecord } from "@skillset/core/internal/yaml";
+import {
+  isJsonRecord,
+  parseMarkdown,
+  parseYamlRecord,
+  stringifyJson,
+} from "@skillset/core/internal/yaml";
 
 import {
   firstPortablePluginMetadataValue,
@@ -260,13 +267,20 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       sourcePath,
       targetPath: stagingPath,
     });
-    const copiedFiles = copied.files;
+    const providers = importProviders(options);
+    const copiedFiles =
+      options.kind === "plugin"
+        ? await rewriteImportedPluginMcp(
+            stagingPath,
+            copied.files,
+            providers
+          )
+        : copied.files;
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
     }
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
     const classification = classifyFrontmatter(frontmatter);
-    const providers = importProviders(options);
     const scopedInvocationProviders = importedInvocationScopeProviders(providers);
     const pluginSkillFrontmatter = await readImportedPluginSkillFrontmatter(
       stagingPath,
@@ -1029,6 +1043,155 @@ async function copyImportSource(options: {
     files: copied.sort(compareStrings),
     warnings,
   };
+}
+
+async function rewriteImportedPluginMcp(
+  targetPath: string,
+  copiedFiles: readonly string[],
+  providers: readonly ImportProvider[] | undefined
+): Promise<readonly string[]> {
+  const hiddenPath = join(targetPath, ".mcp.json");
+  const visiblePath = join(targetPath, "mcp.json");
+  const hasHidden = await exists(hiddenPath);
+  const hasVisible = await exists(visiblePath);
+  const manifestSource = await importedManifestMcpSource(
+    targetPath,
+    providers
+  );
+  if (manifestSource === undefined && !hasHidden && !hasVisible) {
+    return copiedFiles;
+  }
+  if (manifestSource === undefined && hasHidden && hasVisible) {
+    throw new Error(
+      "skillset: imported plugin contains both .mcp.json and mcp.json; choose one authoritative MCP source before importing"
+    );
+  }
+
+  const availableSources = [
+    ...(hasHidden ? [hiddenPath] : []),
+    ...(hasVisible ? [visiblePath] : []),
+    ...(manifestSource === undefined ? [] : [manifestSource]),
+  ];
+  const distinctSources = [...new Set(availableSources)];
+  if (distinctSources.length > 1) {
+    throw new Error(
+      `skillset: imported plugin contains multiple MCP sources: ${distinctSources.join(", ")}; choose one authoritative source before importing`
+    );
+  }
+
+  const sourcePath = manifestSource ?? (hasHidden ? hiddenPath : visiblePath);
+  if (!(await exists(sourcePath))) {
+    throw new Error(
+      `skillset: imported plugin manifest references missing MCP source ${sourcePath}`
+    );
+  }
+  const dialect = await importedMcpDialect(
+    targetPath,
+    basename(sourcePath),
+    providers
+  );
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
+  } catch (error) {
+    throw new Error(
+      `skillset: imported MCP source ${sourcePath} is not valid JSON: ${errorMessage(error)}`
+    );
+  }
+  const normalized = normalizeImportedMcpSource(parsed, dialect);
+  await writeFile(hiddenPath, stringifyJson(normalized));
+  if (sourcePath !== hiddenPath) await rm(sourcePath);
+  await parsePortableMcpSource({
+    pluginRoot: targetPath,
+    sourcePath: hiddenPath,
+  });
+
+  return [
+    ...copiedFiles.filter(
+      (file) =>
+        normalizeCopiedImportPath(file) !==
+          normalizeCopiedImportPath(relative(targetPath, sourcePath)) &&
+        normalizeCopiedImportPath(file) !== ".mcp.json" &&
+        normalizeCopiedImportPath(file) !== "mcp.json"
+    ),
+    ".mcp.json",
+  ].sort(compareStrings);
+}
+
+async function importedManifestMcpSource(
+  targetPath: string,
+  providers: readonly ImportProvider[] | undefined
+): Promise<string | undefined> {
+  const manifests = await readNativePluginManifests(targetPath);
+  const explicitTargets = targetNames().filter((target) =>
+    providers?.includes(target)
+  );
+  const relevantManifests =
+    explicitTargets.length === 0
+      ? [...manifests.entries()]
+      : explicitTargets.flatMap((target) => {
+          const manifest = manifests.get(target);
+          return manifest === undefined ? [] : ([[target, manifest]] as const);
+        });
+  const references = relevantManifests.flatMap(([provider, manifest]) => {
+    const value = manifest.mcpServers;
+    if (value === undefined) return [];
+    if (typeof value !== "string" || !value.startsWith("./")) {
+      throw new Error(
+        `skillset: imported ${provider} manifest mcpServers must be one local ./ path; inline, remote, and array references cannot be mapped to one portable MCP source`
+      );
+    }
+    return [value];
+  });
+  const uniqueReferences = [...new Set(references)];
+  if (uniqueReferences.length === 0) return undefined;
+  if (uniqueReferences.length > 1) {
+    throw new Error(
+      `skillset: imported native plugin manifests disagree on MCP source: ${uniqueReferences.join(", ")}`
+    );
+  }
+  const [reference] = uniqueReferences;
+  if (reference === undefined) return undefined;
+  return resolveInside(targetPath, reference.slice(2));
+}
+
+async function importedMcpDialect(
+  targetPath: string,
+  sourceName: string,
+  providers: readonly ImportProvider[] | undefined
+): Promise<TargetName | "agent-plugins"> {
+  if (providers?.includes("agents")) return "agent-plugins";
+  if (providers?.includes("skillset")) return "agent-plugins";
+  const explicitTargets = targetNames().filter((target) =>
+    providers?.includes(target)
+  );
+  if (explicitTargets.length === 1) return explicitTargets[0] as TargetName;
+  if (explicitTargets.length > 1) return "agent-plugins";
+
+  const detected: TargetName[] = [];
+  for (const target of targetNames()) {
+    if (await exists(join(targetPath, `.${target}-plugin`, "plugin.json"))) {
+      detected.push(target);
+    }
+  }
+  if (detected.length === 1) return detected[0] as TargetName;
+  if (detected.length > 1) return "agent-plugins";
+  if (sourceName === ".mcp.json") return "agent-plugins";
+
+  const standardManifest = join(targetPath, "plugin.json");
+  if (await exists(standardManifest)) {
+    const parsed = JSON.parse(await readFile(standardManifest, "utf8")) as JsonValue;
+    if (
+      isJsonRecord(parsed) &&
+      parsed.$schema ===
+        "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+    ) {
+      return "agent-plugins";
+    }
+  }
+  throw new Error(
+    "skillset: mcp.json import is ambiguous between Cursor and Agent Plugins; pass --from cursor or --from agents"
+  );
 }
 
 async function stampImportedOrigins(

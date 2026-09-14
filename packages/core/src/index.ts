@@ -474,3 +474,20 @@ export {
   type VersionDriftStatus,
   type VersionLocus,
 } from "./version-audit";
+export { normalizeImportedMcpSource } from "./portable-mcp-import";
+export {
+  AGENT_PLUGINS_MCP_SCHEMA,
+  PORTABLE_MCP_PROVIDER_EVIDENCE,
+  parsePortableMcpSource,
+  providerMcpSupportPaths,
+  renderAgentPluginsMcp,
+  renderProviderMcp,
+  type ParsePortableMcpSourceOptions,
+  type PortableMcpModel,
+  type PortableMcpProviderEvidence,
+  type PortableMcpProviderUnsupported,
+  type PortableMcpRemoteServer,
+  type PortableMcpServer,
+  type PortableMcpStdioServer,
+  type UnsupportedPortableMcpServer,
+} from "./portable-mcp";
