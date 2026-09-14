@@ -54,6 +54,18 @@ function classifyFileOwnership(
   target: TargetName,
   chatGptManifest: boolean
 ): DestinationOwnershipEntry {
+  if (
+    target === "codex" &&
+    (path.endsWith("/.agents/plugins/marketplace.json") ||
+      path === ".agents/plugins/marketplace.json")
+  ) {
+    return {
+      owner: "generated",
+      reason:
+        "ChatGPT marketplace catalogs are generated from the typed Skillset marketplace contract.",
+      selector: path,
+    };
+  }
   if (chatGptManifest || path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
     return {
       owner: "generated",
@@ -110,6 +122,20 @@ function classifyFieldOwnership(
       reason: "Skillset owns the closed ChatGPT Agent Plugins manifest contract.",
       selector: fieldSelector(path, key),
     }));
+  }
+  if (
+    target === "codex" &&
+    (path.endsWith("/.agents/plugins/marketplace.json") ||
+      path === ".agents/plugins/marketplace.json")
+  ) {
+    return Object.keys(record)
+      .sort(compareStrings)
+      .map((key) => ({
+        owner: "generated" as const,
+        reason:
+          "Skillset owns the closed ChatGPT marketplace catalog contract.",
+        selector: fieldSelector(path, key),
+      }));
   }
   if (path.endsWith("/.codex-plugin/plugin.json") || path === ".codex-plugin/plugin.json") {
     return classifyCodexPluginManifest(path, record);

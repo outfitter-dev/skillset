@@ -12,13 +12,15 @@ import {
   parseCurrentGeneratedLock,
   parseGeneratedLock,
 } from "./generated-lock";
-import { hasValidLockProvenance } from "./lock-provenance";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
+import { hasValidLockProvenance } from "./lock-provenance";
 import { marketplaceRequestedRefPolicy } from "./marketplace-ref-policy";
+import { renderOpenAiMarketplacePlugin } from "./openai-marketplace";
 import { corruptWorkspaceLock } from "./output-safety";
 import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
+  chatGptMarketplacePath,
   cursorMarketplacePath,
   isDefaultPluginOutputRoot,
   pluginLockRootPath,
@@ -28,10 +30,7 @@ import {
 import { parseRemoteRepositoryReference } from "./remote-repository-reference";
 import { textFile, type LockRoot } from "./render-support";
 import { renderClaudeAuthor, renderCursorAuthor } from "./source-author";
-import {
-  readListingString,
-  readListingStringArray,
-} from "./source-listing";
+import { readListingString, readListingStringArray } from "./source-listing";
 import { renderValidatedJson } from "./structured-output";
 import { targetNames } from "./targets";
 import type {
@@ -46,6 +45,118 @@ import type {
 } from "./types";
 import { pluginVersion, rootVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
+
+export async function renderChatGptMarketplace(
+  graph: BuildGraph
+): Promise<readonly RenderedFile[]> {
+  if (!graph.root.targets.codex.enabled) return [];
+  const selected = selectChatGptMarketplaceCatalog(graph);
+  const rootLicense = await resolveRootLicense(graph);
+  const plugins: JsonRecord[] = [];
+  const entries =
+    selected === undefined
+      ? defaultChatGptSourcePlugins(graph).map(
+          (plugin): MarketplacePluginEntryConfig => ({
+            id: plugin.id,
+            plugin: plugin.id,
+            targets: ["codex"],
+          })
+        )
+      : selected[1].plugins.filter((entry) =>
+          (entry.targets ?? selected[1].targets).includes("codex")
+        );
+
+  for (const entry of entries) {
+    const plugin = graph.plugins.find(
+      (candidate) => candidate.id === entry.plugin
+    );
+    const nativeSource = entry.codex?.source;
+    if (
+      nativeSource?.source === "local" &&
+      (plugin === undefined || !shouldRenderPlugin(graph, plugin, "codex"))
+    ) {
+      throw new Error(
+        `skillset: ChatGPT marketplace entry ${entry.id} requires a materialized local plugin package`
+      );
+    }
+    if (
+      plugin === undefined &&
+      entry.repo === undefined &&
+      nativeSource === undefined
+    ) {
+      continue;
+    }
+    if (
+      plugin !== undefined &&
+      entry.repo === undefined &&
+      nativeSource === undefined &&
+      !shouldRenderPlugin(graph, plugin, "codex")
+    ) {
+      continue;
+    }
+    const pluginLicense =
+      plugin === undefined
+        ? undefined
+        : await resolvePluginLicense(graph, plugin, rootLicense);
+    plugins.push(
+      renderOpenAiMarketplacePlugin({
+        entry,
+        graph,
+        license: pluginLicense,
+        plugin,
+      })
+    );
+  }
+  if (plugins.length === 0) return [];
+
+  const catalogName =
+    selected?.[0] ??
+    readString(graph.root.metadata, "id") ??
+    readString(graph.root.metadata, "name") ??
+    "skillset";
+  const displayName =
+    selected?.[1].title ??
+    readListingString(graph.root.metadata, "display_name") ??
+    readString(graph.root.metadata, "name") ??
+    catalogName;
+  return [
+    textFile(
+      chatGptMarketplacePath(),
+      renderValidatedJson(
+        {
+          name: catalogName,
+          interface: { displayName },
+          plugins,
+        },
+        "ChatGPT marketplace"
+      )
+    ),
+  ];
+}
+
+function selectChatGptMarketplaceCatalog(
+  graph: BuildGraph
+): readonly [string, MarketplaceCatalogConfig] | undefined {
+  const catalogs = Object.entries(graph.root.marketplaces).filter(
+    ([, catalog]) => catalog.targets.includes("codex")
+  );
+  if (catalogs.length > 1) {
+    throw new Error(
+      `skillset: ChatGPT marketplace output requires exactly one catalog targeting codex; found ${catalogs
+        .map(([name]) => name)
+        .join(", ")}`
+    );
+  }
+  return catalogs[0];
+}
+
+function defaultChatGptSourcePlugins(
+  graph: BuildGraph
+): readonly SourcePlugin[] {
+  return graph.plugins.filter((plugin) =>
+    shouldRenderPlugin(graph, plugin, "codex")
+  );
+}
 
 export async function renderClaudeMarketplace(
   graph: BuildGraph
@@ -150,8 +261,8 @@ async function projectClaudeMarketplace(
   if (entries.length === 0) return undefined;
 
   const root = graph.root.metadata;
-  const owner =
-    renderClaudeAuthor(root.owner) ?? renderClaudeAuthor(root.author) ?? {
+  const owner = renderClaudeAuthor(root.owner) ??
+    renderClaudeAuthor(root.author) ?? {
       name: readString(root, "name") ?? "skillset",
     };
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
@@ -292,15 +403,14 @@ async function renderClaudeMarketplacePlugin(
         renderClaudeAuthor(graph.root.metadata.author),
       repository: metadata.repository,
       license: pluginLicense?.manifestValue,
-      keywords:
-        copyOptionalStrings(
-          readListingStringArray(metadata, "keywords") ??
-            (Array.isArray(metadata.keywords)
-              ? metadata.keywords.filter(
-                  (value): value is string => typeof value === "string"
-                )
-              : undefined)
-        ),
+      keywords: copyOptionalStrings(
+        readListingStringArray(metadata, "keywords") ??
+          (Array.isArray(metadata.keywords)
+            ? metadata.keywords.filter(
+                (value): value is string => typeof value === "string"
+              )
+            : undefined)
+      ),
       category: readListingString(metadata, "category"),
       strict: metadata.strict,
     },
@@ -536,7 +646,11 @@ export function marketplaceLockProvenance(
         const provider =
           plugin === undefined
             ? ""
-            : providerSourceForPlugin(graph.root.outputs.plugins[target], target, plugin);
+            : providerSourceForPlugin(
+                graph.root.outputs.plugins[target],
+                target,
+                plugin
+              );
         entries.push(
           stripUndefinedJsonRecord({
             catalog: catalogName,
@@ -842,11 +956,7 @@ function marketplacePluginManifestPath(
   plugin: SourcePlugin,
   target: TargetName
 ): string {
-  return pluginManifestPath(
-    graph.root.outputs.plugins[target],
-    target,
-    plugin
-  );
+  return pluginManifestPath(graph.root.outputs.plugins[target], target, plugin);
 }
 
 function stripUndefinedJsonRecord(

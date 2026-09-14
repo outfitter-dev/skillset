@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import Ajv2020 from "ajv/dist/2020";
 
 import {
   SKILLSET_SCHEMA_VERSION,
@@ -1124,6 +1125,258 @@ describe("@skillset/schema contracts", () => {
         "schema/workspace-config/marketplace-plugin-version",
       ])
     );
+  });
+
+  it("accepts the closed Codex marketplace source, policy, and fallback contract", () => {
+    expect(
+      validateWorkspaceConfig({
+        marketplaces: {
+          outfitter: {
+            plugins: [
+              {
+                codex: {
+                  displayName: "Legacy Local",
+                  interface: {
+                    defaultPrompt: ["Review this repository"],
+                    displayName: "Local",
+                    logo: "./assets/logo.svg",
+                  },
+                  policy: {
+                    authentication: "ON_USE",
+                    installation: "INSTALLED_BY_DEFAULT",
+                    products: [],
+                  },
+                  source: { path: "./plugins/local/chatgpt", source: "local" },
+                },
+                plugin: "local",
+              },
+              {
+                codex: {
+                  policy: { products: ["ATLAS", "CHATGPT", "CODEX"] },
+                  source: "./plugins/string-local",
+                },
+                plugin: "string-local",
+              },
+              {
+                codex: {
+                  source: {
+                    path: "./plugins/remote",
+                    ref: "main",
+                    sha: "a".repeat(40),
+                    source: "url",
+                    url: "file:///tmp/remote.git",
+                  },
+                },
+                plugin: "remote",
+              },
+              {
+                codex: {
+                  source: {
+                    source: "url",
+                    url: "/tmp/absolute.git",
+                  },
+                },
+                plugin: "absolute",
+              },
+              {
+                codex: {
+                  source: {
+                    path: "./plugins/subdir",
+                    source: "git-subdir",
+                    url: "https://git.example/acme/plugins.git",
+                  },
+                },
+                plugin: "subdir",
+              },
+              {
+                codex: {
+                  author: { name: "Acme" },
+                  description: "Remote fallback metadata.",
+                  homepage: "https://example.com/plugin",
+                  keywords: ["agents"],
+                  source: {
+                    package: "@acme/plugin",
+                    registry: "https://registry.npmjs.org",
+                    source: "npm",
+                    version: "next",
+                  },
+                  version: "1.2.3",
+                },
+                plugin: "npm",
+              },
+            ],
+            targets: ["codex"],
+          },
+        },
+      }).diagnostics
+    ).toEqual([]);
+  });
+
+  it("keeps Codex marketplace JSON Schema and shared validation aligned", () => {
+    const validateSchema = new Ajv2020({ allErrors: true, strict: false }).compile(
+      workspaceConfigContract.schema
+    );
+    const workspace = (codex: Record<string, unknown>) => ({
+      marketplaces: {
+        outfitter: {
+          plugins: [{ codex, plugin: "demo" }],
+          targets: ["codex"],
+        },
+      },
+    });
+    const cases = [
+      {
+        config: workspace({ policy: { products: ["ATLAS", "CHATGPT", "CODEX"] } }),
+        valid: true,
+      },
+      {
+        config: workspace({ policy: { products: ["chatgpt", "CHATGPT"] } }),
+        valid: false,
+      },
+      {
+        config: workspace({
+          source: {
+            source: "git-subdir",
+            url: "https://git.example/acme/plugins.git",
+          },
+        }),
+        valid: false,
+      },
+      {
+        config: workspace({ interface: { defaultPrompt: ["😀".repeat(128)] } }),
+        valid: true,
+      },
+      {
+        config: workspace({ interface: { defaultPrompt: ["😀".repeat(129)] } }),
+        valid: false,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      expect(validateWorkspaceConfig(testCase.config).ok).toBe(testCase.valid);
+      expect(validateSchema(testCase.config)).toBe(testCase.valid);
+    }
+  });
+
+  it("rejects ambiguous or unsafe Codex marketplace declarations", () => {
+    const invalid = validateWorkspaceConfig({
+      marketplaces: {
+        first: {
+          plugins: [
+            {
+              codex: {
+                policy: { products: ["chatgpt", "chatgpt"] },
+                source: {
+                  path: "plugins/not-prefixed",
+                  source: "git-subdir",
+                  url: "https://SENTINEL@git.example/acme/plugin.git",
+                },
+                unknown: true,
+              },
+              plugin: "first",
+            },
+          ],
+          targets: ["codex"],
+        },
+        second: {
+          plugins: [{ plugin: "second" }],
+          targets: ["codex"],
+        },
+      },
+    });
+    expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
+      expect.arrayContaining([
+        "schema/workspace-config/codex-marketplace-count",
+        "schema/workspace-config/codex-marketplace-plugin-key",
+        "schema/workspace-config/codex-marketplace-products",
+        "schema/workspace-config/codex-marketplace-source-path",
+        "schema/workspace-config/codex-marketplace-source-url",
+      ])
+    );
+    expect(JSON.stringify(invalid.diagnostics)).not.toContain("SENTINEL");
+
+    const duplicateAndUnsafeNpm = validateWorkspaceConfig({
+      marketplaces: {
+        one: {
+          plugins: [
+            { plugin: "shared" },
+            { id: "shared", plugin: "other" },
+            {
+              codex: {
+                policy: { products: ["chatgpt", "CHATGPT"] },
+                source: {
+                  package: "@acme/plugin",
+                  source: "npm",
+                  version: "file:../payload",
+                },
+              },
+              plugin: "npm",
+            },
+          ],
+          targets: ["codex"],
+        },
+      },
+    });
+    expect(
+      duplicateAndUnsafeNpm.diagnostics.map((diagnostic) => diagnostic.code)
+    ).toEqual(
+      expect.arrayContaining([
+        "schema/workspace-config/marketplace-plugin-id-duplicate",
+        "schema/workspace-config/codex-marketplace-products",
+        "schema/workspace-config/codex-marketplace-source-version",
+      ])
+    );
+
+    expect(
+      validateWorkspaceConfig({
+        marketplaces: {
+          disjoint: {
+            plugins: [
+              { plugin: "shared", targets: ["claude"] },
+              { id: "shared", plugin: "other", targets: ["codex"] },
+            ],
+          },
+        },
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).not.toContain(
+      "schema/workspace-config/marketplace-plugin-id-duplicate"
+    );
+
+    expect(
+      validateWorkspaceConfig({
+        marketplaces: {
+          inherited: {
+            plugins: [
+              { plugin: "shared" },
+              { id: "shared", plugin: "other", targets: ["codex"] },
+            ],
+            targets: ["claude", "codex"],
+          },
+        },
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).toContain("schema/workspace-config/marketplace-plugin-id-duplicate");
+
+    expect(
+      validateWorkspaceConfig({
+        marketplaces: {
+          one: {
+            plugins: [
+              {
+                codex: {
+                  source: {
+                    source: "url",
+                    unexpected: true,
+                    url: "github:acme/plugin",
+                  },
+                },
+                plugin: "one",
+              },
+            ],
+            targets: ["codex"],
+          },
+        },
+      }).diagnostics.map((diagnostic) => diagnostic.code)
+    ).toContain("schema/workspace-config/codex-marketplace-source-key");
   });
 
   it("validates the declared portable manifest keys and keeps the block open", () => {

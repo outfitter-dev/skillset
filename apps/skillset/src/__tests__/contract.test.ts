@@ -1005,7 +1005,7 @@ skillset:
     description: Canonical long description.
     category: Canonical
     keywords: [canonical, listing]
-    logo: ./logo.png
+    logo: ./assets/logo.png
 codex:
   interface:
     category: Codex override
@@ -1018,7 +1018,7 @@ description: Demo.
 
 Body.
 `,
-    ".skillset/plugins/listing/logo.png": "fixture logo\n",
+    ".skillset/plugins/listing/assets/logo.png": "fixture logo\n",
   });
 
   await buildSkillset(root);
@@ -1059,7 +1059,7 @@ Body.
     expect.objectContaining({
       displayName: "Canonical title",
       keywords: ["canonical", "listing"],
-      logo: "./logo.png",
+      logo: "./assets/logo.png",
     })
   );
   expect(cursor.author).toEqual({ name: "Canonical developer" });

@@ -20,19 +20,22 @@ import {
   assertContained,
   assertPathHasNoSymlinks,
   enumerateProviderArtifacts,
+  validateCodexMarketplaceConsumer,
+  type CodexMarketplaceConsumerReceipt,
   type ProviderArtifactInventory,
 } from "./provider-validation-artifacts";
-import {
-  acquireTools,
-  stageValidationInputs,
-  type ToolPaths,
-} from "./provider-validation-hosted";
 import {
   stageCursorHookConformanceInputs,
   type InternalAuthoringConformanceResult,
   validateCursorHookConformance,
 } from "./provider-validation-hooks";
 import { validateChatGptPluginConformance } from "./provider-validation-chatgpt";
+import { validateAgentPluginConformance } from "./provider-validation-agent-plugins";
+import {
+  acquireTools,
+  stageValidationInputs,
+  type ToolPaths,
+} from "./provider-validation-hosted";
 
 export { enumerateProviderArtifacts } from "./provider-validation-artifacts";
 export type { ProviderArtifactInventory } from "./provider-validation-artifacts";
@@ -62,6 +65,7 @@ export interface ProviderValidationReportRow {
 
 export interface ProviderValidationReport {
   readonly checkedAt: string;
+  readonly codexMarketplaceConsumers: readonly CodexMarketplaceConsumerReceipt[];
   readonly failures: readonly {
     readonly diagnostic: string;
     readonly lane:
@@ -85,6 +89,17 @@ export interface ProviderValidationReport {
 }
 
 type CommandRunner = (command: ValidationCommand) => Promise<CommandResult>;
+
+export async function validateHostedCodexMarketplaceConsumers(
+  marketplaceRoots: readonly string[],
+  codexBin: string
+): Promise<readonly CodexMarketplaceConsumerReceipt[]> {
+  return Promise.all(
+    marketplaceRoots.map((marketplaceRoot) =>
+      validateCodexMarketplaceConsumer(marketplaceRoot, codexBin)
+    )
+  );
+}
 
 export function buildValidationCommands(
   inventory: ProviderArtifactInventory,
@@ -225,7 +240,8 @@ export async function executeValidationCommands(
   commands: readonly ValidationCommand[],
   runner: CommandRunner,
   checkedAt = new Date().toISOString(),
-  internalAuthoringConformance: readonly InternalAuthoringConformanceResult[] = []
+  internalAuthoringConformance: readonly InternalAuthoringConformanceResult[] = [],
+  codexMarketplaceConsumers: readonly CodexMarketplaceConsumerReceipt[] = []
 ): Promise<ProviderValidationReport> {
   const failures: string[] = [];
   const status = new Map<ProviderValidationLaneId, boolean>();
@@ -263,6 +279,10 @@ export async function executeValidationCommands(
     }
   }
   const counts = countCommands(commands);
+  counts.set(
+    "codex-authoring",
+    (counts.get("codex-authoring") ?? 0) + codexMarketplaceConsumers.length
+  );
   const rows = listProviderValidationLanes().map((lane) => ({
     count: counts.get(lane.id) ?? 0,
     lane: lane.id,
@@ -274,9 +294,13 @@ export async function executeValidationCommands(
   const boundedFailures = failures.map(boundedDiagnostic);
   const report = {
     checkedAt,
+    codexMarketplaceConsumers,
     failures: boundedFailures.map((diagnostic) => ({
       diagnostic,
-      lane: diagnostic.split(" ", 1)[0] as ProviderValidationReport["failures"][number]["lane"],
+      lane: diagnostic.split(
+        " ",
+        1
+      )[0] as ProviderValidationReport["failures"][number]["lane"],
       stage: "validation" as const,
     })),
     limitations: listProviderValidationLanes().flatMap((lane) =>
@@ -339,13 +363,26 @@ export function renderProviderValidationReport(
           "",
           "## Skillset internal authoring conformance",
           "",
-          "These Skillset-owned checks cover generated surfaces outside the pinned provider validators: ChatGPT root manifests and Cursor hook files, because Cursor's provider-source validate-plugins.mjs does not inspect hook files. They are authoring conformance only, not product or runtime proof.",
+          "These Skillset-owned checks cover generated surfaces outside the pinned provider validators: portable Agent Plugins manifests, ChatGPT root manifests, and Cursor hook files. They are authoring conformance only, not product or runtime proof.",
           "",
           "| Check | Attribution | Target | Surface | Result |",
           "| --- | --- | --- | --- | --- |",
           ...report.internalAuthoringConformance.map(
             (check) =>
               `| ${check.id} | ${check.attribution} | ${check.target} | ${check.surface} | ${check.result} |`
+          ),
+        ]),
+    ...(report.codexMarketplaceConsumers.length === 0
+      ? []
+      : [
+          "",
+          "## Codex marketplace consumer",
+          "",
+          "| Catalog | Codex version | Resolved plugins |",
+          "| --- | --- | --- |",
+          ...report.codexMarketplaceConsumers.map(
+            (receipt) =>
+              `| ${receipt.catalogName} | ${receipt.codexVersion} | ${receipt.pluginIds.join(", ")} |`
           ),
         ]),
     ...(report.failures.length === 0
@@ -406,16 +443,25 @@ export async function runHostedProviderValidation(
       ...(await validateChatGptPluginConformance(
         staged.inventory.chatgptPlugins
       )),
+      ...(staged.inventory.agentPlugins.length === 0
+        ? []
+        : await validateAgentPluginConformance(staged.inventory.agentPlugins)),
       ...(await validateCursorHookConformance(
         await stageCursorHookConformanceInputs(temp)
       )),
     ];
+    const codexMarketplaceConsumers =
+      await validateHostedCodexMarketplaceConsumers(
+        staged.codexMarketplaceRoots,
+        tools.codex
+      );
     try {
       report = await executeValidationCommands(
         buildValidationCommands(staged.inventory, tools, staged),
         spawnCommand,
         checkedAt,
-        internalAuthoringConformance
+        internalAuthoringConformance,
+        codexMarketplaceConsumers
       );
     } catch (error) {
       if (error instanceof ProviderValidationFailure) report = error.report;
@@ -598,6 +644,7 @@ function createFailedReport(
 ): ProviderValidationReport {
   return {
     checkedAt,
+    codexMarketplaceConsumers: [],
     failures: [
       {
         diagnostic: boundedDiagnostic(diagnostic),

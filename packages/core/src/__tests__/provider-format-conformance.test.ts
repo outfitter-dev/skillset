@@ -1540,6 +1540,40 @@ Use the repo skill.
     });
     expect(checkProviderFormatConformance(files)).toEqual({ checkedFiles: files.length, issues: [], ok: true });
   });
+
+  it("accepts only contained URL-source subpaths in ChatGPT catalogs", () => {
+    const catalog = (path: string) =>
+      rendered(".agents/plugins/marketplace.json", {
+        name: "example",
+        plugins: [
+          {
+            category: "Developer Tools",
+            name: "remote",
+            policy: {
+              authentication: "ON_INSTALL",
+              installation: "AVAILABLE",
+            },
+            source: {
+              path,
+              source: "url",
+              url: "https://example.com/remote.git",
+            },
+          },
+        ],
+      });
+
+    expect(checkProviderFormatConformance([catalog("./subdir")]).ok).toBe(true);
+    for (const path of ["subdir", "./../outside"]) {
+      expect(
+        checkProviderFormatConformance([catalog(path)]).issues.some(
+          (issue) =>
+            issue.message.includes(
+              "plugins[0].source.path must be ./-prefixed and repository-root-relative"
+            )
+        )
+      ).toBe(true);
+    }
+  });
 });
 
 function rendered(path: string, value: Record<string, unknown>) {

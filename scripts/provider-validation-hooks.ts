@@ -16,11 +16,13 @@ export interface InternalAuthoringConformanceResult {
   readonly diagnostic?: string;
   readonly id:
     | "chatgpt-plugin-generated-manifest"
+    | "agent-plugins-generated-native"
+    | "agent-plugins-unknown-field"
     | "cursor-hooks-generated-native"
     | "cursor-hooks-malformed-flat";
   readonly result: "failed" | "passed";
   readonly surface: string;
-  readonly target: "codex" | "cursor";
+  readonly target: "agent-plugins-1.0" | "codex" | "cursor";
 }
 
 export async function stageCursorHookConformanceInputs(

@@ -30,7 +30,7 @@ describe("SET-463 hosted provider validation registry", () => {
       {
         id: "codex-authoring",
         pin: "6b9826e3aa83b1a5947db50f4332cb9c65f1b340",
-        version: "Codex 0.154.0 source",
+        version: "Codex 0.154.0 source and consumer",
       },
       {
         id: "cursor-authoring",
@@ -133,7 +133,16 @@ describe("SET-463 hosted provider validation registry", () => {
     ).toEqual([
       "b5be462c3b4fe3ea6083cca948ccf52e05301546",
       "41a1a2f1b503c165f5d4b93f7f0e99eb0b3add6e",
+      undefined,
     ]);
+    expect(
+      getProviderValidationLane("codex-authoring").acquisitions[2]
+    ).toEqual({
+      integrity:
+        "sha512-a4FI3A8sGtwGrOqltrPbrS2hajrHQG591EwmRfiRoLMb10VxdBtUGW4gu6IJVYENiYGA7k3P4jlRHEoCZU/s9Q==",
+      kind: "npm",
+      url: "https://registry.npmjs.org/@openai/codex/-/codex-0.154.0-linux-x64.tgz",
+    });
     expect(
       getProviderValidationLane("codex-authoring").dependencies.map(
         ({ name, version }) => `${name}@${version}`

@@ -195,6 +195,30 @@ export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[
   readonly outputState: SkillsetOutputStateEvidence;
 };
 
+/** @internal Renders the full live projection with the outcome metadata persisted by normal builds. */
+export async function renderBuildGraphWithOutcomeMetadata(
+  graph: BuildGraph
+): Promise<readonly RenderedFile[]> {
+  const rendered = await renderBuildGraph(graph);
+  const renderResults = collectRenderResults(graph, rendered, {
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
+    includedPaths: new Set(rendered.map((file) => file.path)),
+    mapOutputPath: livePath,
+  });
+  const policyAdjustedRenderResults = applyUnsupportedDestinationPolicy(
+    renderResults,
+    graph.root.compile.unsupportedDestination
+  );
+  const instructionDiagnostics = diagnoseLargeInstructionFiles(rendered);
+  return withPersistedRenderResults(
+    rendered,
+    attachDiagnosticsToRenderResults(
+      policyAdjustedRenderResults,
+      instructionDiagnostics
+    )
+  );
+}
+
 export class SkillsetBuildBlockedError extends Error {
   readonly result: SkillsetBuildResult;
 

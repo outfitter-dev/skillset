@@ -7,12 +7,14 @@ description: Skillset marketplaces declare provider catalogs, verify plugin read
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `marketplaces` | `implemented` | `native` | `future` | `native` |
+| `marketplaces` | `implemented` | `native` | `native` | `native` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 A marketplace declares which local or external Skillset plugins belong in provider catalog indexes. The marketplace repository owns catalog membership and presentation; each plugin repository owns source, version authority, generated bundles, and release evidence.
+
+ChatGPT is the OpenAI product term for the generated bundle and catalog family. Agent Plugins is the portable package standard used by the bundle core; its root `plugin.json`, `skills/`, and `mcp.json` contract does not define catalog source or policy fields.
 
 Use the [marketplace guide](../../guides/marketplaces.md) for the complete task flow. A [distribution](distributions.md) instead plans where already-built files could be delivered, and is not a catalog or publication command.
 
@@ -47,6 +49,35 @@ An external entry may select at most one revision policy:
 
 Omitting all four defaults to `channel: latest`. Optional entry `targets` narrows the catalog targets. Exact fields and validation live in the generated [workspace schema](../schemas/README.md).
 
+## ChatGPT Catalog Projection
+
+An ordinary build writes `.agents/plugins/marketplace.json`. Because that is one repository-owned path, Skillset permits at most one declared catalog targeting `codex`. With no such declaration, it derives an implicit catalog from all enabled local Codex plugins in source order. A declared catalog preserves its plugin order.
+
+Each generated entry uses exactly one native source form:
+
+| Kind | Required | Optional |
+| --- | --- | --- |
+| `local` | `source`, `path` | — |
+| `url` | `source`, `url` | `path`, `ref`, `sha` |
+| `git-subdir` | `source`, `url`, `path` | `ref`, `sha` |
+| `npm` | `source`, `package` | `version`, `registry` |
+
+Local `path` values start with `./` and resolve from the marketplace root, not from `.agents/plugins/`; a bare `./...` source string is shorthand for the same local source object. Git source URLs accept the parser's HTTPS, SSH/SCP, `github:`, absolute-path, and `file:///` forms. An optional Git `path` is repository-root-relative and starts with `./`; `git-subdir` requires it while `url` permits it. Npm registry URLs are credential-free HTTPS, and Git credentials remain outside generated source and evidence.
+
+Native policy is closed and deterministic:
+
+| Field | Accepted values | Default |
+| --- | --- | --- |
+| `installation` | `AVAILABLE`, `INSTALLED_BY_DEFAULT`, `NOT_AVAILABLE` | `AVAILABLE` |
+| `authentication` | `ON_INSTALL`, `ON_USE` | `ON_INSTALL` |
+| `products` | `atlas`, `chatgpt`, `codex` in source; native uppercase output | omitted, meaning unrestricted |
+
+An explicit empty `products` list is preserved as deny-all. Policy parsing does not prove the policy was applied by a runtime. OpenAI's GitHub workspace-import flow manages installation and authentication in workspace settings rather than applying repository policy values.
+
+The configured entry `id` is the native catalog `name`; when omitted it defaults to `plugin`. For local entries, the materialized package manifest remains authoritative for package version, description, keywords, author, and homepage, while the catalog owns category, policy, and reviewed interface overrides. Legacy flattened `displayName` is input-only and normalizes to `interface.displayName`. Package component fields such as `skills`, `mcpServers`, `apps`, and `hooks` are not catalog authority. Local interface assets must be contained files actually materialized under the package's `assets/`, `scripts/`, or `src/` roots. Remote Git and npm fallbacks omit `composerIcon`, `logo`, `logoDark`, and `screenshots` because their relative files are not materialized by the catalog.
+
+[OpenAI's GitHub workspace-import flow](https://help.openai.com/en/articles/20001504-importing-and-syncing-plugin-marketplaces-from-github) additionally documents `pluginId` for taking over an existing workspace plugin. Skillset does not author that migration-only identifier; it remains an explicit administrator workflow. The current [package and local-marketplace guide](https://developers.openai.com/plugins/build/plugins) is mutable supporting documentation; the registry separately pins the released parser source that fixes Skillset's implemented field boundary.
+
 ## Verify Readiness
 
 ```bash
@@ -69,7 +100,9 @@ skillset marketplace update outfitter --yes
 
 Without `--yes`, update previews the complete provider-index and lock plan. A confirmed update revalidates the plan, writes supported provider indexes, and updates marketplace provenance in the existing `skillset.lock`. If local input or a floating remote changes after preview, the atomic transaction refuses without writing output or lock state.
 
-Claude receives `.claude-plugin/marketplace.json`; Cursor receives `.cursor-plugin/marketplace.json`. The Codex target renders ChatGPT product bundles at `plugins/<plugin>/chatgpt/` and can check their readiness, but Skillset does not currently emit a product-owned marketplace index. ChatGPT marketplace configuration and activation remain external.
+An ordinary build emits the ChatGPT `.agents/plugins/marketplace.json` catalog and Cursor's `.cursor-plugin/marketplace.json`. `marketplace update` remains Claude-only: it writes `.claude-plugin/marketplace.json` and corresponding marketplace provenance after confirmation, but does not write either ordinary-build index.
+
+Compatible local clients discover a repository catalog from `$REPO_ROOT/.agents/plugins/marketplace.json`. Explicit `codex plugin marketplace add` registration instead records a local or Git marketplace source in Codex configuration. Skillset generation performs neither runtime registration nor configuration mutation.
 
 The generated [`marketplace` reference](../cli/marketplace.md) owns exact syntax.
 
@@ -92,6 +125,8 @@ Remote-cache entries are keyed by canonical repository and revision policy. Orig
 | Input changes between preview and apply | Update refuses the stale transaction | Rerun preview and review the new plan |
 
 Marketplace commands never publish a repository, mutate an external plugin repo, install or trust a plugin, or write user-level runtime settings.
+
+Likewise, an ordinary build only materializes the catalog. It does not register, sync, install, trust, enable, activate, upload, or publish any marketplace or plugin.
 
 ## Provenance
 

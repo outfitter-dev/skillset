@@ -13,7 +13,7 @@ The [maintainer runbook](../development/features/feature-registry.md#hosted-prov
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `agent-skills-reference` | standards-reference | `69ef37e9424c0a7ea9dd2293b559e43ec8176379` | 2026-08-09T20:36:04.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `69ef37e9424c0a7ea9dd2293b559e43ec8176379` | claude, codex, cursor | every generated SKILL.md |
 | `claude-product` | product-validator | `@anthropic-ai/claude-code@2.1.269` | 2026-09-11T18:12:49.253Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `@anthropic-ai/claude-code@2.1.269` | claude | claude marketplace, claude plugin manifest, claude plugin skills |
-| `codex-authoring` | provider-source | `6b9826e3aa83b1a5947db50f4332cb9c65f1b340` | 2026-09-09T21:43:48.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `6b9826e3aa83b1a5947db50f4332cb9c65f1b340` | codex | codex plugin manifest, codex plugin skills |
+| `codex-authoring` | provider-source | `6b9826e3aa83b1a5947db50f4332cb9c65f1b340` | 2026-09-09T21:43:48.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `6b9826e3aa83b1a5947db50f4332cb9c65f1b340` | codex | codex marketplace source resolution, codex plugin manifest, codex plugin skills |
 | `cursor-authoring` | provider-source | `f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d` | 2026-09-11T01:17:03.000Z | 2026-09-11T23:20:27.000Z | [2026-09-12T00:01:37.000Z](https://github.com/outfitter-dev/skillset/actions/runs/34660165890/job/103460818080) for `f5bdd6826fd0a0d9cbc4347134c3a74a200b9d9d` | cursor | cursor marketplace, cursor plugin manifest |
 
 ## Acquisition Evidence
@@ -32,6 +32,7 @@ The [maintainer runbook](../development/features/feature-registry.md#hosted-prov
 
 - source: [immutable source](https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/validate_plugin.py) — `sha256:f4eeadb733b28b0c3e714de263a76d6542866a672f3e99bdffcf4dbcdf85e944`
 - source: [immutable source](https://raw.githubusercontent.com/openai/codex/6b9826e3aa83b1a5947db50f4332cb9c65f1b340/codex-rs/skills/src/assets/samples/plugin-creator/scripts/identifier_validation.py) — `sha256:a6d51ce4a9a7e8f85626ff5808a467a67574e7f8cdf1167ffb467c5f67e57223`
+- npm: [immutable source](https://registry.npmjs.org/@openai/codex/-/codex-0.154.0-linux-x64.tgz) — `sha512-a4FI3A8sGtwGrOqltrPbrS2hajrHQG591EwmRfiRoLMb10VxdBtUGW4gu6IJVYENiYGA7k3P4jlRHEoCZU/s9Q==`
 - dependency: `PyYAML@6.0.3` ([artifact](https://files.pythonhosted.org/packages/8b/9d/b3589d3877982d4f2329302ef98a8026e7f4443c765c46cfecc8858c6b4b/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl)) — `sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc`
 
 ### cursor-authoring
@@ -67,6 +68,7 @@ Negative canary: invalid JSON in .claude-plugin/plugin.json.
 Negative canary: missing name in .codex-plugin/plugin.json.
 
 - The released plugin-creator script is an authoring validator, not a whole-provider or runtime-hook validator.
+- The released Codex consumer proves read-only marketplace discovery and local source resolution, not installation, trust, activation, or runtime behavior.
 - Internal conformance fallback: hooks, render-result coverage, runtime consumption (`packages/core/src/provider-format-conformance.ts`; `packages/core/src/__tests__/adapter-conformance-coverage.test.ts`, `packages/core/src/__tests__/adapter-conformance.test.ts`, `packages/core/src/__tests__/provider-format-conformance.test.ts`).
 
 ### cursor-authoring

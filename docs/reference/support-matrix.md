@@ -19,7 +19,7 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 | Distributions | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/distributions.md) |
 | Feature Registry | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/feature-registry.md) |
 | Future Companion Source Pointers | `planned` | `planned` | `planned` | `planned` | [1](./features/apps.md), [2](./features/hooks.md), [3](./features/commands.md), [4](./features/settings.md) |
-| Marketplaces | `implemented` | `native` | `future` | `native` | [1](./features/marketplaces.md) |
+| Marketplaces | `implemented` | `native` | `native` | `native` | [1](./features/marketplaces.md) |
 | Output Safety | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/output-safety.md) |
 | Plugin Agents | `implemented` | `pass_through` | `unsupported` | `pass_through` | [1](./features/agents.md) |
 | Codex Plugin Apps | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](./features/apps.md) |

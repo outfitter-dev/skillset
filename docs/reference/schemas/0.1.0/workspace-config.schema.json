@@ -215,6 +215,340 @@
                   "const": "latest",
                   "type": "string"
                 },
+                "codex": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "author": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "email": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "name": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "url": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "category": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "description": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "homepage": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "interface": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "brandColor": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "capabilities": {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "category": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "composerIcon": {
+                          "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                          "type": "string"
+                        },
+                        "defaultPrompt": {
+                          "items": {
+                            "maxLength": 128,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "maxItems": 3,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "developerName": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "displayName": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "logo": {
+                          "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                          "type": "string"
+                        },
+                        "logoDark": {
+                          "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                          "type": "string"
+                        },
+                        "longDescription": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "privacyPolicyUrl": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "screenshots": {
+                          "items": {
+                            "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                            "type": "string"
+                          },
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "shortDescription": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "termsOfServiceUrl": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "websiteUrl": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "keywords": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "policy": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "authentication": {
+                          "enum": [
+                            "ON_INSTALL",
+                            "ON_USE"
+                          ],
+                          "type": "string"
+                        },
+                        "installation": {
+                          "enum": [
+                            "AVAILABLE",
+                            "INSTALLED_BY_DEFAULT",
+                            "NOT_AVAILABLE"
+                          ],
+                          "type": "string"
+                        },
+                        "products": {
+                          "allOf": [
+                            {
+                              "not": {
+                                "allOf": [
+                                  {
+                                    "contains": {
+                                      "const": "atlas"
+                                    }
+                                  },
+                                  {
+                                    "contains": {
+                                      "const": "ATLAS"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "not": {
+                                "allOf": [
+                                  {
+                                    "contains": {
+                                      "const": "chatgpt"
+                                    }
+                                  },
+                                  {
+                                    "contains": {
+                                      "const": "CHATGPT"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "not": {
+                                "allOf": [
+                                  {
+                                    "contains": {
+                                      "const": "codex"
+                                    }
+                                  },
+                                  {
+                                    "contains": {
+                                      "const": "CODEX"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "items": {
+                            "enum": [
+                              "atlas",
+                              "chatgpt",
+                              "codex",
+                              "ATLAS",
+                              "CHATGPT",
+                              "CODEX"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array",
+                          "uniqueItems": true
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "source": {
+                      "oneOf": [
+                        {
+                          "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "path": {
+                              "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                              "type": "string"
+                            },
+                            "source": {
+                              "const": "local",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "source"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "path": {
+                              "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                              "type": "string"
+                            },
+                            "ref": {
+                              "pattern": "^(?!.*(?:\\.\\.|//|@\\{|\\.lock$))[A-Za-z0-9][A-Za-z0-9._/-]*(?<![./])$",
+                              "type": "string"
+                            },
+                            "sha": {
+                              "pattern": "^[0-9a-f]{40}$",
+                              "type": "string"
+                            },
+                            "source": {
+                              "const": "url",
+                              "type": "string"
+                            },
+                            "url": {
+                              "pattern": "^(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?|[^:@/\\s]+@[^:\\s/]+:[^\\s]+|https://(?![^/]*@)[^\\s/?#]+/[^\\s?#]+|ssh://(?:[^:@\\s]+@)?[^\\s/?#]+/[^\\s?#]+|file:///[^\\s]+|/[^\\s]+)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "url"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "path": {
+                              "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+                              "type": "string"
+                            },
+                            "ref": {
+                              "pattern": "^(?!.*(?:\\.\\.|//|@\\{|\\.lock$))[A-Za-z0-9][A-Za-z0-9._/-]*(?<![./])$",
+                              "type": "string"
+                            },
+                            "sha": {
+                              "pattern": "^[0-9a-f]{40}$",
+                              "type": "string"
+                            },
+                            "source": {
+                              "const": "git-subdir",
+                              "type": "string"
+                            },
+                            "url": {
+                              "pattern": "^(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?|[^:@/\\s]+@[^:\\s/]+:[^\\s]+|https://(?![^/]*@)[^\\s/?#]+/[^\\s?#]+|ssh://(?:[^:@\\s]+@)?[^\\s/?#]+/[^\\s?#]+|file:///[^\\s]+|/[^\\s]+)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "source",
+                            "url"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "package": {
+                              "pattern": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+                              "type": "string"
+                            },
+                            "registry": {
+                              "pattern": "^https://(?![^/]*@)[^\\s/?#]+(?:/[^\\s?#]*)?$",
+                              "type": "string"
+                            },
+                            "source": {
+                              "const": "npm",
+                              "type": "string"
+                            },
+                            "version": {
+                              "pattern": "^(?!\\.?\\.?$)(?!\\s)(?!.*\\s$)[^/\\\\:]+$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "package",
+                            "source"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "id": {
                   "pattern": "^[a-z0-9][a-z0-9-]*$",
                   "type": "string"

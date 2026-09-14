@@ -13,6 +13,7 @@ import {
 export interface ToolPaths {
   readonly agentSkills: string;
   readonly claude: string;
+  readonly codex: string;
   readonly codexPython: string;
   readonly codexValidator: string;
   readonly cursor: string;
@@ -85,6 +86,21 @@ export async function acquireTools(temp: string): Promise<ToolPaths> {
   await downloadVerified(
     codexLane.acquisitions[1]!,
     join(dirname(codexValidator), "identifier_validation.py")
+  );
+  const codexConsumerArchive = join(downloads, "codex-linux-x64.tgz");
+  await downloadVerified(codexLane.acquisitions[2]!, codexConsumerArchive);
+  const codexConsumerRoot = join(tools, "codex-consumer");
+  await mkdir(codexConsumerRoot, { recursive: true });
+  await runRequired(
+    [
+      "tar",
+      "-xzf",
+      codexConsumerArchive,
+      "--strip-components=1",
+      "-C",
+      codexConsumerRoot,
+    ],
+    temp
   );
   const codexVenv = join(tools, "codex", "venv");
   await runRequired(["python3", "-m", "venv", codexVenv], temp);
@@ -190,6 +206,13 @@ export async function acquireTools(temp: string): Promise<ToolPaths> {
       "claude-code",
       "cli-wrapper.cjs"
     ),
+    codex: join(
+      codexConsumerRoot,
+      "vendor",
+      "x86_64-unknown-linux-musl",
+      "bin",
+      "codex"
+    ),
     codexPython,
     codexValidator,
     cursor: cursorRoot,
@@ -205,6 +228,7 @@ export async function stageValidationInputs(
   readonly agentCanary: string;
   readonly claudeCanary: string;
   readonly codexCanary: string;
+  readonly codexMarketplaceRoots: readonly string[];
   readonly cursorCanary: string;
   readonly cursorRoots: readonly string[];
   readonly environment: Readonly<Record<string, string>>;
@@ -294,6 +318,13 @@ export async function stageValidationInputs(
     stagedClaudePlugins.add(destination);
   }
 
+  const stagedAgentPlugins: string[] = [];
+  for (const [index, plugin] of inventory.agentPlugins.entries()) {
+    const destination = join(stage, "agent-plugins", `plugin-${index}`);
+    await cp(plugin, destination, { recursive: true });
+    stagedAgentPlugins.push(destination);
+  }
+
   const stagedChatGptPlugins: string[] = [];
   for (const [index, plugin] of inventory.chatgptPlugins.entries()) {
     const destination = join(stage, "chatgpt-plugins", `plugin-${index}`);
@@ -306,6 +337,70 @@ export async function stageValidationInputs(
     const destination = join(stage, "codex-plugins", `plugin-${index}`);
     await cp(plugin, destination, { recursive: true });
     stagedCodexPlugins.push(destination);
+  }
+  const stagedCodexMarketplaces: string[] = [];
+  const codexMarketplaceRoots: string[] = [];
+  const representedCodexPlugins = new Set<string>();
+  const generatedCodexPlugins = new Set(inventory.chatgptPlugins);
+  for (const [
+    index,
+    marketplacePath,
+  ] of inventory.codexMarketplaces.entries()) {
+    const stagedRoot = join(stage, `codex-marketplace-${index}`);
+    const stagedMarketplace = join(
+      stagedRoot,
+      ".agents",
+      "plugins",
+      "marketplace.json"
+    );
+    await mkdir(dirname(stagedMarketplace), { recursive: true });
+    await cp(marketplacePath, stagedMarketplace);
+    const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as {
+      readonly plugins?: readonly {
+        readonly source?: {
+          readonly path?: unknown;
+          readonly source?: unknown;
+        };
+      }[];
+    };
+    for (const entry of marketplace.plugins ?? []) {
+      if (
+        entry.source?.source !== "local" ||
+        typeof entry.source.path !== "string"
+      ) {
+        throw new Error(
+          "skillset: Codex marketplace source must be a local path"
+        );
+      }
+      assertPortableMarketplaceSource(entry.source.path);
+      const source = await resolveContainedExisting(
+        canonicalRoot,
+        entry.source.path
+      );
+      if (!generatedCodexPlugins.has(source)) {
+        throw new Error(
+          `skillset: Codex marketplace source is not a generated plugin: ${entry.source.path}`
+        );
+      }
+      await assertTreeHasNoSymlinks(source);
+      const destination = join(
+        stagedRoot,
+        normalizedMarketplaceSource(canonicalRoot, source, entry.source.path)
+      );
+      await assertContained(stagedRoot, destination);
+      await cp(source, destination, { recursive: true });
+      representedCodexPlugins.add(source);
+    }
+    stagedCodexMarketplaces.push(stagedMarketplace);
+    codexMarketplaceRoots.push(stagedRoot);
+  }
+  const missingCodexPlugins = [...generatedCodexPlugins].filter(
+    (plugin) => !representedCodexPlugins.has(plugin)
+  );
+  if (missingCodexPlugins.length > 0) {
+    throw new Error(
+      `skillset: Codex marketplace omits generated plugins: ${missingCodexPlugins.map((plugin) => relative(canonicalRoot, plugin)).join(", ")}`
+    );
   }
 
   const stagedSkills: string[] = [];
@@ -432,13 +527,16 @@ export async function stageValidationInputs(
     agentCanary,
     claudeCanary,
     codexCanary,
+    codexMarketplaceRoots,
     cursorCanary,
     cursorRoots,
     environment,
     inventory: {
+      agentPlugins: stagedAgentPlugins,
       chatgptPlugins: stagedChatGptPlugins,
       claudeMarketplaces: stagedClaudeMarketplaces,
       claudePlugins: [...stagedClaudePlugins].toSorted(),
+      codexMarketplaces: stagedCodexMarketplaces,
       codexPlugins: stagedCodexPlugins,
       cursorMarketplaces: stagedCursorMarketplaces,
       cursorPlugins: [...stagedCursorPlugins].toSorted(),

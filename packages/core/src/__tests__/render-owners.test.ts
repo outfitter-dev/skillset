@@ -85,6 +85,7 @@ const OWNED_FUNCTIONS = {
   "render-marketplaces": [
     "claudeMarketplaceSourcePlugins",
     "cursorMarketplaceOwner",
+    "renderChatGptMarketplace",
     "renderClaudeMarketplace",
     "renderClaudeMarketplaceDocument",
     "renderCursorMarketplace",

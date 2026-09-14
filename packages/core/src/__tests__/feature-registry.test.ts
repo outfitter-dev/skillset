@@ -80,6 +80,13 @@ const REPRESENTATIVE_DIAGNOSTIC_FEATURE_IDS = [
 ] as const;
 
 describe("feature registry", () => {
+  it("records ChatGPT marketplace catalogs as native Codex output", () => {
+    const feature = getSkillsetFeature("marketplaces");
+
+    expect(feature?.renderOwner).toBe("packages/core/src/render-marketplaces.ts");
+    expect(feature?.targetSupport.codex.status).toBe("native");
+  });
+
   it("reports target-native islands as pass-through for every canonical target", () => {
     const feature = getSkillsetFeature("target-native-islands");
     expect(feature).toBeDefined();

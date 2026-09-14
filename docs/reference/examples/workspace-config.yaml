@@ -35,15 +35,53 @@ marketplaces:
   outfitter:
     description: Curated Outfitter provider plugins.
     plugins:
-      - plugin: outfitter-core
+      - codex:
+          interface:
+            displayName: Outfitter Core
+            logo: ./assets/logo.svg
+            shortDescription: Core Outfitter workflows.
+          policy:
+            authentication: ON_USE
+            installation: AVAILABLE
+            products: []
+          source:
+            path: ./plugins/outfitter-core/chatgpt
+            source: local
+        plugin: outfitter-core
       - channel: latest
+        codex:
+          source:
+            ref: main
+            sha: 0123456789abcdef0123456789abcdef01234567
+            source: url
+            url: github:outfitter-dev/trails
         plugin: trails-review
         repo: github:outfitter-dev/trails
-      - plugin: skillset
+      - codex:
+          source:
+            path: ./plugins/skillset
+            source: git-subdir
+            url: github:outfitter-dev/skillset
+        plugin: skillset
         ref: main
         repo: github:outfitter-dev/skillset
         targets:
           - claude
+      - codex:
+          author:
+            name: Outfitter
+          description: Published npm plugin fallback.
+          homepage: https://example.com/npm-plugin
+          keywords:
+            - agents
+            - plugin
+          source:
+            package: "@outfitter/npm-plugin"
+            registry: https://registry.npmjs.org
+            source: npm
+            version: latest
+          version: 1.2.3
+        plugin: npm-plugin
     targets:
       - claude
       - codex

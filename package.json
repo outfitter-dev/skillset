@@ -93,6 +93,8 @@
     "@skillset/transforms": "workspace:*",
     "@types/bun": "^1.4.0",
     "@types/commonmark": "0.27.10",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "commonmark": "0.31.2",
     "lefthook": "2.1.9",
     "oxfmt": "0.54.0",

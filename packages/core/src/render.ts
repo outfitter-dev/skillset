@@ -133,6 +133,7 @@ import {
 import {
   marketplaceLockProvenance,
   readExistingMarketplaceState,
+  renderChatGptMarketplace,
   renderClaudeMarketplace,
   renderCursorMarketplace,
 } from "./render-marketplaces";
@@ -187,6 +188,26 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
   rendered.push(...(await renderClaudeMarketplace(graph)));
+  const chatGptMarketplace = await renderChatGptMarketplace(graph);
+  rendered.push(...chatGptMarketplace);
+  const chatGptMarketplaceFile = chatGptMarketplace[0];
+  if (chatGptMarketplaceFile !== undefined) {
+    lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace").items.push({
+      consumers: [{ phase: "delta", target: "codex" }],
+      feature: "marketplaces",
+      fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, chatGptMarketplace),
+      files: [chatGptMarketplaceFile.path],
+      kind: "plugin-feature",
+      name: "chatgpt-marketplace",
+      outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, chatGptMarketplace),
+      outputPath: chatGptMarketplaceFile.path,
+      owner: { target: "codex" },
+      sourceHash: await hashChatGptMarketplaceSource(graph),
+      sourcePath: relative(graph.rootPath, graph.rootConfigPath),
+      targetState: "generated",
+      validation: "structured",
+    });
+  }
   rendered.push(...(await renderCursorMarketplace(graph)));
   rendered.push(...(await renderAgentPluginStandardPackages(graph, lockRoots)));
   rendered.push(
@@ -2320,6 +2341,21 @@ function hashRenderedFiles(outputRoot: string, files: readonly RenderedFile[]): 
     hash.update("\0");
   }
 
+  return `sha256:${hash.digest("hex")}`;
+}
+
+async function hashChatGptMarketplaceSource(graph: BuildGraph): Promise<string> {
+  const hash = createHash("sha256");
+  hash.update("skillset-chatgpt-marketplace-source-v1\0");
+  const paths = [graph.rootConfigPath, ...graph.plugins.map((plugin) => plugin.configPath)]
+    .sort(compareStrings);
+  for (const path of paths) {
+    hash.update(relative(graph.rootPath, path).replaceAll("\\", "/"));
+    hash.update("\0");
+    hash.update(await readFile(path));
+    hash.update("\0");
+  }
+  hash.update(JSON.stringify(graph.releaseState));
   return `sha256:${hash.digest("hex")}`;
 }
 

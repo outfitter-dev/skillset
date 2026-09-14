@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { relative } from "node:path";
 
 import { writeAtomicFileSet } from "./atomic-file-set";
+import { renderBuildGraphWithOutcomeMetadata } from "./build";
 import { claudeMarketplacePluginRoot, claudeMarketplaceRepoSource } from "./claude-marketplace";
 import {
   marketplaceEntryResolutionKey,
@@ -15,7 +16,6 @@ import { compareStrings, resolveInside } from "./path";
 import { parseGeneratedLock } from "./generated-lock";
 import { withLockProvenance } from "./lock-provenance";
 import { claudeMarketplacePath } from "./plugin-output";
-import { renderBuildGraph } from "./render";
 import { renderClaudeMarketplaceDocument } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
@@ -249,7 +249,7 @@ async function renderMarketplaceLock(
   files: readonly MarketplaceUpdateFileWithContent[],
   providerEntries: ReadonlyMap<string, JsonRecord>
 ): Promise<string> {
-  const rendered = await renderBuildGraph(graph);
+  const rendered = await renderBuildGraphWithOutcomeMetadata(graph);
   const baseline = rendered.find((file) => file.path === "skillset.lock");
   if (baseline === undefined) throw new Error("skillset: marketplace update could not render skillset.lock");
   const existing = JSON.parse(new TextDecoder().decode(baseline.content)) as JsonRecord;
