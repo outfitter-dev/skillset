@@ -7,16 +7,17 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 import { buildSkillset, checkSkillsetSourceReadiness } from "@skillset/core";
+import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { ciSkillset } from "../ci";
 import {
   renderProviderFormatUpdateReport,
   runProviderFormatUpdates,
 } from "../provider-format-updates";
 
-const CODEX_PLUGIN_MANIFEST = "plugins/alpha/codex/.codex-plugin/plugin.json";
+const CODEX_PLUGIN_MANIFEST = "plugins/alpha/chatgpt/plugin.json";
 const CODEX_AGENT = ".codex/agents/reviewer.toml";
 
-test("SET-195: check preview reports user-facing safe destination-format diagnostics", async () => {
+test("SET-531: legacy Codex migrations do not rewrite ChatGPT manifests", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const original = await readFile(manifestPath, "utf8");
@@ -26,12 +27,15 @@ test("SET-195: check preview reports user-facing safe destination-format diagnos
   const report = await runProviderFormatUpdates(root, "check");
 
   expect(report.wrote).toBe(false);
-  expect(report.safeUpdates.map((action) => action.id)).toEqual([
-    "codex-plugin-component-paths-adapter-update",
+  expect(report.safeUpdates).toEqual([]);
+  expect(report.unplannedDriftPaths).toEqual([
+    CODEX_PLUGIN_MANIFEST,
+    "plugins/skillset.lock",
   ]);
-  expect(report.safeUpdates[0]?.affectedPaths).toEqual([CODEX_PLUGIN_MANIFEST]);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
-  expect(renderProviderFormatUpdateReport(report)).toMatchSnapshot();
+  expect(renderProviderFormatUpdateReport(report)).toContain(
+    `unplanned destination drift: ${CODEX_PLUGIN_MANIFEST}`
+  );
 });
 
 test("SET-278: check write modes leave provider-format updates to update", async () => {
@@ -46,8 +50,7 @@ test("SET-278: check write modes leave provider-format updates to update", async
 
   expect(local.exitCode).toBe(1);
   expect(local.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
-  expect(local.stdout).toContain("recovery blocked manual-review");
-  expect(local.stdout).toContain("invalid provenanceHash");
+  expect(local.stdout).toContain("no registered safe provider-format update");
   expect(ci.exitCode).toBe(1);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
@@ -106,7 +109,7 @@ test("SET-278: update does not write source drift alongside provider updates", a
   const updated = await runSkillsetCli("update", "--yes", "--root", root);
 
   expect(updated.exitCode).toBe(1);
-  expect(updated.stdout).toContain("source drift must be written separately");
+  expect(updated.stdout).toContain(`unplanned destination drift: ${CODEX_PLUGIN_MANIFEST}`);
   expect(await readFile(manifestPath, "utf8")).not.toBe(originalManifest);
   expect(await readFile(generatedSkillPath, "utf8")).toBe(originalSkill);
 });
@@ -358,7 +361,7 @@ test("SET-278: check writes inherited plugin license metadata drift", async () =
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/codex/LICENSE.txt");
+  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/LICENSE.txt");
 });
 
 test("SET-278: check writes root-owner-derived plugin manifest drift", async () => {
@@ -409,8 +412,7 @@ mcp: false
 
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
-  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain('"mcpServers": "./.mcp.json"');
+  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/mcp.json");
 });
 
 test("SET-278: check writes plugin manifest drift caused by native companion paths", async () => {
@@ -423,7 +425,7 @@ test("SET-278: check writes plugin manifest drift caused by native companion pat
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/codex/.app.json");
+  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/.app.json");
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain(
     '"apps": "./.app.json"'
   );
@@ -497,7 +499,7 @@ test("SET-278: check writes source drift in secondary provider files", async () 
     ...pluginFixture(),
     ".skillset/LICENSE.txt": "Original inherited license.\n",
   });
-  const generatedPath = "plugins/alpha/codex/LICENSE.txt";
+  const generatedPath = "plugins/alpha/chatgpt/LICENSE.txt";
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
 
   const report = await ciSkillset(root, { fix: true });
@@ -566,7 +568,7 @@ test("SET-278: check blocks lock-clean unplanned destination drift", async () =>
   expect(await readFile(absolutePath, "utf8")).toContain("Unregistered destination change.");
 });
 
-test("SET-194: update previews then writes the same safe provider-format plan", async () => {
+test("SET-531: update refuses to rewrite a drifted closed ChatGPT manifest", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const original = await readFile(manifestPath, "utf8");
@@ -575,16 +577,16 @@ test("SET-194: update previews then writes the same safe provider-format plan", 
 
   const preview = await runSkillsetCli("update", "--root", root);
 
-  expect(preview.exitCode).toBe(0);
-  expect(preview.stdout).toContain("next: run skillset update --yes");
+  expect(preview.exitCode).toBe(1);
+  expect(preview.stdout).toContain(`unplanned destination drift: ${CODEX_PLUGIN_MANIFEST}`);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 
   const written = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(written.exitCode).toBe(0);
+  expect(written.exitCode).toBe(1);
   expect(written.stdout).toContain("update owns registered, source-preserving provider-format migrations only");
-  expect(written.stdout).toContain("applied safe destination-format updates");
-  expect(await readFile(manifestPath, "utf8")).toBe(original);
+  expect(written.stdout).toContain("destination-format updates require manual review");
+  expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
 test("SET-279: update ignores ordinary source-driven drift", async () => {
@@ -621,10 +623,11 @@ test("SET-279: source drift defers an overlapping provider migration", async () 
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 
   const checked = await ciSkillset(root, { fix: true });
-  expect(checked.ok).toBe(false);
-  expect(checked.fixedPaths).toEqual([]);
-  expect(checked.outputEditedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+  expect(checked.ok).toBe(true);
+  expect(checked.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(checked.outputEditedPaths).toEqual([]);
+  expect(checked.providerUpdatePaths).toEqual([]);
+  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
 test("SET-279: root owner drift defers an overlapping Codex manifest migration", async () => {
@@ -676,7 +679,7 @@ test("SET-279: inherited root license drift defers an overlapping Codex manifest
     ".skillset/LICENSE.txt": "Original inherited license.\n",
   });
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
-  const licensePath = join(root, "plugins/alpha/codex/LICENSE.txt");
+  const licensePath = join(root, "plugins/alpha/chatgpt/LICENSE.txt");
   await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
   await markCurrentPluginManifestAsManaged(root);
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
@@ -720,7 +723,7 @@ test("SET-279: legacy locks require refresh before safe provider migration", asy
   const blocked = await runSkillsetCli("update", "--yes", "--root", root);
 
   expect(blocked.exitCode).toBe(1);
-  expect(blocked.stdout).toContain("manual review required: Codex plugin");
+  expect(blocked.stdout).toContain(`unplanned destination drift: ${CODEX_PLUGIN_MANIFEST}`);
   expect(blocked.stdout).toContain("unplanned destination drift: plugins/skillset.lock");
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
@@ -741,7 +744,7 @@ test("SET-279: unrelated legacy lock items block otherwise safe migrations", asy
   await markCurrentPluginManifestAsManaged(root);
   await removePluginRenderInputsHashForPath(
     root,
-    "plugins/beta/codex/.codex-plugin/plugin.json"
+    "plugins/beta/chatgpt/plugin.json"
   );
 
   const blocked = await runSkillsetCli("update", "--yes", "--root", root);
@@ -819,19 +822,12 @@ test("SET-279: ownerless legacy plugin hashes stay visible beside provider updat
 
   const report = await ciSkillset(root, { fix: true });
 
-  expect(report.ok).toBe(false);
-  expect(report.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).not.toContain(CODEX_PLUGIN_MANIFEST);
   expect(report.providerUpdatePaths).not.toContain("plugins/skillset.lock");
-  expect(report.repairableManagedLockPaths).toContain("plugins/skillset.lock");
-  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
-    code: "managed-lock-integrity-migration",
-    outputPath: "plugins/skillset.lock",
-  }));
-  expect(report.recovery).not.toContainEqual(expect.objectContaining({
-    commands: expect.arrayContaining(["skillset build --yes"]),
-  }));
-  expect(report.fixedPaths).toEqual([]);
-  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.fixedPaths).toContain("plugins/skillset.lock");
+  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
 test("SET-279: check does not combine legacy lock refresh with a provider migration", async () => {
@@ -843,24 +839,17 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
 
   const report = await ciSkillset(root, { fix: true });
 
-  expect(report.ok).toBe(false);
-  expect(report.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).not.toContain(CODEX_PLUGIN_MANIFEST);
   expect(report.providerUpdatePaths).not.toContain("plugins/skillset.lock");
-  expect(report.repairableManagedLockPaths).toContain("plugins/skillset.lock");
-  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
-    code: "managed-lock-integrity-migration",
-    outputPath: "plugins/skillset.lock",
-  }));
-  expect(report.recovery).not.toContainEqual(expect.objectContaining({
-    commands: expect.arrayContaining(["skillset build --yes"]),
-  }));
-  expect(report.fixedPaths).toEqual([]);
-  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.fixedPaths).toContain("plugins/skillset.lock");
+  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
 test("SET-279: invalid v3 locks do not route ordinary source drift through update", async () => {
   const root = await builtFixture(pluginFixture());
-  await removePluginRenderInputsHash(root);
+  await invalidatePluginRenderInputsHash(root);
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
   await writeFile(
     sourcePath,
@@ -907,7 +896,7 @@ test("SET-279: provider plans do not report clean source-owned paths as drift", 
 
   const report = await runProviderFormatUpdates(root, "update", { write: true });
 
-  expect(report.unplannedDriftPaths).toContain("plugins/skillset.lock");
+  expect(report.unplannedDriftPaths).toContain(CODEX_PLUGIN_MANIFEST);
   expect(report.unplannedDriftPaths).not.toContain(
     join(lock.outputRoot, pluginSkill.outputPath).replaceAll("\\", "/")
   );
@@ -936,7 +925,7 @@ test("SET-279: unrelated source-hash drift blocks provider updates", async () =>
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
-test("SET-194: arbitrary edits on safe provider paths block writes", async () => {
+test("SET-531: arbitrary edits on closed ChatGPT manifests block writes", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const original = await readFile(manifestPath, "utf8");
@@ -946,8 +935,8 @@ test("SET-194: arbitrary edits on safe provider paths block writes", async () =>
 
   expect(blocked.exitCode).toBe(1);
   expect(blocked.stderr).toBe("");
-  expect(blocked.stdout).toContain("manual review required: Codex plugin");
-  expect(blocked.stdout).toContain("differs from its previous skillset.lock hash");
+  expect(blocked.stdout).toContain(`unplanned destination drift: ${CODEX_PLUGIN_MANIFEST}`);
+  expect(blocked.stdout).toContain("no registered safe destination-format update");
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
@@ -963,9 +952,9 @@ test("SET-195: mixed safe and manual drift does not suggest blocked write comman
   const rendered = renderProviderFormatUpdateReport(report);
 
   expect(report.blocked).toBe(true);
-  expect(report.safeUpdates).toHaveLength(1);
+  expect(report.safeUpdates).toHaveLength(0);
   expect(report.manualReviews).toHaveLength(1);
-  expect(rendered).toContain("next: resolve blocking manual review or unplanned drift before applying safe updates");
+  expect(report.unplannedDriftPaths).toContain(CODEX_PLUGIN_MANIFEST);
   expect(rendered).not.toContain("next: run skillset check --fix or skillset update --yes");
 });
 
@@ -1038,6 +1027,16 @@ async function removePluginRenderInputsHash(root: string): Promise<void> {
     readonly items: Array<{ renderInputsHash?: string }>;
   };
   for (const item of lock.items) delete item.renderInputsHash;
+  await writeLockWithCurrentProvenance(lockPath, lock);
+}
+
+async function invalidatePluginRenderInputsHash(root: string): Promise<void> {
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+    readonly items: Array<{ renderInputsHash?: string }>;
+  };
+  for (const item of lock.items) delete item.renderInputsHash;
   delete lock.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
@@ -1057,8 +1056,7 @@ async function removePluginRenderInputsHashForPath(
   ));
   if (item === undefined) throw new Error(`missing lock item for ${generatedPath}`);
   delete item.renderInputsHash;
-  delete lock.provenanceHash;
-  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  await writeLockWithCurrentProvenance(lockPath, lock);
 }
 
 async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: string): Promise<void> {
@@ -1082,7 +1080,22 @@ async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: st
   ));
   if (item?.files === undefined) throw new Error("missing plugin manifest lock item");
   item.outputHash = await hashLockItem(root, lock.outputRoot, item.files, lock.schemaVersion, item.fileModes);
-  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+  await writeLockWithCurrentProvenance(lockPath, lock);
+}
+
+async function writeLockWithCurrentProvenance(
+  lockPath: string,
+  lock: unknown
+): Promise<void> {
+  await writeFile(
+    lockPath,
+    `${JSON.stringify(
+      withLockProvenance(lock as Parameters<typeof withLockProvenance>[0]),
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 }
 
 async function hashLockItem(

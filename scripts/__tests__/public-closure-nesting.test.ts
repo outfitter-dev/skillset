@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { scanGeneratedPublicContent } from "../public-closure-guard";
 
-const GENERATED_SKILL = "plugins/skillset/codex/skills/skillset/SKILL.md";
+const GENERATED_SKILL = "plugins/skillset/chatgpt/skills/skillset/SKILL.md";
 
 function rules(
   command: string,

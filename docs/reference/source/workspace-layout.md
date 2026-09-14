@@ -78,7 +78,7 @@ Codex command-policy files are one important distinction: `.skillset/_codex/rule
 
 ## Generated destinations and provenance
 
-An enabled [target](../../glossary.md#target) receives files in its native repository layout. Standalone skills normally render below `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`; project instructions render to Claude and Cursor rule roots or Codex `AGENTS.md` files; plugin bundles normally render below `plugins/<plugin>/<target>/`. Configuration can select or relocate supported destinations.
+An enabled [target](../../glossary.md#target) receives files in its native repository layout. Standalone skills normally render below `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`; project instructions render to Claude and Cursor rule roots or Codex `AGENTS.md` files; plugin bundles normally render below `plugins/<plugin>/claude/`, `plugins/<plugin>/chatgpt/` for the Codex-selected product bundle, or `plugins/<plugin>/cursor/`. Configuration can select or relocate supported destinations.
 
 Nearby `skillset.lock` files record source paths, target ownership, hashes, and render evidence. Generated paths are reviewable and may be committed, but edit `.skillset/` when the intent is portable. Use `skillset explain <path>` to trace one source or destination and `skillset check --only outputs` to detect [drift](../../glossary.md#drift). Exact flags belong to the generated [CLI reference](../cli/README.md).
 

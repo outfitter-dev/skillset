@@ -232,8 +232,8 @@ hooks:
       .map((file) => file.path)
       .filter((path) => path.endsWith("/hooks/hooks.json"));
     expect(hookOutputs).toEqual([
+      "plugins/demo/chatgpt/hooks/hooks.json",
       "plugins/demo/claude/hooks/hooks.json",
-      "plugins/demo/codex/hooks/hooks.json",
       "plugins/demo/cursor/hooks/hooks.json",
     ]);
   });
@@ -602,12 +602,14 @@ hooks:
 
     const rendered = await renderBuildGraph(graph);
     const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json");
     const claudeManifest = renderedJson(rendered, "plugins/demo/claude/.claude-plugin/plugin.json");
-    const codexManifest = renderedJson(rendered, "plugins/demo/codex/.codex-plugin/plugin.json");
+    const codexManifest = renderedJson(rendered, "plugins/demo/chatgpt/plugin.json");
 
     expect(claudeManifest.hooks).toBe("./hooks/hooks.json");
-    expect(codexManifest.hooks).toBe("./hooks/hooks.json");
+    expect(codexManifest.extensions).toEqual(expect.objectContaining({
+      "com.openai": expect.objectContaining({ hooks: "./hooks/hooks.json" }),
+    }));
     expect(claudeHooks).toEqual({
       hooks: {
         PreToolUse: [{
@@ -628,7 +630,7 @@ hooks:
     });
     expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
       "plugins/demo/claude/scripts/check.sh",
-      "plugins/demo/codex/scripts/check.sh",
+      "plugins/demo/chatgpt/scripts/check.sh",
     ]));
     expect(rendered).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -637,7 +639,7 @@ hooks:
       }),
       expect.objectContaining({
         mode: 0o755,
-        path: "plugins/demo/codex/scripts/check.sh",
+        path: "plugins/demo/chatgpt/scripts/check.sh",
       }),
     ]));
   });
@@ -709,7 +711,7 @@ hooks:
       },
     };
     expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual(groupedHooks);
-    expect(renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json")).toEqual(groupedHooks);
+    expect(renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json")).toEqual(groupedHooks);
     expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
       version: 1,
       hooks: {
@@ -770,7 +772,7 @@ hooks:
         }],
       },
     });
-    expect(renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json")).toEqual({
+    expect(renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json")).toEqual({
       hooks: {
         Stop: [{
           hooks: [{ command: "env CODEX=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/codex.sh'", type: "command" }],
@@ -788,13 +790,13 @@ hooks:
     });
     expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
       "plugins/demo/claude/hooks/shell-policy/claude.sh",
-      "plugins/demo/codex/hooks/shell-policy/codex.sh",
+      "plugins/demo/chatgpt/hooks/shell-policy/codex.sh",
       "plugins/demo/cursor/hooks/shell-policy/cursor.sh",
     ]));
     expect(rendered.map((file) => file.path)).not.toEqual(expect.arrayContaining([
       "plugins/demo/claude/hooks/shell-policy/codex.sh",
       "plugins/demo/claude/hooks/shell-policy/cursor.sh",
-      "plugins/demo/codex/hooks/shell-policy/claude.sh",
+      "plugins/demo/chatgpt/hooks/shell-policy/claude.sh",
       "plugins/demo/cursor/hooks/shell-policy/claude.sh",
     ]));
   });
@@ -1044,7 +1046,7 @@ hooks:
 
     const rendered = await renderBuildGraph(graph);
     const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json");
 
     expect(claudeHooks).toEqual({
       hooks: {
@@ -1096,7 +1098,7 @@ hooks:
 
     const rendered = await renderBuildGraph(graph);
     const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json");
     const cursorHooks = renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json");
 
     expect(claudeHooks).toEqual({

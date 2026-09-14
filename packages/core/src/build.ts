@@ -11,7 +11,10 @@ import {
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
 import { parseGeneratedLock } from "./generated-lock";
-import { pluginTargetForOutputPath } from "./plugin-output";
+import {
+  isPluginManifestOutputPath,
+  pluginTargetForOutputPath,
+} from "./plugin-output";
 import { targetNames } from "./targets";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
@@ -1281,7 +1284,12 @@ export async function verifySkillsetResult(
     const outputPath = resolveOutputPath(file.path);
     const current = await readFile(outputPath);
     if (!bytesEqual(current, file.content)) {
-      const message = versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`;
+      const message = versionDriftMessage(
+        graph,
+        file.path,
+        current,
+        file.content
+      ) ?? `stale generated file: ${file.path}`;
       failures.push(message);
       driftDiagnostics.push(generatedDriftDiagnostic("changed", file.path, message));
       continue;
@@ -2082,14 +2090,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function versionDriftMessage(
+  graph: BuildGraph,
   path: string,
   current: Uint8Array,
   expected: Uint8Array
 ): string | undefined {
-  const expectedVersion = generatedVersion(path, expected, "expected");
+  const expectedVersion = generatedVersion(graph, path, expected, "expected");
   if (expectedVersion === undefined) return undefined;
 
-  const currentVersion = generatedVersion(path, current, "current");
+  const currentVersion = generatedVersion(graph, path, current, "current");
   if (currentVersion === expectedVersion) return undefined;
 
   const field = path.endsWith("/SKILL.md") ? "metadata.version" : "version";
@@ -2097,6 +2106,7 @@ function versionDriftMessage(
 }
 
 function generatedVersion(
+  graph: BuildGraph,
   path: string,
   content: Uint8Array,
   label: string
@@ -2107,6 +2117,7 @@ function generatedVersion(
   if (
     path.endsWith("/.claude-plugin/plugin.json") ||
     path.endsWith("/.codex-plugin/plugin.json") ||
+    isPluginManifestOutputPath(graph, path, "codex") ||
     path.endsWith("/.cursor-plugin/plugin.json")
   ) {
     return generatedPluginVersion(content);

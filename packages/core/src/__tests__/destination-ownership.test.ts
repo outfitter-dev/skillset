@@ -18,7 +18,7 @@ describe("destination ownership classifier", () => {
     ]);
   });
 
-  it("classifies Codex manifest presentation assets as destination-owned", () => {
+  it("classifies the closed ChatGPT root manifest as generated", () => {
     const classification = classifyDestinationOwnership({
       content: encoder.encode(JSON.stringify({
         interface: {
@@ -30,7 +30,7 @@ describe("destination ownership classifier", () => {
         version: "1.2.3",
         xMarketplaceReviewId: "openai-owned",
       })),
-      path: ".codex-plugin/plugin.json",
+      path: "plugins/demo/chatgpt/plugin.json",
       target: "codex",
     });
 
@@ -40,16 +40,26 @@ describe("destination ownership classifier", () => {
       selector: "plugin.json#/name",
     }));
     expect(classification.fields).toContainEqual(expect.objectContaining({
-      owner: "overlay",
-      selector: "plugin.json#/interface/brandColor",
+      owner: "generated",
+      selector: "plugin.json#/interface",
     }));
     expect(classification.fields).toContainEqual(expect.objectContaining({
-      owner: "destination-owned",
-      selector: "plugin.json#/interface/logo",
-    }));
-    expect(classification.fields).toContainEqual(expect.objectContaining({
-      owner: "destination-owned",
+      owner: "generated",
       selector: "plugin.json#/xMarketplaceReviewId",
     }));
+  });
+
+  it("classifies a custom-root ChatGPT manifest from semantic target context", () => {
+    const classification = classifyDestinationOwnership({
+      chatGptManifest: true,
+      content: encoder.encode(JSON.stringify({ name: "demo" })),
+      path: "generated/openai/plugins/demo/plugin.json",
+      target: "codex",
+    });
+
+    expect(classification.file.owner).toBe("generated");
+    expect(classification.fields).toContainEqual(
+      expect.objectContaining({ owner: "generated", selector: "plugin.json#/name" })
+    );
   });
 });

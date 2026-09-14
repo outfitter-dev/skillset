@@ -23,7 +23,7 @@ description: Plugins define source containers, manifest authority, component own
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-A plugin is a source container that preserves one product identity while generating separate [provider-native](../../glossary.md#provider-native) bundles. Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; default output lives at `plugins/<plugin>/<target>/`.
+A plugin is a source container that preserves one product identity while generating separate [provider-native](../../glossary.md#provider-native) bundles. Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; default output lives at `plugins/<plugin>/claude/`, `plugins/<plugin>/chatgpt/` for the Codex-selected product bundle, and `plugins/<plugin>/cursor/`.
 
 When Agent Plugins 1.0 is adopted, each applicable plugin also inherently produces `plugins/<plugin>/agents/`. This standard package is independent of provider selection; plugin and root provider toggles control only provider-native bundles and deltas.
 
@@ -56,7 +56,7 @@ Each enabled [target](../../glossary.md#target) receives a separate bundle and n
 
 ```text
 plugins/review-tools/claude/.claude-plugin/plugin.json
-plugins/review-tools/codex/.codex-plugin/plugin.json
+plugins/review-tools/chatgpt/plugin.json
 plugins/review-tools/cursor/.cursor-plugin/plugin.json
 ```
 

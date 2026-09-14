@@ -526,14 +526,14 @@ test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor
     join(root, "plugins/cursor-native/claude/skills/helper/SKILL.md")
   );
   const codex = await outputFrontmatter(
-    join(root, "plugins/cursor-native/codex/skills/helper/SKILL.md")
+    join(root, "plugins/cursor-native/chatgpt/skills/helper/SKILL.md")
   );
   expect(cursor["disable-model-invocation"]).toBe(true);
   expect(claude["disable-model-invocation"]).toBeUndefined();
   expect(codex["disable-model-invocation"]).toBeUndefined();
   expect(
     await Bun.file(
-      join(root, "plugins/cursor-native/codex/skills/helper/agents/openai.yaml")
+      join(root, "plugins/cursor-native/chatgpt/skills/helper/agents/openai.yaml")
     ).exists()
   ).toBe(false);
 });
@@ -592,7 +592,7 @@ test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to
   const outputFrontmatter = async (target: "claude" | "codex" | "cursor") => {
     const path = join(
       root,
-      `plugins/mixed-native/${target}/skills/helper/SKILL.md`
+      `plugins/mixed-native/${target === "codex" ? "chatgpt" : target}/skills/helper/SKILL.md`
     );
     return parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
   };
@@ -609,7 +609,7 @@ test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to
     await Bun.file(
       join(
         root,
-        "plugins/mixed-native/codex/skills/helper/agents/openai.yaml"
+        "plugins/mixed-native/chatgpt/skills/helper/agents/openai.yaml"
       )
     ).exists()
   ).toBe(false);

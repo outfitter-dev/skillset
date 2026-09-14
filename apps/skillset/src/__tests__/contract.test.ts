@@ -656,11 +656,11 @@ Body.
 
   await buildSkillset(root);
   const claudeHook = await readFile(join(root, "plugins/alpha/claude/hooks/hooks.json"), "utf8");
-  const codexHook = await readFile(join(root, "plugins/alpha/codex/hooks/hooks.json"), "utf8");
+  const codexHook = await readFile(join(root, "plugins/alpha/chatgpt/hooks/hooks.json"), "utf8");
   expect(claudeHook).toContain("SessionStart");
   expect(codexHook).toContain("SessionStart");
   expect(codexHook).toContain(`"hooks"`);
-  const codexManifest = await readFile(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8");
+  const codexManifest = await readFile(join(root, "plugins/alpha/chatgpt/plugin.json"), "utf8");
   expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
 });
 
@@ -851,12 +851,12 @@ test("SET-14: Codex plugin manifest interface uses documented camelCase fields",
   const root = await goldenPluginFixture();
   await buildSkillset(root);
   const manifest = JSON.parse(
-    await readFile(join(root, "plugins/widget/codex/.codex-plugin/plugin.json"), "utf8")
-  ) as { name: string; version: string; interface: Record<string, unknown> };
+    await readFile(join(root, "plugins/widget/chatgpt/plugin.json"), "utf8")
+  ) as { name: string; version: string; extensions: { "com.openai": { interface: Record<string, unknown> } } };
 
   expect(manifest.name).toBe("widget");
   expect(manifest.version).toBe("1.2.3");
-  const ui = manifest.interface;
+  const ui = manifest.extensions["com.openai"].interface;
   expect(ui.displayName).toBe("Widget Pro");
   expect(ui.shortDescription).toBe("A widget plugin.");
   expect(ui.longDescription).toBe("A longer widget description.");
@@ -865,14 +865,14 @@ test("SET-14: Codex plugin manifest interface uses documented camelCase fields",
   expect(ui.capabilities).toEqual(["Read", "Write"]);
   expect(ui.defaultPrompt).toEqual(["Do the widget thing"]);
   expect(ui.brandColor).toBe("#123456");
-  expect(ui.websiteURL).toBe("https://example.com");
+  expect(ui.websiteUrl).toBe("https://example.com");
   // Guard against snake_case drift.
   expect(ui.display_name).toBeUndefined();
   expect(ui.short_description).toBeUndefined();
   expect(ui.brand_color).toBeUndefined();
 });
 
-test("SET-14: Codex interface brandColor falls back to the default color", async () => {
+test("SET-14: ChatGPT interface omits an unauthored brandColor", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -897,9 +897,9 @@ Body.
 
   await buildSkillset(root);
   const manifest = JSON.parse(
-    await readFile(join(root, "plugins/plain/codex/.codex-plugin/plugin.json"), "utf8")
-  ) as { interface: { brandColor?: string } };
-  expect(manifest.interface.brandColor).toBe("#B06DFF");
+    await readFile(join(root, "plugins/plain/chatgpt/plugin.json"), "utf8")
+  ) as { extensions: { "com.openai": { interface: { brandColor?: string } } } };
+  expect(manifest.extensions["com.openai"].interface.brandColor).toBeUndefined();
 });
 
 test("SET-485: Codex manifests accept plugin and root shorthand authors as objects", async () => {
@@ -945,15 +945,15 @@ Body.
   ] as const) {
     const manifest = JSON.parse(
       await readFile(
-        join(root, `plugins/${plugin}/codex/.codex-plugin/plugin.json`),
+        join(root, `plugins/${plugin}/chatgpt/plugin.json`),
         "utf8"
       )
     ) as {
       author?: Record<string, string>;
-      interface: { developerName?: string };
+      extensions: { "com.openai": { interface: { developerName?: string } } };
     };
     expect(manifest.author).toEqual({ name: expected });
-    expect(manifest.interface.developerName).toBe(expected);
+    expect(manifest.extensions["com.openai"].interface.developerName).toBe(expected);
   }
   const marketplace = JSON.parse(
     await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
@@ -1018,6 +1018,7 @@ description: Demo.
 
 Body.
 `,
+    ".skillset/plugins/listing/logo.png": "fixture logo\n",
   });
 
   await buildSkillset(root);
@@ -1029,10 +1030,10 @@ Body.
   ) as Record<string, unknown>;
   const codex = JSON.parse(
     await readFile(
-      join(root, "plugins/listing/codex/.codex-plugin/plugin.json"),
+      join(root, "plugins/listing/chatgpt/plugin.json"),
       "utf8"
     )
-  ) as { author?: Record<string, string>; interface: Record<string, unknown> };
+  ) as { author?: Record<string, string>; extensions: { "com.openai": { interface: Record<string, unknown> } } };
   const cursor = JSON.parse(
     await readFile(
       join(root, "plugins/listing/cursor/.cursor-plugin/plugin.json"),
@@ -1045,7 +1046,7 @@ Body.
   expect(claude.author).toEqual({ name: "Canonical developer" });
   expect(claude.keywords).toEqual(["canonical", "listing"]);
   expect(codex.author).toEqual({ name: "Canonical developer" });
-  expect(codex.interface).toEqual(
+  expect(codex.extensions["com.openai"].interface).toEqual(
     expect.objectContaining({
       category: "Codex override",
       developerName: "Canonical developer",
@@ -1190,22 +1191,22 @@ Body.
     await readFile(
       join(
         root,
-        "plugins/description-only/codex/.codex-plugin/plugin.json"
+        "plugins/description-only/chatgpt/plugin.json"
       ),
       "utf8"
     )
   ) as {
     description?: string;
-    interface?: {
+    extensions?: { "com.openai"?: { interface?: {
       longDescription?: string;
       shortDescription?: string;
-    };
+    } } };
   };
   expect(manifest.description).toBe("Listing description.");
-  expect(manifest.interface?.shortDescription).toBe(
+  expect(manifest.extensions?.["com.openai"]?.interface?.shortDescription).toBe(
     "Listing description."
   );
-  expect(manifest.interface?.longDescription).toBe(
+  expect(manifest.extensions?.["com.openai"]?.interface?.longDescription).toBe(
     "Listing description."
   );
 });
@@ -1491,29 +1492,29 @@ test("SET-369: native interface descriptions do not replace manifest description
     join(root, ".skillset/plugins/description-roundtrip/skillset.yaml"),
     "utf8"
   );
-  expect(importedConfig).toContain("summary: Listing summary.");
-  expect(importedConfig).toContain("description: Listing detail.");
-  expect(importedConfig).toContain("description: Top-level native description.");
+  expect(importedConfig).toContain("  description: Top-level native description.");
+  expect(importedConfig).toContain("    shortDescription: Listing summary.");
+  expect(importedConfig).toContain("    longDescription: Listing detail.");
 
   await buildSkillset(root);
   const generated = JSON.parse(
     await readFile(
       join(
         root,
-        "plugins/description-roundtrip/codex/.codex-plugin/plugin.json"
+        "plugins/description-roundtrip/chatgpt/plugin.json"
       ),
       "utf8"
     )
   ) as {
     description?: string;
-    interface?: {
+    extensions?: { "com.openai"?: { interface?: {
       longDescription?: string;
       shortDescription?: string;
-    };
+    } } };
   };
   expect(generated.description).toBe("Top-level native description.");
-  expect(generated.interface?.shortDescription).toBe("Listing summary.");
-  expect(generated.interface?.longDescription).toBe("Listing detail.");
+  expect(generated.extensions?.["com.openai"]?.interface?.shortDescription).toBe("Listing summary.");
+  expect(generated.extensions?.["com.openai"]?.interface?.longDescription).toBe("Listing detail.");
 });
 
 test("SET-10: plugin import reports native hook lift diagnostics without rewriting hooks", async () => {
@@ -1979,9 +1980,9 @@ Body.
   expect(planned.stdout).toContain("from: codex plugin:alpha");
   expect(planned.stdout).toContain("runtime: codex-cli");
   expect(planned.stdout).toContain(`to: local ${destination}`);
-  expect(planned.stdout).toContain("add: plugins/alpha/codex/.codex-plugin/plugin.json -> bundles/alpha/.codex-plugin/plugin.json");
+  expect(planned.stdout).toContain("add: plugins/alpha/chatgpt/plugin.json -> bundles/alpha/plugin.json");
   expect(planned.stdout).toContain("ownership: file:generated");
-  expect(planned.stdout).toContain("destination-owned");
+  expect(planned.stdout).toContain("fields:generated");
   const json = await runSkillsetCli("distribute", "plan", "codex-marketplace", "--json", "--root", root);
   expect(json).toMatchObject({ exitCode: 0, stderr: "" });
   const jsonResult = JSON.parse(json.stdout) as { readonly data: Record<string, unknown> };
@@ -1992,11 +1993,11 @@ Body.
   });
   expect(jsonResult.data.rootPath).toBeUndefined();
   expect(json.stdout).not.toContain(root);
-  expect(await fileExists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(false);
-  expect(await fileExists(join(destination, "bundles/alpha/.codex-plugin/plugin.json"))).toBe(false);
+  expect(await fileExists(join(root, "plugins/alpha/chatgpt/plugin.json"))).toBe(false);
+  expect(await fileExists(join(destination, "bundles/alpha/plugin.json"))).toBe(false);
 });
 
-test("SET-110: distribute plan reports destination-owned fields from destination manifests", async () => {
+test("SET-110: distribute plan does not preserve fields outside the closed ChatGPT manifest", async () => {
   const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
   const root = await contractFixture({
     "skillset.yaml": `
@@ -2028,21 +2029,19 @@ description: Demo.
 Body.
 `,
   });
-  await mkdir(join(destination, "bundles/alpha/.codex-plugin"), { recursive: true });
-  await writeFile(join(destination, "bundles/alpha/.codex-plugin/plugin.json"), `${JSON.stringify({
-    interface: {
-      displayName: "Destination Alpha",
-    },
+  await mkdir(join(destination, "bundles/alpha"), { recursive: true });
+  await writeFile(join(destination, "bundles/alpha/plugin.json"), `${JSON.stringify({
+    $schema: "https://developers.openai.com/chatgpt/plugins/schema.json",
+    extensions: { "com.openai": { interface: { displayName: "Destination Alpha" } } },
     name: "alpha",
     version: "9.9.9",
     xMarketplaceReviewId: "review-123",
   })}\n`);
 
   const report = await planDistributions(root, { name: "codex-marketplace" });
-  const manifest = report.plans[0]?.files.find((file) => file.destinationPath === "bundles/alpha/.codex-plugin/plugin.json");
+  const manifest = report.plans[0]?.files.find((file) => file.destinationPath === "bundles/alpha/plugin.json");
   expect(manifest?.status).toBe("change");
-  expect(manifest?.ownership.fields).toContainEqual(expect.objectContaining({
-    owner: "destination-owned",
+  expect(manifest?.ownership.fields).not.toContainEqual(expect.objectContaining({
     selector: "plugin.json#/xMarketplaceReviewId",
   }));
 });
@@ -3229,7 +3228,7 @@ Worker body.
   expect(result.stdout).toContain("pass: projection");
   expect(result.stdout).toContain("selection: primary skills demo");
   expect(
-    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/bad/codex/.codex-plugin/plugin.json"))
+    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/bad/chatgpt/plugin.json"))
   ).toBe(false);
 });
 
@@ -3380,7 +3379,8 @@ claude:
     name: alpha-claude
 codex:
   manifest:
-    name: alpha-codex
+    interface:
+      category: Developer Tools
 cursor:
   manifest:
     name: alpha-cursor
@@ -3423,9 +3423,10 @@ Demo body.
     version?: string;
   };
   const codexManifest = JSON.parse(
-    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8")
+    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/chatgpt/plugin.json"), "utf8")
   ) as {
     author?: Record<string, string>;
+    extensions?: Record<string, unknown>;
     keywords?: string[];
     license?: string;
     name?: string;
@@ -3452,11 +3453,16 @@ Demo body.
   expect(claudeManifest.version).toBe("2.3.4");
   expect(claudeManifest.license).toBe("MIT");
   expect(claudeManifest.keywords).toEqual(["alpha"]);
-  expect(codexManifest.name).toBe("alpha-codex");
+  expect(codexManifest.name).toBe("alpha");
   expect(codexManifest.author).toEqual({ name: "Alpha Author" });
   expect(codexManifest.version).toBe("2.3.4");
   expect(codexManifest.license).toBe("MIT");
   expect(codexManifest.keywords).toEqual(["alpha"]);
+  expect(codexManifest.extensions).toEqual(expect.objectContaining({
+    "com.openai": expect.objectContaining({
+      interface: expect.objectContaining({ category: "Developer Tools" }),
+    }),
+  }));
   expect(cursorManifest.name).toBe("alpha-cursor");
   expect(cursorManifest.author).toEqual({ name: "Alpha Author" });
   expect(cursorManifest.keywords).toEqual(["alpha"]);
@@ -4181,11 +4187,8 @@ Audit body.
   expect(claudeManifest).toContain('"name": "external-tools"');
   expect(claudeManifest).toContain('"marketplace": "acme"');
 
-  const codexSkill = await readFile(join(root, "plugins/audit/codex/skills/audit-skill/SKILL.md"), "utf8");
-  expect(codexSkill).toContain("<skillset_plugin_dependencies>");
-  expect(codexSkill).toContain("secrets-vault range =1.2.3 internal");
-  expect(codexSkill).toContain("external-tools range ^2.1.0 marketplace acme external");
-  expect(codexSkill).toContain("Do not install or resolve them yourself");
+  const codexSkill = await readFile(join(root, "plugins/audit/chatgpt/skills/audit-skill/SKILL.md"), "utf8");
+  expect(codexSkill).not.toContain("<skillset_plugin_dependencies>");
 
   const listed = await runSkillsetCli("list", "--details", "--root", root);
   expect(listed.exitCode).toBe(0);
@@ -4462,7 +4465,7 @@ Audit body.
   await expect(buildSkillset(root)).rejects.toThrow("would overwrite generated dependency metadata");
 });
 
-test("SET-40: Codex dependencies need an enabled skill notice surface", async () => {
+test("SET-40: ChatGPT package skills do not carry dependency notices", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -4501,7 +4504,12 @@ Audit body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("has no enabled Codex skills to carry the dependency notice");
+  await buildSkillset(root);
+  expect(
+    await fileExists(
+      join(root, "plugins/audit/chatgpt/skills/audit-skill/SKILL.md")
+    )
+  ).toBe(false);
 });
 
 test("SET-40: internal plugin dependencies must be emitted for the target", async () => {
@@ -7316,7 +7324,7 @@ Body.
     schemaVersion: "skillset.cli.result@1",
   });
 
-  const manifestPath = join(root, "plugins/alpha/codex/.codex-plugin/plugin.json");
+  const manifestPath = join(root, "plugins/alpha/chatgpt/plugin.json");
   await rm(manifestPath);
   const missing = await runSkillsetCli("release", "audit", "--root", root);
   expect(missing.exitCode).toBe(1);
@@ -8063,11 +8071,11 @@ Body.
   await buildSkillset(root);
 
   const claudeManifest = await readFile(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8");
-  const codexManifest = await readFile(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8");
+  const codexMcp = await readFile(join(root, "plugins/alpha/chatgpt/mcp.json"), "utf8");
   const claudeMcp = await readFile(join(root, "plugins/alpha/claude/.mcp.json"), "utf8");
   const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(claudeManifest).toContain(`"mcpServers": "./.mcp.json"`);
-  expect(codexManifest).toContain(`"mcpServers": "./.mcp.json"`);
+  expect(codexMcp).toContain(`"alpha"`);
   expect(claudeMcp).toContain(`"alpha"`);
   expect(lock).toContain(`"kind": "plugin-feature"`);
   expect(lock).toContain(`"feature": "mcp"`);
@@ -8119,7 +8127,7 @@ Body.
   const manifest = await readFile(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8");
   expect(manifest).not.toContain("mcpServers");
   expect(await fileExists(join(root, "plugins/alpha/claude/.mcp.json"))).toBe(false);
-  expect(await fileExists(join(root, "plugins/alpha/codex/.mcp.json"))).toBe(false);
+  expect(await fileExists(join(root, "plugins/alpha/chatgpt/mcp.json"))).toBe(false);
 });
 
 test("SET-26: mcp true requires and copies the conventional source", async () => {
@@ -8155,7 +8163,7 @@ Body.
   await buildSkillset(root);
 
   expect(await fileExists(join(root, "plugins/alpha/claude/.mcp.json"))).toBe(true);
-  expect(await fileExists(join(root, "plugins/alpha/codex/.mcp.json"))).toBe(true);
+  expect(await fileExists(join(root, "plugins/alpha/chatgpt/mcp.json"))).toBe(true);
   const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "mcp"`);
   expect(lock).toContain(`"origin": "conventional"`);
@@ -8581,7 +8589,7 @@ test("SET-255: shared plugin lock does not hide authored plugin import candidate
     "plugins/skillset.lock": "{}",
     "plugins/authored/.claude-plugin/plugin.json": JSON.stringify({ name: "authored" }),
     "plugins/generated/claude/.claude-plugin/plugin.json": JSON.stringify({ name: "generated-claude" }),
-    "plugins/generated/codex/.codex-plugin/plugin.json": JSON.stringify({ name: "generated-codex" }),
+    "plugins/generated/chatgpt/plugin.json": JSON.stringify({ name: "generated-codex" }),
     "plugins/generated/cursor/.cursor-plugin/plugin.json": JSON.stringify({ name: "generated-cursor" }),
   });
 
@@ -9303,7 +9311,7 @@ description: Demo.
 Body.
 `,
     "plugins/skillset.lock": "{}",
-    "plugins/demo/codex/plugin.json": "{}",
+    "plugins/demo/chatgpt/plugin.json": "{}",
   });
 
   const preview = await runSkillsetCli("init", "--root", root);
@@ -9600,7 +9608,7 @@ Audit body.
 
   const explained = await runSkillsetCli(
     "explain",
-    "plugins/audit/codex/skills/audit-skill/SKILL.md",
+    "plugins/audit/chatgpt/skills/audit-skill/SKILL.md",
     "--root",
     root
   );

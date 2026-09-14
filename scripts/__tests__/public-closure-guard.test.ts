@@ -195,7 +195,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -224,7 +224,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"]
       ).map(({ line, rule }) => ({ line, rule }))
@@ -259,7 +259,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -285,7 +285,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -327,7 +327,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -397,7 +397,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -453,7 +453,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -502,7 +502,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -547,7 +547,7 @@ describe("generated public closure guard", () => {
       const content = lines.join("\n");
       expect(
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           content,
           [],
           new Set(),
@@ -557,7 +557,7 @@ describe("generated public closure guard", () => {
       ).toEqual(lines.map((_, index) => ({ line: index + 1, rule })));
       expect(
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Read C:\\repo\\${owner.replaceAll("/", "\\")}.`,
           [],
           new Set(),
@@ -567,7 +567,7 @@ describe("generated public closure guard", () => {
       ).toEqual([rule]);
       expect(
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           [
             `Read ${owner.toUpperCase()}/child.ts.`,
             `Read ..\\..\\${owner.toUpperCase().replaceAll("/", "\\")}.`,
@@ -578,7 +578,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         [
           "Public packages are useful.",
           "Portable fixtures improve examples.",
@@ -725,7 +725,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         [
           "Run `bun run internal:package`.",
           "Run `npm run via:package`.",
@@ -756,7 +756,7 @@ describe("generated public closure guard", () => {
     expect([...aliases].toSorted()).toEqual(["private", "transitive"]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         [
           "Read scripts/check.ts from this plugin.",
           "Read scripts/private.ts from the repository.",
@@ -800,7 +800,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         [
           "Run `ls scripts`.",
           "Run `find fixtures -type f`.",
@@ -896,7 +896,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"]
       ).map(({ line, rule }) => ({ line, rule }))
@@ -978,7 +978,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         new Set(),
@@ -1049,7 +1049,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"]
       ).map(({ line, rule }) => ({ line, rule }))
@@ -1132,7 +1132,7 @@ describe("generated public closure guard", () => {
     expect(
       cases.map(([command]) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `\`\`\`bash\n${command}\n\`\`\``,
           ["scripts/patterns.txt"],
           new Set(),
@@ -1146,7 +1146,7 @@ describe("generated public closure guard", () => {
   test("SET-465: repository file URLs inherit protected owner semantics", () => {
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         [
           "Read file:///repo/scripts/private.ts.",
           "Read file:///repo/packages/core/src/x.ts.",
@@ -1164,7 +1164,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Read file:///C:/repo/Packages/core/src/x.ts.",
         [],
         new Set(),
@@ -1275,7 +1275,7 @@ describe("generated public closure guard", () => {
     expect(
       protectedCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/private.ts"],
           aliases,
@@ -1286,7 +1286,7 @@ describe("generated public closure guard", () => {
     expect(
       publicCommandsWithPrivateArguments.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/private.ts"],
           aliases,
@@ -1325,7 +1325,7 @@ describe("generated public closure guard", () => {
     expect(
       protectedCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/publish.ts"],
           aliases,
@@ -1336,7 +1336,7 @@ describe("generated public closure guard", () => {
     expect(
       literalOrPublicCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/publish.ts"],
           aliases,
@@ -1372,7 +1372,7 @@ describe("generated public closure guard", () => {
     expect(
       protectedCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           [],
           aliases,
@@ -1394,7 +1394,7 @@ describe("generated public closure guard", () => {
     expect(
       nonPrivateSelections.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           [],
           aliases,
@@ -1444,7 +1444,7 @@ describe("generated public closure guard", () => {
     expect(
       protectedCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           [],
           aliases,
@@ -1455,7 +1455,7 @@ describe("generated public closure guard", () => {
     expect(
       publicOrIncompleteCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           [],
           aliases,
@@ -1504,7 +1504,7 @@ describe("generated public closure guard", () => {
     expect(
       protectedCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           [],
           aliases,
@@ -1515,7 +1515,7 @@ describe("generated public closure guard", () => {
     expect(
       publicOrIncompleteCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           [],
           aliases,
@@ -1548,7 +1548,7 @@ describe("generated public closure guard", () => {
     expect(
       protectedCommands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/private.ts"],
           aliases,
@@ -1558,7 +1558,7 @@ describe("generated public closure guard", () => {
     ).toEqual(protectedCommands.map(() => ["internal-script"]));
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Run `yarn run public --require ./hook.cjs private`.",
         ["scripts/private.ts"],
         aliases,
@@ -1567,7 +1567,7 @@ describe("generated public closure guard", () => {
     ).toEqual([]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Run `yarn --require ./hook.cjs private`.",
         ["scripts/private.ts"],
         aliases,
@@ -1576,7 +1576,7 @@ describe("generated public closure guard", () => {
     ).toEqual([]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Run `yarn --require=./hook.cjs private`.",
         ["scripts/private.ts"],
         aliases,
@@ -1672,7 +1672,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         aliases
@@ -1727,7 +1727,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         aliases
@@ -1766,7 +1766,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         aliases,
@@ -1788,7 +1788,7 @@ describe("generated public closure guard", () => {
     expect([...aliases]).toEqual(["stop"]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Run `npm restart`.",
         ["scripts/private.ts"],
         aliases,
@@ -1926,7 +1926,7 @@ describe("generated public closure guard", () => {
     expect(
       commands.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/private.ts"],
           aliases,
@@ -1948,7 +1948,7 @@ describe("generated public closure guard", () => {
     expect(
       separatedNonValues.map((command) =>
         scanGeneratedPublicContent(
-          "plugins/skillset/codex/skills/skillset/SKILL.md",
+          "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
           `Run \`${command}\`.`,
           ["scripts/private.ts"],
           aliases,
@@ -1972,7 +1972,7 @@ describe("generated public closure guard", () => {
     expect([...aliases].toSorted()).toEqual(["pretest", "via:explicit"]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         ["Use `bun test`.", "Use `bun run test`."].join("\n"),
         ["scripts/private.ts"],
         aliases,
@@ -2000,7 +2000,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         [
           "Run `bun run pri\\",
           "vate`.",
@@ -2017,19 +2017,19 @@ describe("generated public closure guard", () => {
       )
     ).toEqual([
       {
-        file: "plugins/skillset/codex/skills/skillset/SKILL.md",
+        file: "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         line: 1,
         rule: "internal-script",
         text: "Run `bun run private`.",
       },
       {
-        file: "plugins/skillset/codex/skills/skillset/SKILL.md",
+        file: "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         line: 3,
         rule: "internal-script",
         text: "Run `bun scripts/private.ts`.",
       },
       {
-        file: "plugins/skillset/codex/skills/skillset/SKILL.md",
+        file: "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         line: 7,
         rule: "internal-script",
         text: "Run `bun run outer`.",
@@ -2056,7 +2056,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/publish.ts"],
         aliases
@@ -2078,7 +2078,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/check.sh", "scripts/provider-maintenance.ts"]
       )
@@ -2103,7 +2103,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         new Set(),
@@ -2122,7 +2122,7 @@ describe("generated public closure guard", () => {
     ]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "Read `C:\\repo\\sub\\..\\scripts\\private.ts`.",
         ["scripts/private.ts"],
         new Set(),
@@ -2132,7 +2132,7 @@ describe("generated public closure guard", () => {
     ).toEqual(["internal-script"]);
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         "cd C:\\repo\\scripts",
         ["scripts/private.ts"],
         new Set(),
@@ -2167,7 +2167,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2203,7 +2203,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2238,7 +2238,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2269,7 +2269,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         new Set(),
@@ -2289,7 +2289,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"]
       ).map(({ line, rule }) => ({ line, rule }))
@@ -2332,7 +2332,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2370,7 +2370,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2402,7 +2402,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"],
         new Set(),
@@ -2419,7 +2419,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/private.ts"]
       ).map(({ line, rule }) => ({ line, rule }))
@@ -2475,7 +2475,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2503,7 +2503,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content,
         ["scripts/release-assets.ts"],
         new Set(),
@@ -2533,7 +2533,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([
@@ -2559,7 +2559,7 @@ describe("generated public closure guard", () => {
 
     expect(
       scanGeneratedPublicContent(
-        "plugins/skillset/codex/skills/skillset/SKILL.md",
+        "plugins/skillset/chatgpt/skills/skillset/SKILL.md",
         content
       ).map(({ line, rule }) => ({ line, rule }))
     ).toEqual([

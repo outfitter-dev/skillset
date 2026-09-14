@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 
 import { compareStrings, resolveInside } from "./path";
-import { pluginTargetForOutputPath } from "./plugin-output";
+import {
+  isPluginManifestOutputPath,
+  pluginPathPartsForOutput,
+  pluginTargetForOutputPath,
+} from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -187,6 +191,21 @@ function identifyVersionPath(
   const target = targetForPath(graph, path);
   if (path === ".claude-plugin/marketplace.json" || path.endsWith("/.claude-plugin/marketplace.json")) {
     return { scope: selectorForRootConfig(), target: target ?? "claude" };
+  }
+  if (target === "codex" && isPluginManifestOutputPath(graph, path, target)) {
+    const parts = pluginPathPartsForOutput(
+      graph,
+      graph.root.outputs.plugins.codex,
+      target,
+      path
+    );
+    if (parts !== undefined) {
+      return { scope: `plugin:${parts.pluginId}`, target };
+    }
+  }
+  const chatGptManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/chatgpt\/plugin\.json$/);
+  if (chatGptManifest?.[1] !== undefined) {
+    return { scope: `plugin:${chatGptManifest[1]}`, target: target ?? "codex" };
   }
   const pluginFirstManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/(?:claude|codex)\/\.(?:claude|codex)-plugin\/plugin\.json$/);
   if (pluginFirstManifest?.[1] !== undefined) {

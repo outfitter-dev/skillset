@@ -14,7 +14,7 @@ export function pluginTargetRoot(
   pluginId: string
 ): string {
   return isDefaultPluginOutputRoot(outputRoot)
-    ? join(outputRoot, pluginId, target).replaceAll("\\", "/")
+    ? join(outputRoot, pluginId, target === "codex" ? "chatgpt" : target).replaceAll("\\", "/")
     : join(outputRoot, "plugins", pluginId).replaceAll("\\", "/");
 }
 
@@ -46,11 +46,31 @@ export function pluginManifestPath(
   plugin: PluginBundleSource
 ): string {
   const manifestDirectory = pluginManifestDirectory(target);
-  return join(pluginBundleRoot(outputRoot, target, plugin), manifestDirectory, "plugin.json").replaceAll("\\", "/");
+  return join(pluginBundleRoot(outputRoot, target, plugin), manifestDirectory, "plugin.json")
+    .replaceAll("\\", "/");
 }
 
 export function pluginManifestDirectory(target: TargetName): string {
+  // ChatGPT product bundles use the Agent Plugins root manifest. `codex`
+  // remains the compiler target, configuration key, and runtime identity.
+  if (target === "codex") return "";
   return `.${target}-plugin`;
+}
+
+export function isPluginManifestOutputPath(
+  graph: BuildGraph,
+  path: string,
+  target: TargetName
+): boolean {
+  const parts = pluginPathPartsForOutput(
+    graph,
+    graph.root.outputs.plugins[target],
+    target,
+    path
+  );
+  const directory = pluginManifestDirectory(target);
+  return parts?.pluginPath ===
+    (directory === "" ? "plugin.json" : `${directory}/plugin.json`);
 }
 
 /**
@@ -94,7 +114,7 @@ export function providerSourceForPlugin(
     return `./${relative(marketplaceRoot, plugin.claudeBundlePath).replaceAll("\\", "/")}`;
   }
   return isDefaultPluginOutputRoot(outputRoot)
-    ? `./plugins/${plugin.id}/${target}`
+    ? `./plugins/${plugin.id}/${target === "codex" ? "chatgpt" : target}`
     : `./plugins/${plugin.id}`;
 }
 
@@ -107,7 +127,8 @@ export function pluginTargetForOutputPath(
     const outputRoot = graph.root.outputs.plugins[target];
     if (isDefaultPluginOutputRoot(outputRoot)) {
       const parts = path.split("/");
-      if (parts.length >= 3 && parts[0] === outputRoot && parts[2] === target) return target;
+      const bundleSegment = target === "codex" ? "chatgpt" : target;
+      if (parts.length >= 3 && parts[0] === outputRoot && parts[2] === bundleSegment) return target;
       continue;
     }
     if (path === outputRoot || path.startsWith(`${outputRoot}/`)) return target;
@@ -150,7 +171,8 @@ export function pluginPathPartsForOutput(
   const rest = path.slice(prefix.length);
   const parts = rest.split("/");
   if (isDefaultPluginOutputRoot(outputRoot)) {
-    if (parts.length < 3 || parts[1] !== target) return undefined;
+    const bundleSegment = target === "codex" ? "chatgpt" : target;
+    if (parts.length < 3 || parts[1] !== bundleSegment) return undefined;
     return { pluginId: parts[0]!, pluginPath: parts.slice(2).join("/") };
   }
   if (parts.length < 2) return undefined;

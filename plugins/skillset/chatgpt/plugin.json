@@ -1,0 +1,37 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Skillset Maintainers"
+  },
+  "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "brandColor": "#B06DFF",
+        "capabilities": [
+          "Read",
+          "Write",
+          "Developer"
+        ],
+        "category": "Developer Tools",
+        "defaultPrompt": [
+          "Build or check this skillset source tree."
+        ],
+        "developerName": "Skillset Maintainers",
+        "displayName": "Skillset",
+        "longDescription": "Skillset compiles portable source skills and plugin bundles into target-native Claude, Codex, and Cursor artifacts.",
+        "shortDescription": "Build source skills and plugins into Claude, Codex, and Cursor outputs."
+      }
+    }
+  },
+  "keywords": [
+    "skillset",
+    "skills",
+    "plugins",
+    "claude",
+    "codex"
+  ],
+  "license": "MIT",
+  "name": "skillset",
+  "version": "0.1.1"
+}

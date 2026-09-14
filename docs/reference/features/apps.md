@@ -1,5 +1,5 @@
 ---
-description: Codex plugin apps define manifest discovery, pass-through output, conflicts, and current configuration limits.
+description: ChatGPT product-bundle apps define manifest discovery, typed component output, conflicts, and current configuration limits.
 ---
 
 # Apps
@@ -13,11 +13,11 @@ description: Codex plugin apps define manifest discovery, pass-through output, c
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Codex plugins can include an `.app.json` app manifest. Skillset resolves the conventional file as [provider-native](../../glossary.md#provider-native) source for [rendering](../../glossary.md#render), provenance, and [activation](../../glossary.md#activation) planning; there is no user-facing feature-key source pointer.
+The Codex-selected ChatGPT product bundle can include an `.app.json` app declaration. Skillset resolves the conventional file as typed OpenAI component source for [rendering](../../glossary.md#render), provenance, and [activation](../../glossary.md#activation) planning; there is no user-facing feature-key source pointer.
 
 ## Authoring
 
-Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Codex plugin should include the app manifest. Discovery is automatic. There is no `apps.source`, `app.source`, or `apps: true` source key; those shapes fail config validation.
+Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Codex target should include the ChatGPT app component. It renders at `plugins/<plugin>/chatgpt/.app.json` and is referenced by `extensions.com.openai.apps`. Discovery is automatic. There is no `apps.source`, `app.source`, or `apps: true` source key; those shapes fail config validation.
 
 ```text
 .skillset/plugins/reviewer/.app.json
@@ -27,7 +27,7 @@ Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Co
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.app.json` | n/a | `.app.json` plus manifest `apps` field | `target_native` / `implemented` | Opaque pass-through today. |
+| `.app.json` | n/a | `.app.json` plus `extensions.com.openai.apps` | `target_native` / `implemented` | Opaque pass-through today. |
 | Future `apps.source` | n/a | n/a | `planned` | Reserved for a later adapter if app manifests need feature-key validation and provenance. |
 
 ## Diagnostics

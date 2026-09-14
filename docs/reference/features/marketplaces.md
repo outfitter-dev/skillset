@@ -69,7 +69,7 @@ skillset marketplace update outfitter --yes
 
 Without `--yes`, update previews the complete provider-index and lock plan. A confirmed update revalidates the plan, writes supported provider indexes, and updates marketplace provenance in the existing `skillset.lock`. If local input or a floating remote changes after preview, the atomic transaction refuses without writing output or lock state.
 
-Claude receives `.claude-plugin/marketplace.json`; Cursor receives `.cursor-plugin/marketplace.json`. Codex plugin bundles can be checked for readiness, but Skillset does not currently emit a Codex-owned marketplace index. Codex marketplace configuration and activation remain external.
+Claude receives `.claude-plugin/marketplace.json`; Cursor receives `.cursor-plugin/marketplace.json`. The Codex target renders ChatGPT product bundles at `plugins/<plugin>/chatgpt/` and can check their readiness, but Skillset does not currently emit a product-owned marketplace index. ChatGPT marketplace configuration and activation remain external.
 
 The generated [`marketplace` reference](../cli/marketplace.md) owns exact syntax.
 

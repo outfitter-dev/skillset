@@ -5,6 +5,7 @@ import {
   isCursorSemver,
 } from "@skillset/registry";
 
+import { AGENT_PLUGIN_MANIFEST_SCHEMA } from "./agent-plugin-manifest";
 import {
   checkClaudeAuthorObject,
   checkClaudeMarketplace,
@@ -117,6 +118,7 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (isCursorMarketplacePath(file.path)) return true;
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
+  if (file.path.endsWith("/chatgpt/plugin.json")) return true;
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
   if (isClaudeHookPath(file.path)) return true;
   if (isCodexHookPath(file.path)) return true;
@@ -145,6 +147,13 @@ function checkProviderFormatConformanceFile(
   if (file.path.endsWith("/.codex-plugin/plugin.json")) {
     return checkCodexPluginManifest(file);
   }
+  if (isChatGptPluginManifest(file)) {
+    return checkChatGptPluginManifest(file);
+  }
+  // The ChatGPT product package deliberately reuses the Agent Plugins and
+  // Agent Skills fixed components. They are not Codex provider formats merely
+  // because the compiler's canonical target identity is `codex`.
+  if (isChatGptFixedComponent(file.path)) return [];
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) {
     return checkCursorPluginManifest(file);
   }
@@ -176,6 +185,17 @@ function checkProviderFormatConformanceFile(
     return checkSkillMarkdown(file);
   }
   return [];
+}
+
+function isChatGptPluginManifest(
+  file: ProviderFormatConformanceFile
+): boolean {
+  return file.path.endsWith("/chatgpt/plugin.json") ||
+    (
+      file.path.endsWith("/plugin.json") &&
+      file.featureId === "plugin-manifests" &&
+      file.target === "codex"
+    );
 }
 
 function checkClaudePluginManifest(
@@ -287,6 +307,130 @@ function checkCodexPluginManifest(
     issues.push(
       ...checkUnknownFields(file, parsed.value.interface, "codex", "codex-plugin-manifest-overlay", format.interfaceFields, "interface")
     );
+  }
+  return issues;
+}
+
+function checkChatGptPluginManifest(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const providerRef = "openai-agent-plugin-extension-overlay" as const;
+  const parsed = parseJsonRecord(file, "codex", providerRef);
+  if (!parsed.ok) return parsed.issues;
+  const issues: ProviderFormatConformanceIssue[] = [];
+  issues.push(...checkRequiredFields(file, parsed.value, "codex", providerRef, ["$schema", "extensions", "name"]));
+  issues.push(...checkFieldTypes(file, parsed.value, "codex", providerRef, {
+    $schema: "string",
+    author: "object",
+    description: "string",
+    extensions: "object",
+    homepage: "string",
+    keywords: "string-array",
+    license: "string",
+    name: "string",
+    repository: "string",
+    version: "string",
+  }));
+  issues.push(...checkUnknownFields(file, parsed.value, "codex", providerRef, [
+    "$schema", "author", "description", "extensions", "homepage", "keywords",
+    "license", "name", "repository", "version",
+  ]));
+  if (
+    typeof parsed.value.$schema === "string" &&
+    parsed.value.$schema !== AGENT_PLUGIN_MANIFEST_SCHEMA
+  ) {
+    issues.push(
+      issue(
+        file,
+        "codex",
+        providerRef,
+        "invalid-shape",
+        `destination field $schema must equal ${AGENT_PLUGIN_MANIFEST_SCHEMA}`
+      )
+    );
+  }
+  if (isJsonRecord(parsed.value.extensions)) {
+    issues.push(...checkRequiredFields(file, parsed.value.extensions, "codex", providerRef, ["com.openai"], "extensions"));
+    issues.push(...checkUnknownFields(file, parsed.value.extensions, "codex", providerRef, ["com.openai"], "extensions"));
+    const openAi = parsed.value.extensions["com.openai"];
+    if (!isJsonRecord(openAi)) {
+      issues.push(
+        issue(file, "codex", providerRef, "invalid-field-type", "destination field extensions.com.openai must be an object")
+      );
+    } else {
+      issues.push(...checkRequiredFields(file, openAi, "codex", providerRef, ["interface"], "extensions.com.openai"));
+      issues.push(...checkUnknownFields(
+        file,
+        openAi,
+        "codex",
+        providerRef,
+        ["interface", "apps", "hooks"],
+        "extensions.com.openai"
+      ));
+      issues.push(...checkFieldTypes(file, openAi, "codex", providerRef, {
+        apps: "string",
+        hooks: "string",
+        interface: "object",
+      }, "extensions.com.openai"));
+      if (openAi.apps !== undefined && openAi.apps !== "./.app.json") {
+        issues.push(issue(file, "codex", providerRef, "invalid-shape", "destination field extensions.com.openai.apps must use ./.app.json"));
+      }
+      if (openAi.hooks !== undefined && openAi.hooks !== "./hooks/hooks.json") {
+        issues.push(issue(file, "codex", providerRef, "invalid-shape", "destination field extensions.com.openai.hooks must use ./hooks/hooks.json"));
+      }
+      if (isJsonRecord(openAi.interface)) {
+        const interfaceFields = [
+          "displayName", "shortDescription", "longDescription", "developerName",
+          "category", "capabilities", "websiteUrl", "privacyPolicyUrl",
+          "termsOfServiceUrl", "defaultPrompt", "brandColor", "composerIcon",
+          "logo", "logoDark", "screenshots",
+        ];
+        issues.push(...checkUnknownFields(
+          file,
+          openAi.interface,
+          "codex",
+          providerRef,
+          interfaceFields,
+          "extensions.com.openai.interface"
+        ));
+        issues.push(...checkFieldTypes(file, openAi.interface, "codex", providerRef, {
+          brandColor: "string",
+          capabilities: "string-array",
+          category: "string",
+          composerIcon: "string",
+          defaultPrompt: "string-array",
+          developerName: "string",
+          displayName: "string",
+          logo: "string",
+          logoDark: "string",
+          longDescription: "string",
+          privacyPolicyUrl: "string",
+          screenshots: "string-array",
+          shortDescription: "string",
+          termsOfServiceUrl: "string",
+          websiteUrl: "string",
+        }, "extensions.com.openai.interface"));
+        for (const [key, value] of Object.entries(openAi.interface)) {
+          if (typeof value === "string" && value.trim() === "") {
+            issues.push(issue(file, "codex", providerRef, "invalid-shape", `destination field extensions.com.openai.interface.${key} must be non-empty`));
+          }
+          if (
+            (key === "capabilities" || key === "defaultPrompt" || key === "screenshots") &&
+            Array.isArray(value) &&
+            (value.length === 0 || value.some((item) => typeof item !== "string" || item.trim() === ""))
+          ) {
+            issues.push(issue(file, "codex", providerRef, "invalid-shape", `destination field extensions.com.openai.interface.${key} must be a non-empty string array`));
+          }
+        }
+        const prompts = openAi.interface.defaultPrompt;
+        if (
+          Array.isArray(prompts) &&
+          (prompts.length > 3 || prompts.some((prompt) => typeof prompt === "string" && prompt.length > 128))
+        ) {
+          issues.push(issue(file, "codex", providerRef, "invalid-shape", "destination field extensions.com.openai.interface.defaultPrompt permits at most three 128-character prompts"));
+        }
+      }
+    }
   }
   return issues;
 }
@@ -845,6 +989,22 @@ function isClaudeHookFile(file: ProviderFormatConformanceFile): boolean {
 
 function isCodexHookPath(path: string): boolean {
   return hasPluginTargetSegment(path, "codex") && path.endsWith("/hooks/hooks.json");
+}
+
+function isChatGptFixedComponent(path: string): boolean {
+  return hasChatGptPluginSegment(path) && (
+    path.endsWith("/mcp.json") ||
+    path.endsWith("/hooks/hooks.json") ||
+    path.endsWith("/SKILL.md")
+  );
+}
+
+function hasChatGptPluginSegment(path: string): boolean {
+  const parts = path.split("/");
+  return parts.some(
+    (segment, index) =>
+      segment === "plugins" && parts[index + 2] === "chatgpt"
+  );
 }
 
 function isCodexHookFile(file: ProviderFormatConformanceFile): boolean {

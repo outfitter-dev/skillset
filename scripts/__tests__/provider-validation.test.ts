@@ -25,6 +25,7 @@ import {
   formatAcquisitionFailureDiagnostic,
   stageValidationInputs,
 } from "../provider-validation-hosted";
+import { validateChatGptPluginConformance } from "../provider-validation-chatgpt";
 import {
   stageCursorHookConformanceInputs,
   validateCursorHookConformance,
@@ -48,19 +49,20 @@ describe("SET-463 hosted provider validation orchestration", () => {
     const canonicalRoot = await realpath(root);
     const inventory = await enumerateProviderArtifacts(root);
 
+    expect(inventory.chatgptPlugins).toEqual([
+      join(canonicalRoot, "plugins/demo/chatgpt"),
+    ]);
     expect(inventory.claudePlugins).toEqual([
       join(canonicalRoot, "plugins/demo/claude"),
     ]);
-    expect(inventory.codexPlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/codex"),
-    ]);
+    expect(inventory.codexPlugins).toEqual([]);
     expect(inventory.cursorPlugins).toEqual([
       join(canonicalRoot, "plugins/demo/cursor"),
     ]);
     expect(inventory.skills).toEqual([
       join(canonicalRoot, ".agents/skills/standalone/SKILL.md"),
+      join(canonicalRoot, "plugins/demo/chatgpt/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/claude/skills/demo/SKILL.md"),
-      join(canonicalRoot, "plugins/demo/codex/skills/demo/SKILL.md"),
       join(canonicalRoot, "plugins/demo/cursor/skills/demo/SKILL.md"),
     ]);
     expect(inventory.claudeMarketplaces).toEqual([
@@ -91,7 +93,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
     const root = await fixtureRoot();
     await symlink(
       join(root, ".cursor-plugin/marketplace.json"),
-      join(root, "plugins/demo/codex/nested-link")
+      join(root, "plugins/demo/chatgpt/nested-link")
     );
 
     await expect(enumerateProviderArtifacts(root)).rejects.toThrow(
@@ -227,6 +229,44 @@ describe("SET-463 hosted provider validation orchestration", () => {
       expect(markdown).toContain("| validation-current |");
     }
     expect(calls).toBe(commands.length);
+  });
+
+  test("validates every staged ChatGPT root manifest as internal authoring conformance", async () => {
+    const temp = await mkdtemp(join(tmpdir(), "skillset-chatgpt-hosted-"));
+    const valid = join(temp, "valid");
+    const invalid = join(temp, "invalid");
+    await mkdir(valid, { recursive: true });
+    await mkdir(invalid, { recursive: true });
+    await writeFile(
+      join(valid, "plugin.json"),
+      `${JSON.stringify({
+        $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        description: "Valid plugin.",
+        extensions: { "com.openai": { interface: {} } },
+        name: "valid",
+        version: "1.0.0",
+      })}\n`
+    );
+    await writeFile(
+      join(invalid, "plugin.json"),
+      `${JSON.stringify({ name: "invalid", unexpected: true })}\n`
+    );
+
+    const checks = await validateChatGptPluginConformance([valid, invalid]);
+
+    expect(checks).toEqual([
+      expect.objectContaining({
+        id: "chatgpt-plugin-generated-manifest",
+        result: "passed",
+        target: "codex",
+      }),
+      expect.objectContaining({
+        diagnostic: expect.stringContaining("unexpected"),
+        id: "chatgpt-plugin-generated-manifest",
+        result: "failed",
+        target: "codex",
+      }),
+    ]);
   });
 
   test("reports generated Cursor hooks and the malformed-handler canary as internal authoring conformance", async () => {
@@ -668,6 +708,7 @@ describe("SET-463 hosted provider validation orchestration", () => {
 
 function sampleInventory(): ProviderArtifactInventory {
   return {
+    chatgptPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
     claudeMarketplaces: ["/tmp/stage/.claude-plugin/marketplace.json"],
     claudePlugins: ["/tmp/stage/plugins/demo/claude"],
     codexPlugins: ["/tmp/stage/plugins/demo/codex"],
@@ -685,8 +726,7 @@ async function fixtureRoot(): Promise<string> {
     ".cursor-plugin",
     "plugins/demo/claude/.claude-plugin",
     "plugins/demo/claude/skills/demo",
-    "plugins/demo/codex/.codex-plugin",
-    "plugins/demo/codex/skills/demo",
+    "plugins/demo/chatgpt/skills/demo",
     "plugins/demo/cursor/.cursor-plugin",
     "plugins/demo/cursor/skills/demo",
   ])
@@ -695,8 +735,8 @@ async function fixtureRoot(): Promise<string> {
     ".agents/skills/standalone/SKILL.md",
     "plugins/demo/claude/.claude-plugin/plugin.json",
     "plugins/demo/claude/skills/demo/SKILL.md",
-    "plugins/demo/codex/.codex-plugin/plugin.json",
-    "plugins/demo/codex/skills/demo/SKILL.md",
+    "plugins/demo/chatgpt/plugin.json",
+    "plugins/demo/chatgpt/skills/demo/SKILL.md",
     "plugins/demo/cursor/.cursor-plugin/plugin.json",
     "plugins/demo/cursor/skills/demo/SKILL.md",
   ])
@@ -728,8 +768,8 @@ async function fixtureRoot(): Promise<string> {
   await writeLock(join(root, "plugins/skillset.lock"), "plugins", [
     { kind: "plugin", outputPath: "demo/claude/.claude-plugin/plugin.json" },
     { kind: "plugin-skill", outputPath: "demo/claude/skills/demo/SKILL.md" },
-    { kind: "plugin", outputPath: "demo/codex/.codex-plugin/plugin.json" },
-    { kind: "plugin-skill", outputPath: "demo/codex/skills/demo/SKILL.md" },
+    { kind: "plugin", outputPath: "demo/chatgpt/plugin.json" },
+    { kind: "plugin-skill", outputPath: "demo/chatgpt/skills/demo/SKILL.md" },
     { kind: "plugin", outputPath: "demo/cursor/.cursor-plugin/plugin.json" },
     { kind: "plugin-skill", outputPath: "demo/cursor/skills/demo/SKILL.md" },
   ]);

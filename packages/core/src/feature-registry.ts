@@ -209,7 +209,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/dependencies.ts",
     sourceShape: "plugin skillset.yaml dependencies",
     status: "implemented",
-    summary: "Declares plugin dependencies and renders target-specific install/awareness behavior.",
+    summary: "Declares plugin dependencies and renders target-specific install or awareness behavior when the destination supports it.",
     targetSupport: {
       claude: {
         evidence: [docs("docs/reference/features/dependencies.md"), providerSnapshot("claude-plugin")],
@@ -218,9 +218,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       },
       codex: {
         evidence: [docs("docs/reference/features/dependencies.md"), source("packages/core/src/dependencies.ts")],
-        note: "Codex gets generated dependency notices rather than a native plugin dependency resolver.",
-        provider: { destinationFormat: "codex-plugin" },
-        reason: "Codex gets generated dependency notices rather than a native plugin dependency resolver.",
+        note: "The ChatGPT Agent Plugins bundle has no portable plugin dependency component.",
+        reason: "The ChatGPT Agent Plugins bundle has no portable plugin dependency component.",
         status: "degraded",
       },
     },
@@ -272,9 +271,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "native",
       },
       codex: {
-        evidence: [docs("docs/reference/features/marketplaces.md"), providerSnapshot("codex-plugin")],
-        provider: { destinationFormat: "codex-plugin" },
-        reason: "Codex plugin bundles are renderable, but Codex marketplace activation is currently a runtime config surface rather than a provider-owned generated index.",
+        evidence: [docs("docs/reference/features/marketplaces.md"), source("packages/registry/src/openai-agent-plugin-evidence.ts")],
+        reason: "ChatGPT product bundles are renderable through the Codex target, but marketplace activation remains a runtime config surface rather than a provider-owned generated index.",
         status: "future",
       },
       cursor: {
@@ -358,11 +356,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       docs("docs/reference/features/mcp-servers.md"),
     ], {
       claude: [providerSnapshot("claude-plugin")],
-      codex: [providerSnapshot("codex-plugin")],
+      codex: [source("packages/registry/src/openai-agent-plugin-evidence.ts")],
       cursor: [providerSnapshot("cursor-plugin")],
     }, {
       claude: { destinationFormat: "claude-plugin" },
-      codex: { destinationFormat: "codex-plugin" },
+      codex: { manualOverlays: ["openai-agent-plugin-extension-overlay"] },
       cursor: { destinationFormat: "cursor-plugin" },
     }),
     title: "Plugin MCP Servers",
@@ -374,14 +372,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-apps",
     kind: "target-native",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: "plugin codex/.app.json target-native companion file",
+    sourceShape: "plugin .app.json typed OpenAI component",
     status: "implemented",
-    summary: "Passes Codex app manifests through as target-native plugin companion files.",
+    summary: "Carries typed OpenAI app declarations through the ChatGPT product bundle's fixed component path.",
     targetSupport: {
       claude: { evidence: [docs("docs/reference/features/apps.md")], status: "not_applicable" },
       codex: {
-        evidence: [docs("docs/reference/features/apps.md"), providerSnapshot("codex-plugin")],
-        provider: { destinationFormat: "codex-plugin" },
+        evidence: [docs("docs/reference/features/apps.md"), source("packages/registry/src/openai-agent-plugin-evidence.ts")],
+        provider: { manualOverlays: ["openai-agent-plugin-extension-overlay"] },
         status: "pass_through",
       },
     },
@@ -411,8 +409,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "pass_through",
       },
       codex: {
-        evidence: [docs("docs/reference/features/executables.md"), providerSnapshot("codex-plugin")],
-        provider: { destinationFormat: "codex-plugin", unsupportedDestinations: ["bin"] },
+        evidence: [docs("docs/reference/features/executables.md"), source("packages/registry/src/openai-agent-plugin-evidence.ts")],
+        provider: { unsupportedDestinations: ["bin"] },
         reason: "Codex plugins do not expose a documented plugin-local bin contract.",
         status: "unsupported",
       },
@@ -475,11 +473,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       docs("docs/reference/features/hooks.md"),
     ], {
       claude: [providerSnapshot("claude-hooks")],
-      codex: [providerSnapshot("codex-plugin")],
+      codex: [source("packages/registry/src/openai-agent-plugin-evidence.ts")],
       cursor: [providerSnapshot("cursor-hooks"), providerSnapshot("cursor-plugin")],
     }, {
       claude: { destinationFormat: "claude-hooks" },
-      codex: { destinationFormat: "codex-plugin", schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"] },
+      codex: { manualOverlays: ["openai-agent-plugin-extension-overlay"] },
       cursor: { destinationFormat: "cursor-hooks" },
     }),
     title: "Plugin Hooks",
@@ -515,13 +513,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       codex: {
         evidence: [
           docs("docs/reference/features/hooks.md"),
-          providerSnapshot("codex-plugin"),
-          providerSchemaSnapshot("codex-hooks-schema"),
-          providerSchemaSnapshot("codex-hook-event-schemas"),
+          source("packages/registry/src/openai-agent-plugin-evidence.ts"),
           source("packages/core/src/hook-capabilities.ts"),
         ],
+        provider: { manualOverlays: ["openai-agent-plugin-extension-overlay"] },
         reason: "Codex supports plugin-level command hooks, but has no faithful skill-local or project-agent hook destination and narrower event/matcher support.",
-        provider: { destinationFormat: "codex-plugin", schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"] },
         status: "degraded",
       },
       cursor: {
@@ -567,11 +563,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       docs("docs/reference/features/plugins.md"),
     ], {
       claude: [providerSnapshot("claude-plugin")],
-      codex: [providerSnapshot("codex-plugin")],
+      codex: [source("packages/registry/src/openai-agent-plugin-evidence.ts")],
       cursor: [providerSnapshot("cursor-plugin")],
     }, {
       claude: { destinationFormat: "claude-plugin", schemaSnapshots: ["claude-plugin-manifest-schema"] },
-      codex: { destinationFormat: "codex-plugin", manualOverlays: ["codex-plugin-manifest-overlay"] },
+      codex: { manualOverlays: ["openai-agent-plugin-extension-overlay"] },
       cursor: { destinationFormat: "cursor-plugin", schemaSnapshots: ["cursor-plugin-schema"] },
     }),
     title: "Plugin Manifests",

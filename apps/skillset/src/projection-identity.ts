@@ -93,7 +93,8 @@ function legacyEntryIdentity(entry: GeneratedEntry): string {
   if (
     output.startsWith(".agents/") ||
     output.startsWith(".codex/") ||
-    output.includes("/codex/")
+    output.includes("/codex/") ||
+    output.includes("/chatgpt/")
   ) {
     return "codex";
   }

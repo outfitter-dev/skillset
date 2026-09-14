@@ -7,6 +7,49 @@
   "items": [
     {
       "fileModes": {
+        "skillset/chatgpt/LICENSE.txt": "0644",
+        "skillset/chatgpt/README.md": "0644",
+        "skillset/chatgpt/plugin.json": "0644"
+      },
+      "files": [
+        "skillset/chatgpt/LICENSE.txt",
+        "skillset/chatgpt/README.md",
+        "skillset/chatgpt/plugin.json"
+      ],
+      "includedSkills": [
+        "use-skillset@0.1.1"
+      ],
+      "kind": "plugin",
+      "name": "skillset",
+      "outputHash": "sha256:503af566dfdaf9486df08408990ff5593ce2ea837ab11bda174aecfd0f123fa9",
+      "outputPath": "skillset/chatgpt/plugin.json",
+      "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
+      "skippedSkills": [],
+      "sourceHash": "sha256:06b77f68c4942aecaaa726cc778728a3f96d69c37c32c7ed83c2b0356bd72078",
+      "sourcePath": ".skillset/plugins/skillset",
+      "targetState": "sync",
+      "version": "0.1.1"
+    },
+    {
+      "fileModes": {
+        "skillset/chatgpt/skills/use-skillset/LICENSE.txt": "0644",
+        "skillset/chatgpt/skills/use-skillset/SKILL.md": "0644"
+      },
+      "files": [
+        "skillset/chatgpt/skills/use-skillset/LICENSE.txt",
+        "skillset/chatgpt/skills/use-skillset/SKILL.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "use-skillset",
+      "outputHash": "sha256:fe88c9dd8fe4c4c0037506b7cc9dbc8fb2644720d614d79ae3af65dc9e0c270d",
+      "outputPath": "skillset/chatgpt/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:e778f5ded89ce60e65f991a4d5cf8738e9611534d7e5a9af69dcddae77258451",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
+      "fileModes": {
         "skillset/claude/.claude-plugin/plugin.json": "0644",
         "skillset/claude/LICENSE.txt": "0644",
         "skillset/claude/README.md": "0644"
@@ -21,11 +64,11 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:17fedc0afc8694c829d3372ceb10b15eb3157b630b38ee51426e5980830700cd",
+      "outputHash": "sha256:5b6cac105a03ca587d140a968892463a54f9447aafc3ae4f9cf6693104e53843",
       "outputPath": "skillset/claude/.claude-plugin/plugin.json",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "skippedSkills": [],
-      "sourceHash": "sha256:ed4b3baf969ca577cf3b720a89750b5d049f31e38f44909613439567e689b31c",
+      "sourceHash": "sha256:1607f4f90c516048bb2112599737d1534284ee71fb930fcf6eaad09933cab4cb",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -41,53 +84,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:a97c6518da87ac87872fcff525f74de63460a59b63fc13806e8c28920ae4d2b9",
+      "outputHash": "sha256:564547759128026ce92b8c1d10fea599d6793b99a208ab86fdd8c1b552d160b0",
       "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:6b95e4a36c407ea223ad11fd3dbe516ea2686e9cd9f9bb837b0684a6c47f6583",
-      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-      "version": "0.1.1"
-    },
-    {
-      "fileModes": {
-        "skillset/codex/.codex-plugin/plugin.json": "0644",
-        "skillset/codex/LICENSE.txt": "0644",
-        "skillset/codex/README.md": "0644"
-      },
-      "files": [
-        "skillset/codex/.codex-plugin/plugin.json",
-        "skillset/codex/LICENSE.txt",
-        "skillset/codex/README.md"
-      ],
-      "includedSkills": [
-        "use-skillset@0.1.1"
-      ],
-      "kind": "plugin",
-      "name": "skillset",
-      "outputHash": "sha256:4ff159eda3950cfda60468cfb4c98e7c28d4508e5e1ff59a99f542de13899626",
-      "outputPath": "skillset/codex/.codex-plugin/plugin.json",
-      "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
-      "skippedSkills": [],
-      "sourceHash": "sha256:a0b9a3a99d83985f3ef7a3f4ab89efa4c7d48838c9101cc01b09db23a7364a43",
-      "sourcePath": ".skillset/plugins/skillset",
-      "targetState": "sync",
-      "version": "0.1.1"
-    },
-    {
-      "fileModes": {
-        "skillset/codex/skills/use-skillset/LICENSE.txt": "0644",
-        "skillset/codex/skills/use-skillset/SKILL.md": "0644"
-      },
-      "files": [
-        "skillset/codex/skills/use-skillset/LICENSE.txt",
-        "skillset/codex/skills/use-skillset/SKILL.md"
-      ],
-      "kind": "plugin-skill",
-      "name": "use-skillset",
-      "outputHash": "sha256:0cf68ea8055e710edf68a11d2fdfb5b905c4307ed7698f9a8e1a93e8396d4ba5",
-      "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
-      "plugin": "skillset",
-      "sourceHash": "sha256:6b95e4a36c407ea223ad11fd3dbe516ea2686e9cd9f9bb837b0684a6c47f6583",
+      "sourceHash": "sha256:e778f5ded89ce60e65f991a4d5cf8738e9611534d7e5a9af69dcddae77258451",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -107,11 +107,11 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:2089a38e6195b4a2cf6dbdbab3097209f7821fb3f88ce24453df6cfb23d80b6a",
+      "outputHash": "sha256:700519804886c461c1a78605dc3070cc44828e0b29cee15b761754cc95ebcf8f",
       "outputPath": "skillset/cursor/.cursor-plugin/plugin.json",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "skippedSkills": [],
-      "sourceHash": "sha256:5e2d62fa2187ab4d4f46fab35ad5ca4ed988c65f5e606e0bf57d907ed6d6f235",
+      "sourceHash": "sha256:ca394136e19d686b30bb4977c0386d05ddf9ced5b681560fe5b6a6a4c98057b3",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -127,16 +127,16 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:c71098bef2a1fcc1b2a41cbe821372e3934a11b8ef8318dab49c78e71dfe0730",
+      "outputHash": "sha256:0a51603742c3e4f8df8245dee8522436056012b75bc92dcb37b14173dd82f5c8",
       "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:6b95e4a36c407ea223ad11fd3dbe516ea2686e9cd9f9bb837b0684a6c47f6583",
+      "sourceHash": "sha256:e778f5ded89ce60e65f991a4d5cf8738e9611534d7e5a9af69dcddae77258451",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:5f67fc56a6b2efd99f273ba2325a986b4e0a464b6c0862f883631319c6698987",
+  "provenanceHash": "sha256:183dbf28c2d085a934156f88dfe83d0183d06ad2099b998692bedfc4ef15de78",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -184,25 +184,23 @@
         },
         {
           "kind": "provider-overlay",
-          "note": "Codex 0.147.0 has no adopted JSON Schema source for plugin manifests; runtime-loader behavior and the separate, stricter plugin-creator handoff preflight are recorded as distinct primary sources for this manual overlay.",
-          "ref": "codex-plugin-manifest-overlay"
+          "note": "The released Codex 0.154.0 Agent Plugins consumer layers the closed extensions.com.openai interface, app, and hook contract over the Agent Plugins 1.0 root manifest and fixed components.",
+          "ref": "openai-agent-plugin-extension-overlay"
         },
         {
-          "kind": "provider-snapshot",
-          "note": "sha256:a3f71fd04caea6157453b0cec7a6e6ff1e3ec51ac88a0c96409b9cee8737370b",
-          "ref": "codex-plugin",
-          "verifiedAt": "2026-08-14"
+          "kind": "source",
+          "ref": "packages/registry/src/openai-agent-plugin-evidence.ts"
         }
       ],
       "featureId": "plugin-manifests",
       "outputs": [
         {
           "kind": "plugin",
-          "path": "plugins/skillset/codex/.codex-plugin/plugin.json"
+          "path": "plugins/skillset/chatgpt/LICENSE.txt"
         },
         {
           "kind": "plugin",
-          "path": "plugins/skillset/codex/LICENSE.txt"
+          "path": "plugins/skillset/chatgpt/plugin.json"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -289,7 +287,7 @@
       "outputs": [
         {
           "kind": "companion",
-          "path": "plugins/skillset/codex/README.md"
+          "path": "plugins/skillset/chatgpt/README.md"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -383,11 +381,11 @@
       "outputs": [
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/codex/skills/use-skillset/LICENSE.txt"
+          "path": "plugins/skillset/chatgpt/skills/use-skillset/LICENSE.txt"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/codex/skills/use-skillset/SKILL.md"
+          "path": "plugins/skillset/chatgpt/skills/use-skillset/SKILL.md"
         }
       ],
       "schema": "skillset-render-result@2",

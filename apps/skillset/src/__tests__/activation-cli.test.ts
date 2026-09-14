@@ -237,7 +237,7 @@ checks:
     )
   ).toMatchObject({ origin: "proven", state: "satisfied" });
 
-  const generatedMcpPath = join(root, "plugins/alpha/codex/.mcp.json");
+  const generatedMcpPath = join(root, "plugins/alpha/chatgpt/mcp.json");
   const generatedMcp = await Bun.file(generatedMcpPath).text();
   await Bun.write(generatedMcpPath, `${generatedMcp}\n`);
   const changedOutput = await activationReadiness(root, xdg);
@@ -797,7 +797,7 @@ checks:
 test("SET-392: generated-output drift keeps rendered readiness unsatisfied", async () => {
   const root = await activationFixture();
   await Bun.write(
-    join(root, "plugins/alpha/codex/.mcp.json"),
+    join(root, "plugins/alpha/chatgpt/mcp.json"),
     '{"mcpServers":{"alpha":{"command":"drifted"}}}\n'
   );
 

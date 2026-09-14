@@ -481,8 +481,8 @@ cursor: true
   }
 }
 `);
-    expect(output("plugins/tools/codex/.mcp.json")).toContain('"http_headers"');
-    expect(output("plugins/tools/codex/.mcp.json")).toContain(
+    expect(output("plugins/tools/chatgpt/mcp.json")).toContain('"headers"');
+    expect(output("plugins/tools/chatgpt/mcp.json")).toContain(
       '"local-with-cwd"'
     );
     expect(output("plugins/tools/cursor/mcp.json")).toContain(
@@ -494,7 +494,7 @@ cursor: true
     expect(output("plugins/tools/cursor/mcp.json")).not.toContain(
       '"streamable-http"'
     );
-    for (const target of ["claude", "codex", "cursor"] as const) {
+    for (const target of ["claude", "chatgpt", "cursor"] as const) {
       const server = rendered.find((candidate) =>
         candidate.path.endsWith(`plugins/tools/${target}/bin/server`)
       );
@@ -515,14 +515,14 @@ cursor: true
         file.path.endsWith("plugins/tools/claude/bin/work/config.json")
       )
     ).toBe(false);
-    for (const target of ["codex", "cursor"] as const) {
+    for (const target of ["chatgpt", "cursor"] as const) {
       expect(output(`plugins/tools/${target}/bin/work/config.json`)).toBe(
         "{}\n"
       );
     }
     expect(
       rendered.find((file) =>
-        file.path.endsWith("plugins/tools/codex/bin/server")
+        file.path.endsWith("plugins/tools/chatgpt/bin/server")
       )?.sourcePath
     ).toBe(".skillset/plugins/tools/bin/server");
 

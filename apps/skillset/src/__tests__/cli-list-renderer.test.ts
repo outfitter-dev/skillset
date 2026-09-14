@@ -14,7 +14,7 @@ const ENTRIES: readonly GeneratedEntry[] = [
   },
   {
     kind: "plugin",
-    outputPath: "plugins/demo/codex/.codex-plugin/plugin.json",
+    outputPath: "plugins/demo/chatgpt/plugin.json",
     outputRoot: "plugins",
     sourcePath: ".skillset/plugins/demo",
     target: "workspace",

@@ -34,6 +34,7 @@ import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
+  isPluginManifestOutputPath,
   pluginBundleRoot,
   pluginManifestPath,
   pluginPathPartsForOutput,
@@ -149,7 +150,12 @@ export function collectRenderResults(
     const lock = parseRenderedLock(lockFile);
     for (const item of lock.items) {
       const outputPaths = outputPathsForLockItem(lock.outputRoot, item);
-      const primaryOutputPaths = primaryOutputPathsForLockItem(item, outputPaths);
+      const primaryOutputPaths = primaryOutputPathsForLockItem(
+        graph,
+        lock,
+        item,
+        outputPaths
+      );
       for (const path of primaryOutputPaths) assignedOutputPaths.add(path);
       for (const subject of resultSubjectsForLockItem(graph, lock, item, outputPaths)) {
         appendEquivalentLockOutcome(
@@ -568,15 +574,20 @@ function marketplaceAuthorOutcome(args: {
 }
 
 function primaryOutputPathsForLockItem(
+  graph: BuildGraph,
+  lock: RenderedLock,
   item: RenderedLockItem,
   outputPaths: readonly string[]
 ): readonly string[] {
   if (item.kind !== "plugin") return outputPaths;
+  const target = targetForLockItem(graph, lock, item, outputPaths);
   return outputPaths.filter((path) =>
     path.endsWith("/.claude-plugin/plugin.json") ||
     path.endsWith("/.codex-plugin/plugin.json") ||
     path.endsWith("/.cursor-plugin/plugin.json") ||
+    path.endsWith("/chatgpt/plugin.json") ||
     path.endsWith("/agents/plugin.json") ||
+    (target !== undefined && isPluginManifestOutputPath(graph, path, target)) ||
     path.endsWith("/LICENSE.txt")
   );
 }
@@ -1145,11 +1156,6 @@ function featureOutcomesForLockItem(
       renderedOutputPaths,
       dependencyDestination
     );
-    const dependencyStatus =
-      supportedDependencyStatus === "degraded" &&
-      dependencyOutputs.length === 0
-        ? "unsupported"
-        : supportedDependencyStatus;
     outcomes.push(
       featureOutcome({
         destination: dependencyDestination,
@@ -1161,7 +1167,7 @@ function featureOutcomesForLockItem(
         outputPaths: dependencyOutputs,
         sourcePath: item.sourcePath,
         sourceUnit: selectorForPluginFeature(item.name, "dependencies"),
-        status: dependencyStatus,
+        status: supportedDependencyStatus,
         ...(standardProfile === undefined ? {} : { standardProfile }),
         target,
       })
@@ -1290,6 +1296,10 @@ function dependencyOutputPaths(
   destination: "plugin" | "plugin-manifest" | "skill-body"
 ): readonly string[] {
   if (target === undefined) return [];
+  // ChatGPT uses a fixed Agent Skills component. Unlike the legacy Codex
+  // derivation, it must not imply that dependency notices were written into
+  // SKILL.md merely because the package contains skills.
+  if (target === "codex" && destination === "skill-body") return [];
   if (destination === "plugin") return [];
   if (destination === "plugin-manifest") {
     const manifestPath = pluginManifestPath(

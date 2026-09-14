@@ -14,10 +14,13 @@ export interface CursorHookConformanceInputs {
 export interface InternalAuthoringConformanceResult {
   readonly attribution: "Skillset internal";
   readonly diagnostic?: string;
-  readonly id: "cursor-hooks-generated-native" | "cursor-hooks-malformed-flat";
+  readonly id:
+    | "chatgpt-plugin-generated-manifest"
+    | "cursor-hooks-generated-native"
+    | "cursor-hooks-malformed-flat";
   readonly result: "failed" | "passed";
   readonly surface: string;
-  readonly target: "cursor";
+  readonly target: "codex" | "cursor";
 }
 
 export async function stageCursorHookConformanceInputs(
