@@ -1,5 +1,44 @@
 # skillset
 
+## 0.27.0
+
+### Minor Changes
+
+- 545a73f: Adopt the validated Agent Instructions, Agent Skills, and Agent Plugins profiles so default builds emit their inherent standards projections with pinned conformance evidence.
+- b0f6b1c: Remove standards selection from source configuration and add Agent Skills `compatibility` plus `allowed_tools.agents`. Standards remain distinct from provider targets, and an explicit empty `compile.targets` selection is available for applicable adopted standards output. Normal builds gain each inherent applicable standard when its profile is adopted; pre-v3 generated locks require an owner-reviewed one-time rebuild and never authorize cleanup.
+- 21940a2: Generate individually installable Agent Skills from self-contained plugin source while diagnosing plugin dependencies and skill-local hooks that cannot survive standalone installation.
+- ec70bf5: Generate one repository-owned ChatGPT marketplace catalog from ordered Skillset marketplace source, with closed native source, policy, listing fallback, and interface mappings.
+- b863f40: Render the Codex-selected ChatGPT product bundle as an Agent Plugins root with a closed OpenAI extension, portable Agent Skills and MCP components, deterministic ownership locks, and pinned OpenAI consumer evidence.
+- 774b9de: Add a public registry surface for immutable candidate Agent Instructions,
+  Agent Skills, and Agent Plugins 1.0 evidence, including offline plugin and MCP
+  schema snapshots and report-only drift checks.
+
+### Patch Changes
+
+- e792ac3: Render Agent Instructions independently from provider selection, coalesce shared Codex `AGENTS.md` output under one standard owner, and honor explicit Agent Instructions opt-outs without recreating provider fallback files.
+- ccc667b: Render Agent Plugins 1.0 package manifests and neutral support files under `plugins/<plugin>/agents`, preserve standard ownership in the shared lock, report provider-only components as uncovered without leaking them into the standard package, and reject symlinked or out-of-scope license inputs before reading them.
+- d25e439: Render Agent Skills baselines for standalone and plugin-owned skills, coalesce compatible Codex skill trees with standard ownership, reject resource symlink escapes, and report standard-invalid components without suppressing valid provider output.
+- 16830c0: Fix implicit Claude marketplace catalogs so local plugin sources are not rebased twice by consumers.
+- cb9704c: Render canonical listing display names into Claude plugin manifests while preserving provider-native and marketplace label precedence.
+- 7c5143a: Coalesce standard baselines and provider deltas into one deterministic physical output plan, and safely clean inactive standard roots across live and isolated builds.
+- efe5cc7: Render versioned, flat Cursor plugin hook handlers from existing grouped hook source, preserve validated Cursor-native handler fields, omit portable status text that has no Cursor destination, and reject malformed flat handlers that previously bypassed validation.
+- 24bb38b: Lower canonical `implicit_invocation` to Cursor `disable-model-invocation` with inverse polarity, preserve native override precedence, and scope adopted provider-native invocation policy so it cannot leak into unrelated targets.
+- 953809b: Read current generated locks and render results through validated, versioned
+  readers while preserving lock identity and logical-consumer evidence. Diagnose
+  pre-v3 generated state as a coordinated rebuild instead of granting it cleanup
+  authority.
+- 1c2c8cb: Import Agent Plugins 1.0 packages into canonical plugin source, including portable metadata, skills, MCP configuration, and recognized support files, while blocking unmappable extensions before adoption writes.
+- ebadb1f: Document Agent standards as inherent adopted projections, distinguish project-agent and provider configuration from standards, enforce Agent Skills names in `skillset new skill`, and clarify the generated CI scaffold.
+- 6008bf9: Add version-qualified provider location evidence for distinct Claude, Codex, Cursor, and ChatGPT surfaces and expose it through the static lookup API and CLI.
+- c338af7: Refresh the exact hosted provider validator evidence and expose receipt-based freshness assessment for maintenance tooling.
+- 1926f66: Keep command-only build mode overrides out of generated lock provenance so later default status, check, diff, and update commands remain current.
+- 0c783cf: Expose standard-profile lifecycle, scope, evidence, ownership, and consumer
+  identity across CLI and JSON inspection surfaces while keeping provider
+  activation readiness separate from standards conformance.
+- 72447c0: Derive inherent Agent standards projections from applicable source and adopted registry profiles, independently from provider target selection.
+- f5fb227: Track SEP-2640 as an immutable candidate standard and record OpenAI's separate plugin-submission skill importer limits.
+- 20bd533: Parse plugin MCP source into one portable model, validate the Agent Plugins contract, render provider bundle bytes from that model, emit standard `mcp.json`, and rewrite provider dialects during import.
+
 ## 0.26.1
 
 ### Patch Changes
