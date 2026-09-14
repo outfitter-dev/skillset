@@ -23,7 +23,7 @@ Agent standards and provider targets are independent output axes. Adaptive sourc
 
 | Authored source | Inherent standard output | Selected-provider output |
 | --- | --- | --- |
-| `.skillset/rules/**/*.md` | Root or scoped `AGENTS.md` | Claude rules, Codex's compatible logical consumption of `AGENTS.md`, and Cursor rules |
+| `.skillset/rules/**/*.md` | Root or scoped `AGENTS.md` | Root `CLAUDE.md` for unscoped Claude guidance, scoped Claude rules, Codex's compatible logical consumption of `AGENTS.md`, and Cursor rules |
 | `.skillset/skills/<skill>/` | `.agents/skills/<skill>/` | Provider-native skill projections and Codex sidecars where applicable |
 | `.skillset/plugins/<plugin>/` | `plugins/<plugin>/agents/` | Claude bundles, Codex-selected ChatGPT bundles, and Cursor bundles |
 | `.skillset/agents/*.md` | None | Provider-native project-agent roles, including Codex subagent TOML under `.codex/agents/` |

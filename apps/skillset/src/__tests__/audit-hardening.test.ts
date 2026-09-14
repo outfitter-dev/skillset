@@ -84,8 +84,8 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   // Claude agents/ surface absent from Codex output (none declared here either).
   expect(await exists(join(root, "plugins/kitchen/chatgpt/commands/review.md"))).toBe(false);
 
-  // Rules lower to Claude rules and Codex AGENTS.md, with build-time variables.
-  expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Global Rule");
+  // Unscoped rules aggregate in CLAUDE.md; scoped rules retain native paths.
+  expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toContain("Global Rule");
   const docsRule = await readFile(join(root, ".claude/rules/docs/writing.md"), "utf8");
   expect(docsRule).toContain("paths:");
   expect(docsRule).toContain(".claude/rules/docs");

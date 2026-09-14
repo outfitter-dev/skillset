@@ -721,7 +721,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/render-rules.ts",
     sourceShape: ".skillset/rules/**/*.md",
     status: "implemented",
-    summary: "Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.",
+    summary:
+      "Renders unscoped Claude instructions to root CLAUDE.md, scoped Claude rules, and standard-owned AGENTS.md files.",
     targetSupport: {
       claude: { evidence: [docs("docs/reference/features/instructions.md")], status: "transformed" },
       codex: {

@@ -38,13 +38,14 @@ When Agent Instructions is adopted, every applicable instruction inherently cont
 
 ## Provider Output
 
-| Source | Claude | Codex | Cursor |
-| --- | --- | --- | --- |
-| `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | root or scoped `AGENTS.md` | `.cursor/rules/**/*.mdc` |
-| `.skillset/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a |
-| Plugin `rules/` | n/a | n/a | plugin `rules/` |
+| Source | Agent Instructions | Claude | Codex | Cursor |
+| --- | --- | --- | --- | --- |
+| Unscoped `.skillset/rules/**/*.md` | Root `AGENTS.md` | Root `CLAUDE.md` | Logical consumer of `AGENTS.md` | `.cursor/rules/**/*.mdc` |
+| Path-scoped `.skillset/rules/**/*.md` | Derived root or scoped `AGENTS.md` | `.claude/rules/**/*.md` | Logical consumer of `AGENTS.md` | `.cursor/rules/**/*.mdc` |
+| `.skillset/_codex/rules/**/*.rules` | n/a | n/a | `.codex/rules/**/*.rules` | n/a |
+| Plugin `rules/` | n/a | n/a | n/a | plugin `rules/` |
 
-Claude preserves path scope. Cursor translates it to Cursor rule frontmatter. Codex strips source frontmatter and combines contributing instructions in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped instructions contribute to the repository root. When Codex and Agent Instructions both consume a compatible `AGENTS.md`, the standard owns one physical file and Codex is recorded as a logical delta consumer.
+Agent Instructions strips source frontmatter and combines contributing instructions in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped instructions contribute to the repository root. Claude combines unscoped guidance once in root `CLAUDE.md`, with deterministic source order and source-boundary comments, and preserves path-scoped source as `.claude/rules/` files with `paths` frontmatter. Cursor translates path scope to Cursor rule frontmatter. When Codex is enabled, the standard owns the physical `AGENTS.md` and Codex is recorded as a logical delta consumer.
 
 Codex `.rules` files are [provider-native](../../glossary.md#provider-native) command-execution policy, not instruction prose. Plugin `rules/` are Cursor-native companions. Neither path is another portable instruction [source root](../../glossary.md#source-root).
 

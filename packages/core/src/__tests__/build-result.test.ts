@@ -1080,7 +1080,7 @@ Body.
     expect(result.writes.writtenPaths).toEqual(expect.arrayContaining([
       ".agents/skills/demo/SKILL.md",
       ".claude/agents/reviewer.md",
-      ".claude/rules/root.md",
+      "CLAUDE.md",
       ".codex/agents/reviewer.toml",
       "AGENTS.md",
     ]));
@@ -1232,8 +1232,8 @@ Read {{@references/agent.md}}.
       )
     ).toContain("Read references/shared-guide.md.");
     expect(
-      await readFile(join(root, ".claude/rules/root.md"), "utf8")
-    ).toContain("../../.skillset/rules/references/rule.md");
+      await readFile(join(root, "CLAUDE.md"), "utf8")
+    ).toContain(".skillset/rules/references/rule.md");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain(
       ".skillset/rules/references/rule.md"
     );

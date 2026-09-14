@@ -46,14 +46,14 @@ For a new child repository, `skillset create my-project --yes` also adds its ini
 
 | Authored input | Standard output | Provider output |
 | --- | --- | --- |
-| Unscoped `.skillset/rules/project.md` | Root `AGENTS.md` | Claude `.claude/rules/project.md`; Cursor `.cursor/rules/project.mdc`; Codex consumes compatible `AGENTS.md` |
+| Unscoped `.skillset/rules/project.md` | Root `AGENTS.md` | Root `CLAUDE.md`; Cursor `.cursor/rules/project.mdc`; Codex consumes compatible `AGENTS.md` |
 | Path-scoped instruction rules | Scoped `AGENTS.md` files | Claude and Cursor path-scoped rules |
 | `.skillset/skills/review-change/` | `.agents/skills/review-change/` | Claude and Cursor skill directories; Codex may share the standard skill and add native sidecars |
 | `.skillset/agents/reviewer.md` | No portable agent-role standard | Provider-native project agents, including `.claude/agents/reviewer.md` and `.codex/agents/reviewer.toml` |
 
 `AGENTS.md` and `.agents/skills/` remain applicable when a provider is disabled. For example, root `claude: false` controls Claude output without disabling the standards baseline. Project-agent roles and Codex-specific settings are separate from that baseline; see the [Codex provider guide](../reference/providers/codex.md).
 
-Current adaptive instruction rendering writes Claude rules under `.claude/rules/`; it does **not** aggregate them into root `CLAUDE.md`. Existing root `CLAUDE.md` can be adopted as instruction source, but adoption does not promise the same output filename. The [instruction reference](../reference/features/instructions.md) owns the supported mapping.
+Claude-enabled unscoped instructions aggregate into root `CLAUDE.md`. Instructions with `paths` remain separate files under `.claude/rules/`, so Claude loads each instruction once. Existing unmanaged root guidance remains protected by collision checks; move or adopt it into canonical source before asking Skillset to own that destination. The [instruction reference](../reference/features/instructions.md) owns the supported mapping.
 
 ## Build local files separately from plugin bundles
 
