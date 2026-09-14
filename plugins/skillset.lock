@@ -6,6 +6,66 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-plugins-1.0"
+        }
+      ],
+      "fileModes": {
+        "skillset/agents/CHANGELOG.md": "0644",
+        "skillset/agents/LICENSE.txt": "0644",
+        "skillset/agents/README.md": "0644",
+        "skillset/agents/plugin.json": "0644"
+      },
+      "files": [
+        "skillset/agents/CHANGELOG.md",
+        "skillset/agents/LICENSE.txt",
+        "skillset/agents/README.md",
+        "skillset/agents/plugin.json"
+      ],
+      "kind": "plugin",
+      "name": "skillset",
+      "outputHash": "sha256:b0cbaf8e8f1d5443a90c0cfd9ac7dd83deee79f77acaf198de7b2f98bc6fe5fe",
+      "outputPath": "skillset/agents/plugin.json",
+      "owner": {
+        "standardProfile": "agent-plugins-1.0"
+      },
+      "renderInputsHash": "sha256:749abcaf5c5cc9e5d13e215fdd5ef62c56950076294a772c9d901fb5f15bea4b",
+      "sourceHash": "sha256:eaa0005298633b97ad492a2f119aaaa8b1489814a95a4ba35867e286545aed9c",
+      "sourcePath": ".skillset/plugins/skillset",
+      "targetState": "sync",
+      "validation": "structured",
+      "version": "0.1.1"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-plugins-1.0"
+        }
+      ],
+      "fileModes": {
+        "skillset/agents/skills/use-skillset/LICENSE.txt": "0644",
+        "skillset/agents/skills/use-skillset/SKILL.md": "0644"
+      },
+      "files": [
+        "skillset/agents/skills/use-skillset/LICENSE.txt",
+        "skillset/agents/skills/use-skillset/SKILL.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "use-skillset",
+      "outputHash": "sha256:80f619919baddd3452276a4dd0130ea8d4840f83b3ab64503fc8f65684417071",
+      "outputPath": "skillset/agents/skills/use-skillset/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-plugins-1.0"
+      },
+      "plugin": "skillset",
+      "sourceHash": "sha256:e778f5ded89ce60e65f991a4d5cf8738e9611534d7e5a9af69dcddae77258451",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
       "fileModes": {
         "skillset/chatgpt/LICENSE.txt": "0644",
         "skillset/chatgpt/README.md": "0644",
@@ -136,8 +196,47 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:183dbf28c2d085a934156f88dfe83d0183d06ad2099b998692bedfc4ef15de78",
+  "provenanceHash": "sha256:de78e4d3910de3335ce221d2d4492dc1d2d51b78fb2e3d0f043bc4cd0367cdb6",
   "renderResults": [
+    {
+      "destination": "plugin-manifest",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 specification",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-manifests",
+      "outputs": [
+        {
+          "kind": "plugin",
+          "path": "plugins/skillset/agents/LICENSE.txt"
+        },
+        {
+          "kind": "plugin",
+          "path": "plugins/skillset/agents/plugin.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset",
+      "sourceUnit": "plugin.skillset.config:root",
+      "standardProfile": "agent-plugins-1.0",
+      "status": "rendered"
+    },
     {
       "destination": "plugin-manifest",
       "evidence": [
@@ -325,6 +424,45 @@
       "destination": "skill",
       "evidence": [
         {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 specification",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/agents/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/agents/skills/use-skillset/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "standardProfile": "agent-plugins-1.0",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
           "kind": "docs",
           "ref": "docs/reference/features/skills.md"
         },
@@ -381,6 +519,14 @@
       "outputs": [
         {
           "kind": "plugin-skill",
+          "path": ".agents/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": ".agents/skills/use-skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/chatgpt/skills/use-skillset/LICENSE.txt"
         },
         {
@@ -427,7 +573,11 @@
     }
   ],
   "schemaVersion": 3,
-  "selectedStandards": [],
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-plugins-1.0",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex",
@@ -435,5 +585,10 @@
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
+    "agent-plugins-1.0": "sha256:f1b89300d6c879de1c7a89f060faee2e6e6c76c71bbbcd9b0909d8ec00c18984",
+    "agent-skills": "sha256:984d0c3d846d1a89cb0fdadb09f2bb82e476dd81217688cfeab3ecdee16e58b2"
+  },
   "target": "workspace"
 }

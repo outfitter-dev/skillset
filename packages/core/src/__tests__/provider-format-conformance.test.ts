@@ -117,6 +117,11 @@ describe("provider format conformance", () => {
 
     const files = providerFormatConformanceFiles(build.data, build.renderResults);
     const report = checkProviderFormatConformance(files);
+    const flattenedPluginSkill = files.find(
+      (file) =>
+        file.path ===
+        ".skillset/cache/latest/.agents/skills/plugin-skill/SKILL.md"
+    );
 
     expect(files.map((file) => file.path).sort()).toEqual(expect.arrayContaining([
       ".skillset/cache/latest/AGENTS.md",
@@ -133,6 +138,15 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/.cursor/rules/root.mdc",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
+    expect(flattenedPluginSkill).toMatchObject({ standardProfile: "agent-skills" });
+    expect(new TextDecoder().decode(flattenedPluginSkill?.content)).toContain("license: MIT");
+    expect(
+      providerFormatConformanceFiles(build.data, build.renderResults.toReversed()).find(
+        (file) =>
+          file.path ===
+          ".skillset/cache/latest/.agents/skills/plugin-skill/SKILL.md"
+      )
+    ).toMatchObject({ standardProfile: "agent-skills" });
 
     const codexManifest = files.find((file) =>
       file.path.endsWith("/chatgpt/plugin.json")
@@ -191,6 +205,37 @@ describe("provider format conformance", () => {
       ["cursor-hooks", "unknown-destination-field", "plugins/alpha/cursor/hooks/hooks.json"],
     ]);
     expect(formatProviderFormatConformanceReport(report)).toContain("claude-plugin-manifest-schema");
+  });
+
+  it("keeps Agent Skills validation independent from a disabled Codex target", () => {
+    const report = checkProviderFormatConformance([
+      {
+        ...textFile(".agents/skills/demo/SKILL.md", [
+          "---",
+          "name: demo",
+          "unexpected: true",
+          "---",
+          "",
+          "Use the demo skill.",
+          "",
+        ].join("\n")),
+        standardProfile: "agent-skills",
+      },
+    ]);
+
+    expect(report.issues).toEqual([
+      expect.objectContaining({
+        code: "missing-required-field",
+        providerRef: "agent-skills-reference",
+        standardProfile: "agent-skills",
+      }),
+      expect.objectContaining({
+        code: "unknown-destination-field",
+        providerRef: "agent-skills-reference",
+        standardProfile: "agent-skills",
+      }),
+    ]);
+    expect(report.issues.every((issue) => issue.target === undefined)).toBe(true);
   });
 
   it("reports manual-overlay unknown destination fields", () => {

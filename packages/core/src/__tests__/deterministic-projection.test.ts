@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp, rm, symlink } from "node:fs/promises";
+import { cp, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -33,7 +33,14 @@ const DEMO_FIXTURE: Record<string, string> = {
 
 describe("deterministic projection runner", () => {
   it("proves the kitchen-sink fixture projects deterministically without live output writes", async () => {
-    const root = join(process.cwd(), "fixtures/kitchen-sink");
+    const sourceRoot = join(process.cwd(), "fixtures/kitchen-sink");
+    const root = await mkdtemp(join(tmpdir(), "skillset-kitchen-sink-projection-"));
+    await cp(sourceRoot, root, { recursive: true });
+    const configPath = join(root, "skillset.yaml");
+    const config = await Bun.file(configPath).text();
+    if (!config.includes("unsupportedDestination:")) {
+      await Bun.write(configPath, `${config}\ncompile:\n  unsupportedDestination: warn\n`);
+    }
 
     const report = await assertDeterministicProjection(root);
 

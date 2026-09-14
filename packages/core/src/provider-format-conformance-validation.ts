@@ -5,6 +5,8 @@ import {
   type ProviderJsonSchemaSummary,
   type ProviderSchemaManualOverlayId,
   type ProviderSchemaSnapshotId,
+  type ProviderValidationLaneId,
+  type StandardProfileId,
 } from "@skillset/registry";
 
 import { compareStrings } from "./path";
@@ -22,14 +24,23 @@ export type ProviderFormatConformanceIssueCode =
   | "missing-required-field"
   | "unknown-destination-field";
 
-export interface ProviderFormatConformanceIssue {
+interface ProviderFormatConformanceIssueBase {
   readonly code: ProviderFormatConformanceIssueCode;
   readonly message: string;
   readonly outputPath: string;
-  readonly providerRef: ProviderDestinationFormatSnapshotId | ProviderSchemaManualOverlayId | ProviderSchemaSnapshotId;
+  readonly providerRef:
+    | ProviderDestinationFormatSnapshotId
+    | ProviderSchemaManualOverlayId
+    | ProviderSchemaSnapshotId
+    | ProviderValidationLaneId;
   readonly sourcePath?: string;
-  readonly target: TargetName;
 }
+
+export type ProviderFormatConformanceIssue =
+  ProviderFormatConformanceIssueBase & (
+    | { readonly standardProfile: StandardProfileId; readonly target?: never }
+    | { readonly standardProfile?: never; readonly target: TargetName }
+  );
 
 export interface ProviderFormatConformanceFile {
   readonly content: Uint8Array;
@@ -37,6 +48,7 @@ export interface ProviderFormatConformanceFile {
   readonly featureId?: string;
   readonly path: string;
   readonly sourcePath?: string;
+  readonly standardProfile?: StandardProfileId;
   readonly target?: TargetName;
 }
 
@@ -220,7 +232,9 @@ export function issue(
     outputPath: file.path,
     providerRef,
     ...(file.sourcePath === undefined ? {} : { sourcePath: file.sourcePath }),
-    target,
+    ...(file.standardProfile === undefined
+      ? { target }
+      : { standardProfile: file.standardProfile }),
   };
 }
 

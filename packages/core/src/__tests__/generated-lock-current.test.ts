@@ -9,6 +9,7 @@ import { collectLockItems } from "../authoring";
 import { withLockProvenance } from "../lock-provenance";
 
 const textEncoder = new TextEncoder();
+const AGENT_SKILLS_RECEIPT_HASH = `sha256:${"a".repeat(64)}`;
 
 test("reads provenance-valid v3 lock identity and logical consumers", () => {
   const lock = withLockProvenance({
@@ -37,6 +38,9 @@ test("reads provenance-valid v3 lock identity and logical consumers", () => {
     ],
     outputRoot: ".agents/skills",
     schemaVersion: 3,
+    standardProfileEvidence: {
+      "agent-skills": AGENT_SKILLS_RECEIPT_HASH,
+    },
     selectedStandards: ["agent-skills"],
     selectedTargets: ["codex"],
     sourceInventory: {
@@ -77,6 +81,9 @@ test("reads provenance-valid v3 lock identity and logical consumers", () => {
       hashSchema: "skillset-source-unit-v3",
       units: [{ id: "skill:demo" }],
     },
+    standardProfileEvidence: {
+      "agent-skills": AGENT_SKILLS_RECEIPT_HASH,
+    },
   });
   expect(() => parseGeneratedLock({ ...lock, selectedTargets: [] })).toThrow(
     "invalid provenanceHash"
@@ -96,6 +103,7 @@ test("keeps sparse lock items matchable through their files", () => {
     ],
     outputRoot: ".agents/skills",
     schemaVersion: 3,
+    standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: ["codex"],
     target: "codex",
@@ -142,6 +150,7 @@ test("rejects future schemas and paths outside a current lock root", () => {
     items: [],
     outputRoot: "../outside",
     schemaVersion: 3,
+    standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: [],
     target: "workspace",
@@ -160,6 +169,7 @@ test("rejects future schemas and paths outside a current lock root", () => {
     ],
     outputRoot: ".agents/skills",
     schemaVersion: 3,
+    standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: ["codex"],
     target: "codex",
@@ -182,6 +192,7 @@ test("rejects invalid current owner and consumer relationships", () => {
     ],
     outputRoot: ".agents/skills",
     schemaVersion: 3,
+    standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: ["codex"],
     target: "workspace",
@@ -190,4 +201,68 @@ test("rejects invalid current owner and consumer relationships", () => {
   expect(() => parseCurrentGeneratedLock(lock)).toThrow(
     "owner must match a logical consumer"
   );
+});
+
+test("requires exact standard profile receipt evidence in current locks", () => {
+  const base = {
+    generatedBy: "skillset@0.1.0",
+    items: [],
+    outputRoot: ".",
+    schemaVersion: 3,
+    selectedStandards: ["agent-skills"],
+    selectedTargets: [],
+    target: "workspace",
+  };
+
+  expect(() => parseCurrentGeneratedLock(withLockProvenance(base))).toThrow(
+    "schema v3 standardProfileEvidence must be an object"
+  );
+  expect(
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...base,
+        selectedStandards: [],
+      })
+    ).standardProfileEvidence
+  ).toEqual({});
+  expect(() =>
+    parseCurrentGeneratedLock(
+      withLockProvenance({ ...base, standardProfileEvidence: {} })
+    )
+  ).toThrow(
+    "standardProfileEvidence must contain exactly the selectedStandards profiles"
+  );
+  expect(() =>
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...base,
+        standardProfileEvidence: { "agent-skills": "sha256:invalid" },
+      })
+    )
+  ).toThrow(
+    "standardProfileEvidence.agent-skills must be a sha256 content hash"
+  );
+  expect(() =>
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...base,
+        standardProfileEvidence: {
+          "agent-skills": AGENT_SKILLS_RECEIPT_HASH,
+          "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
+        },
+      })
+    )
+  ).toThrow(
+    "standardProfileEvidence must contain exactly the selectedStandards profiles"
+  );
+  expect(() =>
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...base,
+        standardProfileEvidence: {
+          "future-standard": `sha256:${"b".repeat(64)}`,
+        },
+      })
+    )
+  ).toThrow("standardProfile must be a standard profile id");
 });

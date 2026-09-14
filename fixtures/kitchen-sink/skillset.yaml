@@ -5,6 +5,8 @@ skillset:
   listing:
     display_name: Kitchen Sink
     summary: Fixture root exercising every implemented skillset source surface.
+compile:
+  unsupportedDestination: warn
 claude:
   plugins: true
   skills: true

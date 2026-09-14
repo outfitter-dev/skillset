@@ -25,6 +25,7 @@ import {
   type ProviderFormatConformanceIssue,
 } from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
+import { AGENT_SKILLS_FRONTMATTER_KEYS } from "./render-agent-skills-standard";
 import type { SkillsetRenderResult } from "./render-result";
 import type { JsonRecord, JsonValue, RenderedFile, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
@@ -76,17 +77,28 @@ export function providerFormatConformanceFiles(
   const selected = new Map<string, ProviderFormatConformanceFile>();
 
   for (const outcome of renderResults) {
-    if (outcome.outputs === undefined || outcome.target === undefined) continue;
+    if (outcome.outputs === undefined) continue;
     if (!isProviderFormatConformanceOutcome(outcome)) continue;
     for (const output of outcome.outputs) {
       const file = renderedByPath.get(output.path);
-      if (file === undefined || selected.has(file.path)) continue;
+      if (file === undefined) continue;
+      const existing = selected.get(file.path);
+      if (
+        existing !== undefined &&
+        (existing.standardProfile !== undefined ||
+          outcome.standardProfile === undefined)
+      ) {
+        continue;
+      }
       selected.set(file.path, {
         ...file,
         ...(outcome.destination === undefined ? {} : { destination: outcome.destination }),
         featureId: outcome.featureId,
         ...(outcome.sourcePath === undefined ? {} : { sourcePath: outcome.sourcePath }),
-        target: outcome.target,
+        ...(outcome.standardProfile === undefined
+          ? {}
+          : { standardProfile: outcome.standardProfile }),
+        ...(outcome.target === undefined ? {} : { target: outcome.target }),
       });
     }
   }
@@ -100,6 +112,9 @@ export function providerFormatConformanceFiles(
 }
 
 function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): boolean {
+  if (outcome.standardProfile === "agent-skills") {
+    return outcome.featureId === "standalone-skills" || outcome.featureId === "plugin-skills";
+  }
   if (outcome.target === undefined) return false;
   if (outcome.featureId === "plugin-manifests") return true;
   if (outcome.featureId === "plugin-hooks") return true;
@@ -1010,12 +1025,32 @@ function checkSkillMarkdown(
   const target = file.target ?? skillTarget(file.path) ?? "claude";
   const providerRef =
     target === "codex" ? "codex-skill" : target === "cursor" ? "cursor-skill" : "claude-skill-frontmatter-overlay";
+  const issueRef =
+    file.standardProfile === "agent-skills"
+      ? "agent-skills-reference"
+      : providerRef;
   const text = textDecoder.decode(file.content);
   let frontmatter: JsonRecord;
   try {
     frontmatter = parseMarkdown(text, file.path).frontmatter;
   } catch (error) {
-    return [issue(file, target, providerRef, "invalid-markdown", errorMessage(error))];
+    return [issue(file, target, issueRef, "invalid-markdown", errorMessage(error))];
+  }
+
+  if (file.standardProfile === "agent-skills") {
+    return [
+      ...checkRequiredFields(file, frontmatter, "codex", issueRef, [
+        "name",
+        "description",
+      ]),
+      ...checkUnknownFields(
+        file,
+        frontmatter,
+        "codex",
+        issueRef,
+        AGENT_SKILLS_FRONTMATTER_KEYS
+      ),
+    ];
   }
 
   if (target === "claude") {

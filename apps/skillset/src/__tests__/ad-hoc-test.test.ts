@@ -121,6 +121,7 @@ skillset:
   name: target-filter-runtime-fixture
 compile:
   targets: [claude, codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/tools/skillset.yaml": `
 skillset:

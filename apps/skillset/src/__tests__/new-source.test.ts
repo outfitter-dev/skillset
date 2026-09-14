@@ -298,6 +298,14 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
+  const workspaceConfigPath = join(root, "skillset.yaml");
+  await Bun.write(
+    workspaceConfigPath,
+    (await readFile(workspaceConfigPath, "utf8")).replace(
+      "compile:\n",
+      "compile:\n  unsupportedDestination: warn\n"
+    )
+  );
   await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
   const configPath = join(root, ".skillset/plugins/guard/skillset.yaml");
   await Bun.write(configPath, "skillset:\n  name: guard\n");

@@ -996,9 +996,9 @@ test("SET-394: equivalent plugin adoption rejects executable-mode disagreement",
 test("SET-225: adopt keeps similar different identities separate and reports the warning", async () => {
   const root = await pluginFixture({
     "plugins/alpha/.claude-plugin/plugin.json": manifest("alpha"),
-    "plugins/alpha/skills/helper/SKILL.md": skill("shared"),
+    "plugins/alpha/README.md": "shared\n",
     "plugins/beta/.codex-plugin/plugin.json": manifest("beta"),
-    "plugins/beta/skills/helper/SKILL.md": skill("shared"),
+    "plugins/beta/README.md": "shared\n",
   });
 
   const report = await adoptSkillset(root, { write: true });

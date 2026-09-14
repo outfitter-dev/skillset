@@ -62,6 +62,10 @@ test("an explicit write rechecks lint errors and refuses output mutation", async
   const root = await fixture();
   try {
     await writeFile(
+      join(root, "skillset.yaml"),
+      "skillset:\n  name: readiness-fixture\nclaude: true\ncodex: false\ncursor: false\ncompile:\n  unsupportedDestination: warn\n"
+    );
+    await writeFile(
       join(root, ".skillset/skills/demo/SKILL.md"),
       `---\nname: demo\ndescription: ${"x".repeat(1030)}\n---\n\nBody.\n`
     );

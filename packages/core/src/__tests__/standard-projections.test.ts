@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  resolveCandidateStandardProjectionPlan,
   resolveStandardProjectionPlan,
   standardProjectionManagedOutputRoots,
   standardProjectionSourceInventory,
@@ -21,6 +22,7 @@ import { validateOutputRoots } from '../resolver'
 import type { BuildGraph, RenderedFile, SourcePlugin, SourceRule, StandaloneSkill } from '../types'
 
 const allSource = { instructions: 1, plugins: 1, skills: 1 }
+const TEST_RECEIPT_HASH = `sha256:${'a'.repeat(64)}` as const
 
 describe('standard projection resolution', () => {
   test('keeps source applicability independent from provider toggles', () => {
@@ -28,6 +30,11 @@ describe('standard projection resolution', () => {
 
     expect(plan).toEqual({
       adopted: ['agent-instructions', 'agent-plugins-1.0', 'agent-skills'],
+      adoptionReceiptHashes: {
+        'agent-instructions': TEST_RECEIPT_HASH,
+        'agent-plugins-1.0': TEST_RECEIPT_HASH,
+        'agent-skills': TEST_RECEIPT_HASH,
+      },
     })
   })
 
@@ -185,10 +192,40 @@ describe('standard projection resolution', () => {
     ).toThrow('outputs.skills.custom reuses output root .agents/skills')
   })
 
-  test('keeps candidate profiles out of production resolution', () => {
+  test('activates the shipped adopted profiles in production resolution', () => {
     const plan = resolveStandardProjectionPlan(allSource)
 
-    expect(plan.adopted).toEqual([])
+    expect(plan.adopted).toEqual([
+      'agent-instructions',
+      'agent-plugins-1.0',
+      'agent-skills',
+    ])
+  })
+
+  test('admits only applicable candidate profiles through the private conformance plan', () => {
+    expect(
+      resolveCandidateStandardProjectionPlan(
+        allSource,
+        'agent-skills',
+        candidateProfiles()
+      )
+    ).toEqual({ adopted: ['agent-skills'], adoptionReceiptHashes: {} })
+
+    expect(() =>
+      resolveCandidateStandardProjectionPlan(
+        { ...allSource, skills: 0 },
+        'agent-skills',
+        candidateProfiles()
+      )
+    ).toThrow('agent-skills has no applicable skills source')
+
+    expect(() =>
+      resolveCandidateStandardProjectionPlan(
+        allSource,
+        'agent-skills',
+        adoptedProfiles()
+      )
+    ).toThrow('agent-skills is adopted')
   })
 
   test('keeps retired profiles out of production resolution', () => {
@@ -203,6 +240,11 @@ describe('standard projection resolution', () => {
 
     expect(plan).toEqual({
       adopted: ['agent-instructions', 'agent-plugins-1.0', 'agent-skills'],
+      adoptionReceiptHashes: {
+        'agent-instructions': TEST_RECEIPT_HASH,
+        'agent-plugins-1.0': TEST_RECEIPT_HASH,
+        'agent-skills': TEST_RECEIPT_HASH,
+      },
     })
   })
 })
@@ -214,15 +256,34 @@ function adoptedPlan() {
 function adoptedProfiles(): readonly StandardProfile[] {
   return listStandardProfiles().map(profile => ({
     ...profile,
+    adoption: {
+      profileContentHash: profile.provenance.contentHash as `sha256:${string}`,
+      receipt: {
+        contentHash: TEST_RECEIPT_HASH,
+        path: `fixtures/standards/evidence/${profile.id}.json`,
+        schema: 'skillset.standards-conformance-receipt@1' as const,
+      },
+      rendererCommit: 'a'.repeat(40),
+      schema: 'skillset-standard-profile-adoption@1' as const,
+      verifiedAt: '2026-09-13T00:00:00.000Z',
+    },
     lifecycle: 'adopted' as const,
   }))
 }
 
+function candidateProfiles(): readonly StandardProfile[] {
+  return listStandardProfiles().map(profile => {
+    const { adoption: _adoption, ...candidate } = profile
+    return { ...candidate, lifecycle: 'candidate' as const }
+  })
+}
+
 function retiredSkillsProfiles(): readonly StandardProfile[] {
-  return listStandardProfiles().map(profile => ({
-    ...profile,
-    lifecycle: profile.id === 'agent-skills' ? 'retired' as const : 'adopted' as const,
-  }))
+  return adoptedProfiles().map(profile => {
+    if (profile.id !== 'agent-skills') return profile
+    const { adoption: _adoption, ...candidate } = profile
+    return { ...candidate, lifecycle: 'retired' as const }
+  })
 }
 
 function graphForScope(standardProjections: BuildGraph['standardProjections']): BuildGraph {

@@ -449,6 +449,9 @@ cursor: true
       ...loaded,
       standardProjections: {
         adopted: ["agent-plugins-1.0" as const],
+        adoptionReceiptHashes: {
+          "agent-plugins-1.0": `sha256:${"a".repeat(64)}` as const,
+        },
       },
     };
     const rendered = await renderBuildGraph(graph);

@@ -929,23 +929,29 @@ function marketplaceGeneratedPaths(
   target: TargetName,
   pluginId: string
 ): readonly string[] {
-  const lock = lockRoots.get(outputRoot);
-  if (lock === undefined) return [];
   const paths = new Set<string>();
   const bundleSegment = target === "codex" ? "chatgpt" : target;
-  for (const item of lock.items) {
-    if (
-      item.plugin !== pluginId &&
-      !(item.kind === "plugin" && item.name === pluginId)
-    )
-      continue;
-    for (const file of item.files) {
+  for (const [lockRoot, lock] of lockRoots) {
+    for (const item of lock.items) {
       if (
-        isDefaultPluginOutputRoot(outputRoot) &&
-        !file.startsWith(`${pluginId}/${bundleSegment}/`)
+        item.plugin !== pluginId &&
+        !(item.kind === "plugin" && item.name === pluginId)
       )
         continue;
-      paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+      const providerBundleItem = lockRoot === outputRoot;
+      const targetConsumer = item.consumers?.some(
+        (consumer) => "target" in consumer && consumer.target === target
+      );
+      if (!providerBundleItem && !targetConsumer) continue;
+      for (const file of item.files) {
+        if (
+          providerBundleItem &&
+          isDefaultPluginOutputRoot(outputRoot) &&
+          !file.startsWith(`${pluginId}/${bundleSegment}/`)
+        )
+          continue;
+        paths.add(join(lockRoot, file).replaceAll("\\", "/"));
+      }
     }
   }
   return [...paths].sort(compareStrings);

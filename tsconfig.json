@@ -25,6 +25,7 @@
     "scripts/provider-maintenance.ts",
     "scripts/release-policy.ts",
     "scripts/bootstrap/**/*.ts",
+    "scripts/conformance/**/*.ts",
     "scripts/__tests__/**/*.ts"
   ]
 }

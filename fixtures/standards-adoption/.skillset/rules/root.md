@@ -1,0 +1,3 @@
+# Root adoption sentinel
+
+SET411_ROOT_INSTRUCTIONS_SENTINEL

@@ -138,9 +138,12 @@ describe("plugin bundle root ownership", () => {
       expect(build.ok).toBe(true);
       expect(build.data.filter((file) => file.path.endsWith("/README.md")).map((file) => file.path)).toEqual([
         "dist/README.md",
+        "plugins/README.md",
       ]);
       expect(build.writes.paths).toContain("dist/README.md");
+      expect(build.writes.paths).toContain("plugins/README.md");
       expect(await Bun.file(join(root, "dist/README.md")).exists()).toBe(true);
+      expect(await Bun.file(join(root, "plugins/README.md")).exists()).toBe(true);
       expect((await verifySkillsetResult(root)).ok).toBe(true);
       expect((await diffSkillsetResult(root)).data).toEqual({
         added: [],

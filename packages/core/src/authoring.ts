@@ -511,6 +511,7 @@ export async function doctorSkillset(
       standardProfiles: standardProfileStatuses(
         {
           adopted: [],
+          adoptionReceiptHashes: {},
         },
         options.scopes
       ),

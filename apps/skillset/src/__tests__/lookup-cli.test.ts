@@ -144,7 +144,7 @@ test("SET-220: lookup without a subject lists static reference subjects", async 
   expect(result.stdout).toContain("--frontmatter --fields --field <path>");
 });
 
-test("SET-406: lookup standards distinguishes candidate profiles from targets", async () => {
+test("SET-406: lookup standards distinguishes adopted profiles from targets", async () => {
   const text = await runSkillsetCli("lookup", "standards");
   const json = await runSkillsetCli("lookup", "standards", "--json");
   const invalid = await runSkillsetCli(
@@ -168,16 +168,16 @@ test("SET-406: lookup standards distinguishes candidate profiles from targets", 
   );
 
   expect(text.exitCode).toBe(0);
-  expect(text.stdout).toContain("agent-skills: candidate (unversioned)");
+  expect(text.stdout).toContain("agent-skills: adopted (unversioned)");
   expect(text.stdout).toContain("standalone-skills: required");
   expect(text.stdout).toContain("evidence: specification https://");
   expect(json.exitCode).toBe(0);
   expect(readResultData(json.stdout)).toMatchObject({
     compatibility: [],
     standards: [
-      { id: "agent-instructions", lifecycle: "candidate" },
-      { id: "agent-plugins-1.0", lifecycle: "candidate" },
-      { id: "agent-skills", lifecycle: "candidate" },
+      { id: "agent-instructions", lifecycle: "adopted" },
+      { id: "agent-plugins-1.0", lifecycle: "adopted" },
+      { id: "agent-skills", lifecycle: "adopted" },
     ],
     subject: "standards",
     targets: [],

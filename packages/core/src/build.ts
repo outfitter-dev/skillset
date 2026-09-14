@@ -129,6 +129,7 @@ const LOCK_TOP_LEVEL_KEYS = new Set([
   "provenanceHash",
   "renderResults",
   "schemaVersion",
+  "standardProfileEvidence",
   "selectedStandards",
   "selectedTargets",
   "skillsetMetadata",
@@ -1065,6 +1066,7 @@ function hasLegacyTopLevelChanges(
             key !== "items" &&
             key !== "provenanceHash" &&
             key !== "schemaVersion" &&
+            key !== "standardProfileEvidence" &&
             key !== "selectedStandards"
           )
           .map(([key, value]) => [

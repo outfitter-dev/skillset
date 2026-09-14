@@ -39,7 +39,7 @@ describe("adapter conformance coverage", () => {
         sourceUnit: "future:demo",
         target: "codex",
       },
-    ], registry());
+    ], registry(), []);
 
     expect(report.ok).toBe(false);
     expect(report.entries.map((entry) => `${entry.featureId}:${adapterConformanceIdentityLabel(entry)}:${entry.coverage}:${entry.supportStatus ?? ""}`)).toEqual([

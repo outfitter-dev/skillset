@@ -1107,9 +1107,14 @@ function adopted(
     ...graph,
     standardProjections: {
       adopted: profiles,
+      adoptionReceiptHashes: Object.fromEntries(
+        profiles.map((profile) => [profile, TEST_RECEIPT_HASH])
+      ),
     },
   };
 }
+
+const TEST_RECEIPT_HASH = `sha256:${"a".repeat(64)}` as const;
 
 function paths(rendered: readonly RenderedFile[]): readonly string[] {
   return rendered.map((file) => file.path);

@@ -1216,6 +1216,9 @@ function adopted(graph: BuildGraph): BuildGraph {
     ...graph,
     standardProjections: {
       adopted: ["agent-plugins-1.0"],
+      adoptionReceiptHashes: {
+        "agent-plugins-1.0": `sha256:${"a".repeat(64)}` as const,
+      },
     },
   };
 }

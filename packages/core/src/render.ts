@@ -169,7 +169,6 @@ function translateClaudeDialect(body: string): TranslatedBody {
   return { text, transforms };
 }
 
-
 interface RenderedIslandFile {
   readonly file: RenderedFile;
   readonly preprocessDependencies: readonly string[];
@@ -250,6 +249,40 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
     .map((file) => validateRenderedFile(file));
 }
 
+
+/** @internal Render selected standard artifacts without production lock claims. */
+export async function renderStandardProjectionBuildGraph(
+  graph: BuildGraph
+): Promise<readonly RenderedFile[]> {
+  const lockRoots = new Map<string, LockRoot>();
+  const rendered = await renderStandardProjectionArtifacts(graph, lockRoots);
+  return [...planRenderedFiles(rendered)]
+    .sort((left, right) => compareStrings(left.path, right.path))
+    .map((file) => validateRenderedFile(file));
+}
+
+async function renderStandardProjectionArtifacts(
+  graph: BuildGraph,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  return [
+    ...(await renderAgentPluginStandardPackages(graph, lockRoots)),
+    ...(await renderAgentSkillStandards(
+      graph,
+      lockRoots,
+      lockItemForSkill,
+      (plugin, skill, baselineContent) =>
+        renderCodexSkillMarkdownFromStandard(
+          graph,
+          plugin,
+          skill,
+          baselineContent
+        )
+    )),
+    ...(await renderRules(graph, lockRoots)),
+  ];
+}
+
 function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
   return (
     plugin.targets[target].enabled &&
@@ -296,7 +329,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
             "",
             "Generated Skillset plugin repository.",
             "",
-            ...(renderAgentPlugins
+            ...(renderAgentPlugins && activeTargets.length === 0
               ? [
                   "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
                 ]
@@ -1646,6 +1679,18 @@ async function renderLockFiles(
         ? marketplaceLockProvenance(graph, lockRoots, existingMarketplaceState)
         : {}),
       selectedTargets: [...graph.root.compile.targets],
+      standardProfileEvidence: Object.fromEntries(
+        graph.standardProjections.adopted.map((profileId) => {
+          const receiptHash =
+            graph.standardProjections.adoptionReceiptHashes[profileId];
+          if (receiptHash === undefined) {
+            throw new Error(
+              `skillset: adopted standard profile ${profileId} has no adoption receipt evidence`
+            );
+          }
+          return [profileId, receiptHash];
+        })
+      ),
       selectedStandards: [...graph.standardProjections.adopted],
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,

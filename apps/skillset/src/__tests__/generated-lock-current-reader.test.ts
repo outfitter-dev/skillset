@@ -17,6 +17,7 @@ test("change status reads a provenance-valid v3 source inventory", async () => {
         items: [],
         outputRoot: ".",
         schemaVersion: 3,
+        standardProfileEvidence: {},
         selectedStandards: [],
         selectedTargets: [],
         sourceInventory: {

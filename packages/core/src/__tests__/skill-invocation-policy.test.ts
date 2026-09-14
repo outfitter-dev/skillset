@@ -212,7 +212,10 @@ cursor: false
   });
   const graph = {
     ...(await loadBuildGraph(root)),
-    standardProjections: { adopted: ["agent-skills" as const] },
+    standardProjections: {
+      adopted: ["agent-skills" as const],
+      adoptionReceiptHashes: { "agent-skills": `sha256:${"a".repeat(64)}` as const },
+    },
   };
   const rendered = await renderBuildGraph(graph);
   const results = collectRenderResults(graph, rendered, {

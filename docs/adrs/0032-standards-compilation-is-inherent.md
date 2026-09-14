@@ -57,11 +57,14 @@ preserves the declared applicable meaning, records the supported transformation,
 or follows the established unsupported-destination policy. It never invents an
 empty or approximate standard artifact to make the plan look complete.
 
-Candidate and retired profiles remain excluded from normal output, locks, and
-claims. Their lifecycle, pinned evidence, offline validation, fixtures,
-real-client conformance, and drift/retirement requirements remain the adoption
-gate. The repository-internal candidate conformance route remains isolated from
-normal builds and must not mutate production outputs, locks, or registry state.
+The Agent Instructions, Agent Skills, and Agent Plugins 1.0 profiles are
+adopted, so applicable source renders their standard projections in normal
+builds. Future candidate and retired profiles remain excluded from normal
+output, locks, and claims. Their lifecycle, pinned evidence, offline validation,
+fixtures, real-client conformance, and drift/retirement requirements remain the
+adoption gate. The repository-internal candidate conformance route remains
+isolated from normal builds and must not mutate production outputs, locks, or
+registry state.
 
 ### Standards switches are removed instead of relocated
 
@@ -112,21 +115,21 @@ only when at least one applicable adopted standard projection remains. No
 standard projection and no provider projection is an actionable no-projections
 failure, never a fake provider target.
 
-### The current implementation is not yet this contract
+### The implementation enforces this contract
 
-The current code still parses `compile.agents`, defaults its three families,
-and passes that selection into the standard projection planner. The current
-registry profiles remain candidates. Existing partial renderer work for Agent
-Instructions, Agent Skills, and Agent Plugins, plus the shared
-planner/lock/result work, must therefore be completed and verified before an
-adopted standards projection can be a normal rendered output.
+The source schema no longer accepts `compile.agents`, and the compiler derives
+the three adopted projections from source applicability and registry lifecycle.
+The planner and result model retain standards identity, shared physical output
+ownership, resource and license fidelity, native package components,
+unsupported diagnostics, and safe stale cleanup without an author opt-out path.
 
-Implementation must remove the selection layer while retaining the smaller
-existing seams: source-inventory applicability, lifecycle filtering, standards
-identity in locks/results, shared physical output planning, resource/license
-fidelity, native package components, unsupported diagnostics, and safe stale
-cleanup. It must verify standard-only, provider-only, combined-consumer, and
-consumer-removal cases without reintroducing an author opt-out path.
+Each adopted profile is bound to its checked-in candidate receipt by registry
+evidence. Normal repository checks validate the complete current profile
+snapshot and fixture tree, then reproduce the receipt's standard-owned bytes
+through the ordinary compiler path. That durability proof is offline and does
+not depend on a clean working tree or Git ancestry; clean renderer identity and
+pinned real-client evidence remain properties of the immutable candidate
+receipt.
 
 ## Consequences
 

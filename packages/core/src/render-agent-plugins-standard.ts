@@ -16,6 +16,7 @@ import type { PortableMcpModel } from "./portable-mcp";
 import {
   copyFileFromSource,
   lockRootsFor,
+  normalizeManagedRelativePath,
   renderedFileModes,
   textFile,
   type LockItem,
@@ -403,7 +404,7 @@ function agentPluginLockItem(
     files: relativeFiles,
     kind: "plugin",
     name: plugin.id,
-    outputHash: hashRenderedFiles("agent-plugins-output-v1", files),
+    outputHash: hashGeneratedOutputFiles(AGENT_PLUGIN_OUTPUT_ROOT, files),
     outputPath: `${plugin.id}/agents/plugin.json`,
     owner: { standardProfile: AGENT_PLUGIN_PROFILE },
     renderInputsHash: hashJson("agent-plugins-inputs-v1", {
@@ -435,6 +436,27 @@ function hashRenderedFiles(
     hash.update(file.path);
     hash.update("\0");
     hash.update(String(file.mode));
+    hash.update("\0");
+    hash.update(file.content);
+    hash.update("\0");
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function hashGeneratedOutputFiles(
+  outputRoot: string,
+  files: readonly RenderedFile[]
+): string {
+  const hash = createHash("sha256");
+  hash.update("skillset-output-v2\0");
+  for (const file of [...files].toSorted((left, right) =>
+    compareStrings(left.path, right.path)
+  )) {
+    hash.update(
+      normalizeManagedRelativePath(path.relative(outputRoot, file.path))
+    );
+    hash.update("\0");
+    hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");
     hash.update(file.content);
     hash.update("\0");

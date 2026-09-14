@@ -1,16 +1,18 @@
 ---
-description: Records immutable candidate evidence for the Agent Instructions, Agent Skills, and Agent Plugins portability profiles.
+description: Records adopted Agent Instructions, Agent Skills, and Agent Plugins portability profiles and their immutable conformance evidence.
 ---
 
 # Standard Profiles
 
 The independent @skillset/registry standard-profile registry records the portable floor. Provider destination snapshots and Core capability tables stay separate: standards define portable structure while providers define native deltas and runtime evidence.
 
-The initial Agent Instructions, Agent Skills, and Agent Plugins 1.0 profiles are all candidate. Agent Plugins stores the complete pinned plugin.json and mcp.json JSON Schema bodies for offline validation. Each profile also owns its expected feature envelopes for later adapter conformance.
+The Agent Instructions, Agent Skills, and Agent Plugins 1.0 profiles are adopted. Agent Plugins stores the complete pinned plugin.json and mcp.json JSON Schema bodies for offline validation. Each profile also owns its expected feature envelopes for adapter conformance.
 
 Lifecycle and source applicability are the complete selection model. An adopted applicable profile renders inherently; a candidate or retired profile does not participate in normal output, locks, or claims. Workspace, plugin, and frontmatter configuration has no standards selector or opt-out. `compile.targets` remains provider-only, and a provider may consume a compatible standard-owned physical file as a recorded delta.
 
 Every snapshot stores the byte-for-byte body fetched from an immutable raw source revision. The registry records both that revision URL and the matching current raw URL for the same repository path. The current URL is used only by explicit maintenance commands, so a comparison is between the same source format and never an extracted or normalized website response. Normal builds remain offline.
+
+Each adopted profile points to an immutable checked-in candidate conformance receipt. Normal repository checks re-hash that receipt, match its complete profile snapshot to the current registry contract, re-hash the adoption fixture tree, and reproduce the standard-owned output bytes through the ordinary compiler path. This durability check is offline and does not require a clean Git checkout or renderer-commit ancestry; the recorded clean renderer commit remains historical evidence from the candidate run.
 
 | Profile | Immutable revision | Current comparison source |
 | --- | --- | --- |

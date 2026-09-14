@@ -235,12 +235,12 @@ describe("source rename planner", () => {
     });
   });
 
-  test("keeps same-named skills isolated by standalone and plugin ownership", async () => {
+  test("keeps standalone and plugin skill references isolated by ownership", async () => {
     const root = await fixture({
       ".skillset/agents/reviewer.md":
-        "---\ndescription: Reviewer\nskills: [old, plugin.tools.skill:old]\n---\n\nReview\n",
-      ".skillset/plugins/tools/skills/old/SKILL.md":
-        "---\nname: old\ndescription: Plugin old\n---\n\nPlugin\n",
+        "---\ndescription: Reviewer\nskills: [old, plugin.tools.skill:tools-old]\n---\n\nReview\n",
+      ".skillset/plugins/tools/skills/tools-old/SKILL.md":
+        "---\nname: tools-old\ndescription: Plugin old\n---\n\nPlugin\n",
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
       ".skillset/skills/old/SKILL.md":
         "---\nname: old\ndescription: Standalone old\n---\n\nStandalone\n",
@@ -249,7 +249,7 @@ describe("source rename planner", () => {
     });
 
     const plan = await planSourceRename({
-      from: ".skillset/plugins/tools/skills/old",
+      from: ".skillset/plugins/tools/skills/tools-old",
       rootPath: root,
       to: ".skillset/plugins/tools/skills/new",
     });

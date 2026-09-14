@@ -13,7 +13,7 @@ import {
 
 test("SET-387: eval run executes the deterministic owner-aware case-target matrix without grading", async () => {
   const root = await fixture({
-    "skillset.yaml": "skillset:\n  name: eval-runtime\ncompile:\n  targets: [claude, codex]\n",
+    "skillset.yaml": "skillset:\n  name: eval-runtime\ncompile:\n  targets: [claude, codex]\n  unsupportedDestination: warn\n",
     ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo eval skill.\n---\n\nUse this skill.\n",
     ".skillset/skills/demo/evals/evals.json": JSON.stringify({
       skill_name: "demo",
@@ -27,9 +27,9 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
     }),
     ".skillset/skills/demo/evals/files/brief.txt": "Eval brief\n",
     ".skillset/plugins/acme/skillset.yaml": "skillset:\n  name: acme\n  title: Acme\n  summary: Eval owner fixture.\n",
-    ".skillset/plugins/acme/skills/demo/SKILL.md": "---\nname: demo\ndescription: Plugin-owned duplicate eval skill.\n---\n\nUse this skill.\n",
-    ".skillset/plugins/acme/skills/demo/evals/evals.json": JSON.stringify({
-      skill_name: "demo",
+    ".skillset/plugins/acme/skills/acme-demo/SKILL.md": "---\nname: acme-demo\ndescription: Plugin-owned eval skill.\n---\n\nUse this skill.\n",
+    ".skillset/plugins/acme/skills/acme-demo/evals/evals.json": JSON.stringify({
+      skill_name: "acme-demo",
       evals: [{ expected_output: "Plugin expectation.", id: 1, prompt: "Run the plugin-owned eval." }],
     }),
   });
@@ -74,10 +74,9 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
       expect(await readFile(staged, "utf8")).toBe("Eval brief\n");
     }
     const trialWorkspace = cachePath(root, xdg, trial.workspacePath);
-    if (trial.target === "claude") {
-      expect(await Bun.file(join(trialWorkspace, ".agents/skills/demo/SKILL.md")).exists()).toBe(false);
-    } else {
-      expect(await Bun.file(join(trialWorkspace, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
+    expect(await Bun.file(join(trialWorkspace, `.agents/skills/${trial.skill}/SKILL.md`)).exists()).toBe(true);
+    if (trial.target === "codex") {
+      expect(await Bun.file(join(trialWorkspace, `.claude/skills/${trial.skill}/SKILL.md`)).exists()).toBe(false);
     }
   }
   expect(new Set(report.trials.map((trial) => trial.workspacePath)).size).toBe(4);

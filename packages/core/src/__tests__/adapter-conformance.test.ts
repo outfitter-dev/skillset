@@ -122,6 +122,8 @@ skillset:
 claude: false
 codex: false
 cursor: true
+compile:
+  unsupportedDestination: warn
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -180,6 +182,8 @@ skillset:
 claude: false
 codex: false
 cursor: true
+compile:
+  unsupportedDestination: warn
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -294,6 +298,11 @@ echo alpha
       sourceUnit: "plugin.alpha.skill:review",
     };
 
+    const candidateProfiles = profiles.map((profile) =>
+      profile.id === "agent-skills"
+        ? { ...profile, lifecycle: "candidate" as const }
+        : profile
+    ) satisfies readonly StandardProfile[];
     expect(
       checkAdapterConformance(
         [result, pluginResult],
@@ -322,7 +331,9 @@ echo alpha
             featureId: "standalone-skills",
             standardProfile: "agent-skills",
           },
-        ]
+        ],
+        undefined,
+        candidateProfiles
       ).issues.map((issue) => issue.code)
     ).toEqual(["standard-profile-not-adopted"]);
 

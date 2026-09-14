@@ -31,6 +31,7 @@
     "conformance:external": "bun run test:sandbox -- bun run conformance:external:repo",
     "conformance:external:repo": "bun scripts/fixtures/external.ts run",
     "conformance:external:skills": "bun run test:sandbox -- bun scripts/fixtures/skills-consumer.ts",
+    "conformance:external:standards": "bun scripts/conformance/standards.ts",
     "conformance:external:sync": "bun run test:sandbox -- bun run conformance:external:sync:repo",
     "conformance:external:sync:repo": "bun scripts/fixtures/external.ts sync",
     "conformance:fast": "bun run test:sandbox -- bun run conformance:fast:repo",
