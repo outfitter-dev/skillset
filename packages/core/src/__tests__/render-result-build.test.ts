@@ -2900,6 +2900,53 @@ echo alpha
     }
   });
 
+  it("persists no-output plugin results in a shared plugins lock", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: plugins-only
+compile:
+  unsupportedDestination: warn
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+      ".skillset/plugins/alpha/bin/tool": `
+#!/usr/bin/env bash
+echo alpha
+`,
+      ".skillset/plugins/alpha/skills/one/SKILL.md": `
+---
+name: one
+description: One.
+---
+
+Use one.
+`,
+    });
+
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    const lock = await readJson(join(root, "plugins/skillset.lock"));
+    expect(lock.renderResults).toContainEqual(
+      expect.objectContaining({
+        destination: "bin",
+        featureId: "plugin-bin",
+        policy: "unsupported:warn",
+        sourceUnit: "plugin.alpha.feature:bin",
+        status: "unsupported",
+        target: "codex",
+      })
+    );
+
+    const verify = await verifySkillsetResult(root);
+    expect(verify.ok).toBe(true);
+  });
+
   it("soft unsupported destination policies reject provenance without usable output", async () => {
     for (const policy of ["warn", "skip", "force"] as const) {
       const root = await fixture({

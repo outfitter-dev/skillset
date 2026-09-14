@@ -130,6 +130,7 @@ const LOCK_TOP_LEVEL_KEYS = new Set([
 ]);
 const LOCK_FEATURE_KEYS = new Set(["promptArguments"]);
 const LOCK_ITEM_KEYS = new Set([
+  "consumers",
   "dependencies",
   "feature",
   "fileModes",
@@ -140,6 +141,7 @@ const LOCK_ITEM_KEYS = new Set([
   "origin",
   "outputHash",
   "outputPath",
+  "owner",
   "plugin",
   "preprocessDependencies",
   "renderInputsHash",
@@ -1554,13 +1556,18 @@ function noOutputOutcomeBelongsToLock(
   if (outcome.sourceUnit.startsWith("plugin.")) {
     const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
     if (outputRoot.startsWith(`plugins/${pluginId}/`)) return true;
-    // A plugin-owned bundle root carries no `plugins/<id>` shape; a lock whose
-    // items all belong to this plugin identifies the owner instead.
+    // Scope exclusion describes this invocation, not the output root: an
+    // unscoped build never emits it, so persisting it here would make scoped
+    // and unscoped locks disagree.
+    if (outcome.policy === "scope:excluded") return false;
+    // Shared roots (the default `plugins` root, which is also the Agent
+    // Plugins standard root) and plugin-owned bundle roots carry no
+    // `plugins/<id>` shape; a lock item this plugin owns identifies membership
+    // instead, so output-less provenance is not dropped when no workspace lock
+    // exists to carry it.
     return (
-      lock.target === "claude" &&
       Array.isArray(lock.items) &&
-      lock.items.length > 0 &&
-      lock.items.every(
+      lock.items.some(
         (item) =>
           isJsonRecord(item) &&
           (item.plugin === pluginId ||

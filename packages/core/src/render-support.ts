@@ -9,6 +9,7 @@ import type {
   SourceOrigin,
   TargetName,
 } from "./types";
+import type { OutputConsumer, OutputOwner } from "./output-plan";
 
 const textEncoder = new TextEncoder();
 const COMPILER_ID = "skillset";
@@ -18,6 +19,7 @@ export const GENERATED_BY = `${COMPILER_ID}@${COMPILER_VERSION}`;
 export const WORKSPACE_LOCK_ROOT = ".";
 
 export interface LockItem {
+  readonly consumers?: readonly OutputConsumer[];
   readonly fileModes: Readonly<Record<string, "0644" | "0755">>;
   readonly feature?: string;
   readonly files: readonly string[];
@@ -36,6 +38,7 @@ export interface LockItem {
   readonly origin?: string;
   readonly outputHash: string;
   readonly outputPath: string;
+  readonly owner?: OutputOwner;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
