@@ -3,9 +3,11 @@ import path from "node:path";
 
 import type { StandardProfileId } from "@skillset/registry";
 
+import { classifyIndividualAgentSkillPublication } from "./agent-skill-publication";
 import { isOutputSelected } from "./config";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import type { LogicalRenderedFile, OutputConsumer } from "./output-plan";
+import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import {
   agentSkillSourceUnit,
   agentSkillStandardDirectory,
@@ -19,7 +21,6 @@ import {
   renderCodexSkillAgentFile,
   renderSkillToolsMetadataFile,
 } from "./render-codex-skill-sidecars";
-import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import {
   copyFileFromSource,
   copyPath,
@@ -177,6 +178,12 @@ async function renderFlattenedAgentSkills(
       rootLicense
     );
     for (const skill of plugin.skills) {
+      if (
+        classifyIndividualAgentSkillPublication(graph, plugin, skill).status !==
+        "eligible"
+      ) {
+        continue;
+      }
       rendered.push(
         ...(await renderStandardAgentSkillTree({
           codexConsumer: shouldConsumeFlattenedPluginSkill(

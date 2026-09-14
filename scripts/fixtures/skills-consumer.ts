@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { buildSkillsetResult } from "@skillset/core";
+import { getStandardProfile } from "@skillset/registry";
 
 const SKILLS_VERSION = "1.5.26";
 const SKILLS_COMMIT = "d667282815248da03a08a18272b5d2eef9caf77c";
@@ -37,6 +38,9 @@ try {
       )
     )
   );
+  if (getStandardProfile("agent-skills").lifecycle === "adopted") {
+    await assertPortableConsumerInstall(root, environment);
+  }
 } finally {
   if (process.env.SKILLSET_RETAIN_EXTERNAL_CONFORMANCE === "1") {
     console.error(`skillset: retained Skills consumer fixture ${root}`);
@@ -151,104 +155,93 @@ async function assertConsumerInstall(
 
   // Mutate source after generation. The consumer must follow the marketplace
   // entry to the generated bundle, never fall back to this raw source.
-  await Promise.all([
-    writeText(
-      join(
-        fixtureRoot,
-        ".skillset",
-        "plugins",
-        "consumer-plugin",
-        "skills",
-        "canonical-skill",
-        "SKILL.md"
-      ),
-      "---\nname: canonical-skill\ndescription: Raw fallback sentinel.\n---\n\nRAW-SKILL-BODY\n"
-    ),
-    writeText(
-      join(
-        fixtureRoot,
-        ".skillset",
-        "plugins",
-        "consumer-plugin",
-        "shared",
-        "references",
-        "declared-resource.md"
-      ),
-      "RAW-RESOURCE-BYTES\n"
-    ),
-    writeText(
-      join(
-        fixtureRoot,
-        ".skillset",
-        "plugins",
-        "consumer-plugin",
-        "skills",
-        "canonical-skill",
-        "LICENSE.txt"
-      ),
-      "RAW-LICENSE-BYTES\n"
-    ),
-    writeText(
-      join(consumerSource, "deep", "full-depth", "SKILL.md"),
-      "---\nname: deep-only\ndescription: Full-depth consumer proof.\n---\n\nFULL-DEPTH-SENTINEL\n"
-    ),
-  ]);
+  await mutateAdaptiveSource(fixtureRoot);
 
   await install(consumerSource, consumer, environment, [
     "--skill",
     "canonical-skill",
   ]);
   const installed = join(consumer, ".agents", "skills", "canonical-skill");
-  await assertContains(join(installed, "SKILL.md"), "CANONICAL-SKILL-BODY");
-  await assertContains(
-    join(installed, "SKILL.md"),
-    "GENERATED-NAME=canonical-skill"
-  );
-  await assertContains(
-    join(installed, "SKILL.md"),
-    "GENERATED-SOURCE=.skillset/plugins/consumer-plugin/skills/canonical-skill/SKILL.md"
-  );
-  await assertNotContains(join(installed, "SKILL.md"), "RAW-SKILL-BODY");
-  await assertNotContains(join(installed, "SKILL.md"), "{{this.name}}");
-  await assertNotContains(
-    join(installed, "SKILL.md"),
-    "{{skillset.source_path}}"
-  );
-  await assertNotContains(join(installed, "SKILL.md"), "preprocess: true");
-  await assertNotContains(join(installed, "SKILL.md"), "resources:");
+  await assertGeneratedSkillPayload(installed);
+  await assertNoAdaptiveSourceMarkers(installed);
   await assertFileEquals(
     join(installed, "claude-sentinel.txt"),
     "CLAUDE-SENTINEL\n"
   );
-  await assertFileEquals(
-    join(installed, "references", "declared-resource.md"),
-    "GENERATED-RESOURCE-BYTES\n"
-  );
-  await assertFileEquals(
-    join(installed, "LICENSE.txt"),
-    "GENERATED-LICENSE-BYTES\n"
-  );
+  await assertFullDepthBoundary(consumerSource, consumer, environment);
+}
 
-  const withoutFullDepth = await runSkills(
-    consumerSource,
-    consumer,
-    environment,
-    ["--skill", "deep-only", "--json"]
-  );
-  if (withoutFullDepth.exitCode === 0) {
+async function assertPortableConsumerInstall(
+  parent: string,
+  environment: Record<string, string | undefined>
+): Promise<void> {
+  const fixtureRoot = join(parent, "portable-agent-skills");
+  const consumer = join(fixtureRoot, "consumer");
+  await writeFixture(fixtureRoot, "implicit", "plugins");
+  await mkdir(consumer, { recursive: true });
+
+  const build = await buildSkillsetResult(fixtureRoot);
+  if (!build.ok) {
     throw new Error(
-      "skillset: Skills consumer crossed the default discovery boundary"
+      "skillset: failed to build the portable Agent Skills consumer fixture"
     );
   }
-  await install(consumerSource, consumer, environment, [
-    "--skill",
-    "deep-only",
-    "--full-depth",
-  ]);
-  await assertContains(
-    join(consumer, ".agents", "skills", "deep-only", "SKILL.md"),
-    "FULL-DEPTH-SENTINEL"
+
+  const portable = join(fixtureRoot, ".agents", "skills", "canonical-skill");
+  const claudeDuplicate = join(
+    fixtureRoot,
+    "plugins",
+    "consumer-plugin",
+    "claude",
+    "skills",
+    "canonical-skill"
   );
+  const marketplace = JSON.parse(
+    await readFile(
+      join(fixtureRoot, ".claude-plugin", "marketplace.json"),
+      "utf-8"
+    )
+  ) as {
+    readonly plugins: readonly {
+      readonly name: string;
+      readonly source: string;
+    }[];
+  };
+  if (
+    !marketplace.plugins.some(
+      (plugin) =>
+        plugin.name === "consumer-plugin" &&
+        plugin.source === "./plugins/consumer-plugin/claude"
+    )
+  ) {
+    throw new Error(
+      "skillset: portable consumer fixture lacks its valid Claude marketplace duplicate"
+    );
+  }
+  await assertFileEquals(
+    join(claudeDuplicate, "claude-sentinel.txt"),
+    "CLAUDE-SENTINEL\n"
+  );
+  if (!(await Bun.file(join(portable, "SKILL.md")).exists())) {
+    throw new Error(
+      "skillset: portable consumer fixture requires adopted Agent Skills output at .agents/skills"
+    );
+  }
+  await assertGeneratedSkillPayload(portable);
+  // Keep the manifest-resolved Claude duplicate valid while making the raw
+  // adaptive source observably wrong. The consumer must choose the earlier
+  // conventional `.agents/skills` root and preserve its generated bytes.
+  await mutateAdaptiveSource(fixtureRoot);
+
+  await install(fixtureRoot, consumer, environment, [
+    "--skill",
+    "canonical-skill",
+  ]);
+  const installed = join(consumer, ".agents", "skills", "canonical-skill");
+  await assertGeneratedSkillPayload(installed);
+  await assertNoAdaptiveSourceMarkers(installed);
+  await assertMissing(join(installed, "claude-sentinel.txt"));
+  await assertFullDepthBoundary(fixtureRoot, consumer, environment);
 }
 
 async function writeFixture(
@@ -323,6 +316,88 @@ async function writeText(path: string, content: string): Promise<void> {
   await writeFile(path, content);
 }
 
+async function mutateAdaptiveSource(fixtureRoot: string): Promise<void> {
+  const pluginPath = join(
+    fixtureRoot,
+    ".skillset",
+    "plugins",
+    "consumer-plugin"
+  );
+  await Promise.all([
+    writeText(
+      join(pluginPath, "skills", "canonical-skill", "SKILL.md"),
+      "---\nname: canonical-skill\ndescription: Raw fallback sentinel.\n---\n\nRAW-SKILL-BODY\n"
+    ),
+    writeText(
+      join(pluginPath, "shared", "references", "declared-resource.md"),
+      "RAW-RESOURCE-BYTES\n"
+    ),
+    writeText(
+      join(pluginPath, "skills", "canonical-skill", "LICENSE.txt"),
+      "RAW-LICENSE-BYTES\n"
+    ),
+  ]);
+}
+
+async function assertGeneratedSkillPayload(skillPath: string): Promise<void> {
+  await assertContains(join(skillPath, "SKILL.md"), "CANONICAL-SKILL-BODY");
+  await assertContains(
+    join(skillPath, "SKILL.md"),
+    "GENERATED-NAME=canonical-skill"
+  );
+  await assertContains(
+    join(skillPath, "SKILL.md"),
+    "GENERATED-SOURCE=.skillset/plugins/consumer-plugin/skills/canonical-skill/SKILL.md"
+  );
+  await assertFileEquals(
+    join(skillPath, "references", "declared-resource.md"),
+    "GENERATED-RESOURCE-BYTES\n"
+  );
+  await assertFileEquals(
+    join(skillPath, "LICENSE.txt"),
+    "GENERATED-LICENSE-BYTES\n"
+  );
+}
+
+async function assertNoAdaptiveSourceMarkers(skillPath: string): Promise<void> {
+  const markdown = join(skillPath, "SKILL.md");
+  await assertNotContains(markdown, "RAW-SKILL-BODY");
+  await assertNotContains(markdown, "{{this.name}}");
+  await assertNotContains(markdown, "{{skillset.source_path}}");
+  await assertNotContains(markdown, "preprocess: true");
+  await assertNotContains(markdown, "resources:");
+}
+
+async function assertFullDepthBoundary(
+  source: string,
+  consumer: string,
+  environment: Record<string, string | undefined>
+): Promise<void> {
+  await writeText(
+    join(source, "deep", "full-depth", "SKILL.md"),
+    "---\nname: deep-only\ndescription: Full-depth consumer proof.\n---\n\nFULL-DEPTH-SENTINEL\n"
+  );
+  const withoutFullDepth = await runSkills(source, consumer, environment, [
+    "--skill",
+    "deep-only",
+    "--json",
+  ]);
+  if (withoutFullDepth.exitCode === 0) {
+    throw new Error(
+      "skillset: Skills consumer crossed the default discovery boundary"
+    );
+  }
+  await install(source, consumer, environment, [
+    "--skill",
+    "deep-only",
+    "--full-depth",
+  ]);
+  await assertContains(
+    join(consumer, ".agents", "skills", "deep-only", "SKILL.md"),
+    "FULL-DEPTH-SENTINEL"
+  );
+}
+
 async function install(
   source: string,
   consumer: string,
@@ -374,6 +449,12 @@ async function assertFileEquals(path: string, expected: string): Promise<void> {
   const content = await readFile(path, "utf-8");
   if (content !== expected) {
     throw new Error(`skillset: expected ${path} to equal ${expected}`);
+  }
+}
+
+async function assertMissing(path: string): Promise<void> {
+  if (await Bun.file(path).exists()) {
+    throw new Error(`skillset: expected ${path} not to exist`);
   }
 }
 

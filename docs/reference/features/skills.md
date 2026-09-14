@@ -53,9 +53,20 @@ Release state supplies generated version metadata after `skillset release apply`
 
 `{{$ARGUMENTS...}}` expressions become native Claude placeholders. Codex preserves the marker and adds replacement guidance; Cursor preserves the marker without the Codex notice.
 
+## Individual Agent Skills Publication
+
+An adopted Agent Skills projection makes eligible standalone and plugin-owned skills discoverable at `.agents/skills/<skill>/`. The generated tree preserves the rendered body, preprocessing result, declared resources, resolved license, and nearby lock provenance. Commit that generated tree when downstream consumers install skills directly from the repository; see [Prepare Skillset Work for Publication](../../guides/publishing.md#publish-individual-agent-skills).
+
+Individual publication is supported only when the skill remains truthful without its containing plugin:
+
+- A plugin-owned skill is ineligible when its containing plugin has any effective plugin dependency. Effective dependencies include child-skill declarations hoisted to the plugin, so one such declaration blocks individual publication of every skill in that plugin.
+- A plugin-owned skill-local adaptive hook definition or hook attachment is ineligible because Agent Skills cannot carry that behavior.
+
+These restrictions suppress only the flattened `.agents/skills/<skill>/` projection and produce an actionable unsupported result. The same plugin-owned skill remains available inside applicable Agent Plugins and provider packages. Unrelated plugin-level agents, commands, MCP configuration, hooks, binaries, and native companions do not disqualify an otherwise self-contained skill and are not copied into it.
+
 ## Errors and Caveats
 
-Skillset rejects identity conflicts, unsupported source schema versions, malformed versions, invalid preprocessing expressions, unsafe resource paths, and output collisions. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
+Skillset rejects identity conflicts, unsupported source schema versions, malformed versions, invalid preprocessing expressions, unsafe resource paths, and output collisions. It also diagnoses individual Agent Skills publication when dependencies or skill-local hooks cannot travel with the generated tree. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
 
 Generated skills are [generated output](../../glossary.md#generated-output), not authoring surfaces. [`skillset check --only outputs`](../cli/check.md) reports missing, stale, or edited managed files; [`skillset explain`](../cli/explain.md) shows the deciding source, target, resources, preprocessing dependencies, and policy realization.
 
