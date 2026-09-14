@@ -62,6 +62,26 @@ describe("diffSkillset", () => {
         target: "claude",
       })
     );
+    expect(result.standardProfiles).toEqual([
+      expect.objectContaining({
+        active: false,
+        id: "agent-instructions",
+        lifecycle: "candidate",
+        scope: "project",
+      }),
+      expect.objectContaining({
+        active: false,
+        id: "agent-plugins-1.0",
+        lifecycle: "candidate",
+        scope: "plugins",
+      }),
+      expect.objectContaining({
+        active: false,
+        id: "agent-skills",
+        lifecycle: "candidate",
+        scope: "repo",
+      }),
+    ]);
     expect(result.diagnostics).toEqual([
       expect.objectContaining({
         code: "source-warning",

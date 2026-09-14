@@ -40,6 +40,9 @@ describe("SET-397 standard profile registry", () => {
       getStandardProfileSupportEnvelope("agent-plugins-1.0", "plugin-manifests")
     ).toMatchObject({ expectation: "required" });
     expect(
+      getStandardProfileSupportEnvelope("agent-skills", "plugin-skills")
+    ).toMatchObject({ expectation: "required" });
+    expect(
       getStandardProfileSupportEnvelope("agent-instructions", "plugin-mcp")
     ).toBeUndefined();
   });

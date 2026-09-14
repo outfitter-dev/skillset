@@ -1,6 +1,10 @@
 import type { GeneratedEntry } from "@skillset/core/internal/types";
 
 import {
+  formatGeneratedEntryIdentity,
+  generatedEntryIdentityKeys,
+} from "./projection-identity";
+import {
   createTerminalRenderer,
   renderDefinitionList,
   type TerminalRenderOptions,
@@ -18,7 +22,7 @@ interface GeneratedUnit {
   readonly group: UnitGroup;
   readonly key: string;
   readonly label: string;
-  readonly providers: readonly string[];
+  readonly identities: readonly string[];
 }
 
 const GROUP_ORDER: readonly UnitGroup[] = [
@@ -64,10 +68,10 @@ export function renderGeneratedEntryList(
       )}`,
     ];
   });
-  const providers = [
-    ...new Set(units.flatMap((unit) => unit.providers)),
+  const identities = [
+    ...new Set(units.flatMap((unit) => unit.identities)),
   ].toSorted();
-  const summary = `${units.length} ${plural("source", units.length)} · ${entries.length} ${plural("output", entries.length)}${providers.length === 0 ? "" : ` · ${providers.join(", ")}`}`;
+  const summary = `${units.length} ${plural("source", units.length)} · ${entries.length} ${plural("output", entries.length)}${identities.length === 0 ? "" : ` · ${identities.join(", ")}`}`;
   return [
     renderer.bold("Skillset workspace"),
     "",
@@ -104,12 +108,8 @@ function collectGeneratedUnits(
       ([key, unit]): GeneratedUnit => ({
         ...unit,
         key,
-        providers: [
-          ...new Set(
-            unit.entries
-              .map(providerForEntry)
-              .filter((value) => value !== undefined)
-          ),
+        identities: [
+          ...new Set(unit.entries.flatMap(generatedEntryIdentityKeys)),
         ].toSorted(),
       })
     )
@@ -154,24 +154,12 @@ function unitIdentity(entry: GeneratedEntry): {
   };
 }
 
-function providerForEntry(entry: GeneratedEntry): string | undefined {
-  const output = entry.outputPath;
-  if (output.startsWith(".claude/") || output.includes("/claude/"))
-    return "claude";
-  if (
-    output.startsWith(".agents/") ||
-    output.startsWith(".codex/") ||
-    output.includes("/codex/")
-  )
-    return "codex";
-  if (output.startsWith(".cursor/") || output.includes("/cursor/"))
-    return "cursor";
-  return entry.target === "workspace" ? undefined : entry.target;
-}
-
 function renderUnitSummary(unit: GeneratedUnit): string {
-  const destinations =
-    unit.providers.length === 0 ? "workspace" : unit.providers.join(", ");
+  const destinations = [
+    ...new Set(unit.entries.map(formatGeneratedEntryIdentity)),
+  ]
+    .toSorted()
+    .join(", ");
   return `${destinations} · ${unit.entries.length} ${plural("output", unit.entries.length)}`;
 }
 
@@ -182,14 +170,14 @@ function renderUnitDetails(
   return [
     `  ${renderer.accent(unit.label)}  ${renderer.dim(renderUnitSummary(unit))}`,
     ...unit.entries.map((entry) => {
-      const provider = providerForEntry(entry) ?? "workspace";
+      const identity = formatGeneratedEntryIdentity(entry);
       const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
       const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
       const dependencies = entry.dependencies?.length
         ? ` · deps: ${entry.dependencies.join(", ")}`
         : "";
       return renderer.wrap(
-        `[${provider}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}${dependencies}`,
+        `[${identity}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}${dependencies}`,
         4
       );
     }),

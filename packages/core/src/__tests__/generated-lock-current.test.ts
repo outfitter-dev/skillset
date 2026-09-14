@@ -5,7 +5,10 @@ import {
   parseGeneratedLock,
 } from "@skillset/core";
 
+import { collectLockItems } from "../authoring";
 import { withLockProvenance } from "../lock-provenance";
+
+const textEncoder = new TextEncoder();
 
 test("reads provenance-valid v3 lock identity and logical consumers", () => {
   const lock = withLockProvenance({
@@ -18,10 +21,17 @@ test("reads provenance-valid v3 lock identity and logical consumers", () => {
         ],
         fileModes: { "demo/SKILL.md": "0644" },
         files: ["demo/SKILL.md"],
+        origin: "local",
         outputHash: "sha256:output",
         owner: { standardProfile: "agent-skills" },
         renderInputsHash: "sha256:inputs",
         sourceHash: "sha256:source",
+        sourceOrigin: {
+          path: ".skillset/skills/demo",
+          ref: "main",
+          repo: "outfitter-dev/example",
+        },
+        sourcePointer: ".skillset/skills/demo/SKILL.md",
         version: "1.2.3",
       },
     ],
@@ -51,8 +61,15 @@ test("reads provenance-valid v3 lock identity and logical consumers", () => {
           { phase: "delta", target: "codex" },
         ],
         owner: { standardProfile: "agent-skills" },
+        origin: "local",
         renderInputsHash: "sha256:inputs",
         sourceHash: "sha256:source",
+        sourceOrigin: {
+          path: ".skillset/skills/demo",
+          ref: "main",
+          repo: "outfitter-dev/example",
+        },
+        sourcePointer: ".skillset/skills/demo/SKILL.md",
         version: "1.2.3",
       },
     ],
@@ -64,6 +81,44 @@ test("reads provenance-valid v3 lock identity and logical consumers", () => {
   expect(() => parseGeneratedLock({ ...lock, selectedTargets: [] })).toThrow(
     "invalid provenanceHash"
   );
+});
+
+test("keeps sparse lock items matchable through their files", () => {
+  const lock = withLockProvenance({
+    generatedBy: "skillset@0.1.0",
+    items: [
+      {
+        consumers: [{ phase: "delta", target: "codex" }],
+        fileModes: { "demo/SKILL.md": "0644" },
+        files: ["demo/SKILL.md"],
+        owner: { target: "codex" },
+      },
+    ],
+    outputRoot: ".agents/skills",
+    schemaVersion: 3,
+    selectedStandards: [],
+    selectedTargets: ["codex"],
+    target: "codex",
+  });
+
+  const [match] = collectLockItems([
+    {
+      content: textEncoder.encode(`${JSON.stringify(lock)}\n`),
+      mode: 0o644,
+      path: ".agents/skills/skillset.lock",
+    },
+  ]);
+  expect(match).toMatchObject({
+    entry: {
+      consumers: [{ phase: "delta", target: "codex" }],
+      files: [".agents/skills/demo/SKILL.md"],
+      outputPath: "",
+      sourcePath: "",
+    },
+    files: ["demo/SKILL.md"],
+    outputPath: "",
+    sourcePath: "",
+  });
 });
 
 test.each([1, 2] as const)(

@@ -110,6 +110,10 @@ const profiles = [
         "standalone-skills",
         "A portable skill directory contains SKILL.md."
       ),
+      required(
+        "plugin-skills",
+        "Plugin-owned skills flatten into the portable Agent Skills root."
+      ),
     ],
     id: "agent-skills",
     lifecycle: "candidate",

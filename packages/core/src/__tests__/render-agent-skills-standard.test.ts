@@ -3,7 +3,10 @@ import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { StandardProfileId } from "@skillset/registry";
+import {
+  getStandardProfile,
+  type StandardProfileId,
+} from "@skillset/registry";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { readContainedLicenseFile } from "../licenses";
@@ -674,6 +677,23 @@ Review the change.
         standardProfile: "agent-skills",
         status: "unsupported",
       })
+    );
+    const standard = results.find(
+      (result) =>
+        result.sourceUnit === "skill:review" &&
+        result.standardProfile === "agent-skills"
+    );
+    const profile = getStandardProfile("agent-skills");
+    expect(
+      standard?.evidence?.map((evidence) => ({
+        ref: evidence.ref,
+        verifiedAt: evidence.verifiedAt,
+      }))
+    ).toEqual(
+      profile.provenance.snapshots.map((snapshot) => ({
+        ref: snapshot.url,
+        verifiedAt: profile.provenance.observedAt,
+      }))
     );
     expect(results).toContainEqual(
       expect.objectContaining({

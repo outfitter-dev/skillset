@@ -5,8 +5,13 @@ import {
 import {
   getProviderLocationSurfaceTarget,
   listProviderLocationEvidence,
+  listStandardProfiles,
   type ProviderLocationEvidence,
   type ProviderLocationSurface,
+  type StandardProfileEnvelopeExpectation,
+  type StandardProfileId,
+  type StandardProfileLifecycleState,
+  type StandardProfileSnapshotKind,
 } from "@skillset/registry";
 import {
   adaptiveHookContract,
@@ -43,7 +48,7 @@ import {
 } from "./tools-realization";
 import type { TargetName } from "./types";
 
-export type LookupSubject = "activation" | "agent" | "hooks" | "instruction" | "locations" | "plugin" | "skill" | "workspace";
+export type LookupSubject = "activation" | "agent" | "hooks" | "instruction" | "locations" | "plugin" | "skill" | "standards" | "workspace";
 export type LookupView = "compat" | "events" | "examples" | "fields" | "frontmatter" | "schema" | "values";
 export type LookupDiagnosticSeverity = "error" | "warning";
 
@@ -134,6 +139,25 @@ export interface LookupToolsRealization {
 export type LookupActivation = ProviderActivationDescriptor;
 export type LookupProviderLocation = ProviderLocationEvidence;
 
+export interface LookupStandardProfile {
+  readonly envelopes: readonly {
+    readonly expectation: StandardProfileEnvelopeExpectation;
+    readonly featureId: string;
+    readonly note: string;
+  }[];
+  readonly evidence: readonly {
+    readonly contentHash: string;
+    readonly kind: StandardProfileSnapshotKind;
+    readonly observedAt: string;
+    readonly url: string;
+  }[];
+  readonly id: StandardProfileId;
+  readonly lifecycle: StandardProfileLifecycleState;
+  readonly summary: string;
+  readonly title: string;
+  readonly version: string;
+}
+
 export interface LookupReport {
   readonly activation: readonly LookupActivation[];
   readonly aspects: readonly string[];
@@ -145,6 +169,7 @@ export interface LookupReport {
   readonly locations: readonly LookupProviderLocation[];
   readonly realizations: readonly LookupToolsRealization[];
   readonly schema?: SkillsetSchemaContract;
+  readonly standards: readonly LookupStandardProfile[];
   readonly subject?: LookupSubject;
   readonly subjects: readonly LookupSubjectSummary[];
   readonly summary: string;
@@ -192,6 +217,12 @@ const SUBJECTS = [
     defaultViews: ["compat"],
     description: "Plugin component compatibility facts such as bin, mcp, hooks, and skills.",
     subject: "plugin",
+  },
+  {
+    defaultViews: ["compat"],
+    description:
+      "Agent standards profiles, lifecycle, support envelopes, and pinned evidence.",
+    subject: "standards",
   },
 ] as const satisfies readonly LookupSubjectSummary[];
 
@@ -270,7 +301,10 @@ const LOOKUP_VIEW_ORDER = [
 export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
   const subject = query.subject;
   const aspects = [...(query.aspects ?? [])].map((aspect) => aspect.trim()).filter(Boolean);
-  const targets = normalizeTargets(query.targets);
+  const targets =
+    subject === "standards" && query.targets === undefined
+      ? []
+      : normalizeTargets(query.targets);
   const views = normalizeViews(query);
   const diagnostics: LookupDiagnostic[] = [];
 
@@ -285,6 +319,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
       fields: [],
       locations: [],
       realizations: [],
+      standards: [],
       subjects: SUBJECTS,
       summary: "Skillset lookup subjects.",
       targets,
@@ -304,6 +339,10 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
   const locations =
     views.includes("compat") && subject === "locations"
       ? lookupLocations(aspects, targets, diagnostics)
+      : [];
+  const standards =
+    views.includes("compat") && subject === "standards"
+      ? lookupStandards(aspects, targets, diagnostics)
       : [];
   let schema: SkillsetSchemaContract | undefined;
 
@@ -337,7 +376,12 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     events.push(...lookupHookEvents(targets));
   }
 
-  if (views.includes("compat") && subject !== "activation" && subject !== "locations") {
+  if (
+    views.includes("compat") &&
+    subject !== "activation" &&
+    subject !== "locations" &&
+    subject !== "standards"
+  ) {
     compatibility.push(...lookupCompatibility(subject, aspects, targets, diagnostics));
   }
 
@@ -356,6 +400,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     locations,
     realizations,
     ...(schema === undefined ? {} : { schema }),
+    standards,
     subject,
     subjects: [],
     summary: summarizeLookup(subject, aspects, views),
@@ -368,12 +413,58 @@ export function listLookupViews(subject: LookupSubject): readonly LookupView[] {
   const contract = contractForLookup(subject, []);
   return LOOKUP_VIEW_ORDER.filter((view) => {
     if (view === "events") return subject === "hooks";
-    if (view === "compat") return subject === "activation" || subject === "locations" || SUBJECT_FEATURES[subject] !== undefined;
+    if (view === "compat") return subject === "activation" || subject === "locations" || subject === "standards" || SUBJECT_FEATURES[subject] !== undefined;
     if (view === "frontmatter") {
       return subject === "agent" || subject === "instruction" || subject === "skill";
     }
     return contract !== undefined;
   });
+}
+
+function lookupStandards(
+  aspects: readonly string[],
+  targets: readonly TargetName[],
+  diagnostics: LookupDiagnostic[]
+): readonly LookupStandardProfile[] {
+  if (targets.length > 0) {
+    diagnostics.push({
+      code: "lookup/standards/target-not-applicable",
+      message:
+        "standards lookup is independent of provider targets; remove --compat target filters.",
+      severity: "error",
+    });
+    return [];
+  }
+  const profiles = listStandardProfiles();
+  const known = new Set(profiles.map((profile) => profile.id));
+  const requested = new Set<StandardProfileId>();
+  for (const aspect of aspects) {
+    if (!known.has(aspect as StandardProfileId)) {
+      diagnostics.push({
+        code: "lookup/standards/aspect-not-found",
+        message: `standards lookup does not define profile ${aspect}.`,
+        severity: "error",
+      });
+      continue;
+    }
+    requested.add(aspect as StandardProfileId);
+  }
+  return profiles
+    .filter((profile) => aspects.length === 0 || requested.has(profile.id))
+    .map((profile) => ({
+      envelopes: profile.envelopes.map((envelope) => ({ ...envelope })),
+      evidence: profile.provenance.snapshots.map((snapshot) => ({
+        contentHash: snapshot.contentHash,
+        kind: snapshot.kind,
+        observedAt: snapshot.observedAt,
+        url: snapshot.url,
+      })),
+      id: profile.id,
+      lifecycle: profile.lifecycle,
+      summary: profile.summary,
+      title: profile.title,
+      version: profile.version,
+    }));
 }
 
 function lookupLocations(
@@ -545,7 +636,9 @@ function invalidCombinationDiagnostics(
     });
   }
   if (
-    (subject === "activation" || subject === "locations") &&
+    (subject === "activation" ||
+      subject === "locations" ||
+      subject === "standards") &&
     views.some((view) => view !== "compat")
   ) {
     diagnostics.push({

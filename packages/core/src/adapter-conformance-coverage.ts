@@ -1,4 +1,14 @@
-import type { AdapterConformanceCase } from "./adapter-conformance";
+import {
+  listStandardProfiles,
+  type StandardProfile,
+  type StandardProfileEnvelopeExpectation,
+} from "@skillset/registry";
+
+import {
+  adapterConformanceIdentityLabel,
+  type AdapterConformanceCase,
+  type AdapterConformanceIdentity,
+} from "./adapter-conformance";
 import {
   skillsetFeatureRegistry,
   type SkillsetFeatureEntry,
@@ -21,16 +31,22 @@ export type AdapterConformanceCoverageStatus =
   | "stale_fixture"
   | "unsupported_without_fixture";
 
-export interface AdapterConformanceCoverageEntry {
+interface AdapterConformanceCoverageEntryBase {
   readonly coverage: AdapterConformanceCoverageStatus;
+  readonly evidenceRefs?: readonly string[];
   readonly featureId: string;
   readonly featureStatus?: SkillsetFeatureStatus;
   readonly fixtureRefs: readonly string[];
+  readonly profileLifecycle?: StandardProfile["lifecycle"];
   readonly reason?: string;
-  readonly supportStatus?: SkillsetTargetSupportStatus;
-  readonly target: TargetName;
+  readonly supportStatus?:
+    | SkillsetTargetSupportStatus
+    | StandardProfileEnvelopeExpectation;
   readonly title?: string;
 }
+
+export type AdapterConformanceCoverageEntry =
+  AdapterConformanceCoverageEntryBase & AdapterConformanceIdentity;
 
 export interface AdapterConformanceCoverageReport {
   readonly entries: readonly AdapterConformanceCoverageEntry[];
@@ -40,14 +56,35 @@ export interface AdapterConformanceCoverageReport {
 
 export function createAdapterConformanceCoverageReport(
   cases: readonly AdapterConformanceCase[],
-  registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
+  registry: SkillsetFeatureRegistry = skillsetFeatureRegistry,
+  profiles: readonly StandardProfile[] = listStandardProfiles()
 ): AdapterConformanceCoverageReport {
   const entries = [
     ...registry.flatMap((feature) =>
       targetNames().map((target) =>
-        coverageEntry(feature, target, fixtureRefsFor(cases, feature.id, target))
+        coverageEntry(
+          feature,
+          target,
+          fixtureRefsFor(cases, feature.id, { target })
+        )
       )
     ),
+    ...profiles
+      .filter((profile) => profile.lifecycle === "adopted")
+      .flatMap((profile) =>
+        profile.envelopes.map((envelope) =>
+          standardCoverageEntry(
+            profile,
+            envelope.featureId,
+            envelope.expectation,
+            envelope.note,
+            fixtureRefsFor(cases, envelope.featureId, {
+              standardProfile: profile.id,
+            }),
+            registry.find((feature) => feature.id === envelope.featureId)
+          )
+        )
+      ),
     ...staleFixtureEntries(cases, registry),
   ].sort(compareEntries);
   const gaps = entries.filter((entry) => isGap(entry.coverage));
@@ -62,16 +99,43 @@ export function formatAdapterConformanceCoverageReport(
   report: AdapterConformanceCoverageReport
 ): string {
   if (report.gaps.length === 0) {
-    return `skillset: adapter conformance coverage has no gaps across ${report.entries.length} target claims`;
+    return `skillset: adapter conformance coverage has no gaps across ${report.entries.length} destination claims`;
   }
   return [
     `skillset: adapter conformance coverage found ${report.gaps.length} ${report.gaps.length === 1 ? "gap" : "gaps"}`,
     ...report.gaps.map((entry) => {
       const reason = entry.reason === undefined ? "" : ` (${entry.reason})`;
       const support = entry.supportStatus ?? "unknown support";
-      return `- ${entry.featureId} ${entry.target}: ${entry.coverage} for ${support}${reason}`;
+      return `- ${entry.featureId} ${adapterConformanceIdentityLabel(entry)}: ${entry.coverage} for ${support}${reason}`;
     }),
   ].join("\n");
+}
+
+function standardCoverageEntry(
+  profile: StandardProfile,
+  featureId: string,
+  expectation: StandardProfileEnvelopeExpectation,
+  reason: string,
+  fixtureRefs: readonly string[],
+  feature: SkillsetFeatureEntry | undefined
+): AdapterConformanceCoverageEntry {
+  const featureStatus = feature?.status ?? "planned";
+  return {
+    coverage: coverageStatus(
+      featureStatus,
+      expectation,
+      fixtureRefs.length > 0
+    ),
+    evidenceRefs: profile.provenance.snapshots.map((snapshot) => snapshot.url),
+    featureId,
+    featureStatus,
+    fixtureRefs,
+    profileLifecycle: profile.lifecycle,
+    reason,
+    standardProfile: profile.id,
+    supportStatus: expectation,
+    ...(feature?.title === undefined ? {} : { title: feature.title }),
+  };
 }
 
 function coverageEntry(
@@ -95,7 +159,9 @@ function coverageEntry(
 
 function coverageStatus(
   featureStatus: SkillsetFeatureStatus,
-  supportStatus: SkillsetTargetSupportStatus,
+  supportStatus:
+    | SkillsetTargetSupportStatus
+    | StandardProfileEnvelopeExpectation,
   hasFixture: boolean
 ): AdapterConformanceCoverageStatus {
   if (hasFixture && !supportCanHaveFixture(featureStatus, supportStatus)) return "invalid_fixture";
@@ -110,7 +176,9 @@ function coverageStatus(
 
 function supportCanHaveFixture(
   featureStatus: SkillsetFeatureStatus,
-  supportStatus: SkillsetTargetSupportStatus
+  supportStatus:
+    | SkillsetTargetSupportStatus
+    | StandardProfileEnvelopeExpectation
 ): boolean {
   if (featureStatus === "deferred" || featureStatus === "future" || featureStatus === "planned") return false;
   return supportStatus !== "future" && supportStatus !== "not_applicable" && supportStatus !== "planned";
@@ -119,12 +187,22 @@ function supportCanHaveFixture(
 function fixtureRefsFor(
   cases: readonly AdapterConformanceCase[],
   featureId: string,
-  target: TargetName
+  identity: AdapterConformanceIdentity
 ): readonly string[] {
   return [...new Set(
     cases
-      .filter((item) => item.featureId === featureId && item.target === target)
-      .map((item) => item.fixtureRef ?? item.sourceUnit ?? `${item.featureId}:${item.target}`)
+      .filter(
+        (item) =>
+          item.featureId === featureId &&
+          adapterConformanceIdentityLabel(item) ===
+            adapterConformanceIdentityLabel(identity)
+      )
+      .map(
+        (item) =>
+          item.fixtureRef ??
+          item.sourceUnit ??
+          `${item.featureId}:${adapterConformanceIdentityLabel(item)}`
+      )
   )].sort(compareStrings);
 }
 
@@ -136,7 +214,7 @@ function staleFixtureEntries(
   const grouped = new Map<string, AdapterConformanceCase[]>();
   for (const item of cases) {
     if (registryIds.has(item.featureId)) continue;
-    const key = `${item.featureId}\0${item.target}`;
+    const key = `${item.featureId}\0${adapterConformanceIdentityLabel(item)}`;
     grouped.set(key, [...(grouped.get(key) ?? []), item]);
   }
   return [...grouped.values()].map((items) => {
@@ -145,9 +223,11 @@ function staleFixtureEntries(
     return {
       coverage: "stale_fixture",
       featureId: first.featureId,
-      fixtureRefs: sortedUnique(items.map((item) => item.fixtureRef ?? item.sourceUnit ?? `${item.featureId}:${item.target}`)),
+      fixtureRefs: sortedUnique(items.map((item) => item.fixtureRef ?? item.sourceUnit ?? `${item.featureId}:${adapterConformanceIdentityLabel(item)}`)),
       reason: "feature id is not present in registry",
-      target: first.target,
+      ...("standardProfile" in first
+        ? { standardProfile: first.standardProfile }
+        : { target: first.target }),
     };
   });
 }
@@ -160,7 +240,10 @@ function compareEntries(
   left: AdapterConformanceCoverageEntry,
   right: AdapterConformanceCoverageEntry
 ): number {
-  return compareStrings(`${left.featureId}\0${left.target}`, `${right.featureId}\0${right.target}`);
+  return compareStrings(
+    `${left.featureId}\0${adapterConformanceIdentityLabel(left)}`,
+    `${right.featureId}\0${adapterConformanceIdentityLabel(right)}`
+  );
 }
 
 function sortedUnique(values: readonly string[]): readonly string[] {
