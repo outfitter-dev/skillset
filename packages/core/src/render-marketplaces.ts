@@ -150,6 +150,8 @@ async function projectClaudeMarketplace(
       name: readString(root, "name") ?? "skillset",
     };
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
+  const marketplaceOverride =
+    readRecord(graph.root.targets.claude.options, "marketplace") ?? {};
   const document = mergeRecords(
     {
       name:
@@ -164,14 +166,14 @@ async function projectClaudeMarketplace(
           readListingString(root, "description") ??
           readString(root, "description") ??
           "Source-first Skillset plugins",
+        ...(Array.isArray(marketplaceOverride.plugins)
+          ? { pluginRoot: "./plugins" }
+          : {}),
         version: rootVersion(graph),
-        pluginRoot: isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude)
-          ? "./plugins"
-          : "./plugins",
       },
       plugins: entries.map(([, entry]) => entry),
     },
-    readRecord(graph.root.targets.claude.options, "marketplace") ?? {}
+    marketplaceOverride
   );
 
   return { document, sourcePlugins: projectedSourcePlugins(entries, document) };
