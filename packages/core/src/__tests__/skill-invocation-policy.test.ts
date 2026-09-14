@@ -6,6 +6,9 @@ import path from "node:path";
 import { buildSkillsetResult, checkAdapterConformance } from "@skillset/core";
 import type { AdapterConformanceCase } from "@skillset/core";
 
+import { renderBuildGraph } from "../render";
+import { collectRenderResults } from "../render-result-collector";
+import { loadBuildGraph } from "../resolver";
 import { parseMarkdown } from "../yaml";
 
 const skill = (name: string, policy = ""): string => `
@@ -221,4 +224,48 @@ cursor: true
   expect(checkAdapterConformance(invocationOutcomes, conformanceCases)).toEqual(
     { issues: [], ok: true }
   );
+});
+
+test("SET-402: coalesced Codex Agent Skills projection reports one invocation policy result", async () => {
+  const root = await fixture({
+    ".skillset/skills/guide/SKILL.md": skill("guide", "implicit_invocation: false"),
+    "skillset.yaml": `
+skillset:
+  name: coalesced-policy
+claude: false
+codex: true
+cursor: false
+`,
+  });
+  const graph = {
+    ...(await loadBuildGraph(root)),
+    standardProjections: { adopted: ["agent-skills" as const] },
+  };
+  const rendered = await renderBuildGraph(graph);
+  const results = collectRenderResults(graph, rendered, {
+    claudeMarketplacePlugins: [],
+    includedPaths: new Set(rendered.map((file) => file.path)),
+  });
+
+  const invocationOutcomes = results.filter(
+    (outcome) =>
+      outcome.featureId === "skill-invocation-policy" &&
+      outcome.sourceUnit === "skill:guide" &&
+      outcome.target === "codex"
+  );
+  expect(invocationOutcomes.map((outcome) => outcome.status)).toEqual([
+    "transformed",
+  ]);
+  expect(invocationOutcomes[0]?.outputs).toEqual([
+    { kind: "metadata", path: ".agents/skills/guide/agents/openai.yaml" },
+  ]);
+  expect(
+    checkAdapterConformance(invocationOutcomes, [
+      {
+        featureId: "skill-invocation-policy",
+        sourceUnit: "skill:guide",
+        target: "codex",
+      },
+    ])
+  ).toEqual({ issues: [], ok: true });
 });

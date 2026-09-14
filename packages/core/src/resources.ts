@@ -1,5 +1,6 @@
-import { stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import type { Stats } from "node:fs";
+import { isAbsolute, relative, sep } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
@@ -11,6 +12,7 @@ export interface ResourceContext {
   readonly label: string;
   readonly pluginSharedPath?: string;
   readonly sharedPath: string;
+  readonly sourceRootPath: string;
 }
 
 export async function readSkillResources(
@@ -121,6 +123,13 @@ async function resolveResource(
   if (!sourceStats.isFile() && !sourceStats.isDirectory()) {
     throw new Error(`skillset: ${context.label}.resources source must be a file or directory: ${entry.from}`);
   }
+  await assertCanonicalResourceContainment(
+    context.sourceRootPath,
+    parsed.root,
+    sourcePath,
+    context.label,
+    entry.from
+  );
 
   return {
     from: parsed.from,
@@ -128,6 +137,38 @@ async function resolveResource(
     sourcePath,
     targetPath,
   };
+}
+
+async function assertCanonicalResourceContainment(
+  sourceRootPath: string,
+  resourceRootPath: string,
+  sourcePath: string,
+  label: string,
+  authoredPath: string
+): Promise<void> {
+  const [canonicalSourceRoot, canonicalResourceRoot, canonicalSource] = await Promise.all([
+    realpath(sourceRootPath),
+    realpath(resourceRootPath),
+    realpath(sourcePath),
+  ]);
+  if (
+    !isCanonicalPathContained(canonicalSourceRoot, canonicalResourceRoot) ||
+    !isCanonicalPathContained(canonicalResourceRoot, canonicalSource)
+  ) {
+    throw new Error(
+      `skillset: ${label}.resources source resolves outside the source root: ${authoredPath}`
+    );
+  }
+}
+
+function isCanonicalPathContained(parent: string, candidate: string): boolean {
+  const relativePath = relative(parent, candidate);
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." &&
+      !relativePath.startsWith(`..${sep}`) &&
+      !isAbsolute(relativePath))
+  );
 }
 
 interface ParsedResourcePath {
