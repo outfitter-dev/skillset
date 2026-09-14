@@ -103,7 +103,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:d21fe4fce190c79443cc9c1cb1ab39d689e8250fb89e82bed70f078c849ed7ae",
+  "provenanceHash": "sha256:48321ffba3db396727357d4c2085b82ed14b1b6185fc6ec9e3ecb690fefde672",
   "renderResults": [
     {
       "destination": "changelog",
@@ -121,7 +121,7 @@
           "path": ".skillset/plugins/skillset/CHANGELOG.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/skillset.yaml",
       "sourceUnit": ".skillset/plugins/skillset/skillset.yaml",
       "status": "metadata_only"
@@ -142,7 +142,7 @@
           "path": ".claude/settings.json"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/_claude/settings.json",
       "sourceUnit": "claude.settingsjson:settings.json",
       "status": "target_native",
@@ -164,7 +164,7 @@
           "path": ".codex/hooks/hooks.json"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/_codex/hooks/hooks.json",
       "sourceUnit": "codex.hooks:hooks/hooks.json",
       "status": "target_native",
@@ -196,7 +196,7 @@
           "path": "apps/skillset/src/__tests__/AGENTS.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules",
       "sourceUnit": "instruction:apps/skillset/src/__tests__/AGENTS.md",
       "status": "transformed",
@@ -223,7 +223,7 @@
           "path": ".cursor/rules/fixtures.mdc"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules/fixtures.md",
       "sourceUnit": "instruction:fixtures",
       "status": "transformed",
@@ -255,14 +255,15 @@
           "path": "fixtures/AGENTS.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules",
       "sourceUnit": "instruction:fixtures/AGENTS.md",
       "status": "transformed",
       "target": "codex"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "selectedStandards": [],
   "selectedTargets": [
     "claude",
     "codex",

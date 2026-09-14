@@ -291,7 +291,7 @@ function outcome(
     evidence: [{ kind: "test", ref: "packages/core/src/__tests__/adapter-conformance.test.ts" }],
     featureId: overrides.featureId,
     ...(overrides.reason === undefined ? {} : { reason: overrides.reason }),
-    schema: "skillset-render-result@1",
+    schema: "skillset-render-result@2",
     sourceUnit: sourceUnitByFeature[overrides.featureId] ?? "unknown",
     status: overrides.status,
     target: overrides.target,

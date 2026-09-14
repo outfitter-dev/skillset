@@ -170,10 +170,6 @@ function readCompileTargetNames(record: JsonRecord, label: string): readonly Tar
   if (!Array.isArray(targets)) {
     throw new Error(`skillset: expected ${label} to be a string array`);
   }
-  if (targets.length === 0) {
-    throw new Error(`skillset: expected ${label} to include at least one target`);
-  }
-
   const enabledTargets = new Set<TargetName>();
   for (const target of targets) {
     if (!isTargetName(target)) {
@@ -615,8 +611,7 @@ function workspaceCompileTargetsMessage(record: JsonRecord, label: string): stri
   const compile = record.compile;
   const targets = isJsonRecord(compile) ? compile.targets : undefined;
   if (!Array.isArray(targets)) return `expected ${label}.compile.targets to be a string array`;
-  if (targets.length === 0) return `expected ${label}.compile.targets to include at least one target`;
-  return "compile.targets must be a non-empty array";
+  return "compile.targets must be an array";
 }
 
 function workspaceCompileBuildMessage(record: JsonRecord, label: string): string {

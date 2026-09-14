@@ -1,6 +1,3 @@
-agents:
-  defaults:
-    skillsPrompt: "Load the following skills first, if available:"
 bin: true
 changes:
   minimumRefLength: 6

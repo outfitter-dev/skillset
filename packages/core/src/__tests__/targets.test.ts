@@ -59,4 +59,24 @@ describe("target vocabulary", () => {
     expect(outputs.plugins.cursor).toBe("generated/cursor/plugins");
     expect(outputs.skills.cursor).toBe(".cursor/skills");
   });
+
+  it("rejects standards selection instead of treating agents as a provider", () => {
+    expect(readCompileConfig({}, "skillset.yaml")).not.toHaveProperty("agents");
+    for (const agents of [true, false, {}, { instructions: false }]) {
+      expect(() =>
+        readCompileConfig({ compile: { agents } }, "skillset.yaml")
+      ).toThrow("unsupported compile key agents");
+    }
+  });
+
+  it("allows an explicit empty provider target selection without inventing a target", () => {
+    const record: JsonRecord = { compile: { targets: [] } };
+
+    expect(readCompileConfig(record, "skillset.yaml").targets).toEqual([]);
+    expect(readCompileTargets(record, "skillset.yaml")).toEqual({
+      claude: { enabled: false, options: {} },
+      codex: { enabled: false, options: {} },
+      cursor: { enabled: false, options: {} },
+    });
+  });
 });

@@ -766,6 +766,33 @@ test("SET-279: check refreshes legacy locks missing render input hashes", async 
   expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
 });
 
+test("SET-398: check migrates a coherent v2 lock with v1 render results", async () => {
+  const root = await builtFixture(pluginFixture());
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    provenanceHash?: string;
+    readonly renderResults?: Array<{ schema?: string }>;
+    schemaVersion: number;
+    selectedStandards?: unknown;
+  };
+  lock.schemaVersion = 2;
+  delete lock.provenanceHash;
+  delete lock.selectedStandards;
+  for (const renderResult of lock.renderResults ?? []) {
+    renderResult.schema = "skillset-render-result@1";
+  }
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.fixedPaths).toContain("plugins/skillset.lock");
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(JSON.parse(await readFile(lockPath, "utf8"))).toEqual(expect.objectContaining({
+    schemaVersion: 3,
+  }));
+});
+
 test("SET-279: ownerless legacy plugin hashes stay visible beside provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
@@ -1067,12 +1094,12 @@ async function hashLockItem(
   fileModes?: Readonly<Record<string, "0644" | "0755">>
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update(schemaVersion === 2 ? "skillset-output-v2\0" : "skillset-output-v1\0");
+  hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
   for (const file of files) {
     const outputPath = join(root, outputRoot === "." ? file : join(outputRoot, file));
     hash.update(file);
     hash.update("\0");
-    if (schemaVersion === 2) {
+    if (schemaVersion !== 1) {
       expect(fileModes?.[file]).toBeDefined();
       hash.update(((await stat(outputPath)).mode & 0o777).toString(8).padStart(4, "0"));
       hash.update("\0");
