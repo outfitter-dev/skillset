@@ -1,3 +1,5 @@
+import type { StandardProfileId } from "@skillset/registry";
+
 import type { SkillsetXdgOptions } from "./xdg";
 
 export type TargetName = "claude" | "codex" | "cursor";
@@ -279,6 +281,10 @@ export interface TargetOutputConfig {
   readonly skills: OutputSelection;
 }
 
+export interface StandardProjectionPlan {
+  readonly adopted: readonly StandardProfileId[];
+}
+
 export interface BuildGraph {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly hookAttachments: readonly SourceHookAttachment[];
@@ -301,6 +307,8 @@ export interface BuildGraph {
   /** Authored source root, such as `.skillset` or `skillset`. */
   readonly sourceRoot: string;
   readonly sourceRootPath: string;
+  /** Inherent adopted standards projections, separate from provider target identity. */
+  readonly standardProjections: StandardProjectionPlan;
   /** Non-fatal source warnings surfaced by the CLI. */
   readonly warnings: readonly string[];
 }
