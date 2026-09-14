@@ -4,7 +4,7 @@ slug: source-manifest-listing-metadata
 title: Source Manifest Listing Metadata
 status: accepted
 created: 2026-06-25
-updated: 2026-09-11
+updated: 2026-09-12
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 1]
 ---
