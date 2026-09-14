@@ -22,6 +22,10 @@ import {
   type PluginAdoptionRelation,
 } from "./plugin-adoption";
 import { quoteShellArgument } from "./recovery-guidance";
+import {
+  hasAgentPluginManifest,
+  inspectAgentPluginImport,
+} from "./agent-plugin-import";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
@@ -93,6 +97,7 @@ export interface SetupImportCandidate {
     readonly paths: readonly string[];
     readonly providers: readonly TargetName[];
     readonly relation: PluginAdoptionRelation;
+    readonly standardProfile?: "agent-plugins-1.0";
   };
 }
 
@@ -372,22 +377,36 @@ async function detectImportCandidates(
 }> {
   const candidates: SetupImportCandidate[] = [];
   const pluginPaths: string[] = [];
+  const agentPluginPaths: string[] = [];
   await maybeCandidate(candidates, rootPath, ".claude/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".codex/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".cursor/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".agents/skills", "skills");
   const rootIsNativePlugin = await hasNativePluginManifest(rootPath);
-  if (!rootIsNativePlugin) {
+  const rootIsAgentPlugin = await hasAgentPluginManifest(rootPath);
+  if (!rootIsNativePlugin && !rootIsAgentPlugin) {
     await maybeRootSkillsCandidate(candidates, rootPath);
   }
   if (rootIsNativePlugin) {
     pluginPaths.push(".");
   }
+  if (rootIsAgentPlugin) {
+    agentPluginPaths.push(".");
+  }
   for (const path of [...(await marketplacePluginSources(rootPath)), ...(await nestedPluginSources(rootPath))]) {
     if (!pluginPaths.includes(path)) pluginPaths.push(path);
   }
+  for (const path of await nestedAgentPluginSources(rootPath)) {
+    if (!agentPluginPaths.includes(path)) {
+      agentPluginPaths.push(path);
+    }
+  }
   const pluginClassification = await classifyPluginAdoptionCandidates(rootPath, pluginPaths);
-  for (const group of pluginClassification.groups) {
+  const nativeGroups = pluginClassification.groups.map((group) => ({
+    ...group,
+    identity: nativePluginImportIdentity(rootPath, group.identity, group.primaryPath),
+  }));
+  for (const group of nativeGroups) {
     candidates.push({
       kind: "plugin",
       path: group.primaryPath,
@@ -403,6 +422,15 @@ async function detectImportCandidates(
         : {}),
     });
   }
+  const agentPluginClassification = await classifyAgentPluginImportCandidates(
+    rootPath,
+    agentPluginPaths
+  );
+  candidates.push(...agentPluginClassification.candidates);
+  const crossSourceDiagnostics = competingAgentPluginIdentityDiagnostics(
+    nativeGroups,
+    agentPluginClassification.declaredIdentities
+  );
   // Instruction candidates are for un-adopted repos: an existing
   // skillset.yaml means the repo already authors instructions in
   // .skillset/rules, so its root files are (or will be) generated.
@@ -415,7 +443,162 @@ async function detectImportCandidates(
   }
   return {
     candidates: candidates.sort((left, right) => compareCandidate(left, right)),
-    diagnostics: pluginClassification.diagnostics,
+    diagnostics: [
+      ...pluginClassification.diagnostics,
+      ...agentPluginClassification.diagnostics,
+      ...crossSourceDiagnostics,
+    ],
+  };
+}
+
+function nativePluginImportIdentity(
+  rootPath: string,
+  declaredIdentity: string,
+  primaryPath: string
+): string {
+  if (/^[a-z0-9][a-z0-9-]*$/u.test(declaredIdentity)) {
+    return declaredIdentity;
+  }
+  return basename(resolve(rootPath, primaryPath));
+}
+
+interface DeclaredAgentPluginIdentity {
+  readonly identity: string;
+  readonly path: string;
+}
+
+async function classifyAgentPluginImportCandidates(
+  rootPath: string,
+  paths: readonly string[]
+): Promise<{
+  readonly candidates: readonly SetupImportCandidate[];
+  readonly declaredIdentities: readonly DeclaredAgentPluginIdentity[];
+  readonly diagnostics: readonly PluginAdoptionDiagnostic[];
+}> {
+  const candidates: SetupImportCandidate[] = [];
+  const declaredIdentities: DeclaredAgentPluginIdentity[] = [];
+  const diagnostics: PluginAdoptionDiagnostic[] = [];
+  for (const path of paths.toSorted()) {
+    const absolutePath = join(rootPath, path);
+    let identity = basename(absolutePath);
+    try {
+      const inspection = await inspectAgentPluginImport(absolutePath, {
+        ignoreSetupScaffold: path === ".",
+      });
+      if (inspection === undefined) continue;
+      identity = inspection.manifestName;
+      declaredIdentities.push({ identity, path });
+      if (!/^[a-z0-9][a-z0-9-]*$/u.test(identity)) {
+        diagnostics.push(agentPluginImportDiagnostic(
+          path,
+          `Agent Plugins manifest name ${JSON.stringify(identity)} cannot be preserved as a Skillset plugin id.`,
+          "Rename the package to a Skillset-compatible slug or import it directly with an explicit --name mapping."
+        ));
+      }
+    } catch (error) {
+      diagnostics.push(agentPluginImportDiagnostic(
+        path,
+        error instanceof Error ? error.message : String(error),
+        "Remove or isolate the unsupported Agent Plugins material before adopting."
+      ));
+    }
+    candidates.push({
+      kind: "plugin",
+      path,
+      plugin: {
+        identity,
+        paths: [path],
+        providers: [],
+        relation: "single-source",
+        standardProfile: "agent-plugins-1.0",
+      },
+    });
+  }
+  return { candidates, declaredIdentities, diagnostics };
+}
+
+function competingAgentPluginIdentityDiagnostics(
+  nativeGroups: readonly {
+    readonly identity: string;
+    readonly paths: readonly string[];
+    readonly providers: readonly TargetName[];
+  }[],
+  agentIdentities: readonly DeclaredAgentPluginIdentity[]
+): readonly PluginAdoptionDiagnostic[] {
+  const units = [
+    ...nativeGroups.map((group) => ({
+      agentPlugin: false,
+      identity: group.identity,
+      paths: group.paths,
+      providers: group.providers,
+    })),
+    ...agentIdentities.map((candidate) => ({
+      agentPlugin: true,
+      identity: candidate.identity,
+      paths: [candidate.path],
+      providers: [] as readonly TargetName[],
+    })),
+  ];
+  const byIdentity = new Map<string, typeof units>();
+  for (const unit of units) {
+    const matches = byIdentity.get(unit.identity) ?? [];
+    matches.push(unit);
+    byIdentity.set(unit.identity, matches);
+  }
+
+  const diagnostics: PluginAdoptionDiagnostic[] = [];
+  for (const identity of [...byIdentity.keys()].sort()) {
+    const matches = byIdentity.get(identity) ?? [];
+    const paths = [...new Set(matches.flatMap((candidate) => candidate.paths))]
+      .sort();
+    if (
+      matches.length < 2 ||
+      !matches.some((candidate) => candidate.agentPlugin) ||
+      paths.length < 2
+    ) {
+      continue;
+    }
+    const providerSet = new Set(
+      matches.flatMap((candidate) => candidate.providers)
+    );
+    const providers = targetNames().filter((target) => providerSet.has(target));
+    diagnostics.push({
+      code: "competing-plugin-sources",
+      evidence: matches
+        .flatMap((candidate) =>
+          candidate.paths.map(
+            (path) =>
+              `${candidate.agentPlugin ? "Agent Plugins" : "native"} source ${path} declares plugin identity ${identity}`
+          )
+        )
+        .sort(),
+      identity,
+      message:
+        `Plugin candidates ${paths.map((path) => `\`${path}\``).join(", ")} declare the same plugin identity ` +
+        `\`${identity}\` across distinct source units that include Agent Plugins packages.`,
+      paths,
+      providers,
+      recommendation:
+        "Consolidate the package into one source unit, or give intentionally separate plugins distinct identities before adopting.",
+      severity: "error",
+    });
+  }
+  return diagnostics;
+}
+
+function agentPluginImportDiagnostic(
+  path: string,
+  message: string,
+  recommendation: string
+): PluginAdoptionDiagnostic {
+  return {
+    code: "agent-plugin-import-blocked",
+    evidence: [message],
+    message: `Agent Plugins package ${path} cannot be imported: ${message}`,
+    paths: [path],
+    providers: [],
+    recommendation,
+    severity: "error",
   };
 }
 
@@ -436,6 +619,29 @@ async function nestedPluginSources(rootPath: string): Promise<readonly string[]>
     if (!(await pathExists(absolutePath))) continue;
     if (!(await stat(absolutePath)).isDirectory()) continue;
     if (!(await hasNativePluginManifest(absolutePath))) continue;
+    const realSource = await realpath(absolutePath);
+    if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
+    if (await isManagedCandidate(absolutePath)) continue;
+    const path = relative(realRoot, realSource).replaceAll("\\", "/");
+    if (path.length === 0 || sources.includes(path)) continue;
+    sources.push(path);
+  }
+  return sources;
+}
+
+async function nestedAgentPluginSources(
+  rootPath: string
+): Promise<readonly string[]> {
+  const pluginsPath = join(rootPath, "plugins");
+  if (!(await pathExists(pluginsPath))) return [];
+  if (!(await stat(pluginsPath)).isDirectory()) return [];
+  const realRoot = await realpath(rootPath);
+  const sources: string[] = [];
+  for (const entry of (await readdir(pluginsPath)).sort()) {
+    const absolutePath = join(pluginsPath, entry);
+    if (!(await pathExists(absolutePath))) continue;
+    if (!(await stat(absolutePath)).isDirectory()) continue;
+    if (!(await hasAgentPluginManifest(absolutePath))) continue;
     const realSource = await realpath(absolutePath);
     if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
     if (await isManagedCandidate(absolutePath)) continue;
