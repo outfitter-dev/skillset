@@ -40,10 +40,13 @@ export interface ResolvedTarget {
 
 export interface RootConfig {
   readonly compile: CompileConfig;
+  readonly drafts: readonly string[];
   readonly distributions: Readonly<Record<string, DistributionConfig>>;
+  readonly internalMarker: boolean;
   readonly marketplaces: Readonly<Record<string, MarketplaceCatalogConfig>>;
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
+  readonly plugins: WorkspacePluginsConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
   readonly workspace: SkillsetWorkspaceConfig;
 }
@@ -78,9 +81,36 @@ export interface CompileFeatureConfig {
 export interface CompileConfig {
   readonly build: CompileBuildMode;
   readonly features: CompileFeatureConfig;
+  readonly instructionFrontPage: InstructionFrontPageDestination;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupportedDestination: UnsupportedDestinationPolicy;
+}
+
+export type InstructionFrontPageDestination = "claude-dir" | "repo-root";
+
+export type InternalUseSelector = boolean | readonly string[];
+
+export interface InternalUseConfig {
+  readonly drafts: Readonly<Record<string, InternalUseSelector>>;
+  readonly plugins: InternalUseSelector;
+  readonly skills: Readonly<Record<string, InternalUseSelector>>;
+}
+
+export interface PackageOutputTargetConfig {
+  readonly combine?: boolean;
+  readonly name?: string;
+  readonly path?: string;
+}
+
+export interface PackageOutputConfig {
+  readonly path: string;
+  readonly targets: Readonly<Record<TargetName, PackageOutputTargetConfig>>;
+}
+
+export interface WorkspacePluginsConfig {
+  readonly internalUse: InternalUseConfig;
+  readonly output: PackageOutputConfig;
 }
 
 export type DistributionDestinationKind = "git" | "local";
@@ -203,6 +233,7 @@ export interface CodexMarketplacePluginConfig {
 }
 
 export interface PluginConfig {
+  readonly drafts: readonly string[];
   readonly metadata: JsonRecord;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
@@ -311,6 +342,7 @@ export interface SourcePlugin {
    */
   readonly claudeBundlePath?: string;
   readonly configPath: string;
+  readonly configuredDrafts?: readonly string[];
   readonly dependencies: readonly SourcePluginDependency[];
   /** Complete discovered inventory, including drafts excluded from projections. */
   readonly discoveredSkills?: readonly SourceSkill[];

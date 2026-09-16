@@ -29,6 +29,7 @@ import type {
   CompileBuildMode,
   CompileConfig,
   CompileFeatureConfig,
+  InstructionFrontPageDestination,
   CompileSkillsetConfig,
   UnsupportedDestinationPolicy,
   DistributionConfig,
@@ -36,10 +37,12 @@ import type {
   JsonValue,
   MarketplaceCatalogConfig,
   MarketplacePluginEntryConfig,
+  InternalUseConfig,
   OutputConfig,
   OutputSelection,
   ResolvedTarget,
   TargetName,
+  WorkspacePluginsConfig,
 } from "./types";
 import { SKILLSET_RUNTIME_IDS, type SkillsetRuntimeId } from "./feature-registry";
 import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
@@ -80,6 +83,11 @@ const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>(
   SCHEMA_UNSUPPORTED_DESTINATION_POLICIES as readonly UnsupportedDestinationPolicy[]
 );
+const INSTRUCTION_FRONT_PAGE_DESTINATIONS = new Set<InstructionFrontPageDestination>([
+  "claude-dir",
+  "repo-root",
+]);
+const DEFAULT_PACKAGE_OUTPUT_PATH = "plugins/[name]";
 const CODEX_MARKETPLACE_SOURCE_KIND_SET = new Set<string>(
   CODEX_MARKETPLACE_SOURCE_KINDS
 );
@@ -145,6 +153,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
     return {
       build: "updated",
       features: { promptArguments: true },
+      instructionFrontPage: "claude-dir",
       skillset: { metadata: true },
       targets: [...DEFAULT_TARGET_NAMES],
       unsupportedDestination: "error",
@@ -155,6 +164,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
     if (
       key !== "build" &&
       key !== "features" &&
+      key !== "instruction_front_page" &&
       key !== "skillset" &&
       key !== "targets" &&
       key !== "unsupportedDestination"
@@ -168,6 +178,10 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   return {
     build: readCompileBuildMode(compile, `${label}.compile.build`),
     features: readCompileFeatureConfig(compile, `${label}.compile.features`),
+    instructionFrontPage: readInstructionFrontPage(
+      compile.instruction_front_page,
+      `${label}.compile.instruction_front_page`
+    ),
     skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
     targets: readCompileTargetNames(compile, `${label}.compile.targets`),
     unsupportedDestination,
@@ -189,6 +203,178 @@ export function readCompileTargets(
     targetRecord((target) => ({ enabled: enabledTargets.has(target), options: {} })),
     rootDefaults
   );
+}
+
+function readInstructionFrontPage(
+  value: JsonValue | undefined,
+  label: string
+): InstructionFrontPageDestination {
+  if (value === undefined) return "claude-dir";
+  if (
+    typeof value !== "string" ||
+    !INSTRUCTION_FRONT_PAGE_DESTINATIONS.has(
+      value as InstructionFrontPageDestination
+    )
+  ) {
+    throw new Error(
+      `skillset: expected ${label} to be claude-dir or repo-root`
+    );
+  }
+  return value as InstructionFrontPageDestination;
+}
+
+export function readDraftSelectors(
+  record: JsonRecord,
+  label: string
+): readonly string[] {
+  const raw = record.drafts;
+  if (raw === undefined) return [];
+  return readStringArrayValue(raw, `${label}.drafts`);
+}
+
+export function readInternalMarker(record: JsonRecord, label: string): boolean {
+  const value = record.internal_marker;
+  if (value === undefined) return true;
+  if (typeof value !== "boolean") {
+    throw new Error(`skillset: expected ${label}.internal_marker to be a boolean`);
+  }
+  return value;
+}
+
+export function readWorkspacePluginsConfig(
+  record: JsonRecord,
+  label: string
+): WorkspacePluginsConfig {
+  const raw = record.plugins;
+  if (raw === undefined) {
+    return {
+      internalUse: emptyInternalUseConfig(),
+      output: defaultPackageOutputConfig(),
+    };
+  }
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label}.plugins to be an object`);
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== "internal_use" && key !== "output") {
+      throw new Error(`skillset: unsupported ${label}.plugins key ${key}`);
+    }
+  }
+  return {
+    internalUse: readInternalUseConfig(
+      raw.internal_use,
+      `${label}.plugins.internal_use`
+    ),
+    output: readPackageOutputConfig(raw.output, `${label}.plugins.output`),
+  };
+}
+
+function emptyInternalUseConfig(): InternalUseConfig {
+  return { drafts: {}, plugins: false, skills: {} };
+}
+
+function readInternalUseConfig(
+  value: JsonValue | undefined,
+  label: string
+): InternalUseConfig {
+  if (value === undefined || value === false) return emptyInternalUseConfig();
+  if (value === true) return { drafts: {}, plugins: true, skills: {} };
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be a boolean or an object`);
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "drafts" && key !== "plugins" && key !== "skills") {
+      throw new Error(`skillset: unsupported ${label} key ${key}`);
+    }
+  }
+  return {
+    drafts: readInternalUseByPlugin(value.drafts, `${label}.drafts`),
+    plugins: readInternalUseSelector(value.plugins, `${label}.plugins`),
+    skills: readInternalUseByPlugin(value.skills, `${label}.skills`),
+  };
+}
+
+function readInternalUseByPlugin(
+  value: JsonValue | undefined,
+  label: string
+): Readonly<Record<string, InternalUseConfig["plugins"]>> {
+  if (value === undefined) return {};
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([pluginId, selection]) => [
+      pluginId,
+      readInternalUseSelector(selection, `${label}.${pluginId}`),
+    ])
+  );
+}
+
+function readInternalUseSelector(
+  value: JsonValue | undefined,
+  label: string
+): InternalUseConfig["plugins"] {
+  if (value === undefined) return false;
+  if (typeof value === "boolean") return value;
+  return readStringArrayValue(value, label);
+}
+
+function defaultPackageOutputConfig(): WorkspacePluginsConfig["output"] {
+  return {
+    path: DEFAULT_PACKAGE_OUTPUT_PATH,
+    targets: targetRecord(() => ({})),
+  };
+}
+
+function readPackageOutputConfig(
+  value: JsonValue | undefined,
+  label: string
+): WorkspacePluginsConfig["output"] {
+  if (value === undefined) return defaultPackageOutputConfig();
+  if (typeof value === "string") {
+    return { path: value, targets: targetRecord(() => ({})) };
+  }
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be a path or an object`);
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "path" && !isTargetName(key)) {
+      throw new Error(`skillset: unsupported ${label} key ${key}`);
+    }
+  }
+  return {
+    path: readString(value, "path") ?? DEFAULT_PACKAGE_OUTPUT_PATH,
+    targets: targetRecord((target) =>
+      readPackageOutputTarget(value[target], `${label}.${target}`)
+    ),
+  };
+}
+
+function readPackageOutputTarget(
+  value: JsonValue | undefined,
+  label: string
+): WorkspacePluginsConfig["output"]["targets"][TargetName] {
+  if (value === undefined) return {};
+  if (typeof value === "string") return { path: value };
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be a path or an object`);
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "combine" && key !== "name" && key !== "path") {
+      throw new Error(`skillset: unsupported ${label} key ${key}`);
+    }
+  }
+  const combine = value.combine;
+  if (combine !== undefined && typeof combine !== "boolean") {
+    throw new Error(`skillset: expected ${label}.combine to be a boolean`);
+  }
+  const name = readString(value, "name");
+  const path = readString(value, "path");
+  return {
+    ...(combine === undefined ? {} : { combine }),
+    ...(name === undefined ? {} : { name }),
+    ...(path === undefined ? {} : { path }),
+  };
 }
 
 function readCompileTargetNames(record: JsonRecord, label: string): readonly TargetName[] {

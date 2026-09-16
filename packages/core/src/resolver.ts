@@ -23,13 +23,16 @@ import {
   applyFeatureTargetDefaults,
   readCompileConfig,
   readCompileTargets,
+  readDraftSelectors,
   readDistributionConfig,
   readMarketplaceCatalogConfig,
+  readInternalMarker,
   readClaudeBundlePath,
   readOutputConfig,
   readRecord,
   readSkillsetMetadata,
   readSkillsetName,
+  readWorkspacePluginsConfig,
   isTargetName,
   readString,
   readStringArray,
@@ -167,6 +170,9 @@ export async function loadBuildGraph(
   const distributions = readDistributionConfig(rootConfig, workspace.configPath);
   const marketplaces = readMarketplaceCatalogConfig(rootConfig, workspace.configPath);
   const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, workspace.configPath);
+  const drafts = readDraftSelectors(sourceManifest, metadataLabel);
+  const internalMarker = readInternalMarker(rootConfig, workspace.configPath);
+  const pluginsConfig = readWorkspacePluginsConfig(rootConfig, workspace.configPath);
   const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
     allowDefaults: true,
     objectInheritsEnabled: true,
@@ -180,10 +186,13 @@ export async function loadBuildGraph(
   };
   const root = {
     compile,
+    drafts,
     distributions,
+    internalMarker,
     marketplaces,
     metadata,
     outputs,
+    plugins: pluginsConfig,
     targets: filteredTargets,
     workspace: workspaceConfig,
   };
@@ -1031,10 +1040,12 @@ async function loadPlugin(
   let metadata: SourcePlugin["metadata"];
   let sourceOrigin: SourceOrigin | undefined;
   let configuredId: string;
+  let configuredDrafts: readonly string[];
   let inheritedTargets: BuildGraph["root"]["targets"];
   let targets: SourcePlugin["targets"];
   try {
     validateConfigDocument(config, configPath, { allowHooks: true });
+    configuredDrafts = readDraftSelectors(config, configRelativePath);
     claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
     await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
@@ -1093,6 +1104,7 @@ async function loadPlugin(
     adaptiveHooks,
     ...(claudeBundlePath === undefined ? {} : { claudeBundlePath }),
     dependencies,
+    configuredDrafts,
     discoveredSkills,
     features,
     hookAttachments,
