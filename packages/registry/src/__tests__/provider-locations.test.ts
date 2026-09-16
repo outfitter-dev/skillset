@@ -8,6 +8,7 @@ import {
   selectProviderLocationEvidence,
   type ProviderLocationEvidence,
 } from "../provider-locations";
+import { PROVIDER_SCHEMA_TARGETS } from "../schema-snapshots";
 
 describe("SET-524 provider-location evidence", () => {
   test("selects exact provider versions and exposes provenance", () => {
@@ -208,21 +209,30 @@ describe("SET-524 provider-location evidence", () => {
 
 describe("SET-538 runtime-hook destinations", () => {
   test("exposes one runtime-hook destination status for every target", () => {
-    expect(getProviderRuntimeHookDestination("claude")).toEqual({
-      kind: "runtime-hook",
-      path: "<project>/.claude/settings.local.json",
-      status: "verified",
-    });
-    expect(getProviderRuntimeHookDestination("codex")).toEqual({
-      kind: "runtime-hook",
-      path: "<project>/.codex/hooks.json",
-      status: "verified",
-    });
-    expect(getProviderRuntimeHookDestination("cursor")).toEqual({
-      kind: "runtime-hook",
-      reason:
-        "Current primary evidence does not establish a project runtime hook destination for Cursor.",
-      status: "unknown",
+    expect(
+      Object.fromEntries(
+        PROVIDER_SCHEMA_TARGETS.map((target) => [
+          target,
+          getProviderRuntimeHookDestination(target),
+        ])
+      )
+    ).toEqual({
+      claude: {
+        kind: "runtime-hook",
+        path: "<project>/.claude/settings.local.json",
+        status: "verified",
+      },
+      codex: {
+        kind: "runtime-hook",
+        path: "<project>/.codex/hooks.json",
+        status: "verified",
+      },
+      cursor: {
+        kind: "runtime-hook",
+        reason:
+          "Current primary evidence does not establish a project runtime hook destination for Cursor.",
+        status: "unknown",
+      },
     });
   });
 
