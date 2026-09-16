@@ -2,11 +2,21 @@
 /* eslint-disable unicorn/import-style -- Named path helpers keep fixture assertions compact. */
 
 import { describe, expect, test } from "bun:test";
-import { access, chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { buildSkillset } from "../build";
+import { createShadowWorkspace } from "../source-rename-apply";
 import {
   planSourceRename,
   renameSource,
@@ -576,6 +586,8 @@ describe("source rename planner", () => {
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
     await buildSkillset(root);
+    const unmanagedPath = join(root, ".claude/skills/unmanaged.txt");
+    await writeFile(unmanagedPath, "keep me\n");
     const generatedBefore = await readFile(
       join(root, ".claude/skills/old/SKILL.md")
     );
@@ -613,6 +625,7 @@ describe("source rename planner", () => {
       generatedBefore
     );
     await expect(access(join(root, ".claude/skills/new"))).rejects.toThrow();
+    expect(await readFile(unmanagedPath, "utf-8")).toBe("keep me\n");
   });
 
   test("preview reports generated moves and refuses unmanaged collisions", async () => {
@@ -645,8 +658,143 @@ describe("source rename planner", () => {
     await mkdir(join(root, ".claude/skills/new"), { recursive: true });
     await writeFile(join(root, ".claude/skills/new/SKILL.md"), "unmanaged\n");
     await expect(planSourceRename(request)).rejects.toThrow(
-      "unmanaged-output-collision: .claude/skills/new/SKILL.md"
+      "generated destination is unmanaged: .claude/skills/new/SKILL.md"
     );
+    await expect(
+      renameSource({ ...request, expectedPlanHash: "unreachable" })
+    ).rejects.toThrow(
+      "generated destination is unmanaged: .claude/skills/new/SKILL.md"
+    );
+    expect(
+      await readFile(join(root, ".skillset/skills/old/SKILL.md"), "utf-8")
+    ).toContain("name: old");
+    await expect(access(join(root, ".skillset/skills/new"))).rejects.toThrow();
+    expect(
+      await readFile(join(root, ".claude/skills/new/SKILL.md"), "utf-8")
+    ).toBe("unmanaged\n");
+    await expect(access(join(root, ".skillset/snapshots"))).rejects.toThrow();
+  });
+
+  test("preserves an unmanaged generated destination that appears during final inspection", async () => {
+    const root = await fixture({
+      ".skillset/skills/old/SKILL.md":
+        "---\nname: old\ndescription: Old\n---\n\nOld\n",
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const generatedPath = join(root, ".claude/skills/old/SKILL.md");
+    const lockPath = join(root, ".claude/skills/skillset.lock");
+    const generatedBefore = await readFile(generatedPath);
+    const lockBefore = await readFile(lockPath);
+    const request = {
+      from: ".skillset/skills/old",
+      rootPath: root,
+      to: ".skillset/skills/new",
+    };
+    const preview = await planSourceRename(request);
+    const unmanagedPath = join(root, ".claude/skills/new/SKILL.md");
+
+    await expect(
+      renameSource({
+        ...request,
+        expectedPlanHash: preview.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeInitialInspection: async () => {
+              await mkdir(dirname(unmanagedPath), { recursive: true });
+              await writeFile(unmanagedPath, "late unmanaged\n");
+            },
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "workspace transaction write target appeared after final approval: .claude/skills/new/SKILL.md"
+    );
+    expect(await readFile(unmanagedPath, "utf-8")).toBe("late unmanaged\n");
+    expect(
+      await readFile(join(root, ".skillset/skills/old/SKILL.md"), "utf-8")
+    ).toContain("name: old");
+    await expect(access(join(root, ".skillset/skills/new"))).rejects.toThrow();
+    expect(
+      await readFile(generatedPath)
+    ).toEqual(generatedBefore);
+    expect(await readFile(lockPath)).toEqual(lockBefore);
+    await expect(
+      access(join(root, ".skillset/changes/ledger.jsonl"))
+    ).rejects.toThrow();
+    await expect(access(join(root, ".skillset/snapshots"))).rejects.toThrow();
+  });
+
+  test("refuses unmanaged collisions in the shared plugin package output", async () => {
+    const root = await fixture({
+      ".skillset/plugins/tools/skills/old/SKILL.md":
+        "---\nname: old\ndescription: Old\n---\n\nOld\n",
+      ".skillset/plugins/tools/skillset.yaml":
+        "skillset:\n  name: tools\n",
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const unmanagedPath = join(
+      root,
+      "plugins/tools/claude/skills/new/SKILL.md"
+    );
+    await mkdir(dirname(unmanagedPath), { recursive: true });
+    await writeFile(unmanagedPath, "unmanaged package skill\n");
+    const request = {
+      from: ".skillset/plugins/tools/skills/old",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/new",
+    };
+
+    await expect(planSourceRename(request)).rejects.toThrow(
+      "generated destination is unmanaged: plugins/tools/claude/skills/new/SKILL.md"
+    );
+    expect(await readFile(unmanagedPath, "utf-8")).toBe(
+      "unmanaged package skill\n"
+    );
+    expect(
+      await readFile(
+        join(root, ".skillset/plugins/tools/skills/old/SKILL.md"),
+        "utf-8"
+      )
+    ).toContain("name: old");
+    await expect(
+      access(join(root, ".skillset/plugins/tools/skills/new"))
+    ).rejects.toThrow();
+    await expect(access(join(root, ".skillset/snapshots"))).rejects.toThrow();
+  });
+
+  test("keeps mixed repository-root files while excluding directory output roots", async () => {
+    const root = await fixture({
+      ".claude/skills/generated/SKILL.md": "generated\n",
+      ".skillset/skills/demo/SKILL.md":
+        "---\nname: demo\ndescription: Demo\n---\n\nDemo\n",
+      "README.md": "authored\n",
+      "plugins/generated.txt": "generated\n",
+      "skillset.yaml": "skillset:\n  name: rename-fixture\n",
+    });
+    const shadowRoot = await createShadowWorkspace(root, [
+      ".",
+      ".claude/skills/",
+      "./plugins",
+    ]);
+    try {
+      expect(await readFile(join(shadowRoot, "README.md"), "utf-8")).toBe(
+        "authored\n"
+      );
+      expect(
+        await readFile(
+          join(shadowRoot, ".skillset/skills/demo/SKILL.md"),
+          "utf-8"
+        )
+      ).toContain("name: demo");
+      await expect(access(join(shadowRoot, ".claude/skills"))).rejects.toThrow();
+      await expect(access(join(shadowRoot, "plugins"))).rejects.toThrow();
+    } finally {
+      await rm(shadowRoot, { force: true, recursive: true });
+    }
   });
 
   test("refuses renames whose projected build is blocked, leaving an unmanaged destination intact", async () => {
