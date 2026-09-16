@@ -3,7 +3,7 @@
 
 import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import { buildSkillsetResult, verifySkillsetResult } from "./build";
 import type { SkillsetOutputStateBlocker } from "./output-state";
@@ -160,6 +160,7 @@ function generatedTransactionPlan(
       )
       .map((operation) => ({
         content: operation.content,
+        ...(operation.kind === "create" ? { expectedAbsent: true } : {}),
         mode: operation.mode,
         path: operation.path,
       })),
@@ -200,25 +201,35 @@ function renderedContentEquals(left: Uint8Array, right: Uint8Array): boolean {
   return Buffer.from(left).equals(Buffer.from(right));
 }
 
-async function createShadowWorkspace(
+/** @internal Exported for path-shape regression coverage. */
+export async function createShadowWorkspace(
   rootPath: string,
   outputRoots: readonly string[]
 ): Promise<string> {
   const shadowRoot = await mkdtemp(join(tmpdir(), "skillset-source-rename-"));
-  const excludedRoots = outputRoots.map((path) =>
-    toPosix(relative(rootPath, path))
-  );
+  const excludedRoots = [
+    ...new Set(
+      outputRoots
+        .map((path) => shadowRelativePath(rootPath, path))
+        .filter((path) => path.length > 0)
+    ),
+  ];
   for (const entry of await readdir(rootPath)) {
-    if (shadowCopyExcluded(entry, excludedRoots)) {
+    if (shadowCopyExcluded(shadowRelativePath(rootPath, entry), excludedRoots)) {
       continue;
     }
     await cp(join(rootPath, entry), join(shadowRoot, entry), {
       filter: (path) =>
-        !shadowCopyExcluded(toPosix(relative(rootPath, path)), excludedRoots),
+        !shadowCopyExcluded(shadowRelativePath(rootPath, path), excludedRoots),
       recursive: true,
     });
   }
   return shadowRoot;
+}
+
+function shadowRelativePath(rootPath: string, path: string): string {
+  const relativePath = toPosix(relative(rootPath, resolve(rootPath, path)));
+  return relativePath === "." ? "" : relativePath.replace(/\/+$/u, "");
 }
 
 function shadowCopyExcluded(
@@ -234,8 +245,7 @@ function shadowCopyExcluded(
     path.startsWith(".skillset/cache/") ||
     first.startsWith(".skillset-workspace-transaction-") ||
     outputRoots.some(
-      (root) =>
-        path === root || (root.length > 0 && path.startsWith(`${root}/`))
+      (root) => root.length > 0 && (path === root || path.startsWith(`${root}/`))
     )
   );
 }
