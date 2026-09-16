@@ -1,3 +1,4 @@
+import { listProviderDestinationFormatSnapshots } from "@skillset/registry";
 import {
   CODEX_MARKETPLACE_AUTHENTICATION_POLICIES,
   CODEX_MARKETPLACE_INSTALLATION_POLICIES,
@@ -252,9 +253,10 @@ export function readOutputConfig(
   metadata: JsonRecord,
   options: { readonly distDir?: string } = {}
 ): OutputConfig {
+  rejectProviderSkillOutputRoots(record);
+  rejectLegacySkillOutputRoots(metadata);
   const outputs = readRecord(metadata, "outputs") ?? {};
   const pluginOutputs = readRecord(outputs, "plugins") ?? {};
-  const skillOutputs = readRecord(outputs, "skills") ?? {};
   const claudePlugins = readTargetOutputSetting(record.claude, "plugins", "claude.plugins");
   const claudeSkills = readTargetOutputSetting(record.claude, "skills", "claude.skills");
   const codexPlugins = readTargetOutputSetting(record.codex, "plugins", "codex.plugins");
@@ -277,11 +279,7 @@ export function readOutputConfig(
         readString(pluginOutputs, "cursor") ??
         (options.distDir === undefined ? DEFAULT_PLUGIN_OUTPUT_ROOT : `${options.distDir}/cursor`),
     },
-    skills: {
-      claude: claudeSkills.path ?? readString(skillOutputs, "claude") ?? ".claude/skills",
-      codex: codexSkills.path ?? readString(skillOutputs, "codex") ?? ".agents/skills",
-      cursor: cursorSkills.path ?? readString(skillOutputs, "cursor") ?? ".cursor/skills",
-    },
+    skills: targetRecord(fixedSkillOutputRoot),
     targetOutputs: {
       claude: {
         plugins: claudePlugins.selection,
@@ -375,6 +373,8 @@ export function validateConfigDocument(
   label: string,
   options: { readonly allowCompile?: boolean; readonly allowHooks?: boolean } = {}
 ): void {
+  rejectProviderSkillOutputRoots(record);
+  if (isJsonRecord(record.skillset)) rejectLegacySkillOutputRoots(record.skillset);
   if (options.allowCompile === true) {
     validateWorkspaceSchemaDocument(record, label, ROOT_CONFIG_TOP_LEVEL_KEYS, validateSingleFileRootConfig, "top-level");
     return;
@@ -1509,10 +1509,14 @@ function readTargetOutputSetting(
   if (rawTarget.enabled === false) return { selection: false };
   const rawOutput = rawTarget[key];
   if (rawOutput === undefined) return { selection: true };
-  return readOutputSetting(rawOutput, label);
+  return readOutputSetting(rawOutput, label, key === "plugins");
 }
 
-function readOutputSetting(raw: JsonValue, label: string): ParsedTargetOutputSetting {
+function readOutputSetting(
+  raw: JsonValue,
+  label: string,
+  allowPath: boolean
+): ParsedTargetOutputSetting {
   if (raw === true || raw === false) return { selection: raw };
   if (Array.isArray(raw)) return { selection: readStringArrayValue(raw, label) };
   if (!isJsonRecord(raw)) {
@@ -1522,13 +1526,51 @@ function readOutputSetting(raw: JsonValue, label: string): ParsedTargetOutputSet
   if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
     throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
   }
+  if (!allowPath && Object.hasOwn(raw, "path")) {
+    throw new Error(`skillset: unsupported ${label}.path; provider skill roots are fixed`);
+  }
 
   const include = raw.include === undefined ? undefined : readStringArrayValue(raw.include, `${label}.include`);
-  const path = readString(raw, "path");
+  const path = allowPath ? readString(raw, "path") : undefined;
   return {
     ...(path === undefined ? {} : { path }),
     selection: raw.enabled === false ? false : include ?? true,
   };
+}
+
+function rejectProviderSkillOutputRoots(record: JsonRecord): void {
+  for (const target of targetNames()) {
+    const targetConfig = record[target];
+    if (!isJsonRecord(targetConfig) || !isJsonRecord(targetConfig.skills)) continue;
+    if (Object.hasOwn(targetConfig.skills, "path")) {
+      throw new Error(`skillset: unsupported ${target}.skills.path; provider skill roots are fixed`);
+    }
+  }
+}
+
+function rejectLegacySkillOutputRoots(metadata: JsonRecord): void {
+  const outputs = metadata.outputs;
+  if (!isJsonRecord(outputs) || !isJsonRecord(outputs.skills)) return;
+  for (const target of targetNames()) {
+    if (Object.hasOwn(outputs.skills, target)) {
+      throw new Error(
+        `skillset: unsupported skillset.outputs.skills.${target}; provider skill roots are fixed`
+      );
+    }
+  }
+}
+
+function fixedSkillOutputRoot(target: TargetName): string {
+  const snapshot = listProviderDestinationFormatSnapshots().find(
+    (candidate) => candidate.target === target && candidate.destination === "skill"
+  );
+  const format = snapshot?.format;
+  const directoryPattern = isJsonRecord(format) ? format.directoryPattern : undefined;
+  const suffix = "/<skill-name>/";
+  if (typeof directoryPattern !== "string" || !directoryPattern.endsWith(suffix)) {
+    throw new Error(`skillset: ${target} skill destination format has no fixed project root`);
+  }
+  return directoryPattern.slice(0, -suffix.length);
 }
 
 /**

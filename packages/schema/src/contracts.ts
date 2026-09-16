@@ -1161,7 +1161,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     name: nonEmptyStringSchema(),
     origin: sourceOriginSchema(),
     owner: sourceAuthorObjectSchema(),
-    outputs: { type: "object" },
+    outputs: sourceOutputsSchema(),
     presentation: { type: "object" },
     preprocess: { type: "boolean" },
     repository: { type: "string" },
@@ -1701,6 +1701,9 @@ function workspaceTargetOverrideSchema(): SchemaJsonRecord {
       {
         additionalProperties: true,
         not: { required: ["bundle"] },
+        properties: {
+          skills: fixedSkillOutputSelectionSchema(),
+        },
         type: "object",
       },
     ],
@@ -1724,16 +1727,52 @@ function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): Sche
             }),
             required: ["path"],
           },
+          skills: fixedSkillOutputSelectionSchema(),
         },
         type: "object",
       }
     : {
         additionalProperties: true,
         not: { required: ["bundle"] },
+        properties: {
+          skills: fixedSkillOutputSelectionSchema(),
+        },
         type: "object",
       };
   return {
     anyOf: [{ type: "boolean" }, objectSchema],
+  };
+}
+
+function fixedSkillOutputSelectionSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      arraySchema({ type: "string" }),
+      {
+        additionalProperties: true,
+        not: { required: ["path"] },
+        properties: {
+          enabled: { type: "boolean" },
+          include: arraySchema({ type: "string" }),
+        },
+        type: "object",
+      },
+    ],
+  };
+}
+
+function sourceOutputsSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
+    properties: {
+      skills: {
+        additionalProperties: true,
+        allOf: TARGET_NAMES.map((target) => ({ not: { required: [target] } })),
+        type: "object",
+      },
+    },
+    type: "object",
   };
 }
 

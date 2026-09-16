@@ -30,6 +30,38 @@ describe("distribution runtime contract", () => {
 });
 
 describe("schema-owned config document contexts", () => {
+  it("rejects removed skill-root overrides without closing provider target blocks", () => {
+    for (const target of ["claude", "codex", "cursor"] as const) {
+      expect(() =>
+        validateConfigDocument(
+          { [target]: { providerNative: { retained: true }, skills: { path: `generated/${target}/skills` } } },
+          "skillset.yaml",
+          { allowCompile: true }
+        )
+      ).toThrow(`${target}.skills.path`);
+      expect(() =>
+        validateConfigDocument(
+          { skillset: { outputs: { skills: { [target]: `generated/${target}/skills` } } } },
+          "skillset.yaml",
+          { allowCompile: true }
+        )
+      ).toThrow(`skillset.outputs.skills.${target}`);
+    }
+
+    expect(() =>
+      validateConfigDocument(
+        {
+          codex: {
+            providerNative: { retained: true },
+            skills: { enabled: true, include: ["review"] },
+          },
+        },
+        "skillset.yaml",
+        { allowCompile: true }
+      )
+    ).not.toThrow();
+  });
+
   it("rejects bundle paths before parser trimming can change their meaning", () => {
     for (const path of [" ../outside", " /absolute", " C:/absolute", ".. ", "plugin/.. "]) {
       expect(() => validateConfigDocument(
