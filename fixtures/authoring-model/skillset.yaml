@@ -5,3 +5,12 @@ compile:
 claude: true
 codex: true
 cursor: true
+drafts: []
+internal_marker: true
+plugins:
+  internal_use:
+    plugins:
+      - mg-skills
+    skills:
+      mg-skills:
+        - "!proofread"

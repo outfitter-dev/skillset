@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillset, buildSkillsetResult } from "@skillset/core";
 import {
+  doctorSkillset,
   explainPath,
   listSourceSkills,
 } from "@skillset/core/internal/authoring";
@@ -139,9 +140,98 @@ describe("SET-551/585 current authoring model", () => {
         container: "mg-skills",
         groupPath: ["(engineering)"],
         id: "tdd",
+        internalUse: {
+          rule:
+            "plugins.internal_use.skills.mg-skills: all except exclusions",
+          selected: true,
+        },
         status: "live",
       },
     });
+    expect(
+      await explainPath(
+        root,
+        ".skillset/plugins/mg-skills/skills/(writing)/proofread/SKILL.md"
+      )
+    ).toMatchObject({
+      sourceSkill: {
+        id: "proofread",
+        internalUse: {
+          rule: "plugins.internal_use.skills.mg-skills: !proofread",
+          selected: false,
+        },
+      },
+    });
+    expect(graph.pluginPlan?.packagePaths).toEqual({
+      claude: { "mg-skills": "plugins/mg-skills/" },
+      codex: { "mg-skills": "plugins/mg-skills/" },
+      cursor: { "mg-skills": "plugins/mg-skills/" },
+    });
+    expect((await doctorSkillset(root)).pluginPlan).toMatchObject({
+      internalUse: {
+        skills: expect.arrayContaining([
+          { pluginId: "mg-skills", skillId: "tdd" },
+        ]),
+      },
+      packagePaths: {
+        codex: { "mg-skills": "plugins/mg-skills/" },
+      },
+    });
+  });
+
+  it("marks configured draft selectors and rejects absent units", async () => {
+    const draftRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: configured-draft
+drafts:
+  - skill:future
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/skills/future/SKILL.md": `---
+name: future
+description: Future skill.
+---
+
+Future.
+`,
+    });
+    const graph = await loadBuildGraph(draftRoot);
+    expect(graph.standaloneSkills).toEqual([]);
+    expect(graph.discoveredSkills).toContainEqual(
+      expect.objectContaining({
+        draftOrigin: "config",
+        id: "future",
+        status: "draft",
+      })
+    );
+    expect(
+      await explainPath(draftRoot, ".skillset/skills/future/SKILL.md")
+    ).toMatchObject({
+      sourceSkill: {
+        draftOrigin: "config",
+        id: "future",
+        status: "draft",
+      },
+    });
+
+    await writeFile(
+      join(draftRoot, "skillset.yaml"),
+      `
+skillset:
+  name: configured-draft
+drafts:
+  - skill:missing
+claude: true
+codex: false
+cursor: false
+`
+    );
+    await expect(loadBuildGraph(draftRoot)).rejects.toThrow(
+      "drafts names absent unit \"skill:missing\"; known ids: future"
+    );
   });
 
   it("recognizes status: draft and rejects duplicate leaves across groups", async () => {

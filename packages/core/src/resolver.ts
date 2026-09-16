@@ -51,6 +51,8 @@ import {
   validateAdaptiveHookUnitPaths,
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
+import { resolveInternalUseSelection } from "./internal-use";
+import { plannedPackageOutputPath } from "./package-output-path";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { parsePortableMcpSource } from "./portable-mcp";
@@ -208,7 +210,15 @@ export async function loadBuildGraph(
   await validateSupports(sourceManifest.supports, { externalInputPaths, label: metadataLabel, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
   const rootAdaptiveHooks = await loadAdaptiveHooks(rootPath, sourceRootPath, { kind: "root" }, filteredTargets);
-  const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs, externalInputPaths);
+  let plugins = await loadPlugins(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    outputs,
+    externalInputPaths
+  );
   try {
     validatePluginDependencyGraph(plugins);
   } catch (error) {
@@ -218,7 +228,7 @@ export async function loadBuildGraph(
       path: join(sourceRoot, PLUGINS_DIR),
     });
   }
-  const discoveredStandaloneSkills = await loadStandaloneSkills(
+  let discoveredStandaloneSkills = await loadStandaloneSkills(
     rootPath,
     sourceDir,
     sourceRootDir,
@@ -226,6 +236,12 @@ export async function loadBuildGraph(
     warnings,
     externalInputPaths
   );
+  ({ plugins, standaloneSkills: discoveredStandaloneSkills } = applyRootConfiguredDrafts(
+    drafts,
+    plugins,
+    discoveredStandaloneSkills,
+    metadataLabel
+  ));
   const standaloneSkills = discoveredStandaloneSkills.filter((skill) => skill.status !== "draft");
   const { rules, instructionsDir } = await loadInstructions(
     rootPath,
@@ -268,6 +284,18 @@ export async function loadBuildGraph(
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
+  const pluginPlan = {
+    internalUse: resolveInternalUseSelection(pluginsConfig.internalUse, plugins),
+    packagePaths: targetRecord((target) =>
+      Object.fromEntries(
+        plugins.map((plugin) => [
+          plugin.id,
+          plannedPackageOutputPath(pluginsConfig.output, target, plugin.id),
+        ])
+      )
+    ),
+  };
+
   const standardProjections = resolveStandardProjectionPlan(
     standardProjectionSourceInventory({ plugins, rules, standaloneSkills })
   );
@@ -300,6 +328,7 @@ export async function loadBuildGraph(
     hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
+    pluginPlan,
     plugins,
     projectAgents,
     projectIslands,
@@ -1118,15 +1147,20 @@ async function loadPlugin(
   }
   const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id }, targets);
-  const discoveredSkills = await loadSkills(
-    rootPath,
-    sourceDir,
-    sourceRootDir,
-    pluginPath,
-    inheritedTargets,
-    warnings,
-    id,
-    externalInputPaths
+  const discoveredSkills = applyConfiguredDraftSelectors(
+    await loadSkills(
+      rootPath,
+      sourceDir,
+      sourceRootDir,
+      pluginPath,
+      inheritedTargets,
+      warnings,
+      id,
+      externalInputPaths
+    ),
+    configuredDrafts,
+    configRelativePath,
+    (selector) => selector.startsWith("skill:") ? selector.slice("skill:".length) : undefined
   );
   const skills = discoveredSkills.filter((skill) => skill.status !== "draft");
 
@@ -1155,6 +1189,116 @@ async function loadPlugin(
     ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
     targets,
   };
+}
+
+function applyRootConfiguredDrafts(
+  selectors: readonly string[],
+  plugins: readonly SourcePlugin[],
+  standaloneSkills: readonly SourceSkill[],
+  label: string
+): { readonly plugins: readonly SourcePlugin[]; readonly standaloneSkills: readonly SourceSkill[] } {
+  if (selectors.length === 0) return { plugins, standaloneSkills };
+  const standaloneIds = new Set(standaloneSkills.map((skill) => skill.id));
+  const pluginIds = new Map(
+    plugins.map((plugin) => [
+      plugin.id,
+      new Set((plugin.discoveredSkills ?? plugin.skills).map((skill) => skill.id)),
+    ])
+  );
+  const standaloneSelectors: string[] = [];
+  const pluginSelectors = new Map<string, string[]>();
+
+  for (const selector of selectors) {
+    if (selector.startsWith("skill:")) {
+      const skillId = selector.slice("skill:".length);
+      if (!standaloneIds.has(skillId)) {
+        throw unknownDraftSelectorError(selector, [
+          ...standaloneIds,
+          ...[...pluginIds].flatMap(([pluginId, ids]) =>
+            [...ids].map((id) => `plugin.${pluginId}.skill:${id}`)
+          ),
+        ], label);
+      }
+      standaloneSelectors.push(selector);
+      continue;
+    }
+    const match = selector.match(/^plugin\.([^.]+)\.skill:(.+)$/u);
+    const pluginId = match?.[1];
+    const skillId = match?.[2];
+    if (
+      pluginId === undefined ||
+      skillId === undefined ||
+      !pluginIds.get(pluginId)?.has(skillId)
+    ) {
+      throw unknownDraftSelectorError(selector, [
+        ...[...standaloneIds].map((id) => `skill:${id}`),
+        ...[...pluginIds].flatMap(([knownPluginId, ids]) =>
+          [...ids].map((id) => `plugin.${knownPluginId}.skill:${id}`)
+        ),
+      ], label);
+    }
+    pluginSelectors.set(pluginId, [
+      ...(pluginSelectors.get(pluginId) ?? []),
+      `skill:${skillId}`,
+    ]);
+  }
+
+  return {
+    plugins: plugins.map((plugin) => {
+      const configured = pluginSelectors.get(plugin.id) ?? [];
+      if (configured.length === 0) return plugin;
+      const discoveredSkills = applyConfiguredDraftSelectors(
+        plugin.discoveredSkills ?? plugin.skills,
+        configured,
+        label,
+        (selector) => selector.slice("skill:".length)
+      );
+      return {
+        ...plugin,
+        discoveredSkills,
+        skills: discoveredSkills.filter((skill) => skill.status !== "draft"),
+      };
+    }),
+    standaloneSkills: applyConfiguredDraftSelectors(
+      standaloneSkills,
+      standaloneSelectors,
+      label,
+      (selector) => selector.slice("skill:".length)
+    ),
+  };
+}
+
+function applyConfiguredDraftSelectors(
+  skills: readonly SourceSkill[],
+  selectors: readonly string[],
+  label: string,
+  skillIdForSelector: (selector: string) => string | undefined
+): SourceSkill[] {
+  if (selectors.length === 0) return [...skills];
+  const knownIds = [...new Set(skills.map((skill) => skill.id))].sort(compareStrings);
+  const configured = new Set<string>();
+  for (const selector of selectors) {
+    const skillId = skillIdForSelector(selector);
+    if (skillId === undefined || !knownIds.includes(skillId)) {
+      throw unknownDraftSelectorError(selector, knownIds.map((id) => `skill:${id}`), label);
+    }
+    configured.add(skillId);
+  }
+  return skills.map((skill) =>
+    configured.has(skill.id) && skill.status !== "draft"
+      ? { ...skill, draftOrigin: "config", status: "draft" }
+      : skill
+  );
+}
+
+function unknownDraftSelectorError(
+  selector: string,
+  knownSelectors: readonly string[],
+  label: string
+): Error {
+  return new Error(
+    `skillset: ${label}.drafts names absent unit ${JSON.stringify(selector)}; known ids: ${[...knownSelectors].sort(compareStrings).join(", ") || "none"}`
+  );
 }
 
 function appendSourceMetadataCompatibilityWarnings(
