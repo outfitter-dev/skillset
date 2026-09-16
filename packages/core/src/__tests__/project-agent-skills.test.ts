@@ -45,7 +45,7 @@ function agent(
     name: "reviewer",
     outputName: "reviewer",
     relativePath: "reviewer.md",
-    sourcePath: "/repo/.skillset/agents/reviewer.md",
+    sourcePath: "/repo/.skillset/subagents/reviewer.md",
     targets: targetRecord(undefined, options),
   };
 }
@@ -181,7 +181,7 @@ describe("project agent skill references", () => {
     expect(() =>
       validateProjectAgentSkills(graph(agent(["missing"]), []))
     ).toThrow(
-      '.skillset/agents/reviewer.md claude.skills references "missing"'
+      '.skillset/subagents/reviewer.md claude.skills references "missing"'
     );
     expect(() =>
       validateProjectAgentSkills(

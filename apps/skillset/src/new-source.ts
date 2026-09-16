@@ -417,7 +417,7 @@ function planAgent(
   return [
     {
       content: renderAgent(id, displayName),
-      path: join(sourceRoot, "agents", `${id}.md`),
+      path: join(sourceRoot, "subagents", `${id}.md`),
     },
   ];
 }

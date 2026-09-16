@@ -744,7 +744,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "project-agents",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/agents/*.md",
+    sourceShape: ".skillset/subagents/*.md",
     status: "implemented",
     summary: "Renders portable project agents to Claude Markdown agents and Codex TOML agents.",
     runtimeSupport: {

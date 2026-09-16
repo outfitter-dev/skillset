@@ -43,7 +43,7 @@ description: Root instructions.
 
 Keep generated output deterministic.
 `,
-  ".skillset/agents/reviewer.md": `
+  ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.

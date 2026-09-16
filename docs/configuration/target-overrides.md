@@ -6,7 +6,7 @@ description: Configure provider-specific output and behavior without duplicating
 
 A [target](../glossary.md#target) is a provider selected for a compiler run. `compile.targets` establishes the root plan; target overrides refine that plan or, at supported lower-level scopes, explicitly opt a provider back in.
 
-Agent standards are not targets. Applicable adaptive source produces each adopted standard profile inherently. No `agents` target, root `agents`, plugin field, or frontmatter field enables or disables that floor; `.skillset/agents/` and `defaults.<provider>.agents` keep their project-agent meanings.
+Agent standards are not targets. Applicable adaptive source produces each adopted standard profile inherently. No `agents` target, root `agents`, plugin field, or frontmatter field enables or disables that floor; `.skillset/subagents/` and `defaults.<provider>.agents` keep their project-agent meanings.
 
 ## Distinguish Selection from Configuration
 

@@ -26,7 +26,7 @@ describe("individual Agent Skill publication eligibility", () => {
       ".skillset/plugins/demo/.mcp.json": `
 {"mcpServers":{"demo":{"command":"demo-server"}}}
 `,
-      ".skillset/plugins/demo/agents/reviewer.md": `
+      ".skillset/plugins/demo/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Review work.

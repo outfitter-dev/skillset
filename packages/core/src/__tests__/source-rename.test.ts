@@ -36,7 +36,7 @@ describe("source rename planner", () => {
         events: ["SessionStart"],
         run: { command: "echo ok" },
       }),
-      ".skillset/partials/old.md": "Partial\n",
+      ".skillset/shared/partials/old.md": "Partial\n",
       ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md": SKILL,
       "skillset.yaml":
@@ -126,16 +126,16 @@ describe("source rename planner", () => {
 
   test("rewrites named partial references only when the named partial moves", async () => {
     const root = await fixture({
-      ".skillset/partials/old.md": "Partial\n",
+      ".skillset/shared/partials/old.md": "Partial\n",
       ".skillset/skills/demo/SKILL.md":
         "---\nname: demo\ndescription: Demo\n---\n\n{{> old}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
     const plan = await planSourceRename({
-      from: ".skillset/partials/old.md",
+      from: ".skillset/shared/partials/old.md",
       rootPath: root,
-      to: ".skillset/partials/new.md",
+      to: ".skillset/shared/partials/new.md",
     });
     const update = plan.operations.find(
       (item) => item.kind === "update" && item.path.endsWith("SKILL.md")
@@ -149,7 +149,7 @@ describe("source rename planner", () => {
 
   test("renames a file that rewrites its own structured reference", async () => {
     const root = await fixture({
-      ".skillset/partials/old.md": "Self: {{> old}}\n",
+      ".skillset/shared/partials/old.md": "Self: {{> old}}\n",
       ".skillset/skills/demo/SKILL.md":
         "---\nname: demo\ndescription: Demo\n---\n\nDemo\n",
       "skillset.yaml":
@@ -157,33 +157,33 @@ describe("source rename planner", () => {
     });
     await buildSkillset(root);
     const preview = await planSourceRename({
-      from: ".skillset/partials/old.md",
+      from: ".skillset/shared/partials/old.md",
       rootPath: root,
-      to: ".skillset/partials/new.md",
+      to: ".skillset/shared/partials/new.md",
     });
     expect(preview.operations).toContainEqual({
       content: "Self: {{> new}}\n",
       kind: "update",
-      path: ".skillset/partials/new.md",
+      path: ".skillset/shared/partials/new.md",
     });
 
     await renameSource({
       expectedPlanHash: preview.planHash,
-      from: ".skillset/partials/old.md",
+      from: ".skillset/shared/partials/old.md",
       rootPath: root,
-      to: ".skillset/partials/new.md",
+      to: ".skillset/shared/partials/new.md",
     });
     await expect(
-      access(join(root, ".skillset/partials/old.md"))
+      access(join(root, ".skillset/shared/partials/old.md"))
     ).rejects.toThrow();
     expect(
-      await readFile(join(root, ".skillset/partials/new.md"), "utf-8")
+      await readFile(join(root, ".skillset/shared/partials/new.md"), "utf-8")
     ).toBe("Self: {{> new}}\n");
   });
 
   test("rewrites skill identity references and eval declarations for a skill-root move", async () => {
     const root = await fixture({
-      ".skillset/agents/reviewer.md":
+      ".skillset/subagents/reviewer.md":
         "---\ndescription: Reviewer\nskills: [old]\nclaude:\n  skills: [old, { native: old }]\n---\n\nReview\n",
       ".skillset/skills/old/SKILL.md":
         "---\nname: old\ndescription: Old\n---\n\nOld\n",
@@ -214,7 +214,7 @@ describe("source rename planner", () => {
       content:
         "---\ndescription: Reviewer\nskills:\n  - new\nclaude:\n  skills:\n    - new\n    - native: old\n---\n\nReview\n",
       kind: "update",
-      path: ".skillset/agents/reviewer.md",
+      path: ".skillset/subagents/reviewer.md",
     });
     expect(
       plan.operations.find(
@@ -237,7 +237,7 @@ describe("source rename planner", () => {
 
   test("keeps standalone and plugin skill references isolated by ownership", async () => {
     const root = await fixture({
-      ".skillset/agents/reviewer.md":
+      ".skillset/subagents/reviewer.md":
         "---\ndescription: Reviewer\nskills: [old, plugin.tools.skill:tools-old]\n---\n\nReview\n",
       ".skillset/plugins/tools/skills/tools-old/SKILL.md":
         "---\nname: tools-old\ndescription: Plugin old\n---\n\nPlugin\n",
@@ -265,13 +265,13 @@ describe("source rename planner", () => {
       plan.operations.find(
         (operation) =>
           operation.kind === "update" &&
-          operation.path === ".skillset/agents/reviewer.md"
+          operation.path === ".skillset/subagents/reviewer.md"
       )
     ).toEqual({
       content:
         "---\ndescription: Reviewer\nskills:\n  - old\n  - plugin.tools.skill:new\n---\n\nReview\n",
       kind: "update",
-      path: ".skillset/agents/reviewer.md",
+      path: ".skillset/subagents/reviewer.md",
     });
   });
 
@@ -568,7 +568,7 @@ describe("source rename planner", () => {
 
   test("rolls back source and generated output after a late failure", async () => {
     const root = await fixture({
-      ".skillset/agents/reviewer.md":
+      ".skillset/subagents/reviewer.md":
         "---\ndescription: Reviewer\nskills: [old]\n---\n\nReview\n",
       ".skillset/skills/old/SKILL.md":
         "---\nname: old\ndescription: Old\n---\n\nOld\n",
@@ -688,7 +688,7 @@ describe("source rename planner", () => {
 
   test("shadow preview includes repo-relative plugin feature sources", async () => {
     const root = await fixture({
-      ".skillset/partials/old.md": "Old\n",
+      ".skillset/shared/partials/old.md": "Old\n",
       ".skillset/plugins/tools/skills/demo/SKILL.md":
         "---\nname: demo\ndescription: Demo\n---\n\nDemo\n",
       ".skillset/plugins/tools/skillset.yaml":
@@ -700,15 +700,15 @@ describe("source rename planner", () => {
     await buildSkillset(root);
 
     const plan = await planSourceRename({
-      from: ".skillset/partials/old.md",
+      from: ".skillset/shared/partials/old.md",
       rootPath: root,
-      to: ".skillset/partials/new.md",
+      to: ".skillset/shared/partials/new.md",
     });
 
     expect(plan.operations).toContainEqual({
-      from: ".skillset/partials/old.md",
+      from: ".skillset/shared/partials/old.md",
       kind: "move",
-      to: ".skillset/partials/new.md",
+      to: ".skillset/shared/partials/new.md",
     });
   });
 });

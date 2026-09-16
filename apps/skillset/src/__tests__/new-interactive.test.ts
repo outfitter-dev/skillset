@@ -203,7 +203,7 @@ describe("SET-293 derived new-source choices", () => {
     ]);
     expect(
       await Bun.file(
-        join(root, ".skillset/agents/release-reviewer.md")
+        join(root, ".skillset/subagents/release-reviewer.md")
       ).exists()
     ).toBe(true);
   });

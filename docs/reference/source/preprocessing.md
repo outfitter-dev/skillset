@@ -65,7 +65,7 @@ A resolve-only reference validates the source file and renders a path appropriat
 
 ## Named partials
 
-Named partials use `{{> name}}`. Resolution checks the workspace `.skillset/partials/` root and, for plugin-bound source, the current plugin's `partials/` root according to the compiler's scoped precedence. A direct `<name>.md` wins within a root. If no direct file exists, a unique recursive basename match is accepted.
+Named partials use `{{> name}}`. Resolution checks the workspace `.skillset/shared/partials/` root and, for plugin-bound source, the current plugin's `shared/partials/` root according to the compiler's scoped precedence. A direct `<name>.md` wins within a root. If no direct file exists, a unique recursive basename match is accepted.
 
 Plugin-bound source may explicitly spell its own namespace as `{{> <plugin>.<name>}}`. It may not reach into another plugin. Missing partials, multiple basename matches, unsafe paths, and recursive cycles fail loudly; cycle diagnostics include the partial chain. Included partials may themselves contain supported expressions and partials, and their dependencies are recorded in generated provenance.
 

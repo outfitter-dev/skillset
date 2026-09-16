@@ -341,6 +341,7 @@ export interface SourceRule {
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
+  readonly rootFrontPage?: boolean;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;

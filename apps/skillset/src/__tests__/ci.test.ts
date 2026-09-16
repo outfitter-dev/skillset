@@ -945,7 +945,7 @@ test("init --include ci scaffolds a valid workflow and keeps user edits", async 
     "Agent standards are inherent for applicable source when their registry profiles are adopted"
   );
   expect(content).toContain(
-    ".skillset/agents contains project-agent source"
+    ".skillset/subagents contains project-agent source"
   );
   expect(content).toContain("@skillset/cli check --ci");
   expect(content).toContain("--fix");

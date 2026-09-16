@@ -40,6 +40,7 @@ When Agent Instructions is adopted, every applicable instruction inherently cont
 
 | Source | Claude | Codex | Cursor |
 | --- | --- | --- | --- |
+| `.skillset/RULES.md` | no output | bare first section of root `AGENTS.md` | unsupported (`cursor-agents-md-root`) |
 | `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | root or scoped `AGENTS.md` | `.cursor/rules/**/*.mdc` |
 | `.skillset/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a |
 | Plugin `rules/` | n/a | n/a | plugin `rules/` |

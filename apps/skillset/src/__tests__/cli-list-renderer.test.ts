@@ -108,7 +108,7 @@ describe("SET-307 list presentation", () => {
           outputPath: ".codex/agents/reviewer.toml",
           outputRoot: ".",
           owner: { target: "codex" },
-          sourcePath: ".skillset/agents/reviewer.md",
+          sourcePath: ".skillset/subagents/reviewer.md",
           target: "codex",
         },
         {
@@ -137,7 +137,7 @@ describe("SET-307 list presentation", () => {
       "[agent-plugins-1.0 baseline] plugin .skillset/plugins/demo -> plugins/demo/agents/plugin.json"
     );
     expect(output).toContain(
-      "[codex] project-agent .skillset/agents/reviewer.md -> .codex/agents/reviewer.toml"
+      "[codex] project-agent .skillset/subagents/reviewer.md -> .codex/agents/reviewer.toml"
     );
     expect(output).toContain("codex delta");
     expect(output).toContain("agent-plugins-1.0 baseline");

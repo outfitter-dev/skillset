@@ -539,8 +539,8 @@ test("SET-165/310: new supports project agents and requires complete hook intent
 
   const agent = await runSkillsetCli("new", "agent", "Release Reviewer", "--root", root, "--yes");
   expect(agent.exitCode).toBe(0);
-  expect(agent.stdout).toContain("+ .skillset/agents/release-reviewer.md");
-  const source = await readFile(join(root, ".skillset/agents/release-reviewer.md"), "utf8");
+  expect(agent.stdout).toContain("+ .skillset/subagents/release-reviewer.md");
+  const source = await readFile(join(root, ".skillset/subagents/release-reviewer.md"), "utf8");
   expect(source).toContain("name: release-reviewer");
   expect(source).toContain('description: "Use this agent for Release Reviewer work."');
 

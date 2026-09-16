@@ -13,14 +13,14 @@ description: Agents define project roles, skill references, provider output, com
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-The `.skillset/agents/` directory contains project-agent role source. It is unrelated to the Agent Instructions, Agent Skills, and Agent Plugins standards family, and it is not a standards selector. Likewise, `defaults.<provider>.agents` configures only that provider's project-agent rendering.
+The `.skillset/subagents/` directory contains project-agent role source. It is unrelated to the Agent Instructions, Agent Skills, and Agent Plugins standards family, and it is not a standards selector. Likewise, `defaults.<provider>.agents` configures only that provider's project-agent rendering.
 
 Skillset has two project-role contracts:
 
 | Kind | Source | Portability |
 | --- | --- | --- |
-| Project agent | `.skillset/agents/*.md` | Portable [source unit](../../glossary.md#source-unit) rendered for enabled providers |
-| Plugin agent | `.skillset/plugins/<plugin>/agents/**/*.md` | [Provider-native](../../glossary.md#provider-native) Claude and Cursor companion; unsupported in Codex plugins |
+| Project agent | `.skillset/subagents/*.md` | Portable [source unit](../../glossary.md#source-unit) rendered for enabled providers |
+| Plugin agent | `.skillset/plugins/<plugin>/subagents/**/*.md` | [Provider-native](../../glossary.md#provider-native) Claude and Cursor companion; unsupported in Codex plugins |
 
 Project agents define reusable project-scoped roles. Plugin agents remain plugin components because the providers do not share one plugin-agent contract.
 
@@ -58,7 +58,7 @@ Native references preserve the authored name and order but are not validated, in
 | Source | Claude | Codex | Cursor |
 | --- | --- | --- | --- |
 | Project agent | `.claude/agents/<name>.md` | `.codex/agents/<name>.toml` | `.cursor/agents/<name>.md` |
-| Plugin agent | plugin `agents/` | unsupported | plugin `agents/` |
+| Plugin agent | plugin source `subagents/` → bundle `agents/` | unsupported | plugin source `subagents/` → bundle `agents/` |
 
 Claude and Cursor receive native project-agent fields. Codex receives TOML with `name`, `description`, and `developer_instructions`; shared skills become a deterministic instruction preface. That preface is a compatibility shim, not target-enforced skill metadata. `codex.defaults.agents.skillsPrefaceTemplate` configures it.
 
@@ -68,7 +68,7 @@ Claude and Cursor receive native project-agent fields. Codex receives TOML with 
 
 Skillset rejects missing descriptions, empty bodies, duplicate or invalid resolved names, unresolved or target-disabled managed skills, invalid qualified references, and unsafe initial-prompt content. A top-level `model` warns unless every enabled [target](../../glossary.md#target) resolves an explicit provider model.
 
-A Codex-enabled plugin containing plugin agents fails instead of dropping or promoting them. Move a portable project role to `.skillset/agents/`, or disable Codex for that plugin. Skillset never writes user-global agent directories during build.
+A Codex-enabled plugin containing plugin agents fails instead of dropping or promoting them. Move a portable project role to `.skillset/subagents/`, or disable Codex for that plugin. Skillset never writes user-global agent directories during build.
 
 ## Provenance
 

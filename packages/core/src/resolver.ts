@@ -105,12 +105,13 @@ const RESERVED_PLUGIN_OUTPUT_NAMES = new Set([
   "skillset.lock",
 ]);
 const SOURCE_ROOT_DIR = "";
+const ROOT_RULES_FILE = "RULES.md";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
-const PROJECT_AGENTS_DIR = "agents";
+const PROJECT_AGENTS_DIR = "subagents";
 const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
   claude: "_claude",
   codex: "_codex",
@@ -384,6 +385,19 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
     }
   }
 
+  for (const [oldPath, newPath] of [
+    [join(sourceRootDir, "agents"), join(sourceRootDir, PROJECT_AGENTS_DIR)],
+    [join(sourceRootDir, "partials"), join(sourceRootDir, SHARED_DIR, "partials")],
+    [join(sourceRootDir, RULES_DIR, ROOT_RULES_FILE), join(sourceRootDir, ROOT_RULES_FILE)],
+  ] as const) {
+    const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
+    if (await exists(absoluteOldPath)) {
+      throw new Error(
+        `skillset: ${join(sourceDir, oldPath)} uses the retired source layout; move it to ${join(sourceDir, newPath)}`
+      );
+    }
+  }
+
   const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return;
   for (const entry of await readdir(pluginsPath, { withFileTypes: true })) {
@@ -393,6 +407,16 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
     if (await exists(absolutePluginConfigPath)) {
       throw new Error(
         `skillset: ${join(sourceDir, pluginConfigPath)} uses retired plugin config.yaml; rename it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, ROOT_SOURCE_MANIFEST_FILE)}`
+      );
+    }
+    for (const [oldName, newPath] of [
+      ["agents", PROJECT_AGENTS_DIR],
+      ["partials", join(SHARED_DIR, "partials")],
+    ] as const) {
+      const oldPath = join(sourceRootDir, PLUGINS_DIR, entry.name, oldName);
+      if (!(await exists(resolveInside(rootPath, join(sourceDir, oldPath))))) continue;
+      throw new Error(
+        `skillset: ${join(sourceDir, oldPath)} uses the retired source layout; move it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, newPath)}`
       );
     }
     for (const [oldProviderDir, newProviderDir] of Object.entries(PROVIDER_SOURCE_DIRS)) {
@@ -620,19 +644,23 @@ async function loadInstructions(
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[]
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
+  const sourceRootPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
   const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
-  if (canonicalFiles.length === 0) {
+  const rootRulesPath = join(sourceRootPath, ROOT_RULES_FILE);
+  const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
+  if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
     return { rules: [], instructionsDir: join(sourceRootDir, RULES_DIR) };
   }
 
-  const ruleFiles = canonicalFiles;
+  const ruleFiles = [...rootRulesFiles, ...canonicalFiles];
   const rules: SourceRule[] = [];
 
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
-    const relativePath = relative(canonicalPath, sourcePath);
+    const rootFrontPage = sourcePath === rootRulesPath;
+    const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
       validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
@@ -651,6 +679,7 @@ async function loadInstructions(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      ...(rootFrontPage ? { rootFrontPage: true } : {}),
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
       targets,
@@ -1383,17 +1412,23 @@ function warnPortableModel(
 }
 
 async function findSkillFiles(root: string): Promise<string[]> {
-  const files: string[] = [];
   const entries = await readdir(root, { withFileTypes: true });
+  if (entries.some((entry) => entry.isFile() && entry.name === SKILL_FILE)) {
+    return [join(root, SKILL_FILE)];
+  }
+
+  const files: string[] = [];
 
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
+      if (entry.name.startsWith("_") && entry.name !== "_drafts") {
+        throw new Error(
+          `skillset: ${path} uses reserved skill-directory syntax; only _drafts is allowed`
+        );
+      }
       files.push(...(await findSkillFiles(path)));
       continue;
-    }
-    if (entry.isFile() && entry.name === SKILL_FILE) {
-      files.push(path);
     }
   }
 

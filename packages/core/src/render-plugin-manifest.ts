@@ -669,6 +669,18 @@ function pluginComponentManifestValue(
   }
   if (kind === "mcp") return pluginHasFeature(plugin, "mcp") ? path : undefined;
   if (kind === "apps") return pluginHasFeature(plugin, "app") ? path : undefined;
+  if (kind === "agents") {
+    const hasAuthoredSubagents = pluginHasPath(plugin, "subagents");
+    const hasCursorNativeAgents =
+      target === "cursor" &&
+      pluginHasSurfacePath(
+        graph,
+        plugin,
+        target,
+        componentSourcePath(path)
+      );
+    return hasAuthoredSubagents || hasCursorNativeAgents ? path : undefined;
+  }
 
   const sourcePath = componentSourcePath(path);
   const hasPath =
