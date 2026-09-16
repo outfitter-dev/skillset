@@ -692,6 +692,13 @@ async function loadInstructions(
     const parts = parseMarkdown(content, sourcePath);
     const rootFrontPage = sourcePath === rootRulesPath;
     const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
+    const segments = rootFrontPage
+      ? []
+      : classifyRuleSegments(
+          relative(canonicalPath, dirname(sourcePath)),
+          rootPath,
+          sourcePath
+        );
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
       validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
@@ -710,6 +717,7 @@ async function loadInstructions(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      segments,
       ...(rootFrontPage ? { rootFrontPage: true } : {}),
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
@@ -721,6 +729,30 @@ async function loadInstructions(
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
     instructionsDir: join(sourceRootDir, RULES_DIR),
   };
+}
+
+function classifyRuleSegments(
+  relativeDirectory: string,
+  rootPath: string,
+  sourcePath: string
+): NonNullable<SourceRule["segments"]> {
+  if (relativeDirectory === "." || relativeDirectory.length === 0) return [];
+  return relativeDirectory.split(/[\\/]/u).map((value) => {
+    if (value === "[…]") {
+      throw new Error(
+        `skillset: ${relative(rootPath, sourcePath)} uses Unicode rule segment […]; rename it to [...]`
+      );
+    }
+    return {
+      classification:
+        value === "[.]"
+          ? "one-level"
+          : value === "[...]"
+            ? "any-depth"
+            : "literal",
+      value,
+    };
+  });
 }
 
 /**
