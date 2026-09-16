@@ -12,10 +12,12 @@ import {
   CODEX_MARKETPLACE_SOURCE_KINDS,
   INSTRUCTION_FRONT_PAGE_DESTINATIONS,
   PACKAGE_OUTPUT_PATH_PATTERN,
+  PLUGIN_DRAFT_SELECTOR_PATTERN,
   PLUGIN_CONFIG_KEYS,
   RENDERED_METADATA_SCHEMA_KEY,
   RENDERED_METADATA_SCHEMA_VERSION,
   ROOT_SOURCE_MANIFEST_KEYS,
+  ROOT_DRAFT_SELECTOR_PATTERN,
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
   SOURCE_LICENSE_IDS,
@@ -61,7 +63,8 @@ const instructionFrontPageDestinations = new Set<string>(
   INSTRUCTION_FRONT_PAGE_DESTINATIONS
 );
 const packageOutputPathPattern = new RegExp(PACKAGE_OUTPUT_PATH_PATTERN);
-const sourceUnitSelectorPattern = new RegExp(SOURCE_UNIT_SELECTOR_PATTERN);
+const pluginDraftSelectorPattern = new RegExp(PLUGIN_DRAFT_SELECTOR_PATTERN);
+const rootDraftSelectorPattern = new RegExp(ROOT_DRAFT_SELECTOR_PATTERN);
 const sourceLicenseValues = new Set<string>([
   ...SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
@@ -575,11 +578,14 @@ function validateConfigContext(
       `schema/${context.code}`
     );
   if (value.drafts !== undefined)
-    checkSourceUnitSelectors(
+    checkDraftSelectors(
       value.drafts,
       `${path}.drafts`,
       `schema/${context.code}/drafts`,
-      diagnostics
+      diagnostics,
+      context.supportsPluginFeatures
+        ? pluginDraftSelectorPattern
+        : rootDraftSelectorPattern
     );
   if (context.supportsCompile) {
     checkOptionalBoolean(
@@ -2101,21 +2107,22 @@ function checkRetiredTargetsKey(
     );
 }
 
-function checkSourceUnitSelectors(
+function checkDraftSelectors(
   value: SchemaJsonValue,
   path: string,
   code: string,
-  diagnostics: SkillsetSchemaDiagnostic[]
+  diagnostics: SkillsetSchemaDiagnostic[],
+  pattern: RegExp
 ): void {
   checkStringArray(value, path, "drafts", code, diagnostics, true, true);
   if (!Array.isArray(value)) return;
   for (const [index, selector] of value.entries()) {
-    if (typeof selector !== "string" || !sourceUnitSelectorPattern.test(selector)) {
+    if (typeof selector !== "string" || !pattern.test(selector)) {
       diagnostics.push(
         diagnostic(
           `${path}[${index}]`,
           code,
-          "drafts entries must be valid source-unit selectors"
+          "drafts entries must select skills in the current config scope"
         )
       );
     }

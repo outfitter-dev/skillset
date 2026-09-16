@@ -186,6 +186,7 @@ skillset:
   name: configured-draft
 drafts:
   - skill:future
+  - plugin.demo.skill:root-plugin-draft
 claude: true
 codex: false
 cursor: false
@@ -196,6 +197,26 @@ description: Future skill.
 ---
 
 Future.
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+drafts:
+  - skill:plugin-local-draft
+`,
+      ".skillset/plugins/demo/skills/root-plugin-draft/SKILL.md": `---
+name: root-plugin-draft
+description: Root-configured plugin draft.
+---
+
+Root plugin draft.
+`,
+      ".skillset/plugins/demo/skills/plugin-local-draft/SKILL.md": `---
+name: plugin-local-draft
+description: Plugin-configured draft.
+---
+
+Plugin-local draft.
 `,
     });
     const graph = await loadBuildGraph(draftRoot);
@@ -216,6 +237,20 @@ Future.
         status: "draft",
       },
     });
+    expect(graph.plugins[0]?.discoveredSkills).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          draftOrigin: "config",
+          id: "root-plugin-draft",
+          status: "draft",
+        }),
+        expect.objectContaining({
+          draftOrigin: "config",
+          id: "plugin-local-draft",
+          status: "draft",
+        }),
+      ])
+    );
 
     await writeFile(
       join(draftRoot, "skillset.yaml"),
@@ -232,6 +267,110 @@ cursor: false
     await expect(loadBuildGraph(draftRoot)).rejects.toThrow(
       "drafts names absent unit \"skill:missing\"; known ids: future"
     );
+
+    await writeFile(
+      join(draftRoot, "skillset.yaml"),
+      `
+skillset:
+  name: configured-draft
+drafts:
+  - plugin:demo
+claude: true
+codex: false
+cursor: false
+`
+    );
+    await expect(loadBuildGraph(draftRoot)).rejects.toThrow(
+      "drafts entries must select skills in the current config scope"
+    );
+
+    await writeFile(
+      join(draftRoot, "skillset.yaml"),
+      `
+skillset:
+  name: configured-draft
+drafts:
+  - skill:future
+claude: true
+codex: false
+cursor: false
+`
+    );
+    await writeFile(
+      join(draftRoot, ".skillset/plugins/demo/skillset.yaml"),
+      `
+skillset:
+  name: demo
+drafts:
+  - plugin.demo.skill:plugin-local-draft
+`
+    );
+    await expect(loadBuildGraph(draftRoot)).rejects.toThrow(
+      "drafts entries must select skills in the current config scope"
+    );
+  });
+
+  it("rejects unsupported package output semantics without source plugins", async () => {
+    const standaloneSkill = `---
+name: live
+description: Live skill.
+---
+
+Live.
+`;
+    const config = (output: string): Record<string, string> => ({
+      "skillset.yaml": `
+skillset:
+  name: package-output
+claude: true
+codex: false
+cursor: false
+${output}`,
+      ".skillset/skills/live/SKILL.md": standaloneSkill,
+    });
+
+    for (const [output, diagnostic] of [
+      ["plugins:\n  output:\n    path: dist/[name]\n", "SET-561"],
+      [
+        "plugins:\n  output:\n    codex:\n      path: dist/[name]\n",
+        "SET-561",
+      ],
+      [
+        "plugins:\n  output:\n    codex:\n      name: combined\n",
+        "plugins.output.codex.name",
+      ],
+      [
+        "plugins:\n  output:\n    codex:\n      combine: true\n",
+        "plugins.output.codex.combine",
+      ],
+    ] as const) {
+      await expect(loadBuildGraph(await fixture(config(output)))).rejects.toThrow(
+        diagnostic
+      );
+    }
+
+    await expect(loadBuildGraph(await fixture(config("")))).resolves.toBeDefined();
+    await expect(
+      loadBuildGraph(
+        await fixture(config("plugins:\n  output:\n    path: plugins/\n"))
+      )
+    ).resolves.toBeDefined();
+
+    const pluginRoot = await fixture({
+      ...config("plugins:\n  output:\n    path: dist/[name]\n"),
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/skills/review/SKILL.md": `---
+name: review
+description: Review skill.
+---
+
+Review.
+`,
+    });
+    await expect(loadBuildGraph(pluginRoot)).rejects.toThrow("SET-561");
   });
 
   it("recognizes status: draft and rejects duplicate leaves across groups", async () => {

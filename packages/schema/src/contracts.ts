@@ -59,6 +59,10 @@ export const PACKAGE_OUTPUT_PATH_PATTERN =
   "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$";
 export const SOURCE_UNIT_SELECTOR_PATTERN =
   "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$";
+export const ROOT_DRAFT_SELECTOR_PATTERN =
+  "^(?:skill:[a-z0-9][a-z0-9._-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.skill:[a-z0-9][a-z0-9._-]*)$";
+export const PLUGIN_DRAFT_SELECTOR_PATTERN =
+  "^skill:[a-z0-9][a-z0-9._-]*$";
 export const CODEX_MARKETPLACE_SOURCE_KINDS = [
   "git-subdir",
   "local",
@@ -302,7 +306,7 @@ export const workspaceConfigContract = contract(
       }),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
-      drafts: sourceUnitSelectorsSchema(),
+      drafts: draftSelectorsSchema(ROOT_DRAFT_SELECTOR_PATTERN),
       distributions: { type: "object" },
       internal_marker: { type: "boolean" },
       marketplaces: marketplaceCatalogsSchema(),
@@ -335,7 +339,7 @@ export const pluginConfigContract = contract(
       cursor: pluginTargetOverrideSchema("cursor"),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
-      drafts: sourceUnitSelectorsSchema(),
+      drafts: draftSelectorsSchema(PLUGIN_DRAFT_SELECTOR_PATTERN),
       hooks: hookAttachmentSchema(),
       mcp: targetOverrideSchema(),
       skillset: sourceMetadataSchema(),
@@ -1779,11 +1783,11 @@ function fixedSkillOutputSelectionSchema(): SchemaJsonRecord {
   };
 }
 
-function sourceUnitSelectorsSchema(): SchemaJsonRecord {
+function draftSelectorsSchema(pattern: string): SchemaJsonRecord {
   return arraySchema(
     {
       minLength: 1,
-      pattern: SOURCE_UNIT_SELECTOR_PATTERN,
+      pattern,
       type: "string",
     },
     { uniqueItems: true }

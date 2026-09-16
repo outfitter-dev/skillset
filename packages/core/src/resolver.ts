@@ -52,7 +52,10 @@ import {
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { resolveInternalUseSelection } from "./internal-use";
-import { plannedPackageOutputPath } from "./package-output-path";
+import {
+  plannedPackageOutputPath,
+  validatePackageOutputConfig,
+} from "./package-output-path";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { parsePortableMcpSource } from "./portable-mcp";
@@ -175,6 +178,7 @@ export async function loadBuildGraph(
   const drafts = readDraftSelectors(sourceManifest, metadataLabel);
   const internalMarker = readInternalMarker(rootConfig, workspace.configPath);
   const pluginsConfig = readWorkspacePluginsConfig(rootConfig, workspace.configPath);
+  validatePackageOutputConfig(pluginsConfig.output);
   const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
     allowDefaults: true,
     objectInheritsEnabled: true,

@@ -264,7 +264,7 @@
     "drafts": {
       "items": {
         "minLength": 1,
-        "pattern": "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$",
+        "pattern": "^(?:skill:[a-z0-9][a-z0-9._-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.skill:[a-z0-9][a-z0-9._-]*)$",
         "type": "string"
       },
       "type": "array",
