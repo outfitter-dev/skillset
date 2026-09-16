@@ -235,6 +235,53 @@ test("session-start emits provider-native stale output for Claude and Codex", as
   }
 });
 
+test("session-start stays silent for fulfilled blocked verification", async () => {
+  const blocked = verification(false);
+  const result = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    verifier: async () => ({
+      ...blocked,
+      diagnostics: [{
+        code: "unmanaged-output-collision",
+        message: "unmanaged output blocks verification",
+        outputPath: "plugins/demo/output.json",
+        severity: "error",
+      }],
+      outputState: {
+        ...blocked.outputState,
+        blockers: [{ code: "unmanaged-output-collision", path: "plugins/demo/output.json" }],
+        state: "blocked",
+      },
+    }),
+  });
+
+  expect(result).toMatchObject({ exitCode: 0, output: "", ranCommands: [] });
+});
+
+test("session-start lists only error-level generated-output drift paths", async () => {
+  const stale = verification(false, ["plugins/demo/stale.json"]);
+  const result = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "codex" },
+    rootPath: "/tmp/repo",
+    verifier: async () => ({
+      ...stale,
+      diagnostics: [
+        ...stale.diagnostics,
+        {
+          code: "codex-agents-size",
+          message: "AGENTS.md is large",
+          outputPath: "current/AGENTS.md",
+          severity: "warning",
+        },
+      ],
+    }),
+  });
+
+  expect(result.output).toContain("- plugins/demo/stale.json");
+  expect(result.output).not.toContain("current/AGENTS.md");
+});
+
 test("session-start bounds unique stale paths and additional context", async () => {
   const paths = Array.from(
     { length: 30 },

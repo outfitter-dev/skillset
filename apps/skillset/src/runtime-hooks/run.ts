@@ -36,6 +36,12 @@ const EMPTY_READ_SUMMARY: SkillsetWriteSummary = {
   paths: [],
   writtenPaths: [],
 };
+const GENERATED_OUTPUT_DRIFT_CODES = new Set([
+  "generated-output-changed",
+  "generated-output-missing",
+  "generated-output-missing-managed",
+  "generated-output-removed",
+]);
 const MAX_CONTEXT_CHARACTERS = 8_000;
 const MAX_STALE_PATHS = 20;
 
@@ -159,7 +165,14 @@ async function runSessionStart(
   };
   try {
     const verification = await (options.verifier ?? verifySkillsetResult)(rootPath);
-    if (verification.ok || !supportsSessionStartOutput(context.provider)) {
+    const paths = staleOutputPaths(verification);
+    if (
+      verification.ok ||
+      !supportsSessionStartOutput(context.provider) ||
+      verification.outputState.state === "blocked" ||
+      hasNonDriftErrors(verification) ||
+      paths.length === 0
+    ) {
       return result({
         context,
         event: "session-start",
@@ -174,7 +187,7 @@ async function runSessionStart(
       event: "session-start",
       exitCode: 0,
       gate,
-      output: renderSessionStartOutput(staleOutputPaths(verification)),
+      output: renderSessionStartOutput(paths),
       ranCommands: [],
       writes: verification.writes,
     });
@@ -205,9 +218,23 @@ function staleOutputPaths(
 ): readonly string[] {
   return [...new Set(
     verification.diagnostics.flatMap((diagnostic) =>
-      diagnostic.outputPath === undefined ? [] : [diagnostic.outputPath]
+      diagnostic.severity === "error" &&
+      GENERATED_OUTPUT_DRIFT_CODES.has(diagnostic.code) &&
+      diagnostic.outputPath !== undefined
+        ? [diagnostic.outputPath]
+        : []
     )
   )].sort();
+}
+
+function hasNonDriftErrors(
+  verification: Pick<SkillsetVerifyResult, "diagnostics">
+): boolean {
+  return verification.diagnostics.some(
+    (diagnostic) =>
+      diagnostic.severity === "error" &&
+      !GENERATED_OUTPUT_DRIFT_CODES.has(diagnostic.code)
+  );
 }
 
 function renderSessionStartOutput(paths: readonly string[]): string {
