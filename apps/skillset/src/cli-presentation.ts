@@ -243,9 +243,9 @@ const PRESENTATION = {
   },
   new: {
     group: "Author",
-    summary: "Create a new skill, project agent, instruction, or hook in source.",
+    summary: "Create a new plugin, skill, project agent, instruction, or hook in source.",
     synopses: [
-      "new [skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
+      "new [plugin|skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
     ],
   },
   reconcile: {

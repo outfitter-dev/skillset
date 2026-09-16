@@ -65,12 +65,14 @@ describe("SET-293 derived new-source choices", () => {
   test("kind and preset metadata drive validation and disabled choices", () => {
     expect(NEW_SOURCE_KINDS.map((kind) => [kind.id, kind.enabled])).toEqual([
       ["skill", true],
+      ["plugin", true],
       ["agent", true],
       ["instruction", true],
       ["hook", true],
     ]);
     expect(NEW_SOURCE_KINDS.map((kind) => kind.description)).toEqual([
       "Skill directory, SKILL.md, and optional supporting files",
+      "Plugin container with a manifest and empty skills directory",
       "Markdown file with repository-level agent instructions",
       "Instruction file under the canonical rules source directory",
       "Adaptive runtime hook",
@@ -91,6 +93,34 @@ describe("SET-293 derived new-source choices", () => {
     ]);
     expect(() => parseSkillPresets(["missing"])).toThrow(
       "expected --preset minimal, support, references, assets, scripts, evals, reference-file, or examples-file"
+    );
+  });
+
+  test("SET-584: plugin is an interactive source kind without placement or preset prompts", async () => {
+    const root = await workspace();
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "plugin" },
+      { kind: "input", value: "review-tools" },
+      { kind: "confirm", value: true },
+    ]);
+
+    await runNewCommand(request(root), { interactiveSession: session });
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+      "confirm",
+    ]);
+    const pluginRoot = join(root, ".skillset/plugins/review-tools");
+    expect(await Bun.file(join(pluginRoot, "skillset.yaml")).text()).toContain(
+      "name: review-tools"
+    );
+    expect(await Bun.file(join(pluginRoot, "README.md")).text()).toContain(
+      "# Review Tools"
+    );
+    expect(await Bun.file(join(pluginRoot, "skills/.gitkeep")).exists()).toBe(
+      true
     );
   });
 
