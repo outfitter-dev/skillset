@@ -2476,7 +2476,8 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
 
   const codex = await runSkillsetCli("hooks", "print", "--target", "codex", "--agent-runtime");
   expect(codex.exitCode).toBe(0);
-  expect(codex.stdout).toContain(".codex/hooks/hooks.json");
+  expect(codex.stdout).toContain("# Suggested destination: .codex/hooks.json");
+  expect(codex.stdout).not.toContain(".codex/hooks/hooks.json");
   expect(codex.stdout).toContain("PostToolUse");
   expect(codex.stdout).toContain("Stop");
   expect(codex.stdout).toContain("skillset hooks run post-tool-use");
@@ -2484,7 +2485,8 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
 
   const cursor = await runSkillsetCli("hooks", "print", "--target", "cursor", "--agent-runtime");
   expect(cursor.exitCode).toBe(1);
-  expect(cursor.stderr).toContain("only supports --target claude or --target codex");
+  expect(cursor.stderr).toContain("no verified destination for --target cursor");
+  expect(cursor.stderr).toContain("Current primary evidence does not establish a project runtime hook destination for Cursor.");
 
   const cursorWithoutRuntime = await runSkillsetCli("hooks", "print", "--target", "cursor");
   expect(cursorWithoutRuntime.exitCode).toBe(1);
