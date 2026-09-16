@@ -22,6 +22,10 @@ The unscoped `skillset` package, `@skillset/cli`, and the five initial `@skillse
 
 Feature branches that change package-facing behavior should include a `.changeset/*.md` file on the branch that owns the behavior. In Graphite stacks, keep release intent branch-local: do not hide lower-branch package changes by adding one cleanup Changeset at the stack tip. If the lower branch owns the package-facing code, the lower branch owns the Changeset, and any missing release intent should be fixed on that branch before restacking upward.
 
+The aggregate `skillset check --ci` command applies this package guard only when the checked workspace contains `.changeset/config.json`, the explicit marker that Changesets owns npm release intent there. A downstream authoring repository is not opted in merely because it has a root `package.json` or renders a plugin package; without that configuration, Skillset continues to enforce source-unit ledger coverage and generated-output readiness but does not impose this compiler repository's package-path policy.
+
+This gate detects participation in Changesets policy; it does not discover every publishable package or make the current Skillset compiler path table generic. A non-Skillset repository that uses Changesets should keep its own package-aware release validation in CI for paths outside this compiler-oriented classifier.
+
 Package-facing means a change that can affect a public CLI package payload or its runtime behavior. The guardrail intentionally does not treat docs, workflow files, release scripts, generated Skillset source-unit state, fixtures, or repo-only maintenance as package-facing by default. Current package-facing paths are:
 
 | Path | Why it requires a package Changeset |

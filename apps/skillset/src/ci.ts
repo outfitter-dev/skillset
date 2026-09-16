@@ -2,6 +2,7 @@ import { changeCheck, type ChangeCheckIssue, type ChangeCheckReport } from "./ch
 import {
   defaultChangesetBaseline,
   evaluateChangesetGuard,
+  hasChangesetsPolicy,
   readChangedFilesFromGit,
   type ChangedFile,
 } from "./changeset-awareness";
@@ -113,11 +114,13 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   let packageFiles: readonly ChangedFile[] = [];
   if (ci === true || since !== undefined) {
     try {
-      const base = since ?? await defaultChangesetBaseline(rootPath);
-      const guard = evaluateChangesetGuard(await readChangedFilesFromGit(rootPath, base));
-      changesetIssues = guard.diagnostics;
-      changesetFiles = guard.changesetFiles;
-      packageFiles = guard.packageFiles;
+      if (await hasChangesetsPolicy(rootPath)) {
+        const base = since ?? await defaultChangesetBaseline(rootPath);
+        const guard = evaluateChangesetGuard(await readChangedFilesFromGit(rootPath, base));
+        changesetIssues = guard.diagnostics;
+        changesetFiles = guard.changesetFiles;
+        packageFiles = guard.packageFiles;
+      }
     } catch (error) {
       changesetError = errorMessage(error);
     }

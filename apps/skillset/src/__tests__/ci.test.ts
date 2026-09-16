@@ -33,6 +33,82 @@ Body.
 
 const GENERATED_SKILL = ".claude/skills/demo/SKILL.md";
 
+const COMPILER_PACKAGE_FIXTURE: Record<string, string> = {
+  ...DEMO_FIXTURE,
+  ".changeset/config.json": JSON.stringify({
+    access: "public",
+    baseBranch: "main",
+    changelog: false,
+    commit: false,
+    fixed: [["skillset"]],
+    ignore: [],
+    linked: [],
+    privatePackages: { tag: false, version: false },
+    updateInternalDependencies: "patch",
+  }),
+  "apps/skillset/package.json": JSON.stringify({
+    name: "skillset",
+    version: "0.0.0",
+  }),
+  "package.json": JSON.stringify({
+    name: "skillset-workspace",
+    private: true,
+    workspaces: ["apps/*"],
+  }),
+};
+
+const README_ONLY_WORKSPACES: ReadonlyArray<{
+  readonly files: Readonly<Record<string, string>>;
+  readonly name: string;
+}> = [
+  {
+    name: "skills-only",
+    files: {
+      ...DEMO_FIXTURE,
+      "README.md": "# Skills workspace",
+      "package.json": JSON.stringify({ name: "skills-workspace", private: true }),
+    },
+  },
+  {
+    name: "named-plugin-output",
+    files: {
+      "README.md": "# Named plugin workspace",
+      "package.json": JSON.stringify({ name: "named-plugin-workspace", private: true }),
+      "skillset.yaml": `
+skillset:
+  name: named-plugin-root
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/skills/helper/SKILL.md": `
+---
+name: helper
+description: Demo plugin helper.
+---
+
+Plugin helper body.
+`,
+    },
+  },
+  {
+    name: "mixed-authored-generated-root-package",
+    files: {
+      ...DEMO_FIXTURE,
+      "README.md": "# Mixed package workspace",
+      "package.json": JSON.stringify({
+        files: [".claude/skills"],
+        name: "mixed-skill-package",
+        version: "1.0.0",
+      }),
+    },
+  },
+];
+
 test("ci passes on a built fixture with no source changes", async () => {
   const root = await builtFixture();
 
@@ -767,8 +843,56 @@ test("ci --fix does not rebuild when the change baseline is unresolvable", async
   expect(await readFile(generatedPath, "utf8")).toBe(edited);
 });
 
+for (const workspace of README_ONLY_WORKSPACES) {
+  test(`SET-535: ${workspace.name} README-only commits do not require package Changesets`, async () => {
+    const root = await builtCommittedFixture(workspace.files);
+    await writeRawFiles(root, {
+      "README.md": `${workspace.files["README.md"]}\n\nDocumented without npm release intent.`,
+    });
+    await commitAll(root, "document workspace");
+
+    expect(await runTestGit(root, "diff", "--name-only", "HEAD~1", "HEAD")).toBe("README.md");
+
+    const report = await ciSkillset(root, { ci: true, since: "HEAD~1" });
+
+    expect(report.ok).toBe(true);
+    expect(report.changesetError).toBeUndefined();
+    expect(report.changesetIssues).toBeUndefined();
+    expect(report.packageFiles).toBeUndefined();
+  });
+}
+
+test("SET-535: plugin ledger failures remain enforced without package Changesets", async () => {
+  const workspace = README_ONLY_WORKSPACES.find((candidate) =>
+    candidate.name === "named-plugin-output"
+  );
+  if (workspace === undefined) throw new Error("named plugin fixture is missing");
+  const root = await builtCommittedFixture(workspace.files);
+  await writeRawFiles(root, {
+    ".skillset/plugins/demo/skills/helper/SKILL.md": `
+---
+name: helper
+description: Demo plugin helper.
+---
+
+Plugin helper body changed without ledger evidence.
+`,
+  });
+  await buildSkillset(root);
+  await commitAll(root, "change plugin without ledger evidence");
+
+  const report = await ciSkillset(root, { ci: true, since: "HEAD~1" });
+
+  expect(report.ok).toBe(false);
+  expect(report.changeIssues).toContainEqual(expect.objectContaining({
+    code: "change-uncovered",
+    severity: "error",
+  }));
+  expect(report.changesetIssues).toBeUndefined();
+});
+
 test("SET-205: ci reports package-facing changes without a package Changeset", async () => {
-  const root = await builtFixture();
+  const root = await builtFixture(COMPILER_PACKAGE_FIXTURE);
   await writeRawFiles(root, {
     "apps/skillset/src/package-feature.ts": "export const packageFeature = true;",
   });
@@ -785,7 +909,7 @@ test("SET-205: ci reports package-facing changes without a package Changeset", a
 });
 
 test("SET-205: ci accepts package-facing changes with a package Changeset", async () => {
-  const root = await builtFixture();
+  const root = await builtFixture(COMPILER_PACKAGE_FIXTURE);
   await writeRawFiles(root, {
     ".changeset/package-feature.md": `
 ---
@@ -807,7 +931,7 @@ Document the package-facing feature boundary.
 });
 
 test("SET-205: ci does not require package Changesets for source-unit edits", async () => {
-  const root = await builtFixture();
+  const root = await builtFixture(COMPILER_PACKAGE_FIXTURE);
   await writeRawFiles(root, {
     ".skillset/skills/demo/SKILL.md": `
 ---
@@ -984,10 +1108,21 @@ test("init --include rejects unknown values and non-setup commands", async () =>
   expect(wrongCommand.stderr).toContain("setup options are only supported with init");
 });
 
-async function builtFixture(): Promise<string> {
-  const root = await fixture(DEMO_FIXTURE);
+async function builtFixture(
+  files: Readonly<Record<string, string>> = DEMO_FIXTURE
+): Promise<string> {
+  const root = await fixture(files);
   await commitFixture(root);
   await buildSkillset(root);
+  return root;
+}
+
+async function builtCommittedFixture(
+  files: Readonly<Record<string, string>>
+): Promise<string> {
+  const root = await fixture(files);
+  await buildSkillset(root);
+  await commitFixture(root);
   return root;
 }
 
@@ -1007,7 +1142,7 @@ async function changelogFixture(): Promise<string> {
   return root;
 }
 
-async function fixture(files: Record<string, string>): Promise<string> {
+async function fixture(files: Readonly<Record<string, string>>): Promise<string> {
   const disposableRoot = await createTestGitFixtureRoot("skillset-ci-");
   const root = await mkdtemp(join(disposableRoot, "repo-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
