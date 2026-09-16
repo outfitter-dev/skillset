@@ -2,11 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import {
   defineProviderLocationEvidence,
+  getProviderRuntimeHookDestination,
   listProviderLocationEvidence,
   PROVIDER_LOCATION_CONSUMERS,
   selectProviderLocationEvidence,
   type ProviderLocationEvidence,
 } from "../provider-locations";
+import { PROVIDER_SCHEMA_TARGETS } from "../schema-snapshots";
 
 describe("SET-524 provider-location evidence", () => {
   test("selects exact provider versions and exposes provenance", () => {
@@ -202,6 +204,54 @@ describe("SET-524 provider-location evidence", () => {
         status: "verified",
       },
     ]));
+  });
+});
+
+describe("SET-538 runtime-hook destinations", () => {
+  test("exposes one runtime-hook destination status for every target", () => {
+    expect(
+      Object.fromEntries(
+        PROVIDER_SCHEMA_TARGETS.map((target) => [
+          target,
+          getProviderRuntimeHookDestination(target),
+        ])
+      )
+    ).toEqual({
+      claude: {
+        kind: "runtime-hook",
+        path: "<project>/.claude/settings.local.json",
+        status: "verified",
+      },
+      codex: {
+        kind: "runtime-hook",
+        path: "<project>/.codex/hooks.json",
+        status: "verified",
+      },
+      cursor: {
+        kind: "runtime-hook",
+        reason:
+          "Current primary evidence does not establish a project runtime hook destination for Cursor.",
+        status: "unknown",
+      },
+    });
+  });
+
+  test("ties the Codex runtime-hook destination to official provenance", () => {
+    const selection = selectProviderLocationEvidence({
+      providerVersion: "0.154.0",
+      surface: "codex-cli",
+      target: "codex",
+    });
+
+    if (selection.kind !== "matched")
+      throw new Error("expected matched evidence");
+    expect(selection.evidence.facts).toContainEqual(
+      getProviderRuntimeHookDestination("codex")
+    );
+    expect(selection.evidence.sources).toContainEqual({
+      note: "Official project runtime hook destination documentation.",
+      url: "https://developers.openai.com/codex/hooks",
+    });
   });
 });
 

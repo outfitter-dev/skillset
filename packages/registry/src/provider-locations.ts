@@ -4,6 +4,7 @@ export const PROVIDER_LOCATION_KINDS = [
   "config",
   "marketplace",
   "plugin-storage",
+  "runtime-hook",
   "skill-discovery",
 ] as const;
 
@@ -16,6 +17,10 @@ export const PROVIDER_LOCATION_CONSUMERS = [
 
 export type ProviderLocationKind = (typeof PROVIDER_LOCATION_KINDS)[number];
 export type ProviderLocationTarget = (typeof PROVIDER_SCHEMA_TARGETS)[number];
+
+const PROVIDER_SURFACE_LOCATION_KINDS = PROVIDER_LOCATION_KINDS.filter(
+  (kind) => kind !== "runtime-hook"
+);
 
 export const PROVIDER_LOCATION_SURFACE_TARGETS = {
   "chatgpt-desktop": "codex",
@@ -34,6 +39,14 @@ export const PROVIDER_LOCATION_SURFACE_TARGETS = {
 
 export type ProviderLocationSurface =
   keyof typeof PROVIDER_LOCATION_SURFACE_TARGETS;
+
+const PROVIDER_RUNTIME_HOOK_SURFACES = {
+  claude: "claude-code-cli",
+  codex: "codex-cli",
+  cursor: "cursor-ide",
+} as const satisfies Readonly<
+  Record<ProviderLocationTarget, ProviderLocationSurface>
+>;
 
 export interface ProviderLocationSource {
   readonly note?: string;
@@ -59,6 +72,10 @@ export type ProviderLocationFact =
       readonly reason: string;
       readonly status: "unknown";
     };
+
+export type ProviderRuntimeHookDestination = ProviderLocationFact & {
+  readonly kind: "runtime-hook";
+};
 
 export interface ProviderLocationEvidence {
   readonly facts: readonly ProviderLocationFact[];
@@ -114,6 +131,7 @@ const entries = [
       verified("config", "~/.claude/settings.json"),
       verified("config", "<project>/.claude/settings.json"),
       verified("config", "<project>/.claude/settings.local.json"),
+      verified("runtime-hook", "<project>/.claude/settings.local.json"),
     ],
     providerName: "Claude Code",
     providerVersion: "2.1.269",
@@ -126,6 +144,7 @@ const entries = [
       { url: "https://code.claude.com/docs/en/plugins-reference" },
       { url: "https://code.claude.com/docs/en/settings" },
       { url: "https://code.claude.com/docs/en/skills" },
+      { url: "https://code.claude.com/docs/en/hooks" },
     ],
     surface: "claude-code-cli",
     target: "claude",
@@ -175,6 +194,7 @@ const entries = [
       ),
       verified("config", "${CODEX_HOME}/config.toml"),
       verified("config", "<project-or-ancestor>/.codex/config.toml"),
+      verified("runtime-hook", "<project>/.codex/hooks.json"),
     ],
     providerName: "Codex",
     providerVersion: "0.154.0",
@@ -237,6 +257,10 @@ const entries = [
       unknown(
         "config",
         "Current Cursor plugin documentation does not establish a supported on-disk plugin configuration file."
+      ),
+      unknown(
+        "runtime-hook",
+        "Current primary evidence does not establish a project runtime hook destination for Cursor."
       ),
     ],
     providerName: "Cursor",
@@ -350,6 +374,23 @@ export function selectProviderLocationEvidence(
   };
 }
 
+export function getProviderRuntimeHookDestination(
+  target: ProviderLocationTarget
+): ProviderRuntimeHookDestination {
+  const surface = PROVIDER_RUNTIME_HOOK_SURFACES[target];
+  for (const entry of providerLocationEvidence) {
+    if (entry.target !== target || entry.surface !== surface) continue;
+    const fact = entry.facts.find(
+      (candidate): candidate is ProviderRuntimeHookDestination =>
+        candidate.kind === "runtime-hook"
+    );
+    if (fact !== undefined) return fact;
+  }
+  throw new Error(
+    `skillset: missing provider runtime-hook destination ${target}`
+  );
+}
+
 export function assertProviderLocationEvidence(
   values: readonly ProviderLocationEvidence[]
 ): void {
@@ -457,7 +498,9 @@ function unknownEvidence(
   sources: readonly ProviderLocationSource[]
 ): ProviderLocationEvidence {
   return evidence({
-    facts: PROVIDER_LOCATION_KINDS.map((kind) => unknown(kind, UNKNOWN_REASON)),
+    facts: PROVIDER_SURFACE_LOCATION_KINDS.map((kind) =>
+      unknown(kind, UNKNOWN_REASON)
+    ),
     providerName,
     providerVersion,
     sources,
@@ -490,6 +533,10 @@ function codexSources(): readonly ProviderLocationSource[] {
   const revision = "6b9826e3aa83b1a5947db50f4332cb9c65f1b340";
   return [
     { url: "https://developers.openai.com/codex/config-basic" },
+    {
+      note: "Official project runtime hook destination documentation.",
+      url: "https://developers.openai.com/codex/hooks",
+    },
     { url: "https://developers.openai.com/codex/skills" },
     {
       note: "Released Codex 0.154.0 plugin cache and version layout.",
