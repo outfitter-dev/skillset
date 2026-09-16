@@ -196,7 +196,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:1ec3abcc6eb7f4e3fd51d05d49897201b0226a442e3bda5242f655b8e1fc3acf",
+  "provenanceHash": "sha256:1560c5b188b1cfce087ddce537bda3e7881f2e6dfbd8e5307be93721daedac27",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -330,9 +330,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:2555350b2e9b5ace9bea488ea90967afe34c121300eccb2e3f690119268aac39",
+          "note": "sha256:3e1929d4816292e8d1901324d31b4e5cd57857f73217a9951503901e602cfb5b",
           "ref": "cursor-plugin",
-          "verifiedAt": "2026-09-16"
+          "verifiedAt": "2026-08-14"
         }
       ],
       "featureId": "plugin-manifests",
