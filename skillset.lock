@@ -155,7 +155,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:387ec6b3d909ee4020d0440f36e2e8c84465ff5d81a787acd78b65c71f492597",
+  "provenanceHash": "sha256:26e43acdfd85bc1099be82eb5efc4a823a8301fbbb0f86591b0d79c3a7361d14",
   "renderResults": [
     {
       "destination": "changelog",
@@ -286,9 +286,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:b02aeab7b95d881cd961dfb8c34a5f1e32d2368f234c27d6d2eb65d74e995bd3",
+          "note": "sha256:4dafac23fa5461b8ce0a39dd8b69d0003628774a43e004c881a4e41a98588518",
           "ref": "cursor-rules",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-16"
         }
       ],
       "featureId": "project-instructions",

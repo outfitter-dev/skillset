@@ -194,6 +194,14 @@ describe("SET-524 provider-location evidence", () => {
         source.note?.includes("does not pin Cursor 3.17.8")
       )
     ).toBe(true);
+    expect(selection.evidence.facts).toEqual(expect.arrayContaining([
+      { kind: "config", path: "~/.cursor/permissions.json", status: "verified" },
+      {
+        kind: "config",
+        path: "<project>/.cursor/permissions.json",
+        status: "verified",
+      },
+    ]));
   });
 });
 
