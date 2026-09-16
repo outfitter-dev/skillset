@@ -1,3 +1,9 @@
+import {
+  verifySkillsetResult,
+  type SkillsetVerifyResult,
+  type SkillsetWriteSummary,
+} from "@skillset/core";
+
 import { readHookRuntimeContext, type HookRuntimeContext } from "./context";
 import { readHookRunEvent, type HookRunEvent } from "./events";
 import { readHookSourceGate, type HookSourceGateResult } from "./source-gate";
@@ -10,16 +16,28 @@ export interface HookRunOptions {
   readonly sourceGate?: (rootPath: string) => Promise<HookSourceGateResult>;
   readonly stderr?: Pick<typeof process.stderr, "write">;
   readonly stdinText?: string;
+  readonly verifier?: (rootPath: string) => Promise<SkillsetVerifyResult>;
 }
 
 export interface HookRunResult {
   readonly context: HookRuntimeContext;
   readonly event: HookRunEvent;
   readonly exitCode: number;
+  readonly output: string;
   readonly ranCommands: readonly string[];
   readonly sourceChanged: boolean;
   readonly sourceGateOk: boolean;
+  readonly writes: SkillsetWriteSummary;
 }
+
+const EMPTY_READ_SUMMARY: SkillsetWriteSummary = {
+  deletedPaths: [],
+  mode: "read",
+  paths: [],
+  writtenPaths: [],
+};
+const MAX_CONTEXT_CHARACTERS = 8_000;
+const MAX_STALE_PATHS = 20;
 
 export async function dispatchHookRun(
   eventValue: string | undefined,
@@ -39,6 +57,9 @@ export async function runHookEvent(
     rootPath,
     ...(options.stdinText === undefined ? {} : { stdinText: options.stdinText }),
   });
+  if (event === "session-start") {
+    return runSessionStart(context, rootPath, options);
+  }
   const gate = await (options.sourceGate ?? readHookSourceGate)(rootPath);
   const ranCommands: string[] = [];
 
@@ -109,13 +130,112 @@ function result(args: {
   readonly exitCode: number;
   readonly gate: HookSourceGateResult;
   readonly ranCommands: readonly string[];
+  readonly output?: string;
+  readonly writes?: SkillsetWriteSummary;
 }): HookRunResult {
   return {
     context: args.context,
     event: args.event,
     exitCode: args.exitCode,
+    output: args.output ?? "",
     ranCommands: args.ranCommands,
     sourceChanged: args.gate.changed,
     sourceGateOk: args.gate.ok,
+    writes: args.writes ?? EMPTY_READ_SUMMARY,
   };
+}
+
+async function runSessionStart(
+  context: HookRuntimeContext,
+  rootPath: string,
+  options: HookRunOptions
+): Promise<HookRunResult> {
+  const gate: HookSourceGateResult = {
+    changed: false,
+    exitCode: 0,
+    ok: true,
+    paths: [],
+    stdout: "",
+  };
+  try {
+    const verification = await (options.verifier ?? verifySkillsetResult)(rootPath);
+    if (verification.ok || !supportsSessionStartOutput(context.provider)) {
+      return result({
+        context,
+        event: "session-start",
+        exitCode: 0,
+        gate,
+        ranCommands: [],
+        writes: verification.writes,
+      });
+    }
+    return result({
+      context,
+      event: "session-start",
+      exitCode: 0,
+      gate,
+      output: renderSessionStartOutput(staleOutputPaths(verification)),
+      ranCommands: [],
+      writes: verification.writes,
+    });
+  } catch {
+    return result({
+      context,
+      event: "session-start",
+      exitCode: 0,
+      gate,
+      ranCommands: [],
+    });
+  }
+}
+
+function supportsSessionStartOutput(provider: HookRuntimeContext["provider"]): boolean {
+  switch (provider) {
+    case "claude":
+    case "codex":
+      return true;
+    case "cursor":
+    case "unknown":
+      return false;
+  }
+}
+
+function staleOutputPaths(
+  verification: Pick<SkillsetVerifyResult, "diagnostics">
+): readonly string[] {
+  return [...new Set(
+    verification.diagnostics.flatMap((diagnostic) =>
+      diagnostic.outputPath === undefined ? [] : [diagnostic.outputPath]
+    )
+  )].sort();
+}
+
+function renderSessionStartOutput(paths: readonly string[]): string {
+  const guidance = "Run: npx skillset build\nskillset-help";
+  const visible = paths.slice(0, MAX_STALE_PATHS);
+  let context = sessionStartContext(visible, paths.length - visible.length, guidance);
+  while (context.length > MAX_CONTEXT_CHARACTERS && visible.length > 0) {
+    visible.pop();
+    context = sessionStartContext(visible, paths.length - visible.length, guidance);
+  }
+  return `${JSON.stringify({
+    hookSpecificOutput: {
+      additionalContext: context,
+      hookEventName: "SessionStart",
+    },
+  })}\n`;
+}
+
+function sessionStartContext(
+  paths: readonly string[],
+  omitted: number,
+  guidance: string
+): string {
+  const lines = ["Skillset generated output is stale."];
+  if (paths.length > 0) {
+    lines.push("", "Stale paths:", ...paths.map((path) => `- ${path}`));
+  }
+  if (omitted > 0) lines.push(`... and ${omitted} more.`);
+  lines.push("", guidance);
+  return lines.join("\n");
 }

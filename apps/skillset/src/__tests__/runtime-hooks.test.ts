@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
+import type { SkillsetVerifyResult } from "@skillset/core";
 
 import {
   createTestGitFixtureRoot,
@@ -173,6 +174,112 @@ test("source gate failures are soft for post-tool-use and blocking for stop", as
   expect(stop.exitCode).toBe(128);
 });
 
+test("session-start verifies outputs without the source gate or command runner", async () => {
+  let verifierCalls = 0;
+  const current = await runHookEvent("session-start", {
+    commandRunner: async () => {
+      throw new Error("command runner must not be called");
+    },
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    sourceGate: async () => {
+      throw new Error("source gate must not be called");
+    },
+    verifier: async (rootPath) => {
+      verifierCalls += 1;
+      expect(rootPath).toBe("/tmp/repo");
+      return verification(true);
+    },
+  });
+
+  expect(verifierCalls).toBe(1);
+  expect(current).toMatchObject({
+    exitCode: 0,
+    output: "",
+    ranCommands: [],
+    sourceChanged: false,
+    sourceGateOk: true,
+    writes: {
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    },
+  });
+});
+
+test("session-start emits provider-native stale output for Claude and Codex", async () => {
+  for (const provider of ["claude", "codex"] as const) {
+    const stale = await runHookEvent("session-start", {
+      env: { SKILLSET_PROVIDER: provider },
+      rootPath: "/tmp/repo",
+      verifier: async () => verification(false, ["plugins/demo/output.json"]),
+    });
+
+    expect(stale.exitCode).toBe(0);
+    expect(stale.output.endsWith("\n")).toBe(true);
+    expect(JSON.parse(stale.output)).toEqual({
+      hookSpecificOutput: {
+        additionalContext: [
+          "Skillset generated output is stale.",
+          "",
+          "Stale paths:",
+          "- plugins/demo/output.json",
+          "",
+          "Run: npx skillset build",
+          "skillset-help",
+        ].join("\n"),
+        hookEventName: "SessionStart",
+      },
+    });
+  }
+});
+
+test("session-start bounds unique stale paths and additional context", async () => {
+  const paths = Array.from(
+    { length: 30 },
+    (_, index) => `plugins/${String(index).padStart(2, "0")}/${"x".repeat(500)}.json`
+  );
+  const stale = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "codex" },
+    rootPath: "/tmp/repo",
+    verifier: async () => verification(false, [paths[0]!, ...paths, paths[0]!]),
+  });
+  const output = JSON.parse(stale.output) as {
+    hookSpecificOutput: { additionalContext: string; hookEventName: string };
+  };
+  const context = output.hookSpecificOutput.additionalContext;
+  const listedPaths = context
+    .split("\n")
+    .filter((line) => line.startsWith("- "));
+
+  expect(listedPaths.length).toBeLessThanOrEqual(20);
+  expect(new Set(listedPaths).size).toBe(listedPaths.length);
+  expect(context).toContain(`... and ${paths.length - listedPaths.length} more.`);
+  expect(context.length).toBeLessThanOrEqual(8_000);
+  expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
+});
+
+test("session-start exits zero when verification throws and stays silent for unsupported providers", async () => {
+  const failed = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    verifier: async () => {
+      throw new Error("verification failed");
+    },
+  });
+  expect(failed).toMatchObject({ exitCode: 0, output: "", ranCommands: [] });
+
+  for (const env of [{ SKILLSET_PROVIDER: "cursor" }, {}]) {
+    const unsupported = await runHookEvent("session-start", {
+      env,
+      rootPath: "/tmp/repo",
+      verifier: async () => verification(false, ["plugins/demo/output.json"]),
+    });
+    expect(unsupported).toMatchObject({ exitCode: 0, output: "", ranCommands: [] });
+  }
+});
+
 function commandRunner(exitCodes: readonly number[] = [0]): {
   readonly calls: Array<{
     readonly args: readonly string[];
@@ -204,6 +311,40 @@ function sourceGate(
     paths: hookRelevantSourcePaths(),
     stdout: changed ? " M skillset.yaml\n" : "",
     ...overrides,
+  };
+}
+
+function verification(
+  ok: boolean,
+  paths: readonly string[] = []
+): SkillsetVerifyResult {
+  return {
+    data: {
+      checkedFiles: paths.length,
+      failures: paths.map((path) => `stale generated file: ${path}`),
+    },
+    diagnostics: paths.map((path) => ({
+      code: "generated-output-changed",
+      message: `stale generated file: ${path}`,
+      outputPath: path,
+      severity: "error" as const,
+    })),
+    ok,
+    operation: "verify",
+    outputState: {
+      blockers: [],
+      hasBaseline: true,
+      outputChanges: paths,
+      sourceChanges: [],
+      state: ok ? "current" : "output-diverged",
+    },
+    renderResults: [],
+    writes: {
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    },
   };
 }
 

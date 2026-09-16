@@ -177,7 +177,7 @@ const PRESENTATION = {
   "hooks run": {
     group: "Integrate",
     summary: "Run an explicit normalized hook event.",
-    synopses: ["hooks run <post-tool-use|stop> [--root <path>]"],
+    synopses: ["hooks run <post-tool-use|session-start|stop> [--root <path>]"],
   },
   import: {
     group: "Author",

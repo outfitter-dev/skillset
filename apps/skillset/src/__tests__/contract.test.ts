@@ -2498,7 +2498,9 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
 
   const invalidRun = await runSkillsetCliWithInput("", "hooks", "run", "bogus");
   expect(invalidRun.exitCode).toBe(1);
-  expect(invalidRun.stderr).toContain("expected hooks run event post-tool-use or stop");
+  expect(invalidRun.stderr).toContain(
+    "expected hooks run event post-tool-use, session-start, or stop"
+  );
 
   const runWithPrintFlag = await runSkillsetCliWithInput("", "hooks", "run", "stop", "--agent-runtime");
   expect(runWithPrintFlag.exitCode).toBe(1);

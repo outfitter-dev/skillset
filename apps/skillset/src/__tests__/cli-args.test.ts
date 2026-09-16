@@ -529,14 +529,14 @@ describe("SET-299 CLI request characterization", () => {
     },
     {
       route: "hooks run",
-      args: ["hooks", "run", "stop", "--root", ROOT],
+      args: ["hooks", "run", "session-start", "--root", ROOT],
       expected: {
         command: "hooks",
         request: {
           hookAgentRuntime: false,
           hookPreCommit: false,
           hookPrePush: false,
-          hookRunEvent: "stop",
+          hookRunEvent: "session-start",
           hookSubcommand: "run",
           rootPath: ROOT,
         },
@@ -703,6 +703,15 @@ describe("SET-299 CLI request characterization", () => {
     expect(
       [...cases, ...leafCases].map(({ route }) => route).toSorted()
     ).toEqual(Object.keys(CLI_ROUTE_FLAGS).toSorted());
+  });
+
+  test("accepts the existing stop hook run event", () => {
+    expect(
+      canonical(parseCliRequest(["hooks", "run", "stop", "--root", ROOT]))
+    ).toMatchObject({
+      command: "hooks",
+      request: { hookRunEvent: "stop", hookSubcommand: "run" },
+    });
   });
 
   test("keeps the hidden test worker executable with explicit protocol grammar", () => {
