@@ -347,10 +347,16 @@ export interface SourceRule {
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
+  readonly segments?: readonly SourceRuleSegment[];
   readonly rootFrontPage?: boolean;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourceRuleSegment {
+  readonly classification: "any-depth" | "literal" | "one-level";
+  readonly value: string;
 }
 
 export interface SourceIslandFile {

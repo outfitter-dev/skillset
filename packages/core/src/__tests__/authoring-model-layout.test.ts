@@ -258,6 +258,75 @@ Second.
     );
   });
 
+  it("classifies only exact reserved rule segments and preserves literal paths", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: rule-segments
+claude: true
+codex: false
+cursor: true
+`,
+      ".skillset/rules/apps/[.]/one.md": "One level.\n",
+      ".skillset/rules/apps/[...]/any.md": "Any depth.\n",
+      ".skillset/rules/app/[...slug]/catchall.md": "Literal catchall.\n",
+      ".skillset/rules/app/[slug]/routing.md": "Literal slug.\n",
+      ".skillset/rules/app/(marketing)/copy.md": "Literal group.\n",
+    });
+    const graph = await loadBuildGraph(root);
+    const byId = new Map(graph.rules.map((rule) => [rule.id, rule.segments]));
+    expect(byId.get("apps/[.]/one")).toEqual([
+      { classification: "literal", value: "apps" },
+      { classification: "one-level", value: "[.]" },
+    ]);
+    expect(byId.get("apps/[...]/any")).toEqual([
+      { classification: "literal", value: "apps" },
+      { classification: "any-depth", value: "[...]" },
+    ]);
+    expect(byId.get("app/[...slug]/catchall")?.at(-1)).toEqual({
+      classification: "literal",
+      value: "[...slug]",
+    });
+    expect(byId.get("app/[slug]/routing")?.at(-1)).toEqual({
+      classification: "literal",
+      value: "[slug]",
+    });
+    expect(byId.get("app/(marketing)/copy")?.at(-1)).toEqual({
+      classification: "literal",
+      value: "(marketing)",
+    });
+
+    await buildSkillset(root);
+    expect(
+      await exists(join(root, ".claude/rules/app/[slug]/routing.md"))
+    ).toBe(true);
+    expect(
+      await exists(join(root, ".cursor/rules/app/(marketing)/copy.mdc"))
+    ).toBe(true);
+    expect(
+      await exists(join(root, ".claude/rules/apps/[...]/any.md"))
+    ).toBe(true);
+    expect(
+      await exists(join(root, ".cursor/rules/app/[...slug]/catchall.mdc"))
+    ).toBe(true);
+  });
+
+  it("rejects the Unicode ellipsis rule segment with the exact rename", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: unicode-rule-segment
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/rules/apps/[…]/bad.md": "Bad scope.\n",
+    });
+    await expect(loadBuildGraph(root)).rejects.toThrow(
+      ".skillset/rules/apps/[…]/bad.md"
+    );
+    await expect(loadBuildGraph(root)).rejects.toThrow("rename it to [...]");
+  });
   it("builds RULES.md, workspace subagents, plugin subagents, and relocated partials", async () => {
     const root = await authoringFixture();
     const result = await buildSkillsetResult(root);
