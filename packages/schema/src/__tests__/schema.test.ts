@@ -872,7 +872,7 @@ describe("@skillset/schema contracts", () => {
     expect(
       validateSingleFileRootConfig({
         compile: { instruction_front_page: "repo-root" },
-        drafts: ["plugin.demo.skill:future"],
+        drafts: ["skill:standalone", "plugin.demo.skill:future"],
         internal_marker: false,
         plugins: {
           internal_use: {
@@ -887,7 +887,35 @@ describe("@skillset/schema contracts", () => {
         },
       }).diagnostics
     ).toEqual([]);
-    expect(validatePluginConfig({ drafts: [] }).diagnostics).toEqual([]);
+    expect(
+      validatePluginConfig({ drafts: ["skill:future"] }).diagnostics
+    ).toEqual([]);
+
+    for (const selector of [
+      "config:root",
+      "plugin:demo",
+      "instruction:rules/review",
+      "plugin.demo.feature:commands/review",
+    ]) {
+      expect(
+        validateSingleFileRootConfig({ drafts: [selector] }).diagnostics
+      ).toContainEqual({
+        code: "schema/single-file-root-config/drafts",
+        message: "drafts entries must select skills in the current config scope",
+        path: "$.drafts[0]",
+      });
+    }
+    for (const selector of [
+      "plugin.demo.skill:future",
+      "agent:reviewer",
+      "plugin.demo.companion:assets/logo.svg",
+    ]) {
+      expect(validatePluginConfig({ drafts: [selector] }).diagnostics).toContainEqual({
+        code: "schema/plugin-config/drafts",
+        message: "drafts entries must select skills in the current config scope",
+        path: "$.drafts[0]",
+      });
+    }
 
     for (const output of [
       { combine: true },

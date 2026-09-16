@@ -73,11 +73,13 @@ a whole plugin also excludes its skills and drafts. Reordering lists does not
 change the result. Provider-specific `skills` filters apply after this
 workspace selection.
 
-The root `drafts` list and a plugin-local `drafts` list can mark source units as
-drafts when imported content cannot be edited. `skillset explain` reports
-`config` as the origin. `internal_marker` defaults to `true`; set it to `false`
-only when generated project copies are intended to omit the future internal
-metadata marker.
+The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
+skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
+mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
+are rejected because draft status currently belongs only to skills. The
+`skillset explain` command reports `config` as the origin. `internal_marker`
+defaults to `true`; set it to `false` only when generated project copies are
+intended to omit the future internal metadata marker.
 
 ## Plan Plugin Package Paths
 

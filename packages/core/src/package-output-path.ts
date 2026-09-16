@@ -1,6 +1,9 @@
 import { posix } from "node:path";
 
+import { TARGET_NAMES } from "./targets";
 import type { PackageOutputConfig, TargetName } from "./types";
+
+const PACKAGE_OUTPUT_VALIDATION_PLUGIN_ID = "skillset-validation";
 
 export function expandPackageOutputPath(path: string, name: string): string {
   if (path === ".") return ".";
@@ -40,4 +43,14 @@ export function plannedPackageOutputPath(
     );
   }
   return expanded;
+}
+
+export function validatePackageOutputConfig(config: PackageOutputConfig): void {
+  for (const target of TARGET_NAMES) {
+    plannedPackageOutputPath(
+      config,
+      target,
+      PACKAGE_OUTPUT_VALIDATION_PLUGIN_ID
+    );
+  }
 }

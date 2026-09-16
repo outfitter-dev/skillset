@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   expandPackageOutputPath,
   plannedPackageOutputPath,
+  validatePackageOutputConfig,
 } from "../package-output-path";
 import type { PackageOutputConfig } from "../types";
 
@@ -45,5 +46,12 @@ describe("plugin package output paths", () => {
         "toolbox"
       )
     ).toThrow("plugins.output.codex.combine");
+    expect(() => validatePackageOutputConfig(defaults)).not.toThrow();
+    expect(() =>
+      validatePackageOutputConfig({ ...defaults, path: "plugins/" })
+    ).not.toThrow();
+    expect(() =>
+      validatePackageOutputConfig({ ...defaults, path: "dist/[name]" })
+    ).toThrow("SET-561");
   });
 });
