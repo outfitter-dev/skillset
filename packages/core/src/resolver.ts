@@ -51,6 +51,7 @@ import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { parsePortableMcpSource } from "./portable-mcp";
+import { pluginComponentPath } from "./plugin-component-paths";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
@@ -1181,8 +1182,12 @@ async function loadPluginFeature(
 }
 
 function pluginFeatureTargetPath(key: SourcePluginFeatureKey): string {
-  if (key === "app") return ".app.json";
-  return key === "mcp" ? ".mcp.json" : "bin";
+  const componentKind = key === "app" ? "apps" : key;
+  const manifestPath = pluginComponentPath("codex", componentKind);
+  const sourcePath = manifestPath.startsWith("./")
+    ? manifestPath.slice(2)
+    : manifestPath;
+  return sourcePath.endsWith("/") ? sourcePath.slice(0, -1) : sourcePath;
 }
 
 async function resolveRepoSourcePointer(

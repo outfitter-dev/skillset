@@ -25,6 +25,7 @@ import {
   type ProviderFormatConformanceIssue,
 } from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
+import { pluginComponentPath } from "./plugin-component-paths";
 import { AGENT_SKILLS_FRONTMATTER_KEYS } from "./render-agent-skills-standard";
 import type { SkillsetRenderResult } from "./render-result";
 import type { JsonRecord, JsonValue, RenderedFile, TargetName } from "./types";
@@ -474,7 +475,7 @@ function checkClaudePluginManifest(
     outputStyles: "string",
     repository: "string",
     settings: "string",
-    skills: "string",
+    skills: "string-or-string-array",
     themes: "string",
     userConfig: "object",
     version: "string",
@@ -612,11 +613,13 @@ function checkChatGptPluginManifest(
         hooks: "string",
         interface: "object",
       }, "extensions.com.openai"));
-      if (openAi.apps !== undefined && openAi.apps !== "./.app.json") {
-        issues.push(issue(file, "codex", providerRef, "invalid-shape", "destination field extensions.com.openai.apps must use ./.app.json"));
+      const appsPath = pluginComponentPath("codex", "apps");
+      const hooksPath = pluginComponentPath("codex", "hooks");
+      if (openAi.apps !== undefined && openAi.apps !== appsPath) {
+        issues.push(issue(file, "codex", providerRef, "invalid-shape", `destination field extensions.com.openai.apps must use ${appsPath}`));
       }
-      if (openAi.hooks !== undefined && openAi.hooks !== "./hooks/hooks.json") {
-        issues.push(issue(file, "codex", providerRef, "invalid-shape", "destination field extensions.com.openai.hooks must use ./hooks/hooks.json"));
+      if (openAi.hooks !== undefined && openAi.hooks !== hooksPath) {
+        issues.push(issue(file, "codex", providerRef, "invalid-shape", `destination field extensions.com.openai.hooks must use ${hooksPath}`));
       }
       if (isJsonRecord(openAi.interface)) {
         const interfaceFields = [

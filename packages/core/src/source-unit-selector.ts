@@ -1,5 +1,7 @@
 import { compareStrings } from "./path";
+import { pluginComponentPath } from "./plugin-component-paths";
 import { targetNames } from "./targets";
+import type { TargetName } from "./types";
 
 export type SourceUnitDisplayMode = "display" | "selector";
 
@@ -101,17 +103,48 @@ export function selectorForProjectAgent(agentName: string): string {
 }
 
 export function selectorForTargetNativeIsland(target: string, owner: "project" | `plugin:${string}`, relativePath: string): string {
-  const surface = targetNativeSurface(relativePath);
+  const surface = targetNativeSurface(target, relativePath);
   if (owner === "project") return `${target}.${surface}:${relativePath}`;
   return `${owner.replace(":", ".")}.${target}.${surface}:${relativePath}`;
 }
 
-export function targetNativeSurface(relativePath: string): string {
-  if (relativePath === ".app.json") return "app";
-  if (relativePath === ".mcp.json") return "mcp";
-  if (relativePath === ".lsp.json") return "lsp";
-  if (relativePath === "hooks.json" || relativePath.startsWith("hooks/")) return "hooks";
+export function targetNativeSurface(target: string, relativePath: string): string {
+  if (isTargetName(target)) {
+    const component = targetNativeComponent(target, relativePath);
+    if (component !== undefined) return component;
+  }
   const first = relativePath.split("/")[0] ?? "";
   if (first.length === 0) return "native";
   return first.replace(/[^A-Za-z0-9-]/g, "") || "native";
+}
+
+function targetNativeComponent(target: TargetName, relativePath: string): string | undefined {
+  switch (target) {
+    case "claude":
+      return matchingComponent(target, relativePath, "hooks")
+        ?? matchingComponent(target, relativePath, "lsp")
+        ?? matchingComponent(target, relativePath, "mcp");
+    case "codex":
+      return matchingComponent(target, relativePath, "apps", "app")
+        ?? matchingComponent(target, relativePath, "hooks")
+        ?? matchingComponent(target, relativePath, "mcp");
+    case "cursor":
+      return matchingComponent(target, relativePath, "hooks")
+        ?? matchingComponent(target, relativePath, "mcp");
+  }
+}
+
+function matchingComponent(target: TargetName, relativePath: string, kind: string, surface = kind): string | undefined {
+  const componentPath = sourcePath(pluginComponentPath(target, kind));
+  if (relativePath === componentPath) return surface;
+  if (componentPath.endsWith("/") && relativePath.startsWith(componentPath)) return surface;
+  return undefined;
+}
+
+function isTargetName(value: string): value is TargetName {
+  return TARGETS.has(value);
+}
+
+function sourcePath(manifestPath: string): string {
+  return manifestPath.startsWith("./") ? manifestPath.slice(2) : manifestPath;
 }
