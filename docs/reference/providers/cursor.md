@@ -14,6 +14,8 @@ Skillset [renders](../../glossary.md#render) project skills under `.cursor/skill
 
 Cursor-native source remains available under explicit `_cursor/` paths. Skillset lifts a [provider-native](../../glossary.md#provider-native) shape into [adaptive source](../../glossary.md#adaptive-source) only when registry evidence proves a faithful mapping; otherwise the provider boundary stays visible and [canonical source](../../glossary.md#canonical-source) stays explicit.
 
+The dated [Cursor parity fixture evidence](../../development/evidence/2026-09-16-cursor-parity-fixtures.md) records the official pages and hashes behind current path claims, along with the named gaps later authoring-model work must close.
+
 For exact source and [destination](../../glossary.md#destination) behavior, use the feature pages for [skills](../features/skills.md), [instructions](../features/instructions.md), [agents](../features/agents.md), [plugins](../features/plugins.md), [hooks](../features/hooks.md), [MCP servers](../features/mcp-servers.md), and [marketplaces](../features/marketplaces.md).
 
 ## Feature Support

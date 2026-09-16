@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export * from "./migrations";
 export * from "./hook-evidence";
+export * from "./cursor-parity-evidence";
 export * from "./openai-agent-plugin-evidence";
 export * from "./openai-marketplace-evidence";
 export * from "./provider-runtime-evidence";
@@ -396,12 +397,16 @@ const snapshots = [
     },
     id: "cursor-plugin",
     provenance: {
-      contentHash: "sha256:3e1929d4816292e8d1901324d31b4e5cd57857f73217a9951503901e602cfb5b",
-      fetchedAt: "2026-08-14T00:00:00-04:00",
+      contentHash: "sha256:2555350b2e9b5ace9bea488ea90967afe34c121300eccb2e3f690119268aac39",
+      fetchedAt: "2026-09-16T00:00:00-04:00",
       sources: [
         {
           note: "Official pinned authoring schema; the installed 2026.07.23 Cursor Agent consuming parser differs on discovery-field placement, so Skillset emits the shared keywords field only.",
           url: "https://github.com/cursor/plugins/blob/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/plugin.schema.json",
+        },
+        {
+          note: "Rolling official reference for Cursor plugin component discovery, rules, and logo assets.",
+          url: "https://cursor.com/docs/reference/plugins",
         },
       ],
     },
@@ -422,8 +427,8 @@ const snapshots = [
     },
     id: "cursor-skill",
     provenance: {
-      contentHash: "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
-      fetchedAt: "2026-09-11T00:00:00-04:00",
+      contentHash: "sha256:fea0d72f95b04458921655dafe7ef438e5a6c5d270ff984817b4fafdac77df03",
+      fetchedAt: "2026-09-16T00:00:00-04:00",
       sources: [
         {
           note: "Documents disable-model-invocation for explicit-only skills.",
@@ -448,10 +453,11 @@ const snapshots = [
     },
     id: "cursor-agent",
     provenance: {
-      contentHash: "sha256:eb6d9afc41c0bb38724157466cab2a9a81809d5df477b85231df4ee7e190a5c0",
-      fetchedAt: FETCHED_AT,
+      contentHash: "sha256:fd3fd7e64eb1acd91746624990ea267e0f9d81672cb8518946c14c320343030f",
+      fetchedAt: "2026-09-16T00:00:00-04:00",
       sources: [
-        { url: "https://cursor.com/docs/plugins" },
+        { url: "https://cursor.com/docs/subagents" },
+        { url: "https://cursor.com/docs/reference/plugins" },
         { url: "https://github.com/cursor/plugins" },
       ],
     },
@@ -470,9 +476,14 @@ const snapshots = [
     },
     id: "cursor-rules",
     provenance: {
-      contentHash: "sha256:b02aeab7b95d881cd961dfb8c34a5f1e32d2368f234c27d6d2eb65d74e995bd3",
-      fetchedAt: FETCHED_AT,
-      sources: [{ url: "https://cursor.com/docs/rules" }],
+      contentHash: "sha256:4dafac23fa5461b8ce0a39dd8b69d0003628774a43e004c881a4e41a98588518",
+      fetchedAt: "2026-09-16T00:00:00-04:00",
+      sources: [
+        {
+          note: "Documents nested rule folders, glob examples, and AGENTS.md; it does not define literal bracket or parenthesis escaping.",
+          url: "https://cursor.com/docs/rules",
+        },
+      ],
     },
     target: "cursor",
     title: "Cursor Rules Destination Format",
@@ -490,8 +501,8 @@ const snapshots = [
     },
     id: "cursor-hooks",
     provenance: {
-      contentHash: "sha256:c7aca9a37d39e8975a261ce37b12329df3d5c172e8e2bd29050a35ddff962e67",
-      fetchedAt: FETCHED_AT,
+      contentHash: "sha256:bbae702792cb541dd0d5bdbd38a15e20138eef09aaac08f7dab092ee38372623",
+      fetchedAt: "2026-09-16T00:00:00-04:00",
       sources: [
         { url: "https://cursor.com/docs/hooks" },
         { url: "https://cursor.com/docs/reference/third-party-hooks" },
