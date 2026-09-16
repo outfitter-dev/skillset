@@ -208,7 +208,8 @@ export async function loadBuildGraph(
       path: join(sourceRoot, PLUGINS_DIR),
     });
   }
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
+  const discoveredStandaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
+  const standaloneSkills = discoveredStandaloneSkills.filter((skill) => skill.status !== "draft");
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
   const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
@@ -232,7 +233,7 @@ export async function loadBuildGraph(
     standaloneSkills,
   });
 
-  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
+  if (plugins.length === 0 && discoveredStandaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
@@ -260,6 +261,10 @@ export async function loadBuildGraph(
   const graph: BuildGraph = {
     adaptiveHooks,
     configuredBuildMode: compileConfig.build,
+    discoveredSkills: [
+      ...discoveredStandaloneSkills,
+      ...plugins.flatMap((plugin) => plugin.discoveredSkills ?? plugin.skills),
+    ],
     hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
@@ -1039,7 +1044,8 @@ async function loadPlugin(
   );
   const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id }, targets);
-  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id);
+  const discoveredSkills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id);
+  const skills = discoveredSkills.filter((skill) => skill.status !== "draft");
 
   if (await exists(join(pluginPath, "hooks.json"))) {
     const path = relative(rootPath, join(pluginPath, "hooks.json"));
@@ -1055,6 +1061,7 @@ async function loadPlugin(
     adaptiveHooks,
     ...(claudeBundlePath === undefined ? {} : { claudeBundlePath }),
     dependencies,
+    discoveredSkills,
     features,
     hookAttachments,
     id,
@@ -1307,6 +1314,20 @@ async function loadSkillsFromDirectory(
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope, targets);
     const relativePath = relative(relativeBasePath, sourcePath);
+    const sourceSegments = relative(skillsPath, dirname(sourcePath)).split(/[\\/]/u);
+    const draftFromDirectory = sourceSegments.includes("_drafts");
+    const declaredStatus = parts.frontmatter.status;
+    if (declaredStatus !== undefined && declaredStatus !== "draft") {
+      throw new Error(
+        `skillset: ${relative(rootPath, sourcePath)} status must be draft when provided`
+      );
+    }
+    const draftOrigin = draftFromDirectory
+      ? "_drafts"
+      : declaredStatus === "draft"
+        ? "status"
+        : undefined;
+    const groupPath = sourceSegments.slice(0, -1).filter((segment) => segment !== "_drafts");
     const resources = await readSkillResources(parts.frontmatter.resources, {
       label: sourcePath,
       ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
@@ -1323,6 +1344,7 @@ async function loadSkillsFromDirectory(
       ...(dialect === undefined ? {} : { dialect }),
       ...(evalDeclaration === undefined ? {} : { evalDeclaration }),
       frontmatter: parts.frontmatter,
+      groupPath,
       hookAttachments,
       id,
       metadata,
@@ -1330,11 +1352,53 @@ async function loadSkillsFromDirectory(
       resources,
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+      status: draftOrigin === undefined ? "live" : "draft",
+      ...(draftOrigin === undefined ? {} : { draftOrigin }),
       targets,
     });
   }
 
+  validateDuplicateSkillLeaves(skills, skillsPath, rootPath);
   return skills.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
+}
+
+function validateDuplicateSkillLeaves(
+  skills: readonly SourceSkill[],
+  skillsPath: string,
+  rootPath: string
+): void {
+  const byLeaf = new Map<string, SourceSkill[]>();
+  for (const skill of skills) {
+    const leaf = basename(dirname(skill.sourcePath));
+    byLeaf.set(leaf, [...(byLeaf.get(leaf) ?? []), skill]);
+  }
+
+  for (const [leaf, matches] of byLeaf) {
+    if (matches.length < 2 || isLiveDraftCounterpartPair(matches, skillsPath)) {
+      continue;
+    }
+    throw new Error(
+      `skillset: duplicate skill leaf ${leaf}: ${matches
+        .map((skill) => relative(rootPath, skill.sourcePath))
+        .join(" and ")}`
+    );
+  }
+}
+
+function isLiveDraftCounterpartPair(
+  skills: readonly SourceSkill[],
+  skillsPath: string
+): boolean {
+  if (skills.length !== 2) return false;
+  const draft = skills.find((skill) => skill.draftOrigin === "_drafts");
+  const live = skills.find((skill) => skill.status === "live");
+  if (draft === undefined || live === undefined) return false;
+  const draftDirectory = relative(skillsPath, dirname(draft.sourcePath))
+    .split(/[\\/]/u)
+    .filter((segment) => segment !== "_drafts")
+    .join("/");
+  const liveDirectory = relative(skillsPath, dirname(live.sourcePath)).replaceAll("\\", "/");
+  return draftDirectory === liveDirectory;
 }
 
 function validateSourceFrontmatter(

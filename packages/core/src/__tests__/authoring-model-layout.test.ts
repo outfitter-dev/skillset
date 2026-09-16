@@ -5,6 +5,11 @@ import { dirname, join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillset, buildSkillsetResult } from "@skillset/core";
+import {
+  explainPath,
+  listSourceSkills,
+} from "@skillset/core/internal/authoring";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 
 const roots: string[] = [];
 
@@ -42,10 +47,217 @@ afterEach(async () => {
   );
 });
 
-describe("SET-551 current authoring layout", () => {
-  it.todo("activates _drafts semantics [SET-585]", () => {
-    throw new Error("SET-585 owns draft discovery semantics");
+describe("SET-551/585 current authoring model", () => {
+  it("recognizes grouped skills and excludes _drafts from projections", async () => {
+    const root = await authoringFixture();
+    const graph = await loadBuildGraph(root);
+    const plugin = graph.plugins.find((candidate) => candidate.id === "mg-skills");
+    if (plugin === undefined) throw new Error("expected mg-skills plugin");
+
+    expect(plugin.skills.map((skill) => skill.id)).toEqual([
+      "tdd",
+      "proofread",
+    ]);
+    expect(plugin.discoveredSkills).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          draftOrigin: "_drafts",
+          groupPath: ["(engineering)"],
+          id: "tdd-draft",
+          status: "draft",
+        }),
+        expect.objectContaining({
+          groupPath: ["(engineering)"],
+          id: "tdd",
+          status: "live",
+        }),
+        expect.objectContaining({
+          groupPath: ["(writing)"],
+          id: "proofread",
+          status: "live",
+        }),
+      ])
+    );
+    await buildSkillset(root);
+    expect(
+      await exists(
+        join(
+          root,
+          "plugins/mg-skills/claude/skills/(engineering)/_drafts/tdd/SKILL.md"
+        )
+      )
+    ).toBe(false);
+    expect(
+      await exists(
+        join(
+          root,
+          "plugins/mg-skills/claude/skills/(engineering)/tdd/SKILL.md"
+        )
+      )
+    ).toBe(true);
+
+    const sourceSkills = await listSourceSkills(root);
+    expect(sourceSkills).toContainEqual(
+      expect.objectContaining({
+        container: "mg-skills",
+        draftOrigin: "_drafts",
+        groupPath: ["(engineering)"],
+        id: "tdd-draft",
+        status: "draft",
+      })
+    );
+    expect(sourceSkills).toContainEqual(
+      expect.objectContaining({
+        container: "mg-skills",
+        groupPath: ["(engineering)"],
+        id: "tdd",
+        status: "live",
+      })
+    );
+    const explained = await explainPath(
+      root,
+      ".skillset/plugins/mg-skills/skills/(engineering)/_drafts/tdd/SKILL.md"
+    );
+    expect(explained).toMatchObject({
+      entries: [],
+      kind: "source-skill",
+      sourceSkill: {
+        container: "mg-skills",
+        draftOrigin: "_drafts",
+        groupPath: ["(engineering)"],
+        id: "tdd-draft",
+        status: "draft",
+      },
+    });
+    const explainedLive = await explainPath(
+      root,
+      ".skillset/plugins/mg-skills/skills/(engineering)/tdd/SKILL.md"
+    );
+    expect(explainedLive).toMatchObject({
+      kind: "source-skill",
+      sourceSkill: {
+        container: "mg-skills",
+        groupPath: ["(engineering)"],
+        id: "tdd",
+        status: "live",
+      },
+    });
   });
+
+  it("recognizes status: draft and rejects duplicate leaves across groups", async () => {
+    const draftRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: status-draft
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/skills/(ideas)/future/SKILL.md": `---
+name: future
+description: Future skill.
+status: draft
+---
+
+Future.
+`,
+    });
+    const graph = await loadBuildGraph(draftRoot);
+    expect(graph.standaloneSkills).toEqual([]);
+    expect(graph.discoveredSkills).toContainEqual(
+      expect.objectContaining({
+        draftOrigin: "status",
+        groupPath: ["(ideas)"],
+        id: "future",
+        status: "draft",
+      })
+    );
+    expect(
+      await explainPath(
+        draftRoot,
+        ".skillset/skills/(ideas)/future/SKILL.md"
+      )
+    ).toMatchObject({
+      entries: [],
+      kind: "source-skill",
+      sourceSkill: {
+        container: "workspace",
+        draftOrigin: "status",
+        groupPath: ["(ideas)"],
+        id: "future",
+        status: "draft",
+      },
+    });
+    await buildSkillset(draftRoot);
+    expect(
+      await exists(join(draftRoot, ".claude/skills/(ideas)/future/SKILL.md"))
+    ).toBe(false);
+
+    const plainGroupRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: plain-group
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/skills/engineering/tdd/SKILL.md": `---
+name: tdd
+description: Test-driven development.
+---
+
+TDD.
+`,
+    });
+    const plainGroup = await loadBuildGraph(plainGroupRoot);
+    expect(plainGroup.standaloneSkills).toContainEqual(
+      expect.objectContaining({
+        groupPath: ["engineering"],
+        id: "tdd",
+        status: "live",
+      })
+    );
+    await buildSkillset(plainGroupRoot);
+    expect(
+      await exists(
+        join(plainGroupRoot, ".claude/skills/engineering/tdd/SKILL.md")
+      )
+    ).toBe(true);
+
+    const duplicateRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: duplicate-leaves
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/skills/(one)/same/SKILL.md": `---
+name: first
+description: First skill.
+---
+
+First.
+`,
+      ".skillset/skills/(two)/same/SKILL.md": `---
+name: second
+description: Second skill.
+---
+
+Second.
+`,
+    });
+    await expect(loadBuildGraph(duplicateRoot)).rejects.toThrow(
+      "duplicate skill leaf same"
+    );
+    await expect(loadBuildGraph(duplicateRoot)).rejects.toThrow(
+      ".skillset/skills/(one)/same/SKILL.md"
+    );
+    await expect(loadBuildGraph(duplicateRoot)).rejects.toThrow(
+      ".skillset/skills/(two)/same/SKILL.md"
+    );
+  });
+
   it("builds RULES.md, workspace subagents, plugin subagents, and relocated partials", async () => {
     const root = await authoringFixture();
     const result = await buildSkillsetResult(root);
@@ -284,7 +496,7 @@ Demo.
     );
   });
 
-  it("reserves underscore skill directories without activating draft semantics", async () => {
+  it("reserves unrelated underscore skill directories while recognizing _drafts", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:

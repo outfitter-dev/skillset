@@ -255,8 +255,11 @@ export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
+  readonly draftOrigin?: "_drafts" | "status";
   readonly evalDeclaration?: SourceSkillEval;
   readonly frontmatter: JsonRecord;
+  /** Organizational source segments between the skills root and skill leaf. */
+  readonly groupPath?: readonly string[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
   readonly metadata: JsonRecord;
@@ -264,6 +267,7 @@ export interface SourceSkill {
   readonly resources: readonly SourceResource[];
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
+  readonly status?: "draft" | "live";
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
@@ -308,6 +312,8 @@ export interface SourcePlugin {
   readonly claudeBundlePath?: string;
   readonly configPath: string;
   readonly dependencies: readonly SourcePluginDependency[];
+  /** Complete discovered inventory, including drafts excluded from projections. */
+  readonly discoveredSkills?: readonly SourceSkill[];
   readonly features: readonly SourcePluginFeature[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
@@ -391,6 +397,8 @@ export interface BuildGraph {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   /** Build mode declared in source, before a command-specific override is applied. */
   readonly configuredBuildMode: CompileBuildMode;
+  /** Complete discovered skill inventory, including drafts excluded from projections. */
+  readonly discoveredSkills?: readonly SourceSkill[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;
