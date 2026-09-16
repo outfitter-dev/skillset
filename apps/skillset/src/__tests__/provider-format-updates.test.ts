@@ -251,10 +251,10 @@ test("SET-278: check writes project-agent drift caused by target defaults", asyn
 
 test("SET-278: check writes project-agent drift caused by adaptive hooks", async () => {
   const generatedPath = ".claude/agents/reviewer.md";
-  const hookPath = ".skillset/agents/reviewer/hooks/session.json";
+  const hookPath = ".skillset/subagents/reviewer/hooks/session.json";
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: agent-hook-drift\nclaude: true\ncodex: false\ncursor: false\n",
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -1192,7 +1192,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -1205,7 +1205,7 @@ Review code.
 
 function agentFixtureSource(): Record<string, string> {
   return {
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.

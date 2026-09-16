@@ -35,6 +35,7 @@ import {
   pluginLockRootPath,
   pluginManifestPath,
 } from "./plugin-output";
+import { pluginComponentPath } from "./plugin-component-paths";
 import {
   resolveDeclaredResourceReference,
   rewriteResourceLinks,
@@ -1479,7 +1480,7 @@ async function copyPluginCompanionFiles(
       ? [
           "README.md",
           "commands",
-          "agents",
+          "subagents",
           "hooks",
           ".lsp.json",
           "output-styles",
@@ -1491,7 +1492,7 @@ async function copyPluginCompanionFiles(
         ]
       : target === "codex"
       ? ["README.md", "assets", "scripts", "src"]
-      : ["README.md", "rules", "commands", "agents", "hooks", "assets", "scripts", "src"];
+      : ["README.md", "rules", "commands", "subagents", "hooks", "assets", "scripts", "src"];
 
   if (target === "codex" || target === "cursor") {
     const hook = await renderNormalizedPluginHookFile(graph, plugin, target, basePath);
@@ -1515,7 +1516,11 @@ async function copyPluginCompanionFiles(
     }
     if ((target === "codex" || target === "cursor") && candidate === "hooks") continue;
 
-    rendered.push(...(await copyPath(sourcePath, join(basePath, candidate))));
+    const outputCandidate =
+      candidate === "subagents"
+        ? pluginComponentPath(target, "agents").replace(/^\.\//u, "").replace(/\/$/u, "")
+        : candidate;
+    rendered.push(...(await copyPath(sourcePath, join(basePath, outputCandidate))));
   }
 
   if (target === "codex") {

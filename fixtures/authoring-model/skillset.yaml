@@ -1,0 +1,7 @@
+skillset:
+  name: authoring-model
+compile:
+  unsupportedDestination: warn
+claude: true
+codex: true
+cursor: true

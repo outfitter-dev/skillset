@@ -55,7 +55,7 @@ claude:
   bundle:
     path: plugin
 `,
-  ".skillset/plugins/trails/agents/trail-guide.md": `
+  ".skillset/plugins/trails/subagents/trail-guide.md": `
 # Trail Guide
 
 Review proposed routes.

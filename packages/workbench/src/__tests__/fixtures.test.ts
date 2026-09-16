@@ -79,11 +79,11 @@ describe("workbench fixtures", () => {
     expect(diagnostics.errorCount).toBe(27);
     expect(diagnostics.warningCount).toBe(1);
     expect(diagnostics.diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/agents/broken.md:3: error: schema/agent-frontmatter: description is required and must be a non-empty string",
-      ".skillset/agents/broken.md:4: error: schema/agent-frontmatter: skills must be a string array when present",
-      ".skillset/agents/broken.md:7: error: schema/agent-frontmatter: codex must be true, false, or an object when present",
-      ".skillset/agents/broken.md:8: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
-      ".skillset/agents/broken.md:11: error: schema/agent-body: agent body is required",
+      ".skillset/subagents/broken.md:3: error: schema/agent-frontmatter: description is required and must be a non-empty string",
+      ".skillset/subagents/broken.md:4: error: schema/agent-frontmatter: skills must be a string array when present",
+      ".skillset/subagents/broken.md:7: error: schema/agent-frontmatter: codex must be true, false, or an object when present",
+      ".skillset/subagents/broken.md:8: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
+      ".skillset/subagents/broken.md:11: error: schema/agent-body: agent body is required",
       ".skillset/hooks/hooks.json:2: error: schema/hook: hook event Stop hook handlers must be objects",
       ".skillset/hooks/hooks.json:3: error: schema/hook: hook event PreToolUse entries must be objects",
       ".skillset/hooks/hooks.json:6: error: schema/hook: hook event SessionStart must be an array",
@@ -119,7 +119,7 @@ interface SourceContractSpec {
 const cleanSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
   { kind: "skill", path: ".skillset/skills/reference/SKILL.md" },
-  { kind: "agent", path: ".skillset/agents/reviewer.md" },
+  { kind: "agent", path: ".skillset/subagents/reviewer.md" },
   { kind: "instruction", path: ".skillset/rules/root.md" },
   { kind: "hook", path: ".skillset/hooks/hooks.json" },
 ];
@@ -127,7 +127,7 @@ const cleanSources: readonly SourceContractSpec[] = [
 const invalidSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
   { kind: "skill", path: ".skillset/skills/broken/SKILL.md" },
-  { kind: "agent", path: ".skillset/agents/broken.md" },
+  { kind: "agent", path: ".skillset/subagents/broken.md" },
   { kind: "instruction", path: ".skillset/rules/root.md" },
   { kind: "hook", path: ".skillset/hooks/hooks.json" },
 ];

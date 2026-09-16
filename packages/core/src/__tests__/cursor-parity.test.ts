@@ -3,16 +3,21 @@ import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { buildSkillset } from "@skillset/core";
+import { buildSkillsetResult } from "@skillset/core";
 
 const sourceRoot = path.join(process.cwd(), "fixtures/cursor-parity");
 const roots: string[] = [];
 
-const buildFixture = async (): Promise<string> => {
+const buildFixtureResult = async () => {
   const root = await mkdtemp(path.join(tmpdir(), "skillset-cursor-parity-"));
   roots.push(root);
   await cp(sourceRoot, root, { recursive: true });
-  await buildSkillset(root);
+  const result = await buildSkillsetResult(root);
+  return { result, root };
+};
+
+const buildFixture = async (): Promise<string> => {
+  const { root } = await buildFixtureResult();
   return root;
 };
 
@@ -60,7 +65,19 @@ describe("SET-550 Cursor parity evidence baseline", () => {
     unresolvedFixtureClaim
   );
 
-  test.todo("cursor-agents-md-root [SET-551, SET-557]", unresolvedFixtureClaim);
+  it("cursor-agents-md-root remains explicitly unsupported [SET-551, SET-557]", async () => {
+    const { result } = await buildFixtureResult();
+
+    expect(result.renderResults).toContainEqual(
+      expect.objectContaining({
+        destination: "AGENTS.md",
+        featureId: "cursor-agents-md-root",
+        sourcePath: ".skillset/RULES.md",
+        status: "unsupported",
+        target: "cursor",
+      })
+    );
+  });
 
   it("cursor-skills-path [SET-553, SET-554]", async () => {
     const root = await buildFixture();

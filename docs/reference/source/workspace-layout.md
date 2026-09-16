@@ -11,20 +11,20 @@ A Skillset [workspace](../../glossary.md#workspace) keeps its root `skillset.yam
 ```text
 skillset.yaml
 .skillset/
-  agents/
+  RULES.md
+  subagents/
     <agent-name>.md
   changes/
   hooks/
-  partials/
   plugins/
     <plugin-name>/
       skillset.yaml
       README.md
-      agents/
+      subagents/
       commands/
       hooks/
-      partials/
       shared/
+        partials/
       skills/
       _claude/
       _codex/
@@ -36,6 +36,7 @@ skillset.yaml
     references/
     scripts/
     templates/
+    partials/
   skills/
     <skill-name>/
       SKILL.md
@@ -57,12 +58,13 @@ Use the [project configuration guide](../../configuration/project-configuration.
 | Source path | Purpose |
 | --- | --- |
 | `.skillset/skills/<skill>/` | Standalone skills and their skill-local support files. |
+| `.skillset/RULES.md` | Unscoped instruction front page for root `AGENTS.md`. |
 | `.skillset/rules/**/*.md` | Durable portable project instructions. |
-| `.skillset/agents/*.md` | Portable project-agent definitions. |
+| `.skillset/subagents/*.md` | Portable project-agent definitions. |
 | `.skillset/hooks/` | Adaptive project hook definitions. |
 | `.skillset/plugins/<plugin>/` | Plugin-scoped source, including skills and native companion material. |
 | `.skillset/shared/` | Workspace resources that a skill may declare and copy into its generated directory. |
-| `.skillset/partials/` | Workspace named partials used during Markdown preprocessing. |
+| `.skillset/shared/partials/` | Workspace named partials used during Markdown preprocessing. |
 | `.skillset/tests.yaml` and `.skillset/tests/*.yaml` | Workspace-owned behavioral test declarations. |
 | `.skillset/changes/` | Committed change and [release state](../features/releases.md). |
 

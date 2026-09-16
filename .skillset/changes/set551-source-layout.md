@@ -1,0 +1,5 @@
+Relocate the authored workspace model to root RULES.md, subagents, and shared/partials while rejecting retired source locations.
+
+Bump: minor
+Group: SET-551
+Scope: config:root

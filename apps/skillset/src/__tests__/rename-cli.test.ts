@@ -34,7 +34,7 @@ const createCore = (): {
       {
         content: "private source body",
         kind: "update" as const,
-        path: ".skillset/agents/reviewer.md",
+        path: ".skillset/subagents/reviewer.md",
       },
     ],
     planHash: "sha256:rename",
@@ -64,7 +64,7 @@ const createCore = (): {
           applied: true,
           writtenPaths: [
             ".skillset/skills/new",
-            ".skillset/agents/reviewer.md",
+            ".skillset/subagents/reviewer.md",
           ],
         });
       },
@@ -88,7 +88,7 @@ describe("SET-370 source rename command", () => {
     expect(output).toContain(
       "would move: .skillset/skills/old -> .skillset/skills/new"
     );
-    expect(output).toContain("would update: .skillset/agents/reviewer.md");
+    expect(output).toContain("would update: .skillset/subagents/reviewer.md");
     expect(output).toContain(
       "would delete generated: .claude/skills/old/SKILL.md"
     );
@@ -154,7 +154,7 @@ describe("SET-370 source rename command", () => {
         },
         {
           action: "update",
-          path: ".skillset/agents/reviewer.md",
+          path: ".skillset/subagents/reviewer.md",
           state: "planned",
         },
         {

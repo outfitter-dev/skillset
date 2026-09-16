@@ -431,8 +431,8 @@ function rewriteNamedPartialSpecifier(
   const plugin = pluginForPath(graph, resolved);
   const root =
     plugin === undefined
-      ? join(graph.sourceRootPath, "partials")
-      : join(plugin.path, "partials");
+      ? join(graph.sourceRootPath, "shared", "partials")
+      : join(plugin.path, "shared", "partials");
   if (!isWithin(root, resolved) || !isWithin(root, next)) {
     return undefined;
   }

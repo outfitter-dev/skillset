@@ -175,7 +175,7 @@ test.skipIf(!existsSync(EXPECT))(
       expect(created.stdout).toContain("Project agent");
       expect(created.stdout).toContain("skillset: interactive prompt cancelled");
       await expect(
-        Bun.file(path.join(newRoot, ".skillset/agents")).exists()
+        Bun.file(path.join(newRoot, ".skillset/subagents")).exists()
       ).resolves.toBe(false);
 
       const testRoot = path.join(surfaceRoot, "test");
