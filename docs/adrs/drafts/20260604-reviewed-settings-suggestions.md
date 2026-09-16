@@ -5,7 +5,7 @@ status: draft
 created: 2026-06-04
 updated: 2026-06-04
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, global-xdg-managed-installs-and-sync, 5]
+depends_on: [0, 1, declarative-user-scope-config, 5]
 ---
 
 # ADR: Reviewed Settings Suggestions
@@ -182,7 +182,7 @@ The only accepted implementation work from this ADR is documentation and future 
 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and fail-loud unsupported behavior.
-- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.
+- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - separates build from install/sync/trust and user-level mutation.
 - [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.
 - [Tenets](../../project/tenets.md) - build does not imply trust and drift should be visible early.
 - [Claude provider reference](../../reference/providers/claude.md) - current provider-native settings boundary and activation limits.
