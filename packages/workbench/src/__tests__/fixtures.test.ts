@@ -79,11 +79,6 @@ describe("workbench fixtures", () => {
     expect(diagnostics.errorCount).toBe(27);
     expect(diagnostics.warningCount).toBe(1);
     expect(diagnostics.diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/subagents/broken.md:3: error: schema/agent-frontmatter: description is required and must be a non-empty string",
-      ".skillset/subagents/broken.md:4: error: schema/agent-frontmatter: skills must be a string array when present",
-      ".skillset/subagents/broken.md:7: error: schema/agent-frontmatter: codex must be true, false, or an object when present",
-      ".skillset/subagents/broken.md:8: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
-      ".skillset/subagents/broken.md:11: error: schema/agent-body: agent body is required",
       ".skillset/hooks/hooks.json:2: error: schema/hook: hook event Stop hook handlers must be objects",
       ".skillset/hooks/hooks.json:3: error: schema/hook: hook event PreToolUse entries must be objects",
       ".skillset/hooks/hooks.json:6: error: schema/hook: hook event SessionStart must be an array",
@@ -97,6 +92,11 @@ describe("workbench fixtures", () => {
       ".skillset/skills/broken/SKILL.md:6: error: schema/skill-frontmatter: skillset.version is unsupported in skills; use top-level version",
       ".skillset/skills/broken/SKILL.md:7: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
       ".skillset/skills/broken/SKILL.md: error: resource/resource-undeclared-link: broken skill links to undeclared resource ./scripts/check.sh",
+      ".skillset/subagents/broken.md:3: error: schema/agent-frontmatter: description is required and must be a non-empty string",
+      ".skillset/subagents/broken.md:4: error: schema/agent-frontmatter: skills must be a string array when present",
+      ".skillset/subagents/broken.md:7: error: schema/agent-frontmatter: codex must be true, false, or an object when present",
+      ".skillset/subagents/broken.md:8: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
+      ".skillset/subagents/broken.md:11: error: schema/agent-body: agent body is required",
       "fixtures/workbench-invalid: warning: runtime/shimmed: codex-cli project-agents: Skill loading is not runtime-enforced.",
       "skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key targets",
       "skillset.yaml:1: error: schema/workspace-config: workspace config must use compile.targets instead of targets",
