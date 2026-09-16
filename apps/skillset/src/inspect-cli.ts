@@ -263,6 +263,12 @@ function printExplainResult(
         `    group: ${result.sourceSkill.groupPath.join("/")}`
       );
     }
+    if (result.sourceSkill.internalUse !== undefined) {
+      writeLine(
+        writer,
+        `    internal use: ${result.sourceSkill.internalUse.selected ? "selected" : "excluded"} (${result.sourceSkill.internalUse.rule})`
+      );
+    }
   }
   for (const entry of result.entries) {
     writeLine(
@@ -447,6 +453,24 @@ function printStatusReport(
     writer,
     `  standards: ${formatStandardProfileSummary(report.standardProfiles)}`
   );
+  if (report.pluginPlan !== undefined) {
+    const selected = report.pluginPlan.internalUse.skills
+      .map((skill) => `${skill.pluginId}/${skill.skillId}`)
+      .join(", ");
+    writeLine(
+      writer,
+      `  plugin internal use: ${selected.length === 0 ? "none" : selected}`
+    );
+    for (const target of targetNames()) {
+      const paths = Object.entries(report.pluginPlan.packagePaths[target])
+        .map(([pluginId, path]) => `${pluginId}=${path}`)
+        .join(", ");
+      writeLine(
+        writer,
+        `  plugin packages [${target}]: ${paths.length === 0 ? "none" : paths}`
+      );
+    }
+  }
   for (const issue of report.lintIssues) {
     writeLine(
       writer,

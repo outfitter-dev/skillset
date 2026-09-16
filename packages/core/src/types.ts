@@ -1,6 +1,7 @@
 import type { StandardProfileId } from "@skillset/registry";
 
 import type { PortableMcpModel } from "./portable-mcp";
+import type { ResolvedInternalUseSelection } from "./internal-use";
 import type { SkillsetXdgOptions } from "./xdg";
 
 export type TargetName = "claude" | "codex" | "cursor";
@@ -286,7 +287,7 @@ export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
-  readonly draftOrigin?: "_drafts" | "status";
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly evalDeclaration?: SourceSkillEval;
   readonly frontmatter: JsonRecord;
   /** Organizational source segments between the skills root and skill leaf. */
@@ -441,6 +442,7 @@ export interface BuildGraph {
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
+  readonly pluginPlan?: WorkspacePluginPlan;
   readonly plugins: readonly SourcePlugin[];
   readonly projectAgents: readonly SourceProjectAgent[];
   readonly projectIslands: readonly SourceIslandFile[];
@@ -461,6 +463,13 @@ export interface BuildGraph {
   readonly standardProjections: StandardProjectionPlan;
   /** Non-fatal source warnings surfaced by the CLI. */
   readonly warnings: readonly string[];
+}
+
+export interface WorkspacePluginPlan {
+  readonly internalUse: ResolvedInternalUseSelection;
+  readonly packagePaths: Readonly<
+    Record<TargetName, Readonly<Record<string, string>>>
+  >;
 }
 
 export type GeneratedFileMode = 0o644 | 0o755;

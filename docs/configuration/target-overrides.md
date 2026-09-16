@@ -24,7 +24,10 @@ Do not add a bare top-level `targets` key. Keep root selection in `compile.targe
 
 ## Configure Output Roots
 
-Boolean output settings use Skillset's default roots. An array includes named plugins or skills. An object can set `path`, `include`, or `enabled: false`:
+Boolean output settings use Skillset's default roots. An array includes named
+plugins or skills. Plugin objects can set `path`, `include`, or
+`enabled: false`; skill roots are fixed provider discovery locations, so skill
+objects accept only selection fields:
 
 ```yaml
 compile:
@@ -37,8 +40,13 @@ codex:
   plugins:
     path: generated/codex
   skills:
-    path: .agents/skills
+    include: [review]
 ```
+
+The fixed roots are `.claude/skills`, `.agents/skills`, and `.cursor/skills`.
+`<target>.skills.path` and `skillset.outputs.skills.<target>` are rejected. Use
+root `plugins.output` when a generated plugin package needs a configurable
+destination.
 
 When `compile.targets` is present, a root provider object without `enabled` inherits that target set; an output-path object does not silently re-enable a provider. See the [workspace schema](../reference/schemas/README.md) for every accepted shape.
 
