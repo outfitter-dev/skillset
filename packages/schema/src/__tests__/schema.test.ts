@@ -405,12 +405,28 @@ describe("@skillset/schema contracts", () => {
       enum: ["error", "warn", "skip", "force"],
       type: "string",
     });
+    const fixedSkillOutputSelection = {
+      anyOf: [
+        { type: "boolean" },
+        { items: { type: "string" }, type: "array" },
+        {
+          additionalProperties: true,
+          not: { required: ["path"] },
+          properties: {
+            enabled: { type: "boolean" },
+            include: { items: { type: "string" }, type: "array" },
+          },
+          type: "object",
+        },
+      ],
+    };
     expect(workspaceProperties.claude).toEqual({
       anyOf: [
         { type: "boolean" },
         {
           additionalProperties: true,
           not: { required: ["bundle"] },
+          properties: { skills: fixedSkillOutputSelection },
           type: "object",
         },
       ],
@@ -547,6 +563,36 @@ describe("@skillset/schema contracts", () => {
     expect(changeProperties.group).toMatchObject({
       anyOf: [{ minLength: 1, type: "string" }, { required: ["id"] }],
     });
+  });
+
+  it("rejects configurable provider skill roots in structural contracts", () => {
+    const validateWorkspace = new Ajv2020({ allErrors: true, strict: false }).compile(
+      workspaceConfigContract.schema
+    );
+    const validatePlugin = new Ajv2020({ allErrors: true, strict: false }).compile(
+      pluginConfigContract.schema
+    );
+    const validateSource = new Ajv2020({ allErrors: true, strict: false }).compile(
+      sourceMetadataContract.schema
+    );
+
+    for (const target of ["claude", "codex", "cursor"] as const) {
+      expect(validateWorkspace({ [target]: { skills: { path: `generated/${target}/skills` } } })).toBe(false);
+      expect(validatePlugin({ [target]: { skills: { path: `generated/${target}/skills` } } })).toBe(false);
+      expect(
+        validateSource({ outputs: { skills: { [target]: `generated/${target}/skills` } } })
+      ).toBe(false);
+    }
+
+    const retainedSelection = {
+      codex: {
+        providerNative: { retained: true },
+        skills: { enabled: true, include: ["review"] },
+      },
+    };
+    expect(validateWorkspace(retainedSelection)).toBe(true);
+    expect(validatePlugin(retainedSelection)).toBe(true);
+    expect(validateSource({ outputs: { plugins: { codex: "generated/codex/plugins" } } })).toBe(true);
   });
 
   it("validates adaptive hook unit source", () => {

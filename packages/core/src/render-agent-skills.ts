@@ -137,7 +137,6 @@ export function shouldCoalesceStandaloneCodexSkill(
 ): boolean {
   return (
     graph.standardProjections.adopted.includes("agent-skills") &&
-    graph.root.outputs.skills.codex === AGENT_SKILLS_OUTPUT_ROOT &&
     skill.targets.codex.enabled &&
     isOutputSelected(graph.root.outputs.targetOutputs.codex.skills, skill.id) &&
     classifyAgentSkillStandard(graph, undefined, skill).status === "supported"
