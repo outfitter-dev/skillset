@@ -204,6 +204,36 @@
       "type": "object"
     },
     "outputs": {
+      "additionalProperties": true,
+      "properties": {
+        "skills": {
+          "additionalProperties": true,
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "claude"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "codex"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "cursor"
+                ]
+              }
+            }
+          ],
+          "type": "object"
+        }
+      },
       "type": "object"
     },
     "owner": {

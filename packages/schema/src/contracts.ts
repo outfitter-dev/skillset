@@ -51,6 +51,14 @@ export const UNSUPPORTED_DESTINATION_POLICIES = [
   "skip",
   "force",
 ] as const;
+export const INSTRUCTION_FRONT_PAGE_DESTINATIONS = [
+  "claude-dir",
+  "repo-root",
+] as const;
+export const PACKAGE_OUTPUT_PATH_PATTERN =
+  "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$";
+export const SOURCE_UNIT_SELECTOR_PATTERN =
+  "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$";
 export const CODEX_MARKETPLACE_SOURCE_KINDS = [
   "git-subdir",
   "local",
@@ -115,8 +123,11 @@ const SHARED_CONFIG_KEYS = [
 export const SINGLE_FILE_ROOT_CONFIG_KEYS = [
   ...SHARED_CONFIG_KEYS,
   "compile",
+  "drafts",
   "distributions",
+  "internal_marker",
   "marketplaces",
+  "plugins",
   "workspace",
 ] as const;
 
@@ -145,6 +156,7 @@ export const ROOT_SOURCE_MANIFEST_KEYS = [
 export const PLUGIN_CONFIG_KEYS = [
   ...SHARED_CONFIG_KEYS,
   "bin",
+  "drafts",
   "hooks",
   "mcp",
 ] as const;
@@ -282,6 +294,7 @@ export const workspaceConfigContract = contract(
         skillset: strictObjectSchema({
           metadata: { type: "boolean" },
         }),
+        instruction_front_page: enumSchema(INSTRUCTION_FRONT_PAGE_DESTINATIONS),
         targets: arraySchema(enumSchema(TARGET_NAMES), {
           uniqueItems: true,
         }),
@@ -289,8 +302,11 @@ export const workspaceConfigContract = contract(
       }),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
+      drafts: sourceUnitSelectorsSchema(),
       distributions: { type: "object" },
+      internal_marker: { type: "boolean" },
       marketplaces: marketplaceCatalogsSchema(),
+      plugins: workspacePluginsSchema(),
       skillset: sourceMetadataSchema(),
       supports: supportsSchema(),
       workspace: strictObjectSchema({
@@ -319,6 +335,7 @@ export const pluginConfigContract = contract(
       cursor: pluginTargetOverrideSchema("cursor"),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
+      drafts: sourceUnitSelectorsSchema(),
       hooks: hookAttachmentSchema(),
       mcp: targetOverrideSchema(),
       skillset: sourceMetadataSchema(),
@@ -1759,6 +1776,81 @@ function fixedSkillOutputSelectionSchema(): SchemaJsonRecord {
         type: "object",
       },
     ],
+  };
+}
+
+function sourceUnitSelectorsSchema(): SchemaJsonRecord {
+  return arraySchema(
+    {
+      minLength: 1,
+      pattern: SOURCE_UNIT_SELECTOR_PATTERN,
+      type: "string",
+    },
+    { uniqueItems: true }
+  );
+}
+
+function internalUseSelectorSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      arraySchema(nonEmptyStringSchema(), { uniqueItems: true }),
+    ],
+  };
+}
+
+function internalUseByPluginSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: internalUseSelectorSchema(),
+    type: "object",
+  };
+}
+
+function workspacePluginsSchema(): SchemaJsonRecord {
+  const targetOutputProperties = Object.fromEntries(
+    TARGET_NAMES.map((target) => [target, packageOutputTargetSchema()])
+  );
+  return strictObjectSchema({
+    internal_use: {
+      anyOf: [
+        { type: "boolean" },
+        strictObjectSchema({
+          drafts: internalUseByPluginSchema(),
+          plugins: internalUseSelectorSchema(),
+          skills: internalUseByPluginSchema(),
+        }),
+      ],
+    },
+    output: {
+      anyOf: [
+        packageOutputPathSchema(),
+        strictObjectSchema({
+          path: packageOutputPathSchema(),
+          ...targetOutputProperties,
+        }),
+      ],
+    },
+  });
+}
+
+function packageOutputTargetSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      packageOutputPathSchema(),
+      strictObjectSchema({
+        combine: { type: "boolean" },
+        name: nonEmptyStringSchema(),
+        path: packageOutputPathSchema(),
+      }),
+    ],
+  };
+}
+
+function packageOutputPathSchema(): SchemaJsonRecord {
+  return {
+    minLength: 1,
+    pattern: PACKAGE_OUTPUT_PATH_PATTERN,
+    type: "string",
   };
 }
 

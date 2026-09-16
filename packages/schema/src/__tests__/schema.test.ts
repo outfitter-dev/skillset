@@ -390,7 +390,10 @@ describe("@skillset/schema contracts", () => {
       "defaults",
       "dependencies",
       "distributions",
+      "drafts",
+      "internal_marker",
       "marketplaces",
+      "plugins",
       "skillset",
       "supports",
       "workspace",
@@ -766,8 +769,11 @@ describe("@skillset/schema contracts", () => {
       "skillset",
       "supports",
       "compile",
+      "drafts",
       "distributions",
+      "internal_marker",
       "marketplaces",
+      "plugins",
       "workspace",
     ]);
     expect(SPLIT_WORKSPACE_CONFIG_KEYS).toEqual([
@@ -797,6 +803,7 @@ describe("@skillset/schema contracts", () => {
       "skillset",
       "supports",
       "bin",
+      "drafts",
       "hooks",
       "mcp",
     ]);
@@ -858,6 +865,51 @@ describe("@skillset/schema contracts", () => {
       code: "schema/plugin-config/key",
       message: "unsupported key compile",
       path: "$.compile",
+    });
+  });
+
+  it("validates the root plugin graph and configured draft selectors", () => {
+    expect(
+      validateSingleFileRootConfig({
+        compile: { instruction_front_page: "repo-root" },
+        drafts: ["plugin.demo.skill:future"],
+        internal_marker: false,
+        plugins: {
+          internal_use: {
+            drafts: { demo: ["future"] },
+            plugins: ["demo", "!excluded"],
+            skills: { demo: ["review", "!proofread"] },
+          },
+          output: {
+            path: "plugins/[name]",
+            codex: { combine: true, name: "combined", path: "dist/[name]" },
+          },
+        },
+      }).diagnostics
+    ).toEqual([]);
+    expect(validatePluginConfig({ drafts: [] }).diagnostics).toEqual([]);
+
+    for (const output of [
+      { combine: true },
+      { name: "combined" },
+      { path: "{{name}}" },
+      { path: "$PROJECT_ROOT" },
+      { path: "plugins/[name]/[name]" },
+      { path: "../plugins/[name]" },
+    ]) {
+      expect(validateSingleFileRootConfig({ plugins: { output } }).ok).toBe(
+        false
+      );
+    }
+    expect(
+      validateSingleFileRootConfig({
+        compile: { instruction_front_page: "elsewhere" },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/single-file-root-config/instruction-front-page",
+      message:
+        "compile.instruction_front_page must be one of claude-dir, repo-root",
+      path: "$.compile.instruction_front_page",
     });
   });
 
