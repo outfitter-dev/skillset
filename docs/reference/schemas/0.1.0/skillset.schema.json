@@ -856,6 +856,36 @@
               "type": "object"
             },
             "outputs": {
+              "additionalProperties": true,
+              "properties": {
+                "skills": {
+                  "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "claude"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "codex"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "cursor"
+                        ]
+                      }
+                    }
+                  ],
+                  "type": "object"
+                }
+              },
               "type": "object"
             },
             "owner": {
@@ -1562,6 +1592,36 @@
               "type": "object"
             },
             "outputs": {
+              "additionalProperties": true,
+              "properties": {
+                "skills": {
+                  "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "claude"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "codex"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "cursor"
+                        ]
+                      }
+                    }
+                  ],
+                  "type": "object"
+                }
+              },
               "type": "object"
             },
             "owner": {
@@ -1749,6 +1809,39 @@
                     "path"
                   ],
                   "type": "object"
+                },
+                "skills": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "not": {
+                        "required": [
+                          "path"
+                        ]
+                      },
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "include": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
                 }
               },
               "type": "object"
@@ -1767,6 +1860,41 @@
                   "bundle"
                 ]
               },
+              "properties": {
+                "skills": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "not": {
+                        "required": [
+                          "path"
+                        ]
+                      },
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "include": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              },
               "type": "object"
             }
           ]
@@ -1782,6 +1910,41 @@
                 "required": [
                   "bundle"
                 ]
+              },
+              "properties": {
+                "skills": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "not": {
+                        "required": [
+                          "path"
+                        ]
+                      },
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "include": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
               },
               "type": "object"
             }
@@ -1826,6 +1989,15 @@
             }
           },
           "type": "object"
+        },
+        "drafts": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$",
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
         },
         "hooks": {
           "additionalProperties": {
@@ -2144,6 +2316,36 @@
               "type": "object"
             },
             "outputs": {
+              "additionalProperties": true,
+              "properties": {
+                "skills": {
+                  "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "claude"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "codex"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "cursor"
+                        ]
+                      }
+                    }
+                  ],
+                  "type": "object"
+                }
+              },
               "type": "object"
             },
             "owner": {
@@ -2993,6 +3195,36 @@
               "type": "object"
             },
             "outputs": {
+              "additionalProperties": true,
+              "properties": {
+                "skills": {
+                  "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "claude"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "codex"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "cursor"
+                        ]
+                      }
+                    }
+                  ],
+                  "type": "object"
+                }
+              },
               "type": "object"
             },
             "owner": {
@@ -3357,6 +3589,36 @@
           "type": "object"
         },
         "outputs": {
+          "additionalProperties": true,
+          "properties": {
+            "skills": {
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "not": {
+                    "required": [
+                      "claude"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "codex"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "cursor"
+                    ]
+                  }
+                }
+              ],
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "owner": {
@@ -3857,6 +4119,41 @@
                   "bundle"
                 ]
               },
+              "properties": {
+                "skills": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "not": {
+                        "required": [
+                          "path"
+                        ]
+                      },
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "include": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              },
               "type": "object"
             }
           ]
@@ -3872,6 +4169,41 @@
                 "required": [
                   "bundle"
                 ]
+              },
+              "properties": {
+                "skills": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "not": {
+                        "required": [
+                          "path"
+                        ]
+                      },
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "include": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
               },
               "type": "object"
             }
@@ -3895,6 +4227,13 @@
                 }
               },
               "type": "object"
+            },
+            "instruction_front_page": {
+              "enum": [
+                "claude-dir",
+                "repo-root"
+              ],
+              "type": "string"
             },
             "skillset": {
               "additionalProperties": false,
@@ -3940,6 +4279,41 @@
                 "required": [
                   "bundle"
                 ]
+              },
+              "properties": {
+                "skills": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "not": {
+                        "required": [
+                          "path"
+                        ]
+                      },
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "include": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
               },
               "type": "object"
             }
@@ -3987,6 +4361,18 @@
         },
         "distributions": {
           "type": "object"
+        },
+        "drafts": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$",
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "internal_marker": {
+          "type": "boolean"
         },
         "marketplaces": {
           "additionalProperties": {
@@ -4462,6 +4848,177 @@
           },
           "type": "object"
         },
+        "plugins": {
+          "additionalProperties": false,
+          "properties": {
+            "internal_use": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "drafts": {
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        ]
+                      },
+                      "type": "object"
+                    },
+                    "plugins": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "type": "array",
+                          "uniqueItems": true
+                        }
+                      ]
+                    },
+                    "skills": {
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        ]
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "output": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "claude": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "combine": {
+                              "type": "boolean"
+                            },
+                            "name": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "codex": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "combine": {
+                              "type": "boolean"
+                            },
+                            "name": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "cursor": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "combine": {
+                              "type": "boolean"
+                            },
+                            "name": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "path": {
+                              "minLength": 1,
+                              "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "path": {
+                      "minLength": 1,
+                      "pattern": "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
         "skillset": {
           "additionalProperties": false,
           "properties": {
@@ -4666,6 +5223,36 @@
               "type": "object"
             },
             "outputs": {
+              "additionalProperties": true,
+              "properties": {
+                "skills": {
+                  "additionalProperties": true,
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "claude"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "codex"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "cursor"
+                        ]
+                      }
+                    }
+                  ],
+                  "type": "object"
+                }
+              },
               "type": "object"
             },
             "owner": {
