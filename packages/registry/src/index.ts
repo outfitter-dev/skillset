@@ -397,16 +397,12 @@ const snapshots = [
     },
     id: "cursor-plugin",
     provenance: {
-      contentHash: "sha256:2555350b2e9b5ace9bea488ea90967afe34c121300eccb2e3f690119268aac39",
-      fetchedAt: "2026-09-16T00:00:00-04:00",
+      contentHash: "sha256:3e1929d4816292e8d1901324d31b4e5cd57857f73217a9951503901e602cfb5b",
+      fetchedAt: "2026-08-14T00:00:00-04:00",
       sources: [
         {
           note: "Official pinned authoring schema; the installed 2026.07.23 Cursor Agent consuming parser differs on discovery-field placement, so Skillset emits the shared keywords field only.",
           url: "https://github.com/cursor/plugins/blob/2a8044425c7bddf429c3bdedf3ab61e791d34d65/schemas/plugin.schema.json",
-        },
-        {
-          note: "Rolling official reference for Cursor plugin component discovery, rules, and logo assets.",
-          url: "https://cursor.com/docs/reference/plugins",
         },
       ],
     },

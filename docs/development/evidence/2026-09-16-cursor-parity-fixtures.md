@@ -40,6 +40,10 @@ compiler.
 The `cursor-plugin-components` registry observation records the components the
 plugin reference currently names: agents, commands, hooks, MCP servers, rules,
 skills, and variables. It does not promote `assets/` into a general component.
+The older whole-plugin destination snapshot remains pinned to its immutable
+schema evidence. The rolling plugin reference is retained separately as parity
+evidence and does not newly certify arbitrary package-root assets; SET-558 owns
+that unresolved gap.
 
 ## Fixture boundary
 
