@@ -87,6 +87,41 @@ describe("SET-307 list presentation", () => {
       expect(Bun.stringWidth(line)).toBeLessThanOrEqual(40);
   });
 
+  test("reports grouped and draft source-skill discovery metadata", () => {
+    const output = renderGeneratedEntryList(
+      ENTRIES,
+      false,
+      { color: false, width: 100 },
+      [
+        {
+          container: "demo",
+          groupPath: ["(engineering)"],
+          id: "tdd",
+          sourcePath:
+            ".skillset/plugins/demo/skills/(engineering)/tdd/SKILL.md",
+          status: "live",
+        },
+        {
+          container: "demo",
+          draftOrigin: "_drafts",
+          groupPath: ["(engineering)"],
+          id: "tdd",
+          sourcePath:
+            ".skillset/plugins/demo/skills/(engineering)/_drafts/tdd/SKILL.md",
+          status: "draft",
+        },
+      ]
+    );
+
+    expect(output).toContain("Source skills (2)");
+    expect(output).toContain(
+      "demo/tdd  live · group: (engineering)"
+    );
+    expect(output).toContain(
+      "demo/tdd  draft · origin: _drafts · group: (engineering)"
+    );
+  });
+
   test("renders standards baselines separately from provider deltas", () => {
     const output = renderGeneratedEntryList(
       [
