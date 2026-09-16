@@ -4,11 +4,57 @@
       "amended_by": [],
       "amends": [],
       "created": "2026-06-04",
+      "depends_on": ["0", "1", "9", "33"],
+      "inbound": [
+        {
+          "context": "- [Declarative User-Scope Config](drafts/20260604-declarative-user-scope-config.md) - related non-goal for install and sync workflows.",
+          "from": "0013",
+          "fromPath": "docs/adrs/0013-changelog-and-versioning.md"
+        },
+        {
+          "context": "- [Declarative User-Scope Config](drafts/20260604-declarative-user-scope-config.md) - future explicit activation mutation, out of scope here.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
+          "context": "- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - separates build from install, sync, trust, and user-level mutation.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
+        },
+        {
+          "context": "redirect_to: 20260604-declarative-user-scope-config.md",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
+        },
+        {
+          "context": "- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - separates build from install/sync/trust and user-level mutation.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        },
+        {
+          "context": "- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - establishes Skillset-owned XDG state and the no-activation boundary.",
+          "from": "20260710",
+          "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-declarative-user-scope-config.md",
+      "slug": "declarative-user-scope-config",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Declarative User-Scope Config",
+      "updated": "2026-09-16"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-04",
       "depends_on": [
         "0",
         "1",
         "5",
-        "global-xdg-managed-installs-and-sync",
+        "declarative-user-scope-config",
         "reviewed-settings-suggestions"
       ],
       "inbound": [
@@ -29,35 +75,10 @@
     },
     {
       "amended_by": [],
-      "amends": ["8"],
+      "amends": [],
       "created": "2026-06-04",
-      "depends_on": ["0", "1"],
+      "depends_on": [],
       "inbound": [
-        {
-          "context": "- [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.",
-          "from": "0013",
-          "fromPath": "docs/adrs/0013-changelog-and-versioning.md"
-        },
-        {
-          "context": "- [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - future explicit activation mutation, out of scope here.",
-          "from": "0027",
-          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
-        },
-        {
-          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install, sync, trust, and user-level mutation.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
-        },
-        {
-          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
-        },
-        {
-          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - establishes Skillset-owned XDG state and the no-activation boundary.",
-          "from": "20260710",
-          "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
-        },
         {
           "context": "Current public commands remain repository-local unless an existing command receives an explicit root; the prospective workspace in the [global/XDG draft ADR](../../adrs/drafts/20260604-global-xdg-mana",
           "from": "workspace-layout",
@@ -70,8 +91,8 @@
       "slug": "global-xdg-managed-installs-and-sync",
       "status": "draft",
       "superseded_by": null,
-      "title": "Global / XDG Managed Installs and Sync",
-      "updated": "2026-07-21"
+      "title": "Moved: Global / XDG Managed Installs and Sync",
+      "updated": "2026-09-16"
     },
     {
       "amended_by": [],
@@ -98,7 +119,7 @@
       "amended_by": [],
       "amends": [],
       "created": "2026-06-04",
-      "depends_on": ["0", "1", "global-xdg-managed-installs-and-sync", "5"],
+      "depends_on": ["0", "1", "declarative-user-scope-config", "5"],
       "inbound": [
         {
           "context": "- [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.",
@@ -164,7 +185,7 @@
       "amended_by": [],
       "amends": [],
       "created": "2026-07-10",
-      "depends_on": ["0", "global-xdg-managed-installs-and-sync"],
+      "depends_on": ["0", "declarative-user-scope-config"],
       "inbound": [],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],

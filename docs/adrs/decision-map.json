@@ -107,14 +107,19 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - authored source remains the product.",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - authored source remains the product.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
+        },
+        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         },
         {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and target-native doctrine.",
@@ -213,14 +218,14 @@
           "fromPath": "docs/adrs/0030-chatgpt-product-bundles-and-standards-only-builds.md"
         },
         {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - repository build policy remains separate.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
+        },
+        {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
-        },
-        {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - explicit root selection and provider compile policy remain intact.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         },
         {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
@@ -243,7 +248,7 @@
       "updated": "2026-06-04"
     },
     {
-      "amended_by": [],
+      "amended_by": ["33"],
       "amends": [],
       "created": "2026-07-02",
       "depends_on": ["0", "1"],
@@ -257,6 +262,11 @@
           "context": "- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.",
           "from": "0021",
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
+        },
+        {
+          "context": "- `docs/adrs/0002-cursor-is-a-first-class-provider.md`: “Cursor project skills",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
           "context": "- [Cursor Is a First-Class Provider](../../adrs/0002-cursor-is-a-first-class-provider.md) defines why Cursor remains a target rather than a runtime-only shim.",
@@ -442,7 +452,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["33"],
       "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0"],
@@ -461,6 +471,11 @@
           "context": "- [ADR-0006: Agent Source Model](0006-agent-source-model.md) - defines project agents as role source, distinct from the Agent standards family introduced here.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "- `docs/adrs/0006-agent-source-model.md`: “Portable and implemented:",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
           "context": "- [Agent / Subagent Source Model](../0006-agent-source-model.md) - project agents as the first close-match surface.",
@@ -508,11 +523,6 @@
           "context": "- [Unified Source Layout](0008-unified-source-layout.md) - earlier",
           "from": "0009",
           "fromPath": "docs/adrs/0009-skillset-workspace-layout.md"
-        },
-        {
-          "context": "- [ADR-0008: Unified Source Layout](../0008-unified-source-layout.md#repo-user-and-global-stay-separate) - this draft prospectively amends its unresolved user/global location examples while preserving",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         }
       ],
       "number": "0008",
@@ -525,7 +535,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["33"],
       "amends": [],
       "created": "2026-06-27",
       "depends_on": ["0", "1", "2", "8"],
@@ -544,6 +554,21 @@
           "context": "- [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - keeps `.skillset/rules/` as adaptive instruction source and `.skillset/agents/` as project-agent source.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "- `docs/adrs/0009-skillset-workspace-layout.md`: “Skillset uses one workspace",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
+        },
+        {
+          "context": "- [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - earlier workspace and plugin boundaries.",
+          "from": "0034",
+          "fromPath": "docs/adrs/0034-exact-shared-references.md"
+        },
+        {
+          "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md) - repository workspace topology is not reused as hidden user state.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
         }
       ],
       "number": "0009",
@@ -560,15 +585,21 @@
       "amends": [],
       "created": "2026-06-27",
       "depends_on": ["9"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "statements from `docs/adrs/0010-named-partials.md`:",
+          "from": "0034",
+          "fromPath": "docs/adrs/0034-exact-shared-references.md"
+        }
+      ],
       "number": "0010",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0010-named-partials.md",
       "slug": "named-partials",
-      "status": "accepted",
-      "superseded_by": null,
+      "status": "superseded",
+      "superseded_by": ["34"],
       "title": "Named Partials",
-      "updated": "2026-07-20"
+      "updated": "2026-09-16"
     },
     {
       "amended_by": [],
@@ -666,11 +697,6 @@
           "context": "- [Changelog and Version Bump Workflow](0013-changelog-and-versioning.md) - superseded historical design replaced by the ADR-0014/0015 lineage.",
           "from": "0016",
           "fromPath": "docs/adrs/0016-change-release-edge-decisions.md"
-        },
-        {
-          "context": "- [Changelog and Version Bump Workflow](../0013-changelog-and-versioning.md) - related non-goal for install/sync behavior.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../../adrs/0013-changelog-and-versioning.md), and [R",
@@ -906,6 +932,11 @@
           "context": "- [ADR-0018: Render Results](0018-render-results.md) - amended so standards projections gain their own identity without entering the provider `target` field.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "- [ADR-0018: Render Results](0018-render-results.md) - structured explainability for rendered and unsupported destinations.",
+          "from": "0035",
+          "fromPath": "docs/adrs/0035-rule-scope-and-provenanced-instruction-sections.md"
         },
         {
           "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
@@ -1257,7 +1288,7 @@
       "updated": "2026-07-24"
     },
     {
-      "amended_by": ["30", "31", "32"],
+      "amended_by": ["30", "31", "32", "35", "36"],
       "amends": ["1", "5", "18"],
       "created": "2026-08-06",
       "depends_on": ["0", "1", "3", "5", "6", "9", "18", "19"],
@@ -1276,6 +1307,16 @@
           "context": "- [ADR-0028: Open Standards Are the Default Portability Floor](0028-open-standards-are-the-portability-floor.md) - amended to remove user standards selection while retaining adoption and profile ident",
           "from": "0032",
           "fromPath": "docs/adrs/0032-standards-compilation-is-inherent.md"
+        },
+        {
+          "context": "- `docs/adrs/0028-open-standards-are-the-portability-floor.md`: “Agent",
+          "from": "0035",
+          "fromPath": "docs/adrs/0035-rule-scope-and-provenanced-instruction-sections.md"
+        },
+        {
+          "context": "- `docs/adrs/0028-open-standards-are-the-portability-floor.md`: “Agent Skills |",
+          "from": "0036",
+          "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
         }
       ],
       "number": "0028",
@@ -1309,7 +1350,7 @@
       "updated": "2026-08-11"
     },
     {
-      "amended_by": ["32"],
+      "amended_by": ["32", "36"],
       "amends": ["1", "7", "28"],
       "created": "2026-09-12",
       "depends_on": ["1", "7", "28"],
@@ -1323,6 +1364,11 @@
           "context": "- [ADR-0030: ChatGPT Product Bundles and Standards-Only Builds](0030-chatgpt-product-bundles-and-standards-only-builds.md) - amended to make standards-only eligibility inherent for applicable adopted ",
           "from": "0032",
           "fromPath": "docs/adrs/0032-standards-compilation-is-inherent.md"
+        },
+        {
+          "context": "- `docs/adrs/0030-chatgpt-product-bundles-and-standards-only-builds.md`: “As",
+          "from": "0036",
+          "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
         }
       ],
       "number": "0030",
@@ -1332,7 +1378,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "ChatGPT Product Bundles and Standards-Only Builds",
-      "updated": "2026-09-12"
+      "updated": "2026-09-13"
     },
     {
       "amended_by": [],
@@ -1356,11 +1402,21 @@
       "updated": "2026-09-12"
     },
     {
-      "amended_by": [],
+      "amended_by": ["36"],
       "amends": ["28", "30"],
       "created": "2026-09-12",
       "depends_on": ["28", "30"],
       "inbound": [
+        {
+          "context": "- [ADR-0032: Standards Compilation Is Inherent](0032-standards-compilation-is-inherent.md) - applicable instructions render without a standards selector.",
+          "from": "0035",
+          "fromPath": "docs/adrs/0035-rule-scope-and-provenanced-instruction-sections.md"
+        },
+        {
+          "context": "- `docs/adrs/0032-standards-compilation-is-inherent.md`: “Agent Skills |",
+          "from": "0036",
+          "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
+        },
         {
           "context": "`compile.targets` remains the provider-selection list. Under [ADR-0032](../adrs/0032-standards-compilation-is-inherent.md), standards have no source selection field: the compiler derives every applica",
           "from": "schema-contracts",
@@ -1375,6 +1431,87 @@
       "superseded_by": null,
       "title": "Standards Compilation Is Inherent",
       "updated": "2026-09-12"
+    },
+    {
+      "amended_by": [],
+      "amends": ["2", "6", "9"],
+      "created": "2026-09-16",
+      "depends_on": ["0", "2", "6", "9"],
+      "inbound": [
+        {
+          "context": "- [ADR-0033: Workspace Authoring Model](0033-workspace-authoring-model.md) - canonical `shared/partials/` roots.",
+          "from": "0034",
+          "fromPath": "docs/adrs/0034-exact-shared-references.md"
+        },
+        {
+          "context": "- [ADR-0033: Workspace Authoring Model](0033-workspace-authoring-model.md) - canonical `RULES.md` and `rules/` source topology.",
+          "from": "0035",
+          "fromPath": "docs/adrs/0035-rule-scope-and-provenanced-instruction-sections.md"
+        },
+        {
+          "context": "- [ADR-0033: Workspace Authoring Model](0033-workspace-authoring-model.md) - internal hard-cutover policy and plugin source boundary.",
+          "from": "0036",
+          "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
+        },
+        {
+          "context": "- [ADR-0033: Workspace Authoring Model](../0033-workspace-authoring-model.md) - direct internal cutover and canonical repository source.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
+        }
+      ],
+      "number": "0033",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0033-workspace-authoring-model.md",
+      "slug": "workspace-authoring-model",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Workspace Authoring Model",
+      "updated": "2026-09-16"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-09-16",
+      "depends_on": ["9", "33"],
+      "inbound": [],
+      "number": "0034",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0034-exact-shared-references.md",
+      "slug": "exact-shared-references",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Exact Shared References",
+      "updated": "2026-09-16"
+    },
+    {
+      "amended_by": [],
+      "amends": ["28"],
+      "created": "2026-09-16",
+      "depends_on": ["18", "28", "32", "33"],
+      "inbound": [],
+      "number": "0035",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0035-rule-scope-and-provenanced-instruction-sections.md",
+      "slug": "rule-scope-and-provenanced-instruction-sections",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Rule Scope and Provenanced Instruction Sections",
+      "updated": "2026-09-16"
+    },
+    {
+      "amended_by": [],
+      "amends": ["28", "30", "32"],
+      "created": "2026-09-16",
+      "depends_on": ["28", "30", "32", "33"],
+      "inbound": [],
+      "number": "0036",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md",
+      "slug": "plugin-skills-belong-to-the-standard-package",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Plugin Skills Belong to the Standard Package",
+      "updated": "2026-09-16"
     }
   ],
   "version": 1
