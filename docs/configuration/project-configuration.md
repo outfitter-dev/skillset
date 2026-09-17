@@ -79,9 +79,15 @@ The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
 skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
 mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
 are rejected because draft status currently belongs only to skills. The
-`skillset explain` command reports `config` as the origin. `internal_marker`
-defaults to `true`; once project-local rendering exists, set it to `false` only
-when those generated copies should omit the internal metadata marker.
+`skillset explain` reports `config` as the origin. Selected live plugin skills
+are copied into every enabled fixed provider skill root. Workspace skills keep
+their leaf name; colliding plugin copies use `<plugin-id>-<leaf>`, and the
+render result records `internal-use-name-conflict`. Project-use lock entries
+record the canonical source unit, effective name, selection rule, and target
+owner. `internal_marker` defaults to `true` and writes boolean
+`metadata.internal: true` only on those project-use copies; set it to `false`
+to omit the marker. Plugin hooks, shared trees, MCP servers, and executables
+are not hydrated into a project-use copy and produce explicit unsupported component results.
 
 ## Plan Plugin Package Paths
 

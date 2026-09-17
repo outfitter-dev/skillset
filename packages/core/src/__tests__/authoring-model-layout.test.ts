@@ -122,16 +122,15 @@ describe("SET-551/585 current authoring model", () => {
     ).toBe(true);
     expect(
       await exists(join(root, ".agents/skills/package-proof/SKILL.md"))
-    ).toBe(false);
+    ).toBe(true);
+    expect(await exists(join(root, ".agents/skills/tdd/SKILL.md"))).toBe(true);
+    expect(await exists(join(root, ".agents/skills/proofread/SKILL.md"))).toBe(false);
     for (const skillId of ["tdd", "proofread"] as const) {
       expect(
         await exists(
           join(root, `plugins/mg-skills/skills/${skillId}/SKILL.md`)
         )
       ).toBe(true);
-      expect(
-        await exists(join(root, `.agents/skills/${skillId}/SKILL.md`))
-      ).toBe(false);
       expect(result.renderResults).toContainEqual(
         expect.objectContaining({
           outputs: expect.arrayContaining([
@@ -170,15 +169,19 @@ describe("SET-551/585 current authoring model", () => {
         role: "standard",
       })
     );
-    expect(rootItems).not.toContainEqual(
+    expect(rootItems).toContainEqual(
       expect.objectContaining({
+        effectiveName: "package-proof",
         kind: "plugin-skill",
         name: "package-proof",
+        owner: { target: "codex" },
+        role: "project-use",
+        selectionRule: "plugins.internal_use.skills.mg-skills: all except exclusions",
+        sourceUnit: "plugin.mg-skills.skill:package-proof",
       })
     );
-    expect(rootItems).not.toContainEqual(
-      expect.objectContaining({ role: "project-use" })
-    );
+    expect(await readFile(join(root, ".agents/skills/package-proof/SKILL.md"), "utf8"))
+      .toContain("internal: true");
     expect(
       await explainPath(
         root,

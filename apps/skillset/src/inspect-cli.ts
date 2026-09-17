@@ -282,6 +282,15 @@ function printExplainResult(
     if (entry.role !== undefined) {
       writeLine(writer, `    role: ${entry.role}`);
     }
+    if (entry.effectiveName !== undefined) {
+      writeLine(writer, `    effective name: ${entry.effectiveName}`);
+    }
+    if (entry.selectionRule !== undefined) {
+      writeLine(writer, `    selection rule: ${entry.selectionRule}`);
+    }
+    if (entry.sourceUnit !== undefined) {
+      writeLine(writer, `    source unit: ${entry.sourceUnit}`);
+    }
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
     }

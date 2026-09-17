@@ -63,6 +63,15 @@ An adopted Agent Skills projection makes eligible standalone skills discoverable
 
 Plugin-owned skills are published through their Agent Plugins package. They do not receive a standard-owned `.agents/skills/<skill>/` duplicate. Any project-use copy keeps the same source identity but has separate destination ownership and provenance.
 
+Root `plugins.internal_use` selection creates project-use copies in the fixed
+Claude, Codex, and Cursor skill roots. Names resolve once across workspace
+skills and all selected plugin skills: the workspace keeps the bare leaf, while
+every colliding plugin copy uses `<plugin-id>-<leaf>`. With the default
+`internal_marker: true`, only these copies receive boolean
+`metadata.internal: true`; provider bundles and Agent Plugins packages remain
+byte-independent. Plugin hooks, shared trees, MCP servers, and executables do
+not accompany the copy, and render results report those unhydrated components.
+
 ## Errors and Caveats
 
 Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. Agent Plugins diagnostics also reject package skill layouts the portable package would not discover. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
@@ -73,4 +82,4 @@ Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previ
 
 ## Provenance
 
-Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`.
+Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`. Project-use copies use `role: project-use` and record their target owner, canonical source unit, effective name, and selection rule.
