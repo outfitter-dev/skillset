@@ -2,6 +2,7 @@ import * as core from "@skillset/core";
 import type { SkillsetCliChange } from "@skillset/schema";
 
 import { printCliJsonData } from "./cli-output";
+import { publicGeneratedOperation } from "./source-mutation-cli";
 
 export interface PromoteCommandRequest {
   readonly draftPath: string;
@@ -153,7 +154,9 @@ export const runPromoteCommand = async (
           diff: report.diff,
           draftSourceHash: report.draftSourceHash,
           from: report.from,
-          generatedOperations: report.generatedOperations,
+          generatedOperations: report.generatedOperations.map(
+            publicGeneratedOperation
+          ),
           kind: report.kind,
           operations: report.operations.map(publicOperation),
           planHash: report.planHash,

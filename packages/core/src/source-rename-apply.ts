@@ -67,6 +67,9 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
     ...(sourceTransaction.moves === undefined
       ? {}
       : { moves: sourceTransaction.moves }),
+    ...(sourceTransaction.expectedSourceTrees === undefined
+      ? {}
+      : { expectedSourceTrees: sourceTransaction.expectedSourceTrees }),
     ...(sourceTransaction.removeEmptyParents === true
       ? { removeEmptyParents: true }
       : {}),
@@ -150,6 +153,10 @@ interface SourceMutationPlan {
   readonly operations: readonly SourceMutationOperation[];
   readonly planHash: string;
   readonly removeEmptyParents?: boolean;
+  readonly sourceTreeIdentities?: readonly {
+    readonly hash: string;
+    readonly path: string;
+  }[];
 }
 
 function describeBlockers(
@@ -175,6 +182,14 @@ function sourceTransactionPlan(
     deletes: plan.operations
       .filter((operation): operation is SourceMutationDeleteOperation => operation.kind === "delete")
       .map((operation) => operation.path),
+    ...(plan.sourceTreeIdentities === undefined
+      ? {}
+      : {
+          expectedSourceTrees: plan.sourceTreeIdentities.map((identity) => ({
+            identity: identity.hash,
+            path: identity.path,
+          })),
+        }),
     moves: plan.operations
       .filter(
         (operation): operation is SourceRenameMoveOperation =>

@@ -31,7 +31,12 @@ const createCore = (): {
     draftSourceHash: `sha256:${"2".repeat(64)}`,
     from: request.draftPath,
     generatedOperations: [
-      { kind: "delete" as const, path: ".agents/skills/draft-demo/SKILL.md" },
+      {
+        content: new Uint8Array([0, 17, 255]),
+        kind: "update" as const,
+        mode: 0o644 as const,
+        path: ".agents/skills/demo/SKILL.md",
+      },
     ],
     kind: "paired" as const,
     operations: [
@@ -130,7 +135,15 @@ describe("SET-587 promote command", () => {
       write.mockRestore();
     }
     const result = JSON.parse(output) as {
-      data: { plan: { diff: readonly string[] } };
+      data: {
+        plan: {
+          diff: readonly string[];
+          generatedOperations: readonly {
+            readonly kind: string;
+            readonly path: string;
+          }[];
+        };
+      };
     };
     expect(result).toMatchObject({
       command: "promote",
@@ -143,6 +156,10 @@ describe("SET-587 promote command", () => {
       ok: true,
     });
     expect(result.data.plan.diff[0]).toBe("diff --skillset SKILL.md");
+    expect(result.data.plan.generatedOperations).toEqual([
+      { kind: "update", path: ".agents/skills/demo/SKILL.md" },
+    ]);
     expect(output).not.toContain('"content":');
+    expect(output).not.toContain('"mode":');
   });
 });

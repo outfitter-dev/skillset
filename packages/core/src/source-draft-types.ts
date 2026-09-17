@@ -10,6 +10,10 @@ interface SourceDraftMutationPlan {
   readonly planHash: string;
   readonly removeEmptyParents?: boolean;
   readonly selector: string;
+  readonly sourceTreeIdentities: readonly {
+    readonly hash: string;
+    readonly path: string;
+  }[];
   readonly to: string;
   readonly warnings: readonly string[];
 }
@@ -49,6 +53,7 @@ export interface SourcePromotionPlan extends SourceDraftMutationPlan {
   readonly draftSourceHash: string;
   readonly kind: "paired" | "unpaired";
   readonly removeEmptyParents: true;
+  readonly shippedSourceHash?: string;
 }
 
 export interface SourcePromotionApplyRequest extends SourcePromotionRequest {

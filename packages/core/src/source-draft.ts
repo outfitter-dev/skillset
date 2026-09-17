@@ -1,7 +1,7 @@
 /* eslint-disable complexity, func-style, no-await-in-loop, no-use-before-define -- Lifecycle planning keeps ordered validation and evidence visible. */
 
 import { createHash } from "node:crypto";
-import { lstat, readFile, readdir } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
 import {
@@ -10,7 +10,10 @@ import {
   type SourceDraftedLedgerPayload,
   type SourcePromotedLedgerPayload,
 } from "./change-ledger";
-import { normalizeGeneratedFileMode } from "./generated-file-mode";
+import {
+  formatGeneratedFileMode,
+  normalizeGeneratedFileMode,
+} from "./generated-file-mode";
 import { compareStrings } from "./path";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -46,6 +49,7 @@ import type {
   SourceRenameGeneratedOperation,
 } from "./source-rename-types";
 import { SourceRenamePlanError } from "./source-rename-types";
+import { collectSourceFiles, hashSkillDirectory } from "./source-tree-identity";
 import {
   selectorForPluginSkill,
   selectorForStandaloneSkill,
@@ -193,6 +197,12 @@ async function planAuthoredDraft(
         planHash: "",
         selector: classification.selector,
         sourceHash,
+        sourceTreeIdentities: [
+          {
+            hash: sourceHash,
+            path: display(rootPath, shippedPath),
+          },
+        ],
         to: display(rootPath, draftPath),
         warnings: [],
       },
@@ -307,6 +317,23 @@ async function planAuthoredPromotion(
         planHash: "",
         removeEmptyParents: true,
         selector: classification.selector,
+        ...(currentShippedHash === undefined
+          ? {}
+          : { shippedSourceHash: currentShippedHash }),
+        sourceTreeIdentities: [
+          {
+            hash: draftSourceHash,
+            path: display(rootPath, draftPath),
+          },
+          ...(currentShippedHash === undefined
+            ? []
+            : [
+                {
+                  hash: currentShippedHash,
+                  path: display(rootPath, classification.shippedPath),
+                },
+              ]),
+        ],
         to: display(rootPath, classification.shippedPath),
         warnings,
       },
@@ -506,47 +533,13 @@ async function appendLifecycleEvent(
   };
 }
 
-async function hashSkillDirectory(path: string): Promise<string> {
-  const hash = createHash("sha256");
-  hash.update("skillset-draft-fork-v1\0");
-  for (const file of await collectFiles(path)) {
-    const filePath = relative(path, file).replaceAll("\\", "/");
-    const stats = await lstat(file);
-    hash.update(filePath);
-    hash.update("\0");
-    hash.update(normalizeGeneratedFileMode(stats.mode).toString(8));
-    hash.update("\0");
-    hash.update(await readFile(file));
-    hash.update("\0");
-  }
-  return `sha256:${hash.digest("hex")}`;
-}
-
-async function collectFiles(root: string): Promise<readonly string[]> {
-  const files: string[] = [];
-  for (const entry of (await readdir(root, { withFileTypes: true })).toSorted(
-    (left, right) => compareStrings(left.name, right.name)
-  )) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectFiles(path)));
-      continue;
-    }
-    if (!entry.isFile()) {
-      throw new Error(`unsupported source entry in draft lifecycle: ${path}`);
-    }
-    files.push(path);
-  }
-  return files;
-}
-
 async function skillDirectoryDiff(
   shippedPath: string | undefined,
   draftPath: string
 ): Promise<readonly string[]> {
   const shippedFiles =
-    shippedPath === undefined ? [] : await collectFiles(shippedPath);
-  const draftFiles = await collectFiles(draftPath);
+    shippedPath === undefined ? [] : await collectSourceFiles(shippedPath);
+  const draftFiles = await collectSourceFiles(draftPath);
   const shippedByPath = new Map(
     shippedFiles.map((path) => [
       relative(shippedPath ?? "", path).replaceAll("\\", "/"),
@@ -569,14 +562,31 @@ async function skillDirectoryDiff(
     const beforeBytes =
       before === undefined ? undefined : await readFile(before);
     const afterBytes = after === undefined ? undefined : await readFile(after);
-    if (
+    const beforeMode =
+      before === undefined
+        ? undefined
+        : normalizeGeneratedFileMode((await lstat(before)).mode);
+    const afterMode =
+      after === undefined
+        ? undefined
+        : normalizeGeneratedFileMode((await lstat(after)).mode);
+    const contentMatches =
       beforeBytes !== undefined &&
       afterBytes !== undefined &&
-      beforeBytes.equals(afterBytes)
-    ) {
+      beforeBytes.equals(afterBytes);
+    if (contentMatches && beforeMode === afterMode) {
       continue;
     }
     lines.push(`diff --skillset ${path}`);
+    if (
+      beforeMode !== undefined &&
+      afterMode !== undefined &&
+      beforeMode !== afterMode
+    ) {
+      lines.push(`old mode 10${formatGeneratedFileMode(beforeMode)}`);
+      lines.push(`new mode 10${formatGeneratedFileMode(afterMode)}`);
+    }
+    if (contentMatches) continue;
     lines.push(before === undefined ? "--- /dev/null" : `--- shipped/${path}`);
     lines.push(after === undefined ? "+++ /dev/null" : `+++ draft/${path}`);
     if (isBinary(beforeBytes) || isBinary(afterBytes)) {

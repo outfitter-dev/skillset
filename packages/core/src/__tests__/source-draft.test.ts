@@ -3,10 +3,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   access,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -14,6 +16,7 @@ import { dirname, join, relative } from "node:path";
 
 import { buildSkillset } from "../build";
 import { readChangeLedger } from "../change-ledger";
+import { supportsGeneratedFileModes } from "../generated-file-mode";
 import {
   draftSource,
   planSourceDraft,
@@ -231,8 +234,7 @@ describe("SET-587 source draft lifecycle", () => {
         "demo",
         "Plugin shipped."
       ),
-      ".skillset/plugins/tools/skillset.yaml":
-        "skillset:\n  name: tools\n",
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
       "skillset.yaml": `${config()}plugins:\n  internal_use:\n    skills:\n      tools: [demo]\n`,
     });
     await buildSkillset(root);
@@ -343,6 +345,70 @@ describe("SET-587 source draft lifecycle", () => {
     expect(
       await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")
     ).toContain("Draft edit.");
+  });
+
+  test("reports a shipped-only mode change in the authored promotion diff", async () => {
+    if (!supportsGeneratedFileModes()) return;
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const fork = await planSourceDraft({
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    });
+    await draftSource({
+      expectedPlanHash: fork.planHash,
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    });
+    await chmod(join(root, ".skillset/skills/demo/SKILL.md"), 0o755);
+    await buildSkillset(root);
+
+    const plan = await planSourcePromotion({
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    });
+
+    expect(plan.changedSinceDraft).toBe(true);
+    expect(plan.diff).toEqual([
+      "diff --skillset SKILL.md",
+      "old mode 100755",
+      "new mode 100644",
+    ]);
+  });
+
+  test("reports a draft-only mode change in the authored promotion diff", async () => {
+    if (!supportsGeneratedFileModes()) return;
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const fork = await planSourceDraft({
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    });
+    await draftSource({
+      expectedPlanHash: fork.planHash,
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    });
+    await chmod(join(root, ".skillset/skills/_drafts/demo/SKILL.md"), 0o755);
+    await buildSkillset(root);
+
+    const plan = await planSourcePromotion({
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    });
+
+    expect(plan.changedSinceDraft).toBe(false);
+    expect(plan.diff).toEqual([
+      "diff --skillset SKILL.md",
+      "old mode 100644",
+      "new mode 100755",
+    ]);
   });
 
   test("promotes an unpaired plugin draft without borrowing a same-leaf workspace baseline", async () => {
@@ -540,6 +606,240 @@ describe("SET-587 source draft lifecycle", () => {
     ).toBe(false);
   });
 
+  test("refuses a shipped source change after the draft plan is approved", async () => {
+    const original = skill("demo", "Shipped demo.");
+    const raced = skill("demo", "Raced shipped demo.");
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": original,
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const request = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const plan = await planSourceDraft(request);
+    const rendered = await readFile(join(root, ".agents/skills/demo/SKILL.md"));
+    const lock = await readFile(join(root, ".agents/skills/skillset.lock"));
+
+    await expect(
+      draftSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeInitialInspection: () =>
+              writeFile(join(root, ".skillset/skills/demo/SKILL.md"), raced),
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "source tree changed since planning: .skillset/skills/demo"
+    );
+    expect(
+      await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")
+    ).toBe(raced);
+    expect(
+      await Bun.file(
+        join(root, ".skillset/skills/_drafts/demo/SKILL.md")
+      ).exists()
+    ).toBe(false);
+    expect(
+      await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
+    ).toBe(false);
+    expect(await readFile(join(root, ".agents/skills/demo/SKILL.md"))).toEqual(
+      rendered
+    );
+    expect(await readFile(join(root, ".agents/skills/skillset.lock"))).toEqual(
+      lock
+    );
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
+  test("refuses a draft source change after the promotion plan is approved", async () => {
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const draftRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(draftRequest);
+    await draftSource({ ...draftRequest, expectedPlanHash: fork.planHash });
+    const previewed = skill("demo", "Previewed draft.");
+    const raced = skill("demo", "Raced draft.");
+    await writeFile(
+      join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+      previewed
+    );
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"));
+    const rendered = await readFile(
+      join(root, ".agents/skills/draft-demo/SKILL.md")
+    );
+    const lock = await readFile(join(root, ".agents/skills/skillset.lock"));
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeInitialInspection: () =>
+              writeFile(
+                join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+                raced
+              ),
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "source tree changed since planning: .skillset/skills/_drafts/demo"
+    );
+    expect(
+      await readFile(
+        join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+        "utf8"
+      )
+    ).toBe(raced);
+    expect(
+      await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")
+    ).toContain("Shipped demo.");
+    expect(
+      await readFile(join(root, ".skillset/changes/ledger.jsonl"))
+    ).toEqual(ledger);
+    expect(
+      await readFile(join(root, ".agents/skills/draft-demo/SKILL.md"))
+    ).toEqual(rendered);
+    expect(await readFile(join(root, ".agents/skills/skillset.lock"))).toEqual(
+      lock
+    );
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
+  test("refuses a paired shipped change after the promotion plan is approved", async () => {
+    const original = skill("demo", "Shipped demo.");
+    const raced = skill("demo", "Raced paired shipped demo.");
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": original,
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const draftRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(draftRequest);
+    await draftSource({ ...draftRequest, expectedPlanHash: fork.planHash });
+    const previewedDraft = skill("demo", "Previewed draft.");
+    await writeFile(
+      join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+      previewedDraft
+    );
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"));
+    const renderedDraft = await readFile(
+      join(root, ".agents/skills/draft-demo/SKILL.md")
+    );
+    const renderedShipped = await readFile(
+      join(root, ".agents/skills/demo/SKILL.md")
+    );
+    const lock = await readFile(join(root, ".agents/skills/skillset.lock"));
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeInitialInspection: () =>
+              writeFile(join(root, ".skillset/skills/demo/SKILL.md"), raced),
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "source tree changed since planning: .skillset/skills/demo"
+    );
+    expect(
+      await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")
+    ).toBe(raced);
+    expect(
+      await readFile(
+        join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+        "utf8"
+      )
+    ).toBe(previewedDraft);
+    expect(
+      await readFile(join(root, ".skillset/changes/ledger.jsonl"))
+    ).toEqual(ledger);
+    expect(
+      await readFile(join(root, ".agents/skills/draft-demo/SKILL.md"))
+    ).toEqual(renderedDraft);
+    expect(await readFile(join(root, ".agents/skills/demo/SKILL.md"))).toEqual(
+      renderedShipped
+    );
+    expect(await readFile(join(root, ".agents/skills/skillset.lock"))).toEqual(
+      lock
+    );
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
+  test("refuses a normalized mode change after the promotion plan is approved", async () => {
+    if (!supportsGeneratedFileModes()) return;
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const draftRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(draftRequest);
+    await draftSource({ ...draftRequest, expectedPlanHash: fork.planHash });
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const draftPath = join(root, ".skillset/skills/_drafts/demo/SKILL.md");
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeInitialInspection: () => chmod(draftPath, 0o755),
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "source tree changed since planning: .skillset/skills/_drafts/demo"
+    );
+    expect((await stat(draftPath)).mode & 0o777).toBe(0o755);
+    expect(
+      await Bun.file(join(root, ".skillset/skills/demo/SKILL.md")).exists()
+    ).toBe(true);
+    expect((await readChangeLedger(root)).map((event) => event.type)).toEqual([
+      "source.drafted",
+    ]);
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
   test("keeps draft and promotion application free of Git shell execution", async () => {
     for (const file of [
       "source-draft.ts",
@@ -598,4 +898,10 @@ async function treeBytes(
       ])
     )
   );
+}
+
+async function transactionJournals(root: string): Promise<readonly string[]> {
+  return (await readdir(root))
+    .filter((entry) => entry.startsWith(".skillset-workspace-transaction-"))
+    .toSorted();
 }
