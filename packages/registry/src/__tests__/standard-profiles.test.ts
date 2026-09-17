@@ -60,9 +60,11 @@ describe("SET-397 standard profile registry", () => {
         schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
       });
       expect(profile.adoption?.rendererCommit).toBe(
-        profile.id === "agent-skills"
-          ? "2bbdb2374ba80ecefc72785dfd2044a2f5d5fc76"
-          : "dade1c128d2ec52452297d829bd2045b35517f92"
+        {
+          "agent-instructions": "dade1c128d2ec52452297d829bd2045b35517f92",
+          "agent-plugins-1.0": "0c073e001c639e505379b96bd779af20fc9a574b",
+          "agent-skills": "2bbdb2374ba80ecefc72785dfd2044a2f5d5fc76",
+        }[profile.id]
       );
     }
   });
