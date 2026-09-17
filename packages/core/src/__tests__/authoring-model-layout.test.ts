@@ -145,12 +145,15 @@ describe("SET-551/585 current authoring model", () => {
       ".agents/skills",
       ".cursor/skills",
     ]) {
-      const draftPath = join(root, targetRoot, "draft-tdd/SKILL.md");
+      const draftPath = join(root, targetRoot, "tdd/SKILL.md");
       expect(await exists(draftPath)).toBe(true);
       expect(await readFile(draftPath, "utf8")).toContain(
         "[SKILLSET DRAFT] Side-by-side draft case owned by SET-555."
       );
       expect(await readFile(draftPath, "utf8")).toContain("internal: true");
+      expect(
+        await exists(join(root, targetRoot, "draft-tdd/SKILL.md"))
+      ).toBe(false);
     }
     expect(await exists(join(root, ".agents/skills/proofread/SKILL.md"))).toBe(false);
     for (const skillId of ["tdd", "proofread"] as const) {
@@ -255,10 +258,11 @@ describe("SET-551/585 current authoring model", () => {
       entries: expect.arrayContaining([
         expect.objectContaining({
           draftOrigin: "_drafts",
-          effectiveName: "draft-tdd",
+          draftPolicy: "override",
+          effectiveName: "tdd",
           role: "project-use",
           selectionRule:
-            "plugins.internal_use.drafts.mg-skills: omitted (side-by-side)",
+            "plugins.internal_use.skills.mg-skills: all except exclusions",
           shippedSibling: "plugin.mg-skills.skill:tdd",
         }),
       ]),
@@ -310,8 +314,11 @@ describe("SET-551/585 current authoring model", () => {
     });
     expect((await doctorSkillset(root)).pluginPlan).toMatchObject({
       internalUse: {
-        skills: expect.arrayContaining([
+        drafts: expect.arrayContaining([
           { pluginId: "mg-skills", skillId: "tdd" },
+        ]),
+        skills: expect.arrayContaining([
+          { pluginId: "mg-skills", skillId: "package-proof" },
         ]),
       },
       packagePaths: {

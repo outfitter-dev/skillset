@@ -81,14 +81,21 @@ are rejected because draft status currently belongs only to skills. The
 beside live project skills as `draft-<leaf>`. For selected plugin skills,
 omitting `plugins.internal_use.drafts.<plugin>` inherits each selected live
 skill's same-container draft; `true` or a list selects drafts explicitly, and
-`false` excludes them. Excluding a live skill also excludes its paired draft.
+`false` excludes them. The string policy `only` emits only drafts in the
+selected plugin content, while `override` emits a paired draft at its live
+sibling's project name and leaves selected live skills without drafts
+unchanged. A whole-plugin selection brings unpaired drafts into either mode;
+an individual live-skill selection brings only its same-container pair.
+Selection and exclusions resolve before either policy, so excluding a live
+skill also excludes its paired draft and no policy restores excluded content.
 
 Every rendered project draft uses `draft-<leaf>` for its directory and
 frontmatter name, prefixes its description with `[SKILLSET DRAFT] `, and writes
 boolean `metadata.internal: true` even when `internal_marker` is `false`.
 Pairing requires an equal leaf in the same workspace or plugin container.
 Project draft lock entries record draft origin, effective name, selection rule,
-target owner, and the same-container shipped sibling when one exists. Drafts
+target owner, applied draft policy, and the same-container shipped sibling when
+one exists. Drafts
 never enter plugin packages or marketplace output. Live project-use copies
 still follow `internal_marker`; plugin hooks, shared trees, MCP servers, and
 executables are not hydrated into a project-use copy and produce explicit
