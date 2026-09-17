@@ -94,9 +94,12 @@ an individual live-skill selection brings only its same-container pair.
 Selection and exclusions resolve before either policy, so excluding a live
 skill also excludes its paired draft and no policy restores excluded content.
 
-Every rendered project draft uses `draft-<leaf>` for its directory and
-frontmatter name, prefixes its description with `[SKILLSET DRAFT] `, and writes
-boolean `metadata.internal: true` even when `internal_marker` is `false`.
+Workspace drafts, side-by-side plugin drafts, `only`-mode drafts, and unpaired
+`override` drafts use `draft-<leaf>` for their directory and frontmatter name.
+A paired `override` draft instead uses its live sibling's effective project-use
+name. Every rendered project draft prefixes its description with
+`[SKILLSET DRAFT] ` and writes boolean `metadata.internal: true` even when
+`internal_marker` is `false`.
 Pairing requires an equal leaf in the same workspace or plugin container.
 Project-use lock entries record the canonical source unit, effective name,
 selection rule, and target owner; project drafts additionally record draft
