@@ -257,6 +257,10 @@ function runtimeRouteSeed(route: string, flag?: CliFlag): readonly string[] {
       return ["rename", "old", "new"];
     case "move":
       return ["move", "old", "new"];
+    case "draft":
+      return ["draft", "shipped"];
+    case "promote":
+      return ["promote", "_drafts/draft"];
     case "report show":
       return ["report", "show", "00000000-0000-4000-8000-000000000000"];
     case "restore":

@@ -279,6 +279,19 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "draft",
+      args: ["draft", "shipped", "--root", ROOT],
+      expected: {
+        command: "draft",
+        request: {
+          jsonOutput: false,
+          rootPath: ROOT,
+          shippedPath: "shipped",
+          yes: false,
+        },
+      },
+    },
+    {
       route: "move",
       args: ["move", "old", "new", "--root", ROOT],
       expected: {
@@ -301,6 +314,19 @@ describe("SET-299 CLI request characterization", () => {
           jsonOutput: false,
           managedPath: "managed.md",
           options: {},
+          rootPath: ROOT,
+          yes: false,
+        },
+      },
+    },
+    {
+      route: "promote",
+      args: ["promote", "_drafts/demo", "--root", ROOT],
+      expected: {
+        command: "promote",
+        request: {
+          draftPath: "_drafts/demo",
+          jsonOutput: false,
           rootPath: ROOT,
           yes: false,
         },
