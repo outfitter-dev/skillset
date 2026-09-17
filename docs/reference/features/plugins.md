@@ -23,11 +23,11 @@ description: Plugins define source containers, manifest authority, component own
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-A plugin is a source container that preserves one product identity while generating separate [provider-native](../../glossary.md#provider-native) bundles. Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; default output lives at `plugins/<plugin>/claude/`, `plugins/<plugin>/chatgpt/` for the Codex-selected product bundle, and `plugins/<plugin>/cursor/`.
+A plugin is a source container that preserves one product identity while generating one package shared by every enabled [target](../../glossary.md#target). Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; output lives at `plugins/<plugin>/`.
 
 Create an empty container with `skillset new plugin <name> --yes`. The command previews by default, validates the same plugin identity the resolver will load, and creates `skillset.yaml`, `README.md`, and an empty `skills/` placeholder. Add the first skill with `skillset new skill <name> --in <plugin> --yes`; plugin containers cannot nest.
 
-When Agent Plugins 1.0 is adopted, each applicable plugin also inherently produces `plugins/<plugin>/agents/`. This standard package is independent of provider selection; plugin and root provider toggles control only provider-native bundles and deltas.
+When Agent Plugins 1.0 is adopted, its portable manifest, skill tree, and neutral support files form the package baseline. Enabled providers add their manifest and supported components beside that baseline instead of creating provider subpackages.
 
 Root `plugins.internal_use` selects plugin content for project-local use and
 defaults to none. Root `plugins.output` is parsed into a deterministic package
@@ -61,44 +61,23 @@ Portable [skills](skills.md) and their [resources](resources.md) remain inside t
 
 ## Provider Output
 
-Each enabled [target](../../glossary.md#target) receives a separate bundle and native manifest:
+Each enabled [target](../../glossary.md#target) contributes to one package:
 
 ```text
-plugins/review-tools/claude/.claude-plugin/plugin.json
-plugins/review-tools/chatgpt/plugin.json
-plugins/review-tools/cursor/.cursor-plugin/plugin.json
+plugins/review-tools/plugin.json
+plugins/review-tools/.claude-plugin/plugin.json
+plugins/review-tools/.cursor-plugin/plugin.json
+plugins/review-tools/skills/<effective-name>/SKILL.md
+plugins/review-tools/assets/**
 ```
 
-The Agent Plugins baseline uses `plugins/review-tools/agents/plugin.json`, immediate-child `skills/`, portable `mcp.json`, and recognized neutral support files. It is standard-owned rather than a fourth provider bundle. Provider-only components remain outside the package and appear as standard coverage results when they have no portable representation.
+Authored skill grouping directories organize source only. Generated package skills are immediate children named by their effective skill names. Skillset compares provider renderings before writing: provider-only frontmatter keys can coexist, while conflicting values or body bytes fail with a provider-specific diagnostic. Two sources that flatten to the same effective name also fail and name both sources.
 
-The compiler derives component wiring from source layout and feature configuration. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`.
+The Agent Plugins baseline owns the portable root manifest, shared skill tree, portable `mcp.json`, and recognized neutral support files. Claude and Cursor manifests remain in their documented metadata directories. Package presentation assets are copied once to root `assets/`; skill-local assets and declared `shared:` or `plugin:` resources remain inside their skill directory. The pinned Cursor evidence documents a relative logo but does not establish arbitrary package assets as a native component, so the generated support matrix keeps Cursor asset support planned.
 
-### Plugin-Owned Claude Bundle Destinations
+The compiler derives component wiring from the final package inventory. Claude's `skills` field is a string for one immediate child and an array for multiple children, both within the pinned accepted contract. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`. Any two package producers that require different bytes or modes at the same path fail with `plugin-package-path-conflict` before a write.
 
-A plugin may own the exact workspace-relative root of its Claude bundle with `claude.bundle.path` in its plugin-local `skillset.yaml`:
-
-```yaml
-skillset:
-  name: trails
-claude:
-  bundle:
-    path: plugin
-```
-
-The destination becomes the compiler-owned root for the complete Claude bundle — manifest, skills, hooks, agents, provider-native islands, executables, copied companions, and selected license artifacts — with no implicit `plugins/<plugin>` or provider segment:
-
-```text
-plugin/.claude-plugin/plugin.json
-plugin/skills/**
-plugin/hooks/**
-plugin/skillset.lock
-```
-
-The workspace-wide `claude.plugins.path` continues to select the marketplace root and the container for default-shaped bundles. With its default value, the marketplace stays at `.claude-plugin/marketplace.json` and references this bundle as `source: ./plugin`. The [plugin configuration schema](../schemas/0.1.0/plugin-config.schema.json) owns `claude.bundle.path`; workspace configuration and other provider blocks reject this field.
-
-For a custom marketplace root, the bundle destination remains workspace-relative and must be beneath that root. For example, workspace `claude.plugins.path: dist` and plugin `claude.bundle.path: dist/trails` render `dist/.claude-plugin/marketplace.json`, `dist/trails/.claude-plugin/plugin.json`, and marketplace source `./trails`. A sibling destination such as `plugin` cannot be referenced from the `dist` marketplace: [Claude local marketplace sources](https://code.claude.com/docs/en/plugin-marketplaces#relative-paths) cannot leave the marketplace root. Skillset rejects this combination with the conflicting roots rather than relocating either output.
-
-Each explicit bundle carries its own `skillset.lock` and participates in `explain`, `diff`, and `check --only outputs` provenance. A custom marketplace container may hold both independently locked bundles and default-shaped sibling bundles. Destinations cannot reuse the container itself, overlap another plugin bundle, source tree, marketplace metadata directory, skill output root, or another target's output roots. Case-conflicting destinations are rejected consistently across hosts.
+`claude.bundle.path` cannot split the shared package. Custom package placement remains reserved for SET-561; current package planning accepts only the default `plugins/[name]` placement.
 
 ## Manifest Authority
 

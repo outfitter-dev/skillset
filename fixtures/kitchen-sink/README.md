@@ -9,7 +9,6 @@ Surfaces covered:
 - plugin-local shared resources, including a custom `from` / `to` mapping
   (`plugin:templates/report.md` → `docs/report.md`);
 - prose links rewritten through that custom mapping;
-- shared hook definitions (`hooks/hooks.json`) with valid target-native events
   and command handlers;
 - `.mcp.json` for both targets;
 - a Claude-only `commands/` companion and a Codex-only `.app.json` companion;

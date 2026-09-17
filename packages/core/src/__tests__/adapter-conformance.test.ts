@@ -62,14 +62,7 @@ dependencies:
     - name: external-tools
       range: ^2.1.0
       marketplace: acme
-mcp: true
-`,
-  ".skillset/plugins/alpha/.mcp.json": `
-{
-  "mcpServers": {
-    "alpha": { "command": "node" }
-  }
-}
+mcp: false
 `,
   ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
@@ -101,8 +94,6 @@ compile:
       { featureId: "project-instructions", sourceUnit: "instruction:root", target: "cursor" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "codex" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "cursor" },
-      { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "claude" },
-      { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "cursor" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },
       { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
@@ -155,7 +146,7 @@ hooks:
         featureId: "adaptive-hooks",
         outputs: [
           expect.objectContaining({
-            path: "plugins/demo/cursor/hooks/hooks.json",
+            path: "plugins/demo/hooks/hooks.json",
           }),
         ],
         reason:
@@ -201,7 +192,7 @@ skillset:
         featureId: "plugin-hooks",
         outputs: [
           expect.objectContaining({
-            path: "plugins/demo/cursor/hooks/hooks.json",
+            path: "plugins/demo/hooks/hooks.json",
           }),
         ],
         sourceUnit: "plugin.demo.feature:hooks",

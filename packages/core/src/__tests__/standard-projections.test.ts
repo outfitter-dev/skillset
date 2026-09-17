@@ -141,7 +141,7 @@ describe('standard projection resolution', () => {
     const files = [
       { path: 'AGENTS.md' },
       { path: '.agents/skills/review/SKILL.md' },
-      { path: 'plugins/demo/agents/plugin.json' },
+      { path: 'plugins/demo/plugin.json' },
       { path: 'plugins/README.md' },
       { path: 'plugins/skillset.lock' },
     ] as RenderedFile[]
@@ -153,7 +153,7 @@ describe('standard projection resolution', () => {
       '.agents/skills/review/SKILL.md',
     ])
     expect(scopedRenderedFiles(graph, files, ['plugins']).map(file => file.path)).toEqual([
-      'plugins/demo/agents/plugin.json',
+      'plugins/demo/plugin.json',
       'plugins/README.md',
       'plugins/skillset.lock',
     ])

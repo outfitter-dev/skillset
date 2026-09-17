@@ -22,7 +22,6 @@ import {
   claudeMarketplacePath,
   chatGptMarketplacePath,
   cursorMarketplacePath,
-  isDefaultPluginOutputRoot,
   pluginLockRootPath,
   pluginManifestPath,
   providerSourceForPlugin,
@@ -925,12 +924,11 @@ function isPortableMarketplacePath(value: string): boolean {
 
 function marketplaceGeneratedPaths(
   lockRoots: ReadonlyMap<string, LockRoot>,
-  outputRoot: string,
+  _outputRoot: string,
   target: TargetName,
   pluginId: string
 ): readonly string[] {
   const paths = new Set<string>();
-  const bundleSegment = target === "codex" ? "chatgpt" : target;
   for (const [lockRoot, lock] of lockRoots) {
     for (const item of lock.items) {
       if (
@@ -938,18 +936,11 @@ function marketplaceGeneratedPaths(
         !(item.kind === "plugin" && item.name === pluginId)
       )
         continue;
-      const providerBundleItem = lockRoot === outputRoot;
       const targetConsumer = item.consumers?.some(
         (consumer) => "target" in consumer && consumer.target === target
       );
-      if (!providerBundleItem && !targetConsumer) continue;
+      if (!targetConsumer) continue;
       for (const file of item.files) {
-        if (
-          providerBundleItem &&
-          isDefaultPluginOutputRoot(outputRoot) &&
-          !file.startsWith(`${pluginId}/${bundleSegment}/`)
-        )
-          continue;
         paths.add(join(lockRoot, file).replaceAll("\\", "/"));
       }
     }

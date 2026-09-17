@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { explainPath } from "../authoring";
 import { buildSkillsetResult } from "../build";
 import { parseMarkdown } from "../yaml";
 
@@ -44,6 +45,13 @@ cursor:
         /plugins\/demo\/(?:agents|chatgpt|claude|cursor)\//u.test(file.path)
       )
     ).toBe(false);
+    expect(result.data.map((file) => file.path)).toEqual(
+      expect.arrayContaining([
+        "plugins/demo/assets/logo.svg",
+        "plugins/demo/skills/review/assets/common.txt",
+        "plugins/demo/skills/review/assets/local.txt",
+      ])
+    );
     const parsed = parseMarkdown(
       await readFile(join(root, "plugins/demo/skills/review/SKILL.md"), "utf8"),
       "shared skill"
@@ -82,6 +90,37 @@ cursor:
       "./skills/review",
       "./skills/write",
     ]);
+
+    const lock = JSON.parse(
+      await readFile(join(root, "plugins/skillset.lock"), "utf8")
+    ) as {
+      readonly items: readonly {
+        readonly consumers?: readonly unknown[];
+        readonly outputPath?: string;
+      }[];
+    };
+    const sharedSkill = lock.items.find(
+      (item) => item.outputPath === "demo/skills/review/SKILL.md"
+    );
+    expect(sharedSkill?.consumers).toEqual([
+      { phase: "baseline", standardProfile: "agent-plugins-1.0" },
+      { phase: "delta", target: "claude" },
+      { phase: "delta", target: "codex" },
+      { phase: "delta", target: "cursor" },
+    ]);
+    const explanation = await explainPath(
+      root,
+      "plugins/demo/skills/review/SKILL.md"
+    );
+    expect(explanation).toMatchObject({
+      entries: [
+        expect.objectContaining({
+          consumers: sharedSkill?.consumers,
+          outputPath: "plugins/demo/skills/review/SKILL.md",
+        }),
+      ],
+      kind: "generated",
+    });
   });
 
   it("rejects the first conflicting provider field", async () => {
@@ -164,6 +203,9 @@ async function fixture(
 name: review
 description: Review changes.
 ${targetFrontmatter.trim()}
+resources:
+  assets:
+    - plugin:assets/common.txt
 ---
 
 ${body}
@@ -173,6 +215,9 @@ skillset:
   name: demo
   license: none
 `,
+    ".skillset/plugins/demo/assets/logo.svg": "<svg/>\n",
+    ".skillset/plugins/demo/shared/assets/common.txt": "common\n",
+    [`${dirname(skillPath)}/assets/local.txt`]: "local\n",
     "skillset.yaml": `
 skillset:
   name: shared-plugin-skill

@@ -9,13 +9,11 @@ export function isDefaultPluginOutputRoot(path: string): boolean {
 }
 
 export function pluginTargetRoot(
-  outputRoot: string,
+  _outputRoot: string,
   _target: TargetName,
   pluginId: string
 ): string {
-  return isDefaultPluginOutputRoot(outputRoot)
-    ? join(outputRoot, pluginId).replaceAll("\\", "/")
-    : join(outputRoot, "plugins", pluginId).replaceAll("\\", "/");
+  return join(DEFAULT_PLUGIN_OUTPUT_ROOT, pluginId).replaceAll("\\", "/");
 }
 
 /** The bundle-owning identity of a plugin; `{ id }` keeps the default shape. */
@@ -127,13 +125,11 @@ export function pluginTargetForOutputPath(
 
 export function pluginPathPartsForOutput(
   _graph: BuildGraph,
-  outputRoot: string,
+  _outputRoot: string,
   _target: TargetName,
   path: string
 ): { readonly pluginId: string; readonly pluginPath: string } | undefined {
-  const prefix = isDefaultPluginOutputRoot(outputRoot)
-    ? `${outputRoot}/`
-    : `${outputRoot}/plugins/`;
+  const prefix = `${DEFAULT_PLUGIN_OUTPUT_ROOT}/`;
   if (!path.startsWith(prefix)) return undefined;
   const rest = path.slice(prefix.length);
   const parts = rest.split("/");

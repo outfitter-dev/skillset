@@ -86,7 +86,10 @@ describe("registry-backed plugin component paths", () => {
         expect(pluginComponentManifestField(target, component.kind)).toBe(
           component.manifestField ?? undefined
         );
-        if (component.manifestField !== null) {
+        if (
+          component.manifestField !== null &&
+          component.kind !== "skills"
+        ) {
           expect(readDotted(manifest, component.manifestField)).toBe(
             `./${component.defaultPath}`
           );
@@ -97,17 +100,17 @@ describe("registry-backed plugin component paths", () => {
 
   test.each([
     {
-      expected: "./skills/",
+      expected: "./skills/review",
       files: [".skillset/plugins/demo/skills/review/SKILL.md"],
       label: "flat-only",
     },
     {
-      expected: ["./skills/engineering/tdd"],
+      expected: "./skills/tdd",
       files: [".skillset/plugins/demo/skills/engineering/tdd/SKILL.md"],
       label: "nested-only",
     },
     {
-      expected: ["./skills/engineering/tdd"],
+      expected: ["./skills/review", "./skills/tdd"],
       files: [
         ".skillset/plugins/demo/skills/review/SKILL.md",
         ".skillset/plugins/demo/skills/engineering/tdd/SKILL.md",
@@ -139,7 +142,7 @@ describe("registry-backed plugin component paths", () => {
             skills: ["./skills/engineering/review"],
           })}\n`
         ),
-        path: "plugins/demo/claude/.claude-plugin/plugin.json",
+        path: "plugins/demo/.claude-plugin/plugin.json",
       },
     ]);
     expect(report).toEqual({ checkedFiles: 1, issues: [], ok: true });

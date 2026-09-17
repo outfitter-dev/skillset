@@ -1144,7 +1144,7 @@ function featureOutcomesForLockItem(
 
   if (item.kind === "plugin" && standardProfile === "agent-plugins-1.0") {
     const mcpOutputPaths = outputPaths.filter((path) =>
-      path.endsWith("/agents/mcp.json")
+      path.endsWith("/mcp.json")
     );
     const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
     const feature = plugin?.features.find(
@@ -1268,8 +1268,31 @@ function featureOutcomesForLockItem(
     );
   }
 
+  const cursorToolIntentOutputPaths =
+    target === "cursor" && toolsRealizationPlanForLockItem(graph, item, target) !== undefined
+      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
+      : [];
+  if (cursorToolIntentOutputPaths.length > 0) {
+    const plan = toolsRealizationPlanForLockItem(graph, item, "cursor");
+    outcomes.push(
+      featureOutcome({
+        destination: "skill-frontmatter",
+        ...toolsPlanRenderFacts(plan, item.sourcePath),
+        featureId: "tools-policy",
+        isIncluded: cursorToolIntentOutputPaths.some((path) => includedPaths.has(path)),
+        mapOutputPath,
+        outputKind: "metadata",
+        outputPaths: cursorToolIntentOutputPaths,
+        sourcePath: item.sourcePath,
+        sourceUnit: sourceUnitForLockItem(item, target),
+        status: "metadata_only",
+        target,
+      })
+    );
+  }
+
   const toolIntentOutputPaths = outputPaths.filter((path) => path.endsWith("/.skillset.tools.yaml"));
-  if (toolIntentOutputPaths.length > 0 && target !== undefined) {
+  if (toolIntentOutputPaths.length > 0 && target === "codex") {
     const plan = toolsRealizationPlanForLockItem(graph, item, target);
     outcomes.push(
       featureOutcome({
@@ -2072,6 +2095,7 @@ function companionForPath(
     const parts = pluginPathPartsForOutput(graph, outputRoot, target, path);
     if (parts === undefined) continue;
     const { pluginId, pluginPath } = parts;
+    if (!pluginTargetSelected(graph, pluginId, target)) continue;
     if (pluginPath === "README.md") {
       return { featureId: "plugin-readme", featureKey: "readme", pluginId, sourceRelativePath: "README.md", target };
     }

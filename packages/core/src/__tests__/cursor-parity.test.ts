@@ -95,7 +95,18 @@ describe("SET-550 Cursor parity evidence baseline", () => {
     ).toBe(true);
   });
 
-  test.todo("cursor-plugin-assets [SET-558]", unresolvedFixtureClaim);
+  it("cursor-plugin-assets [SET-558]", async () => {
+    const root = await buildFixture();
+
+    expect(
+      await fileExists(path.join(root, "plugins/cursor-kit/assets/logo.svg"))
+    ).toBe(true);
+    expect(
+      await fileExists(
+        path.join(root, "plugins/cursor-kit/cursor/assets/logo.svg")
+      )
+    ).toBe(false);
+  });
 
   it("carries package-root plugin surfaces beside the _cursor island", async () => {
     const root = await buildFixture();
@@ -125,7 +136,7 @@ describe("SET-550 Cursor parity evidence baseline", () => {
 
     expect(
       await fileExists(
-        path.join(root, "plugins/cursor-kit/cursor/assets/logo.svg")
+        path.join(root, "plugins/cursor-kit/assets/logo.svg")
       )
     ).toBe(true);
   });
@@ -137,7 +148,7 @@ describe("SET-550 Cursor parity evidence baseline", () => {
 
     expect(
       await fileExists(
-        path.join(root, "plugins/cursor-kit/cursor/hooks/hooks.json")
+        path.join(root, "plugins/cursor-kit/hooks/hooks.json")
       )
     ).toBe(true);
   });

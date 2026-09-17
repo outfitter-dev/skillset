@@ -1072,6 +1072,11 @@ async function loadPlugin(
     validateConfigDocument(config, configPath, { allowHooks: true });
     configuredDrafts = readDraftSelectors(config, configRelativePath);
     claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
+    if (claudeBundlePath !== undefined) {
+      throw new Error(
+        `skillset: ${configRelativePath}.claude.bundle.path cannot split a shared plugin package; custom package placement is unsupported until SET-561`
+      );
+    }
     await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);

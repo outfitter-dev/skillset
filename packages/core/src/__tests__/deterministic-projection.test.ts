@@ -59,13 +59,13 @@ describe("deterministic projection runner", () => {
     });
     try {
       expect(report.ok).toBe(true);
-      expect(report.outputComparison.identical).toContain("plugins/skillset/claude/.claude-plugin/plugin.json");
-      expect(report.outputComparison.identical).toContain("plugins/skillset/chatgpt/plugin.json");
-      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/claude/.claude-plugin/plugin.json"))).toBe(true);
+      expect(report.outputComparison.identical).toContain("plugins/skillset/.claude-plugin/plugin.json");
+      expect(report.outputComparison.identical).toContain("plugins/skillset/plugin.json");
+      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/.claude-plugin/plugin.json"))).toBe(true);
       const codexManifest = await Bun.file(
         join(
           report.runs[0].outputRoot,
-          "plugins/skillset/chatgpt/plugin.json"
+          "plugins/skillset/plugin.json"
         )
       ).json();
       const nonEmptyString = expect.stringMatching(/\S/u);
