@@ -585,7 +585,7 @@ cursor: false
     );
   });
 
-  it("routes unsupported servers through operation policy and omits their bytes", async () => {
+  it("routes provider-unsupported servers through policy without erasing the standards baseline", async () => {
     const cases = [
       {
         server: { type: "sse", url: "https://example.com/events" },
@@ -633,16 +633,23 @@ cursor: false
         {},
         { enforceRenderPolicy: false }
       );
-      expect(preview.renderResults).toContainEqual(
+      const previewOutcome = preview.renderResults.find(
+        (result) =>
+          result.featureId === "plugin-mcp" &&
+          result.target === testCase.target
+      );
+      expect(previewOutcome).toEqual(
         expect.objectContaining({
           destination: "mcp",
           featureId: "plugin-mcp",
+          policy: "unsupported:error",
           reason: expect.stringContaining("MCP server unsupported"),
           sourceUnit: "plugin.tools.feature:mcp",
           status: "unsupported",
           target: testCase.target,
         })
       );
+      expect(previewOutcome?.outputs).toBeUndefined();
 
       await writeFile(
         join(root, "skillset.yaml"),
@@ -650,23 +657,79 @@ cursor: false
       );
       const warned = await buildSkillsetResult(root);
       expect(warned.ok).toBe(true);
-      expect(warned.diagnostics).toContainEqual(
+      const warnedOutcome = warned.renderResults.find(
+        (result) =>
+          result.featureId === "plugin-mcp" &&
+          result.target === testCase.target
+      );
+      expect(warnedOutcome).toEqual(
         expect.objectContaining({
-          code: "unsupported-destination-warn",
+          destination: "mcp",
           featureId: "plugin-mcp",
+          policy: "unsupported:warn",
+          reason: previewOutcome?.reason,
+          sourceUnit: "plugin.tools.feature:mcp",
+          status: "unsupported",
           target: testCase.target,
         })
       );
-      const mcpOutput = warned.data.find((file) =>
-        file.path.endsWith(
-          testCase.target === "codex"
-            ? "/tools/mcp.json"
-            : "/tools/.mcp.json"
+      expect(warnedOutcome?.evidence).toEqual(previewOutcome?.evidence);
+      expect(warnedOutcome?.outputs).toBeUndefined();
+      expect(
+        warned.diagnostics.filter(
+          (diagnostic) =>
+            diagnostic.code === "unsupported-destination-warn" &&
+            diagnostic.featureId === "plugin-mcp" &&
+            diagnostic.target === testCase.target
         )
+      ).toEqual([
+        {
+          code: "unsupported-destination-warn",
+          featureId: "plugin-mcp",
+          message: `unsupported destination warning: ${testCase.target} mcp plugin-mcp unsupported; ${warnedOutcome?.reason}`,
+          path: ".skillset/plugins/tools/.mcp.json",
+          severity: "warning",
+          sourceUnit: "plugin.tools.feature:mcp",
+          target: testCase.target,
+        },
+      ]);
+
+      const portableMcp = warned.data.find(
+        (file) => file.path === "plugins/tools/mcp.json"
       );
-      expect(new TextDecoder().decode(mcpOutput?.content)).not.toContain(
-        "unsupported"
-      );
+      expect(
+        warned.data.some((file) =>
+          /^plugins\/tools\/(?:agents|chatgpt|claude|codex|cursor)\//u.test(
+            file.path
+          )
+        )
+      ).toBe(false);
+
+      if (testCase.target === "codex") {
+        expect(portableMcp).toBeDefined();
+        expect(
+          JSON.parse(new TextDecoder().decode(portableMcp?.content))
+        ).toEqual({
+          $schema: AGENT_PLUGINS_MCP_SCHEMA,
+          mcpServers: { unsupported: testCase.server },
+        });
+      } else {
+        const providerMcp = warned.data.find(
+          (file) => file.path === "plugins/tools/.mcp.json"
+        );
+        expect(providerMcp).toBeDefined();
+        expect(new TextDecoder().decode(providerMcp?.content)).not.toContain(
+          "unsupported"
+        );
+        if (portableMcp !== undefined) {
+          expect(
+            JSON.parse(new TextDecoder().decode(portableMcp.content))
+          ).toEqual({
+            $schema: AGENT_PLUGINS_MCP_SCHEMA,
+            mcpServers: { unsupported: testCase.server },
+          });
+        }
+      }
     }
   });
 
