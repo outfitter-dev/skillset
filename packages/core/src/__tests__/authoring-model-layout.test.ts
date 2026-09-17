@@ -42,6 +42,15 @@ async function json(path: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
 }
 
+async function lockItems(
+  root: string,
+  lockPath: string
+): Promise<readonly Record<string, unknown>[]> {
+  const items = (await json(join(root, lockPath))).items;
+  if (!Array.isArray(items)) throw new Error(`expected lock items in ${lockPath}`);
+  return items as readonly Record<string, unknown>[];
+}
+
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
@@ -58,6 +67,7 @@ describe("SET-551/585 current authoring model", () => {
     expect(plugin.skills.map((skill) => skill.id)).toEqual([
       "tdd",
       "proofread",
+      "package-proof",
     ]);
     expect(plugin.discoveredSkills).toEqual(
       expect.arrayContaining([
@@ -79,7 +89,7 @@ describe("SET-551/585 current authoring model", () => {
         }),
       ])
     );
-    await buildSkillset(root);
+    const result = await buildSkillsetResult(root);
     expect(
       await exists(
         join(
@@ -96,6 +106,82 @@ describe("SET-551/585 current authoring model", () => {
         )
       )
     ).toBe(true);
+    expect(
+      await exists(
+        join(
+          root,
+          "plugins/mg-skills/agents/skills/package-proof/SKILL.md"
+        )
+      )
+    ).toBe(true);
+    expect(
+      await exists(join(root, ".agents/skills/package-proof/SKILL.md"))
+    ).toBe(false);
+    for (const skillId of ["tdd", "proofread"] as const) {
+      expect(
+        await exists(
+          join(root, `plugins/mg-skills/agents/skills/${skillId}/SKILL.md`)
+        )
+      ).toBe(false);
+      expect(
+        await exists(join(root, `.agents/skills/${skillId}/SKILL.md`))
+      ).toBe(false);
+      expect(result.renderResults).toContainEqual(
+        expect.objectContaining({
+          diagnostics: [
+            expect.objectContaining({
+              code: "agent-plugins-skill-immediate-child",
+            }),
+          ],
+          sourceUnit: `plugin.mg-skills.skill:${skillId}`,
+          standardProfile: "agent-plugins-1.0",
+          status: "unsupported",
+        })
+      );
+    }
+
+    const packageItems = await lockItems(root, "plugins/skillset.lock");
+    expect(packageItems).toContainEqual(
+      expect.objectContaining({
+        kind: "plugin-skill",
+        name: "package-proof",
+        outputPath: "mg-skills/agents/skills/package-proof/SKILL.md",
+        owner: { standardProfile: "agent-plugins-1.0" },
+        plugin: "mg-skills",
+        role: "standard",
+      })
+    );
+    expect(packageItems).not.toContainEqual(
+      expect.objectContaining({ role: "project-use" })
+    );
+
+    const rootItems = await lockItems(root, ".agents/skills/skillset.lock");
+    expect(rootItems).toContainEqual(
+      expect.objectContaining({
+        kind: "standalone-skill",
+        name: "repo-helper",
+        owner: { standardProfile: "agent-skills" },
+        role: "standard",
+      })
+    );
+    expect(rootItems).not.toContainEqual(
+      expect.objectContaining({
+        kind: "plugin-skill",
+        name: "package-proof",
+      })
+    );
+    expect(rootItems).not.toContainEqual(
+      expect.objectContaining({ role: "project-use" })
+    );
+    expect(
+      await explainPath(
+        root,
+        "plugins/mg-skills/agents/skills/package-proof/SKILL.md"
+      )
+    ).toMatchObject({
+      entries: [expect.objectContaining({ role: "standard" })],
+      kind: "generated",
+    });
 
     const sourceSkills = await listSourceSkills(root);
     expect(sourceSkills).toContainEqual(
