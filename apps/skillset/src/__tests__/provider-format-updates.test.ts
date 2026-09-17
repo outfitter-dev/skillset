@@ -14,8 +14,8 @@ import {
   runProviderFormatUpdates,
 } from "../provider-format-updates";
 
-const CODEX_PLUGIN_MANIFEST = "plugins/alpha/chatgpt/plugin.json";
-const AGENT_PLUGIN_MANIFEST = "plugins/alpha/agents/plugin.json";
+const CODEX_PLUGIN_MANIFEST = "plugins/alpha/plugin.json";
+const AGENT_PLUGIN_MANIFEST = "plugins/alpha/plugin.json";
 const CODEX_AGENT = ".codex/agents/reviewer.toml";
 
 test("SET-531: legacy Codex migrations do not rewrite ChatGPT manifests", async () => {
@@ -388,9 +388,9 @@ test("SET-278: check writes inherited plugin license metadata drift", async () =
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(AGENT_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/agents/LICENSE.txt");
+  expect(report.fixedPaths).toContain("plugins/alpha/LICENSE.txt");
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/LICENSE.txt");
+  expect(report.fixedPaths).toContain("plugins/alpha/LICENSE.txt");
 });
 
 test("SET-278: check writes root-owner-derived plugin manifest drift", async () => {
@@ -419,6 +419,13 @@ test("SET-278: check writes root-owner-derived plugin manifest drift", async () 
 test("SET-278: check writes plugin manifest drift caused by companion surfaces", async () => {
   const root = await builtFixture({
     ...pluginFixture(),
+    "skillset.yaml": `
+skillset:
+  name: provider-update-root
+claude: false
+codex: false
+cursor: false
+`,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
@@ -433,7 +440,7 @@ mcp: false
   );
   await writeFile(
     join(root, ".skillset/plugins/alpha/.mcp.json"),
-    '{"mcpServers":{"alpha":{"command":"node"}}}\n',
+    '{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json","mcpServers":{"alpha":{"command":"node","type":"stdio"}}}\n',
     "utf8"
   );
 
@@ -441,7 +448,7 @@ mcp: false
 
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
-  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/mcp.json");
+  expect(report.fixedPaths).toContain("plugins/alpha/mcp.json");
 });
 
 test("SET-278: check writes plugin manifest drift caused by native companion paths", async () => {
@@ -454,7 +461,7 @@ test("SET-278: check writes plugin manifest drift caused by native companion pat
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/.app.json");
+  expect(report.fixedPaths).toContain("plugins/alpha/.app.json");
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain(
     '"apps": "./.app.json"'
   );
@@ -528,7 +535,7 @@ test("SET-278: check writes source drift in secondary provider files", async () 
     ...pluginFixture(),
     ".skillset/LICENSE.txt": "Original inherited license.\n",
   });
-  const generatedPath = "plugins/alpha/chatgpt/LICENSE.txt";
+  const generatedPath = "plugins/alpha/LICENSE.txt";
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
 
   const report = await ciSkillset(root, { fix: true });
@@ -708,7 +715,7 @@ test("SET-279: inherited root license drift defers an overlapping Codex manifest
     ".skillset/LICENSE.txt": "Original inherited license.\n",
   });
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
-  const licensePath = join(root, "plugins/alpha/chatgpt/LICENSE.txt");
+  const licensePath = join(root, "plugins/alpha/LICENSE.txt");
   await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
   await markCurrentPluginManifestAsManaged(root);
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
@@ -773,7 +780,7 @@ test("SET-279: unrelated legacy lock items block otherwise safe migrations", asy
   await markCurrentPluginManifestAsManaged(root);
   await removePluginRenderInputsHashForPath(
     root,
-    "plugins/beta/chatgpt/plugin.json"
+    "plugins/beta/plugin.json"
   );
 
   const blocked = await runSkillsetCli("update", "--yes", "--root", root);

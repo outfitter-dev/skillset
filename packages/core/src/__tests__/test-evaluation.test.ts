@@ -461,8 +461,8 @@ plugin-license:
         join(
           workspacePath,
           target === "codex"
-            ? "plugins/tools/chatgpt/plugin.json"
-            : `plugins/tools/${target}/.${target}-plugin/plugin.json`
+            ? "plugins/tools/plugin.json"
+            : `plugins/tools/.${target}-plugin/plugin.json`
         ),
         "utf8"
       )

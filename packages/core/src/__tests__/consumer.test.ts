@@ -213,21 +213,21 @@ skillset:
       await Bun.file(join(root, ".claude/skills/none/LICENSE.txt")).exists()
     ).toBe(false);
     await expect(
-      Bun.file(join(root, "plugins/demo/claude/LICENSE.txt")).text()
+      Bun.file(join(root, "plugins/demo/LICENSE.txt")).text()
     ).resolves.toContain("SPDX-License-Identifier: MIT");
     await expect(
       Bun.file(
-        join(root, "plugins/demo/chatgpt/skills/override/LICENSE.txt")
+        join(root, "plugins/demo/skills/override/LICENSE.txt")
       ).text()
     ).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
     const inheritedManifest = JSON.parse(
       await Bun.file(
-        join(root, "plugins/demo/claude/.claude-plugin/plugin.json")
+        join(root, "plugins/demo/.claude-plugin/plugin.json")
       ).text()
     ) as Record<string, unknown>;
     const optoutManifest = JSON.parse(
       await Bun.file(
-        join(root, "plugins/optout/claude/.claude-plugin/plugin.json")
+        join(root, "plugins/optout/.claude-plugin/plugin.json")
       ).text()
     ) as Record<string, unknown>;
     expect(inheritedManifest.license).toBe("MIT");
@@ -236,11 +236,11 @@ skillset:
     const verify = await verifySkillsetResult(root);
     expect(verify.ok).toBe(true);
 
-    await rm(join(root, "plugins/demo/claude/LICENSE.txt"));
+    await rm(join(root, "plugins/demo/LICENSE.txt"));
     const stale = await verifySkillsetResult(root);
     expect(stale.ok).toBe(false);
     expect(stale.data.failures).toContain(
-      "missing managed generated file: plugins/demo/claude/LICENSE.txt"
+      "missing managed generated file: plugins/demo/LICENSE.txt"
     );
   });
 

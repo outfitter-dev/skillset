@@ -16,7 +16,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
-import { buildSkillsetResult } from "@skillset/core";
+import {
+  buildSkillsetResult,
+  parseCurrentGeneratedLock,
+} from "@skillset/core";
 import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
 import { getStandardProfile, listStandardProfiles } from "@skillset/registry";
 import type {
@@ -28,7 +31,10 @@ import {
   AGENT_INSTRUCTIONS_CODEX_PIN,
   runAgentInstructionsProbe,
 } from "./agent-instructions";
-import { runAgentPluginsProbe } from "./agent-plugins";
+import {
+  AGENT_PLUGINS_CODEX_PIN,
+  runAgentPluginsProbe,
+} from "./agent-plugins";
 import { runAgentSkillsProbe } from "./agent-skills";
 import {
   createStandardsConformanceReceipt,
@@ -198,8 +204,10 @@ function asCandidateProfile(profile: StandardProfile): StandardProfile {
 }
 
 /**
- * Rebuild the checked fixture through the ordinary adopted path and require
- * exact equality with the candidate receipt's complete standard artifact set.
+ * Rebuild the checked fixture through the ordinary compiler's standards-only
+ * mode and require exact equality with the candidate receipt's complete
+ * baseline artifact set. Configured provider builds verify their deltas
+ * separately.
  */
 export async function verifyAdoptedStandardsConformance(
   profileId: StandardProfileId,
@@ -277,7 +285,7 @@ async function verifyAdoptedStandardsReceipt(
   try {
     const builtRoot = join(temp, "repository");
     await cp(fixtureRoot, builtRoot, { recursive: true });
-    const build = await buildSkillsetResult(builtRoot);
+    const build = await buildSkillsetResult(builtRoot, { targetFilter: [] });
     if (!build.ok) {
       throw new Error(
         `skillset: adopted ${profileId} fixture build did not complete`
@@ -428,14 +436,9 @@ async function runProfileProbe(
     };
   }
 
-  const codex = {
-    binaryPath: AGENT_INSTRUCTIONS_CODEX_PIN.binaryPath,
-    sha256: `sha256:${AGENT_INSTRUCTIONS_CODEX_PIN.binarySha256}` as const,
-    version: AGENT_INSTRUCTIONS_CODEX_PIN.version.replace("codex-cli ", ""),
-  };
   const evidence = await runAgentPluginsProbe({
-    codex,
-    packageRoot: join(generatedRoot, "plugins", "portable-proof", "agents"),
+    codex: AGENT_PLUGINS_CODEX_PIN,
+    packageRoot: join(generatedRoot, "plugins", "portable-proof"),
   });
   return {
     canaries: evidence.schemas.map(({ artifact, negativeCanary }) => ({
@@ -539,9 +542,7 @@ async function readAdoptedArtifacts(
         path !== ".agents/skills/skillset.lock"
     );
   } else {
-    await visitTree(join(root, "plugins"), root, entries, (path) =>
-      path.includes("/agents/")
-    );
+    entries.push(...(await readAdoptedAgentPluginArtifacts(root)));
   }
   return entries
     .map(({ bytes, hash: contentHash, mode, path }) => ({
@@ -551,6 +552,92 @@ async function readAdoptedArtifacts(
       path,
     }))
     .toSorted((left, right) => left.path.localeCompare(right.path));
+}
+
+async function readAdoptedAgentPluginArtifacts(
+  root: string
+): Promise<readonly TreeEntry[]> {
+  const profileId = "agent-plugins-1.0";
+  const pluginsRoot = join(root, "plugins");
+  const lockPath = join(pluginsRoot, "skillset.lock");
+  const lock = parseCurrentGeneratedLock(
+    JSON.parse(await readFile(lockPath, "utf-8")),
+    "plugins/skillset.lock"
+  );
+  if (lock.outputRoot !== "plugins") {
+    throw new Error(
+      `skillset: Agent Plugins evidence requires lock outputRoot plugins, received ${lock.outputRoot}`
+    );
+  }
+  if (
+    lock.selectedStandards.filter((standard) => standard === profileId)
+      .length !== 1
+  ) {
+    throw new Error(
+      "skillset: Agent Plugins evidence requires selected standard agent-plugins-1.0"
+    );
+  }
+
+  const files = new Set<string>();
+  for (const [index, item] of lock.items.entries()) {
+    const ownerMatches =
+      item.owner !== undefined &&
+      "standardProfile" in item.owner &&
+      item.owner.standardProfile === profileId;
+    const baselineConsumers = item.consumers.filter(
+      (consumer) =>
+        "standardProfile" in consumer &&
+        consumer.standardProfile === profileId
+    );
+    if (!ownerMatches && baselineConsumers.length === 0) continue;
+    if (
+      !ownerMatches ||
+      item.role !== "standard" ||
+      baselineConsumers.length !== 1
+    ) {
+      throw new Error(
+        `skillset: plugins/skillset.lock item ${index} has inconsistent Agent Plugins ownership or role`
+      );
+    }
+    for (const file of item.files) {
+      if (file === "skillset.lock") {
+        throw new Error(
+          "skillset: Agent Plugins evidence cannot include plugins/skillset.lock"
+        );
+      }
+      if (files.has(file)) {
+        throw new Error(
+          `skillset: Agent Plugins evidence has duplicate artifact ${file}`
+        );
+      }
+      files.add(file);
+    }
+  }
+  if (files.size === 0) {
+    throw new Error(
+      "skillset: Agent Plugins evidence lock selects no standard-owned artifacts"
+    );
+  }
+
+  const entries: TreeEntry[] = [];
+  for (const file of [...files].sort()) {
+    const artifactPath = resolve(pluginsRoot, file);
+    assertContained(pluginsRoot, artifactPath);
+    const metadata = await lstat(artifactPath);
+    if (!metadata.isFile()) {
+      throw new Error(
+        `skillset: Agent Plugins evidence artifact is not a file: plugins/${file}`
+      );
+    }
+    const bytes = await readFile(artifactPath);
+    entries.push({
+      bytes: bytes.byteLength,
+      hash: hash(bytes),
+      mode: fileMode(metadata.mode % 0o1000),
+      path: join("plugins", file).replaceAll("\\", "/"),
+    });
+  }
+  return entries;
 }
 
 async function treeEvidence(root: string): Promise<TreeEvidence> {

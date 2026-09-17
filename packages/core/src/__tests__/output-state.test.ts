@@ -410,7 +410,7 @@ Body.
     });
     const baseline = await buildSkillsetResult(root, { scopes: ["plugins"] });
     expect(baseline.ok).toBe(true);
-    expect(baseline.writes.paths).toContain("generated/claude/skillset.lock");
+    expect(baseline.writes.paths).toContain("plugins/skillset.lock");
     await writeFile(
       join(root, "skillset.yaml"),
       `
@@ -493,11 +493,23 @@ Body.
       targetFilter: ["claude"],
     });
     expect(baseline.ok).toBe(true);
-    expect(baseline.writes.paths).toContain(
-      "generated/claude/plugins/skillset.lock"
-    );
+    expect(baseline.writes.paths).toContain("plugins/skillset.lock");
     expect(baseline.writes.paths).toContain(".claude/skills/skillset.lock");
     expect(baseline.writes.paths).toContain(".agents/skills/skillset.lock");
+    const pluginLock = JSON.parse(
+      await readFile(join(root, "plugins/skillset.lock"), "utf8")
+    ) as {
+      readonly items: readonly {
+        readonly consumers?: readonly Record<string, string>[];
+      }[];
+      readonly selectedTargets: readonly string[];
+    };
+    expect(pluginLock.selectedTargets).toEqual(["claude"]);
+    const targetConsumers = pluginLock.items.flatMap(
+      (item) => item.consumers ?? []
+    ).filter((consumer) => consumer.phase === "delta");
+    expect(targetConsumers).toContainEqual({ phase: "delta", target: "claude" });
+    expect(targetConsumers).not.toContainEqual({ phase: "delta", target: "codex" });
     await writeFile(
       join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
       "---\nname: demo\ndescription: [\n---\nBroken plugin skill.\n",
@@ -521,7 +533,7 @@ Body.
       targetFilter: ["codex"],
     });
 
-    expect(claudePlugins.outputState.hasBaseline).toBe(true);
+    expect(claudePlugins.outputState.hasBaseline).toBe(false);
     expect(codexPlugins.outputState.hasBaseline).toBe(false);
     expect(claudeSkills.outputState.hasBaseline).toBe(true);
     expect(codexSkills.outputState.hasBaseline).toBe(true);
@@ -1518,10 +1530,20 @@ Repo body.
 skillset:
   name: demo--plugin
 `,
-      ".skillset/plugins/demo--plugin/README.md": "# Demo plugin\n",
+      ".skillset/plugins/demo--plugin/skills/helper/SKILL.md": `
+---
+name: helper
+description: Demo plugin skill.
+---
+
+Plugin body.
+`,
     });
     await buildSkillsetResult(root);
-    const pluginSource = join(root, ".skillset/plugins/demo--plugin/README.md");
+    const pluginSource = join(
+      root,
+      ".skillset/plugins/demo--plugin/skills/helper/SKILL.md"
+    );
     await Bun.write(
       pluginSource,
       `${await Bun.file(pluginSource).text()}\nPlugin change.\n`
@@ -1533,7 +1555,7 @@ skillset:
     expect(repoOnly.renderResults).toContainEqual(
       expect.objectContaining({
         policy: "scope:excluded",
-        sourceUnit: "plugin.demo--plugin.feature:readme",
+        sourceUnit: "plugin.demo--plugin.skill:helper",
       })
     );
     expect((await diffSkillsetResult(root)).outputState.state).toBe(

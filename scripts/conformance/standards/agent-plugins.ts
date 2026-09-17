@@ -32,7 +32,7 @@ type JsonObject = Readonly<Record<string, unknown>>;
 export interface AgentPluginsProbeInput {
   /** Released Codex executable pinned by exact version and binary bytes. */
   readonly codex: CodexConsumerPin;
-  /** Exact generated `plugins/<plugin>/agents` package root. */
+  /** Exact generated `plugins/<plugin>` package root. */
   readonly packageRoot: string;
 }
 
@@ -41,6 +41,13 @@ export interface CodexConsumerPin {
   readonly sha256: `sha256:${string}`;
   readonly version: string;
 }
+
+export const AGENT_PLUGINS_CODEX_PIN: CodexConsumerPin = {
+  binaryPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
+  sha256:
+    "sha256:a1d2f191e70023ed7afd619bc70530f26067a085926e03bae50cf5c0f8298bcf",
+  version: "0.154.0-alpha.6.2",
+};
 
 export interface AgentPluginsSchemaEvidence {
   readonly artifact: "mcp.json" | "plugin.json";
@@ -190,9 +197,8 @@ async function validateCodexMarketplace(
     const marketplaceRoot = path.join(isolatedRoot, "marketplace");
     const stagedPackage = path.join(
       marketplaceRoot,
-      "packages",
-      manifest.name,
-      "agents"
+      "plugins",
+      manifest.name
     );
     await mkdir(path.join(marketplaceRoot, ".agents", "plugins"), {
       recursive: true,
@@ -222,7 +228,7 @@ async function validateCodexMarketplace(
               installation: "AVAILABLE",
             },
             source: {
-              path: `./packages/${manifest.name}/agents`,
+              path: `./plugins/${manifest.name}`,
               source: "local",
             },
           },
@@ -327,11 +333,6 @@ async function inventoryPackage(
     );
   }
   const canonicalRoot = await realpath(packageRoot);
-  if (path.basename(canonicalRoot) !== "agents") {
-    throw new Error(
-      "skillset: Agent Plugins probe requires the exact generated /agents package root"
-    );
-  }
   const files: { hash: string; mode: number; path: string }[] = [];
   await visit(canonicalRoot, canonicalRoot, files);
   const required = new Set(["plugin.json", "mcp.json"]);

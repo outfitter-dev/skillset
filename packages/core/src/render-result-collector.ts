@@ -1144,7 +1144,7 @@ function featureOutcomesForLockItem(
 
   if (item.kind === "plugin" && standardProfile === "agent-plugins-1.0") {
     const mcpOutputPaths = outputPaths.filter((path) =>
-      path.endsWith("/agents/mcp.json")
+      path.endsWith("/mcp.json")
     );
     const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
     const feature = plugin?.features.find(
@@ -1268,8 +1268,31 @@ function featureOutcomesForLockItem(
     );
   }
 
+  const cursorToolIntentOutputPaths =
+    target === "cursor" && toolsRealizationPlanForLockItem(graph, item, target) !== undefined
+      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
+      : [];
+  if (cursorToolIntentOutputPaths.length > 0) {
+    const plan = toolsRealizationPlanForLockItem(graph, item, "cursor");
+    outcomes.push(
+      featureOutcome({
+        destination: "skill-frontmatter",
+        ...toolsPlanRenderFacts(plan, item.sourcePath),
+        featureId: "tools-policy",
+        isIncluded: cursorToolIntentOutputPaths.some((path) => includedPaths.has(path)),
+        mapOutputPath,
+        outputKind: "metadata",
+        outputPaths: cursorToolIntentOutputPaths,
+        sourcePath: item.sourcePath,
+        sourceUnit: sourceUnitForLockItem(item, target),
+        status: "metadata_only",
+        target,
+      })
+    );
+  }
+
   const toolIntentOutputPaths = outputPaths.filter((path) => path.endsWith("/.skillset.tools.yaml"));
-  if (toolIntentOutputPaths.length > 0 && target !== undefined) {
+  if (toolIntentOutputPaths.length > 0 && target === "codex") {
     const plan = toolsRealizationPlanForLockItem(graph, item, target);
     outcomes.push(
       featureOutcome({
@@ -2011,11 +2034,14 @@ function resultSubjectsForLockItem(
   outputPaths: readonly string[]
 ): readonly RenderResultSubject[] {
   if (item.consumers.length > 0) {
-    return item.consumers.map((consumer) =>
-      "standardProfile" in consumer
-        ? { standardProfile: consumer.standardProfile }
-        : { target: consumer.target }
-    );
+    return item.consumers.flatMap<RenderResultSubject>((consumer) => {
+      if ("standardProfile" in consumer) {
+        return [{ standardProfile: consumer.standardProfile }];
+      }
+      return lockItemProducesTargetOutput(graph, item, consumer.target)
+        ? [{ target: consumer.target }]
+        : [];
+    });
   }
   if (item.owner !== undefined) {
     return [
@@ -2026,6 +2052,25 @@ function resultSubjectsForLockItem(
   }
   const target = targetForLockItem(graph, lock, item, outputPaths);
   return [target === undefined ? {} : { target }];
+}
+
+function lockItemProducesTargetOutput(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName
+): boolean {
+  if (item.kind !== "plugin-feature" || item.feature !== "mcp") return true;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.plugin);
+  const model = plugin?.features.find(
+    (feature) => feature.key === "mcp"
+  )?.portableMcp;
+  if (model === undefined) return true;
+  return Object.keys(model.servers).some(
+    (name) =>
+      !model.providerUnsupported.some(
+        (entry) => entry.name === name && entry.target === target
+      )
+  );
 }
 
 function targetForLockItem(
@@ -2072,6 +2117,7 @@ function companionForPath(
     const parts = pluginPathPartsForOutput(graph, outputRoot, target, path);
     if (parts === undefined) continue;
     const { pluginId, pluginPath } = parts;
+    if (!pluginTargetSelected(graph, pluginId, target)) continue;
     if (pluginPath === "README.md") {
       return { featureId: "plugin-readme", featureKey: "readme", pluginId, sourceRelativePath: "README.md", target };
     }

@@ -318,18 +318,11 @@ export async function stageValidationInputs(
     stagedClaudePlugins.add(destination);
   }
 
-  const stagedAgentPlugins: string[] = [];
-  for (const [index, plugin] of inventory.agentPlugins.entries()) {
-    const destination = join(stage, "agent-plugins", `plugin-${index}`);
+  const stagedPluginPackages: string[] = [];
+  for (const [index, plugin] of inventory.pluginPackages.entries()) {
+    const destination = join(stage, "plugin-packages", `plugin-${index}`);
     await cp(plugin, destination, { recursive: true });
-    stagedAgentPlugins.push(destination);
-  }
-
-  const stagedChatGptPlugins: string[] = [];
-  for (const [index, plugin] of inventory.chatgptPlugins.entries()) {
-    const destination = join(stage, "chatgpt-plugins", `plugin-${index}`);
-    await cp(plugin, destination, { recursive: true });
-    stagedChatGptPlugins.push(destination);
+    stagedPluginPackages.push(destination);
   }
 
   const stagedCodexPlugins: string[] = [];
@@ -341,7 +334,7 @@ export async function stageValidationInputs(
   const stagedCodexMarketplaces: string[] = [];
   const codexMarketplaceRoots: string[] = [];
   const representedCodexPlugins = new Set<string>();
-  const generatedCodexPlugins = new Set(inventory.chatgptPlugins);
+  const generatedCodexPlugins = new Set(inventory.pluginPackages);
   for (const [
     index,
     marketplacePath,
@@ -532,14 +525,13 @@ export async function stageValidationInputs(
     cursorRoots,
     environment,
     inventory: {
-      agentPlugins: stagedAgentPlugins,
-      chatgptPlugins: stagedChatGptPlugins,
       claudeMarketplaces: stagedClaudeMarketplaces,
       claudePlugins: [...stagedClaudePlugins].toSorted(),
       codexMarketplaces: stagedCodexMarketplaces,
       codexPlugins: stagedCodexPlugins,
       cursorMarketplaces: stagedCursorMarketplaces,
       cursorPlugins: [...stagedCursorPlugins].toSorted(),
+      pluginPackages: stagedPluginPackages,
       skills: stagedSkills,
     },
   };

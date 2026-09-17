@@ -10,7 +10,7 @@
     {
       "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
       "name": "skillset",
-      "source": "plugins/skillset/cursor"
+      "source": "plugins/skillset"
     }
   ]
 }

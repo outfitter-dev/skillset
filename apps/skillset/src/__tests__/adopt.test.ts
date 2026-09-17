@@ -538,21 +538,13 @@ test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor
   await buildSkillset(root);
   const outputFrontmatter = async (path: string) =>
     parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
-  const cursor = await outputFrontmatter(
-    join(root, "plugins/cursor-native/cursor/skills/helper/SKILL.md")
+  const shared = await outputFrontmatter(
+    join(root, "plugins/cursor-native/skills/helper/SKILL.md")
   );
-  const claude = await outputFrontmatter(
-    join(root, "plugins/cursor-native/claude/skills/helper/SKILL.md")
-  );
-  const codex = await outputFrontmatter(
-    join(root, "plugins/cursor-native/chatgpt/skills/helper/SKILL.md")
-  );
-  expect(cursor["disable-model-invocation"]).toBe(true);
-  expect(claude["disable-model-invocation"]).toBeUndefined();
-  expect(codex["disable-model-invocation"]).toBeUndefined();
+  expect(shared["disable-model-invocation"]).toBe(true);
   expect(
     await Bun.file(
-      join(root, "plugins/cursor-native/chatgpt/skills/helper/agents/openai.yaml")
+      join(root, "plugins/cursor-native/skills/helper/agents/openai.yaml")
     ).exists()
   ).toBe(false);
 });
@@ -608,28 +600,14 @@ test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to
   await rm(join(root, ".cursor-plugin"), { recursive: true });
   await rm(join(root, "skills"), { recursive: true });
   await buildSkillset(root);
-  const outputFrontmatter = async (target: "claude" | "codex" | "cursor") => {
-    const path = join(
-      root,
-      `plugins/mixed-native/${target === "codex" ? "chatgpt" : target}/skills/helper/SKILL.md`
-    );
+  const outputFrontmatter = async () => {
+    const path = join(root, "plugins/mixed-native/skills/helper/SKILL.md");
     return parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
   };
-  expect((await outputFrontmatter("claude"))["disable-model-invocation"]).toBe(
-    true
-  );
-  expect((await outputFrontmatter("cursor"))["disable-model-invocation"]).toBe(
-    true
-  );
-  expect(
-    (await outputFrontmatter("codex"))["disable-model-invocation"]
-  ).toBeUndefined();
+  expect((await outputFrontmatter())["disable-model-invocation"]).toBe(true);
   expect(
     await Bun.file(
-      join(
-        root,
-        "plugins/mixed-native/chatgpt/skills/helper/agents/openai.yaml"
-      )
+      join(root, "plugins/mixed-native/skills/helper/agents/openai.yaml")
     ).exists()
   ).toBe(false);
 });
