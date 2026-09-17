@@ -274,8 +274,16 @@ async function renderStandardProjectionArtifacts(
   graph: BuildGraph,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
+  const pluginSkills = (
+    await Promise.all(
+      graph.plugins.map((plugin) =>
+        renderPluginSharedSkills(graph, plugin, lockRoots)
+      )
+    )
+  ).flat();
   return [
     ...(await renderAgentPluginStandardPackages(graph, lockRoots, false)),
+    ...pluginSkills,
     ...(await renderAgentSkillStandards(
       graph,
       lockRoots,

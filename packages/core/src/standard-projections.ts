@@ -144,7 +144,7 @@ export function standardProjectionTopology(
     for (const pluginId of [...pluginIds].sort()) {
       topology.push({
         lockRoot: 'plugins',
-        path: 'plugins/' + pluginId + '/agents',
+        path: 'plugins/' + pluginId,
         scope: 'plugins',
         standardProfile: 'agent-plugins-1.0',
       })
