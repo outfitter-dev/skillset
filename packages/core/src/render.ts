@@ -1379,8 +1379,7 @@ async function renderStandaloneSkill(
 
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
-  const relativeSkillDir = dirname(skill.relativePath);
-  const targetSkillDir = join(outputRoot, relativeSkillDir);
+  const targetSkillDir = join(outputRoot, skill.id);
   const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
