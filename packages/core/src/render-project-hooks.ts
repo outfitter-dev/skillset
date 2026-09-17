@@ -1,8 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { promisify } from "node:util";
-import { isDeepStrictEqual } from "node:util";
+import { isDeepStrictEqual, promisify } from "node:util";
 import { join, relative } from "node:path";
 
 import { getProviderRuntimeHookDestination } from "@skillset/registry";
@@ -113,7 +112,7 @@ async function renderProjectHook(
 }
 
 function sessionStartEntry(target: "claude" | "codex"): JsonRecord {
-  const handler: Record<string, JsonValue> = { command: SESSION_START_COMMAND, type: "command" };
+  const handler: Record<string, JsonValue> = { type: "command", command: SESSION_START_COMMAND };
   void target;
   return { hooks: [handler] };
 }

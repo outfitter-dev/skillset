@@ -12,6 +12,7 @@ A small manifest can select providers and keep the default [build](../glossary.m
 compile:
   targets: [claude, codex, cursor]
   build: updated
+  session_start_hook: auto
   unsupportedDestination: error
 ```
 
@@ -49,6 +50,12 @@ Failed [render results](../glossary.md#render-result) block every policy. Check 
 `repo-root`. The setting is validated now so the instruction front-page
 renderer can consume one stable spelling; current builds do not move a file in
 response to it yet.
+
+`compile.session_start_hook` accepts `auto`, `on`, or `off` and defaults to
+`auto`. `on` composes the Skillset SessionStart command into the project-local
+Claude and Codex hook files. `off` removes only that command while preserving
+other entries. `auto` enables the composition only when every enabled project
+hook destination is ignored by Git.
 
 ## Select Plugin Content for This Project
 
