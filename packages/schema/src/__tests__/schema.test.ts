@@ -390,7 +390,10 @@ describe("@skillset/schema contracts", () => {
       "defaults",
       "dependencies",
       "distributions",
+      "drafts",
+      "internal_marker",
       "marketplaces",
+      "plugins",
       "skillset",
       "supports",
       "workspace",
@@ -405,12 +408,28 @@ describe("@skillset/schema contracts", () => {
       enum: ["error", "warn", "skip", "force"],
       type: "string",
     });
+    const fixedSkillOutputSelection = {
+      anyOf: [
+        { type: "boolean" },
+        { items: { type: "string" }, type: "array" },
+        {
+          additionalProperties: true,
+          not: { required: ["path"] },
+          properties: {
+            enabled: { type: "boolean" },
+            include: { items: { type: "string" }, type: "array" },
+          },
+          type: "object",
+        },
+      ],
+    };
     expect(workspaceProperties.claude).toEqual({
       anyOf: [
         { type: "boolean" },
         {
           additionalProperties: true,
           not: { required: ["bundle"] },
+          properties: { skills: fixedSkillOutputSelection },
           type: "object",
         },
       ],
@@ -547,6 +566,36 @@ describe("@skillset/schema contracts", () => {
     expect(changeProperties.group).toMatchObject({
       anyOf: [{ minLength: 1, type: "string" }, { required: ["id"] }],
     });
+  });
+
+  it("rejects configurable provider skill roots in structural contracts", () => {
+    const validateWorkspace = new Ajv2020({ allErrors: true, strict: false }).compile(
+      workspaceConfigContract.schema
+    );
+    const validatePlugin = new Ajv2020({ allErrors: true, strict: false }).compile(
+      pluginConfigContract.schema
+    );
+    const validateSource = new Ajv2020({ allErrors: true, strict: false }).compile(
+      sourceMetadataContract.schema
+    );
+
+    for (const target of ["claude", "codex", "cursor"] as const) {
+      expect(validateWorkspace({ [target]: { skills: { path: `generated/${target}/skills` } } })).toBe(false);
+      expect(validatePlugin({ [target]: { skills: { path: `generated/${target}/skills` } } })).toBe(false);
+      expect(
+        validateSource({ outputs: { skills: { [target]: `generated/${target}/skills` } } })
+      ).toBe(false);
+    }
+
+    const retainedSelection = {
+      codex: {
+        providerNative: { retained: true },
+        skills: { enabled: true, include: ["review"] },
+      },
+    };
+    expect(validateWorkspace(retainedSelection)).toBe(true);
+    expect(validatePlugin(retainedSelection)).toBe(true);
+    expect(validateSource({ outputs: { plugins: { codex: "generated/codex/plugins" } } })).toBe(true);
   });
 
   it("validates adaptive hook unit source", () => {
@@ -720,8 +769,11 @@ describe("@skillset/schema contracts", () => {
       "skillset",
       "supports",
       "compile",
+      "drafts",
       "distributions",
+      "internal_marker",
       "marketplaces",
+      "plugins",
       "workspace",
     ]);
     expect(SPLIT_WORKSPACE_CONFIG_KEYS).toEqual([
@@ -751,6 +803,7 @@ describe("@skillset/schema contracts", () => {
       "skillset",
       "supports",
       "bin",
+      "drafts",
       "hooks",
       "mcp",
     ]);
@@ -812,6 +865,79 @@ describe("@skillset/schema contracts", () => {
       code: "schema/plugin-config/key",
       message: "unsupported key compile",
       path: "$.compile",
+    });
+  });
+
+  it("validates the root plugin graph and configured draft selectors", () => {
+    expect(
+      validateSingleFileRootConfig({
+        compile: { instruction_front_page: "repo-root" },
+        drafts: ["skill:standalone", "plugin.demo.skill:future"],
+        internal_marker: false,
+        plugins: {
+          internal_use: {
+            drafts: { demo: ["future"] },
+            plugins: ["demo", "!excluded"],
+            skills: { demo: ["review", "!proofread"] },
+          },
+          output: {
+            path: "plugins/[name]",
+            codex: { combine: true, name: "combined", path: "dist/[name]" },
+          },
+        },
+      }).diagnostics
+    ).toEqual([]);
+    expect(
+      validatePluginConfig({ drafts: ["skill:future"] }).diagnostics
+    ).toEqual([]);
+
+    for (const selector of [
+      "config:root",
+      "plugin:demo",
+      "instruction:rules/review",
+      "plugin.demo.feature:commands/review",
+    ]) {
+      expect(
+        validateSingleFileRootConfig({ drafts: [selector] }).diagnostics
+      ).toContainEqual({
+        code: "schema/single-file-root-config/drafts",
+        message: "drafts entries must select skills in the current config scope",
+        path: "$.drafts[0]",
+      });
+    }
+    for (const selector of [
+      "plugin.demo.skill:future",
+      "agent:reviewer",
+      "plugin.demo.companion:assets/logo.svg",
+    ]) {
+      expect(validatePluginConfig({ drafts: [selector] }).diagnostics).toContainEqual({
+        code: "schema/plugin-config/drafts",
+        message: "drafts entries must select skills in the current config scope",
+        path: "$.drafts[0]",
+      });
+    }
+
+    for (const output of [
+      { combine: true },
+      { name: "combined" },
+      { path: "{{name}}" },
+      { path: "$PROJECT_ROOT" },
+      { path: "plugins/[name]/[name]" },
+      { path: "../plugins/[name]" },
+    ]) {
+      expect(validateSingleFileRootConfig({ plugins: { output } }).ok).toBe(
+        false
+      );
+    }
+    expect(
+      validateSingleFileRootConfig({
+        compile: { instruction_front_page: "elsewhere" },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/single-file-root-config/instruction-front-page",
+      message:
+        "compile.instruction_front_page must be one of claude-dir, repo-root",
+      path: "$.compile.instruction_front_page",
     });
   });
 

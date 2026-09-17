@@ -3,7 +3,11 @@ import { describe, expect, it } from "bun:test";
 import {
   DISTRIBUTION_RUNTIME_TARGETS,
   NON_DISTRIBUTABLE_RUNTIME_IDS,
+  readCompileConfig,
+  readDraftSelectors,
+  readInternalMarker,
   readMarketplaceCatalogConfig,
+  readWorkspacePluginsConfig,
   validateConfigDocument,
   validateRootSourceManifestDocument,
   validateWorkspaceConfigDocument,
@@ -30,6 +34,94 @@ describe("distribution runtime contract", () => {
 });
 
 describe("schema-owned config document contexts", () => {
+  it("parses root plugin behavior without changing defaults", () => {
+    expect(readCompileConfig({}, "skillset.yaml").instructionFrontPage).toBe(
+      "claude-dir"
+    );
+    expect(
+      readCompileConfig(
+        { compile: { instruction_front_page: "repo-root" } },
+        "skillset.yaml"
+      ).instructionFrontPage
+    ).toBe("repo-root");
+    expect(readInternalMarker({}, "skillset.yaml")).toBe(true);
+    expect(
+      readInternalMarker({ internal_marker: false }, "skillset.yaml")
+    ).toBe(false);
+    expect(readDraftSelectors({ drafts: [] }, "skillset.yaml")).toEqual([]);
+
+    expect(readWorkspacePluginsConfig({}, "skillset.yaml")).toEqual({
+      internalUse: { drafts: {}, plugins: false, skills: {} },
+      output: {
+        path: "plugins/[name]",
+        targets: { claude: {}, codex: {}, cursor: {} },
+      },
+    });
+    expect(
+      readWorkspacePluginsConfig(
+        {
+          plugins: {
+            internal_use: {
+              plugins: ["demo", "!excluded"],
+              skills: { demo: ["review", "!proofread"] },
+            },
+            output: {
+              path: "dist/[name]",
+              codex: { combine: true, name: "bundle" },
+            },
+          },
+        },
+        "skillset.yaml"
+      )
+    ).toEqual({
+      internalUse: {
+        drafts: {},
+        plugins: ["demo", "!excluded"],
+        skills: { demo: ["review", "!proofread"] },
+      },
+      output: {
+        path: "dist/[name]",
+        targets: {
+          claude: {},
+          codex: { combine: true, name: "bundle" },
+          cursor: {},
+        },
+      },
+    });
+  });
+
+  it("rejects removed skill-root overrides without closing provider target blocks", () => {
+    for (const target of ["claude", "codex", "cursor"] as const) {
+      expect(() =>
+        validateConfigDocument(
+          { [target]: { providerNative: { retained: true }, skills: { path: `generated/${target}/skills` } } },
+          "skillset.yaml",
+          { allowCompile: true }
+        )
+      ).toThrow(`${target}.skills.path`);
+      expect(() =>
+        validateConfigDocument(
+          { skillset: { outputs: { skills: { [target]: `generated/${target}/skills` } } } },
+          "skillset.yaml",
+          { allowCompile: true }
+        )
+      ).toThrow(`skillset.outputs.skills.${target}`);
+    }
+
+    expect(() =>
+      validateConfigDocument(
+        {
+          codex: {
+            providerNative: { retained: true },
+            skills: { enabled: true, include: ["review"] },
+          },
+        },
+        "skillset.yaml",
+        { allowCompile: true }
+      )
+    ).not.toThrow();
+  });
+
   it("rejects bundle paths before parser trimming can change their meaning", () => {
     for (const path of [" ../outside", " /absolute", " C:/absolute", ".. ", "plugin/.. "]) {
       expect(() => validateConfigDocument(

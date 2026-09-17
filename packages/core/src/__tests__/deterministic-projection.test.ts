@@ -210,17 +210,18 @@ describe("deterministic projection runner", () => {
 skillset:
   name: output-root-exclusion
 claude:
-  skills:
-    path: generated/skills
+  plugins:
+    path: generated/plugins
 codex: false
 `,
-      ".skillset/skills/demo/SKILL.md": DEMO_SKILL,
-      "generated/skills/stale/SKILL.md": "stale generated output\n",
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/demo/SKILL.md": DEMO_SKILL,
+      "generated/plugins/stale/plugin.json": "stale generated output\n",
     });
 
     const report = await assertDeterministicProjection(root, {
       afterProjection: async (run) => {
-        if (await exists(join(run.workspacePath, "generated/skills/stale/SKILL.md"))) {
+        if (await exists(join(run.workspacePath, "generated/plugins/stale/plugin.json"))) {
           throw new Error("copied configured output root into deterministic workspace");
         }
       },

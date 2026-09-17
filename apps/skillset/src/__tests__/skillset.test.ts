@@ -589,12 +589,16 @@ test("dedicated 1.0 output roots cannot point at source changes state", async ()
 skillset:
   name: dedicated-root
   outputs:
-    skills:
+    plugins:
       claude: .skillset/changes
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+    ".skillset/plugins/demo/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -1253,9 +1257,6 @@ skillset:
 compile:
   targets:
     - codex
-claude:
-  skills:
-    path: skills-claude
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -2220,9 +2221,7 @@ test("portable project agents reject active output roots inside project roots", 
 skillset:
   name: test-root
 claude:
-  projectRoot: .claude
-  skills:
-    path: .claude/agents
+  projectRoot: .claude/skills/project
 codex: false
 `,
     ".skillset/subagents/reviewer.md": `
@@ -2242,7 +2241,7 @@ Help.
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/subagents/reviewer.md would write inside active output root outputs.skills.claude (.claude/agents)"
+    "claude.projectRoot must not overlap active output root outputs.skills.claude (.claude/skills)"
   );
 });
 
@@ -2534,9 +2533,7 @@ test("preprocessing adapts prompt argument placeholders for Claude and shims Cod
 skillset:
   name: test-root
 claude: true
-codex:
-  skills:
-    path: generated/codex-skills
+codex: false
 `,
     ".skillset/skills/argument-runner/SKILL.md": `
 ---
@@ -2562,16 +2559,18 @@ Literal marker: {{{ $ARGUMENTS }}}
   expect(claudeSkill).toContain("Literal marker: {{$ARGUMENTS}}");
   expect(claudeSkill).not.toContain("Before using commands");
 
-  const codexSkill = await readFile(
-    join(root, "generated/codex-skills/argument-runner/SKILL.md"),
-    "utf8"
+  await writeFile(
+    join(root, "skillset.yaml"),
+    `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`
   );
-  expect(codexSkill).toContain(
-    "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments."
+  await expect(buildSkillset(root)).rejects.toThrow(
+    "generated output collision at .agents/skills/argument-runner/SKILL.md requires incompatible bytes"
   );
-  expect(codexSkill).toContain('docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS.limit}}');
-  expect(codexSkill).toContain("All args: {{$ARGUMENTS}}");
-  expect(codexSkill).toContain("Literal marker: {{$ARGUMENTS}}");
 });
 
 test("preprocessing preserves unrelated double-brace expressions in Markdown", async () => {
@@ -3737,12 +3736,8 @@ test("standalone skills emit without plugin manifests", async () => {
     "skillset.yaml": `
 skillset:
   name: test-root
-claude:
-  skills:
-    path: skills-claude
-codex:
-  skills:
-    path: skills-agents
+claude: true
+codex: false
 `,
     ".skillset/skills/draft/SKILL.md": `
 ---
@@ -3758,12 +3753,13 @@ Draft body.
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "skills-claude/draft/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, "skills-claude/skillset.lock"))).toBe(true);
-  expect(await exists(join(root, "skills-agents/draft/SKILL.md"))).toBe(false);
+  expect(await exists(join(root, ".claude/skills/draft/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".claude/skills/skillset.lock"))).toBe(true);
+  expect(await exists(join(root, ".agents/skills/draft/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".agents/skills/skillset.lock"))).toBe(true);
   expect(await exists(join(root, ".claude-plugin/marketplace.json"))).toBe(false);
 
-  const skill = await readFile(join(root, "skills-claude/draft/SKILL.md"), "utf8");
+  const skill = await readFile(join(root, ".claude/skills/draft/SKILL.md"), "utf8");
   expect(skill).not.toContain("skillset:");
   expect(skill).toContain(`metadata:
   skillset.schema: "1"
@@ -4631,7 +4627,6 @@ codex:
   plugins:
     - alpha
   skills:
-    path: codex-skills
     include:
       - public-skill
 `,
@@ -4684,8 +4679,23 @@ Private body.
   expect(await exists(join(root, "plugins/beta/chatgpt/plugin.json"))).toBe(false);
   expect(await exists(join(root, ".claude/skills/public-skill/SKILL.md"))).toBe(true);
   expect(await exists(join(root, ".claude/skills/private-skill/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, "codex-skills/public-skill/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, "codex-skills/private-skill/SKILL.md"))).toBe(false);
+  expect(await exists(join(root, ".agents/skills/public-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".agents/skills/private-skill/SKILL.md"))).toBe(true);
+
+  const lock = JSON.parse(
+    await readFile(join(root, ".agents/skills/skillset.lock"), "utf8")
+  ) as {
+    items: readonly {
+      consumers: readonly Record<string, string>[];
+      name: string;
+    }[];
+  };
+  expect(
+    lock.items.find((item) => item.name === "public-skill")?.consumers
+  ).toContainEqual({ phase: "delta", target: "codex" });
+  expect(
+    lock.items.find((item) => item.name === "private-skill")?.consumers
+  ).not.toContainEqual({ phase: "delta", target: "codex" });
 });
 
 test("disabled generated roots with skillset locks remain managed", async () => {

@@ -168,21 +168,18 @@ test("SET-278: check writes generated drift caused by target defaults", async ()
     "skillset.yaml": `
 skillset:
   name: config-drift
-  outputs:
-    skills:
-      codex: .codex/skills
 defaults:
-  codex:
+  claude:
     skills:
       frontmatter:
         review-state: initial
-claude: false
-codex: true
+claude: true
+codex: false
 `,
     ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
   });
   const configPath = join(root, "skillset.yaml");
-  const generatedPath = ".codex/skills/demo/SKILL.md";
+  const generatedPath = ".claude/skills/demo/SKILL.md";
   await writeFile(
     configPath,
     (await readFile(configPath, "utf8")).replace("review-state: initial", "review-state: updated"),

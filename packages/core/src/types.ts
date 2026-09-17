@@ -1,6 +1,7 @@
 import type { StandardProfileId } from "@skillset/registry";
 
 import type { PortableMcpModel } from "./portable-mcp";
+import type { ResolvedInternalUseSelection } from "./internal-use";
 import type { SkillsetXdgOptions } from "./xdg";
 
 export type TargetName = "claude" | "codex" | "cursor";
@@ -40,10 +41,13 @@ export interface ResolvedTarget {
 
 export interface RootConfig {
   readonly compile: CompileConfig;
+  readonly drafts: readonly string[];
   readonly distributions: Readonly<Record<string, DistributionConfig>>;
+  readonly internalMarker: boolean;
   readonly marketplaces: Readonly<Record<string, MarketplaceCatalogConfig>>;
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
+  readonly plugins: WorkspacePluginsConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
   readonly workspace: SkillsetWorkspaceConfig;
 }
@@ -78,9 +82,36 @@ export interface CompileFeatureConfig {
 export interface CompileConfig {
   readonly build: CompileBuildMode;
   readonly features: CompileFeatureConfig;
+  readonly instructionFrontPage: InstructionFrontPageDestination;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupportedDestination: UnsupportedDestinationPolicy;
+}
+
+export type InstructionFrontPageDestination = "claude-dir" | "repo-root";
+
+export type InternalUseSelector = boolean | readonly string[];
+
+export interface InternalUseConfig {
+  readonly drafts: Readonly<Record<string, InternalUseSelector>>;
+  readonly plugins: InternalUseSelector;
+  readonly skills: Readonly<Record<string, InternalUseSelector>>;
+}
+
+export interface PackageOutputTargetConfig {
+  readonly combine?: boolean;
+  readonly name?: string;
+  readonly path?: string;
+}
+
+export interface PackageOutputConfig {
+  readonly path: string;
+  readonly targets: Readonly<Record<TargetName, PackageOutputTargetConfig>>;
+}
+
+export interface WorkspacePluginsConfig {
+  readonly internalUse: InternalUseConfig;
+  readonly output: PackageOutputConfig;
 }
 
 export type DistributionDestinationKind = "git" | "local";
@@ -203,6 +234,7 @@ export interface CodexMarketplacePluginConfig {
 }
 
 export interface PluginConfig {
+  readonly drafts: readonly string[];
   readonly metadata: JsonRecord;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
@@ -255,7 +287,7 @@ export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
-  readonly draftOrigin?: "_drafts" | "status";
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly evalDeclaration?: SourceSkillEval;
   readonly frontmatter: JsonRecord;
   /** Organizational source segments between the skills root and skill leaf. */
@@ -311,6 +343,7 @@ export interface SourcePlugin {
    */
   readonly claudeBundlePath?: string;
   readonly configPath: string;
+  readonly configuredDrafts?: readonly string[];
   readonly dependencies: readonly SourcePluginDependency[];
   /** Complete discovered inventory, including drafts excluded from projections. */
   readonly discoveredSkills?: readonly SourceSkill[];
@@ -409,6 +442,7 @@ export interface BuildGraph {
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
+  readonly pluginPlan?: WorkspacePluginPlan;
   readonly plugins: readonly SourcePlugin[];
   readonly projectAgents: readonly SourceProjectAgent[];
   readonly projectIslands: readonly SourceIslandFile[];
@@ -429,6 +463,13 @@ export interface BuildGraph {
   readonly standardProjections: StandardProjectionPlan;
   /** Non-fatal source warnings surfaced by the CLI. */
   readonly warnings: readonly string[];
+}
+
+export interface WorkspacePluginPlan {
+  readonly internalUse: ResolvedInternalUseSelection;
+  readonly packagePaths: Readonly<
+    Record<TargetName, Readonly<Record<string, string>>>
+  >;
 }
 
 export type GeneratedFileMode = 0o644 | 0o755;

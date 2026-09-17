@@ -45,6 +45,61 @@ Failed [render results](../glossary.md#render-result) block every policy. Check 
 
 `compile.features.promptArguments` also defaults to `true`. Set it to `false` to reject Skillset-owned `{{$ARGUMENTS...}}` expressions. See the [preprocessing reference](../reference/source/preprocessing.md) for expression and target behavior.
 
+`compile.instruction_front_page` accepts `claude-dir` (the default) or
+`repo-root`. The setting is validated now so the instruction front-page
+renderer can consume one stable spelling; current builds do not move a file in
+response to it yet.
+
+## Select Plugin Content for This Project
+
+Plugin content is opt-in for project-local use. Omitting
+`plugins.internal_use` selects none of it. A boolean selects all or none; the
+object form can select whole plugins, individual live skills, and drafts:
+
+```yaml
+plugins:
+  internal_use:
+    plugins: [review-tools]
+    skills:
+      review-tools: [review, "!proofread"]
+    drafts:
+      review-tools: [future-review]
+```
+
+Selections are unions and exclusions always win. Quote exclusions as
+`"!name"`. A negative-only list means everything in that scope except the
+named entries. Selecting and excluding the same unit is an error, and excluding
+a whole plugin also excludes its skills and drafts. Reordering lists does not
+change the result. Provider-specific `skills` filters apply after this
+workspace selection.
+
+The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
+skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
+mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
+are rejected because draft status currently belongs only to skills. The
+`skillset explain` command reports `config` as the origin. `internal_marker`
+defaults to `true`; set it to `false` only when generated project copies are
+intended to omit the future internal metadata marker.
+
+## Plan Plugin Package Paths
+
+`plugins.output` parses package placement now. The default is
+`plugins/[name]`; custom placement remains a check error until package placement
+support lands. The four expansion forms are:
+
+| Configuration | Plugin `toolbox` expands to |
+| --- | --- |
+| `plugins/` | `plugins/toolbox/` |
+| `plugins/[name]/dist` | `plugins/toolbox/dist/` |
+| `[name]` | `toolbox/` |
+| `.` | the repository root |
+
+Paths are workspace-relative, use forward slashes, and may contain at most one
+`[name]` token. `{{name}}`, `$PROJECT_ROOT`, absolute paths, and traversal are
+invalid. A target block such as `plugins.output.codex` may override `path` and
+may parse the future `name` and `combine` keys; those keys remain unsupported
+until their owning package-placement features land.
+
 ## Configure Other Workspace Features
 
 The manifest also hosts project-wide configuration for [agents](../reference/features/agents.md), [changes](../reference/features/changes.md), [dependencies](../reference/features/dependencies.md), [distributions](../reference/features/distributions.md), [marketplaces](../reference/features/marketplaces.md), and [support constraints](../reference/features/supports.md). Follow those feature pages for behavior and the generated workspace schema for exact field shapes.

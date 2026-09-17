@@ -40,7 +40,7 @@ describe("target vocabulary", () => {
       },
       cursor: {
         plugins: { path: "generated/cursor/plugins" },
-        skills: { path: ".cursor/skills" },
+        skills: { include: ["review"] },
       },
     };
 
@@ -58,6 +58,44 @@ describe("target vocabulary", () => {
     const outputs = readOutputConfig(record, {});
     expect(outputs.plugins.cursor).toBe("generated/cursor/plugins");
     expect(outputs.skills.cursor).toBe(".cursor/skills");
+    expect(outputs.targetOutputs.cursor.skills).toEqual(["review"]);
+  });
+
+  it("uses fixed provider skill roots while preserving participation and selection", () => {
+    const outputs = readOutputConfig(
+      {
+        claude: { skills: false },
+        codex: { skills: ["review"] },
+        cursor: { skills: { enabled: true, include: ["review", "write"] } },
+      },
+      {}
+    );
+
+    expect(outputs.skills).toEqual({
+      claude: ".claude/skills",
+      codex: ".agents/skills",
+      cursor: ".cursor/skills",
+    });
+    expect(outputs.targetOutputs).toMatchObject({
+      claude: { skills: false },
+      codex: { skills: ["review"] },
+      cursor: { skills: ["review", "write"] },
+    });
+
+    for (const target of targetNames()) {
+      expect(() =>
+        readOutputConfig({ [target]: { skills: { path: `generated/${target}/skills` } } }, {})
+      ).toThrow(`${target}.skills.path`);
+      expect(() =>
+        readOutputConfig(
+          { [target]: { enabled: false, skills: { path: `generated/${target}/skills` } } },
+          {}
+        )
+      ).toThrow(`${target}.skills.path`);
+      expect(() =>
+        readOutputConfig({}, { outputs: { skills: { [target]: `generated/${target}/skills` } } })
+      ).toThrow(`skillset.outputs.skills.${target}`);
+    }
   });
 
   it("rejects standards selection instead of treating agents as a provider", () => {

@@ -37,6 +37,39 @@
                 "path"
               ],
               "type": "object"
+            },
+            "skills": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": true,
+                  "not": {
+                    "required": [
+                      "path"
+                    ]
+                  },
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "include": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
             }
           },
           "type": "object"
@@ -55,6 +88,41 @@
               "bundle"
             ]
           },
+          "properties": {
+            "skills": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": true,
+                  "not": {
+                    "required": [
+                      "path"
+                    ]
+                  },
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "include": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            }
+          },
           "type": "object"
         }
       ]
@@ -70,6 +138,41 @@
             "required": [
               "bundle"
             ]
+          },
+          "properties": {
+            "skills": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": true,
+                  "not": {
+                    "required": [
+                      "path"
+                    ]
+                  },
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "include": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              ]
+            }
           },
           "type": "object"
         }
@@ -114,6 +217,15 @@
         }
       },
       "type": "object"
+    },
+    "drafts": {
+      "items": {
+        "minLength": 1,
+        "pattern": "^skill:[a-z0-9][a-z0-9._-]*$",
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
     },
     "hooks": {
       "additionalProperties": {
@@ -432,6 +544,36 @@
           "type": "object"
         },
         "outputs": {
+          "additionalProperties": true,
+          "properties": {
+            "skills": {
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "not": {
+                    "required": [
+                      "claude"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "codex"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "required": [
+                      "cursor"
+                    ]
+                  }
+                }
+              ],
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "owner": {
