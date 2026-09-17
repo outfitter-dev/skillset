@@ -1,6 +1,6 @@
 skillset:
   name: kitchen
-  description: A plugin that exercises hooks, MCP, commands, app config, and shared resources.
+  description: A plugin that exercises MCP, commands, app config, and shared resources.
   listing:
     display_name: Kitchen
     summary: Kitchen-sink plugin with every implemented companion surface.

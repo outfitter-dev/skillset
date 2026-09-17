@@ -414,9 +414,9 @@ mcp: true
       "skillset.yaml": `
 skillset:
   name: portable-mcp-build
-claude: true
+claude: false
 codex: true
-cursor: true
+cursor: false
 `,
     };
     for (const [path, content] of Object.entries(files)) {
@@ -463,89 +463,39 @@ cursor: true
       expect(file).toBeDefined();
       return text.decode(file?.content);
     };
-    expect(output("plugins/tools/claude/.mcp.json")).toBe(`{
-  "mcpServers": {
-    "local": {
-      "command": "./bin/server"
-    },
-    "local-with-arg": {
-      "args": [
-        "\${CLAUDE_PLUGIN_ROOT}/bin/arg-server.js"
-      ],
-      "command": "node"
-    },
-    "remote": {
-      "headers": {
-        "X-Tenant": "public"
-      },
-      "type": "http",
-      "url": "https://example.com/mcp"
-    }
-  }
-}
-`);
-    expect(output("plugins/tools/chatgpt/mcp.json")).toContain('"headers"');
-    expect(output("plugins/tools/chatgpt/mcp.json")).toContain(
+    expect(output("plugins/tools/mcp.json")).toContain('"headers"');
+    expect(output("plugins/tools/mcp.json")).toContain(
       '"local-with-cwd"'
     );
-    expect(output("plugins/tools/cursor/mcp.json")).toContain(
+    expect(output("plugins/tools/mcp.json")).toContain(
       '"type": "stdio"'
     );
-    expect(output("plugins/tools/cursor/mcp.json")).toContain(
+    expect(output("plugins/tools/mcp.json")).toContain(
       '"${PLUGIN_ROOT}/bin/work"'
     );
-    expect(output("plugins/tools/cursor/mcp.json")).not.toContain(
-      '"streamable-http"'
-    );
-    for (const target of ["claude", "chatgpt", "cursor"] as const) {
-      const server = rendered.find((candidate) =>
-        candidate.path.endsWith(`plugins/tools/${target}/bin/server`)
-      );
-      expect(server?.mode).toBe(0o755);
-      expect(
-        rendered.some((file) =>
-          file.path.endsWith(`plugins/tools/${target}/bin/arg-server.js`)
-        )
-      ).toBe(true);
-      expect(
-        rendered.some((file) =>
-          file.path.endsWith(`plugins/tools/${target}/bin/unrelated`)
-        )
-      ).toBe(false);
-    }
-    expect(
-      rendered.some((file) =>
-        file.path.endsWith("plugins/tools/claude/bin/work/config.json")
-      )
-    ).toBe(false);
-    for (const target of ["chatgpt", "cursor"] as const) {
-      expect(output(`plugins/tools/${target}/bin/work/config.json`)).toBe(
-        "{}\n"
-      );
-    }
     expect(
       rendered.find((file) =>
-        file.path.endsWith("plugins/tools/chatgpt/bin/server")
+        file.path.endsWith("plugins/tools/bin/server")
       )?.sourcePath
     ).toBe(".skillset/plugins/tools/bin/server");
 
-    expect(output("plugins/tools/agents/mcp.json")).toContain(
+    expect(output("plugins/tools/mcp.json")).toContain(
       '"type": "streamable-http"'
     );
     expect(
       rendered.find((file) =>
-        file.path.endsWith("plugins/tools/agents/bin/server")
+        file.path.endsWith("plugins/tools/bin/server")
       )?.mode
     ).toBe(0o755);
-    expect(output("plugins/tools/agents/bin/work/config.json")).toBe("{}\n");
+    expect(output("plugins/tools/bin/work/config.json")).toBe("{}\n");
     expect(
       rendered.find((file) =>
-        file.path.endsWith("plugins/tools/agents/bin/arg-server.js")
+        file.path.endsWith("plugins/tools/bin/arg-server.js")
       )?.sourcePath
     ).toBe(".skillset/plugins/tools/bin/arg-server.js");
     expect(
       rendered.some((file) =>
-        file.path.endsWith("plugins/tools/agents/bin/unrelated")
+        file.path.endsWith("plugins/tools/bin/unrelated")
       )
     ).toBe(false);
     expect(
@@ -557,21 +507,22 @@ cursor: true
     ).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-mcp",
-        outputs: [{ kind: "plugin", path: "plugins/tools/agents/mcp.json" }],
-        standardProfile: "agent-plugins-1.0",
-        status: "rendered",
+        outputs: expect.arrayContaining([
+          { kind: "plugin-feature", path: "plugins/tools/mcp.json" },
+        ]),
+        status: "target_native",
       })
     );
   });
 
-  it("does not copy support paths used only by a provider-unsupported server", async () => {
+  it("keeps standard support paths while omitting a provider-unsupported server", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-portable-mcp-support-"));
     await mkdir(join(root, ".skillset/plugins/tools/bin/work"), {
       recursive: true,
     });
     await writeFile(
       join(root, "skillset.yaml"),
-      "skillset:\n  name: support\ncompile:\n  unsupportedDestination: warn\nclaude: true\n"
+      "skillset:\n  name: support\ncompile:\n  unsupportedDestination: warn\nclaude: true\ncodex: false\ncursor: false\n"
     );
     await writeFile(
       join(root, ".skillset/plugins/tools/skillset.yaml"),
@@ -596,10 +547,10 @@ cursor: true
 
     const build = await buildSkillsetResult(root);
     expect(
-      build.data.some((file) => file.path.includes("/claude/bin/"))
-    ).toBe(false);
+      build.data.some((file) => file.path.includes("plugins/tools/bin/"))
+    ).toBe(true);
     const mcp = build.data.find((file) =>
-      file.path.endsWith("/claude/.mcp.json")
+      file.path.endsWith("/tools/.mcp.json")
     );
     expect(new TextDecoder().decode(mcp?.content)).not.toContain("unsupported");
   });
@@ -642,38 +593,25 @@ cursor: true
       },
       {
         server: {
-          args: ["${PLUGIN_DATA}/state"],
-          command: "node",
-          type: "stdio",
-        },
-        target: "cursor",
-      },
-      {
-        server: {
           oauth: { clientId: "example" },
           type: "streamable-http",
           url: "https://example.com/mcp",
         },
         target: "claude",
       },
-      {
-        server: {
-          headers: { Authorization: "Bearer ${API_TOKEN}" },
-          type: "streamable-http",
-          url: "https://example.com/mcp",
-        },
-        target: "cursor",
-      },
     ] as const;
 
     for (const testCase of cases) {
+      const targetConfig = (["claude", "codex", "cursor"] as const)
+        .map((target) => `${target}: ${target === testCase.target}`)
+        .join("\n");
       const root = await mkdtemp(
         join(tmpdir(), "skillset-portable-mcp-policy-")
       );
       await mkdir(join(root, ".skillset/plugins/tools"), { recursive: true });
       await writeFile(
         join(root, "skillset.yaml"),
-        `skillset:\n  name: policy\n${testCase.target}: true\n`
+        `skillset:\n  name: policy\n${targetConfig}\n`
       );
       await writeFile(
         join(root, ".skillset/plugins/tools/skillset.yaml"),
@@ -708,7 +646,7 @@ cursor: true
 
       await writeFile(
         join(root, "skillset.yaml"),
-        `skillset:\n  name: policy\ncompile:\n  unsupportedDestination: warn\n${testCase.target}: true\n`
+        `skillset:\n  name: policy\ncompile:\n  unsupportedDestination: warn\n${targetConfig}\n`
       );
       const warned = await buildSkillsetResult(root);
       expect(warned.ok).toBe(true);
@@ -721,9 +659,9 @@ cursor: true
       );
       const mcpOutput = warned.data.find((file) =>
         file.path.endsWith(
-          testCase.target === "cursor"
-            ? "/cursor/mcp.json"
-            : `/${testCase.target}/.mcp.json`
+          testCase.target === "codex"
+            ? "/tools/mcp.json"
+            : "/tools/.mcp.json"
         )
       );
       expect(new TextDecoder().decode(mcpOutput?.content)).not.toContain(

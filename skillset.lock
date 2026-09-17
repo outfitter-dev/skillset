@@ -21,7 +21,7 @@
       ],
       "kind": "plugin-feature",
       "name": "chatgpt-marketplace",
-      "outputHash": "sha256:1b54e5132ec254603f34327f053c8b870d6fdcfffda9bbdf29f7486da2c988a0",
+      "outputHash": "sha256:80062ec81dd6d4fb5404a1db4d3b6c635e30be78a784c4880f6dff9eac5681bc",
       "outputPath": ".agents/plugins/marketplace.json",
       "owner": {
         "target": "codex"
@@ -162,7 +162,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:612be7c37c8343e2ae48e7d8a5679f4b866dc370f2a7a229accfd3e65e889b3e",
+  "provenanceHash": "sha256:69d8646b3608c776ff0755b1d7189ba253f5ed1260b7de98359bd96a3833ebea",
   "renderResults": [
     {
       "destination": "changelog",

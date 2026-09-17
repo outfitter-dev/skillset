@@ -19,9 +19,9 @@ A skill is a portable [source unit](../../glossary.md#source-unit) stored in one
 | Kind | Source path | Default generated roots |
 | --- | --- | --- |
 | Standalone | `.skillset/skills/<skill>/SKILL.md` | `.claude/skills/`, `.agents/skills/`, `.cursor/skills/` |
-| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/agents/skills/<skill>/` for the standard placement, plus target-native plugin bundles |
+| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/skills/<skill>/` shared by the standard baseline and enabled targets |
 
-The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone skills inherently render into `.agents/skills/`. When Agent Plugins 1.0 is adopted, plugin-owned skills inherently render once inside `plugins/<plugin>/agents/skills/`. A repository-local copy of a plugin skill is a separate project-use projection, not a second standard placement. Neither standard projection has an `agents` provider target or an opt-out field.
+The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone skills inherently render into `.agents/skills/`. When Agent Plugins 1.0 is adopted, plugin-owned skills inherently render once inside `plugins/<plugin>/skills/`. A repository-local copy of a plugin skill is a separate project-use projection, not a second standard placement. Neither standard projection has an `agents` provider target or an opt-out field.
 
 The directory name is the stable skill identity. Top-level `name`, when present, must agree with it. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are invalid; version authority uses top-level `version` until [workspace](../../glossary.md#workspace) release state supersedes it.
 

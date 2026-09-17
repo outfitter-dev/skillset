@@ -325,11 +325,9 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
   if (outputRoots.size === 1 && (activeTargets.length > 0 || renderAgentPlugins)) {
     const [outputRoot] = outputRoots;
     if (outputRoot !== undefined && isDefaultPluginOutputRoot(outputRoot)) {
-      const bundleLines = activeTargets.map((target) =>
-        target === "codex"
-          ? "- `<plugin-id>/chatgpt/` contains each ChatGPT product bundle selected through the Codex target."
-          : `- \`<plugin-id>/${target}/\` contains each ${targetLabel(target)} plugin bundle.`
-      );
+      const bundleLines = activeTargets.length === 0
+        ? []
+        : ["- `<plugin-id>/` contains one package shared by all enabled targets."];
       rendered.push(
         textFile(
           join(outputRoot, "README.md").replaceAll("\\", "/"),
@@ -340,7 +338,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
             "",
             ...(renderAgentPlugins && activeTargets.length === 0
               ? [
-                  "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
+                  "- `<plugin-id>/` contains each Agent Plugins 1.0 package.",
                 ]
               : []),
             ...bundleLines,
@@ -364,7 +362,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
           "",
           ...(renderAgentPlugins && isDefaultPluginOutputRoot(outputRoot)
             ? [
-                "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
+                "- `<plugin-id>/` contains each Agent Plugins 1.0 package.",
               ]
             : []),
           ...marketplaceReadmeLines(outputRoot, target),
@@ -388,7 +386,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
           "",
           "Generated Skillset plugin repository.",
           "",
-          "- `<plugin-id>/agents/` contains each Agent Plugins 1.0 package.",
+          "- `<plugin-id>/` contains each Agent Plugins 1.0 package.",
           "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")
@@ -406,17 +404,17 @@ function marketplaceReadmeLines(outputRoot: string, target: TargetName): readonl
   if (target === "claude") {
     return [
       isDefaultPluginOutputRoot(outputRoot) ? "- `../.claude-plugin/marketplace.json` indexes generated Claude plugins." : "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
-      isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/claude/` contains each Claude plugin bundle." : "- `plugins/<plugin-id>/` contains each Claude plugin bundle.",
+      "- `plugins/<plugin-id>/` contains each shared plugin package.",
     ];
   }
   if (target === "cursor") {
     return [
       isDefaultPluginOutputRoot(outputRoot) ? "- `../.cursor-plugin/marketplace.json` indexes generated Cursor plugins." : "- `.cursor-plugin/marketplace.json` indexes the generated plugins.",
-      isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/cursor/` contains each Cursor plugin bundle." : "- `plugins/<plugin-id>/` contains each Cursor plugin bundle.",
+      "- `plugins/<plugin-id>/` contains each shared plugin package.",
     ];
   }
   return [
-    isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/chatgpt/` contains each ChatGPT product bundle selected through the Codex target." : "- `plugins/<plugin-id>/` contains each ChatGPT product bundle selected through the Codex target.",
+    "- `plugins/<plugin-id>/` contains each shared plugin package.",
   ];
 }
 
@@ -515,7 +513,11 @@ async function renderPluginTarget(
           owner: { standardProfile: "agent-plugins-1.0" },
           role: "standard",
         }
-      : pluginItem
+      : {
+          ...pluginItem,
+          consumers: [{ phase: "delta", target }],
+          owner: { target },
+        }
   );
   return rendered;
 }
@@ -1756,7 +1758,6 @@ async function copyPluginCompanionFiles(
   const candidates =
     target === "claude"
       ? [
-          "README.md",
           "commands",
           "subagents",
           "hooks",
@@ -1764,13 +1765,10 @@ async function copyPluginCompanionFiles(
           "output-styles",
           "themes",
           "monitors",
-          "assets",
-          "scripts",
-          "src",
         ]
       : target === "codex"
-      ? ["README.md", "assets", "scripts", "src"]
-      : ["README.md", "rules", "commands", "subagents", "hooks", "assets", "scripts", "src"];
+      ? []
+      : ["rules", "commands", "subagents", "hooks"];
 
   if (target === "codex" || target === "cursor") {
     const hook = await renderNormalizedPluginHookFile(graph, plugin, target, basePath);

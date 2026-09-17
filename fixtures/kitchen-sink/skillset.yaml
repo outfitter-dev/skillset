@@ -13,3 +13,4 @@ claude:
 codex:
   plugins: true
   skills: true
+cursor: false

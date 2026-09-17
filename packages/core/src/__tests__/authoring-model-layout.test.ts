@@ -94,7 +94,7 @@ describe("SET-551/585 current authoring model", () => {
       await exists(
         join(
           root,
-          "plugins/mg-skills/claude/skills/(engineering)/_drafts/tdd/SKILL.md"
+          "plugins/mg-skills/skills/(engineering)/_drafts/tdd/SKILL.md"
         )
       )
     ).toBe(false);
@@ -102,7 +102,7 @@ describe("SET-551/585 current authoring model", () => {
       await exists(
         join(
           root,
-          "plugins/mg-skills/claude/skills/(engineering)/tdd/SKILL.md"
+          "plugins/mg-skills/skills/tdd/SKILL.md"
         )
       )
     ).toBe(true);
@@ -110,7 +110,7 @@ describe("SET-551/585 current authoring model", () => {
       await exists(
         join(
           root,
-          "plugins/mg-skills/agents/skills/package-proof/SKILL.md"
+          "plugins/mg-skills/skills/package-proof/SKILL.md"
         )
       )
     ).toBe(true);
@@ -120,22 +120,22 @@ describe("SET-551/585 current authoring model", () => {
     for (const skillId of ["tdd", "proofread"] as const) {
       expect(
         await exists(
-          join(root, `plugins/mg-skills/agents/skills/${skillId}/SKILL.md`)
+          join(root, `plugins/mg-skills/skills/${skillId}/SKILL.md`)
         )
-      ).toBe(false);
+      ).toBe(true);
       expect(
         await exists(join(root, `.agents/skills/${skillId}/SKILL.md`))
       ).toBe(false);
       expect(result.renderResults).toContainEqual(
         expect.objectContaining({
-          diagnostics: [
+          outputs: [
             expect.objectContaining({
-              code: "agent-plugins-skill-immediate-child",
+              path: `plugins/mg-skills/skills/${skillId}/SKILL.md`,
             }),
           ],
           sourceUnit: `plugin.mg-skills.skill:${skillId}`,
           standardProfile: "agent-plugins-1.0",
-          status: "unsupported",
+          status: "rendered",
         })
       );
     }
@@ -145,7 +145,7 @@ describe("SET-551/585 current authoring model", () => {
       expect.objectContaining({
         kind: "plugin-skill",
         name: "package-proof",
-        outputPath: "mg-skills/agents/skills/package-proof/SKILL.md",
+        outputPath: "mg-skills/skills/package-proof/SKILL.md",
         owner: { standardProfile: "agent-plugins-1.0" },
         plugin: "mg-skills",
         role: "standard",
@@ -176,7 +176,7 @@ describe("SET-551/585 current authoring model", () => {
     expect(
       await explainPath(
         root,
-        "plugins/mg-skills/agents/skills/package-proof/SKILL.md"
+        "plugins/mg-skills/skills/package-proof/SKILL.md"
       )
     ).toMatchObject({
       entries: [expect.objectContaining({ role: "standard" })],
@@ -650,17 +650,17 @@ cursor: false
     expect(await exists(join(root, ".codex/agents/reviewer.toml"))).toBe(true);
     expect(await exists(join(root, ".cursor/agents/reviewer.md"))).toBe(true);
     expect(
-      await exists(join(root, "plugins/mg-skills/claude/agents/editor.md"))
+      await exists(join(root, "plugins/mg-skills/agents/editor.md"))
     ).toBe(true);
     expect(
-      await exists(join(root, "plugins/mg-skills/cursor/agents/editor.md"))
+      await exists(join(root, "plugins/mg-skills/agents/editor.md"))
     ).toBe(true);
 
     const claudeManifest = await json(
-      join(root, "plugins/mg-skills/claude/.claude-plugin/plugin.json")
+      join(root, "plugins/mg-skills/.claude-plugin/plugin.json")
     );
     const cursorManifest = await json(
-      join(root, "plugins/mg-skills/cursor/.cursor-plugin/plugin.json")
+      join(root, "plugins/mg-skills/.cursor-plugin/plugin.json")
     );
     expect(claudeManifest.agents).toBe("./agents/");
     expect(cursorManifest.agents).toBe("./agents/");
@@ -729,11 +729,11 @@ skillset:
     await buildSkillset(root);
 
     const manifest = await json(
-      join(root, "plugins/demo/cursor/.cursor-plugin/plugin.json")
+      join(root, "plugins/demo/.cursor-plugin/plugin.json")
     );
     expect(manifest.agents).toBe("./agents/");
     expect(
-      await exists(join(root, "plugins/demo/cursor/agents/native.md"))
+      await exists(join(root, "plugins/demo/agents/native.md"))
     ).toBe(true);
   });
 
@@ -755,10 +755,10 @@ skillset:
 
     await buildSkillset(root);
     expect(
-      await json(join(root, "plugins/demo/claude/.claude-plugin/plugin.json"))
+      await json(join(root, "plugins/demo/.claude-plugin/plugin.json"))
     ).not.toHaveProperty("agents");
     expect(
-      await json(join(root, "plugins/demo/cursor/.cursor-plugin/plugin.json"))
+      await json(join(root, "plugins/demo/.cursor-plugin/plugin.json"))
     ).not.toHaveProperty("agents");
   });
 

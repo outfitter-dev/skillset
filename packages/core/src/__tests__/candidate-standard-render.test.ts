@@ -14,7 +14,7 @@ describe("candidate standard rendering", () => {
   test.each([
     ["agent-instructions", "AGENTS.md"],
     ["agent-skills", ".agents/skills/review/SKILL.md"],
-    ["agent-plugins-1.0", "plugins/demo/agents/plugin.json"],
+    ["agent-plugins-1.0", "plugins/demo/plugin.json"],
   ] as const)(
     "renders the %s candidate in memory without provider artifacts",
     async (profileId, expectedPath) => {
@@ -72,7 +72,7 @@ function ownedBy(
     return path === "AGENTS.md" || path.endsWith("/AGENTS.md");
   }
   if (profileId === "agent-plugins-1.0") {
-    return path.startsWith("plugins/demo/agents/");
+    return path.startsWith("plugins/demo/");
   }
   return path.startsWith(".agents/skills/");
 }
