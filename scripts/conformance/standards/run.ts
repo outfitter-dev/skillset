@@ -204,8 +204,10 @@ function asCandidateProfile(profile: StandardProfile): StandardProfile {
 }
 
 /**
- * Rebuild the checked fixture through the ordinary adopted path and require
- * exact equality with the candidate receipt's complete standard artifact set.
+ * Rebuild the checked fixture through the ordinary compiler's standards-only
+ * mode and require exact equality with the candidate receipt's complete
+ * baseline artifact set. Configured provider builds verify their deltas
+ * separately.
  */
 export async function verifyAdoptedStandardsConformance(
   profileId: StandardProfileId,
@@ -283,7 +285,7 @@ async function verifyAdoptedStandardsReceipt(
   try {
     const builtRoot = join(temp, "repository");
     await cp(fixtureRoot, builtRoot, { recursive: true });
-    const build = await buildSkillsetResult(builtRoot);
+    const build = await buildSkillsetResult(builtRoot, { targetFilter: [] });
     if (!build.ok) {
       throw new Error(
         `skillset: adopted ${profileId} fixture build did not complete`
