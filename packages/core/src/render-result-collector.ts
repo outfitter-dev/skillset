@@ -2034,7 +2034,7 @@ function resultSubjectsForLockItem(
   outputPaths: readonly string[]
 ): readonly RenderResultSubject[] {
   if (item.consumers.length > 0) {
-    return item.consumers.flatMap((consumer) => {
+    return item.consumers.flatMap<RenderResultSubject>((consumer) => {
       if ("standardProfile" in consumer) {
         return [{ standardProfile: consumer.standardProfile }];
       }
