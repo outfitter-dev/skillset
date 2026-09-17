@@ -22,6 +22,7 @@ import nodePath from "node:path";
 import { renameDirectoryNoReplace } from "./directory-rename-no-replace";
 import { supportsGeneratedFileModes } from "./generated-file-mode";
 import { compareStrings } from "./path";
+import { hashSkillDirectory } from "./source-tree-identity";
 import type { GeneratedFileMode } from "./types";
 
 /** A file written as part of a bounded workspace transaction. */
@@ -45,6 +46,12 @@ export interface WorkspaceTransactionCopy {
   readonly to: string;
 }
 
+/** A source tree identity that must match after its transaction snapshot. */
+export interface WorkspaceTransactionExpectedSourceTree {
+  readonly identity: string;
+  readonly path: string;
+}
+
 /**
  * A declarative workspace mutation plan. Paths may be workspace-relative or
  * absolute, but every path must resolve inside `workspaceRoot`.
@@ -52,6 +59,7 @@ export interface WorkspaceTransactionCopy {
 export interface WorkspaceTransactionPlan {
   readonly copies?: readonly WorkspaceTransactionCopy[];
   readonly deletes?: readonly string[];
+  readonly expectedSourceTrees?: readonly WorkspaceTransactionExpectedSourceTree[];
   readonly moves?: readonly WorkspaceTransactionMove[];
   readonly removeEmptyParents?: boolean;
   readonly writes?: readonly WorkspaceTransactionWrite[];
@@ -195,9 +203,15 @@ interface NormalizedDelete {
   readonly path: NormalizedPath;
 }
 
+interface NormalizedExpectedSourceTree {
+  readonly identity: string;
+  readonly path: NormalizedPath;
+}
+
 interface PreparedPlan {
   readonly copies: readonly NormalizedCopy[];
   readonly deletes: readonly NormalizedDelete[];
+  readonly expectedSourceTrees: readonly NormalizedExpectedSourceTree[];
   readonly moves: readonly NormalizedMove[];
   readonly operations: readonly WorkspaceTransactionOperation[];
   readonly removeEmptyParents: boolean;
@@ -289,6 +303,7 @@ export async function applyWorkspaceTransaction(
     await mkdir(nodePath.join(state.journalPath, "writes"));
     await stageCopies(state, prepared.copies);
     await stagePreimages(state, prepared, initialEntries);
+    await assertExpectedSourceTrees(state, prepared);
     await applyCopies(
       state,
       prepared.copies,
@@ -409,11 +424,21 @@ function preparePlan(
     .toSorted((left, right) =>
       compareStrings(left.path.relative, right.path.relative)
     );
+  const expectedSourceTrees = (plan.expectedSourceTrees ?? [])
+    .map((expected) => ({
+      identity: expected.identity,
+      path: normalizePath(workspaceRoot, expected.path),
+    }))
+    .toSorted((left, right) =>
+      compareStrings(left.path.relative, right.path.relative)
+    );
 
   assertPlanPaths(copies, writes, moves, deletes);
+  assertExpectedSourceTreePaths(expectedSourceTrees, copies, moves, deletes);
   return {
     copies,
     deletes,
+    expectedSourceTrees,
     moves,
     operations: [
       ...copies.map((copy) => copy.operation),
@@ -424,6 +449,28 @@ function preparePlan(
     removeEmptyParents: plan.removeEmptyParents === true,
     writes,
   };
+}
+
+function assertExpectedSourceTreePaths(
+  expectedSourceTrees: readonly NormalizedExpectedSourceTree[],
+  copies: readonly NormalizedCopy[],
+  moves: readonly NormalizedMove[],
+  deletes: readonly NormalizedDelete[]
+): void {
+  const sources = new Set([
+    ...copies.map((copy) => copy.from.relative),
+    ...moves.map((move) => move.from.relative),
+    ...deletes.map((entry) => entry.path.relative),
+  ]);
+  const paths = new Set<string>();
+  for (const expected of expectedSourceTrees) {
+    assertUnique(paths, expected.path.relative, "expected source tree");
+    if (!sources.has(expected.path.relative)) {
+      throw transactionError(
+        `expected source tree is not a copied, moved, or deleted source: ${expected.path.relative}`
+      );
+    }
+  }
 }
 
 function assertExpectedAbsentWriteTargets(
@@ -825,6 +872,29 @@ async function stagePreimages(
     );
     await rename(path.absolute, journalPath);
     state.preimages.set(path.relative, { journalPath, path });
+  }
+}
+
+async function assertExpectedSourceTrees(
+  state: TransactionState,
+  prepared: PreparedPlan
+): Promise<void> {
+  for (const expected of prepared.expectedSourceTrees) {
+    const stagedCopy = state.appliedCopies.find(
+      (copy) => copy.copy.from.relative === expected.path.relative
+    );
+    const preimage = state.preimages.get(expected.path.relative);
+    const stagedPath = stagedCopy?.stagingPath ?? preimage?.journalPath;
+    if (stagedPath === undefined) {
+      throw transactionError(
+        `missing secured source tree: ${expected.path.relative}`
+      );
+    }
+    if ((await hashSkillDirectory(stagedPath)) !== expected.identity) {
+      throw transactionError(
+        `source tree changed since planning: ${expected.path.relative}`
+      );
+    }
   }
 }
 

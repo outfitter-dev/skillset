@@ -20,7 +20,12 @@ const createCore = (): {
   const plan = {
     from: request.shippedPath,
     generatedOperations: [
-      { kind: "create" as const, path: ".agents/skills/draft-demo/SKILL.md" },
+      {
+        content: new Uint8Array([0, 17, 255]),
+        kind: "create" as const,
+        mode: 0o755 as const,
+        path: ".agents/skills/draft-demo/SKILL.md",
+      },
     ],
     operations: [
       {
@@ -117,12 +122,26 @@ describe("SET-587 draft command", () => {
     } finally {
       write.mockRestore();
     }
-    expect(JSON.parse(output)).toMatchObject({
+    const result = JSON.parse(output) as {
+      data: {
+        plan: {
+          generatedOperations: readonly {
+            readonly kind: string;
+            readonly path: string;
+          }[];
+        };
+      };
+    };
+    expect(result).toMatchObject({
       command: "draft",
       data: { planHash: "sha256:draft-plan", state: "planned", writes: [] },
       kind: "plan",
       ok: true,
     });
+    expect(result.data.plan.generatedOperations).toEqual([
+      { kind: "create", path: ".agents/skills/draft-demo/SKILL.md" },
+    ]);
     expect(output).not.toContain('"content":');
+    expect(output).not.toContain('"mode":');
   });
 });
