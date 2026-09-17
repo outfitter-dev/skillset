@@ -142,6 +142,10 @@ import {
   skillScope,
 } from "./render-hooks";
 import {
+  renderProjectSessionStartHooks,
+  type RenderedProjectHook,
+} from "./render-project-hooks";
+import {
   marketplaceLockProvenance,
   readExistingMarketplaceState,
   renderChatGptMarketplace,
@@ -267,6 +271,12 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...(await renderProjectAgents(graph, lockRoots)));
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...(await renderProjectIslands(graph, lockRoots)));
+  const projectHooks = await renderProjectSessionStartHooks(graph);
+  rendered.push(...projectHooks.map((hook) => hook.file));
+  const projectHookLock = lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
+  for (const hook of projectHooks.filter((item) => item.managed)) {
+    projectHookLock.items.push(lockItemForProjectHook(graph, hook));
+  }
   rendered.push(...(await renderChangelogs(graph, lockRoots)));
   if (Object.keys(graph.root.marketplaces).length > 0) {
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
@@ -2375,6 +2385,31 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
   };
 }
 
+function lockItemForProjectHook(graph: BuildGraph, hook: RenderedProjectHook): LockItem {
+  return {
+    consumers: [{ phase: "delta", target: hook.target }],
+    fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [hook.file]),
+    feature: "runtime-hooks",
+    files: [hook.file.path],
+    kind: "settings-entry",
+    name: `session-start:${hook.target}`,
+    outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [hook.file]),
+    outputPath: hook.file.path,
+    owner: { target: hook.target },
+    ownedEntries: [hook.ownership],
+    role: "bundle",
+    sourceHash: hashText(`${relative(graph.rootPath, graph.rootConfigPath)}\0${hook.target}\0${hook.ownership.commandHash}`),
+    sourcePath: relative(graph.rootPath, graph.rootConfigPath),
+    targetState: "generated",
+    validation: "structured",
+    version: rootVersion(graph),
+  };
+}
+
+function hashText(value: string): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
 function lockItemForPlugin(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
@@ -2731,6 +2766,9 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     origin: item.origin,
     outputHash: item.outputHash,
     outputPath: item.outputPath,
+    ownedEntries: item.ownedEntries === undefined
+      ? undefined
+      : item.ownedEntries.map((entry) => ({ ...entry })),
     owner: item.owner === undefined ? undefined : { ...item.owner },
     role: item.role,
     plugin: item.plugin,

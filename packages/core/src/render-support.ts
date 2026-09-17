@@ -9,6 +9,7 @@ import type {
   ProjectionRole,
   RenderedFile,
   SourceOrigin,
+  SettingsEntryOwnership,
   TargetName,
 } from "./types";
 import type { OutputConsumer, OutputOwner } from "./output-plan";
@@ -38,11 +39,13 @@ export interface LockItem {
     | "plugin-skill"
     | "project-agent"
     | "rule"
+    | "settings-entry"
     | "standalone-skill";
   readonly name: string;
   readonly origin?: string;
   readonly outputHash: string;
   readonly outputPath: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   readonly owner?: OutputOwner;
   readonly role: ProjectionRole;
   readonly plugin?: string;
@@ -62,6 +65,7 @@ export interface LockItem {
   readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
 }
+
 
 export interface ProjectAgentSkillLockReference {
   readonly authored: string;

@@ -491,6 +491,12 @@ export interface RenderedFile {
   readonly sourcePath?: string;
 }
 
+export interface SettingsEntryOwnership {
+  readonly commandHash: string;
+  readonly file: string;
+  readonly keyPath: string;
+}
+
 /**
  * One applied build-time dialect transform on a generated file: the intent
  * key from the transform registry and how many spans it lowered.
@@ -521,6 +527,7 @@ export interface GeneratedEntry {
   readonly outputHash?: string;
   readonly outputPath: string;
   readonly outputRoot: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   /** Sole physical writer for this generated path. */
   readonly owner?: ProjectionOwner;
   readonly role?: ProjectionRole;

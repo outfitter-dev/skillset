@@ -599,7 +599,11 @@ async function addManagedPathsFromLock(
     const files = item.files
       .map((file) => ({ displayPath: outPath(joinOutputRoot(expectedOutputRoot, file)), file }))
       .sort((left, right) => compareStrings(left.file, right.file));
-    for (const file of files) paths.add(file.displayPath);
+    // A settings-entry lock owns a member inside a provider settings file. It
+    // never owns the containing file, so stale cleanup must not delete it.
+    if (item.kind !== "settings-entry") {
+      for (const file of files) paths.add(file.displayPath);
+    }
     if (!lock.outputHashesTrusted) {
       for (const file of files) {
         lockIncomparablePaths.add(file.displayPath);

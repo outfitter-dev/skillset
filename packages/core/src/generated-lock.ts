@@ -15,6 +15,7 @@ import type {
   ProjectionOwner,
   ProjectionRole,
   ProjectDraftPolicy,
+  SettingsEntryOwnership,
   SourceOrigin,
   TargetName,
 } from "./types";
@@ -51,6 +52,7 @@ export interface ParsedGeneratedLockItem {
   readonly origin?: string;
   readonly outputHash?: string;
   readonly outputPath?: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   readonly owner?: GeneratedLockOwner;
   readonly role?: GeneratedLockRole;
   readonly plugin?: string;
@@ -282,6 +284,7 @@ function parseGeneratedLockItem(
     assertManagedRelativePath(outputPath, `${label}.outputPath`);
   }
   const sourcePath = optionalString(value.sourcePath, label, "sourcePath");
+  const ownedEntries = parseOwnedEntries(value.ownedEntries, label);
   const dependencies = optionalStringArray(
     value.dependencies,
     label,
@@ -348,6 +351,7 @@ function parseGeneratedLockItem(
     ...(origin === undefined ? {} : { origin }),
     ...(outputHash === undefined ? {} : { outputHash }),
     ...(outputPath === undefined ? {} : { outputPath }),
+    ...(ownedEntries === undefined ? {} : { ownedEntries }),
     ...(owner === undefined ? {} : { owner }),
     ...(role === undefined ? {} : { role }),
     ...(plugin === undefined ? {} : { plugin }),
@@ -385,6 +389,23 @@ function parseDraftOrigin(
     return value;
   }
   throw invalidLock(label, "draftOrigin must be _drafts, config, or status");
+}
+
+function parseOwnedEntries(
+  value: unknown,
+  label: string
+): readonly SettingsEntryOwnership[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw invalidLock(label, "ownedEntries must be an array");
+  return value.map((entry, index) => {
+    const entryLabel = `${label}.ownedEntries[${index}]`;
+    if (!isJsonRecord(entry)) throw invalidLock(entryLabel, "must be an object");
+    const file = requiredString(entry.file, entryLabel, "file");
+    assertManagedRelativePath(file, `${entryLabel}.file`);
+    const keyPath = requiredString(entry.keyPath, entryLabel, "keyPath");
+    const commandHash = requiredString(entry.commandHash, entryLabel, "commandHash");
+    return { commandHash, file, keyPath };
+  });
 }
 
 function parseSourceOrigin(

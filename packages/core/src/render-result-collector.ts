@@ -2089,6 +2089,7 @@ function featureIdForLockItem(item: RenderedLockItem): string {
   if (item.kind === "project-agent") return "project-agents";
   if (item.kind === "island") return "target-native-islands";
   if (item.kind === "changelog") return "releases";
+  if (item.kind === "settings-entry") return "runtime-hooks";
   if (item.kind === "plugin-feature" && item.feature === "app") {
     return "plugin-apps";
   }
@@ -2111,6 +2112,7 @@ function destinationForLockItem(item: RenderedLockItem): string {
   if (item.kind === "project-agent") return "agent";
   if (item.kind === "island") return "target-native-island";
   if (item.kind === "changelog") return "changelog";
+  if (item.kind === "settings-entry") return "settings";
   // Plugin feature artifacts use the bare scope name (e.g. `mcp`, `bin`), the
   // same convention companion files use via their featureKey, so a given
   // destination is named identically across producers and never just mirrors
@@ -2151,6 +2153,7 @@ function statusForLockItem(item: RenderedLockItem, target: TargetName | undefine
   if (item.kind === "island" || item.kind === "plugin-feature") return "target_native";
   if (item.kind === "rule") return "transformed";
   if (item.kind === "project-agent" && target === "codex") return "transformed";
+  if (item.kind === "settings-entry") return "rendered";
   if (item.transforms !== undefined && item.transforms.length > 0) return "transformed";
   if (item.validation === "opaque-copy") return "target_native";
   return "rendered";
