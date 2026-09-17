@@ -787,7 +787,7 @@ cursor: false
         ".skillset/plugins/demo/.mcp.json": `
 {"mcpServers":{"demo":{"command":"demo-server"}}}
 `,
-        ".skillset/plugins/demo/agents/reviewer.md": "Review changes.\n",
+        ".skillset/plugins/demo/subagents/reviewer.md": "Review changes.\n",
         ".skillset/plugins/demo/commands/review.md": "Review a change.\n",
         ".skillset/plugins/demo/hooks/plugin-cleanup/hook.json": `
 {"events":["Stop"],"run":{"command":"echo cleanup"}}

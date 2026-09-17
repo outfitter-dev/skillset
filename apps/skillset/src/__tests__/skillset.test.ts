@@ -123,7 +123,7 @@ paths:
 
 Write docs clearly.
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Review Cursor changes.
 cursor:
@@ -174,7 +174,7 @@ alwaysApply: true
 
 Keep quality high.
 `,
-    ".skillset/plugins/alpha/agents/plugin-architect.md": `
+    ".skillset/plugins/alpha/subagents/plugin-architect.md": `
 ---
 name: plugin-architect
 description: Design alpha plugin changes.
@@ -1864,7 +1864,7 @@ skillset:
   description: Beta plugin.
 codex: false
 `,
-    ".skillset/plugins/beta/agents/reviewer.md": `
+    ".skillset/plugins/beta/subagents/reviewer.md": `
 # Reviewer
 
 Review carefully.
@@ -1938,7 +1938,7 @@ description: Develop Skillset safely.
 
 Follow the Skillset development workflow.
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: Code Reviewer
 description: Reviews project changes.
@@ -2000,17 +2000,17 @@ Tree:
 
   const lock = await readFile(join(root, "skillset.lock"), "utf8");
   expect(lock).toContain(`"kind": "project-agent"`);
-  expect(lock).toContain(`"sourcePath": ".skillset/agents/reviewer.md"`);
+  expect(lock).toContain(`"sourcePath": ".skillset/subagents/reviewer.md"`);
   expect(lock).toContain(`"outputPath": ".claude/agents/code-reviewer.md"`);
   expect(lock).toContain(`".codex/agents/code-reviewer.toml"`);
 
-  const explained = await explainPath(root, ".skillset/agents/reviewer.md");
+  const explained = await explainPath(root, ".skillset/subagents/reviewer.md");
   expect(explained.kind).toBe("source-project-agent");
   expect(explained.entries[0]?.kind).toBe("project-agent");
   expect(explained.entries[0]?.validation).toBe("structured");
   for (const entry of explained.entries) {
     expect(entry.preprocessDependencies).toContain(".skillset/shared/templates/body.md");
-    expect(entry.preprocessDependencies).toContain("tree:.skillset/agents:1");
+    expect(entry.preprocessDependencies).toContain("tree:.skillset/subagents:1");
   }
   expect(explained.notes[0]).toContain("Project-scoped portable agent");
 
@@ -2019,7 +2019,7 @@ Tree:
   expect(explainedCodexOutput.entries[0]?.kind).toBe("project-agent");
   expect(explainedCodexOutput.entries[0]?.outputPath).toBe(".codex/agents/code-reviewer.toml");
   expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/prompt.md");
-  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain("tree:.skillset/agents:1");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain("tree:.skillset/subagents:1");
 
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "project-agent" && entry.outputPath === ".claude/agents/code-reviewer.md")).toBe(true);
@@ -2037,7 +2037,7 @@ compile:
 claude: true
 codex: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews project changes.
 metadata:
@@ -2058,7 +2058,7 @@ Review diffs.
 
   const graph = await loadBuildGraph(root);
   expect(graph.warnings).toContain(
-    ".skillset/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex, cursor."
+    ".skillset/subagents/reviewer.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex, cursor."
   );
 
   await buildSkillset(root);
@@ -2081,7 +2081,7 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Invalid prompt.
 initialPrompt: "</initial_prompt>"
@@ -2106,7 +2106,7 @@ codex:
     ".skillset/shared/bad-prompt.md": `
 </initial_prompt>
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Invalid rendered prompt.
 initialPrompt: "{{shared:bad-prompt.md }}"
@@ -2124,7 +2124,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: Reviewer
 description: Reviews.
@@ -2132,7 +2132,7 @@ description: Reviews.
 
 Review.
 `,
-    ".skillset/agents/reviewer-copy.md": `
+    ".skillset/subagents/reviewer-copy.md": `
 ---
 name: Reviewer!
 description: Reviews too.
@@ -2150,7 +2150,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: Reviewer
 description: Reviews.
@@ -2158,7 +2158,7 @@ description: Reviews.
 
 Review.
 `,
-    ".skillset/agents/auditor.md": `
+    ".skillset/subagents/auditor.md": `
 ---
 name: Auditor
 description: Audits.
@@ -2184,7 +2184,7 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews project changes.
 ---
@@ -2225,7 +2225,7 @@ claude:
     path: .claude/agents
 codex: false
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews project changes.
 ---
@@ -2242,7 +2242,7 @@ Help.
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/agents/reviewer.md would write inside active output root outputs.skills.claude (.claude/agents)"
+    ".skillset/subagents/reviewer.md would write inside active output root outputs.skills.claude (.claude/agents)"
   );
 });
 
@@ -2262,7 +2262,7 @@ codex:
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/agents/reviewer.md": `
+    ".skillset/plugins/alpha/subagents/reviewer.md": `
 # Reviewer
 
 Review carefully.
@@ -2308,7 +2308,7 @@ codex: true
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/agents/reviewer.md": `
+    ".skillset/plugins/alpha/subagents/reviewer.md": `
 # Reviewer
 
 Review carefully.
@@ -2856,20 +2856,20 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/partials/intro.md": `
+    ".skillset/shared/partials/intro.md": `
 Workspace intro for {{this.description}}.
 {{> detail}}
 `,
-    ".skillset/partials/nested/detail.md": `
+    ".skillset/shared/partials/nested/detail.md": `
 Workspace detail.
 `,
-    ".skillset/partials/preferred.md": `
+    ".skillset/shared/partials/preferred.md": `
 Workspace preferred.
 `,
-    ".skillset/plugins/alpha/partials/preferred.md": `
+    ".skillset/plugins/alpha/shared/partials/preferred.md": `
 Plugin preferred.
 `,
-    ".skillset/plugins/alpha/partials/plugin-only.md": `
+    ".skillset/plugins/alpha/shared/partials/plugin-only.md": `
 Plugin only for {{this.name}}.
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
@@ -2903,10 +2903,10 @@ description: Good skill.
   expect(skill.match(/Plugin only for good\./g)?.length).toBe(2);
 
   const explained = await explainPath(root, "plugins/alpha/claude/skills/good/SKILL.md");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/intro.md");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/nested/detail.md");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/preferred.md");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/plugins/alpha/partials/plugin-only.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/intro.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/nested/detail.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/preferred.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/plugins/alpha/shared/partials/plugin-only.md");
 });
 
 test("preprocessing reports named partial ambiguity, cycles, and cross-plugin references", async () => {
@@ -2917,10 +2917,10 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/partials/one/intro.md": `
+    ".skillset/shared/partials/one/intro.md": `
 One.
 `,
-    ".skillset/partials/two/intro.md": `
+    ".skillset/shared/partials/two/intro.md": `
 Two.
 `,
     ".skillset/skills/bad/SKILL.md": `
@@ -2944,10 +2944,10 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/partials/a.md": `
+    ".skillset/shared/partials/a.md": `
 A {{> b}}
 `,
-    ".skillset/partials/b.md": `
+    ".skillset/shared/partials/b.md": `
 B {{> a}}
 `,
     ".skillset/skills/bad/SKILL.md": `
@@ -2984,7 +2984,7 @@ description: Bad skill.
 skillset:
   name: beta
 `,
-    ".skillset/plugins/beta/partials/secret.md": `
+    ".skillset/plugins/beta/shared/partials/secret.md": `
 Nope.
 `,
   });
@@ -5113,7 +5113,7 @@ claude:
   projectRoot: .skillset/generated-agents
 codex: false
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews code.
 ---
@@ -5132,7 +5132,7 @@ claude: false
 codex:
   projectRoot: .skillset/generated-agents
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews code.
 ---
@@ -5163,7 +5163,7 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews code.
 ---

@@ -9,7 +9,7 @@ Markdown [source units](../glossary.md#source-unit) use YAML frontmatter for met
 | Source type | Conventional path | Exact contract | Behavior |
 | --- | --- | --- | --- |
 | Skill | `.skillset/skills/<skill>/SKILL.md` | [Schema and example](../reference/schemas/README.md) | [Skills](../reference/features/skills.md) |
-| Project agent | `.skillset/agents/<agent>.md` | [Schema and example](../reference/schemas/README.md) | [Agents](../reference/features/agents.md) |
+| Project agent | `.skillset/subagents/<agent>.md` | [Schema and example](../reference/schemas/README.md) | [Agents](../reference/features/agents.md) |
 | Instruction | `.skillset/rules/**/*.md` | [Schema and example](../reference/schemas/README.md) | [Instructions](../reference/source/instructions.md) |
 
 ## Start with Shared Metadata

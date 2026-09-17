@@ -204,6 +204,7 @@ export function collectRenderResults(
   }
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedCursorRootRulesOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedMcpOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
@@ -232,6 +233,33 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+function unsupportedCursorRootRulesOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (
+    (scopes !== undefined && !scopes.includes("project")) ||
+    !graph.root.targets.cursor.enabled
+  ) {
+    return [];
+  }
+  const rootRule = graph.rules.find((rule) => rule.rootFrontPage);
+  if (rootRule === undefined || !rootRule.targets.cursor.enabled) return [];
+  return [
+    defineRenderResult({
+      destination: "AGENTS.md",
+      featureId: "cursor-agents-md-root",
+      policy: "unsupported:error",
+      reason:
+        "Cursor project-root AGENTS.md placement remains unsupported pending renderer contract evidence",
+      sourcePath: normalizePath(relative(graph.rootPath, rootRule.sourcePath)),
+      sourceUnit: selectorForInstruction(rootRule.id),
+      status: "unsupported",
+      target: "cursor",
+    }),
+  ];
 }
 
 function appendEquivalentLockOutcome(
@@ -1636,7 +1664,7 @@ function unsupportedPluginFeatureOutcomes(
     }
 
     if (!pluginTargetSelected(graph, plugin.id, "codex")) continue;
-    const agentsPath = join(plugin.path, "agents");
+    const agentsPath = join(plugin.path, "subagents");
     if (!hasMeaningfulFiles(agentsPath)) continue;
     const featureId = "plugin-agents";
     const evidence = evidenceFor(featureId, "codex");
@@ -1647,7 +1675,7 @@ function unsupportedPluginFeatureOutcomes(
         featureId,
         policy: "unsupported:error",
         reason: requiredReasonForStatus(featureId, "codex", "unsupported"),
-        sourcePath: `${pluginPath}/agents`,
+        sourcePath: `${pluginPath}/subagents`,
         sourceUnit: selectorForPluginFeature(plugin.id, "agents"),
         status: "unsupported",
         target: "codex",
@@ -1707,26 +1735,29 @@ function unsupportedAgentPluginStandardOutcomes(
       );
     }
 
-    for (const [relativePath, featureId] of [
-      ["hooks", "plugin-hooks"],
-      ["agents", "plugin-agents"],
-      ["commands", "plugin-commands"],
-      ["rules", "plugin-rules"],
-      [".lsp.json", "plugin-lsp-servers"],
-      ["settings.json", "future-companion-source-pointers"],
-      ["themes", "plugin-themes"],
-      ["monitors", "plugin-monitors"],
-      ["output-styles", "plugin-output-styles"],
+    for (const [relativePath, destination, featureId] of [
+      ["hooks", "hooks", "plugin-hooks"],
+      ["subagents", "agents", "plugin-agents"],
+      ["commands", "commands", "plugin-commands"],
+      ["rules", "rules", "plugin-rules"],
+      [".lsp.json", ".lsp.json", "plugin-lsp-servers"],
+      ["settings.json", "settings.json", "future-companion-source-pointers"],
+      ["themes", "themes", "plugin-themes"],
+      ["monitors", "monitors", "plugin-monitors"],
+      ["output-styles", "output-styles", "plugin-output-styles"],
     ] as const) {
       const sourcePath = join(plugin.path, relativePath);
       if (!hasMeaningfulFiles(sourcePath)) continue;
       outcomes.push(
         unsupportedAgentPluginFeatureOutcome({
-          destination: relativePath,
+          destination,
           featureId,
           plugin,
           sourcePath: `${pluginPath}/${relativePath}`,
-          sourceUnit: selectorForPluginFeature(plugin.id, relativePath),
+          sourceUnit: selectorForPluginFeature(
+            plugin.id,
+            featureId === "plugin-agents" ? "agents" : relativePath
+          ),
         })
       );
     }

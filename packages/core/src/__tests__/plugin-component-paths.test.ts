@@ -40,10 +40,12 @@ describe("registry-backed plugin component paths", () => {
     );
     for (const components of componentsByTarget.values()) {
       for (const component of components) {
-        const outputPath = component.defaultPath.endsWith("/")
-          ? join(root, component.defaultPath, ".fixture")
-          : join(root, component.defaultPath);
-        await Bun.write(outputPath, "fixture\n");
+        const sourcePath =
+          component.kind === "agents" ? "subagents/" : component.defaultPath;
+        const fixturePath = sourcePath.endsWith("/")
+          ? join(root, sourcePath, ".fixture")
+          : join(root, sourcePath);
+        await Bun.write(fixturePath, "fixture\n");
       }
     }
 

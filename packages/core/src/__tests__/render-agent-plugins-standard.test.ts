@@ -712,7 +712,7 @@ cursor: false
       await fixtureGraph({
         ".skillset/plugins/demo/CHANGELOG.md": "# Changes",
         ".skillset/plugins/demo/README.md": "# Demo",
-        ".skillset/plugins/demo/agents/reviewer.md": "Review.",
+        ".skillset/plugins/demo/subagents/reviewer.md": "Review.",
         ".skillset/plugins/demo/assets/icon.svg": "<svg />",
         ".skillset/plugins/demo/bin/demo": "#!/bin/sh\nexit 0",
         ".skillset/plugins/demo/commands/run.md": "Run.",
@@ -772,7 +772,7 @@ cursor: false
   test("reports provider-only package features as uncovered standard results", async () => {
     const graph = adopted(
       await fixtureGraph({
-        ".skillset/plugins/demo/agents/reviewer.md": "Review.",
+        ".skillset/plugins/demo/subagents/reviewer.md": "Review.",
         ".skillset/plugins/demo/bin/demo": "#!/bin/sh\nexit 0",
         ".skillset/plugins/demo/commands/run.md": "Run.",
         ".skillset/plugins/demo/.mcp.json": `

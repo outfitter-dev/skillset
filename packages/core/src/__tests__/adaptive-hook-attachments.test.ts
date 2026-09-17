@@ -318,7 +318,7 @@ skillset:
 claude: true
 codex: false
 `,
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -328,7 +328,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/helper-session.json": JSON.stringify({ events: ["SessionStart"], run: { command: "node ./session.js" } }),
+      ".skillset/subagents/helper/hooks/helper-session.json": JSON.stringify({ events: ["SessionStart"], run: { command: "node ./session.js" } }),
     }));
 
     expect(graph.adaptiveHooks.map((hook) => `${hook.scope.kind}:${hook.name}`)).toEqual(["agent:helper-session"]);
@@ -1187,7 +1187,7 @@ Body.
         events: ["PreToolUse"],
         run: { command: "echo skill" },
       }),
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -1198,7 +1198,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+      ".skillset/subagents/helper/hooks/local-stop.json": JSON.stringify({
         events: ["Stop"],
         run: { command: "echo agent" },
       }),
@@ -1250,7 +1250,7 @@ Body.
         match: "Bash",
         run: { command: "echo skill base" },
       }),
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -1260,7 +1260,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+      ".skillset/subagents/helper/hooks/local-stop.json": JSON.stringify({
         claude: { context: null, match: null, run: { command: "echo agent override" } },
         context: { env: ["provider"], strategy: "inline" },
         events: ["Stop"],

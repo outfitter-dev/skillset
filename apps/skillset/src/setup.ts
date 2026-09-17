@@ -32,7 +32,7 @@ const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
 const ORDINARY_WORKSPACE_DIR = ".skillset";
 const WORKSPACE_SOURCE_ROOT = ".skillset";
 const SETUP_SOURCE_PLACEHOLDERS = [
-  "agents",
+  "subagents",
   "hooks",
   "plugins",
   "rules",
@@ -986,6 +986,13 @@ function setupFiles(
       path: `${sourceRoot}/.gitkeep`,
       content: "",
     },
+    {
+      path: `${sourceRoot}/RULES.md`,
+      content:
+        options.kind === "create" && options.global !== true
+          ? createRulesGuide(options.name)
+          : `---\ncursor: false\n---\n\n# ${options.name}\n\nAdd repository instructions here.\n`,
+    },
     ...SETUP_SOURCE_PLACEHOLDERS.map((directory) => ({
       path: `${sourceRoot}/${directory}/.gitkeep`,
       content: "",
@@ -1027,10 +1034,6 @@ function setupFiles(
       {
         path: "README.md",
         content: createReadme(options.name, options.targets),
-      },
-      {
-        path: "AGENTS.md",
-        content: createAgentsGuide(options.name),
       },
     );
   }
@@ -1140,7 +1143,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "## Layout",
     "",
     "- `skillset.yaml` names the source loadout and selects compile targets and destination settings.",
-    "- `.skillset/` is the Skillset workspace for rules, agents, hooks, skills, plugins, shared files, provider source, and change state.",
+    "- `.skillset/` is the Skillset workspace for RULES.md, scoped rules, subagents, hooks, skills, plugins, shared files, provider source, and change state.",
     "- `.skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
     "- `.skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
     "- `.skillset/changes/` stores pending and applied Skillset change history.",
@@ -1151,13 +1154,15 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
   ].join("\n");
 }
 
-function createAgentsGuide(name: string): string {
+function createRulesGuide(name: string): string {
   return [
-    "# AGENTS.md",
+    "---",
+    "cursor: false",
+    "---",
+    "",
+    "# Working Rules",
     "",
     `This repo is the source of truth for the ${name} Skillset loadout.`,
-    "",
-    "## Working Rules",
     "",
     "- Treat `.skillset/` as editable Skillset source and source-adjacent state.",
     "- Treat `skillset.yaml` as workspace/build configuration and root source metadata.",

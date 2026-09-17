@@ -43,7 +43,7 @@ import {
   type StandardProfileStatus,
 } from "./standard-profile-status";
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
-import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, TargetName } from "./types";
+import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, SourceSkill, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -64,8 +64,18 @@ export interface ExplainResult {
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly notes: readonly string[];
   readonly path: string;
+  readonly sourceSkill?: SourceSkillInspection;
   readonly standardProfiles: readonly StandardProfileStatus[];
   readonly toolsRealization: readonly ExplainToolsRealization[];
+}
+
+export interface SourceSkillInspection {
+  readonly container: "workspace" | string;
+  readonly draftOrigin?: "_drafts" | "status";
+  readonly groupPath: readonly string[];
+  readonly id: string;
+  readonly sourcePath: string;
+  readonly status: "draft" | "live";
 }
 
 /**
@@ -149,6 +159,7 @@ export async function explainPath(
   const asSource = items.filter((item) => item.sourcePath === target);
   if (asSource.length > 0) {
     const matchedRenderResults = explainRenderResults(target, asSource, renderResults);
+    const sourceSkill = sourceSkillForPath(graph, target);
     return {
       path: target,
       standardProfiles,
@@ -157,6 +168,7 @@ export async function explainPath(
       features: featureCapabilitiesForPath(graph, target, asSource, matchedRenderResults),
       renderResults: matchedRenderResults,
       notes: sourceNotes(graph, target),
+      ...(sourceSkill === undefined ? {} : { sourceSkill }),
       toolsRealization: toolsRealizationForPath(graph, target, asSource),
     };
   }
@@ -200,7 +212,8 @@ export async function explainPath(
   }
 
   const sourceOnlyOutcomes = explainRenderResults(target, [], renderResults);
-  if (sourceOnlyOutcomes.length > 0) {
+  const sourceSkill = sourceSkillForPath(graph, target);
+  if (sourceOnlyOutcomes.length > 0 || sourceSkill !== undefined) {
     return {
       path: target,
       standardProfiles,
@@ -208,7 +221,11 @@ export async function explainPath(
       entries: [],
       features: featureCapabilitiesForPath(graph, target, [], sourceOnlyOutcomes),
       renderResults: sourceOnlyOutcomes,
-      notes: [`Matched ${sourceOnlyOutcomes.length} render result(s) under this source path.`],
+      notes:
+        sourceSkill === undefined
+          ? [`Matched ${sourceOnlyOutcomes.length} render result(s) under this source path.`]
+          : sourceNotes(graph, target),
+      ...(sourceSkill === undefined ? {} : { sourceSkill }),
       toolsRealization: toolsRealizationForPath(graph, target, []),
     };
   }
@@ -237,10 +254,7 @@ function toolsRealizationForPath(
   items: readonly LockItemMatch[]
 ): readonly ExplainToolsRealization[] {
   const sourcePaths = new Set<string>([target, ...items.map((item) => item.sourcePath)]);
-  const skills = [
-    ...graph.plugins.flatMap((plugin) => plugin.skills),
-    ...graph.standaloneSkills,
-  ].filter((skill) => {
+  const skills = discoveredSkills(graph).filter((skill) => {
     const sourcePath = relative(graph.rootPath, skill.sourcePath).replaceAll("\\", "/");
     return sourcePaths.has(sourcePath) || sourcePath.startsWith(`${target}/`);
   });
@@ -278,6 +292,13 @@ export async function listGeneratedEntries(
   const graph = await loadBuildGraph(rootPath, options);
   const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   return collectLockItems(rendered).map((item) => item.entry);
+}
+
+export async function listSourceSkills(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<readonly SourceSkillInspection[]> {
+  return sourceSkillInventory(await loadBuildGraph(rootPath, options));
 }
 
 export async function suggestSource(
@@ -845,16 +866,21 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
     ];
   }
 
-  const skill = [
-    ...graph.plugins.flatMap((plugin) => plugin.skills),
-    ...graph.standaloneSkills,
-  ].find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
+  const skill = discoveredSkills(graph).find(
+    (candidate) => normalizeSourcePath(graph, candidate.sourcePath) === target
+  );
   if (skill === undefined) return [];
 
   const targets = targetNames()
     .filter((name) => skill.targets[name].enabled)
     .join(", ");
-  const notes = [`Enabled targets: ${targets.length > 0 ? targets : "none"}.`];
+  const notes = [
+    `Status: ${skill.status ?? "live"}${skill.draftOrigin === undefined ? "" : ` (${skill.draftOrigin})`}.`,
+  ];
+  if ((skill.groupPath?.length ?? 0) > 0) {
+    notes.push(`Group: ${skill.groupPath?.join("/")}.`);
+  }
+  notes.push(`Enabled targets: ${targets.length > 0 ? targets : "none"}.`);
   if (skill.resources.length > 0) {
     notes.push(`Declared resources: ${skill.resources.map((resource) => resource.from).join(", ")}.`);
   }
@@ -896,7 +922,7 @@ function inferredFeatureIdsForSourcePath(graph: BuildGraph, target: string): rea
     featureIds.push("target-native-islands");
   }
 
-  for (const skill of graph.standaloneSkills) {
+  for (const skill of discoveredStandaloneSkills(graph)) {
     if (!pathMatchesSource(graph, target, skill.sourcePath)) continue;
     featureIds.push("standalone-skills");
     if (skill.resources.length > 0) featureIds.push("resources");
@@ -906,7 +932,7 @@ function inferredFeatureIdsForSourcePath(graph: BuildGraph, target: string): rea
     if (pathMatchesSource(graph, target, plugin.configPath)) {
       featureIds.push("plugin-manifests");
     }
-    for (const skill of plugin.skills) {
+    for (const skill of plugin.discoveredSkills ?? plugin.skills) {
       if (!pathMatchesSource(graph, target, skill.sourcePath)) continue;
       featureIds.push("plugin-skills");
       if (skill.resources.length > 0) featureIds.push("resources");
@@ -914,6 +940,52 @@ function inferredFeatureIdsForSourcePath(graph: BuildGraph, target: string): rea
   }
 
   return featureIds;
+}
+
+function sourceSkillForPath(
+  graph: BuildGraph,
+  target: string
+): SourceSkillInspection | undefined {
+  return sourceSkillInventory(graph).find((skill) => skill.sourcePath === target);
+}
+
+function sourceSkillInventory(graph: BuildGraph): readonly SourceSkillInspection[] {
+  const pluginBySourcePath = new Map<string, string>();
+  for (const plugin of graph.plugins) {
+    for (const skill of plugin.discoveredSkills ?? plugin.skills) {
+      pluginBySourcePath.set(skill.sourcePath, plugin.id);
+    }
+  }
+  return discoveredSkills(graph)
+    .map((skill) => ({
+      container: pluginBySourcePath.get(skill.sourcePath) ?? "workspace",
+      ...(skill.draftOrigin === undefined ? {} : { draftOrigin: skill.draftOrigin }),
+      groupPath: skill.groupPath ?? [],
+      id: skill.id,
+      sourcePath: normalizeSourcePath(graph, skill.sourcePath),
+      status: skill.status ?? "live",
+    }))
+    .sort((left, right) => compareStrings(left.sourcePath, right.sourcePath));
+}
+
+function discoveredSkills(graph: BuildGraph): readonly SourceSkill[] {
+  return graph.discoveredSkills ?? [
+    ...graph.plugins.flatMap((plugin) => plugin.skills),
+    ...graph.standaloneSkills,
+  ];
+}
+
+function discoveredStandaloneSkills(graph: BuildGraph): readonly SourceSkill[] {
+  const pluginPaths = new Set(
+    graph.plugins.flatMap((plugin) =>
+      (plugin.discoveredSkills ?? plugin.skills).map((skill) => skill.sourcePath)
+    )
+  );
+  return discoveredSkills(graph).filter((skill) => !pluginPaths.has(skill.sourcePath));
+}
+
+function normalizeSourcePath(graph: BuildGraph, sourcePath: string): string {
+  return relative(graph.rootPath, sourcePath).replaceAll("\\", "/");
 }
 
 function pathMatchesSource(graph: BuildGraph, target: string, sourcePath: string): boolean {
