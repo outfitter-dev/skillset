@@ -120,6 +120,7 @@ interface RenderedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
   readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: "only" | "override";
   readonly effectiveName?: string;
   readonly feature?: string;
   readonly files: readonly string[];
@@ -704,6 +705,7 @@ function parseRenderedLockItem(
     consumers: raw.consumers,
     ...(raw.dependencies === undefined ? {} : { dependencies: raw.dependencies }),
     ...(raw.draftOrigin === undefined ? {} : { draftOrigin: raw.draftOrigin }),
+    ...(raw.draftPolicy === undefined ? {} : { draftPolicy: raw.draftPolicy }),
     ...(raw.effectiveName === undefined ? {} : { effectiveName: raw.effectiveName }),
     ...(raw.feature === undefined ? {} : { feature: raw.feature }),
     files: raw.files,

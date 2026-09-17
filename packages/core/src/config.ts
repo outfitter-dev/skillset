@@ -288,10 +288,28 @@ function readInternalUseConfig(
     }
   }
   return {
-    drafts: readInternalUseByPlugin(value.drafts, `${label}.drafts`),
+    drafts: readInternalUseDraftsByPlugin(value.drafts, `${label}.drafts`),
     plugins: readInternalUseSelector(value.plugins, `${label}.plugins`),
     skills: readInternalUseByPlugin(value.skills, `${label}.skills`),
   };
+}
+
+function readInternalUseDraftsByPlugin(
+  value: JsonValue | undefined,
+  label: string
+): InternalUseConfig["drafts"] {
+  if (value === undefined) return {};
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([pluginId, selection]) => [
+      pluginId,
+      selection === "only" || selection === "override"
+        ? selection
+        : readInternalUseSelector(selection, `${label}.${pluginId}`),
+    ])
+  );
 }
 
 function readInternalUseByPlugin(

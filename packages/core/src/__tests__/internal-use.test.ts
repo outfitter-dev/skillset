@@ -21,6 +21,63 @@ const inventory = [
 ];
 
 describe("root plugin internal-use resolution", () => {
+  test("applies only and override after live selection and same-container pairing", () => {
+    const plugins = [
+      plugin("demo", [
+        skill("paired"),
+        skill("paired", "draft"),
+        skill("plain"),
+        skill("future", "draft"),
+      ]),
+    ];
+    const only = resolveInternalUseSelection(
+      { drafts: { demo: "only" }, plugins: ["demo"], skills: {} },
+      plugins
+    );
+    expect(only.skills).toEqual([]);
+    expect(only.drafts).toEqual([
+      { pluginId: "demo", skillId: "future" },
+      { pluginId: "demo", skillId: "paired" },
+    ]);
+    expect(
+      only.decisions.find(
+        (decision) => decision.skillId === "paired" && decision.status === "draft"
+      )
+    ).toMatchObject({
+      draftPolicy: "only",
+      rule: "plugins.internal_use.plugins: demo",
+      selected: true,
+    });
+
+    const override = resolveInternalUseSelection(
+      { drafts: { demo: "override" }, plugins: false, skills: { demo: true } },
+      plugins
+    );
+    expect(override.skills).toEqual([
+      { pluginId: "demo", skillId: "plain" },
+    ]);
+    expect(override.drafts).toEqual([
+      { pluginId: "demo", skillId: "paired" },
+    ]);
+    expect(override.drafts).not.toContainEqual({
+      pluginId: "demo",
+      skillId: "future",
+    });
+
+    const excluded = resolveInternalUseSelection(
+      {
+        drafts: { demo: "override" },
+        plugins: false,
+        skills: { demo: ["!paired"] },
+      },
+      plugins
+    );
+    expect(excluded.skills).toEqual([
+      { pluginId: "demo", skillId: "plain" },
+    ]);
+    expect(excluded.drafts).toEqual([]);
+  });
+
   test("is order-independent and lets exclusions win", () => {
     const configs: InternalUseConfig[] = [
       {

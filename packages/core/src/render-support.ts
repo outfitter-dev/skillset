@@ -5,6 +5,7 @@ import { formatGeneratedFileMode, normalizeGeneratedFileMode } from "./generated
 
 import type {
   AppliedTransform,
+  ProjectDraftPolicy,
   ProjectionRole,
   RenderedFile,
   SourceOrigin,
@@ -26,6 +27,7 @@ export interface LockItem {
   readonly files: readonly string[];
   readonly dependencies?: readonly string[];
   readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly includedSkills?: readonly string[];
   readonly kind:

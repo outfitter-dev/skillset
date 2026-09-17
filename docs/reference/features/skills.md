@@ -75,8 +75,12 @@ not accompany the copy, and render results report those unhydrated components.
 Workspace drafts always render side by side. A plugin draft is inherited when
 its same-container live sibling is selected and
 `plugins.internal_use.drafts.<plugin>` is omitted. `true` or a list selects
-drafts explicitly; `false` excludes them, and live-skill exclusions resolve
-first. Each copy uses a `draft-<leaf>` directory and name, a
+drafts explicitly; `false` excludes them. `only` emits only drafts in the
+selected plugin content. `override` substitutes a same-container paired draft
+at the regular project-use leaf, preserves selected live skills without a
+draft, and keeps in-scope unpaired drafts at `draft-<leaf>`. Selection and
+exclusions resolve first, and no mode restores excluded content. Each draft
+copy uses a
 `[SKILLSET DRAFT] ` description prefix, and boolean `metadata.internal: true`
 regardless of `internal_marker`. Descriptions that exceed 1024 characters only
 because of the prefix are truncated with an ellipsis and reported as

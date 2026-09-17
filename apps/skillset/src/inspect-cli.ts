@@ -288,6 +288,9 @@ function printExplainResult(
     if (entry.draftOrigin !== undefined) {
       writeLine(writer, `    draft origin: ${entry.draftOrigin}`);
     }
+    if (entry.draftPolicy !== undefined) {
+      writeLine(writer, `    draft policy: ${entry.draftPolicy}`);
+    }
     if (entry.shippedSibling !== undefined) {
       writeLine(writer, `    shipped sibling: ${entry.shippedSibling}`);
     }
@@ -492,7 +495,7 @@ function printStatusReport(
   for (const entry of report.projectUse) {
     const draftDetails = entry.draftOrigin === undefined
       ? ""
-      : `; draftOrigin=${entry.draftOrigin}${entry.shippedSibling === undefined ? "" : `; shippedSibling=${entry.shippedSibling}`}`;
+      : `; draftOrigin=${entry.draftOrigin}${entry.draftPolicy === undefined ? "" : `; draftPolicy=${entry.draftPolicy}`}${entry.shippedSibling === undefined ? "" : `; shippedSibling=${entry.shippedSibling}`}`;
     writeLine(
       writer,
       `  ${entry.draftOrigin === undefined ? "project use" : "project draft"} [${entry.target}]: source=${entry.sourceUnit} (${entry.sourcePath}); selection=${entry.selectionRule}; effectiveName=${entry.effectiveName}; role=${entry.role}; owner=${entry.owner.target}${draftDetails}`
