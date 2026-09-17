@@ -3,7 +3,6 @@ import path from "node:path";
 
 import type { StandardProfileId } from "@skillset/registry";
 
-import { classifyIndividualAgentSkillPublication } from "./agent-skill-publication";
 import { isOutputSelected } from "./config";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import type { LogicalRenderedFile, OutputConsumer } from "./output-plan";
@@ -90,9 +89,8 @@ interface RenderStandardAgentSkillTreeArgs {
 
 /**
  * Render the adopted skill baselines independently from provider bundles.
- * The root profile deliberately flattens standalone and plugin-owned skills;
- * a same-name collision therefore remains visible to the output planner as a
- * conflicting source identity rather than being resolved by insertion order.
+ * The root profile contains standalone skills only. Plugin-owned skills use
+ * their canonical Agent Plugins package placement.
  */
 export async function renderAgentSkillStandards(
   graph: BuildGraph,
@@ -171,43 +169,6 @@ async function renderFlattenedAgentSkills(
         renderCodexSkillMarkdown,
       }))
     );
-  }
-  for (const plugin of graph.plugins) {
-    const pluginLicense = await resolvePluginLicense(
-      graph,
-      plugin,
-      rootLicense
-    );
-    for (const skill of plugin.skills) {
-      if (
-        classifyIndividualAgentSkillPublication(graph, plugin, skill).status !==
-        "eligible"
-      ) {
-        continue;
-      }
-      rendered.push(
-        ...(await renderStandardAgentSkillTree({
-          codexConsumer: shouldConsumeFlattenedPluginSkill(
-            graph,
-            plugin,
-            skill
-          ),
-          createLockItem,
-          graph,
-          inheritedLicense: pluginLicense,
-          lockRoots,
-          outputRoot: AGENT_SKILLS_OUTPUT_ROOT,
-          plugin,
-          skill,
-          standardProfile: "agent-skills",
-          targetSkillDir: agentSkillStandardDirectory(
-            AGENT_SKILLS_OUTPUT_ROOT,
-            skill
-          ),
-          renderCodexSkillMarkdown,
-        }))
-      );
-    }
   }
   return rendered;
 }
@@ -500,18 +461,6 @@ async function renderCodexAgentSkillAuxiliaryFiles(
       .map((file) => asCodexAgentSkillDeltaFile(file, sourceUnit)),
     preprocessDependencies: openAi?.preprocessDependencies ?? [],
   };
-}
-
-function shouldConsumeFlattenedPluginSkill(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  skill: SourceSkill
-): boolean {
-  return (
-    plugin.targets.codex.enabled &&
-    skill.targets.codex.enabled &&
-    isOutputSelected(graph.root.outputs.targetOutputs.codex.plugins, plugin.id)
-  );
 }
 
 function pushSkillRenderedFile(

@@ -19,7 +19,7 @@ export interface StandardProjectionSourceInventory {
   readonly skills: number
 }
 
-/** Every portable skill source is eligible for the Agent Skills projection. */
+/** Standalone skills use Agent Skills; plugin skills live in Agent Plugins. */
 export function standardProjectionSourceInventory(input: {
   readonly plugins: readonly SourcePlugin[]
   readonly rules: readonly SourceRule[]
@@ -28,9 +28,7 @@ export function standardProjectionSourceInventory(input: {
   return {
     instructions: input.rules.length,
     plugins: input.plugins.length,
-    skills:
-      input.standaloneSkills.length +
-      input.plugins.reduce((count, plugin) => count + plugin.skills.length, 0),
+    skills: input.standaloneSkills.length,
   }
 }
 

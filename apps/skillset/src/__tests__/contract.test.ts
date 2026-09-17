@@ -9667,7 +9667,7 @@ Audit body.
   expect(explainReport.standardProfiles).toContainEqual(
     expect.objectContaining({
       active: true,
-      id: "agent-skills",
+      id: "agent-plugins-1.0",
       lifecycle: "adopted",
     })
   );
@@ -9676,9 +9676,9 @@ Audit body.
   expect(doctor.exitCode).toBe(0);
   expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> skill-body degraded");
   expect(doctor.stdout).toContain(
-    "standards: active agent-plugins-1.0 (plugins), agent-skills (repo); registry agent-instructions adopted"
+    "standards: active agent-plugins-1.0 (plugins); registry agent-instructions adopted, agent-skills adopted"
   );
-  expect(doctor.stdout).toContain("status found 3 render result advisories");
+  expect(doctor.stdout).toContain("status found 2 render result advisories");
 
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
@@ -9692,17 +9692,12 @@ Audit body.
     }[];
   } }).data;
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
-  expect(doctorReport.notableRenderResults).toHaveLength(3);
+  expect(doctorReport.notableRenderResults).toHaveLength(2);
   expect(doctorReport.notableRenderResults).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
         featureId: "dependencies",
         standardProfile: "agent-plugins-1.0",
-        status: "unsupported",
-      }),
-      expect.objectContaining({
-        featureId: "plugin-skills",
-        standardProfile: "agent-skills",
         status: "unsupported",
       }),
       expect.objectContaining({
@@ -9716,7 +9711,7 @@ Audit body.
   expect(doctorReport.standardProfiles).toContainEqual(
     expect.objectContaining({
       active: true,
-      id: "agent-skills",
+      id: "agent-plugins-1.0",
       lifecycle: "adopted",
     })
   );
