@@ -113,28 +113,38 @@ async function expandPartials(
   context: PreprocessContext,
   mode: "all" | "references-only" = "all"
 ): Promise<string> {
-  const partialPattern = /\{\{\s*(?:>\s*([^}\s]+)|([^}\s]+))\s*\}\}/g;
+  const partialPattern =
+    /@\{\{\s*([^}\s]+)\s*\}\}|\{\{\s*>\s*([^}\s]+)\s*\}\}|\{\{\s*([^}\s]+)\s*\}\}/g;
   let expanded = "";
   let cursor = 0;
 
   for (const match of content.matchAll(partialPattern)) {
-    const [token, namedSpecifier, specifier] = match;
+    const [token, linkSpecifier, inlineSpecifier, bareSpecifier] = match;
     expanded += content.slice(cursor, match.index);
-    if (mode === "references-only" && !specifier?.startsWith("@")) {
+    if (
+      isMarkdownSource(context.sourcePath) &&
+      isInsideMarkdownCode(content, match.index)
+    ) {
       expanded += token;
-    } else if (namedSpecifier !== undefined) {
-      expanded += await readPartial(namedSpecifier, context, "named");
+    } else if (linkSpecifier !== undefined) {
+      assertCurrentLinkSpecifier(token, linkSpecifier, context);
+      expanded += `@${await renderPathReference(linkSpecifier, context)}`;
+    } else if (inlineSpecifier !== undefined) {
+      if (mode === "references-only") {
+        expanded += token;
+      } else {
+        assertCurrentInlineSpecifier(token, inlineSpecifier, context);
+        expanded += await readPartial(
+          inlineSpecifier,
+          context,
+          isScopedPartialSpecifier(inlineSpecifier) ? "path" : "named"
+        );
+      }
     } else if (
-      specifier !== undefined &&
-      specifier.startsWith("@") &&
-      isPartialSpecifier(specifier.slice(1))
+      bareSpecifier !== undefined &&
+      (await isRetiredBareReferenceSpecifier(bareSpecifier, context))
     ) {
-      expanded += await renderPathReference(specifier.slice(1), context);
-    } else if (
-      specifier !== undefined &&
-      (await shouldExpandPathPartial(specifier, context))
-    ) {
-      expanded += await readPartial(specifier, context, "path");
+      throw unsupportedReferenceSyntax(token, context);
     } else {
       expanded += token;
     }
@@ -142,6 +152,67 @@ async function expandPartials(
   }
 
   return `${expanded}${content.slice(cursor)}`;
+}
+
+function assertCurrentLinkSpecifier(
+  token: string,
+  specifier: string,
+  context: PreprocessContext
+): void {
+  if (!isScopedPartialSpecifier(specifier)) {
+    throw unsupportedReferenceSyntax(token, context);
+  }
+}
+
+function assertCurrentInlineSpecifier(
+  token: string,
+  specifier: string,
+  context: PreprocessContext
+): void {
+  if (specifier.startsWith("root:")) {
+    throw unsupportedReferenceSyntax(token, context);
+  }
+  if (
+    context.pluginPath !== undefined &&
+    specifier.startsWith(`${basename(context.pluginPath)}.`)
+  ) {
+    throw unsupportedReferenceSyntax(token, context);
+  }
+}
+
+function isScopedPartialSpecifier(specifier: string): boolean {
+  return specifier.startsWith("shared:") || specifier.startsWith("plugin:");
+}
+
+async function isRetiredBareReferenceSpecifier(
+  specifier: string,
+  context: PreprocessContext
+): Promise<boolean> {
+  if (
+    specifier.startsWith("shared:") ||
+    specifier.startsWith("plugin:") ||
+    specifier.startsWith("root:") ||
+    specifier.startsWith("@") ||
+    specifier.includes("/") ||
+    specifier.includes("\\")
+  ) {
+    return true;
+  }
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9._-]+$/u.test(specifier)) {
+    return false;
+  }
+
+  const basePath = dirname(context.partialBasePath ?? context.sourcePath);
+  return isFile(resolveInsideScoped(basePath, specifier, specifier, context));
+}
+
+function unsupportedReferenceSyntax(
+  token: string,
+  context: PreprocessContext
+): Error {
+  return new Error(
+    `skillset: unsupported reference syntax ${token} in ${relative(context.rootPath, context.sourcePath)}; use {{> X}} to inline or @{{X}} to link`
+  );
 }
 
 async function renderPathReference(
@@ -501,42 +572,6 @@ function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isPartialSpecifier(specifier: string): boolean {
-  if (
-    specifier.startsWith("this.") ||
-    specifier.startsWith("skillset.") ||
-    specifier.startsWith("parent.")
-  ) {
-    return false;
-  }
-  if (
-    specifier.startsWith("shared:") ||
-    specifier.startsWith("root:") ||
-    specifier.startsWith("plugin:")
-  ) {
-    return true;
-  }
-  return specifier.includes("/") || /^[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+$/.test(specifier);
-}
-
-async function shouldExpandPathPartial(
-  specifier: string,
-  context: PreprocessContext
-): Promise<boolean> {
-  if (!isPartialSpecifier(specifier)) return false;
-  if (
-    specifier.includes("/") ||
-    specifier.startsWith("shared:") ||
-    specifier.startsWith("root:") ||
-    specifier.startsWith("plugin:")
-  ) {
-    return true;
-  }
-
-  const basePath = dirname(context.partialBasePath ?? context.sourcePath);
-  return isFile(resolveInsideScoped(basePath, specifier, specifier, context));
-}
-
 function escapeTripleBraceTokens(content: string, escapedTokens: string[]): string {
   return content.replace(/\{\{\{\s*([^{}]+?)\s*\}\}\}/g, (_token, key: string) => {
     const marker = `\u0000skillset-escaped-${escapedTokens.length}\u0000`;
@@ -741,6 +776,38 @@ function normalizePath(path: string): string {
 
 function isMarkdownSource(path: string): boolean {
   return path.endsWith(".md");
+}
+
+function isInsideMarkdownCode(content: string, index: number): boolean {
+  return (
+    isInsideFencedCodeBlock(content, index) ||
+    isInsideInlineCodeSpan(content, index)
+  );
+}
+
+function isInsideInlineCodeSpan(content: string, index: number): boolean {
+  const lineStart = content.lastIndexOf("\n", index - 1) + 1;
+  const nextLineBreak = content.indexOf("\n", index);
+  const lineEnd = nextLineBreak === -1 ? content.length : nextLineBreak;
+  const line = content.slice(lineStart, lineEnd);
+  const relativeIndex = index - lineStart;
+  let openingLength: number | undefined;
+
+  for (const match of line.matchAll(/`+/g)) {
+    const matchIndex = match.index;
+    const marker = match[0];
+    if (matchIndex === undefined || marker === undefined) continue;
+    if (openingLength === undefined) {
+      if (matchIndex >= relativeIndex) return false;
+      openingLength = marker.length;
+      continue;
+    }
+    if (marker.length !== openingLength) continue;
+    if (matchIndex >= relativeIndex) return true;
+    openingLength = undefined;
+  }
+
+  return false;
 }
 
 function isInsideFencedCodeBlock(content: string, index: number): boolean {

@@ -1,0 +1,180 @@
+/* eslint-disable func-style -- Focused fixture helpers keep grammar cases compact. */
+
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+import {
+  type PreprocessContext,
+  preprocessText,
+  resolveMarkedPathReferences,
+} from "../preprocess";
+
+describe("preprocess reference grammar", () => {
+  let rootPath: string;
+
+  beforeEach(async () => {
+    rootPath = await mkdtemp(join(tmpdir(), "skillset-preprocess-references-"));
+  });
+
+  afterEach(async () => {
+    await rm(rootPath, { force: true, recursive: true });
+  });
+
+  test("uses {{> X}} for inline references and @{{X}} for links", async () => {
+    await files(rootPath, {
+      ".skillset/plugins/demo/shared/references/plugin.md": "Plugin reference",
+      ".skillset/shared/partials/intro.md": "Shared introduction",
+      ".skillset/shared/references/common.md": "Common reference",
+    });
+    const context = preprocessContext(rootPath, true);
+
+    await expect(
+      preprocessText(
+        [
+          "{{> intro}}",
+          "{{> shared:references/common.md}}",
+          "{{> plugin:references/plugin.md}}",
+          "@{{shared:references/common.md}}",
+          "@{{plugin:references/plugin.md}}",
+        ].join("\n"),
+        context
+      )
+    ).resolves.toBe(
+      [
+        "Shared introduction",
+        "Common reference",
+        "Plugin reference",
+        "@shared:references/common.md",
+        "@plugin:references/plugin.md",
+      ].join("\n")
+    );
+  });
+
+  test.each([
+    "{{shared:references/common.md}}",
+    "{{plugin:references/plugin.md}}",
+    "{{@shared:references/common.md}}",
+    "{{root:references/common.md}}",
+    "{{> root:references/common.md}}",
+    "@{{root:references/common.md}}",
+    "@{{references/common.md}}",
+    "{{references/common.md}}",
+    "{{> demo.intro}}",
+  ])("rejects retired reference syntax: %s", async (reference) => {
+    await expect(preprocessText(reference, preprocessContext(rootPath, true))).rejects.toThrow(
+      /unsupported reference syntax.*use \{\{> X\}\} to inline or @\{\{X\}\} to link/u
+    );
+  });
+
+  test("preserves references in Markdown code spans and fences", async () => {
+    const content = [
+      "`{{> intro}}` and `@{{references/common.md}}`",
+      "```md",
+      "{{> intro}}",
+      "{{shared:references/common.md}}",
+      "@{{shared:references/common.md}}",
+      "```",
+      "~~~",
+      "{{@shared:references/common.md}}",
+      "~~~",
+    ].join("\n");
+
+    await expect(preprocessText(content, preprocessContext(rootPath))).resolves.toBe(content);
+  });
+
+  test("preserves triple-brace escapes and unrelated brace expressions", async () => {
+    const content = [
+      "{{{> intro}}}",
+      "@{{{shared:references/common.md}}}",
+      "{{component.props}}",
+      "{{ value + 1 }}",
+      "{ordinary braces}",
+    ].join("\n");
+
+    await expect(preprocessText(content, preprocessContext(rootPath))).resolves.toBe(
+      [
+        "{{> intro}}",
+        "@{{shared:references/common.md}}",
+        "{{component.props}}",
+        "{{ value + 1 }}",
+        "{ordinary braces}",
+      ].join("\n")
+    );
+  });
+
+  test("rejects a retired bare relative file partial", async () => {
+    await files(rootPath, {
+      ".skillset/skills/example/local.md": "Local partial",
+    });
+
+    await expect(
+      preprocessText("{{local.md}}", preprocessContext(rootPath))
+    ).rejects.toThrow(/unsupported reference syntax/u);
+  });
+
+  test("preserves current and retired forms when preprocessing is disabled", async () => {
+    const content = [
+      "{{> intro}}",
+      "@{{shared:references/common.md}}",
+      "{{shared:references/common.md}}",
+      "{{@shared:references/common.md}}",
+      "@{{references/common.md}}",
+      "{{references/common.md}}",
+      "{{local.md}}",
+      "{{> root:references/common.md}}",
+      "{{> demo.intro}}",
+    ].join("\n");
+
+    await expect(
+      preprocessText(content, {
+        ...preprocessContext(rootPath, true),
+        frontmatter: { skillset: { preprocess: false } },
+      })
+    ).resolves.toBe(content);
+  });
+
+  test("uses the same current link grammar for marked path fields", async () => {
+    await files(rootPath, {
+      ".skillset/shared/references/common.md": "Common reference\n",
+    });
+
+    await expect(
+      resolveMarkedPathReferences(
+        "Read @{{shared:references/common.md}}.",
+        preprocessContext(rootPath)
+      )
+    ).resolves.toBe("Read @shared:references/common.md.");
+    await expect(
+      resolveMarkedPathReferences(
+        "Read {{@shared:references/common.md}}.",
+        preprocessContext(rootPath)
+      )
+    ).rejects.toThrow(/unsupported reference syntax/u);
+  });
+});
+
+function preprocessContext(rootPath: string, plugin = false): PreprocessContext {
+  return {
+    frontmatter: {},
+    ...(plugin ? { pluginPath: join(rootPath, ".skillset/plugins/demo") } : {}),
+    renderPathReference: ({ specifier }) => specifier,
+    rootPath,
+    sourcePath: join(
+      rootPath,
+      plugin ? ".skillset/plugins/demo/skills/example/SKILL.md" : ".skillset/skills/example/SKILL.md"
+    ),
+    sourceRoot: ".skillset",
+  };
+}
+
+async function files(rootPath: string, entries: Readonly<Record<string, string>>): Promise<void> {
+  await Promise.all(
+    Object.entries(entries).map(async ([path, content]) => {
+      const absolutePath = join(rootPath, path);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, content);
+    })
+  );
+}

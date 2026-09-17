@@ -34,7 +34,7 @@ hooks:
     - hook: old-hook
 ---
 
-Use {{@shared:references/old.txt}} and {{> old}}.
+Use @{{shared:references/old.txt}} and {{> old}}.
 `;
 
 describe("source rename planner", () => {
@@ -87,7 +87,7 @@ describe("source rename planner", () => {
         "    - hook: old-hook",
         "---",
         "",
-        "Use {{@shared:references/new.txt}} and {{> old}}.",
+        "Use @{{shared:references/new.txt}} and {{> old}}.",
         "",
       ].join("\n"),
       kind: "update",
@@ -113,7 +113,7 @@ describe("source rename planner", () => {
     const files = {
       ".skillset/shared/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
-        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\n{{@shared:old.txt}}\n",
+        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\n@{{shared:old.txt}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     };
@@ -490,7 +490,7 @@ describe("source rename planner", () => {
     const root = await fixture({
       ".skillset/shared/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
-        "---\nname: demo\ndescription: Demo\nresources:\n  templates:\n    - shared:old.txt\n---\n\n{{@shared:old.txt}}\n",
+        "---\nname: demo\ndescription: Demo\nresources:\n  templates:\n    - shared:old.txt\n---\n\n@{{shared:old.txt}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
@@ -802,7 +802,7 @@ describe("source rename planner", () => {
       ".claude/skills/demo/SKILL.md": "hand written unmanaged guidance\n",
       ".skillset/shared/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
-        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\nUse {{@shared:old.txt}}\n",
+        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\nUse @{{shared:old.txt}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
