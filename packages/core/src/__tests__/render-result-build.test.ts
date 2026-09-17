@@ -630,12 +630,34 @@ compile:
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-mcp",
-        outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/alpha/.mcp.json" }),
+        outputs: [
           expect.objectContaining({ path: "plugins/alpha/mcp.json" }),
-        ]),
+        ],
+        sourceUnit: "plugin.alpha.feature:mcp",
+        standardProfile: "agent-plugins-1.0",
+        status: "target_native",
+      })
+    );
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-mcp",
+        outputs: [
+          expect.objectContaining({ path: "plugins/alpha/.mcp.json" }),
+        ],
         sourceUnit: "plugin.alpha.feature:mcp",
         status: "target_native",
+        target: "claude",
+      })
+    );
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-mcp",
+        outputs: [
+          expect.objectContaining({ path: "plugins/alpha/mcp.json" }),
+        ],
+        sourceUnit: "plugin.alpha.feature:mcp",
+        status: "target_native",
+        target: "codex",
       })
     );
     expect(preview.renderResults).toContainEqual(

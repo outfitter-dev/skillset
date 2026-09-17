@@ -2034,11 +2034,14 @@ function resultSubjectsForLockItem(
   outputPaths: readonly string[]
 ): readonly RenderResultSubject[] {
   if (item.consumers.length > 0) {
-    return item.consumers.map((consumer) =>
-      "standardProfile" in consumer
-        ? { standardProfile: consumer.standardProfile }
-        : { target: consumer.target }
-    );
+    return item.consumers.flatMap((consumer) => {
+      if ("standardProfile" in consumer) {
+        return [{ standardProfile: consumer.standardProfile }];
+      }
+      return lockItemProducesTargetOutput(graph, item, consumer.target)
+        ? [{ target: consumer.target }]
+        : [];
+    });
   }
   if (item.owner !== undefined) {
     return [
@@ -2049,6 +2052,25 @@ function resultSubjectsForLockItem(
   }
   const target = targetForLockItem(graph, lock, item, outputPaths);
   return [target === undefined ? {} : { target }];
+}
+
+function lockItemProducesTargetOutput(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName
+): boolean {
+  if (item.kind !== "plugin-feature" || item.feature !== "mcp") return true;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.plugin);
+  const model = plugin?.features.find(
+    (feature) => feature.key === "mcp"
+  )?.portableMcp;
+  if (model === undefined) return true;
+  return Object.keys(model.servers).some(
+    (name) =>
+      !model.providerUnsupported.some(
+        (entry) => entry.name === name && entry.target === target
+      )
+  );
 }
 
 function targetForLockItem(
