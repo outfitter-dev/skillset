@@ -782,6 +782,7 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           ...(item.consumers.length === 0 ? {} : { consumers: item.consumers }),
           ...(item.dependencies === undefined ? {} : { dependencies: item.dependencies }),
           ...(item.draftOrigin === undefined ? {} : { draftOrigin: item.draftOrigin }),
+          ...(item.draftPolicy === undefined ? {} : { draftPolicy: item.draftPolicy }),
           ...(item.effectiveName === undefined ? {} : { effectiveName: item.effectiveName }),
           ...(item.feature === undefined ? {} : { feature: item.feature }),
           ...(fileModes === undefined ? {} : { fileModes }),

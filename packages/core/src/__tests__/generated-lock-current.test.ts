@@ -358,4 +358,20 @@ test("parses project-draft provenance fields in current v4 locks", () => {
       })
     )
   ).toThrow("draftOrigin must be _drafts, config, or status");
+  expect(
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...lock,
+        items: [{ ...item, draftPolicy: "override" }],
+      })
+    ).items[0]
+  ).toMatchObject({ draftPolicy: "override" });
+  expect(() =>
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...lock,
+        items: [{ ...item, draftPolicy: "replace" }],
+      })
+    )
+  ).toThrow("draftPolicy must be only or override");
 });

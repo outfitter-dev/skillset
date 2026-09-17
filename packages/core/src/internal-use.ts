@@ -1,7 +1,12 @@
 import { compareStrings } from "./path";
-import type { InternalUseConfig, SourcePlugin } from "./types";
+import type {
+  InternalUseConfig,
+  ProjectDraftPolicy,
+  SourcePlugin,
+} from "./types";
 
 export interface InternalUseDecision {
+  readonly draftPolicy?: ProjectDraftPolicy;
   readonly pluginId: string;
   readonly rule: string;
   readonly selected: boolean;
@@ -59,8 +64,12 @@ export function resolveInternalUseSelection(
       `plugins.internal_use.skills.${plugin.id}`
     );
     const draftPolicy = config.drafts[plugin.id];
+    const appliedDraftPolicy =
+      draftPolicy === "only" || draftPolicy === "override"
+        ? draftPolicy
+        : undefined;
     const draftsResolution = resolveSelector(
-      draftPolicy ?? false,
+      typeof draftPolicy === "string" ? false : (draftPolicy ?? false),
       draftIds,
       `plugins.internal_use.drafts.${plugin.id}`
     );
@@ -80,19 +89,20 @@ export function resolveInternalUseSelection(
             ? pluginsResolution.ruleFor(plugin.id)
             : `plugins.internal_use: omitted`;
       decisions.push({ pluginId: plugin.id, rule, selected, skillId, status: "live" });
-      if (selected) {
-        selectedSkills.push({ pluginId: plugin.id, skillId });
-        selectedLiveIds.add(skillId);
-      }
+      if (selected) selectedLiveIds.add(skillId);
     }
 
     for (const skillId of draftIds) {
       const hasShippedSibling = liveIds.includes(skillId);
       const shippedSiblingSelected = selectedLiveIds.has(skillId);
       const shippedSiblingExcluded = skillsResolution.excluded.has(skillId);
-      const selectedByDraftPolicy = draftPolicy === undefined
-        ? hasShippedSibling && shippedSiblingSelected
-        : draftsResolution.selected.has(skillId);
+      const selectedByDraftPolicy = appliedDraftPolicy === undefined
+        ? draftPolicy === undefined
+          ? hasShippedSibling && shippedSiblingSelected
+          : draftsResolution.selected.has(skillId)
+        : hasShippedSibling
+          ? shippedSiblingSelected
+          : pluginSelected;
       const selected =
         !pluginExcluded &&
         !draftsResolution.excluded.has(skillId) &&
@@ -108,14 +118,41 @@ export function resolveInternalUseSelection(
                 decision.skillId === skillId &&
                 decision.status === "live"
             )?.rule ?? draftsResolution.ruleFor(skillId)
+          : appliedDraftPolicy !== undefined && hasShippedSibling
+            ? decisions.find(
+                (decision) =>
+                  decision.pluginId === plugin.id &&
+                  decision.skillId === skillId &&
+                  decision.status === "live"
+              )?.rule ?? pluginsResolution.ruleFor(plugin.id)
+          : appliedDraftPolicy !== undefined
+            ? pluginsResolution.ruleFor(plugin.id)
           : draftPolicy === undefined && hasShippedSibling
             ? `plugins.internal_use.drafts.${plugin.id}: omitted (side-by-side)`
             : draftPolicy === false
               ? `plugins.internal_use.drafts.${plugin.id}: false`
               : draftsResolution.ruleFor(skillId);
-      decisions.push({ pluginId: plugin.id, rule, selected, skillId, status: "draft" });
+      decisions.push({
+        ...(appliedDraftPolicy === undefined
+          ? {}
+          : { draftPolicy: appliedDraftPolicy }),
+        pluginId: plugin.id,
+        rule,
+        selected,
+        skillId,
+        status: "draft",
+      });
       if (selected) selectedDrafts.push({ pluginId: plugin.id, skillId });
     }
+
+    const emittedLiveIds = appliedDraftPolicy === "only"
+      ? []
+      : appliedDraftPolicy === "override"
+        ? [...selectedLiveIds].filter((skillId) => !draftIds.includes(skillId))
+        : [...selectedLiveIds];
+    selectedSkills.push(
+      ...emittedLiveIds.map((skillId) => ({ pluginId: plugin.id, skillId }))
+    );
   }
 
   return {
@@ -180,7 +217,7 @@ function resolveSelector(
 }
 
 function validatePluginKeys(
-  selections: Readonly<Record<string, InternalUseConfig["plugins"]>>,
+  selections: Readonly<Record<string, unknown>>,
   pluginIds: readonly string[],
   field: "drafts" | "skills"
 ): void {

@@ -1684,9 +1684,13 @@ async function renderProjectSkillCopy(
             lock.sourceHash,
             copy.draftOrigin,
             copy.effectiveName,
-            copy.shippedSibling
+            copy.shippedSibling,
+            "draftPolicy" in copy ? copy.draftPolicy : undefined
           ),
         }),
+    ...("draftPolicy" in copy && copy.draftPolicy !== undefined
+      ? { draftPolicy: copy.draftPolicy }
+      : {}),
     effectiveName: copy.effectiveName,
     owner: { target },
     role: plugin === undefined ? "bundle" as const : "project-use" as const,
@@ -1706,7 +1710,8 @@ function hashDraftProjectionSource(
   sourceHash: string,
   draftOrigin: NonNullable<SourceSkill["draftOrigin"]>,
   effectiveName: string,
-  shippedSibling: string | undefined
+  shippedSibling: string | undefined,
+  draftPolicy: "only" | "override" | undefined
 ): string {
   const hash = createHash("sha256");
   hash.update("skillset-draft-projection-v1\0");
@@ -1717,6 +1722,10 @@ function hashDraftProjectionSource(
   hash.update(effectiveName);
   hash.update("\0");
   hash.update(shippedSibling ?? "");
+  if (draftPolicy !== undefined) {
+    hash.update("\0");
+    hash.update(draftPolicy);
+  }
   return `sha256:${hash.digest("hex")}`;
 }
 
@@ -2714,6 +2723,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     files: [...item.files],
     dependencies: item.dependencies === undefined ? undefined : [...item.dependencies],
     draftOrigin: item.draftOrigin,
+    draftPolicy: item.draftPolicy,
     effectiveName: item.effectiveName,
     includedSkills: item.includedSkills === undefined ? undefined : [...item.includedSkills],
     kind: item.kind,

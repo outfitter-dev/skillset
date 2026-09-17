@@ -887,6 +887,22 @@ describe("@skillset/schema contracts", () => {
         },
       }).diagnostics
     ).toEqual([]);
+    for (const draftPolicy of ["only", "override"] as const) {
+      expect(
+        validateSingleFileRootConfig({
+          plugins: { internal_use: { drafts: { demo: draftPolicy } } },
+        }).diagnostics
+      ).toEqual([]);
+    }
+    for (const internal_use of [
+      { plugins: "only" },
+      { skills: { demo: "override" } },
+      { drafts: { demo: "side-by-side" } },
+    ]) {
+      expect(
+        validateSingleFileRootConfig({ plugins: { internal_use } }).ok
+      ).toBe(false);
+    }
     expect(
       validatePluginConfig({ drafts: ["skill:future"] }).diagnostics
     ).toEqual([]);

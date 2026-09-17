@@ -88,6 +88,29 @@ describe("schema-owned config document contexts", () => {
         },
       },
     });
+
+    for (const draftPolicy of ["only", "override"] as const) {
+      expect(
+        readWorkspacePluginsConfig(
+          { plugins: { internal_use: { drafts: { demo: draftPolicy } } } },
+          "skillset.yaml"
+        ).internalUse.drafts
+      ).toEqual({ demo: draftPolicy });
+    }
+    for (const field of ["plugins", "skills"] as const) {
+      expect(() =>
+        readWorkspacePluginsConfig(
+          {
+            plugins: {
+              internal_use: field === "plugins"
+                ? { plugins: "only" }
+                : { skills: { demo: "override" } },
+            },
+          },
+          "skillset.yaml"
+        )
+      ).toThrow("expected");
+    }
   });
 
   it("rejects removed skill-root overrides without closing provider target blocks", () => {

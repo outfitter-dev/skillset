@@ -9,6 +9,8 @@ drafts: []
 internal_marker: true
 plugins:
   internal_use:
+    drafts:
+      mg-skills: override
     plugins:
       - mg-skills
     skills:

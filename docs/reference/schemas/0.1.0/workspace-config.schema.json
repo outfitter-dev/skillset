@@ -762,15 +762,26 @@
                   "additionalProperties": {
                     "anyOf": [
                       {
-                        "type": "boolean"
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        ]
                       },
                       {
-                        "items": {
-                          "minLength": 1,
-                          "type": "string"
-                        },
-                        "type": "array",
-                        "uniqueItems": true
+                        "enum": [
+                          "only",
+                          "override"
+                        ],
+                        "type": "string"
                       }
                     ]
                   },
