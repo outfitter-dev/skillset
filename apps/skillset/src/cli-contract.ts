@@ -460,6 +460,7 @@ export const CLI_ROUTE_FLAGS = {
   "lookup features": ["--json"],
   "marketplace check": ["--json", "--root"],
   "marketplace update": ["--json", "--root", "--yes"],
+  move: ["--json", "--root", "--yes"],
   new: [
     "--attach",
     "--command",
@@ -516,6 +517,7 @@ export const FINITE_JSON_ROUTES = [
   "explain",
   "reconcile",
   "rename",
+  "move",
   "build",
   "update",
   "diff",

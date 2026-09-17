@@ -21,6 +21,7 @@ import {
   runStatusCommand,
 } from "./inspect-cli";
 import { PromptCancelledError } from "./prompt-adapter";
+import { runMoveCommand } from "./move-cli";
 import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
 import { runRenameCommand } from "./rename-cli";
 import { runReleaseCommand } from "./release-cli";
@@ -76,6 +77,8 @@ export async function runCli(
         : runLookupRoute(route.request.value);
     case "marketplace":
       return runMarketplaceCommand(route.request);
+    case "move":
+      return runMoveCommand(route.request);
     case "new":
       return runNewCommand(route.request);
     case "reconcile":

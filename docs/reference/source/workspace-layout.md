@@ -86,6 +86,15 @@ Nearby `skillset.lock` files record source paths, destination ownership, project
 
 Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. [Build and activation are separate workflows](../../start/build-versus-activation.md).
 
+`skillset move <from> <to>` moves one shipped skill between
+`.skillset/skills/<leaf>` and
+`.skillset/plugins/<plugin>/skills/<leaf>` inside this workspace. It preserves
+the leaf identity, carries only a same-container `_drafts/<leaf>` sibling,
+rewrites current source selectors, and appends identity history without
+rewriting old change records. External checkouts, another workspace, arbitrary
+directories, and leaf changes are refused before any write. The command is
+plan-first; rerun the displayed operation with `--yes` to apply it atomically.
+
 ## Operational storage and lifetimes
 
 Skillset keeps authored source, reproducible output, temporary operational

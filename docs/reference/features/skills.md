@@ -96,6 +96,19 @@ Generated skills are [generated output](../../glossary.md#generated-output), not
 
 Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use, writes only when confirmation is explicit, and rejects ids outside Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens. Add `--draft` to create `<source-root>/skills/_drafts/<id>/SKILL.md`, or combine it with `--in <plugin>` for a plugin-local draft; authored frontmatter keeps the ordinary leaf name.
 
+Use [`skillset move`](../cli/move.md) to move a shipped skill between the
+workspace collection and one plugin collection in the same workspace. The
+destination must keep the same leaf name. A same-container `_drafts/<leaf>`
+sibling moves in the same atomic plan, current agent/configuration references
+follow the new `skill:<leaf>` or `plugin.<plugin>.skill:<leaf>` identity, and
+generated files and locks move to their newly owned destinations. Moving a
+plugin skill into the workspace removes direct
+`plugins.internal_use.skills` and `plugins.internal_use.drafts` selections for
+that plugin leaf and reports the removal; it does not turn them into implicit
+workspace selection. Preview the complete plan first and add `--yes` to apply
+its hash. Use `skillset rename` for a same-collection leaf rename; `rename`
+does not cross the workspace/plugin boundary.
+
 ## Provenance
 
 Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`. Project-use copies use `role: project-use` and record their target owner, canonical source unit, effective name, and selection rule. Draft entries also record `draftOrigin` and `shippedSibling` when a same-container live counterpart exists.

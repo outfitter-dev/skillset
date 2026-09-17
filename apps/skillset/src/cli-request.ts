@@ -10,6 +10,7 @@ import type {
 } from "./distribution-cli";
 import type { HooksCommandRequest } from "./hooks-cli";
 import type { InitCommandRequest } from "./init-cli";
+import type { MoveCommandRequest } from "./move-cli";
 import type {
   ExplainCommandRequest,
   ListCommandRequest,
@@ -58,6 +59,7 @@ export type CliRequest =
       readonly command: "marketplace";
       readonly request: MarketplaceCommandRequest;
     }
+  | { readonly command: "move"; readonly request: MoveCommandRequest }
   | { readonly command: "new"; readonly request: NewCommandRequest }
   | {
       readonly command: "reconcile";
