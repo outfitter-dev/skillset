@@ -122,13 +122,13 @@ describe('standard projection resolution', () => {
       },
       {
         lockRoot: 'plugins',
-        path: 'plugins/alpha/agents',
+        path: 'plugins/alpha',
         scope: 'plugins',
         standardProfile: 'agent-plugins-1.0',
       },
       {
         lockRoot: 'plugins',
-        path: 'plugins/beta/agents',
+        path: 'plugins/beta',
         scope: 'plugins',
         standardProfile: 'agent-plugins-1.0',
       },
