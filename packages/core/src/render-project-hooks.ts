@@ -100,7 +100,13 @@ async function renderProjectHook(
   if (removeOnly && !hadFile) return undefined;
   const content = JSON.stringify(next, null, 2) + "\n";
   return {
-    file: { content: textEncoder.encode(content), mode: 0o644, path: outputPath, sourcePath: relative(graph.rootPath, graph.rootConfigPath) },
+    file: {
+      content: textEncoder.encode(content),
+      mode: 0o644,
+      partialOwnership: "settings-entry",
+      path: outputPath,
+      sourcePath: relative(graph.rootPath, graph.rootConfigPath),
+    },
     managed: !removeOnly,
     ownership: {
       commandHash: hashCommand(SESSION_START_COMMAND),

@@ -488,6 +488,8 @@ export interface RenderedFile {
   /** Normalized portable file mode applied to generated Unix outputs. */
   readonly mode: GeneratedFileMode;
   readonly path: string;
+  /** A provider settings file is composed around field-level owned entries. */
+  readonly partialOwnership?: "settings-entry";
   readonly sourcePath?: string;
 }
 

@@ -39,6 +39,7 @@ export interface ManagedOutputState {
   /** Managed paths whose bytes on disk no longer match the lock's `outputHash`. */
   readonly editedPaths: ReadonlySet<string>;
   readonly hasBaseline: boolean;
+  readonly partialPaths: ReadonlySet<string>;
   readonly paths: ReadonlySet<string>;
   /**
    * Managed paths whose lock item yields no trustworthy disk-vs-lock verdict:
@@ -191,10 +192,17 @@ export async function readManagedOutputState(
   provenancePolicy?: ManagedOutputProvenancePolicy
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
+  const partialPaths = new Set<string>();
   const editedPaths = new Set<string>();
   const lockIncomparablePaths = new Set<string>();
   const renderDriftPaths = new Set<string>();
-  const sinks = { editedPaths, lockIncomparablePaths, paths, renderDriftPaths };
+  const sinks = {
+    editedPaths,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  };
   let hasBaseline = false;
 
   if (includeWorkspaceLock) {
@@ -205,13 +213,21 @@ export async function readManagedOutputState(
     hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, sinks, resolveOutputPath, strictOutputRoots.has(outputRoot), provenancePolicy)) || hasBaseline;
   }
 
-  return { editedPaths, hasBaseline, lockIncomparablePaths, paths, renderDriftPaths };
+  return {
+    editedPaths,
+    hasBaseline,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  };
 }
 
 /** Mutable accumulators filled while walking each managed lock. */
 interface ManagedOutputStateSinks {
   readonly editedPaths: Set<string>;
   readonly lockIncomparablePaths: Set<string>;
+  readonly partialPaths: Set<string>;
   readonly paths: Set<string>;
   readonly renderDriftPaths: Set<string>;
 }
@@ -578,7 +594,13 @@ async function addManagedPathsFromLock(
   requireProvenance: boolean,
   provenancePolicy: ManagedOutputProvenancePolicy | undefined
 ): Promise<boolean> {
-  const { editedPaths, lockIncomparablePaths, paths, renderDriftPaths } = sinks;
+  const {
+    editedPaths,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  } = sinks;
   const renderedByPath = provenancePolicy?.renderedByPath;
   const displayLockPath = outPath(lockPath);
   const absoluteLockPath = resolveOutputPath(displayLockPath);
@@ -599,9 +621,12 @@ async function addManagedPathsFromLock(
     const files = item.files
       .map((file) => ({ displayPath: outPath(joinOutputRoot(expectedOutputRoot, file)), file }))
       .sort((left, right) => compareStrings(left.file, right.file));
-    // A settings-entry lock owns a member inside a provider settings file. It
-    // never owns the containing file, so stale cleanup must not delete it.
-    if (item.kind !== "settings-entry") {
+    if (item.kind === "settings-entry") {
+      for (const file of files) {
+        paths.add(file.displayPath);
+        partialPaths.add(file.displayPath);
+      }
+    } else {
       for (const file of files) paths.add(file.displayPath);
     }
     if (!lock.outputHashesTrusted) {
@@ -899,6 +924,10 @@ function collectOutputBackupRecords(
       !caseOnlyManagedInspection.targets.has(file.path) &&
       matchesRendered
     ) {
+      continue;
+    }
+
+    if (managedPath === undefined && file.partialOwnership === "settings-entry") {
       continue;
     }
 

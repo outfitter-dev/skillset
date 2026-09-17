@@ -10413,7 +10413,14 @@ async function createExplicitUnmanagedBackup(root: string): Promise<string> {
       sourcePath: ".skillset/rules/root.md",
     }],
     [],
-    { editedPaths: new Set(), hasBaseline: false, lockIncomparablePaths: new Set(), paths: new Set(), renderDriftPaths: new Set() }
+    {
+      editedPaths: new Set(),
+      hasBaseline: false,
+      lockIncomparablePaths: new Set(),
+      partialPaths: new Set(),
+      paths: new Set(),
+      renderDriftPaths: new Set(),
+    }
   );
   const runId = prepared.backup?.runId;
   if (runId === undefined) throw new Error("missing explicit backup id");

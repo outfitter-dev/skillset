@@ -635,7 +635,9 @@ async function inspectOutputPlan(args: {
 }): Promise<OutputPlanInspection> {
   const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
   const actualPaths = new Set(actualPathList);
-  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered).filter((path) => actualPaths.has(path));
+  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered)
+    .filter((path) => !args.previousManagedState.partialPaths.has(path))
+    .filter((path) => actualPaths.has(path));
   const added: string[] = [];
   const changed: string[] = [];
   const missing: string[] = [];
