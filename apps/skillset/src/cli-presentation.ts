@@ -122,6 +122,15 @@ const PRESENTATION = {
       "diff [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
     ],
   },
+  draft: {
+    examples: [
+      "skillset draft .skillset/skills/demo",
+      "skillset draft .skillset/plugins/tools/skills/demo --yes",
+    ],
+    group: "Author",
+    summary: "Preview and atomically fork a shipped skill into its draft sibling.",
+    synopses: ["draft <shipped-path> [--yes] [--json] [--root <path>]"],
+  },
   "eval list": {
     group: "Inspect",
     summary: "List portable skill eval cases and their resolved target matrix.",
@@ -251,6 +260,15 @@ const PRESENTATION = {
     synopses: [
       "new [plugin|skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--draft] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
     ],
+  },
+  promote: {
+    examples: [
+      "skillset promote .skillset/skills/_drafts/demo",
+      "skillset promote .skillset/plugins/tools/skills/_drafts/demo --yes",
+    ],
+    group: "Author",
+    summary: "Preview and atomically promote a draft skill to its shipped sibling.",
+    synopses: ["promote <draft-path> [--yes] [--json] [--root <path>]"],
   },
   reconcile: {
     examples: [
