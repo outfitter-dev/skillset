@@ -483,6 +483,12 @@ function printStatusReport(
       );
     }
   }
+  for (const entry of report.projectUse) {
+    writeLine(
+      writer,
+      `  project use [${entry.target}]: source=${entry.sourceUnit} (${entry.sourcePath}); selection=${entry.selectionRule}; effectiveName=${entry.effectiveName}; role=${entry.role}; owner=${entry.owner.target}`
+    );
+  }
   for (const issue of report.lintIssues) {
     writeLine(
       writer,

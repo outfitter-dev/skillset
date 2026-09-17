@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { buildSkillsetResult } from "@skillset/core";
-import { explainPath } from "@skillset/core/internal/authoring";
+import {
+  doctorSkillset,
+  explainPath,
+} from "@skillset/core/internal/authoring";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
@@ -119,6 +122,20 @@ plugins:
         }),
       ],
     });
+    expect((await doctorSkillset(root)).projectUse).toEqual(
+      expect.arrayContaining([
+        {
+          effectiveName: "alpha-shared",
+          owner: { target: "codex" },
+          role: "project-use",
+          selectionRule: "plugins.internal_use.skills.alpha: true",
+          sourcePath:
+            ".skillset/plugins/alpha/skills/(group)/shared/SKILL.md",
+          sourceUnit: "plugin.alpha.skill:shared",
+          target: "codex",
+        },
+      ])
+    );
 
     await mkdir(join(root, ".agents/skills/unmanaged"), { recursive: true });
     await writeFile(join(root, ".agents/skills/unmanaged/NOTE.md"), "keep\n");
@@ -156,4 +173,182 @@ plugins:
     );
     expect(markdown).not.toContain("internal:");
   });
+
+  it("allocates final names globally across workspace and plugin prefix collisions", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:
+  name: global-project-use-names
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      alpha: true
+      beta: true
+      delta: true
+      epsilon: true
+      gamma: true
+`,
+      ".skillset/skills/shared/SKILL.md": skill("shared", "Workspace shared"),
+      ".skillset/skills/alpha-shared/SKILL.md": skill(
+        "alpha-shared",
+        "Workspace prefixed"
+      ),
+      ".skillset/plugins/alpha/skillset.yaml": "skillset:\n  name: alpha\n",
+      ".skillset/plugins/alpha/skills/shared/SKILL.md": skill(
+        "shared",
+        "Alpha shared"
+      ),
+      ".skillset/plugins/beta/skillset.yaml": "skillset:\n  name: beta\n",
+      ".skillset/plugins/beta/skills/shared/SKILL.md": skill(
+        "shared",
+        "Beta shared"
+      ),
+      ".skillset/plugins/delta/skillset.yaml": "skillset:\n  name: delta\n",
+      ".skillset/plugins/delta/skills/common/SKILL.md": skill(
+        "common",
+        "Delta common"
+      ),
+      ".skillset/plugins/epsilon/skillset.yaml": "skillset:\n  name: epsilon\n",
+      ".skillset/plugins/epsilon/skills/common/SKILL.md": skill(
+        "common",
+        "Epsilon common"
+      ),
+      ".skillset/plugins/gamma/skillset.yaml": "skillset:\n  name: gamma\n",
+      ".skillset/plugins/gamma/skills/delta-common/SKILL.md": skill(
+        "delta-common",
+        "Gamma prefixed"
+      ),
+    });
+
+    const result = await buildSkillsetResult(root);
+    for (const name of [
+      "shared",
+      "alpha-shared",
+      "alpha-alpha-shared",
+      "beta-shared",
+      "delta-delta-common",
+      "epsilon-common",
+      "gamma-delta-common",
+    ]) {
+      expect(
+        await Bun.file(join(root, `.agents/skills/${name}/SKILL.md`)).exists()
+      ).toBe(true);
+    }
+    const alphaDiagnostic = result.renderResults.find(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.alpha.skill:shared" &&
+        outcome.target === "codex" &&
+        outcome.diagnostics?.some(
+          (diagnostic) => diagnostic.code === "internal-use-name-conflict"
+        )
+    );
+    const message = alphaDiagnostic?.diagnostics?.find(
+      (diagnostic) => diagnostic.code === "internal-use-name-conflict"
+    )?.message ?? "";
+    for (const source of [
+      "workspace:shared",
+      "workspace:alpha-shared",
+      "plugin.alpha.skill:shared",
+      "plugin.beta.skill:shared",
+    ]) {
+      expect(message).toContain(source);
+    }
+    expect(message).toContain("emitted as alpha-alpha-shared");
+
+    const deltaMessage = result.renderResults.find(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.delta.skill:common" &&
+        outcome.target === "codex" &&
+        outcome.diagnostics?.some(
+          (diagnostic) => diagnostic.code === "internal-use-name-conflict"
+        )
+    )?.diagnostics?.find(
+      (diagnostic) => diagnostic.code === "internal-use-name-conflict"
+    )?.message ?? "";
+    for (const source of [
+      "plugin.delta.skill:common",
+      "plugin.epsilon.skill:common",
+      "plugin.gamma.skill:delta-common",
+    ]) {
+      expect(deltaMessage).toContain(source);
+    }
+    expect(deltaMessage).toContain("emitted as delta-delta-common");
+  });
+
+  it("keeps Agent Skills partial dependencies in Codex project-use provenance", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:
+  name: project-use-partials
+compile:
+  unsupportedDestination: warn
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      demo: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": skill(
+        "use-me",
+        "Use {{> note}}"
+      ),
+      ".skillset/plugins/demo/shared/partials/note.md": "first note\n",
+    });
+
+    await buildSkillsetResult(root);
+    const firstLock = await projectUseLock(root);
+    expect(firstLock.preprocessDependencies).toEqual([
+      ".skillset/plugins/demo/shared/partials/note.md",
+    ]);
+    expect(
+      await readFile(join(root, ".agents/skills/use-me/SKILL.md"), "utf8")
+    ).toContain("first note");
+
+    await writeFile(
+      join(root, ".skillset/plugins/demo/shared/partials/note.md"),
+      "second note\n"
+    );
+    await buildSkillsetResult(root);
+    const secondLock = await projectUseLock(root);
+    expect(secondLock.preprocessDependencies).toEqual(
+      firstLock.preprocessDependencies
+    );
+    expect(secondLock.outputHash).not.toBe(firstLock.outputHash);
+    expect(secondLock.sourceHash).not.toBe(firstLock.sourceHash);
+    expect(
+      await readFile(join(root, ".agents/skills/use-me/SKILL.md"), "utf8")
+    ).toContain("second note");
+  });
 });
+
+async function projectUseLock(root: string): Promise<{
+  readonly outputHash: string;
+  readonly preprocessDependencies?: readonly string[];
+  readonly sourceHash: string;
+}> {
+  const lock = JSON.parse(
+    await readFile(join(root, ".agents/skills/skillset.lock"), "utf8")
+  ) as {
+    readonly items: readonly {
+      readonly outputHash?: string;
+      readonly preprocessDependencies?: readonly string[];
+      readonly role?: string;
+      readonly sourceHash?: string;
+    }[];
+  };
+  const item = lock.items.find((candidate) => candidate.role === "project-use");
+  if (item?.outputHash === undefined || item.sourceHash === undefined) {
+    throw new Error("expected project-use lock item with source and output hashes");
+  }
+  return {
+    outputHash: item.outputHash,
+    ...(item.preprocessDependencies === undefined
+      ? {}
+      : { preprocessDependencies: item.preprocessDependencies }),
+    sourceHash: item.sourceHash,
+  };
+}

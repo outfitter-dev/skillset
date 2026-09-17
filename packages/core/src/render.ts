@@ -1222,7 +1222,13 @@ async function renderProjectUseSkill(
         includeAdaptiveHooks: false,
         internal: graph.root.internalMarker,
       })
-    : await renderCodexSkillMarkdownFromStandard(graph, plugin, skill, standard.content);
+    : await renderCodexSkillMarkdownFromStandard(
+        graph,
+        plugin,
+        skill,
+        standard.content,
+        standard.preprocessDependencies
+      );
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph, plugin, skill, target, sourceDir, targetSkillDir
   );
@@ -1478,7 +1484,8 @@ async function renderCodexSkillMarkdownFromStandard(
   graph: BuildGraph,
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
-  baselineContent: string
+  baselineContent: string,
+  baselinePreprocessDependencies: readonly string[] = []
 ): Promise<RenderedSkillMarkdown> {
   const baseline = parseMarkdown(
     baselineContent,
@@ -1497,7 +1504,7 @@ async function renderCodexSkillMarkdownFromStandard(
       translated.text,
       `${relative(graph.rootPath, skill.sourcePath)} -> coalesced Codex skill`
     ),
-    preprocessDependencies: [],
+    preprocessDependencies: [...baselinePreprocessDependencies],
     transforms: translated.transforms,
   };
 }
