@@ -44,12 +44,22 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
     "utf8"
   );
   expect(codexSkill).toContain("[report template](docs/report.md)");
-  expect(codexSkill).toContain("[shared reference](references/shared-ref.md)");
-  expect(codexSkill).toContain("[plugin reference](references/plugin-ref.md#usage)");
+  expect(codexSkill).toContain("@references/shared-ref.md");
+  expect(codexSkill).toContain("@references/plugin-ref.md");
   expect(codexSkill).toContain("Workspace partial: prefer shared setup before plugin-specific work.");
   expect(codexSkill).toContain("Plugin partial: use the kitchen plugin conventions.");
   expect(codexSkill).not.toContain("shared:");
   expect(codexSkill).not.toContain("plugin:");
+  for (const relativePath of [
+    "references/shared-ref.md",
+    "references/plugin-ref.md",
+  ]) {
+    expect(
+      await readFile(join(root, "plugins/kitchen/chatgpt/skills/sink", relativePath))
+    ).toEqual(
+      await readFile(join(root, "plugins/kitchen/claude/skills/sink", relativePath))
+    );
+  }
 
   // Target-native companion surfaces.
   expect(await exists(join(root, "plugins/kitchen/claude/commands/review.md"))).toBe(true);

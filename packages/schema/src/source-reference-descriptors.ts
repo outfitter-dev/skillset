@@ -164,7 +164,7 @@ export const skillsetSourceReferenceExclusions = Object.freeze([
   }),
   freezeExclusion({
     id: "unmarked-prose-and-markdown",
-    reason: "Unmarked prose, Markdown links, and code spans are not structured references; marked {{@...}} tokens remain in the first reference contract.",
+    reason: "Unmarked prose, Markdown links, and code spans are not structured references; marked @{{...}} tokens remain in the first reference contract.",
   }),
   freezeExclusion({
     id: "append-only-history",

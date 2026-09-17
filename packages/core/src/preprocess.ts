@@ -26,7 +26,7 @@ export interface PreprocessContext {
   readonly promptArguments?: boolean;
   readonly renderPathReference?: (
     reference: ResolvedPreprocessPathReference
-  ) => string;
+  ) => Promise<string> | string;
   readonly variables?: Readonly<Record<string, string>>;
 }
 
@@ -34,6 +34,12 @@ export interface ResolvedPreprocessPathReference {
   readonly resolvedPath: string;
   readonly scheme?: "plugin" | "shared";
   readonly specifier: string;
+}
+
+export interface PreprocessReferenceToken {
+  readonly kind: "inline-named" | "inline-path" | "link";
+  readonly specifier: string;
+  readonly token: string;
 }
 
 export async function preprocessText(
@@ -67,6 +73,30 @@ export async function resolveMarkedPathReferences(
   );
   const expanded = await expandPartials(normalized, context, "references-only");
   return restoreTripleBraceTokens(expanded, escapedTokens);
+}
+
+export async function rewritePreprocessReferences(
+  content: string,
+  context: PreprocessContext,
+  rewrite: (
+    reference: PreprocessReferenceToken
+  ) => Promise<string> | string
+): Promise<string> {
+  if (isPreprocessDisabled(context.frontmatter)) {
+    return normalizeText(content);
+  }
+
+  const escapedTokens: string[] = [];
+  const normalized = escapeTripleBraceTokens(
+    normalizeText(content),
+    escapedTokens
+  );
+  const rewritten = await transformPreprocessReferences(
+    normalized,
+    context,
+    rewrite
+  );
+  return restoreTripleBraceTokens(rewritten, escapedTokens);
 }
 
 export function formatPreprocessDependency(rootPath: string, dependency: string): string {
@@ -113,6 +143,28 @@ async function expandPartials(
   context: PreprocessContext,
   mode: "all" | "references-only" = "all"
 ): Promise<string> {
+  return transformPreprocessReferences(content, context, async (reference) => {
+    if (reference.kind === "link") {
+      return `@${await renderPathReference(reference.specifier, context)}`;
+    }
+    if (mode === "references-only") {
+      return reference.token;
+    }
+    return readPartial(
+      reference.specifier,
+      context,
+      reference.kind === "inline-named" ? "named" : "path"
+    );
+  });
+}
+
+async function transformPreprocessReferences(
+  content: string,
+  context: PreprocessContext,
+  rewrite: (
+    reference: PreprocessReferenceToken
+  ) => Promise<string> | string
+): Promise<string> {
   const partialPattern =
     /@\{\{\s*([^}\s]+)\s*\}\}|\{\{\s*>\s*([^}\s]+)\s*\}\}|\{\{\s*([^}\s]+)\s*\}\}/g;
   let expanded = "";
@@ -128,18 +180,20 @@ async function expandPartials(
       expanded += token;
     } else if (linkSpecifier !== undefined) {
       assertCurrentLinkSpecifier(token, linkSpecifier, context);
-      expanded += `@${await renderPathReference(linkSpecifier, context)}`;
+      expanded += await rewrite({
+        kind: "link",
+        specifier: linkSpecifier,
+        token,
+      });
     } else if (inlineSpecifier !== undefined) {
-      if (mode === "references-only") {
-        expanded += token;
-      } else {
-        assertCurrentInlineSpecifier(token, inlineSpecifier, context);
-        expanded += await readPartial(
-          inlineSpecifier,
-          context,
-          isInlineNamedPartialSpecifier(inlineSpecifier) ? "named" : "path"
-        );
-      }
+      assertCurrentInlineSpecifier(token, inlineSpecifier, context);
+      expanded += await rewrite({
+        kind: isInlineNamedPartialSpecifier(inlineSpecifier)
+          ? "inline-named"
+          : "inline-path",
+        specifier: inlineSpecifier,
+        token,
+      });
     } else if (
       bareSpecifier !== undefined &&
       (await isRetiredBareReferenceSpecifier(bareSpecifier, context))
@@ -188,7 +242,18 @@ function isInlineNamedPartialSpecifier(specifier: string): boolean {
   if (!specifier.startsWith("plugin:")) {
     return !specifier.startsWith("shared:");
   }
-  return !specifier.slice("plugin:".length).includes(".");
+  const pluginSpecifier = specifier.slice("plugin:".length);
+  const [firstSegment] = pluginSpecifier.split("/");
+  if (
+    firstSegment === "assets" ||
+    firstSegment === "partials" ||
+    firstSegment === "references" ||
+    firstSegment === "scripts" ||
+    firstSegment === "templates"
+  ) {
+    return false;
+  }
+  return !pluginSpecifier.includes(".");
 }
 
 async function isRetiredBareReferenceSpecifier(
@@ -247,7 +312,7 @@ async function renderPathReference(
       ...(scheme === undefined ? {} : { scheme }),
       specifier,
     };
-    return context.renderPathReference?.(reference) ?? specifier;
+    return await (context.renderPathReference?.(reference) ?? specifier);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(

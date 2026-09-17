@@ -111,9 +111,9 @@ describe("source rename planner", () => {
 
   test("hashes identical source plans identically across workspace paths", async () => {
     const files = {
-      ".skillset/shared/old.txt": "old\n",
+      ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
-        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\n@{{shared:old.txt}}\n",
+        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:references/old.txt\n---\n\n@{{shared:references/old.txt}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     };
@@ -122,14 +122,14 @@ describe("source rename planner", () => {
       fixture(files),
     ]);
     const first = await planSourceRename({
-      from: ".skillset/shared/old.txt",
+      from: ".skillset/shared/references/old.txt",
       rootPath: firstRoot,
-      to: ".skillset/shared/new.txt",
+      to: ".skillset/shared/references/new.txt",
     });
     const second = await planSourceRename({
-      from: ".skillset/shared/old.txt",
+      from: ".skillset/shared/references/old.txt",
       rootPath: secondRoot,
-      to: ".skillset/shared/new.txt",
+      to: ".skillset/shared/references/new.txt",
     });
     expect(first.planHash).toBe(second.planHash);
   });
@@ -181,6 +181,93 @@ describe("source rename planner", () => {
       kind: "update",
       path: ".skillset/plugins/demo/skills/demo/SKILL.md",
     });
+  });
+
+  test("rewrites explicit inline shared paths through the current reference grammar", async () => {
+    const root = await fixture({
+      ".skillset/shared/references/old.md": "Old reference\n",
+      ".skillset/skills/demo/SKILL.md":
+        "---\nname: demo\ndescription: Demo\n---\n\n{{> shared:references/old.md}}\n",
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+
+    const plan = await planSourceRename({
+      from: ".skillset/shared/references/old.md",
+      rootPath: root,
+      to: ".skillset/shared/references/new.md",
+    });
+
+    expect(plan.operations).toContainEqual({
+      content:
+        "---\nname: demo\ndescription: Demo\n---\n\n{{> shared:references/new.md}}\n",
+      kind: "update",
+      path: ".skillset/skills/demo/SKILL.md",
+    });
+  });
+
+  test("preserves current references in Markdown code spans and fences", async () => {
+    const root = await fixture({
+      ".skillset/shared/references/old.md": "Old reference\n",
+      ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo
+---
+
+\`@{{shared:references/old.md}}\`
+
+\`\`\`md
+{{> shared:references/old.md}}
+@{{shared:references/old.md}}
+\`\`\`
+`,
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+
+    const plan = await planSourceRename({
+      from: ".skillset/shared/references/old.md",
+      rootPath: root,
+      to: ".skillset/shared/references/new.md",
+    });
+
+    expect(
+      plan.operations.some(
+        (operation) =>
+          operation.kind === "update" && operation.path.endsWith("SKILL.md")
+      )
+    ).toBe(false);
+  });
+
+  test("preserves references when preprocessing is disabled", async () => {
+    const root = await fixture({
+      ".skillset/shared/references/old.md": "Old reference\n",
+      ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo
+skillset:
+  preprocess: false
+---
+
+{{> shared:references/old.md}}
+@{{shared:references/old.md}}
+`,
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+
+    const plan = await planSourceRename({
+      from: ".skillset/shared/references/old.md",
+      rootPath: root,
+      to: ".skillset/shared/references/new.md",
+    });
+
+    expect(
+      plan.operations.some(
+        (operation) =>
+          operation.kind === "update" && operation.path.endsWith("SKILL.md")
+      )
+    ).toBe(false);
   });
 
   test("renames a file that rewrites its own structured reference", async () => {
@@ -414,7 +501,7 @@ describe("source rename planner", () => {
     const evalSource =
       '{"skill_name":"demo","evals":[{"id":1,"prompt":"Run","expected_output":"ok","files":[]}]}\n';
     const root = await fixture({
-      ".skillset/shared/old.txt": "old\n",
+      ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
         "---\nname: demo\ndescription: Demo\n---\n\nDemo\n",
       ".skillset/skills/demo/evals/evals.json": evalSource,
@@ -423,9 +510,9 @@ describe("source rename planner", () => {
     });
 
     const plan = await planSourceRename({
-      from: ".skillset/shared/old.txt",
+      from: ".skillset/shared/references/old.txt",
       rootPath: root,
-      to: ".skillset/shared/new.txt",
+      to: ".skillset/shared/references/new.txt",
     });
     expect(
       plan.operations.some(
@@ -447,8 +534,8 @@ describe("source rename planner", () => {
       ".skillset/plugins/one/shared/a.txt": "a\n",
       ".skillset/plugins/one/skillset.yaml": "skillset:\n  name: one\n",
       ".skillset/plugins/two/skillset.yaml": "skillset:\n  name: two\n",
-      ".skillset/shared/new.txt": "new\n",
-      ".skillset/shared/old.txt": "old\n",
+      ".skillset/shared/references/new.txt": "new\n",
+      ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
         "---\nname: demo\ndescription: Demo\n---\n\nDemo\n",
       ".skillset/skills/demo/evals/files/input.txt": "input\n",
@@ -459,14 +546,14 @@ describe("source rename planner", () => {
     });
     await expect(
       planSourceRename({
-        from: ".skillset/shared/old.txt",
+        from: ".skillset/shared/references/old.txt",
         rootPath: root,
-        to: ".skillset/shared/new.txt",
+        to: ".skillset/shared/references/new.txt",
       })
     ).rejects.toBeInstanceOf(SourceRenamePlanError);
     await expect(
       planSourceRename({
-        from: ".skillset/shared/old.txt",
+        from: ".skillset/shared/references/old.txt",
         rootPath: root,
         to: "../outside.txt",
       })
@@ -491,14 +578,14 @@ describe("source rename planner", () => {
     const root = await fixture({
       ".skillset/_claude/native.md": "Native\n",
       ".skillset/rules/old.md": "Rule\n",
-      ".skillset/shared/old.txt": "Shared\n",
+      ".skillset/shared/references/old.txt": "Shared\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
 
     await expect(
       planSourceRename({
-        from: ".skillset/shared/old.txt",
+        from: ".skillset/shared/references/old.txt",
         rootPath: root,
         to: ".skillset/rules/new.txt",
       })
@@ -514,18 +601,18 @@ describe("source rename planner", () => {
 
   test("atomically renames source and regenerates managed outputs", async () => {
     const root = await fixture({
-      ".skillset/shared/old.txt": "old\n",
+      ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
-        "---\nname: demo\ndescription: Demo\nresources:\n  templates:\n    - shared:old.txt\n---\n\n@{{shared:old.txt}}\n",
+        "---\nname: demo\ndescription: Demo\nresources:\n  references:\n    - shared:references/old.txt\n---\n\n@{{shared:references/old.txt}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
-    await chmod(join(root, ".skillset/shared/old.txt"), 0o755);
+    await chmod(join(root, ".skillset/shared/references/old.txt"), 0o755);
     await buildSkillset(root);
     const preview = await planSourceRename({
-      from: ".skillset/shared/old.txt",
+      from: ".skillset/shared/references/old.txt",
       rootPath: root,
-      to: ".skillset/shared/new.txt",
+      to: ".skillset/shared/references/new.txt",
     });
     expect(preview.generatedOperations).toEqual(
       expect.arrayContaining([
@@ -539,7 +626,7 @@ describe("source rename planner", () => {
       expect.objectContaining({
         kind: "create",
         mode: 0o755,
-        path: ".claude/skills/demo/templates/new.txt",
+        path: ".claude/skills/demo/references/new.txt",
       })
     );
 
@@ -552,17 +639,17 @@ describe("source rename planner", () => {
 
     expect(report.applied).toBe(true);
     expect(
-      await readFile(join(root, ".skillset/shared/new.txt"), "utf-8")
+      await readFile(join(root, ".skillset/shared/references/new.txt"), "utf-8")
     ).toBe("old\n");
     await expect(
-      access(join(root, ".skillset/shared/old.txt"))
+      access(join(root, ".skillset/shared/references/old.txt"))
     ).rejects.toThrow();
     expect(
       await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf-8")
-    ).toContain("templates/new.txt");
+    ).toContain("references/new.txt");
     if (process.platform !== "win32") {
       expect(
-        (await stat(join(root, ".claude/skills/demo/templates/new.txt"))).mode &
+        (await stat(join(root, ".claude/skills/demo/references/new.txt"))).mode &
           0o777
       ).toBe(0o755);
     }
@@ -570,7 +657,7 @@ describe("source rename planner", () => {
 
   test("rejects stale previews and edited generated output without mutation", async () => {
     const root = await fixture({
-      ".skillset/shared/old.txt": "old\n",
+      ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
         "---\nname: demo\ndescription: Demo\n---\n\nDemo\n",
       "skillset.yaml":
@@ -578,9 +665,9 @@ describe("source rename planner", () => {
     });
     await buildSkillset(root);
     const request = {
-      from: ".skillset/shared/old.txt",
+      from: ".skillset/shared/references/old.txt",
       rootPath: root,
-      to: ".skillset/shared/new.txt",
+      to: ".skillset/shared/references/new.txt",
     };
     const preview = await planSourceRename(request);
     await expect(
@@ -595,10 +682,10 @@ describe("source rename planner", () => {
       renameSource({ ...request, expectedPlanHash: preview.planHash })
     ).rejects.toThrow("generated output is not current");
     expect(
-      await readFile(join(root, ".skillset/shared/old.txt"), "utf-8")
+      await readFile(join(root, ".skillset/shared/references/old.txt"), "utf-8")
     ).toBe("old\n");
     await expect(
-      access(join(root, ".skillset/shared/new.txt"))
+      access(join(root, ".skillset/shared/references/new.txt"))
     ).rejects.toThrow();
   });
 
@@ -826,18 +913,18 @@ describe("source rename planner", () => {
   test("refuses renames whose projected build is blocked, leaving an unmanaged destination intact", async () => {
     const root = await fixture({
       ".claude/skills/demo/SKILL.md": "hand written unmanaged guidance\n",
-      ".skillset/shared/old.txt": "old\n",
+      ".skillset/shared/references/old.txt": "old\n",
       ".skillset/skills/demo/SKILL.md":
-        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:old.txt\n---\n\nUse @{{shared:old.txt}}\n",
+        "---\nname: demo\ndescription: Demo\nresources:\n  - shared:references/old.txt\n---\n\nUse @{{shared:references/old.txt}}\n",
       "skillset.yaml":
         "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
     });
     const destination = join(root, ".claude/skills/demo/SKILL.md");
     const destinationBefore = await readFile(destination);
     const request = {
-      from: ".skillset/shared/old.txt",
+      from: ".skillset/shared/references/old.txt",
       rootPath: root,
-      to: ".skillset/shared/new.txt",
+      to: ".skillset/shared/references/new.txt",
     };
 
     await expect(planSourceRename(request)).rejects.toBeInstanceOf(
@@ -851,11 +938,11 @@ describe("source rename planner", () => {
     ).rejects.toThrow("projected generated output is blocked");
 
     expect(await readFile(destination)).toEqual(destinationBefore);
-    expect(await readFile(join(root, ".skillset/shared/old.txt"), "utf-8")).toBe(
+    expect(await readFile(join(root, ".skillset/shared/references/old.txt"), "utf-8")).toBe(
       "old\n"
     );
     await expect(
-      access(join(root, ".skillset/shared/new.txt"))
+      access(join(root, ".skillset/shared/references/new.txt"))
     ).rejects.toThrow();
     await expect(access(join(root, ".skillset/snapshots"))).rejects.toThrow();
   });
