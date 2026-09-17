@@ -27,7 +27,7 @@ import { writableRecord } from "./source-rename-structured";
 import type { BuildGraph, JsonRecord, JsonValue, SourceSkill } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
-const MARKED_PATH_REFERENCE = /\{\{\s*@([^}\s]+)\s*\}\}/gu;
+const MARKED_PATH_REFERENCE = /@\{\{\s*([^}\s]+)\s*\}\}/gu;
 const NAMED_PARTIAL_REFERENCE = /\{\{\s*>\s*([^}\s]+)\s*\}\}/gu;
 
 export interface SkillIdentityRename {
@@ -156,7 +156,7 @@ async function rewriteMarkdownBody(
       args.graph
     );
     if (replacement !== undefined && replacement !== specifier) {
-      body = body.replace(match[0], `{{@${replacement}}}`);
+      body = body.replace(match[0], `@{{${replacement}}}`);
     }
   }
   for (const match of [...initialBody.matchAll(NAMED_PARTIAL_REFERENCE)]) {
