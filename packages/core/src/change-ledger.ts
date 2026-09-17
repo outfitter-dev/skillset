@@ -25,7 +25,8 @@ export type ChangeLedgerEventType =
   | "reason.created"
   | "reason.updated"
   | "release.amended"
-  | "release.applied";
+  | "release.applied"
+  | "source.moved";
 
 export type ChangeLedgerEvent =
   | BaselineRecordedLedgerEvent
@@ -35,7 +36,8 @@ export type ChangeLedgerEvent =
   | ReasonCreatedLedgerEvent
   | ReasonUpdatedLedgerEvent
   | ReleaseAmendedLedgerEvent
-  | ReleaseAppliedLedgerEvent;
+  | ReleaseAppliedLedgerEvent
+  | SourceMovedLedgerEvent;
 
 export type ChangeLedgerBump = "major" | "minor" | "none" | "patch";
 
@@ -64,7 +66,8 @@ export type ChangeLedgerPayload =
   | ReasonCreatedLedgerPayload
   | ReasonUpdatedLedgerPayload
   | ReleaseAmendedLedgerPayload
-  | ReleaseAppliedLedgerPayload;
+  | ReleaseAppliedLedgerPayload
+  | SourceMovedLedgerPayload;
 
 export interface ReasonCreatedLedgerPayload {
   readonly bump?: ChangeLedgerBump;
@@ -126,6 +129,11 @@ export interface BaselineRecordedLedgerPayload {
   readonly sourceUnits: readonly ChangeLedgerSourceUnit[];
 }
 
+export interface SourceMovedLedgerPayload {
+  readonly from: string;
+  readonly to: string;
+}
+
 export type ReasonCreatedLedgerEvent = ChangeLedgerEventBase<"reason.created", ReasonCreatedLedgerPayload>;
 export type ReasonUpdatedLedgerEvent = ChangeLedgerEventBase<"reason.updated", ReasonUpdatedLedgerPayload>;
 export type ChangeCoveredLedgerEvent = ChangeLedgerEventBase<"change.covered", ChangeCoveredLedgerPayload>;
@@ -134,6 +142,7 @@ export type ReleaseAppliedLedgerEvent = ChangeLedgerEventBase<"release.applied",
 export type ChangeAmendedLedgerEvent = ChangeLedgerEventBase<"change.amended", ChangeAmendedLedgerPayload>;
 export type ReleaseAmendedLedgerEvent = ChangeLedgerEventBase<"release.amended", ReleaseAmendedLedgerPayload>;
 export type BaselineRecordedLedgerEvent = ChangeLedgerEventBase<"baseline.recorded", BaselineRecordedLedgerPayload>;
+export type SourceMovedLedgerEvent = ChangeLedgerEventBase<"source.moved", SourceMovedLedgerPayload>;
 
 export interface ChangeLedgerReadOptions {
   readonly sourceDir?: string;
@@ -150,6 +159,7 @@ const EVENT_TYPES = new Set<ChangeLedgerEventType>([
   "reason.updated",
   "release.amended",
   "release.applied",
+  "source.moved",
 ]);
 
 export async function readChangeLedger(
@@ -236,7 +246,16 @@ function readEventPayload(
       return readReleaseAmendedPayload(payload, path, lineNumber);
     case "baseline.recorded":
       return readBaselineRecordedPayload(payload, path, lineNumber);
+    case "source.moved":
+      return readSourceMovedPayload(payload, path, lineNumber);
   }
+}
+
+function readSourceMovedPayload(payload: JsonRecord, path: string, lineNumber: number): SourceMovedLedgerPayload {
+  return {
+    from: normalizeLedgerSourceUnitSelector(readRequiredString(payload, "from", path, lineNumber)),
+    to: normalizeLedgerSourceUnitSelector(readRequiredString(payload, "to", path, lineNumber)),
+  };
 }
 
 function readReasonCreatedPayload(payload: JsonRecord, path: string, lineNumber: number): ReasonCreatedLedgerPayload {
