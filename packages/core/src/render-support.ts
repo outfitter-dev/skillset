@@ -5,6 +5,7 @@ import { formatGeneratedFileMode, normalizeGeneratedFileMode } from "./generated
 
 import type {
   AppliedTransform,
+  ProjectionRole,
   RenderedFile,
   SourceOrigin,
   TargetName,
@@ -39,6 +40,7 @@ export interface LockItem {
   readonly outputHash: string;
   readonly outputPath: string;
   readonly owner?: OutputOwner;
+  readonly role: ProjectionRole;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;

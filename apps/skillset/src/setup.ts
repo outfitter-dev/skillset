@@ -1113,7 +1113,7 @@ function emptyWorkspaceLock(): string {
       generatedBy: "skillset@0.1.0",
       items: [],
       outputRoot: ".",
-      schemaVersion: 3,
+      schemaVersion: 4,
       standardProfileEvidence: {},
       selectedStandards: [],
       selectedTargets: [],

@@ -454,7 +454,7 @@ Demo.
 
     const downgraded = await readFile(lockPath, "utf8");
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
     expect((await stat(outputScript)).mode & 0o777).toBe(0o644);
@@ -501,7 +501,7 @@ Demo.
 
     const downgraded = await readFile(lockPath, "utf8");
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 2; this generated state is rebuild-only"
+      "uses pre-v4 schema 2; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });

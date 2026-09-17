@@ -285,6 +285,7 @@ async function renderStandardAgentSkillTree(
       ? [baselineConsumer, codexConsumer]
       : [baselineConsumer],
     owner: { standardProfile: args.standardProfile },
+    role: "standard",
   });
   if (!args.codexConsumer) return baseline;
 
@@ -320,6 +321,7 @@ async function renderStandardAgentSkillTree(
       ...deltaLock,
       consumers: [codexConsumer],
       owner: { target: "codex" },
+      role: "bundle",
     });
   }
   return [...baseline, ...codexBaseline, ...auxiliary.files];

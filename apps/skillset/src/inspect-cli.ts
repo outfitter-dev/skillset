@@ -279,6 +279,9 @@ function printExplainResult(
     if (owner !== undefined) {
       writeLine(writer, `    owner: ${owner}`);
     }
+    if (entry.role !== undefined) {
+      writeLine(writer, `    role: ${entry.role}`);
+    }
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
     }

@@ -407,6 +407,7 @@ function agentPluginLockItem(
     outputHash: hashGeneratedOutputFiles(AGENT_PLUGIN_OUTPUT_ROOT, files),
     outputPath: `${plugin.id}/agents/plugin.json`,
     owner: { standardProfile: AGENT_PLUGIN_PROFILE },
+    role: "standard",
     renderInputsHash: hashJson("agent-plugins-inputs-v1", {
       author: plugin.metadata.author ?? graph.root.metadata.author,
       license: license?.manifestValue,
