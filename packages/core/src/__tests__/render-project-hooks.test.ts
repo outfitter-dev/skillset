@@ -38,9 +38,46 @@ describe("project SessionStart hook rendering", () => {
       const claude = rendered.find((item) => item.target === "claude");
       const codex = rendered.find((item) => item.target === "codex");
       expect(claude?.ownership.keyPath).toBe("hooks.SessionStart[*].hooks[*].command");
+      expect(claude?.file.partialOwnership).toBe("settings-entry");
       expect(new TextDecoder().decode(claude?.file.content)).toContain("foreign");
       expect(new TextDecoder().decode(claude?.file.content)).toContain(SESSION_START_COMMAND);
       expect(new TextDecoder().decode(codex?.file.content)).toContain(SESSION_START_COMMAND);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("deduplicates an exact owned entry and rejects divergent ownership", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-project-hooks-integrity-"));
+    try {
+      await writeFile(join(root, "skillset.yaml"), "{}\n");
+      await mkdir(join(root, ".claude"), { recursive: true });
+      await writeFile(
+        join(root, ".claude/settings.local.json"),
+        JSON.stringify({
+          hooks: {
+            SessionStart: [
+              { hooks: [{ type: "command", command: SESSION_START_COMMAND }] },
+              { hooks: [{ type: "command", command: SESSION_START_COMMAND }] },
+            ],
+          },
+        })
+      );
+      const rendered = await renderProjectSessionStartHooks(graph(root, "on"));
+      const content = new TextDecoder().decode(rendered.find((item) => item.target === "claude")?.file.content);
+      expect([...content.matchAll(new RegExp(SESSION_START_COMMAND, "g"))]).toHaveLength(1);
+
+      await writeFile(
+        join(root, ".claude/settings.local.json"),
+        JSON.stringify({
+          hooks: {
+            SessionStart: [{ hooks: [{ type: "command", command: SESSION_START_COMMAND, timeout: 10 }] }],
+          },
+        })
+      );
+      await expect(renderProjectSessionStartHooks(graph(root, "on"))).rejects.toThrow(
+        "contains a divergent SessionStart command entry"
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
