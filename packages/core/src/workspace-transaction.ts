@@ -251,6 +251,7 @@ interface TransactionState {
   readonly journalPath: string;
   readonly latePreimages: Preimage[];
   readonly preimages: Map<string, Preimage>;
+  readonly supersededPreimagePaths: Set<string>;
   readonly workspaceRoot: string;
 }
 
@@ -293,6 +294,7 @@ export async function applyWorkspaceTransaction(
     ),
     latePreimages: [],
     preimages: new Map(),
+    supersededPreimagePaths: new Set(),
     workspaceRoot: resolvedWorkspaceRoot,
   };
 
@@ -906,6 +908,7 @@ async function applyMoves(
 ): Promise<void> {
   for (const move of moves) {
     await invokeApplyHook(hooks, operations, move.operation);
+    await assertMoveSourceStayedVacant(state, move);
     await ensureSafeParent(state, move.to);
     const preimage = state.preimages.get(move.from.relative);
     if (preimage === undefined) {
@@ -940,6 +943,9 @@ async function applyMoves(
       move.to
     );
     if (outcome === "occupied") {
+      if (state.preimages.has(move.to.relative)) {
+        state.supersededPreimagePaths.add(move.to.relative);
+      }
       preserveCreatedDirectoryAncestors(state, move.to.absolute);
       throw transactionError(
         `move target appeared before atomic install: ${move.to.relative}`
@@ -947,6 +953,27 @@ async function applyMoves(
     }
     applied.currentPath = move.to.absolute;
   }
+}
+
+async function assertMoveSourceStayedVacant(
+  state: TransactionState,
+  move: NormalizedMove
+): Promise<void> {
+  const entry = await inspectPath(state.workspaceRoot, move.from);
+  if (entry === undefined) {
+    return;
+  }
+  const installedByEarlierMove = state.appliedMoves.some(
+    (applied) => applied.currentPath === move.from.absolute
+  );
+  if (installedByEarlierMove) {
+    return;
+  }
+  state.supersededPreimagePaths.add(move.from.relative);
+  preserveCreatedDirectoryAncestors(state, move.from.absolute);
+  throw transactionError(
+    `move source reappeared after preimage staging: ${move.from.relative}`
+  );
 }
 
 async function applyWrites(
@@ -1368,6 +1395,9 @@ async function rollbackTransaction(
     );
   }
   for (const preimage of [...state.preimages.values()].toReversed()) {
+    if (state.supersededPreimagePaths.has(preimage.path.relative)) {
+      continue;
+    }
     await run(
       { kind: "restore-preimage", path: preimage.path.relative },
       async () => {
