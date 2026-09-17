@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { listStandardProfileSchemaSnapshots } from "@skillset/registry";
 
+import { isOutputSelected } from "./config";
 import {
   AGENT_PLUGIN_MANIFEST_SCHEMA,
   renderAgentPluginManifest,
@@ -87,7 +88,8 @@ export function classifyAgentPluginStandard(
 
 export async function renderAgentPluginStandardPackages(
   graph: BuildGraph,
-  lockRoots: Map<string, LockRoot>
+  lockRoots: Map<string, LockRoot>,
+  coalesceCodex = true
 ): Promise<readonly RenderedFile[]> {
   if (
     !graph.standardProjections.adopted.includes(AGENT_PLUGIN_PROFILE)
@@ -104,6 +106,16 @@ export async function renderAgentPluginStandardPackages(
   const rootLicense = await resolveRootLicense(graph);
   for (const plugin of graph.plugins) {
     if (classifyAgentPluginStandard(plugin).status !== "supported") continue;
+    if (
+      coalesceCodex &&
+      plugin.targets.codex.enabled &&
+      isOutputSelected(
+        graph.root.outputs.targetOutputs.codex.plugins,
+        plugin.id
+      )
+    ) {
+      continue;
+    }
     const pluginLicense = await resolvePluginLicense(
       graph,
       plugin,
@@ -111,8 +123,7 @@ export async function renderAgentPluginStandardPackages(
     );
     const packageRoot = path.posix.join(
       AGENT_PLUGIN_OUTPUT_ROOT,
-      plugin.id,
-      "agents"
+      plugin.id
     );
     const manifest = renderAgentPluginManifest(graph, plugin, pluginLicense);
     validateAgentPluginManifest(manifest);
@@ -405,7 +416,7 @@ function agentPluginLockItem(
     kind: "plugin",
     name: plugin.id,
     outputHash: hashGeneratedOutputFiles(AGENT_PLUGIN_OUTPUT_ROOT, files),
-    outputPath: `${plugin.id}/agents/plugin.json`,
+    outputPath: `${plugin.id}/plugin.json`,
     owner: { standardProfile: AGENT_PLUGIN_PROFILE },
     role: "standard",
     renderInputsHash: hashJson("agent-plugins-inputs-v1", {

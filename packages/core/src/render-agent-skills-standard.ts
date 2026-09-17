@@ -224,27 +224,11 @@ export function agentSkillStandardDirectory(
 }
 
 export function classifyAgentPluginSkillLayout(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  skill: SourceSkill
+  _graph: BuildGraph,
+  _plugin: SourcePlugin,
+  _skill: SourceSkill
 ): AgentSkillStandardIssue | undefined {
-  const relativePath = path
-    .relative(plugin.path, skill.sourcePath)
-    .replaceAll("\\", "/");
-  const parts = relativePath.split("/");
-  if (
-    parts.length === 3 &&
-    parts[0] === "skills" &&
-    parts[1] === skill.id &&
-    parts[2] === "SKILL.md"
-  ) {
-    return undefined;
-  }
-  return issue(
-    "agent-plugins-skill-immediate-child",
-    path.relative(graph.rootPath, skill.sourcePath),
-    `Agent Plugins discovers only immediate skills/<name>/SKILL.md children; ${relativePath} would be hidden`
-  );
+  return undefined;
 }
 
 /** Standard-scoped failures never invalidate the shared adaptive source. */

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillsetResult } from "../build";
@@ -32,6 +32,18 @@ cursor:
       result.data.filter((file) => file.path.endsWith("/skills/review/SKILL.md"))
         .map((file) => file.path)
     ).toEqual(["plugins/demo/skills/review/SKILL.md"]);
+    expect(result.data.map((file) => file.path)).toEqual(
+      expect.arrayContaining([
+        "plugins/demo/.claude-plugin/plugin.json",
+        "plugins/demo/.cursor-plugin/plugin.json",
+        "plugins/demo/plugin.json",
+      ])
+    );
+    expect(
+      result.data.some((file) =>
+        /plugins\/demo\/(?:agents|chatgpt|claude|cursor)\//u.test(file.path)
+      )
+    ).toBe(false);
     const parsed = parseMarkdown(
       await readFile(join(root, "plugins/demo/skills/review/SKILL.md"), "utf8"),
       "shared skill"
@@ -42,6 +54,34 @@ cursor:
       description: "Review changes.",
       name: "review",
     });
+    const claudeManifest = JSON.parse(
+      await readFile(
+        join(root, "plugins/demo/.claude-plugin/plugin.json"),
+        "utf8"
+      )
+    ) as { readonly skills?: string | readonly string[] };
+    expect(claudeManifest.skills).toBe("./skills/review");
+
+    const secondSkill = join(
+      root,
+      ".skillset/plugins/demo/skills/write/SKILL.md"
+    );
+    await mkdir(dirname(secondSkill), { recursive: true });
+    await Bun.write(
+      secondSkill,
+      "---\nname: write\ndescription: Write changes.\n---\n\nWrite changes.\n"
+    );
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const expandedManifest = JSON.parse(
+      await readFile(
+        join(root, "plugins/demo/.claude-plugin/plugin.json"),
+        "utf8"
+      )
+    ) as { readonly skills?: string | readonly string[] };
+    expect(expandedManifest.skills).toEqual([
+      "./skills/review",
+      "./skills/write",
+    ]);
   });
 
   it("rejects the first conflicting provider field", async () => {
@@ -66,16 +106,61 @@ cursor:
       "plugin demo skill review provider claude conflicts at body"
     );
   });
+
+  it("flattens grouping directories and names both colliding sources", async () => {
+    const root = await fixture(
+      "",
+      "Review changes.",
+      ".skillset/plugins/demo/skills/(engineering)/review/SKILL.md"
+    );
+    const result = await buildSkillsetResult(root);
+    expect(result.data.map((file) => file.path)).toContain(
+      "plugins/demo/skills/review/SKILL.md"
+    );
+    expect(
+      result.data.some((file) => file.path.includes("(engineering)"))
+    ).toBe(false);
+
+    const second = join(
+      root,
+      ".skillset/plugins/demo/skills/(writing)/proof/SKILL.md"
+    );
+    await mkdir(dirname(second), { recursive: true });
+    await Bun.write(
+      second,
+      "---\nname: review\ndescription: Duplicate.\n---\n\nDuplicate.\n"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      ".skillset/plugins/demo/skills/(engineering)/review/SKILL.md and .skillset/plugins/demo/skills/(writing)/proof/SKILL.md"
+    );
+  });
+
+  it("rejects incompatible same-package writers before write", async () => {
+    const root = await fixture("");
+    const hooksPath = join(
+      root,
+      ".skillset/plugins/demo/hooks/hooks.json"
+    );
+    await mkdir(dirname(hooksPath), { recursive: true });
+    await Bun.write(
+      hooksPath,
+      JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ command: "echo check", type: "command" }] }] } })
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "plugin demo package path plugins/demo/hooks/hooks.json has conflicting writers"
+    );
+  });
 });
 
 async function fixture(
   targetFrontmatter: string,
-  body = "Review changes."
+  body = "Review changes.",
+  skillPath = ".skillset/plugins/demo/skills/review/SKILL.md"
 ): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-shared-plugin-skill-"));
   roots.push(root);
   const files = normalizeSkillsetFixtureFiles({
-    ".skillset/plugins/demo/skills/review/SKILL.md": `---
+    [skillPath]: `---
 name: review
 description: Review changes.
 ${targetFrontmatter.trim()}
