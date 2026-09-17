@@ -25,6 +25,7 @@ export interface LockItem {
   readonly feature?: string;
   readonly files: readonly string[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly effectiveName?: string;
   readonly includedSkills?: readonly string[];
   readonly kind:
@@ -53,6 +54,7 @@ export interface LockItem {
   readonly sourcePointer?: string;
   readonly sourceUnit?: string;
   readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly targetState?: string;
   readonly transforms?: readonly AppliedTransform[];
   readonly validation?: "opaque-copy" | "structured";

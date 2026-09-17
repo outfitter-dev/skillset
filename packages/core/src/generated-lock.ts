@@ -39,6 +39,7 @@ export type GeneratedLockRole = ProjectionRole;
 export interface ParsedGeneratedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly effectiveName?: string;
   readonly feature?: string;
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
@@ -60,6 +61,7 @@ export interface ParsedGeneratedLockItem {
   readonly sourcePointer?: string;
   readonly sourceUnit?: string;
   readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly transforms?: readonly Record<string, unknown>[];
   readonly validation?: string;
   readonly version?: string;
@@ -283,6 +285,7 @@ function parseGeneratedLockItem(
     label,
     "dependencies"
   );
+  const draftOrigin = parseDraftOrigin(value.draftOrigin, label);
   const feature = optionalString(value.feature, label, "feature");
   const effectiveName = optionalString(value.effectiveName, label, "effectiveName");
   const plugin = optionalString(value.plugin, label, "plugin");
@@ -305,6 +308,7 @@ function parseGeneratedLockItem(
   );
   const sourceUnit = optionalString(value.sourceUnit, label, "sourceUnit");
   const selectionRule = optionalString(value.selectionRule, label, "selectionRule");
+  const shippedSibling = optionalString(value.shippedSibling, label, "shippedSibling");
   const targetState = optionalString(value.targetState, label, "targetState");
   const transforms = optionalRecordArray(value.transforms, label, "transforms");
   const validation = optionalString(value.validation, label, "validation");
@@ -330,6 +334,7 @@ function parseGeneratedLockItem(
   return {
     consumers,
     ...(dependencies === undefined ? {} : { dependencies }),
+    ...(draftOrigin === undefined ? {} : { draftOrigin }),
     ...(effectiveName === undefined ? {} : { effectiveName }),
     ...(feature === undefined ? {} : { feature }),
     ...(fileModes === undefined ? {} : { fileModes }),
@@ -350,11 +355,23 @@ function parseGeneratedLockItem(
     ...(sourcePointer === undefined ? {} : { sourcePointer }),
     ...(sourceUnit === undefined ? {} : { sourceUnit }),
     ...(selectionRule === undefined ? {} : { selectionRule }),
+    ...(shippedSibling === undefined ? {} : { shippedSibling }),
     ...(targetState === undefined ? {} : { targetState }),
     ...(transforms === undefined ? {} : { transforms }),
     ...(validation === undefined ? {} : { validation }),
     ...(version === undefined ? {} : { version }),
   };
+}
+
+function parseDraftOrigin(
+  value: unknown,
+  label: string
+): "_drafts" | "config" | "status" | undefined {
+  if (value === undefined) return undefined;
+  if (value === "_drafts" || value === "config" || value === "status") {
+    return value;
+  }
+  throw invalidLock(label, "draftOrigin must be _drafts, config, or status");
 }
 
 function parseSourceOrigin(

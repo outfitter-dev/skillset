@@ -502,7 +502,15 @@ Future.
         ".skillset/skills/(ideas)/future/SKILL.md"
       )
     ).toMatchObject({
-      entries: [],
+      entries: [
+        expect.objectContaining({
+          draftOrigin: "status",
+          effectiveName: "draft-future",
+          owner: { target: "claude" },
+          role: "bundle",
+          sourceUnit: "skill:future",
+        }),
+      ],
       kind: "source-skill",
       sourceSkill: {
         container: "workspace",
@@ -516,6 +524,9 @@ Future.
     expect(
       await exists(join(draftRoot, ".claude/skills/(ideas)/future/SKILL.md"))
     ).toBe(false);
+    expect(
+      await exists(join(draftRoot, ".claude/skills/draft-future/SKILL.md"))
+    ).toBe(true);
 
     const plainGroupRoot = await fixture({
       "skillset.yaml": `

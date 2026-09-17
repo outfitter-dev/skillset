@@ -285,6 +285,12 @@ function printExplainResult(
     if (entry.effectiveName !== undefined) {
       writeLine(writer, `    effective name: ${entry.effectiveName}`);
     }
+    if (entry.draftOrigin !== undefined) {
+      writeLine(writer, `    draft origin: ${entry.draftOrigin}`);
+    }
+    if (entry.shippedSibling !== undefined) {
+      writeLine(writer, `    shipped sibling: ${entry.shippedSibling}`);
+    }
     if (entry.selectionRule !== undefined) {
       writeLine(writer, `    selection rule: ${entry.selectionRule}`);
     }
@@ -484,9 +490,12 @@ function printStatusReport(
     }
   }
   for (const entry of report.projectUse) {
+    const draftDetails = entry.draftOrigin === undefined
+      ? ""
+      : `; draftOrigin=${entry.draftOrigin}${entry.shippedSibling === undefined ? "" : `; shippedSibling=${entry.shippedSibling}`}`;
     writeLine(
       writer,
-      `  project use [${entry.target}]: source=${entry.sourceUnit} (${entry.sourcePath}); selection=${entry.selectionRule}; effectiveName=${entry.effectiveName}; role=${entry.role}; owner=${entry.owner.target}`
+      `  ${entry.draftOrigin === undefined ? "project use" : "project draft"} [${entry.target}]: source=${entry.sourceUnit} (${entry.sourcePath}); selection=${entry.selectionRule}; effectiveName=${entry.effectiveName}; role=${entry.role}; owner=${entry.owner.target}${draftDetails}`
     );
   }
   for (const issue of report.lintIssues) {

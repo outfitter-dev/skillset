@@ -71,8 +71,30 @@ export interface RenderedAgentSkillStandardMarkdown {
 }
 
 export interface AgentSkillStandardRenderOptions {
+  readonly draft?: boolean;
   readonly effectiveName?: string;
   readonly internal?: boolean;
+}
+
+export const DRAFT_DESCRIPTION_PREFIX = "[SKILLSET DRAFT] ";
+const AGENT_SKILLS_DESCRIPTION_LIMIT = 1024;
+
+export function draftSkillDescription(description: string): string {
+  const prefixed = `${DRAFT_DESCRIPTION_PREFIX}${description}`;
+  if (characterLength(prefixed) <= AGENT_SKILLS_DESCRIPTION_LIMIT) {
+    return prefixed;
+  }
+  const available =
+    AGENT_SKILLS_DESCRIPTION_LIMIT -
+    characterLength(DRAFT_DESCRIPTION_PREFIX) -
+    1;
+  return `${DRAFT_DESCRIPTION_PREFIX}${[...description].slice(0, available).join("")}…`;
+}
+
+export function draftSkillDescriptionWasTruncated(skill: SourceSkill): boolean {
+  return characterLength(
+    `${DRAFT_DESCRIPTION_PREFIX}${resolvedSkillDescription(skill)}`
+  ) > AGENT_SKILLS_DESCRIPTION_LIMIT;
 }
 
 export function agentSkillSourceUnit(
@@ -93,7 +115,10 @@ export function classifyAgentSkillStandard(
   options: AgentSkillStandardRenderOptions = {}
 ): AgentSkillStandardClassification {
   const name = options.effectiveName ?? resolvedSkillName(skill);
-  const description = resolvedSkillDescription(skill);
+  const sourceDescription = resolvedSkillDescription(skill);
+  const description = options.draft === true
+    ? draftSkillDescription(sourceDescription)
+    : sourceDescription;
   const label = path.relative(graph.rootPath, skill.sourcePath);
   const nameIssue = validateName(name, directoryName, label);
   if (nameIssue !== undefined) {

@@ -781,6 +781,7 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           outputPath: resolvedOutputPath,
           ...(item.consumers.length === 0 ? {} : { consumers: item.consumers }),
           ...(item.dependencies === undefined ? {} : { dependencies: item.dependencies }),
+          ...(item.draftOrigin === undefined ? {} : { draftOrigin: item.draftOrigin }),
           ...(item.effectiveName === undefined ? {} : { effectiveName: item.effectiveName }),
           ...(item.feature === undefined ? {} : { feature: item.feature }),
           ...(fileModes === undefined ? {} : { fileModes }),
@@ -800,6 +801,9 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           ...(item.sourcePointer === undefined ? {} : { sourcePointer: item.sourcePointer }),
           ...(item.sourceUnit === undefined ? {} : { sourceUnit: item.sourceUnit }),
           ...(item.selectionRule === undefined ? {} : { selectionRule: item.selectionRule }),
+          ...(item.shippedSibling === undefined
+            ? {}
+            : { shippedSibling: item.shippedSibling }),
           ...(transforms === undefined || transforms.length === 0 ? {} : { transforms }),
           ...(item.version === undefined ? {} : { version: item.version }),
           ...(item.targetState === undefined ? {} : { targetState: item.targetState }),
