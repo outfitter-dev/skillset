@@ -2,6 +2,7 @@
 /* eslint-disable typescript/no-dynamic-delete -- Config keys are authored plugin ids and selector groups. */
 
 import { updateYamlSourceDocument } from "./source-document";
+import { assertRewrittenSourceReference } from "./source-reference-contract";
 import { writableRecord } from "./source-rename-structured";
 import type { JsonRecord } from "./types";
 import { isJsonRecord } from "./yaml";
@@ -26,6 +27,9 @@ export function rewriteSourceMoveConfig(
   path: string,
   rewrite: SourceMoveConfigRewrite
 ): SourceMoveConfigRewriteResult {
+  assertRewrittenSourceReference("configured-draft-selector");
+  assertRewrittenSourceReference("distribution-source-selector");
+  assertRewrittenSourceReference("internal-plugin-selection");
   let removedInternalUse = false;
   const content = updateYamlSourceDocument(source, path, (current) => {
     let updated = current;

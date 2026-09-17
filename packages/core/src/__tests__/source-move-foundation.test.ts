@@ -12,6 +12,7 @@ import {
   currentSourceIdentities,
   sourceIdentityMappings,
 } from "../source-identity-mapping";
+import { readReleaseState } from "../release-state";
 import { planSourceMove } from "../source-move";
 import { rewriteSourceMoveConfig } from "../source-move-rewrite";
 
@@ -30,6 +31,58 @@ describe("source move foundations", () => {
         mappings
       )
     ).toEqual(new Map([["skill:demo", ["sha256:old"]]]));
+  });
+
+  test("resolves pre-move release state through chained current identities", async () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const ledger = [
+      {
+        createdAt: "2026-09-17T00:00:00.000Z",
+        id: "release",
+        payload: {
+          releaseId: "release-1",
+          reasonIds: ["change-1"],
+          scopes: [
+            {
+              bump: "minor",
+              entries: ["change-1"],
+              selector: "skill:demo",
+              sourceHash: digest,
+              version: "1.0.0",
+            },
+          ],
+        },
+        schemaVersion: 1,
+        type: "release.applied",
+      },
+      {
+        createdAt: "2026-09-17T00:00:00.001Z",
+        id: "outward",
+        payload: { from: "skill:demo", to: "plugin.tools.skill:demo" },
+        schemaVersion: 1,
+        type: "source.moved",
+      },
+      {
+        createdAt: "2026-09-17T00:00:00.002Z",
+        id: "homeward",
+        payload: { from: "plugin.tools.skill:demo", to: "skill:demo" },
+        schemaVersion: 1,
+        type: "source.moved",
+      },
+    ].map((event) => JSON.stringify(event)).join("\n");
+    const root = await fixture({
+      ".skillset/changes/ledger.jsonl": `${ledger}\n`,
+    });
+
+    expect(await readReleaseState(root)).toEqual({
+      scopes: {
+        "skill:demo": {
+          sourceHash: digest,
+          updatedAt: "2026-09-17T00:00:00.000Z",
+          version: "1.0.0",
+        },
+      },
+    });
   });
 
   test("rewrites root selectors and removes explicit internal-use selections", () => {

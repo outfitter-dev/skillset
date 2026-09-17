@@ -8,9 +8,12 @@ import type { SkillsetSourceReferenceDescriptorId } from "@skillset/schema";
 
 type CoreReferenceHandler =
   | "agent-skills"
+  | "configured-draft-selector"
+  | "distribution-source-selector"
   | "hook-attachments"
   | "hook-script"
   | "internal-plugin-dependency"
+  | "internal-plugin-selection"
   | "resource-destination"
   | "resource-source"
   | "skill-eval-file"
@@ -19,8 +22,11 @@ type CoreReferenceHandler =
 const coreReferenceHandlers = {
   "adaptive-hook-run-script": "hook-script",
   "agent-skills": "agent-skills",
+  "configured-draft-selector": "configured-draft-selector",
+  "distribution-source-selector": "distribution-source-selector",
   "hook-attachment": "hook-attachments",
   "internal-plugin-dependency": "internal-plugin-dependency",
+  "internal-plugin-selection": "internal-plugin-selection",
   "skill-eval-file": "skill-eval-file",
   "skill-eval-skill-name": "skill-eval-name",
   "skill-resource-destination": "resource-destination",

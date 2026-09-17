@@ -121,7 +121,12 @@ export async function planSourceMutationGeneratedEffects(
       planError,
       action
     );
-    return generatedEffects(currentRendered, nextRendered);
+    return reconcileGeneratedEffectsWithSourceMoves(
+      generatedEffects(currentRendered, nextRendered),
+      currentRendered,
+      nextRendered,
+      sourcePlan.operations
+    );
   } finally {
     await rm(shadowRoot, { force: true, recursive: true });
   }
@@ -227,6 +232,82 @@ function generatedEffects(
     const pathOrder = compareStrings(left.path, right.path);
     return pathOrder === 0 ? compareStrings(left.kind, right.kind) : pathOrder;
   });
+}
+
+function reconcileGeneratedEffectsWithSourceMoves(
+  effects: readonly SourceRenameGeneratedOperation[],
+  current: readonly RenderedFile[],
+  next: readonly RenderedFile[],
+  operations: SourceMutationPlan["operations"]
+): readonly SourceRenameGeneratedOperation[] {
+  const moves = operations.filter(
+    (operation): operation is SourceRenameMoveOperation =>
+      operation.kind === "move"
+  );
+  if (moves.length === 0) return effects;
+  const currentByPath = new Map(current.map((file) => [file.path, file]));
+  const nextByPath = new Map(next.map((file) => [file.path, file]));
+  const reconciled: SourceRenameGeneratedOperation[] = [];
+
+  for (const effect of effects) {
+    const sourceMove = moves.find((move) =>
+      isAtOrBelow(effect.path, move.from)
+    );
+    if (effect.kind === "delete" && sourceMove !== undefined) {
+      const carriedPath = remapOperationPath(
+        effect.path,
+        sourceMove.from,
+        sourceMove.to
+      );
+      if (nextByPath.has(carriedPath)) continue;
+      reconciled.push({ kind: "delete", path: carriedPath });
+      continue;
+    }
+
+    const targetMove = moves.find((move) =>
+      isAtOrBelow(effect.path, move.to)
+    );
+    if (effect.kind === "create" && targetMove !== undefined) {
+      const carriedFrom = remapOperationPath(
+        effect.path,
+        targetMove.to,
+        targetMove.from
+      );
+      const previous = currentByPath.get(carriedFrom);
+      if (previous !== undefined) {
+        const projected = nextByPath.get(effect.path);
+        if (
+          projected !== undefined &&
+          previous.mode === projected.mode &&
+          renderedContentEquals(previous.content, projected.content)
+        ) {
+          continue;
+        }
+        reconciled.push({
+          content: effect.content,
+          kind: "update",
+          mode: effect.mode,
+          path: effect.path,
+        });
+        continue;
+      }
+    }
+    reconciled.push(effect);
+  }
+  return reconciled.toSorted((left, right) => {
+    const pathOrder = compareStrings(left.path, right.path);
+    return pathOrder === 0
+      ? compareStrings(left.kind, right.kind)
+      : pathOrder;
+  });
+}
+
+function isAtOrBelow(path: string, root: string): boolean {
+  return path === root || path.startsWith(`${root}/`);
+}
+
+function remapOperationPath(path: string, from: string, to: string): string {
+  return path === from ? to : `${to}${path.slice(from.length)}`;
 }
 
 function renderedContentEquals(left: Uint8Array, right: Uint8Array): boolean {

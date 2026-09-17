@@ -438,6 +438,7 @@ function assertPlanPaths(
       ) {
         if (
           isWriteUnderMoveTarget(left, right) ||
+          isDeleteUnderMoveTarget(left, right) ||
           isShapeTransitionCandidate(left, right)
         ) {
           continue;
@@ -1273,6 +1274,20 @@ function isWriteUnderMoveTarget(
       isAncestorPath(left.path, right.path)) ||
     (right.role === "move-target" &&
       left.role === "write" &&
+      isAncestorPath(right.path, left.path))
+  );
+}
+
+function isDeleteUnderMoveTarget(
+  left: { readonly path: string; readonly role: string },
+  right: { readonly path: string; readonly role: string }
+): boolean {
+  return (
+    (left.role === "move-target" &&
+      right.role === "delete" &&
+      isAncestorPath(left.path, right.path)) ||
+    (right.role === "move-target" &&
+      left.role === "delete" &&
       isAncestorPath(right.path, left.path))
   );
 }
