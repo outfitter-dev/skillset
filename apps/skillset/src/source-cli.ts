@@ -151,6 +151,7 @@ export interface NewCommandRequest {
   readonly positionalName: string | undefined;
   readonly jsonOutput: boolean;
   readonly newContainer: string | undefined;
+  readonly newDraft?: boolean;
   readonly newId: string | undefined;
   readonly newKind: NewSourceKind | undefined;
   readonly newName: string | undefined;
@@ -175,6 +176,7 @@ export async function runNewCommand(
     positionalName,
     jsonOutput,
     newContainer,
+    newDraft,
     newId,
     newKind,
     newName,
@@ -200,6 +202,7 @@ export async function runNewCommand(
         ...(hookScript === undefined ? {} : { hookScript }),
         positionalName,
         newContainer,
+        ...(newDraft === undefined ? {} : { newDraft }),
         newId,
         newKind,
         newName,
@@ -229,6 +232,7 @@ export async function runNewCommand(
   const report = await scaffoldSourceUnit(rootPath, {
     ...(newContainer === undefined ? {} : { container: newContainer }),
     ...(newId === undefined ? {} : { id: newId }),
+    ...(newDraft ? { draft: true } : {}),
     kind: newKind,
     ...(hookAttachment === undefined ? {} : { hookAttachment }),
     ...(hookCommand === undefined ? {} : { hookCommand }),

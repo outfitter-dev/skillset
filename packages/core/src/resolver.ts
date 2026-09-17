@@ -278,10 +278,13 @@ export async function loadBuildGraph(
     rootPath,
     outputs,
     plugins,
-    standaloneSkills,
+    discoveredStandaloneSkills,
     rules,
     standardProjections,
-    pluginPlan.internalUse.skills
+    [
+      ...pluginPlan.internalUse.skills,
+      ...pluginPlan.internalUse.drafts,
+    ]
   );
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
@@ -1899,9 +1902,10 @@ function activeOutputRoots(
     }
     if (
       projectUseSkills.some(({ pluginId, skillId }) => {
-        const skill = plugins
-          .find((plugin) => plugin.id === pluginId)
-          ?.skills.find((candidate) => candidate.id === skillId);
+        const plugin = plugins.find((candidate) => candidate.id === pluginId);
+        const skill = (plugin?.discoveredSkills ?? plugin?.skills ?? []).find(
+          (candidate) => candidate.id === skillId
+        );
         return skill !== undefined && skill.targets[target].enabled &&
           outputIncludes(outputs.targetOutputs[target].skills, skill.id);
       }) ||

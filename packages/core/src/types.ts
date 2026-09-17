@@ -504,6 +504,7 @@ export interface GeneratedEntry {
   /** Logical standards baseline and provider delta consumers, in render order. */
   readonly consumers?: readonly ProjectionConsumer[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly effectiveName?: string;
   readonly feature?: string;
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
@@ -525,6 +526,7 @@ export interface GeneratedEntry {
   readonly sourcePointer?: string;
   readonly sourceUnit?: string;
   readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly target: string;
   readonly targetState?: string;
   readonly transforms?: readonly AppliedTransform[];
