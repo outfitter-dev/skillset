@@ -270,6 +270,7 @@ describe("SET-299 CLI request characterization", () => {
         command: "new",
         request: {
           jsonOutput: false,
+          newDraft: false,
           newKind: "skill",
           options: {},
           rootPath: ROOT,
