@@ -50,6 +50,17 @@ async function filesBelow(root: string): Promise<readonly string[]> {
   return paths.sort();
 }
 
+async function treeBytes(root: string): Promise<Readonly<Record<string, string>>> {
+  return Object.fromEntries(
+    await Promise.all(
+      (await filesBelow(root)).map(async (path) => [
+        path,
+        Buffer.from(await readFile(join(root, path))).toString("base64"),
+      ])
+    )
+  );
+}
+
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
@@ -170,6 +181,7 @@ plugins:
     );
 
     const publishedPaths = await filesBelow(join(root, "plugins"));
+    const publishedBytes = await treeBytes(join(root, "plugins"));
     expect(publishedPaths.some((path) => path.includes("draft-"))).toBe(false);
     for (const path of publishedPaths.filter((path) => path.endsWith(".md"))) {
       expect(await readFile(join(root, "plugins", path), "utf8")).not.toContain(
@@ -191,5 +203,203 @@ plugins:
     expect(
       await Bun.file(join(root, ".agents/skills/draft-paired/SKILL.md")).exists()
     ).toBe(true);
+    expect(await treeBytes(join(root, "plugins"))).toEqual(publishedBytes);
+  });
+
+  it("inherits paired plugin drafts only after live selection and cleans transitions deterministically", async () => {
+    const config = (skills: string, drafts?: string) => `
+skillset:
+  name: inherited-project-drafts
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      demo: ${skills}
+${drafts === undefined ? "" : `    drafts:\n      demo: ${drafts}\n`}`;
+    const root = await fixture({
+      "skillset.yaml": config("true"),
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/paired/SKILL.md": skill(
+        "paired",
+        "Shipped pair"
+      ),
+      ".skillset/plugins/demo/skills/_drafts/paired/SKILL.md": skill(
+        "paired",
+        "Draft pair"
+      ),
+      ".skillset/plugins/demo/skills/unpaired/SKILL.md": skill(
+        "unpaired",
+        "Unpaired draft",
+        { status: "draft" }
+      ),
+    });
+
+    await buildSkillsetResult(root);
+    expect(
+      await Bun.file(join(root, ".agents/skills/draft-paired/SKILL.md")).exists()
+    ).toBe(true);
+    expect(
+      await Bun.file(join(root, ".agents/skills/draft-unpaired/SKILL.md")).exists()
+    ).toBe(false);
+    expect((await doctorSkillset(root)).projectUse).toContainEqual(
+      expect.objectContaining({
+        effectiveName: "draft-paired",
+        selectionRule: "plugins.internal_use.drafts.demo: omitted (side-by-side)",
+        shippedSibling: "plugin.demo.skill:paired",
+      })
+    );
+
+    await writeFile(join(root, "skillset.yaml"), config('["!paired"]', "true"));
+    await buildSkillsetResult(root);
+    expect(
+      await Bun.file(join(root, ".agents/skills/paired/SKILL.md")).exists()
+    ).toBe(false);
+    expect(
+      await Bun.file(join(root, ".agents/skills/draft-paired/SKILL.md")).exists()
+    ).toBe(false);
+    expect(
+      await Bun.file(join(root, ".agents/skills/draft-unpaired/SKILL.md")).exists()
+    ).toBe(true);
+
+    const first = await treeBytes(join(root, ".agents/skills"));
+    await buildSkillsetResult(root);
+    expect(await treeBytes(join(root, ".agents/skills"))).toEqual(first);
+  });
+
+  it("pairs only inside one container and exposes Cursor as a target owner", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: container-local-pairs
+claude: false
+codex: false
+cursor: true
+plugins:
+  internal_use:
+    drafts:
+      demo: true
+`,
+      ".skillset/skills/shared/SKILL.md": skill("shared", "Workspace live"),
+      ".skillset/skills/workspace-only/SKILL.md": skill(
+        "workspace-only",
+        "Workspace draft",
+        { status: "draft" }
+      ),
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/workspace-only/SKILL.md": skill(
+        "workspace-only",
+        "Plugin live"
+      ),
+      ".skillset/plugins/demo/skills/shared/SKILL.md": skill(
+        "shared",
+        "Plugin draft",
+        { status: "draft" }
+      ),
+    });
+
+    await buildSkillsetResult(root);
+    const report = await doctorSkillset(root);
+    expect(report.projectUse).toContainEqual(
+      expect.objectContaining({
+        effectiveName: "draft-workspace-only",
+        owner: { target: "cursor" },
+        role: "bundle",
+        sourceUnit: "skill:workspace-only",
+      })
+    );
+    expect(report.projectUse).toContainEqual(
+      expect.objectContaining({
+        effectiveName: "draft-shared",
+        owner: { target: "cursor" },
+        role: "project-use",
+        sourceUnit: "plugin.demo.skill:shared",
+      })
+    );
+    for (const entry of report.projectUse.filter((item) =>
+      item.effectiveName === "draft-workspace-only" ||
+      item.effectiveName === "draft-shared"
+    )) {
+      expect(entry).not.toHaveProperty("shippedSibling");
+    }
+    const cursorDraft = parseMarkdown(
+      await readFile(
+        join(root, ".cursor/skills/draft-shared/SKILL.md"),
+        "utf8"
+      ),
+      "draft-shared"
+    );
+    expect(cursorDraft.frontmatter.metadata).toMatchObject({ internal: true });
+  });
+
+  it("allocates draft names globally through workspace and plugin second-order collisions", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: draft-name-collisions
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      beta: true
+      gamma: true
+    drafts:
+      alpha: true
+`,
+      ".skillset/skills/alpha-alpha-draft-shared/SKILL.md": skill(
+        "alpha-alpha-draft-shared",
+        "Workspace second-order reservation"
+      ),
+      ".skillset/plugins/alpha/skillset.yaml": "skillset:\n  name: alpha\n",
+      ".skillset/plugins/alpha/skills/shared/SKILL.md": skill(
+        "shared",
+        "Alpha draft",
+        { status: "draft" }
+      ),
+      ".skillset/plugins/beta/skillset.yaml": "skillset:\n  name: beta\n",
+      ".skillset/plugins/beta/skills/draft-shared/SKILL.md": skill(
+        "draft-shared",
+        "Beta live collision"
+      ),
+      ".skillset/plugins/gamma/skillset.yaml": "skillset:\n  name: gamma\n",
+      ".skillset/plugins/gamma/skills/alpha-draft-shared/SKILL.md": skill(
+        "alpha-draft-shared",
+        "Gamma second-order collision"
+      ),
+    });
+
+    const result = await buildSkillsetResult(root);
+    for (const name of [
+      "alpha-alpha-draft-shared",
+      "alpha-alpha-draft-shared-2",
+      "beta-draft-shared",
+      "gamma-alpha-draft-shared",
+    ]) {
+      expect(
+        await Bun.file(join(root, `.agents/skills/${name}/SKILL.md`)).exists()
+      ).toBe(true);
+    }
+    const diagnostic = result.renderResults.find(
+      (outcome) =>
+        outcome.sourceUnit === "plugin.alpha.skill:shared" &&
+        outcome.target === "codex" &&
+        outcome.diagnostics?.some(
+          (item) => item.code === "internal-use-name-conflict"
+        )
+    )?.diagnostics?.find(
+      (item) => item.code === "internal-use-name-conflict"
+    )?.message ?? "";
+    for (const source of [
+      "plugin.alpha.skill:shared#draft",
+      "plugin.beta.skill:draft-shared",
+      "plugin.gamma.skill:alpha-draft-shared",
+      "workspace:alpha-alpha-draft-shared",
+    ]) {
+      expect(diagnostic).toContain(source);
+    }
+    expect(diagnostic).toContain("emitted as alpha-alpha-draft-shared-2");
   });
 });

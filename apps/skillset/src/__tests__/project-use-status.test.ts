@@ -63,6 +63,78 @@ Use this skill.
   }
 });
 
+test("SET-555 status and explain expose coherent project-draft provenance", async () => {
+  const root = await fixture({
+    "skillset.yaml": `skillset:
+  name: project-draft-status
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      demo: true
+`,
+    ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+    ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Use this skill.
+---
+
+Use this skill.
+`,
+    ".skillset/plugins/demo/skills/_drafts/use-me/SKILL.md": `---
+name: use-me
+description: Draft this skill.
+---
+
+Draft this skill.
+`,
+  });
+  await buildSkillsetResult(root);
+
+  const jsonResult = await runStatus(root, "--json");
+  expect(jsonResult.exitCode).toBe(0);
+  const report = (JSON.parse(jsonResult.stdout) as {
+    readonly data: {
+      readonly projectUse: readonly Record<string, unknown>[];
+    };
+  }).data;
+  expect(report.projectUse).toContainEqual({
+    draftOrigin: "_drafts",
+    effectiveName: "draft-use-me",
+    owner: { target: "codex" },
+    role: "project-use",
+    selectionRule: "plugins.internal_use.drafts.demo: omitted (side-by-side)",
+    shippedSibling: "plugin.demo.skill:use-me",
+    sourcePath: ".skillset/plugins/demo/skills/_drafts/use-me/SKILL.md",
+    sourceUnit: "plugin.demo.skill:use-me",
+    target: "codex",
+  });
+
+  const humanResult = await runStatus(root);
+  expect(humanResult.exitCode).toBe(0);
+  expect(humanResult.stdout).toContain(
+    "project draft [codex]: source=plugin.demo.skill:use-me (.skillset/plugins/demo/skills/_drafts/use-me/SKILL.md); selection=plugins.internal_use.drafts.demo: omitted (side-by-side); effectiveName=draft-use-me; role=project-use; owner=codex; draftOrigin=_drafts; shippedSibling=plugin.demo.skill:use-me"
+  );
+
+  const explain = await runExplain(
+    root,
+    ".agents/skills/draft-use-me/SKILL.md"
+  );
+  expect(explain.exitCode).toBe(0);
+  expect(explain.stdout).toContain("role: project-use");
+  expect(explain.stdout).toContain("effective name: draft-use-me");
+  expect(explain.stdout).toContain("draft origin: _drafts");
+  expect(explain.stdout).toContain(
+    "shipped sibling: plugin.demo.skill:use-me"
+  );
+  expect(explain.stdout).toContain(
+    "selection rule: plugins.internal_use.drafts.demo: omitted (side-by-side)"
+  );
+  expect(explain.stdout).toContain("owner: codex");
+});
+
 function statusEntry(target: "claude" | "codex" | "cursor") {
   return {
     effectiveName: "use-me",
@@ -94,6 +166,26 @@ async function runStatus(
 ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
   const proc = Bun.spawn(
     [process.execPath, cli, "status", "--root", root, ...args],
+    {
+      env: { ...Bun.env, NODE_ENV: "test" },
+      stderr: "pipe",
+      stdout: "pipe",
+    }
+  );
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function runExplain(
+  root: string,
+  path: string
+): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const proc = Bun.spawn(
+    [process.execPath, cli, "explain", path, "--root", root],
     {
       env: { ...Bun.env, NODE_ENV: "test" },
       stderr: "pipe",

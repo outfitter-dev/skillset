@@ -45,7 +45,7 @@ The generated [skill-frontmatter schema and example](../schemas/README.md) own t
 
 Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`, and `skillset list` and `skillset explain` report the crossed group. Generated skills flatten to the leaf: standalone output uses `<skill-root>/tdd/SKILL.md`, and plugin-owned output uses the immediate-child `plugins/<id>/skills/<effective-id>/SKILL.md` package path. Duplicate leaves across groups fail because their generated paths would collide.
 
-Place an unpublished counterpart under `_drafts/<skill>/`, or add `status: draft` to its frontmatter. Discovery reports the draft status and its origin, but drafts do not enter generated output or packages until a draft-rendering mode explicitly selects them. An `_drafts/<skill>/` counterpart may share the live skill's leaf within the same group; other duplicate leaves fail with both source paths.
+Place an unpublished counterpart under `_drafts/<skill>/`, or add `status: draft` to its frontmatter. Discovery reports the draft status and its origin. Project rendering writes drafts beside live skills as `draft-<leaf>` while plugin packages, Agent Plugins packages, standards projections of plugin content, and marketplace output continue to exclude them. An `_drafts/<skill>/` counterpart may share the live skill's leaf within the same group; other duplicate leaves fail with both source paths.
 
 Skill bodies support the expressions documented in [source preprocessing](../source/preprocessing.md). `compile.features.promptArguments` defaults to enabled, and `compile.skillset.metadata` defaults to enabled; [project configuration](../../configuration/project-configuration.md) owns those workspace settings.
 
@@ -74,14 +74,26 @@ hooks, shared trees, MCP servers, and executables do not accompany it; whole-
 plugin selection and skill-owned hook attachments report unhydrated components
 without treating unrelated shared files as dependencies.
 
+Workspace drafts always render side by side. A plugin draft is inherited when
+its same-container live sibling is selected and
+`plugins.internal_use.drafts.<plugin>` is omitted. `true` or a list selects
+drafts explicitly; `false` excludes them, and live-skill exclusions resolve
+first. Each copy uses a `draft-<leaf>` directory and name, a
+`[SKILLSET DRAFT] ` description prefix, and boolean `metadata.internal: true`
+regardless of `internal_marker`. Descriptions that exceed 1024 characters only
+because of the prefix are truncated with an ellipsis and reported as
+`draft-description-truncated`. Locks, `explain`, and `status` record the draft
+origin and same-container shipped sibling as well as normal project-use
+provenance.
+
 ## Errors and Caveats
 
 Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. Agent Plugins diagnostics also reject package skill layouts the portable package would not discover. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
 
 Generated skills are [generated output](../../glossary.md#generated-output), not authoring surfaces. [`skillset check --only outputs`](../cli/check.md) reports missing, stale, or edited managed files; [`skillset explain`](../cli/explain.md) shows the deciding source, target, resources, preprocessing dependencies, and policy realization.
 
-Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use, writes only when confirmation is explicit, and rejects ids outside Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens.
+Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use, writes only when confirmation is explicit, and rejects ids outside Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens. Add `--draft` to create `<source-root>/skills/_drafts/<id>/SKILL.md`, or combine it with `--in <plugin>` for a plugin-local draft; authored frontmatter keeps the ordinary leaf name.
 
 ## Provenance
 
-Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`. Project-use copies use `role: project-use` and record their target owner, canonical source unit, effective name, and selection rule.
+Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`. Project-use copies use `role: project-use` and record their target owner, canonical source unit, effective name, and selection rule. Draft entries also record `draftOrigin` and `shippedSibling` when a same-container live counterpart exists.
