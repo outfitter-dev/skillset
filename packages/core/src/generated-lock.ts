@@ -39,6 +39,7 @@ export type GeneratedLockRole = ProjectionRole;
 export interface ParsedGeneratedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
+  readonly effectiveName?: string;
   readonly feature?: string;
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
   readonly files: readonly string[];
@@ -57,6 +58,8 @@ export interface ParsedGeneratedLockItem {
   readonly sourceOrigin?: SourceOrigin;
   readonly targetState?: string;
   readonly sourcePointer?: string;
+  readonly sourceUnit?: string;
+  readonly selectionRule?: string;
   readonly transforms?: readonly Record<string, unknown>[];
   readonly validation?: string;
   readonly version?: string;
@@ -281,6 +284,7 @@ function parseGeneratedLockItem(
     "dependencies"
   );
   const feature = optionalString(value.feature, label, "feature");
+  const effectiveName = optionalString(value.effectiveName, label, "effectiveName");
   const plugin = optionalString(value.plugin, label, "plugin");
   const preprocessDependencies = optionalStringArray(
     value.preprocessDependencies,
@@ -299,6 +303,8 @@ function parseGeneratedLockItem(
     label,
     "sourcePointer"
   );
+  const sourceUnit = optionalString(value.sourceUnit, label, "sourceUnit");
+  const selectionRule = optionalString(value.selectionRule, label, "selectionRule");
   const targetState = optionalString(value.targetState, label, "targetState");
   const transforms = optionalRecordArray(value.transforms, label, "transforms");
   const validation = optionalString(value.validation, label, "validation");
@@ -324,6 +330,7 @@ function parseGeneratedLockItem(
   return {
     consumers,
     ...(dependencies === undefined ? {} : { dependencies }),
+    ...(effectiveName === undefined ? {} : { effectiveName }),
     ...(feature === undefined ? {} : { feature }),
     ...(fileModes === undefined ? {} : { fileModes }),
     files,
@@ -341,6 +348,8 @@ function parseGeneratedLockItem(
     ...(sourceHash === undefined ? {} : { sourceHash }),
     ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
     ...(sourcePointer === undefined ? {} : { sourcePointer }),
+    ...(sourceUnit === undefined ? {} : { sourceUnit }),
+    ...(selectionRule === undefined ? {} : { selectionRule }),
     ...(targetState === undefined ? {} : { targetState }),
     ...(transforms === undefined ? {} : { transforms }),
     ...(validation === undefined ? {} : { validation }),
