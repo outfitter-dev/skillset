@@ -13,6 +13,7 @@ import * as distribution from "./distribution-args";
 import { parseHooksCommandRequest } from "./hooks-args";
 import { parseInitCommandRequest } from "./init-args";
 import * as inspection from "./inspect-args";
+import { parseMoveCommandRequest } from "./move-args";
 import { parseLookupCommandRequest } from "./lookup-args";
 import * as recovery from "./recovery-args";
 import { parseRenameCommandRequest } from "./rename-args";
@@ -121,6 +122,7 @@ export const parseCliRequest = (
           ),
         };
       }
+      case "move": return { command, request: parseMoveCommandRequest(args, parseContext) };
       case "new": {
         return {
           command,

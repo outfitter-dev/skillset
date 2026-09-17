@@ -9,6 +9,9 @@ describe("source reference descriptors", () => {
   test("inventory every structured SET-370 source reference surface deterministically", () => {
     expect(skillsetSourceReferenceDescriptors.map((descriptor) => descriptor.id)).toEqual([
       "agent-skills",
+      "configured-draft-selector",
+      "distribution-source-selector",
+      "internal-plugin-selection",
       "skill-resource-source",
       "skill-resource-destination",
       "hook-attachment",
@@ -25,6 +28,21 @@ describe("source reference descriptors", () => {
         kind: "source-unit-identity",
         mutationPolicy: "rewrite",
         pathPatterns: ["skills[*]", "claude.skills[*]", "codex.skills[*]", "cursor.skills[*]"],
+      }),
+      expect.objectContaining({
+        id: "configured-draft-selector",
+        pathPatterns: ["drafts[*]"],
+      }),
+      expect.objectContaining({
+        id: "distribution-source-selector",
+        pathPatterns: ["distributions.<id>.from.selector"],
+      }),
+      expect.objectContaining({
+        id: "internal-plugin-selection",
+        pathPatterns: [
+          "plugins.internal_use.skills.<plugin>[*]",
+          "plugins.internal_use.drafts.<plugin>[*]",
+        ],
       }),
       expect.objectContaining({
         id: "skill-resource-source",

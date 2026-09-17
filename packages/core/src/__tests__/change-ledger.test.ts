@@ -38,6 +38,10 @@ describe("readChangeLedger", () => {
       event("evt-008", "baseline.recorded", {
         sourceUnits: [{ hashSchema: "skillset-source-unit-v2", selector: "config:root", sourceHash: hash("2") }],
       }),
+      event("evt-009", "source.moved", {
+        from: "standalone-skill:demo",
+        to: "plugin-skill:tools/demo",
+      }),
     ]);
 
     const events = await readChangeLedger(root);
@@ -51,6 +55,7 @@ describe("readChangeLedger", () => {
       "evt-006",
       "evt-007",
       "evt-008",
+      "evt-009",
     ]);
     expect(events.map((item) => item.type)).toEqual([
       "reason.created",
@@ -61,6 +66,7 @@ describe("readChangeLedger", () => {
       "change.amended",
       "release.amended",
       "baseline.recorded",
+      "source.moved",
     ]);
     expect(events[2]?.sourceUnits).toEqual([
       { hashSchema: "skillset-source-unit-v2", selector: "skill:demo", sourceHash: hash("1") },
@@ -84,6 +90,10 @@ describe("readChangeLedger", () => {
       sourceUnits: [{ hashSchema: "skillset-source-unit-v2", selector: "skill:demo", sourceHash: hash("1") }],
     });
     expect(events[7]?.line).toBe(8);
+    expect(events[8]?.payload).toEqual({
+      from: "skill:demo",
+      to: "plugin.tools.skill:demo",
+    });
   });
 
   test("normalizes historical source-unit selectors and preserves hash schema metadata", async () => {

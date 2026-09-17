@@ -78,6 +78,17 @@ Organize skills beneath plain or parenthesized group directories without changin
 
 New skill ids follow Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens. `skillset new skill` rejects overlong ids, consecutive hyphens, and trailing hyphens before writing.
 
+Move a shipped skill between the workspace and one plugin collection with
+`skillset move <from> <to>`. Both paths must be in the same workspace and keep
+the same leaf. Preview is read-only; add `--yes` to apply the displayed plan
+hash. The transaction carries a same-container `_drafts/<leaf>` sibling,
+rewrites current selectors and references, updates generated outputs and lock
+provenance, and appends identity history. On plugin-to-workspace moves it
+removes direct `plugins.internal_use` skill or draft selections for that leaf
+and prints a notice rather than converting them into implicit workspace
+selection. `skillset rename` remains the command for changing a leaf inside
+one collection and refuses cross-collection destinations.
+
 Use `.skillset/rules/**/*.md` for durable repo instructions:
 
 ```yaml

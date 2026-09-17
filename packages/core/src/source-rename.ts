@@ -134,7 +134,9 @@ async function planAuthoredSourceRename(
       ? undefined
       : {
           from: oldSkill.id,
-          ...(plugin === undefined ? {} : { pluginId: plugin.id }),
+          ...(plugin === undefined
+            ? {}
+            : { fromPluginId: plugin.id, toPluginId: plugin.id }),
           sourcePath: oldSkill.sourcePath,
           to: basename(toPath),
         };
