@@ -20,6 +20,70 @@ import { parseMarkdown } from "../yaml";
 const decoder = new TextDecoder();
 
 describe("Agent Skills standard rendering", () => {
+  test("copies implied resources into flattened and Agent Plugins skill packages", async () => {
+    const graph = adopted(
+      await fixtureGraph({
+        "skillset.yaml": `
+skillset:
+  name: implied-package-resources
+claude: false
+codex: false
+cursor: false
+`,
+        ".skillset/shared/references/workspace.md": "Workspace guide\n",
+        ".skillset/plugins/demo/shared/templates/plugin.txt": "Plugin template\n",
+        ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+codex: false
+`,
+        ".skillset/plugins/demo/skills/portable/SKILL.md": `
+---
+name: portable
+description: A portable implied-resource skill.
+---
+
+Read @{{shared:references/workspace.md}}.
+Use @{{plugin:templates/plugin.txt}}.
+`,
+      }),
+      ["agent-plugins-1.0", "agent-skills"]
+    );
+
+    const rendered = await renderBuildGraph(graph);
+    for (const root of [
+      ".agents/skills/portable",
+      "plugins/demo/agents/skills/portable",
+    ]) {
+      expect(paths(rendered)).toContain(`${root}/references/workspace.md`);
+      expect(paths(rendered)).toContain(`${root}/templates/plugin.txt`);
+      expect(text(rendered, `${root}/SKILL.md`)).toContain(
+        "@references/workspace.md"
+      );
+      expect(text(rendered, `${root}/SKILL.md`)).toContain(
+        "@templates/plugin.txt"
+      );
+    }
+    expect(lockItems(rendered, ".agents/skills/skillset.lock")).toContainEqual(
+      expect.objectContaining({
+        files: expect.arrayContaining([
+          "portable/references/workspace.md",
+          "portable/templates/plugin.txt",
+        ]),
+        name: "portable",
+      })
+    );
+    expect(lockItems(rendered, "plugins/skillset.lock")).toContainEqual(
+      expect.objectContaining({
+        files: expect.arrayContaining([
+          "demo/agents/skills/portable/references/workspace.md",
+          "demo/agents/skills/portable/templates/plugin.txt",
+        ]),
+        name: "portable",
+      })
+    );
+  });
+
   test("renders the whitelisted baseline, resources, and inherited license in root and package projections", async () => {
     const graph = adopted(
       await fixtureGraph({

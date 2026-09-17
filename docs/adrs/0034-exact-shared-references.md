@@ -56,14 +56,11 @@ must be included; authors do not separately repeat it in `resources:`. The
 undocumented `root:` prefix and the earlier bare path and `{{@...}}` spellings
 are retired and produce a current-grammar error.
 
-Skill Markdown below the main `SKILL.md` receives the same preprocessing pass.
-An implied copy that originates inside a skill remains inside that skill's
-output tree. It cannot escape into its plugin or workspace destination.
-
-When a package uses workspace shared files, Skillset lifts those files into the
-package so the result is self-contained. Two lifted or package-local resources
-that resolve to the same package path must have compatible ownership and bytes;
-otherwise the build fails. No source shadows another by lookup precedence.
+SET-573 will extend the same preprocessing pass to Skill Markdown below the
+main `SKILL.md` and keep any implied copy inside that skill's output tree. It
+will also define package lifting for workspace shared files, including collision
+and ownership rules. Those include-graph and package-lifting behaviors are not
+part of the SET-556 implementation recorded here.
 
 ### Superseded statements
 

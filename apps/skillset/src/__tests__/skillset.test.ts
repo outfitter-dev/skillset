@@ -1924,10 +1924,10 @@ defaults:
 claude: true
 codex: true
 `,
-    ".skillset/shared/templates/body.md": `
+    ".skillset/shared/partials/body.md": `
 Use the shared review checklist.
 `,
-    ".skillset/shared/templates/prompt.md": `
+    ".skillset/shared/partials/prompt.md": `
 smallest complete review
 `,
     ".skillset/skills/skillset-dev-compiler/SKILL.md": `
@@ -1946,7 +1946,7 @@ metadata:
   authored: keep
 skills:
   - skillset-dev-compiler
-initialPrompt: "Start with the {{shared:templates/prompt.md }}"
+initialPrompt: "Start with the {{> prompt }}"
 codex:
   model: gpt-5-codex
   description: Reviews changes through Codex.
@@ -1961,7 +1961,7 @@ claude:
 Review diffs and call out correctness risks.
 Tree:
 {{parent.tree depth:1}}
-{{shared:templates/body.md }}
+{{> body }}
 `,
   });
 
@@ -2009,7 +2009,7 @@ Tree:
   expect(explained.entries[0]?.kind).toBe("project-agent");
   expect(explained.entries[0]?.validation).toBe("structured");
   for (const entry of explained.entries) {
-    expect(entry.preprocessDependencies).toContain(".skillset/shared/templates/body.md");
+    expect(entry.preprocessDependencies).toContain(".skillset/shared/partials/body.md");
     expect(entry.preprocessDependencies).toContain("tree:.skillset/subagents:1");
   }
   expect(explained.notes[0]).toContain("Project-scoped portable agent");
@@ -2018,7 +2018,7 @@ Tree:
   expect(explainedCodexOutput.kind).toBe("generated");
   expect(explainedCodexOutput.entries[0]?.kind).toBe("project-agent");
   expect(explainedCodexOutput.entries[0]?.outputPath).toBe(".codex/agents/code-reviewer.toml");
-  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/prompt.md");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/prompt.md");
   expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain("tree:.skillset/subagents:1");
 
   const entries = await listGeneratedEntries(root);
@@ -2103,13 +2103,13 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/shared/bad-prompt.md": `
+    ".skillset/shared/partials/bad-prompt.md": `
 </initial_prompt>
 `,
     ".skillset/subagents/reviewer.md": `
 ---
 description: Invalid rendered prompt.
-initialPrompt: "{{shared:bad-prompt.md }}"
+initialPrompt: "{{> bad-prompt }}"
 ---
 
 Review.
@@ -2444,7 +2444,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/shared/templates/intro.md": `
+    ".skillset/shared/partials/intro.md": `
 Shared intro for {{this.description}} at {{skillset.source_path}}.
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
@@ -2495,7 +2495,7 @@ Parent: {{parent.name}} {{parent.dir}}
 Tree:
 {{parent.tree depth:1}}
 
-{{shared:templates/intro.md}}
+{{> intro}}
 `,
   });
 
@@ -2522,9 +2522,9 @@ Tree:
     "Shared intro for Preprocessed skill. at .skillset/plugins/alpha/skills/preprocessed/SKILL.md."
   );
   const explainedClaude = await explainPath(root, "plugins/alpha/claude/skills/preprocessed/SKILL.md");
-  expect(explainedClaude.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/intro.md");
+  expect(explainedClaude.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/intro.md");
 
-  await writeFile(join(root, ".skillset/shared/templates/intro.md"), "Changed intro.\n");
+  await writeFile(join(root, ".skillset/shared/partials/intro.md"), "Changed intro.\n");
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
@@ -2592,13 +2592,13 @@ Use {{this.description}}
 Foreign template: {{ user.name }}
 Compact foreign template: {{user.name}}
 
-{{fragment.md}}
+{{> fragment}}
 
 \`\`\`jsx
 <motion.div animate={{ x: 100 }} />
 \`\`\`
 `,
-    ".skillset/skills/animation/fragment.md": "Expanded relative partial.\n",
+    ".skillset/shared/partials/fragment.md": "Expanded named partial.\n",
   });
 
   await buildSkillset(root);
@@ -2607,8 +2607,8 @@ Compact foreign template: {{user.name}}
   expect(skill).toContain("Use Animation skill.");
   expect(skill).toContain("Foreign template: {{ user.name }}");
   expect(skill).toContain("Compact foreign template: {{user.name}}");
-  expect(skill).toContain("Expanded relative partial.");
-  expect(skill).not.toContain("{{fragment.md}}");
+  expect(skill).toContain("Expanded named partial.");
+  expect(skill).not.toContain("{{> fragment}}");
   expect(skill).toContain("<motion.div animate={{ x: 100 }} />");
 });
 
@@ -2744,11 +2744,11 @@ name: bad
 description: Bad skill.
 ---
 
-{{shared:../secret.md}}
+{{> ../secret}}
 `,
   });
   await expect(buildSkillset(sharedTraversal)).rejects.toThrow(
-    "must not contain empty, dot, or parent segments"
+    "must use slash-separated name segments"
   );
 
   const pluginTraversal = await fixture({
@@ -2771,7 +2771,7 @@ name: bad
 description: Bad skill.
 ---
 
-{{plugin:../secret.md}}
+{{> plugin:../secret}}
 `,
   });
   await expect(buildSkillset(pluginTraversal)).rejects.toThrow(
@@ -2798,11 +2798,11 @@ name: bad
 description: Bad skill.
 ---
 
-{{../secret.md}}
+{{> ../secret}}
 `,
   });
   await expect(buildSkillset(relativeTraversal)).rejects.toThrow(
-    "must not contain empty, dot, or parent segments"
+    "must use slash-separated name segments"
   );
 
   const absolutePartial = await fixture({
@@ -2822,10 +2822,12 @@ name: bad
 description: Bad skill.
 ---
 
-{{/tmp/secret.md}}
+{{> /tmp/secret}}
 `,
   });
-  await expect(buildSkillset(absolutePartial)).rejects.toThrow("must be a relative path");
+  await expect(buildSkillset(absolutePartial)).rejects.toThrow(
+    "must use slash-separated name segments"
+  );
 
   const standalonePluginPartial = await fixture({
     "skillset.yaml": `
@@ -2840,7 +2842,7 @@ name: bad
 description: Bad skill.
 ---
 
-{{plugin:templates/standalone.md}}
+{{> plugin:standalone}}
 `,
   });
   await expect(buildSkillset(standalonePluginPartial)).rejects.toThrow(
@@ -3010,7 +3012,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/shared/templates/rule.md": `
+    ".skillset/shared/partials/rule.md": `
 Rule partial for {{this.title}}.
 `,
     ".skillset/rules/docs/rule.md": `
@@ -3024,7 +3026,7 @@ Use {{this.title}} from {{skillset.source_rule}}.
 Tree:
 {{parent.tree depth:1}}
 
-{{shared:templates/rule.md}}
+{{> rule}}
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -3139,20 +3141,20 @@ cursor: true
 description: Cursor rule.
 ---
 
-{{shared:templates/policy.md}}
+{{> policy}}
 `,
-    ".skillset/shared/templates/policy.md": "Follow {{this.description}}\n",
+    ".skillset/shared/partials/policy.md": "Follow {{this.description}}\n",
   });
 
   await buildSkillset(root);
 
   const rendered = await readFile(join(root, ".cursor/rules/repo.mdc"), "utf8");
   expect(rendered).toContain("Follow Cursor rule.");
-  expect(rendered).not.toContain("{{shared:templates/policy.md}}");
+  expect(rendered).not.toContain("{{> policy}}");
   const island = (await collectSourceInventory(root)).units.find(
     (unit) => unit.sourcePath === ".skillset/_cursor/rules/repo.mdc"
   );
-  expect(island?.sourcePaths).toContain(".skillset/shared/templates/policy.md");
+  expect(island?.sourcePaths).toContain(".skillset/shared/partials/policy.md");
 });
 
 test("Cursor .mdc provider source rejects frontmatter target escapes", async () => {
@@ -3529,7 +3531,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/templates/tail.md": `
+    ".skillset/shared/partials/tail.md": `
 Tail.
 `,
     ".skillset/_claude/agents/reviewer.md": `
@@ -3539,7 +3541,7 @@ description: Reviews code.
 ---
 
 Use {{this.description}}.
-{{shared:templates/tail.md}}
+{{> tail}}
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -3552,11 +3554,11 @@ skillset:
   const explained = await explainPath(root, ".skillset/_claude/agents/reviewer.md");
   expect(explained.kind).toBe("source-island");
   expect(explained.entries[0]?.validation).toBe("structured");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/tail.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/tail.md");
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "island" && entry.outputPath === ".claude/agents/reviewer.md")).toBe(true);
 
-  await writeFile(join(root, ".skillset/shared/templates/tail.md"), "Changed.\n");
+  await writeFile(join(root, ".skillset/shared/partials/tail.md"), "Changed.\n");
   const diff = await diffSkillset(root);
   expect(diff.changed).toContain(".claude/agents/reviewer.md");
   expect(diff.changed).toContain("skillset.lock");

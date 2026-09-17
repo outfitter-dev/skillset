@@ -26,6 +26,7 @@ describe("preprocess reference grammar", () => {
     await files(rootPath, {
       ".skillset/plugins/demo/shared/partials/intro.md": "Plugin introduction",
       ".skillset/plugins/demo/shared/partials/writing/tone.md": "Plugin tone",
+      ".skillset/plugins/demo/shared/references/LICENSE": "Plugin terms",
       ".skillset/plugins/demo/shared/references/plugin.md": "Plugin reference",
       ".skillset/shared/partials/intro.md": "Shared introduction",
       ".skillset/shared/partials/writing/tone.md": "Shared tone",
@@ -43,6 +44,7 @@ describe("preprocess reference grammar", () => {
           "{{> shared:references/common.md}}",
           "{{> shared:partials/intro.md}}",
           "{{> plugin:references/plugin.md}}",
+          "{{> plugin:references/LICENSE}}",
           "@{{shared:references/common.md}}",
           "@{{plugin:references/plugin.md}}",
         ].join("\n"),
@@ -57,6 +59,7 @@ describe("preprocess reference grammar", () => {
         "Common reference",
         "Shared introduction",
         "Plugin reference",
+        "Plugin terms",
         "@shared:references/common.md",
         "@plugin:references/plugin.md",
       ].join("\n")

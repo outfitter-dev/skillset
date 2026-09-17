@@ -74,6 +74,11 @@ describe("source reference descriptors", () => {
       "workspace-test-declarations",
       "plugin-rename",
     ]);
+    const prose = skillsetSourceReferenceExclusions.find(
+      (exclusion) => exclusion.id === "unmarked-prose-and-markdown"
+    );
+    expect(prose?.reason).toContain("@{{...}}");
+    expect(prose?.reason).not.toContain("{{@...}}");
     expect(skillsetSourceReferenceExclusions.every(Object.isFrozen)).toBe(true);
   });
 });
