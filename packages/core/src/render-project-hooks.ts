@@ -80,7 +80,7 @@ async function renderProjectHook(
     ? Object.fromEntries(Object.entries(existing.hooks).filter(([, value]) => value !== undefined)) as Record<string, JsonValue>
     : {};
   const session = Array.isArray(hooks.SessionStart) ? [...hooks.SessionStart] : [];
-  const expected = sessionStartEntry(target);
+  const expected = sessionStartEntry();
   const matching = session.filter((entry) => hasCommand(entry, SESSION_START_COMMAND));
   const divergent = matching.filter((entry) => !isDeepStrictEqual(entry, expected));
   if (divergent.length > 0) {
@@ -111,9 +111,8 @@ async function renderProjectHook(
   };
 }
 
-function sessionStartEntry(target: "claude" | "codex"): JsonRecord {
+function sessionStartEntry(): JsonRecord {
   const handler: Record<string, JsonValue> = { type: "command", command: SESSION_START_COMMAND };
-  void target;
   return { hooks: [handler] };
 }
 
