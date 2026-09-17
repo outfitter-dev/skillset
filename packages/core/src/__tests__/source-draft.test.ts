@@ -133,9 +133,13 @@ describe("SET-587 source draft lifecycle", () => {
   test("promotes a paired edited draft and preserves the shipped selector", async () => {
     const root = await fixture({
       ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Unrelated skill."),
       "skillset.yaml": config(),
     });
     await buildSkillset(root);
+    const unrelated = await readFile(
+      join(root, ".agents/skills/keep/SKILL.md")
+    );
     const fork = await planSourceDraft({
       rootPath: root,
       shippedPath: ".skillset/skills/demo",
@@ -191,6 +195,12 @@ describe("SET-587 source draft lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/demo/SKILL.md"), "utf8")
     ).toContain("Promoted draft.");
+    expect(
+      await readFile(join(root, ".agents/skills/demo/SKILL.md"), "utf8")
+    ).not.toContain("[SKILLSET DRAFT]");
+    expect(await readFile(join(root, ".agents/skills/keep/SKILL.md"))).toEqual(
+      unrelated
+    );
     await expect(
       access(join(root, ".agents/skills/draft-demo"))
     ).rejects.toThrow();
@@ -207,6 +217,85 @@ describe("SET-587 source draft lifecycle", () => {
       },
       type: "source.promoted",
     });
+    const lock = await readFile(
+      join(root, ".agents/skills/skillset.lock"),
+      "utf8"
+    );
+    expect(lock).not.toContain("draft-demo");
+    expect(lock).not.toContain('"draftOrigin"');
+  });
+
+  test("forks, renders, and promotes a paired plugin draft without publishing draft bytes", async () => {
+    const root = await fixture({
+      ".skillset/plugins/tools/skills/demo/SKILL.md": skill(
+        "demo",
+        "Plugin shipped."
+      ),
+      ".skillset/plugins/tools/skillset.yaml":
+        "skillset:\n  name: tools\n",
+      "skillset.yaml": `${config()}plugins:\n  internal_use:\n    skills:\n      tools: [demo]\n`,
+    });
+    await buildSkillset(root);
+    const publishedBefore = await treeBytes(join(root, "plugins/tools"));
+    const request = {
+      rootPath: root,
+      shippedPath: ".skillset/plugins/tools/skills/demo",
+    };
+    const fork = await planSourceDraft(request);
+    await draftSource({ ...request, expectedPlanHash: fork.planHash });
+    await writeFile(
+      join(root, ".skillset/plugins/tools/skills/_drafts/demo/SKILL.md"),
+      skill("demo", "Plugin promoted.")
+    );
+    await buildSkillset(root);
+
+    expect(await treeBytes(join(root, "plugins/tools"))).toEqual(
+      publishedBefore
+    );
+    const renderedDraft = await readFile(
+      join(root, ".agents/skills/draft-demo/SKILL.md"),
+      "utf8"
+    );
+    expect(renderedDraft).toContain("[SKILLSET DRAFT] Plugin promoted.");
+    expect(renderedDraft).toContain("internal: true");
+
+    const promotion = await planSourcePromotion({
+      draftPath: ".skillset/plugins/tools/skills/_drafts/demo",
+      rootPath: root,
+    });
+    expect(promotion).toMatchObject({
+      draftSelector: "plugin.tools.skill:demo#draft",
+      kind: "paired",
+      selector: "plugin.tools.skill:demo",
+    });
+    await promoteSource({
+      draftPath: promotion.from,
+      expectedPlanHash: promotion.planHash,
+      rootPath: root,
+    });
+
+    await expect(
+      access(join(root, ".skillset/plugins/tools/skills/_drafts/demo"))
+    ).rejects.toThrow();
+    expect(
+      await readFile(
+        join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
+        "utf8"
+      )
+    ).toContain("Plugin promoted.");
+    const renderedLive = await readFile(
+      join(root, ".agents/skills/demo/SKILL.md"),
+      "utf8"
+    );
+    expect(renderedLive).toContain("Plugin promoted.");
+    expect(renderedLive).not.toContain("[SKILLSET DRAFT]");
+    await expect(
+      access(join(root, ".agents/skills/draft-demo"))
+    ).rejects.toThrow();
+    const packagePaths = await filesBelow(join(root, "plugins/tools"));
+    expect(packagePaths.some((path) => path.includes("draft-demo"))).toBe(
+      false
+    );
   });
 
   test("warns when the shipped sibling changed after the fork and still applies", async () => {
@@ -315,6 +404,95 @@ describe("SET-587 source draft lifecycle", () => {
         rootPath: root,
       })
     ).rejects.toThrow("missing draft fork baseline for skill:demo#draft");
+  });
+
+  test("refuses invalid lifecycle sources and blocked generated effects without writes", async () => {
+    const root = await fixture({
+      ".skillset/shared/not-a-skill/input.txt": "not a skill\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    await expect(
+      planSourceDraft({
+        rootPath: root,
+        shippedPath: ".skillset/shared/not-a-skill",
+      })
+    ).rejects.toThrow("source must be a complete shipped skill directory");
+    await expect(
+      planSourcePromotion({
+        draftPath: ".skillset/shared/not-a-skill",
+        rootPath: root,
+      })
+    ).rejects.toThrow("source must be an _drafts skill directory");
+
+    await mkdir(join(root, ".agents/skills/draft-demo"), { recursive: true });
+    await writeFile(
+      join(root, ".agents/skills/draft-demo/SKILL.md"),
+      "unmanaged\n"
+    );
+    await expect(
+      planSourceDraft({
+        rootPath: root,
+        shippedPath: ".skillset/skills/demo",
+      })
+    ).rejects.toThrow(/unmanaged|collision/u);
+    expect(
+      await Bun.file(
+        join(root, ".skillset/skills/_drafts/demo/SKILL.md")
+      ).exists()
+    ).toBe(false);
+    expect(
+      await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
+    ).toBe(false);
+  });
+
+  test("restores an exact paired workspace after an interrupted promotion", async () => {
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const draftRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(draftRequest);
+    await draftSource({
+      ...draftRequest,
+      expectedPlanHash: fork.planHash,
+    });
+    await writeFile(
+      join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+      skill("demo", "Interrupted promotion.")
+    );
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const before = await treeBytes(root);
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeApply: (operation) => {
+              if (
+                operation.kind === "write" &&
+                operation.path === ".skillset/changes/ledger.jsonl"
+              ) {
+                throw new Error("injected promotion ledger failure");
+              }
+            },
+          },
+        },
+      })
+    ).rejects.toThrow("injected promotion ledger failure");
+    expect(await treeBytes(root)).toEqual(before);
   });
 
   test("rejects stale plans and rolls back a copied draft after a late failure", async () => {

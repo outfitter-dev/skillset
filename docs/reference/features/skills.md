@@ -96,6 +96,26 @@ Generated skills are [generated output](../../glossary.md#generated-output), not
 
 Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previews without `--yes` in non-interactive use, writes only when confirmation is explicit, and rejects ids outside Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens. Add `--draft` to create `<source-root>/skills/_drafts/<id>/SKILL.md`, or combine it with `--in <plugin>` for a plugin-local draft; authored frontmatter keeps the ordinary leaf name.
 
+Use [`skillset draft <shipped-path>`](../cli/draft.md) to fork a shipped
+standalone or plugin skill into the same container's `_drafts/<leaf>` sibling.
+The preview shows the copy, generated effects, plan hash, and recorded source
+hash without writing. Add `--yes` to copy the complete skill while leaving its
+ordinary sibling in place, then edit the draft normally. The fork event stores
+the shipped source hash in append-only history; the private baseline never
+enters skill frontmatter.
+
+Use [`skillset promote <draft-path>`](../cli/promote.md) to preview the authored
+diff and move the draft to its ordinary sibling. A paired promotion replaces
+the same-container shipped skill in one transaction. An unpaired promotion
+moves the draft out of `_drafts/` without consulting a same-leaf skill in
+another workspace or plugin container. If the paired shipped source changed
+after the fork, the preview warns and shows the diff; explicit `--yes` may
+still apply that exact plan. Promotion keeps the shipped selector and its
+pre-fork release history, appends promotion provenance, and removes the draft
+path and its generated draft outputs. A refusal, stale plan, blocked generated
+effect, or interrupted write restores the exact pre-operation source, ledger,
+generated output, and lock state.
+
 Use [`skillset move`](../cli/move.md) to move a shipped skill between the
 workspace collection and one plugin collection in the same workspace. The
 destination must keep the same leaf name. A same-container `_drafts/<leaf>`
