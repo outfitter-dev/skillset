@@ -435,7 +435,7 @@ async function runProfileProbe(
   };
   const evidence = await runAgentPluginsProbe({
     codex,
-    packageRoot: join(generatedRoot, "plugins", "portable-proof", "agents"),
+    packageRoot: join(generatedRoot, "plugins", "portable-proof"),
   });
   return {
     canaries: evidence.schemas.map(({ artifact, negativeCanary }) => ({
