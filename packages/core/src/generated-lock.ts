@@ -336,6 +336,12 @@ function parseGeneratedLockItem(
   const role = schemaVersion === 4 ? parseRole(value.role, label) : undefined;
   validateOwnerConsumerRelationship(consumers, owner, label);
   if (role !== undefined) validateRoleOwnership(role, owner, label);
+  if (kind === "settings-entry" && (ownedEntries === undefined || ownedEntries.length === 0)) {
+    throw invalidLock(label, "settings-entry items require ownedEntries");
+  }
+  if (kind !== "settings-entry" && ownedEntries !== undefined) {
+    throw invalidLock(label, "ownedEntries are only valid for settings-entry items");
+  }
 
   return {
     consumers,

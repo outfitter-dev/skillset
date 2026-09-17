@@ -92,6 +92,45 @@ test("reads provenance-valid v4 lock identity, role, and logical consumers", () 
   );
 });
 
+test("parses settings-entry field ownership and requires its selector", () => {
+  const lock = withLockProvenance({
+    generatedBy: "skillset@0.1.0",
+    items: [{
+      consumers: [{ phase: "delta", target: "claude" }],
+      fileModes: { ".claude/settings.local.json": "0644" },
+      files: [".claude/settings.local.json"],
+      kind: "settings-entry",
+      name: "session-start:claude",
+      owner: { target: "claude" },
+      ownedEntries: [{
+        commandHash: "sha256:command",
+        file: ".claude/settings.local.json",
+        keyPath: "hooks.SessionStart[*].hooks[*].command",
+      }],
+      outputHash: "sha256:output",
+      outputPath: ".claude/settings.local.json",
+      role: "bundle",
+      sourceHash: "sha256:source",
+      sourcePath: "skillset.yaml",
+    }],
+    outputRoot: ".",
+    schemaVersion: 4,
+    standardProfileEvidence: {},
+    selectedStandards: [],
+    selectedTargets: ["claude"],
+    target: "workspace",
+  });
+  expect(parseCurrentGeneratedLock(lock).items[0]?.ownedEntries).toEqual([{
+    commandHash: "sha256:command",
+    file: ".claude/settings.local.json",
+    keyPath: "hooks.SessionStart[*].hooks[*].command",
+  }]);
+  expect(() => parseCurrentGeneratedLock(withLockProvenance({
+    ...lock,
+    items: [{ ...lock.items[0], ownedEntries: undefined }],
+  }))).toThrow("settings-entry items require ownedEntries");
+});
+
 test("keeps sparse lock items matchable through their files", () => {
   const lock = withLockProvenance({
     generatedBy: "skillset@0.1.0",
