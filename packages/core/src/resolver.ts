@@ -280,7 +280,8 @@ export async function loadBuildGraph(
     plugins,
     standaloneSkills,
     rules,
-    standardProjections
+    standardProjections,
+    pluginPlan.internalUse.skills
   );
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
@@ -1764,14 +1765,16 @@ async function outputRootsFor(
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
   rules: readonly SourceRule[],
-  standardProjections: BuildGraph["standardProjections"]
+  standardProjections: BuildGraph["standardProjections"],
+  projectUseSkills: readonly { readonly pluginId: string; readonly skillId: string }[]
 ): Promise<readonly ActiveOutputRoot[]> {
   const activeRoots = activeOutputRoots(
     outputs,
     plugins,
     standaloneSkills,
     rules,
-    standardProjections
+    standardProjections,
+    projectUseSkills
   );
   const roots = [...activeRoots];
   const activePaths = new Set(activeRoots.map((outputRoot) => outputRoot.path));
@@ -1868,7 +1871,8 @@ function activeOutputRoots(
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
   rules: readonly SourceRule[],
-  standardProjections: BuildGraph["standardProjections"]
+  standardProjections: BuildGraph["standardProjections"],
+  projectUseSkills: readonly { readonly pluginId: string; readonly skillId: string }[]
 ): readonly ActiveOutputRoot[] {
   const roots: ActiveOutputRoot[] = standardProjectionManagedOutputRoots(standardProjections)
     .map((path) => ({
@@ -1893,7 +1897,16 @@ function activeOutputRoots(
     if (target === "claude") {
       roots.push(...pluginBundleOutputRoots(enabledPlugins));
     }
-    if (standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))) {
+    if (
+      projectUseSkills.some(({ pluginId, skillId }) => {
+        const skill = plugins
+          .find((plugin) => plugin.id === pluginId)
+          ?.skills.find((candidate) => candidate.id === skillId);
+        return skill !== undefined && skill.targets[target].enabled &&
+          outputIncludes(outputs.targetOutputs[target].skills, skill.id);
+      }) ||
+      standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))
+    ) {
       roots.push({ label: `outputs.skills.${target}`, path: outputs.skills[target] });
     }
   }

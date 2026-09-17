@@ -282,6 +282,15 @@ function printExplainResult(
     if (entry.role !== undefined) {
       writeLine(writer, `    role: ${entry.role}`);
     }
+    if (entry.effectiveName !== undefined) {
+      writeLine(writer, `    effective name: ${entry.effectiveName}`);
+    }
+    if (entry.selectionRule !== undefined) {
+      writeLine(writer, `    selection rule: ${entry.selectionRule}`);
+    }
+    if (entry.sourceUnit !== undefined) {
+      writeLine(writer, `    source unit: ${entry.sourceUnit}`);
+    }
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
     }
@@ -473,6 +482,12 @@ function printStatusReport(
         `  plugin packages [${target}]: ${paths.length === 0 ? "none" : paths}`
       );
     }
+  }
+  for (const entry of report.projectUse) {
+    writeLine(
+      writer,
+      `  project use [${entry.target}]: source=${entry.sourceUnit} (${entry.sourcePath}); selection=${entry.selectionRule}; effectiveName=${entry.effectiveName}; role=${entry.role}; owner=${entry.owner.target}`
+    );
   }
   for (const issue of report.lintIssues) {
     writeLine(

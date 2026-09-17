@@ -31,6 +31,7 @@ try {
   await mkdir(npmCache, { recursive: true });
 
   await assertPinnedConsumer(environment);
+  await assertInternalMarkerConsumer(root, environment);
   await Promise.all(
     (["implicit", "declared"] as const).flatMap((catalog) =>
       (["plugins", "dist"] as const).map((outputRoot) =>
@@ -47,6 +48,39 @@ try {
   } else {
     await rm(root, { force: true, recursive: true });
   }
+}
+
+async function assertInternalMarkerConsumer(
+  parent: string,
+  environment: Record<string, string | undefined>
+): Promise<void> {
+  const source = join(parent, "internal-marker-source");
+  await Promise.all([
+    writeText(join(source, ".agents/skills/boolean-internal/SKILL.md"), "---\nname: boolean-internal\ndescription: Boolean internal marker proof.\nmetadata:\n  internal: true\n---\n\nBOOLEAN-INTERNAL\n"),
+    writeText(join(source, ".agents/skills/string-internal/SKILL.md"), "---\nname: string-internal\ndescription: String marker control.\nmetadata:\n  internal: \"true\"\n---\n\nSTRING-INTERNAL\n"),
+  ]);
+  const hiddenConsumer = join(parent, "internal-marker-hidden");
+  const enabledConsumer = join(parent, "internal-marker-enabled");
+  await Promise.all([hiddenConsumer, enabledConsumer].map((path) => mkdir(path, { recursive: true })));
+  const hidden = await runSkills(source, hiddenConsumer, environment, ["--list"]);
+  assertSuccess(hidden, "listing internal-marker controls");
+  if (hidden.stdout.includes("boolean-internal")) {
+    throw new Error("skillset: skills consumer did not hide boolean metadata.internal");
+  }
+  if (!hidden.stdout.includes("string-internal")) {
+    throw new Error("skillset: skills consumer treated string metadata.internal as boolean");
+  }
+  const visible = await runSkills(source, enabledConsumer, {
+    ...environment,
+    INSTALL_INTERNAL_SKILLS: "1",
+  }, ["--list"]);
+  assertSuccess(visible, "listing opted-in internal-marker controls");
+  if (!visible.stdout.includes("boolean-internal")) {
+    throw new Error("skillset: skills consumer did not reveal opted-in internal skill");
+  }
+  await install(source, enabledConsumer, { ...environment, INSTALL_INTERNAL_SKILLS: "1" }, ["--skill", "boolean-internal"]);
+  await assertContains(join(enabledConsumer, ".agents/skills/boolean-internal/SKILL.md"), "BOOLEAN-INTERNAL");
+  console.log(`skills-consumer internal marker: ${PACKAGE} ${SKILLS_COMMIT} boolean-hidden=true string-control-visible=true opt-in-visible=true`);
 }
 
 async function assertPinnedConsumer(
@@ -296,6 +330,12 @@ async function writeFixture(
       join(fixtureRoot, "skillset.yaml"),
       `skillset:
   name: consumer-marketplace
+compile:
+  unsupportedDestination: warn
+plugins:
+  internal_use:
+    skills:
+      consumer-plugin: true
 claude:
   plugins:
     path: ${outputRoot}

@@ -32,6 +32,10 @@ import {
 } from "./output-safety";
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { compareStrings } from "./path";
+import {
+  projectUseStatusEntries,
+  type ProjectUseStatusEntry,
+} from "./project-use";
 import { renderBuildGraph } from "./render";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
@@ -497,6 +501,7 @@ export interface DoctorReport {
   readonly ok: boolean;
   readonly outputState: SkillsetOutputStateEvidence;
   readonly pluginPlan?: NonNullable<BuildGraph["pluginPlan"]>;
+  readonly projectUse: readonly ProjectUseStatusEntry[];
   readonly standardProfiles: readonly StandardProfileStatus[];
   readonly warnings: readonly string[];
 }
@@ -534,6 +539,7 @@ export async function doctorSkillset(
       notableRenderResults: notableRenderResults(renderResults),
       ok: false,
       outputState: classifySkillsetOutputFailure(error, hasBaseline),
+      projectUse: [],
       standardProfiles: standardProfileStatuses(
         {
           adopted: [],
@@ -609,6 +615,7 @@ export async function doctorSkillset(
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
     outputState,
     ...(graph.pluginPlan === undefined ? {} : { pluginPlan: graph.pluginPlan }),
+    projectUse: projectUseStatusEntries(graph),
     standardProfiles: standardProfileStatuses(
       graph.standardProjections,
       options.scopes
@@ -771,6 +778,7 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           outputPath: resolvedOutputPath,
           ...(item.consumers.length === 0 ? {} : { consumers: item.consumers }),
           ...(item.dependencies === undefined ? {} : { dependencies: item.dependencies }),
+          ...(item.effectiveName === undefined ? {} : { effectiveName: item.effectiveName }),
           ...(item.feature === undefined ? {} : { feature: item.feature }),
           ...(fileModes === undefined ? {} : { fileModes }),
           ...(files.length === 0 ? {} : { files: files.map((file) => joinOutputRoot(outputRoot, file)) }),
@@ -787,6 +795,8 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
           ...(item.sourceOrigin === undefined ? {} : { sourceOrigin: item.sourceOrigin }),
           ...(item.sourcePointer === undefined ? {} : { sourcePointer: item.sourcePointer }),
+          ...(item.sourceUnit === undefined ? {} : { sourceUnit: item.sourceUnit }),
+          ...(item.selectionRule === undefined ? {} : { selectionRule: item.selectionRule }),
           ...(transforms === undefined || transforms.length === 0 ? {} : { transforms }),
           ...(item.version === undefined ? {} : { version: item.version }),
           ...(item.targetState === undefined ? {} : { targetState: item.targetState }),

@@ -43,7 +43,7 @@ Check claims against their [canonical source](../../glossary.md#canonical-source
 
 The generated [skill-frontmatter schema and example](../schemas/README.md) own the complete field set and value constraints. The [frontmatter reference](../../configuration/frontmatter.md) explains field ownership; [target overrides](../../configuration/target-overrides.md), [tools policy](../../configuration/tools-policy.md), and [resources](resources.md) own their specialized configuration.
 
-Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`; `skillset list` and `skillset explain` report the crossed group while rendering continues to preserve the authored relative path. Two skills in one tree cannot share a leaf directory across groups because a later flattened projection would collide.
+Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`; `skillset list` and `skillset explain` report the crossed group while generated skill paths flatten to the leaf as `<skill-root>/tdd/SKILL.md`. Two skills in one tree cannot share a leaf directory across groups because their generated paths would collide.
 
 Place an unpublished counterpart under `_drafts/<skill>/`, or add `status: draft` to its frontmatter. Discovery reports the draft status and its origin, but drafts do not enter generated output or packages until a draft-rendering mode explicitly selects them. An `_drafts/<skill>/` counterpart may share the live skill's leaf within the same group; other duplicate leaves fail with both source paths.
 
@@ -63,6 +63,15 @@ An adopted Agent Skills projection makes eligible standalone skills discoverable
 
 Plugin-owned skills are published through their Agent Plugins package. They do not receive a standard-owned `.agents/skills/<skill>/` duplicate. Any project-use copy keeps the same source identity but has separate destination ownership and provenance.
 
+Root `plugins.internal_use` selection creates project-use copies in the fixed
+Claude, Codex, and Cursor skill roots. Names resolve once across workspace
+skills and all selected plugin skills: the workspace keeps the bare leaf, while
+every colliding plugin copy uses `<plugin-id>-<leaf>`. With the default
+`internal_marker: true`, only these copies receive boolean
+`metadata.internal: true`; provider bundles and Agent Plugins packages remain
+byte-independent. Plugin hooks, shared trees, MCP servers, and executables do
+not accompany the copy, and render results report those unhydrated components.
+
 ## Errors and Caveats
 
 Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. Agent Plugins diagnostics also reject package skill layouts the portable package would not discover. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
@@ -73,4 +82,4 @@ Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previ
 
 ## Provenance
 
-Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`.
+Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`. Project-use copies use `role: project-use` and record their target owner, canonical source unit, effective name, and selection rule.

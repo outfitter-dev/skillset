@@ -56,14 +56,14 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:29342b689d5956731ea03ab9094b6bb0aeb8ec17f472cf2c399c44b4958228d6",
+      "outputHash": "sha256:7ad3b4bc39f4c39695a5859e2daa2ffd69f2156dd24d899579ac12b63233239a",
       "outputPath": "skillset/agents/skills/use-skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
       "role": "standard",
-      "sourceHash": "sha256:18659f88dbfe9e61f847c12218607ebb8c07c973b2d2e9c507a65d962abb041a",
+      "sourceHash": "sha256:a3900bfd3610dbc40f500013105642bfe925577ac070a1306d09ec236220fb48",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -104,11 +104,11 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:f926e8a87a352452f9a248af9218d4032d036aba8e0fb3966e501d0f710cb520",
+      "outputHash": "sha256:3a8596c6339db03666b5210ba7493a4ee51335973016c81b8cce626b6247898a",
       "outputPath": "skillset/chatgpt/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
       "role": "bundle",
-      "sourceHash": "sha256:18659f88dbfe9e61f847c12218607ebb8c07c973b2d2e9c507a65d962abb041a",
+      "sourceHash": "sha256:a3900bfd3610dbc40f500013105642bfe925577ac070a1306d09ec236220fb48",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -149,11 +149,11 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:b9280f1c96dca974817726d747a068962dd66b37674dc24ff70660ba6a94a8da",
+      "outputHash": "sha256:62ebbc7c0583c9c60dbeacf5ece0b33347bead1f4c7e4c2b17e1bd6fe1a1791a",
       "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
       "role": "bundle",
-      "sourceHash": "sha256:18659f88dbfe9e61f847c12218607ebb8c07c973b2d2e9c507a65d962abb041a",
+      "sourceHash": "sha256:a3900bfd3610dbc40f500013105642bfe925577ac070a1306d09ec236220fb48",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -194,17 +194,17 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:17c95bf97d6e3d6cecdaafd10bdaba06c024c2c29caba1b508c1e89a7975589d",
+      "outputHash": "sha256:a4fd10f8c2a43c1a2effca8e94983d102949367b16da7ad5c766144e092e11ef",
       "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
       "role": "bundle",
-      "sourceHash": "sha256:18659f88dbfe9e61f847c12218607ebb8c07c973b2d2e9c507a65d962abb041a",
+      "sourceHash": "sha256:a3900bfd3610dbc40f500013105642bfe925577ac070a1306d09ec236220fb48",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:39827990559e47760a315a0d96d4657794ea2bfa1164d8815eb471a88f7aeb81",
+  "provenanceHash": "sha256:0cb4a21da7a535eec74074cb6384a13312032c2b8e119750c0b5f69d61e4e388",
   "renderResults": [
     {
       "destination": "plugin-manifest",
