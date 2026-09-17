@@ -887,7 +887,7 @@ function mergePluginSkillFrontmatterValue(
 ): JsonValue {
   if (isDeepStrictEqual(existing, incoming)) return existing;
   if (isJsonObject(existing) && isJsonObject(incoming)) {
-    const merged: JsonRecord = { ...existing };
+    const merged: Record<string, JsonValue | undefined> = { ...existing };
     for (const key of Object.keys(incoming).sort(compareStrings)) {
       const incomingValue = incoming[key];
       const existingValue = merged[key];
