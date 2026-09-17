@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseMarkdown } from "@skillset/core/internal/yaml";
@@ -22,6 +22,21 @@ export type MixedChangesetReleaseEntry = {
   readonly ignoredPackages: readonly string[];
   readonly publishedPackages: readonly string[];
 };
+
+/**
+ * A workspace participates in npm package release policy when the Changesets
+ * configuration that owns that policy is present. Package manifests and
+ * generated plugin packages alone do not make an authoring workspace subject
+ * to the Skillset compiler repository's package-path classifier.
+ */
+export async function hasChangesetsPolicy(rootPath: string): Promise<boolean> {
+  try {
+    return (await stat(join(rootPath, ".changeset/config.json"))).isFile();
+  } catch (error) {
+    if (isRecord(error) && error.code === "ENOENT") return false;
+    throw error;
+  }
+}
 
 export async function findMixedChangesetReleaseEntries(
   rootPath: string

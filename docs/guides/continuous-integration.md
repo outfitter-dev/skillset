@@ -84,6 +84,6 @@ A fix pushed with `GITHUB_TOKEN` does not retrigger workflows automatically. If 
 Skillset checks two independent records:
 
 - `.skillset/changes/` records [source-unit](../glossary.md#source-unit) and workspace release provenance.
-- `.changeset/*.md` records npm package release intent when package-facing code changes.
+- `.changeset/*.md` records npm package release intent when a workspace has opted into Changesets with `.changeset/config.json` and package-facing code changes.
 
-One does not satisfy the other. See [Changes](../reference/features/changes.md), [Releases](../reference/features/releases.md), and [publishing](publishing.md) for their respective workflows.
+A root package manifest or generated plugin package does not opt an authoring repository into npm Changesets policy. Skills-only, plugin-output, and mixed authored/generated repositories without `.changeset/config.json` keep using the Skillset change ledger for their source units and may run the aggregate CI check without dummy package Changesets. One ledger does not satisfy the other when both policies apply. See [Changes](../reference/features/changes.md), [Releases](../reference/features/releases.md), and [publishing](publishing.md) for their respective workflows.
