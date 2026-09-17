@@ -45,6 +45,7 @@ export const REPORT_RELATIVE_ID_PATTERN =
   "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$";
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
+export const SESSION_START_HOOK_MODES = ["auto", "off", "on"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = [
   "error",
   "warn",
@@ -299,6 +300,7 @@ export const workspaceConfigContract = contract(
           metadata: { type: "boolean" },
         }),
         instruction_front_page: enumSchema(INSTRUCTION_FRONT_PAGE_DESTINATIONS),
+        session_start_hook: enumSchema(SESSION_START_HOOK_MODES),
         targets: arraySchema(enumSchema(TARGET_NAMES), {
           uniqueItems: true,
         }),

@@ -30,6 +30,7 @@ import type {
   CompileConfig,
   CompileFeatureConfig,
   InstructionFrontPageDestination,
+  SessionStartHookMode,
   CompileSkillsetConfig,
   UnsupportedDestinationPolicy,
   DistributionConfig,
@@ -86,6 +87,11 @@ const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>(
 const INSTRUCTION_FRONT_PAGE_DESTINATIONS = new Set<InstructionFrontPageDestination>([
   "claude-dir",
   "repo-root",
+]);
+const SESSION_START_HOOK_MODES = new Set<SessionStartHookMode>([
+  "auto",
+  "on",
+  "off",
 ]);
 const DEFAULT_PACKAGE_OUTPUT_PATH = "plugins/[name]";
 const CODEX_MARKETPLACE_SOURCE_KIND_SET = new Set<string>(
@@ -155,6 +161,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
       build: "updated",
       features: { promptArguments: true },
       instructionFrontPage: "claude-dir",
+      sessionStartHook: "auto",
       skillset: { metadata: true },
       targets: [...DEFAULT_TARGET_NAMES],
       unsupportedDestination: "error",
@@ -166,6 +173,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
       key !== "build" &&
       key !== "features" &&
       key !== "instruction_front_page" &&
+      key !== "session_start_hook" &&
       key !== "skillset" &&
       key !== "targets" &&
       key !== "unsupportedDestination"
@@ -182,6 +190,10 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
     instructionFrontPage: readInstructionFrontPage(
       compile.instruction_front_page,
       `${label}.compile.instruction_front_page`
+    ),
+    sessionStartHook: readSessionStartHookMode(
+      compile.session_start_hook,
+      `${label}.compile.session_start_hook`
     ),
     skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
     targets: readCompileTargetNames(compile, `${label}.compile.targets`),
@@ -222,6 +234,20 @@ function readInstructionFrontPage(
     );
   }
   return value as InstructionFrontPageDestination;
+}
+
+function readSessionStartHookMode(
+  value: JsonValue | undefined,
+  label: string
+): SessionStartHookMode {
+  if (value === undefined) return "auto";
+  if (
+    typeof value !== "string" ||
+    !SESSION_START_HOOK_MODES.has(value as SessionStartHookMode)
+  ) {
+    throw new Error(`skillset: expected ${label} to be auto, on, or off`);
+  }
+  return value as SessionStartHookMode;
 }
 
 export function readDraftSelectors(

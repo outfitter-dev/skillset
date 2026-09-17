@@ -72,6 +72,7 @@ export interface ReleaseState {
 
 export type UnsupportedDestinationPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
+export type SessionStartHookMode = "auto" | "on" | "off";
 export type BuildScope = "repo" | "plugins" | "project" | "user";
 
 export interface CompileSkillsetConfig {
@@ -86,6 +87,7 @@ export interface CompileConfig {
   readonly build: CompileBuildMode;
   readonly features: CompileFeatureConfig;
   readonly instructionFrontPage: InstructionFrontPageDestination;
+  readonly sessionStartHook: SessionStartHookMode;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupportedDestination: UnsupportedDestinationPolicy;

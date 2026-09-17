@@ -955,6 +955,15 @@ describe("@skillset/schema contracts", () => {
         "compile.instruction_front_page must be one of claude-dir, repo-root",
       path: "$.compile.instruction_front_page",
     });
+    expect(
+      validateSingleFileRootConfig({
+        compile: { session_start_hook: "sometimes" },
+      }).diagnostics
+    ).toContainEqual({
+      code: "schema/single-file-root-config/session-start-hook",
+      message: "compile.session_start_hook must be one of auto, off, on",
+      path: "$.compile.session_start_hook",
+    });
   });
 
   it("validates per-plugin claude bundle destinations", () => {
@@ -1155,6 +1164,7 @@ describe("@skillset/schema contracts", () => {
       compile: {
         build: "recent",
         features: { promptArguments: "yes" },
+        session_start_hook: "sometimes",
         targets: ["claude", "claude", "gemini"],
         unsupportedDestination: "loudly",
       },
@@ -1172,6 +1182,9 @@ describe("@skillset/schema contracts", () => {
     );
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
       "schema/workspace-config/compile-build"
+    );
+    expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
+      "schema/workspace-config/session-start-hook"
     );
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
       "schema/workspace-config/unsupported-destination"
@@ -1193,6 +1206,13 @@ describe("@skillset/schema contracts", () => {
       validateWorkspaceConfig({ compile: { unsupportedDestination: "skip" } })
         .diagnostics
     ).toEqual([]);
+    for (const sessionStartHook of ["auto", "on", "off"] as const) {
+      expect(
+        validateWorkspaceConfig({
+          compile: { session_start_hook: sessionStartHook },
+        }).diagnostics
+      ).toEqual([]);
+    }
     expect(
       validateWorkspaceConfig({ supports: {} }).diagnostics
     ).toContainEqual({
