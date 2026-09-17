@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillset, buildSkillsetResult } from "@skillset/core";
@@ -51,6 +51,19 @@ async function lockItems(
   return items as readonly Record<string, unknown>[];
 }
 
+async function filesBelow(root: string): Promise<readonly string[]> {
+  const paths: string[] = [];
+  async function visit(path: string): Promise<void> {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const child = join(path, entry.name);
+      if (entry.isDirectory()) await visit(child);
+      else paths.push(relative(root, child).replaceAll("\\", "/"));
+    }
+  }
+  await visit(root);
+  return paths.sort();
+}
+
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
@@ -58,7 +71,7 @@ afterEach(async () => {
 });
 
 describe("SET-551/585 current authoring model", () => {
-  it("recognizes grouped skills and excludes _drafts from projections", async () => {
+  it("renders grouped project drafts while excluding them from packages", async () => {
     const root = await authoringFixture();
     const graph = await loadBuildGraph(root);
     const plugin = graph.plugins.find((candidate) => candidate.id === "mg-skills");
@@ -74,7 +87,7 @@ describe("SET-551/585 current authoring model", () => {
         expect.objectContaining({
           draftOrigin: "_drafts",
           groupPath: ["(engineering)"],
-          id: "tdd-draft",
+          id: "tdd",
           status: "draft",
         }),
         expect.objectContaining({
@@ -127,6 +140,18 @@ describe("SET-551/585 current authoring model", () => {
       await exists(join(root, ".agents/skills/package-proof/SKILL.md"))
     ).toBe(true);
     expect(await exists(join(root, ".agents/skills/tdd/SKILL.md"))).toBe(true);
+    for (const targetRoot of [
+      ".claude/skills",
+      ".agents/skills",
+      ".cursor/skills",
+    ]) {
+      const draftPath = join(root, targetRoot, "draft-tdd/SKILL.md");
+      expect(await exists(draftPath)).toBe(true);
+      expect(await readFile(draftPath, "utf8")).toContain(
+        "[SKILLSET DRAFT] Side-by-side draft case owned by SET-555."
+      );
+      expect(await readFile(draftPath, "utf8")).toContain("internal: true");
+    }
     expect(await exists(join(root, ".agents/skills/proofread/SKILL.md"))).toBe(false);
     for (const skillId of ["tdd", "proofread"] as const) {
       expect(
@@ -162,6 +187,15 @@ describe("SET-551/585 current authoring model", () => {
     expect(packageItems).not.toContainEqual(
       expect.objectContaining({ role: "project-use" })
     );
+    const publishedPaths = await filesBelow(join(root, "plugins"));
+    expect(publishedPaths.some((path) => path.includes("draft-tdd"))).toBe(false);
+    for (const path of publishedPaths.filter((candidate) =>
+      /\.(?:json|lock|md)$/u.test(candidate)
+    )) {
+      expect(await readFile(join(root, "plugins", path), "utf8")).not.toContain(
+        "[SKILLSET DRAFT]"
+      );
+    }
 
     const rootItems = await lockItems(root, ".agents/skills/skillset.lock");
     expect(rootItems).toContainEqual(
@@ -201,7 +235,7 @@ describe("SET-551/585 current authoring model", () => {
         container: "mg-skills",
         draftOrigin: "_drafts",
         groupPath: ["(engineering)"],
-        id: "tdd-draft",
+        id: "tdd",
         status: "draft",
       })
     );
@@ -218,13 +252,22 @@ describe("SET-551/585 current authoring model", () => {
       ".skillset/plugins/mg-skills/skills/(engineering)/_drafts/tdd/SKILL.md"
     );
     expect(explained).toMatchObject({
-      entries: [],
+      entries: expect.arrayContaining([
+        expect.objectContaining({
+          draftOrigin: "_drafts",
+          effectiveName: "draft-tdd",
+          role: "project-use",
+          selectionRule:
+            "plugins.internal_use.drafts.mg-skills: omitted (side-by-side)",
+          shippedSibling: "plugin.mg-skills.skill:tdd",
+        }),
+      ]),
       kind: "source-skill",
       sourceSkill: {
         container: "mg-skills",
         draftOrigin: "_drafts",
         groupPath: ["(engineering)"],
-        id: "tdd-draft",
+        id: "tdd",
         status: "draft",
       },
     });

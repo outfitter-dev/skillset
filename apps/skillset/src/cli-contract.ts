@@ -109,6 +109,11 @@ export const CLI_FLAGS = {
     meaning: "Show projection-level source and output paths.",
     value: "boolean",
   },
+  "--draft": {
+    family: "mode",
+    meaning: "Create a new skill under the selected container's _drafts directory.",
+    value: "boolean",
+  },
   "--event": {
     family: "input",
     meaning: "Select a hook event; repeat where the route permits.",
@@ -458,6 +463,7 @@ export const CLI_ROUTE_FLAGS = {
   new: [
     "--attach",
     "--command",
+    "--draft",
     "--event",
     "--id",
     "--in",

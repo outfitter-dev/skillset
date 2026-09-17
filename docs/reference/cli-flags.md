@@ -35,6 +35,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--command <value>` | `input` | `value` | Set the command action for a new adaptive hook. |
 | `--context-fields <value>` | `selection` | `value` | Select normalized hook runtime context fields. |
 | `--details` | `output` | `boolean` | Show projection-level source and output paths. |
+| `--draft` | `mode` | `boolean` | Create a new skill under the selected container's _drafts directory. |
 | `--event <value>...` | `input` | `repeatable-value` | Select a hook event; repeat where the route permits. |
 | `--events` | `selection` | `boolean` | Show lookup event facts. |
 | `--examples` | `selection` | `boolean` | Show lookup examples. |
