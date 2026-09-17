@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import {
   RENDERED_METADATA_SCHEMA_KEY,
@@ -26,6 +27,7 @@ import {
 } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
+import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { withLockProvenance } from "./lock-provenance";
 import { assertCasePortableRenderedPaths, planRenderedFiles } from "./output-plan";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
@@ -225,6 +227,10 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
         )
     ))
   );
+
+  for (const plugin of graph.plugins) {
+    rendered.push(...(await renderPluginSharedSkills(graph, plugin, lockRoots)));
+  }
 
   for (const plugin of graph.plugins) {
     for (const target of targetNames()) {
@@ -455,10 +461,6 @@ async function renderPluginTarget(
     rendered.push(licenseFile);
     pluginRootFiles.push(licenseFile);
   }
-  for (const skill of enabledSkills) {
-    rendered.push(...(await renderPluginSkillFiles(graph, plugin, skill, target, basePath, outputRoot, lockRoots, pluginLicense)));
-  }
-
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
   const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
   const companionFiles = await copyPluginCompanionFiles(
@@ -502,19 +504,54 @@ function validateInternalPluginDependenciesForTarget(
   }
 }
 
-async function renderPluginSkillFiles(
+interface ProviderSkillRendering {
+  readonly markdown: RenderedSkillMarkdown;
+  readonly provider: TargetName | "agent-plugins-1.0";
+}
+
+async function renderPluginSharedSkills(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+  const rootLicense = await resolveRootLicense(graph);
+  const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
+  const packageRoot = pluginBundleRoot("plugins", "codex", plugin);
+  for (const skill of plugin.skills) {
+    rendered.push(
+      ...(await renderPluginSharedSkillFiles(
+        graph,
+        plugin,
+        skill,
+        packageRoot,
+        lockRoots,
+        pluginLicense
+      ))
+    );
+  }
+  return rendered;
+}
+
+async function renderPluginSharedSkillFiles(
   graph: BuildGraph,
   plugin: SourcePlugin,
   skill: SourceSkill,
-  target: TargetName,
-  basePath: string,
-  outputRoot: string,
+  packageRoot: string,
   lockRoots: Map<string, LockRoot>,
   inheritedLicense: ResolvedLicense | undefined
 ): Promise<readonly RenderedFile[]> {
+  const targets = targetNames().filter(
+    (target) =>
+      shouldRenderPlugin(graph, plugin, target) && skill.targets[target].enabled
+  );
+  const standardConsumer =
+    graph.standardProjections.adopted.includes("agent-plugins-1.0") &&
+    classifyAgentPluginStandard(plugin).status === "supported";
+  if (!standardConsumer && targets.length === 0) return [];
+
   const sourceDir = dirname(skill.sourcePath);
-  const relativeSkillDir = dirname(skill.relativePath);
-  const targetSkillDir = join(basePath, relativeSkillDir);
+  const targetSkillDir = join(packageRoot, "skills", skill.id);
   const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const skillLicense = await resolveLicense({
     graph,
@@ -524,10 +561,7 @@ async function renderPluginSkillFiles(
     scopePath: sourceDir,
     sourcePath: skill.sourcePath,
   });
-  // A ChatGPT product bundle is an Agent Plugins package plus an OpenAI
-  // extension. Its fixed skills component therefore receives the portable
-  // baseline, never Codex sidecars, prompt notices, or dialect lowering.
-  const standardMarkdown = target === "codex"
+  const standardMarkdown = standardConsumer
     ? await renderAgentSkillStandardMarkdown(
         graph,
         plugin,
@@ -537,48 +571,78 @@ async function renderPluginSkillFiles(
         "agent-plugins-1.0"
       )
     : undefined;
-  if (standardMarkdown !== undefined && "code" in standardMarkdown) {
-    throw new Error(`skillset: ${standardMarkdown.path}: ${standardMarkdown.message}`);
-  }
-  const generatedCodexAgentFile = target === "codex" ? undefined : await renderCodexSkillAgentFile(
-    graph,
-    plugin,
-    skill,
-    target,
-    sourceDir,
-    targetSkillDir
-  );
-  const generatedToolsMetadataFile = target === "codex" ? undefined : renderSkillToolsMetadataFile(
-    graph,
-    skill,
-    target,
-    targetSkillDir
-  );
-  const generatedCodexRelativeFiles = new Set(
-    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
-      .filter((file): file is RenderedFile => file !== undefined)
-      .map((file) => relative(targetSkillDir, file.path))
-  );
-  const rendered: RenderedFile[] = [];
-  const renderedRelativeFiles = new Set<string>();
-  const skillMarkdown = standardMarkdown === undefined
-    ? await renderSkillMarkdown(graph, plugin, skill, target)
-    : {
+  const providerRenderings: ProviderSkillRendering[] = [];
+  if (standardMarkdown !== undefined && "content" in standardMarkdown) {
+    providerRenderings.push({
+      markdown: {
         content: standardMarkdown.content,
         preprocessDependencies: standardMarkdown.preprocessDependencies,
         transforms: [],
-      };
+      },
+      provider: "agent-plugins-1.0",
+    });
+  }
+
+  for (const target of targets) {
+    if (target === "codex" && standardMarkdown !== undefined) {
+      if (!("content" in standardMarkdown)) {
+        throw new SkillsetFeatureDiagnosticError({
+          code: "plugin-skill-provider-incompatible",
+          featureId: "plugin-skills",
+          message: `skillset: plugin ${plugin.id} skill ${skill.id} provider codex is incompatible at ${standardMarkdown.path}: ${standardMarkdown.message}`,
+          path: relative(graph.rootPath, skill.sourcePath),
+        });
+      }
+      providerRenderings.push({
+        markdown: {
+          content: standardMarkdown.content,
+          preprocessDependencies: standardMarkdown.preprocessDependencies,
+          transforms: [],
+        },
+        provider: target,
+      });
+      continue;
+    }
+    providerRenderings.push({
+      markdown: await renderSkillMarkdown(graph, plugin, skill, target),
+      provider: target,
+    });
+  }
+
+  const mergedMarkdown = mergePluginSkillRenderings(
+    graph,
+    plugin,
+    skill,
+    providerRenderings
+  );
+  const rendered: RenderedFile[] = [];
+  const renderedRelativeFiles = new Set<string>();
   pushSkillRenderedFile(
     rendered,
     textFile(
       targetSkillFile,
-      skillMarkdown.content,
+      mergedMarkdown.content,
       relative(graph.rootPath, skill.sourcePath)
     ),
     targetSkillDir,
     renderedRelativeFiles,
     `${skill.sourcePath}.SKILL.md`
   );
+
+  const codexConsumer = targets.includes("codex");
+  const generatedCodexAgentFile = codexConsumer
+    ? await renderCodexSkillAgentFile(
+        graph,
+        plugin,
+        skill,
+        "codex",
+        sourceDir,
+        targetSkillDir
+      )
+    : undefined;
+  const generatedToolsMetadataFile = codexConsumer
+    ? renderSkillToolsMetadataFile(graph, skill, "codex", targetSkillDir)
+    : undefined;
   if (generatedCodexAgentFile !== undefined) {
     pushSkillRenderedFile(
       rendered,
@@ -609,16 +673,15 @@ async function renderPluginSkillFiles(
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
-    if (relativeFile === "SKILL.md") continue;
-    if (relativeFile === "CHANGELOG.md") continue;
-    if (relativeFile === "LICENSE.txt") continue;
     if (
-      target === "codex" &&
-      (relativeFile === ".skillset.tools.yaml" || relativeFile.startsWith(`agents${sep}`))
+      relativeFile === "SKILL.md" ||
+      relativeFile === "CHANGELOG.md" ||
+      relativeFile === "LICENSE.txt" ||
+      relativeFile === ".skillset.tools.yaml" ||
+      relativeFile.startsWith(`agents${sep}`)
     ) {
       continue;
     }
-    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
       await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
@@ -627,24 +690,118 @@ async function renderPluginSkillFiles(
       `${skill.sourcePath}.${relativeFile}`
     );
   }
-  rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
-
-  lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
-    await lockItemForSkill({
-      files: rendered,
-      graph,
-      kind: "plugin-skill",
-      license: skillLicense,
-      outputRoot,
-      plugin,
-      preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
+  rendered.push(
+    ...(await renderSkillResources(
       skill,
-      sourceDir,
-      transforms: skillMarkdown.transforms,
-    })
+      targetSkillDir,
+      renderedRelativeFiles
+    ))
   );
 
+  const consumers = [
+    ...(standardMarkdown !== undefined && "content" in standardMarkdown
+      ? [{ phase: "baseline" as const, standardProfile: "agent-plugins-1.0" as const }]
+      : []),
+    ...targets.map((target) => ({ phase: "delta" as const, target })),
+  ];
+  const item = await lockItemForSkill({
+    files: rendered,
+    graph,
+    kind: "plugin-skill",
+    license: skillLicense,
+    outputRoot: "plugins",
+    plugin,
+    preprocessDependencies: mergedMarkdown.preprocessDependencies,
+    skill,
+    sourceDir,
+    transforms: mergedMarkdown.transforms,
+  });
+  const baseline = consumers.find((consumer) => consumer.phase === "baseline");
+  lockRootsFor(lockRoots, "plugins", "workspace").items.push({
+    ...item,
+    consumers,
+    owner:
+      baseline === undefined
+        ? { target: targets[0] ?? "codex" }
+        : { standardProfile: "agent-plugins-1.0" },
+    role: baseline === undefined ? "bundle" : "standard",
+  });
   return rendered;
+}
+
+function mergePluginSkillRenderings(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  skill: SourceSkill,
+  renderings: readonly ProviderSkillRendering[]
+): RenderedSkillMarkdown {
+  const frontmatter: Record<string, JsonValue> = {};
+  let body: string | undefined;
+  const preprocessDependencies = new Set<string>();
+  const transforms: AppliedTransform[] = [];
+
+  for (const rendering of renderings) {
+    const parsed = parseMarkdown(
+      rendering.markdown.content,
+      `${relative(graph.rootPath, skill.sourcePath)} -> ${rendering.provider}`
+    );
+    const normalizedBody = `${parsed.body.trimEnd()}\n`;
+    if (body !== undefined && body !== normalizedBody) {
+      throwPluginSkillProviderIncompatible(
+        graph,
+        plugin,
+        skill,
+        rendering.provider,
+        "body"
+      );
+    }
+    body = normalizedBody;
+    for (const key of Object.keys(parsed.frontmatter).sort(compareStrings)) {
+      const value = parsed.frontmatter[key];
+      const existing = frontmatter[key];
+      if (existing !== undefined && !isDeepStrictEqual(existing, value)) {
+        throwPluginSkillProviderIncompatible(
+          graph,
+          plugin,
+          skill,
+          rendering.provider,
+          key
+        );
+      }
+      if (value !== undefined) {
+        frontmatter[key] = value;
+      }
+    }
+    for (const dependency of rendering.markdown.preprocessDependencies) {
+      preprocessDependencies.add(dependency);
+    }
+    transforms.push(...rendering.markdown.transforms);
+  }
+
+  return {
+    content: renderValidatedMarkdown(
+      frontmatter,
+      body ?? "\n",
+      `${relative(graph.rootPath, skill.sourcePath)} -> shared plugin skill`
+    ),
+    preprocessDependencies: [...preprocessDependencies].sort(compareStrings),
+    transforms,
+  };
+}
+
+function throwPluginSkillProviderIncompatible(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  skill: SourceSkill,
+  provider: ProviderSkillRendering["provider"],
+  field: string
+): never {
+  throw new SkillsetFeatureDiagnosticError({
+    code: "plugin-skill-provider-incompatible",
+    featureId: "plugin-skills",
+    message: `skillset: plugin ${plugin.id} skill ${skill.id} provider ${provider} conflicts at ${field}`,
+    path: relative(graph.rootPath, skill.sourcePath),
+  });
 }
 
 async function renderProjectAgents(
