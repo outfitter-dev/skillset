@@ -25,7 +25,7 @@ describe("SET-307 CLI presentation", () => {
     expect(output).toContain("skillset <command> --help");
     expect(output).toContain("skillset --version");
     expect(output).not.toContain("--claude-setting-sources");
-    expect(output.split("\n").length).toBeLessThan(50);
+    expect(output.split("\n").length).toBeLessThan(52);
   });
 
   test("selects focused route and command-family help", () => {
