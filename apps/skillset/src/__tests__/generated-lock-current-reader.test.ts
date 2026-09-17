@@ -7,7 +7,7 @@ import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 
 import { sourceInventoryFromLock } from "../change-status";
 
-test("change status reads a provenance-valid v3 source inventory", async () => {
+test("change status reads a provenance-valid v4 source inventory", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-current-lock-reader-"));
   await writeFile(
     join(root, "skillset.lock"),
@@ -16,7 +16,7 @@ test("change status reads a provenance-valid v3 source inventory", async () => {
         generatedBy: "skillset@0.1.0",
         items: [],
         outputRoot: ".",
-        schemaVersion: 3,
+        schemaVersion: 4,
         standardProfileEvidence: {},
         selectedStandards: [],
         selectedTargets: [],
@@ -52,7 +52,7 @@ test("change status reads a provenance-valid v3 source inventory", async () => {
   });
 });
 
-test("change status diagnoses pre-v3 workspace state as rebuild-only", async () => {
+test("change status diagnoses pre-v4 workspace state as rebuild-only", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-current-lock-reader-"));
   await writeFile(
     join(root, "skillset.lock"),
@@ -61,6 +61,6 @@ test("change status diagnoses pre-v3 workspace state as rebuild-only", async () 
   );
 
   await expect(sourceInventoryFromLock(root, {})).rejects.toThrow(
-    "uses pre-v3 schema 2; this generated state is rebuild-only"
+    "uses pre-v4 schema 2; this generated state is rebuild-only"
   );
 });

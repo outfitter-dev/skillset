@@ -202,6 +202,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
       outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, chatGptMarketplace),
       outputPath: chatGptMarketplaceFile.path,
       owner: { target: "codex" },
+      role: "bundle",
       sourceHash: await hashChatGptMarketplaceSource(graph),
       sourcePath: relative(graph.rootPath, graph.rootConfigPath),
       targetState: "generated",
@@ -1699,7 +1700,7 @@ async function renderLockFiles(
       selectedStandards: [...graph.standardProjections.adopted],
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourceRoot: graph.sourceRoot,
       target: lock.target,
     };
@@ -1754,6 +1755,7 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
     name: projection.entityId,
     outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [projection.file]),
     outputPath: projection.outputPath,
+    role: "bundle",
     sourceHash: projection.sourceHash,
     sourcePath: projection.sourcePath,
     targetState: "generated",
@@ -1793,6 +1795,7 @@ function lockItemForPlugin(args: {
     name: args.plugin.id,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
+    role: "bundle",
     skippedSkills,
     renderInputsHash: hashPluginRenderInputs(args.graph, args.plugin, args.license),
     sourceHash: hashPluginSource(
@@ -1868,6 +1871,7 @@ async function lockItemForPluginFeature(args: {
       )
     ),
     plugin: args.plugin.id,
+    role: "bundle",
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
     ...(args.feature.sourcePointer === undefined ? {} : { sourcePointer: args.feature.sourcePointer }),
@@ -1911,6 +1915,7 @@ function lockItemForIsland(args: {
       relative(args.outputRoot, args.outputPath)
     ),
     preprocessDependencies: args.result.preprocessDependencies,
+    role: "bundle",
     sourceHash: hashIslandSource(args.island, args.result.preprocessDependencies, args.graph.rootPath),
     sourcePath: relative(args.graph.rootPath, args.island.sourcePath),
     validation: args.result.validation,
@@ -1938,6 +1943,7 @@ function lockItemForProjectAgent(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files[0] ?? "",
     preprocessDependencies: args.result.preprocessDependencies,
+    role: "bundle",
     skillReferences: args.result.skillReferences.map((reference) => ({
       authored: reference.authored,
       ownership: reference.ownership,
@@ -1980,6 +1986,7 @@ async function lockItemForSkill(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
     ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
+    role: "bundle",
     sourceHash: await hashSkillSource(
       args.sourceDir,
       args.skill.resources,
@@ -2095,6 +2102,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     outputHash: item.outputHash,
     outputPath: item.outputPath,
     owner: item.owner === undefined ? undefined : { ...item.owner },
+    role: item.role,
     plugin: item.plugin,
     preprocessDependencies: item.preprocessDependencies === undefined ? undefined : [...item.preprocessDependencies],
     renderInputsHash: item.renderInputsHash,

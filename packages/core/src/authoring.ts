@@ -778,6 +778,7 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           ...(item.origin === undefined ? {} : { origin: item.origin }),
           ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
           ...(item.owner === undefined ? {} : { owner: item.owner }),
+          ...(item.role === undefined ? {} : { role: item.role }),
           ...(item.preprocessDependencies === undefined ? {} : { preprocessDependencies: item.preprocessDependencies }),
           ...(item.renderInputsHash === undefined ? {} : { renderInputsHash: item.renderInputsHash }),
           ...(skillReferences === undefined || skillReferences.length === 0

@@ -432,11 +432,26 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
     return undefined;
   }
   const items: ParsedLockItem[] = [];
-  const schemaVersion = parsed.schemaVersion === 3 ? 3 : parsed.schemaVersion === 2 ? 2 : 1;
+  const schemaVersion =
+    parsed.schemaVersion === 4
+      ? 4
+      : parsed.schemaVersion === 3
+        ? 3
+        : parsed.schemaVersion === 2
+          ? 2
+          : 1;
   for (const item of parsed.items) {
     if (!isRecord(item) || !Array.isArray(item.files)) continue;
     const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
     if (files.length === 0) continue;
+    if (
+      schemaVersion === 4 &&
+      item.role !== "bundle" &&
+      item.role !== "project-use" &&
+      item.role !== "standard"
+    ) {
+      continue;
+    }
     const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
     const fileModes = readFileModes(item.fileModes, files, schemaVersion);
     if (schemaVersion !== 1 && fileModes === undefined) continue;
@@ -458,7 +473,7 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
 function readFileModes(
   value: unknown,
   files: readonly string[],
-  schemaVersion: 1 | 2 | 3
+  schemaVersion: 1 | 2 | 3 | 4
 ): Readonly<Record<string, "0644" | "0755">> | undefined {
   if (schemaVersion === 1 && value === undefined) return undefined;
   if (!isRecord(value)) return undefined;
@@ -580,7 +595,7 @@ function compareStrings(left: string, right: string): number {
 interface ParsedLock {
   readonly items: readonly ParsedLockItem[];
   readonly outputRoot: string;
-  readonly schemaVersion: 1 | 2 | 3;
+  readonly schemaVersion: 1 | 2 | 3 | 4;
 }
 
 interface ParsedLockItem {
@@ -596,7 +611,7 @@ interface LockItemState {
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
   readonly files: readonly LockFileEntry[];
   readonly lockPath: string;
-  readonly schemaVersion: 1 | 2 | 3;
+  readonly schemaVersion: 1 | 2 | 3 | 4;
   readonly outputHash?: string;
   readonly renderInputsHash?: string;
   readonly sourceHash?: string;

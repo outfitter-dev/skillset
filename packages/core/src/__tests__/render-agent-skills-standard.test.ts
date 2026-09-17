@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { getStandardProfile, type StandardProfileId } from "@skillset/registry";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { explainPath } from "../authoring";
 import { readContainedLicenseFile } from "../licenses";
 import { renderBuildGraph } from "../render";
 import {
@@ -113,6 +114,7 @@ Use references/guide.md.
           kind: "standalone-skill",
           name: "review",
           owner: { standardProfile: "agent-skills" },
+          role: "standard",
         }),
       ])
     );
@@ -125,8 +127,18 @@ Use references/guide.md.
         name: "helper",
         owner: { standardProfile: "agent-plugins-1.0" },
         plugin: "demo",
+        role: "standard",
       })
     );
+    expect(
+      await explainPath(
+        graph.rootPath,
+        "plugins/demo/agents/skills/helper/SKILL.md"
+      )
+    ).toMatchObject({
+      entries: [expect.objectContaining({ role: "standard" })],
+      kind: "generated",
+    });
   });
 
   test("uses the resolved license for both frontmatter and the bundled notice", async () => {
@@ -413,6 +425,7 @@ Guide the task.
         ],
         files: expect.arrayContaining(["guide/SKILL.md"]),
         owner: { standardProfile: "agent-skills" },
+        role: "standard",
       })
     );
     expect(items).toContainEqual(
@@ -420,6 +433,7 @@ Guide the task.
         consumers: [{ phase: "delta", target: "codex" }],
         files: ["guide/.skillset.tools.yaml", "guide/agents/openai.yaml"],
         owner: { target: "codex" },
+        role: "bundle",
       })
     );
 
@@ -512,6 +526,7 @@ Help with the repository.
         ],
         name: "helper",
         owner: { standardProfile: "agent-plugins-1.0" },
+        role: "standard",
       })
     );
   });

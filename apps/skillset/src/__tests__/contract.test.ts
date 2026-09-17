@@ -9065,7 +9065,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
     items: [],
     outputRoot: ".",
     provenanceHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
-    schemaVersion: 3,
+    schemaVersion: 4,
     standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: [],
@@ -9534,8 +9534,18 @@ Body.
   const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
   expect(generated.kind).toBe("generated");
   expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
+  expect(generated.entries[0]?.role).toBe("bundle");
   expect(generated.entries[0]?.sourceHash).toBeDefined();
   expect(generated.renderResults[0]?.status).toBe("rendered");
+
+  const explained = await runSkillsetCli(
+    "explain",
+    ".claude/skills/demo/SKILL.md",
+    "--root",
+    root
+  );
+  expect(explained.exitCode).toBe(0);
+  expect(explained.stdout).toContain("role: bundle");
 
   const unknown = await explainPath(root, "nope/missing.md");
   expect(unknown.kind).toBe("unknown");

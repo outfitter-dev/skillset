@@ -820,7 +820,7 @@ test("SET-398: check reports a coherent v2 lock as rebuild-only", async () => {
 
   expect(report.ok).toBe(false);
   expect(report.buildError).toContain(
-    "uses pre-v3 schema 2; this generated state is rebuild-only"
+    "uses pre-v4 schema 2; this generated state is rebuild-only"
   );
   expect(report.fixedPaths).toEqual([]);
   expect(report.providerUpdatePaths).toEqual([]);
@@ -881,7 +881,7 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
   expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
-test("SET-279: invalid v3 locks do not route ordinary source drift through update", async () => {
+test("SET-279: invalid current locks do not route ordinary source drift through update", async () => {
   const root = await builtFixture(pluginFixture());
   await invalidatePluginRenderInputsHash(root);
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
