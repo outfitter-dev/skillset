@@ -1,0 +1,6 @@
+skillset:
+  schema: 1
+  name: cursor-kit
+  description: Cursor parity plugin fixture.
+  author:
+    name: Skillset Maintainers

@@ -34,6 +34,7 @@ Current checked-in cases:
 
 - [`kitchen-sink/`](kitchen-sink/README.md) is the complete-surface positive build fixture.
 - [`adaptive-hooks/`](adaptive-hooks/README.md) is the positive authoring fixture for adaptive hook recipes.
+- [`cursor-parity/`](cursor-parity/README.md) is the evidence baseline for pinned Cursor paths and named parity gaps.
 - [`workbench-clean/`](workbench-clean/README.md) is a small positive Workbench source-contract fixture.
 - [`workbench-invalid/`](workbench-invalid/README.md) is a small negative Workbench fixture for deterministic source, resource, and runtime diagnostics.
 
@@ -76,7 +77,7 @@ fixtures/<case>/
   ...other repo files as needed
 ```
 
-Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable operational output backed by XDG storage and stays ignored rather than checked in; `.skillset/snapshots/` is local recovery output with a tracked ignore sentinel. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/plugins/<plugin>/_claude`, and `.skillset/plugins/<plugin>/_codex`.
+Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable operational output backed by XDG storage and stays ignored rather than checked in; `.skillset/snapshots/` is local recovery output with a tracked ignore sentinel. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/_cursor`, `.skillset/plugins/<plugin>/_claude`, `.skillset/plugins/<plugin>/_codex`, and `.skillset/plugins/<plugin>/_cursor`.
 
 Inline temp fixtures should use root `skillset.yaml` plus `.skillset/` unless a test is specifically covering a retired-layout rejection or migration helper.
 

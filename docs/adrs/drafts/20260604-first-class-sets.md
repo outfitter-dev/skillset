@@ -5,7 +5,7 @@ status: draft
 created: 2026-06-04
 updated: 2026-06-04
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, 5, global-xdg-managed-installs-and-sync, reviewed-settings-suggestions]
+depends_on: [0, 1, 5, declarative-user-scope-config, reviewed-settings-suggestions]
 ---
 
 # ADR: First-Class Sets
@@ -182,6 +182,6 @@ This ADR defines future vocabulary so later work can implement the smallest safe
 - [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.
 - [Build Scopes](../../reference/features/build-scopes.md) - destination scopes, dry-run safety, and lock semantics.
 - [Feature Source Pointers](../../reference/features/feature-source-pointers.md) - typed feature ownership instead of generic component buckets.
-- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install, sync, trust, and user-level mutation.
+- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - separates build from install, sync, trust, and user-level mutation.
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - keeps settings and marketplace activation out of build.
 - [Tenets](../../project/tenets.md) - build does not imply trust, target truth beats fake portability, and drift should be visible early.
