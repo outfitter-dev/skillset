@@ -74,7 +74,10 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
       expect(await readFile(staged, "utf8")).toBe("Eval brief\n");
     }
     const trialWorkspace = cachePath(root, xdg, trial.workspacePath);
-    expect(await Bun.file(join(trialWorkspace, `.agents/skills/${trial.skill}/SKILL.md`)).exists()).toBe(true);
+    const standardSkillPath = trial.owner.kind === "plugin"
+      ? `plugins/${trial.owner.plugin}/agents/skills/${trial.skill}/SKILL.md`
+      : `.agents/skills/${trial.skill}/SKILL.md`;
+    expect(await Bun.file(join(trialWorkspace, standardSkillPath)).exists()).toBe(true);
     if (trial.target === "codex") {
       expect(await Bun.file(join(trialWorkspace, `.claude/skills/${trial.skill}/SKILL.md`)).exists()).toBe(false);
     }

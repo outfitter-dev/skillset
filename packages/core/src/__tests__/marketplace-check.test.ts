@@ -80,7 +80,6 @@ marketplaces:
     expect(report.entries).toContainEqual(expect.objectContaining({
       generatedPath: "plugins/local-tools/chatgpt/plugin.json",
       generatedPaths: [
-        ".agents/skills/demo/SKILL.md",
         "plugins/local-tools/chatgpt/plugin.json",
         "plugins/local-tools/chatgpt/skills/demo/SKILL.md",
       ],
