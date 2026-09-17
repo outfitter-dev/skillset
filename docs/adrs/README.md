@@ -47,3 +47,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0030](0030-chatgpt-product-bundles-and-standards-only-builds.md) | ChatGPT Product Bundles and Standards-Only Builds | Accepted |
 | [0031](0031-agent-instructions-opt-out-owns-shared-agents-md.md) | Agent Instructions Opt-Out Owns Shared AGENTS.md | Superseded |
 | [0032](0032-standards-compilation-is-inherent.md) | Standards Compilation Is Inherent | Accepted |
+| [0033](0033-root-claude-instructions-come-from-canonical-source.md) | Root Claude Instructions Come From Canonical Source | Accepted |

@@ -608,9 +608,9 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
 }
 
 /**
- * Load source rules. Source lives in `.skillset/rules/`. Generated output
- * is unchanged: Claude renders to `.claude/rules/`, Codex renders to
- * `AGENTS.md`.
+ * Load source rules. Source lives in `.skillset/rules/`. Claude aggregates
+ * unscoped instructions in root `CLAUDE.md` and preserves scoped rules under
+ * `.claude/rules/`; Agent Instructions and Codex use `AGENTS.md`.
  */
 async function loadInstructions(
   rootPath: string,
@@ -1589,7 +1589,11 @@ function activeOutputRoots(
         : "standards.agent-plugins-1.0",
       path,
     }));
-  if (rules.some((rule) => rule.targets.claude.enabled)) {
+  if (
+    rules.some(
+      (rule) => rule.targets.claude.enabled && instructionHasPaths(rule)
+    )
+  ) {
     roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
   }
   for (const target of targetNames()) {
@@ -1610,6 +1614,11 @@ function activeOutputRoots(
     }
   }
   return roots.sort((left, right) => compareStrings(left.path, right.path));
+}
+
+function instructionHasPaths(rule: SourceRule): boolean {
+  const paths = rule.frontmatter.paths;
+  return typeof paths === "string" || (Array.isArray(paths) && paths.length > 0);
 }
 
 function outputIncludes(selection: OutputSelection, name: string): boolean {

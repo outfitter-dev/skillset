@@ -49,6 +49,7 @@ These pages cover common author and maintainer workflows:
 - [Build Your First Skill](start/quickstart.md) walks through the current first-author scaffold and build.
 - [Import Existing Work](guides/importing.md) separates whole-repository adoption from one explicit source import.
 - [Development Loop](guides/development-loop.md) covers preview, write, watch, reconciliation, and recovery.
+- [Project-local authoring](guides/project-local-authoring.md) separates working inside a repository from building distributable plugin bundles.
 - [Interactive CLI](reference/features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
 - [Package ownership](development/package-ownership.md) explains the compiler package boundaries used by maintainers.
 

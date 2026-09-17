@@ -6,7 +6,7 @@ description: Defines the core terms used by Skillset's source, build, provider, 
 
 ## Adaptive source
 
-Repository-owned Skillset source that expresses a shared authoring intent and can be transformed into one or more faithful provider-native destinations. Adaptive does not mean every provider supports every feature.
+Repository-owned Skillset source that expresses a shared authoring intent and can be transformed into one or more faithful standard or provider-native destinations. Adaptive does not mean every provider supports every feature.
 
 ## Activation
 
@@ -14,7 +14,7 @@ A provider or user action that makes generated material discoverable, trusted, e
 
 ## Build
 
-The deterministic derivation and rendering of validated Skillset source into repo-local provider-native files. Builds preview by default and write only with explicit authority.
+The deterministic derivation and rendering of validated Skillset source into repo-local standard and provider-native files. Builds preview by default and write only with explicit authority.
 
 ## Canonical source
 
@@ -26,7 +26,7 @@ The scoped inheritance of workspace and plugin defaults into a source unit, with
 
 ## Destination
 
-One concrete output location and format owned by a target adapter, such as a Claude skill directory, a Codex `AGENTS.md`, or a Cursor rule file.
+One concrete output location and format owned by an adopted standard renderer or a target adapter, such as `.agents/skills/`, root `AGENTS.md`, a Claude skill directory, or a Cursor rule file.
 
 ## Drift
 
@@ -34,7 +34,7 @@ A difference between current canonical source and its expected generated output,
 
 ## Generated output
 
-Provider-native files derived from Skillset source. Generated output may be committed and reviewed, but it is disposable and is not the authored source of truth.
+Standard and provider-native files derived from Skillset source. Generated output may be committed and reviewed, but it is disposable and is not the authored source of truth.
 
 ## Loadout
 
@@ -50,7 +50,7 @@ Data or files shaped for a provider's own supported interface rather than forced
 
 ## Render
 
-To transform validated source intent into one target's provider-native destination shape without installing or activating the result.
+To transform validated source intent into an adopted standard or target provider's destination shape without installing or activating the result.
 
 ## Render result
 

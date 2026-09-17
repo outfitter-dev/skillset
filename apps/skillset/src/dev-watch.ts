@@ -143,7 +143,12 @@ export function isIgnoredDevWatchPath(plan: DevWatchPlan, eventPath: string): bo
   const normalized = normalizeRelativePath(eventPath);
   if (normalized === "." || normalized === "") return false;
   const name = basename(normalized);
-  if (name === "AGENTS.md" || name === "skillset.lock") return true;
+  if (
+    name === "AGENTS.md" ||
+    normalized === "CLAUDE.md" ||
+    name === "skillset.lock"
+  )
+    return true;
   return plan.ignoredRoots.some((root) => isSameOrInside(normalized, root));
 }
 

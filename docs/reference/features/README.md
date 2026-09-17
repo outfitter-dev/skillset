@@ -4,7 +4,7 @@ description: The feature reference routes authors to exact Skillset contracts, w
 
 # Feature Reference
 
-The feature reference explains how authored source maps to provider [targets](../../glossary.md#target), which features are portable, which are [provider-native](../../glossary.md#provider-native), and which boundaries are not implemented. Feature prose remains human-owned; each delimited support matrix is rendered from the typed registry and checked for [drift](../../glossary.md#drift).
+The feature reference explains how authored source maps to inherent Agent standards and provider [targets](../../glossary.md#target), which features are portable, which are [provider-native](../../glossary.md#provider-native), and which boundaries are not implemented. Feature prose remains human-owned; each delimited support matrix is rendered from the typed registry and checked for [drift](../../glossary.md#drift).
 
 Start with the page matching the source or workflow you are using. To compare support across every provider, open the generated [feature support matrix](../support-matrix.md).
 
@@ -25,7 +25,7 @@ Use these pages alongside the authored [provider reference](../providers/README.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
 - [Hooks](hooks.md): native aggregate hook emission, adaptive hook units, target validation, and activation boundaries.
-- [Instructions](instructions.md): [source-root](../../glossary.md#source-root) `rules/` rendering to Claude rules, Codex `AGENTS.md`, and Cursor `.mdc` rules, with preprocessing and collision safety.
+- [Instructions](instructions.md): [source-root](../../glossary.md#source-root) `rules/` rendering to standard-owned root or scoped `AGENTS.md`, Claude `CLAUDE.md` or scoped rules, Cursor `.mdc` rules, and compatible Codex consumption, with preprocessing and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [Marketplaces](marketplaces.md): curated provider catalogs, external plugin references, readiness states, and check/update boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
