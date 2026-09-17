@@ -147,6 +147,32 @@ describe("source rename planner", () => {
     });
   });
 
+  test("preserves explicit plugin scope when a plugin named partial moves", async () => {
+    const root = await fixture({
+      ".skillset/plugins/demo/shared/partials/old.md": "Partial\n",
+      ".skillset/plugins/demo/skills/demo/SKILL.md":
+        "---\nname: demo\ndescription: Demo\n---\n\n{{> plugin:old}}\n",
+      ".skillset/plugins/demo/skillset.yaml":
+        "skillset:\n  name: demo\n",
+      "skillset.yaml":
+        "skillset:\n  name: rename-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    const plan = await planSourceRename({
+      from: ".skillset/plugins/demo/shared/partials/old.md",
+      rootPath: root,
+      to: ".skillset/plugins/demo/shared/partials/writing/new.md",
+    });
+    const update = plan.operations.find(
+      (item) => item.kind === "update" && item.path.endsWith("SKILL.md")
+    );
+    expect(update).toEqual({
+      content:
+        "---\nname: demo\ndescription: Demo\n---\n\n{{> plugin:writing/new}}\n",
+      kind: "update",
+      path: ".skillset/plugins/demo/skills/demo/SKILL.md",
+    });
+  });
+
   test("renames a file that rewrites its own structured reference", async () => {
     const root = await fixture({
       ".skillset/shared/partials/old.md": "Self: {{> old}}\n",

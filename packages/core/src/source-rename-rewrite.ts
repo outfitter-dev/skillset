@@ -428,20 +428,21 @@ function rewriteNamedPartialSpecifier(
   if (next === resolved || !next.endsWith(".md")) {
     return undefined;
   }
-  const plugin = pluginForPath(graph, resolved);
-  const root =
-    plugin === undefined
-      ? join(graph.sourceRootPath, "shared", "partials")
-      : join(plugin.path, "shared", "partials");
+  const pluginScoped = specifier.startsWith("plugin:");
+  const plugin = pluginScoped ? pluginForPath(graph, resolved) : undefined;
+  const root = pluginScoped
+    ? plugin === undefined
+      ? undefined
+      : join(plugin.path, "shared", "partials")
+    : join(graph.sourceRootPath, "shared", "partials");
+  if (root === undefined) {
+    return undefined;
+  }
   if (!isWithin(root, resolved) || !isWithin(root, next)) {
     return undefined;
   }
   const name = toPosix(relative(root, next)).replace(/\.md$/u, "");
-  const qualified =
-    specifier.includes(".") &&
-    plugin !== undefined &&
-    specifier.startsWith(`${plugin.id}.`);
-  return qualified ? `${plugin.id}.${name}` : name;
+  return pluginScoped ? `plugin:${name}` : name;
 }
 
 function isAgentDocument(graph: BuildGraph, path: string): boolean {

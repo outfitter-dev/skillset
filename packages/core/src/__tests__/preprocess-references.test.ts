@@ -24,8 +24,11 @@ describe("preprocess reference grammar", () => {
 
   test("uses {{> X}} for inline references and @{{X}} for links", async () => {
     await files(rootPath, {
+      ".skillset/plugins/demo/shared/partials/intro.md": "Plugin introduction",
+      ".skillset/plugins/demo/shared/partials/writing/tone.md": "Plugin tone",
       ".skillset/plugins/demo/shared/references/plugin.md": "Plugin reference",
       ".skillset/shared/partials/intro.md": "Shared introduction",
+      ".skillset/shared/partials/writing/tone.md": "Shared tone",
       ".skillset/shared/references/common.md": "Common reference",
     });
     const context = preprocessContext(rootPath, true);
@@ -34,7 +37,11 @@ describe("preprocess reference grammar", () => {
       preprocessText(
         [
           "{{> intro}}",
+          "{{> writing/tone}}",
+          "{{> plugin:intro}}",
+          "{{> plugin:writing/tone}}",
           "{{> shared:references/common.md}}",
+          "{{> shared:partials/intro.md}}",
           "{{> plugin:references/plugin.md}}",
           "@{{shared:references/common.md}}",
           "@{{plugin:references/plugin.md}}",
@@ -44,12 +51,91 @@ describe("preprocess reference grammar", () => {
     ).resolves.toBe(
       [
         "Shared introduction",
+        "Shared tone",
+        "Plugin introduction",
+        "Plugin tone",
         "Common reference",
+        "Shared introduction",
         "Plugin reference",
         "@shared:references/common.md",
         "@plugin:references/plugin.md",
       ].join("\n")
     );
+  });
+
+  test("resolves named partials to one exact scope and path", async () => {
+    await files(rootPath, {
+      ".skillset/plugins/demo/shared/partials/plugin-only.md": "Plugin only",
+      ".skillset/shared/partials/nested/intro.md": "Nested basename",
+    });
+
+    await expect(
+      preprocessText("{{> intro}}", preprocessContext(rootPath, true))
+    ).rejects.toThrow(
+      /workspace named partial intro.*was not found at \.skillset\/shared\/partials\/intro\.md/u
+    );
+    await expect(
+      preprocessText("{{> plugin-only}}", preprocessContext(rootPath, true))
+    ).rejects.toThrow(
+      /workspace named partial plugin-only.*was not found at \.skillset\/shared\/partials\/plugin-only\.md/u
+    );
+    await expect(
+      preprocessText("{{> plugin:missing}}", preprocessContext(rootPath, true))
+    ).rejects.toThrow(
+      /plugin named partial plugin:missing.*was not found at \.skillset\/plugins\/demo\/shared\/partials\/missing\.md/u
+    );
+    await expect(
+      preprocessText("{{> plugin:plugin-only}}", preprocessContext(rootPath))
+    ).rejects.toThrow(/requires a plugin-bound source/u);
+    await expect(
+      preprocessText(
+        "{{> shared:references/missing.md}}",
+        preprocessContext(rootPath)
+      )
+    ).rejects.toThrow(
+      /workspace path reference shared:references\/missing\.md.*was not found at \.skillset\/shared\/references\/missing\.md/u
+    );
+    await expect(
+      preprocessText(
+        "@{{plugin:references/missing.md}}",
+        preprocessContext(rootPath, true)
+      )
+    ).rejects.toThrow(
+      /plugin path reference plugin:references\/missing\.md.*was not found at \.skillset\/plugins\/demo\/shared\/references\/missing\.md/u
+    );
+  });
+
+  test("records exact named-partial dependencies and expands recursively", async () => {
+    await files(rootPath, {
+      ".skillset/shared/partials/intro.md": "Intro {{> writing/tone}}",
+      ".skillset/shared/partials/writing/tone.md": "Tone",
+    });
+    const dependencies = new Set<string>();
+
+    await expect(
+      preprocessText("{{> intro}}", {
+        ...preprocessContext(rootPath),
+        preprocessDependencies: dependencies,
+      })
+    ).resolves.toBe("Intro Tone");
+    expect([...dependencies]).toEqual([
+      join(rootPath, ".skillset/shared/partials/intro.md"),
+      join(rootPath, ".skillset/shared/partials/writing/tone.md"),
+    ]);
+  });
+
+  test("preserves cycle and traversal rejection for exact named partials", async () => {
+    await files(rootPath, {
+      ".skillset/shared/partials/a.md": "A {{> b}}",
+      ".skillset/shared/partials/b.md": "B {{> a}}",
+    });
+
+    await expect(
+      preprocessText("{{> a}}", preprocessContext(rootPath))
+    ).rejects.toThrow(/creates a cycle/u);
+    await expect(
+      preprocessText("{{> writing/../tone}}", preprocessContext(rootPath))
+    ).rejects.toThrow(/must use slash-separated name segments/u);
   });
 
   test.each([
