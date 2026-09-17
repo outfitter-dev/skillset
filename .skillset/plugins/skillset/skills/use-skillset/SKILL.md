@@ -77,6 +77,19 @@ Organize skills beneath plain or parenthesized group directories without changin
 
 New skill ids follow Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens. `skillset new skill` rejects overlong ids, consecutive hyphens, and trailing hyphens before writing.
 
+Fork an existing shipped skill with `skillset draft <shipped-path>`. Preview is
+read-only and shows the exact copy, generated effects, plan hash, and source
+hash; add `--yes` to create the same-container `_drafts/<leaf>` sibling while
+leaving the shipped source in place. Edit that draft, then run `skillset
+promote <draft-path>` to preview the authored diff. Paired promotion replaces
+the shipped sibling atomically; unpaired promotion moves the draft to the
+ordinary path. If the shipped bytes changed after the fork, promotion warns
+but still accepts explicit `--yes`. The append-only fork and promotion events
+preserve the shipped selector and release history without exposing the private
+baseline in frontmatter. Refusal, stale plans, blocked output effects, and
+interrupted writes restore source, history, generated output, and lock state.
+Same-leaf skills in other containers remain independent.
+
 Move a shipped skill between the workspace and one plugin collection with
 `skillset move <from> <to>`. Both paths must be in the same workspace and keep
 the same leaf. Preview is read-only; add `--yes` to apply the displayed plan
