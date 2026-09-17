@@ -490,6 +490,8 @@ export interface RenderedFile {
   readonly path: string;
   /** A provider settings file is composed around field-level owned entries. */
   readonly partialOwnership?: "settings-entry";
+  /** Digest of the provider settings bytes read before composing owned entries. */
+  readonly partialSourceHash?: string;
   readonly sourcePath?: string;
 }
 

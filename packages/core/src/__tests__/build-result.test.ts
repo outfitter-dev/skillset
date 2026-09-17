@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import {
   restoreOutputBackup,
 } from "@skillset/core";
 import { explainPath } from "@skillset/core/internal/authoring";
+import { buildSkillsetResultWithAuthority } from "../build";
 import { assertCasePortableRenderedPaths } from "../render";
 
 const DEMO_FIXTURE: Record<string, string> = {
@@ -33,6 +34,55 @@ Body.
 };
 
 describe("buildSkillsetResult", () => {
+  it("blocks a foreign settings edit that races partial rendering", async () => {
+    const settings = {
+      hooks: {
+        SessionStart: [{ hooks: [{ type: "command", command: "foreign" }] }],
+      },
+      foreign: "before",
+    };
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": `
+skillset:
+  name: core-build-root
+claude: true
+codex: false
+cursor: false
+compile:
+  session_start_hook: on
+`,
+      ".claude/settings.local.json": `${JSON.stringify(settings, null, 2)}\n`,
+    });
+    const settingsPath = join(root, ".claude/settings.local.json");
+    try {
+      const raced = { ...settings, foreign: "after" };
+      const result = await buildSkillsetResultWithAuthority(
+        root,
+        {},
+        {},
+        [],
+        {
+          afterRender: async () => {
+            await writeFile(settingsPath, `${JSON.stringify(raced, null, 2)}\n`);
+          },
+        }
+      );
+      expect(result.ok).toBe(false);
+      expect(result.outputState.state).toBe("blocked");
+      expect(result.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "output-write-preimage-invalidated",
+          outputPath: ".claude/settings.local.json",
+          severity: "error",
+        })
+      );
+      expect(await readFile(settingsPath, "utf8")).toBe(`${JSON.stringify(raced, null, 2)}\n`);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("preserves an absent output target occupied after final approval", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const occupiedPath = join(root, ".claude/skills/demo/SKILL.md");

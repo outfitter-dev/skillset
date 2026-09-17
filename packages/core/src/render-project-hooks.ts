@@ -66,8 +66,11 @@ async function renderProjectHook(
   const outputPath = join(projectRoot, filename);
   const absolutePath = join(graph.rootPath, outputPath);
   let existing: JsonRecord = {};
+  let partialSourceHash = "absent";
   try {
-    existing = JSON.parse(await readFile(absolutePath, "utf8")) as JsonRecord;
+    const sourceBytes = await readFile(absolutePath);
+    partialSourceHash = hashBytes(sourceBytes);
+    existing = JSON.parse(new TextDecoder().decode(sourceBytes)) as JsonRecord;
     if (!isJsonRecord(existing)) throw new Error("root must be an object");
   } catch (error) {
     if (!isNotFound(error)) {
@@ -76,10 +79,16 @@ async function renderProjectHook(
     }
   }
 
-  const hooks: Record<string, JsonValue> = isJsonRecord(existing.hooks)
-    ? Object.fromEntries(Object.entries(existing.hooks).filter(([, value]) => value !== undefined)) as Record<string, JsonValue>
-    : {};
-  const session = Array.isArray(hooks.SessionStart) ? [...hooks.SessionStart] : [];
+  if (existing.hooks !== undefined && !isJsonRecord(existing.hooks)) {
+    throw new Error(`skillset: ${outputPath} has an unsupported hooks shape; expected an object`);
+  }
+  const hooks: Record<string, JsonValue> = Object.fromEntries(
+    Object.entries(existing.hooks ?? {}).filter(([, value]) => value !== undefined)
+  ) as Record<string, JsonValue>;
+  if (hooks.SessionStart !== undefined && !Array.isArray(hooks.SessionStart)) {
+    throw new Error(`skillset: ${outputPath} has an unsupported hooks.SessionStart shape; expected an array`);
+  }
+  const session = hooks.SessionStart === undefined ? [] : [...hooks.SessionStart];
   const expected = sessionStartEntry();
   const matching = session.filter((entry) => hasCommand(entry, SESSION_START_COMMAND));
   const divergent = matching.filter((entry) => !isDeepStrictEqual(entry, expected));
@@ -104,6 +113,7 @@ async function renderProjectHook(
       content: textEncoder.encode(content),
       mode: 0o644,
       partialOwnership: "settings-entry",
+      partialSourceHash,
       path: outputPath,
       sourcePath: relative(graph.rootPath, graph.rootConfigPath),
     },
@@ -129,6 +139,10 @@ function hasCommand(value: JsonValue, command: string): boolean {
 
 function hashCommand(command: string): string {
   return `sha256:${createHash("sha256").update(command).digest("hex")}`;
+}
+
+function hashBytes(bytes: Uint8Array): string {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 
 async function destinationIsIgnored(graph: BuildGraph, target: "claude" | "codex"): Promise<boolean> {

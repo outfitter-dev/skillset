@@ -102,4 +102,25 @@ describe("project SessionStart hook rendering", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  test("rejects defined foreign hooks shapes before composing either provider", async () => {
+    const cases = [
+      [".claude/settings.local.json", { hooks: { SessionStart: { foreign: "keep" } } }, "hooks.SessionStart"],
+      [".codex/hooks.json", { hooks: [{ foreign: "keep-hooks-array" }] }, "hooks"],
+    ] as const;
+    for (const [relativePath, value, label] of cases) {
+      const root = await mkdtemp(join(tmpdir(), "skillset-project-hooks-shape-"));
+      try {
+        await writeFile(join(root, "skillset.yaml"), "{}\n");
+        await mkdir(join(root, relativePath.split("/")[0]!), { recursive: true });
+        await writeFile(join(root, relativePath), JSON.stringify(value, null, 2));
+        await expect(renderProjectSessionStartHooks(graph(root, "on"))).rejects.toThrow(
+          `${relativePath} has an unsupported ${label} shape`
+        );
+        expect(JSON.parse(await Bun.file(join(root, relativePath)).text())).toEqual(value);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
 });
