@@ -13,6 +13,9 @@ import { loadBuildGraph } from "./resolver";
 import { pathExists, toPosix, workspaceRoot } from "./source-rename-paths";
 import { SourceRenamePlanError } from "./source-rename-types";
 import type {
+  SourceMutationCopyOperation,
+  SourceMutationDeleteOperation,
+  SourceMutationOperation,
   SourceRenameApplyRequest,
   SourceRenameGeneratedOperation,
   SourceRenameMoveOperation,
@@ -56,6 +59,7 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
   const sourceTransaction = sourceTransactionPlan(plan);
   const generatedTransaction = generatedTransactionPlan(plan);
   const fullPlan: WorkspaceTransactionPlan = {
+    ...(sourceTransaction.copies === undefined ? {} : { copies: sourceTransaction.copies }),
     deletes: [
       ...(sourceTransaction.deletes ?? []),
       ...(generatedTransaction.deletes ?? []),
@@ -63,6 +67,12 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
     ...(sourceTransaction.moves === undefined
       ? {}
       : { moves: sourceTransaction.moves }),
+    ...(sourceTransaction.expectedSourceTrees === undefined
+      ? {}
+      : { expectedSourceTrees: sourceTransaction.expectedSourceTrees }),
+    ...(sourceTransaction.removeEmptyParents === true
+      ? { removeEmptyParents: true }
+      : {}),
     writes: [
       ...(sourceTransaction.writes ?? []),
       ...(generatedTransaction.writes ?? []),
@@ -140,8 +150,13 @@ interface SourceMutationApplyRequest {
 
 interface SourceMutationPlan {
   readonly generatedOperations: readonly SourceRenameGeneratedOperation[];
-  readonly operations: readonly SourceRenamePlan["operations"][number][];
+  readonly operations: readonly SourceMutationOperation[];
   readonly planHash: string;
+  readonly removeEmptyParents?: boolean;
+  readonly sourceTreeIdentities?: readonly {
+    readonly hash: string;
+    readonly path: string;
+  }[];
 }
 
 function describeBlockers(
@@ -161,12 +176,27 @@ function sourceTransactionPlan(
   plan: SourceMutationPlan
 ): WorkspaceTransactionPlan {
   return {
+    copies: plan.operations
+      .filter((operation): operation is SourceMutationCopyOperation => operation.kind === "copy")
+      .map((operation) => ({ from: operation.from, to: operation.to })),
+    deletes: plan.operations
+      .filter((operation): operation is SourceMutationDeleteOperation => operation.kind === "delete")
+      .map((operation) => operation.path),
+    ...(plan.sourceTreeIdentities === undefined
+      ? {}
+      : {
+          expectedSourceTrees: plan.sourceTreeIdentities.map((identity) => ({
+            identity: identity.hash,
+            path: identity.path,
+          })),
+        }),
     moves: plan.operations
       .filter(
         (operation): operation is SourceRenameMoveOperation =>
           operation.kind === "move"
       )
       .map((operation) => ({ from: operation.from, to: operation.to })),
+    ...(plan.removeEmptyParents === true ? { removeEmptyParents: true } : {}),
     writes: plan.operations
       .filter(
         (operation): operation is SourceRenameUpdateOperation =>
@@ -402,6 +432,7 @@ async function assertNoUnmanagedOutputCollisions(
 function transactionPaths(plan: WorkspaceTransactionPlan): readonly string[] {
   return [
     ...new Set([
+      ...(plan.copies ?? []).flatMap((copy) => [copy.from, copy.to]),
       ...(plan.deletes ?? []),
       ...(plan.moves ?? []).flatMap((move) => [move.from, move.to]),
       ...(plan.writes ?? []).map((write) => write.path),

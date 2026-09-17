@@ -3,6 +3,7 @@
 
 import {
   chmod,
+  cp,
   link,
   lstat,
   mkdir,
@@ -21,6 +22,7 @@ import nodePath from "node:path";
 import { renameDirectoryNoReplace } from "./directory-rename-no-replace";
 import { supportsGeneratedFileModes } from "./generated-file-mode";
 import { compareStrings } from "./path";
+import { hashSkillDirectory } from "./source-tree-identity";
 import type { GeneratedFileMode } from "./types";
 
 /** A file written as part of a bounded workspace transaction. */
@@ -38,18 +40,34 @@ export interface WorkspaceTransactionMove {
   readonly to: string;
 }
 
+/** A filesystem entry copied as part of a bounded workspace transaction. */
+export interface WorkspaceTransactionCopy {
+  readonly from: string;
+  readonly to: string;
+}
+
+/** A source tree identity that must match after its transaction snapshot. */
+export interface WorkspaceTransactionExpectedSourceTree {
+  readonly identity: string;
+  readonly path: string;
+}
+
 /**
  * A declarative workspace mutation plan. Paths may be workspace-relative or
  * absolute, but every path must resolve inside `workspaceRoot`.
  */
 export interface WorkspaceTransactionPlan {
+  readonly copies?: readonly WorkspaceTransactionCopy[];
   readonly deletes?: readonly string[];
+  readonly expectedSourceTrees?: readonly WorkspaceTransactionExpectedSourceTree[];
   readonly moves?: readonly WorkspaceTransactionMove[];
+  readonly removeEmptyParents?: boolean;
   readonly writes?: readonly WorkspaceTransactionWrite[];
 }
 
 /** A deterministic, content-free description of one planned operation. */
 export type WorkspaceTransactionOperation =
+  | { readonly from: string; readonly kind: "copy"; readonly to: string }
   | { readonly kind: "delete"; readonly path: string }
   | { readonly from: string; readonly kind: "move"; readonly to: string }
   | { readonly kind: "write"; readonly path: string };
@@ -70,6 +88,7 @@ export interface WorkspaceTransactionReport {
 export interface WorkspaceTransactionRollbackAction {
   readonly kind:
     | "remove-created-directory"
+    | "restore-copy"
     | "restore-move"
     | "restore-preimage"
     | "restore-write";
@@ -156,6 +175,15 @@ interface NormalizedMove {
   readonly to: NormalizedPath;
 }
 
+interface NormalizedCopy {
+  readonly from: NormalizedPath;
+  readonly operation: Extract<
+    WorkspaceTransactionOperation,
+    { readonly kind: "copy" }
+  >;
+  readonly to: NormalizedPath;
+}
+
 interface NormalizedWrite {
   readonly content: string | Uint8Array;
   readonly expectedAbsent?: boolean;
@@ -175,10 +203,18 @@ interface NormalizedDelete {
   readonly path: NormalizedPath;
 }
 
+interface NormalizedExpectedSourceTree {
+  readonly identity: string;
+  readonly path: NormalizedPath;
+}
+
 interface PreparedPlan {
+  readonly copies: readonly NormalizedCopy[];
   readonly deletes: readonly NormalizedDelete[];
+  readonly expectedSourceTrees: readonly NormalizedExpectedSourceTree[];
   readonly moves: readonly NormalizedMove[];
   readonly operations: readonly WorkspaceTransactionOperation[];
+  readonly removeEmptyParents: boolean;
   readonly writes: readonly NormalizedWrite[];
 }
 
@@ -194,6 +230,12 @@ interface AppliedMove {
   readonly preimage: Preimage;
 }
 
+interface AppliedCopy {
+  currentPath: string;
+  readonly copy: NormalizedCopy;
+  readonly stagingPath: string;
+}
+
 interface AppliedWrite {
   currentPath: string;
   readonly stagingPath: string;
@@ -201,6 +243,7 @@ interface AppliedWrite {
 }
 
 interface TransactionState {
+  readonly appliedCopies: AppliedCopy[];
   readonly appliedMoves: AppliedMove[];
   readonly appliedWrites: AppliedWrite[];
   readonly caseStagingDirectories: string[];
@@ -208,6 +251,7 @@ interface TransactionState {
   readonly journalPath: string;
   readonly latePreimages: Preimage[];
   readonly preimages: Map<string, Preimage>;
+  readonly supersededPreimagePaths: Set<string>;
   readonly workspaceRoot: string;
 }
 
@@ -236,9 +280,11 @@ export async function applyWorkspaceTransaction(
     options.testHooks
   );
   assertExpectedAbsentWriteTargets(prepared, initialEntries);
+  assertCopyTargetCollisions(prepared, initialEntries);
   await assertMoveTargetCollisions(prepared, initialEntries);
 
   const state: TransactionState = {
+    appliedCopies: [],
     appliedMoves: [],
     appliedWrites: [],
     caseStagingDirectories: [],
@@ -248,14 +294,24 @@ export async function applyWorkspaceTransaction(
     ),
     latePreimages: [],
     preimages: new Map(),
+    supersededPreimagePaths: new Set(),
     workspaceRoot: resolvedWorkspaceRoot,
   };
 
   try {
     await mkdir(nodePath.join(state.journalPath, "late-preimages"));
     await mkdir(nodePath.join(state.journalPath, "preimages"));
+    await mkdir(nodePath.join(state.journalPath, "copies"));
     await mkdir(nodePath.join(state.journalPath, "writes"));
+    await stageCopies(state, prepared.copies);
     await stagePreimages(state, prepared, initialEntries);
+    await assertExpectedSourceTrees(state, prepared);
+    await applyCopies(
+      state,
+      prepared.copies,
+      options.testHooks,
+      prepared.operations
+    );
     await applyMoves(
       state,
       prepared.moves,
@@ -268,6 +324,9 @@ export async function applyWorkspaceTransaction(
       prepared,
       options.testHooks
     );
+    if (prepared.removeEmptyParents) {
+      await removeEmptyOperationAncestors(state, prepared);
+    }
     await cleanupCommittedTransaction(state);
     return {
       operations: prepared.operations,
@@ -290,6 +349,31 @@ function preparePlan(
   workspaceRoot: string,
   plan: WorkspaceTransactionPlan
 ): PreparedPlan {
+  const copies = (plan.copies ?? [])
+    .map((copy) => {
+      const from = normalizePath(workspaceRoot, copy.from);
+      const to = normalizePath(workspaceRoot, copy.to);
+      if (from.relative === to.relative) {
+        throw transactionError(
+          `copy source and target are identical: ${from.relative}`
+        );
+      }
+      return {
+        from,
+        operation: {
+          from: from.relative,
+          kind: "copy" as const,
+          to: to.relative,
+        },
+        to,
+      };
+    })
+    .toSorted((left, right) => {
+      const bySource = compareStrings(left.from.relative, right.from.relative);
+      return bySource === 0
+        ? compareStrings(left.to.relative, right.to.relative)
+        : bySource;
+    });
   const writes = (plan.writes ?? [])
     .map((write) => {
       const path = normalizePath(workspaceRoot, write.path);
@@ -342,18 +426,53 @@ function preparePlan(
     .toSorted((left, right) =>
       compareStrings(left.path.relative, right.path.relative)
     );
+  const expectedSourceTrees = (plan.expectedSourceTrees ?? [])
+    .map((expected) => ({
+      identity: expected.identity,
+      path: normalizePath(workspaceRoot, expected.path),
+    }))
+    .toSorted((left, right) =>
+      compareStrings(left.path.relative, right.path.relative)
+    );
 
-  assertPlanPaths(writes, moves, deletes);
+  assertPlanPaths(copies, writes, moves, deletes);
+  assertExpectedSourceTreePaths(expectedSourceTrees, copies, moves, deletes);
   return {
+    copies,
     deletes,
+    expectedSourceTrees,
     moves,
     operations: [
+      ...copies.map((copy) => copy.operation),
       ...moves.map((move) => move.operation),
       ...writes.map((write) => write.operation),
       ...deletes.map((entry) => entry.operation),
     ],
+    removeEmptyParents: plan.removeEmptyParents === true,
     writes,
   };
+}
+
+function assertExpectedSourceTreePaths(
+  expectedSourceTrees: readonly NormalizedExpectedSourceTree[],
+  copies: readonly NormalizedCopy[],
+  moves: readonly NormalizedMove[],
+  deletes: readonly NormalizedDelete[]
+): void {
+  const sources = new Set([
+    ...copies.map((copy) => copy.from.relative),
+    ...moves.map((move) => move.from.relative),
+    ...deletes.map((entry) => entry.path.relative),
+  ]);
+  const paths = new Set<string>();
+  for (const expected of expectedSourceTrees) {
+    assertUnique(paths, expected.path.relative, "expected source tree");
+    if (!sources.has(expected.path.relative)) {
+      throw transactionError(
+        `expected source tree is not a copied, moved, or deleted source: ${expected.path.relative}`
+      );
+    }
+  }
 }
 
 function assertExpectedAbsentWriteTargets(
@@ -373,15 +492,22 @@ function assertExpectedAbsentWriteTargets(
 }
 
 function assertPlanPaths(
+  copies: readonly NormalizedCopy[],
   writes: readonly NormalizedWrite[],
   moves: readonly NormalizedMove[],
   deletes: readonly NormalizedDelete[]
 ): void {
+  const copySources = new Set<string>();
+  const copyTargets = new Set<string>();
   const writePaths = new Set<string>();
   const deletePaths = new Set<string>();
   const moveSources = new Set<string>();
   const moveTargets = new Set<string>();
 
+  for (const copy of copies) {
+    assertUnique(copySources, copy.from.relative, "copy source");
+    assertUnique(copyTargets, copy.to.relative, "copy target");
+  }
   for (const write of writes) {
     assertUnique(writePaths, write.path.relative, "write path");
   }
@@ -405,6 +531,10 @@ function assertPlanPaths(
   }
 
   const paths = [
+    ...copies.flatMap((copy) => [
+      { path: copy.from.relative, role: "copy-source" },
+      { path: copy.to.relative, role: "copy-target" },
+    ]),
     ...writes.map((write) => ({ path: write.path.relative, role: "write" })),
     ...moves.flatMap((move) => [
       { path: move.from.relative, role: "move-source" },
@@ -416,6 +546,9 @@ function assertPlanPaths(
   for (const [index, left] of paths.entries()) {
     for (const right of paths.slice(index + 1)) {
       if (left.path === right.path) {
+        if (left.role.startsWith("copy-") || right.role.startsWith("copy-")) {
+          throw transactionError(`conflicting planned operations for ${left.path}`);
+        }
         continue;
       }
       if (sameCaseInsensitivePath(left.path, right.path)) {
@@ -464,6 +597,10 @@ async function inspectInitialEntries(
   hooks: WorkspaceTransactionTestHooks | undefined
 ): Promise<ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>> {
   const paths = new Map<string, NormalizedPath>();
+  for (const copy of prepared.copies) {
+    paths.set(copy.from.relative, copy.from);
+    paths.set(copy.to.relative, copy.to);
+  }
   for (const write of prepared.writes) {
     paths.set(write.path.relative, write.path);
   }
@@ -499,6 +636,14 @@ async function inspectInitialEntries(
     entries,
     hooks
   );
+
+  for (const copy of prepared.copies) {
+    const source = entries.get(copy.from.relative);
+    if (source === undefined) {
+      throw transactionError(`copy source does not exist: ${copy.from.relative}`);
+    }
+    assertMovableEntry(source, copy.from.relative);
+  }
 
   for (const move of prepared.moves) {
     const source = entries.get(move.from.relative);
@@ -619,6 +764,70 @@ async function assertMoveTargetCollisions(
   }
 }
 
+function assertCopyTargetCollisions(
+  prepared: PreparedPlan,
+  entries: ReadonlyMap<string, Awaited<ReturnType<typeof inspectPath>>>
+): void {
+  for (const copy of prepared.copies) {
+    if (entries.get(copy.to.relative) === undefined) continue;
+    throw transactionError(`copy target already exists: ${copy.to.relative}`);
+  }
+}
+
+async function stageCopies(
+  state: TransactionState,
+  copies: readonly NormalizedCopy[]
+): Promise<void> {
+  for (const [index, copy] of copies.entries()) {
+    const stagingPath = nodePath.join(
+      state.journalPath,
+      "copies",
+      `${String(index).padStart(6, "0")}-${nodePath.basename(copy.to.absolute)}`
+    );
+    await cp(copy.from.absolute, stagingPath, {
+      errorOnExist: true,
+      force: false,
+      preserveTimestamps: true,
+      recursive: true,
+    });
+    state.appliedCopies.push({
+      copy,
+      currentPath: stagingPath,
+      stagingPath,
+    });
+  }
+}
+
+async function applyCopies(
+  state: TransactionState,
+  copies: readonly NormalizedCopy[],
+  hooks: WorkspaceTransactionTestHooks | undefined,
+  operations: readonly WorkspaceTransactionOperation[]
+): Promise<void> {
+  for (const copy of copies) {
+    await invokeApplyHook(hooks, operations, copy.operation);
+    await ensureSafeParent(state, copy.to);
+    const applied = state.appliedCopies.find(
+      (candidate) => candidate.copy === copy
+    );
+    if (applied === undefined) {
+      throw transactionError(`missing staged copy: ${copy.from.relative}`);
+    }
+    const outcome = await installWithoutReplacing(
+      hooks,
+      applied.currentPath,
+      copy.to
+    );
+    if (outcome === "occupied") {
+      preserveCreatedDirectoryAncestors(state, copy.to.absolute);
+      throw transactionError(
+        `copy target appeared before atomic install: ${copy.to.relative}`
+      );
+    }
+    applied.currentPath = copy.to.absolute;
+  }
+}
+
 async function stagePreimages(
   state: TransactionState,
   prepared: PreparedPlan,
@@ -668,6 +877,29 @@ async function stagePreimages(
   }
 }
 
+async function assertExpectedSourceTrees(
+  state: TransactionState,
+  prepared: PreparedPlan
+): Promise<void> {
+  for (const expected of prepared.expectedSourceTrees) {
+    const stagedCopy = state.appliedCopies.find(
+      (copy) => copy.copy.from.relative === expected.path.relative
+    );
+    const preimage = state.preimages.get(expected.path.relative);
+    const stagedPath = stagedCopy?.stagingPath ?? preimage?.journalPath;
+    if (stagedPath === undefined) {
+      throw transactionError(
+        `missing secured source tree: ${expected.path.relative}`
+      );
+    }
+    if ((await hashSkillDirectory(stagedPath)) !== expected.identity) {
+      throw transactionError(
+        `source tree changed since planning: ${expected.path.relative}`
+      );
+    }
+  }
+}
+
 async function applyMoves(
   state: TransactionState,
   moves: readonly NormalizedMove[],
@@ -676,6 +908,7 @@ async function applyMoves(
 ): Promise<void> {
   for (const move of moves) {
     await invokeApplyHook(hooks, operations, move.operation);
+    await assertMoveSourceStayedVacant(state, move);
     await ensureSafeParent(state, move.to);
     const preimage = state.preimages.get(move.from.relative);
     if (preimage === undefined) {
@@ -710,6 +943,9 @@ async function applyMoves(
       move.to
     );
     if (outcome === "occupied") {
+      if (state.preimages.has(move.to.relative)) {
+        state.supersededPreimagePaths.add(move.to.relative);
+      }
       preserveCreatedDirectoryAncestors(state, move.to.absolute);
       throw transactionError(
         `move target appeared before atomic install: ${move.to.relative}`
@@ -717,6 +953,27 @@ async function applyMoves(
     }
     applied.currentPath = move.to.absolute;
   }
+}
+
+async function assertMoveSourceStayedVacant(
+  state: TransactionState,
+  move: NormalizedMove
+): Promise<void> {
+  const entry = await inspectPath(state.workspaceRoot, move.from);
+  if (entry === undefined) {
+    return;
+  }
+  const installedByEarlierMove = state.appliedMoves.some(
+    (applied) => applied.currentPath === move.from.absolute
+  );
+  if (installedByEarlierMove) {
+    return;
+  }
+  state.supersededPreimagePaths.add(move.from.relative);
+  preserveCreatedDirectoryAncestors(state, move.from.absolute);
+  throw transactionError(
+    `move source reappeared after preimage staging: ${move.from.relative}`
+  );
 }
 
 async function applyWrites(
@@ -1033,6 +1290,46 @@ async function cleanupCommittedTransaction(
   await rm(state.journalPath, { force: true, recursive: true });
 }
 
+async function removeEmptyOperationAncestors(
+  state: TransactionState,
+  prepared: PreparedPlan
+): Promise<void> {
+  const candidates = [
+    ...prepared.moves.map((move) => nodePath.dirname(move.from.absolute)),
+    ...prepared.deletes.map((entry) => nodePath.dirname(entry.path.absolute)),
+  ].toSorted((left, right) => right.length - left.length);
+  const visited = new Set<string>();
+  for (const candidate of candidates) {
+    let current = candidate;
+    while (
+      current !== state.workspaceRoot &&
+      current.startsWith(`${state.workspaceRoot}${nodePath.sep}`)
+    ) {
+      if (visited.has(current)) break;
+      visited.add(current);
+      try {
+        await rmdir(current);
+      } catch (error) {
+        if (isMissing(error)) {
+          current = nodePath.dirname(current);
+          continue;
+        }
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          (error.code === "ENOTDIR" ||
+            error.code === "ENOTEMPTY" ||
+            error.code === "EEXIST")
+        ) {
+          break;
+        }
+        throw error;
+      }
+      current = nodePath.dirname(current);
+    }
+  }
+}
+
 async function rollbackTransaction(
   state: TransactionState,
   hooks: WorkspaceTransactionTestHooks | undefined
@@ -1085,7 +1382,22 @@ async function rollbackTransaction(
       }
     );
   }
+  for (const copy of [...state.appliedCopies].toReversed()) {
+    if (copy.currentPath === copy.stagingPath) {
+      continue;
+    }
+    await run(
+      { kind: "restore-copy", path: copy.copy.to.relative },
+      async () => {
+        await rename(copy.currentPath, copy.stagingPath);
+        copy.currentPath = copy.stagingPath;
+      }
+    );
+  }
   for (const preimage of [...state.preimages.values()].toReversed()) {
+    if (state.supersededPreimagePaths.has(preimage.path.relative)) {
+      continue;
+    }
     await run(
       { kind: "restore-preimage", path: preimage.path.relative },
       async () => {

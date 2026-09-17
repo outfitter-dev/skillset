@@ -42,6 +42,16 @@ describe("readChangeLedger", () => {
         from: "standalone-skill:demo",
         to: "plugin-skill:tools/demo",
       }),
+      event("evt-010", "source.drafted", {
+        draft: "plugin.tools.skill:demo#draft",
+        shipped: "plugin-skill:tools/demo",
+        sourceHash: hash("3"),
+      }),
+      event("evt-011", "source.promoted", {
+        draft: "plugin.tools.skill:demo#draft",
+        draftEventId: "evt-010",
+        shipped: "plugin-skill:tools/demo",
+      }),
     ]);
 
     const events = await readChangeLedger(root);
@@ -56,6 +66,8 @@ describe("readChangeLedger", () => {
       "evt-007",
       "evt-008",
       "evt-009",
+      "evt-010",
+      "evt-011",
     ]);
     expect(events.map((item) => item.type)).toEqual([
       "reason.created",
@@ -67,6 +79,8 @@ describe("readChangeLedger", () => {
       "release.amended",
       "baseline.recorded",
       "source.moved",
+      "source.drafted",
+      "source.promoted",
     ]);
     expect(events[2]?.sourceUnits).toEqual([
       { hashSchema: "skillset-source-unit-v2", selector: "skill:demo", sourceHash: hash("1") },
@@ -93,6 +107,16 @@ describe("readChangeLedger", () => {
     expect(events[8]?.payload).toEqual({
       from: "skill:demo",
       to: "plugin.tools.skill:demo",
+    });
+    expect(events[9]?.payload).toEqual({
+      draft: "plugin.tools.skill:demo#draft",
+      shipped: "plugin.tools.skill:demo",
+      sourceHash: hash("3"),
+    });
+    expect(events[10]?.payload).toEqual({
+      draft: "plugin.tools.skill:demo#draft",
+      draftEventId: "evt-010",
+      shipped: "plugin.tools.skill:demo",
     });
   });
 
@@ -153,6 +177,25 @@ describe("readChangeLedger", () => {
       event("evt-002", "change.covered", { reasonId: "change-1" }),
     ]);
     await expect(readChangeLedger(missingSourceUnit)).rejects.toThrow("payload requires at least one source unit selector");
+
+    const malformedDraftHash = await ledgerFixture([
+      event("evt-003", "source.drafted", {
+        draft: "skill:demo#draft",
+        shipped: "skill:demo",
+        sourceHash: "sha256:nope",
+      }),
+    ]);
+    await expect(readChangeLedger(malformedDraftHash)).rejects.toThrow("sourceHash must be a sha256 digest");
+
+    const mismatchedDraft = await ledgerFixture([
+      event("evt-004", "source.promoted", {
+        draft: "skill:other#draft",
+        shipped: "skill:demo",
+      }),
+    ]);
+    await expect(readChangeLedger(mismatchedDraft)).rejects.toThrow(
+      "draft must be the shipped selector with #draft provenance"
+    );
   });
 });
 

@@ -20,8 +20,8 @@ import {
 } from "../cli-contract";
 
 describe("SET-275 final CLI contract", () => {
-  test("pins the exact 25-command top-level roster without retired aliases", () => {
-    expect(CLI_COMMANDS).toHaveLength(25);
+  test("pins the exact 27-command top-level roster without retired aliases", () => {
+    expect(CLI_COMMANDS).toHaveLength(27);
     expect(new Set(CLI_COMMANDS).size).toBe(CLI_COMMANDS.length);
     expect(CLI_COMMANDS).toEqual([
       "build",
@@ -31,6 +31,7 @@ describe("SET-275 final CLI contract", () => {
       "dev",
       "diff",
       "distribute",
+      "draft",
       "eval",
       "explain",
       "hooks",
@@ -41,6 +42,7 @@ describe("SET-275 final CLI contract", () => {
       "marketplace",
       "move",
       "new",
+      "promote",
       "release",
       "reconcile",
       "rename",
@@ -122,6 +124,7 @@ describe("SET-275 final CLI contract", () => {
       check: "skillset check ",
       create: "skillset create ",
       diff: "skillset diff ",
+      draft: "skillset draft <shipped-path> ",
       "eval list": "skillset eval list ",
       "eval run": "skillset eval run ",
       "eval status": "skillset eval status ",
@@ -137,6 +140,7 @@ describe("SET-275 final CLI contract", () => {
       "marketplace update": "skillset marketplace update ",
       move: "skillset move <from> <to> ",
       new: "skillset new ",
+      promote: "skillset promote <draft-path> ",
       reconcile: "skillset reconcile ",
       rename: "skillset rename <from> <to> ",
       "release amend": "skillset release amend ",
