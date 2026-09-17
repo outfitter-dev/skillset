@@ -23,7 +23,7 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:2c73857e7a9ff51dd066f19ea5d5dac148d5f561f0241bfbed16beff70718899",
+  "provenanceHash": "sha256:a2f43ebcf5bfbff36555acdda24429607be21fc8da164c9f5aecf2661a19f6c3",
   "renderResults": [
     {
       "destination": "instruction",
@@ -62,7 +62,7 @@
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
     "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
-    "agent-plugins-1.0": "sha256:f1b89300d6c879de1c7a89f060faee2e6e6c76c71bbbcd9b0909d8ec00c18984",
+    "agent-plugins-1.0": "sha256:e9079ec16f815b540d694350ef63ae284d6d37a08b0f36e03251a70fa4306427",
     "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
   "target": "claude"
