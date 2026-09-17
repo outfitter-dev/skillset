@@ -48,7 +48,7 @@ marketplaces:
             installation: AVAILABLE
             products: []
           source:
-            path: ./plugins/outfitter-core/chatgpt
+            path: ./plugins/outfitter-core
             source: local
         plugin: outfitter-core
       - channel: latest

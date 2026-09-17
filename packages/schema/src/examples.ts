@@ -164,7 +164,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
                   products: [],
                 },
                 source: {
-                  path: "./plugins/outfitter-core/chatgpt",
+                  path: "./plugins/outfitter-core",
                   source: "local",
                 },
               },
