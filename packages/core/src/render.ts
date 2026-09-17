@@ -273,9 +273,12 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...(await renderProjectIslands(graph, lockRoots)));
   const projectHooks = await renderProjectSessionStartHooks(graph);
   rendered.push(...projectHooks.map((hook) => hook.file));
-  const projectHookLock = lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
-  for (const hook of projectHooks.filter((item) => item.managed)) {
-    projectHookLock.items.push(lockItemForProjectHook(graph, hook));
+  const managedProjectHooks = projectHooks.filter((item) => item.managed);
+  if (managedProjectHooks.length > 0) {
+    const projectHookLock = lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
+    for (const hook of managedProjectHooks) {
+      projectHookLock.items.push(lockItemForProjectHook(graph, hook));
+    }
   }
   rendered.push(...(await renderChangelogs(graph, lockRoots)));
   if (Object.keys(graph.root.marketplaces).length > 0) {
