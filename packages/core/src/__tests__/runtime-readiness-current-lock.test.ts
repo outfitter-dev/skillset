@@ -19,11 +19,12 @@ test("activation proof derives identity only from validated current lock facts",
         files: ["plugins/demo/plugin.json"],
         outputHash: "sha256:output",
         renderInputsHash: "sha256:inputs",
+        role: "bundle",
         sourceHash: "sha256:source",
       },
     ],
     outputRoot: ".",
-    schemaVersion: 3,
+    schemaVersion: 4,
     standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: ["codex"],
@@ -50,5 +51,5 @@ test("activation proof does not derive identity from rebuild-only state", () => 
     collectActivationProofLockItems([
       renderedLock({ schemaVersion: 2 }),
     ])
-  ).toThrow("uses pre-v3 schema 2; this generated state is rebuild-only");
+  ).toThrow("uses pre-v4 schema 2; this generated state is rebuild-only");
 });

@@ -24,7 +24,7 @@ Output safety uses `skillset.lock` ownership to protect hand-authored files near
 | Managed file missing | Plan warns and a confirmed build regenerates it |
 | Corrupt lock | Build and output inspection fail before making ownership decisions |
 
-A schema-v1 or nonempty schema-v2 lock is recognizable only for a bounded rebuild diagnostic. It cannot grant current ownership or cleanup authority. Follow the [generated-state rebuild guide](../../guides/generated-state-rebuild.md), preserve canonical source and user edits, and move only owner-reviewed generated paths to a recoverable backup before rebuilding with the current release. A coherent schema-v2 lock with `items: []` grants no cleanup authority and upgrades automatically to schema v3 on the next confirmed build without a manual backup.
+A schema-v1 through schema-v3 lock is recognizable only for a bounded rebuild diagnostic. It cannot grant current ownership or cleanup authority. Follow the [generated-state rebuild guide](../../guides/generated-state-rebuild.md), preserve canonical source and user edits, and move only owner-reviewed generated paths to a recoverable backup before rebuilding with the current release. An old lock with `items: []` grants no cleanup authority and upgrades automatically to schema v4 on the next confirmed build without a manual backup.
 
 [Workspace](../../glossary.md#workspace)-managed project files, plugin output, standalone skills, and generated changelogs are recorded in the root or nearest generated `skillset.lock`. Skillset never claims an entire directory merely because generated files live there.
 

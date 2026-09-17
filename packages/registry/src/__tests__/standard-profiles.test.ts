@@ -42,8 +42,11 @@ describe("SET-397 standard profile registry", () => {
       getStandardProfileSupportEnvelope("agent-plugins-1.0", "plugin-manifests")
     ).toMatchObject({ expectation: "required" });
     expect(
-      getStandardProfileSupportEnvelope("agent-skills", "plugin-skills")
+      getStandardProfileSupportEnvelope("agent-plugins-1.0", "plugin-skills")
     ).toMatchObject({ expectation: "required" });
+    expect(
+      getStandardProfileSupportEnvelope("agent-skills", "plugin-skills")
+    ).toBeUndefined();
     expect(
       getStandardProfileSupportEnvelope("agent-instructions", "plugin-mcp")
     ).toBeUndefined();
@@ -54,9 +57,13 @@ describe("SET-397 standard profile registry", () => {
           path: `fixtures/standards/evidence/${profile.id}.json`,
           schema: "skillset.standards-conformance-receipt@1",
         },
-        rendererCommit: "dade1c128d2ec52452297d829bd2045b35517f92",
         schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
       });
+      expect(profile.adoption?.rendererCommit).toBe(
+        profile.id === "agent-skills"
+          ? "2bbdb2374ba80ecefc72785dfd2044a2f5d5fc76"
+          : "dade1c128d2ec52452297d829bd2045b35517f92"
+      );
     }
   });
 

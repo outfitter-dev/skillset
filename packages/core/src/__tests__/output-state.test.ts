@@ -1093,10 +1093,10 @@ codex: true
     const downgraded = await readFile(lockPath, "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
@@ -1132,10 +1132,10 @@ cursor: false
     const edited = await readFile(lockPath, "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(edited);
   });
@@ -1176,10 +1176,10 @@ cursor: false
     const generated = await readFile(join(root, "AGENTS.md"), "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(edited);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(generated);
@@ -1206,10 +1206,10 @@ cursor: false
     const generated = await readFile(join(root, "AGENTS.md"), "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(generated);
   });

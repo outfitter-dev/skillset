@@ -4731,10 +4731,11 @@ Alpha body.
         outputHash: "sha256:521f085b9b800cb4102507114ecd393b3eb52fb5a85a580c6f105d27485a0216",
         outputPath: "stale.txt",
         owner: { standardProfile: "agent-plugins-1.0" },
+        role: "standard",
         sourcePath: ".skillset/plugins/alpha",
       }],
       outputRoot: "plugins",
-      schemaVersion: 3,
+      schemaVersion: 4,
       standardProfileEvidence: {
         "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
       },

@@ -19,9 +19,9 @@ A skill is a portable [source unit](../../glossary.md#source-unit) stored in one
 | Kind | Source path | Default generated roots |
 | --- | --- | --- |
 | Standalone | `.skillset/skills/<skill>/SKILL.md` | `.claude/skills/`, `.agents/skills/`, `.cursor/skills/` |
-| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/<target>/skills/` for each enabled [target](../../glossary.md#target) |
+| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/agents/skills/<skill>/` for the standard placement, plus target-native plugin bundles |
 
-The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone and plugin-owned skills also inherently flatten into `.agents/skills/`; when Agent Plugins 1.0 is adopted, plugin-owned skills also remain inside `plugins/<plugin>/agents/skills/`. Neither projection has an `agents` provider target or an opt-out field.
+The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone skills inherently render into `.agents/skills/`. When Agent Plugins 1.0 is adopted, plugin-owned skills inherently render once inside `plugins/<plugin>/agents/skills/`. A repository-local copy of a plugin skill is a separate project-use projection, not a second standard placement. Neither standard projection has an `agents` provider target or an opt-out field.
 
 The directory name is the stable skill identity. Top-level `name`, when present, must agree with it. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are invalid; version authority uses top-level `version` until [workspace](../../glossary.md#workspace) release state supersedes it.
 
@@ -57,20 +57,15 @@ Release state supplies generated version metadata after `skillset release apply`
 
 `{{$ARGUMENTS...}}` expressions become native Claude placeholders. Codex preserves the marker and adds replacement guidance; Cursor preserves the marker without the Codex notice.
 
-## Individual Agent Skills Publication
+## Standalone Agent Skills Publication
 
-An adopted Agent Skills projection makes eligible standalone and plugin-owned skills discoverable at `.agents/skills/<skill>/`. The generated tree preserves the rendered body, preprocessing result, declared resources, resolved license, and nearby lock provenance. Commit that generated tree when downstream consumers install skills directly from the repository; see [Prepare Skillset Work for Publication](../../guides/publishing.md#publish-individual-agent-skills).
+An adopted Agent Skills projection makes eligible standalone skills discoverable at `.agents/skills/<skill>/`. The generated tree preserves the rendered body, preprocessing result, declared resources, resolved license, and nearby lock provenance. Commit that generated tree when downstream consumers install standalone skills directly from the repository; see [Prepare Skillset Work for Publication](../../guides/publishing.md#publish-individual-agent-skills).
 
-Individual publication is supported only when the skill remains truthful without its containing plugin:
-
-- A plugin-owned skill is ineligible when its containing plugin has any effective plugin dependency. Effective dependencies include child-skill declarations hoisted to the plugin, so one such declaration blocks individual publication of every skill in that plugin.
-- A plugin-owned skill-local adaptive hook definition or hook attachment is ineligible because Agent Skills cannot carry that behavior.
-
-These restrictions suppress only the flattened `.agents/skills/<skill>/` projection and produce an actionable unsupported result. The same plugin-owned skill remains available inside applicable Agent Plugins and provider packages. Unrelated plugin-level agents, commands, MCP configuration, hooks, binaries, and native companions do not disqualify an otherwise self-contained skill and are not copied into it.
+Plugin-owned skills are published through their Agent Plugins package. They do not receive a standard-owned `.agents/skills/<skill>/` duplicate. Any project-use copy keeps the same source identity but has separate destination ownership and provenance.
 
 ## Errors and Caveats
 
-Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. It also diagnoses individual Agent Skills publication when dependencies or skill-local hooks cannot travel with the generated tree. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
+Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. Agent Plugins diagnostics also reject package skill layouts the portable package would not discover. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
 
 Generated skills are [generated output](../../glossary.md#generated-output), not authoring surfaces. [`skillset check --only outputs`](../cli/check.md) reports missing, stale, or edited managed files; [`skillset explain`](../cli/explain.md) shows the deciding source, target, resources, preprocessing dependencies, and policy realization.
 
@@ -78,4 +73,4 @@ Use [`skillset new skill`](../cli/new.md) to scaffold a skill. The command previ
 
 ## Provenance
 
-Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, and any compiler-owned sidecars.
+Nearby `skillset.lock` entries record source and output paths, hashes, target state, version authority, copied resources, preprocessing dependencies, generated metadata policy, projection role, and any compiler-owned sidecars. Standard placements use `role: standard`; provider bundles use `role: bundle`.

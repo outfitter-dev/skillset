@@ -85,14 +85,14 @@ describe('standard projection resolution', () => {
     expect(resolveStandardProjectionPlan(inventory, adoptedProfiles()).adopted).toEqual(expected)
   })
 
-  test('counts standalone and plugin-owned skills for Agent Skills applicability', () => {
+  test('counts standalone skills for Agent Skills and plugins for Agent Plugins', () => {
     expect(
       standardProjectionSourceInventory({
         plugins: [{ skills: [{}, {}] } as unknown as SourcePlugin],
         rules: [{}] as SourceRule[],
         standaloneSkills: [{}] as StandaloneSkill[],
       })
-    ).toEqual({ instructions: 1, plugins: 1, skills: 3 })
+    ).toEqual({ instructions: 1, plugins: 1, skills: 1 })
 
     const pluginOnly = standardProjectionSourceInventory({
       plugins: [{ skills: [{}] } as unknown as SourcePlugin],
@@ -101,7 +101,7 @@ describe('standard projection resolution', () => {
     })
     expect(
       resolveStandardProjectionPlan(pluginOnly, adoptedProfiles()).adopted
-    ).toEqual(['agent-plugins-1.0', 'agent-skills'])
+    ).toEqual(['agent-plugins-1.0'])
   })
 
   test('assigns adopted standards to protected roots and existing scopes', () => {

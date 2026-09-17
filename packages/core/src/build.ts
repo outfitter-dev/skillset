@@ -153,6 +153,7 @@ const LOCK_ITEM_KEYS = new Set([
   "plugin",
   "preprocessDependencies",
   "renderInputsHash",
+  "role",
   "skillReferences",
   "skippedSkills",
   "sourceHash",
@@ -836,7 +837,9 @@ function classifyLockProvenance(
   }
   if (
     !legacySchemaMigration &&
-    (currentLock.schemaVersion === 2 || currentLock.schemaVersion === 3)
+    (currentLock.schemaVersion === 2 ||
+      currentLock.schemaVersion === 3 ||
+      currentLock.schemaVersion === 4)
   ) {
     return "migration";
   }

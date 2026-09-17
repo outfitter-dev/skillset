@@ -1,12 +1,12 @@
 ---
-description: Rebuilds pre-v3 generated state for inherent Agent standards without granting old locks cleanup authority.
+description: Rebuilds pre-v4 generated state for current projection roles without granting old locks cleanup authority.
 ---
 
 # Rebuild Generated State for Inherent Standards
 
 Skillset 0.27.0 makes every adopted, applicable Agent standard an inherent projection. Existing provider targets remain provider choices, but valid instruction, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/agents/` output without a standards selector.
 
-This is a one-time generated-state rebuild, not a source migration. Preserve `skillset.yaml`, `.skillset/`, provider-native source, user edits, and unmanaged neighbors. Do not add `compile.agents` or another opt-out. Pre-v3 locks can explain why a rebuild is required, but they cannot prove ownership or authorize deletion.
+This is a one-time generated-state rebuild, not a source migration. Preserve `skillset.yaml`, `.skillset/`, provider-native source, user edits, and unmanaged neighbors. Do not add `compile.agents` or another opt-out. Plugin-owned skills now have one standard placement inside their Agent Plugins package; `.agents/skills/` contains standalone standard skills unless a separately owned project-use projection is present. Pre-v4 locks can explain why a rebuild is required, but they cannot prove ownership or authorize deletion.
 
 ## Stop Conditions
 
@@ -18,7 +18,7 @@ Stop before moving or rebuilding anything when:
 - the canonical source does not pass `skillset check`; or
 - the required released Skillset version is unavailable.
 
-Do not delete a mixed directory, recursively replace a repository root, or infer ownership from a pre-v3 lock. Move only individually reviewed generated paths to a recoverable backup outside every configured output root.
+Do not delete a mixed directory, recursively replace a repository root, or infer ownership from a pre-v4 lock. Move only individually reviewed generated paths to a recoverable backup outside every configured output root.
 
 ## Evidence to Capture
 
@@ -32,7 +32,7 @@ bunx @skillset/cli@0.27.0 status --json --root /absolute/path/to/repository
 bunx @skillset/cli@0.27.0 check --only outputs --root /absolute/path/to/repository
 ```
 
-For schema-v1 or nonempty schema-v2 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. A coherent schema-v2 lock with `items: []` carries no cleanup authority and upgrades automatically to schema v3 on the next confirmed build; it does not require a manual backup. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
+For schema-v1 through schema-v3 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. Any old lock with `items: []` carries no cleanup authority and upgrades automatically to schema v4 on the next confirmed build; it does not require a manual backup. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
 
 After moving only those reviewed paths, rebuild from canonical source and verify the new ownership model:
 
@@ -45,13 +45,13 @@ bunx @skillset/cli@0.27.0 diff --root /absolute/path/to/repository
 git -C /absolute/path/to/repository status --short
 ```
 
-Save and inspect the unconfirmed build plan before running the `--yes` command. The receipt must identify the repository and source commit, Skillset version, pre-rebuild diagnostic, backup, preview, generated diff, v3 locks, standard physical owners and logical provider consumers, relevant disposable consumer proof, owner acceptance, date, and limitations. Retain the backup until the owner accepts the rebuilt result.
+Save and inspect the unconfirmed build plan before running the `--yes` command. The receipt must identify the repository and source commit, Skillset version, pre-rebuild diagnostic, backup, preview, generated diff, v4 locks, physical owners and `standard`/`project-use`/`bundle` roles, relevant disposable consumer proof, owner acceptance, date, and limitations. Retain the backup until the owner accepts the rebuilt result.
 
 Package publication and active CLI upgrades are separate release operations. Do not run these commands against an unreleased `0.27.0`, and do not treat a source checkout or development binary as proof of released-version migration.
 
 ## Owner-Approved Backup and Rebuild
 
-A pre-v3 lock identifies possible generated paths but does not authorize moving
+A pre-v4 lock identifies possible generated paths but does not authorize moving
 them. Before writing a backup script or changing output, the repository owner
 must classify every proposed path as generated, authored, or uncertain. Stop on
 any uncertain path.
@@ -68,7 +68,7 @@ For each owner-approved generated path:
 
 After every approved path is recoverably backed up, run the released-version
 preview and inspect it before confirming the build. Verify the rebuilt provider
-trees, newly inherent standards trees, and v3 lock ownership against both the
+trees, inherent standards trees, and v4 lock ownership and roles against both the
 preview and the backup. Run any pinned consumer proof required by the
 repository, then retain the backup until the owner accepts the result.
 

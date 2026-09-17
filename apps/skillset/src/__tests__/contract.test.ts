@@ -9065,7 +9065,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
     items: [],
     outputRoot: ".",
     provenanceHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
-    schemaVersion: 3,
+    schemaVersion: 4,
     standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: [],
@@ -9534,8 +9534,18 @@ Body.
   const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
   expect(generated.kind).toBe("generated");
   expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
+  expect(generated.entries[0]?.role).toBe("bundle");
   expect(generated.entries[0]?.sourceHash).toBeDefined();
   expect(generated.renderResults[0]?.status).toBe("rendered");
+
+  const explained = await runSkillsetCli(
+    "explain",
+    ".claude/skills/demo/SKILL.md",
+    "--root",
+    root
+  );
+  expect(explained.exitCode).toBe(0);
+  expect(explained.stdout).toContain("role: bundle");
 
   const unknown = await explainPath(root, "nope/missing.md");
   expect(unknown.kind).toBe("unknown");
@@ -9663,7 +9673,7 @@ Audit body.
   expect(explainReport.standardProfiles).toContainEqual(
     expect.objectContaining({
       active: true,
-      id: "agent-skills",
+      id: "agent-plugins-1.0",
       lifecycle: "adopted",
     })
   );
@@ -9672,9 +9682,9 @@ Audit body.
   expect(doctor.exitCode).toBe(0);
   expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> skill-body degraded");
   expect(doctor.stdout).toContain(
-    "standards: active agent-plugins-1.0 (plugins), agent-skills (repo); registry agent-instructions adopted"
+    "standards: active agent-plugins-1.0 (plugins); registry agent-instructions adopted, agent-skills adopted"
   );
-  expect(doctor.stdout).toContain("status found 3 render result advisories");
+  expect(doctor.stdout).toContain("status found 2 render result advisories");
 
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
@@ -9688,17 +9698,12 @@ Audit body.
     }[];
   } }).data;
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
-  expect(doctorReport.notableRenderResults).toHaveLength(3);
+  expect(doctorReport.notableRenderResults).toHaveLength(2);
   expect(doctorReport.notableRenderResults).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
         featureId: "dependencies",
         standardProfile: "agent-plugins-1.0",
-        status: "unsupported",
-      }),
-      expect.objectContaining({
-        featureId: "plugin-skills",
-        standardProfile: "agent-skills",
         status: "unsupported",
       }),
       expect.objectContaining({
@@ -9712,7 +9717,7 @@ Audit body.
   expect(doctorReport.standardProfiles).toContainEqual(
     expect.objectContaining({
       active: true,
-      id: "agent-skills",
+      id: "agent-plugins-1.0",
       lifecycle: "adopted",
     })
   );
