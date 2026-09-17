@@ -324,6 +324,22 @@ export {
   type SourceMoveRequest,
 } from "./source-move";
 export {
+  draftSource,
+  planSourceDraft,
+  planSourcePromotion,
+  promoteSource,
+  SourceDraftPlanError,
+  SourcePromotionPlanError,
+  type SourceDraftApplyRequest,
+  type SourceDraftPlan,
+  type SourceDraftReport,
+  type SourceDraftRequest,
+  type SourcePromotionApplyRequest,
+  type SourcePromotionPlan,
+  type SourcePromotionReport,
+  type SourcePromotionRequest,
+} from "./source-draft";
+export {
   listLookupFields,
   listLookupSubjects,
   listLookupViews,
