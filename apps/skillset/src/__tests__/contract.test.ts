@@ -4654,7 +4654,7 @@ cursor:
   expect(after.units.find((unit) => unit.id === "plugin:alpha")?.hash).not.toBe(legacyHash);
 });
 
-test("SET-377: Cursor project-agent prompt partials stay literal and do not drift", async () => {
+test("SET-377: Cursor project-agent unrelated double-brace expressions stay literal and do not drift", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -4667,7 +4667,7 @@ cursor: true
 ---
 description: Reviews Cursor changes.
 cursor:
-  initialPrompt: "{{shared:templates/cursor-prompt.md }}"
+  initialPrompt: "{{cursor.context }}"
 ---
 
 Review changes.
@@ -4683,7 +4683,7 @@ Review changes.
   expect(beforeAgent?.sourcePaths).not.toContain(".skillset/shared/templates/cursor-prompt.md");
   const generatedPath = join(root, ".cursor/agents/reviewer.md");
   const generated = await readFile(generatedPath, "utf8");
-  expect(generated).toContain('initialPrompt: "{{shared:templates/cursor-prompt.md }}"');
+  expect(generated).toContain('initialPrompt: "{{cursor.context }}"');
 
   await Bun.write(
     join(root, ".skillset/shared/templates/cursor-prompt.md"),
@@ -4711,12 +4711,12 @@ cursor: false
 ---
 description: Reviews Codex changes.
 codex:
-  initialPrompt: "{{shared:templates/codex-prompt.md }}"
+  initialPrompt: "{{> codex-prompt }}"
 ---
 
 Review changes.
 `,
-    ".skillset/shared/templates/codex-prompt.md": "Start with Codex evidence.\n",
+    ".skillset/shared/partials/codex-prompt.md": "Start with Codex evidence.\n",
   });
 
   await buildSkillset(root);
@@ -4724,10 +4724,10 @@ Review changes.
 
   const before = await collectSourceInventory(root);
   const beforeAgent = before.units.find((unit) => unit.id === "agent:reviewer");
-  expect(beforeAgent?.sourcePaths).toContain(".skillset/shared/templates/codex-prompt.md");
+  expect(beforeAgent?.sourcePaths).toContain(".skillset/shared/partials/codex-prompt.md");
 
   await Bun.write(
-    join(root, ".skillset/shared/templates/codex-prompt.md"),
+    join(root, ".skillset/shared/partials/codex-prompt.md"),
     "Start with updated Codex evidence.\n"
   );
 
@@ -4744,13 +4744,13 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/common.md": `
+    ".skillset/shared/partials/common.md": `
 Shared partial.
 `,
     ".skillset/rules/root.md": `
 # Root
 
-{{shared:common.md}}
+{{> common}}
 `,
     ".skillset/skills/demo/SKILL.md": `
 ---
@@ -4758,20 +4758,20 @@ name: demo
 description: Demo.
 ---
 
-{{shared:common.md}}
+{{> common}}
 `,
   });
   await buildSkillset(root);
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/shared/common.md"), "Changed partial.\n");
+  await Bun.write(join(root, ".skillset/shared/partials/common.md"), "Changed partial.\n");
 
   const report = await changeStatus(root, { since: "HEAD" });
   const changedIds = report.sourceChanges.map((change) => change.id);
   expect(changedIds).toContain("instruction:root");
   expect(changedIds).toContain("skill:demo");
   const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
-  expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
+  expect(instruction?.sourcePaths).toContain(".skillset/shared/partials/common.md");
   expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
@@ -10100,7 +10100,7 @@ See the [guide](shared:references/guide.md).
     featureId: "resources",
   }));
   await expect(lintSkillset(root)).rejects.toThrow("links to undeclared resource shared:references/guide.md");
-  await expect(lintSkillset(root)).rejects.toThrow("resources: { references: [shared:references/guide.md] }");
+  await expect(lintSkillset(root)).rejects.toThrow("use @{{shared:references/guide.md}} to link and copy it");
 });
 
 test("SET-15: a link to a declared directory-resource child lints clean (no false undeclared)", async () => {

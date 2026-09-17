@@ -12,7 +12,7 @@ import type { LogicalRenderedFile } from "./output-plan";
 import { formatPreprocessDependency, preprocessText } from "./preprocess";
 import { textFile } from "./render-support";
 import {
-  resolveDeclaredResourceReference,
+  createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
 } from "./resources";
 import { readAllowedTools } from "./skill-policy";
@@ -23,6 +23,7 @@ import type {
   JsonRecord,
   JsonValue,
   SourcePlugin,
+  SourceResource,
   SourceSkill,
 } from "./types";
 import { skillVersion } from "./versioning";
@@ -66,6 +67,7 @@ export interface RenderedAgentSkillStandardMarkdown {
   readonly content: string;
   readonly file: LogicalRenderedFile;
   readonly preprocessDependencies: readonly string[];
+  readonly resources: readonly SourceResource[];
 }
 
 export function agentSkillSourceUnit(
@@ -146,6 +148,17 @@ export async function renderAgentSkillStandardMarkdown(
   }
 
   const preprocessDependencies = new Set<string>();
+  const resourcePlanner = createEffectiveSkillResourcePlanner(
+    skill.resources,
+    {
+      label: skill.sourcePath,
+      ...(plugin === undefined
+        ? {}
+        : { pluginSharedPath: path.join(plugin.path, "shared") }),
+      sharedPath: path.join(graph.sourceRootPath, "shared"),
+      sourceRootPath: graph.sourceRootPath,
+    }
+  );
   const body = await preprocessText(skill.body, {
     frontmatter: skill.frontmatter,
     preprocessDependencies,
@@ -154,18 +167,13 @@ export async function renderAgentSkillStandardMarkdown(
     sourceRoot: graph.sourceRoot,
     promptArguments: graph.root.compile.features.promptArguments,
     renderPathReference: (reference) =>
-      reference.scheme === undefined
-        ? reference.specifier.replaceAll("\\", "/")
-        : resolveDeclaredResourceReference(
-            reference.specifier,
-            skill.resources,
-            skill.sourcePath
-          ),
+      resourcePlanner.resolveReference(reference.specifier),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
+  const resources = resourcePlanner.resources();
   const content = renderValidatedMarkdown(
     classification.frontmatter,
-    rewriteResourceLinks(body, skill.resources, skill.sourcePath),
+    rewriteResourceLinks(body, resources, skill.sourcePath),
     `${path.relative(graph.rootPath, skill.sourcePath)} -> Agent Skills`
   );
   return {
@@ -184,6 +192,7 @@ export async function renderAgentSkillStandardMarkdown(
         formatPreprocessDependency(graph.rootPath, dependency)
       )
       .sort(),
+    resources,
   };
 }
 

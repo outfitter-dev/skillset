@@ -6,13 +6,76 @@ import { compareStrings, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
 import { isJsonRecord } from "./yaml";
 
-const RESOURCE_GROUPS = new Set(["assets", "references", "scripts", "templates"]);
+const RESOURCE_GROUP_NAMES = ["references", "scripts", "assets", "templates"] as const;
+const RESOURCE_GROUPS = new Set<string>(RESOURCE_GROUP_NAMES);
 
 export interface ResourceContext {
   readonly label: string;
   readonly pluginSharedPath?: string;
   readonly sharedPath: string;
   readonly sourceRootPath: string;
+}
+
+export interface EffectiveSkillResourcePlanner {
+  readonly resolveReference: (specifier: string) => Promise<string>;
+  readonly resources: () => readonly SourceResource[];
+}
+
+export function createEffectiveSkillResourcePlanner(
+  declaredResources: readonly SourceResource[],
+  context: ResourceContext
+): EffectiveSkillResourcePlanner {
+  const resourcesBySource = new Map(
+    declaredResources.map((resource) => [resource.from, resource])
+  );
+  const resourcesByTarget = new Map(
+    declaredResources.map((resource) => [resource.targetPath, resource])
+  );
+
+  return {
+    resolveReference: async (specifier) => {
+      const normalized = canonicalResourceReference(specifier);
+      const parsed = parseResourcePath(normalized, context);
+      const [group, ...rest] = parsed.relativePath.split("/");
+      if (!RESOURCE_GROUPS.has(group ?? "") || rest.length === 0) {
+        throw new Error(
+          `skillset: ${context.label} implied resource ${specifier} must begin with one of ${RESOURCE_GROUP_NAMES.join(", ")}`
+        );
+      }
+
+      const declaredTarget = resolveResourceReferenceFromResources(
+        normalized,
+        declaredResources
+      );
+      if (declaredTarget !== undefined) return declaredTarget;
+
+      const existing = resourcesBySource.get(parsed.from);
+      if (existing !== undefined) return existing.targetPath;
+
+      const resource = await resolveResource(
+        { from: parsed.from, to: parsed.relativePath },
+        context
+      );
+      if (resource.kind !== "file") {
+        throw new Error(
+          `skillset: ${context.label} implied resource ${specifier} must reference a file; use resources for directories`
+        );
+      }
+      const collision = resourcesByTarget.get(resource.targetPath);
+      if (collision !== undefined && collision.from !== resource.from) {
+        throw new Error(
+          `skillset: ${context.label} implied resource ${specifier} maps to ${resource.targetPath}, already used by ${collision.from}`
+        );
+      }
+      resourcesBySource.set(resource.from, resource);
+      resourcesByTarget.set(resource.targetPath, resource);
+      return resource.targetPath;
+    },
+    resources: () =>
+      [...resourcesBySource.values()].sort((left, right) =>
+        compareStrings(left.targetPath, right.targetPath)
+      ),
+  };
 }
 
 export async function readSkillResources(
@@ -315,6 +378,20 @@ export function resolveDeclaredResourceReference(
       ? `shared:${specifier.slice("root:".length)}`
       : specifier
   );
+  const replacement = resolveResourceReferenceFromResources(
+    normalized,
+    resources
+  );
+  if (replacement !== undefined) return replacement;
+  throw new Error(
+    `skillset: ${label} references undeclared shared resource ${specifier}; ${suggestImpliedResourceLink(normalized)}`
+  );
+}
+
+function resolveResourceReferenceFromResources(
+  normalized: string,
+  resources: readonly SourceResource[]
+): string | undefined {
   const replacements = new Map(
     resources.map((resource) => [resource.from, resource.targetPath])
   );
@@ -324,12 +401,9 @@ export function resolveDeclaredResourceReference(
     sourcePath: resourceSourceRelativePath(resource.from) ?? "",
     targetPath: resource.targetPath,
   }));
-  const replacement =
+  return (
     replacements.get(normalized) ??
-    rewriteDeclaredResourceChild(normalized, mappings);
-  if (replacement !== undefined) return replacement;
-  throw new Error(
-    `skillset: ${label} references undeclared shared resource ${specifier}; declare it, e.g. ${suggestResourceEntry(normalized)}`
+    rewriteDeclaredResourceChild(normalized, mappings)
   );
 }
 
@@ -346,7 +420,7 @@ function rewriteResourceTarget(
   const replacement = replacements.get(normalizedBase) ?? rewriteDeclaredResourceChild(normalizedBase, resourceMappings);
   if (replacement === undefined && isResourceReference(normalizedBase)) {
     throw new Error(
-      `skillset: ${label} links to undeclared shared resource ${base}; declare it, e.g. ${suggestResourceEntry(normalizedBase)}`
+      `skillset: ${label} links to undeclared shared resource ${base}; ${suggestImpliedResourceLink(normalizedBase)}`
     );
   }
   if (replacement === undefined && !isResourceReference(normalizedBase)) {
@@ -444,9 +518,9 @@ export interface UndeclaredResourceLink {
 /**
  * Find skill-body markdown links to `shared:`/`plugin:` resources that are not
  * declared (and not children of a declared directory resource). Each result
- * carries a suggested `resources` entry so the diagnostic is actionable. This
- * mirrors the build's hard rejection but runs at lint time and reports all
- * offenders with fixes instead of failing on the first.
+ * carries actionable guidance for the marked-link form and the remaining
+ * explicit-resource cases. This mirrors the build's hard rejection but runs at
+ * lint time and reports all offenders with fixes instead of failing on the first.
  */
 export function findUndeclaredResourceLinks(
   body: string,
@@ -477,7 +551,9 @@ export function findUndeclaredResourceLinks(
       );
     if (isDeclaredChild) continue;
 
-    if (!found.has(canonical)) found.set(canonical, suggestResourceEntry(canonical));
+    if (!found.has(canonical)) {
+      found.set(canonical, suggestImpliedResourceLink(canonical));
+    }
   }
 
   return [...found].map(([reference, suggestion]) => ({ reference, suggestion }));
@@ -510,22 +586,12 @@ export function findPluginRootScriptLinks(body: string): readonly string[] {
   return [...offenders];
 }
 
-/**
- * Suggest a `resources` entry for a `shared:`/`plugin:` reference, grouping by
- * the referenced file's extension so the fix lands at the conventional path.
- */
-function suggestResourceEntry(reference: string): string {
-  const parsed = splitResourceReference(reference);
-  const group = parsed === undefined ? "references" : resourceGroupForPath(parsed.path);
-  return `resources: { ${group}: [${reference}] }`;
-}
-
-function resourceGroupForPath(path: string): string {
-  const lower = path.toLowerCase();
-  if (/\.(sh|bash|zsh|py|rb|pl|js|ts|mjs)$/.test(lower)) return "scripts";
-  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|pdf)$/.test(lower)) return "assets";
-  if (/\.md$/.test(lower)) return "references";
-  return "templates";
+/** Suggest the marked-link form while preserving explicit-resource use cases. */
+function suggestImpliedResourceLink(reference: string): string {
+  return (
+    `use @{{${reference}}} to link and copy it; ` +
+    "use resources for directories, unlinked files, or to: remaps"
+  );
 }
 
 /**
