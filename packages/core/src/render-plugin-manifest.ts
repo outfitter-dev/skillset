@@ -647,15 +647,10 @@ function pluginComponentManifestValue(
   if (kind === "skills") {
     if (enabledSkills.length === 0) return undefined;
     if (target !== "claude") return path;
-    const nestedSkillPaths = [
-      ...new Set(
-        enabledSkills
-          .map((skill) => relativeSkillDirectory(skill.relativePath, path))
-          .filter((skillPath) => skillPath.includes("/"))
-          .map((skillPath) => `${path}${skillPath}`)
-      ),
+    const skillPaths = [
+      ...new Set(enabledSkills.map((skill) => `${path}${skill.id}`)),
     ].sort();
-    return nestedSkillPaths.length === 0 ? path : nestedSkillPaths;
+    return skillPaths.length === 1 ? skillPaths[0] : skillPaths;
   }
   if (kind === "hooks") {
     const sourcePath = componentSourcePath(path);
@@ -693,20 +688,6 @@ function pluginComponentManifestValue(
 function componentSourcePath(path: string): string {
   const withoutPrefix = path.startsWith("./") ? path.slice(2) : path;
   return withoutPrefix.endsWith("/") ? withoutPrefix.slice(0, -1) : withoutPrefix;
-}
-
-function relativeSkillDirectory(
-  relativePath: string,
-  manifestRoot: string
-): string {
-  const normalized = relativePath.replaceAll("\\", "/");
-  const lastSlash = normalized.lastIndexOf("/");
-  if (lastSlash === -1) return ".";
-  const directory = normalized.slice(0, lastSlash);
-  const sourceRoot = componentSourcePath(manifestRoot);
-  return directory.startsWith(`${sourceRoot}/`)
-    ? directory.slice(sourceRoot.length + 1)
-    : directory;
 }
 
 function setManifestField(

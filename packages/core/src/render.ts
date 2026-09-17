@@ -251,6 +251,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   if (Object.keys(graph.root.marketplaces).length > 0) {
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
   }
+  assertPluginPackagePathCompatibility(graph, rendered);
   rendered.push(...(await renderLockFiles(graph, lockRoots)));
   return [...planRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
@@ -274,7 +275,7 @@ async function renderStandardProjectionArtifacts(
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   return [
-    ...(await renderAgentPluginStandardPackages(graph, lockRoots)),
+    ...(await renderAgentPluginStandardPackages(graph, lockRoots, false)),
     ...(await renderAgentSkillStandards(
       graph,
       lockRoots,
@@ -429,10 +430,8 @@ async function renderPluginTarget(
   validateInternalPluginDependenciesForTarget(graph, plugin, target);
 
   const rendered: RenderedFile[] = [];
-  const configuredOutputRoot = graph.root.outputs.plugins[target];
+  const configuredOutputRoot = "plugins";
   const basePath = pluginBundleRoot(configuredOutputRoot, target, plugin);
-  // A plugin-owned bundle root carries its own lock; lock items and their
-  // relative paths anchor to that root instead of the shared plugins root.
   const outputRoot = pluginLockRootPath(configuredOutputRoot, target, plugin);
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
   const dependencySummaries = pluginDependencySummaries(graph, plugin);
@@ -456,10 +455,31 @@ async function renderPluginTarget(
 
   rendered.push(manifestFile);
   const pluginRootFiles = [manifestFile];
-  if (pluginLicense !== undefined) {
+  const standardOwner =
+    graph.standardProjections.adopted.includes("agent-plugins-1.0") &&
+    classifyAgentPluginStandard(plugin).status === "supported";
+  if (pluginLicense !== undefined && (!standardOwner || target === "codex")) {
     const licenseFile = licenseFileFor(join(basePath, "LICENSE.txt"), pluginLicense);
     rendered.push(licenseFile);
     pluginRootFiles.push(licenseFile);
+  }
+  if (standardOwner && target === "codex") {
+    for (const supportPath of [
+      "README.md",
+      "CHANGELOG.md",
+      "assets",
+      "scripts",
+      "src",
+    ] as const) {
+      const supportFiles = await copyAgentPluginSupportPath(
+        graph,
+        plugin,
+        basePath,
+        supportPath
+      );
+      rendered.push(...supportFiles);
+      pluginRootFiles.push(...supportFiles);
+    }
   }
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
   const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
@@ -473,9 +493,9 @@ async function renderPluginTarget(
   rendered.push(...adaptiveHookFiles, ...companionFiles);
   pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
+  assertPluginPackagePathCompatibility(graph, pluginRootFiles);
   const pluginOwnedFiles = planRenderedFiles(pluginRootFiles);
-  lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
-    lockItemForPlugin({
+  const pluginItem = lockItemForPlugin({
       files: pluginOwnedFiles,
       graph,
       license: pluginLicense,
@@ -483,9 +503,52 @@ async function renderPluginTarget(
       plugin,
       sourceFiles: companionFiles,
       target,
-    })
+    });
+  lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
+    standardOwner && target === "codex"
+      ? {
+          ...pluginItem,
+          consumers: [
+            { phase: "baseline", standardProfile: "agent-plugins-1.0" },
+            { phase: "delta", target: "codex" },
+          ],
+          owner: { standardProfile: "agent-plugins-1.0" },
+          role: "standard",
+        }
+      : pluginItem
   );
   return rendered;
+}
+
+function assertPluginPackagePathCompatibility(
+  graph: BuildGraph,
+  files: readonly RenderedFile[]
+): void {
+  const byPath = new Map<string, RenderedFile[]>();
+  for (const file of files) {
+    if (!file.path.startsWith("plugins/")) continue;
+    byPath.set(file.path, [...(byPath.get(file.path) ?? []), file]);
+  }
+  for (const [outputPath, candidates] of byPath) {
+    const [first] = candidates;
+    if (first === undefined || candidates.length < 2) continue;
+    const conflict = candidates.slice(1).find(
+      (candidate) =>
+        candidate.mode !== first.mode ||
+        !Buffer.from(candidate.content).equals(Buffer.from(first.content))
+    );
+    if (conflict === undefined) continue;
+    const parts = outputPath.split("/");
+    const pluginId = parts[1] ?? "unknown";
+    throw new SkillsetFeatureDiagnosticError({
+      code: "plugin-package-path-conflict",
+      featureId: "plugin-packages",
+      message:
+        `skillset: plugin ${pluginId} package path ${outputPath} has conflicting writers ` +
+        `${first.sourcePath ?? "generated output"} and ${conflict.sourcePath ?? "generated output"}`,
+      path: outputPath,
+    });
+  }
 }
 
 function validateInternalPluginDependenciesForTarget(
@@ -515,6 +578,21 @@ async function renderPluginSharedSkills(
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
+  const skillByName = new Map<string, SourceSkill>();
+  for (const skill of plugin.skills) {
+    const existing = skillByName.get(skill.id);
+    if (existing !== undefined) {
+      throw new SkillsetFeatureDiagnosticError({
+        code: "plugin-skill-flattening-conflict",
+        featureId: "plugin-skills",
+        message:
+          `skillset: plugin ${plugin.id} skills flatten to duplicate name ${skill.id}: ` +
+          `${relative(graph.rootPath, existing.sourcePath)} and ${relative(graph.rootPath, skill.sourcePath)}`,
+        path: relative(graph.rootPath, skill.sourcePath),
+      });
+    }
+    skillByName.set(skill.id, skill);
+  }
   const rootLicense = await resolveRootLicense(graph);
   const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
   const packageRoot = pluginBundleRoot("plugins", "codex", plugin);
@@ -1913,14 +1991,11 @@ async function renderLockFiles(
 }
 
 function pluginLockRootTarget(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  target: TargetName
+  _graph: BuildGraph,
+  _plugin: SourcePlugin,
+  _target: TargetName
 ): TargetName | "workspace" {
-  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
-    return "claude";
-  }
-  return pluginLockTarget(graph, target);
+  return "workspace";
 }
 
 function pluginLockTarget(graph: BuildGraph, target: TargetName): TargetName | "workspace" {
