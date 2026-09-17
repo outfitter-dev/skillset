@@ -314,6 +314,16 @@ export {
   type SourceRenameUpdateOperation,
 } from "./source-rename";
 export {
+  moveSource,
+  planSourceMove,
+  SourceMovePlanError,
+  type SourceMoveApplyRequest,
+  type SourceMoveKind,
+  type SourceMovePlan,
+  type SourceMoveReport,
+  type SourceMoveRequest,
+} from "./source-move";
+export {
   listLookupFields,
   listLookupSubjects,
   listLookupViews,

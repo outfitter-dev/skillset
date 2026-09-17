@@ -29,9 +29,18 @@ export async function applySourceRename(
   request: SourceRenameApplyRequest,
   planRename: (request: SourceRenameApplyRequest) => Promise<SourceRenamePlan>
 ): Promise<SourceRenameReport> {
-  const plan = await planRename(request);
+  return applySourceMutation(request, planRename, (message) => new SourceRenamePlanError(message), "renaming");
+}
+
+export async function applySourceMutation<Request extends SourceMutationApplyRequest, Plan extends SourceMutationPlan>(
+  request: Request,
+  planMutation: (request: Request) => Promise<Plan>,
+  planError: (message: string) => Error,
+  action: string
+): Promise<Plan & { readonly applied: true; readonly writtenPaths: readonly string[] }> {
+  const plan = await planMutation(request);
   if (request.expectedPlanHash !== plan.planHash) {
-    throw new SourceRenamePlanError(
+    throw planError(
       `plan changed since preview: expected ${request.expectedPlanHash}, received ${plan.planHash}`
     );
   }
@@ -39,8 +48,8 @@ export async function applySourceRename(
   const rootPath = await workspaceRoot(request.rootPath);
   const verification = await verifySkillsetResult(rootPath);
   if (!verification.ok) {
-    throw new SourceRenamePlanError(
-      `generated output is not current; reconcile or rebuild before renaming:\n${verification.data.failures.join("\n")}`
+    throw planError(
+      `generated output is not current; reconcile or rebuild before ${action}:\n${verification.data.failures.join("\n")}`
     );
   }
 
@@ -76,6 +85,15 @@ export async function planSourceRenameGeneratedEffects(
   request: SourceRenameRequest,
   sourcePlan: SourceRenamePlan
 ): Promise<readonly SourceRenameGeneratedOperation[]> {
+  return planSourceMutationGeneratedEffects(request, sourcePlan, (message) => new SourceRenamePlanError(message), "renaming");
+}
+
+export async function planSourceMutationGeneratedEffects(
+  request: { readonly rootPath: string },
+  sourcePlan: SourceMutationPlan,
+  planError: (message: string) => Error,
+  action: string
+): Promise<readonly SourceRenameGeneratedOperation[]> {
   const rootPath = await workspaceRoot(request.rootPath);
   const currentGraph = await loadBuildGraph(rootPath);
   const currentRendered = await renderBuildGraph(currentGraph);
@@ -91,20 +109,34 @@ export async function planSourceRenameGeneratedEffects(
     );
     const shadowBuild = await buildSkillsetResult(shadowRoot);
     if (!shadowBuild.ok) {
-      throw new SourceRenamePlanError(
-        `projected generated output is blocked; reconcile it before renaming:\n${describeBlockers(shadowBuild.outputState.blockers)}`
+      throw planError(
+        `projected generated output is blocked; reconcile it before ${action}:\n${describeBlockers(shadowBuild.outputState.blockers)}`
       );
     }
     const nextRendered = shadowBuild.data;
     await assertNoUnmanagedOutputCollisions(
       rootPath,
       currentRendered,
-      nextRendered
+      nextRendered,
+      planError,
+      action
     );
     return generatedEffects(currentRendered, nextRendered);
   } finally {
     await rm(shadowRoot, { force: true, recursive: true });
   }
+}
+
+interface SourceMutationApplyRequest {
+  readonly expectedPlanHash: string;
+  readonly rootPath: string;
+  readonly transactionOptions?: SourceRenameApplyRequest["transactionOptions"];
+}
+
+interface SourceMutationPlan {
+  readonly generatedOperations: readonly SourceRenameGeneratedOperation[];
+  readonly operations: readonly SourceRenamePlan["operations"][number][];
+  readonly planHash: string;
 }
 
 function describeBlockers(
@@ -121,7 +153,7 @@ function describeBlockers(
 }
 
 function sourceTransactionPlan(
-  plan: SourceRenamePlan
+  plan: SourceMutationPlan
 ): WorkspaceTransactionPlan {
   return {
     moves: plan.operations
@@ -143,7 +175,7 @@ function sourceTransactionPlan(
 }
 
 function generatedTransactionPlan(
-  plan: SourceRenamePlan
+  plan: SourceMutationPlan
 ): WorkspaceTransactionPlan {
   return {
     deletes: plan.generatedOperations
@@ -269,7 +301,9 @@ async function copyExistingRenderedOutputs(
 async function assertNoUnmanagedOutputCollisions(
   rootPath: string,
   current: readonly RenderedFile[],
-  next: readonly RenderedFile[]
+  next: readonly RenderedFile[],
+  planError: (message: string) => Error,
+  action: string
 ): Promise<void> {
   const managed = new Set(current.map((file) => file.path));
   for (const file of next) {
@@ -277,8 +311,8 @@ async function assertNoUnmanagedOutputCollisions(
       continue;
     }
     if (await pathExists(resolveInside(rootPath, file.path))) {
-      throw new SourceRenamePlanError(
-        `generated destination is unmanaged: ${file.path}; reconcile it before renaming`
+      throw planError(
+        `generated destination is unmanaged: ${file.path}; reconcile it before ${action}`
       );
     }
   }

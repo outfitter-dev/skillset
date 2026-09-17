@@ -1,7 +1,9 @@
 import { readFile, stat } from "node:fs/promises";
 
 import { readString } from "./config";
+import { readChangeLedger } from "./change-ledger";
 import { compareStrings, resolveInside } from "./path";
+import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings } from "./source-identity-mapping";
 import {
   selectorForPluginCompanion,
   selectorForPluginConfig,
@@ -45,6 +47,7 @@ export async function readAppliedChangeRecords(
   const path = workspaceChangeFile(options.sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return [];
+  const mappings = sourceIdentityMappings(await readChangeLedger(rootPath, options));
   const entries: AppliedChangeRecord[] = [];
   const lines = (await readFile(absolutePath, "utf8")).split("\n");
   for (const [index, line] of lines.entries()) {
@@ -58,7 +61,8 @@ export async function readAppliedChangeRecords(
     if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
     const id = readString(parsed, "id");
     if (id === undefined) continue;
-    const scopes = readHistoryScopes(parsed);
+    const historicalScopes = readHistoryScopes(parsed);
+    const scopes = currentSourceIdentities(historicalScopes, mappings);
     const bump = readHistoryBump(parsed.bump);
     const group = readHistoryGroup(parsed.group);
     entries.push({
@@ -69,7 +73,7 @@ export async function readAppliedChangeRecords(
       path: `${path}:${index + 1}`,
       reason: readString(parsed, "reason") ?? readString(parsed, "body") ?? "",
       scopes,
-      sourceHashes: readHistoryEvidence(parsed.evidence, scopes),
+      sourceHashes: currentSourceHashEvidence(readHistoryEvidence(parsed.evidence, historicalScopes), mappings),
     });
   }
   const amended = await applyHistoryAmendments(rootPath, options.sourceDir, entries);

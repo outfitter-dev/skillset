@@ -1,10 +1,11 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { readChangeLedger } from "./change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { sourceUnitSelector } from "./source-unit-selector";
+import { currentSourceIdentity, sourceIdentityMappings } from "./source-identity-mapping";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
 import { validateVersionField } from "./versioning";
 import { workspaceChangeFile } from "./workspace-state";
@@ -16,7 +17,9 @@ export async function readReleaseState(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<ReleaseState> {
-  const derived = await readLedgerReleaseState(rootPath, options);
+  const events = await readChangeLedger(rootPath, options);
+  const mappings = sourceIdentityMappings(events);
+  const derived = readLedgerReleaseState(events, mappings);
   const statePath = releaseStatePath(rootPath, options);
   if (!(await exists(statePath))) return derived;
 
@@ -27,7 +30,7 @@ export async function readReleaseState(
     if (Object.keys(derived.scopes).length > 0) return derived;
     throw error;
   }
-  return mergeReleaseStates(cached, derived);
+  return remapReleaseState(mergeReleaseStates(cached, derived), mappings);
 }
 
 async function readCachedReleaseState(statePath: string): Promise<ReleaseState> {
@@ -78,21 +81,29 @@ async function readCachedReleaseState(statePath: string): Promise<ReleaseState> 
   return { scopes };
 }
 
-async function readLedgerReleaseState(
-  rootPath: string,
-  options: SkillsetOptions
-): Promise<ReleaseState> {
+function readLedgerReleaseState(
+  events: readonly ChangeLedgerEvent[],
+  mappings: ReturnType<typeof sourceIdentityMappings>
+): ReleaseState {
   const scopes: Record<string, ReleaseScopeState> = {};
-  for (const event of await readChangeLedger(rootPath, options)) {
+  for (const event of events) {
     if (event.type !== "release.applied") continue;
     for (const scope of event.payload.scopes) {
-      scopes[sourceUnitSelector(scope.selector)] = {
+      scopes[currentSourceIdentity(scope.selector, mappings)] = {
         ...(scope.removed === true ? { removed: true } : {}),
         ...(scope.removed === true || scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
         updatedAt: event.createdAt,
         version: scope.version,
       };
     }
+  }
+  return { scopes };
+}
+
+function remapReleaseState(state: ReleaseState, mappings: ReturnType<typeof sourceIdentityMappings>): ReleaseState {
+  const scopes: Record<string, ReleaseScopeState> = {};
+  for (const [selector, value] of Object.entries(state.scopes)) {
+    scopes[currentSourceIdentity(selector, mappings)] = value;
   }
   return { scopes };
 }
