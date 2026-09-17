@@ -67,6 +67,7 @@ export const NEW_SOURCE_KIND_LIST_TEXT = formatList(
 export interface NewSourceOptions {
   readonly container?: string;
   readonly displayName?: string;
+  readonly draft?: boolean;
   readonly hookAttachment?: string;
   readonly hookCommand?: string;
   readonly hookEvents?: readonly string[];
@@ -152,6 +153,9 @@ export async function scaffoldSourceUnit(
     throw new Error("skillset: new currently supports only --scope repo");
   }
   assertHookOptionsMatchKind(options);
+  if (options.draft === true && options.kind !== "skill") {
+    throw new Error(`skillset: new ${options.kind} does not support --draft`);
+  }
   const id = resolveSourceId(options);
   const displayName = resolveDisplayName(options, id);
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
@@ -386,9 +390,12 @@ async function planSkill(
       options.skillsetOptions ?? {}
     );
   }
-  const skillRoot = container === undefined
-    ? join(sourceRoot, "skills", id)
-    : join(sourceRoot, "plugins", container, "skills", id);
+  const skillsRoot = container === undefined
+    ? join(sourceRoot, "skills")
+    : join(sourceRoot, "plugins", container, "skills");
+  const skillRoot = options.draft === true
+    ? join(skillsRoot, "_drafts", id)
+    : join(skillsRoot, id);
   const presets = readSkillPresets(options.presets);
   const files: NewSourcePlannedFile[] = [
     {

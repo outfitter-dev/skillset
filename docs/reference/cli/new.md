@@ -12,7 +12,7 @@ Create a new plugin, skill, project agent, instruction, or hook in source.
 ## Usage
 
 ```text
-skillset new [plugin|skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]
+skillset new [plugin|skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--draft] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]
 ```
 
 ## Options
@@ -21,6 +21,7 @@ skillset new [plugin|skill|agent|instruction|hook] [name] [--id <id>] [--name <n
 | --- | --- |
 | `--attach <value>` | Attach a new adaptive hook to an existing source-unit selector. |
 | `--command <value>` | Set the command action for a new adaptive hook. |
+| `--draft` | Create a new skill under the selected container's _drafts directory. |
 | `--event <value>...` | Select a hook event; repeat where the route permits. |
 | `--id <value>` | Set an explicit stable source-unit id. |
 | `--in <value>` | Select the containing plugin for a new source unit. |

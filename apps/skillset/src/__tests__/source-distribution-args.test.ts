@@ -183,6 +183,7 @@ describe("SET-302 source and distribution route parsers", () => {
     ).toEqual({
       jsonOutput: true,
       newContainer: "quality",
+      newDraft: false,
       newId: "review-agent",
       newKind: "agent",
       newName: "Reviewer",
@@ -192,6 +193,16 @@ describe("SET-302 source and distribution route parsers", () => {
       positionalName: "reviewer",
       rootPath: "/workspace/repo/nested",
       yes: true,
+    });
+    expect(
+      parseNewCommandRequest(
+        ["new", "skill", "drafted", "--draft"],
+        CONTEXT
+      )
+    ).toMatchObject({
+      newDraft: true,
+      newKind: "skill",
+      positionalName: "drafted",
     });
     expect(
       parseNewCommandRequest(["new", "--root", "nested"], CONTEXT)

@@ -77,16 +77,22 @@ The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
 skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
 mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
 are rejected because draft status currently belongs only to skills. The
-`skillset explain` reports `config` as the origin. Selected live plugin skills
-are copied into every enabled fixed provider skill root. Workspace skills keep
-their leaf name; colliding plugin copies use `<plugin-id>-<leaf>`, and the
-render result records `internal-use-name-conflict`. Project-use lock entries
-record the canonical source unit, effective name, selection rule, and target
-owner. `internal_marker` defaults to `true` and writes boolean
-`metadata.internal: true` only on those project-use copies; set it to `false`
-to omit the marker. Plugin hooks, shared trees, MCP servers, and executables
-are not hydrated into a project-use copy and produce explicit unsupported
-component results when present.
+`skillset explain` reports `config` as the origin. Workspace drafts render
+beside live project skills as `draft-<leaf>`. For selected plugin skills,
+omitting `plugins.internal_use.drafts.<plugin>` inherits each selected live
+skill's same-container draft; `true` or a list selects drafts explicitly, and
+`false` excludes them. Excluding a live skill also excludes its paired draft.
+
+Every rendered project draft uses `draft-<leaf>` for its directory and
+frontmatter name, prefixes its description with `[SKILLSET DRAFT] `, and writes
+boolean `metadata.internal: true` even when `internal_marker` is `false`.
+Pairing requires an equal leaf in the same workspace or plugin container.
+Project draft lock entries record draft origin, effective name, selection rule,
+target owner, and the same-container shipped sibling when one exists. Drafts
+never enter plugin packages or marketplace output. Live project-use copies
+still follow `internal_marker`; plugin hooks, shared trees, MCP servers, and
+executables are not hydrated into a project-use copy and produce explicit
+unsupported component results when present.
 
 ## Plan Plugin Package Paths
 

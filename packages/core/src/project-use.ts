@@ -13,24 +13,38 @@ import type {
 
 export interface ProjectUseSkillCopy {
   readonly collisionSources: readonly string[];
+  readonly draftOrigin?: NonNullable<SourceSkill["draftOrigin"]>;
   readonly effectiveName: string;
   readonly plugin: SourcePlugin;
   readonly selectionRule: string;
+  readonly shippedSibling?: string;
+  readonly skill: SourceSkill;
+  readonly sourceUnit: string;
+}
+
+export interface WorkspaceDraftSkillCopy {
+  readonly draftOrigin: NonNullable<SourceSkill["draftOrigin"]>;
+  readonly effectiveName: string;
+  readonly selectionRule: string;
+  readonly shippedSibling?: string;
   readonly skill: SourceSkill;
   readonly sourceUnit: string;
 }
 
 export interface ProjectUseStatusEntry {
+  readonly draftOrigin?: NonNullable<SourceSkill["draftOrigin"]>;
   readonly effectiveName: string;
   readonly owner: { readonly target: TargetName };
-  readonly role: "project-use";
+  readonly role: "bundle" | "project-use";
   readonly selectionRule: string;
+  readonly shippedSibling?: string;
   readonly sourcePath: string;
   readonly sourceUnit: string;
   readonly target: TargetName;
 }
 
 interface ProjectUseCandidate {
+  readonly collisionIdentity: string;
   readonly decision: NonNullable<BuildGraph["pluginPlan"]>["internalUse"]["decisions"][number];
   readonly plugin: SourcePlugin;
   readonly skill: SourceSkill;
@@ -45,28 +59,43 @@ interface ProjectUseNameCandidate extends ProjectUseCandidate {
 export function resolveProjectUseSkillCopies(
   graph: BuildGraph
 ): readonly ProjectUseSkillCopy[] {
-  const selected = graph.pluginPlan?.internalUse.skills ?? [];
-  const candidates = selected.map(({ pluginId, skillId }) => {
+  const selected = [
+    ...(graph.pluginPlan?.internalUse.skills ?? []).map((item) => ({
+      ...item,
+      status: "live" as const,
+    })),
+    ...(graph.pluginPlan?.internalUse.drafts ?? []).map((item) => ({
+      ...item,
+      status: "draft" as const,
+    })),
+  ];
+  const candidates = selected.map(({ pluginId, skillId, status }) => {
     const plugin = graph.plugins.find((item) => item.id === pluginId);
-    const skill = plugin?.skills.find((item) => item.id === skillId);
+    const skill = (plugin?.discoveredSkills ?? plugin?.skills ?? []).find(
+      (item) => item.id === skillId && (item.status ?? "live") === status
+    );
     const decision = graph.pluginPlan?.internalUse.decisions.find(
       (item) =>
         item.pluginId === pluginId &&
         item.skillId === skillId &&
-        item.status === "live"
+        item.status === status
     );
     if (plugin === undefined || skill === undefined || decision === undefined) {
       throw new Error(
-        `skillset: internal-use selection references missing live skill ${pluginId}:${skillId}`
+        `skillset: internal-use selection references missing ${status} skill ${pluginId}:${skillId}`
       );
     }
+    const sourceUnit = selectorForPluginSkill(plugin.id, skill.id);
     return {
+      collisionIdentity: status === "draft" ? `${sourceUnit}#draft` : sourceUnit,
       decision,
       plugin,
       skill,
-      sourceUnit: selectorForPluginSkill(plugin.id, skill.id),
+      sourceUnit,
     };
-  }).sort((left, right) => compareStrings(left.sourceUnit, right.sourceUnit));
+  }).sort((left, right) =>
+    compareStrings(left.collisionIdentity, right.collisionIdentity)
+  );
   const workspaceByName = new Map<string, string[]>();
   for (const skill of graph.standaloneSkills) {
     workspaceByName.set(skill.id, [
@@ -74,18 +103,30 @@ export function resolveProjectUseSkillCopies(
       `workspace:${skill.id}`,
     ]);
   }
+  for (const copy of resolveWorkspaceDraftSkillCopies(graph)) {
+    workspaceByName.set(copy.effectiveName, [
+      ...(workspaceByName.get(copy.effectiveName) ?? []),
+      `workspace:${copy.effectiveName}`,
+    ]);
+  }
   const pluginByName = new Map<string, string[]>();
-  for (const { skill, sourceUnit } of candidates) {
-    pluginByName.set(skill.id, [
-      ...(pluginByName.get(skill.id) ?? []),
-      sourceUnit,
+  for (const candidate of candidates) {
+    const desiredName = candidate.skill.status === "draft"
+      ? draftEffectiveName(candidate.skill.id)
+      : candidate.skill.id;
+    pluginByName.set(desiredName, [
+      ...(pluginByName.get(desiredName) ?? []),
+      candidate.collisionIdentity,
     ]);
   }
 
   const named: ProjectUseNameCandidate[] = candidates.map((candidate) => {
+    const desiredName = candidate.skill.status === "draft"
+      ? draftEffectiveName(candidate.skill.id)
+      : candidate.skill.id;
     const collisionSources = [
-      ...(workspaceByName.get(candidate.skill.id) ?? []),
-      ...(pluginByName.get(candidate.skill.id) ?? []),
+      ...(workspaceByName.get(desiredName) ?? []),
+      ...(pluginByName.get(desiredName) ?? []),
     ].sort(compareStrings);
     return {
       ...candidate,
@@ -93,8 +134,8 @@ export function resolveProjectUseSkillCopies(
         collisionSources.length > 1 ? collisionSources : []
       ),
       preferredName: collisionSources.length > 1
-        ? `${candidate.plugin.id}-${candidate.skill.id}`
-        : candidate.skill.id,
+        ? `${candidate.plugin.id}-${desiredName}`
+        : desiredName,
     };
   });
   const preferredByName = new Map<string, ProjectUseNameCandidate[]>();
@@ -129,7 +170,7 @@ export function resolveProjectUseSkillCopies(
   }
   for (const candidate of named) {
     if (conflicts.has(candidate)) continue;
-    usedSources.set(candidate.preferredName, [candidate.sourceUnit]);
+    usedSources.set(candidate.preferredName, [candidate.collisionIdentity]);
   }
 
   const effectiveNames = new Map<ProjectUseNameCandidate, string>();
@@ -148,24 +189,82 @@ export function resolveProjectUseSkillCopies(
       effectiveName = `${baseName}-${suffix}`;
       suffix += 1;
     }
-    usedSources.set(effectiveName, [candidate.sourceUnit]);
+    usedSources.set(effectiveName, [candidate.collisionIdentity]);
     effectiveNames.set(candidate, effectiveName);
   }
 
   return named.map((candidate) => ({
     collisionSources: [...candidate.collisionSources].sort(compareStrings),
+    ...(candidate.skill.draftOrigin === undefined
+      ? {}
+      : { draftOrigin: candidate.skill.draftOrigin }),
     effectiveName: effectiveNames.get(candidate) ?? candidate.preferredName,
     plugin: candidate.plugin,
     selectionRule: candidate.decision.rule,
+    ...shippedSiblingFor(
+      candidate.plugin.discoveredSkills ?? candidate.plugin.skills,
+      candidate.skill,
+      candidate.plugin.id
+    ),
     skill: candidate.skill,
     sourceUnit: candidate.sourceUnit,
   }));
 }
 
+export function resolveWorkspaceDraftSkillCopies(
+  graph: BuildGraph
+): readonly WorkspaceDraftSkillCopy[] {
+  const pluginPaths = new Set(
+    graph.plugins.flatMap((plugin) =>
+      (plugin.discoveredSkills ?? plugin.skills).map((skill) => skill.sourcePath)
+    )
+  );
+  const inventory = (graph.discoveredSkills ?? graph.standaloneSkills).filter(
+    (skill) => !pluginPaths.has(skill.sourcePath)
+  );
+  return inventory
+    .filter(
+      (skill): skill is SourceSkill & {
+        readonly draftOrigin: NonNullable<SourceSkill["draftOrigin"]>;
+      } => skill.status === "draft" && skill.draftOrigin !== undefined
+    )
+    .map((skill) => ({
+      draftOrigin: skill.draftOrigin,
+      effectiveName: draftEffectiveName(skill.id),
+      selectionRule: "workspace drafts: side-by-side",
+      ...shippedSiblingFor(inventory, skill),
+      skill,
+      sourceUnit: `skill:${skill.id}`,
+    }))
+    .sort((left, right) => compareStrings(left.skill.sourcePath, right.skill.sourcePath));
+}
+
+export function draftEffectiveName(leaf: string): string {
+  return `draft-${leaf}`;
+}
+
+function shippedSiblingFor(
+  inventory: readonly SourceSkill[],
+  skill: SourceSkill,
+  pluginId?: string
+): { readonly shippedSibling?: string } {
+  if (skill.status !== "draft") return {};
+  return inventory.some(
+    (candidate) =>
+      candidate.id === skill.id && (candidate.status ?? "live") === "live"
+  )
+    ? {
+        shippedSibling: pluginId === undefined
+          ? `skill:${skill.id}`
+          : selectorForPluginSkill(pluginId, skill.id),
+      }
+    : {};
+}
+
 export function projectUseStatusEntries(
   graph: BuildGraph
 ): readonly ProjectUseStatusEntry[] {
-  return resolveProjectUseSkillCopies(graph).flatMap((copy) =>
+  const pluginCopies = resolveProjectUseSkillCopies(graph).flatMap((copy) =>
     targetNames().flatMap((target) => {
       if (
         !copy.skill.targets[target].enabled ||
@@ -177,10 +276,14 @@ export function projectUseStatusEntries(
         return [];
       }
       return [{
+        ...(copy.draftOrigin === undefined ? {} : { draftOrigin: copy.draftOrigin }),
         effectiveName: copy.effectiveName,
         owner: { target },
         role: "project-use" as const,
         selectionRule: copy.selectionRule,
+        ...(copy.shippedSibling === undefined
+          ? {}
+          : { shippedSibling: copy.shippedSibling }),
         sourcePath: relative(graph.rootPath, copy.skill.sourcePath)
           .split(sep)
           .join("/"),
@@ -188,10 +291,38 @@ export function projectUseStatusEntries(
         target,
       }];
     })
-  ).sort((left, right) =>
+  );
+  const workspaceDrafts = resolveWorkspaceDraftSkillCopies(graph).flatMap(
+    (copy) =>
+      targetNames().flatMap((target) => {
+        if (
+          !copy.skill.targets[target].enabled ||
+          !isOutputSelected(
+            graph.root.outputs.targetOutputs[target].skills,
+            copy.skill.id
+          )
+        ) return [];
+        return [{
+          draftOrigin: copy.draftOrigin,
+          effectiveName: copy.effectiveName,
+          owner: { target },
+          role: "bundle" as const,
+          selectionRule: copy.selectionRule,
+          ...(copy.shippedSibling === undefined
+            ? {}
+            : { shippedSibling: copy.shippedSibling }),
+          sourcePath: relative(graph.rootPath, copy.skill.sourcePath)
+            .split(sep)
+            .join("/"),
+          sourceUnit: copy.sourceUnit,
+          target,
+        }];
+      })
+  );
+  return [...pluginCopies, ...workspaceDrafts].sort((left, right) =>
     compareStrings(
-      `${left.sourceUnit}\0${left.target}`,
-      `${right.sourceUnit}\0${right.target}`
+      `${left.sourceUnit}\0${left.effectiveName}\0${left.target}`,
+      `${right.sourceUnit}\0${right.effectiveName}\0${right.target}`
     )
   );
 }
