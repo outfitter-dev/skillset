@@ -57,7 +57,7 @@ Use this demo skill.
   expect(envelope).toMatchObject({ command: "marketplace.check", schemaVersion: "skillset.cli.result@1" });
   expect(envelope.data.ok).toBe(true);
   expect(envelope.data.entries).toEqual([expect.objectContaining({
-    generatedPath: "plugins/local-tools/claude/.claude-plugin/plugin.json",
+    generatedPath: "plugins/local-tools/.claude-plugin/plugin.json",
     readiness: "marketplace-ready",
   })]);
 });
@@ -85,7 +85,7 @@ skillset:
   expect(checked.exitCode).toBe(1);
   expect(checked.stderr).toBe("");
   expect(checked.stdout).toContain("skillset: marketplace check failed");
-  expect(checked.stdout).toContain("missing generated file: plugins/local-tools/claude/.claude-plugin/plugin.json");
+  expect(checked.stdout).toContain("missing generated file: plugins/local-tools/.claude-plugin/plugin.json");
   await expect(readdir(root)).resolves.toEqual(before);
 
   const json = await runSkillsetCli("marketplace", "check", "--json", "--root", root);
@@ -96,7 +96,7 @@ skillset:
   expect(envelope.diagnostics).toEqual([expect.objectContaining({
     code: "marketplace.not-ready",
     message: expect.stringContaining("missing generated file"),
-    path: "plugins/local-tools/claude/.claude-plugin/plugin.json",
+    path: "plugins/local-tools/.claude-plugin/plugin.json",
   })]);
 });
 
@@ -175,7 +175,7 @@ Use this demo skill.
   expect(marketplaceJson.plugins).toEqual([expect.objectContaining({
     name: "trails-tools",
     source: expect.objectContaining({
-      path: "plugins/trails-tools/claude",
+      path: "plugins/trails-tools",
       sha: remote.sha,
       source: "git-subdir",
       url: "outfitter-dev/trails",
@@ -288,11 +288,11 @@ Use this demo skill.
     readonly plugins: readonly { readonly name: string; readonly source: unknown }[];
   };
   expect(marketplaceJson.plugins).toEqual([
-    expect.objectContaining({ name: "local-tools", source: "./plugins/local-tools/claude" }),
+    expect.objectContaining({ name: "local-tools", source: "./plugins/local-tools" }),
     expect.objectContaining({
       name: "trails-tools",
       source: expect.objectContaining({
-        path: "plugins/trails-tools/claude",
+        path: "plugins/trails-tools",
         source: "git-subdir",
         url: "outfitter-dev/trails",
       }),
