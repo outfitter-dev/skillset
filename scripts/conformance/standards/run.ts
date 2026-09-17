@@ -19,7 +19,10 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { buildSkillsetResult } from "@skillset/core";
 import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
 import { getStandardProfile, listStandardProfiles } from "@skillset/registry";
-import type { StandardProfileId } from "@skillset/registry";
+import type {
+  StandardProfile,
+  StandardProfileId,
+} from "@skillset/registry";
 
 import {
   AGENT_INSTRUCTIONS_CODEX_PIN,
@@ -96,8 +99,11 @@ export async function verifyAllAdoptedStandardsConformance(
 }
 
 /**
- * Render one candidate through the production standard renderer, prove its
- * bytes with pinned external consumers, and persist an ignored review receipt.
+ * Render one profile contract through the production candidate renderer,
+ * prove its bytes with pinned external consumers, and persist an ignored
+ * review receipt. Adopted profiles use an in-memory candidate lifecycle view
+ * so maintainers can re-record evidence after a renderer change without
+ * changing the shipped registry lifecycle first.
  */
 export async function runStandardsConformance(
   profileId: StandardProfileId,
@@ -107,15 +113,22 @@ export async function runStandardsConformance(
   const fixtureRoot = await realpath(join(root, FIXTURE_PATH));
   const rendererCommit = await requireCleanRenderer(root);
   const profile = getStandardProfile(profileId);
-  if (profile.lifecycle !== "candidate") {
+  if (profile.lifecycle === "retired") {
     throw new Error(
-      `skillset: standards conformance run requires candidate lifecycle; ${profileId} is ${profile.lifecycle}`
+      `skillset: standards conformance run cannot record retired profile ${profileId}`
     );
   }
+  const candidateProfiles = listStandardProfiles().map((entry) =>
+    entry.id === profileId ? asCandidateProfile(entry) : entry
+  );
 
   const before = await treeEvidence(fixtureRoot);
   const source = await treeEvidence(join(fixtureRoot, ".skillset"));
-  const rendered = await renderCandidateStandardProfile(fixtureRoot, profileId);
+  const rendered = await renderCandidateStandardProfile(
+    fixtureRoot,
+    profileId,
+    { profiles: candidateProfiles }
+  );
   const probeRoot = await mkdtemp(
     join(tmpdir(), `skillset-standards-${profileId}-`)
   );
@@ -176,6 +189,12 @@ export async function runStandardsConformance(
   } finally {
     await rm(probeRoot, { force: true, recursive: true });
   }
+}
+
+function asCandidateProfile(profile: StandardProfile): StandardProfile {
+  if (profile.lifecycle === "candidate") return profile;
+  const { adoption: _adoption, ...contract } = profile;
+  return { ...contract, lifecycle: "candidate" };
 }
 
 /**
