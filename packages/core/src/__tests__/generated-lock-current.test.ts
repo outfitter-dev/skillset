@@ -127,7 +127,10 @@ test("parses settings-entry field ownership and requires its selector", () => {
   }]);
   expect(() => parseCurrentGeneratedLock(withLockProvenance({
     ...lock,
-    items: [{ ...lock.items[0], ownedEntries: undefined }],
+    items: [{
+      ...((lock.items as unknown[])[0] as Record<string, unknown>),
+      ownedEntries: undefined,
+    }],
   }))).toThrow("settings-entry items require ownedEntries");
 });
 
