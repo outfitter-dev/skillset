@@ -252,7 +252,7 @@ Use this skill to answer fixture questions.
   expect(command).toContain("--verbose");
   expect(command).toContain("--setting-sources \"\"");
   expect(command).toContain("--plugin-dir");
-  expect(command).toContain("plugins/acme/claude");
+  expect(command).toContain("plugins/acme");
 
   const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-claude prompt=Inspect Claude fixture."))).toBe(true);
@@ -305,7 +305,7 @@ Use this skill to answer fixture questions.
   expect(command).toContain("--trust");
   expect(command).toContain("--workspace");
   expect(command).toContain("--plugin-dir");
-  expect(command).toContain("plugins/acme/cursor");
+  expect(command).toContain("plugins/acme");
 
   const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-cursor prompt=Inspect Cursor fixture."))).toBe(true);
@@ -1044,12 +1044,13 @@ skillset:
   name: target-proof-fixture
 compile:
   targets: [claude, codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/plugins/tools/_codex/.app.json": JSON.stringify({
+    ".skillset/plugins/tools/.app.json": JSON.stringify({
       name: "tools",
     }),
     ".skillset/tests/target-proof.yaml": `
@@ -1058,6 +1059,7 @@ select:
 targets: [claude, codex]
 activation:
   - name: app proof
+    targets: [claude, codex]
     prompt: Use the app.
     expect:
       plugin: tools
@@ -1096,12 +1098,13 @@ skillset:
   name: unsupported-proof-fixture
 compile:
   targets: [codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/plugins/tools/_codex/.app.json": JSON.stringify({
+    ".skillset/plugins/tools/.app.json": JSON.stringify({
       name: "tools",
     }),
     ".skillset/tests/unsupported-proof.yaml": `
@@ -1110,6 +1113,7 @@ select:
 targets: [codex]
 activation:
   - name: app proof
+    targets: [codex]
     prompt: Use the app.
     expect:
       plugin: tools

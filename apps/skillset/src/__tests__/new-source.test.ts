@@ -428,8 +428,8 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   await Bun.write(
     workspaceConfigPath,
     (await readFile(workspaceConfigPath, "utf8")).replace(
-      "compile:\n",
-      "compile:\n  unsupportedDestination: warn\n"
+      "compile:\n  targets:\n    - claude\n    - codex\n    - cursor\n",
+      "compile:\n  targets: [codex]\n  unsupportedDestination: warn\n"
     )
   );
   await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
@@ -507,11 +507,9 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   await expect(runSkillsetCli("build", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
-  for (const target of ["claude", "codex", "cursor"]) {
-    expect(
-      await fileExists(join(root, "plugins/guard", target === "codex" ? "chatgpt" : target, "hooks/hooks.json"))
-    ).toBe(true);
-  }
+  expect(
+    await fileExists(join(root, "plugins/guard/hooks/hooks.json"))
+  ).toBe(true);
   await expect(runSkillsetCli("check", "--root", root)).resolves.toMatchObject({
     exitCode: 0,
   });
