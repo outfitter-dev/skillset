@@ -487,7 +487,7 @@ description: Retired reference.
     });
 
     await expect(buildSkillset(root)).rejects.toThrow(
-      "uses retired root: reference syntax; use shared:value.md"
+      "unsupported reference syntax {{root:value.md}}"
     );
   });
 

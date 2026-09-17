@@ -2848,7 +2848,7 @@ description: Bad skill.
   );
 });
 
-test("preprocessing expands named partials recursively with workspace and plugin lookup", async () => {
+test("preprocessing expands named partials recursively with exact workspace and plugin scopes", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -2858,7 +2858,7 @@ codex: false
 `,
     ".skillset/shared/partials/intro.md": `
 Workspace intro for {{this.description}}.
-{{> detail}}
+{{> nested/detail}}
 `,
     ".skillset/shared/partials/nested/detail.md": `
 Workspace detail.
@@ -2869,7 +2869,7 @@ Workspace preferred.
     ".skillset/plugins/alpha/shared/partials/preferred.md": `
 Plugin preferred.
 `,
-    ".skillset/plugins/alpha/shared/partials/plugin-only.md": `
+    ".skillset/plugins/alpha/shared/partials/nested/plugin-only.md": `
 Plugin only for {{this.name}}.
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
@@ -2884,8 +2884,7 @@ description: Good skill.
 
 {{> intro}}
 {{> preferred}}
-{{> plugin-only}}
-{{> alpha.plugin-only}}
+{{> plugin:nested/plugin-only}}
 `,
   });
 
@@ -2900,17 +2899,16 @@ description: Good skill.
   expect(skill).toContain("Workspace preferred.");
   expect(skill).not.toContain("Plugin preferred.");
   expect(skill).toContain("Plugin only for good.");
-  expect(skill.match(/Plugin only for good\./g)?.length).toBe(2);
 
   const explained = await explainPath(root, "plugins/alpha/claude/skills/good/SKILL.md");
   expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/intro.md");
   expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/nested/detail.md");
   expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/partials/preferred.md");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/plugins/alpha/shared/partials/plugin-only.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/plugins/alpha/shared/partials/nested/plugin-only.md");
 });
 
-test("preprocessing reports named partial ambiguity, cycles, and cross-plugin references", async () => {
-  const ambiguousRoot = await fixture({
+test("preprocessing reports missing exact named partials, cycles, and invalid scopes", async () => {
+  const missingExactRoot = await fixture({
     "skillset.yaml": `
 skillset:
   name: test-root
@@ -2932,10 +2930,12 @@ description: Bad skill.
 {{> intro}}
 `,
   });
-  await expect(buildSkillset(ambiguousRoot)).rejects.toThrow(
+  await expect(buildSkillset(missingExactRoot)).rejects.toThrow(
     "workspace named partial intro"
   );
-  await expect(buildSkillset(ambiguousRoot)).rejects.toThrow("is ambiguous");
+  await expect(buildSkillset(missingExactRoot)).rejects.toThrow(
+    ".skillset/shared/partials/intro.md"
+  );
 
   const cycleRoot = await fixture({
     "skillset.yaml": `
@@ -2961,35 +2961,24 @@ description: Bad skill.
   });
   await expect(buildSkillset(cycleRoot)).rejects.toThrow("creates a cycle");
 
-  const crossPluginRoot = await fixture({
+  const standalonePluginRoot = await fixture({
     "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
-skillset:
-  name: alpha
-`,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
 ---
 
-{{> beta.secret}}
-`,
-    ".skillset/plugins/beta/skillset.yaml": `
-skillset:
-  name: beta
-`,
-    ".skillset/plugins/beta/shared/partials/secret.md": `
-Nope.
+{{> plugin:secret}}
 `,
   });
-  await expect(buildSkillset(crossPluginRoot)).rejects.toThrow(
-    "cannot reference another plugin"
+  await expect(buildSkillset(standalonePluginRoot)).rejects.toThrow(
+    "requires a plugin-bound source"
   );
 
   const invalidRoot = await fixture({
@@ -3005,11 +2994,11 @@ name: bad
 description: Bad skill.
 ---
 
-{{> shared:templates/intro.md}}
+{{> writing/../intro}}
 `,
   });
   await expect(buildSkillset(invalidRoot)).rejects.toThrow(
-    "must use dot-separated name segments"
+    "must use slash-separated name segments"
   );
 });
 

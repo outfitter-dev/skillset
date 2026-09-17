@@ -4,7 +4,7 @@ slug: exact-shared-references
 title: Exact Shared References
 status: accepted
 created: 2026-09-16
-updated: 2026-09-16
+updated: 2026-09-17
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [9, 33]
 ---
@@ -31,12 +31,30 @@ workspace `shared/` root, and `plugin:` addresses the current plugin's
 `shared/` root. Source outside a plugin cannot use `plugin:`, and no source can
 read a sibling plugin's shared files.
 
-`{{> X}}` inlines the referenced Markdown. `@{{X}}` links to the referenced
-file using a rendered `@path`, matching Claude's import syntax where that
-provider supports it. A link implies that the referenced file must be included;
-authors do not separately repeat it in `resources:`. The undocumented
-`{{root:...}}` prefix is retired and produces a check error naming the
-`shared:` rewrite.
+`{{> X}}` inlines the referenced Markdown. An unscoped name resolves only to
+the matching workspace partial: `{{> intro}}` resolves to
+`<sourceRoot>/shared/partials/intro.md`, and `{{> writing/tone}}` resolves to
+`<sourceRoot>/shared/partials/writing/tone.md`. The explicit plugin forms
+`{{> plugin:intro}}` and `{{> plugin:writing/tone}}` resolve to the same exact
+names below the current plugin's `shared/partials/` root. Missing-reference
+diagnostics name that scope and the single expected repository-relative path.
+
+An inline reference with an explicit file path resolves directly below its
+declared shared root. For example, `{{> shared:references/common.md}}` and
+`{{> shared:partials/intro.md}}` resolve below the workspace `shared/` root,
+while `{{> plugin:references/common.md}}` resolves below the current plugin's
+`shared/` root. These forms do not change the named-partial lookup rules.
+
+There is no workspace-to-plugin fallback, recursive basename search, or dotted
+plugin-basename alias. Adding or moving any other partial therefore cannot
+change a reference's target.
+
+`@{{X}}` links to the referenced file using a rendered `@path`, matching
+Claude's import syntax where that provider supports it. Links require an
+explicit `shared:` or `plugin:` scope. A link implies that the referenced file
+must be included; authors do not separately repeat it in `resources:`. The
+undocumented `root:` prefix and the earlier bare path and `{{@...}}` spellings
+are retired and produce a current-grammar error.
 
 Skill Markdown below the main `SKILL.md` receives the same preprocessing pass.
 An implied copy that originates inside a skill remains inside that skill's
@@ -74,8 +92,9 @@ under unrelated file additions, and portable packages carry the shared bytes
 they need. Authors give up implicit fallback and basename convenience in return
 for deterministic resolution and visible package ownership.
 
-SET-551 owns the retired-layout diagnostic, and SET-556 implements the new
-syntax, nested-skill preprocessing, implied copy, lifting, and collision tests.
+SET-551 owns the retired-layout diagnostic. SET-556 implements the current
+syntax, exact resolution, and link-implied copies. SET-573 owns nested-skill
+preprocessing, package lifting, and the widened include graph.
 
 ## References
 
