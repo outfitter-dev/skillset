@@ -441,11 +441,9 @@ export async function runHostedProviderValidation(
     stage = "validation";
     const internalAuthoringConformance = [
       ...(await validateChatGptPluginConformance(
-        staged.inventory.chatgptPlugins
+        staged.inventory.pluginPackages
       )),
-      ...(staged.inventory.agentPlugins.length === 0
-        ? []
-        : await validateAgentPluginConformance(staged.inventory.agentPlugins)),
+      ...(await validateAgentPluginConformance(staged.inventory.pluginPackages)),
       ...(await validateCursorHookConformance(
         await stageCursorHookConformanceInputs(temp)
       )),
