@@ -277,7 +277,11 @@ echo alpha
         : profile
     ) satisfies readonly StandardProfile[];
     const profile = profiles.find((entry) => entry.id === "agent-skills")!;
+    const pluginProfile = profiles.find(
+      (entry) => entry.id === "agent-plugins-1.0"
+    )!;
     const evidence = profile.provenance.snapshots[0]!;
+    const pluginEvidence = pluginProfile.provenance.snapshots[0]!;
     const result: SkillsetRenderResult = {
       evidence: [
         {
@@ -294,8 +298,16 @@ echo alpha
     };
     const pluginResult: SkillsetRenderResult = {
       ...result,
+      evidence: [
+        {
+          kind: "external-docs",
+          ref: pluginEvidence.url,
+          verifiedAt: pluginProfile.provenance.observedAt,
+        },
+      ],
       featureId: "plugin-skills",
       sourceUnit: "plugin.alpha.skill:review",
+      standardProfile: "agent-plugins-1.0",
     };
 
     const candidateProfiles = profiles.map((profile) =>
@@ -315,7 +327,7 @@ echo alpha
           {
             featureId: "plugin-skills",
             sourceUnit: "plugin.alpha.skill:review",
-            standardProfile: "agent-skills",
+            standardProfile: "agent-plugins-1.0",
           },
         ],
         undefined,

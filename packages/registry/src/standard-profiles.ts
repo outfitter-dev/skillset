@@ -142,7 +142,7 @@ const profiles = [
   makeProfile({
     adoption: {
       profileContentHash:
-        "sha256:2d5eed27ec970558f46500d4408cc86a746d1f4065b2b7e3d58f3f52a9e210ff",
+        "sha256:c2edbe7dd642ed933488bcf4196377d93a52f0786b1a09e597517baf022d1906",
       receipt: {
         contentHash:
           "sha256:984d0c3d846d1a89cb0fdadb09f2bb82e476dd81217688cfeab3ecdee16e58b2",
@@ -157,10 +157,6 @@ const profiles = [
       required(
         "standalone-skills",
         "A portable skill directory contains SKILL.md."
-      ),
-      required(
-        "plugin-skills",
-        "Plugin-owned skills flatten into the portable Agent Skills root."
       ),
     ],
     id: "agent-skills",
