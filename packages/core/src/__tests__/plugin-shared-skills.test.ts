@@ -22,9 +22,19 @@ describe("shared plugin skills", () => {
 claude:
   frontmatter:
     claude-only: true
+    nested:
+      claude-only: true
+      shared:
+        list: [one, two]
+        scalar: same
 cursor:
   frontmatter:
     cursor-only: true
+    nested:
+      cursor-only: true
+      shared:
+        list: [one, two]
+        scalar: same
 `);
 
     const result = await buildSkillsetResult(root);
@@ -61,6 +71,11 @@ cursor:
       "cursor-only": true,
       description: "Review changes.",
       name: "review",
+      nested: {
+        "claude-only": true,
+        "cursor-only": true,
+        shared: { list: ["one", "two"], scalar: "same" },
+      },
     });
     const claudeManifest = JSON.parse(
       await readFile(
@@ -138,6 +153,25 @@ cursor:
     );
   });
 
+  it("rejects the first conflicting nested provider field", async () => {
+    const root = await fixture(`
+claude:
+  frontmatter:
+    shared:
+      nested:
+        value: claude
+cursor:
+  frontmatter:
+    shared:
+      nested:
+        value: cursor
+`);
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "plugin demo skill review provider cursor conflicts at shared.nested.value"
+    );
+  });
+
   it("rejects provider-specific body bytes after newline normalization", async () => {
     const root = await fixture("", "Use {{$ARGUMENTS}} to review changes.");
 
@@ -211,6 +245,35 @@ resources:
     await expect(buildSkillsetResult(root)).rejects.toThrow(
       "plugin demo package path plugins/demo/hooks/hooks.json has conflicting writers"
     );
+  });
+
+  it("coalesces identical target hook bytes into one package file", async () => {
+    const root = await fixture("");
+    await Bun.write(
+      join(root, "skillset.yaml"),
+      `skillset:
+  name: shared-plugin-skill
+  license: none
+compile:
+  unsupportedDestination: warn
+claude: true
+codex: true
+cursor: true
+`
+    );
+    const hooksPath = join(
+      root,
+      ".skillset/plugins/demo/hooks/hooks.json"
+    );
+    await mkdir(dirname(hooksPath), { recursive: true });
+    await Bun.write(hooksPath, JSON.stringify({ hooks: {}, version: 1 }));
+
+    const result = await buildSkillsetResult(root);
+    expect(
+      result.data.filter(
+        (file) => file.path === "plugins/demo/hooks/hooks.json"
+      )
+    ).toHaveLength(1);
   });
 });
 

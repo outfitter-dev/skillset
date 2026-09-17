@@ -498,6 +498,29 @@ cursor: false
         file.path.endsWith("plugins/tools/bin/unrelated")
       )
     ).toBe(false);
+    const lockFile = rendered.find(
+      (file) => file.path === "plugins/skillset.lock"
+    );
+    expect(lockFile).toBeDefined();
+    const lock = JSON.parse(text.decode(lockFile?.content)) as {
+      readonly items: readonly {
+        readonly consumers?: readonly unknown[];
+        readonly feature?: string;
+        readonly outputPath?: string;
+        readonly owner?: unknown;
+      }[];
+    };
+    const mcpItem = lock.items.find(
+      (item) =>
+        item.feature === "mcp" && item.outputPath === "tools/mcp.json"
+    );
+    expect(mcpItem).toMatchObject({
+      consumers: [
+        { phase: "baseline", standardProfile: "agent-plugins-1.0" },
+        { phase: "delta", target: "codex" },
+      ],
+      owner: { standardProfile: "agent-plugins-1.0" },
+    });
     expect(
       collectRenderResults(graph, rendered, {
         claudeMarketplacePlugins: [],
@@ -511,6 +534,7 @@ cursor: false
           { kind: "plugin-feature", path: "plugins/tools/mcp.json" },
         ]),
         status: "target_native",
+        target: "codex",
       })
     );
   });

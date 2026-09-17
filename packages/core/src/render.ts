@@ -126,12 +126,10 @@ import {
 } from "./render-codex-skill-sidecars";
 import { renderRules } from "./render-rules";
 import {
-  hasAdaptivePluginHookSources,
   renderAdaptiveFrontmatterHooks,
   renderAdaptivePluginHookFiles,
   renderNormalizedPluginHookFile,
   skillScope,
-  validateHookJson,
 } from "./render-hooks";
 import {
   marketplaceLockProvenance,
@@ -855,17 +853,18 @@ function mergePluginSkillRenderings(
     for (const key of Object.keys(parsed.frontmatter).sort(compareStrings)) {
       const value = parsed.frontmatter[key];
       const existing = frontmatter[key];
-      if (existing !== undefined && !isDeepStrictEqual(existing, value)) {
-        throwPluginSkillProviderIncompatible(
-          graph,
-          plugin,
-          skill,
-          rendering.provider,
-          key
-        );
-      }
       if (value !== undefined) {
-        frontmatter[key] = value;
+        frontmatter[key] = existing === undefined
+          ? value
+          : mergePluginSkillFrontmatterValue(
+              graph,
+              plugin,
+              skill,
+              rendering.provider,
+              key,
+              existing,
+              value
+            );
       }
     }
     for (const dependency of rendering.markdown.preprocessDependencies) {
@@ -899,6 +898,49 @@ function mergePluginSkillRenderings(
     ),
     transforms,
   };
+}
+
+function mergePluginSkillFrontmatterValue(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  skill: SourceSkill,
+  provider: ProviderSkillRendering["provider"],
+  field: string,
+  existing: JsonValue,
+  incoming: JsonValue
+): JsonValue {
+  if (isDeepStrictEqual(existing, incoming)) return existing;
+  if (isJsonObject(existing) && isJsonObject(incoming)) {
+    const merged: JsonRecord = { ...existing };
+    for (const key of Object.keys(incoming).sort(compareStrings)) {
+      const incomingValue = incoming[key];
+      const existingValue = merged[key];
+      if (incomingValue === undefined) continue;
+      merged[key] = existingValue === undefined
+        ? incomingValue
+        : mergePluginSkillFrontmatterValue(
+            graph,
+            plugin,
+            skill,
+            provider,
+            `${field}.${key}`,
+            existingValue,
+            incomingValue
+          );
+    }
+    return merged;
+  }
+  throwPluginSkillProviderIncompatible(
+    graph,
+    plugin,
+    skill,
+    provider,
+    field
+  );
+}
+
+function isJsonObject(value: JsonValue): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function throwPluginSkillProviderIncompatible(
@@ -1768,7 +1810,6 @@ async function copyPluginCompanionFiles(
       ? [
           "commands",
           "subagents",
-          "hooks",
           ".lsp.json",
           "output-styles",
           "themes",
@@ -1776,29 +1817,19 @@ async function copyPluginCompanionFiles(
         ]
       : target === "codex"
       ? []
-      : ["rules", "commands", "subagents", "hooks"];
+      : ["rules", "commands", "subagents"];
 
-  if (target === "codex" || target === "cursor") {
-    const hook = await renderNormalizedPluginHookFile(graph, plugin, target, basePath);
-    if (hook !== undefined) rendered.push(hook);
-  }
+  const hook = await renderNormalizedPluginHookFile(
+    graph,
+    plugin,
+    target,
+    basePath
+  );
+  if (hook !== undefined) rendered.push(hook);
 
   for (const candidate of candidates) {
     const sourcePath = join(plugin.path, candidate);
     if (!(await exists(sourcePath))) continue;
-
-    if (target === "claude" && candidate === "hooks") {
-      if (hasAdaptivePluginHookSources(plugin)) {
-        const nativeHookPath = join(sourcePath, "hooks.json");
-        await validateHookJson(graph, nativeHookPath, "claude");
-        if (await exists(nativeHookPath)) {
-          rendered.push(...(await copyPath(nativeHookPath, join(basePath, "hooks", "hooks.json"))));
-        }
-        continue;
-      }
-      await validateHookJson(graph, join(sourcePath, "hooks.json"), "claude");
-    }
-    if ((target === "codex" || target === "cursor") && candidate === "hooks") continue;
 
     const outputCandidate =
       candidate === "subagents"
@@ -2134,7 +2165,18 @@ async function lockItemForPluginFeature(args: {
   readonly target: TargetName;
 }): Promise<LockItem> {
   const targetPath = pluginFeatureTargetPath(args.feature, args.target);
+  const standardOwner =
+    args.feature.key === "mcp" &&
+    args.target === "codex" &&
+    args.graph.standardProjections.adopted.includes("agent-plugins-1.0") &&
+    classifyAgentPluginStandard(args.plugin).status === "supported";
   return {
+    consumers: standardOwner
+      ? [
+          { phase: "baseline", standardProfile: "agent-plugins-1.0" },
+          { phase: "delta", target: "codex" },
+        ]
+      : [{ phase: "delta", target: args.target }],
     feature: args.feature.key,
     fileModes: renderedFileModes(args.outputRoot, args.files),
     files: args.files
@@ -2150,8 +2192,11 @@ async function lockItemForPluginFeature(args: {
         join(pluginBundleRoot(args.outputRoot, args.target, args.plugin), targetPath)
       )
     ),
+    owner: standardOwner
+      ? { standardProfile: "agent-plugins-1.0" }
+      : { target: args.target },
     plugin: args.plugin.id,
-    role: "bundle",
+    role: standardOwner ? "standard" : "bundle",
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
     ...(args.feature.sourcePointer === undefined ? {} : { sourcePointer: args.feature.sourcePointer }),
