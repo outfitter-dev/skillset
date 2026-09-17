@@ -28,7 +28,10 @@ import {
   AGENT_INSTRUCTIONS_CODEX_PIN,
   runAgentInstructionsProbe,
 } from "./agent-instructions";
-import { runAgentPluginsProbe } from "./agent-plugins";
+import {
+  AGENT_PLUGINS_CODEX_PIN,
+  runAgentPluginsProbe,
+} from "./agent-plugins";
 import { runAgentSkillsProbe } from "./agent-skills";
 import {
   createStandardsConformanceReceipt,
@@ -428,13 +431,8 @@ async function runProfileProbe(
     };
   }
 
-  const codex = {
-    binaryPath: AGENT_INSTRUCTIONS_CODEX_PIN.binaryPath,
-    sha256: `sha256:${AGENT_INSTRUCTIONS_CODEX_PIN.binarySha256}` as const,
-    version: AGENT_INSTRUCTIONS_CODEX_PIN.version.replace("codex-cli ", ""),
-  };
   const evidence = await runAgentPluginsProbe({
-    codex,
+    codex: AGENT_PLUGINS_CODEX_PIN,
     packageRoot: join(generatedRoot, "plugins", "portable-proof"),
   });
   return {

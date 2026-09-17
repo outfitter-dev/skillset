@@ -42,6 +42,13 @@ export interface CodexConsumerPin {
   readonly version: string;
 }
 
+export const AGENT_PLUGINS_CODEX_PIN: CodexConsumerPin = {
+  binaryPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
+  sha256:
+    "sha256:a1d2f191e70023ed7afd619bc70530f26067a085926e03bae50cf5c0f8298bcf",
+  version: "0.154.0-alpha.6.2",
+};
+
 export interface AgentPluginsSchemaEvidence {
   readonly artifact: "mcp.json" | "plugin.json";
   readonly artifactHash: string;
