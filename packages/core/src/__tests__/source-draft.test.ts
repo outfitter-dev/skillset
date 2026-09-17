@@ -796,6 +796,152 @@ describe("SET-587 source draft lifecycle", () => {
     expect(await transactionJournals(root)).toEqual([]);
   });
 
+  test("refuses a paired promotion when its staged draft source reappears", async () => {
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const draftRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(draftRequest);
+    await draftSource({ ...draftRequest, expectedPlanHash: fork.planHash });
+    const previewedDraft = skill("demo", "Previewed paired draft.");
+    const racedDraft = skill("demo", "Raced paired draft.");
+    const draftPath = join(root, ".skillset/skills/_drafts/demo");
+    await writeFile(join(draftPath, "SKILL.md"), previewedDraft);
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const before = await treeBytes(root);
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeApply: async (operation) => {
+              if (operation.kind !== "move") return;
+              await mkdir(draftPath, { recursive: true });
+              await writeFile(join(draftPath, "SKILL.md"), racedDraft);
+            },
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "move source reappeared after preimage staging: " +
+        ".skillset/skills/_drafts/demo"
+    );
+    expect(await treeBytes(root)).toEqual({
+      ...before,
+      ".skillset/skills/_drafts/demo/SKILL.md": Buffer.from(
+        racedDraft
+      ).toString("base64"),
+    });
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
+  test("refuses an unpaired promotion when its staged draft source reappears", async () => {
+    const previewedDraft = skill("demo", "Previewed unpaired draft.");
+    const racedDraft = skill("demo", "Raced unpaired draft.");
+    const root = await fixture({
+      ".skillset/skills/_drafts/demo/SKILL.md": previewedDraft,
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const before = await treeBytes(root);
+    const draftPath = join(root, request.draftPath);
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeApply: async (operation) => {
+              if (operation.kind !== "move") return;
+              await mkdir(draftPath, { recursive: true });
+              await writeFile(join(draftPath, "SKILL.md"), racedDraft);
+            },
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "move source reappeared after preimage staging: " +
+        ".skillset/skills/_drafts/demo"
+    );
+    expect(await treeBytes(root)).toEqual({
+      ...before,
+      ".skillset/skills/_drafts/demo/SKILL.md": Buffer.from(
+        racedDraft
+      ).toString("base64"),
+    });
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
+  test("preserves a recreated paired shipped target without rollback residue", async () => {
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const draftRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(draftRequest);
+    await draftSource({ ...draftRequest, expectedPlanHash: fork.planHash });
+    await writeFile(
+      join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+      skill("demo", "Previewed paired draft.")
+    );
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    const before = await treeBytes(root);
+    const racedShipped = skill("demo", "Raced paired shipped skill.");
+    const shippedPath = join(root, ".skillset/skills/demo");
+
+    await expect(
+      promoteSource({
+        ...request,
+        expectedPlanHash: plan.planHash,
+        transactionOptions: {
+          testHooks: {
+            beforeApply: async (operation) => {
+              if (operation.kind !== "move") return;
+              await mkdir(shippedPath, { recursive: true });
+              await writeFile(join(shippedPath, "SKILL.md"), racedShipped);
+            },
+          },
+        },
+      })
+    ).rejects.toThrow(
+      "move target appeared before atomic install: .skillset/skills/demo"
+    );
+    expect(await treeBytes(root)).toEqual({
+      ...before,
+      ".skillset/skills/demo/SKILL.md": Buffer.from(racedShipped).toString(
+        "base64"
+      ),
+    });
+    expect(await transactionJournals(root)).toEqual([]);
+  });
+
   test("refuses a normalized mode change after the promotion plan is approved", async () => {
     if (!supportsGeneratedFileModes()) return;
     const root = await fixture({
