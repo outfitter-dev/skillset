@@ -32,6 +32,10 @@ import {
 } from "./output-safety";
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { compareStrings } from "./path";
+import {
+  projectUseStatusEntries,
+  type ProjectUseStatusEntry,
+} from "./project-use";
 import { renderBuildGraph } from "./render";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
@@ -500,6 +504,7 @@ export interface DoctorReport {
   readonly ok: boolean;
   readonly outputState: SkillsetOutputStateEvidence;
   readonly pluginPlan?: NonNullable<BuildGraph["pluginPlan"]>;
+  readonly projectUse: readonly ProjectUseStatusEntry[];
   readonly standardProfiles: readonly StandardProfileStatus[];
   readonly warnings: readonly string[];
 }
@@ -537,6 +542,7 @@ export async function doctorSkillset(
       notableRenderResults: notableRenderResults(renderResults),
       ok: false,
       outputState: classifySkillsetOutputFailure(error, hasBaseline),
+      projectUse: [],
       standardProfiles: standardProfileStatuses(
         {
           adopted: [],
@@ -612,6 +618,7 @@ export async function doctorSkillset(
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
     outputState,
     ...(graph.pluginPlan === undefined ? {} : { pluginPlan: graph.pluginPlan }),
+    projectUse: projectUseStatusEntries(graph),
     standardProfiles: standardProfileStatuses(
       graph.standardProjections,
       options.scopes
