@@ -105,6 +105,15 @@ describe("SET-551/585 current authoring model", () => {
           "plugins/mg-skills/claude/skills/(engineering)/tdd/SKILL.md"
         )
       )
+    ).toBe(false);
+    expect(
+      await exists(join(root, "plugins/mg-skills/claude/skills/tdd/SKILL.md"))
+    ).toBe(true);
+    expect(
+      await exists(join(root, ".claude/skills/(maintenance)/repo-helper/SKILL.md"))
+    ).toBe(false);
+    expect(
+      await exists(join(root, ".claude/skills/repo-helper/SKILL.md"))
     ).toBe(true);
     expect(
       await exists(
@@ -537,6 +546,9 @@ TDD.
       await exists(
         join(plainGroupRoot, ".claude/skills/engineering/tdd/SKILL.md")
       )
+    ).toBe(false);
+    expect(
+      await exists(join(plainGroupRoot, ".claude/skills/tdd/SKILL.md"))
     ).toBe(true);
 
     const duplicateRoot = await fixture({

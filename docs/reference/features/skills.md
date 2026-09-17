@@ -43,7 +43,7 @@ Check claims against their [canonical source](../../glossary.md#canonical-source
 
 The generated [skill-frontmatter schema and example](../schemas/README.md) own the complete field set and value constraints. The [frontmatter reference](../../configuration/frontmatter.md) explains field ownership; [target overrides](../../configuration/target-overrides.md), [tools policy](../../configuration/tools-policy.md), and [resources](resources.md) own their specialized configuration.
 
-Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`; `skillset list` and `skillset explain` report the crossed group while rendering continues to preserve the authored relative path. Two skills in one tree cannot share a leaf directory across groups because a later flattened projection would collide.
+Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`; `skillset list` and `skillset explain` report the crossed group while generated skill paths flatten to the leaf as `<skill-root>/tdd/SKILL.md`. Two skills in one tree cannot share a leaf directory across groups because their generated paths would collide.
 
 Place an unpublished counterpart under `_drafts/<skill>/`, or add `status: draft` to its frontmatter. Discovery reports the draft status and its origin, but drafts do not enter generated output or packages until a draft-rendering mode explicitly selects them. An `_drafts/<skill>/` counterpart may share the live skill's leaf within the same group; other duplicate leaves fail with both source paths.
 
