@@ -23,6 +23,7 @@ import {
 import { PromptCancelledError } from "./prompt-adapter";
 import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
 import { runRenameCommand } from "./rename-cli";
+import { runResolveCommand } from "./resolve-cli";
 import { runReleaseCommand } from "./release-cli";
 import { runReportCommand } from "./report-cli";
 import { runImportCommand, runNewCommand } from "./source-cli";
@@ -86,6 +87,8 @@ export async function runCli(
       return runReleaseCommand(route.request);
     case "report":
       return runReportCommand(route.request);
+    case "resolve":
+      return runResolveCommand(route.request);
     case "restore":
       return runRestoreCommand(route.request);
     case "status":
