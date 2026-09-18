@@ -35,9 +35,24 @@ export type OutputPathResolver = (path: string) => string;
 export type OutputPathDisplayMapper = (absolutePath: string) => string;
 
 export interface ManagedOutputState {
+  /** Managed paths whose bytes on disk no longer match the lock's `outputHash`. */
   readonly editedPaths: ReadonlySet<string>;
   readonly hasBaseline: boolean;
   readonly paths: ReadonlySet<string>;
+  /**
+   * Managed paths whose lock item yields no trustworthy disk-vs-lock verdict:
+   * the lock records no `outputHash`, its hashes are untrusted, or a sibling
+   * file in the same item is absent so the item hash cannot be recomputed.
+   * `editedPaths` still lists these paths conservatively, but a caller that
+   * needs to tell "edited" from "unknowable" must consult this set.
+   */
+  readonly lockIncomparablePaths: ReadonlySet<string>;
+  /**
+   * Managed paths whose lock item no longer matches a fresh render. Populated
+   * only when the caller supplies
+   * {@link ManagedOutputProvenancePolicy.renderedByPath}; otherwise empty.
+   */
+  readonly renderDriftPaths: ReadonlySet<string>;
 }
 
 export type OutputBackupReason = "managed-target-edit" | "unmanaged-collision";
@@ -149,11 +164,19 @@ interface LockFileEntry {
 }
 
 /**
- * Current rendered paths distinguish repairable active output from stale paths
- * that an invalid lock must not authorize for cleanup.
+ * What the current render says about managed output. Rendered paths distinguish
+ * repairable active output from stale paths that an invalid lock must not
+ * authorize for cleanup; rendered content supplies the "render vs lock" axis of
+ * the three-way repair verdict (SET-599).
  */
 export interface ManagedOutputProvenancePolicy {
   readonly activeRenderedPaths: ReadonlySet<string>;
+  /**
+   * Rendered content by managed output path. Supply it to populate
+   * {@link ManagedOutputState.renderDriftPaths}; omit it when the caller has no
+   * render in hand and only needs baseline and edit evidence.
+   */
+  readonly renderedByPath?: ReadonlyMap<string, RenderedFile>;
 }
 
 export async function readManagedOutputState(
@@ -168,17 +191,28 @@ export async function readManagedOutputState(
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
   const editedPaths = new Set<string>();
+  const lockIncomparablePaths = new Set<string>();
+  const renderDriftPaths = new Set<string>();
+  const sinks = { editedPaths, lockIncomparablePaths, paths, renderDriftPaths };
   let hasBaseline = false;
 
   if (includeWorkspaceLock) {
-    hasBaseline = (await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths, resolveOutputPath, false, provenancePolicy)) || hasBaseline;
+    hasBaseline = (await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, sinks, resolveOutputPath, false, provenancePolicy)) || hasBaseline;
   }
 
   for (const outputRoot of liveOutputRoots) {
-    hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths, resolveOutputPath, strictOutputRoots.has(outputRoot), provenancePolicy)) || hasBaseline;
+    hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, sinks, resolveOutputPath, strictOutputRoots.has(outputRoot), provenancePolicy)) || hasBaseline;
   }
 
-  return { editedPaths, hasBaseline, paths };
+  return { editedPaths, hasBaseline, lockIncomparablePaths, paths, renderDriftPaths };
+}
+
+/** Mutable accumulators filled while walking each managed lock. */
+interface ManagedOutputStateSinks {
+  readonly editedPaths: Set<string>;
+  readonly lockIncomparablePaths: Set<string>;
+  readonly paths: Set<string>;
+  readonly renderDriftPaths: Set<string>;
 }
 
 /**
@@ -538,12 +572,13 @@ async function addManagedPathsFromLock(
   lockPath: string,
   expectedOutputRoot: string,
   outPath: OutPath,
-  paths: Set<string>,
-  editedPaths: Set<string>,
+  sinks: ManagedOutputStateSinks,
   resolveOutputPath: OutputPathResolver,
   requireProvenance: boolean,
   provenancePolicy: ManagedOutputProvenancePolicy | undefined
 ): Promise<boolean> {
+  const { editedPaths, lockIncomparablePaths, paths, renderDriftPaths } = sinks;
+  const renderedByPath = provenancePolicy?.renderedByPath;
   const displayLockPath = outPath(lockPath);
   const absoluteLockPath = resolveOutputPath(displayLockPath);
   if (!(await exists(absoluteLockPath))) return false;
@@ -566,16 +601,29 @@ async function addManagedPathsFromLock(
     for (const file of files) paths.add(file.displayPath);
     if (!lock.outputHashesTrusted) {
       for (const file of files) {
+        lockIncomparablePaths.add(file.displayPath);
         if (await exists(resolveOutputPath(file.displayPath))) {
           editedPaths.add(file.displayPath);
         }
       }
       continue;
     }
-    if (item.outputHash === undefined) continue;
+    if (item.outputHash === undefined) {
+      for (const file of files) lockIncomparablePaths.add(file.displayPath);
+      continue;
+    }
+    if (renderedByPath !== undefined) {
+      const renderHash = renderedOutputHash(files, item, lock.schemaVersion, renderedByPath);
+      if (renderHash !== item.outputHash) {
+        for (const file of files) renderDriftPaths.add(file.displayPath);
+      }
+    }
     const currentHash = await currentOutputHash(files, item, lock.schemaVersion, resolveOutputPath);
     if (currentHash === undefined) {
+      // A member file is absent, so the item hash cannot be recomputed. Every
+      // surviving member is unknowable rather than proven edited.
       for (const file of files) {
+        lockIncomparablePaths.add(file.displayPath);
         if (await exists(resolveOutputPath(file.displayPath))) editedPaths.add(file.displayPath);
       }
       continue;
@@ -690,6 +738,41 @@ async function currentOutputHash(
       hash.update("\0");
     }
     hash.update(await readFile(outputPath));
+    hash.update("\0");
+  }
+
+  return `sha256:${hash.digest("hex")}`;
+}
+
+/**
+ * The lock's `outputHash` recomputed over a fresh render instead of the bytes on
+ * disk. Mirrors {@link currentOutputHash} exactly, so a differing result means
+ * the render — not the file — has moved away from the lock.
+ */
+function renderedOutputHash(
+  files: readonly LockFileEntry[],
+  item: ParsedGeneratedLockItem,
+  schemaVersion: 1 | 2 | 3,
+  renderedByPath: ReadonlyMap<string, RenderedFile>
+): string | undefined {
+  const hash = createHash("sha256");
+  hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
+
+  for (const entry of files) {
+    const file = renderedByPath.get(entry.displayPath);
+    if (file === undefined) return undefined;
+    hash.update(entry.file);
+    hash.update("\0");
+    if (schemaVersion !== 1) {
+      const expectedMode = item.fileModes?.[entry.file];
+      if (expectedMode === undefined) return undefined;
+      const mode = supportsGeneratedFileModes()
+        ? formatGeneratedFileMode(file.mode)
+        : expectedMode;
+      hash.update(mode);
+      hash.update("\0");
+    }
+    hash.update(file.content);
     hash.update("\0");
   }
 

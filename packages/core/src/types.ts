@@ -475,10 +475,27 @@ export interface ProjectAgentSkillProvenance {
   readonly rendered: string;
 }
 
+/**
+ * Repair consults filesystem reality instead of trusting the lock alone, and
+ * classifies every managed output against the three-way verdict table in
+ * `output-repair.ts` before writing (SET-599).
+ */
+export interface SkillsetRepairOptions {
+  /** Overwrite hand-edited managed output instead of preserving it. */
+  readonly discardEdits?: boolean;
+  /**
+   * Narrow the verdict gate to these managed output paths. Omit to gate on
+   * every managed path, which is the safe default.
+   */
+  readonly paths?: readonly string[];
+}
+
 export interface SkillsetOptions {
   readonly buildMode?: CompileBuildMode;
   readonly scopes?: readonly BuildScope[];
   readonly distDir?: string;
+  /** Classify and repair generated-output drift rather than trusting the lock. */
+  readonly repair?: SkillsetRepairOptions;
   /** Re-root every generated path under the logical `.skillset/cache/latest` mirror, leaving live outputs untouched. */
   readonly isolated?: boolean;
   readonly sourceDir?: string;
