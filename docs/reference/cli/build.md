@@ -13,6 +13,7 @@ Preview or write generated provider outputs.
 
 ```text
 skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]
+skillset build --repair [path...] [--discard-edits]
 ```
 
 ## Options
@@ -20,8 +21,10 @@ skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json]
 | Option | Meaning |
 | --- | --- |
 | `--all` | Select every configured generated output rather than updated output. |
+| `--discard-edits` | Overwrite hand-edited generated output during a repair instead of preserving it. |
 | `--isolated` | Use the isolated generated-output mirror instead of live output roots. |
 | `--json` | Emit exactly one versioned finite JSON result document. |
+| `--repair <value>...` | Classify generated output against the lock and a fresh render, restoring missing output and refusing to discard hand edits. Names the managed output paths to repair, or repairs all of them. |
 | `--root <value>` | Select the repository root; defaults to cwd or Git root according to the route. |
 | `--scope <value>...` | Select a route-owned source unit or generated destination scope; never changes workspace roots. |
 | `--updated` | Select only generated output affected by current source, the default build mode. |
@@ -32,4 +35,5 @@ skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json]
 ```text
 skillset build
 skillset build --yes
+skillset build --repair --yes
 ```

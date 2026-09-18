@@ -290,6 +290,17 @@ export {
   type SkillsetOutputStateEvidence,
 } from "./output-state";
 export {
+  classifyRepairPath,
+  planOutputRepair,
+  SKILLSET_REPAIR_ACTIONS,
+  SKILLSET_REPAIR_VERDICTS,
+  type ClassifyRepairPathInput,
+  type SkillsetRepairAction,
+  type SkillsetRepairPathVerdict,
+  type SkillsetRepairPlan,
+  type SkillsetRepairVerdict,
+} from "./output-repair";
+export {
   planSourceRename,
   renameSource,
   SourceRenamePlanError,
@@ -468,7 +479,7 @@ export {
   type OutputBackupRestoreReport,
   type OutputBackupSummary,
 } from "./output-safety";
-export type { SkillsetOptions } from "./types";
+export type { SkillsetOptions, SkillsetRepairOptions } from "./types";
 export {
   standardProfileStatuses,
   type StandardProfileStatus,
