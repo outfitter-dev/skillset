@@ -16,6 +16,7 @@ import * as inspection from "./inspect-args";
 import { parseLookupCommandRequest } from "./lookup-args";
 import * as recovery from "./recovery-args";
 import { parseRenameCommandRequest } from "./rename-args";
+import { parseResolveCommandRequest } from "./resolve-args";
 import { parseReleaseCommandRequest } from "./release-args";
 import { parseReportCommandRequest } from "./report-args";
 import * as source from "./source-args";
@@ -134,6 +135,7 @@ export const parseCliRequest = (
         };
       }
       case "rename": return { command, request: parseRenameCommandRequest(args, parseContext) };
+      case "resolve": return { command, request: parseResolveCommandRequest(args, parseContext) };
       case "release": {
         return {
           command,

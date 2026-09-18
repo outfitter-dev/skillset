@@ -286,6 +286,12 @@ const PRESENTATION = {
     summary: "Audit release and changelog state.",
     synopses: ["release audit [--json] [--root <path>]"],
   },
+  resolve: {
+    group: "Changes",
+    summary: "Repair and stage generated-output conflicts during a rebase or merge.",
+    synopses: ["resolve [--yes] [--json] [--root <path>]"],
+    examples: ["skillset resolve", "skillset resolve --yes"],
+  },
   "release plan": {
     group: "Changes",
     summary: "Plan versions and changelog updates.",
