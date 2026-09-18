@@ -239,11 +239,36 @@ describe("SET-422 Homebrew release handoff", () => {
     expect(updated).toContain("brew install outfitter-dev/tap/skillset");
     expect(updated).toContain("brew upgrade skillset");
     expect(updated).toContain("brew uninstall skillset");
-    expect(updated).toContain("merged only after tap CI passes");
+    expect(updated).toContain(
+      "landed by `brew pr-pull` only after tap CI passes"
+    );
     expect(updated).toContain(HOMEBREW_README_SECTION);
     expect(updateHomebrewTapReadme(updated)).toBe(updated);
     expect(() =>
       updateHomebrewTapReadme("# Tap\n\n## Skillset\nCustom\n")
     ).toThrow("unmanaged Skillset section");
+  });
+
+  test("treats the published tap README section as already managed", () => {
+    // Mirrors outfitter-dev/homebrew-tap README.md, which documents the
+    // `brew pr-pull` landing path the tap actually uses.
+    const published = `# Outfitter Homebrew Tap
+
+This tap distributes Outfitter command-line tools as Homebrew formulae.
+
+## Skillset
+
+Skillset is available as a native CLI for Apple Silicon and Intel macOS.
+
+\`\`\`sh
+brew install outfitter-dev/tap/skillset
+\`\`\`
+
+Upgrade or uninstall it with \`brew upgrade skillset\` or \`brew uninstall skillset\`.
+
+Formula updates arrive through a tested pull request and are landed by \`brew pr-pull\` only after tap CI passes.
+`;
+
+    expect(updateHomebrewTapReadme(published)).toBe(published);
   });
 });
