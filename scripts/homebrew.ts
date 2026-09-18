@@ -292,7 +292,7 @@ brew install outfitter-dev/tap/skillset
 
 Upgrade or uninstall it with \`brew upgrade skillset\` or \`brew uninstall skillset\`.
 
-Formula updates arrive through a tested pull request and are merged only after tap CI passes.
+Formula updates arrive through a tested pull request and are landed by \`brew pr-pull\` only after tap CI passes.
 `;
 
 const LEGACY_TAP_INTRO =
