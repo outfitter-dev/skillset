@@ -466,7 +466,9 @@ export type {
 } from "./operation-result";
 export {
   OUTPUT_BACKUP_ROOT,
+  WORKSPACE_LOCK_FILE,
   inspectOutputBackups,
+  lockDisagreementPaths,
   restoreOutputBackup,
   type OutputBackupAction,
   type OutputBackupInspectionRecord,
@@ -478,6 +480,7 @@ export {
   type OutputBackupRecord,
   type OutputBackupRestoreReport,
   type OutputBackupSummary,
+  type GeneratedFileSnapshot,
 } from "./output-safety";
 export type { SkillsetOptions, SkillsetRepairOptions } from "./types";
 export {
