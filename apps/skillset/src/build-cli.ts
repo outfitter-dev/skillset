@@ -6,6 +6,7 @@ import {
   type SkillsetDiagnostic,
   type SkillsetOutputStateEvidence,
   type SkillsetRenderResult,
+  type SkillsetRepairPlan,
 } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
@@ -18,6 +19,26 @@ import {
   printGeneratedChangelogDriftHint,
 } from "./cli-renderers";
 import { formatStandardProfileSummary } from "./projection-identity";
+
+/** One line per classified path: verdict, then the action a repair takes. */
+function printRepairVerdicts(repair: SkillsetRepairPlan | undefined): void {
+  if (repair === undefined) return;
+  const reportable = repair.verdicts.filter((entry) => entry.action !== "none");
+  if (reportable.length === 0) {
+    console.log("skillset: repair found no generated-output drift");
+    return;
+  }
+  for (const entry of reportable) {
+    console.log(`  ${entry.verdict}: ${entry.outputPath} (${entry.action})`);
+  }
+}
+
+/** JSON repair evidence, or nothing when the caller did not ask for a repair. */
+function repairJsonData(
+  repair: SkillsetRepairPlan | undefined
+): { readonly repair?: SkillsetRepairPlan } {
+  return repair === undefined ? {} : { repair };
+}
 
 export interface BuildCommandRequest {
   readonly jsonOutput: boolean;
@@ -49,6 +70,7 @@ export async function runBuildCommand({
         {
           changes: result.data,
           outputState: result.outputState,
+          ...repairJsonData(result.repair),
           state: result.ok ? "planned" : "blocked",
           writes: [],
         },
@@ -63,6 +85,7 @@ export async function runBuildCommand({
     }
     console.log("skillset: build projects source to generated output");
     printDiagnostics(result.diagnostics);
+    printRepairVerdicts(result.repair);
     const { data: diff } = result;
     printDiffPlan(diff, "write confirmation required");
     if (!result.ok) {
@@ -94,6 +117,7 @@ export async function runBuildCommand({
             renderedFiles: 0,
             writes: { deletedPaths: [], mode: "read", paths: [], writtenPaths: [] },
           },
+          ...repairJsonData(preview.repair),
           state: "blocked",
           writes: [],
         },
@@ -104,6 +128,7 @@ export async function runBuildCommand({
     } else {
       console.log("skillset: build projects source to generated output");
       printDiagnostics(preview.diagnostics);
+      printRepairVerdicts(preview.repair);
       console.error("skillset: build is blocked; no generated files were written");
     }
     process.exitCode = 1;
@@ -129,6 +154,7 @@ export async function runBuildCommand({
           renderedFiles: result.data.length,
           writes: result.writes,
         },
+        ...repairJsonData(result.repair),
         state: result.ok ? (writes.length > 0 ? "written" : "planned") : "blocked",
         writes,
       },
@@ -143,6 +169,7 @@ export async function runBuildCommand({
   }
   console.log("skillset: build projects source to generated output");
   printDiagnostics(result.diagnostics);
+  printRepairVerdicts(result.repair);
   if (!result.ok) {
     console.error("skillset: build is blocked; no generated files were written");
     process.exitCode = 1;

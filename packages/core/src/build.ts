@@ -60,8 +60,13 @@ import {
   type SkillsetWriteSummary,
 } from "./operation-result";
 import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
+import {
+  classifyRepairPath,
+  planOutputRepair,
+  type SkillsetRepairPlan,
+} from "./output-repair";
 import { SkillsetRenderResultError, defineRenderResult, parseRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
-import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
+import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, SkillsetRepairOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 import { applyWorkspaceTransaction } from "./workspace-transaction";
 import type { WorkspaceTransactionOptions } from "./workspace-transaction";
@@ -79,6 +84,7 @@ function managedOutputProvenancePolicy(
 ): ManagedOutputProvenancePolicy {
   return {
     activeRenderedPaths: new Set(rendered.map((file) => file.path)),
+    renderedByPath: new Map(rendered.map((file) => [file.path, file])),
   };
 }
 
@@ -194,6 +200,8 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
 
 export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]> & {
   readonly outputState: SkillsetOutputStateEvidence;
+  /** Per-path drift verdicts; present only when repair was requested. */
+  readonly repair?: SkillsetRepairPlan;
 };
 
 /** @internal Renders the full live projection with the outcome metadata persisted by normal builds. */
@@ -303,6 +311,21 @@ async function buildSkillsetResultInternal(
   options: SkillsetOptions,
   inspectionOptions: SkillsetBuildInternalOptions
 ): Promise<SkillsetBuildResult> {
+  // The projection has many exits; the repair plan is reported on every one of
+  // them, so it is collected out of band rather than threaded through each.
+  const collected: { repair?: SkillsetRepairPlan } = {};
+  const result = await runBuildProjection(rootPath, options, inspectionOptions, collected);
+  return collected.repair === undefined
+    ? result
+    : { ...result, repair: collected.repair };
+}
+
+async function runBuildProjection(
+  rootPath: string,
+  options: SkillsetOptions,
+  inspectionOptions: SkillsetBuildInternalOptions,
+  collected: { repair?: SkillsetRepairPlan }
+): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
   assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
@@ -349,6 +372,7 @@ async function buildSkillsetResultInternal(
     pathContext,
     previousManagedState,
     rendered,
+    ...(options.repair === undefined ? {} : { repair: options.repair }),
     resolveOutputPath,
     rootPath,
     ...(inspectionOptions.managedLockRepairPaths === undefined
@@ -359,6 +383,7 @@ async function buildSkillsetResultInternal(
       : { sourceDrivenOutputPaths: inspectionOptions.sourceDrivenOutputPaths }),
   };
   const inspection = await inspectOutputPlan(inspectionArgs);
+  if (inspection.repair !== undefined) collected.repair = inspection.repair;
   if (inspection.outputState.state === "blocked") {
     diagnostics.push(...inspection.preflightDiagnostics);
     return blockedBuildResult(
@@ -479,25 +504,36 @@ async function buildSkillsetResultInternal(
     );
   }
 
+  // The plan above is computed over the whole projection; only the write is
+  // narrowed when a repair names paths.
+  const scopedWrite = await scopeRepairWrite({
+    rendered,
+    repairPaths: options.repair?.paths,
+    resolveOutputPath,
+    staleManagedPaths: writeInspection.staleManagedPaths,
+  });
+  const writeRendered = scopedWrite.rendered;
+  const writeStale = scopedWrite.staleManagedPaths;
+
   if (graph.root.compile.build === "all") {
     const { deletedPaths, writtenPaths } = options.isolated === true
       ? {
           deletedPaths: await removeStaleGeneratedFiles(
-            new Set(writeInspection.staleManagedPaths),
+            new Set(writeStale),
             expectedPaths,
             writePreimages,
             resolveOutputPath
           ),
           writtenPaths: await writeRenderedFiles(
-            rendered,
+            writeRendered,
             writePreimages,
             resolveOutputPath
           ),
         }
       : await applyRenderedFileTransaction(
           rootPath,
-          rendered,
-          writeInspection.staleManagedPaths,
+          writeRendered,
+          writeStale,
           writePreimages,
           resolveOutputPath,
           true,
@@ -510,13 +546,13 @@ async function buildSkillsetResultInternal(
   const { deletedPaths, writtenPaths } = options.isolated === true
     ? {
         deletedPaths: await removeStaleGeneratedFiles(
-          new Set(writeInspection.staleManagedPaths),
+          new Set(writeStale),
           expectedPaths,
           writePreimages,
           resolveOutputPath
         ),
         writtenPaths: await writeChangedRenderedFiles(
-          rendered,
+          writeRendered,
           actualPaths,
           writePreimages,
           resolveOutputPath
@@ -524,8 +560,8 @@ async function buildSkillsetResultInternal(
       }
     : await applyRenderedFileTransaction(
         rootPath,
-        rendered,
-        writeInspection.staleManagedPaths,
+        writeRendered,
+        writeStale,
         writePreimages,
         resolveOutputPath,
         false,
@@ -548,7 +584,48 @@ interface OutputPlanInspection {
   readonly managedState: ManagedOutputState;
   readonly outputState: SkillsetOutputStateEvidence;
   readonly preflightDiagnostics: readonly SkillsetDiagnostic[];
+  /** Per-path drift verdicts; present only when repair was requested. */
+  readonly repair?: SkillsetRepairPlan;
   readonly staleManagedPaths: readonly string[];
+}
+
+/**
+ * Classify every managed output that a repair is responsible for, including the
+ * ones the current source no longer produces — a repair that deletes a path
+ * should say so. Lock files are excluded: the lock is the merge base the other
+ * paths are judged against, and its own provenance is settled by
+ * `classifyLockProvenance`.
+ */
+function inspectRepairPlan(args: {
+  readonly actualPaths: ReadonlySet<string>;
+  readonly diff: SkillsetDiff;
+  readonly expected: ReadonlyMap<string, RenderedFile>;
+  readonly managedState: ManagedOutputState;
+  readonly repair: SkillsetRepairOptions;
+}): SkillsetRepairPlan {
+  const scope = args.repair.paths === undefined
+    ? undefined
+    : new Set(args.repair.paths);
+  const changed = new Set(args.diff.changed);
+  const verdicts = [...args.managedState.paths]
+    .filter((path) => !isLockFilePath(path))
+    .filter((path) => args.expected.has(path) || args.actualPaths.has(path))
+    .filter((path) => scope === undefined || scope.has(path))
+    .map((path) =>
+      classifyRepairPath({
+        ...(args.repair.discardEdits === undefined
+          ? {}
+          : { discardEdits: args.repair.discardEdits }),
+        fileMatchesLock: !args.managedState.editedPaths.has(path),
+        filePresent: args.actualPaths.has(path),
+        lockComparable: !args.managedState.lockIncomparablePaths.has(path),
+        outputPath: path,
+        rendered: args.expected.has(path),
+        renderMatchesFile: !changed.has(path),
+        renderMatchesLock: !args.managedState.renderDriftPaths.has(path),
+      })
+    );
+  return planOutputRepair(verdicts);
 }
 
 async function inspectOutputPlan(args: {
@@ -559,6 +636,7 @@ async function inspectOutputPlan(args: {
   readonly pathContext: OperationalPathContext;
   readonly previousManagedState: ManagedOutputState;
   readonly rendered: readonly RenderedFile[];
+  readonly repair?: SkillsetRepairOptions;
   readonly resolveOutputPath: OutputPathResolver;
   readonly rootPath: string;
   readonly sourceDrivenOutputPaths?: readonly string[];
@@ -687,6 +765,15 @@ async function inspectOutputPlan(args: {
     ...args.previousManagedState,
     editedPaths: effectiveManagedEditPaths,
   };
+  const repair = args.repair === undefined
+    ? undefined
+    : inspectRepairPlan({
+        actualPaths,
+        diff,
+        expected: args.expected,
+        managedState,
+        repair: args.repair,
+      });
   const preflightDiagnostics = [
     ...await diagnoseOutputBackupPreflight(
       args.rootPath,
@@ -695,6 +782,9 @@ async function inspectOutputPlan(args: {
       managedState,
       args.resolveOutputPath
     ),
+    ...(repair?.refused ?? []).map(managedOutputDivergedDiagnostic),
+    ...(repair?.preserved ?? []).map(managedOutputEditPreservedDiagnostic),
+    ...(repair?.lockUntrusted ?? []).map(managedLockUntrustedDiagnostic),
     ...repairableLockPaths.map((path) =>
       lockProvenanceStates.get(path) === "migration"
         ? managedLockIntegrityMigrationDiagnostic(path)
@@ -733,7 +823,196 @@ async function inspectOutputPlan(args: {
       sourceChanges,
     }),
     preflightDiagnostics,
+    ...(repair === undefined ? {} : { repair }),
     staleManagedPaths,
+  };
+}
+
+function managedOutputDivergedDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-output-diverged",
+    featureId: "output-repair",
+    message:
+      "generated output and its source both changed since the lock; port the output edit into source, rebuild, and rerun",
+    outputPath,
+    severity: "error",
+  };
+}
+
+function managedLockUntrustedDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-lock-untrusted",
+    featureId: "output-repair",
+    message:
+      "the lock records no verdict for this output, so a repair cannot tell a stale output from a hand-edited one; rebuild the lock with skillset build --yes, then rerun the repair",
+    outputPath,
+    severity: "error",
+  };
+}
+
+function managedOutputEditPreservedDiagnostic(
+  outputPath: string
+): SkillsetDiagnostic {
+  return {
+    code: "managed-output-edit-preserved",
+    featureId: "output-repair",
+    message:
+      "generated output was hand-edited and its source was not; carry the edit into the authoring source with skillset explain, or rerun with --discard-edits to overwrite it",
+    outputPath,
+    severity: "error",
+  };
+}
+
+
+/**
+ * Narrow a repair's write to the paths the caller named.
+ *
+ * The plan stays complete — every verdict, diff entry, and backup is computed
+ * over the whole projection — and only the write is scoped, so nothing outside
+ * the named paths is touched. Scope expands to whole lock items because
+ * `outputHash` covers a file group: writing half an item would record a hash
+ * for bytes that were never written.
+ *
+ * Each lock is merged rather than rewritten: in-scope items take their fresh
+ * entry, everything else keeps the entry it already had. That is what makes a
+ * scoped repair leave a lock that still describes what is actually on disk.
+ */
+async function scopeRepairWrite(args: {
+  readonly rendered: readonly RenderedFile[];
+  readonly repairPaths: readonly string[] | undefined;
+  readonly resolveOutputPath: OutputPathResolver;
+  readonly staleManagedPaths: readonly string[];
+}): Promise<{
+  readonly rendered: readonly RenderedFile[];
+  readonly staleManagedPaths: readonly string[];
+}> {
+  if (args.repairPaths === undefined) {
+    return { rendered: args.rendered, staleManagedPaths: args.staleManagedPaths };
+  }
+  const locks = args.rendered.filter((file) => isLockFilePath(file.path));
+  const previousByLock = new Map<string, JsonRecord | undefined>();
+  for (const lock of locks) {
+    previousByLock.set(
+      lock.path,
+      await readLockRecord(args.resolveOutputPath(lock.path))
+    );
+  }
+  const scope = expandScopeToLockItems(
+    new Set(args.repairPaths),
+    locks,
+    previousByLock
+  );
+
+  const rendered: RenderedFile[] = [];
+  for (const file of args.rendered) {
+    if (!isLockFilePath(file.path)) {
+      if (scope.has(file.path)) rendered.push(file);
+      continue;
+    }
+    rendered.push(
+      mergeScopedLock(file, previousByLock.get(file.path), scope)
+    );
+  }
+  return {
+    rendered,
+    staleManagedPaths: args.staleManagedPaths.filter((path) => scope.has(path)),
+  };
+}
+
+async function readLockRecord(
+  absolutePath: string
+): Promise<JsonRecord | undefined> {
+  try {
+    const parsed = JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+    return isJsonRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Lock item `files` arrays, qualified to output-root-relative display paths. */
+function lockItemGroups(
+  lockPath: string,
+  record: JsonRecord | undefined
+): readonly (readonly string[])[] {
+  if (record === undefined) return [];
+  const root = outputRootForLockPath(lockPath);
+  const items = Array.isArray(record.items) ? record.items : [];
+  return items.flatMap((item) => {
+    if (!isJsonRecord(item) || !Array.isArray(item.files)) return [];
+    const files = item.files.filter(
+      (file): file is string => typeof file === "string"
+    );
+    return [files.map((file) => (root === "." ? file : `${root}/${file}`))];
+  });
+}
+
+function expandScopeToLockItems(
+  requested: ReadonlySet<string>,
+  locks: readonly RenderedFile[],
+  previousByLock: ReadonlyMap<string, JsonRecord | undefined>
+): ReadonlySet<string> {
+  const scope = new Set(requested);
+  for (const lock of locks) {
+    const groups = [
+      ...lockItemGroups(lock.path, parseRenderedLock(lock)),
+      ...lockItemGroups(lock.path, previousByLock.get(lock.path)),
+    ];
+    for (const group of groups) {
+      if (!group.some((path) => requested.has(path))) continue;
+      for (const path of group) scope.add(path);
+    }
+  }
+  return scope;
+}
+
+function parseRenderedLock(file: RenderedFile): JsonRecord | undefined {
+  try {
+    const parsed = JSON.parse(textDecoder.decode(file.content)) as unknown;
+    return isJsonRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Fresh entries for in-scope items, previous entries for everything else. */
+function mergeScopedLock(
+  lock: RenderedFile,
+  previous: JsonRecord | undefined,
+  scope: ReadonlySet<string>
+): RenderedFile {
+  const fresh = parseRenderedLock(lock);
+  if (fresh === undefined || previous === undefined) return lock;
+  const root = outputRootForLockPath(lock.path);
+  const qualify = (item: JsonValue): readonly string[] => {
+    if (!isJsonRecord(item) || !Array.isArray(item.files)) return [];
+    return item.files
+      .filter((file): file is string => typeof file === "string")
+      .map((file) => (root === "." ? file : `${root}/${file}`));
+  };
+  const inScope = (item: JsonValue): boolean => {
+    const files = qualify(item);
+    return files.length > 0 && files.every((path) => scope.has(path));
+  };
+  const freshItems = Array.isArray(fresh.items) ? fresh.items : [];
+  const previousItems = Array.isArray(previous.items) ? previous.items : [];
+  const merged = [
+    ...freshItems.filter((item) => inScope(item)),
+    ...previousItems.filter((item) => !inScope(item)),
+  ].sort((left, right) =>
+    compareStrings(
+      isJsonRecord(left) ? String(left.outputPath) : "",
+      isJsonRecord(right) ? String(right.outputPath) : ""
+    )
+  );
+  const value = withLockProvenance({ ...fresh, items: merged });
+  return {
+    ...lock,
+    content: new TextEncoder().encode(renderValidatedJson(value, lock.path)),
   };
 }
 
@@ -1115,6 +1394,8 @@ function isEstablishedSourceDrivenOutput(
 
 export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff> & {
   readonly outputState: SkillsetOutputStateEvidence;
+  /** Per-path drift verdicts; present only when repair was requested. */
+  readonly repair?: SkillsetRepairPlan;
   readonly standardProfiles: readonly StandardProfileStatus[];
 };
 
@@ -1193,6 +1474,7 @@ export async function diffSkillsetResult(
     pathContext,
     previousManagedState,
     rendered,
+    ...(options.repair === undefined ? {} : { repair: options.repair }),
     resolveOutputPath,
     rootPath,
     ...(inspection.sourceDrivenOutputPaths === undefined
@@ -1204,6 +1486,9 @@ export async function diffSkillsetResult(
     data: inspectionResult.diff,
     diagnostics,
     outputState: inspectionResult.outputState,
+    ...(inspectionResult.repair === undefined
+      ? {}
+      : { repair: inspectionResult.repair }),
     renderResults: renderResultsWithDiagnostics,
     standardProfiles: standardProfileStatuses(
       graph.standardProjections,
