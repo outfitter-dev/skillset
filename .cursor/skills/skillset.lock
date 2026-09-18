@@ -111,10 +111,25 @@
       "sourceHash": "sha256:7fb6df764de2875ceeae0e75133124b945fe041e297c91a4c4d37c0d61413ac6",
       "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
       "version": "0.1.0"
+    },
+    {
+      "fileModes": {
+        "skillset-fix/SKILL.md": "0644"
+      },
+      "files": [
+        "skillset-fix/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-fix",
+      "outputHash": "sha256:17bc819c51f99c2a907710c5b77b10db2e22c95c37de2a8b12e27b9704c93250",
+      "outputPath": "skillset-fix/SKILL.md",
+      "sourceHash": "sha256:20031c6366657586b7d1d5807f2152566fa0ecd9bc7454ce995fd06698997398",
+      "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
+      "version": "0.4.0"
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:42e051db61c83903e2cdb0d8bd91c56c6095a0d9dfd066cf439d2f2117996ad7",
+  "provenanceHash": "sha256:17ebe12f21e02eaa1b80a21cedad0d08b7ef36ec1a9eb0a450967d0085f52466",
   "renderResults": [
     {
       "destination": "skill",
@@ -312,6 +327,33 @@
       "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
       "sourceUnit": "skill:skillset-dev-testing",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-09-11"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-fix/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
+      "sourceUnit": "skill:skillset-fix",
       "status": "rendered",
       "target": "cursor"
     }
