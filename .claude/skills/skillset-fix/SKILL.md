@@ -16,13 +16,17 @@ Never hand-edit a generated file, and never hand-merge one.
 
 ## Run the repository's own compiler
 
-Run `skillset --version` and compare it against the `version` in the repository's
-`package.json`. When they differ, a globally installed `skillset` is shadowing the
-one under test, and its answers describe a different compiler.
+First check whether the repository builds Skillset itself by looking for
+`apps/skillset/package.json` with package name `skillset`.
 
-- In a repository that builds `skillset` itself, invoke it through the repository:
+- In a Skillset compiler checkout, compare `skillset --version` with the version
+  in `apps/skillset/package.json`, then invoke the compiler through the repository:
   `bun ./apps/skillset/src/cli.ts <command>`, or the `bun run skillset:*` scripts.
-- Everywhere else, the installed binary is correct.
+- In a consumer repository, use the installed binary. MUST NOT compare it with the
+  root `package.json`; that version belongs to the consuming application.
+
+When the compiler-checkout versions differ, a globally installed `skillset` is
+shadowing the one under test, and its answers describe a different compiler.
 
 This is not hypothetical. A stale 0.26.1 binary reporting `build is blocked` on a
 repository whose own compiler restores the file correctly is what produced the
@@ -70,16 +74,20 @@ reported `clean` regardless, because writing it would change nothing.
 
 1. Run `skillset resolve --root .` to see the partition without writing anything.
 2. When it names **authored** conflicts, it stages nothing and exits non-zero.
-   Resolve those files, `git add` them, then return to step 3. Regenerating from
+   Resolve those files, `git add` them, then return to step 1. Regenerating from
    source that still carries conflict markers would render those markers into
    generated output.
 3. When it reports paths **edited by hand on one side of the conflict**, it
    stages nothing and exits non-zero. Follow `## Recover a misdirected edit` for
-   each named path, commit the source change, then return to step 3.
+   each named path, run `git add <source-path>` for the recovered source change,
+   then return to step 1. MUST NOT commit while generated paths are still
+   unmerged; continuation creates the rebased or merged commit after generated
+   output is repaired.
 4. Run `skillset resolve --root . --yes`. It repairs the generated paths and stages
    them.
-5. When it exits zero, continue the operation: `gt continue` under Graphite,
-   otherwise `git rebase --continue`.
+5. When it exits zero, continue the operation with the command that owns it:
+   `gt continue` under Graphite, `git rebase --continue` for a rebase, or
+   `git merge --continue` for a merge.
 6. When it reports a `diverged` path, follow `## Escalate`.
 
 A conflicted file on disk represents neither side, so the verdict table has no
