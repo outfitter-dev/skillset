@@ -91,11 +91,6 @@ export function classifyRepairPath(
   input: ClassifyRepairPathInput
 ): SkillsetRepairPathVerdict {
   const { outputPath } = input;
-  const preserveEdit: SkillsetRepairPathVerdict = {
-    action: input.discardEdits === true ? "regenerate" : "preserve",
-    outputPath,
-    verdict: "output-edited",
-  };
   if (input.rendered === false) {
     // The lock still claims it but source no longer produces it.
     if (!input.filePresent) {
@@ -106,8 +101,17 @@ export function classifyRepairPath(
     }
     return input.fileMatchesLock
       ? { action: "remove", outputPath, verdict: "output-obsolete" }
-      : preserveEdit;
+      : {
+          action: input.discardEdits === true ? "remove" : "preserve",
+          outputPath,
+          verdict: "output-edited",
+        };
   }
+  const preserveEdit: SkillsetRepairPathVerdict = {
+    action: input.discardEdits === true ? "regenerate" : "preserve",
+    outputPath,
+    verdict: "output-edited",
+  };
   if (!input.filePresent) {
     return { action: "restore", outputPath, verdict: "output-missing" };
   }

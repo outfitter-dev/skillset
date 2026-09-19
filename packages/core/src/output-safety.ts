@@ -614,7 +614,7 @@ async function addManagedPathsFromLock(
     }
     if (renderedByPath !== undefined) {
       const renderHash = renderedOutputHash(files, item, lock.schemaVersion, renderedByPath);
-      if (renderHash !== item.outputHash) {
+      if (renderHash !== undefined && renderHash !== item.outputHash) {
         for (const file of files) renderDriftPaths.add(file.displayPath);
       }
     }
