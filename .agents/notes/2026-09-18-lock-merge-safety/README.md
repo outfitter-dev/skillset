@@ -48,9 +48,10 @@ Not fixed by this branch. Two options, both valid:
   runs twice instead of once.
 - **Linearize with regeneration.** Redo the blocked move and resolve each lock
   conflict by rebuilding rather than picking a side: `bun run skillset:build`,
-  then `gt add` the two lock paths, then `gt continue`. Correct by construction,
-  and pre-commit verifies the result. Repeats once per rebased commit that
-  touches the lock.
+  run `bun run skillset:check:outputs`, then `gt add` the two lock paths and
+  `gt continue`. The explicit check is required because rebase continuation
+  does not run pre-commit hooks. Repeats once per rebased commit that touches
+  the lock.
 
 Landing the bottom of the stack first makes the second option much cheaper,
 because far less remains above the fork to rebase.
