@@ -5,3 +5,58 @@
 # and worktrees. `bun run change-stream:guard` checks what union cannot —
 # valid JSONL, unique ids, and no newly introduced timestamp inversions.
 .skillset/changes/*.jsonl merge=union
+
+# Generated output must never line-merge (ADR-0014 reasoning, SET-601).
+#
+# A half-merged generated file is the dangerous artifact in this system: it
+# looks valid, it stages like a valid file, and it corresponds to no source.
+# Only a regeneration should ever produce one. `-merge` makes git take the
+# current branch's version whole and still declare the path conflicted, so the
+# conflict survives as a signal while the markers never appear. Verified
+# against git 2.55.0. It leaves `diff` untouched, unlike `binary`.
+#
+# Like `merge=union` above, `-merge` is built in: unlike a custom merge driver
+# it needs no per-clone `git config` registration, so it also applies in CI,
+# fresh clones, and worktrees. `skillset resolve` then repairs the conflicted
+# paths by regenerating them, which is the only thing that can produce a valid
+# generated file.
+#
+# `bun run generated-merge-policy:guard` checks what these globs cannot. It
+# sorts every tracked file into one of three categories — generated snapshot,
+# append-only ledger, authored — and requires each to resolve the one merge
+# policy its category allows. It enumerates nothing: the generated set comes
+# from the committed locks, the ledger set from the change-stream guard's own
+# pathspec, and authored is the remainder. So these patterns only have to keep
+# up with the locks, and an over-broad one is caught by the authored side.
+#
+# `**/` prefixes cover nested workspaces such as examples/first-author/. The
+# generated plugin bundle root is anchored with a leading slash instead, because
+# an unanchored `plugins/` also matches the authored `.skillset/plugins/` source
+# tree — the guard below caught exactly that. It is `/plugins/*/**` rather than
+# `/plugins/**` so it covers each generated bundle without claiming the authored
+# `plugins/README.md` beside them; the guard caught that one too.
+**/.agents/plugins/** -merge
+**/.agents/skills/** -merge
+**/.claude/rules/** -merge
+**/.claude/settings.json -merge
+**/.claude/skills/** -merge
+**/.codex/hooks/** -merge
+**/.cursor/rules/** -merge
+**/.cursor/skills/** -merge
+/plugins/*/** -merge
+**/skillset.lock -merge
+.skillset/plugins/*/CHANGELOG.md -merge
+
+# Directory-local AGENTS.md files are generated from <source-root>/rules/**.
+# The repository's own root AGENTS.md is authored, so it merges normally.
+#
+# `core.ignorecase` is true on a case-insensitive filesystem such as APFS, and
+# git matches attributes case-insensitively when it is. So `**/AGENTS.md` also
+# matches an authored `agents.md`, and does so on macOS but not on Linux CI. The
+# docs tree is excluded below for that reason; it is owned by scripts/docs.ts
+# and checked by `bun run docs:check`, so Skillset's merge policy does not apply
+# there. Excluding it is safe because the guard checks the other direction too:
+# a lock-claimed file under docs/ would fail as a generated path that merges.
+**/AGENTS.md -merge
+/AGENTS.md !merge
+/docs/** !merge
