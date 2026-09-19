@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, sep } from "node:path";
+import { dirname, join, posix, sep } from "node:path";
 
 import { compareStrings } from "./path";
 import { mapPlannedOutputPaths, stalePlannedOutputPaths } from "./output-plan";
@@ -108,6 +108,30 @@ function assertBuildProjection(
 function outPathMapper(options: SkillsetOptions): OutPath {
   if (options.isolated !== true) return livePath;
   return (path) => join(ISOLATED_OUT_ROOT, path);
+}
+
+function normalizeRepairOptions(
+  repair: SkillsetRepairOptions | undefined,
+  outPath: OutPath
+): SkillsetRepairOptions | undefined {
+  if (repair?.paths === undefined) return repair;
+  const paths = repair.paths.map((path) => {
+    const normalized = posix
+      .normalize(path.trim().replaceAll("\\", "/"))
+      .replace(/^\.\/+/, "");
+    if (
+      outPath === livePath ||
+      normalized === ISOLATED_OUT_ROOT ||
+      normalized.startsWith(`${ISOLATED_OUT_ROOT}/`)
+    ) {
+      return normalized;
+    }
+    return outPath(normalized).replaceAll("\\", "/");
+  });
+  return {
+    ...repair,
+    paths: [...new Set(paths)].sort(compareStrings),
+  };
 }
 
 function mirroredRenderedFiles(
@@ -332,6 +356,7 @@ async function runBuildProjection(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
+  const repair = normalizeRepairOptions(options.repair, outPath);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
@@ -372,7 +397,7 @@ async function runBuildProjection(
     pathContext,
     previousManagedState,
     rendered,
-    ...(options.repair === undefined ? {} : { repair: options.repair }),
+    ...(repair === undefined ? {} : { repair }),
     resolveOutputPath,
     rootPath,
     ...(inspectionOptions.managedLockRepairPaths === undefined
@@ -508,7 +533,7 @@ async function runBuildProjection(
   // narrowed when a repair names paths.
   const scopedWrite = await scopeRepairWrite({
     rendered,
-    repairPaths: options.repair?.paths,
+    repairScope: writeInspection.repairScope,
     resolveOutputPath,
     staleManagedPaths: writeInspection.staleManagedPaths,
   });
@@ -586,6 +611,8 @@ interface OutputPlanInspection {
   readonly preflightDiagnostics: readonly SkillsetDiagnostic[];
   /** Per-path drift verdicts; present only when repair was requested. */
   readonly repair?: SkillsetRepairPlan;
+  /** Normalized, lock-item-expanded paths a scoped repair may write. */
+  readonly repairScope?: ReadonlySet<string>;
   readonly staleManagedPaths: readonly string[];
 }
 
@@ -602,15 +629,13 @@ function inspectRepairPlan(args: {
   readonly expected: ReadonlyMap<string, RenderedFile>;
   readonly managedState: ManagedOutputState;
   readonly repair: SkillsetRepairOptions;
+  readonly scope: ReadonlySet<string> | undefined;
 }): SkillsetRepairPlan {
-  const scope = args.repair.paths === undefined
-    ? undefined
-    : new Set(args.repair.paths);
   const changed = new Set(args.diff.changed);
   const verdicts = [...args.managedState.paths]
     .filter((path) => !isLockFilePath(path))
     .filter((path) => args.expected.has(path) || args.actualPaths.has(path))
-    .filter((path) => scope === undefined || scope.has(path))
+    .filter((path) => args.scope === undefined || args.scope.has(path))
     .map((path) =>
       classifyRepairPath({
         ...(args.repair.discardEdits === undefined
@@ -765,6 +790,22 @@ async function inspectOutputPlan(args: {
     ...args.previousManagedState,
     editedPaths: effectiveManagedEditPaths,
   };
+  const selectableRepairPaths = new Set(
+    [...managedState.paths, ...args.expected.keys()].filter(
+      (path) => !isLockFilePath(path)
+    )
+  );
+  const unmatchedRepairPaths = (args.repair?.paths ?? []).filter(
+    (path) => !selectableRepairPaths.has(path)
+  );
+  const repairScope =
+    args.repair?.paths === undefined
+      ? undefined
+      : await expandRepairScope({
+          rendered: args.rendered,
+          repairPaths: args.repair.paths,
+          resolveOutputPath: args.resolveOutputPath,
+        });
   const repair = args.repair === undefined
     ? undefined
     : inspectRepairPlan({
@@ -773,6 +814,7 @@ async function inspectOutputPlan(args: {
         expected: args.expected,
         managedState,
         repair: args.repair,
+        scope: repairScope,
       });
   const preflightDiagnostics = [
     ...await diagnoseOutputBackupPreflight(
@@ -785,6 +827,7 @@ async function inspectOutputPlan(args: {
     ...(repair?.refused ?? []).map(managedOutputDivergedDiagnostic),
     ...(repair?.preserved ?? []).map(managedOutputEditPreservedDiagnostic),
     ...(repair?.lockUntrusted ?? []).map(managedLockUntrustedDiagnostic),
+    ...unmatchedRepairPaths.map(unmanagedRepairPathDiagnostic),
     ...repairableLockPaths.map((path) =>
       lockProvenanceStates.get(path) === "migration"
         ? managedLockIntegrityMigrationDiagnostic(path)
@@ -824,7 +867,19 @@ async function inspectOutputPlan(args: {
     }),
     preflightDiagnostics,
     ...(repair === undefined ? {} : { repair }),
+    ...(repairScope === undefined ? {} : { repairScope }),
     staleManagedPaths,
+  };
+}
+
+function unmanagedRepairPathDiagnostic(outputPath: string): SkillsetDiagnostic {
+  return {
+    code: "repair-path-unmanaged",
+    featureId: "output-repair",
+    message:
+      "the requested repair path does not resolve to a managed generated output",
+    outputPath,
+    severity: "error",
   };
 }
 
@@ -883,14 +938,14 @@ function managedOutputEditPreservedDiagnostic(
  */
 async function scopeRepairWrite(args: {
   readonly rendered: readonly RenderedFile[];
-  readonly repairPaths: readonly string[] | undefined;
+  readonly repairScope: ReadonlySet<string> | undefined;
   readonly resolveOutputPath: OutputPathResolver;
   readonly staleManagedPaths: readonly string[];
 }): Promise<{
   readonly rendered: readonly RenderedFile[];
   readonly staleManagedPaths: readonly string[];
 }> {
-  if (args.repairPaths === undefined) {
+  if (args.repairScope === undefined) {
     return { rendered: args.rendered, staleManagedPaths: args.staleManagedPaths };
   }
   const locks = args.rendered.filter((file) => isLockFilePath(file.path));
@@ -901,11 +956,7 @@ async function scopeRepairWrite(args: {
       await readLockRecord(args.resolveOutputPath(lock.path))
     );
   }
-  const scope = expandScopeToLockItems(
-    new Set(args.repairPaths),
-    locks,
-    previousByLock
-  );
+  const scope = args.repairScope;
 
   const rendered: RenderedFile[] = [];
   for (const file of args.rendered) {
@@ -921,6 +972,26 @@ async function scopeRepairWrite(args: {
     rendered,
     staleManagedPaths: args.staleManagedPaths.filter((path) => scope.has(path)),
   };
+}
+
+async function expandRepairScope(args: {
+  readonly rendered: readonly RenderedFile[];
+  readonly repairPaths: readonly string[];
+  readonly resolveOutputPath: OutputPathResolver;
+}): Promise<ReadonlySet<string>> {
+  const locks = args.rendered.filter((file) => isLockFilePath(file.path));
+  const previousByLock = new Map<string, JsonRecord | undefined>();
+  for (const lock of locks) {
+    previousByLock.set(
+      lock.path,
+      await readLockRecord(args.resolveOutputPath(lock.path))
+    );
+  }
+  return expandScopeToLockItems(
+    new Set(args.repairPaths),
+    locks,
+    previousByLock
+  );
 }
 
 async function readLockRecord(

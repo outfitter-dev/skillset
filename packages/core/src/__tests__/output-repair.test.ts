@@ -3,12 +3,17 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillsetResult } from "../build";
+import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "../build";
+import {
+  createOperationalPathContext,
+  resolveOperationalPath,
+} from "../operational-cache";
 import { classifyRepairPath, planOutputRepair } from "../output-repair";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 const OUTPUT_PATH = ".agents/skills/demo/SKILL.md";
+const COMPANION_PATH = ".agents/skills/demo/references/note.md";
 
 describe("classifyRepairPath", () => {
   it("restores an absent managed output whatever the lock says", () => {
@@ -133,6 +138,24 @@ describe("classifyRepairPath", () => {
         renderMatchesLock: false,
       })
     ).toMatchObject({ action: "preserve", verdict: "output-edited" });
+  });
+
+  it("reports removal when explicitly discarding an obsolete edit", () => {
+    expect(
+      classifyRepairPath({
+        discardEdits: true,
+        fileMatchesLock: false,
+        filePresent: true,
+        outputPath: OUTPUT_PATH,
+        rendered: false,
+        renderMatchesFile: false,
+        renderMatchesLock: false,
+      })
+    ).toEqual({
+      action: "remove",
+      outputPath: OUTPUT_PATH,
+      verdict: "output-edited",
+    });
   });
 
   it("blames the lock, not the output, when the lock yields no verdict", () => {
@@ -339,6 +362,69 @@ describe("build --repair", () => {
     expect(await readFile(lockPath, "utf8")).not.toBe(lockBefore);
   });
 
+  it("gates every sibling that a scoped repair would write", async () => {
+    const root = await seededFixture();
+    const companion = join(root, COMPANION_PATH);
+    const edited = `${await readFile(companion, "utf8")}Hand edit.\n`;
+    await rm(join(root, OUTPUT_PATH));
+    await writeFile(companion, edited);
+
+    const result = await buildSkillsetResult(root, {
+      repair: { paths: [OUTPUT_PATH] },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.repair?.lockUntrusted).toContain(COMPANION_PATH);
+    expect(await readFile(companion, "utf8")).toBe(edited);
+    await expect(Bun.file(join(root, OUTPUT_PATH)).exists()).resolves.toBeFalse();
+  });
+
+  it("normalizes a repo-relative scoped repair path", async () => {
+    const root = await seededFixture();
+    await rm(join(root, OUTPUT_PATH));
+
+    const result = await buildSkillsetResult(root, {
+      repair: { paths: [`./${OUTPUT_PATH}`] },
+    });
+
+    expect(result.ok).toBe(true);
+    await expect(Bun.file(join(root, OUTPUT_PATH)).exists()).resolves.toBeTrue();
+  });
+
+  it("rejects a scoped repair path that is not managed", async () => {
+    const root = await seededFixture();
+    const unmanaged = ".agents/skills/missing/SKILL.md";
+
+    const result = await buildSkillsetResult(root, {
+      repair: { paths: [unmanaged] },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.outputState.blockers).toContainEqual({
+      code: "repair-path-unmanaged",
+      path: unmanaged,
+    });
+  });
+
+  it("maps scoped repair paths into an isolated projection", async () => {
+    const root = await seededFixture();
+    const context = createOperationalPathContext(root);
+    const isolatedPath = `${ISOLATED_OUT_ROOT}/${OUTPUT_PATH}`;
+    const absolutePath = resolveOperationalPath(context, isolatedPath);
+    await buildSkillsetResult(root, { isolated: true });
+    const before = await readFile(absolutePath);
+    await rm(absolutePath);
+
+    const result = await buildSkillsetResult(root, {
+      isolated: true,
+      repair: { paths: [OUTPUT_PATH] },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.writes.writtenPaths).toContain(isolatedPath);
+    expect(await readFile(absolutePath)).toEqual(before);
+  });
+
   it("leaves a scoped restore's lock byte-identical", async () => {
     const root = await seededFixture();
     const lockPath = join(root, ".agents/skills/skillset.lock");
@@ -388,6 +474,7 @@ claude: false
 codex: true
 `,
   ".skillset/skills/demo/SKILL.md": SOURCE_SKILL,
+  ".skillset/skills/demo/references/note.md": "Reference note.\n",
   ".skillset/skills/other/SKILL.md": OTHER_SKILL,
 };
 
