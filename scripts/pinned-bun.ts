@@ -13,7 +13,7 @@
  * version-scoped, and resolved per run.
  */
 import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 /** How the pinned interpreter was obtained for this run. */
@@ -73,6 +73,8 @@ async function reportedVersion(binPath: string): Promise<string | null> {
  *
  * The official installer writes to `$BUN_INSTALL`, so pointing that at a
  * disposable staging directory keeps the contributor's global Bun untouched.
+ * Staging lives next to the versioned cache root so the publish rename stays
+ * on one filesystem; POSIX rename cannot move a directory across mounts.
  * The staged tree is renamed into place so a concurrent run never observes a
  * half-written interpreter.
  */
@@ -80,7 +82,9 @@ async function installPinnedBun(
   version: string,
   targetRoot: string
 ): Promise<void> {
-  const staging = await mkdtemp(join(tmpdir(), `skillset-bun-${version}-`));
+  const parent = join(targetRoot, "..");
+  await mkdir(parent, { recursive: true });
+  const staging = await mkdtemp(join(parent, `skillset-bun-${version}-`));
   try {
     const install = Bun.spawn({
       cmd: ["bash", "-c", `curl -fsSL https://bun.sh/install | bash -s -- "bun-v${version}"`],
@@ -96,7 +100,6 @@ async function installPinnedBun(
       throw new Error(`installer produced no interpreter at ${staged}`);
     }
     await chmod(staged, 0o755);
-    await mkdir(join(targetRoot, ".."), { recursive: true });
     await rename(staging, targetRoot).catch(async (error: unknown) => {
       // A concurrent run may have won the race; accept its result.
       if (await isExecutable(join(targetRoot, "bin", "bun"))) return;
