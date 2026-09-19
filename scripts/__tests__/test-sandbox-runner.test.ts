@@ -12,7 +12,11 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { pinnedBunRoot } from "../pinned-bun";
+import {
+  pinnedBunExecutableName,
+  pinnedBunInstallCommand,
+  pinnedBunRoot,
+} from "../pinned-bun";
 
 const runner = join(import.meta.dir, "..", "test-sandbox.ts");
 
@@ -27,6 +31,23 @@ test("SET-604: pinned runtimes use a host-specific persistent cache", () => {
       "1.2.3"
     )
   );
+});
+
+test("SET-604: pinned runtime installation is native to each host", () => {
+  expect(pinnedBunExecutableName("linux")).toBe("bun");
+  expect(pinnedBunExecutableName("win32")).toBe("bun.exe");
+  expect(pinnedBunInstallCommand("1.4.0", "linux")).toEqual([
+    "bash",
+    "-c",
+    'curl -fsSL https://bun.com/install | bash -s -- "bun-v1.4.0"',
+  ]);
+  expect(pinnedBunInstallCommand("1.4.0", "win32")).toEqual([
+    "powershell.exe",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    'iex "& {$(irm https://bun.com/install.ps1)} -Version 1.4.0"',
+  ]);
 });
 
 test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox", async () => {

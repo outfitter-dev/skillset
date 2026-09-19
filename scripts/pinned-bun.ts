@@ -56,6 +56,34 @@ export function pinnedBunRoot(version: string): string {
   );
 }
 
+/** Native executable name produced by Bun's platform installer. */
+export function pinnedBunExecutableName(
+  platform: NodeJS.Platform = process.platform
+): string {
+  return platform === "win32" ? "bun.exe" : "bun";
+}
+
+/** Official version-pinned installer invocation for the current host. */
+export function pinnedBunInstallCommand(
+  version: string,
+  platform: NodeJS.Platform = process.platform
+): string[] {
+  if (platform === "win32") {
+    return [
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `iex "& {$(irm https://bun.com/install.ps1)} -Version ${version}"`,
+    ];
+  }
+  return [
+    "bash",
+    "-c",
+    `curl -fsSL https://bun.com/install | bash -s -- "bun-v${version}"`,
+  ];
+}
+
 async function isExecutable(path: string): Promise<boolean> {
   try {
     const info = await stat(path);
@@ -98,7 +126,7 @@ async function installPinnedBun(
   const staging = await mkdtemp(join(parent, `skillset-bun-${version}-`));
   try {
     const install = Bun.spawn({
-      cmd: ["bash", "-c", `curl -fsSL https://bun.sh/install | bash -s -- "bun-v${version}"`],
+      cmd: pinnedBunInstallCommand(version),
       env: { ...process.env, BUN_INSTALL: staging },
       stderr: "inherit",
       stdout: "ignore",
@@ -106,14 +134,15 @@ async function installPinnedBun(
     if ((await install.exited) !== 0) {
       throw new Error(`installer exited non-zero for bun-v${version}`);
     }
-    const staged = join(staging, "bin", "bun");
+    const executableName = pinnedBunExecutableName();
+    const staged = join(staging, "bin", executableName);
     if (!(await isExecutable(staged))) {
       throw new Error(`installer produced no interpreter at ${staged}`);
     }
-    await chmod(staged, 0o755);
+    if (process.platform !== "win32") await chmod(staged, 0o755);
     await rename(staging, targetRoot).catch(async (error: unknown) => {
       // A concurrent run may have won the race; accept its result.
-      if (await isExecutable(join(targetRoot, "bin", "bun"))) return;
+      if (await isExecutable(join(targetRoot, "bin", executableName))) return;
       throw error;
     });
   } finally {
@@ -141,7 +170,7 @@ export async function resolvePinnedBun(repoRoot: string): Promise<PinnedBun> {
 
   const root = pinnedBunRoot(version);
   const binDir = join(root, "bin");
-  const binPath = join(binDir, "bun");
+  const binPath = join(binDir, pinnedBunExecutableName());
 
   if ((await isExecutable(binPath)) && (await reportedVersion(binPath)) === version) {
     return { binDir, binPath, source: "cached", version };
