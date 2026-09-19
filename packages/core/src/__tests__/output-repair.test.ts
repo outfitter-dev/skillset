@@ -10,6 +10,7 @@ import {
   resolveOperationalPath,
 } from "../operational-cache";
 import { classifyRepairPath, planOutputRepair } from "../output-repair";
+import { lockDisagreementPaths } from "../output-safety";
 
 const OUTPUT_PATH = ".agents/skills/demo/SKILL.md";
 const COMPANION_PATH = ".agents/skills/demo/references/note.md";
@@ -212,6 +213,34 @@ describe("planOutputRepair", () => {
       refused: ["b"],
       writable: false,
     });
+  });
+});
+
+describe("lockDisagreementPaths", () => {
+  it("treats an incomplete multi-file snapshot as unsafe", async () => {
+    const root = await seededFixture();
+    const lock = await Bun.file(
+      join(root, ".agents/skills/skillset.lock")
+    ).json();
+    const snapshots = new Map([
+      [
+        OUTPUT_PATH,
+        {
+          content: await readFile(join(root, OUTPUT_PATH)),
+          mode: 0o644 as const,
+        },
+      ],
+    ]);
+
+    const disagreements = lockDisagreementPaths(
+      lock,
+      ".agents/skills",
+      snapshots,
+      ".agents/skills/skillset.lock"
+    );
+
+    expect(disagreements).toContain(OUTPUT_PATH);
+    expect(disagreements).toContain(COMPANION_PATH);
   });
 });
 

@@ -785,7 +785,14 @@ export function lockDisagreementPaths(
         file,
       }))
       .sort((left, right) => compareStrings(left.file, right.file));
-    if (files.some((entry) => !snapshots.has(entry.displayPath))) continue;
+    if (files.some((entry) => !snapshots.has(entry.displayPath))) {
+      // A grouped output hash is only comparable when every member is
+      // present. Missing side evidence must fail closed: otherwise a conflict
+      // can discard an edit in the surviving member merely because its sibling
+      // was deleted on that side.
+      for (const entry of files) disagreeing.add(entry.displayPath);
+      continue;
+    }
     if (!trusted || item.outputHash === undefined) {
       for (const entry of files) disagreeing.add(entry.displayPath);
       continue;

@@ -9,8 +9,8 @@
  */
 
 import { buildSkillsetResult, type SkillsetRepairPlan } from "@skillset/core";
-import type { SkillsetOptions } from "@skillset/core/internal/types";
 import { compareStrings } from "@skillset/core/internal/path";
+import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 import { serializeDiagnostics } from "./cli-diagnostics";
 import { printCliJsonData } from "./cli-output";
@@ -111,11 +111,12 @@ export async function runResolveCommand({
     );
   }
 
-  // Take the "ours" side of every conflicted generated path so the repair sees
-  // whole files rather than marker soup, then let regeneration decide.
+  // Materialize each lock and every payload it owns from one coherent side so
+  // the repair sees whole files rather than marker soup or a mixed baseline.
   await materializeConflictedPaths(
     rootPath,
-    inventory.generated.filter((path) => !isLockPath(path))
+    inventory.generated,
+    inventory.materializationStages
   );
 
   // No path scope: a rebase needs the whole projection consistent with the
@@ -168,13 +169,18 @@ function stageableGeneratedPaths(
   inventory: ConflictInventory,
   result: Awaited<ReturnType<typeof buildSkillsetResult>>
 ): readonly string[] {
-  const candidates = new Set([
-    ...inventory.generated,
+  const generatedByRepair = new Set([
     ...result.writes.writtenPaths,
     ...result.writes.deletedPaths,
   ]);
+  const candidates = new Set([...inventory.generated, ...generatedByRepair]);
   return [...candidates]
-    .filter((path) => inventory.managedPaths.has(path) || isLockPath(path))
+    .filter(
+      (path) =>
+        inventory.managedPaths.has(path) ||
+        generatedByRepair.has(path) ||
+        isLockPath(path)
+    )
     .sort(compareStrings);
 }
 
