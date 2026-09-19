@@ -1,5 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -7,6 +15,7 @@ import {
   initializeTestGitRepository,
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
+import { materializeConflictedPaths } from "../resolve-conflicts";
 
 const GENERATED_ALPHA = ".agents/skills/alpha/SKILL.md";
 const HAND_EDITED = ".claude/skills/alpha/SKILL.md";
@@ -26,7 +35,9 @@ describe("skillset resolve", () => {
 
   it("repairs and stages generated conflicts a rebase cannot merge", async () => {
     const root = await conflictFixture({ sameSkill: false, rebase: true });
-    expect(await conflictedPaths(root)).toContain(".agents/skills/skillset.lock");
+    expect(await conflictedPaths(root)).toContain(
+      ".agents/skills/skillset.lock"
+    );
 
     const result = await runCli("resolve", "--root", root, "--yes");
 
@@ -37,6 +48,21 @@ describe("skillset resolve", () => {
     // merged tree rather than taken from either conflict side.
     const check = await runCli("check", "--only", "outputs", "--root", root);
     expect(check.exitCode).toBe(0);
+  });
+
+  it("keeps an unconfirmed resolve plan read-only", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    const lockPath = join(root, ".agents/skills/skillset.lock");
+    const before = await readFile(lockPath);
+
+    const result = await runCli("resolve", "--root", root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("rerun with --yes");
+    expect(await readFile(lockPath)).toEqual(before);
+    expect(await conflictedPaths(root)).toContain(
+      ".agents/skills/skillset.lock"
+    );
   });
 
   it("refuses to regenerate while authored source is still conflicted", async () => {
@@ -67,6 +93,26 @@ describe("skillset resolve", () => {
     expect(generated).toContain("Merged body.");
   });
 
+  it("stages generated paths introduced by the merged source", async () => {
+    const root = await conflictFixture({ sameSkill: true, rebase: true });
+    const gammaSource = ".skillset/skills/gamma/SKILL.md";
+    const gammaOutput = ".agents/skills/gamma/SKILL.md";
+    await mkdir(join(root, ".skillset/skills/gamma"), { recursive: true });
+    await writeFile(join(root, AUTHORED_ALPHA), skill("Merged body."), "utf8");
+    await writeFile(
+      join(root, gammaSource),
+      "---\nname: gamma\ndescription: Gamma skill.\n---\n\nNew source.\n",
+      "utf8"
+    );
+    await runTestGit(root, "add", AUTHORED_ALPHA, gammaSource);
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(0);
+    const staged = await runTestGit(root, "diff", "--cached", "--name-only");
+    expect(staged.split("\n")).toContain(gammaOutput);
+  });
+
   it("refuses when a generated file was hand-edited on the replayed side", async () => {
     // A rebase discards stage 3, so an edit there is exactly as lost as one on
     // stage 2 and must be caught before anything is regenerated.
@@ -81,7 +127,9 @@ describe("skillset resolve", () => {
     const result = await runCli("resolve", "--root", root, "--yes");
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("edited by hand on one side of the conflict");
+    expect(result.stderr).toContain(
+      "edited by hand on one side of the conflict"
+    );
     expect(result.stderr).toContain(HAND_EDITED);
     expect(await conflictedPaths(root)).toContain(HAND_EDITED);
   });
@@ -105,12 +153,8 @@ describe("skillset resolve", () => {
     // A plugin skill's lock item is [LICENSE.txt, SKILL.md] and the LICENSE
     // never changes, so only SKILL.md conflicts. Verifying the item needs the
     // unconflicted sibling too, but only the conflicted path is reported.
-    const root = await pluginConflictFixture();
-    await writeFile(
-      join(root, PLUGIN_SOURCE),
-      skill("Merged body."),
-      "utf8"
-    );
+    const root = await pluginConflictFixture({ handEdit: true });
+    await writeFile(join(root, PLUGIN_SOURCE), skill("Merged body."), "utf8");
     await runTestGit(root, "add", PLUGIN_SOURCE);
 
     const result = await runCli("resolve", "--root", root, "--yes");
@@ -118,9 +162,34 @@ describe("skillset resolve", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(PLUGIN_HAND_EDITED);
     expect(result.stderr).not.toContain("LICENSE.txt");
-    expect(
-      await readFile(join(root, PLUGIN_HAND_EDITED), "utf8")
-    ).toContain("Hand edit.");
+    expect(await readFile(join(root, PLUGIN_HAND_EDITED), "utf8")).toContain(
+      "Hand edit."
+    );
+  });
+
+  it("reads each unconflicted lock-item sibling from its own side", async () => {
+    const root = await pluginConflictFixture({
+      handEdit: false,
+      changeSiblingOnFeatA: true,
+    });
+    await writeFile(join(root, PLUGIN_SOURCE), skill("Merged body."), "utf8");
+    await runTestGit(root, "add", PLUGIN_SOURCE);
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(await conflictedPaths(root)).toEqual([]);
+  });
+
+  it("materializes a conflicted lock and its payload from the same side", async () => {
+    const root = await largerIncomingLockFixture();
+    await writeFile(join(root, AUTHORED_ALPHA), skill("Merged body."), "utf8");
+    await runTestGit(root, "add", AUTHORED_ALPHA);
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(await conflictedPaths(root)).toEqual([]);
   });
 
   it("treats output as generated when either side's lock claims it", async () => {
@@ -156,7 +225,9 @@ describe("skillset resolve", () => {
   });
 
   it("works inside a linked worktree", async () => {
-    const disposableRoot = await createTestGitFixtureRoot("skillset-resolve-wt-");
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-resolve-wt-"
+    );
     const root = await conflictFixture({
       disposableRoot,
       rebase: false,
@@ -171,6 +242,44 @@ describe("skillset resolve", () => {
 
     expect(result.exitCode).toBe(0);
     expect(await conflictedPaths(worktree)).toEqual([]);
+  });
+
+  it("resolves stage blobs from a workspace below the repository root", async () => {
+    const root = await conflictFixture({
+      nestedWorkspace: true,
+      rebase: true,
+      sameSkill: false,
+    });
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(await conflictedPaths(root)).toEqual([]);
+  });
+
+  it("restores the executable mode recorded by the selected conflict side", async () => {
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-resolve-mode-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    const path = "generated.sh";
+    await writeFile(join(root, path), "#!/bin/sh\necho base\n");
+    await chmod(join(root, path), 0o755);
+    await initializeTestGitRepository(root, { disposableRoot });
+    await runTestGit(root, "branch", "base");
+    await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
+    await writeFile(join(root, path), "#!/bin/sh\necho A\n");
+    await commitAll(root, "A");
+    await runTestGit(root, "checkout", "--quiet", "base");
+    await runTestGit(root, "checkout", "--quiet", "-b", "feat-b");
+    await writeFile(join(root, path), "#!/bin/sh\necho B\n");
+    await commitAll(root, "B");
+    await rebaseOnto(root, "feat-a");
+    await rm(join(root, path));
+
+    await materializeConflictedPaths(root, [path]);
+
+    expect((await stat(join(root, path))).mode & 0o777).toBe(0o755);
   });
 });
 
@@ -205,13 +314,17 @@ async function conflictFixture(options: {
   readonly disposableRoot?: string;
   /** Append an unbuildable edit to a generated file on this branch. */
   readonly handEditOn?: "feat-a" | "feat-b";
+  readonly nestedWorkspace?: boolean;
   readonly rebase: boolean;
   readonly sameSkill: boolean;
 }): Promise<string> {
   const disposableRoot =
     options.disposableRoot ??
     (await createTestGitFixtureRoot("skillset-resolve-"));
-  const root = await mkdtemp(join(disposableRoot, "repo-"));
+  const repositoryRoot = await mkdtemp(join(disposableRoot, "repo-"));
+  const root = options.nestedWorkspace
+    ? join(repositoryRoot, "workspace")
+    : repositoryRoot;
   await mkdir(join(root, ".skillset/skills/alpha"), { recursive: true });
   await mkdir(join(root, ".skillset/skills/beta"), { recursive: true });
   await writeFile(
@@ -225,7 +338,7 @@ async function conflictFixture(options: {
     otherSkill("Base body."),
     "utf8"
   );
-  await initializeTestGitRepository(root, { disposableRoot });
+  await initializeTestGitRepository(repositoryRoot, { disposableRoot });
   await build(root);
   await commitAll(root, "base");
   await runTestGit(root, "branch", "base");
@@ -258,14 +371,21 @@ async function conflictFixture(options: {
 /** Edit a generated file directly, which is what this stack exists to catch. */
 async function handEdit(root: string): Promise<void> {
   const path = join(root, HAND_EDITED);
-  await writeFile(path, `${await readFile(path, "utf8")}\nHand edit.\n`, "utf8");
+  await writeFile(
+    path,
+    `${await readFile(path, "utf8")}\nHand edit.\n`,
+    "utf8"
+  );
 }
 
 /**
  * Two branches editing one plugin skill, rebased. Plugin skills produce
  * multi-file lock items, which single-file standalone skills do not.
  */
-async function pluginConflictFixture(): Promise<string> {
+async function pluginConflictFixture(options: {
+  readonly changeSiblingOnFeatA?: boolean;
+  readonly handEdit: boolean;
+}): Promise<string> {
   const disposableRoot = await createTestGitFixtureRoot(
     "skillset-resolve-plugin-"
   );
@@ -284,12 +404,27 @@ async function pluginConflictFixture(): Promise<string> {
     "utf8"
   );
   await writeFile(join(root, PLUGIN_SOURCE), skill("Base body."), "utf8");
+  await mkdir(join(root, ".skillset/plugins/demo/skills/alpha/references"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(root, ".skillset/plugins/demo/skills/alpha/references/note.md"),
+    "Base reference.\n",
+    "utf8"
+  );
   await initializeTestGitRepository(root, { disposableRoot });
   await build(root);
   await commitAll(root, "base");
   await runTestGit(root, "branch", "base");
 
   await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
+  if (options.changeSiblingOnFeatA === true) {
+    await writeFile(
+      join(root, ".skillset/plugins/demo/skills/alpha/references/note.md"),
+      "Reference from A.\n",
+      "utf8"
+    );
+  }
   await writeFile(join(root, PLUGIN_SOURCE), skill("Body from A."), "utf8");
   await build(root);
   await commitAll(root, "A");
@@ -298,9 +433,61 @@ async function pluginConflictFixture(): Promise<string> {
   await runTestGit(root, "checkout", "--quiet", "-b", "feat-b");
   await writeFile(join(root, PLUGIN_SOURCE), skill("Body from B."), "utf8");
   await build(root);
-  const edited = join(root, PLUGIN_HAND_EDITED);
-  await writeFile(edited, `${await readFile(edited, "utf8")}\nHand edit.\n`, "utf8");
+  if (options.handEdit) {
+    const edited = join(root, PLUGIN_HAND_EDITED);
+    await writeFile(
+      edited,
+      `${await readFile(edited, "utf8")}\nHand edit.\n`,
+      "utf8"
+    );
+  }
   await commitAll(root, "B");
+
+  await rebaseOnto(root, "feat-a");
+  return root;
+}
+
+/** One lock side claims more files while both sides changed the same payload. */
+async function largerIncomingLockFixture(): Promise<string> {
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-resolve-lock-side-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
+  await mkdir(join(root, ".skillset/skills/alpha"), { recursive: true });
+  await mkdir(join(root, ".skillset/skills/beta"), { recursive: true });
+  await writeFile(
+    join(root, "skillset.yaml"),
+    "skillset:\n  name: resolve-lock-side\n  version: 0.1.0\nclaude: false\ncodex: true\n",
+    "utf8"
+  );
+  await writeFile(join(root, AUTHORED_ALPHA), skill("Base body."), "utf8");
+  await writeFile(
+    join(root, ".skillset/skills/beta/SKILL.md"),
+    otherSkill("Base body."),
+    "utf8"
+  );
+  await initializeTestGitRepository(root, { disposableRoot });
+  await build(root);
+  await commitAll(root, "base");
+  await runTestGit(root, "branch", "base");
+
+  await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
+  await writeFile(join(root, AUTHORED_ALPHA), skill("Body from A."), "utf8");
+  await rm(join(root, ".skillset/skills/beta"), { recursive: true });
+  await build(root);
+  await commitAll(root, "A edits alpha and removes beta");
+
+  await runTestGit(root, "checkout", "--quiet", "base");
+  await runTestGit(root, "checkout", "--quiet", "-b", "feat-b");
+  await writeFile(join(root, AUTHORED_ALPHA), skill("Body from B."), "utf8");
+  await mkdir(join(root, ".skillset/skills/gamma"), { recursive: true });
+  await writeFile(
+    join(root, ".skillset/skills/gamma/SKILL.md"),
+    "---\nname: gamma\ndescription: Gamma skill.\n---\n\nBody.\n",
+    "utf8"
+  );
+  await build(root);
+  await commitAll(root, "B edits alpha and adds gamma");
 
   await rebaseOnto(root, "feat-a");
   return root;
@@ -357,9 +544,7 @@ async function commitAll(root: string, message: string): Promise<void> {
   await runTestGit(root, "commit", "--quiet", "-m", message);
 }
 
-async function runCli(
-  ...args: readonly string[]
-): Promise<{
+async function runCli(...args: readonly string[]): Promise<{
   readonly exitCode: number;
   readonly stderr: string;
   readonly stdout: string;
