@@ -5,7 +5,7 @@
  * works inside a linked worktree and under a hook that exported `GIT_DIR`.
  */
 
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import {
@@ -14,7 +14,10 @@ import {
   WORKSPACE_LOCK_FILE,
   type GeneratedFileSnapshot,
 } from "@skillset/core";
-import { normalizeGeneratedFileMode } from "@skillset/core/internal/generated-file-mode";
+import {
+  normalizeGeneratedFileMode,
+  supportsGeneratedFileModes,
+} from "@skillset/core/internal/generated-file-mode";
 import { compareStrings } from "@skillset/core/internal/path";
 
 import { gitSafeEnv } from "./git-env";
@@ -125,16 +128,17 @@ async function trackedLockPaths(
 }
 
 /**
- * Restore every conflicted lock to a parseable state. A lock carrying conflict
- * markers will not parse, and the managed-path inventory that decides what is
- * generated is read out of the locks — so this has to happen before anything
- * else can be classified.
+ * Restore conflicted generated paths to a whole-file side so the repair sees
+ * content rather than marker soup. `writeFile` alone creates a non-executable
+ * file; the index mode has to come back too or a `0755` lock hash looks like a
+ * hand edit and the repair preserves the stripped file.
  */
 export async function materializeConflictedPaths(
   rootPath: string,
   paths: readonly string[]
 ): Promise<readonly string[]> {
   const restored: string[] = [];
+  const modes = await readIndexModes(rootPath, paths);
   for (const path of paths) {
     const absolute = join(rootPath, path);
     const content = await readConflictStage(rootPath, path);
@@ -147,6 +151,11 @@ export async function materializeConflictedPaths(
     }
     await mkdir(dirname(absolute), { recursive: true });
     await writeFile(absolute, content);
+    const pathModes = modes.get(path);
+    const mode = pathModes?.get(2) ?? pathModes?.get(3) ?? pathModes?.get(0);
+    if (mode !== undefined && supportsGeneratedFileModes()) {
+      await chmod(absolute, normalizeGeneratedFileMode(mode));
+    }
     restored.push(path);
   }
   return restored;
@@ -216,21 +225,31 @@ async function expandToLockItems(
   const wanted = new Set(paths);
   const expanded = new Set(paths);
   for (const lockPath of lockPaths) {
-    const file = Bun.file(join(rootPath, lockPath));
-    if (!(await file.exists())) continue;
-    let parsed: ReturnType<typeof parseGeneratedLock>;
-    try {
-      parsed = parseGeneratedLock(await file.json(), lockPath);
-    } catch {
-      continue;
+    // Conflicted working-tree locks carry markers and will not parse. Both
+    // index stages are enough; the unconflicted working tree covers locks
+    // that never entered the conflict set.
+    const documents: unknown[] = [
+      await readJsonSafely(Bun.file(join(rootPath, lockPath))),
+    ];
+    for (const stage of CONFLICT_STAGES) {
+      documents.push(await readStageJson(rootPath, stage, lockPath));
     }
-    const root = lockOutputRoot(lockPath);
-    for (const item of parsed.items) {
-      const group = item.files.map((file_) =>
-        root === "" ? file_ : `${root}/${file_}`
-      );
-      if (!group.some((path) => wanted.has(path))) continue;
-      for (const path of group) expanded.add(path);
+    for (const lockJson of documents) {
+      if (lockJson === undefined) continue;
+      let parsed: ReturnType<typeof parseGeneratedLock>;
+      try {
+        parsed = parseGeneratedLock(lockJson, lockPath);
+      } catch {
+        continue;
+      }
+      const root = lockOutputRoot(lockPath);
+      for (const item of parsed.items) {
+        const group = item.files.map((file_) =>
+          root === "" ? file_ : `${root}/${file_}`
+        );
+        if (!group.some((path) => wanted.has(path))) continue;
+        for (const path of group) expanded.add(path);
+      }
     }
   }
   return [...expanded].sort(compareStrings);
@@ -345,8 +364,8 @@ async function readStageJson(
 }
 
 /**
- * Read every managed output path out of the locks. Conflicted locks are
- * materialized first, so this parses the working tree afterwards.
+ * Read every managed output path out of the working-tree locks. Conflicted
+ * locks may still carry markers here; both index stages fill those claims.
  */
 export async function readManagedPathsFromLocks(
   rootPath: string,
@@ -427,7 +446,7 @@ function collectManagedPaths(
  * of the file, so preferring the larger claim can only recognize ownership that
  * is genuinely there.
  */
-async function materializeConflictedLocks(
+export async function materializeConflictedLocks(
   rootPath: string,
   conflictedLocks: readonly string[]
 ): Promise<void> {
@@ -455,15 +474,15 @@ async function materializeConflictedLocks(
 }
 
 /**
- * Partition the conflicted set. Conflicted locks are made parseable first,
- * because the lock inventory is what decides which other paths are generated.
+ * Partition the conflicted set. Classification reads both index stages, so
+ * conflicted working-tree locks stay untouched until a confirmed repair needs
+ * a parseable file for the build.
  */
 export async function inventoryConflicts(
   rootPath: string,
   conflicted: readonly string[]
 ): Promise<ConflictInventory> {
   const conflictedLocks = conflicted.filter(isLockPath);
-  await materializeConflictedLocks(rootPath, conflictedLocks);
   const lockPaths = [
     ...new Set([...(await trackedLockPaths(rootPath)), ...conflictedLocks]),
   ].sort(compareStrings);

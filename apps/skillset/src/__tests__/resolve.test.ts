@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+
+import { supportsGeneratedFileModes } from "@skillset/core/internal/generated-file-mode";
 
 import {
   createTestGitFixtureRoot,
@@ -155,6 +157,53 @@ describe("skillset resolve", () => {
     );
   });
 
+  it("does not overwrite conflicted locks when planning", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    const lockPath = join(root, ".agents/skills/skillset.lock");
+    const before = await readFile(lockPath, "utf8");
+    expect(before).toContain("<<<<<<<");
+
+    const result = await runCli("resolve", "--root", root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("rerun with --yes");
+    expect(await readFile(lockPath, "utf8")).toBe(before);
+  });
+
+  it("does not overwrite conflicted locks when authored conflicts block", async () => {
+    const root = await conflictFixture({ sameSkill: true, rebase: true });
+    const lockPath = join(root, ".agents/skills/skillset.lock");
+    const before = await readFile(lockPath, "utf8");
+    expect(before).toContain("<<<<<<<");
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("authored conflicts must be resolved");
+    expect(await readFile(lockPath, "utf8")).toBe(before);
+  });
+
+  it("restores executable mode so repair can stage generated scripts", async () => {
+    if (!supportsGeneratedFileModes()) return;
+    const root = await executableConflictFixture();
+    const script = ".agents/skills/alpha/scripts/run.sh";
+    expect(await conflictedPaths(root)).toContain(script);
+    await writeFile(join(root, AUTHORED_ALPHA), skillWithScript("Merged body."), "utf8");
+    await writeFile(
+      join(root, ".skillset/shared/scripts/run.sh"),
+      "#!/bin/sh\necho merged\n",
+      "utf8"
+    );
+    await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+    await runTestGit(root, "add", AUTHORED_ALPHA, ".skillset/shared/scripts/run.sh");
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(0);
+    expect(await conflictedPaths(root)).toEqual([]);
+    expect((await stat(join(root, script))).mode & 0o777).toBe(0o755);
+  });
+
   it("works inside a linked worktree", async () => {
     const disposableRoot = await createTestGitFixtureRoot("skillset-resolve-wt-");
     const root = await conflictFixture({
@@ -180,6 +229,10 @@ function skill(body: string): string {
 
 function otherSkill(body: string): string {
   return `---\nname: beta\ndescription: Beta skill.\n---\n\n${body}\n`;
+}
+
+function skillWithScript(body: string): string {
+  return `---\nname: alpha\ndescription: Alpha skill.\nresources:\n  scripts:\n    - shared:scripts/run.sh\n---\n\n${body}\n`;
 }
 
 async function conflictedPaths(root: string): Promise<readonly string[]> {
@@ -300,6 +353,61 @@ async function pluginConflictFixture(): Promise<string> {
   await build(root);
   const edited = join(root, PLUGIN_HAND_EDITED);
   await writeFile(edited, `${await readFile(edited, "utf8")}\nHand edit.\n`, "utf8");
+  await commitAll(root, "B");
+
+  await rebaseOnto(root, "feat-a");
+  return root;
+}
+
+/**
+ * Both sides change an executable generated script so the conflicted path
+ * carries a 0755 index mode.
+ */
+async function executableConflictFixture(): Promise<string> {
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-resolve-exec-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
+  await mkdir(join(root, ".skillset/skills/alpha"), { recursive: true });
+  await mkdir(join(root, ".skillset/shared/scripts"), { recursive: true });
+  await writeFile(
+    join(root, "skillset.yaml"),
+    "skillset:\n  name: resolve-exec-test\n  version: 0.1.0\nclaude: true\ncodex: false\n",
+    "utf8"
+  );
+  await writeFile(join(root, AUTHORED_ALPHA), skillWithScript("Base body."), "utf8");
+  await writeFile(
+    join(root, ".skillset/shared/scripts/run.sh"),
+    "#!/bin/sh\necho base\n",
+    "utf8"
+  );
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+  await initializeTestGitRepository(root, { disposableRoot });
+  await build(root);
+  await commitAll(root, "base");
+  await runTestGit(root, "branch", "base");
+
+  await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
+  await writeFile(join(root, AUTHORED_ALPHA), skillWithScript("Body from A."), "utf8");
+  await writeFile(
+    join(root, ".skillset/shared/scripts/run.sh"),
+    "#!/bin/sh\necho a\n",
+    "utf8"
+  );
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+  await build(root);
+  await commitAll(root, "A");
+
+  await runTestGit(root, "checkout", "--quiet", "base");
+  await runTestGit(root, "checkout", "--quiet", "-b", "feat-b");
+  await writeFile(join(root, AUTHORED_ALPHA), skillWithScript("Body from B."), "utf8");
+  await writeFile(
+    join(root, ".skillset/shared/scripts/run.sh"),
+    "#!/bin/sh\necho b\n",
+    "utf8"
+  );
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+  await build(root);
   await commitAll(root, "B");
 
   await rebaseOnto(root, "feat-a");

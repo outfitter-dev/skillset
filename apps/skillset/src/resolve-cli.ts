@@ -19,6 +19,7 @@ import {
   inventoryConflicts,
   isGitRepository,
   isLockPath,
+  materializeConflictedLocks,
   materializeConflictedPaths,
   readConflictedPaths,
   stagePaths,
@@ -111,8 +112,13 @@ export async function runResolveCommand({
     );
   }
 
-  // Take the "ours" side of every conflicted generated path so the repair sees
-  // whole files rather than marker soup, then let regeneration decide.
+  // The build reads working-tree locks to decide ownership, so conflicted
+  // locks have to become parseable here — not during the plan. Payloads then
+  // take the "ours" side so the repair sees whole files rather than markers.
+  await materializeConflictedLocks(
+    rootPath,
+    inventory.generated.filter((path) => isLockPath(path))
+  );
   await materializeConflictedPaths(
     rootPath,
     inventory.generated.filter((path) => !isLockPath(path))
