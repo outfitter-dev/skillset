@@ -28,7 +28,7 @@ export const parseDiffCommandRequest = (
   args: readonly string[],
   context: CliParseContext
 ): DiffCommandRequest => {
-  const parsed = parseProjectionArgs(args, context);
+  const parsed = parseProjectionArgs(args, context, { allowRepair: false });
   return {
     jsonOutput: parsed.jsonOutput,
     options: parsed.options,
@@ -45,7 +45,8 @@ interface ProjectionArgs {
 
 const parseProjectionArgs = (
   args: readonly string[],
-  context: CliParseContext
+  context: CliParseContext,
+  { allowRepair = true }: { readonly allowRepair?: boolean } = {}
 ): ProjectionArgs => {
   let buildMode: "all" | "updated" | undefined;
   let isolated = false;
@@ -56,6 +57,9 @@ const parseProjectionArgs = (
   let readinessFlag = false;
   let sinceFlag = false;
   let jsonlOutput = false;
+  let repair = false;
+  let repairPaths: readonly string[] = [];
+  let discardEdits = false;
   const reader = new CliArgReader(args, 1);
 
   while (!reader.done) {
@@ -81,6 +85,14 @@ const parseProjectionArgs = (
       case "--isolated":
         assertBooleanOption(option);
         isolated = true;
+        break;
+      case "--repair":
+        repair = true;
+        repairPaths = [...repairPaths, ...reader.readOptionalOptionValues(option)];
+        break;
+      case "--discard-edits":
+        assertBooleanOption(option);
+        discardEdits = true;
         break;
       case "--json":
         assertBooleanOption(option);
@@ -143,6 +155,14 @@ const parseProjectionArgs = (
   if (jsonlOutput) {
     throw new Error("skillset: --jsonl is only supported with dev");
   }
+  if (!allowRepair && (repair || discardEdits)) {
+    throw new Error(
+      "skillset: --repair and --discard-edits are only supported with build"
+    );
+  }
+  if (discardEdits && !repair) {
+    throw new Error("skillset: --discard-edits is only supported with --repair");
+  }
 
   return {
     jsonOutput,
@@ -150,6 +170,14 @@ const parseProjectionArgs = (
       ...(buildMode === undefined ? {} : { buildMode }),
       ...(scopes === undefined ? {} : { scopes }),
       ...(isolated ? { isolated: true } : {}),
+      ...(repair
+        ? {
+            repair: {
+              ...(discardEdits ? { discardEdits: true } : {}),
+              ...(repairPaths.length > 0 ? { paths: repairPaths } : {}),
+            },
+          }
+        : {}),
     },
     rootPath: resolveCliRoot(context, rootPath),
     yes,

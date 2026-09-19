@@ -33,8 +33,13 @@ const PRESENTATION = {
     summary: "Preview or write generated provider outputs.",
     synopses: [
       "build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
+      "build --repair [path...] [--discard-edits]",
     ],
-    examples: ["skillset build", "skillset build --yes"],
+    examples: [
+      "skillset build",
+      "skillset build --yes",
+      "skillset build --repair --yes",
+    ],
   },
   "change add": {
     commandSummary: "Record and inspect source changes before release.",
