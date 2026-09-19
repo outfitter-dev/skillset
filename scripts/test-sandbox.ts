@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative } from "node:path";
 
+import { resolvePinnedBun } from "./pinned-bun";
 import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,
@@ -77,8 +78,20 @@ try {
     XDG_STATE_HOME: xdg.state,
   };
   scrubGitConfigParameters(env);
+  // Pin the interpreter, not the machine. Checks such as the native size
+  // baseline compare recorded evidence against `Bun.version`, so a contributor
+  // whose global Bun differs from `.bun-version` would otherwise fail tests
+  // that pass in CI. Resolution is a no-op when the ambient Bun already
+  // matches, which is the CI case.
+  const pinnedBun = await resolvePinnedBun(repoRoot);
+  env.PATH = [pinnedBun.binDir, env.PATH].filter(Boolean).join(":");
+  const childCommand =
+    basename(command[0] ?? "") === "bun"
+      ? [pinnedBun.binPath, ...command.slice(1)]
+      : [...command];
+
   await validateTestSandbox(env, repoRoot);
-  process.exitCode = await run(command, env);
+  process.exitCode = await run(childCommand, env);
 } catch (error) {
   retain = true;
   console.error(`skillset: test sandbox failed: ${message(error)}`);
