@@ -23,7 +23,7 @@ import {
   logicalOperationalPath,
   resolveOperationalPath,
 } from "./operational-cache";
-import type { JsonRecord, RenderedFile, SkillsetOptions } from "./types";
+import type { GeneratedFileMode, JsonRecord, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
 import { readSkillsetWorkspaceConfig } from "./xdg";
 
@@ -741,6 +741,96 @@ async function currentOutputHash(
     hash.update("\0");
   }
 
+  return `sha256:${hash.digest("hex")}`;
+}
+
+/** One generated file's bytes and mode, as some tree recorded them. */
+export interface GeneratedFileSnapshot {
+  readonly content: Uint8Array;
+  readonly mode: GeneratedFileMode;
+}
+
+/**
+ * Managed paths whose bytes disagree with the `outputHash` this lock recorded
+ * for them.
+ *
+ * This answers "was this tree's generated output consistent with its own lock",
+ * which is what separates a hand-edited generated file from an ordinary stale
+ * one. `skillset resolve` asks it of each side of a conflict, because a
+ * conflicted path on disk represents neither side.
+ *
+ * An unreadable or untrusted lock reports every path it claims as disagreeing:
+ * absence of evidence is not evidence the output is clean.
+ */
+export function lockDisagreementPaths(
+  lockJson: unknown,
+  outputRoot: string,
+  snapshots: ReadonlyMap<string, GeneratedFileSnapshot>,
+  lockLabel = WORKSPACE_LOCK_FILE
+): ReadonlySet<string> {
+  const disagreeing = new Set<string>();
+  let lock: ReturnType<typeof parseGeneratedLock>;
+  try {
+    lock = parseGeneratedLock(lockJson, lockLabel);
+  } catch {
+    return new Set(snapshots.keys());
+  }
+  const trusted =
+    lock.schemaVersion !== 3 ||
+    (isJsonRecord(lockJson) && hasValidLockProvenance(lockJson));
+  for (const item of lock.items) {
+    const files = item.files
+      .map((file) => ({
+        displayPath: joinOutputRoot(outputRoot, file),
+        file,
+      }))
+      .sort((left, right) => compareStrings(left.file, right.file));
+    if (files.some((entry) => !snapshots.has(entry.displayPath))) {
+      // A grouped output hash is only comparable when every member is
+      // present. Missing side evidence must fail closed: otherwise a conflict
+      // can discard an edit in the surviving member merely because its sibling
+      // was deleted on that side.
+      for (const entry of files) disagreeing.add(entry.displayPath);
+      continue;
+    }
+    if (!trusted || item.outputHash === undefined) {
+      for (const entry of files) disagreeing.add(entry.displayPath);
+      continue;
+    }
+    const hash = snapshotOutputHash(files, item, lock.schemaVersion, snapshots);
+    if (hash === item.outputHash) continue;
+    for (const entry of files) disagreeing.add(entry.displayPath);
+  }
+  return disagreeing;
+}
+
+/** {@link currentOutputHash} over supplied bytes rather than the filesystem. */
+function snapshotOutputHash(
+  files: readonly LockFileEntry[],
+  item: ParsedGeneratedLockItem,
+  schemaVersion: 1 | 2 | 3,
+  snapshots: ReadonlyMap<string, GeneratedFileSnapshot>
+): string | undefined {
+  const hash = createHash("sha256");
+  hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
+  for (const entry of files) {
+    const snapshot = snapshots.get(entry.displayPath);
+    if (snapshot === undefined) return undefined;
+    hash.update(entry.file);
+    hash.update("\0");
+    if (schemaVersion !== 1) {
+      const expectedMode = item.fileModes?.[entry.file];
+      if (expectedMode === undefined) return undefined;
+      hash.update(
+        supportsGeneratedFileModes()
+          ? formatGeneratedFileMode(snapshot.mode)
+          : expectedMode
+      );
+      hash.update("\0");
+    }
+    hash.update(snapshot.content);
+    hash.update("\0");
+  }
   return `sha256:${hash.digest("hex")}`;
 }
 

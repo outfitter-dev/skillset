@@ -491,6 +491,7 @@ export const CLI_ROUTE_FLAGS = {
   "release audit": ["--json", "--root"],
   "release plan": ["--json", "--root"],
   "report show": ["--json"],
+  resolve: ["--json", "--root", "--yes"],
   restore: ["--json", "--list", "--root", "--yes"],
   status: ["--activation", "--json", "--root"],
   test: [
@@ -524,6 +525,7 @@ export const FINITE_JSON_ROUTES = [
   "explain",
   "reconcile",
   "rename",
+  "resolve",
   "build",
   "update",
   "diff",
