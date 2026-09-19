@@ -41,17 +41,28 @@ export async function readPin(repoRoot: string): Promise<string> {
   return pin;
 }
 
-/** Root of the version-scoped interpreter cache. Never the global install. */
+/** Root of the host- and version-scoped interpreter cache. Never the global install. */
 export function pinnedBunRoot(version: string): string {
-  const cacheHome =
-    process.env.XDG_CACHE_HOME?.trim() || join(homedir(), ".cache");
-  return join(cacheHome, "skillset", "bun", version);
+  // test-sandbox replaces inherited XDG roots after resolving the interpreter.
+  // Using that ambient value here would write the persistent runtime into a
+  // caller-controlled directory that the child must otherwise leave untouched.
+  return join(
+    homedir(),
+    ".cache",
+    "skillset",
+    "bun",
+    `${process.platform}-${process.arch}`,
+    version
+  );
 }
 
 async function isExecutable(path: string): Promise<boolean> {
   try {
     const info = await stat(path);
-    return info.isFile();
+    return (
+      info.isFile() &&
+      (process.platform === "win32" || (info.mode & 0o111) !== 0)
+    );
   } catch {
     return false;
   }

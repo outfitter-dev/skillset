@@ -9,10 +9,25 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { pinnedBunRoot } from "../pinned-bun";
+
 const runner = join(import.meta.dir, "..", "test-sandbox.ts");
+
+test("SET-604: pinned runtimes use a host-specific persistent cache", () => {
+  expect(pinnedBunRoot("1.2.3")).toBe(
+    join(
+      homedir(),
+      ".cache",
+      "skillset",
+      "bun",
+      `${process.platform}-${process.arch}`,
+      "1.2.3"
+    )
+  );
+});
 
 test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox", async () => {
   const decoy = await decoyEnvironment();
