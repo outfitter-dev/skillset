@@ -3,7 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillsetResult } from "../build";
+import { ISOLATED_OUT_ROOT, buildSkillsetResult } from "../build";
+import {
+  createOperationalPathContext,
+  resolveOperationalPath,
+} from "../operational-cache";
 import { classifyRepairPath, planOutputRepair } from "../output-repair";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -351,6 +355,46 @@ describe("build --repair", () => {
 
     expect(result.ok).toBe(true);
     expect(await readFile(lockPath, "utf8")).toBe(lockBefore);
+  });
+
+  it("remaps scoped repair paths into the isolated mirror", async () => {
+    const root = await seededFixture();
+    const xdg = {
+      env: { XDG_CACHE_HOME: join(root, "xdg-cache") },
+      homeDir: root,
+    };
+    const isolatedOutput = join(ISOLATED_OUT_ROOT, OUTPUT_PATH).replaceAll("\\", "/");
+    const isolatedLock = join(
+      ISOLATED_OUT_ROOT,
+      ".agents/skills/skillset.lock"
+    ).replaceAll("\\", "/");
+    const liveBefore = await readFile(join(root, OUTPUT_PATH));
+    const seededIsolated = await buildSkillsetResult(root, { isolated: true, xdg });
+    if (!seededIsolated.ok) throw new Error("isolated repair fixture failed to build");
+
+    const pathContext = createOperationalPathContext(root, xdg);
+    const isolatedSkillPath = resolveOperationalPath(pathContext, isolatedOutput);
+    const isolatedLockPath = resolveOperationalPath(pathContext, isolatedLock);
+    const isolatedBefore = await readFile(isolatedSkillPath);
+    const lockBefore = await readFile(isolatedLockPath, "utf8");
+    await rm(isolatedSkillPath);
+
+    const result = await buildSkillsetResult(root, {
+      isolated: true,
+      repair: { paths: [OUTPUT_PATH] },
+      xdg,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.repair?.verdicts).toContainEqual({
+      action: "restore",
+      outputPath: isolatedOutput,
+      verdict: "output-missing",
+    });
+    expect(result.writes.writtenPaths).toContain(isolatedOutput);
+    expect(await readFile(isolatedSkillPath)).toEqual(isolatedBefore);
+    expect(await readFile(isolatedLockPath, "utf8")).toBe(lockBefore);
+    expect(await readFile(join(root, OUTPUT_PATH))).toEqual(liveBefore);
   });
 
   it("leaves the lock's build provenance alone", async () => {

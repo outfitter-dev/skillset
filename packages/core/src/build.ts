@@ -123,6 +123,19 @@ function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): 
   return outputRoots.map((outputRoot) => outPath(outputRoot));
 }
 
+function mirroredRepairOptions(
+  repair: SkillsetRepairOptions | undefined,
+  outPath: OutPath
+): SkillsetRepairOptions | undefined {
+  if (repair === undefined || repair.paths === undefined || outPath === livePath) {
+    return repair;
+  }
+  return {
+    ...repair,
+    paths: repair.paths.map((path) => outPath(path)),
+  };
+}
+
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
 const LOCK_TOP_LEVEL_KEYS = new Set([
@@ -361,6 +374,7 @@ async function runBuildProjection(
   );
   const liveOutputRoots = managedRoots.roots;
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
+  const repair = mirroredRepairOptions(options.repair, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
@@ -372,7 +386,7 @@ async function runBuildProjection(
     pathContext,
     previousManagedState,
     rendered,
-    ...(options.repair === undefined ? {} : { repair: options.repair }),
+    ...(repair === undefined ? {} : { repair }),
     resolveOutputPath,
     rootPath,
     ...(inspectionOptions.managedLockRepairPaths === undefined
@@ -508,7 +522,7 @@ async function runBuildProjection(
   // narrowed when a repair names paths.
   const scopedWrite = await scopeRepairWrite({
     rendered,
-    repairPaths: options.repair?.paths,
+    repairPaths: repair?.paths,
     resolveOutputPath,
     staleManagedPaths: writeInspection.staleManagedPaths,
   });
@@ -1465,6 +1479,7 @@ export async function diffSkillsetResult(
   );
   const liveOutputRoots = managedRoots.roots;
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
+  const repair = mirroredRepairOptions(options.repair, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
   const inspectionResult = await inspectOutputPlan({
@@ -1474,7 +1489,7 @@ export async function diffSkillsetResult(
     pathContext,
     previousManagedState,
     rendered,
-    ...(options.repair === undefined ? {} : { repair: options.repair }),
+    ...(repair === undefined ? {} : { repair }),
     resolveOutputPath,
     rootPath,
     ...(inspection.sourceDrivenOutputPaths === undefined
