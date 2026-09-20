@@ -74,6 +74,12 @@ export const CHANGE_STREAM_PATHSPEC = ".skillset/changes/*.jsonl";
 export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
   {
     file: ".skillset/changes/ledger.jsonl",
+    id: "evt-4fefce8aafcf6049",
+    previousId: "evt-45aac3dafe33f5b4",
+    rationale: "2026-09-20 restacking appended the preserved SET-551 branch stream after newer main repair-stack evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
     id: "evt-48d9b0bbb0b0b696",
     previousId: "evt-6ad02564c2611f5e",
     rationale: "2026-08-16 beta-wave restacks appended branch evidence recorded 2026-08-14 after trunk records from 2026-08-15; derived state verified identical either side.",
