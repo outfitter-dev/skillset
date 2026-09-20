@@ -1029,8 +1029,8 @@ function setupFiles(
         content: createReadme(options.name, options.targets),
       },
       {
-        path: "AGENTS.md",
-        content: createAgentsGuide(options.name),
+        path: `${sourceRoot}/rules/skillset-workflow.md`,
+        content: createSkillsetWorkflowGuide(options.name),
       },
     );
   }
@@ -1151,7 +1151,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
   ].join("\n");
 }
 
-function createAgentsGuide(name: string): string {
+function createSkillsetWorkflowGuide(name: string): string {
   return [
     "# AGENTS.md",
     "",

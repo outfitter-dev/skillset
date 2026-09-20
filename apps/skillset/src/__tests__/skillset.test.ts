@@ -3869,14 +3869,28 @@ codex: true
   await buildSkillset(root);
 
   const rootAgents = await readFile(join(root, "AGENTS.md"), "utf8");
-  const claudeRule = await readFile(join(root, ".claude/rules/root.md"), "utf8");
+  const claudeInstructions = await readFile(join(root, "CLAUDE.md"), "utf8");
 
   expect(rootAgents).toContain("- Root: .");
   expect(rootAgents).toContain("- Output dir: .");
   expect(rootAgents).toContain("- Source rule: .skillset/rules/root.md");
-  expect(claudeRule).toContain("- Root: ../..");
-  expect(claudeRule).toContain("- Output dir: .claude/rules");
-  expect(claudeRule).toContain("- Source rule: .skillset/rules/root.md");
+  expect(claudeInstructions).toContain("- Root: .");
+  expect(claudeInstructions).toContain("- Output dir: .");
+  expect(claudeInstructions).toContain("- Source rule: .skillset/rules/root.md");
+  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(false);
+  const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+    items: readonly {
+      consumers?: readonly unknown[];
+      name: string;
+      owner?: unknown;
+      outputPath: string;
+    }[];
+  };
+  expect(lock.items.find((item) => item.name === "CLAUDE.md")).toMatchObject({
+    consumers: [{ phase: "delta", target: "claude" }],
+    owner: { target: "claude" },
+    outputPath: "CLAUDE.md",
+  });
 });
 
 test("rules concatenate adopted Agent Instructions output independently of provider opt-outs", async () => {
@@ -3905,6 +3919,16 @@ codex: false
 
 # Second Docs Rule
 `,
+    ".skillset/rules/root-disabled.md": `
+---
+claude: false
+---
+
+# Root Disabled For Claude
+`,
+    ".skillset/rules/root-enabled.md": `
+# Root Enabled For Claude
+`,
     "docs/guide.md": `
 # Guide
 `,
@@ -3917,6 +3941,47 @@ codex: false
   expect(docsAgents).toContain("# Second Docs Rule");
   expect(await exists(join(root, ".claude/rules/docs/first.md"))).toBe(false);
   expect(await exists(join(root, ".claude/rules/docs/second.md"))).toBe(true);
+  const rootAgents = await readFile(join(root, "AGENTS.md"), "utf8");
+  const rootClaude = await readFile(join(root, "CLAUDE.md"), "utf8");
+  expect(rootAgents).toContain("# Root Disabled For Claude");
+  expect(rootAgents).toContain("# Root Enabled For Claude");
+  expect(rootClaude).not.toContain("# Root Disabled For Claude");
+  expect(rootClaude).toContain("# Root Enabled For Claude");
+});
+
+test("rules move Claude instructions between root and path-scoped outputs", async () => {
+  const sourcePath = ".skillset/rules/project.md";
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+`,
+    [sourcePath]: `
+# Project Rule
+`,
+    "src/index.ts": "export const value = 1;\n",
+  });
+
+  await buildSkillset(root);
+  expect(await exists(join(root, "CLAUDE.md"))).toBe(true);
+  expect(await exists(join(root, ".claude/rules/project.md"))).toBe(false);
+
+  await writeFile(
+    join(root, sourcePath),
+    `---\npaths:\n  - src/**/*.ts\n---\n\n# Project Rule\n`,
+    "utf8"
+  );
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "CLAUDE.md"))).toBe(false);
+  expect(await exists(join(root, ".claude/rules/project.md"))).toBe(true);
+
+  await writeFile(join(root, sourcePath), "# Project Rule\n", "utf8");
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "CLAUDE.md"))).toBe(true);
+  expect(await exists(join(root, ".claude/rules/project.md"))).toBe(false);
 });
 
 test("rules block unmanaged AGENTS collisions", async () => {
@@ -3945,6 +4010,34 @@ codex: true
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
   expect(await exists(join(root, ".claude/rules/root.md"))).toBe(false);
   expect(await exists(join(root, ".skillset/snapshots"))).toBe(false);
+});
+
+test("rules block unmanaged CLAUDE collisions", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+`,
+    ".skillset/rules/root.md": `
+# Root Rule
+`,
+    "CLAUDE.md": `
+# Existing Claude Instructions
+`,
+  });
+
+  const result = await buildSkillsetResult(root);
+  expect(result.diagnostics).toContainEqual(expect.objectContaining({
+    code: "unmanaged-output-collision",
+    outputPath: "CLAUDE.md",
+  }));
+  expect(result.ok).toBe(false);
+  expect(result.writes.paths).toEqual([]);
+  expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toContain(
+    "# Existing Claude Instructions"
+  );
+  expect(await exists(join(root, "AGENTS.md"))).toBe(false);
 });
 
 test("rules reject unknown skillset variables", async () => {

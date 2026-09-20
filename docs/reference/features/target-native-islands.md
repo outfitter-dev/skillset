@@ -41,13 +41,14 @@ Target `projectRoot` configuration can replace the default project dotfolder. Sk
 
 Known text and structured files are preprocessed and then parsed or schema-validated where their format has a contract. Unknown text and binary files copy byte-for-byte. No provider-source file may leak into another target.
 
-Codex `.rules` files are command-execution policy and are accepted only from `.skillset/_codex/rules/**/*.rules`. Portable instruction prose belongs in `.skillset/rules/**/*.md` and renders to [provider-specific instruction surfaces](instructions.md); Codex plugin `.rules` are unsupported.
+Codex `.rules` files are command-execution policy and are accepted only from `.skillset/_codex/rules/**/*.rules`. Portable instruction prose belongs in `.skillset/rules/**/*.md` and renders to the inherent Agent Instructions baseline plus enabled [provider instruction surfaces](instructions.md); Codex plugin `.rules` are unsupported.
 
-| Portable source | Claude | Codex | Cursor |
-| --- | --- | --- | --- |
-| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | `.cursor/rules/**/*.mdc` |
+| Portable source | Agent Instructions | Claude | Codex | Cursor |
+| --- | --- | --- | --- | --- |
+| Unscoped `<source-root>/rules/**/*.md` | Root `AGENTS.md` | Root `CLAUDE.md` | Logical consumer of `AGENTS.md` | `.cursor/rules/**/*.mdc` |
+| Path-scoped `<source-root>/rules/**/*.md` | Derived root or scoped `AGENTS.md` | `.claude/rules/**/*.md` | Logical consumer of `AGENTS.md` | `.cursor/rules/**/*.mdc` |
 
-That portable source renders to Claude `.claude/rules/**/*.md`, Codex `AGENTS.md`, and Cursor `.cursor/rules/**/*.mdc`; provider source remains the escape hatch for behavior that cannot share that contract.
+The Agent Instructions projection is inherent and remains present when a provider is disabled. Claude, Codex, and Cursor add their native output or consumption independently; provider source remains the escape hatch for behavior that cannot share that contract.
 
 ## Errors and Caveats
 

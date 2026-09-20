@@ -17,9 +17,24 @@ compile:
 
 The [workspace-config schema and maximal example](../reference/schemas/README.md) are the exhaustive contract. The sections below cover the choices most projects need to make.
 
+## Understand the Default Output
+
+Agent standards and provider targets are independent output axes. Adaptive source always renders each adopted Agent standard projection that applies to its source kind; provider selection adds the native files and product bundles for the selected providers:
+
+| Authored source | Inherent standard output | Selected-provider output |
+| --- | --- | --- |
+| `.skillset/rules/**/*.md` | Root or scoped `AGENTS.md` | Root `CLAUDE.md` for unscoped Claude guidance, scoped Claude rules, Codex's compatible logical consumption of `AGENTS.md`, and Cursor rules |
+| `.skillset/skills/<skill>/` | `.agents/skills/<skill>/` | Provider-native skill projections and Codex sidecars where applicable |
+| `.skillset/plugins/<plugin>/` | `plugins/<plugin>/agents/` | Claude bundles, Codex-selected ChatGPT bundles, and Cursor bundles |
+| `.skillset/agents/*.md` | None | Provider-native project-agent roles, including Codex subagent TOML under `.codex/agents/` |
+
+There is no `compile.agents`, root `agents`, plugin, or frontmatter switch for standards. `agents` in `.skillset/agents/` and `defaults.<provider>.agents` means project-agent roles, not the Agent standards family. The [instructions](../reference/features/instructions.md), [skills](../reference/features/skills.md), [plugins](../reference/features/plugins.md), and [agents](../reference/features/agents.md) references own the exact projections.
+
 ## Select Providers
 
 `compile.targets` establishes the root provider plan; each selected provider becomes a [target](../glossary.md#target). It accepts `claude`, `codex`, and `cursor`. When it is omitted, Skillset uses the default provider plan and builds every supported provider rendering for portable source.
+
+The default provider plan is Claude, Codex, and Cursor. Use `claude: false`, `codex: false`, or `cursor: false` when a project deliberately does not want that provider's native output. Turning a provider off does not suppress an applicable Agent Instructions, Agent Skills, or Agent Plugins projection.
 
 Root provider blocks such as `claude`, `codex`, and `cursor` configure output details and inherit that plan unless explicitly enabled or disabled. Lower-level plugin and [source-unit](../glossary.md#source-unit) provider toggles can opt a provider back in where the source contract supports it. A bare top-level `targets` key is invalid. See [target overrides](target-overrides.md) for the full [cascade](../glossary.md#cascade).
 

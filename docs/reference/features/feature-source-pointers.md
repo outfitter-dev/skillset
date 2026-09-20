@@ -37,17 +37,17 @@ bin:
 
 | Feature key | Claude | Codex | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `mcp` | `.mcp.json` / manifest field | `.mcp.json` / manifest field | `implemented` | Conventional `<source-root>/plugins/<plugin>/.mcp.json` is auto-discovered. `mcp.source` can point at a repo-owned JSON file. |
+| `mcp` | `.mcp.json` / manifest field | ChatGPT bundle `mcp.json` fixed component | `implemented` | Conventional `<source-root>/plugins/<plugin>/.mcp.json` is auto-discovered. `mcp.source` can point at a repo-owned JSON file. The ChatGPT `plugin.json` does not redirect this fixed Agent Plugins component. |
 | `bin` | plugin-root `bin/` | `unsupported` | `target_native` / `implemented` for Claude | Conventional `<source-root>/plugins/<plugin>/bin/` is auto-discovered. `bin.source` can point at a repo-owned directory. Enabled Codex plugin output fails loudly. |
-| `apps` | n/a | `.app.json` / manifest field | `target_native` / `implemented pass-through`, `planned` pointer adapter | `.app.json` is copied as a native companion path today. `apps.source` is not supported. |
-| `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path behavior continues. Plugin-root `hooks.json` and `hooks.source` are not supported. |
+| `apps` | n/a | ChatGPT bundle `.app.json` / `plugin.json` `extensions.com.openai.apps` | `target_native` / `implemented pass-through`, `planned` pointer adapter | `.app.json` is copied as a native companion path today. `apps.source` is not supported. |
+| `hooks` | `hooks/hooks.json` | ChatGPT bundle `hooks/hooks.json` / `plugin.json` `extensions.com.openai.hooks` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path behavior continues. Plugin-root `hooks.json` and `hooks.source` are not supported. |
 | generic `components.*` | n/a | n/a | `unsupported` | Rejected shape because ownership and target semantics become vague. |
 
 ## Target Rendering
 
 Feature pointers are resolved by the feature adapter that knows the target schema and output path. A pointer does not bypass validation, provenance, or unsupported-target checks. Conventional discovery is warning-free when it finds expected files, and disabled or unsupported features are visible through missing output, lock provenance, or fail-loud diagnostics.
 
-Pass-through companion paths such as Codex `.app.json` and plugin `hooks/hooks.json` are implemented through their native path renderers, not through feature-key pointer adapters. Authors should place those files in their conventional source paths until a future issue explicitly adds `apps.source` or `hooks.source`.
+Pass-through companion paths such as ChatGPT bundle `.app.json` and `hooks/hooks.json` are implemented through their native path renderers, not through feature-key pointer adapters. The generated `plugin.json` references those components through `extensions.com.openai`; portable skills and `mcp.json` retain their fixed Agent Plugins locations. Authors should place companion files in their conventional source paths until a future issue explicitly adds `apps.source` or `hooks.source`.
 
 Claude plugin-root `bin/` is a documented target-native component added to the Bash tool `PATH` while the plugin is enabled. It is copied into Claude plugin output and recorded as a `plugin-feature` lock entry, but it does not add a manifest field. Plugin-root `settings.json` is target-native too, but live settings suggestion and mutation remain future-only.
 

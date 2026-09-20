@@ -610,6 +610,17 @@ compile:
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "project-instructions",
+        outputs: expect.arrayContaining([
+          expect.objectContaining({ path: "CLAUDE.md" }),
+        ]),
+        sourceUnit: "instruction:CLAUDE.md",
+        status: "transformed",
+        target: "claude",
+      })
+    );
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        featureId: "project-instructions",
         sourceUnit: "instruction:AGENTS.md",
         status: "transformed",
         target: "codex",

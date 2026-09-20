@@ -525,7 +525,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["33"],
       "amends": [],
       "created": "2026-06-27",
       "depends_on": ["0", "1", "2", "8"],
@@ -544,6 +544,11 @@
           "context": "- [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - keeps `.skillset/rules/` as adaptive instruction source and `.skillset/agents/` as project-agent source.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md#decision) - the instruction destination mapping amended here.",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-root-claude-instructions-come-from-canonical-source.md"
         }
       ],
       "number": "0009",
@@ -1332,7 +1337,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "ChatGPT Product Bundles and Standards-Only Builds",
-      "updated": "2026-09-12"
+      "updated": "2026-09-13"
     },
     {
       "amended_by": [],
@@ -1362,6 +1367,11 @@
       "depends_on": ["28", "30"],
       "inbound": [
         {
+          "context": "- [ADR-0032: Standards Compilation Is Inherent](../0032-standards-compilation-is-inherent.md#decision) - the unchanged independent standards baseline.",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-root-claude-instructions-come-from-canonical-source.md"
+        },
+        {
           "context": "`compile.targets` remains the provider-selection list. Under [ADR-0032](../adrs/0032-standards-compilation-is-inherent.md), standards have no source selection field: the compiler derives every applica",
           "from": "schema-contracts",
           "fromPath": "docs/development/schema-contracts.md"
@@ -1375,6 +1385,21 @@
       "superseded_by": null,
       "title": "Standards Compilation Is Inherent",
       "updated": "2026-09-12"
+    },
+    {
+      "amended_by": [],
+      "amends": ["9"],
+      "created": "2026-09-14",
+      "depends_on": ["9", "32"],
+      "inbound": [],
+      "number": "0033",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0033-root-claude-instructions-come-from-canonical-source.md",
+      "slug": "root-claude-instructions-come-from-canonical-source",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Root Claude Instructions Come From Canonical Source",
+      "updated": "2026-09-14"
     }
   ],
   "version": 1

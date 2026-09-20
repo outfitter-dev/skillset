@@ -103,10 +103,10 @@ describe("feature registry", () => {
       join(REPO_ROOT, "docs/reference/features/target-native-islands.md")
     ).text();
     expect(documentation).toContain(
-      "| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | `.cursor/rules/**/*.mdc` |"
+      "| Unscoped `<source-root>/rules/**/*.md` | Root `AGENTS.md` | Root `CLAUDE.md` | Logical consumer of `AGENTS.md` | `.cursor/rules/**/*.mdc` |"
     );
     expect(documentation).toContain(
-      "Claude `.claude/rules/**/*.md`, Codex `AGENTS.md`, and Cursor `.cursor/rules/**/*.mdc`"
+      "Path-scoped `<source-root>/rules/**/*.md`"
     );
   });
 
