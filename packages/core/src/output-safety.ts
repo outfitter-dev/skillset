@@ -653,20 +653,13 @@ async function readManagedLock(
 
   let lock;
   try {
-    const emptyLegacyV2 =
-      isJsonRecord(parsed) &&
-      parsed.schemaVersion === 2 &&
-      Array.isArray(parsed.items) &&
-      parsed.items.length === 0;
-    lock = emptyLegacyV2
-      ? parseGeneratedLock(parsed, displayLockPath, { provenance: "inspect" })
-      : parseCurrentGeneratedLock(
-          parsed,
-          displayLockPath,
-          requireProvenance
-            ? { provenance: "require" }
-            : { provenance: "inspect" }
-        );
+    lock = parseCurrentGeneratedLock(
+      parsed,
+      displayLockPath,
+      requireProvenance
+        ? { provenance: "require" }
+        : { provenance: "inspect" }
+    );
     if (
       !requireProvenance &&
       requiresProvenanceForUnplannedPaths(
