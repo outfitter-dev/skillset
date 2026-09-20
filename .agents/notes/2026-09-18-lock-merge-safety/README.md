@@ -2,19 +2,15 @@
 
 https://linear.app/outfitter/issue/SET-598/skillsetlock-conflicts-on-every-stacked-rebase-treat-it-as-a-snapshot
 
-## Why this branch sits on `main`
+## Stack position
 
-It is deliberately **not** inserted below the authoring stack.
+This investigation is stacked directly above SET-601, after the generated-output
+repair branches SET-599 and SET-600. That ordering is load-bearing: SET-601
+already makes lock conflicts whole-file and marker-free, while SET-600 repairs
+them by regeneration. This branch evaluates whether changing the lock format
+would improve on that completed path.
 
-The fix changes the lock's serialization. Every branch in that stack carries
-commits that rewrite the old-format lock — 24 of them by the tip. Rebasing those
-onto a new format conflicts wholesale on every one, which is worse than the
-problem being fixed.
-
-So: land this on `main` independently, so future stacks inherit merge-safe locks.
-The existing stack is handled separately, below.
-
-## Scope
+## Original proposal under evaluation
 
 1. **Emit the lock as JSONL.** One `items[]` record per line, sorted
    deterministically by `outputPath`. Header fields (`buildMode`, `features`,
@@ -39,23 +35,6 @@ pre-commit, `skillset:check:ci` in pre-push and CI.
 `scripts/provider-validation-artifacts.ts`, and `scripts/docs/golden-path.ts`.
 Confirm the full set before changing the format.
 
-## The existing stack
-
-Not fixed by this branch. Two options, both valid:
-
-- **Accept the fork.** The authoring stack is linear from `main` through
-  `source-layout-discovery`, then forks twice. `gt merge` works per line, so it
-  runs twice instead of once.
-- **Linearize with regeneration.** Redo the blocked move and resolve each lock
-  conflict by rebuilding rather than picking a side: `bun run skillset:build`,
-  run `bun run skillset:check:outputs`, then `gt add` the two lock paths and
-  `gt continue`. The explicit check is required because rebase continuation
-  does not run pre-commit hooks. Repeats once per rebased commit that touches
-  the lock.
-
-Landing the bottom of the stack first makes the second option much cheaper,
-because far less remains above the fork to rebase.
-
 ## Principle
 
 Ledgers are append-only and merge with `union` plus a uniqueness guard.
@@ -67,9 +46,10 @@ structurally unable to conflict, not choosing a better side.
 
 # Finding: the proposed format change cannot work as specified
 
-**No code landed on this branch.** Investigated 2026-09-18. The JSONL + `union`
-design is not implementable as written, and the reason is a lock field the issue
-does not mention. This needs a human decision before anything is built.
+**No runtime code lands on this branch.** Investigated 2026-09-18. The JSONL +
+`union` design is not implementable as written, and the reason is a lock field
+the issue does not mention. The evidence below supports retaining the snapshot
+format and the `-merge` policy established by SET-601.
 
 ## The blocker: `provenanceHash`
 
@@ -155,8 +135,8 @@ so this is a compatibility decision, not an internal refactor.
 
 ## Recommendation
 
-**Do not change the lock format yet.** Branches 1–3 changed the arithmetic this
-issue was filed against:
+**Do not change the lock format yet.** SET-599 through SET-601 changed the
+arithmetic this issue was filed against:
 
 * SET-601 makes a lock conflict marker-free — a whole-file conflict, never
   marker soup.
@@ -180,9 +160,9 @@ lock provenance deserves its own ADR and its own issue.
   should never arbitrate a merge" — and then proposes `union`, which is a line
   merge arbitrated by a derived file. The principle is the correct half.
 
-## Left in place deliberately
+## Policy retained deliberately
 
-`generated-merge-policy:guard` (SET-601) still accepts `merge=union` for a lock
-path and only for a lock path. That allowance is kept rather than tightened,
-because the decision above is open; if the answer is "locks stay `-merge`", the
-`isLockPath` branch in that guard should be removed.
+`generated-merge-policy:guard` (SET-601) requires `merge` to resolve to `unset`
+for every generated snapshot, including every `skillset.lock`. Locks have no
+`union` exception. Append-only change streams are the only files allowed to use
+`merge=union`.
