@@ -6,11 +6,13 @@ version: 0.4.0
 
 # Fix Skillset Generated Output
 
-Skillset commits its generated output. Those files are derived: their content is a
-function of authored source. A conflict or a diff in one of them carries no
-information, because the correct content is always whatever regenerating produces.
+Skillset commits its generated output. Those files are derived and
+non-authoritative: their final content must come from authored source, never from
+manual reconciliation. A conflict carries no valid merged content. A diff can
+still preserve evidence of a misdirected human edit, so keep it until Skillset
+reports an `output-edited` or `diverged` verdict and the intent is recovered.
 
-Never hand-edit a generated file, and never hand-merge one.
+Never leave an edit in a generated file, and never hand-merge one.
 
 ## Run the repository's own compiler
 
@@ -43,8 +45,11 @@ Do this first. It determines everything that follows.
 
 ## Read the verdict
 
-`skillset build --repair` and `skillset resolve` both print one line per affected
-path: the verdict, then the action. Read those words rather than re-deriving them.
+`skillset build --repair` reports repair verdicts and actions. A dry-run
+`skillset resolve` instead prints the conflict partition (`generated`, authored,
+or hand-edited); after `--yes` reaches the repair preview, it prints any
+non-clean repair verdicts before its summary. Read the command's exact report
+rather than re-deriving it.
 
 | Verdict | What it means | What happens |
 | --- | --- | --- |
@@ -94,10 +99,22 @@ lock that side committed, and refuses when either disagrees. MUST NOT resolve
 such a path by taking a side. The pre-rebase commit still holds the edit; recover
 it from there.
 
-`skillset resolve` reads the conflicted locks from conflict stage 2, then stage 3,
-then `HEAD`, so a lock carrying markers does not need fixing by hand first. It
-stages only paths it classified as generated, and MUST NOT be used to stage
-authored source.
+`skillset resolve` reads lock ownership from exact index blobs: stage 0 for an
+unconflicted lock and stages 2 and 3 for the two conflict sides. It never trusts
+mutable worktree lock bytes as provenance, so a lock carrying markers does not
+need fixing by hand first. It stages only paths it classified as generated, and
+MUST NOT be used to stage authored source.
+
+With `--yes`, resolve refuses worktree-only compiler inputs that could change the
+projection: source, workspace config and manifest files, external repository
+package sources, and explicit feature inputs. Staged inputs and unrelated dirt
+outside that input inventory do not block it.
+
+The repair is transactional across the whole projection, not only the paths that
+happened to conflict. Before writing, resolve records each affected path's exact
+bytes, executable mode, absence, missing parent directories, or symlink target.
+If validation, build, or staging fails, it restores those preimages rather than
+leaving a partially repaired worktree.
 
 ## Repair drift outside a conflict
 

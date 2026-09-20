@@ -196,12 +196,12 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-fix",
-      "outputHash": "sha256:b3af99242e6420714459db4793dba21c8b5f7e951e581876b93ddd4858610803",
+      "outputHash": "sha256:3a51fe4e176afb419fc88e76c3b07d0c9257a8e4cb6d8c38a77fcfb6ce154329",
       "outputPath": "skillset-fix/SKILL.md",
       "owner": {
         "standardProfile": "agent-skills"
       },
-      "sourceHash": "sha256:0c4fee9dcc2dd9a143dde1e82a12708b043d5cbd4529c2b06e582cf28cec773e",
+      "sourceHash": "sha256:092a88ad7da6c21a8f931873da7d9e38deeebb8a7352bfbd07d34064f97d63ec",
       "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
       "version": "0.4.0"
     },
@@ -238,7 +238,7 @@
     }
   ],
   "outputRoot": ".agents/skills",
-  "provenanceHash": "sha256:d812f11e748896bf1198f0068964223643155a8c51275a532e5c0dc0a9514911",
+  "provenanceHash": "sha256:0a29dff0d16bf69d7c259536d9bac10fe7c6985d2861ca3d59fc5cc9cfaee2cb",
   "renderResults": [
     {
       "destination": "skill",
