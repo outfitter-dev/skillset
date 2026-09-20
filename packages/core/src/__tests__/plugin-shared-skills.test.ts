@@ -181,26 +181,16 @@ cursor:
   });
 
   it("emits shared resources once across compatible provider renderings", async () => {
-    const root = await fixture(`
-resources:
-  - from: plugin:references/checklist.md
-`);
-    await Bun.write(
-      join(
-        root,
-        ".skillset/plugins/demo/shared/references/checklist.md"
-      ),
-      "# Checklist\n"
-    );
+    const root = await fixture("");
 
     const result = await buildSkillsetResult(root);
 
     expect(result.ok).toBe(true);
     expect(
       result.data.filter((file) =>
-        file.path.endsWith("/skills/review/references/checklist.md")
+        file.path.endsWith("/skills/review/assets/common.txt")
       ).map((file) => file.path)
-    ).toEqual(["plugins/demo/skills/review/references/checklist.md"]);
+    ).toEqual(["plugins/demo/skills/review/assets/common.txt"]);
   });
 
   it("flattens grouping directories and names both colliding sources", async () => {
