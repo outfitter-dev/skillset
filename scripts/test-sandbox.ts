@@ -11,6 +11,7 @@ import {
   validateTestSandbox,
   type TestSandboxDescriptor,
 } from "../apps/skillset/src/verification-sandbox";
+import { prependExecutablePath, resolvePinnedBun } from "./pinned-bun";
 
 const argv = process.argv.slice(2);
 const command = argv[0] === "--" ? argv.slice(1) : argv;
@@ -77,8 +78,20 @@ try {
     XDG_STATE_HOME: xdg.state,
   };
   scrubGitConfigParameters(env);
+  // Pin the interpreter, not the machine. Checks such as the native size
+  // baseline compare recorded evidence against `Bun.version`, so a contributor
+  // whose global Bun differs from `.bun-version` would otherwise fail tests
+  // that pass in CI. Resolution is a no-op when the ambient Bun already
+  // matches, which is the CI case.
+  const pinnedBun = await resolvePinnedBun(repoRoot);
+  env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
+  const childCommand =
+    basename(command[0] ?? "") === "bun"
+      ? [pinnedBun.binPath, ...command.slice(1)]
+      : [...command];
+
   await validateTestSandbox(env, repoRoot);
-  process.exitCode = await run(command, env);
+  process.exitCode = await run(childCommand, env);
 } catch (error) {
   retain = true;
   console.error(`skillset: test sandbox failed: ${message(error)}`);

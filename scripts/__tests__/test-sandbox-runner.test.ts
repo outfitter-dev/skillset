@@ -9,10 +9,148 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import {
+  pinnedBunExecutableName,
+  pinnedBunInstallCommand,
+  pinnedBunRoot,
+  prependExecutablePath,
+  publishPinnedBunCache,
+} from "../pinned-bun";
+
 const runner = join(import.meta.dir, "..", "test-sandbox.ts");
+
+test("SET-604: pinned runtimes use a host-specific persistent cache", () => {
+  expect(pinnedBunRoot("1.2.3")).toBe(
+    join(
+      homedir(),
+      ".cache",
+      "skillset",
+      "bun",
+      `${process.platform}-${process.arch}`,
+      "1.2.3"
+    )
+  );
+});
+
+test("SET-604: pinned runtime installation is native to each host", () => {
+  expect(pinnedBunExecutableName("linux")).toBe("bun");
+  expect(pinnedBunExecutableName("win32")).toBe("bun.exe");
+  expect(pinnedBunInstallCommand("1.4.0", "linux")).toEqual([
+    "bash",
+    "-c",
+    'curl -fsSL https://bun.com/install | bash -s -- "bun-v1.4.0"',
+  ]);
+  expect(pinnedBunInstallCommand("1.4.0", "win32")).toEqual([
+    "powershell.exe",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    'iex "& {$(irm https://bun.com/install.ps1)} -Version 1.4.0"',
+  ]);
+});
+
+test("SET-604: pinned runtime PATH precedence uses the host delimiter", () => {
+  expect(
+    prependExecutablePath("C:\\cache\\bun", "C:\\Windows;C:\\Git", ";")
+  ).toBe("C:\\cache\\bun;C:\\Windows;C:\\Git");
+  expect(prependExecutablePath("/cache/bun", "/usr/bin:/bin", ":")).toBe(
+    "/cache/bun:/usr/bin:/bin"
+  );
+  expect(prependExecutablePath("/cache/bun", undefined, ":")).toBe(
+    "/cache/bun"
+  );
+});
+
+for (const staleKind of [
+  "wrong-version",
+  "non-executable",
+  "spawn-invalid",
+  "partial",
+] as const) {
+  test(`SET-604: pinned runtime publication replaces a ${staleKind} cache`, async () => {
+    if (process.platform === "win32") return;
+
+    const root = await mkdtemp(join(tmpdir(), "skillset-bun-publish-"));
+    const target = join(root, "target");
+    const staging = join(root, "staging");
+    try {
+      await writeFakeBun(staging, "1.4.0");
+      if (staleKind === "partial") {
+        await mkdir(target);
+        await writeFile(join(target, "interrupted-install"), "partial\n");
+      } else if (staleKind === "spawn-invalid") {
+        const binPath = join(target, "bin", "bun");
+        await mkdir(dirname(binPath), { recursive: true });
+        await writeFile(binPath, "not an executable\n");
+        await chmod(binPath, 0o755);
+      } else {
+        await writeFakeBun(
+          target,
+          staleKind === "wrong-version" ? "1.3.0" : "1.4.0",
+          staleKind === "non-executable" ? 0o644 : 0o755
+        );
+      }
+
+      await publishPinnedBunCache("1.4.0", staging, target);
+
+      expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
+      await expect(access(staging)).rejects.toThrow();
+      expect(
+        await Array.fromAsync(new Bun.Glob("target.invalid-*").scan(root))
+      ).toEqual([]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+}
+
+test("SET-604: pinned runtime publication rejects a wrong staged version", async () => {
+  if (process.platform === "win32") return;
+
+  const root = await mkdtemp(join(tmpdir(), "skillset-bun-staging-"));
+  const target = join(root, "target");
+  const staging = join(root, "staging");
+  try {
+    await writeFakeBun(staging, "1.3.0");
+
+    await expect(
+      publishPinnedBunCache("1.4.0", staging, target)
+    ).rejects.toThrow("staged runtime does not report bun-v1.4.0");
+
+    await expect(access(staging)).resolves.toBeNull();
+    await expect(access(target)).rejects.toThrow();
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("SET-604: concurrent pinned runtime publishers accept only a valid winner", async () => {
+  if (process.platform === "win32") return;
+
+  const root = await mkdtemp(join(tmpdir(), "skillset-bun-race-"));
+  const target = join(root, "target");
+  const first = join(root, "first");
+  const second = join(root, "second");
+  try {
+    await Promise.all([
+      writeFakeBun(target, "1.3.0"),
+      writeFakeBun(first, "1.4.0"),
+      writeFakeBun(second, "1.4.0"),
+    ]);
+
+    await Promise.all([
+      publishPinnedBunCache("1.4.0", first, target),
+      publishPinnedBunCache("1.4.0", second, target),
+    ]);
+
+    expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
 
 test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox", async () => {
   const decoy = await decoyEnvironment();
@@ -41,7 +179,9 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
   expect(
     observed.xdg.every((path) => path.includes("skillset-test-"))
   ).toBeTrue();
-  expect(observed.git.every((path) => path.includes("skillset-test-"))).toBeTrue();
+  expect(
+    observed.git.every((path) => path.includes("skillset-test-"))
+  ).toBeTrue();
   expect(observed.gitSizes).toEqual([0, 0]);
   expect(observed.noSystem).toBe("1");
   expect(observed.prompt).toBe("0");
@@ -53,7 +193,8 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
 test("SET-389: Git fixtures ignore ambient config, includes, templates, hooks, and identity", async () => {
   const contamination = await gitContaminationEnvironment();
   const before = await fileSnapshot(contamination.files);
-  const helperUrl = new URL("../test-helpers/git-remote.ts", import.meta.url).href;
+  const helperUrl = new URL("../test-helpers/git-remote.ts", import.meta.url)
+    .href;
   const result = await run(
     [
       "bun",
@@ -185,23 +326,24 @@ test("SET-388: inherited worktree descriptors fail before child execution or cle
     state: join(sandboxPath, "xdg", "state"),
   };
   await writeFile(join(worktree, ".git"), "gitdir: /tmp/linked-worktree\n");
-  await Promise.all(Object.values(xdg).map((path) => mkdir(path, { recursive: true })));
+  await Promise.all(
+    Object.values(xdg).map((path) => mkdir(path, { recursive: true }))
+  );
   const descriptorPath = join(sandboxPath, "descriptor.json");
   const sentinel = join(sandboxPath, "child-ran");
-  await writeFile(descriptorPath, JSON.stringify({
-    createdAt: new Date().toISOString(),
-    invocationId: crypto.randomUUID(),
-    repoRoot: await realpath(join(import.meta.dir, "..", "..")),
-    sandboxPath: await realpath(sandboxPath),
-    schemaVersion: 1,
-  }));
+  await writeFile(
+    descriptorPath,
+    JSON.stringify({
+      createdAt: new Date().toISOString(),
+      invocationId: crypto.randomUUID(),
+      repoRoot: await realpath(join(import.meta.dir, "..", "..")),
+      sandboxPath: await realpath(sandboxPath),
+      schemaVersion: 1,
+    })
+  );
 
   const result = await run(
-    [
-      "bun",
-      "-e",
-      `await Bun.write(${JSON.stringify(sentinel)}, "started")`,
-    ],
+    ["bun", "-e", `await Bun.write(${JSON.stringify(sentinel)}, "started")`],
     {
       SKILLSET_TEST_SANDBOX: descriptorPath,
       XDG_CACHE_HOME: xdg.cache,
@@ -275,6 +417,30 @@ for (const [signal, expectedExit] of [
     expect(exitCode, stderr).toBe(expectedExit);
     await expect(access(descriptorPath)).rejects.toThrow();
   });
+}
+
+async function writeFakeBun(
+  root: string,
+  version: string,
+  mode = 0o755
+): Promise<void> {
+  const binPath = join(root, "bin", "bun");
+  await mkdir(dirname(binPath), { recursive: true });
+  await writeFile(
+    binPath,
+    `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(version)}\n`
+  );
+  await chmod(binPath, mode);
+}
+
+async function runVersion(binPath: string): Promise<string> {
+  const proc = Bun.spawn({ cmd: [binPath, "--version"], stdout: "pipe" });
+  const [stdout, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    proc.exited,
+  ]);
+  expect(exitCode).toBe(0);
+  return stdout.trim();
 }
 
 async function decoyEnvironment() {
