@@ -16,6 +16,10 @@ apps/native-*/bin/
 .agents/goals/
 .scratch/
 .skillset/cache/
+# Bun's runtime transpiler cache. scripts/test-sandbox.ts disables it with
+# BUN_RUNTIME_TRANSPILER_CACHE_PATH=0, so it only lands here when a bun command
+# runs outside the test:sandbox wrapper.
+bun/
 !.skillset/snapshots/
 .skillset/snapshots/*
 !.skillset/snapshots/.gitignore

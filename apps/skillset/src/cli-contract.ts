@@ -181,6 +181,12 @@ export const CLI_FLAGS = {
     meaning: "Include an optional init scaffold component.",
     value: "repeatable-value",
   },
+  "--discard-edits": {
+    family: "mutation",
+    meaning:
+      "Overwrite hand-edited generated output during a repair instead of preserving it.",
+    value: "boolean",
+  },
   "--isolated": {
     family: "mode",
     meaning:
@@ -359,6 +365,12 @@ export const CLI_FLAGS = {
       "Enable deterministic ordinary output writes for a route whose default is continuous or comprehensive preview.",
     value: "boolean",
   },
+  "--repair": {
+    family: "mode",
+    meaning:
+      "Classify generated output against the lock and a fresh render, restoring missing output and refusing to discard hand edits. Names the managed output paths to repair, or repairs all of them.",
+    value: "repeatable-value",
+  },
   "--yes": {
     family: "mutation",
     meaning: "Confirm a fully specified plan-first mutation without prompting.",
@@ -369,8 +381,10 @@ export const CLI_FLAGS = {
 export const CLI_ROUTE_FLAGS = {
   build: [
     "--all",
+    "--discard-edits",
     "--isolated",
     "--json",
+    "--repair",
     "--root",
     "--scope",
     "--updated",

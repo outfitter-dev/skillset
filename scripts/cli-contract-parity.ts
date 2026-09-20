@@ -232,6 +232,8 @@ function runtimeRouteSeed(route: string, flag?: CliFlag): readonly string[] {
       return ["explain", "skill.md"];
     case "hooks context":
       return ["hooks", "context", "--event", "Stop"];
+    case "build":
+      return flag === "--discard-edits" ? ["build", "--repair"] : ["build"];
     case "check":
       if (flag === "--fix" || flag === "--report" || flag === "--since") {
         return ["check", "--ci"];
