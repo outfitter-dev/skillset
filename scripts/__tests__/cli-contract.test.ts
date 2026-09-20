@@ -20,8 +20,8 @@ import {
 } from "../cli-contract";
 
 describe("SET-275 final CLI contract", () => {
-  test("pins the exact 25-command top-level roster without retired aliases", () => {
-    expect(CLI_COMMANDS).toHaveLength(25);
+  test("pins the exact 26-command top-level roster without retired aliases", () => {
+    expect(CLI_COMMANDS).toHaveLength(26);
     expect(new Set(CLI_COMMANDS).size).toBe(CLI_COMMANDS.length);
     expect(CLI_COMMANDS).toEqual([
       "build",
