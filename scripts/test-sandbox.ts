@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative } from "node:path";
 
-import { resolvePinnedBun } from "./pinned-bun";
 import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,
@@ -12,6 +11,7 @@ import {
   validateTestSandbox,
   type TestSandboxDescriptor,
 } from "../apps/skillset/src/verification-sandbox";
+import { prependExecutablePath, resolvePinnedBun } from "./pinned-bun";
 
 const argv = process.argv.slice(2);
 const command = argv[0] === "--" ? argv.slice(1) : argv;
@@ -84,7 +84,7 @@ try {
   // that pass in CI. Resolution is a no-op when the ambient Bun already
   // matches, which is the CI case.
   const pinnedBun = await resolvePinnedBun(repoRoot);
-  env.PATH = [pinnedBun.binDir, env.PATH].filter(Boolean).join(":");
+  env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
   const childCommand =
     basename(command[0] ?? "") === "bun"
       ? [pinnedBun.binPath, ...command.slice(1)]

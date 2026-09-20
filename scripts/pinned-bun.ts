@@ -12,9 +12,18 @@
  * global install: the pinned version is cached under the user cache directory,
  * version-scoped, and resolved per run.
  */
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  stat,
+} from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 /** How the pinned interpreter was obtained for this run. */
 export type PinnedBunSource = "ambient" | "cached" | "installed";
@@ -84,6 +93,15 @@ export function pinnedBunInstallCommand(
   ];
 }
 
+/** Put the pinned interpreter first without assuming a POSIX PATH separator. */
+export function prependExecutablePath(
+  binDir: string,
+  currentPath: string | undefined,
+  separator = delimiter
+): string {
+  return [binDir, currentPath].filter(Boolean).join(separator);
+}
+
 async function isExecutable(path: string): Promise<boolean> {
   try {
     const info = await stat(path);
@@ -97,14 +115,92 @@ async function isExecutable(path: string): Promise<boolean> {
 }
 
 async function reportedVersion(binPath: string): Promise<string | null> {
-  const child = Bun.spawn({
-    cmd: [binPath, "--version"],
-    stderr: "ignore",
-    stdout: "pipe",
-  });
-  const text = (await new Response(child.stdout).text()).trim();
-  const code = await child.exited;
-  return code === 0 && text.length > 0 ? text : null;
+  try {
+    const child = Bun.spawn({
+      cmd: [binPath, "--version"],
+      stderr: "ignore",
+      stdout: "pipe",
+    });
+    const text = (await new Response(child.stdout).text()).trim();
+    const code = await child.exited;
+    return code === 0 && text.length > 0 ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  return stat(path).then(
+    () => true,
+    () => false
+  );
+}
+
+async function isPinnedBunRoot(
+  root: string,
+  version: string,
+  executableName: string
+): Promise<boolean> {
+  const binPath = join(root, "bin", executableName);
+  return (
+    (await isExecutable(binPath)) &&
+    (await reportedVersion(binPath)) === version
+  );
+}
+
+/**
+ * Atomically publish a validated staged runtime, replacing stale cache state.
+ *
+ * Each contender first accepts a valid winner. Invalid targets are renamed out
+ * of the way rather than removed in place, so another process never observes a
+ * half-rewritten cache root. A contender that loses after quarantine accepts
+ * only a winner that reports the requested version.
+ */
+export async function publishPinnedBunCache(
+  version: string,
+  staging: string,
+  targetRoot: string,
+  executableName = pinnedBunExecutableName()
+): Promise<void> {
+  if (!(await isPinnedBunRoot(staging, version, executableName))) {
+    throw new Error(`staged runtime does not report bun-v${version}`);
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (await isPinnedBunRoot(targetRoot, version, executableName)) return;
+
+    try {
+      await rename(staging, targetRoot);
+      return;
+    } catch {
+      if (await isPinnedBunRoot(targetRoot, version, executableName)) return;
+      if (!(await pathExists(targetRoot))) continue;
+
+      const quarantine = `${targetRoot}.invalid-${randomUUID()}`;
+      try {
+        await rename(targetRoot, quarantine);
+      } catch {
+        if (await isPinnedBunRoot(targetRoot, version, executableName)) return;
+        continue;
+      }
+
+      try {
+        await rename(staging, targetRoot);
+        return;
+      } catch (replaceError) {
+        if (await isPinnedBunRoot(targetRoot, version, executableName)) return;
+        if (!(await pathExists(targetRoot))) {
+          await rename(quarantine, targetRoot).catch(() => {});
+        }
+        throw replaceError;
+      } finally {
+        await rm(quarantine, { force: true, recursive: true }).catch(() => {});
+      }
+    }
+  }
+
+  if (await isPinnedBunRoot(targetRoot, version, executableName)) return;
+  throw new Error(`could not publish bun-v${version} cache at ${targetRoot}`);
 }
 
 /**
@@ -140,11 +236,7 @@ async function installPinnedBun(
       throw new Error(`installer produced no interpreter at ${staged}`);
     }
     if (process.platform !== "win32") await chmod(staged, 0o755);
-    await rename(staging, targetRoot).catch(async (error: unknown) => {
-      // A concurrent run may have won the race; accept its result.
-      if (await isExecutable(join(targetRoot, "bin", executableName))) return;
-      throw error;
-    });
+    await publishPinnedBunCache(version, staging, targetRoot, executableName);
   } finally {
     await rm(staging, { force: true, recursive: true }).catch(() => {});
   }
@@ -172,7 +264,7 @@ export async function resolvePinnedBun(repoRoot: string): Promise<PinnedBun> {
   const binDir = join(root, "bin");
   const binPath = join(binDir, pinnedBunExecutableName());
 
-  if ((await isExecutable(binPath)) && (await reportedVersion(binPath)) === version) {
+  if (await isPinnedBunRoot(root, version, pinnedBunExecutableName())) {
     return { binDir, binPath, source: "cached", version };
   }
 
