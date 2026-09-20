@@ -702,7 +702,7 @@ async function conflictFixture(options: {
   }
   await writeFile(
     join(root, "skillset.yaml"),
-    `skillset:\n  name: resolve-test\n  version: 0.1.0\nclaude: true\ncodex: false\n${
+    `skillset:\n  name: resolve-test\n  version: 0.1.0\nclaude: true\ncodex: false\ncursor: false\n${
       options.externalSupport === true
         ? 'supports:\n  packages:\n    - name: resolve-fixture\n      range: ">=1.0.0"\n      source: repo:package.json\n'
         : ""
