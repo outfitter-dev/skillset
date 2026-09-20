@@ -52,7 +52,7 @@ Use @{{plugin:templates/plugin.txt}}.
     );
 
     const rendered = await renderBuildGraph(graph);
-    const root = "plugins/demo/agents/skills/portable";
+    const root = "plugins/demo/skills/portable";
     expect(paths(rendered)).toContain(`${root}/references/workspace.md`);
     expect(paths(rendered)).toContain(`${root}/templates/plugin.txt`);
     expect(text(rendered, `${root}/SKILL.md`)).toContain(
@@ -62,8 +62,8 @@ Use @{{plugin:templates/plugin.txt}}.
     expect(lockItems(rendered, "plugins/skillset.lock")).toContainEqual(
       expect.objectContaining({
         files: expect.arrayContaining([
-          "demo/agents/skills/portable/references/workspace.md",
-          "demo/agents/skills/portable/templates/plugin.txt",
+          "demo/skills/portable/references/workspace.md",
+          "demo/skills/portable/templates/plugin.txt",
         ]),
         name: "portable",
       })
