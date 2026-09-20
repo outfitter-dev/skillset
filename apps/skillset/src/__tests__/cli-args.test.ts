@@ -320,6 +320,19 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "resolve",
+      args: ["resolve", "--root", ROOT],
+      expected: {
+        command: "resolve",
+        request: {
+          jsonOutput: false,
+          options: {},
+          rootPath: ROOT,
+          yes: false,
+        },
+      },
+    },
+    {
       route: "restore",
       args: ["restore", "backup-1", "--root", ROOT],
       expected: {

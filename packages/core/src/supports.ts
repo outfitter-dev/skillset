@@ -6,6 +6,8 @@ import type { JsonRecord, JsonValue } from "./types";
 import { isJsonRecord } from "./yaml";
 
 export interface SupportsValidationContext {
+  /** Repository-local files read while validating `repo:` package support. */
+  readonly externalInputPaths?: Set<string>;
   readonly label: string;
   readonly rootPath: string;
   readonly warnings: string[];
@@ -116,6 +118,7 @@ async function checkPackageSource(
   }
 
   const sourcePath = resolveInside(context.rootPath, relativeSource);
+  context.externalInputPaths?.add(sourcePath);
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(sourcePath, "utf8")) as unknown;

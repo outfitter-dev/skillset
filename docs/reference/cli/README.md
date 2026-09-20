@@ -38,6 +38,7 @@ These pages are generated from the same typed presentation and flag contracts us
 - [`skillset change`](./change.md) — Record and inspect source changes before release.
 - [`skillset release`](./release.md) — Audit, plan, apply, and amend releases.
 - [`skillset reconcile`](./reconcile.md) — Reconcile a managed source/output conflict.
+- [`skillset resolve`](./resolve.md) — Repair and stage generated-output conflicts during a rebase or merge.
 - [`skillset restore`](./restore.md) — Restore a recorded generated-output backup.
 
 ## Distribute
