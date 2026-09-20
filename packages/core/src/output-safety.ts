@@ -692,7 +692,7 @@ async function readManagedLock(
   return {
     items: lock.items,
     outputHashesTrusted:
-      lock.schemaVersion !== 3 ||
+      lock.schemaVersion < 3 ||
       (isJsonRecord(parsed) && hasValidLockProvenance(parsed)),
     schemaVersion: lock.schemaVersion,
   };
