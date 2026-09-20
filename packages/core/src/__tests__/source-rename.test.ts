@@ -851,7 +851,7 @@ skillset:
     await buildSkillset(root);
     const unmanagedPath = join(
       root,
-      "plugins/tools/claude/skills/new/SKILL.md"
+      "plugins/tools/skills/new/SKILL.md"
     );
     await mkdir(dirname(unmanagedPath), { recursive: true });
     await writeFile(unmanagedPath, "unmanaged package skill\n");
@@ -862,7 +862,7 @@ skillset:
     };
 
     await expect(planSourceRename(request)).rejects.toThrow(
-      "generated destination is unmanaged: plugins/tools/claude/skills/new/SKILL.md"
+      "generated destination is unmanaged: plugins/tools/skills/new/SKILL.md"
     );
     expect(await readFile(unmanagedPath, "utf-8")).toBe(
       "unmanaged package skill\n"

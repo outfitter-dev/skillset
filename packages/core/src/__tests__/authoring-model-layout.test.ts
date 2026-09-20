@@ -128,11 +128,11 @@ describe("SET-551/585 current authoring model", () => {
       ).toBe(false);
       expect(result.renderResults).toContainEqual(
         expect.objectContaining({
-          outputs: [
+          outputs: expect.arrayContaining([
             expect.objectContaining({
               path: `plugins/mg-skills/skills/${skillId}/SKILL.md`,
             }),
-          ],
+          ]),
           sourceUnit: `plugin.mg-skills.skill:${skillId}`,
           standardProfile: "agent-plugins-1.0",
           status: "rendered",
@@ -665,28 +665,27 @@ cursor: false
     expect(claudeManifest.agents).toBe("./agents/");
     expect(cursorManifest.agents).toBe("./agents/");
 
+    const skillRoot = join(root, "plugins/mg-skills/skills/proofread");
+    const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+    expect(skill).toContain("Use the shared repository guidance.");
+    expect(skill).toContain("Use the plugin writing guidance.");
+    expect(skill).toContain("@references/common.md");
+    expect(skill).toContain("@references/checklist.md");
+    expect(skill).toContain("`@{{shared:references/literal.md}}`");
+    expect(
+      await readFile(join(skillRoot, "references/common.md"), "utf8")
+    ).toContain("Common reference");
+    expect(
+      await readFile(join(skillRoot, "references/checklist.md"), "utf8")
+    ).toContain("Proofreading Checklist");
+    expect(await exists(join(skillRoot, "references/literal.md"))).toBe(false);
     for (const provider of ["claude", "chatgpt", "cursor"]) {
-      const skillRoot = join(
+      expect(await exists(join(
         root,
         "plugins/mg-skills",
         provider,
-        "skills/(writing)/proofread"
-      );
-      const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
-      expect(skill).toContain("Use the shared repository guidance.");
-      expect(skill).toContain("Use the plugin writing guidance.");
-      expect(skill).toContain("@references/common.md");
-      expect(skill).toContain("@references/checklist.md");
-      expect(skill).toContain("`@{{shared:references/literal.md}}`");
-      expect(
-        await readFile(join(skillRoot, "references/common.md"), "utf8")
-      ).toContain("Common reference");
-      expect(
-        await readFile(join(skillRoot, "references/checklist.md"), "utf8")
-      ).toContain("Proofreading Checklist");
-      expect(await exists(join(skillRoot, "references/literal.md"))).toBe(
-        false
-      );
+        "skills/proofread/SKILL.md"
+      ))).toBe(false);
     }
     expect(
       await exists(join(root, ".agents/skills/(writing)/proofread/SKILL.md"))

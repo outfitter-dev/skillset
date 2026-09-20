@@ -54,11 +54,12 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
     "references/shared-ref.md",
     "references/plugin-ref.md",
   ]) {
-    expect(
-      await readFile(join(root, "plugins/kitchen/chatgpt/skills/sink", relativePath))
-    ).toEqual(
-      await readFile(join(root, "plugins/kitchen/claude/skills/sink", relativePath))
-    );
+    expect(await exists(
+      join(root, "plugins/kitchen/chatgpt/skills/sink", relativePath)
+    )).toBe(false);
+    expect(await exists(
+      join(root, "plugins/kitchen/claude/skills/sink", relativePath)
+    )).toBe(false);
   }
 
   // Target-native companion surfaces.
