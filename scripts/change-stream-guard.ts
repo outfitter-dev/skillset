@@ -120,6 +120,12 @@ export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
     previousId: "evt-1d875c4df907b1db",
     rationale: "2026-08-07T14:06 change.covered landed after a 2026-08-07T14:24 change.covered record.",
   },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-2111b50d3c71549c",
+    previousId: "evt-45aac3dafe33f5b4",
+    rationale: "2026-09-20 restack appended the preserved SET-504 history recorded 2026-09-14 after trunk evidence from 2026-09-20; record order remains append-only.",
+  },
 ];
 
 /**
