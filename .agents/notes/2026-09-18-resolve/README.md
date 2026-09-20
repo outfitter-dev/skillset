@@ -20,9 +20,9 @@ Blocked by SET-599: resolve cannot repair what build cannot restore.
 
 ## Two implementation notes learned the hard way
 
-- Read the lock from a parseable source. During a conflict the working-tree lock
-  carries markers and will not parse. Fall back to conflict stage 2, then stage 3,
-  then `HEAD`.
+- Read locks only from the index. An unconflicted lock is the stage-0 blob;
+  conflicted locks use their matching stage-2 and stage-3 blobs. Never parse
+  worktree marker soup or fall back to mutable worktree/`HEAD` lock JSON.
 - It must work inside a git worktree, not only the primary checkout. The stack
   that motivated this has 13 worktrees, and `gt restack` silently skips any branch
   checked out in another one.

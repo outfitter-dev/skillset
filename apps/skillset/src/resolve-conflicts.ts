@@ -642,11 +642,13 @@ async function otherConflictRevision(
  * Conflicted generated paths that carried a hand edit on either side.
  *
  * A conflicted path on disk represents neither side, so the verdict table has
- * no baseline to work from. Instead each side is checked against its own lock:
- * a committed tree whose generated output disagrees with the `outputHash` that
- * same tree recorded was edited after it was generated. Both stages are checked
- * because a rebase discards stage 3 ("theirs", the commit being replayed), and
- * an edit there is exactly as lost as one on stage 2.
+ * no baseline to work from. Instead each side is checked against its own
+ * conflict-stage lock, or the shared stage-0 lock when the lock itself did not
+ * conflict. A committed tree whose generated output disagrees with the
+ * `outputHash` that tree records was edited after it was generated. Both
+ * payload stages are checked because a rebase discards stage 3 ("theirs", the
+ * commit being replayed), and an edit there is exactly as lost as one on stage
+ * 2.
  */
 async function readHandEditedPaths(
   rootPath: string,
@@ -680,7 +682,10 @@ async function readHandEditedPaths(
     }
     if (snapshots.size === 0) continue;
     for (const lockPath of lockPaths) {
-      const lockJson = await readStageJson(rootPath, stage, lockPath);
+      const sideLockJson = await readStageJson(rootPath, stage, lockPath);
+      const lockJson = sideLockJson === undefined
+        ? await readStageJson(rootPath, 0, lockPath)
+        : sideLockJson;
       if (lockJson === undefined) continue;
       const scoped = scopeSnapshotsToRoot(snapshots, lockOutputRoot(lockPath));
       if (scoped.size === 0) continue;
