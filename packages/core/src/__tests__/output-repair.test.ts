@@ -386,6 +386,58 @@ describe("build --repair", () => {
     ).toEqual(otherLockItemBefore);
   });
 
+  it("does not back up or gate an edited output outside the repair scope", async () => {
+    const root = await seededFixture();
+    const otherOutput = ".agents/skills/other/SKILL.md";
+    const edited = `${await readFile(join(root, otherOutput), "utf8")}Hand edit.\n`;
+    await rm(join(root, OUTPUT_PATH));
+    await writeFile(join(root, otherOutput), edited);
+
+    const result = await buildSkillsetResult(root, {
+      repair: { paths: [OUTPUT_PATH] },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.writes.writtenPaths).toContain(OUTPUT_PATH);
+    expect(result.writes.backupRunId).toBeUndefined();
+    expect(result.writes.backupRecords).toBeUndefined();
+    expect(result.diagnostics).not.toContainEqual(
+      expect.objectContaining({ outputPath: otherOutput })
+    );
+    expect(await readFile(join(root, otherOutput), "utf8")).toBe(edited);
+    await expect(
+      Bun.file(join(root, ".skillset/snapshots")).exists()
+    ).resolves.toBeFalse();
+  });
+
+  it("ignores an unmanaged output collision outside the repair scope", async () => {
+    const root = await seededFixture();
+    const sourceReference = ".skillset/skills/other/references/new.md";
+    const otherCollision = ".agents/skills/other/references/new.md";
+    const collision = "Unmanaged content.\n";
+    await rm(join(root, OUTPUT_PATH));
+    await mkdir(join(root, ".skillset/skills/other/references"), {
+      recursive: true,
+    });
+    await writeFile(join(root, sourceReference), "New reference.\n");
+    await mkdir(join(root, ".agents/skills/other/references"), {
+      recursive: true,
+    });
+    await writeFile(join(root, otherCollision), collision);
+
+    const result = await buildSkillsetResult(root, {
+      repair: { paths: [OUTPUT_PATH] },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.writes.writtenPaths).toContain(OUTPUT_PATH);
+    expect(result.writes.writtenPaths).not.toContain(otherCollision);
+    expect(result.diagnostics).not.toContainEqual(
+      expect.objectContaining({ outputPath: otherCollision })
+    );
+    expect(await readFile(join(root, otherCollision), "utf8")).toBe(collision);
+  });
+
   it("gates every sibling that a scoped repair would write", async () => {
     const root = await seededFixture();
     const companion = join(root, COMPANION_PATH);

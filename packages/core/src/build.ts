@@ -447,10 +447,23 @@ async function runBuildProjection(
       );
     }
   }
+
+  // The full projection is inspected, but a path-scoped repair must also scope
+  // every write-side effect: preimages, invalidation gates, backups, and the
+  // final transaction. Unrelated managed edits remain visible to inspection
+  // without being treated as if this repair would overwrite them.
+  const scopedWrite = await scopeOutputRepairWrite({
+    rendered,
+    repairScope: writeInspection.repairScope,
+    resolveOutputPath,
+    staleManagedPaths: writeInspection.staleManagedPaths,
+  });
+  const writeRendered = scopedWrite.rendered;
+  const writeStale = scopedWrite.staleManagedPaths;
   const backupPlan = await planOutputBackups(
     rootPath,
-    rendered,
-    writeInspection.staleManagedPaths,
+    writeRendered,
+    writeStale,
     writeInspection.managedState,
     resolveOutputPath
   );
@@ -529,17 +542,6 @@ async function runBuildProjection(
       safety.backup
     );
   }
-
-  // The plan above is computed over the whole projection; only the write is
-  // narrowed when a repair names paths.
-  const scopedWrite = await scopeOutputRepairWrite({
-    rendered,
-    repairScope: writeInspection.repairScope,
-    resolveOutputPath,
-    staleManagedPaths: writeInspection.staleManagedPaths,
-  });
-  const writeRendered = scopedWrite.rendered;
-  const writeStale = scopedWrite.staleManagedPaths;
 
   if (graph.root.compile.build === "all") {
     const { deletedPaths, writtenPaths } = options.isolated === true
@@ -780,11 +782,17 @@ async function inspectOutputPlan(args: {
         repair: args.repair,
         scope: repairScope,
       });
+  const backupScope = await scopeOutputRepairWrite({
+    rendered: args.rendered,
+    repairScope,
+    resolveOutputPath: args.resolveOutputPath,
+    staleManagedPaths,
+  });
   const preflightDiagnostics = [
     ...await diagnoseOutputBackupPreflight(
       args.rootPath,
-      args.rendered,
-      staleManagedPaths,
+      backupScope.rendered,
+      backupScope.staleManagedPaths,
       managedState,
       args.resolveOutputPath
     ),

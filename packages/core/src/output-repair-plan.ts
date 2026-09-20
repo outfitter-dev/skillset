@@ -216,9 +216,10 @@ export const expandOutputRepairScope = async (args: {
 /**
  * Narrow a repair write while keeping each affected lock internally complete.
  *
- * The full projection is still inspected. Only the final write is scoped, and
- * each affected lock combines fresh in-scope entries with prior out-of-scope
- * entries so its hashes continue to describe the files actually on disk.
+ * The full projection is still inspected. Write-side safety planning and the
+ * final transaction are scoped together, and each affected lock combines fresh
+ * in-scope entries with prior out-of-scope entries so its hashes continue to
+ * describe the files actually on disk.
  */
 export const scopeOutputRepairWrite = async (args: {
   readonly rendered: readonly RenderedFile[];
