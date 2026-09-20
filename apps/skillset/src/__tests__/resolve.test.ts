@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import {
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -15,7 +17,12 @@ import {
   initializeTestGitRepository,
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
-import { materializeConflictedPaths } from "../resolve-conflicts";
+import {
+  materializeConflictedPaths,
+  readManagedPathsFromLocks,
+  restoreWorktreePaths,
+  snapshotWorktreePaths,
+} from "../resolve-conflicts";
 
 const GENERATED_ALPHA = ".agents/skills/alpha/SKILL.md";
 const HAND_EDITED = ".claude/skills/alpha/SKILL.md";
@@ -65,6 +72,199 @@ describe("skillset resolve", () => {
     );
   });
 
+  it("restores conflict markers when repair validation blocks", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    const generatedConflicts = await conflictedPaths(root);
+    const before = new Map(
+      await Promise.all(
+        generatedConflicts.map(
+          async (path) =>
+            [
+              path,
+              {
+                content: await readFile(join(root, path)),
+                mode: (await stat(join(root, path))).mode & 0o777,
+              },
+            ] as const
+        )
+      )
+    );
+    const gammaSource = ".skillset/skills/gamma/SKILL.md";
+    const gammaOutput = ".agents/skills/gamma/SKILL.md";
+    await mkdir(join(root, ".skillset/skills/gamma"), { recursive: true });
+    await mkdir(join(root, ".agents/skills/gamma"), { recursive: true });
+    await writeFile(
+      join(root, gammaSource),
+      "---\nname: gamma\ndescription: Gamma skill.\n---\n\nSource.\n"
+    );
+    await writeFile(join(root, gammaOutput), "unmanaged collision\n");
+    await runTestGit(root, "add", gammaSource, gammaOutput);
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("existing file is not owned by Skillset");
+    expect(await conflictedPaths(root)).toEqual(generatedConflicts);
+    for (const [path, snapshot] of before) {
+      expect(await readFile(join(root, path))).toEqual(snapshot.content);
+      expect((await stat(join(root, path))).mode & 0o777).toBe(snapshot.mode);
+    }
+  });
+
+  it("refuses worktree-only source before materializing conflicts", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    const lockPath = join(root, ".agents/skills/skillset.lock");
+    const lockBefore = await readFile(lockPath);
+    const gammaSource = ".skillset/skills/gamma/SKILL.md";
+    await mkdir(join(root, ".skillset/skills/gamma"), { recursive: true });
+    await writeFile(
+      join(root, gammaSource),
+      "---\nname: gamma\ndescription: Gamma skill.\n---\n\nUnstaged.\n"
+    );
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      "unstaged or untracked paths could change generated output"
+    );
+    expect(result.stderr).toContain(gammaSource);
+    expect(await readFile(lockPath)).toEqual(lockBefore);
+    expect(await conflictedPaths(root)).toContain(
+      ".agents/skills/skillset.lock"
+    );
+  });
+
+  it("ignores unrelated worktree-only notes", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    await mkdir(join(root, ".agents/notes"), { recursive: true });
+    await writeFile(join(root, ".agents/notes/local.md"), "local receipt\n");
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(await conflictedPaths(root)).toEqual([]);
+    expect(await readFile(join(root, ".agents/notes/local.md"), "utf8")).toBe(
+      "local receipt\n"
+    );
+  });
+
+  it("refuses worktree-only repo inputs resolved outside the source root", async () => {
+    const root = await conflictFixture({
+      externalSupport: true,
+      rebase: true,
+      sameSkill: false,
+    });
+    await writeFile(
+      join(root, "package.json"),
+      '{"name":"resolve-fixture","version":"1.1.0"}\n'
+    );
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      "unstaged or untracked paths could change generated output"
+    );
+    expect(result.stderr).toContain("package.json");
+    expect(await conflictedPaths(root)).not.toEqual([]);
+  });
+
+  it("refuses worktree-only external feature inputs", async () => {
+    const root = await conflictFixture({
+      externalFeature: true,
+      rebase: true,
+      sameSkill: false,
+    });
+    const mcpSource = "integrations/tools-mcp.json";
+    await writeFile(
+      join(root, mcpSource),
+      '{"mcpServers":{"tools":{"command":"changed"}}}\n'
+    );
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(mcpSource);
+    expect(await conflictedPaths(root)).not.toEqual([]);
+  });
+
+  it("accepts a staged external feature input", async () => {
+    const root = await conflictFixture({
+      externalFeature: true,
+      rebase: true,
+      sameSkill: false,
+    });
+    const mcpSource = "integrations/tools-mcp.json";
+    await writeFile(
+      join(root, mcpSource),
+      '{"mcpServers":{"tools":{"command":"staged"}}}\n'
+    );
+    await runTestGit(root, "add", mcpSource);
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(await conflictedPaths(root)).toEqual([]);
+  });
+
+  it("fails closed when Git cannot read the conflict index", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    await writeFile(join(root, ".git/index"), "not a Git index\n");
+
+    const result = await runCli("resolve", "--root", root, "--yes");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("could not read conflicted paths");
+    expect(result.stdout).not.toContain("nothing to resolve");
+  });
+
+  it("reads unconflicted lock ownership from the index, not the worktree", async () => {
+    const root = await conflictFixture({ sameSkill: false, rebase: true });
+    const lockPath = "rogue/skillset.lock";
+    const sourceLock = await runTestGit(
+      root,
+      "show",
+      ":2:.agents/skills/skillset.lock"
+    );
+    const parsed = JSON.parse(sourceLock) as {
+      readonly items: readonly Record<string, unknown>[];
+      readonly [key: string]: unknown;
+    };
+    const first = parsed.items[0];
+    if (first === undefined) throw new Error("fixture lock has no items");
+    const originalFile = (first.files as readonly string[])[0];
+    if (originalFile === undefined)
+      throw new Error("fixture item has no files");
+    await mkdir(join(root, "rogue"));
+    await writeFile(join(root, lockPath), `${sourceLock}\n`);
+    await runTestGit(root, "add", lockPath);
+    await writeFile(
+      join(root, lockPath),
+      `${JSON.stringify(
+        {
+          ...parsed,
+          items: [
+            {
+              ...first,
+              fileModes: { "claimed.md": "0644" },
+              files: ["claimed.md"],
+              outputPath: "claimed.md",
+            },
+            ...parsed.items.slice(1),
+          ],
+        },
+        null,
+        2
+      )}\n`
+    );
+
+    const managed = await readManagedPathsFromLocks(root, [lockPath]);
+
+    expect(managed.has(`rogue/${originalFile}`)).toBeTrue();
+    expect(managed.has("rogue/claimed.md")).toBeFalse();
+  });
+
   it("refuses to regenerate while authored source is still conflicted", async () => {
     const root = await conflictFixture({ sameSkill: true, rebase: true });
 
@@ -111,6 +311,50 @@ describe("skillset resolve", () => {
     expect(result.exitCode).toBe(0);
     const staged = await runTestGit(root, "diff", "--cached", "--name-only");
     expect(staged.split("\n")).toContain(gammaOutput);
+  });
+
+  it("restores whole-projection writes when staging fails", async () => {
+    const root = await conflictFixture({ sameSkill: true, rebase: true });
+    const gammaSource = ".skillset/skills/gamma/SKILL.md";
+    const gammaOutput = ".agents/skills/gamma/SKILL.md";
+    await mkdir(join(root, ".skillset/skills/gamma"), { recursive: true });
+    await writeFile(join(root, AUTHORED_ALPHA), skill("Merged body."), "utf8");
+    await writeFile(
+      join(root, gammaSource),
+      "---\nname: gamma\ndescription: Gamma skill.\n---\n\nNew source.\n",
+      "utf8"
+    );
+    await runTestGit(root, "add", AUTHORED_ALPHA, gammaSource);
+    const generatedConflicts = await conflictedPaths(root);
+    const before = new Map(
+      await Promise.all(
+        generatedConflicts.map(
+          async (path) => [path, await readFile(join(root, path))] as const
+        )
+      )
+    );
+    const indexLock = join(root, ".git/index.lock");
+    await writeFile(indexLock, "force git add failure\n");
+
+    let result: Awaited<ReturnType<typeof runCli>>;
+    try {
+      result = await runCli("resolve", "--root", root, "--yes");
+    } finally {
+      await rm(indexLock, { force: true });
+    }
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("could not stage repaired output");
+    expect(await conflictedPaths(root)).toEqual(generatedConflicts);
+    for (const [path, content] of before) {
+      expect(await readFile(join(root, path))).toEqual(content);
+    }
+    await expect(
+      Bun.file(join(root, gammaOutput)).exists()
+    ).resolves.toBeFalse();
+    await expect(
+      lstat(join(root, ".agents/skills/gamma"))
+    ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("refuses when a generated file was hand-edited on the replayed side", async () => {
@@ -281,6 +525,90 @@ describe("skillset resolve", () => {
 
     expect((await stat(join(root, path))).mode & 0o777).toBe(0o755);
   });
+
+  it("replaces a conflicted worktree symlink without writing through it", async () => {
+    if (process.platform === "win32") return;
+
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-resolve-symlink-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    const path = "generated.txt";
+    const sentinel = join(root, "sentinel.txt");
+    await writeFile(join(root, path), "base\n");
+    await initializeTestGitRepository(root, { disposableRoot });
+    await runTestGit(root, "branch", "base");
+    await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
+    await writeFile(join(root, path), "A\n");
+    await commitAll(root, "A");
+    await runTestGit(root, "checkout", "--quiet", "base");
+    await runTestGit(root, "checkout", "--quiet", "-b", "feat-b");
+    await writeFile(join(root, path), "B\n");
+    await commitAll(root, "B");
+    await rebaseOnto(root, "feat-a");
+    await writeFile(sentinel, "do not touch\n");
+    await rm(join(root, path));
+    await symlink(sentinel, join(root, path));
+
+    await materializeConflictedPaths(root, [path]);
+
+    expect((await lstat(join(root, path))).isSymbolicLink()).toBe(false);
+    expect(await readFile(sentinel, "utf8")).toBe("do not touch\n");
+    expect(await readFile(join(root, path), "utf8")).not.toBe("do not touch\n");
+  });
+
+  it("refuses a conflicted path below a symlinked parent", async () => {
+    if (process.platform === "win32") return;
+
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-resolve-parent-link-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    const path = "generated/file.txt";
+    await mkdir(join(root, "generated"));
+    await writeFile(join(root, path), "base\n");
+    await initializeTestGitRepository(root, { disposableRoot });
+    await runTestGit(root, "branch", "base");
+    await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
+    await writeFile(join(root, path), "A\n");
+    await commitAll(root, "A");
+    await runTestGit(root, "checkout", "--quiet", "base");
+    await runTestGit(root, "checkout", "--quiet", "-b", "feat-b");
+    await writeFile(join(root, path), "B\n");
+    await commitAll(root, "B");
+    await rebaseOnto(root, "feat-a");
+
+    const outside = await mkdtemp(join(disposableRoot, "outside-"));
+    const sentinel = join(outside, "file.txt");
+    await writeFile(sentinel, "do not touch\n");
+    await rm(join(root, "generated"), { recursive: true });
+    await symlink(outside, join(root, "generated"));
+
+    await expect(materializeConflictedPaths(root, [path])).rejects.toThrow(
+      "symlinked parent"
+    );
+    expect(await readFile(sentinel, "utf8")).toBe("do not touch\n");
+  });
+
+  it("restores exact worktree permission bits", async () => {
+    if (process.platform === "win32") return;
+
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-resolve-mode-rollback-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    const path = "generated.txt";
+    await writeFile(join(root, path), "before\n");
+    await chmod(join(root, path), 0o600);
+    const snapshots = await snapshotWorktreePaths(root, [path]);
+    await writeFile(join(root, path), "after\n");
+    await chmod(join(root, path), 0o755);
+
+    await restoreWorktreePaths(root, snapshots);
+
+    expect(await readFile(join(root, path), "utf8")).toBe("before\n");
+    expect((await stat(join(root, path))).mode & 0o7777).toBe(0o600);
+  });
 });
 
 function skill(body: string): string {
@@ -312,6 +640,8 @@ async function rebaseOnto(root: string, onto: string): Promise<void> {
  */
 async function conflictFixture(options: {
   readonly disposableRoot?: string;
+  readonly externalFeature?: boolean;
+  readonly externalSupport?: boolean;
   /** Append an unbuildable edit to a generated file on this branch. */
   readonly handEditOn?: "feat-a" | "feat-b";
   readonly nestedWorkspace?: boolean;
@@ -327,11 +657,33 @@ async function conflictFixture(options: {
     : repositoryRoot;
   await mkdir(join(root, ".skillset/skills/alpha"), { recursive: true });
   await mkdir(join(root, ".skillset/skills/beta"), { recursive: true });
+  if (options.externalFeature === true) {
+    await mkdir(join(root, ".skillset/plugins/tools"), { recursive: true });
+    await mkdir(join(root, "integrations"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/tools/skillset.yaml"),
+      "skillset:\n  name: tools\nmcp:\n  source: repo:integrations/tools-mcp.json\n"
+    );
+    await writeFile(
+      join(root, "integrations/tools-mcp.json"),
+      '{"mcpServers":{"tools":{"command":"base"}}}\n'
+    );
+  }
   await writeFile(
     join(root, "skillset.yaml"),
-    "skillset:\n  name: resolve-test\n  version: 0.1.0\nclaude: true\ncodex: false\n",
+    `skillset:\n  name: resolve-test\n  version: 0.1.0\nclaude: true\ncodex: false\n${
+      options.externalSupport === true
+        ? 'supports:\n  packages:\n    - name: resolve-fixture\n      range: ">=1.0.0"\n      source: repo:package.json\n'
+        : ""
+    }`,
     "utf8"
   );
+  if (options.externalSupport === true) {
+    await writeFile(
+      join(root, "package.json"),
+      '{"name":"resolve-fixture","version":"1.0.0"}\n'
+    );
+  }
   await writeFile(join(root, AUTHORED_ALPHA), skill("Base body."), "utf8");
   await writeFile(
     join(root, ".skillset/skills/beta/SKILL.md"),

@@ -7,11 +7,16 @@ Blocked by SET-599: resolve cannot repair what build cannot restore.
 ## What it does
 
 1. Read the conflicted set from `git diff --name-only --diff-filter=U`.
-2. Partition into generated and authored paths. A path is generated when it
-   appears as an `outputPath` or in `files[]` of a `skillset.lock`, or is a lock.
-3. Classify each generated path by the SET-599 verdict table; repair what is safe.
-4. Stage what it repaired.
-5. Print the authored conflicts that remain; exit non-zero if any do.
+2. Build a read-only inventory from both sides' locks. A path is generated when
+   either side claims it in a lock, or when it is a lock itself.
+3. Refuse before mutation when authored conflicts or hand-edited generated
+   paths remain.
+4. Without `--yes`, report the plan and leave the index and worktree unchanged.
+5. With `--yes`, snapshot the conflicted generated paths, materialize one
+   coherent side, run the whole-projection repair, and restore the snapshots if
+   validation blocks, the build throws, or Git cannot stage the repair.
+6. Stage the conflicted generated set plus generated paths the repair wrote or
+   deleted, including newly introduced outputs.
 
 ## Two implementation notes learned the hard way
 
@@ -48,14 +53,20 @@ satisfies the issue's stated requirements — authored conflicts are printed and
 the exit is non-zero — it just refuses to do generated work that source has not
 authorized yet.
 
-### How the conflicted state is made classifiable
+### How the conflicted state is made repairable
 
-The verdict table compares whole files, and a conflicted path on disk is marker
-soup that represents neither side. Before classifying, `resolve` materializes
-every conflicted generated path from conflict stage 2 (ours), falling back to
-stage 3 and then `HEAD`, and deleting the file when no side has it. Locks are
-materialized first, because the lock inventory is what decides which other paths
-are generated at all.
+The worktree conflict is marker soup that represents neither side. Inventory is
+therefore read directly from the stage-0 index blob for unconflicted locks and
+from the stage-2 and stage-3 lock/payload blobs for conflicts; worktree bytes
+are never trusted as provenance. Only a confirmed repair materializes files,
+using the selected lock and payload side together. Before doing so, `resolve` captures
+the exact prior bytes, mode, absence, or symlink target for every conflicted
+generated path. A blocked or thrown repair restores that state, and
+materialization removes a path before writing so it never follows a worktree
+symlink into an unrelated target. Parent components are checked too; resolve
+refuses a generated path routed through a symlinked directory. Missing-file
+snapshots also remember which parent directories did not exist, so rollback
+does not leave empty generated directories behind.
 
 ### Worktree safety
 
@@ -63,12 +74,21 @@ Every git call goes through `git -C <root>` with `gitSafeEnv()`, which strips
 `GIT_DIR`, `GIT_WORK_TREE`, and friends. Without that a `resolve` invoked from a
 pre-commit hook would operate on the hook's repository instead of the worktree.
 Paths are rewritten from `rev-parse --show-toplevel` to the Skillset root, so a
-workspace in a repository subdirectory also works.
+workspace in a repository subdirectory also works. Conflict, lock, index,
+tree, and blob reads fail closed: only a successful empty query means absence.
+Index and tree entries carry their exact blob object and regular-file mode;
+unsupported symlink or gitlink modes are refused rather than normalized.
 
 ### Staging scope
 
 `resolve` stages the conflicted generated set plus whatever the repair wrote or
-deleted, intersected with the lock inventory. The build writes a whole
-consistent projection, so leaving the non-conflicted part of that write unstaged
-would hand `git rebase --continue` a dirty tree; every path staged is still
-confirmed generated first.
+deleted. Existing paths are confirmed by the lock inventory; paths newly
+introduced by the merged source are confirmed by the build's own generated
+write summary. The build writes a whole consistent projection, so leaving the
+non-conflicted part of that write unstaged would hand `git rebase --continue` a
+dirty tree. Before that build, resolve loads Core's resolved input inventory and
+refuses unstaged or untracked compiler inputs under `skillset.yaml`, the source
+root, explicit `repo:` feature files or trees, and `repo:` package-support
+manifests. Unrelated notes and receipts remain outside the gate. A read-only
+preview identifies every path the build may touch so a later staging failure
+can restore the whole write set.

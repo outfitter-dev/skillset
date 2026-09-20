@@ -390,6 +390,8 @@ export interface BuildGraph {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   /** Build mode declared in source, before a command-specific override is applied. */
   readonly configuredBuildMode: CompileBuildMode;
+  /** Repository-local compiler inputs resolved outside the canonical source root. */
+  readonly externalInputPaths: readonly string[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;

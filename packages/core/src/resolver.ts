@@ -187,16 +187,17 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
+  const externalInputPaths = new Set<string>();
   appendSourceMetadataCompatibilityWarnings(
     warnings,
     metadata,
     metadataLabel
   );
   await rejectLegacySourceLayout(rootPath, sourceDir, sourceRootDir);
-  await validateSupports(sourceManifest.supports, { label: metadataLabel, rootPath, warnings });
+  await validateSupports(sourceManifest.supports, { externalInputPaths, label: metadataLabel, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
   const rootAdaptiveHooks = await loadAdaptiveHooks(rootPath, sourceRootPath, { kind: "root" }, filteredTargets);
-  const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs);
+  const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs, externalInputPaths);
   try {
     validatePluginDependencyGraph(plugins);
   } catch (error) {
@@ -206,9 +207,9 @@ export async function loadBuildGraph(
       path: join(sourceRoot, PLUGINS_DIR),
     });
   }
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
-  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
-  const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
+  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
+  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
+  const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
   const adaptiveHooks = [
     ...rootAdaptiveHooks,
@@ -258,6 +259,7 @@ export async function loadBuildGraph(
   const graph: BuildGraph = {
     adaptiveHooks,
     configuredBuildMode: compileConfig.build,
+    externalInputPaths: [...externalInputPaths].sort(compareStrings),
     hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
@@ -497,7 +499,8 @@ async function loadProjectAgents(
   sourceDir: string,
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
-  warnings: string[]
+  warnings: string[],
+  externalInputPaths: Set<string>
 ): Promise<readonly SourceProjectAgent[]> {
   const agentsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PROJECT_AGENTS_DIR));
   if (!(await exists(agentsPath))) return [];
@@ -507,7 +510,7 @@ async function loadProjectAgents(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     const sourcePath = join(agentsPath, entry.name);
-    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings));
+    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings, externalInputPaths));
   }
 
   validateProjectAgentCollisions(agents);
@@ -520,13 +523,14 @@ async function loadProjectAgent(
   agentsPath: string,
   sourcePath: string,
   parentTargets: BuildGraph["root"]["targets"],
-  warnings: string[]
+  warnings: string[],
+  externalInputPaths: Set<string>
 ): Promise<SourceProjectAgent> {
   const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
   const sourceLabel = relative(rootPath, sourcePath);
   validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
-  await validateSupports(parts.frontmatter.supports, { label: sourceLabel, rootPath, warnings });
+  await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
   const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
   const outputName = sanitizeProjectAgentName(name, sourcePath);
   const scope = { agentId: outputName, kind: "agent" as const };
@@ -617,7 +621,8 @@ async function loadInstructions(
   sourceDir: string,
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
-  warnings: string[]
+  warnings: string[],
+  externalInputPaths: Set<string>
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
   const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
@@ -638,7 +643,7 @@ async function loadInstructions(
       relative(rootPath, sourcePath),
       frontmatter
     );
-    await validateSupports(frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
+    await validateSupports(frontmatter.supports, { externalInputPaths, label: relative(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(frontmatter, sourcePath);
     const sourceOrigin = readSourceOrigin(metadata, sourcePath);
     const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
@@ -923,7 +928,8 @@ async function loadPlugins(
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  outputs: BuildGraph["root"]["outputs"]
+  outputs: BuildGraph["root"]["outputs"],
+  externalInputPaths: Set<string>
 ): Promise<readonly SourcePlugin[]> {
   const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return [];
@@ -935,7 +941,7 @@ async function loadPlugins(
     if (!entry.isDirectory()) continue;
     validatePluginOutputName(entry.name);
     const id = validateSlug(entry.name, "plugin directory");
-    plugins.push(await loadPlugin(rootPath, sourceDir, sourceRootDir, id, rootTargets, warnings, outputs));
+    plugins.push(await loadPlugin(rootPath, sourceDir, sourceRootDir, id, rootTargets, warnings, outputs, externalInputPaths));
   }
 
   return plugins;
@@ -953,7 +959,8 @@ async function loadPlugin(
   id: string,
   parentTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  outputs: BuildGraph["root"]["outputs"]
+  outputs: BuildGraph["root"]["outputs"],
+  externalInputPaths: Set<string>
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
@@ -969,7 +976,7 @@ async function loadPlugin(
   try {
     validateConfigDocument(config, configPath, { allowHooks: true });
     claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
-    await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
+    await validateSupports(config.supports, { externalInputPaths, label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);
     appendSourceMetadataCompatibilityWarnings(
@@ -1007,9 +1014,12 @@ async function loadPlugin(
     id,
     configuredOutputRoots(outputs)
   );
+  for (const feature of features) {
+    if (feature.origin === "explicit") externalInputPaths.add(feature.sourcePath);
+  }
   const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id }, targets);
-  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id);
+  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id, externalInputPaths);
 
   if (await exists(join(pluginPath, "hooks.json"))) {
     const path = relative(rootPath, join(pluginPath, "hooks.json"));
@@ -1221,11 +1231,12 @@ async function loadSkills(
   pluginPath: string,
   parentTargets: SourcePlugin["targets"],
   warnings: string[],
-  pluginId: string
+  pluginId: string,
+  externalInputPaths: Set<string>
 ): Promise<SourceSkill[]> {
   const skillsPath = join(pluginPath, SKILLS_DIR);
   if (!(await exists(skillsPath))) return [];
-  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, { kind: "plugin", pluginId }, pluginPath);
+  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, { kind: "plugin", pluginId }, externalInputPaths, pluginPath);
 }
 
 async function loadSkillsFromDirectory(
@@ -1237,6 +1248,7 @@ async function loadSkillsFromDirectory(
   parentTargets: SourcePlugin["targets"],
   warnings: string[],
   parentScope: SourceAdaptiveHook["scope"],
+  externalInputPaths: Set<string>,
   pluginPath?: string
 ): Promise<SourceSkill[]> {
   const skillFiles = await findSkillFiles(skillsPath);
@@ -1246,7 +1258,7 @@ async function loadSkillsFromDirectory(
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
     validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourcePath).diagnostics, sourcePath, parts.frontmatter);
-    await validateSupports(parts.frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
+    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: relative(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
     validateVersionField(parts.frontmatter, `${sourcePath}.version`);
     if (metadata.name !== undefined) {
@@ -1350,12 +1362,13 @@ async function loadStandaloneSkills(
   sourceDir: string,
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
-  warnings: string[]
+  warnings: string[],
+  externalInputPaths: Set<string>
 ): Promise<readonly StandaloneSkill[]> {
   const skillsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, SKILLS_DIR));
   if (!(await exists(skillsPath))) return [];
 
-  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings, { kind: "root" });
+  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings, { kind: "root" }, externalInputPaths);
   return skills;
 }
 

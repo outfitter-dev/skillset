@@ -5,8 +5,19 @@
  * works inside a linked worktree and under a hook that exported `GIT_DIR`.
  */
 
-import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readlink,
+  realpath,
+  rm,
+  rmdir,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
   lockDisagreementPaths,
@@ -45,9 +56,35 @@ export interface ConflictInventory {
 }
 
 interface GitResult {
+  readonly exitCode: number;
   readonly ok: boolean;
+  readonly stderr: string;
   readonly stdout: string;
 }
+
+interface GitBlobEntry {
+  readonly mode: number;
+  readonly oid: string;
+}
+
+export type WorktreePathSnapshot =
+  | {
+      readonly kind: "file";
+      readonly content: Uint8Array;
+      readonly mode: number;
+      readonly path: string;
+    }
+  | {
+      readonly kind: "missing";
+      /** Parent directories that were also absent before the repair. */
+      readonly missingParents: readonly string[];
+      readonly path: string;
+    }
+  | {
+      readonly kind: "symlink";
+      readonly path: string;
+      readonly target: string;
+    };
 
 async function git(
   rootPath: string,
@@ -59,15 +96,27 @@ async function git(
     stderr: "pipe",
     stdout: "pipe",
   });
-  const [stdout, exitCode] = await Promise.all([
+  const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
     proc.exited,
   ]);
-  return { ok: exitCode === 0, stdout };
+  return { exitCode, ok: exitCode === 0, stderr, stdout };
+}
+
+function requireGit(result: GitResult, operation: string): string {
+  if (!result.ok) {
+    throw new Error(`skillset: resolve could not ${operation}`);
+  }
+  return result.stdout;
 }
 
 function splitLines(value: string): readonly string[] {
   return value.split("\n").filter((line) => line.length > 0);
+}
+
+function splitNul(value: string): readonly string[] {
+  return value.split("\0").filter((entry) => entry.length > 0);
 }
 
 /** True when `rootPath` is inside a git repository at all. */
@@ -84,22 +133,84 @@ export async function readConflictedPaths(
   rootPath: string
 ): Promise<readonly string[]> {
   const top = await git(rootPath, ["rev-parse", "--show-toplevel"]);
-  if (!top.ok) return [];
-  const topLevel = top.stdout.trim();
+  const topLevel = requireGit(top, "locate the repository root").trim();
   const listed = await git(rootPath, [
     "diff",
     "--name-only",
+    "-z",
     "--diff-filter=U",
   ]);
-  if (!listed.ok) return [];
+  const conflicted = requireGit(listed, "read conflicted paths");
   return [
     ...new Set(
-      splitLines(listed.stdout).map((path) =>
+      splitNul(conflicted).map((path) =>
         relative(rootPath, join(topLevel, path)).replaceAll("\\", "/")
       )
     ),
   ]
     .filter((path) => !path.startsWith(".."))
+    .sort(compareStrings);
+}
+
+/**
+ * Unstaged or untracked compiler inputs below the Skillset root, excluding
+ * known conflicts. A resolve build may consume staged conflict resolutions,
+ * but it must not fold worktree-only source into generated output it stages.
+ * Unrelated notes and receipts are deliberately outside this gate.
+ */
+export async function readUnstagedProjectionPaths(
+  rootPath: string,
+  ignoredPaths: ReadonlySet<string>,
+  sourceRoot = ".skillset",
+  externalInputPaths: readonly string[] = []
+): Promise<readonly string[]> {
+  const top = await git(rootPath, ["rev-parse", "--show-toplevel"]);
+  if (!top.ok) {
+    throw new Error("skillset: resolve could not locate the repository root");
+  }
+  const [unstaged, untracked] = await Promise.all([
+    git(rootPath, ["diff", "--name-only", "-z", "--"]),
+    git(rootPath, ["ls-files", "--others", "--exclude-standard", "-z", "--"]),
+  ]);
+  if (!unstaged.ok || !untracked.ok) {
+    throw new Error("skillset: resolve could not inspect worktree-only paths");
+  }
+  const topLevel = top.stdout.trim();
+  const normalizedSourceRoot = relative(
+    rootPath,
+    resolve(rootPath, sourceRoot)
+  ).replaceAll("\\", "/");
+  if (
+    normalizedSourceRoot === ".." ||
+    normalizedSourceRoot.startsWith("../") ||
+    isAbsolute(normalizedSourceRoot)
+  ) {
+    throw new Error(
+      "skillset: resolve source root must be inside the workspace"
+    );
+  }
+  const externalRoots = externalInputPaths.map((path) =>
+    relative(rootPath, resolve(path)).replaceAll("\\", "/")
+  );
+  return [
+    ...new Set(
+      [...splitNul(unstaged.stdout), ...splitNul(untracked.stdout)].map(
+        (path) => relative(rootPath, join(topLevel, path)).replaceAll("\\", "/")
+      )
+    ),
+  ]
+    .filter(
+      (path) =>
+        !path.startsWith("..") &&
+        !ignoredPaths.has(path) &&
+        (path === "skillset.yaml" ||
+          normalizedSourceRoot.length === 0 ||
+          path === normalizedSourceRoot ||
+          path.startsWith(`${normalizedSourceRoot}/`) ||
+          externalRoots.some(
+            (root) => path === root || path.startsWith(`${root}/`)
+          ))
+    )
     .sort(compareStrings);
 }
 
@@ -120,8 +231,9 @@ async function trackedLockPaths(rootPath: string): Promise<readonly string[]> {
     WORKSPACE_LOCK_FILE,
     `*/${WORKSPACE_LOCK_FILE}`,
   ]);
-  if (!listed.ok) return [];
-  return splitLines(listed.stdout).filter(isLockPath).sort(compareStrings);
+  return splitLines(requireGit(listed, "read tracked generated locks"))
+    .filter(isLockPath)
+    .sort(compareStrings);
 }
 
 /**
@@ -136,13 +248,13 @@ export async function materializeConflictedPaths(
   preferredStages: ReadonlyMap<string, ConflictStage> = new Map()
 ): Promise<readonly string[]> {
   const restored: string[] = [];
-  const modes = await readIndexModes(rootPath, paths);
+  const entries = await readIndexEntries(rootPath, paths);
   for (const path of paths) {
-    const absolute = join(rootPath, path);
+    const absolute = await safeWorktreePath(rootPath, path);
     const snapshot = await readConflictSnapshot(
       rootPath,
       path,
-      modes,
+      entries,
       preferredStages.get(path)
     );
     if (snapshot === undefined) {
@@ -152,12 +264,163 @@ export async function materializeConflictedPaths(
       restored.push(path);
       continue;
     }
+    // Never follow a worktree symlink while materializing a Git blob. The
+    // generated path itself is replaced; its target is outside this operation.
+    await rm(absolute, { force: true, recursive: true });
     await mkdir(dirname(absolute), { recursive: true });
     await writeFile(absolute, snapshot.content);
     if (supportsGeneratedFileModes()) await chmod(absolute, snapshot.mode);
     restored.push(path);
   }
   return restored;
+}
+
+/** Capture exact worktree state before conflict materialization mutates it. */
+export async function snapshotWorktreePaths(
+  rootPath: string,
+  paths: readonly string[]
+): Promise<readonly WorktreePathSnapshot[]> {
+  return Promise.all(
+    paths.map(async (path): Promise<WorktreePathSnapshot> => {
+      const absolute = await safeWorktreePath(rootPath, path);
+      const info = await lstat(absolute).catch((error: unknown) => {
+        if (isMissingPathError(error)) return undefined;
+        throw error;
+      });
+      if (info === undefined) {
+        return {
+          kind: "missing",
+          missingParents: await missingParentPaths(rootPath, path),
+          path,
+        };
+      }
+      if (info.isSymbolicLink()) {
+        return { kind: "symlink", path, target: await readlink(absolute) };
+      }
+      if (!info.isFile()) {
+        throw new Error(
+          `skillset: resolve refuses to replace non-file path ${path}`
+        );
+      }
+      return {
+        content: await readFile(absolute),
+        kind: "file",
+        mode: info.mode & 0o7777,
+        path,
+      };
+    })
+  );
+}
+
+/** Restore worktree state after a materialized repair is refused or throws. */
+export async function restoreWorktreePaths(
+  rootPath: string,
+  snapshots: readonly WorktreePathSnapshot[]
+): Promise<void> {
+  for (const snapshot of snapshots) {
+    const absolute = await safeWorktreePath(rootPath, snapshot.path);
+    await rm(absolute, { force: true, recursive: true });
+    if (snapshot.kind === "missing") {
+      for (const parent of snapshot.missingParents) {
+        await removeEmptyDirectory(await safeWorktreePath(rootPath, parent));
+      }
+      continue;
+    }
+    await mkdir(dirname(absolute), { recursive: true });
+    if (snapshot.kind === "symlink") {
+      await symlink(snapshot.target, absolute);
+      continue;
+    }
+    await writeFile(absolute, snapshot.content);
+    if (supportsGeneratedFileModes()) await chmod(absolute, snapshot.mode);
+  }
+}
+
+async function missingParentPaths(
+  rootPath: string,
+  candidatePath: string
+): Promise<readonly string[]> {
+  const root = await realpath(rootPath);
+  const absolute = await safeWorktreePath(root, candidatePath);
+  const missing: string[] = [];
+  let cursor = dirname(absolute);
+  while (cursor !== root) {
+    const info = await lstat(cursor).catch((error: unknown) => {
+      if (isMissingPathError(error)) return undefined;
+      throw error;
+    });
+    if (info !== undefined) break;
+    missing.push(relative(root, cursor));
+    cursor = dirname(cursor);
+  }
+  return missing;
+}
+
+async function removeEmptyDirectory(path: string): Promise<void> {
+  await rmdir(path).catch((error: unknown) => {
+    if (isMissingPathError(error) || isNonEmptyDirectoryError(error)) return;
+    throw error;
+  });
+}
+
+async function safeWorktreePath(
+  rootPath: string,
+  candidatePath: string
+): Promise<string> {
+  const root = await realpath(rootPath);
+  const absolute = resolve(root, candidatePath);
+  const relativePath = relative(root, absolute);
+  if (
+    relativePath.length === 0 ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) {
+    throw new Error(
+      `skillset: resolve refuses path outside the workspace: ${candidatePath}`
+    );
+  }
+
+  const parent = dirname(relativePath);
+  if (parent === ".") return absolute;
+  let cursor = root;
+  for (const segment of parent.split(sep)) {
+    cursor = join(cursor, segment);
+    const info = await lstat(cursor).catch((error: unknown) => {
+      if (isMissingPathError(error)) return undefined;
+      throw error;
+    });
+    if (info === undefined) break;
+    if (info.isSymbolicLink()) {
+      throw new Error(
+        `skillset: resolve refuses path through symlinked parent: ${candidatePath}`
+      );
+    }
+    if (!info.isDirectory()) {
+      throw new Error(
+        `skillset: resolve refuses path through non-directory parent: ${candidatePath}`
+      );
+    }
+  }
+  return absolute;
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
+}
+
+function isNonEmptyDirectoryError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "ENOTEMPTY" || error.code === "EEXIST")
+  );
 }
 
 /**
@@ -168,17 +431,21 @@ export async function materializeConflictedPaths(
 async function readConflictSnapshot(
   rootPath: string,
   path: string,
-  modes: ReadonlyMap<string, ReadonlyMap<number, number>>,
+  entries: ReadonlyMap<string, ReadonlyMap<number, GitBlobEntry>>,
   preferredStage?: ConflictStage
 ): Promise<GeneratedFileSnapshot | undefined> {
   const stages =
     preferredStage === undefined ? CONFLICT_STAGES : [preferredStage];
   for (const stage of stages) {
-    const content = await readStageBlob(rootPath, stage, path);
-    if (content === undefined) continue;
+    const entry = entries.get(path)?.get(stage);
+    if (entry === undefined) continue;
     return {
-      content,
-      mode: normalizeGeneratedFileMode(modes.get(path)?.get(stage) ?? 0o644),
+      content: await readGitBlob(
+        rootPath,
+        entry.oid,
+        `${path} at stage ${stage}`
+      ),
+      mode: normalizeGeneratedFileMode(entry.mode),
     };
   }
   return preferredStage === undefined
@@ -187,27 +454,52 @@ async function readConflictSnapshot(
 }
 
 /**
- * Modes git recorded per index stage, keyed by path then stage. Stage 0 is a
- * merged entry; 2 and 3 are the two sides of a conflict.
+ * Blob identity and mode recorded per index stage. Stage 0 is a merged entry;
+ * 2 and 3 are the two sides of a conflict.
  */
-async function readIndexModes(
+async function readIndexEntries(
   rootPath: string,
   paths: readonly string[]
-): Promise<ReadonlyMap<string, ReadonlyMap<number, number>>> {
-  const modes = new Map<string, Map<number, number>>();
-  if (paths.length === 0) return modes;
+): Promise<ReadonlyMap<string, ReadonlyMap<number, GitBlobEntry>>> {
+  const entries = new Map<string, Map<number, GitBlobEntry>>();
+  if (paths.length === 0) return entries;
   const listed = await git(rootPath, ["ls-files", "-s", "-z", "--", ...paths]);
-  if (!listed.ok) return modes;
+  const records = requireGit(listed, "read conflict index entries");
   // `<mode> <sha> <stage>\t<path>` per NUL-terminated record.
-  for (const record of listed.stdout.split("\0")) {
+  for (const record of splitNul(records)) {
     const [meta, path] = record.split("\t");
-    if (meta === undefined || path === undefined) continue;
-    const [mode, , stage] = meta.split(" ");
-    const entry = modes.get(path) ?? new Map<number, number>();
-    entry.set(Number(stage), Number.parseInt(mode ?? "100644", 8));
-    modes.set(path, entry);
+    const [rawMode, oid, rawStage] = meta?.split(" ") ?? [];
+    if (
+      path === undefined ||
+      rawMode === undefined ||
+      oid === undefined ||
+      rawStage === undefined
+    ) {
+      throw new Error(
+        "skillset: resolve received a malformed conflict index entry"
+      );
+    }
+    const mode = readGeneratedGitMode(rawMode, path);
+    const stage = Number(rawStage);
+    if (!Number.isInteger(stage) || stage < 0 || stage > 3) {
+      throw new Error(
+        `skillset: resolve received an invalid index stage for ${path}`
+      );
+    }
+    const byStage = entries.get(path) ?? new Map<number, GitBlobEntry>();
+    byStage.set(stage, { mode, oid });
+    entries.set(path, byStage);
   }
-  return modes;
+  return entries;
+}
+
+function readGeneratedGitMode(rawMode: string, path: string): number {
+  if (rawMode !== "100644" && rawMode !== "100755") {
+    throw new Error(
+      `skillset: resolve refuses unsupported Git mode ${rawMode} for ${path}`
+    );
+  }
+  return Number.parseInt(rawMode, 8);
 }
 
 /**
@@ -221,19 +513,19 @@ async function readIndexModes(
 async function expandToLockItems(
   rootPath: string,
   paths: readonly string[],
-  lockPaths: readonly string[]
+  lockPaths: readonly string[],
+  conflictedLocks: ReadonlySet<string>
 ): Promise<readonly string[]> {
   const wanted = new Set(paths);
   const expanded = new Set(paths);
   for (const lockPath of lockPaths) {
     const root = lockOutputRoot(lockPath);
-    for (const lockJson of await lockJsonCandidates(rootPath, lockPath)) {
-      let parsed: ReturnType<typeof parseGeneratedLock>;
-      try {
-        parsed = parseGeneratedLock(lockJson, lockPath);
-      } catch {
-        continue;
-      }
+    for (const lockJson of await lockJsonCandidates(
+      rootPath,
+      lockPath,
+      conflictedLocks.has(lockPath)
+    )) {
+      const parsed = parseGeneratedLock(lockJson, lockPath);
       for (const item of parsed.items) {
         const group = item.files.map((file_) =>
           root === "" ? file_ : `${root}/${file_}`
@@ -248,11 +540,14 @@ async function expandToLockItems(
 
 async function lockJsonCandidates(
   rootPath: string,
-  lockPath: string
+  lockPath: string,
+  conflicted: boolean
 ): Promise<readonly unknown[]> {
   const candidates: unknown[] = [];
-  const working = await readJsonSafely(Bun.file(join(rootPath, lockPath)));
-  if (working !== undefined) candidates.push(working);
+  if (!conflicted) {
+    const indexed = await readStageJson(rootPath, 0, lockPath);
+    if (indexed !== undefined) candidates.push(indexed);
+  }
   for (const stage of CONFLICT_STAGES) {
     const staged = await readStageJson(rootPath, stage, lockPath);
     if (staged !== undefined) candidates.push(staged);
@@ -260,44 +555,26 @@ async function lockJsonCandidates(
   return candidates;
 }
 
-/** Bytes at one conflict stage, or undefined when that side lacks the path. */
-async function readStageBlob(
+async function readGitBlob(
   rootPath: string,
-  stage: number,
-  path: string
-): Promise<Uint8Array | undefined> {
+  oid: string,
+  label: string
+): Promise<Uint8Array> {
   const proc = Bun.spawn({
-    // `./` makes the index lookup relative to the selected Skillset root.
-    // Without it Git interprets the path from the repository top level, which
-    // breaks workspaces nested below that root.
-    cmd: ["git", "-C", rootPath, "show", `:${stage}:./${path}`],
+    cmd: ["git", "-C", rootPath, "cat-file", "blob", oid],
     env: gitSafeEnv(),
-    stderr: "ignore",
+    stderr: "pipe",
     stdout: "pipe",
   });
-  const [bytes, exitCode] = await Promise.all([
+  const [bytes, , exitCode] = await Promise.all([
     new Response(proc.stdout).bytes(),
+    new Response(proc.stderr).text(),
     proc.exited,
   ]);
-  return exitCode === 0 ? bytes : undefined;
-}
-
-async function readRevisionBlob(
-  rootPath: string,
-  revision: string,
-  path: string
-): Promise<Uint8Array | undefined> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", rootPath, "show", `${revision}:./${path}`],
-    env: gitSafeEnv(),
-    stderr: "ignore",
-    stdout: "pipe",
-  });
-  const [bytes, exitCode] = await Promise.all([
-    new Response(proc.stdout).bytes(),
-    proc.exited,
-  ]);
-  return exitCode === 0 ? bytes : undefined;
+  if (exitCode !== 0) {
+    throw new Error(`skillset: resolve could not read Git blob for ${label}`);
+  }
+  return bytes;
 }
 
 async function readTreeSnapshot(
@@ -312,15 +589,30 @@ async function readTreeSnapshot(
     "--",
     `./${path}`,
   ]);
-  if (!listed.ok || listed.stdout.length === 0) return undefined;
-  const [metadata] = listed.stdout.split("\t");
-  const [mode] = metadata?.split(" ") ?? [];
-  if (mode === undefined || mode.length === 0) return undefined;
-  const content = await readRevisionBlob(rootPath, revision, path);
-  if (content === undefined) return undefined;
+  const output = requireGit(listed, `read ${path} from ${revision}`);
+  if (output.length === 0) return undefined;
+  const records = splitNul(output);
+  if (records.length !== 1) {
+    throw new Error(
+      `skillset: resolve received ambiguous tree data for ${path}`
+    );
+  }
+  const [metadata, listedPath] = records[0]?.split("\t") ?? [];
+  const [rawMode, type, oid] = metadata?.split(" ") ?? [];
+  if (
+    listedPath === undefined ||
+    rawMode === undefined ||
+    type !== "blob" ||
+    oid === undefined
+  ) {
+    throw new Error(
+      `skillset: resolve received malformed tree data for ${path}`
+    );
+  }
+  const mode = readGeneratedGitMode(rawMode, path);
   return {
-    content,
-    mode: normalizeGeneratedFileMode(Number.parseInt(mode, 8)),
+    content: await readGitBlob(rootPath, oid, `${path} at ${revision}`),
+    mode: normalizeGeneratedFileMode(mode),
   };
 }
 
@@ -339,6 +631,9 @@ async function otherConflictRevision(
       revision,
     ]);
     if (resolved.ok) return revision;
+    if (resolved.exitCode !== 1) {
+      throw new Error(`skillset: resolve could not inspect ${revision}`);
+    }
   }
   return undefined;
 }
@@ -365,22 +660,22 @@ async function readHandEditedPaths(
   const payloadPaths = await expandToLockItems(
     rootPath,
     [...conflicted],
-    lockPaths
+    lockPaths,
+    new Set(generatedPaths.filter(isLockPath))
   );
-  const modes = await readIndexModes(rootPath, payloadPaths);
+  const entries = await readIndexEntries(rootPath, payloadPaths);
   const handEdited = new Set<string>();
   const otherRevision = await otherConflictRevision(rootPath);
 
   for (const stage of CONFLICT_STAGES) {
     const snapshots = new Map<string, GeneratedFileSnapshot>();
     for (const path of payloadPaths) {
+      const siblingRevision = stage === 2 ? "HEAD" : otherRevision;
       const snapshot = conflicted.has(path)
-        ? await readConflictSnapshot(rootPath, path, modes, stage)
-        : await readTreeSnapshot(
-            rootPath,
-            stage === 2 ? "HEAD" : (otherRevision ?? "__missing_side__"),
-            path
-          );
+        ? await readConflictSnapshot(rootPath, path, entries, stage)
+        : siblingRevision === undefined
+          ? undefined
+          : await readTreeSnapshot(rootPath, siblingRevision, path);
       if (snapshot !== undefined) snapshots.set(path, snapshot);
     }
     if (snapshots.size === 0) continue;
@@ -424,16 +719,26 @@ async function readStageJson(
   stage: number,
   path: string
 ): Promise<unknown> {
-  const bytes = await readStageBlob(rootPath, stage, path);
-  if (bytes === undefined) return undefined;
+  const entry = (await readIndexEntries(rootPath, [path]))
+    .get(path)
+    ?.get(stage);
+  if (entry === undefined) return undefined;
+  const bytes = await readGitBlob(
+    rootPath,
+    entry.oid,
+    `${path} at stage ${stage}`
+  );
   try {
     return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
-  } catch {
-    return undefined;
+  } catch (error) {
+    throw new Error(
+      `skillset: resolve could not parse ${path} at index stage ${stage}`,
+      { cause: error }
+    );
   }
 }
 
-/** Read every managed output path out of parseable working-tree locks. */
+/** Read every managed output path out of trusted stage-0 lock blobs. */
 export async function readManagedPathsFromLocks(
   rootPath: string,
   lockPaths: readonly string[]
@@ -441,9 +746,9 @@ export async function readManagedPathsFromLocks(
   const managed = new Set<string>();
   for (const lockPath of lockPaths) {
     managed.add(lockPath);
-    const file = Bun.file(join(rootPath, lockPath));
-    if (!(await file.exists())) continue;
-    collectManagedPaths(await readJsonSafely(file), lockPath, managed);
+    const lockJson = await readStageJson(rootPath, 0, lockPath);
+    if (lockJson === undefined) continue;
+    collectManagedPaths(lockJson, lockPath, managed);
   }
   return managed;
 }
@@ -451,11 +756,11 @@ export async function readManagedPathsFromLocks(
 /**
  * Managed paths claimed by **either** side of the conflict.
  *
- * Reading only the working tree is not enough: it holds the stage 2 lock, and
- * when that side deleted a source unit its lock no longer claims the outputs.
- * Those files would then look authored, and resolve would tell a human to
- * hand-merge generated output — the one thing this command exists to prevent.
- * Provenance is a property of the file, so a claim by any side is decisive.
+ * Worktree bytes are mutable and may be marker soup, so they are never trusted
+ * as provenance. Stage 0 is authoritative for merged or unconflicted locks;
+ * stages 2 and 3 are authoritative for the two conflict sides. If either side
+ * claims an output, resolve must not misclassify it as authored and ask a human
+ * to hand-merge generated output.
  */
 async function readManagedPathsAcrossStages(
   rootPath: string,
@@ -472,17 +777,7 @@ async function readManagedPathsAcrossStages(
   return managed;
 }
 
-async function readJsonSafely(
-  file: ReturnType<typeof Bun.file>
-): Promise<unknown> {
-  try {
-    return (await file.json()) as unknown;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Add every output path one lock claims. An unparseable lock claims nothing. */
+/** Add every output path one valid lock claims. */
 function collectManagedPaths(
   lockJson: unknown,
   lockPath: string,
@@ -490,12 +785,7 @@ function collectManagedPaths(
 ): void {
   if (lockJson === undefined) return;
   into.add(lockPath);
-  let parsed: ReturnType<typeof parseGeneratedLock>;
-  try {
-    parsed = parseGeneratedLock(lockJson, lockPath);
-  } catch {
-    return;
-  }
+  const parsed = parseGeneratedLock(lockJson, lockPath);
   const root = lockOutputRoot(lockPath);
   const qualify = (path: string): string =>
     root === "" ? path : `${root}/${path}`;

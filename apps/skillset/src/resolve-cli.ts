@@ -8,8 +8,13 @@
  * stale, not as a merge to perform.
  */
 
-import { buildSkillsetResult, type SkillsetRepairPlan } from "@skillset/core";
+import {
+  buildSkillsetResult,
+  diffSkillsetResult,
+  type SkillsetRepairPlan,
+} from "@skillset/core";
 import { compareStrings } from "@skillset/core/internal/path";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 import { serializeDiagnostics } from "./cli-diagnostics";
@@ -21,6 +26,9 @@ import {
   isLockPath,
   materializeConflictedPaths,
   readConflictedPaths,
+  readUnstagedProjectionPaths,
+  restoreWorktreePaths,
+  snapshotWorktreePaths,
   stagePaths,
   type ConflictInventory,
 } from "./resolve-conflicts";
@@ -40,6 +48,8 @@ interface ResolveReport {
   readonly repair?: SkillsetRepairPlan;
   readonly staged: readonly string[];
   readonly state: "blocked" | "nothing-to-resolve" | "planned" | "resolved";
+  /** Worktree-only paths that could contaminate a generated repair. */
+  readonly unstaged?: readonly string[];
 }
 
 export async function runResolveCommand({
@@ -111,59 +121,136 @@ export async function runResolveCommand({
     );
   }
 
-  // Materialize each lock and every payload it owns from one coherent side so
-  // the repair sees whole files rather than marker soup or a mixed baseline.
-  await materializeConflictedPaths(
+  const graph = await loadBuildGraph(rootPath, options);
+  const unstaged = await readUnstagedProjectionPaths(
     rootPath,
-    inventory.generated,
-    inventory.materializationStages
+    new Set(conflicted),
+    graph.sourceRoot,
+    [graph.rootConfigPath, graph.rootManifestPath, ...graph.externalInputPaths]
   );
-
-  // No path scope: a rebase needs the whole projection consistent with the
-  // merged source, not just the paths that happened to conflict. Scoping the
-  // repair would leave every other output stale. The gate is broader too, which
-  // is the safe direction — resolve has already checked the conflicted paths
-  // against both sides' locks by this point.
-  const result = await buildSkillsetResult(rootPath, {
-    ...options,
-    repair: {},
-  });
-  if (!result.ok) {
-    printDiagnosticsUnlessJson(result.diagnostics, jsonOutput);
+  if (unstaged.length > 0) {
     return report(
       {
         authored: inventory.authored,
         generated: inventory.generated,
         handEdited: inventory.handEdited,
-        ...(result.repair === undefined ? {} : { repair: result.repair }),
         staged: [],
         state: "blocked",
+        unstaged,
       },
-      { diagnostics: result.diagnostics, jsonOutput }
+      { jsonOutput }
     );
   }
 
-  const staged = stageableGeneratedPaths(inventory, result);
-  if (!(await stagePaths(rootPath, staged))) {
-    throw new Error("skillset: resolve could not stage repaired output");
+  const conflictPreimages = await snapshotWorktreePaths(
+    rootPath,
+    inventory.generated
+  );
+  let rollbackPreimages = conflictPreimages;
+  let completed:
+    | {
+        readonly result: Awaited<ReturnType<typeof buildSkillsetResult>>;
+        readonly staged: readonly string[];
+      }
+    | undefined;
+  try {
+    // Materialize each lock and every payload it owns from one coherent side so
+    // the repair sees whole files rather than marker soup or a mixed baseline.
+    await materializeConflictedPaths(
+      rootPath,
+      inventory.generated,
+      inventory.materializationStages
+    );
+
+    // No path scope: a rebase needs the whole projection consistent with the
+    // merged source, not just the paths that happened to conflict. Scoping the
+    // repair would leave every other output stale. The gate is broader too,
+    // which is the safe direction — resolve already checked the conflicted
+    // paths against both sides' locks by this point.
+    const preview = await diffSkillsetResult(rootPath, {
+      ...options,
+      repair: {},
+    });
+    if (!preview.ok) {
+      await restoreWorktreePaths(rootPath, rollbackPreimages);
+      printDiagnosticsUnlessJson(preview.diagnostics, jsonOutput);
+      return report(
+        {
+          authored: inventory.authored,
+          generated: inventory.generated,
+          handEdited: inventory.handEdited,
+          ...(preview.repair === undefined ? {} : { repair: preview.repair }),
+          staged: [],
+          state: "blocked",
+        },
+        { diagnostics: preview.diagnostics, jsonOutput }
+      );
+    }
+
+    const conflictSet = new Set(inventory.generated);
+    const plannedPaths = new Set([
+      ...preview.data.added,
+      ...preview.data.changed,
+      ...preview.data.missing,
+      ...preview.data.removed,
+    ]);
+    const additionalPreimages = await snapshotWorktreePaths(
+      rootPath,
+      [...plannedPaths].filter((path) => !conflictSet.has(path))
+    );
+    rollbackPreimages = [...conflictPreimages, ...additionalPreimages];
+
+    const result = await buildSkillsetResult(rootPath, {
+      ...options,
+      repair: {},
+    });
+    if (!result.ok) {
+      await restoreWorktreePaths(rootPath, rollbackPreimages);
+      printDiagnosticsUnlessJson(result.diagnostics, jsonOutput);
+      return report(
+        {
+          authored: inventory.authored,
+          generated: inventory.generated,
+          handEdited: inventory.handEdited,
+          ...(result.repair === undefined ? {} : { repair: result.repair }),
+          staged: [],
+          state: "blocked",
+        },
+        { diagnostics: result.diagnostics, jsonOutput }
+      );
+    }
+
+    const staged = stageableGeneratedPaths(inventory, result);
+    if (!(await stagePaths(rootPath, staged))) {
+      throw new Error("skillset: resolve could not stage repaired output");
+    }
+    completed = { result, staged };
+  } catch (error) {
+    await restoreWorktreePaths(rootPath, rollbackPreimages);
+    throw error;
+  }
+  if (completed === undefined) {
+    throw new Error("skillset: resolve completed without a repair result");
   }
   return report(
     {
       authored: inventory.authored,
       generated: inventory.generated,
       handEdited: inventory.handEdited,
-      ...(result.repair === undefined ? {} : { repair: result.repair }),
-      staged,
+      ...(completed.result.repair === undefined
+        ? {}
+        : { repair: completed.result.repair }),
+      staged: completed.staged,
       state: "resolved",
     },
-    { diagnostics: result.diagnostics, jsonOutput }
+    { diagnostics: completed.result.diagnostics, jsonOutput }
   );
 }
 
 /**
- * Every path the repair wrote or removed, plus the conflicted generated set.
- * Intersected with the lock inventory so nothing outside confirmed generated
- * output is ever staged.
+ * Every conflicted generated path plus each path Core reports it wrote or
+ * removed. Existing conflict paths are lock-confirmed; new output paths are
+ * authorized by Core's generated write summary.
  */
 function stageableGeneratedPaths(
   inventory: ConflictInventory,
@@ -247,6 +334,16 @@ function printResolveText(data: ResolveReport): void {
     for (const path of data.handEdited) console.error(`  ${path}`);
     console.error(
       "skillset: recover each edit into its authoring source with skillset explain <path>, commit that, then rerun skillset resolve --yes"
+    );
+    return;
+  }
+  if ((data.unstaged?.length ?? 0) > 0) {
+    console.error(
+      "skillset: unstaged or untracked paths could change generated output during resolve"
+    );
+    for (const path of data.unstaged ?? []) console.error(`  ${path}`);
+    console.error(
+      "skillset: stage or remove those paths, then rerun skillset resolve --yes"
     );
     return;
   }

@@ -4,7 +4,7 @@ slug: workflow-oriented-cli
 title: Workflow-Oriented CLI With A Flat Loop And Explicit Domains
 status: accepted
 created: 2026-07-12
-updated: 2026-07-20
+updated: 2026-09-20
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 5, 12, 19]
 ---
@@ -28,7 +28,7 @@ Skillset is pre-1.0 and has no adoption burden that justifies carrying deprecate
 
 ## Decision
 
-Skillset ships a 21-command workflow-oriented CLI. Frequent authoring and compilation actions remain flat, related lifecycle operations share one domain command, maintainer-only operations leave the public CLI, and obsolete names are removed without aliases.
+Skillset ships a 25-command workflow-oriented CLI. Frequent authoring and compilation actions remain flat, related lifecycle operations share one domain command, maintainer-only operations leave the public CLI, and obsolete names are removed without aliases.
 
 ### Governing rules
 
@@ -45,11 +45,10 @@ Skillset ships a 21-command workflow-oriented CLI. Frequent authoring and compil
 | Area | Commands |
 | --- | --- |
 | Onboard | `create` · `init` · `import` |
-| Author | `new` · `check` · `dev` · `reconcile` |
-| Compile and maintain | `build` · `update` · `diff` · `restore` |
-| Inspect | `status` · `list` · `explain` · `lookup` |
-| Test | `test` |
-| Ledgers | `change` · `release` |
+| Author | `new` · `rename` |
+| Build | `build` · `check` · `dev` · `diff` · `update` |
+| Inspect | `eval` · `status` · `list` · `explain` · `lookup` · `report` · `test` |
+| Changes | `change` · `release` · `reconcile` · `resolve` · `restore` |
 | Distribution | `marketplace` · `distribute` |
 | Runtime | `hooks` |
 
@@ -90,13 +89,14 @@ of the current public CLI.
 
 The narrow verification primitive remains reusable internally, but top-level `lint`, `verify`, and `ci` are removed. This preserves the [deterministic projection boundary](0019-deterministic-projection-and-adapter-conformance.md#projection-comparison): check composes compiler evidence rather than inventing a second renderer.
 
-### Three drift directions have three owners
+### Drift and Git conflicts have explicit owners
 
 | Situation | Owner |
 | --- | --- |
 | Source changed and rendered output is stale | `build`, or narrow `check --write` after a clean readiness pass |
 | Compiler/provider output format evolved without a source edit | `update` |
 | Managed output was edited or source/output ownership conflicts | `reconcile` |
+| A merge or rebase leaves generated paths unmerged | `resolve`, after authored conflicts are settled |
 
 `skillset update` previews and applies registered, source-preserving provider/compiler format migrations. It refuses ordinary source drift, target-side edits, unregistered migrations, lossy changes, and manual-review cases. Check diagnoses update-shaped drift and prints the exact update command without applying it.
 
@@ -107,9 +107,11 @@ The narrow verification primitive remains reusable internally, but top-level `li
 
 Reconcile reports ownership, lock provenance, affected paths, available resolutions, and refusal reasons. Generated changelog edits keep routing to `change reason`, `change amend`, or `release amend`, where those ledgers own the truth. Top-level `suggest-source` and its `--write --yes` grammar are removed.
 
+`skillset resolve` does not compete with `reconcile`. Reconcile is a normal-worktree, one-path source/output decision: the author chooses which trustworthy side should become truth. Resolve is a Git-conflict workflow: after authored conflicts are resolved, it classifies conflicted generated paths against both sides' locks, regenerates the whole projection from merged source, and stages only generated repair results. Its default is read-only; `--yes` performs the repair. It refuses hand-edited generated paths and restores the pre-repair worktree state if validation or staging fails.
+
 ### Test is one evidence family
 
-`skillset test` owns committed declarations and ad hoc runtime evidence. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md#deterministic-tests-are-implemented-product-surface): the distinction is input and assertion strength, not a second top-level verb.
+`skillset test` owns deterministic declarations and ad hoc runtime assertions. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md#deterministic-tests-are-implemented-product-surface): the distinction is input and assertion strength, not a second provider harness. `skillset eval list` is the read-only inspection command for portable eval cases and their resolved target matrix. The explicit `eval run` boundary uses the shared runtime adapter for opt-in, ungraded provider trials; `eval status` and `eval tail` inspect that retained evidence. Authored expectations remain context and never become automatic pass/fail grades.
 
 ```bash
 skillset test [name]
@@ -164,7 +166,9 @@ The shipped CLI has no `providers` route. Ordinary checks and builds remain offl
 | `adopt` | `init [directory] --adopt …` |
 | `import` | `import` |
 | `new` | `new` |
+| `rename` | `rename` |
 | `suggest-source` | `reconcile` |
+| `resolve` | transactional generated-conflict repair |
 | `check` | comprehensive `check` family |
 | `lint` | removed; source diagnostics live in `check` |
 | `verify` | `check --only outputs` |
@@ -175,10 +179,12 @@ The shipped CLI has no `providers` route. Ordinary checks and builds remain offl
 | `diff` | `diff` |
 | `restore` | `restore` |
 | `doctor` | `status` |
+| `eval` | portable inventory and ungraded provider trials |
 | `list` | `list` |
 | `explain` | `explain` |
 | `features` | `lookup features [id]` |
 | `lookup` | `lookup` |
+| `report` | immutable operational evidence |
 | `test` | declared and ad hoc `test` family |
 | `try` | flag-driven `test` plus `test status|tail|list` |
 | `change` | `change` |
@@ -209,7 +215,7 @@ The completed flag audit ran before the parser-heavy implementation and reviewed
 
 - No source-contract, target-rendering, lock-format, trust, install, activation, or publishing changes.
 - No marketplace/distribution merge.
-- No eval or subjective grading framework.
+- No second provider harness or subjective grading framework.
 - No compatibility layer for pre-1.0 command names.
 - No requirement that every command emit one finite JSON document.
 
@@ -217,7 +223,7 @@ The completed flag audit ran before the parser-heavy implementation and reviewed
 
 ### Positive
 
-- Twenty-one top-level commands map to workflows rather than implementation history.
+- Twenty-five top-level commands map to workflows rather than implementation history.
 - Onboarding, readiness, tests, and managed drift each have one obvious entry point.
 - Ordinary writes, provider-format updates, and source/output reconciliation cannot silently collapse into each other.
 - Maintainer-only network refresh no longer expands the public product surface.
@@ -236,6 +242,7 @@ The completed flag audit ran before the parser-heavy implementation and reviewed
 - `check --ci --fix` could hide meaningful conflicts. Update-shaped and reconcile-shaped drift always fail with explicit next actions.
 - Flag-driven ad hoc tests could become ambiguous with named declarations. Runtime flags and lifecycle words are reserved and validated before execution.
 - Reconcile could imply unsafe bidirectional sync. Both directions remain explicit, plan-first, provenance-backed, and allowed only when losslessness is proven.
+- Resolve could hide authored work during a Git operation. It therefore refuses authored conflicts and hand-edited generated paths, gates worktree-only compiler inputs, and restores exact pre-repair state if validation or staging fails.
 
 ## Completed Implementation Map
 
@@ -251,15 +258,20 @@ The completed flag audit ran before the parser-heavy implementation and reviewed
 - [SET-283](https://linear.app/outfitter/issue/SET-283) - consolidate status and lookup inspection surfaces.
 - [SET-284](https://linear.app/outfitter/issue/SET-284) - define structured output separately.
 - [SET-285](https://linear.app/outfitter/issue/SET-285) - reconcile documentation, workflows, fixtures, and generated guidance.
+- [SET-600](https://linear.app/outfitter/issue/SET-600) - add transactional generated-output conflict resolution for Git merge and rebase workflows.
 
-## Acceptance Evidence (2026-07-20)
+## Acceptance Evidence (updated 2026-09-20)
 
-SET-312 and SET-366 verified the final onboarding grammar and roster before
-this decision was accepted. Skillset has 21 top-level commands: `build`,
-`change`, `check`, `create`, `dev`, `diff`,
-`distribute`, `explain`, `hooks`, `import`, `init`, `list`, `lookup`,
-`marketplace`, `new`, `release`, `reconcile`, `restore`, `status`, `test`, and
-`update`.
+SET-312 and SET-366 verified the original onboarding grammar and 21-command
+roster before this decision was accepted. Subsequent accepted work added four
+distinct workflows rather than compatibility aliases: `rename` for atomic
+source identity changes, `eval` for portable eval inventory and ungraded
+provider trials, `report` for immutable operational evidence, and `resolve`
+for Git-conflicted generated output. As of 2026-09-20, Skillset has 25
+top-level commands: `build`, `change`, `check`, `create`, `dev`, `diff`,
+`distribute`, `eval`, `explain`, `hooks`, `import`, `init`, `list`,
+`lookup`, `marketplace`, `new`, `release`, `reconcile`, `rename`, `report`,
+`resolve`, `restore`, `status`, `test`, and `update`.
 
 Onboarding has three distinct owners. `create [name]` creates a named child
 repository. `init [directory]` initializes an existing directory and owns
