@@ -3,14 +3,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "../build";
 import {
   createOperationalPathContext,
   resolveOperationalPath,
 } from "../operational-cache";
 import { classifyRepairPath, planOutputRepair } from "../output-repair";
-
-import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 const OUTPUT_PATH = ".agents/skills/demo/SKILL.md";
 const COMPANION_PATH = ".agents/skills/demo/references/note.md";
@@ -220,7 +219,10 @@ describe("build --repair", () => {
   it("restores a deleted managed output byte-identically without touching the lock", async () => {
     const root = await seededFixture();
     const before = await readFile(join(root, OUTPUT_PATH));
-    const lockBefore = await readFile(join(root, ".agents/skills/skillset.lock"), "utf8");
+    const lockBefore = await readFile(
+      join(root, ".agents/skills/skillset.lock"),
+      "utf8"
+    );
 
     await rm(join(root, OUTPUT_PATH));
     const result = await buildSkillsetResult(root, { repair: {} });
@@ -340,6 +342,16 @@ describe("build --repair", () => {
     const otherOutput = ".agents/skills/other/SKILL.md";
     const lockPath = join(root, ".agents/skills/skillset.lock");
     const lockBefore = await readFile(lockPath, "utf8");
+    const beforeItems = (
+      JSON.parse(lockBefore) as {
+        readonly items: readonly {
+          readonly files?: readonly string[];
+        }[];
+      }
+    ).items;
+    const otherLockItemBefore = beforeItems.find((item) =>
+      item.files?.includes("other/SKILL.md")
+    );
     const otherBefore = await readFile(join(root, otherOutput), "utf8");
     await writeFile(
       join(root, ".skillset/skills/demo/SKILL.md"),
@@ -359,7 +371,19 @@ describe("build --repair", () => {
     expect(result.writes.writtenPaths).not.toContain(otherOutput);
     // Out-of-scope output keeps its old bytes, and the lock keeps its entry.
     expect(await readFile(join(root, otherOutput), "utf8")).toBe(otherBefore);
-    expect(await readFile(lockPath, "utf8")).not.toBe(lockBefore);
+    const lockAfter = await readFile(lockPath, "utf8");
+    const afterItems = (
+      JSON.parse(lockAfter) as {
+        readonly items: readonly {
+          readonly files?: readonly string[];
+        }[];
+      }
+    ).items;
+    expect(lockAfter).not.toBe(lockBefore);
+    expect(otherLockItemBefore).toBeDefined();
+    expect(
+      afterItems.find((item) => item.files?.includes("other/SKILL.md"))
+    ).toEqual(otherLockItemBefore);
   });
 
   it("gates every sibling that a scoped repair would write", async () => {
@@ -376,7 +400,9 @@ describe("build --repair", () => {
     expect(result.ok).toBe(false);
     expect(result.repair?.lockUntrusted).toContain(COMPANION_PATH);
     expect(await readFile(companion, "utf8")).toBe(edited);
-    await expect(Bun.file(join(root, OUTPUT_PATH)).exists()).resolves.toBeFalse();
+    await expect(
+      Bun.file(join(root, OUTPUT_PATH)).exists()
+    ).resolves.toBeFalse();
   });
 
   it("normalizes a repo-relative scoped repair path", async () => {
@@ -388,7 +414,9 @@ describe("build --repair", () => {
     });
 
     expect(result.ok).toBe(true);
-    await expect(Bun.file(join(root, OUTPUT_PATH)).exists()).resolves.toBeTrue();
+    await expect(
+      Bun.file(join(root, OUTPUT_PATH)).exists()
+    ).resolves.toBeTrue();
   });
 
   it("rejects a scoped repair path that is not managed", async () => {

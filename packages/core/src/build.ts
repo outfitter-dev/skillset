@@ -60,11 +60,12 @@ import {
   type SkillsetWriteSummary,
 } from "./operation-result";
 import { classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
+import type { SkillsetRepairPlan } from "./output-repair";
 import {
-  classifyRepairPath,
-  planOutputRepair,
-  type SkillsetRepairPlan,
-} from "./output-repair";
+  expandOutputRepairScope,
+  inspectOutputRepairPlan,
+  scopeOutputRepairWrite,
+} from "./output-repair-plan";
 import { SkillsetRenderResultError, defineRenderResult, parseRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, SkillsetRepairOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
@@ -531,7 +532,7 @@ async function runBuildProjection(
 
   // The plan above is computed over the whole projection; only the write is
   // narrowed when a repair names paths.
-  const scopedWrite = await scopeRepairWrite({
+  const scopedWrite = await scopeOutputRepairWrite({
     rendered,
     repairScope: writeInspection.repairScope,
     resolveOutputPath,
@@ -614,43 +615,6 @@ interface OutputPlanInspection {
   /** Normalized, lock-item-expanded paths a scoped repair may write. */
   readonly repairScope?: ReadonlySet<string>;
   readonly staleManagedPaths: readonly string[];
-}
-
-/**
- * Classify every managed output that a repair is responsible for, including the
- * ones the current source no longer produces — a repair that deletes a path
- * should say so. Lock files are excluded: the lock is the merge base the other
- * paths are judged against, and its own provenance is settled by
- * `classifyLockProvenance`.
- */
-function inspectRepairPlan(args: {
-  readonly actualPaths: ReadonlySet<string>;
-  readonly diff: SkillsetDiff;
-  readonly expected: ReadonlyMap<string, RenderedFile>;
-  readonly managedState: ManagedOutputState;
-  readonly repair: SkillsetRepairOptions;
-  readonly scope: ReadonlySet<string> | undefined;
-}): SkillsetRepairPlan {
-  const changed = new Set(args.diff.changed);
-  const verdicts = [...args.managedState.paths]
-    .filter((path) => !isLockFilePath(path))
-    .filter((path) => args.expected.has(path) || args.actualPaths.has(path))
-    .filter((path) => args.scope === undefined || args.scope.has(path))
-    .map((path) =>
-      classifyRepairPath({
-        ...(args.repair.discardEdits === undefined
-          ? {}
-          : { discardEdits: args.repair.discardEdits }),
-        fileMatchesLock: !args.managedState.editedPaths.has(path),
-        filePresent: args.actualPaths.has(path),
-        lockComparable: !args.managedState.lockIncomparablePaths.has(path),
-        outputPath: path,
-        rendered: args.expected.has(path),
-        renderMatchesFile: !changed.has(path),
-        renderMatchesLock: !args.managedState.renderDriftPaths.has(path),
-      })
-    );
-  return planOutputRepair(verdicts);
 }
 
 async function inspectOutputPlan(args: {
@@ -801,16 +765,16 @@ async function inspectOutputPlan(args: {
   const repairScope =
     args.repair?.paths === undefined
       ? undefined
-      : await expandRepairScope({
+      : await expandOutputRepairScope({
           rendered: args.rendered,
           repairPaths: args.repair.paths,
           resolveOutputPath: args.resolveOutputPath,
         });
   const repair = args.repair === undefined
     ? undefined
-    : inspectRepairPlan({
+    : inspectOutputRepairPlan({
         actualPaths,
-        diff,
+        changedPaths: diff.changed,
         expected: args.expected,
         managedState,
         repair: args.repair,
@@ -922,170 +886,6 @@ function managedOutputEditPreservedDiagnostic(
   };
 }
 
-
-/**
- * Narrow a repair's write to the paths the caller named.
- *
- * The plan stays complete — every verdict, diff entry, and backup is computed
- * over the whole projection — and only the write is scoped, so nothing outside
- * the named paths is touched. Scope expands to whole lock items because
- * `outputHash` covers a file group: writing half an item would record a hash
- * for bytes that were never written.
- *
- * Each lock is merged rather than rewritten: in-scope items take their fresh
- * entry, everything else keeps the entry it already had. That is what makes a
- * scoped repair leave a lock that still describes what is actually on disk.
- */
-async function scopeRepairWrite(args: {
-  readonly rendered: readonly RenderedFile[];
-  readonly repairScope: ReadonlySet<string> | undefined;
-  readonly resolveOutputPath: OutputPathResolver;
-  readonly staleManagedPaths: readonly string[];
-}): Promise<{
-  readonly rendered: readonly RenderedFile[];
-  readonly staleManagedPaths: readonly string[];
-}> {
-  if (args.repairScope === undefined) {
-    return { rendered: args.rendered, staleManagedPaths: args.staleManagedPaths };
-  }
-  const locks = args.rendered.filter((file) => isLockFilePath(file.path));
-  const previousByLock = new Map<string, JsonRecord | undefined>();
-  for (const lock of locks) {
-    previousByLock.set(
-      lock.path,
-      await readLockRecord(args.resolveOutputPath(lock.path))
-    );
-  }
-  const scope = args.repairScope;
-
-  const rendered: RenderedFile[] = [];
-  for (const file of args.rendered) {
-    if (!isLockFilePath(file.path)) {
-      if (scope.has(file.path)) rendered.push(file);
-      continue;
-    }
-    rendered.push(
-      mergeScopedLock(file, previousByLock.get(file.path), scope)
-    );
-  }
-  return {
-    rendered,
-    staleManagedPaths: args.staleManagedPaths.filter((path) => scope.has(path)),
-  };
-}
-
-async function expandRepairScope(args: {
-  readonly rendered: readonly RenderedFile[];
-  readonly repairPaths: readonly string[];
-  readonly resolveOutputPath: OutputPathResolver;
-}): Promise<ReadonlySet<string>> {
-  const locks = args.rendered.filter((file) => isLockFilePath(file.path));
-  const previousByLock = new Map<string, JsonRecord | undefined>();
-  for (const lock of locks) {
-    previousByLock.set(
-      lock.path,
-      await readLockRecord(args.resolveOutputPath(lock.path))
-    );
-  }
-  return expandScopeToLockItems(
-    new Set(args.repairPaths),
-    locks,
-    previousByLock
-  );
-}
-
-async function readLockRecord(
-  absolutePath: string
-): Promise<JsonRecord | undefined> {
-  try {
-    const parsed = JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
-    return isJsonRecord(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Lock item `files` arrays, qualified to output-root-relative display paths. */
-function lockItemGroups(
-  lockPath: string,
-  record: JsonRecord | undefined
-): readonly (readonly string[])[] {
-  if (record === undefined) return [];
-  const root = outputRootForLockPath(lockPath);
-  const items = Array.isArray(record.items) ? record.items : [];
-  return items.flatMap((item) => {
-    if (!isJsonRecord(item) || !Array.isArray(item.files)) return [];
-    const files = item.files.filter(
-      (file): file is string => typeof file === "string"
-    );
-    return [files.map((file) => (root === "." ? file : `${root}/${file}`))];
-  });
-}
-
-function expandScopeToLockItems(
-  requested: ReadonlySet<string>,
-  locks: readonly RenderedFile[],
-  previousByLock: ReadonlyMap<string, JsonRecord | undefined>
-): ReadonlySet<string> {
-  const scope = new Set(requested);
-  for (const lock of locks) {
-    const groups = [
-      ...lockItemGroups(lock.path, parseRenderedLock(lock)),
-      ...lockItemGroups(lock.path, previousByLock.get(lock.path)),
-    ];
-    for (const group of groups) {
-      if (!group.some((path) => requested.has(path))) continue;
-      for (const path of group) scope.add(path);
-    }
-  }
-  return scope;
-}
-
-function parseRenderedLock(file: RenderedFile): JsonRecord | undefined {
-  try {
-    const parsed = JSON.parse(textDecoder.decode(file.content)) as unknown;
-    return isJsonRecord(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Fresh entries for in-scope items, previous entries for everything else. */
-function mergeScopedLock(
-  lock: RenderedFile,
-  previous: JsonRecord | undefined,
-  scope: ReadonlySet<string>
-): RenderedFile {
-  const fresh = parseRenderedLock(lock);
-  if (fresh === undefined || previous === undefined) return lock;
-  const root = outputRootForLockPath(lock.path);
-  const qualify = (item: JsonValue): readonly string[] => {
-    if (!isJsonRecord(item) || !Array.isArray(item.files)) return [];
-    return item.files
-      .filter((file): file is string => typeof file === "string")
-      .map((file) => (root === "." ? file : `${root}/${file}`));
-  };
-  const inScope = (item: JsonValue): boolean => {
-    const files = qualify(item);
-    return files.length > 0 && files.every((path) => scope.has(path));
-  };
-  const freshItems = Array.isArray(fresh.items) ? fresh.items : [];
-  const previousItems = Array.isArray(previous.items) ? previous.items : [];
-  const merged = [
-    ...freshItems.filter((item) => inScope(item)),
-    ...previousItems.filter((item) => !inScope(item)),
-  ].sort((left, right) =>
-    compareStrings(
-      isJsonRecord(left) ? String(left.outputPath) : "",
-      isJsonRecord(right) ? String(right.outputPath) : ""
-    )
-  );
-  const value = withLockProvenance({ ...fresh, items: merged });
-  return {
-    ...lock,
-    content: new TextEncoder().encode(renderValidatedJson(value, lock.path)),
-  };
-}
 
 function outputBlockers(
   diagnostics: readonly SkillsetDiagnostic[],
