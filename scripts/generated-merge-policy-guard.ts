@@ -16,7 +16,9 @@
  * Run it with `bun run generated-merge-policy:guard`.
  */
 
-import { dirname, join } from "node:path";
+import path from "node:path";
+
+import { parseGeneratedLock } from "@skillset/core";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { CHANGE_STREAM_PATHSPEC } from "./change-stream-guard";
@@ -61,7 +63,10 @@ export interface MergePolicyReport {
   readonly violations: readonly MergePolicyViolation[];
 }
 
-async function git(rootPath: string, args: readonly string[]): Promise<string> {
+const git = async (
+  rootPath: string,
+  args: readonly string[]
+): Promise<string> => {
   const proc = Bun.spawn({
     cmd: ["git", "-C", rootPath, ...args],
     env: gitSafeEnv(),
@@ -76,60 +81,94 @@ async function git(rootPath: string, args: readonly string[]): Promise<string> {
     throw new Error(`git ${args.join(" ")} failed with exit ${exitCode}`);
   }
   return stdout;
-}
+};
 
-async function listFiles(
+const listFiles = async (
   rootPath: string,
   pathspecs: readonly string[] = []
-): Promise<readonly string[]> {
+): Promise<readonly string[]> => {
   const args =
     pathspecs.length === 0
-      ? ["ls-files"]
-      : ["ls-files", "--", ...pathspecs];
-  return (await git(rootPath, args)).split("\n").filter((line) => line.length > 0);
-}
+      ? ["ls-files", "-z"]
+      : ["ls-files", "-z", "--", ...pathspecs];
+  const stdout = await git(rootPath, args);
+  return stdout.split("\0").filter((line) => line.length > 0);
+};
+
+const isLockPath = (candidatePath: string): boolean =>
+  candidatePath === LOCK_FILE || candidatePath.endsWith(`/${LOCK_FILE}`);
+
+const outputFiles = (item: {
+  readonly files: readonly string[];
+  readonly outputPath?: string;
+}): readonly string[] => {
+  if (item.files.length > 0) {
+    return item.files;
+  }
+  return item.outputPath === undefined ? [] : [item.outputPath];
+};
 
 /** Every generated path the committed locks claim, plus the locks themselves. */
-export async function readGeneratedPaths(
+export const readGeneratedPaths = async (
   rootPath: string
-): Promise<readonly string[]> {
+): Promise<readonly string[]> => {
   const locks = await listFiles(rootPath, [LOCK_FILE, `*/${LOCK_FILE}`]);
   const generated = new Set<string>();
-  for (const lock of locks.filter(isLockPath)) {
+  const parsedLocks = await Promise.all(
+    locks.filter(isLockPath).map(async (lock) => ({
+      lock,
+      parsed: parseGeneratedLock(
+        await Bun.file(path.join(rootPath, lock)).json(),
+        lock,
+        { provenance: "inspect" }
+      ),
+    }))
+  );
+  for (const { lock, parsed } of parsedLocks) {
     generated.add(lock);
-    const root = dirname(lock) === "." ? "" : dirname(lock);
-    const parsed = (await Bun.file(join(rootPath, lock)).json()) as {
-      readonly items?: readonly { readonly files?: readonly string[] }[];
-    };
-    for (const item of parsed.items ?? []) {
-      for (const file of item.files ?? []) {
-        generated.add(
-          (root === "" ? file : join(root, file)).replaceAll("\\", "/")
-        );
+    const outputRoot = path.posix.dirname(lock);
+    for (const item of parsed.items) {
+      for (const file of outputFiles(item)) {
+        generated.add(path.posix.join(outputRoot, file));
       }
     }
   }
-  return [...generated].sort();
-}
+  return [...generated].toSorted();
+};
 
 /** `git check-attr merge` for many paths at once, keyed by path. */
-export async function readMergePolicies(
+export const readMergePolicies = async (
   rootPath: string,
-  paths: readonly string[]
-): Promise<ReadonlyMap<string, string>> {
-  if (paths.length === 0) return new Map();
+  paths: readonly string[],
+  ignoreCase: boolean
+): Promise<ReadonlyMap<string, string>> => {
+  if (paths.length === 0) {
+    return new Map();
+  }
   const proc = Bun.spawn({
-    cmd: ["git", "-C", rootPath, "check-attr", "--stdin", "-z", "merge"],
+    cmd: [
+      "git",
+      "-C",
+      rootPath,
+      "-c",
+      `core.ignorecase=${String(ignoreCase)}`,
+      "check-attr",
+      "--stdin",
+      "-z",
+      "merge",
+    ],
     env: gitSafeEnv(),
-    stdin: new TextEncoder().encode(`${paths.join("\0")}\0`),
     stderr: "pipe",
+    stdin: new TextEncoder().encode(`${paths.join("\0")}\0`),
     stdout: "pipe",
   });
   const [stdout, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     proc.exited,
   ]);
-  if (exitCode !== 0) throw new Error("git check-attr failed");
+  if (exitCode !== 0) {
+    throw new Error("git check-attr failed");
+  }
   // `-z` emits NUL-separated <path> <attr> <value> triples.
   const fields = stdout.split("\0");
   const policies = new Map<string, string>();
@@ -137,42 +176,49 @@ export async function readMergePolicies(
     policies.set(fields[index] ?? "", fields[index + 2] ?? "");
   }
   return policies;
-}
-
-function isLockPath(path: string): boolean {
-  return path === LOCK_FILE || path.endsWith(`/${LOCK_FILE}`);
-}
+};
 
 /** Sort every tracked file into exactly one category. */
-export async function categorizeTrackedPaths(
+export const categorizeTrackedPaths = async (
   rootPath: string
-): Promise<ReadonlyMap<string, MergePolicyCategory>> {
+): Promise<ReadonlyMap<string, MergePolicyCategory>> => {
   const generated = new Set(await readGeneratedPaths(rootPath));
   const ledgers = new Set(await listFiles(rootPath, LEDGER_PATHSPECS));
   const categories = new Map<string, MergePolicyCategory>();
-  for (const path of await listFiles(rootPath)) {
-    if (generated.has(path)) {
-      categories.set(path, "generated-snapshot");
+  for (const trackedPath of await listFiles(rootPath)) {
+    if (generated.has(trackedPath)) {
+      categories.set(trackedPath, "generated-snapshot");
       continue;
     }
     categories.set(
-      path,
-      ledgers.has(path) ? "append-only-ledger" : "authored"
+      trackedPath,
+      ledgers.has(trackedPath) ? "append-only-ledger" : "authored"
     );
   }
   // A lock claiming a path git does not track is still the guard's business.
-  for (const path of generated) {
-    if (!categories.has(path)) categories.set(path, "generated-snapshot");
+  for (const generatedPath of generated) {
+    if (!categories.has(generatedPath)) {
+      categories.set(generatedPath, "generated-snapshot");
+    }
   }
   return categories;
-}
+};
+
+const comparePaths = (
+  left: MergePolicyViolation,
+  right: MergePolicyViolation
+): number => {
+  if (left.path < right.path) {
+    return -1;
+  }
+  return left.path > right.path ? 1 : 0;
+};
 
 /** Check one repository's whole tracked tree against the policy model. */
-export async function checkMergePolicy(
+export const checkMergePolicy = async (
   rootPath: string
-): Promise<MergePolicyReport> {
+): Promise<MergePolicyReport> => {
   const categories = await categorizeTrackedPaths(rootPath);
-  const policies = await readMergePolicies(rootPath, [...categories.keys()]);
   const violations: MergePolicyViolation[] = [];
   const counts: Record<MergePolicyCategory, number> = {
     "append-only-ledger": 0,
@@ -180,32 +226,43 @@ export async function checkMergePolicy(
     "generated-snapshot": 0,
   };
 
-  for (const [path, category] of categories) {
+  for (const category of categories.values()) {
     counts[category] += 1;
-    const expected = MERGE_POLICY_BY_CATEGORY[category];
-    const actual = policies.get(path) ?? "unspecified";
-    if (actual === expected) continue;
-    violations.push({
-      category,
-      detail:
-        category === "authored"
-          ? `authored file resolves merge=${actual}; narrow the generated .gitattributes patterns`
-          : `${category} resolves merge=${actual}, expected ${expected}; fix its .gitattributes pattern`,
-      path,
-    });
   }
 
-  return { counts, violations: violations.sort(comparePaths) };
-}
+  const policySets = await Promise.all(
+    [false, true].map(async (ignoreCase) => ({
+      ignoreCase,
+      policies: await readMergePolicies(
+        rootPath,
+        [...categories.keys()],
+        ignoreCase
+      ),
+    }))
+  );
+  for (const { ignoreCase, policies } of policySets) {
+    for (const [trackedPath, category] of categories) {
+      const expected = MERGE_POLICY_BY_CATEGORY[category];
+      const actual = policies.get(trackedPath) ?? "unspecified";
+      if (actual === expected) {
+        continue;
+      }
+      const mode = `core.ignorecase=${String(ignoreCase)}`;
+      violations.push({
+        category,
+        detail:
+          category === "authored"
+            ? `authored file resolves merge=${actual} with ${mode}; narrow the generated .gitattributes patterns`
+            : `${category} resolves merge=${actual}, expected ${expected} with ${mode}; fix its .gitattributes pattern`,
+        path: trackedPath,
+      });
+    }
+  }
 
-function comparePaths(
-  left: MergePolicyViolation,
-  right: MergePolicyViolation
-): number {
-  return left.path < right.path ? -1 : left.path > right.path ? 1 : 0;
-}
+  return { counts, violations: violations.toSorted(comparePaths) };
+};
 
-async function main(): Promise<void> {
+const main = async (): Promise<void> => {
   const report = await checkMergePolicy(process.cwd());
   if (report.violations.length > 0) {
     for (const violation of report.violations) {
@@ -222,11 +279,13 @@ async function main(): Promise<void> {
       `${counts["append-only-ledger"]} ledger, and ${counts.authored} authored path(s); ` +
       "each matches its category's merge policy"
   );
-}
+};
 
 if (import.meta.main) {
-  main().catch((error: unknown) => {
+  try {
+    await main();
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
-  });
+  }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import path from "node:path";
 
 import {
   categorizeTrackedPaths,
@@ -13,8 +13,89 @@ import {
 } from "../test-helpers/git-remote";
 
 const GENERATED = ".agents/skills/demo/SKILL.md";
+const NESTED_GENERATED = "examples/demo/.agents/skills/demo/SKILL.md";
 const AUTHORED = "authored.md";
 const LEDGER = ".skillset/changes/ledger.jsonl";
+
+const generatedAttributes = (): string =>
+  "**/.agents/skills/** -merge\n**/skillset.lock -merge\n";
+
+const policyAttributes = (): string =>
+  `${generatedAttributes()}.skillset/changes/*.jsonl merge=union\n`;
+
+/** A committed repository holding one file of each category. */
+const fixture = async (
+  attributes: string,
+  options: {
+    readonly extraPath?: string;
+    readonly files?: readonly string[];
+    readonly nestedWorkspace?: boolean;
+    readonly outputPath?: string;
+  } = {}
+): Promise<string> => {
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-merge-policy-"
+  );
+  const root = await mkdtemp(path.join(disposableRoot, "repo-"));
+  await mkdir(path.join(root, ".agents/skills/demo"), { recursive: true });
+  await mkdir(path.join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(path.join(root, ".gitattributes"), attributes, "utf-8");
+  await writeFile(path.join(root, AUTHORED), "Authored.\n", "utf-8");
+  await writeFile(path.join(root, GENERATED), "Generated.\n", "utf-8");
+  if (options.nestedWorkspace === true) {
+    const nestedLock = "examples/demo/.agents/skills/skillset.lock";
+    await writeFile(path.join(root, "AGENTS.md"), "Authored.\n", "utf-8");
+    await mkdir(path.dirname(path.join(root, nestedLock)), { recursive: true });
+    await mkdir(path.dirname(path.join(root, NESTED_GENERATED)), {
+      recursive: true,
+    });
+    await writeFile(path.join(root, NESTED_GENERATED), "Generated.\n", "utf-8");
+    await writeFile(
+      path.join(root, nestedLock),
+      `${JSON.stringify(
+        {
+          generatedBy: "skillset@test",
+          items: [{ files: ["demo/SKILL.md"] }],
+          outputRoot: ".agents/skills",
+          schemaVersion: 1,
+          target: "workspace",
+        },
+        null,
+        2
+      )}\n`,
+      "utf-8"
+    );
+  }
+  if (options.extraPath !== undefined) {
+    const extraPath = path.join(root, options.extraPath);
+    await mkdir(path.dirname(extraPath), { recursive: true });
+    await writeFile(extraPath, "Authored.\n", "utf-8");
+  }
+  await writeFile(path.join(root, LEDGER), '{"id":"one"}\n', "utf-8");
+  await writeFile(
+    path.join(root, ".agents/skills/skillset.lock"),
+    `${JSON.stringify(
+      {
+        generatedBy: "skillset@test",
+        items: [
+          {
+            files: options.files ?? ["demo/SKILL.md"],
+            outputPath: options.outputPath ?? "demo/SKILL.md",
+          },
+        ],
+        outputRoot: ".agents/skills",
+        schemaVersion: 1,
+        target: "workspace",
+      },
+      null,
+      2
+    )}\n`,
+    "utf-8"
+  );
+  // initializeTestGitRepository seeds and commits the whole working tree.
+  await initializeTestGitRepository(root, { disposableRoot });
+  return root;
+};
 
 describe("merge policy guard", () => {
   test("sorts every tracked file into exactly one category", async () => {
@@ -50,12 +131,35 @@ describe("merge policy guard", () => {
 
     const report = await checkMergePolicy(root);
 
-    expect(report.violations).toEqual([
-      expect.objectContaining({
-        category: "generated-snapshot",
-        path: GENERATED,
-      }),
-    ]);
+    expect(report.violations).toHaveLength(2);
+    expect(report.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "generated-snapshot",
+          path: GENERATED,
+        }),
+      ])
+    );
+  });
+
+  test("uses outputPath when a canonical lock item has no files", async () => {
+    const root = await fixture(policyAttributes(), {
+      files: [],
+      outputPath: "demo/SKILL.md",
+    });
+
+    const categories = await categorizeTrackedPaths(root);
+
+    expect(categories.get(GENERATED)).toBe("generated-snapshot");
+  });
+
+  test("anchors output claims beside a nested workspace lock", async () => {
+    const root = await fixture(policyAttributes(), { nestedWorkspace: true });
+
+    const categories = await categorizeTrackedPaths(root);
+
+    expect(categories.get(NESTED_GENERATED)).toBe("generated-snapshot");
+    expect(categories.get("AGENTS.md")).toBe("authored");
   });
 
   test("rejects a pattern that also swallows authored source", async () => {
@@ -66,11 +170,27 @@ describe("merge policy guard", () => {
 
     const report = await checkMergePolicy(root);
 
+    expect(report.violations.map((violation) => violation.path)).toContain(
+      AUTHORED
+    );
     expect(
-      report.violations.map((violation) => violation.path)
-    ).toContain(AUTHORED);
-    expect(report.violations.every((v) => v.category !== "generated-snapshot")).toBe(
-      true
+      report.violations.every((v) => v.category !== "generated-snapshot")
+    ).toBe(true);
+  });
+
+  test("rejects case-insensitive attribute overreach on every host", async () => {
+    const root = await fixture(`${policyAttributes()}**/AGENTS.md -merge\n`, {
+      extraPath: "foo/agents.md",
+    });
+
+    const report = await checkMergePolicy(root);
+
+    expect(report.violations).toContainEqual(
+      expect.objectContaining({
+        category: "authored",
+        detail: expect.stringContaining("core.ignorecase=true"),
+        path: "foo/agents.md",
+      })
     );
   });
 
@@ -81,9 +201,15 @@ describe("merge policy guard", () => {
 
     const report = await checkMergePolicy(root);
 
-    expect(report.violations).toEqual([
-      expect.objectContaining({ category: "append-only-ledger", path: LEDGER }),
-    ]);
+    expect(report.violations).toHaveLength(2);
+    expect(report.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "append-only-ledger",
+          path: LEDGER,
+        }),
+      ])
+    );
   });
 
   test("pins one merge policy per category", () => {
@@ -94,33 +220,3 @@ describe("merge policy guard", () => {
     });
   });
 });
-
-function generatedAttributes(): string {
-  return "**/.agents/skills/** -merge\n**/skillset.lock -merge\n";
-}
-
-function policyAttributes(): string {
-  return `${generatedAttributes()}.skillset/changes/*.jsonl merge=union\n`;
-}
-
-/** A committed repository holding one file of each category. */
-async function fixture(attributes: string): Promise<string> {
-  const disposableRoot = await createTestGitFixtureRoot(
-    "skillset-merge-policy-"
-  );
-  const root = await mkdtemp(join(disposableRoot, "repo-"));
-  await mkdir(join(root, ".agents/skills/demo"), { recursive: true });
-  await mkdir(join(root, ".skillset/changes"), { recursive: true });
-  await writeFile(join(root, ".gitattributes"), attributes, "utf8");
-  await writeFile(join(root, AUTHORED), "Authored.\n", "utf8");
-  await writeFile(join(root, GENERATED), "Generated.\n", "utf8");
-  await writeFile(join(root, LEDGER), '{"id":"one"}\n', "utf8");
-  await writeFile(
-    join(root, ".agents/skills/skillset.lock"),
-    `${JSON.stringify({ items: [{ files: ["demo/SKILL.md"] }] }, null, 2)}\n`,
-    "utf8"
-  );
-  // initializeTestGitRepository seeds and commits the whole working tree.
-  await initializeTestGitRepository(root, { disposableRoot });
-  return root;
-}

@@ -52,10 +52,12 @@ authored paths — and earned its place immediately. The first draft used
 
 ## Sequencing note for SET-598
 
-Locks are `-merge` here, because a lock is a generated snapshot like any other
-output. The next branch converts them to append-only JSONL and flips them to
-`merge=union`. The guard already accepts `union` for a lock path and only for a
-lock path, so that transition does not need a guard change.
+Locks remain `-merge` here because a lock is a generated snapshot like any
+other output. The following SET-598 investigation tested an append-only JSONL
+format with `merge=union` and rejected it: whole-document provenance makes the
+header change on every update, while adjacent item edits can silently duplicate
+records. The guard therefore requires `unset` for locks too; it has no union
+exception for generated snapshots.
 
 ## Not done
 
@@ -81,7 +83,8 @@ real over-reaches the list could never have caught:
   there.
 
 The model is three categories with one policy each: `generated-snapshot`
-(`-merge`), `append-only-ledger` (`union`), `authored` (`unspecified`). The
+(`-merge`, including locks), `append-only-ledger` (`union`), `authored`
+(`unspecified`). The
 generated set is derived from the locks, the ledger set reuses
 `CHANGE_STREAM_PATHSPEC` from the change-stream guard rather than restating it,
 and authored is everything else tracked. Nothing is enumerated.
