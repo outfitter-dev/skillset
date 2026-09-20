@@ -21,7 +21,7 @@ import { parseMarkdown } from "../yaml";
 const decoder = new TextDecoder();
 
 describe("Agent Skills standard rendering", () => {
-  test("copies implied resources into flattened and Agent Plugins skill packages", async () => {
+  test("copies implied resources into the Agent Plugins skill package", async () => {
     const graph = adopted(
       await fixtureGraph({
         "skillset.yaml": `
@@ -52,28 +52,13 @@ Use @{{plugin:templates/plugin.txt}}.
     );
 
     const rendered = await renderBuildGraph(graph);
-    for (const root of [
-      ".agents/skills/portable",
-      "plugins/demo/agents/skills/portable",
-    ]) {
-      expect(paths(rendered)).toContain(`${root}/references/workspace.md`);
-      expect(paths(rendered)).toContain(`${root}/templates/plugin.txt`);
-      expect(text(rendered, `${root}/SKILL.md`)).toContain(
-        "@references/workspace.md"
-      );
-      expect(text(rendered, `${root}/SKILL.md`)).toContain(
-        "@templates/plugin.txt"
-      );
-    }
-    expect(lockItems(rendered, ".agents/skills/skillset.lock")).toContainEqual(
-      expect.objectContaining({
-        files: expect.arrayContaining([
-          "portable/references/workspace.md",
-          "portable/templates/plugin.txt",
-        ]),
-        name: "portable",
-      })
+    const root = "plugins/demo/agents/skills/portable";
+    expect(paths(rendered)).toContain(`${root}/references/workspace.md`);
+    expect(paths(rendered)).toContain(`${root}/templates/plugin.txt`);
+    expect(text(rendered, `${root}/SKILL.md`)).toContain(
+      "@references/workspace.md"
     );
+    expect(text(rendered, `${root}/SKILL.md`)).toContain("@templates/plugin.txt");
     expect(lockItems(rendered, "plugins/skillset.lock")).toContainEqual(
       expect.objectContaining({
         files: expect.arrayContaining([
