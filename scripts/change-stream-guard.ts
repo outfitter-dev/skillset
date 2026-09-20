@@ -20,8 +20,8 @@
  * newer one silently changes derived release state.
  *
  * Global chronological order was never an invariant. The committed ledger
- * already contains five inversions inherited by every branch, so this guard
- * allows exactly those recorded adjacent pairs and fails on anything new. See
+ * contains historical inversions, so this guard allows exactly the recorded
+ * adjacent pairs and fails on anything new. See
  * INVERSION_ALLOWANCES and the "Updating the allowances" note at the bottom.
  */
 
@@ -83,6 +83,12 @@ export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
     id: "evt-550f268687267821",
     previousId: "evt-5b301a51324ee148",
     rationale: "2026-09-20 restacking appended the preserved SET-558 branch stream after refreshed SET-553 parent evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-34f7e6a29b38779e",
+    previousId: "evt-e35bb835212d8084",
+    rationale: "2026-09-21 restacking appended the preserved SET-554 branch stream after merged SET-558 evidence; both append-only blocks retain their original event order.",
   },
   {
     file: ".skillset/changes/ledger.jsonl",
