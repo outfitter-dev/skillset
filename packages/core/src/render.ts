@@ -11,6 +11,7 @@ import {
 } from "@skillset/schema";
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
+import { resolveAdaptiveHookAttachmentsForTarget } from "./adaptive-hook-attachments";
 import {
   isOutputSelected,
   mergeRecords,
@@ -28,7 +29,12 @@ import {
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
-import { resolveProjectUseSkillCopies, type ProjectUseSkillCopy } from "./project-use";
+import {
+  resolveProjectUseSkillCopies,
+  resolveWorkspaceDraftSkillCopies,
+  type ProjectUseSkillCopy,
+  type WorkspaceDraftSkillCopy,
+} from "./project-use";
 import { withLockProvenance } from "./lock-provenance";
 import { assertCasePortableRenderedPaths, planRenderedFiles } from "./output-plan";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
@@ -109,7 +115,10 @@ import {
   renderAgentSkillStandards,
   shouldCoalesceStandaloneCodexSkill,
 } from "./render-agent-skills";
-import { renderAgentSkillStandardMarkdown } from "./render-agent-skills-standard";
+import {
+  draftSkillDescription,
+  renderAgentSkillStandardMarkdown,
+} from "./render-agent-skills-standard";
 import {
   classifyAgentPluginStandard,
   copyAgentPluginSupportPath,
@@ -243,9 +252,15 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
     }
   }
 
+  for (const copy of resolveWorkspaceDraftSkillCopies(graph)) {
+    for (const target of targetNames()) {
+      rendered.push(...(await renderProjectSkillCopy(graph, copy, target, lockRoots)));
+    }
+  }
+
   for (const copy of resolveProjectUseSkillCopies(graph)) {
     for (const target of targetNames()) {
-      rendered.push(...(await renderProjectUseSkill(graph, copy, target, lockRoots)));
+      rendered.push(...(await renderProjectSkillCopy(graph, copy, target, lockRoots)));
     }
   }
 
@@ -1499,28 +1514,59 @@ async function renderStandaloneSkill(
   return rendered;
 }
 
-async function renderProjectUseSkill(
+async function renderProjectSkillCopy(
   graph: BuildGraph,
-  copy: ProjectUseSkillCopy,
+  copy: ProjectUseSkillCopy | WorkspaceDraftSkillCopy,
   target: TargetName,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
-  const { plugin, skill } = copy;
+  const plugin = "plugin" in copy ? copy.plugin : undefined;
+  const { skill } = copy;
   if (
     !skill.targets[target].enabled ||
     !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, skill.id)
   ) return [];
+  // Resolve against this draft's definitions, not a same-name live sibling's
+  // skill scope. Only hooks eligible for this target block the project copy.
+  const eligibleDraftAttachments = copy.draftOrigin === undefined
+    ? []
+    : skill.hookAttachments.filter((attachment) =>
+        attachment.providers === undefined || attachment.providers.includes(target)
+      );
+  const draftHookResolution = resolveAdaptiveHookAttachmentsForTarget(
+    [...graph.adaptiveHooks.filter((hook) => hook.scope.kind !== "skill"), ...skill.adaptiveHooks],
+    eligibleDraftAttachments,
+    target
+  );
+  if (
+    draftHookResolution.resolved.some(({ definition }) =>
+      definition.providers === undefined || definition.providers.includes(target)
+    ) ||
+    draftHookResolution.issues.some((issue) =>
+      eligibleDraftAttachments.some((attachment) => issue.paths.includes(attachment.sourcePath))
+    )
+  ) {
+    throw new SkillsetFeatureDiagnosticError({
+      code: "project-draft-hooks-unsupported",
+      featureId: "draft-skills",
+      message: `skillset: project draft ${skill.id} has adaptive hooks that cannot be rendered in its project copy`,
+      path: relative(graph.rootPath, skill.sourcePath),
+    });
+  }
 
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
   const targetSkillDir = join(outputRoot, copy.effectiveName);
   const rootLicense = await resolveRootLicense(graph);
-  const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
+  const pluginLicense = plugin === undefined
+    ? undefined
+    : await resolvePluginLicense(graph, plugin, rootLicense);
+  const parentLicense = pluginLicense ?? rootLicense;
   const skillLicense = await resolveLicense({
     graph,
     label: relative(graph.rootPath, skill.sourcePath),
     metadata: skill.metadata,
-    ...(pluginLicense === undefined ? {} : { parent: pluginLicense }),
+    ...(parentLicense === undefined ? {} : { parent: parentLicense }),
     scopePath: sourceDir,
     sourcePath: skill.sourcePath,
   });
@@ -1532,7 +1578,13 @@ async function renderProjectUseSkill(
         targetSkillDir,
         skillLicense?.manifestValue,
         "agent-skills",
-        { effectiveName: copy.effectiveName, internal: graph.root.internalMarker }
+        {
+          draft: copy.draftOrigin !== undefined,
+          effectiveName: copy.effectiveName,
+          internal: copy.draftOrigin !== undefined
+            ? true
+            : graph.root.internalMarker,
+        }
       )
     : undefined;
   if (standard !== undefined && "code" in standard) {
@@ -1541,8 +1593,11 @@ async function renderProjectUseSkill(
   const skillMarkdown = standard === undefined
     ? await renderSkillMarkdown(graph, plugin, skill, target, {
         effectiveName: copy.effectiveName,
-        includeAdaptiveHooks: false,
-        internal: graph.root.internalMarker,
+        ...(plugin === undefined ? {} : { includeAdaptiveHooks: false }),
+        internal: copy.draftOrigin !== undefined
+          ? true
+          : graph.root.internalMarker,
+        draft: copy.draftOrigin !== undefined,
       })
     : await renderCodexSkillMarkdownFromStandard(
         graph,
@@ -1550,7 +1605,8 @@ async function renderProjectUseSkill(
         skill,
         standard.content,
         standard.preprocessDependencies,
-        graph.root.internalMarker
+        copy.draftOrigin !== undefined ? true : graph.root.internalMarker,
+        copy.draftOrigin === undefined ? undefined : copy.effectiveName
       );
   const resources = standard?.resources ?? skillMarkdown.resources;
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
@@ -1607,26 +1663,61 @@ async function renderProjectUseSkill(
   const lock = await lockItemForSkill({
     files: rendered,
     graph,
-    kind: "plugin-skill",
+    kind: plugin === undefined ? "standalone-skill" : "plugin-skill",
     license: skillLicense,
     outputRoot,
-    plugin,
+    ...(plugin === undefined ? {} : { plugin }),
     preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
     resources,
     skill,
     sourceDir,
     transforms: skillMarkdown.transforms,
   });
-  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push({
+  const targetLock = {
     ...lock,
-    consumers: [{ phase: "delta", target }],
+    consumers: [{ phase: "delta" as const, target }],
+    ...(copy.draftOrigin === undefined
+      ? {}
+      : {
+          draftOrigin: copy.draftOrigin,
+          sourceHash: hashDraftProjectionSource(
+            lock.sourceHash,
+            copy.draftOrigin,
+            copy.effectiveName,
+            copy.shippedSibling
+          ),
+        }),
     effectiveName: copy.effectiveName,
     owner: { target },
-    role: "project-use",
+    role: plugin === undefined ? "bundle" as const : "project-use" as const,
     selectionRule: copy.selectionRule,
+    ...(copy.shippedSibling === undefined
+      ? {}
+      : { shippedSibling: copy.shippedSibling }),
     sourceUnit: copy.sourceUnit,
-  });
+  };
+  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
+    targetLock
+  );
   return rendered;
+}
+
+function hashDraftProjectionSource(
+  sourceHash: string,
+  draftOrigin: NonNullable<SourceSkill["draftOrigin"]>,
+  effectiveName: string,
+  shippedSibling: string | undefined
+): string {
+  const hash = createHash("sha256");
+  hash.update("skillset-draft-projection-v1\0");
+  hash.update(sourceHash);
+  hash.update("\0");
+  hash.update(draftOrigin);
+  hash.update("\0");
+  hash.update(effectiveName);
+  hash.update("\0");
+  hash.update(shippedSibling ?? "");
+  return `sha256:${hash.digest("hex")}`;
 }
 
 async function renderSkillResources(
@@ -1710,6 +1801,7 @@ async function renderSkillMarkdown(
   skill: SourceSkill,
   target: TargetName,
   options: {
+    readonly draft?: boolean;
     readonly effectiveName?: string;
     readonly includeAdaptiveHooks?: boolean;
     readonly internal?: boolean;
@@ -1720,20 +1812,23 @@ async function renderSkillMarkdown(
   if (target === "cursor") {
     rejectCursorAllowedTools(skill, relative(graph.rootPath, skill.sourcePath));
   }
+  const sourceDescription =
+    readString(skill.frontmatter, "description") ??
+    readString(metadata, "description") ??
+    readString(skill.frontmatter, "summary") ??
+    readString(metadata, "summary") ??
+    readString(skill.frontmatter, "title") ??
+    readString(metadata, "title") ??
+    skill.id;
   const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter, skill.sourcePath), {
     name: options.effectiveName ??
       readString(metadata, "name") ??
       readString(metadata, "id") ??
       readString(skill.frontmatter, "name") ??
       skill.id,
-    description:
-      readString(skill.frontmatter, "description") ??
-      readString(metadata, "description") ??
-      readString(skill.frontmatter, "summary") ??
-      readString(metadata, "summary") ??
-      readString(skill.frontmatter, "title") ??
-      readString(metadata, "title") ??
-      skill.id,
+    description: options.draft === true
+      ? draftSkillDescription(sourceDescription)
+      : sourceDescription,
   });
   const references = metadata.references;
   const version = skillVersion(graph, plugin, skill);
@@ -1765,9 +1860,17 @@ async function renderSkillMarkdown(
     version,
     graph.root.compile.skillset.metadata
   );
+  const withDraftPresentation = options.draft === true
+    ? withProjectDraftPresentation(
+        renderedFrontmatter,
+        options.effectiveName ?? skill.id,
+        draftSkillDescription(sourceDescription),
+        readString(targetFrontmatter, "description")
+      )
+    : renderedFrontmatter;
   const frontmatter = options.internal === undefined
-    ? renderedFrontmatter
-    : withProjectUseInternalMarker(renderedFrontmatter, options.internal);
+    ? withDraftPresentation
+    : withProjectUseInternalMarker(withDraftPresentation, options.internal);
 
   const preprocessDependencies = new Set<string>();
   const resourcePlanner = createEffectiveSkillResourcePlanner(
@@ -1823,7 +1926,8 @@ async function renderCodexSkillMarkdownFromStandard(
   skill: SourceSkill,
   baselineContent: string,
   baselinePreprocessDependencies: readonly string[] = [],
-  projectUseInternal?: boolean
+  projectUseInternal?: boolean,
+  draftEffectiveName?: string
 ): Promise<RenderedSkillMarkdown> {
   const baseline = parseMarkdown(
     baselineContent,
@@ -1837,9 +1941,17 @@ async function renderCodexSkillMarkdownFromStandard(
     baseline.body
   );
   const mergedFrontmatter = mergeRecords(baseline.frontmatter, targetFrontmatter);
-  const frontmatter = projectUseInternal === undefined
+  const withDraftPresentation = draftEffectiveName === undefined
     ? mergedFrontmatter
-    : withProjectUseInternalMarker(mergedFrontmatter, projectUseInternal);
+    : withProjectDraftPresentation(
+        mergedFrontmatter,
+        draftEffectiveName,
+        readString(baseline.frontmatter, "description") ?? draftSkillDescription(skill.id),
+        readString(targetFrontmatter, "description")
+      );
+  const frontmatter = projectUseInternal === undefined
+    ? withDraftPresentation
+    : withProjectUseInternalMarker(withDraftPresentation, projectUseInternal);
   return {
     content: renderValidatedMarkdown(
       frontmatter,
@@ -1849,6 +1961,21 @@ async function renderCodexSkillMarkdownFromStandard(
     preprocessDependencies: [...baselinePreprocessDependencies],
     resources: skill.resources,
     transforms: translated.transforms,
+  };
+}
+
+function withProjectDraftPresentation(
+  frontmatter: JsonRecord,
+  effectiveName: string,
+  baselineDescription: string,
+  overrideDescription: string | undefined
+): JsonRecord {
+  return {
+    ...frontmatter,
+    name: effectiveName,
+    description: overrideDescription === undefined
+      ? baselineDescription
+      : draftSkillDescription(overrideDescription),
   };
 }
 
@@ -2586,6 +2713,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     feature: item.feature,
     files: [...item.files],
     dependencies: item.dependencies === undefined ? undefined : [...item.dependencies],
+    draftOrigin: item.draftOrigin,
     effectiveName: item.effectiveName,
     includedSkills: item.includedSkills === undefined ? undefined : [...item.includedSkills],
     kind: item.kind,
@@ -2608,6 +2736,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     sourcePointer: item.sourcePointer,
     sourceUnit: item.sourceUnit,
     selectionRule: item.selectionRule,
+    shippedSibling: item.shippedSibling,
     targetState: item.targetState,
     transforms:
       item.transforms === undefined

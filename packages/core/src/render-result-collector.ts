@@ -50,6 +50,7 @@ import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import {
   agentSkillSourceUnit,
   agentSkillStandardProjectionIssues,
+  draftSkillDescriptionWasTruncated,
 } from "./render-agent-skills-standard";
 import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
@@ -118,6 +119,7 @@ interface RenderedLock {
 interface RenderedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly effectiveName?: string;
   readonly feature?: string;
   readonly files: readonly string[];
@@ -129,6 +131,7 @@ interface RenderedLockItem {
   readonly sourcePath: string;
   readonly sourceUnit?: string;
   readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly targetState?: string;
   readonly transforms?: readonly JsonRecord[];
   readonly validation?: string;
@@ -732,6 +735,7 @@ function parseRenderedLockItem(
   return {
     consumers: raw.consumers,
     ...(raw.dependencies === undefined ? {} : { dependencies: raw.dependencies }),
+    ...(raw.draftOrigin === undefined ? {} : { draftOrigin: raw.draftOrigin }),
     ...(raw.effectiveName === undefined ? {} : { effectiveName: raw.effectiveName }),
     ...(raw.feature === undefined ? {} : { feature: raw.feature }),
     files: raw.files,
@@ -743,6 +747,7 @@ function parseRenderedLockItem(
     sourcePath: raw.sourcePath,
     ...(raw.sourceUnit === undefined ? {} : { sourceUnit: raw.sourceUnit }),
     ...(raw.selectionRule === undefined ? {} : { selectionRule: raw.selectionRule }),
+    ...(raw.shippedSibling === undefined ? {} : { shippedSibling: raw.shippedSibling }),
     ...(raw.targetState === undefined ? {} : { targetState: raw.targetState }),
     ...(raw.transforms === undefined ? {} : { transforms: raw.transforms as readonly JsonRecord[] }),
     ...(raw.validation === undefined ? {} : { validation: raw.validation }),
@@ -771,7 +776,11 @@ function outcomeForLockItem(
   const evidence = evidenceFor(featureId, target, standardProfile);
   const projectUseCopy = item.sourceUnit === undefined
     ? undefined
-    : resolveProjectUseSkillCopies(graph).find((copy) => copy.sourceUnit === item.sourceUnit);
+    : resolveProjectUseSkillCopies(graph).find(
+        (copy) =>
+          copy.sourceUnit === item.sourceUnit &&
+          copy.effectiveName === item.effectiveName
+      );
   const collisionDiagnostics = projectUseCopy === undefined || projectUseCopy.collisionSources.length === 0
     ? []
     : [{
@@ -779,11 +788,30 @@ function outcomeForLockItem(
         message: `selected skill name ${item.name} conflicts across ${projectUseCopy.collisionSources.join(", ")}; emitted as ${projectUseCopy.effectiveName}`,
         path: item.sourcePath,
       }];
+  const sourceSkill = item.draftOrigin === undefined
+    ? undefined
+    : graph.discoveredSkills?.find(
+        (skill) => relative(graph.rootPath, skill.sourcePath) === item.sourcePath
+      );
+  const draftDiagnostics =
+    sourceSkill === undefined || !draftSkillDescriptionWasTruncated(sourceSkill, target)
+      ? []
+      : [{
+          code: "draft-description-truncated",
+          message:
+            "draft description exceeded the 1024-character Agent Skills limit and was truncated after the compiler draft prefix",
+          path: item.sourcePath,
+        }];
+  const diagnostics = [
+    ...(manifestFacts?.diagnostics ?? []),
+    ...collisionDiagnostics,
+    ...draftDiagnostics,
+  ];
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
-    ...(isIncluded && [...(manifestFacts?.diagnostics ?? []), ...collisionDiagnostics].length > 0
-      ? { diagnostics: [...(manifestFacts?.diagnostics ?? []), ...collisionDiagnostics] }
+    ...(isIncluded && diagnostics.length > 0
+      ? { diagnostics }
       : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,

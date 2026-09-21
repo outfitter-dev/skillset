@@ -135,6 +135,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "resources",
   "schema",
   "skillset",
+  "status",
   "summary",
   "supports",
   "targets",

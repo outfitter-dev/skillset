@@ -164,6 +164,70 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   expect(check.exitCode).toBe(0);
 });
 
+test("SET-555: new skill --draft is plan-first and supports plugin containers", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-draft-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+  await expect(
+    runSkillsetCli(
+      "new",
+      "plugin",
+      "review-tools",
+      "--root",
+      root,
+      "--yes"
+    )
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const preview = await runSkillsetCli(
+    "new",
+    "skill",
+    "Future Review",
+    "--draft",
+    "--in",
+    "review-tools",
+    "--root",
+    root
+  );
+  const path = join(
+    root,
+    ".skillset/plugins/review-tools/skills/_drafts/future-review/SKILL.md"
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/skills/_drafts/future-review/SKILL.md"
+  );
+  expect(await fileExists(path)).toBe(false);
+
+  const written = await runSkillsetCli(
+    "new",
+    "skill",
+    "Future Review",
+    "--draft",
+    "--in",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(await readFile(path, "utf8")).toContain("name: future-review");
+
+  const invalid = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Wrong Draft",
+    "--draft",
+    "--root",
+    root
+  );
+  expect(invalid.exitCode).toBe(1);
+  expect(invalid.stderr).toContain(
+    "new instruction does not support --draft"
+  );
+});
+
 test("SET-408: new skill rejects ids outside the Agent Skills naming contract", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-new-standard-name-"));
   await expect(

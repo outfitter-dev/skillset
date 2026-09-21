@@ -314,3 +314,48 @@ test("requires a supported role with matching current ownership", () => {
     parseCurrentGeneratedLock(current("project-use", true)).items[0]?.role
   ).toBe("project-use");
 });
+
+test("parses project-draft provenance fields in current v4 locks", () => {
+  const item = {
+    consumers: [{ phase: "delta" as const, target: "codex" as const }],
+    draftOrigin: "_drafts",
+    effectiveName: "draft-demo",
+    fileModes: { "draft-demo/SKILL.md": "0644" },
+    files: ["draft-demo/SKILL.md"],
+    owner: { target: "codex" as const },
+    role: "project-use",
+    selectionRule:
+      "plugins.internal_use.drafts.demo: omitted (side-by-side)",
+    shippedSibling: "plugin.demo.skill:demo",
+    sourceUnit: "plugin.demo.skill:demo",
+  };
+  const lock = withLockProvenance({
+    generatedBy: "skillset@0.1.0",
+    items: [item],
+    outputRoot: ".agents/skills",
+    schemaVersion: 4,
+    standardProfileEvidence: {},
+    selectedStandards: [],
+    selectedTargets: ["codex"],
+    target: "codex",
+  });
+
+  expect(parseCurrentGeneratedLock(lock).items[0]).toMatchObject({
+    draftOrigin: "_drafts",
+    effectiveName: "draft-demo",
+    owner: { target: "codex" },
+    role: "project-use",
+    selectionRule:
+      "plugins.internal_use.drafts.demo: omitted (side-by-side)",
+    shippedSibling: "plugin.demo.skill:demo",
+    sourceUnit: "plugin.demo.skill:demo",
+  });
+  expect(() =>
+    parseCurrentGeneratedLock(
+      withLockProvenance({
+        ...lock,
+        items: [{ ...item, draftOrigin: "other" }],
+      })
+    )
+  ).toThrow("draftOrigin must be _drafts, config, or status");
+});

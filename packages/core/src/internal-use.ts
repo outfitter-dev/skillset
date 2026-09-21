@@ -58,11 +58,13 @@ export function resolveInternalUseSelection(
       liveIds,
       `plugins.internal_use.skills.${plugin.id}`
     );
+    const draftPolicy = config.drafts[plugin.id];
     const draftsResolution = resolveSelector(
-      config.drafts[plugin.id] ?? false,
+      draftPolicy ?? false,
       draftIds,
       `plugins.internal_use.drafts.${plugin.id}`
     );
+    const selectedLiveIds = new Set<string>();
 
     for (const skillId of liveIds) {
       const explicitlyExcluded = skillsResolution.excluded.has(skillId);
@@ -78,17 +80,39 @@ export function resolveInternalUseSelection(
             ? pluginsResolution.ruleFor(plugin.id)
             : `plugins.internal_use: omitted`;
       decisions.push({ pluginId: plugin.id, rule, selected, skillId, status: "live" });
-      if (selected) selectedSkills.push({ pluginId: plugin.id, skillId });
+      if (selected) {
+        selectedSkills.push({ pluginId: plugin.id, skillId });
+        selectedLiveIds.add(skillId);
+      }
     }
 
     for (const skillId of draftIds) {
+      const hasShippedSibling = liveIds.includes(skillId);
+      const shippedSiblingSelected = selectedLiveIds.has(skillId);
+      const shippedSiblingExcluded = skillsResolution.excluded.has(skillId);
+      const selectedByDraftPolicy = draftPolicy === undefined
+        ? hasShippedSibling && shippedSiblingSelected
+        : draftsResolution.selected.has(skillId);
       const selected =
         !pluginExcluded &&
         !draftsResolution.excluded.has(skillId) &&
-        draftsResolution.selected.has(skillId);
+        selectedByDraftPolicy &&
+        !shippedSiblingExcluded;
       const rule = pluginExcluded
         ? `plugins.internal_use.plugins: !${plugin.id}`
-        : draftsResolution.ruleFor(skillId);
+        : hasShippedSibling &&
+            (shippedSiblingExcluded || (draftPolicy === undefined && !shippedSiblingSelected))
+          ? decisions.find(
+              (decision) =>
+                decision.pluginId === plugin.id &&
+                decision.skillId === skillId &&
+                decision.status === "live"
+            )?.rule ?? draftsResolution.ruleFor(skillId)
+          : draftPolicy === undefined && hasShippedSibling
+            ? `plugins.internal_use.drafts.${plugin.id}: omitted (side-by-side)`
+            : draftPolicy === false
+              ? `plugins.internal_use.drafts.${plugin.id}: false`
+              : draftsResolution.ruleFor(skillId);
       decisions.push({ pluginId: plugin.id, rule, selected, skillId, status: "draft" });
       if (selected) selectedDrafts.push({ pluginId: plugin.id, skillId });
     }
