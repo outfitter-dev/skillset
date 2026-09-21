@@ -384,13 +384,23 @@ async function assertCanonicalPartialContainment(
     sharedRoot = join(context.pluginPath, "shared");
   }
   const partialRoot = kind === "named" ? join(sharedRoot, "partials") : sharedRoot;
-  const [sourceRoot, canonicalRoot, canonical] = await Promise.all([
+  const [sourceRoot, ownerRoot, canonicalSharedRoot, canonicalRoot, canonical] = await Promise.all([
     realpath(join(context.rootPath, context.sourceRoot)),
+    scheme === "plugin" && context.pluginPath !== undefined
+      ? realpath(context.pluginPath)
+      : realpath(join(context.rootPath, context.sourceRoot)),
+    realpath(sharedRoot),
     realpath(partialRoot),
     realpath(resolved),
   ]);
   try {
-    resolveInside(sourceRoot, canonicalRoot);
+    if (scheme === "plugin") resolveInside(sourceRoot, ownerRoot);
+    if (canonicalSharedRoot !== join(ownerRoot, "shared")) {
+      throw new Error("shared root crosses its source owner");
+    }
+    if (kind === "named" && canonicalRoot !== join(canonicalSharedRoot, "partials")) {
+      throw new Error("partial root crosses its shared scope");
+    }
     resolveInside(canonicalRoot, canonical);
   } catch {
     throw new Error(

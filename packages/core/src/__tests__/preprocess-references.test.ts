@@ -191,6 +191,61 @@ describe("preprocess reference grammar", () => {
     ).resolves.toBe("Shared target");
   });
 
+  test("rejects shared-root aliases into a sibling plugin", async () => {
+    await files(rootPath, {
+      ".skillset/plugins/other/shared/partials/secret.md": "SIBLING_MARKER",
+      ".skillset/plugins/other/shared/references/secret.md": "SIBLING_MARKER",
+    });
+    const pluginRoot = join(rootPath, ".skillset/plugins/demo");
+    await mkdir(pluginRoot, { recursive: true });
+    await symlink(
+      join(rootPath, ".skillset/plugins/other/shared"),
+      join(pluginRoot, "shared")
+    );
+
+    for (const reference of [
+      "{{> plugin:secret}}",
+      "{{> plugin:references/secret.md}}",
+      "@{{plugin:references/secret.md}}",
+    ]) {
+      await expect(
+        preprocessText(reference, preprocessContext(rootPath, true))
+      ).rejects.toThrow(/resolves outside its partial root/u);
+    }
+  });
+
+  test("rejects workspace partial-root aliases into a plugin", async () => {
+    await files(rootPath, {
+      ".skillset/plugins/other/shared/partials/secret.md": "SIBLING_MARKER",
+    });
+    const workspaceSharedRoot = join(rootPath, ".skillset/shared");
+    await mkdir(workspaceSharedRoot, { recursive: true });
+    await symlink(
+      join(rootPath, ".skillset/plugins/other/shared/partials"),
+      join(workspaceSharedRoot, "partials")
+    );
+
+    await expect(
+      preprocessText("{{> secret}}", preprocessContext(rootPath))
+    ).rejects.toThrow(/resolves outside its partial root/u);
+  });
+
+  test("rejects plugin partial-root aliases into a sibling plugin", async () => {
+    await files(rootPath, {
+      ".skillset/plugins/other/shared/partials/secret.md": "SIBLING_MARKER",
+    });
+    const pluginSharedRoot = join(rootPath, ".skillset/plugins/demo/shared");
+    await mkdir(pluginSharedRoot, { recursive: true });
+    await symlink(
+      join(rootPath, ".skillset/plugins/other/shared/partials"),
+      join(pluginSharedRoot, "partials")
+    );
+
+    await expect(
+      preprocessText("{{> plugin:secret}}", preprocessContext(rootPath, true))
+    ).rejects.toThrow(/resolves outside its partial root/u);
+  });
+
   test.each([
     "{{shared:references/common.md}}",
     "{{plugin:references/plugin.md}}",
