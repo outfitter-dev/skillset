@@ -105,12 +105,13 @@ const RESERVED_PLUGIN_OUTPUT_NAMES = new Set([
   "skillset.lock",
 ]);
 const SOURCE_ROOT_DIR = "";
+const ROOT_RULES_FILE = "RULES.md";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
-const PROJECT_AGENTS_DIR = "agents";
+const PROJECT_AGENTS_DIR = "subagents";
 const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
   claude: "_claude",
   codex: "_codex",
@@ -208,9 +209,31 @@ export async function loadBuildGraph(
       path: join(sourceRoot, PLUGINS_DIR),
     });
   }
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
-  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
-  const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
+  const discoveredStandaloneSkills = await loadStandaloneSkills(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    externalInputPaths
+  );
+  const standaloneSkills = discoveredStandaloneSkills.filter((skill) => skill.status !== "draft");
+  const { rules, instructionsDir } = await loadInstructions(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    externalInputPaths
+  );
+  const projectAgents = await loadProjectAgents(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    externalInputPaths
+  );
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
   const adaptiveHooks = [
     ...rootAdaptiveHooks,
@@ -232,7 +255,7 @@ export async function loadBuildGraph(
     standaloneSkills,
   });
 
-  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
+  if (plugins.length === 0 && discoveredStandaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
@@ -261,6 +284,10 @@ export async function loadBuildGraph(
     adaptiveHooks,
     configuredBuildMode: compileConfig.build,
     externalInputPaths: [...externalInputPaths].sort(compareStrings),
+    discoveredSkills: [
+      ...discoveredStandaloneSkills,
+      ...plugins.flatMap((plugin) => plugin.discoveredSkills ?? plugin.skills),
+    ],
     hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
@@ -386,6 +413,19 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
     }
   }
 
+  for (const [oldPath, newPath] of [
+    [join(sourceRootDir, "agents"), join(sourceRootDir, PROJECT_AGENTS_DIR)],
+    [join(sourceRootDir, "partials"), join(sourceRootDir, SHARED_DIR, "partials")],
+    [join(sourceRootDir, RULES_DIR, ROOT_RULES_FILE), join(sourceRootDir, ROOT_RULES_FILE)],
+  ] as const) {
+    const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
+    if (await exists(absoluteOldPath)) {
+      throw new Error(
+        `skillset: ${join(sourceDir, oldPath)} uses the retired source layout; move it to ${join(sourceDir, newPath)}`
+      );
+    }
+  }
+
   const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return;
   for (const entry of await readdir(pluginsPath, { withFileTypes: true })) {
@@ -395,6 +435,16 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
     if (await exists(absolutePluginConfigPath)) {
       throw new Error(
         `skillset: ${join(sourceDir, pluginConfigPath)} uses retired plugin config.yaml; rename it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, ROOT_SOURCE_MANIFEST_FILE)}`
+      );
+    }
+    for (const [oldName, newPath] of [
+      ["agents", PROJECT_AGENTS_DIR],
+      ["partials", join(SHARED_DIR, "partials")],
+    ] as const) {
+      const oldPath = join(sourceRootDir, PLUGINS_DIR, entry.name, oldName);
+      if (!(await exists(resolveInside(rootPath, join(sourceDir, oldPath))))) continue;
+      throw new Error(
+        `skillset: ${join(sourceDir, oldPath)} uses the retired source layout; move it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, newPath)}`
       );
     }
     for (const [oldProviderDir, newProviderDir] of Object.entries(PROVIDER_SOURCE_DIRS)) {
@@ -625,19 +675,30 @@ async function loadInstructions(
   warnings: string[],
   externalInputPaths: Set<string>
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
+  const sourceRootPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
   const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
-  if (canonicalFiles.length === 0) {
+  const rootRulesPath = join(sourceRootPath, ROOT_RULES_FILE);
+  const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
+  if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
     return { rules: [], instructionsDir: join(sourceRootDir, RULES_DIR) };
   }
 
-  const ruleFiles = canonicalFiles;
+  const ruleFiles = [...rootRulesFiles, ...canonicalFiles];
   const rules: SourceRule[] = [];
 
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
-    const relativePath = relative(canonicalPath, sourcePath);
+    const rootFrontPage = sourcePath === rootRulesPath;
+    const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
+    const segments = rootFrontPage
+      ? []
+      : classifyRuleSegments(
+          relative(canonicalPath, dirname(sourcePath)),
+          rootPath,
+          sourcePath
+        );
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
       validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
@@ -656,6 +717,8 @@ async function loadInstructions(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      segments,
+      ...(rootFrontPage ? { rootFrontPage: true } : {}),
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
       targets,
@@ -666,6 +729,30 @@ async function loadInstructions(
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
     instructionsDir: join(sourceRootDir, RULES_DIR),
   };
+}
+
+function classifyRuleSegments(
+  relativeDirectory: string,
+  rootPath: string,
+  sourcePath: string
+): NonNullable<SourceRule["segments"]> {
+  if (relativeDirectory === "." || relativeDirectory.length === 0) return [];
+  return relativeDirectory.split(/[\\/]/u).map((value) => {
+    if (value === "[…]") {
+      throw new Error(
+        `skillset: ${relative(rootPath, sourcePath)} uses Unicode rule segment […]; rename it to [...]`
+      );
+    }
+    return {
+      classification:
+        value === "[.]"
+          ? "one-level"
+          : value === "[...]"
+            ? "any-depth"
+            : "literal",
+      value,
+    };
+  });
 }
 
 /**
@@ -1020,7 +1107,17 @@ async function loadPlugin(
   }
   const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id }, targets);
-  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id, externalInputPaths);
+  const discoveredSkills = await loadSkills(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    pluginPath,
+    inheritedTargets,
+    warnings,
+    id,
+    externalInputPaths
+  );
+  const skills = discoveredSkills.filter((skill) => skill.status !== "draft");
 
   if (await exists(join(pluginPath, "hooks.json"))) {
     const path = relative(rootPath, join(pluginPath, "hooks.json"));
@@ -1036,6 +1133,7 @@ async function loadPlugin(
     adaptiveHooks,
     ...(claudeBundlePath === undefined ? {} : { claudeBundlePath }),
     dependencies,
+    discoveredSkills,
     features,
     hookAttachments,
     id,
@@ -1290,6 +1388,20 @@ async function loadSkillsFromDirectory(
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope, targets);
     const relativePath = relative(relativeBasePath, sourcePath);
+    const sourceSegments = relative(skillsPath, dirname(sourcePath)).split(/[\\/]/u);
+    const draftFromDirectory = sourceSegments.includes("_drafts");
+    const declaredStatus = parts.frontmatter.status;
+    if (declaredStatus !== undefined && declaredStatus !== "draft") {
+      throw new Error(
+        `skillset: ${relative(rootPath, sourcePath)} status must be draft when provided`
+      );
+    }
+    const draftOrigin = draftFromDirectory
+      ? "_drafts"
+      : declaredStatus === "draft"
+        ? "status"
+        : undefined;
+    const groupPath = sourceSegments.slice(0, -1).filter((segment) => segment !== "_drafts");
     const resources = await readSkillResources(parts.frontmatter.resources, {
       label: sourcePath,
       ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
@@ -1306,6 +1418,7 @@ async function loadSkillsFromDirectory(
       ...(dialect === undefined ? {} : { dialect }),
       ...(evalDeclaration === undefined ? {} : { evalDeclaration }),
       frontmatter: parts.frontmatter,
+      groupPath,
       hookAttachments,
       id,
       metadata,
@@ -1313,11 +1426,53 @@ async function loadSkillsFromDirectory(
       resources,
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+      status: draftOrigin === undefined ? "live" : "draft",
+      ...(draftOrigin === undefined ? {} : { draftOrigin }),
       targets,
     });
   }
 
+  validateDuplicateSkillLeaves(skills, skillsPath, rootPath);
   return skills.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
+}
+
+function validateDuplicateSkillLeaves(
+  skills: readonly SourceSkill[],
+  skillsPath: string,
+  rootPath: string
+): void {
+  const byLeaf = new Map<string, SourceSkill[]>();
+  for (const skill of skills) {
+    const leaf = basename(dirname(skill.sourcePath));
+    byLeaf.set(leaf, [...(byLeaf.get(leaf) ?? []), skill]);
+  }
+
+  for (const [leaf, matches] of byLeaf) {
+    if (matches.length < 2 || isLiveDraftCounterpartPair(matches, skillsPath)) {
+      continue;
+    }
+    throw new Error(
+      `skillset: duplicate skill leaf ${leaf}: ${matches
+        .map((skill) => relative(rootPath, skill.sourcePath))
+        .join(" and ")}`
+    );
+  }
+}
+
+function isLiveDraftCounterpartPair(
+  skills: readonly SourceSkill[],
+  skillsPath: string
+): boolean {
+  if (skills.length !== 2) return false;
+  const draft = skills.find((skill) => skill.draftOrigin === "_drafts");
+  const live = skills.find((skill) => skill.status === "live");
+  if (draft === undefined || live === undefined) return false;
+  const draftDirectory = relative(skillsPath, dirname(draft.sourcePath))
+    .split(/[\\/]/u)
+    .filter((segment) => segment !== "_drafts")
+    .join("/");
+  const liveDirectory = relative(skillsPath, dirname(live.sourcePath)).replaceAll("\\", "/");
+  return draftDirectory === liveDirectory;
 }
 
 function validateSourceFrontmatter(
@@ -1396,17 +1551,23 @@ function warnPortableModel(
 }
 
 async function findSkillFiles(root: string): Promise<string[]> {
-  const files: string[] = [];
   const entries = await readdir(root, { withFileTypes: true });
+  if (entries.some((entry) => entry.isFile() && entry.name === SKILL_FILE)) {
+    return [join(root, SKILL_FILE)];
+  }
+
+  const files: string[] = [];
 
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
+      if (entry.name.startsWith("_") && entry.name !== "_drafts") {
+        throw new Error(
+          `skillset: ${path} uses reserved skill-directory syntax; only _drafts is allowed`
+        );
+      }
       files.push(...(await findSkillFiles(path)));
       continue;
-    }
-    if (entry.isFile() && entry.name === SKILL_FILE) {
-      files.push(path);
     }
   }
 

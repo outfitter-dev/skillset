@@ -23,7 +23,10 @@ import type {
   NewSourceReport,
   NewSourceScope,
 } from "./new-source";
-import { scaffoldSourceUnit } from "./new-source";
+import {
+  NEW_SOURCE_KIND_LIST_TEXT,
+  scaffoldSourceUnit,
+} from "./new-source";
 import { quoteShellArgument } from "./recovery-guidance";
 import {
   formatScaffoldFileLine,
@@ -220,7 +223,7 @@ export async function runNewCommand(
   }
   if (newKind === undefined) {
     throw new Error(
-      "skillset: expected new kind skill, agent, instruction, or hook"
+      `skillset: expected new kind ${NEW_SOURCE_KIND_LIST_TEXT}`
     );
   }
   const report = await scaffoldSourceUnit(rootPath, {

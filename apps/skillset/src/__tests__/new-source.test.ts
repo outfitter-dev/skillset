@@ -6,6 +6,132 @@ import { expect, test } from "bun:test";
 
 import { scaffoldSourceUnit } from "../new-source";
 
+test("SET-584: new plugin previews, writes, receives a skill, and builds", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-plugin-container-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const preview = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--root",
+    root
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/skillset.yaml"
+  );
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/skills/.gitkeep"
+  );
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/README.md"
+  );
+  expect(preview.stdout).toContain("write confirmation required");
+  expect(
+    await fileExists(join(root, ".skillset/plugins/review-tools"))
+  ).toBe(false);
+
+  const written = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain("created plugin review-tools");
+  expect(
+    await readFile(
+      join(root, ".skillset/plugins/review-tools/skillset.yaml"),
+      "utf8"
+    )
+  ).toBe(
+    'skillset:\n  schema: 1\n  name: review-tools\n  description: "Review Tools plugin container."\n'
+  );
+  expect(
+    await readFile(
+      join(root, ".skillset/plugins/review-tools/README.md"),
+      "utf8"
+    )
+  ).toBe(
+    "# Review Tools\n\nAdd portable skills and plugin-owned source to this container.\n"
+  );
+  expect(
+    await fileExists(
+      join(root, ".skillset/plugins/review-tools/skills/.gitkeep")
+    )
+  ).toBe(true);
+
+  const skill = await runSkillsetCli(
+    "new",
+    "skill",
+    "Review Helper",
+    "--in",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(skill.exitCode).toBe(0);
+  await expect(
+    runSkillsetCli("build", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+  await expect(runSkillsetCli("check", "--root", root)).resolves.toMatchObject({
+    exitCode: 0,
+  });
+});
+
+test("SET-584: new plugin rejects invalid identity, nesting, and collisions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-plugin-invalid-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const invalid = await runSkillsetCli(
+    "new",
+    "plugin",
+    "Review Tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(invalid.exitCode).toBe(1);
+  expect(invalid.stderr).toContain(
+    'expected plugin id to be a lowercase slug, received "Review Tools"'
+  );
+
+  const nested = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--in",
+    "parent",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(nested.exitCode).toBe(1);
+  expect(nested.stderr).toContain("a plugin container cannot nest inside another");
+
+  await mkdir(join(root, ".skillset/plugins/review-tools"), { recursive: true });
+  const collision = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(collision.exitCode).toBe(1);
+  expect(collision.stderr).toContain(
+    "refusing to overwrite existing plugin container .skillset/plugins/review-tools"
+  );
+});
+
 test("SET-165: new skill previews by default and writes ordinary repo source with confirmation", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-new-ordinary-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
@@ -539,8 +665,8 @@ test("SET-165/310: new supports project agents and requires complete hook intent
 
   const agent = await runSkillsetCli("new", "agent", "Release Reviewer", "--root", root, "--yes");
   expect(agent.exitCode).toBe(0);
-  expect(agent.stdout).toContain("+ .skillset/agents/release-reviewer.md");
-  const source = await readFile(join(root, ".skillset/agents/release-reviewer.md"), "utf8");
+  expect(agent.stdout).toContain("+ .skillset/subagents/release-reviewer.md");
+  const source = await readFile(join(root, ".skillset/subagents/release-reviewer.md"), "utf8");
   expect(source).toContain("name: release-reviewer");
   expect(source).toContain('description: "Use this agent for Release Reviewer work."');
 

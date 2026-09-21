@@ -1,4 +1,5 @@
 import type { GeneratedEntry } from "@skillset/core/internal/types";
+import type { SourceSkillInspection } from "@skillset/core/internal/authoring";
 
 import {
   formatGeneratedEntryIdentity,
@@ -36,7 +37,8 @@ const GROUP_ORDER: readonly UnitGroup[] = [
 export function renderGeneratedEntryList(
   entries: readonly GeneratedEntry[],
   details: boolean,
-  options: TerminalRenderOptions = {}
+  options: TerminalRenderOptions = {},
+  sourceSkills: readonly SourceSkillInspection[] = []
 ): string {
   const renderer = createTerminalRenderer(options);
   const units = collectGeneratedUnits(entries);
@@ -78,8 +80,42 @@ export function renderGeneratedEntryList(
     ...sections.flatMap((section, index) =>
       index === 0 ? [section] : ["", section]
     ),
+    ...(sourceSkills.length === 0
+      ? []
+      : ["", renderSourceSkillInventory(renderer, sourceSkills)]),
     "",
     renderer.wrap(`${renderer.bold("Summary")}  ${summary}`),
+  ].join("\n");
+}
+
+function renderSourceSkillInventory(
+  renderer: ReturnType<typeof createTerminalRenderer>,
+  skills: readonly SourceSkillInspection[]
+): string {
+  return [
+    renderer.wrap(
+      `${renderer.bold("Source skills")} ${renderer.dim(`(${skills.length})`)}`
+    ),
+    renderDefinitionList(
+      renderer,
+      skills.map((skill) => ({
+        label:
+          skill.container === "workspace"
+            ? skill.id
+            : `${skill.container}/${skill.id}`,
+        value: [
+          skill.status,
+          skill.draftOrigin === undefined
+            ? undefined
+            : `origin: ${skill.draftOrigin}`,
+          skill.groupPath.length === 0
+            ? undefined
+            : `group: ${skill.groupPath.join("/")}`,
+        ]
+          .filter((value): value is string => value !== undefined)
+          .join(" · "),
+      }))
+    ),
   ].join("\n");
 }
 

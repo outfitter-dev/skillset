@@ -1029,7 +1029,7 @@ skillset:
 claude: true
 codex: true
 `,
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews project changes.
@@ -1095,7 +1095,7 @@ claude: true
 codex: true
 cursor: true
 `,
-      ".skillset/agents/clark.md": `
+      ".skillset/subagents/clark.md": `
 ---
 name: clark
 description: Architectural conscience.
@@ -1208,7 +1208,7 @@ interface:
 Read {{@references/rule.md}}.
 `,
       ".skillset/rules/references/rule.md": "Rule guide.",
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews project changes.
@@ -1217,7 +1217,7 @@ initialPrompt: Start with {{@references/agent.md}}.
 
 Read {{@references/agent.md}}.
 `,
-      ".skillset/agents/references/agent.md": "Agent guide.",
+      ".skillset/subagents/references/agent.md": "Agent guide.",
     });
 
     await buildSkillsetResult(root);
@@ -1247,7 +1247,7 @@ Read {{@references/agent.md}}.
     ]) {
       const generated = await readFile(join(root, path), "utf8");
       expect(generated).toContain(
-        "../../.skillset/agents/references/agent.md"
+        "../../.skillset/subagents/references/agent.md"
       );
       expect(generated).not.toContain("{{@references/agent.md}}");
     }
@@ -1358,7 +1358,7 @@ skillset:
   name: invalid-agent-frontmatter
 claude: true
 `,
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews project changes.

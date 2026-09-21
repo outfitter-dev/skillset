@@ -497,7 +497,7 @@ claude: true
 codex: false
 cursor: false
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Uses the retired tool_intent key.
@@ -521,7 +521,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Uses the retired tool_intent key.
@@ -2903,7 +2903,7 @@ activation:
 checks:
   projection: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: Reviewer
 description: Reviews Cursor workspaces.
@@ -2973,7 +2973,7 @@ checks:
     - path: .codex/agents/reviewer.toml
       contains: "- helper"
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: Reviewer
 description: Reviews with helper guidance.
@@ -3219,7 +3219,7 @@ Demo body.
 skillset:
   name: bad
 `,
-    ".skillset/plugins/bad/agents/worker.md": `
+    ".skillset/plugins/bad/subagents/worker.md": `
 ---
 name: worker
 description: Unsupported Codex plugin agent.
@@ -4667,7 +4667,7 @@ claude: false
 codex: false
 cursor: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews Cursor changes.
 cursor:
@@ -4711,7 +4711,7 @@ claude: false
 codex: true
 cursor: false
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 description: Reviews Codex changes.
 codex:
@@ -8739,9 +8739,10 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
   expect(await fileExists(join(root, ".skillset/.gitkeep"))).toBe(true);
-  for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
+  for (const directory of ["subagents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
     expect(await fileExists(join(root, `.skillset/${directory}/.gitkeep`))).toBe(true);
   }
+  expect(await fileExists(join(root, ".skillset/RULES.md"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
   expect(await readFile(join(root, ".skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
   expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(false);
@@ -8776,25 +8777,26 @@ test("SET-27: init scaffolds optional CI only when requested", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
 
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(root, ".skillset/agents/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/subagents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(root, ".github/workflows/skillset-ci.yml"))).toBe(false);
 
   const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
   await expect(
     runSkillsetCli("init", "--root", shaped, "--include", "ci", "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(shaped, ".skillset/agents/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/subagents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(shaped, ".github/workflows/skillset-ci.yml"))).toBe(true);
 });
 
-test("SET-464: init guidance distinguishes empty and active source", async () => {
+test("SET-464: starter RULES.md makes fresh init source active", async () => {
   const empty = await mkdtemp(join(tmpdir(), "skillset-setup-empty-guidance-"));
   const emptyResult = await runSkillsetCli("init", "--root", empty, "--yes");
 
   expect(emptyResult.exitCode).toBe(0);
-  expect(emptyResult.stdout).toContain("next: skillset new skill <name>");
-  expect(emptyResult.stdout).toContain("next: skillset import <path>");
-  expect(emptyResult.stdout).not.toContain("next: skillset build");
+  expect(emptyResult.stdout).toContain(`next: skillset build --root ${empty}\n`);
+  expect(emptyResult.stdout).toContain(`next: skillset build --yes --root ${empty}\n`);
+  expect(emptyResult.stdout).toContain(`next: skillset check --root ${empty}\n`);
+  expect(emptyResult.stdout).not.toContain("next: skillset new skill <name>");
 
   const active = await contractFixture({
     "skillset.yaml": "skillset:\n  name: active-guidance\ncompile:\n  targets: [claude]\n",
@@ -8837,11 +8839,12 @@ test("SET-464: create guidance targets the created child root", async () => {
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain(
-    `next: skillset new skill <name> --root ${createdRoot}\n`
+    `next: skillset build --root ${createdRoot}\n`
   );
   expect(result.stdout).toContain(
-    `next: skillset import <path> --root ${createdRoot}\n`
+    `next: skillset build --yes --root ${createdRoot}\n`
   );
+  expect(result.stdout).toContain(`next: skillset check --root ${createdRoot}\n`);
 });
 
 test("SET-464: default-root active guidance keeps the bare transcript", async () => {
@@ -8878,11 +8881,12 @@ test("SET-464: explicit elsewhere-root init guidance targets that root", async (
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain(
-    `next: skillset new skill <name> --root ${quotedElsewhere}\n`
+    `next: skillset build --root ${quotedElsewhere}\n`
   );
   expect(result.stdout).toContain(
-    `next: skillset import <path> --root ${quotedElsewhere}\n`
+    `next: skillset build --yes --root ${quotedElsewhere}\n`
   );
+  expect(result.stdout).toContain(`next: skillset check --root ${quotedElsewhere}\n`);
 });
 
 test("SET-464: marketplace-only source receives build guidance", async () => {
@@ -9034,7 +9038,8 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("my-skillset");
   expect(preview.stdout).toContain("+ README.md");
-  expect(preview.stdout).toContain("+ AGENTS.md");
+  expect(preview.stdout).toContain("+ .skillset/RULES.md");
+  expect(preview.stdout).not.toContain("+ AGENTS.md");
   expect(preview.stdout).toContain("+ .git");
   expect(preview.stdout).toContain("+ skillset.yaml");
   expect(await fileExists(join(parent, "my-skillset/skillset.yaml"))).toBe(false);
@@ -9044,14 +9049,14 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   expect(written.exitCode).toBe(0);
   const config = await readFile(join(parent, "my-skillset/skillset.yaml"), "utf8");
   const readme = await readFile(join(parent, "my-skillset/README.md"), "utf8");
-  const agents = await readFile(join(parent, "my-skillset/AGENTS.md"), "utf8");
+  const rules = await readFile(join(parent, "my-skillset/.skillset/RULES.md"), "utf8");
   const gitignore = await readFile(join(parent, "my-skillset/.gitignore"), "utf8");
   const lock = await readFile(join(parent, "my-skillset/skillset.lock"), "utf8");
   const createdRoot = join(parent, "my-skillset");
   expect(config).toStartWith("# yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json\n");
   expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
-  for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
+  for (const directory of ["subagents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
     expect(await fileExists(join(parent, `my-skillset/.skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(parent, "my-skillset/.skillset/changes/.gitkeep"))).toBe(true);
@@ -9072,7 +9077,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build");
-  expect(agents).toContain("Treat `.skillset/` as editable Skillset source");
+  expect(rules).toContain("Treat `.skillset/` as editable Skillset source");
   expect(await fileExists(join(createdRoot, ".git/config"))).toBe(true);
   await mkdir(join(createdRoot, ".skillset/cache"), { recursive: true });
   await writeFile(join(createdRoot, ".skillset/cache/runtime.txt"), "ignored\n");

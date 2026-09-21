@@ -25,6 +25,8 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 A plugin is a source container that preserves one product identity while generating separate [provider-native](../../glossary.md#provider-native) bundles. Source lives at `.skillset/plugins/<plugin>/` with a plugin-local `skillset.yaml`; default output lives at `plugins/<plugin>/claude/`, `plugins/<plugin>/chatgpt/` for the Codex-selected product bundle, and `plugins/<plugin>/cursor/`.
 
+Create an empty container with `skillset new plugin <name> --yes`. The command previews by default, validates the same plugin identity the resolver will load, and creates `skillset.yaml`, `README.md`, and an empty `skills/` placeholder. Add the first skill with `skillset new skill <name> --in <plugin> --yes`; plugin containers cannot nest.
+
 When Agent Plugins 1.0 is adopted, each applicable plugin also inherently produces `plugins/<plugin>/agents/`. This standard package is independent of provider selection; plugin and root provider toggles control only provider-native bundles and deltas.
 
 ## Source Contract

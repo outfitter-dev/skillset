@@ -441,7 +441,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       name: "release-reviewer",
       skillset: {
         origin: {
-          path: ".skillset/agents/release-reviewer.md",
+          path: ".skillset/subagents/release-reviewer.md",
         },
         schema: 1,
       },

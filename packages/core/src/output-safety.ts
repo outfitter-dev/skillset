@@ -1110,7 +1110,7 @@ function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiag
   return {
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; ${record.targetPath} will be backed up before ${record.action}`,
+    message: `${reason}; ${record.targetPath} will be backed up before ${record.action}${rootRulesGuidance(record)}`,
     outputPath: record.targetPath,
     severity: "warning",
   };
@@ -1123,10 +1123,20 @@ function backupDiagnostic(record: OutputBackupRecord, runId: string, manifestPat
   return {
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})`,
+    message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})${rootRulesGuidance(record)}`,
     outputPath: record.targetPath,
     severity: "warning",
   };
+}
+
+function rootRulesGuidance(
+  record: Pick<OutputBackupPlanRecord, "reason" | "sourcePath" | "targetPath">
+): string {
+  return record.reason === "unmanaged-collision" &&
+    record.targetPath === "AGENTS.md" &&
+    record.sourcePath?.endsWith("/RULES.md") === true
+    ? "; move authored root instructions to .skillset/RULES.md"
+    : "";
 }
 
 async function writeGitBackupStorage(

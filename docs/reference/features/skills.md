@@ -43,6 +43,10 @@ Check claims against their [canonical source](../../glossary.md#canonical-source
 
 The generated [skill-frontmatter schema and example](../schemas/README.md) own the complete field set and value constraints. The [frontmatter reference](../../configuration/frontmatter.md) explains field ownership; [target overrides](../../configuration/target-overrides.md), [tools policy](../../configuration/tools-policy.md), and [resources](resources.md) own their specialized configuration.
 
+Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`; `skillset list` and `skillset explain` report the crossed group while rendering continues to preserve the authored relative path. Two skills in one tree cannot share a leaf directory across groups because a later flattened projection would collide.
+
+Place an unpublished counterpart under `_drafts/<skill>/`, or add `status: draft` to its frontmatter. Discovery reports the draft status and its origin, but drafts do not enter generated output or packages until a draft-rendering mode explicitly selects them. An `_drafts/<skill>/` counterpart may share the live skill's leaf within the same group; other duplicate leaves fail with both source paths.
+
 Skill bodies support the expressions documented in [source preprocessing](../source/preprocessing.md). `compile.features.promptArguments` defaults to enabled, and `compile.skillset.metadata` defaults to enabled; [project configuration](../../configuration/project-configuration.md) owns those workspace settings.
 
 ## Provider Output
@@ -66,7 +70,7 @@ These restrictions suppress only the flattened `.agents/skills/<skill>/` project
 
 ## Errors and Caveats
 
-Skillset rejects identity conflicts, unsupported source schema versions, malformed versions, invalid preprocessing expressions, unsafe resource paths, and output collisions. It also diagnoses individual Agent Skills publication when dependencies or skill-local hooks cannot travel with the generated tree. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
+Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. It also diagnoses individual Agent Skills publication when dependencies or skill-local hooks cannot travel with the generated tree. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.
 
 Generated skills are [generated output](../../glossary.md#generated-output), not authoring surfaces. [`skillset check --only outputs`](../cli/check.md) reports missing, stale, or edited managed files; [`skillset explain`](../cli/explain.md) shows the deciding source, target, resources, preprocessing dependencies, and policy realization.
 

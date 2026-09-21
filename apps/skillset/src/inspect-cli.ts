@@ -9,6 +9,7 @@ import {
   explainPath,
   listFeatureCapabilities,
   listGeneratedEntries,
+  listSourceSkills,
 } from "@skillset/core/internal/authoring";
 import { diffSkillsetResult } from "@skillset/core/internal/build";
 import type {
@@ -57,12 +58,24 @@ export async function runListCommand({
   rootPath,
 }: ListCommandRequest): Promise<void> {
   return runFiniteCommand({
-    execute: () => listGeneratedEntries(rootPath, options),
+    execute: async () => {
+      const [entries, sourceSkills] = await Promise.all([
+        listGeneratedEntries(rootPath, options),
+        listSourceSkills(rootPath, options),
+      ]);
+      return { entries, sourceSkills };
+    },
     exitCode: () => 0,
-    json: (entries) => ({ command: "list", data: { entries } }),
+    json: ({ entries, sourceSkills }) => ({
+      command: "list",
+      data: { entries, sourceSkills },
+    }),
     jsonOutput,
-    renderHuman: (entries, writer) => {
-      writeLine(writer, renderGeneratedEntryList(entries, details));
+    renderHuman: ({ entries, sourceSkills }, writer) => {
+      writeLine(
+        writer,
+        renderGeneratedEntryList(entries, details, {}, sourceSkills)
+      );
     },
   });
 }
@@ -238,6 +251,19 @@ function printExplainResult(
     writer,
     `  standards: ${formatStandardProfileSummary(result.standardProfiles)}`
   );
+  if (result.sourceSkill !== undefined) {
+    writeLine(writer, `  source skill: ${result.sourceSkill.id}`);
+    writeLine(
+      writer,
+      `    status: ${result.sourceSkill.status}${result.sourceSkill.draftOrigin === undefined ? "" : ` (${result.sourceSkill.draftOrigin})`}`
+    );
+    if (result.sourceSkill.groupPath.length > 0) {
+      writeLine(
+        writer,
+        `    group: ${result.sourceSkill.groupPath.join("/")}`
+      );
+    }
+  }
   for (const entry of result.entries) {
     writeLine(
       writer,

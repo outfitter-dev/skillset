@@ -57,7 +57,7 @@ description: Root instructions.
 
 Keep generated output deterministic.
 `,
-  ".skillset/agents/reviewer.md": `
+  ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -148,7 +148,7 @@ cursor: false
 #!/usr/bin/env bash
 echo beta
 `,
-  ".skillset/plugins/beta/agents/reviewer.md": `
+  ".skillset/plugins/beta/subagents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
@@ -370,7 +370,7 @@ cursor: false
 `;
     const root = await fixture({
       "skillset.yaml": config(true),
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -551,7 +551,7 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -974,7 +974,7 @@ echo alpha
   it("ignores placeholder-only plugin agent directories for unsupported Codex outcomes", async () => {
     const root = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/plugins/alpha/agents/.gitkeep": "",
+      ".skillset/plugins/alpha/subagents/.gitkeep": "",
     });
 
     const result = await buildSkillsetResult(root);
@@ -994,7 +994,7 @@ echo alpha
         "unsupportedDestination: warn",
         "unsupportedDestination: error"
       ),
-      ".skillset/plugins/alpha/agents/reviewer.md": `
+      ".skillset/plugins/alpha/subagents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
@@ -3097,7 +3097,7 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -3107,7 +3107,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+      ".skillset/subagents/helper/hooks/local-stop.json": JSON.stringify({
         events: ["Stop"],
         run: { command: "echo agent" },
       }),

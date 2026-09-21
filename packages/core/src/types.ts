@@ -255,8 +255,11 @@ export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
+  readonly draftOrigin?: "_drafts" | "status";
   readonly evalDeclaration?: SourceSkillEval;
   readonly frontmatter: JsonRecord;
+  /** Organizational source segments between the skills root and skill leaf. */
+  readonly groupPath?: readonly string[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
   readonly metadata: JsonRecord;
@@ -264,6 +267,7 @@ export interface SourceSkill {
   readonly resources: readonly SourceResource[];
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
+  readonly status?: "draft" | "live";
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
@@ -308,6 +312,8 @@ export interface SourcePlugin {
   readonly claudeBundlePath?: string;
   readonly configPath: string;
   readonly dependencies: readonly SourcePluginDependency[];
+  /** Complete discovered inventory, including drafts excluded from projections. */
+  readonly discoveredSkills?: readonly SourceSkill[];
   readonly features: readonly SourcePluginFeature[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
@@ -341,9 +347,16 @@ export interface SourceRule {
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
+  readonly segments?: readonly SourceRuleSegment[];
+  readonly rootFrontPage?: boolean;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourceRuleSegment {
+  readonly classification: "any-depth" | "literal" | "one-level";
+  readonly value: string;
 }
 
 export interface SourceIslandFile {
@@ -392,6 +405,8 @@ export interface BuildGraph {
   readonly configuredBuildMode: CompileBuildMode;
   /** Repository-local compiler inputs resolved outside the canonical source root. */
   readonly externalInputPaths: readonly string[];
+  /** Complete discovered skill inventory, including drafts excluded from projections. */
+  readonly discoveredSkills?: readonly SourceSkill[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;

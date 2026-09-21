@@ -556,7 +556,12 @@ function restoreTripleBraceTokens(content: string, escapedTokens: readonly strin
 function resolvePartial(specifier: string, context: PreprocessContext): string {
   const [scheme, path] = splitSpecifier(specifier);
   validatePartialPath(path, specifier, context);
-  if (scheme === "shared" || scheme === "root") {
+  if (scheme === "root") {
+    throw new Error(
+      `skillset: ${specifier} in ${relative(context.rootPath, context.sourcePath)} uses retired root: reference syntax; use shared:${path}`
+    );
+  }
+  if (scheme === "shared") {
     const resolved = resolveInsideScoped(
       resolveInside(context.rootPath, join(context.sourceRoot, "shared")),
       path,
@@ -597,7 +602,7 @@ async function resolveNamedPartial(
 
   if (pluginPath !== undefined && separator > 0 && specifier.slice(0, separator) === basename(pluginPath)) {
     return resolveNamedPartialFromRoot(
-      join(pluginPath, "partials"),
+      join(pluginPath, "shared", "partials"),
       specifier.slice(separator + 1),
       specifier,
       context,
@@ -605,7 +610,7 @@ async function resolveNamedPartial(
     );
   }
 
-  const workspaceRoot = resolveInside(context.rootPath, join(context.sourceRoot, "partials"));
+  const workspaceRoot = resolveInside(context.rootPath, join(context.sourceRoot, "shared", "partials"));
   const workspacePartial = await maybeResolveNamedPartialFromRoot(
     workspaceRoot,
     specifier,
@@ -625,7 +630,7 @@ async function resolveNamedPartial(
       }
     }
     return resolveNamedPartialFromRoot(
-      join(pluginPath, "partials"),
+      join(pluginPath, "shared", "partials"),
       specifier,
       specifier,
       context,
