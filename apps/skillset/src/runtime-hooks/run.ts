@@ -43,6 +43,8 @@ const GENERATED_OUTPUT_DRIFT_CODES = new Set([
   "generated-output-removed",
 ]);
 const MAX_CONTEXT_CHARACTERS = 8_000;
+// Claude caps the serialized hook output at 10,000 characters; leave headroom.
+const MAX_OUTPUT_CHARACTERS = 9_000;
 const MAX_STALE_PATHS = 20;
 
 export async function dispatchHookRun(
@@ -240,17 +242,22 @@ function hasNonDriftErrors(
 function renderSessionStartOutput(paths: readonly string[]): string {
   const guidance = "Run: npx skillset build\nskillset-help";
   const visible = paths.slice(0, MAX_STALE_PATHS);
-  let context = sessionStartContext(visible, paths.length - visible.length, guidance);
-  while (context.length > MAX_CONTEXT_CHARACTERS && visible.length > 0) {
+  while (true) {
+    const context = sessionStartContext(visible, paths.length - visible.length, guidance);
+    const output = `${JSON.stringify({
+      hookSpecificOutput: {
+        additionalContext: context,
+        hookEventName: "SessionStart",
+      },
+    })}\n`;
+    if (
+      (context.length <= MAX_CONTEXT_CHARACTERS && output.length <= MAX_OUTPUT_CHARACTERS) ||
+      visible.length === 0
+    ) {
+      return output;
+    }
     visible.pop();
-    context = sessionStartContext(visible, paths.length - visible.length, guidance);
   }
-  return `${JSON.stringify({
-    hookSpecificOutput: {
-      additionalContext: context,
-      hookEventName: "SessionStart",
-    },
-  })}\n`;
 }
 
 function sessionStartContext(

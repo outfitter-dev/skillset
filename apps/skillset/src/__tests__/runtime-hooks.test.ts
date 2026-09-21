@@ -307,6 +307,28 @@ test("session-start bounds unique stale paths and additional context", async () 
   expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
 });
 
+test("session-start bounds JSON-escaped hook output", async () => {
+  const paths = Array.from(
+    { length: 20 },
+    (_, index) => `plugins/demo/resources/p${index}/${"\\".repeat(240)}.txt`
+  );
+  const stale = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    verifier: async () => verification(false, paths),
+  });
+  const output = JSON.parse(stale.output) as {
+    hookSpecificOutput: { additionalContext: string; hookEventName: string };
+  };
+  const context = output.hookSpecificOutput.additionalContext;
+  const listedPaths = context.split("\n").filter((line) => line.startsWith("- "));
+
+  expect(stale.output.length).toBeLessThanOrEqual(9_000);
+  expect(listedPaths.length).toBeLessThan(paths.length);
+  expect(context).toContain(`... and ${paths.length - listedPaths.length} more.`);
+  expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
+});
+
 test("session-start exits zero when verification throws and stays silent for unsupported providers", async () => {
   const failed = await runHookEvent("session-start", {
     env: { SKILLSET_PROVIDER: "claude" },
