@@ -283,9 +283,8 @@ describe("SET-551/585 current authoring model", () => {
         groupPath: ["(engineering)"],
         id: "tdd",
         internalUse: {
-          rule:
-            "plugins.internal_use.skills.mg-skills: all except exclusions",
-          selected: true,
+          rule: "plugins.internal_use.drafts.mg-skills: override",
+          selected: false,
         },
         status: "live",
       },
