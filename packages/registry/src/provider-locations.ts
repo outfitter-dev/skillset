@@ -228,6 +228,8 @@ const entries = [
       verified("skill-discovery", "~/.cursor/skills/<skill>/SKILL.md"),
       verified("skill-discovery", "<project>/.cursor/skills/<skill>/SKILL.md"),
       verified("skill-discovery", "<plugin-root>/skills/<skill>/SKILL.md"),
+      verified("config", "~/.cursor/permissions.json"),
+      verified("config", "<project>/.cursor/permissions.json"),
       unknown(
         "marketplace",
         "Cursor documents marketplace management in Customize but not an on-disk marketplace catalog location."
@@ -262,6 +264,10 @@ const entries = [
       {
         note: "Rolling official documentation for skill paths; it does not pin Cursor 3.17.8.",
         url: "https://cursor.com/docs/skills",
+      },
+      {
+        note: "Rolling official permissions reference for user and project configuration paths; it does not pin Cursor 3.17.8.",
+        url: "https://cursor.com/docs/reference/permissions",
       },
     ],
     surface: "cursor-ide",

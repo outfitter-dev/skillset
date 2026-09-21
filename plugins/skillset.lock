@@ -196,7 +196,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:de78e4d3910de3335ce221d2d4492dc1d2d51b78fb2e3d0f043bc4cd0367cdb6",
+  "provenanceHash": "sha256:1560c5b188b1cfce087ddce537bda3e7881f2e6dfbd8e5307be93721daedac27",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -549,9 +549,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:63c9347a4a616fc3a8e1cda62a032d36765d8d3a22aac6a7d8a994b2c1ecf98a",
+          "note": "sha256:fea0d72f95b04458921655dafe7ef438e5a6c5d270ff984817b4fafdac77df03",
           "ref": "cursor-skill",
-          "verifiedAt": "2026-09-11"
+          "verifiedAt": "2026-09-16"
         }
       ],
       "featureId": "plugin-skills",

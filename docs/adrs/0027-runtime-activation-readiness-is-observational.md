@@ -227,7 +227,7 @@ SET-131 owns this decision and closes after a clean contract review plus impleme
 - [ADR-0019: Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - render conformance is not activation.
 - [ADR-0022: Workflow-Oriented CLI](0022-workflow-oriented-cli.md) - status, explain, lookup, test, and eval ownership.
 - [ADR-0023: Versioned Structured Output](0023-versioned-structured-output-for-cli-automation.md) - machine-readable command contracts.
-- [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - future explicit activation mutation, out of scope here.
+- [Declarative User-Scope Config](drafts/20260604-declarative-user-scope-config.md) - future explicit activation mutation, out of scope here.
 - [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - future settings planning and apply boundary.
 - [Ungraded Cross-Provider Eval Runs](drafts/20260723-ungraded-cross-provider-eval-runs.md) - current provider runtime evidence.
 - [Claude MCP](https://code.claude.com/docs/en/mcp) and [plugins](https://code.claude.com/docs/en/discover-plugins) - approval, connection, installation, enablement, and reload evidence.

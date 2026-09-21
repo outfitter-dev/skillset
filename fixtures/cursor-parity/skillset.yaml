@@ -1,0 +1,8 @@
+skillset:
+  schema: 1
+  name: cursor-parity
+  author:
+    name: Skillset Maintainers
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
