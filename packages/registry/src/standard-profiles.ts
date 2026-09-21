@@ -145,13 +145,13 @@ const profiles = [
         "sha256:c2edbe7dd642ed933488bcf4196377d93a52f0786b1a09e597517baf022d1906",
       receipt: {
         contentHash:
-          "sha256:2798db565183f631eff5818c174a8048c3e220c1c07c76c5c402d7d0ce97395d",
+          "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554",
         path: "fixtures/standards/evidence/agent-skills.json",
         schema: "skillset.standards-conformance-receipt@1",
       },
-      rendererCommit: "2bbdb2374ba80ecefc72785dfd2044a2f5d5fc76",
+      rendererCommit: "15a9eee591d7b1abd4660ae96ecae1d78776c385",
       schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
-      verifiedAt: "2026-09-17T01:23:59.394Z",
+      verifiedAt: "2026-09-21T19:08:13.983Z",
     },
     envelopes: [
       required(
