@@ -5,7 +5,7 @@ import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { sourceUnitSelector } from "./source-unit-selector";
-import { currentSourceIdentity, latestSourceMoveCursor, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
+import { latestSourceMoveCursor, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
 import { validateVersionField } from "./versioning";
 import { workspaceChangeFile } from "./workspace-state";
@@ -113,9 +113,12 @@ function readLedgerReleaseState(events: readonly ChangeLedgerEvent[]): ReleaseSt
 }
 
 function remapReleaseState(state: ReleaseState, mappings: ReturnType<typeof sourceIdentityMappings>): ReleaseState {
-  const scopes: Record<string, ReleaseScopeState> = {};
-  for (const [selector, value] of Object.entries(state.scopes)) {
-    scopes[currentSourceIdentity(selector, mappings)] = value;
+  const scopes: Record<string, ReleaseScopeState> = { ...state.scopes };
+  for (const mapping of mappings) {
+    const previous = scopes[mapping.from];
+    if (previous === undefined) continue;
+    delete scopes[mapping.from];
+    scopes[mapping.to] = previous;
   }
   return { scopes };
 }

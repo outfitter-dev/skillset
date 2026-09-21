@@ -184,6 +184,25 @@ describe("source move foundations", () => {
     });
   });
 
+  test("a later move overwrites stale cached state at its destination", async () => {
+    const events = [
+      { createdAt: "2026-09-17T00:00:00.001Z", id: "move-1", payload: { from: "skill:demo", to: "plugin.tools.skill:demo" }, schemaVersion: 1, type: "source.moved" },
+      { createdAt: "2026-09-17T00:00:00.002Z", id: "move-2", payload: { from: "plugin.tools.skill:demo", to: "skill:demo" }, schemaVersion: 1, type: "source.moved" },
+    ];
+    const root = await fixture({
+      ".skillset/changes/ledger.jsonl": `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+      ".skillset/changes/state.json": JSON.stringify({
+        schemaVersion: 2,
+        sourceMoveCursor: "move-1",
+        scopes: {
+          "plugin.tools.skill:demo": { version: "1.0.0" },
+          "skill:demo": { version: "2.0.0" },
+        },
+      }),
+    });
+    expect(await readReleaseState(root)).toEqual({ scopes: { "skill:demo": { version: "1.0.0" } } });
+  });
+
   test("rewrites root selectors and removes explicit internal-use selections", () => {
     const source = `drafts:\n  - plugin.tools.skill:demo\ndistributions:\n  docs:\n    from:\n      selector: plugin.tools.skill:demo\n      target: codex\n    to:\n      kind: local\nplugins:\n  internal_use:\n    skills:\n      tools: [demo, keep]\n    drafts:\n      tools: [\"!demo\"]\n`;
     const result = rewriteSourceMoveConfig(source, "skillset.yaml", {
