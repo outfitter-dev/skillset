@@ -1577,7 +1577,7 @@ async function renderProjectSkillCopy(
         skill,
         standard.content,
         standard.preprocessDependencies,
-        graph.root.internalMarker
+        copy.draftOrigin !== undefined ? true : graph.root.internalMarker
       );
   const resources = standard?.resources ?? skillMarkdown.resources;
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
