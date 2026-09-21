@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { explainPath } from "../authoring";
 import { buildSkillsetResult } from "../build";
+import { checkProviderFormatConformance } from "../provider-format-conformance";
 import { parseMarkdown } from "../yaml";
 
 const roots: string[] = [];
@@ -77,6 +78,11 @@ cursor:
         shared: { list: ["one", "two"], scalar: "same" },
       },
     });
+    const sharedFile = result.data.find((file) => file.path === "plugins/demo/skills/review/SKILL.md");
+    if (sharedFile === undefined) throw new Error("expected shared package skill");
+    expect(checkProviderFormatConformance([
+      { content: sharedFile.content, featureId: "plugin-skills", path: sharedFile.path, standardProfile: "agent-plugins-1.0" },
+    ])).toEqual({ checkedFiles: 1, issues: [], ok: true });
     const claudeManifest = JSON.parse(
       await readFile(
         join(root, "plugins/demo/.claude-plugin/plugin.json"),

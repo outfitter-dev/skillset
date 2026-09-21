@@ -1062,28 +1062,17 @@ function checkSkillMarkdown(
     file.standardProfile === "agent-skills" ||
     file.featureId === "plugin-skills"
   ) {
-    const allowedFields = file.featureId === "plugin-skills"
-      ? [...new Set([
-          ...AGENT_SKILLS_FRONTMATTER_KEYS,
-          ...providerSkillFrontmatterKeys("claude-skill"),
-          ...providerSkillFrontmatterKeys("codex-skill"),
-          ...providerSkillFrontmatterKeys("cursor-skill"),
-          "metadata",
-          "references",
-        ])]
-      : AGENT_SKILLS_FRONTMATTER_KEYS;
+    // Shared plugin skills deliberately preserve compatible provider-only keys.
+    // Their recognition is unverified; a closed key list here would contradict
+    // the compiler's supported package projection. Standalone skills remain strict.
     return [
       ...checkRequiredFields(file, frontmatter, "codex", issueRef, [
         "name",
         "description",
       ]),
-      ...checkUnknownFields(
-        file,
-        frontmatter,
-        "codex",
-        issueRef,
-        allowedFields
-      ),
+      ...(file.featureId === "plugin-skills" ? [] : checkUnknownFields(
+        file, frontmatter, "codex", issueRef, AGENT_SKILLS_FRONTMATTER_KEYS
+      )),
     ];
   }
 
@@ -1106,17 +1095,6 @@ function checkSkillMarkdown(
       "metadata",
       "references",
     ]),
-  ];
-}
-
-function providerSkillFrontmatterKeys(
-  ref: "claude-skill" | "codex-skill" | "cursor-skill"
-): readonly string[] {
-  const format = skillFrontmatterFormat(ref);
-  return [
-    ...(format.requiredFields ?? []),
-    ...(format.optionalFields ?? []),
-    ...(format.recommendedFields ?? []),
   ];
 }
 
