@@ -25,6 +25,7 @@ import {
   SourceDraftPlanError,
   SourcePromotionPlanError,
 } from "../source-draft";
+import { moveSource, planSourceMove } from "../source-move";
 
 describe("SET-587 source draft lifecycle", () => {
   test("plans and atomically copies a shipped skill with fork provenance", async () => {
@@ -226,6 +227,63 @@ describe("SET-587 source draft lifecycle", () => {
     );
     expect(lock).not.toContain("draft-demo");
     expect(lock).not.toContain('"draftOrigin"');
+  });
+
+  test("promotes a moved draft by its fork event without lending the baseline to a reused selector", async () => {
+    const root = await fixture({
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Original shipped."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const forkRequest = {
+      rootPath: root,
+      shippedPath: ".skillset/skills/demo",
+    };
+    const fork = await planSourceDraft(forkRequest);
+    await draftSource({ ...forkRequest, expectedPlanHash: fork.planHash });
+    const moveRequest = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const move = await planSourceMove(moveRequest);
+    await moveSource({ ...moveRequest, expectedPlanHash: move.planHash });
+
+    await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/skills/demo/SKILL.md"),
+      skill("demo", "Reused shipped.")
+    );
+    await mkdir(join(root, ".skillset/skills/_drafts/demo"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
+      skill("demo", "Reused draft.")
+    );
+    await expect(
+      planSourcePromotion({
+        draftPath: ".skillset/skills/_drafts/demo",
+        rootPath: root,
+      })
+    ).rejects.toThrow("missing draft fork baseline for skill:demo#draft");
+    await buildSkillset(root);
+
+    const movedPromotion = await planSourcePromotion({
+      draftPath: ".skillset/plugins/tools/skills/_drafts/demo",
+      rootPath: root,
+    });
+    expect(movedPromotion).toMatchObject({
+      baselineSourceHash: fork.sourceHash,
+      draftEventId: (await readChangeLedger(root))[0]?.id,
+      kind: "paired",
+    });
+    await promoteSource({
+      draftPath: movedPromotion.from,
+      expectedPlanHash: movedPromotion.planHash,
+      rootPath: root,
+    });
   });
 
   test("forks, renders, and promotes a paired plugin draft without publishing draft bytes", async () => {

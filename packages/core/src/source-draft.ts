@@ -17,6 +17,11 @@ import {
 import { compareStrings } from "./path";
 import { loadBuildGraph } from "./resolver";
 import {
+  currentSourceIdentity,
+  sourceIdentityMappings,
+  sourceMappingsAfterEvent,
+} from "./source-identity-mapping";
+import {
   SourceDraftPlanError,
   SourcePromotionPlanError,
 } from "./source-draft-types";
@@ -456,18 +461,25 @@ function findDraftBaseline(
         : []
     )
   );
+  const mappings = sourceIdentityMappings(events);
   return events
-    .filter(
-      (
-        event
-      ): event is Extract<
-        ChangeLedgerEvent,
-        { readonly type: "source.drafted" }
-      > =>
-        event.type === "source.drafted" &&
-        event.payload.draft === draft &&
-        event.payload.shipped === shipped &&
-        !promoted.has(event.id)
+    .flatMap(
+      (event, eventIndex) => {
+        if (event.type !== "source.drafted" || promoted.has(event.id)) {
+          return [];
+        }
+        // A move carries the paired draft, but older fork evidence stays append-only.
+        // Only moves after this fork belong to it; an old selector may be reused.
+        const currentShipped = currentSourceIdentity(
+          event.payload.shipped,
+          sourceMappingsAfterEvent(mappings, eventIndex)
+        );
+        return currentShipped === shipped &&
+          event.payload.draft === `${event.payload.shipped}#draft` &&
+          draft === `${currentShipped}#draft`
+          ? [event]
+          : [];
+      }
     )
     .at(-1);
 }
