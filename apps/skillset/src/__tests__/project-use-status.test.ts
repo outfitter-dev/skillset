@@ -191,6 +191,9 @@ Draft this skill.
     });
 
     const humanResult = await runStatus(root);
+    expect(humanResult.stdout).toContain(
+      "plugin internal use: demo/use-me (draft)"
+    );
     expect(humanResult.stdout).toContain(`draftPolicy=${draftPolicy}`);
     expect(humanResult.stdout).toContain(`effectiveName=${effectiveName}`);
     const explain = await runExplain(

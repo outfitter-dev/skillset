@@ -475,9 +475,14 @@ function printStatusReport(
     `  standards: ${formatStandardProfileSummary(report.standardProfiles)}`
   );
   if (report.pluginPlan !== undefined) {
-    const selected = report.pluginPlan.internalUse.skills
-      .map((skill) => `${skill.pluginId}/${skill.skillId}`)
-      .join(", ");
+    const selected = [
+      ...report.pluginPlan.internalUse.skills.map((skill) =>
+        `${skill.pluginId}/${skill.skillId}`
+      ),
+      ...report.pluginPlan.internalUse.drafts.map((skill) =>
+        `${skill.pluginId}/${skill.skillId} (draft)`
+      ),
+    ].join(", ");
     writeLine(
       writer,
       `  plugin internal use: ${selected.length === 0 ? "none" : selected}`
