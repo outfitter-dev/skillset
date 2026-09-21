@@ -24,14 +24,13 @@ const ROOT_MARKETPLACES = [
 ] as const;
 
 export interface ProviderArtifactInventory {
-  readonly agentPlugins: readonly string[];
-  readonly chatgptPlugins: readonly string[];
   readonly claudeMarketplaces: readonly string[];
   readonly claudePlugins: readonly string[];
   readonly codexMarketplaces: readonly string[];
   readonly codexPlugins: readonly string[];
   readonly cursorMarketplaces: readonly string[];
   readonly cursorPlugins: readonly string[];
+  readonly pluginPackages: readonly string[];
   readonly skills: readonly string[];
 }
 
@@ -235,11 +234,10 @@ export async function enumerateProviderArtifacts(
   root: string
 ): Promise<ProviderArtifactInventory> {
   const canonicalRoot = await realpath(root);
-  const agentPlugins = new Set<string>();
-  const chatgptPlugins = new Set<string>();
   const claudePlugins = new Set<string>();
   const codexPlugins = new Set<string>();
   const cursorPlugins = new Set<string>();
+  const pluginPackages = new Set<string>();
   const skills = new Set<string>();
 
   for (const lockPath of LOCK_PATHS) {
@@ -277,14 +275,15 @@ export async function enumerateProviderArtifacts(
       }
       if (outputPath.endsWith("/.claude-plugin/plugin.json"))
         claudePlugins.add(dirname(dirname(outputPath)));
-      else if (outputPath.endsWith("/agents/plugin.json"))
-        agentPlugins.add(dirname(outputPath));
-      else if (outputPath.endsWith("/chatgpt/plugin.json"))
-        chatgptPlugins.add(dirname(outputPath));
       else if (outputPath.endsWith("/.codex-plugin/plugin.json"))
         codexPlugins.add(dirname(dirname(outputPath)));
       else if (outputPath.endsWith("/.cursor-plugin/plugin.json"))
         cursorPlugins.add(dirname(dirname(outputPath)));
+      else if (
+        relative(outputRoot, outputPath).split(sep).length === 2 &&
+        outputPath.endsWith("/plugin.json")
+      )
+        pluginPackages.add(dirname(outputPath));
       else
         throw new Error(
           `skillset: unsupported generated plugin manifest ${relative(canonicalRoot, outputPath)}`
@@ -298,24 +297,22 @@ export async function enumerateProviderArtifacts(
     )
   );
   const inventory = {
-    agentPlugins: [...agentPlugins].toSorted(),
-    chatgptPlugins: [...chatgptPlugins].toSorted(),
     claudeMarketplaces: [marketplaces[1]!],
     claudePlugins: [...claudePlugins].toSorted(),
     codexMarketplaces: [marketplaces[0]!],
     codexPlugins: [...codexPlugins].toSorted(),
     cursorMarketplaces: [marketplaces[2]!],
     cursorPlugins: [...cursorPlugins].toSorted(),
+    pluginPackages: [...pluginPackages].toSorted(),
     skills: [...skills].toSorted(),
   } satisfies ProviderArtifactInventory;
   assertNonEmptyInventory(inventory);
   await Promise.all([
-    ...inventory.agentPlugins.map(assertTreeHasNoSymlinks),
-    ...inventory.chatgptPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.claudePlugins.map(assertTreeHasNoSymlinks),
     ...inventory.codexMarketplaces.map(assertTreeHasNoSymlinks),
     ...inventory.codexPlugins.map(assertTreeHasNoSymlinks),
     ...inventory.cursorPlugins.map(assertTreeHasNoSymlinks),
+    ...inventory.pluginPackages.map(assertTreeHasNoSymlinks),
     ...inventory.skills.map((path) => assertTreeHasNoSymlinks(dirname(path))),
   ]);
   return inventory;
@@ -339,7 +336,7 @@ function parseLockItem(raw: unknown, lockPath: string): LockItem | undefined {
 
 function assertNonEmptyInventory(inventory: ProviderArtifactInventory): void {
   for (const [surface, values] of Object.entries(inventory)) {
-    if (surface === "agentPlugins" || surface === "codexPlugins") continue;
+    if (surface === "codexPlugins") continue;
     if (values.length === 0)
       throw new Error(`skillset: provider validation found no ${surface}`);
   }

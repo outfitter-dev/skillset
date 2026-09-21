@@ -384,14 +384,12 @@ codex: true
     });
   });
 
-  it("preserves a configured plugin baseline when graph loading fails", async () => {
+  it("preserves a plugin baseline when graph loading fails", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: plugin-graph-failure-root
-claude:
-  plugins:
-    path: generated/claude
+claude: true
 codex: false
 cursor: false
 `,
@@ -410,7 +408,7 @@ Body.
     });
     const baseline = await buildSkillsetResult(root, { scopes: ["plugins"] });
     expect(baseline.ok).toBe(true);
-    expect(baseline.writes.paths).toContain("generated/claude/skillset.lock");
+    expect(baseline.writes.paths).toContain("plugins/skillset.lock");
     await writeFile(
       join(root, "skillset.yaml"),
       `
@@ -418,8 +416,6 @@ skillset:
   name: plugin-graph-failure-root
 claude:
   enabled: false
-  plugins:
-    path: generated/claude
 codex: true
 cursor: false
 `,
@@ -455,17 +451,13 @@ cursor: false
     });
   });
 
-  it("filters plugin fallback roots by target while fixed skills retain the standard baseline", async () => {
+  it("keeps shared plugin and fixed skill fallback baselines across target filters", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: target-filtered-fallback-root
-claude:
-  plugins:
-    path: generated/claude/plugins
-codex:
-  plugins:
-    path: generated/codex/plugins
+claude: true
+codex: true
 cursor: false
 `,
       ".skillset/skills/standalone/SKILL.md": `
@@ -493,11 +485,23 @@ Body.
       targetFilter: ["claude"],
     });
     expect(baseline.ok).toBe(true);
-    expect(baseline.writes.paths).toContain(
-      "generated/claude/plugins/skillset.lock"
-    );
+    expect(baseline.writes.paths).toContain("plugins/skillset.lock");
     expect(baseline.writes.paths).toContain(".claude/skills/skillset.lock");
     expect(baseline.writes.paths).toContain(".agents/skills/skillset.lock");
+    const pluginLock = JSON.parse(
+      await readFile(join(root, "plugins/skillset.lock"), "utf8")
+    ) as {
+      readonly items: readonly {
+        readonly consumers?: readonly Record<string, string>[];
+      }[];
+      readonly selectedTargets: readonly string[];
+    };
+    expect(pluginLock.selectedTargets).toEqual(["claude"]);
+    const targetConsumers = pluginLock.items.flatMap(
+      (item) => item.consumers ?? []
+    ).filter((consumer) => consumer.phase === "delta");
+    expect(targetConsumers).toContainEqual({ phase: "delta", target: "claude" });
+    expect(targetConsumers).not.toContainEqual({ phase: "delta", target: "codex" });
     await writeFile(
       join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
       "---\nname: demo\ndescription: [\n---\nBroken plugin skill.\n",
@@ -522,7 +526,7 @@ Body.
     });
 
     expect(claudePlugins.outputState.hasBaseline).toBe(true);
-    expect(codexPlugins.outputState.hasBaseline).toBe(false);
+    expect(codexPlugins.outputState.hasBaseline).toBe(true);
     expect(claudeSkills.outputState.hasBaseline).toBe(true);
     expect(codexSkills.outputState.hasBaseline).toBe(true);
   });
@@ -1518,10 +1522,20 @@ Repo body.
 skillset:
   name: demo--plugin
 `,
-      ".skillset/plugins/demo--plugin/README.md": "# Demo plugin\n",
+      ".skillset/plugins/demo--plugin/skills/helper/SKILL.md": `
+---
+name: helper
+description: Demo plugin skill.
+---
+
+Plugin body.
+`,
     });
     await buildSkillsetResult(root);
-    const pluginSource = join(root, ".skillset/plugins/demo--plugin/README.md");
+    const pluginSource = join(
+      root,
+      ".skillset/plugins/demo--plugin/skills/helper/SKILL.md"
+    );
     await Bun.write(
       pluginSource,
       `${await Bun.file(pluginSource).text()}\nPlugin change.\n`
@@ -1533,7 +1547,7 @@ skillset:
     expect(repoOnly.renderResults).toContainEqual(
       expect.objectContaining({
         policy: "scope:excluded",
-        sourceUnit: "plugin.demo--plugin.feature:readme",
+        sourceUnit: "plugin.demo--plugin.skill:helper",
       })
     );
     expect((await diffSkillsetResult(root)).outputState.state).toBe(

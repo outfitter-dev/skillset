@@ -17,7 +17,7 @@ The Codex-selected ChatGPT product bundle can include an `.app.json` app declara
 
 ## Authoring
 
-Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Codex target should include the ChatGPT app component. It renders at `plugins/<plugin>/chatgpt/.app.json` and is referenced by `extensions.com.openai.apps`. Discovery is automatic. There is no `apps.source`, `app.source`, or `apps: true` source key; those shapes fail config validation.
+Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Codex target should include the ChatGPT app component. It renders at `plugins/<plugin>/.app.json` and is referenced by `extensions.com.openai.apps`. Discovery is automatic. There is no `apps.source`, `app.source`, or `apps: true` source key; those shapes fail config validation.
 
 ```text
 .skillset/plugins/reviewer/.app.json

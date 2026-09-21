@@ -12,18 +12,26 @@ import type { RenderedFile } from "../types";
 
 describe("candidate standard rendering", () => {
   test.each([
-    ["agent-instructions", "AGENTS.md"],
-    ["agent-skills", ".agents/skills/review/SKILL.md"],
-    ["agent-plugins-1.0", "plugins/demo/agents/plugin.json"],
+    ["agent-instructions", ["AGENTS.md"]],
+    ["agent-skills", [".agents/skills/review/SKILL.md"]],
+    [
+      "agent-plugins-1.0",
+      [
+        "plugins/demo/plugin.json",
+        "plugins/demo/skills/plugin-proof/SKILL.md",
+      ],
+    ],
   ] as const)(
     "renders the %s candidate in memory without provider artifacts",
-    async (profileId, expectedPath) => {
+    async (profileId, expectedPaths) => {
       const root = await fixtureRoot();
       const rendered = await renderCandidateStandardProfile(root, profileId, {
         profiles: candidateProfiles(),
       });
 
-      expect(paths(rendered)).toContain(expectedPath);
+      for (const expectedPath of expectedPaths) {
+        expect(paths(rendered)).toContain(expectedPath);
+      }
       expect(paths(rendered).every((path) => ownedBy(profileId, path))).toBe(
         true
       );
@@ -32,13 +40,20 @@ describe("candidate standard rendering", () => {
           (path) =>
             path.startsWith(".claude/") ||
             path.startsWith(".cursor/") ||
-            path.includes("/chatgpt/")
+            path.includes("/.claude-plugin/") ||
+            path.includes("/.cursor-plugin/") ||
+            path.includes("/agents/") ||
+            path.includes("/chatgpt/") ||
+            path.includes("/claude/") ||
+            path.includes("/cursor/")
         )
       ).toBe(false);
       expect(
         paths(rendered).some((path) => path.endsWith("skillset.lock"))
       ).toBe(false);
-      await expect(stat(join(root, expectedPath))).rejects.toThrow();
+      for (const expectedPath of expectedPaths) {
+        await expect(stat(join(root, expectedPath))).rejects.toThrow();
+      }
     }
   );
 
@@ -72,7 +87,7 @@ function ownedBy(
     return path === "AGENTS.md" || path.endsWith("/AGENTS.md");
   }
   if (profileId === "agent-plugins-1.0") {
-    return path.startsWith("plugins/demo/agents/");
+    return path.startsWith("plugins/demo/");
   }
   return path.startsWith(".agents/skills/");
 }
@@ -88,6 +103,14 @@ skillset:
 claude: true
 codex: true
 cursor: true
+`,
+    ".skillset/plugins/demo/skills/plugin-proof/SKILL.md": `
+---
+name: plugin-proof
+description: Prove plugin skill candidate rendering.
+---
+
+Prove the plugin skill candidate.
 `,
     ".skillset/rules/project.md": `
 ---

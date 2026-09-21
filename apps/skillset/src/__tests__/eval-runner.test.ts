@@ -11,7 +11,7 @@ import {
   tailSkillsetEvalRun,
 } from "../eval-runner";
 
-test("SET-387: eval run executes the deterministic owner-aware case-target matrix without grading", async () => {
+test("SET-387: eval run resolves standalone and flattened grouped plugin skills before runtime probes", async () => {
   const root = await fixture({
     "skillset.yaml": "skillset:\n  name: eval-runtime\ncompile:\n  targets: [claude, codex]\n  unsupportedDestination: warn\n",
     ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo eval skill.\n---\n\nUse this skill.\n",
@@ -27,8 +27,8 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
     }),
     ".skillset/skills/demo/evals/files/brief.txt": "Eval brief\n",
     ".skillset/plugins/acme/skillset.yaml": "skillset:\n  name: acme\n  title: Acme\n  summary: Eval owner fixture.\n",
-    ".skillset/plugins/acme/skills/acme-demo/SKILL.md": "---\nname: acme-demo\ndescription: Plugin-owned eval skill.\n---\n\nUse this skill.\n",
-    ".skillset/plugins/acme/skills/acme-demo/evals/evals.json": JSON.stringify({
+    ".skillset/plugins/acme/skills/(engineering)/acme-demo/SKILL.md": "---\nname: acme-demo\ndescription: Plugin-owned eval skill.\n---\n\nUse this skill.\n",
+    ".skillset/plugins/acme/skills/(engineering)/acme-demo/evals/evals.json": JSON.stringify({
       skill_name: "acme-demo",
       evals: [{ expected_output: "Plugin expectation.", id: 1, prompt: "Run the plugin-owned eval." }],
     }),
@@ -59,6 +59,15 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
     command: [],
     failureClass: "setup",
   });
+  const pluginClaude = report.trials.find((trial) =>
+    trial.owner.kind === "plugin" && trial.target === "claude"
+  );
+  expect(pluginClaude).toMatchObject({
+    classification: "completed",
+    owner: { kind: "plugin", plugin: "acme" },
+    skill: "acme-demo",
+  });
+  expect(pluginClaude?.command.length).toBeGreaterThan(0);
   expect(report.trials.every((trial) => !("ok" in trial))).toBe(true);
   expect(report.trials.filter((trial) => trial.owner.kind === "standalone").every((trial) => trial.expectations.length === 1)).toBe(true);
   expect(report.trials.find((trial) =>
@@ -75,9 +84,19 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
     }
     const trialWorkspace = cachePath(root, xdg, trial.workspacePath);
     const standardSkillPath = trial.owner.kind === "plugin"
-      ? `plugins/${trial.owner.plugin}/agents/skills/${trial.skill}/SKILL.md`
+      ? `plugins/${trial.owner.plugin}/skills/${trial.skill}/SKILL.md`
       : `.agents/skills/${trial.skill}/SKILL.md`;
     expect(await Bun.file(join(trialWorkspace, standardSkillPath)).exists()).toBe(true);
+    if (trial.owner.kind === "plugin") {
+      expect(
+        await Bun.file(
+          join(
+            trialWorkspace,
+            `plugins/${trial.owner.plugin}/skills/(engineering)/${trial.skill}/SKILL.md`
+          )
+        ).exists()
+      ).toBe(false);
+    }
     if (trial.target === "codex") {
       expect(await Bun.file(join(trialWorkspace, `.claude/skills/${trial.skill}/SKILL.md`)).exists()).toBe(false);
     }

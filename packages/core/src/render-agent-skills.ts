@@ -6,13 +6,11 @@ import type { StandardProfileId } from "@skillset/registry";
 import { isOutputSelected } from "./config";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import type { LogicalRenderedFile, OutputConsumer } from "./output-plan";
-import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import {
   agentSkillSourceUnit,
   agentSkillStandardDirectory,
   asAgentSkillStandardFile,
   asCodexAgentSkillDeltaFile,
-  classifyAgentPluginSkillLayout,
   classifyAgentSkillStandard,
   renderAgentSkillStandardMarkdown,
 } from "./render-agent-skills-standard";
@@ -100,26 +98,13 @@ export async function renderAgentSkillStandards(
 ): Promise<readonly RenderedFile[]> {
   const renderFlattened =
     graph.standardProjections.adopted.includes("agent-skills");
-  const renderPackages =
-    graph.standardProjections.adopted.includes("agent-plugins-1.0");
-  if (!renderFlattened && !renderPackages) return [];
+  if (!renderFlattened) return [];
 
   const rendered: RenderedFile[] = [];
   const rootLicense = await resolveRootLicense(graph);
   if (renderFlattened) {
     rendered.push(
       ...(await renderFlattenedAgentSkills(
-        graph,
-        lockRoots,
-        createLockItem,
-        rootLicense,
-        renderCodexSkillMarkdown
-      ))
-    );
-  }
-  if (renderPackages) {
-    rendered.push(
-      ...(await renderAgentPluginSkillComponents(
         graph,
         lockRoots,
         createLockItem,
@@ -169,48 +154,6 @@ async function renderFlattenedAgentSkills(
         renderCodexSkillMarkdown,
       }))
     );
-  }
-  return rendered;
-}
-
-async function renderAgentPluginSkillComponents(
-  graph: BuildGraph,
-  lockRoots: Map<string, LockRoot>,
-  createLockItem: AgentSkillLockItemFactory,
-  rootLicense: ResolvedLicense | undefined,
-  renderCodexSkillMarkdown: CodexSkillMarkdownRenderer
-): Promise<readonly RenderedFile[]> {
-  const rendered: RenderedFile[] = [];
-  for (const plugin of graph.plugins) {
-    if (classifyAgentPluginStandard(plugin).status !== "supported") continue;
-    const pluginLicense = await resolvePluginLicense(
-      graph,
-      plugin,
-      rootLicense
-    );
-    for (const skill of plugin.skills) {
-      if (classifyAgentPluginSkillLayout(graph, plugin, skill) !== undefined) {
-        continue;
-      }
-      rendered.push(
-        ...(await renderStandardAgentSkillTree({
-          codexConsumer: false,
-          createLockItem,
-          graph,
-          inheritedLicense: pluginLicense,
-          lockRoots,
-          outputRoot: "plugins",
-          plugin,
-          skill,
-          standardProfile: "agent-plugins-1.0",
-          targetSkillDir: agentSkillStandardDirectory(
-            `plugins/${plugin.id}/agents/skills`,
-            skill
-          ),
-          renderCodexSkillMarkdown,
-        }))
-      );
-    }
   }
   return rendered;
 }
@@ -496,21 +439,6 @@ async function resolveRootLicense(
     metadata: graph.root.metadata,
     scopePath: graph.sourceRootPath,
     sourcePath: graph.rootManifestPath,
-  });
-}
-
-async function resolvePluginLicense(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  rootLicense: ResolvedLicense | undefined
-): Promise<ResolvedLicense | undefined> {
-  return resolveLicense({
-    graph,
-    label: path.relative(graph.rootPath, plugin.configPath),
-    metadata: plugin.metadata,
-    ...(rootLicense === undefined ? {} : { parent: rootLicense }),
-    scopePath: plugin.path,
-    sourcePath: plugin.configPath,
   });
 }
 

@@ -80,6 +80,12 @@ export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
   },
   {
     file: ".skillset/changes/ledger.jsonl",
+    id: "evt-550f268687267821",
+    previousId: "evt-5b301a51324ee148",
+    rationale: "2026-09-20 restacking appended the preserved SET-558 branch stream after refreshed SET-553 parent evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
     id: "evt-8852d0f1883a3a5d",
     previousId: "evt-dce5d5d573d6cc76",
     rationale: "2026-09-20 restacking appended the preserved SET-552 branch stream after later SET-551 and SET-553 evidence; both append-only blocks retain their original event order.",

@@ -106,9 +106,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       claude: true,
       codex: {
-        plugins: {
-          path: "generated/codex",
-        },
+        plugins: true,
       },
       compile: {
         build: "updated",
@@ -164,7 +162,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
                   products: [],
                 },
                 source: {
-                  path: "./plugins/outfitter-core/chatgpt",
+                  path: "./plugins/outfitter-core",
                   source: "local",
                 },
               },
@@ -223,9 +221,6 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           skills: {
             skillset: ["use-skillset", "!experimental"],
           },
-        },
-        output: {
-          path: "packages/[name]",
         },
       },
       skillset: {

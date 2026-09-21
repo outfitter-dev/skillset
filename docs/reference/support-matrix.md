@@ -23,7 +23,7 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 | Output Safety | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/output-safety.md) |
 | Plugin Agents | `implemented` | `pass_through` | `unsupported` | `pass_through` | [1](./features/agents.md) |
 | Codex Plugin Apps | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](./features/apps.md) |
-| Plugin Assets | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
+| Plugin Assets | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](./features/plugins.md) |
 | Plugin Bin | `implemented` | `pass_through` | `unsupported` | `unsupported` | [1](./features/executables.md), [2](./features/feature-source-pointers.md) |
 | Plugin Commands | `implemented` | `pass_through` | `not_applicable` | `pass_through` | [1](./features/commands.md), [2](./features/plugins.md) |
 | Plugin Hooks | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](./features/hooks.md) |

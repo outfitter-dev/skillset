@@ -48,7 +48,7 @@ cursor: false
           name: "tools",
           source: {
             source: "local",
-            path: "./plugins/tools/chatgpt",
+            path: "./plugins/tools",
           },
           policy: {
             installation: "AVAILABLE",
@@ -152,16 +152,14 @@ marketplaces:
     ).toBe(false);
   });
 
-  test("points implicit entries at a custom modern bundle root", async () => {
+  test("keeps implicit entries on the fixed package root", async () => {
     const graph = await fixtureGraph({
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools",
       "skillset.yaml": `
 skillset:
-  name: custom-root
+  name: fixed-root
 claude: false
-codex:
-  plugins:
-    path: generated/chatgpt
+codex: true
 cursor: false
 `,
     });
@@ -173,7 +171,7 @@ cursor: false
     const plugins = catalog.plugins as Record<string, unknown>[];
     expect(plugins[0]?.source).toEqual({
       source: "local",
-      path: "./generated/chatgpt/plugins/tools",
+      path: "./plugins/tools",
     });
   });
 
@@ -283,7 +281,7 @@ marketplaces:
         codex:
           source:
             source: local
-            path: ./plugins/alpha/chatgpt
+            path: ./plugins/alpha
           version: 9.9.9
           description: Catalog fallback.
           homepage: https://catalog.example/alpha
@@ -325,7 +323,7 @@ marketplaces:
         codex:
           source:
             source: local
-            path: ./plugins/missing/chatgpt
+            path: ./plugins/missing
 `,
     });
 
@@ -352,7 +350,7 @@ marketplaces:
         codex:
           source:
             source: local
-            path: ./plugins/alpha/chatgpt
+            path: ./plugins/alpha
 `,
     });
 
@@ -383,7 +381,7 @@ marketplaces:
     });
 
     await expect(renderBuildGraph(graph)).rejects.toThrow(
-      "ChatGPT marketplace entry alpha local source must reference the materialized package ./plugins/alpha/chatgpt"
+      "ChatGPT marketplace entry alpha local source must reference the materialized package ./plugins/alpha"
     );
   });
 

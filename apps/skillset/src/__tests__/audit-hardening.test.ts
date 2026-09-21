@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-import { buildSkillset, verifySkillset } from "@skillset/core";
+import { buildSkillset, buildSkillsetResult, verifySkillset } from "@skillset/core";
 import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { compareStrings } from "@skillset/core/internal/path";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
@@ -27,20 +27,20 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
 
   // Plugin-local + root shared resources copied beside SKILL.md.
   expect(
-    await readFile(join(root, "plugins/kitchen/claude/skills/sink/references/shared-ref.md"), "utf8")
+    await readFile(join(root, "plugins/kitchen/skills/sink/references/shared-ref.md"), "utf8")
   ).toContain("Shared Reference");
   expect(
-    await readFile(join(root, "plugins/kitchen/chatgpt/skills/sink/references/plugin-ref.md"), "utf8")
+    await readFile(join(root, "plugins/kitchen/skills/sink/references/plugin-ref.md"), "utf8")
   ).toContain("Plugin Reference");
 
   // Custom from/to mapping emits at the remapped path...
   expect(
-    await readFile(join(root, "plugins/kitchen/claude/skills/sink/docs/report.md"), "utf8")
+    await readFile(join(root, "plugins/kitchen/skills/sink/docs/report.md"), "utf8")
   ).toContain("Report Template");
 
   // ...and prose links through that mapping are rewritten to the emitted path.
   const codexSkill = await readFile(
-    join(root, "plugins/kitchen/chatgpt/skills/sink/SKILL.md"),
+    join(root, "plugins/kitchen/skills/sink/SKILL.md"),
     "utf8"
   );
   expect(codexSkill).toContain("[report template](docs/report.md)");
@@ -54,45 +54,40 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
     "references/shared-ref.md",
     "references/plugin-ref.md",
   ]) {
-    expect(
-      await readFile(join(root, "plugins/kitchen/chatgpt/skills/sink", relativePath))
-    ).toEqual(
-      await readFile(join(root, "plugins/kitchen/claude/skills/sink", relativePath))
-    );
+    expect(await exists(
+      join(root, "plugins/kitchen/chatgpt/skills/sink", relativePath)
+    )).toBe(false);
+    expect(await exists(
+      join(root, "plugins/kitchen/claude/skills/sink", relativePath)
+    )).toBe(false);
   }
 
   // Target-native companion surfaces.
-  expect(await exists(join(root, "plugins/kitchen/claude/commands/review.md"))).toBe(true);
-  expect(await exists(join(root, "plugins/kitchen/claude/hooks/hooks.json"))).toBe(true);
-  expect(await exists(join(root, "plugins/kitchen/claude/.mcp.json"))).toBe(true);
-  // SET-2: Codex hooks emit at the documented hooks/hooks.json path.
-  expect(await exists(join(root, "plugins/kitchen/chatgpt/hooks.json"))).toBe(false);
-  const codexKitchenHook = await readFile(
-    join(root, "plugins/kitchen/chatgpt/hooks/hooks.json"),
-    "utf8"
-  );
-  expect(codexKitchenHook).toContain(`"hooks"`);
-  expect(codexKitchenHook).toContain("SessionStart");
-  expect(await exists(join(root, "plugins/kitchen/chatgpt/.app.json"))).toBe(true);
-  expect(await exists(join(root, "plugins/kitchen/chatgpt/mcp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/commands/review.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/.mcp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/.app.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/mcp.json"))).toBe(true);
   // SET-8: Claude-native pass-through surfaces are copied and declared in the manifest.
-  expect(await exists(join(root, "plugins/kitchen/claude/.lsp.json"))).toBe(true);
-  expect(await exists(join(root, "plugins/kitchen/claude/output-styles/concise.md"))).toBe(true);
-  expect(await exists(join(root, "plugins/kitchen/claude/themes/midnight.json"))).toBe(true);
-  expect(await exists(join(root, "plugins/kitchen/claude/monitors/monitors.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/.lsp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/output-styles/concise.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/themes/midnight.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/monitors/monitors.json"))).toBe(true);
   const claudeKitchenManifest = await readFile(
-    join(root, "plugins/kitchen/claude/.claude-plugin/plugin.json"),
+    join(root, "plugins/kitchen/.claude-plugin/plugin.json"),
     "utf8"
   );
   expect(claudeKitchenManifest).toContain(`"lspServers": "./.lsp.json"`);
   expect(claudeKitchenManifest).toContain(`"outputStyles": "./output-styles/"`);
   expect(claudeKitchenManifest).toContain(`"themes": "./themes/"`);
   expect(claudeKitchenManifest).toContain(`"monitors": "./monitors/monitors.json"`);
-  // SET-8: these Claude-native surfaces are not copied into Codex output.
-  expect(await exists(join(root, "plugins/kitchen/chatgpt/.lsp.json"))).toBe(false);
-  expect(await exists(join(root, "plugins/kitchen/chatgpt/themes/midnight.json"))).toBe(false);
-  // Claude agents/ surface absent from Codex output (none declared here either).
-  expect(await exists(join(root, "plugins/kitchen/chatgpt/commands/review.md"))).toBe(false);
+  const codexKitchenManifest = await readFile(
+    join(root, "plugins/kitchen/plugin.json"),
+    "utf8"
+  );
+  expect(codexKitchenManifest).not.toContain("lspServers");
+  expect(codexKitchenManifest).not.toContain("outputStyles");
+  expect(codexKitchenManifest).not.toContain("themes");
+  expect(codexKitchenManifest).not.toContain("monitors");
 
   // Rules lower to Claude rules and Codex AGENTS.md, with build-time variables.
   expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Global Rule");
@@ -108,14 +103,14 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
 });
 
 test("adaptive hooks fixture builds authoring recipes", async () => {
-  const root = await adaptiveHooksFixture();
-  await allowUnsupportedStandardDestinations(root);
+  const claudeRoot = await adaptiveHooksFixture("claude");
+  await allowUnsupportedStandardDestinations(claudeRoot);
 
-  await buildSkillset(root);
-  await verifySkillset(root);
+  await buildSkillset(claudeRoot);
+  await verifySkillset(claudeRoot);
 
   const claudeGuardHooks = await readFile(
-    join(root, "plugins/guard/claude/hooks/hooks.json"),
+    join(claudeRoot, "plugins/guard/hooks/hooks.json"),
     "utf8"
   );
   expect(claudeGuardHooks).toContain("$CLAUDE_PLUGIN_ROOT/hooks/shell-policy/check.sh");
@@ -127,8 +122,20 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
   expect(claudeGuardHooks).toContain("PreToolUse");
   expect(claudeGuardHooks).toContain("SessionStart");
 
+  const claudeSkill = await readFile(join(claudeRoot, ".claude/skills/writer/SKILL.md"), "utf8");
+  expect(claudeSkill).toContain("Checking skill shell");
+  expect(claudeSkill).toContain("echo skill shell");
+
+  const claudeAgent = await readFile(join(claudeRoot, ".claude/agents/reviewer.md"), "utf8");
+  expect(claudeAgent).toContain("echo agent session");
+
+  const codexRoot = await adaptiveHooksFixture("codex");
+  await allowUnsupportedStandardDestinations(codexRoot);
+  await buildSkillset(codexRoot);
+  await verifySkillset(codexRoot);
+
   const codexGuardHooks = await readFile(
-    join(root, "plugins/guard/chatgpt/hooks/hooks.json"),
+    join(codexRoot, "plugins/guard/hooks/hooks.json"),
     "utf8"
   );
   expect(codexGuardHooks).toContain("$PLUGIN_ROOT/hooks/shell-policy/check.sh");
@@ -140,15 +147,8 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
   expect(codexGuardHooks).toContain("PreToolUse");
   expect(codexGuardHooks).toContain("SessionStart");
 
-  const claudeSkill = await readFile(join(root, ".claude/skills/writer/SKILL.md"), "utf8");
-  expect(claudeSkill).toContain("Checking skill shell");
-  expect(claudeSkill).toContain("echo skill shell");
-
-  const claudeAgent = await readFile(join(root, ".claude/agents/reviewer.md"), "utf8");
-  expect(claudeAgent).toContain("echo agent session");
-
   const nativeHooks = await readFile(
-    join(root, "plugins/native/chatgpt/hooks/hooks.json"),
+    join(codexRoot, "plugins/native/hooks/hooks.json"),
     "utf8"
   );
   expect(nativeHooks).toContain("Checking native session");
@@ -245,7 +245,7 @@ Use the [report](plugin:templates/report.md#intro) before writing.
   await buildSkillset(root);
 
   const skill = await readFile(
-    join(root, "plugins/alpha/claude/skills/remap/SKILL.md"),
+    join(root, "plugins/alpha/skills/remap/SKILL.md"),
     "utf8"
   );
   expect(skill).toContain("[report](docs/report.md#intro)");
@@ -432,10 +432,19 @@ Beta body.
 `,
   });
 
-  await expect(buildSkillset(root)).resolves.toBeDefined();
+  const build = await buildSkillsetResult(root);
+  expect(build.ok).toBe(true);
   await expect(lintSkillset(root)).resolves.toBeDefined();
-  expect(await exists(join(root, "plugins/alpha/chatgpt/plugin.json"))).toBe(false);
-  expect(await exists(join(root, "plugins/beta/chatgpt/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/beta/plugin.json"))).toBe(true);
+  expect(
+    build.renderResults
+      .filter(
+        (result) =>
+          result.featureId === "plugin-manifests" && result.target === "codex"
+      )
+      .map((result) => result.sourceUnit)
+  ).toEqual(["plugin.beta.config:root"]);
 });
 
 test("Codex hooks reject async command handlers because Codex skips them", async () => {
@@ -637,9 +646,18 @@ async function kitchenSink(): Promise<string> {
   return root;
 }
 
-async function adaptiveHooksFixture(): Promise<string> {
+async function adaptiveHooksFixture(target: "claude" | "codex"): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-adaptive-hooks-"));
   await cp(ADAPTIVE_HOOKS_FIXTURE, root, { recursive: true });
+  const configPath = join(root, "skillset.yaml");
+  await writeFile(
+    configPath,
+    (await readFile(configPath, "utf8")).replace(
+      "    - claude\n    - codex\n",
+      `    - ${target}\n`
+    ),
+    "utf8"
+  );
   return root;
 }
 

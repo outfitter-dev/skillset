@@ -19,9 +19,9 @@ A skill is a portable [source unit](../../glossary.md#source-unit) stored in one
 | Kind | Source path | Default generated roots |
 | --- | --- | --- |
 | Standalone | `.skillset/skills/<skill>/SKILL.md` | `.claude/skills/`, `.agents/skills/`, `.cursor/skills/` |
-| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/agents/skills/<skill>/` for the standard placement, plus target-native plugin bundles |
+| Plugin-owned | `.skillset/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins/<plugin>/skills/<skill>/` shared by the standard baseline and enabled targets |
 
-The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone skills inherently render into `.agents/skills/`. When Agent Plugins 1.0 is adopted, plugin-owned skills inherently render once inside `plugins/<plugin>/agents/skills/`. A repository-local copy of a plugin skill is a separate project-use projection, not a second standard placement. Neither standard projection has an `agents` provider target or an opt-out field.
+The roots in this table have different owners. Provider targets select their native skill projections. When Agent Skills is adopted, applicable standalone skills inherently render into `.agents/skills/`. When Agent Plugins 1.0 is adopted, plugin-owned skills inherently render once inside `plugins/<plugin>/skills/`. A repository-local copy of a plugin skill is a separate project-use projection, not a second standard placement. Neither standard projection has an `agents` provider target or an opt-out field.
 
 The directory name is the stable skill identity. Top-level `name`, when present, must agree with it. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are invalid; version authority uses top-level `version` until [workspace](../../glossary.md#workspace) release state supersedes it.
 
@@ -43,7 +43,7 @@ Check claims against their [canonical source](../../glossary.md#canonical-source
 
 The generated [skill-frontmatter schema and example](../schemas/README.md) own the complete field set and value constraints. The [frontmatter reference](../../configuration/frontmatter.md) explains field ownership; [target overrides](../../configuration/target-overrides.md), [tools policy](../../configuration/tools-policy.md), and [resources](resources.md) own their specialized configuration.
 
-Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`; `skillset list` and `skillset explain` report the crossed group while rendering continues to preserve the authored relative path. Two skills in one tree cannot share a leaf directory across groups because a later flattened projection would collide.
+Skills may be organized beneath plain or parenthesized group directories. For example, `skills/engineering/tdd/SKILL.md` and `skills/(engineering)/tdd/SKILL.md` both retain the identity `tdd`, and `skillset list` and `skillset explain` report the crossed group. Standalone generated skills preserve the authored relative grouping. Plugin-owned skills flatten to the immediate-child `plugins/<id>/skills/<effective-id>/` package path, so duplicate leaves across groups fail.
 
 Place an unpublished counterpart under `_drafts/<skill>/`, or add `status: draft` to its frontmatter. Discovery reports the draft status and its origin, but drafts do not enter generated output or packages until a draft-rendering mode explicitly selects them. An `_drafts/<skill>/` counterpart may share the live skill's leaf within the same group; other duplicate leaves fail with both source paths.
 

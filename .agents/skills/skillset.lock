@@ -213,7 +213,7 @@
     }
   ],
   "outputRoot": ".agents/skills",
-  "provenanceHash": "sha256:c7041df80475a4a8f72a49400f9cc2426943dab24ec93c4e7210062071090ce6",
+  "provenanceHash": "sha256:28c984668ae698dfc6169f5ff4a3ae451d81de5d64bb5f72d707480d3b846d3d",
   "renderResults": [
     {
       "destination": "skill",
@@ -695,7 +695,7 @@
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
     "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
-    "agent-plugins-1.0": "sha256:f1b89300d6c879de1c7a89f060faee2e6e6c76c71bbbcd9b0909d8ec00c18984",
+    "agent-plugins-1.0": "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
     "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
   "target": "workspace"

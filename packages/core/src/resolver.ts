@@ -320,6 +320,7 @@ export async function loadBuildGraph(
   validateStandardProjectionTopology(rootPath, protectedRoots, standardProjections, plugins);
   const outputRoots = dedupeOutputRoots(outputRootOwners);
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
+  validateSharedPackageOutputRoots(outputs, plugins);
 
   const graph: BuildGraph = {
     adaptiveHooks,
@@ -1108,7 +1109,17 @@ async function loadPlugin(
     validateConfigDocument(config, configPath, { allowHooks: true });
     configuredDrafts = readDraftSelectors(config, configRelativePath);
     claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
-    await validateSupports(config.supports, { externalInputPaths, label: configRelativePath, rootPath, warnings });
+    if (claudeBundlePath !== undefined) {
+      throw new Error(
+        `skillset: ${configRelativePath}.claude.bundle.path cannot split a shared plugin package; custom package placement is unsupported until SET-561`
+      );
+    }
+    await validateSupports(config.supports, {
+      externalInputPaths,
+      label: configRelativePath,
+      rootPath,
+      warnings,
+    });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);
     appendSourceMetadataCompatibilityWarnings(
@@ -1897,6 +1908,21 @@ function validatePluginBundleDestinations(
       if (!pathsOverlap(folded, otherPath.toLowerCase())) continue;
       throw new Error(`skillset: ${label} (${path}) must not overlap plugin ${other.id} Claude bundle (${otherPath})`);
     }
+  }
+}
+
+function validateSharedPackageOutputRoots(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[]
+): void {
+  for (const target of targetNames()) {
+    if (outputs.plugins[target] === DEFAULT_PLUGIN_OUTPUT_ROOT) continue;
+    if (!plugins.some((plugin) =>
+      plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id)
+    )) continue;
+    throw new Error(
+      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement is unsupported until SET-561 (${target}.plugins.path or plugins.output.${target}.path)`
+    );
   }
 }
 

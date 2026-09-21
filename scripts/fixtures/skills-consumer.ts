@@ -32,12 +32,11 @@ try {
 
   await assertPinnedConsumer(environment);
   await Promise.all(
-    (["implicit", "declared"] as const).flatMap((catalog) =>
-      (["plugins", "dist"] as const).map((outputRoot) =>
-        assertConsumerInstall(root, environment, catalog, outputRoot)
-      )
+    (["implicit", "declared"] as const).map((catalog) =>
+      assertConsumerInstall(root, environment, catalog)
     )
   );
+  await assertCustomRootRefusal(root);
   if (getStandardProfile("agent-skills").lifecycle === "adopted") {
     await assertPortableConsumerInstall(root, environment);
   }
@@ -68,29 +67,22 @@ async function assertPinnedConsumer(
 async function assertConsumerInstall(
   parent: string,
   environment: Record<string, string | undefined>,
-  catalog: "declared" | "implicit",
-  outputRoot: "dist" | "plugins"
+  catalog: "declared" | "implicit"
 ): Promise<void> {
-  const fixtureRoot = join(parent, `${catalog}-${outputRoot}`);
+  const fixtureRoot = join(parent, catalog);
   const consumer = join(fixtureRoot, "consumer");
-  const consumerSource =
-    outputRoot === "plugins"
-      ? join(fixtureRoot, "marketplace-consumer-source")
-      : join(fixtureRoot, "dist");
-  await writeFixture(fixtureRoot, catalog, outputRoot);
+  const consumerSource = join(fixtureRoot, "marketplace-consumer-source");
+  await writeFixture(fixtureRoot, catalog, "plugins");
   await mkdir(consumer, { recursive: true });
 
   const build = await buildSkillsetResult(fixtureRoot);
   if (!build.ok) {
     throw new Error(
-      `skillset: failed to build ${catalog}/${outputRoot} consumer fixture`
+      `skillset: failed to build ${catalog} consumer fixture`
     );
   }
 
-  const marketplacePath =
-    outputRoot === "plugins"
-      ? join(fixtureRoot, ".claude-plugin", "marketplace.json")
-      : join(fixtureRoot, "dist", ".claude-plugin", "marketplace.json");
+  const marketplacePath = join(fixtureRoot, ".claude-plugin", "marketplace.json");
   const marketplace = JSON.parse(await readFile(marketplacePath, "utf-8")) as {
     readonly metadata: Record<string, unknown>;
     readonly plugins: readonly {
@@ -98,51 +90,28 @@ async function assertConsumerInstall(
       readonly source: string;
     }[];
   };
-  const expectedSource =
-    outputRoot === "plugins"
-      ? "./plugins/consumer-plugin/claude"
-      : "./plugins/consumer-plugin";
   if (marketplace.metadata.pluginRoot !== undefined) {
     throw new Error(
-      `skillset: ${catalog}/${outputRoot} emitted redundant Claude metadata.pluginRoot`
+      `skillset: ${catalog} emitted redundant Claude metadata.pluginRoot`
     );
   }
   if (
     !marketplace.plugins.some(
       (plugin) =>
-        plugin.name === "consumer-plugin" && plugin.source === expectedSource
+        plugin.name === "consumer-plugin" && plugin.source === "./plugins/consumer-plugin"
     )
   ) {
     throw new Error(
-      `skillset: ${catalog}/${outputRoot} changed Claude source semantics`
+      `skillset: ${catalog} changed Claude source semantics`
     );
   }
 
-  const providerRoots = {
-    claude:
-      outputRoot === "plugins"
-        ? join(fixtureRoot, "plugins", "consumer-plugin", "claude")
-        : join(fixtureRoot, "dist", "plugins", "consumer-plugin"),
-    codex: join(
-      fixtureRoot,
-      "generated",
-      "codex",
-      "plugins",
-      "consumer-plugin"
-    ),
-    cursor: join(
-      fixtureRoot,
-      "generated",
-      "cursor",
-      "plugins",
-      "consumer-plugin"
-    ),
-  } as const;
+  const packageRoot = join(fixtureRoot, "plugins", "consumer-plugin");
   await Promise.all(
     (["claude", "codex", "cursor"] as const).map(async (target) => {
       const sentinel = await readFile(
         join(
-          providerRoots[target],
+          packageRoot,
           "skills",
           "canonical-skill",
           `${target}-sentinel.txt`
@@ -155,12 +124,10 @@ async function assertConsumerInstall(
     })
   );
 
-  if (outputRoot === "plugins") {
-    // Skills 1.5.26 prefers a conventional `.agents/skills` root over Claude
-    // marketplace metadata. Keep these cases marketplace-only; the portable
-    // consumer below proves the conventional discovery path separately.
-    await stageMarketplaceConsumerSource(fixtureRoot, consumerSource);
-  }
+  // Skills 1.5.26 prefers a conventional `.agents/skills` root over Claude
+  // marketplace metadata. Keep these cases marketplace-only; the portable
+  // consumer below proves the conventional discovery path separately.
+  await stageMarketplaceConsumerSource(fixtureRoot, consumerSource);
 
   // Mutate source after generation. The consumer must follow the marketplace
   // entry to the generated bundle, never fall back to this raw source.
@@ -180,6 +147,22 @@ async function assertConsumerInstall(
   await assertFullDepthBoundary(consumerSource, consumer, environment);
 }
 
+async function assertCustomRootRefusal(parent: string): Promise<void> {
+  const fixtureRoot = join(parent, "custom-root-refusal");
+  await writeFixture(fixtureRoot, "implicit", "dist");
+  try {
+    await buildSkillsetResult(fixtureRoot);
+    throw new Error("skillset: custom plugin root unexpectedly built");
+  } catch (error) {
+    if (!String(error).includes("custom package placement is unsupported until SET-561 (claude.plugins.path or plugins.output.claude.path)")) {
+      throw error;
+    }
+  }
+  if (await Bun.file(join(fixtureRoot, "dist", ".claude-plugin", "marketplace.json")).exists()) {
+    throw new Error("skillset: custom plugin root wrote an unusable catalog");
+  }
+}
+
 async function stageMarketplaceConsumerSource(
   fixtureRoot: string,
   consumerSource: string
@@ -191,8 +174,8 @@ async function stageMarketplaceConsumerSource(
       { recursive: true }
     ),
     cp(
-      join(fixtureRoot, "plugins", "consumer-plugin", "claude"),
-      join(consumerSource, "plugins", "consumer-plugin", "claude"),
+      join(fixtureRoot, "plugins", "consumer-plugin"),
+      join(consumerSource, "plugins", "consumer-plugin"),
       { recursive: true }
     ),
   ]);
@@ -205,6 +188,11 @@ async function assertPortableConsumerInstall(
   const fixtureRoot = join(parent, "portable-agent-skills");
   const consumer = join(fixtureRoot, "consumer");
   await writeFixture(fixtureRoot, "implicit", "plugins");
+  const standaloneSource = join(fixtureRoot, ".skillset", "skills", "canonical-skill", "SKILL.md");
+  await writeText(
+    standaloneSource,
+    "---\nname: canonical-skill\ndescription: Standalone consumer proof.\nskillset:\n  preprocess: true\n---\n\nPORTABLE-SKILL-BODY\nGENERATED-NAME={{this.name}}\n"
+  );
   await mkdir(consumer, { recursive: true });
 
   const build = await buildSkillsetResult(fixtureRoot);
@@ -219,7 +207,6 @@ async function assertPortableConsumerInstall(
     fixtureRoot,
     "plugins",
     "consumer-plugin",
-    "claude",
     "skills",
     "canonical-skill"
   );
@@ -238,7 +225,7 @@ async function assertPortableConsumerInstall(
     !marketplace.plugins.some(
       (plugin) =>
         plugin.name === "consumer-plugin" &&
-        plugin.source === "./plugins/consumer-plugin/claude"
+        plugin.source === "./plugins/consumer-plugin"
     )
   ) {
     throw new Error(
@@ -254,18 +241,24 @@ async function assertPortableConsumerInstall(
       "skillset: portable consumer fixture requires adopted Agent Skills output at .agents/skills"
     );
   }
-  await assertGeneratedSkillPayload(portable);
+  await assertContains(join(portable, "SKILL.md"), "PORTABLE-SKILL-BODY");
+  await assertContains(join(portable, "SKILL.md"), "GENERATED-NAME=canonical-skill");
   // Keep the manifest-resolved Claude duplicate valid while making the raw
   // adaptive source observably wrong. The consumer must choose the earlier
   // conventional `.agents/skills` root and preserve its generated bytes.
   await mutateAdaptiveSource(fixtureRoot);
+  await writeText(
+    standaloneSource,
+    "---\nname: canonical-skill\ndescription: Raw fallback sentinel.\n---\n\nRAW-SKILL-BODY\n"
+  );
 
   await install(fixtureRoot, consumer, environment, [
     "--skill",
     "canonical-skill",
   ]);
   const installed = join(consumer, ".agents", "skills", "canonical-skill");
-  await assertGeneratedSkillPayload(installed);
+  await assertContains(join(installed, "SKILL.md"), "PORTABLE-SKILL-BODY");
+  await assertContains(join(installed, "SKILL.md"), "GENERATED-NAME=canonical-skill");
   await assertNoAdaptiveSourceMarkers(installed);
   await assertMissing(join(installed, "claude-sentinel.txt"));
   await assertFullDepthBoundary(fixtureRoot, consumer, environment);
@@ -301,10 +294,10 @@ claude:
     path: ${outputRoot}
 codex:
   plugins:
-    path: generated/codex
+    path: plugins
 cursor:
   plugins:
-    path: generated/cursor
+    path: plugins
 ${declaredCatalog}`
     ),
     writeText(

@@ -113,6 +113,10 @@ export function providerFormatConformanceFiles(
 }
 
 function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): boolean {
+  if (
+    outcome.featureId === "plugin-skills" &&
+    outcome.standardProfile !== undefined
+  ) return true;
   if (outcome.standardProfile === "agent-skills") {
     return outcome.featureId === "standalone-skills" || outcome.featureId === "plugin-skills";
   }
@@ -135,7 +139,7 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (isCursorMarketplacePath(file.path)) return true;
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
-  if (file.path.endsWith("/chatgpt/plugin.json")) return true;
+  if (isSharedPluginRootManifestPath(file.path)) return true;
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
   if (isClaudeHookPath(file.path)) return true;
   if (isCodexHookPath(file.path)) return true;
@@ -173,7 +177,10 @@ function checkProviderFormatConformanceFile(
   // The ChatGPT product package deliberately reuses the Agent Plugins and
   // Agent Skills fixed components. They are not Codex provider formats merely
   // because the compiler's canonical target identity is `codex`.
-  if (isChatGptFixedComponent(file.path)) return [];
+  if (
+    isChatGptFixedComponent(file.path) &&
+    file.standardProfile !== "agent-skills"
+  ) return [];
   if (file.path.endsWith("/.cursor-plugin/plugin.json")) {
     return checkCursorPluginManifest(file);
   }
@@ -210,12 +217,23 @@ function checkProviderFormatConformanceFile(
 function isChatGptPluginManifest(
   file: ProviderFormatConformanceFile
 ): boolean {
-  return file.path.endsWith("/chatgpt/plugin.json") ||
+  return isSharedPluginRootManifestPath(file.path) ||
     (
       file.path.endsWith("/plugin.json") &&
       file.featureId === "plugin-manifests" &&
       file.target === "codex"
     );
+}
+
+function isSharedPluginRootManifestPath(path: string): boolean {
+  const parts = path.split("/");
+  return parts.some(
+    (segment, index) =>
+      segment === "plugins" &&
+      parts[index + 1] !== undefined &&
+      parts[index + 2] === "plugin.json" &&
+      index + 3 === parts.length
+  );
 }
 
 function checkChatGptMarketplace(
@@ -1029,7 +1047,7 @@ function checkSkillMarkdown(
   const providerRef =
     target === "codex" ? "codex-skill" : target === "cursor" ? "cursor-skill" : "claude-skill-frontmatter-overlay";
   const issueRef =
-    file.standardProfile === "agent-skills"
+    file.standardProfile === "agent-skills" || file.featureId === "plugin-skills"
       ? "agent-skills-reference"
       : providerRef;
   const text = textDecoder.decode(file.content);
@@ -1040,19 +1058,21 @@ function checkSkillMarkdown(
     return [issue(file, target, issueRef, "invalid-markdown", errorMessage(error))];
   }
 
-  if (file.standardProfile === "agent-skills") {
+  if (
+    file.standardProfile === "agent-skills" ||
+    file.featureId === "plugin-skills"
+  ) {
+    // Shared plugin skills deliberately preserve compatible provider-only keys.
+    // Their recognition is unverified; a closed key list here would contradict
+    // the compiler's supported package projection. Standalone skills remain strict.
     return [
       ...checkRequiredFields(file, frontmatter, "codex", issueRef, [
         "name",
         "description",
       ]),
-      ...checkUnknownFields(
-        file,
-        frontmatter,
-        "codex",
-        issueRef,
-        AGENT_SKILLS_FRONTMATTER_KEYS
-      ),
+      ...(file.featureId === "plugin-skills" ? [] : checkUnknownFields(
+        file, frontmatter, "codex", issueRef, AGENT_SKILLS_FRONTMATTER_KEYS
+      )),
     ];
   }
 

@@ -26,7 +26,7 @@ The command renders expected versions in memory, reads matching files on disk, a
 Example human report:
 
 ```text
-in-sync         plugin:review  claude  plugins/review/claude/.claude-plugin/plugin.json  1.4.0
+in-sync         plugin:review  claude  plugins/review/.claude-plugin/plugin.json  1.4.0
 stale-generated skill:lint     codex   .agents/skills/lint/SKILL.md                       1.3.0 -> 1.4.0
 ```
 

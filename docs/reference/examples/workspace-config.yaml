@@ -3,8 +3,7 @@ changes:
   minimumRefLength: 6
 claude: true
 codex:
-  plugins:
-    path: generated/codex
+  plugins: true
 compile:
   build: updated
   features:
@@ -48,7 +47,7 @@ marketplaces:
             installation: AVAILABLE
             products: []
           source:
-            path: ./plugins/outfitter-core/chatgpt
+            path: ./plugins/outfitter-core
             source: local
         plugin: outfitter-core
       - channel: latest
@@ -98,8 +97,6 @@ plugins:
       skillset:
         - use-skillset
         - "!experimental"
-  output:
-    path: packages/[name]
 skillset:
   author:
     email: team@example.com

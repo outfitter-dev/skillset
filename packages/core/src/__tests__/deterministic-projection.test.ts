@@ -59,13 +59,13 @@ describe("deterministic projection runner", () => {
     });
     try {
       expect(report.ok).toBe(true);
-      expect(report.outputComparison.identical).toContain("plugins/skillset/claude/.claude-plugin/plugin.json");
-      expect(report.outputComparison.identical).toContain("plugins/skillset/chatgpt/plugin.json");
-      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/claude/.claude-plugin/plugin.json"))).toBe(true);
+      expect(report.outputComparison.identical).toContain("plugins/skillset/.claude-plugin/plugin.json");
+      expect(report.outputComparison.identical).toContain("plugins/skillset/plugin.json");
+      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/.claude-plugin/plugin.json"))).toBe(true);
       const codexManifest = await Bun.file(
         join(
           report.runs[0].outputRoot,
-          "plugins/skillset/chatgpt/plugin.json"
+          "plugins/skillset/plugin.json"
         )
       ).json();
       const nonEmptyString = expect.stringMatching(/\S/u);
@@ -204,25 +204,23 @@ describe("deterministic projection runner", () => {
     );
   });
 
-  it("excludes configured generated output roots from copied source workspaces", async () => {
+  it("excludes generated package roots from copied source workspaces", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: output-root-exclusion
-claude:
-  plugins:
-    path: generated/plugins
+claude: true
 codex: false
 `,
       ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
       ".skillset/plugins/demo/skills/demo/SKILL.md": DEMO_SKILL,
-      "generated/plugins/stale/plugin.json": "stale generated output\n",
+      "plugins/stale/plugin.json": "stale generated output\n",
     });
 
     const report = await assertDeterministicProjection(root, {
       afterProjection: async (run) => {
-        if (await exists(join(run.workspacePath, "generated/plugins/stale/plugin.json"))) {
-          throw new Error("copied configured output root into deterministic workspace");
+        if (await exists(join(run.workspacePath, "plugins/stale/plugin.json"))) {
+          throw new Error("copied package output root into deterministic workspace");
         }
       },
     });

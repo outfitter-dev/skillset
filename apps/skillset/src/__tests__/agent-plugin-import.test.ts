@@ -118,7 +118,7 @@ describe("Agent Plugins package import", () => {
     const rendered = await renderBuildGraph(
       adopted(await loadBuildGraph(root))
     );
-    expect(json(rendered, "plugins/review-tools/agents/plugin.json")).toEqual({
+    expect(json(rendered, "plugins/review-tools/plugin.json")).toEqual({
       $schema: SCHEMA,
       author: {
         email: "maintainer@example.com",
@@ -133,7 +133,7 @@ describe("Agent Plugins package import", () => {
       repository: "https://github.com/example/review-tools",
       version: "2.4.6",
     });
-    expect(json(rendered, "plugins/review-tools/agents/mcp.json")).toEqual({
+    expect(json(rendered, "plugins/review-tools/mcp.json")).toEqual({
       $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
       mcpServers: {
         review: {
@@ -145,12 +145,12 @@ describe("Agent Plugins package import", () => {
     });
     expect(paths(rendered)).toEqual(
       expect.arrayContaining([
-        "plugins/review-tools/agents/README.md",
-        "plugins/review-tools/agents/CHANGELOG.md",
-        "plugins/review-tools/agents/assets/icon.svg",
-        "plugins/review-tools/agents/scripts/server.js",
-        "plugins/review-tools/agents/src/index.ts",
-        "plugins/review-tools/agents/skills/review/SKILL.md",
+        "plugins/review-tools/README.md",
+        "plugins/review-tools/CHANGELOG.md",
+        "plugins/review-tools/assets/icon.svg",
+        "plugins/review-tools/scripts/server.js",
+        "plugins/review-tools/src/index.ts",
+        "plugins/review-tools/skills/review/SKILL.md",
       ])
     );
   });
@@ -200,7 +200,7 @@ describe("Agent Plugins package import", () => {
     const rendered = await renderBuildGraph(
       adopted(await loadBuildGraph(root))
     );
-    expect(paths(rendered)).toContain("plugins/mcp-bin/agents/bin/server");
+    expect(paths(rendered)).toContain("plugins/mcp-bin/bin/server");
   });
 
   test("blocks unreferenced siblings inside an MCP-referenced bin root", async () => {
@@ -526,7 +526,7 @@ describe("Agent Plugins package import", () => {
     const rendered = await renderBuildGraph(
       adopted(await loadBuildGraph(root))
     );
-    expect(text(rendered, "plugins/licensed-package/agents/LICENSE.txt")).toBe(
+    expect(text(rendered, "plugins/licensed-package/LICENSE.txt")).toBe(
       "License terms.\n"
     );
   });
@@ -622,7 +622,7 @@ describe("Agent Plugins package import", () => {
     const renderedSkill = rendered.find(
       (file) =>
         file.path ===
-        "plugins/skill-metadata-package/agents/skills/review/SKILL.md"
+        "plugins/skill-metadata-package/skills/review/SKILL.md"
     );
     expect(renderedSkill).toBeDefined();
     const roundTrip = parseMarkdown(
@@ -669,7 +669,7 @@ describe("Agent Plugins package import", () => {
     expect(
       text(
         rendered,
-        "plugins/skill-license-file-package/agents/skills/review/LICENSE.txt"
+        "plugins/skill-license-file-package/skills/review/LICENSE.txt"
       )
     ).toBe("Original skill license terms.\n");
   });

@@ -54,7 +54,7 @@ cursor: false
     });
 
     const rendered = await renderBuildGraph(graph);
-    expect(json(rendered, "plugins/demo/chatgpt/plugin.json")).toEqual({
+    expect(json(rendered, "plugins/demo/plugin.json")).toEqual({
       $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
       author: { name: "Demo Team" },
       description: "Short description.",
@@ -75,8 +75,8 @@ cursor: false
       name: "demo",
       version: "0.1.0",
     });
-    expect(text(rendered, "plugins/demo/chatgpt/mcp.json")).toContain("mcpServers");
-    expect(text(rendered, "plugins/demo/chatgpt/hooks/hooks.json")).toContain("PreToolUse");
+    expect(text(rendered, "plugins/demo/mcp.json")).toContain("mcpServers");
+    expect(text(rendered, "plugins/demo/hooks/hooks.json")).toContain("PreToolUse");
     expect(rendered.some((file) => file.path.includes("/codex/"))).toBe(false);
   });
 
@@ -148,7 +148,7 @@ cursor: false
 
     const manifest = json(
       await renderBuildGraph(graph),
-      "plugins/demo/chatgpt/plugin.json"
+      "plugins/demo/plugin.json"
     );
     expect(manifest.extensions).toEqual({
       "com.openai": {
@@ -196,10 +196,10 @@ cursor: false
     });
 
     const rendered = await renderBuildGraph(graph);
-    expect(text(rendered, "plugins/demo/chatgpt/icons/logo.png")).toBe(
+    expect(text(rendered, "plugins/demo/icons/logo.png")).toBe(
       "logo bytes\n"
     );
-    expect(text(rendered, "plugins/demo/chatgpt/media/shot.png")).toBe(
+    expect(text(rendered, "plugins/demo/media/shot.png")).toBe(
       "screenshot bytes\n"
     );
   });
@@ -223,7 +223,7 @@ cursor: false
     });
 
     expect(
-      json(await renderBuildGraph(graph), "plugins/demo/chatgpt/plugin.json")
+      json(await renderBuildGraph(graph), "plugins/demo/plugin.json")
     ).toMatchObject({
       extensions: { "com.openai": { interface: { category: "Developer Tools" } } },
     });
@@ -249,7 +249,7 @@ cursor: false
     });
 
     expect(
-      json(await renderBuildGraph(graph), "plugins/demo/chatgpt/plugin.json")
+      json(await renderBuildGraph(graph), "plugins/demo/plugin.json")
     ).toMatchObject({ license: "MIT" });
   });
 
@@ -280,7 +280,7 @@ cursor: false
     });
 
     expect(
-      json(await renderBuildGraph(graph), "plugins/demo/chatgpt/plugin.json")
+      json(await renderBuildGraph(graph), "plugins/demo/plugin.json")
     ).toMatchObject({
       extensions: {
         "com.openai": {
@@ -366,10 +366,10 @@ cursor: false
 
     const rendered = await renderBuildGraph(graph);
     const manifest = JSON.parse(
-      text(rendered, "plugins/demo/chatgpt/plugin.json")
+      text(rendered, "plugins/demo/plugin.json")
     ) as Record<string, unknown>;
     expect(manifest.skills).toBeUndefined();
-    expect(text(rendered, "plugins/demo/chatgpt/skills/example/SKILL.md")).toContain(
+    expect(text(rendered, "plugins/demo/skills/example/SKILL.md")).toContain(
       "Example skill."
     );
     expect(
@@ -425,7 +425,7 @@ cursor: false
 `,
     });
     const rendered = await renderBuildGraph(graph);
-    expect(json(rendered, "plugins/demo/chatgpt/mcp.json")).toMatchObject({
+    expect(json(rendered, "plugins/demo/mcp.json")).toMatchObject({
       mcpServers: { events: { type: "sse" } },
     });
     expect(
@@ -472,7 +472,7 @@ cursor: false
 `,
     });
     const rendered = await renderBuildGraph(graph);
-    const skill = text(rendered, "plugins/demo/chatgpt/skills/review/SKILL.md");
+    const skill = text(rendered, "plugins/demo/skills/review/SKILL.md");
     expect(skill).toContain("Portable review instructions.");
     expect(skill).not.toContain("allow_implicit_invocation");
     expect(rendered.some((file) => file.path.endsWith("chatgpt/skills/review/agents/openai.yaml"))).toBe(false);
@@ -526,24 +526,24 @@ cursor: false
     );
 
     const rendered = await renderBuildGraph(graph);
-    expect(json(rendered, "plugins/demo/agents/plugin.json")).toEqual({
+    expect(json(rendered, "plugins/demo/plugin.json")).toEqual({
       $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
       description: "demo",
       name: "demo",
       version: "0.1.0",
     });
     expect(text(rendered, "plugins/README.md")).toContain(
-      "`<plugin-id>/agents/`"
+      "`<plugin-id>/`"
     );
     expect(lockItems(rendered, "plugins/skillset.lock")).toContainEqual(
       expect.objectContaining({
         consumers: [
           { phase: "baseline", standardProfile: "agent-plugins-1.0" },
         ],
-        files: ["demo/agents/plugin.json"],
+        files: ["demo/plugin.json"],
         kind: "plugin",
         name: "demo",
-        outputPath: "demo/agents/plugin.json",
+        outputPath: "demo/plugin.json",
         owner: { standardProfile: "agent-plugins-1.0" },
         validation: "structured",
       })
@@ -572,10 +572,10 @@ cursor: false
     expect(text(rendered, "plugins/README.md")).toBe(
       "# Skillset Plugins\n\n" +
         "Generated Skillset plugin repository.\n\n" +
-        "- `<plugin-id>/chatgpt/` contains each ChatGPT product bundle selected through the Codex target.\n" +
+        "- `<plugin-id>/` contains one package shared by all enabled targets.\n" +
         "- `skillset.lock` records deterministic generated-state provenance.\n"
     );
-    expect(paths(rendered)).toContain("plugins/demo/agents/plugin.json");
+    expect(paths(rendered)).toContain("plugins/demo/plugin.json");
   });
 
   test("renders only closed standard metadata with plugin author precedence", async () => {
@@ -620,7 +620,7 @@ cursor: false
 
     const manifest = json(
       await renderBuildGraph(graph),
-      "plugins/demo/agents/plugin.json"
+      "plugins/demo/plugin.json"
     );
     expect(manifest).toEqual({
       $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
@@ -652,7 +652,7 @@ cursor: false
     ).toThrow("unknown field commands");
   });
 
-  test("does not write any standard package files for a standard-invalid plugin name", async () => {
+  test("omits the standard manifest for a standard-invalid plugin name", async () => {
     const loaded = await fixtureGraph({
       ".skillset/plugins/demo/skills/review/SKILL.md": `
 ---
@@ -685,13 +685,12 @@ cursor: false
     );
 
     const rendered = await renderBuildGraph(graph);
-    expect(
-      paths(rendered).some((path) =>
-        path.startsWith("plugins/bad--name/agents/")
-      )
-    ).toBe(false);
+    expect(paths(rendered)).not.toContain("plugins/bad--name/plugin.json");
     expect(paths(rendered)).toContain(
-      "plugins/bad--name/claude/.claude-plugin/plugin.json"
+      "plugins/bad--name/skills/review/SKILL.md"
+    );
+    expect(paths(rendered)).toContain(
+      "plugins/bad--name/.claude-plugin/plugin.json"
     );
     const results = collectRenderResults(graph, rendered, {
       claudeMarketplacePlugins: [],
@@ -738,33 +737,33 @@ cursor: false
     const rendered = await renderBuildGraph(graph);
     expect(paths(rendered)).toEqual(
       expect.arrayContaining([
-        "plugins/demo/agents/plugin.json",
-        "plugins/demo/agents/README.md",
-        "plugins/demo/agents/CHANGELOG.md",
-        "plugins/demo/agents/LICENSE.txt",
-        "plugins/demo/agents/assets/icon.svg",
-        "plugins/demo/agents/scripts/setup.sh",
-        "plugins/demo/agents/src/index.ts",
+        "plugins/demo/plugin.json",
+        "plugins/demo/README.md",
+        "plugins/demo/CHANGELOG.md",
+        "plugins/demo/LICENSE.txt",
+        "plugins/demo/assets/icon.svg",
+        "plugins/demo/scripts/setup.sh",
+        "plugins/demo/src/index.ts",
       ])
     );
     expect(
       paths(rendered).some((path) =>
-        path.startsWith("plugins/demo/agents/bin/")
+        path.startsWith("plugins/demo/bin/")
       )
     ).toBe(false);
     expect(
       paths(rendered).some((path) =>
-        path.startsWith("plugins/demo/agents/commands/")
+        path.startsWith("plugins/demo/commands/")
       )
     ).toBe(false);
     expect(
       paths(rendered).some((path) =>
-        path.startsWith("plugins/demo/agents/agents/")
+        path.startsWith("plugins/demo/agents/")
       )
     ).toBe(false);
     expect(
       paths(rendered).some((path) =>
-        path.startsWith("plugins/demo/agents/themes/")
+        path.startsWith("plugins/demo/themes/")
       )
     ).toBe(false);
   });
@@ -845,7 +844,7 @@ cursor: false
     expect(results).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-manifests",
-        outputs: [{ kind: "plugin", path: "plugins/demo/agents/plugin.json" }],
+        outputs: [{ kind: "plugin", path: "plugins/demo/plugin.json" }],
         standardProfile: "agent-plugins-1.0",
         status: "rendered",
       })
@@ -902,7 +901,7 @@ cursor: false
       includedPaths: new Set(paths(files)),
       scopes: ["plugins"],
     });
-    expect(paths(files)).not.toContain("plugins/demo/agents/hooks/hooks.json");
+    expect(paths(files)).not.toContain("plugins/demo/hooks/hooks.json");
     expect(results).toContainEqual(
       expect.objectContaining({
         destination: "hooks",
@@ -943,7 +942,7 @@ cursor: false
 
     const files = await renderBuildGraph(graph);
     expect(paths(files)).toContain(
-      "plugins/demo/agents/skills/review/SKILL.md"
+      "plugins/demo/skills/review/SKILL.md"
     );
     expect(paths(files)).not.toContain(".agents/skills/review/SKILL.md");
   });

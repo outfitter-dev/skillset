@@ -33,7 +33,7 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 | Output Safety | `implemented` | `not_applicable` | — | [1](../features/output-safety.md) |
 | Plugin Agents | `implemented` | `pass_through` | — | [1](../features/agents.md) |
 | Codex Plugin Apps | `implemented` | `not_applicable` | — | [1](../features/apps.md) |
-| Plugin Assets | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
+| Plugin Assets | `implemented` | `not_applicable` | 2026-09-21: The Claude plugin snapshot has no assets component; package-root assets are portable presentation, not Claude pass-through. | [1](../features/plugins.md) |
 | Plugin Bin | `implemented` | `pass_through` | — | [1](../features/executables.md), [2](../features/feature-source-pointers.md) |
 | Plugin Commands | `implemented` | `pass_through` | — | [1](../features/commands.md), [2](../features/plugins.md) |
 | Plugin Hooks | `implemented` | `pass_through` | — | [1](../features/hooks.md) |

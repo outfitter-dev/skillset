@@ -383,7 +383,7 @@ async function renderedSkillExists(workspacePath: string, graph: BuildGraph, ent
   const skill = plugin?.skills.find((candidate) => candidate.sourcePath === sourcePath);
   return plugin === undefined || skill === undefined
     ? false
-    : pathExists(join(workspacePath, pluginBundleRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin), dirname(skill.relativePath), "SKILL.md"));
+    : pathExists(join(workspacePath, pluginBundleRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin), "skills", skill.id, "SKILL.md"));
 }
 
 function evalRunPaths(rootPath: string, graph: BuildGraph, runId: string, xdg: SkillsetOptions["xdg"] = undefined): EvalRunPaths {

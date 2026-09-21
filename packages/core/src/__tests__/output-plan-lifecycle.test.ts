@@ -466,10 +466,7 @@ function providerOutputPath(
   prefix: string
 ): string {
   const path = files.find(
-    (file) =>
-      file.path.startsWith(prefix) &&
-      file.path.includes("/chatgpt/") &&
-      !file.path.endsWith("/skillset.lock")
+    (file) => file.path === `${prefix}demo/plugin.json`
   )?.path;
   if (path === undefined) {
     throw new Error(`expected a live provider output under ${prefix}`);
