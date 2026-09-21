@@ -32,7 +32,7 @@ bunx @skillset/cli@0.27.0 status --json --root /absolute/path/to/repository
 bunx @skillset/cli@0.27.0 check --only outputs --root /absolute/path/to/repository
 ```
 
-For schema-v1 through schema-v3 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. Any old lock with `items: []` carries no cleanup authority and upgrades automatically to schema v4 on the next confirmed build; it does not require a manual backup. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
+For schema-v1 through schema-v3 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. An old lock with `items: []` still blocks the build; an empty inventory does not make its provenance trustworthy or trigger an automatic upgrade. If the owner confirms that no generated output remains under that lock, move the lock itself to a recoverable backup outside every configured output root before previewing a fresh build. Otherwise classify and back up each generated path as described below. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
 
 After moving only those reviewed paths, rebuild from canonical source and verify the new ownership model:
 
