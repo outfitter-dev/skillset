@@ -7,7 +7,7 @@ description: Plugins define source containers, manifest authority, component own
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `plugin-assets` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-assets` | `implemented` | `not_applicable` | `pass_through` | `planned` |
 | `plugin-commands` | `implemented` | `pass_through` | `not_applicable` | `pass_through` |
 | `plugin-lsp-servers` | `implemented` | `pass_through` | `not_applicable` | `planned` |
 | `plugin-manifests` | `implemented` | `native` | `native` | `native` |
@@ -76,7 +76,7 @@ Authored skill grouping directories organize source only. Generated package skil
 
 The Agent Plugins baseline owns the portable root manifest, shared skill tree, portable `mcp.json`, and recognized neutral support files. Claude and Cursor manifests remain in their documented metadata directories. Package presentation assets are copied once to root `assets/`; skill-local assets and declared `shared:` or `plugin:` resources remain inside their skill directory. The pinned Cursor evidence documents a relative logo but does not establish arbitrary package assets as a native component, so the generated support matrix keeps Cursor asset support planned.
 
-The compiler derives component wiring from the final package inventory. Claude's `skills` field is a string for one immediate child and an array for multiple children, both within the pinned accepted contract. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`. Any two package producers that require different bytes or modes at the same path fail with `plugin-package-path-conflict` before a write.
+The compiler derives component wiring from the final package inventory. Claude's `skills` field points to `./skills/` for the generated immediate-child skill tree; explicit path arrays remain available for genuinely nonstandard routing. Copied scripts preserve source executable intent and render with mode `0755` on Unix; other generated files render with mode `0644`. Any two package producers that require different bytes or modes at the same path fail with `plugin-package-path-conflict` before a write.
 
 `claude.bundle.path` cannot split the shared package. Custom package placement remains reserved for SET-561; current package planning accepts only the default `plugins/[name]` placement.
 

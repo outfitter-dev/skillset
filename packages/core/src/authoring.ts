@@ -193,7 +193,10 @@ export async function explainPath(
       entries: asGenerated.map((item) => item.entry),
       features: featureCapabilitiesForPath(graph, target, asGenerated, matchedRenderResults),
       renderResults: matchedRenderResults,
-      notes: [`Generated output; rebuild with skillset build, verify with skillset check --only outputs.`],
+      notes: [
+        `Generated output; rebuild with skillset build, verify with skillset check --only outputs.`,
+        ...asGenerated.flatMap((item) => providerFrontmatterNotes(graph, item.sourcePath)),
+      ],
       toolsRealization: toolsRealizationForPath(graph, target, asGenerated),
     };
   }
@@ -890,6 +893,7 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
     )
   )?.id;
   if (pluginId !== undefined) {
+    notes.push(...providerFrontmatterNotes(graph, target));
     const decision = graph.pluginPlan?.internalUse.decisions.find(
       (candidate) =>
         candidate.pluginId === pluginId &&
@@ -910,6 +914,21 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
     notes.push(`Declared resources: ${skill.resources.map((resource) => resource.from).join(", ")}.`);
   }
   return notes;
+}
+
+function providerFrontmatterNotes(graph: BuildGraph, sourcePath: string): readonly string[] {
+  const skill = graph.plugins.flatMap((plugin) => plugin.discoveredSkills ?? plugin.skills).find(
+    (candidate) => normalizeSourcePath(graph, candidate.sourcePath) === sourcePath
+  );
+  if (skill === undefined) return [];
+  const providers = targetNames().filter((name) =>
+    skill.targets[name].enabled &&
+    isJsonRecord(skill.targets[name].options.frontmatter) &&
+    Object.keys(skill.targets[name].options.frontmatter).length > 0
+  );
+  return providers.length === 0 ? [] : [
+    `Provider-only frontmatter (${providers.join(", ")}) is preserved when compatible, but recognition of additional keys by each consumer is unverified.`,
+  ];
 }
 
 function featureCapabilitiesForPath(

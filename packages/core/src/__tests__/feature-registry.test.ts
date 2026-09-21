@@ -236,6 +236,10 @@ describe("feature registry", () => {
     expect(getSkillsetFeature("dependencies")?.targetSupport.codex.reason).toContain("ChatGPT");
     expect(getSkillsetFeature("plugin-commands")?.targetSupport.codex.status).toBe("not_applicable");
     expect(getSkillsetFeature("plugin-assets")?.targetSupport.codex.status).toBe("pass_through");
+    expect(getSkillsetFeature("plugin-assets")?.targetSupport.claude).toEqual(expect.objectContaining({
+      note: expect.stringContaining("2026-09-21"),
+      status: "not_applicable",
+    }));
     expect(getSkillsetFeature("supports")?.targetSupport.claude.status).toBe("metadata_only");
     expect(getSkillsetFeature("project-agents")?.targetSupport.codex.status).toBe("transformed");
     expect(getSkillsetFeature("project-agents")?.runtimeSupport?.["codex-cli"]).toEqual(expect.objectContaining({

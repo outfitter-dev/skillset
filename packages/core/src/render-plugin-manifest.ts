@@ -645,12 +645,7 @@ function pluginComponentManifestValue(
   path: string
 ): JsonValue | undefined {
   if (kind === "skills") {
-    if (enabledSkills.length === 0) return undefined;
-    if (target !== "claude") return path;
-    const skillPaths = [
-      ...new Set(enabledSkills.map((skill) => `${path}${skill.id}`)),
-    ].sort();
-    return skillPaths.length === 1 ? skillPaths[0] : skillPaths;
+    return enabledSkills.length === 0 ? undefined : path;
   }
   if (kind === "hooks") {
     const sourcePath = componentSourcePath(path);

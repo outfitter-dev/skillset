@@ -1280,7 +1280,7 @@ test("SET-14: Claude plugin manifest emits the documented top-level fields", asy
   expect(manifest.name).toBe("widget");
   expect(manifest.version).toBe("1.2.3");
   expect(manifest.description).toBe("A widget plugin.");
-  expect(manifest.skills).toBe("./skills/demo");
+  expect(manifest.skills).toBe("./skills/");
   // Claude manifest carries no Codex interface block.
   expect(manifest.interface).toBeUndefined();
 });

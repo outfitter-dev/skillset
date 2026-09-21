@@ -23,7 +23,7 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:3a42a9b87d4df22c4ebeb1841c4de2efe7f1531fd426c46b26b8c91fedd8239e",
+      "outputHash": "sha256:95b820b4d283f2dc445e25e4fa568b1ea435bf458b2d354d467ec67e02ecdce0",
       "outputPath": "skillset/.claude-plugin/plugin.json",
       "owner": {
         "target": "claude"
@@ -150,7 +150,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:f370ec9fdea897239528b742e44bb98268619de890db31ded1d1a610f062b202",
+  "provenanceHash": "sha256:e1cbd6ee24ef1cd9d90e15be3955c221bf79110d26c91bf360b3884ccce815f3",
   "renderResults": [
     {
       "destination": "plugin-manifest",

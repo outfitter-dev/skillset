@@ -83,7 +83,7 @@ cursor:
         "utf8"
       )
     ) as { readonly skills?: string | readonly string[] };
-    expect(claudeManifest.skills).toBe("./skills/review");
+    expect(claudeManifest.skills).toBe("./skills/");
 
     const secondSkill = join(
       root,
@@ -101,10 +101,7 @@ cursor:
         "utf8"
       )
     ) as { readonly skills?: string | readonly string[] };
-    expect(expandedManifest.skills).toEqual([
-      "./skills/review",
-      "./skills/write",
-    ]);
+    expect(expandedManifest.skills).toBe("./skills/");
 
     const lock = JSON.parse(
       await readFile(join(root, "plugins/skillset.lock"), "utf8")
@@ -136,6 +133,13 @@ cursor:
       ],
       kind: "generated",
     });
+    expect(explanation.notes).toContain(
+      "Provider-only frontmatter (claude, cursor) is preserved when compatible, but recognition of additional keys by each consumer is unverified."
+    );
+    const sourceExplanation = await explainPath(root, ".skillset/plugins/demo/skills/review/SKILL.md");
+    expect(sourceExplanation.notes).toContain(
+      "Provider-only frontmatter (claude, cursor) is preserved when compatible, but recognition of additional keys by each consumer is unverified."
+    );
   });
 
   it("rejects the first conflicting provider field", async () => {
