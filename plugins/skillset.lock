@@ -137,20 +137,20 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:f6dfb59c5c55d5dc5f19ef89a072c59d6c2ad7c38d8cfd06e09425df250e9384",
+      "outputHash": "sha256:1d9ebd26a53d410803c7cd58529fce2b443a257907e84d0e6acc37024b17e4f9",
       "outputPath": "skillset/skills/use-skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
       "role": "standard",
-      "sourceHash": "sha256:59eb369d050f5fa8649decf603cd8f9b07b3330282553318fa415768ff66f85c",
+      "sourceHash": "sha256:0dbba35615cab02aed1e8f2a3b38938cc7e131d841a5e5edd83a6afebd370708",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:83e220c415f8aec684a52f03a4931c268cde2629611f481b714e46f0d76a958a",
+  "provenanceHash": "sha256:a659254e910e189b631dcde891a052cb3f4a44e4f8c9933b36281102d3c0467e",
   "renderResults": [
     {
       "destination": "plugin-manifest",
