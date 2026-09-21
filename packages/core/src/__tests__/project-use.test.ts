@@ -95,17 +95,11 @@ plugins:
         target: "codex",
       })
     );
-    expect(result.renderResults).toContainEqual(
+    expect(result.renderResults).not.toContainEqual(
       expect.objectContaining({
         destination: "bin",
-        diagnostics: [
-          expect.objectContaining({
-            code: "internal-use-component-unsupported",
-          }),
-        ],
         featureId: "internal-use-components",
         sourceUnit: "plugin.alpha.skill:shared",
-        status: "unsupported",
         target: "codex",
       })
     );
@@ -353,6 +347,99 @@ plugins:
     expect(
       await readFile(join(root, ".agents/skills/use-me/SKILL.md"), "utf8")
     ).toContain("second note");
+  });
+
+  it("copies implicit Agent Skills resources referenced by a project-use skill", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: linked-project-use\ncompile:\n  unsupportedDestination: warn\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": skill(
+        "use-me",
+        "Read @{{plugin:references/guide.md}}."
+      ),
+      ".skillset/plugins/demo/shared/references/guide.md": "Guide content.\n",
+    });
+    await buildSkillsetResult(root);
+    const markdown = await readFile(
+      join(root, ".agents/skills/use-me/SKILL.md"),
+      "utf8"
+    );
+    expect(markdown).toContain("@references/guide.md");
+    expect(await readFile(
+      join(root, ".agents/skills/use-me/references/guide.md"),
+      "utf8"
+    )).toBe("Guide content.\n");
+  });
+
+  it("ignores unrelated shared files when only a skill is selected", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: independent-copy\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": skill("use-me", "Independent"),
+      ".skillset/plugins/demo/shared/partials/unused.md": "Unrelated.\n",
+    });
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    expect(await Bun.file(join(root, ".agents/skills/use-me/SKILL.md")).exists()).toBe(true);
+    expect(result.renderResults).not.toContainEqual(
+      expect.objectContaining({
+        destination: "shared",
+        featureId: "internal-use-components",
+        sourceUnit: "plugin.demo.skill:use-me",
+      })
+    );
+  });
+
+  it("reports unhydrated components when the whole plugin is selected", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: whole-plugin-copy\ncompile:\n  unsupportedDestination: warn\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    plugins: [demo]\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": skill("use-me", "Use me"),
+      ".skillset/plugins/demo/shared/partials/note.md": "Shared.\n",
+    });
+    const result = await buildSkillsetResult(root);
+    expect(await Bun.file(join(root, ".agents/skills/use-me/SKILL.md")).exists()).toBe(true);
+    expect(result.renderResults).toContainEqual(
+      expect.objectContaining({
+        destination: "shared",
+        featureId: "internal-use-components",
+        sourceUnit: "plugin.demo.skill:use-me",
+        status: "unsupported",
+        target: "codex",
+      })
+    );
+  });
+
+  it("reports a selected skill's own hook when its project copy omits it", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: skill-hook-copy\ncompile:\n  unsupportedDestination: warn\nclaude: true\ncodex: false\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Use me
+hooks:
+  PreToolUse:
+    - local-shell
+---
+
+Use me.
+`,
+      ".skillset/plugins/demo/skills/use-me/hooks/local-shell.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "node ./local.js" },
+      }),
+    });
+    const result = await buildSkillsetResult(root);
+    expect(await Bun.file(join(root, ".claude/skills/use-me/SKILL.md")).exists()).toBe(true);
+    expect(result.renderResults).toContainEqual(
+      expect.objectContaining({
+        destination: "hooks",
+        featureId: "internal-use-components",
+        sourceUnit: "plugin.demo.skill:use-me",
+        status: "unsupported",
+        target: "claude",
+      })
+    );
   });
 });
 

@@ -247,7 +247,10 @@ function unsupportedProjectUseComponentOutcomes(
   if (scopes !== undefined && !scopes.includes("project")) return [];
   const outcomes: SkillsetRenderResult[] = [];
   for (const copy of resolveProjectUseSkillCopies(graph)) {
-    const components = [
+    // Plugin-level content is requested only by whole-plugin selection; an
+    // unrelated sibling under hooks/ or shared/ is not a skill dependency.
+    const wholePluginSelected = graph.pluginPlan?.internalUse.pluginIds.includes(copy.plugin.id);
+    const pluginComponents = wholePluginSelected ? [
       ...copy.plugin.features.map((feature) => ({
         component: feature.key,
         sourcePath: normalizeSourcePath(graph, feature.sourcePath),
@@ -258,14 +261,24 @@ function unsupportedProjectUseComponentOutcomes(
       ...(hasMeaningfulFiles(join(copy.plugin.path, "shared"))
         ? [{ component: "shared", sourcePath: normalizePath(relative(graph.rootPath, join(copy.plugin.path, "shared"))) }]
         : []),
-    ].filter((item, index, all) =>
-      all.findIndex((candidate) => candidate.component === item.component) === index
-    );
+    ] : [];
     for (const target of TARGETS) {
       if (
         !copy.skill.targets[target].enabled ||
         !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id)
       ) continue;
+      const skillHook = copy.skill.hookAttachments.find((attachment) =>
+        attachment.providers === undefined || attachment.providers.includes(target)
+      );
+      const components = [
+        ...pluginComponents,
+        ...(skillHook === undefined ? [] : [{
+          component: "hooks",
+          sourcePath: normalizeSourcePath(graph, skillHook.sourcePath),
+        }]),
+      ].filter((item, index, all) =>
+        all.findIndex((candidate) => candidate.component === item.component) === index
+      );
       for (const component of components) {
         outcomes.push(defineRenderResult({
           destination: component.component,

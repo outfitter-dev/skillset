@@ -1552,6 +1552,7 @@ async function renderProjectUseSkill(
         standard.preprocessDependencies,
         graph.root.internalMarker
       );
+  const resources = standard?.resources ?? skillMarkdown.resources;
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph, plugin, skill, target, sourceDir, targetSkillDir
   );
@@ -1595,7 +1596,7 @@ async function renderProjectUseSkill(
     );
   }
   rendered.push(...(await renderSkillResources(
-    skillMarkdown.resources,
+    resources,
     skill,
     targetSkillDir,
     renderedRelativeFiles
@@ -1608,7 +1609,7 @@ async function renderProjectUseSkill(
     outputRoot,
     plugin,
     preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
-    resources: skillMarkdown.resources,
+    resources,
     skill,
     sourceDir,
     transforms: skillMarkdown.transforms,
