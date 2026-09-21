@@ -100,24 +100,24 @@ describe("registry-backed plugin component paths", () => {
 
   test.each([
     {
-      expected: "./skills/review",
+      expected: "./skills/",
       files: [".skillset/plugins/demo/skills/review/SKILL.md"],
       label: "flat-only",
     },
     {
-      expected: "./skills/tdd",
+      expected: "./skills/",
       files: [".skillset/plugins/demo/skills/engineering/tdd/SKILL.md"],
       label: "nested-only",
     },
     {
-      expected: ["./skills/review", "./skills/tdd"],
+      expected: "./skills/",
       files: [
         ".skillset/plugins/demo/skills/review/SKILL.md",
         ".skillset/plugins/demo/skills/engineering/tdd/SKILL.md",
       ],
       label: "mixed immediate and nested",
     },
-  ])("renders Claude $label skill paths", async ({ expected, files }) => {
+  ])("renders Claude $label skill directory", async ({ expected, files }) => {
     const graph = await fixtureGraph(
       Object.fromEntries(files.map((path) => [path, skill(path)]))
     );
