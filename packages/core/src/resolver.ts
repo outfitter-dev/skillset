@@ -1921,7 +1921,7 @@ function validateSharedPackageOutputRoots(
       plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id)
     )) continue;
     throw new Error(
-      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement via ${target}.plugins.path or --dist is unsupported until SET-561 (plugins.output.${target}.path)`
+      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement is unsupported until SET-561 (${target}.plugins.path or plugins.output.${target}.path)`
     );
   }
 }

@@ -46,7 +46,7 @@ codex:
 The fixed roots are `.claude/skills`, `.agents/skills`, and `.cursor/skills`.
 `<target>.skills.path` and `skillset.outputs.skills.<target>` are rejected.
 Shared plugin packages currently stay at `plugins/<name>`; custom placement
-through `<target>.plugins.path`, root `plugins.output`, or `--dist` is deferred
+through `<target>.plugins.path` or root `plugins.output` is deferred
 to SET-561.
 
 When `compile.targets` is present, a root provider object without `enabled` inherits that target set; an output-path object does not silently re-enable a provider. See the [workspace schema](../reference/schemas/README.md) for every accepted shape.
