@@ -440,11 +440,17 @@ Use me.
     expect(await Bun.file(join(root, ".claude/skills/use-me/SKILL.md")).exists()).toBe(true);
     expect(await Bun.file(join(root, ".claude/skills/use-me/hooks/local-shell.json")).exists()).toBe(false);
     const lock = JSON.parse(await readFile(join(root, ".claude/skills/skillset.lock"), "utf8")) as {
-      readonly items: readonly { readonly files?: readonly string[]; readonly role?: string }[];
+      readonly items: readonly {
+        readonly fileModes?: Readonly<Record<string, string>>;
+        readonly files?: readonly string[];
+        readonly role?: string;
+      }[];
     };
-    expect(lock.items.find((item) => item.role === "project-use")?.files).not.toContain(
-      ".claude/skills/use-me/hooks/local-shell.json"
+    const copy = lock.items.find((item) => item.role === "project-use");
+    expect(copy?.files).not.toContain(
+      "use-me/hooks/local-shell.json"
     );
+    expect(Object.keys(copy?.fileModes ?? {})).not.toContain("use-me/hooks/local-shell.json");
     expect(result.renderResults).toContainEqual(
       expect.objectContaining({
         destination: "hooks",
