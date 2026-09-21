@@ -25,9 +25,9 @@ Do not add a bare top-level `targets` key. Keep root selection in `compile.targe
 ## Configure Output Roots
 
 Boolean output settings use Skillset's default roots. An array includes named
-plugins or skills. Plugin objects can set `path`, `include`, or
-`enabled: false`; skill roots are fixed provider discovery locations, so skill
-objects accept only selection fields:
+plugins or skills. Plugin objects can select `include` or `enabled: false`;
+skill objects also accept only selection fields. A nondefault plugin `path`
+is rejected while shared packages have fixed placement, until SET-561:
 
 ```yaml
 compile:
@@ -38,7 +38,7 @@ claude:
 
 codex:
   plugins:
-    path: generated/codex
+    include: [review]
   skills:
     include: [review]
 ```

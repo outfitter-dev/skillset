@@ -303,6 +303,7 @@ export async function loadBuildGraph(
   const standardProjections = resolveStandardProjectionPlan(
     standardProjectionSourceInventory({ plugins, rules, standaloneSkills })
   );
+  validateSharedPackageOutputRoots(outputs, plugins);
   validatePluginBundleDestinations(outputs, plugins);
   const outputRootOwners = await outputRootsFor(
     rootPath,
@@ -1907,6 +1908,21 @@ function validatePluginBundleDestinations(
       if (!pathsOverlap(folded, otherPath.toLowerCase())) continue;
       throw new Error(`skillset: ${label} (${path}) must not overlap plugin ${other.id} Claude bundle (${otherPath})`);
     }
+  }
+}
+
+function validateSharedPackageOutputRoots(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[]
+): void {
+  for (const target of targetNames()) {
+    if (outputs.plugins[target] === DEFAULT_PLUGIN_OUTPUT_ROOT) continue;
+    if (!plugins.some((plugin) =>
+      plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id)
+    )) continue;
+    throw new Error(
+      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement via ${target}.plugins.path or --dist is unsupported until SET-561 (plugins.output.${target}.path)`
+    );
   }
 }
 

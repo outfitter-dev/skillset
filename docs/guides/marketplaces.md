@@ -91,6 +91,8 @@ All local provider entries point to the shared package root. With the default pl
 
 An explicit `marketplaces` declaration is also the supported workaround for an older implicit Claude catalog that still contains a generated `metadata.pluginRoot`. Declare the local plugin under a Claude catalog, rebuild, and use the resulting catalog before upgrading the compiler. Do not shorten the source to `./local-tools`: the catalog resolves from the repository root and the generated package remains at `./plugins/local-tools`.
 
+Nondefault legacy `claude.plugins.path` values (and `--dist` for a selected plugin) fail before writing a catalog: the shared package currently builds at `plugins/<name>/`, so a nested catalog would advertise a package absent from its standalone marketplace root. Custom package placement belongs to SET-561 through `plugins.output`.
+
 Marketplace entries point to a plugin bundle, not an individual `SKILL.md`. A consumer can select one discovered skill with its `--skill` option. Its default discovery depth and any `--full-depth` expansion remain consumer behavior; Skillset's catalog keeps the plugin boundary and does not promote every nested source file into a catalog entry.
 
 ## Check Readiness

@@ -67,46 +67,60 @@ describe("shared plugin package root ownership", () => {
     });
   });
 
-  for (const marketplaceRoot of ["plugins", "dist"] as const) {
-    it(`renders one fixed package with a marketplace rooted at ${marketplaceRoot}`, async () => {
-      const root = await fixture(marketplaceRoot);
-      const result = await buildSkillsetResult(root);
-      expect(result.ok).toBe(true);
-      expect(result.data.map((file) => file.path)).toEqual(
-        expect.arrayContaining([
-          "plugins/trails/plugin.json",
-          "plugins/trails/.claude-plugin/plugin.json",
-          "plugins/trails/.cursor-plugin/plugin.json",
-          "plugins/trails/skills/hike/SKILL.md",
-        ])
-      );
-      expect(
-        result.data.some((file) =>
-          /plugins\/trails\/(?:agents|chatgpt|claude|cursor)\//u.test(file.path)
-        )
-      ).toBe(false);
+  it("renders one fixed package with a default-root marketplace", async () => {
+    const root = await fixture("plugins");
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    expect(result.data.map((file) => file.path)).toEqual(
+      expect.arrayContaining([
+        "plugins/trails/plugin.json",
+        "plugins/trails/.claude-plugin/plugin.json",
+        "plugins/trails/.cursor-plugin/plugin.json",
+        "plugins/trails/skills/hike/SKILL.md",
+      ])
+    );
+    expect(
+      result.data.some((file) =>
+        /plugins\/trails\/(?:agents|chatgpt|claude|cursor)\//u.test(file.path)
+      )
+    ).toBe(false);
 
-      const marketplacePath =
-        marketplaceRoot === "plugins"
-          ? ".claude-plugin/marketplace.json"
-          : "dist/.claude-plugin/marketplace.json";
-      const marketplace = JSON.parse(
-        await readFile(join(root, marketplacePath), "utf8")
-      ) as {
-        readonly plugins: readonly {
-          readonly name: string;
-          readonly source: string;
-        }[];
-      };
-      expect(marketplace.plugins).toContainEqual(
-        expect.objectContaining({
-          name: "trails",
-          source: "./plugins/trails",
-        })
+    const marketplace = JSON.parse(
+      await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+    ) as {
+      readonly plugins: readonly {
+        readonly name: string;
+        readonly source: string;
+      }[];
+    };
+    expect(marketplace.plugins).toContainEqual(
+      expect.objectContaining({
+        name: "trails",
+        source: "./plugins/trails",
+      })
+    );
+    expect((await verifySkillsetResult(root)).ok).toBe(true);
+  });
+
+  it.each(["claude", "codex", "cursor"] as const)(
+    "refuses a nondefault %s plugin root before any output writes",
+    async (target) => {
+      const root = await fixture("dist", undefined, target);
+      await expect(buildSkillsetResult(root)).rejects.toThrow(
+        `custom package placement via ${target}.plugins.path or --dist is unsupported until SET-561`
       );
-      expect((await verifySkillsetResult(root)).ok).toBe(true);
-    });
-  }
+      expect(await Bun.file(join(root, "plugins/trails/plugin.json")).exists()).toBe(false);
+      expect(await Bun.file(join(root, "dist/.claude-plugin/marketplace.json")).exists()).toBe(false);
+    }
+  );
+
+  it("refuses --dist when a shared package would be emitted", async () => {
+    const root = await fixture("plugins", undefined, "claude", true);
+    await expect(buildSkillsetResult(root, { distDir: "dist" })).rejects.toThrow(
+      "custom package placement via claude.plugins.path or --dist is unsupported until SET-561"
+    );
+    expect(await Bun.file(join(root, "plugins/trails/plugin.json")).exists()).toBe(false);
+  });
 
   it("rejects a legacy Claude bundle path before writing", async () => {
     const root = await fixture("plugins", "dist/trails");
@@ -124,23 +138,28 @@ describe("shared plugin package root ownership", () => {
 
 async function fixture(
   marketplaceRoot: string,
-  claudeBundlePath?: string
+  claudeBundlePath?: string,
+  customTarget: "claude" | "codex" | "cursor" = "claude",
+  implicitRoots = false
 ): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-package-roots-"));
   roots.push(root);
+  const outputConfig = implicitRoots
+    ? "claude: true\ncodex: true\ncursor: true"
+    : `claude:
+  plugins:
+    path: ${customTarget === "claude" ? marketplaceRoot : "plugins"}
+codex:
+  plugins:
+    path: ${customTarget === "codex" ? marketplaceRoot : "plugins"}
+cursor:
+  plugins:
+    path: ${customTarget === "cursor" ? marketplaceRoot : "plugins"}`;
   const files = normalizeSkillsetFixtureFiles({
     "skillset.yaml": `
 skillset:
   name: packages
-claude:
-  plugins:
-    path: ${marketplaceRoot}
-codex:
-  plugins:
-    path: generated/openai
-cursor:
-  plugins:
-    path: generated/cursor
+${outputConfig}
 marketplaces:
   local:
     targets: [claude, codex, cursor]
