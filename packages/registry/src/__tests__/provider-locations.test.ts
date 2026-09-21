@@ -208,6 +208,65 @@ describe("SET-524 provider-location evidence", () => {
 });
 
 describe("SET-538 runtime-hook destinations", () => {
+  test("refuses to choose an older destination when another evidence version exists", () => {
+    const entries = defineProviderLocationEvidence([
+      validEvidence({
+        facts: [
+          {
+            kind: "runtime-hook",
+            path: "<project>/.codex/old-hooks.json",
+            status: "verified",
+          },
+        ],
+      }),
+      validEvidence({
+        facts: [
+          {
+            kind: "runtime-hook",
+            reason: "The current destination has not been verified.",
+            status: "unknown",
+          },
+        ],
+        providerVersion: "0.155.0",
+      }),
+    ]);
+
+    expect(() => getProviderRuntimeHookDestination("codex", entries)).toThrow(
+      "multiple provider-location evidence versions for codex codex-cli"
+    );
+  });
+
+  test("refuses multiple runtime-hook facts within one evidence version", () => {
+    const entries = defineProviderLocationEvidence([
+      validEvidence({
+        facts: [
+          {
+            kind: "runtime-hook",
+            path: "<project>/.codex/old-hooks.json",
+            status: "verified",
+          },
+          {
+            kind: "runtime-hook",
+            reason: "The current destination has not been verified.",
+            status: "unknown",
+          },
+        ],
+      }),
+    ]);
+
+    expect(() => getProviderRuntimeHookDestination("codex", entries)).toThrow(
+      "multiple provider runtime-hook destinations for codex codex-cli at version 0.154.0"
+    );
+  });
+
+  test("refuses evidence without a runtime-hook destination", () => {
+    const entries = defineProviderLocationEvidence([validEvidence()]);
+
+    expect(() => getProviderRuntimeHookDestination("codex", entries)).toThrow(
+      "missing provider runtime-hook destination codex"
+    );
+  });
+
   test("exposes one runtime-hook destination status for every target", () => {
     expect(
       Object.fromEntries(

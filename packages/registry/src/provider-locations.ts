@@ -375,17 +375,29 @@ export function selectProviderLocationEvidence(
 }
 
 export function getProviderRuntimeHookDestination(
-  target: ProviderLocationTarget
+  target: ProviderLocationTarget,
+  values: readonly ProviderLocationEvidence[] = providerLocationEvidence
 ): ProviderRuntimeHookDestination {
   const surface = PROVIDER_RUNTIME_HOOK_SURFACES[target];
-  for (const entry of providerLocationEvidence) {
-    if (entry.target !== target || entry.surface !== surface) continue;
-    const fact = entry.facts.find(
-      (candidate): candidate is ProviderRuntimeHookDestination =>
-        candidate.kind === "runtime-hook"
+  const matches = values.filter(
+    (entry) => entry.target === target && entry.surface === surface
+  );
+  // A second version needs an explicit current-version choice, not sort order.
+  if (matches.length > 1) {
+    throw new Error(
+      `skillset: multiple provider-location evidence versions for ${target} ${surface}: ${matches.map((entry) => entry.providerVersion).join(", ")}`
     );
-    if (fact !== undefined) return fact;
   }
+  const facts = matches[0]?.facts.filter(
+    (candidate): candidate is ProviderRuntimeHookDestination =>
+      candidate.kind === "runtime-hook"
+  ) ?? [];
+  if (facts.length > 1) {
+    throw new Error(
+      `skillset: multiple provider runtime-hook destinations for ${target} ${surface} at version ${matches[0]?.providerVersion}`
+    );
+  }
+  if (facts[0] !== undefined) return facts[0];
   throw new Error(
     `skillset: missing provider runtime-hook destination ${target}`
   );
