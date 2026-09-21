@@ -68,6 +68,27 @@ describe("root plugin internal-use resolution", () => {
     ).toMatchObject({ rule: "plugins.internal_use.plugins: !demo", selected: false });
   });
 
+  test("treats empty plugin, skill, and draft lists as selecting none", () => {
+    const noPlugins = resolveInternalUseSelection(
+      { drafts: {}, plugins: [], skills: {} },
+      inventory
+    );
+    expect(noPlugins.pluginIds).toEqual([]);
+    expect(noPlugins.skills).toEqual([]);
+
+    const noSkills = resolveInternalUseSelection(
+      { drafts: { demo: [] }, plugins: false, skills: { demo: [] } },
+      inventory
+    );
+    expect(noSkills.skills).toEqual([]);
+    expect(noSkills.drafts).toEqual([]);
+    expect(
+      noSkills.decisions.find(
+        (decision) => decision.pluginId === "demo" && decision.skillId === "review"
+      )
+    ).toMatchObject({ rule: "plugins.internal_use: omitted", selected: false });
+  });
+
   test("defaults to none and rejects contradictions and unknown ids", () => {
     expect(
       resolveInternalUseSelection(

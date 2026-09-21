@@ -142,14 +142,15 @@ function resolveSelector(
       `skillset: ${label} selects and excludes ${contradictions.join(", ")}`
     );
   }
-  const selected = positive.size === 0 ? new Set(knownIds) : positive;
+  const negativeOnly = positive.size === 0 && negative.size > 0;
+  const selected = negativeOnly ? new Set(knownIds) : positive;
   return {
     excluded: negative,
     selected,
     ruleFor: (id) => negative.has(id)
       ? `${label}: !${id}`
       : selected.has(id)
-        ? `${label}: ${positive.size === 0 ? `all except exclusions` : id}`
+        ? `${label}: ${negativeOnly ? `all except exclusions` : id}`
         : `${label}: omitted`,
   };
 }
