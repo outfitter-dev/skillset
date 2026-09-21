@@ -1762,14 +1762,9 @@ async function renderSkillMarkdown(
     version,
     graph.root.compile.skillset.metadata
   );
-  const frontmatter = options.internal === true
-    ? mergeRecords(renderedFrontmatter, {
-        metadata: {
-          ...(readRecord(renderedFrontmatter, "metadata") ?? {}),
-          internal: true,
-        },
-      })
-    : renderedFrontmatter;
+  const frontmatter = options.internal === undefined
+    ? renderedFrontmatter
+    : withProjectUseInternalMarker(renderedFrontmatter, options.internal);
 
   const preprocessDependencies = new Set<string>();
   const resourcePlanner = createEffectiveSkillResourcePlanner(
@@ -1825,7 +1820,7 @@ async function renderCodexSkillMarkdownFromStandard(
   skill: SourceSkill,
   baselineContent: string,
   baselinePreprocessDependencies: readonly string[] = [],
-  projectUseInternal = false
+  projectUseInternal?: boolean
 ): Promise<RenderedSkillMarkdown> {
   const baseline = parseMarkdown(
     baselineContent,
@@ -1839,16 +1834,9 @@ async function renderCodexSkillMarkdownFromStandard(
     baseline.body
   );
   const mergedFrontmatter = mergeRecords(baseline.frontmatter, targetFrontmatter);
-  // Target overrides are applied after the standard baseline; project-use
-  // ownership must remain authoritative over an authored internal flag.
-  const frontmatter = projectUseInternal
-    ? mergeRecords(mergedFrontmatter, {
-        metadata: {
-          ...(readRecord(mergedFrontmatter, "metadata") ?? {}),
-          internal: true,
-        },
-      })
-    : mergedFrontmatter;
+  const frontmatter = projectUseInternal === undefined
+    ? mergedFrontmatter
+    : withProjectUseInternalMarker(mergedFrontmatter, projectUseInternal);
   return {
     content: renderValidatedMarkdown(
       frontmatter,
@@ -1858,6 +1846,19 @@ async function renderCodexSkillMarkdownFromStandard(
     preprocessDependencies: [...baselinePreprocessDependencies],
     resources: skill.resources,
     transforms: translated.transforms,
+  };
+}
+
+function withProjectUseInternalMarker(frontmatter: JsonRecord, enabled: boolean): JsonRecord {
+  // Project-use ownership wins after provider overrides in both directions.
+  const metadata = { ...(readRecord(frontmatter, "metadata") ?? {}) };
+  delete metadata.internal;
+  const withoutMetadata = { ...frontmatter };
+  delete withoutMetadata.metadata;
+  if (!enabled && Object.keys(metadata).length === 0) return withoutMetadata;
+  return {
+    ...withoutMetadata,
+    metadata: enabled ? { ...metadata, internal: true } : metadata,
   };
 }
 

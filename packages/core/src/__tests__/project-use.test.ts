@@ -155,10 +155,17 @@ plugins:
     const root = await fixture({
       "skillset.yaml": `skillset:\n  name: marker-off\nclaude: false\ncodex: true\ncursor: false\ninternal_marker: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
       ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
-      ".skillset/plugins/demo/skills/use-me/SKILL.md": skill(
-        "use-me",
-        "Use me"
-      ),
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Use me
+codex:
+  frontmatter:
+    metadata:
+      internal: true
+---
+
+Use me.
+`,
     });
     await buildSkillsetResult(root);
     const markdown = await readFile(
