@@ -52,9 +52,9 @@ response to it yet.
 
 ## Select Plugin Content for This Project
 
-`plugins.internal_use` currently validates and reports a project-local
-selection plan; it does not emit project-local copies yet. Rendering those
-copies is deferred to SET-554. Omitting the setting selects none. A boolean
+`plugins.internal_use` selects plugin content for this project and reports the
+selection plan. Selected live skills render as project-use copies; other plugin
+components do not accompany them. Omitting the setting selects none. A boolean
 selects all or none; the object form can select whole plugins, individual live
 skills, and drafts:
 
@@ -86,8 +86,11 @@ render result records `internal-use-name-conflict`. Project-use lock entries
 record the canonical source unit, effective name, selection rule, and target
 owner. `internal_marker` defaults to `true` and writes boolean
 `metadata.internal: true` only on those project-use copies; set it to `false`
-to omit the marker. Plugin hooks, shared trees, MCP servers, and executables
-are not hydrated into a project-use copy and produce explicit unsupported component results.
+to omit the marker. Referenced skill resources travel with the copy. Other
+plugin-level hooks, shared trees, MCP servers, and executables are not hydrated:
+selecting the whole plugin or a skill with its own hook attachment reports the
+unhydrated dependency. An unrelated file in a shared directory does not make
+an individually selected skill depend on it.
 
 ## Plan Plugin Package Paths
 

@@ -29,9 +29,10 @@ Create an empty container with `skillset new plugin <name> --yes`. The command p
 
 When Agent Plugins 1.0 is adopted, its portable manifest, skill tree, and neutral support files form the package baseline. Enabled providers add their manifest and supported components beside that baseline instead of creating provider subpackages.
 
-Root `plugins.internal_use` validates and reports a project-local selection
-plan, defaulting to none; it does not render project-local copies until
-SET-554. Root `plugins.output` is parsed into a deterministic package
+Root `plugins.internal_use` selects and reports project-local plugin content,
+defaulting to none. Selected live skills render as separately owned project-use
+copies in enabled provider skill roots; plugin-level components do not
+accompany those copies. Root `plugins.output` is parsed into a deterministic package
 path plan; current builds accept only the default `plugins/[name]` placement.
 Custom paths, root placement, `name`, and `combine` remain explicit unsupported
 results until their package-placement features land rather than being silently

@@ -69,8 +69,10 @@ skills and all selected plugin skills: the workspace keeps the bare leaf, while
 every colliding plugin copy uses `<plugin-id>-<leaf>`. With the default
 `internal_marker: true`, only these copies receive boolean
 `metadata.internal: true`; provider bundles and Agent Plugins packages remain
-byte-independent. Plugin hooks, shared trees, MCP servers, and executables do
-not accompany the copy, and render results report those unhydrated components.
+byte-independent. Referenced skill resources travel with the copy. Plugin-level
+hooks, shared trees, MCP servers, and executables do not accompany it; whole-
+plugin selection and skill-owned hook attachments report unhydrated components
+without treating unrelated shared files as dependencies.
 
 ## Errors and Caveats
 
