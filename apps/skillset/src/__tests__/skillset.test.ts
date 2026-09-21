@@ -1900,7 +1900,8 @@ Beta body.
     join(root, "plugins/beta/claude/.claude-plugin/plugin.json"),
     "utf8"
   );
-  expect(betaClaudeManifest).toContain(`"agents": "./agents"`);
+  // Registry component-directory paths retain their canonical trailing slash.
+  expect(betaClaudeManifest).toContain(`"agents": "./agents/"`);
   expect(await exists(join(root, "plugins/beta/claude/agents/reviewer.md"))).toBe(true);
   expect(await exists(join(root, "plugins/alpha/chatgpt/agents/reviewer.md"))).toBe(false);
   expect(await exists(join(root, "plugins/beta/chatgpt/agents/reviewer.md"))).toBe(false);
