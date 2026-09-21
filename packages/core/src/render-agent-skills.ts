@@ -34,6 +34,7 @@ import type {
   BuildGraph,
   RenderedFile,
   SourcePlugin,
+  SourceResource,
   SourceSkill,
 } from "./types";
 
@@ -52,6 +53,7 @@ export interface AgentSkillLockItemArgs {
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
+  readonly resources: readonly SourceResource[];
   readonly skill: SourceSkill;
   readonly sourceDir: string;
   readonly transforms: readonly AppliedTransform[];
@@ -291,6 +293,7 @@ async function renderStandardAgentSkillTree(
     sourceDir,
     sourceUnit,
     markdown.file,
+    markdown.resources,
     skillLicense
   );
   const baselineConsumer: OutputConsumer = {
@@ -311,6 +314,7 @@ async function renderStandardAgentSkillTree(
         ...(codexMarkdown?.preprocessDependencies ?? []),
       ]),
     ].sort(),
+    resources: markdown.resources,
     skill: args.skill,
     sourceDir,
     transforms: [],
@@ -347,6 +351,7 @@ async function renderStandardAgentSkillTree(
       outputRoot: args.outputRoot,
       ...(args.plugin === undefined ? {} : { plugin: args.plugin }),
       preprocessDependencies: auxiliary.preprocessDependencies,
+      resources: markdown.resources,
       skill: args.skill,
       sourceDir,
       transforms: [],
@@ -365,6 +370,7 @@ async function renderBaselineFiles(
   sourceDir: string,
   sourceUnit: string,
   markdown: LogicalRenderedFile,
+  resources: readonly SourceResource[],
   skillLicense: ResolvedLicense | undefined
 ): Promise<readonly LogicalRenderedFile[]> {
   const baseline: LogicalRenderedFile[] = [];
@@ -394,7 +400,13 @@ async function renderBaselineFiles(
     );
   }
   await pushSourceFiles(args, sourceDir, sourceUnit, baseline, relativeFiles);
-  await pushDeclaredResources(args, sourceUnit, baseline, relativeFiles);
+  await pushEffectiveResources(
+    args,
+    resources,
+    sourceUnit,
+    baseline,
+    relativeFiles
+  );
   return baseline;
 }
 
@@ -433,13 +445,14 @@ async function pushSourceFiles(
   }
 }
 
-async function pushDeclaredResources(
+async function pushEffectiveResources(
   args: RenderStandardAgentSkillTreeArgs,
+  resources: readonly SourceResource[],
   sourceUnit: string,
   baseline: LogicalRenderedFile[],
   relativeFiles: Set<string>
 ): Promise<void> {
-  for (const resource of args.skill.resources) {
+  for (const resource of resources) {
     const files = await copyPath(
       resource.sourcePath,
       path.join(args.targetSkillDir, resource.targetPath)

@@ -37,7 +37,7 @@ import {
 } from "./plugin-output";
 import { pluginComponentPath } from "./plugin-component-paths";
 import {
-  resolveDeclaredResourceReference,
+  createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
 } from "./resources";
 import {
@@ -565,6 +565,7 @@ async function renderPluginSkillFiles(
     : {
         content: standardMarkdown.content,
         preprocessDependencies: standardMarkdown.preprocessDependencies,
+        resources: standardMarkdown.resources,
         transforms: [],
       };
   pushSkillRenderedFile(
@@ -626,7 +627,14 @@ async function renderPluginSkillFiles(
       `${skill.sourcePath}.${relativeFile}`
     );
   }
-  rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
+  rendered.push(
+    ...(await renderSkillResources(
+      skillMarkdown.resources,
+      skill,
+      targetSkillDir,
+      renderedRelativeFiles
+    ))
+  );
 
   lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
     await lockItemForSkill({
@@ -637,6 +645,7 @@ async function renderPluginSkillFiles(
       outputRoot,
       plugin,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
+      resources: skillMarkdown.resources,
       skill,
       sourceDir,
       transforms: skillMarkdown.transforms,
@@ -1152,7 +1161,14 @@ async function renderStandaloneSkill(
       `${skill.sourcePath}.${relativeFile}`
     );
   }
-  rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
+  rendered.push(
+    ...(await renderSkillResources(
+      skillMarkdown.resources,
+      skill,
+      targetSkillDir,
+      renderedRelativeFiles
+    ))
+  );
 
   lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
     await lockItemForSkill({
@@ -1162,6 +1178,7 @@ async function renderStandaloneSkill(
       license: skillLicense,
       outputRoot,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
+      resources: skillMarkdown.resources,
       skill,
       sourceDir,
       transforms: skillMarkdown.transforms,
@@ -1172,13 +1189,14 @@ async function renderStandaloneSkill(
 }
 
 async function renderSkillResources(
+  resources: readonly SourceResource[],
   skill: SourceSkill,
   targetSkillDir: string,
   renderedRelativeFiles: Set<string>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
 
-  for (const resource of skill.resources) {
+  for (const resource of resources) {
     for (const file of await copyPath(resource.sourcePath, join(targetSkillDir, resource.targetPath))) {
       if (file.path.endsWith(".gitkeep")) continue;
       pushSkillRenderedFile(
@@ -1230,6 +1248,7 @@ function formattedPreprocessDependencies(
 interface RenderedSkillMarkdown {
   readonly content: string;
   readonly preprocessDependencies: readonly string[];
+  readonly resources: readonly SourceResource[];
   /** Dialect transforms applied to the body (codex projections only). */
   readonly transforms: readonly AppliedTransform[];
 }
@@ -1302,6 +1321,17 @@ async function renderSkillMarkdown(
   );
 
   const preprocessDependencies = new Set<string>();
+  const resourcePlanner = createEffectiveSkillResourcePlanner(
+    skill.resources,
+    {
+      label: skill.sourcePath,
+      ...(plugin === undefined
+        ? {}
+        : { pluginSharedPath: join(plugin.path, "shared") }),
+      sharedPath: join(graph.sourceRootPath, "shared"),
+      sourceRootPath: graph.sourceRootPath,
+    }
+  );
   const preprocessedBody = await preprocessText(skill.body, {
     frontmatter: skill.frontmatter,
     preprocessDependencies,
@@ -1311,16 +1341,11 @@ async function renderSkillMarkdown(
     target,
     promptArguments: graph.root.compile.features.promptArguments,
     renderPathReference: (reference) =>
-      reference.scheme === undefined
-        ? reference.specifier.replaceAll("\\", "/")
-        : resolveDeclaredResourceReference(
-            reference.specifier,
-            skill.resources,
-            skill.sourcePath
-          ),
+      resourcePlanner.resolveReference(reference.specifier),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
-  const linkedBody = rewriteResourceLinks(preprocessedBody, skill.resources, skill.sourcePath);
+  const resources = resourcePlanner.resources();
+  const linkedBody = rewriteResourceLinks(preprocessedBody, resources, skill.sourcePath);
   const translated =
     target === "codex"
       ? renderCodexSkillBodyDelta(
@@ -1338,6 +1363,7 @@ async function renderSkillMarkdown(
       `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
     ),
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+    resources,
     transforms: translated.transforms,
   };
 }
@@ -1366,6 +1392,7 @@ async function renderCodexSkillMarkdownFromStandard(
       `${relative(graph.rootPath, skill.sourcePath)} -> coalesced Codex skill`
     ),
     preprocessDependencies: [],
+    resources: skill.resources,
     transforms: translated.transforms,
   };
 }
@@ -1964,6 +1991,7 @@ async function lockItemForSkill(args: {
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
+  readonly resources: readonly SourceResource[];
   readonly skill: SourceSkill;
   readonly sourceDir: string;
   readonly transforms: readonly AppliedTransform[];
@@ -1982,7 +2010,7 @@ async function lockItemForSkill(args: {
     ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
     sourceHash: await hashSkillSource(
       args.sourceDir,
-      args.skill.resources,
+      args.resources,
       args.skill.targets,
       renderAdaptiveFrontmatterHooks(
         args.graph,

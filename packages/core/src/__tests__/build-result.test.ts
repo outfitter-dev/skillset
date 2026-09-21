@@ -11,6 +11,7 @@ import {
   inspectOutputBackups,
   restoreOutputBackup,
 } from "@skillset/core";
+import { explainPath } from "@skillset/core/internal/authoring";
 import { assertCasePortableRenderedPaths } from "../render";
 
 const DEMO_FIXTURE: Record<string, string> = {
@@ -1196,50 +1197,50 @@ resources:
       to: references/shared-guide.md
 ---
 
-Read {{@references/local.md}} and {{@shared:references/shared.md}}.
+Read @{{shared:references/local.md}} and @{{shared:references/shared.md}}.
 `,
-      ".skillset/skills/guide/references/local.md": "Local guide.",
+      ".skillset/shared/references/local.md": "Local guide.",
       ".skillset/skills/guide/agents/openai.yaml": `
 interface:
   display_name: Guide
-  short_description: Read {{@shared:references/shared.md}}.
+  short_description: Read @{{shared:references/shared.md}}.
 `,
       ".skillset/rules/root.md": `
-Read {{@references/rule.md}}.
+Read @{{shared:references/rule.md}}.
 `,
-      ".skillset/rules/references/rule.md": "Rule guide.",
+      ".skillset/shared/references/rule.md": "Rule guide.",
       ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews project changes.
-initialPrompt: Start with {{@references/agent.md}}.
+initialPrompt: Start with @{{shared:references/agent.md}}.
 ---
 
-Read {{@references/agent.md}}.
+Read @{{shared:references/agent.md}}.
 `,
-      ".skillset/subagents/references/agent.md": "Agent guide.",
+      ".skillset/shared/references/agent.md": "Agent guide.",
     });
 
     await buildSkillsetResult(root);
 
     expect(
       await readFile(join(root, ".claude/skills/guide/SKILL.md"), "utf8")
-    ).toContain("Read references/local.md and references/shared-guide.md.");
+    ).toContain("Read @references/local.md and @references/shared-guide.md.");
     expect(
       await readFile(
         join(root, ".agents/skills/guide/agents/openai.yaml"),
         "utf8"
       )
-    ).toContain("Read references/shared-guide.md.");
+    ).toContain("Read @references/shared-guide.md.");
     expect(
       await readFile(join(root, ".claude/rules/root.md"), "utf8")
-    ).toContain("../../.skillset/rules/references/rule.md");
+    ).toContain("@../../.skillset/shared/references/rule.md");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain(
-      ".skillset/rules/references/rule.md"
+      "@.skillset/shared/references/rule.md"
     );
     expect(
       await readFile(join(root, ".cursor/rules/root.mdc"), "utf8")
-    ).toContain("../../.skillset/rules/references/rule.md");
+    ).toContain("@../../.skillset/shared/references/rule.md");
     for (const path of [
       ".claude/agents/reviewer.md",
       ".codex/agents/reviewer.toml",
@@ -1247,9 +1248,9 @@ Read {{@references/agent.md}}.
     ]) {
       const generated = await readFile(join(root, path), "utf8");
       expect(generated).toContain(
-        "../../.skillset/subagents/references/agent.md"
+        "@../../.skillset/shared/references/agent.md"
       );
-      expect(generated).not.toContain("{{@references/agent.md}}");
+      expect(generated).not.toContain("@{{shared:references/agent.md}}");
     }
   });
 
@@ -1262,15 +1263,16 @@ name: demo
 description: Demo skill.
 ---
 
-Read {{@references/missing.md}}.
+Read @{{shared:references/missing.md}}.
 `,
     });
     await expect(buildSkillsetResult(missing)).rejects.toThrow(
-      "failed to resolve path reference references/missing.md"
+      "workspace path reference shared:references/missing.md"
     );
 
     const undeclared = await fixture({
       ...DEMO_FIXTURE,
+      ".skillset/shared/docs/guide.md": "Guide.",
       ".skillset/shared/references/guide.md": "Guide.",
       ".skillset/skills/demo/SKILL.md": `
 ---
@@ -1278,12 +1280,122 @@ name: demo
 description: Demo skill.
 ---
 
-Read {{@shared:references/guide.md}}.
+Read @{{shared:docs/guide.md}}.
 `,
     });
     await expect(buildSkillsetResult(undeclared)).rejects.toThrow(
-      "references undeclared shared resource shared:references/guide.md"
+      "must begin with one of references, scripts, assets, templates"
     );
+  });
+
+  it("copies implied resources through provider and project skill projections", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: implied-resources
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/shared/assets/logo.svg": "<svg>logo</svg>\n",
+      ".skillset/shared/references/guide.md": "# Guide\n",
+      ".skillset/shared/references/ignored.md": "Ignored\n",
+      ".skillset/shared/references/remap.md": "Remapped\n",
+      ".skillset/shared/scripts/run.sh": "#!/bin/sh\necho run\n",
+      ".skillset/shared/templates/ignored.txt": "Ignored template\n",
+      ".skillset/shared/templates/report.txt": "Report\n",
+      ".skillset/skills/linked/SKILL.md": `
+---
+name: linked
+description: Links and copies resources.
+resources:
+  references:
+    - from: shared:references/remap.md
+      to: docs/remapped.md
+---
+
+Read @{{shared:references/guide.md}} twice @{{shared:references/guide.md}}.
+Run @{{shared:scripts/run.sh}}.
+View @{{shared:assets/logo.svg}}.
+Use @{{shared:templates/report.txt}}.
+Remapped @{{shared:references/remap.md}}.
+Mention \`@{{shared:references/ignored.md}}\` literally.
+
+\`\`\`md
+@{{shared:templates/ignored.txt}}
+\`\`\`
+`,
+    });
+    await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+
+    await buildSkillsetResult(root);
+
+    const projectionRoots = [
+      ".agents/skills/linked",
+      ".claude/skills/linked",
+      ".cursor/skills/linked",
+    ];
+    for (const projectionRoot of projectionRoots) {
+      const markdown = await readFile(
+        join(root, projectionRoot, "SKILL.md"),
+        "utf8"
+      );
+      expect(markdown).toContain("@references/guide.md");
+      expect(markdown).toContain("@scripts/run.sh");
+      expect(markdown).toContain("@assets/logo.svg");
+      expect(markdown).toContain("@templates/report.txt");
+      expect(markdown).toContain("@docs/remapped.md");
+      for (const relativePath of [
+        "references/guide.md",
+        "scripts/run.sh",
+        "assets/logo.svg",
+        "templates/report.txt",
+        "docs/remapped.md",
+      ]) {
+        expect(await Bun.file(join(root, projectionRoot, relativePath)).exists()).toBe(true);
+      }
+      expect(
+        await Bun.file(join(root, projectionRoot, "references/ignored.md")).exists()
+      ).toBe(false);
+      expect(
+        await Bun.file(join(root, projectionRoot, "templates/ignored.txt")).exists()
+      ).toBe(false);
+      expect((await stat(join(root, projectionRoot, "scripts/run.sh"))).mode & 0o111).not.toBe(0);
+    }
+    for (const relativePath of [
+      "references/guide.md",
+      "scripts/run.sh",
+      "assets/logo.svg",
+      "templates/report.txt",
+      "docs/remapped.md",
+    ]) {
+      expect(
+        await readFile(join(root, ".cursor/skills/linked", relativePath))
+      ).toEqual(
+        await readFile(join(root, ".claude/skills/linked", relativePath))
+      );
+    }
+
+    const claudeLock = JSON.parse(
+      await readFile(join(root, ".claude/skills/skillset.lock"), "utf8")
+    ) as { items: Array<{ files: string[]; name: string; sourceHash: string }> };
+    const linkedItem = claudeLock.items.find((item) => item.name === "linked");
+    expect(linkedItem?.files).toContain("linked/references/guide.md");
+    expect(linkedItem?.files).toContain("linked/docs/remapped.md");
+    expect(linkedItem?.sourceHash).toStartWith("sha256:");
+
+    const explained = await explainPath(
+      root,
+      ".claude/skills/linked/references/guide.md"
+    );
+    expect(explained.kind).toBe("generated");
+    expect(explained.entries[0]?.files).toContain(
+      ".claude/skills/linked/references/guide.md"
+    );
+
+    const repeated = await buildSkillsetResult(root);
+    expect(repeated.writes.writtenPaths).toEqual([]);
+    expect(repeated.writes.deletedPaths).toEqual([]);
   });
 
   it("rejects invalid workspace config metadata through the shared schema", async () => {

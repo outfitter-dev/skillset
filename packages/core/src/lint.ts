@@ -234,7 +234,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
         path,
         message:
           `${path} links to undeclared resource ${undeclared.reference}; ` +
-          `declare it, e.g. ${undeclared.suggestion}`,
+          undeclared.suggestion,
       });
     }
 
