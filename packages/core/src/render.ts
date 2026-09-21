@@ -1586,6 +1586,9 @@ async function renderProjectUseSkill(
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (["SKILL.md", "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
+    // Skill-local hook definitions are not hydrated into project-use copies.
+    // Explicit resources are still copied by renderSkillResources below.
+    if (relativeFile.startsWith(`hooks${sep}`)) continue;
     if (generatedRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
