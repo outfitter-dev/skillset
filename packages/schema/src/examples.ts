@@ -140,11 +140,13 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           },
         ],
       },
+      drafts: ["plugin.skillset.skill:experimental"],
       distributions: {
         plugins: {
           path: "dist/plugins",
         },
       },
+      internal_marker: true,
       marketplaces: {
         outfitter: {
           description: "Curated Outfitter provider plugins.",
@@ -213,6 +215,17 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           ],
           targets: ["claude", "codex", "cursor"],
           title: "Outfitter",
+        },
+      },
+      plugins: {
+        internal_use: {
+          plugins: ["skillset"],
+          skills: {
+            skillset: ["use-skillset", "!experimental"],
+          },
+        },
+        output: {
+          path: "packages/[name]",
         },
       },
       skillset: {

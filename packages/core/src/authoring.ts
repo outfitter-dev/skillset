@@ -71,9 +71,13 @@ export interface ExplainResult {
 
 export interface SourceSkillInspection {
   readonly container: "workspace" | string;
-  readonly draftOrigin?: "_drafts" | "status";
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly groupPath: readonly string[];
   readonly id: string;
+  readonly internalUse?: {
+    readonly rule: string;
+    readonly selected: boolean;
+  };
   readonly sourcePath: string;
   readonly status: "draft" | "live";
 }
@@ -492,6 +496,7 @@ export interface DoctorReport {
   readonly notableRenderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly outputState: SkillsetOutputStateEvidence;
+  readonly pluginPlan?: NonNullable<BuildGraph["pluginPlan"]>;
   readonly standardProfiles: readonly StandardProfileStatus[];
   readonly warnings: readonly string[];
 }
@@ -603,6 +608,7 @@ export async function doctorSkillset(
     notableRenderResults: notable,
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
     outputState,
+    ...(graph.pluginPlan === undefined ? {} : { pluginPlan: graph.pluginPlan }),
     standardProfiles: standardProfileStatuses(
       graph.standardProjections,
       options.scopes
@@ -877,6 +883,24 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
   const notes = [
     `Status: ${skill.status ?? "live"}${skill.draftOrigin === undefined ? "" : ` (${skill.draftOrigin})`}.`,
   ];
+  const pluginId = graph.plugins.find((plugin) =>
+    (plugin.discoveredSkills ?? plugin.skills).some(
+      (candidate) => candidate.sourcePath === skill.sourcePath
+    )
+  )?.id;
+  if (pluginId !== undefined) {
+    const decision = graph.pluginPlan?.internalUse.decisions.find(
+      (candidate) =>
+        candidate.pluginId === pluginId &&
+        candidate.skillId === skill.id &&
+        candidate.status === (skill.status ?? "live")
+    );
+    if (decision !== undefined) {
+      notes.push(
+        `Internal use: ${decision.selected ? "selected" : "excluded"} by ${decision.rule}.`
+      );
+    }
+  }
   if ((skill.groupPath?.length ?? 0) > 0) {
     notes.push(`Group: ${skill.groupPath?.join("/")}.`);
   }
@@ -957,14 +981,36 @@ function sourceSkillInventory(graph: BuildGraph): readonly SourceSkillInspection
     }
   }
   return discoveredSkills(graph)
-    .map((skill) => ({
-      container: pluginBySourcePath.get(skill.sourcePath) ?? "workspace",
-      ...(skill.draftOrigin === undefined ? {} : { draftOrigin: skill.draftOrigin }),
-      groupPath: skill.groupPath ?? [],
-      id: skill.id,
-      sourcePath: normalizeSourcePath(graph, skill.sourcePath),
-      status: skill.status ?? "live",
-    }))
+    .map((skill) => {
+      const container = pluginBySourcePath.get(skill.sourcePath) ?? "workspace";
+      const decision =
+        container === "workspace"
+          ? undefined
+          : graph.pluginPlan?.internalUse.decisions.find(
+              (candidate) =>
+                candidate.pluginId === container &&
+                candidate.skillId === skill.id &&
+                candidate.status === (skill.status ?? "live")
+            );
+      return {
+        container,
+        ...(skill.draftOrigin === undefined
+          ? {}
+          : { draftOrigin: skill.draftOrigin }),
+        groupPath: skill.groupPath ?? [],
+        id: skill.id,
+        ...(decision === undefined
+          ? {}
+          : {
+              internalUse: {
+                rule: decision.rule,
+                selected: decision.selected,
+              },
+            }),
+        sourcePath: normalizeSourcePath(graph, skill.sourcePath),
+        status: skill.status ?? "live",
+      };
+    })
     .sort((left, right) => compareStrings(left.sourcePath, right.sourcePath));
 }
 

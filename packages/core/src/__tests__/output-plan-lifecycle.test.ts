@@ -46,8 +46,8 @@ describe("coalesced output lifecycle", () => {
     ).toContain("Review the change.");
   });
 
-  test("retains an adopted standard root alongside a custom provider root", async () => {
-    const root = await fixture(customCodexConfig());
+  test("retains an adopted standard root when fixed-root provider output is disabled", async () => {
+    const root = await fixture(standardsOnlyCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -66,15 +66,16 @@ describe("coalesced output lifecycle", () => {
     expect(
       await Bun.file(join(root, ".agents/skills/review/SKILL.md")).exists()
     ).toBe(true);
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(true);
+    const lock = JSON.parse(
+      await readFile(join(root, ".agents/skills/skillset.lock"), "utf-8")
+    );
+    expect(lock.items[0]?.consumers).toEqual([
+      { phase: "baseline", standardProfile: "agent-skills" },
+    ]);
   });
 
   test("rolls back an inactive-root transition atomically", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -103,15 +104,10 @@ describe("coalesced output lifecycle", () => {
     expect(
       await Bun.file(join(root, ".agents/skills/skillset.lock")).exists()
     ).toBe(true);
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("applies inactive-root cleanup only inside an isolated projection", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     const xdg = {
       env: { XDG_CACHE_HOME: join(root, "xdg-cache") },
       homeDir: root,
@@ -152,7 +148,7 @@ describe("coalesced output lifecycle", () => {
   });
 
   test("rejects a future-schema inactive lock without granting cleanup ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -167,15 +163,10 @@ describe("coalesced output lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects a pre-v3 inactive lock without granting cleanup ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -196,15 +187,10 @@ describe("coalesced output lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects a malformed inactive lock without granting legacy-root ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -220,15 +206,10 @@ describe("coalesced output lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects traversal in an inactive lock without deleting outside its root", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -249,15 +230,10 @@ describe("coalesced output lifecycle", () => {
       buildSkillsetResult(root, { scopes: ["repo"] })
     ).rejects.toThrow("must stay inside its output root");
     expect(await readFile(outsidePath, "utf-8")).toBe(outsideContent);
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects a tampered inactive lock without granting cleanup ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -275,11 +251,6 @@ describe("coalesced output lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("inspects invalid provenance only for active paths so managed edits can be backed up", async () => {
@@ -414,7 +385,7 @@ describe("coalesced output lifecycle", () => {
   });
 
   test("removes an inactive standard plugin root only in plugin scope", async () => {
-    const root = await fixture(customCodexConfig());
+    const root = await fixture(defaultCodexConfig());
     await seedManagedPluginRoot(root);
     await Bun.write(join(root, "plugins/unmanaged.txt"), "keep me\n");
     const graph = await loadBuildGraph(root);
@@ -449,13 +420,12 @@ cursor: false
 `;
 }
 
-function customCodexConfig(): string {
+function standardsOnlyCodexConfig(): string {
   return `skillset:
   name: output-plan-lifecycle
 claude: false
 codex:
-  skills:
-    path: generated/codex-skills
+  skills: false
 cursor: false
 `;
 }

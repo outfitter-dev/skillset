@@ -455,7 +455,7 @@ cursor: false
     });
   });
 
-  it("filters plugin and standalone-skill fallback roots by target", async () => {
+  it("filters plugin fallback roots by target while fixed skills retain the standard baseline", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -463,13 +463,9 @@ skillset:
 claude:
   plugins:
     path: generated/claude/plugins
-  skills:
-    path: generated/claude/skills
 codex:
   plugins:
     path: generated/codex/plugins
-  skills:
-    path: generated/codex/skills
 cursor: false
 `,
       ".skillset/skills/standalone/SKILL.md": `
@@ -500,9 +496,8 @@ Body.
     expect(baseline.writes.paths).toContain(
       "generated/claude/plugins/skillset.lock"
     );
-    expect(baseline.writes.paths).toContain(
-      "generated/claude/skills/skillset.lock"
-    );
+    expect(baseline.writes.paths).toContain(".claude/skills/skillset.lock");
+    expect(baseline.writes.paths).toContain(".agents/skills/skillset.lock");
     await writeFile(
       join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
       "---\nname: demo\ndescription: [\n---\nBroken plugin skill.\n",
@@ -529,7 +524,7 @@ Body.
     expect(claudePlugins.outputState.hasBaseline).toBe(true);
     expect(codexPlugins.outputState.hasBaseline).toBe(false);
     expect(claudeSkills.outputState.hasBaseline).toBe(true);
-    expect(codexSkills.outputState.hasBaseline).toBe(false);
+    expect(codexSkills.outputState.hasBaseline).toBe(true);
   });
 
   it("scopes status and readiness baseline evidence when plugin rendering fails", async () => {

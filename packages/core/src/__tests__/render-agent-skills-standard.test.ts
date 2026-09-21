@@ -596,12 +596,12 @@ Help with the repository.
     );
   });
 
-  test("keeps a custom Codex skill root independent from the standard projection", async () => {
-    const graph = adopted(
-      await fixtureGraph({
+  test("rejects a custom Codex skill root before standard projection", async () => {
+    await expect(
+      fixtureGraph({
         "skillset.yaml": `
 skillset:
-  name: custom-codex-root
+  name: rejected-custom-codex-root
 claude: false
 codex:
   skills:
@@ -619,29 +619,8 @@ codex:
 
 Review the change.
 `,
-      }),
-      ["agent-skills"]
-    );
-
-    const rendered = await renderBuildGraph(graph);
-    expect(paths(rendered)).toEqual(
-      expect.arrayContaining([
-        ".agents/skills/review/SKILL.md",
-        "generated/codex-skills/review/SKILL.md",
-      ])
-    );
-    expect(
-      parseMarkdown(
-        text(rendered, ".agents/skills/review/SKILL.md"),
-        "standard skill"
-      ).frontmatter
-    ).not.toHaveProperty("provider-only");
-    expect(
-      parseMarkdown(
-        text(rendered, "generated/codex-skills/review/SKILL.md"),
-        "Codex skill"
-      ).frontmatter
-    ).toHaveProperty("provider-only", true);
+      })
+    ).rejects.toThrow("codex.skills.path");
   });
 
   test.each([

@@ -1525,7 +1525,7 @@ skillset:
     expect(report).toEqual({ checkedFiles: 1, issues: [], ok: true });
   });
 
-  it("uses render-result metadata to include custom output roots", async () => {
+  it("uses render-result metadata for custom plugin and fixed skill roots", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1534,8 +1534,6 @@ claude: false
 codex:
   plugins:
     path: generated/openai-plugins
-  skills:
-    path: generated/openai-skills
 cursor: false
 `,
       ".skillset/plugins/repo-plugin/skillset.yaml": `
@@ -1565,7 +1563,7 @@ Use the repo skill.
 
     const files = providerFormatConformanceFiles(build.data, build.renderResults);
     const customSkill = files.find((file) =>
-      file.path === ".skillset/cache/latest/generated/openai-skills/repo-skill/SKILL.md"
+      file.path === ".skillset/cache/latest/.agents/skills/repo-skill/SKILL.md"
     );
     const customPlugin = files.find((file) =>
       file.path === ".skillset/cache/latest/generated/openai-plugins/plugins/repo-plugin/plugin.json"
@@ -1577,7 +1575,7 @@ Use the repo skill.
 
     expect(customSkill).toMatchObject({
       destination: "skill",
-      target: "codex",
+      standardProfile: "agent-skills",
     });
     expect(customPlugin).toMatchObject({
       destination: "plugin-manifest",
