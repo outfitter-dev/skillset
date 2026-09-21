@@ -82,8 +82,11 @@ try {
   // Pin the interpreter, not the machine. Checks such as the native size
   // baseline compare recorded evidence against `Bun.version`, so a contributor
   // whose global Bun differs from `.bun-version` would otherwise fail tests
-  // that pass in CI. Resolution is a no-op when the ambient Bun already
-  // matches, which is the CI case.
+  // that pass in CI. Resolution always yields a path under our own cache, even
+  // when the ambient Bun already matches the pin: that path is shared with
+  // every other repository whose bootstrap installs a pinned Bun over it, and
+  // this PATH entry governs the whole run. A matching ambient interpreter is
+  // adopted by copy, so CI pays one copy on a cold cache rather than nothing.
   const pinnedBun = await resolvePinnedBun(repoRoot);
   env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
   const childCommand =
