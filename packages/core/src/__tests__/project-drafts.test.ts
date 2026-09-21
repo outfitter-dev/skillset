@@ -310,6 +310,26 @@ Review body.
     );
   });
 
+  it("rejects unresolved draft hooks instead of silently omitting them", async () => {
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: draft-hooks-missing\nclaude: true\ncodex: false\ncursor: false\n",
+      ".skillset/skills/_drafts/review/SKILL.md": `---
+name: review
+description: Draft with an unresolved hook
+hooks:
+  PreToolUse:
+    - missing
+---
+
+Review body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "project draft review has adaptive hooks that cannot be rendered in its project copy"
+    );
+  });
+
   it("does not reject draft hooks scoped away from the enabled target", async () => {
     const root = await fixture({
       "skillset.yaml": "skillset:\n  name: draft-hooks-filtered\nclaude: false\ncodex: true\ncursor: false\n",

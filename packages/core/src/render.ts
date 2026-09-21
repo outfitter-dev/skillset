@@ -1528,15 +1528,24 @@ async function renderProjectSkillCopy(
   ) return [];
   // Resolve against this draft's definitions, not a same-name live sibling's
   // skill scope. Only hooks eligible for this target block the project copy.
-  const draftHooks = copy.draftOrigin === undefined ? [] : resolveAdaptiveHookAttachmentsForTarget(
+  const eligibleDraftAttachments = copy.draftOrigin === undefined
+    ? []
+    : skill.hookAttachments.filter((attachment) =>
+        attachment.providers === undefined || attachment.providers.includes(target)
+      );
+  const draftHookResolution = resolveAdaptiveHookAttachmentsForTarget(
     [...graph.adaptiveHooks.filter((hook) => hook.scope.kind !== "skill"), ...skill.adaptiveHooks],
-    skill.hookAttachments,
+    eligibleDraftAttachments,
     target
-  ).resolved.filter(({ attachment, definition }) =>
-    (attachment.providers === undefined || attachment.providers.includes(target)) &&
-    (definition.providers === undefined || definition.providers.includes(target))
   );
-  if (draftHooks.length > 0) {
+  if (
+    draftHookResolution.resolved.some(({ definition }) =>
+      definition.providers === undefined || definition.providers.includes(target)
+    ) ||
+    draftHookResolution.issues.some((issue) =>
+      eligibleDraftAttachments.some((attachment) => issue.paths.includes(attachment.sourcePath))
+    )
+  ) {
     throw new SkillsetFeatureDiagnosticError({
       code: "project-draft-hooks-unsupported",
       featureId: "draft-skills",
