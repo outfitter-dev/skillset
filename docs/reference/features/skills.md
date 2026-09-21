@@ -86,6 +86,10 @@ because of the prefix are truncated with an ellipsis and reported as
 origin and same-container shipped sibling as well as normal project-use
 provenance.
 
+Target-eligible adaptive hook attachments on a selected project draft are a build error until
+project draft copies can hydrate them; Skillset does not emit a silently
+nonfunctional draft.
+
 ## Errors and Caveats
 
 Skillset rejects identity conflicts, duplicate skill leaves across groups, unsupported source schema versions, malformed versions, invalid draft status values, invalid preprocessing expressions, unsafe resource paths, and output collisions. Agent Plugins diagnostics also reject package skill layouts the portable package would not discover. A top-level `model` is not portable: it warns unless each enabled target receives an explicit provider model through a file override or defaults.

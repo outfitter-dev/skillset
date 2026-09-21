@@ -25,6 +25,7 @@ import type {
   SourcePlugin,
   SourceResource,
   SourceSkill,
+  TargetName,
 } from "./types";
 import { skillVersion } from "./versioning";
 
@@ -91,9 +92,12 @@ export function draftSkillDescription(description: string): string {
   return `${DRAFT_DESCRIPTION_PREFIX}${[...description].slice(0, available).join("")}…`;
 }
 
-export function draftSkillDescriptionWasTruncated(skill: SourceSkill): boolean {
+export function draftSkillDescriptionWasTruncated(skill: SourceSkill, target?: TargetName): boolean {
+  const override = target === undefined
+    ? undefined
+    : readString(readRecord(skill.targets[target].options, "frontmatter") ?? {}, "description");
   return characterLength(
-    `${DRAFT_DESCRIPTION_PREFIX}${resolvedSkillDescription(skill)}`
+    `${DRAFT_DESCRIPTION_PREFIX}${override ?? resolvedSkillDescription(skill)}`
   ) > AGENT_SKILLS_DESCRIPTION_LIMIT;
 }
 

@@ -794,7 +794,7 @@ function outcomeForLockItem(
         (skill) => relative(graph.rootPath, skill.sourcePath) === item.sourcePath
       );
   const draftDiagnostics =
-    sourceSkill === undefined || !draftSkillDescriptionWasTruncated(sourceSkill)
+    sourceSkill === undefined || !draftSkillDescriptionWasTruncated(sourceSkill, target)
       ? []
       : [{
           code: "draft-description-truncated",

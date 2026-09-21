@@ -11,6 +11,7 @@ import {
 } from "@skillset/schema";
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
+import { resolveAdaptiveHookAttachmentsForTarget } from "./adaptive-hook-attachments";
 import {
   isOutputSelected,
   mergeRecords,
@@ -1525,6 +1526,24 @@ async function renderProjectSkillCopy(
     !skill.targets[target].enabled ||
     !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, skill.id)
   ) return [];
+  // Resolve against this draft's definitions, not a same-name live sibling's
+  // skill scope. Only hooks eligible for this target block the project copy.
+  const draftHooks = copy.draftOrigin === undefined ? [] : resolveAdaptiveHookAttachmentsForTarget(
+    [...graph.adaptiveHooks.filter((hook) => hook.scope.kind !== "skill"), ...skill.adaptiveHooks],
+    skill.hookAttachments,
+    target
+  ).resolved.filter(({ attachment, definition }) =>
+    (attachment.providers === undefined || attachment.providers.includes(target)) &&
+    (definition.providers === undefined || definition.providers.includes(target))
+  );
+  if (draftHooks.length > 0) {
+    throw new SkillsetFeatureDiagnosticError({
+      code: "project-draft-hooks-unsupported",
+      featureId: "draft-skills",
+      message: `skillset: project draft ${skill.id} has adaptive hooks that cannot be rendered in its project copy`,
+      path: relative(graph.rootPath, skill.sourcePath),
+    });
+  }
 
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
@@ -1577,7 +1596,8 @@ async function renderProjectSkillCopy(
         skill,
         standard.content,
         standard.preprocessDependencies,
-        copy.draftOrigin !== undefined ? true : graph.root.internalMarker
+        copy.draftOrigin !== undefined ? true : graph.root.internalMarker,
+        copy.draftOrigin === undefined ? undefined : copy.effectiveName
       );
   const resources = standard?.resources ?? skillMarkdown.resources;
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
@@ -1831,9 +1851,17 @@ async function renderSkillMarkdown(
     version,
     graph.root.compile.skillset.metadata
   );
+  const withDraftPresentation = options.draft === true
+    ? withProjectDraftPresentation(
+        renderedFrontmatter,
+        options.effectiveName ?? skill.id,
+        draftSkillDescription(sourceDescription),
+        readString(targetFrontmatter, "description")
+      )
+    : renderedFrontmatter;
   const frontmatter = options.internal === undefined
-    ? renderedFrontmatter
-    : withProjectUseInternalMarker(renderedFrontmatter, options.internal);
+    ? withDraftPresentation
+    : withProjectUseInternalMarker(withDraftPresentation, options.internal);
 
   const preprocessDependencies = new Set<string>();
   const resourcePlanner = createEffectiveSkillResourcePlanner(
@@ -1889,7 +1917,8 @@ async function renderCodexSkillMarkdownFromStandard(
   skill: SourceSkill,
   baselineContent: string,
   baselinePreprocessDependencies: readonly string[] = [],
-  projectUseInternal?: boolean
+  projectUseInternal?: boolean,
+  draftEffectiveName?: string
 ): Promise<RenderedSkillMarkdown> {
   const baseline = parseMarkdown(
     baselineContent,
@@ -1903,9 +1932,17 @@ async function renderCodexSkillMarkdownFromStandard(
     baseline.body
   );
   const mergedFrontmatter = mergeRecords(baseline.frontmatter, targetFrontmatter);
-  const frontmatter = projectUseInternal === undefined
+  const withDraftPresentation = draftEffectiveName === undefined
     ? mergedFrontmatter
-    : withProjectUseInternalMarker(mergedFrontmatter, projectUseInternal);
+    : withProjectDraftPresentation(
+        mergedFrontmatter,
+        draftEffectiveName,
+        readString(baseline.frontmatter, "description") ?? draftSkillDescription(skill.id),
+        readString(targetFrontmatter, "description")
+      );
+  const frontmatter = projectUseInternal === undefined
+    ? withDraftPresentation
+    : withProjectUseInternalMarker(withDraftPresentation, projectUseInternal);
   return {
     content: renderValidatedMarkdown(
       frontmatter,
@@ -1915,6 +1952,21 @@ async function renderCodexSkillMarkdownFromStandard(
     preprocessDependencies: [...baselinePreprocessDependencies],
     resources: skill.resources,
     transforms: translated.transforms,
+  };
+}
+
+function withProjectDraftPresentation(
+  frontmatter: JsonRecord,
+  effectiveName: string,
+  baselineDescription: string,
+  overrideDescription: string | undefined
+): JsonRecord {
+  return {
+    ...frontmatter,
+    name: effectiveName,
+    description: overrideDescription === undefined
+      ? baselineDescription
+      : draftSkillDescription(overrideDescription),
   };
 }
 

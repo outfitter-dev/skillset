@@ -89,6 +89,7 @@ export function resolveInternalUseSelection(
     for (const skillId of draftIds) {
       const hasShippedSibling = liveIds.includes(skillId);
       const shippedSiblingSelected = selectedLiveIds.has(skillId);
+      const shippedSiblingExcluded = skillsResolution.excluded.has(skillId);
       const selectedByDraftPolicy = draftPolicy === undefined
         ? hasShippedSibling && shippedSiblingSelected
         : draftsResolution.selected.has(skillId);
@@ -96,10 +97,11 @@ export function resolveInternalUseSelection(
         !pluginExcluded &&
         !draftsResolution.excluded.has(skillId) &&
         selectedByDraftPolicy &&
-        (!hasShippedSibling || shippedSiblingSelected);
+        !shippedSiblingExcluded;
       const rule = pluginExcluded
         ? `plugins.internal_use.plugins: !${plugin.id}`
-        : hasShippedSibling && !shippedSiblingSelected
+        : hasShippedSibling &&
+            (shippedSiblingExcluded || (draftPolicy === undefined && !shippedSiblingSelected))
           ? decisions.find(
               (decision) =>
                 decision.pluginId === plugin.id &&

@@ -103,6 +103,9 @@ selecting the whole plugin or a skill with its own hook attachment reports the
 unhydrated dependency. An unrelated file in a shared directory does not make
 an individually selected skill depend on it.
 
+Target-eligible adaptive hook attachments on a selected project draft are rejected because
+project draft copies cannot hydrate them; they are never silently dropped.
+
 ## Plan Plugin Package Paths
 
 `plugins.output` parses package placement now. The default is
