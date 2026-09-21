@@ -21,6 +21,7 @@ import {
   type SkillsetDiff,
 } from "./build";
 import { inspectSkillset } from "./lint";
+import type { InternalUseDecision } from "./internal-use";
 import {
   createOperationalPathContext,
   logicalOperationalPath,
@@ -916,8 +917,9 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
         candidate.status === (skill.status ?? "live")
     );
     if (decision !== undefined) {
+      const internalUse = effectiveInternalUseDecision(graph, decision);
       notes.push(
-        `Internal use: ${decision.selected ? "selected" : "excluded"} by ${decision.rule}.`
+        `Internal use: ${internalUse.selected ? "selected" : "excluded"} by ${internalUse.rule}.`
       );
     }
   }
@@ -1037,16 +1039,32 @@ function sourceSkillInventory(graph: BuildGraph): readonly SourceSkillInspection
         ...(decision === undefined
           ? {}
           : {
-              internalUse: {
-                rule: decision.rule,
-                selected: decision.selected,
-              },
+              internalUse: effectiveInternalUseDecision(graph, decision),
             }),
         sourcePath: normalizeSourcePath(graph, skill.sourcePath),
         status: skill.status ?? "live",
       };
     })
     .sort((left, right) => compareStrings(left.sourcePath, right.sourcePath));
+}
+
+function effectiveInternalUseDecision(
+  graph: BuildGraph,
+  decision: InternalUseDecision
+): NonNullable<SourceSkillInspection["internalUse"]> {
+  if (decision.status === "live" && decision.selected) {
+    const emitted = graph.pluginPlan?.internalUse.skills.some(
+      (skill) => skill.pluginId === decision.pluginId && skill.skillId === decision.skillId
+    );
+    const draftPolicy = graph.root.plugins.internalUse.drafts[decision.pluginId];
+    if (!emitted && (draftPolicy === "only" || draftPolicy === "override")) {
+      return {
+        rule: `plugins.internal_use.drafts.${decision.pluginId}: ${draftPolicy}`,
+        selected: false,
+      };
+    }
+  }
+  return { rule: decision.rule, selected: decision.selected };
 }
 
 function discoveredSkills(graph: BuildGraph): readonly SourceSkill[] {

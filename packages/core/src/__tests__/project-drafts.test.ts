@@ -7,6 +7,7 @@ import { buildSkillsetResult } from "@skillset/core";
 import {
   doctorSkillset,
   explainPath,
+  listSourceSkills,
 } from "@skillset/core/internal/authoring";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 
@@ -866,6 +867,55 @@ ${selection}
     );
     await buildSkillsetResult(root);
     expect(await names()).toEqual([]);
+  });
+
+  it("reports live skills suppressed by only and override as not selected for project use", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:
+  name: draft-mode-inspection
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      demo: true
+    drafts:
+      demo: only
+`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/paired/SKILL.md": skill("paired", "Live paired"),
+      ".skillset/plugins/demo/skills/_drafts/paired/SKILL.md": skill("paired", "Draft paired"),
+      ".skillset/plugins/demo/skills/plain/SKILL.md": skill("plain", "Live plain"),
+    });
+    const liveSource = ".skillset/plugins/demo/skills/paired/SKILL.md";
+    const plainSource = ".skillset/plugins/demo/skills/plain/SKILL.md";
+    const inspect = async (sourcePath: string) =>
+      (await listSourceSkills(root)).find((entry) => entry.sourcePath === sourcePath)?.internalUse;
+
+    await buildSkillsetResult(root);
+    expect(await inspect(liveSource)).toMatchObject({
+      rule: "plugins.internal_use.drafts.demo: only",
+      selected: false,
+    });
+    expect(await inspect(plainSource)).toMatchObject({ selected: false });
+    expect((await explainPath(root, liveSource)).notes).toContain(
+      "Internal use: excluded by plugins.internal_use.drafts.demo: only."
+    );
+
+    await writeFile(
+      join(root, "skillset.yaml"),
+      (await readFile(join(root, "skillset.yaml"), "utf8")).replace("demo: only", "demo: override")
+    );
+    await buildSkillsetResult(root);
+    expect(await inspect(liveSource)).toMatchObject({
+      rule: "plugins.internal_use.drafts.demo: override",
+      selected: false,
+    });
+    expect(await inspect(plainSource)).toMatchObject({ selected: true });
+    expect((await explainPath(root, liveSource)).notes).toContain(
+      "Internal use: excluded by plugins.internal_use.drafts.demo: override."
+    );
   });
 
   it("retains override preprocessing dependencies and hashes referenced partial edits", async () => {
