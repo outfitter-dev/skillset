@@ -349,8 +349,11 @@ export interface SkillsetSourceReferenceDescriptor {
   readonly id:
     | "adaptive-hook-run-script"
     | "agent-skills"
+    | "configured-draft-selector"
+    | "distribution-source-selector"
     | "hook-attachment"
     | "internal-plugin-dependency"
+    | "internal-plugin-selection"
     | "skill-eval-file"
     | "skill-eval-skill-name"
     | "skill-resource-destination"

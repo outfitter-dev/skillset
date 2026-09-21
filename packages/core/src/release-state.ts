@@ -1,10 +1,11 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { readChangeLedger } from "./change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { sourceUnitSelector } from "./source-unit-selector";
+import { latestSourceMoveCursor, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
 import { validateVersionField } from "./versioning";
 import { workspaceChangeFile } from "./workspace-state";
@@ -16,21 +17,26 @@ export async function readReleaseState(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<ReleaseState> {
-  const derived = await readLedgerReleaseState(rootPath, options);
+  const events = await readChangeLedger(rootPath, options);
+  const mappings = sourceIdentityMappings(events);
+  const derived = readLedgerReleaseState(events);
   const statePath = releaseStatePath(rootPath, options);
   if (!(await exists(statePath))) return derived;
 
-  let cached: ReleaseState;
+  let cached: { readonly cursor: string | null | undefined; readonly state: ReleaseState };
   try {
     cached = await readCachedReleaseState(statePath);
   } catch (error) {
     if (Object.keys(derived.scopes).length > 0) return derived;
     throw error;
   }
-  return mergeReleaseStates(cached, derived);
+  return mergeReleaseStates(
+    remapReleaseState(cached.state, sourceMappingsAfterCursor(mappings, cached.cursor)),
+    derived
+  );
 }
 
-async function readCachedReleaseState(statePath: string): Promise<ReleaseState> {
+async function readCachedReleaseState(statePath: string): Promise<{ readonly cursor: string | null | undefined; readonly state: ReleaseState }> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(statePath, "utf8")) as unknown;
@@ -41,8 +47,12 @@ async function readCachedReleaseState(statePath: string): Promise<ReleaseState> 
   if (!isJsonRecord(parsed)) {
     throw new Error("skillset: release state must be a JSON object");
   }
-  if (parsed.schemaVersion !== undefined && parsed.schemaVersion !== 1) {
-    throw new Error("skillset: release state schemaVersion must be 1");
+  if (parsed.schemaVersion !== undefined && parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) {
+    throw new Error("skillset: release state schemaVersion must be 1 or 2");
+  }
+  const cursor = parsed.schemaVersion === 2 ? parsed.sourceMoveCursor : undefined;
+  if (parsed.schemaVersion === 2 && cursor !== null && typeof cursor !== "string") {
+    throw new Error("skillset: release state sourceMoveCursor must be a string or null");
   }
   const rawScopes = parsed.scopes;
   if (!isJsonRecord(rawScopes)) {
@@ -75,15 +85,20 @@ async function readCachedReleaseState(statePath: string): Promise<ReleaseState> 
       version,
     };
   }
-  return { scopes };
+  return { cursor: cursor as string | null | undefined, state: { scopes } };
 }
 
-async function readLedgerReleaseState(
-  rootPath: string,
-  options: SkillsetOptions
-): Promise<ReleaseState> {
+function readLedgerReleaseState(events: readonly ChangeLedgerEvent[]): ReleaseState {
   const scopes: Record<string, ReleaseScopeState> = {};
-  for (const event of await readChangeLedger(rootPath, options)) {
+  for (const event of events) {
+    if (event.type === "source.moved") {
+      const previous = scopes[event.payload.from];
+      if (previous !== undefined) {
+        delete scopes[event.payload.from];
+        scopes[event.payload.to] = previous;
+      }
+      continue;
+    }
     if (event.type !== "release.applied") continue;
     for (const scope of event.payload.scopes) {
       scopes[sourceUnitSelector(scope.selector)] = {
@@ -93,6 +108,17 @@ async function readLedgerReleaseState(
         version: scope.version,
       };
     }
+  }
+  return { scopes };
+}
+
+function remapReleaseState(state: ReleaseState, mappings: ReturnType<typeof sourceIdentityMappings>): ReleaseState {
+  const scopes: Record<string, ReleaseScopeState> = { ...state.scopes };
+  for (const mapping of mappings) {
+    const previous = scopes[mapping.from];
+    if (previous === undefined) continue;
+    delete scopes[mapping.from];
+    scopes[mapping.to] = previous;
   }
   return { scopes };
 }
@@ -126,7 +152,8 @@ export async function writeReleaseState(
     };
   }
   await mkdir(dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, stringifyJson({ schemaVersion: 1, scopes }), "utf8");
+  const cursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, options)));
+  await writeFile(absolutePath, stringifyJson({ schemaVersion: 2, sourceMoveCursor: cursor, scopes }), "utf8");
   return relativePath;
 }
 

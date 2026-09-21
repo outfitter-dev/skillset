@@ -10,10 +10,11 @@ import {
   type ChangeGroup,
   type PendingChangeEntry,
 } from "./change-entries";
-import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
+import { readChangeLedger, type ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
 import { changeStatus, detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings, sourceMappingsAfterCursor } from "@skillset/core/internal/source-identity-mapping";
 import {
   selectorForPluginCompanion,
   selectorForPluginConfig,
@@ -736,6 +737,7 @@ async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions
   const path = workspaceChangeFile(options.sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return [];
+  const mappings = sourceIdentityMappings(await readChangeLedger(rootPath, options));
   const entries: HistoryEntry[] = [];
   const lines = (await readFile(absolutePath, "utf8")).split("\n");
   for (const [index, line] of lines.entries()) {
@@ -749,7 +751,13 @@ async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions
     if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
     const id = readString(parsed, "id");
     if (id === undefined) continue;
-    const scopes = readHistoryScopes(parsed);
+    const cursor = parsed.sourceMoveCursor;
+    if (cursor !== undefined && cursor !== null && typeof cursor !== "string") {
+      throw new Error(`skillset: ${path}:${index + 1} sourceMoveCursor must be a string or null`);
+    }
+    const recordMappings = sourceMappingsAfterCursor(mappings, cursor);
+    const historicalScopes = readHistoryScopes(parsed);
+    const scopes = currentSourceIdentities(historicalScopes, recordMappings);
     const bump = readHistoryBump(parsed.bump);
     const group = readHistoryGroup(parsed.group);
     entries.push({
@@ -760,7 +768,7 @@ async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions
       path: `${path}:${index + 1}`,
       reason: readString(parsed, "reason") ?? readString(parsed, "body") ?? "",
       scopes,
-      sourceHashes: readHistoryEvidence(parsed.evidence, scopes),
+      sourceHashes: currentSourceHashEvidence(readHistoryEvidence(parsed.evidence, historicalScopes), recordMappings),
     });
   }
   const amended = await applyHistoryAmendments(rootPath, options.sourceDir, entries);

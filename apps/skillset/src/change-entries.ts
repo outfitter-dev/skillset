@@ -16,6 +16,7 @@ import {
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { readReleaseState } from "@skillset/core/internal/release-state";
+import { currentSourceHashEvidence, currentSourceIdentity, sourceIdentityMappings, sourceMappingsAfterEvent } from "@skillset/core/internal/source-identity-mapping";
 import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, JsonValue } from "@skillset/core/internal/types";
 import { workspaceChangesDir } from "@skillset/core";
@@ -267,8 +268,11 @@ async function readHistoricalScopeIds(
   options: ChangeStatusOptions
 ): Promise<ReadonlySet<string>> {
   const ids = new Set<string>();
-  for (const event of await readChangeLedger(rootPath, options)) {
-    for (const unit of event.sourceUnits) ids.add(sourceUnitSelector(unit.selector));
+  const events = await readChangeLedger(rootPath, options);
+  const mappings = sourceIdentityMappings(events);
+  for (const [index, event] of events.entries()) {
+    const laterMoves = sourceMappingsAfterEvent(mappings, index);
+    for (const unit of event.sourceUnits) ids.add(currentSourceIdentity(unit.selector, laterMoves));
   }
   const releaseState = await readReleaseState(rootPath, options);
   for (const scope of Object.keys(releaseState.scopes)) ids.add(sourceUnitSelector(scope));
@@ -279,6 +283,8 @@ async function readPendingLedgerFacts(
   rootPath: string,
   options: ChangeStatusOptions
 ): Promise<ReadonlyMap<string, PendingLedgerFacts>> {
+  const events = await readChangeLedger(rootPath, options);
+  const mappings = sourceIdentityMappings(events);
   const mutable = new Map<
     string,
     {
@@ -304,17 +310,19 @@ async function readPendingLedgerFacts(
     return created;
   };
 
-  const addSourceUnits = (reasonId: string, units: readonly ChangeLedgerSourceUnit[]): void => {
+  const addSourceUnits = (reasonId: string, units: readonly ChangeLedgerSourceUnit[], eventIndex: number): void => {
     const facts = mutableFacts(reasonId);
+    const laterMoves = sourceMappingsAfterEvent(mappings, eventIndex);
     for (const unit of units) {
       if (unit.sourceHash === undefined) continue;
-      const current = facts.sourceHashes.get(unit.selector) ?? [];
+      const selector = currentSourceIdentity(unit.selector, laterMoves);
+      const current = facts.sourceHashes.get(selector) ?? [];
       current.push(unit.sourceHash);
-      facts.sourceHashes.set(unit.selector, current);
+      facts.sourceHashes.set(selector, current);
     }
   };
 
-  for (const event of await readChangeLedger(rootPath, options)) {
+  for (const [index, event] of events.entries()) {
     const reasonId = ledgerReasonId(event);
     if (reasonId === undefined) continue;
     const facts = mutableFacts(reasonId);
@@ -330,16 +338,16 @@ async function readPendingLedgerFacts(
       facts.ignoreEventRecorded = true;
       facts.ignored = true;
     }
-    addSourceUnits(reasonId, event.sourceUnits);
+    addSourceUnits(reasonId, event.sourceUnits, index);
   }
 
   const readonlyFacts = new Map<string, PendingLedgerFacts>();
   for (const [reasonId, facts] of mutable) {
-    const sourceHashes = new Map(
+    const sourceHashes = currentSourceHashEvidence(new Map(
       [...facts.sourceHashes]
         .map(([scope, hashes]) => [scope, [...new Set(hashes)].sort(compareStrings)] as const)
         .sort(([left], [right]) => compareStrings(left, right))
-    );
+    ), []);
     readonlyFacts.set(reasonId, {
       ...(facts.bump === undefined ? {} : { bump: facts.bump }),
       ...(facts.group === undefined ? {} : { group: facts.group }),

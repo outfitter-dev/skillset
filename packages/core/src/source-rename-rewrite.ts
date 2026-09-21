@@ -30,9 +30,10 @@ import { isJsonRecord, parseMarkdown } from "./yaml";
 
 export interface SkillIdentityRename {
   readonly from: string;
-  readonly pluginId?: string;
+  readonly fromPluginId?: string;
   readonly sourcePath: string;
   readonly to: string;
+  readonly toPluginId?: string;
 }
 
 interface MarkdownUpdateArgs {
@@ -199,13 +200,9 @@ function rewriteAgentSkillReferences(
       if (typeof item !== "string") {
         return item;
       }
-      if (identityRename.pluginId === undefined) {
-        return item === identityRename.from ? identityRename.to : item;
-      }
-      const prefix = `plugin.${identityRename.pluginId}.skill:`;
-      return item === `${prefix}${identityRename.from}`
-        ? `${prefix}${identityRename.to}`
-        : item;
+      const from = agentSkillReference(identityRename.from, identityRename.fromPluginId);
+      const to = agentSkillReference(identityRename.to, identityRename.toPluginId);
+      return item === from ? to : item;
     });
   };
   const skills = rewrite(frontmatter.skills);
@@ -223,6 +220,10 @@ function rewriteAgentSkillReferences(
     };
   }
   return updated;
+}
+
+function agentSkillReference(skillId: string, pluginId?: string): string {
+  return pluginId === undefined ? skillId : `plugin.${pluginId}.skill:${skillId}`;
 }
 
 function rewriteHookAttachments(

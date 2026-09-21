@@ -241,6 +241,15 @@ const PRESENTATION = {
     summary: "Preview and confirm resolved marketplace artifacts.",
     synopses: ["marketplace update [name] [--yes] [--json] [--root <path>]"],
   },
+  move: {
+    examples: [
+      "skillset move .skillset/skills/demo .skillset/plugins/tools/skills/demo",
+      "skillset move .skillset/plugins/tools/skills/demo .skillset/skills/demo --yes",
+    ],
+    group: "Author",
+    summary: "Preview and atomically move a skill between workspace and plugin collections.",
+    synopses: ["move <from> <to> [--yes] [--json] [--root <path>]"],
+  },
   new: {
     group: "Author",
     summary: "Create a new plugin, skill, project agent, instruction, or hook in source.",

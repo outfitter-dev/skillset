@@ -279,6 +279,20 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "move",
+      args: ["move", "old", "new", "--root", ROOT],
+      expected: {
+        command: "move",
+        request: {
+          from: "old",
+          jsonOutput: false,
+          rootPath: ROOT,
+          to: "new",
+          yes: false,
+        },
+      },
+    },
+    {
       route: "reconcile",
       args: ["reconcile", "managed.md", "--root", ROOT],
       expected: {
