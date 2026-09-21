@@ -70,6 +70,11 @@ export interface RenderedAgentSkillStandardMarkdown {
   readonly resources: readonly SourceResource[];
 }
 
+export interface AgentSkillStandardRenderOptions {
+  readonly effectiveName?: string;
+  readonly internal?: boolean;
+}
+
 export function agentSkillSourceUnit(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill
@@ -84,9 +89,10 @@ export function classifyAgentSkillStandard(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   directoryName = skill.id,
-  resolvedLicense?: string
+  resolvedLicense?: string,
+  options: AgentSkillStandardRenderOptions = {}
 ): AgentSkillStandardClassification {
-  const name = resolvedSkillName(skill);
+  const name = options.effectiveName ?? resolvedSkillName(skill);
   const description = resolvedSkillDescription(skill);
   const label = path.relative(graph.rootPath, skill.sourcePath);
   const nameIssue = validateName(name, directoryName, label);
@@ -113,6 +119,12 @@ export function classifyAgentSkillStandard(
   if (metadataIssue !== undefined) {
     return { issue: metadataIssue, status: "unsupported" };
   }
+  if (options.internal === true) {
+    frontmatter.metadata = {
+      ...(readRecord(frontmatter, "metadata") ?? {}),
+      internal: true,
+    };
+  }
 
   const allowedTools = readAllowedTools(skill.frontmatter, "agents", label);
   if (allowedTools !== undefined && allowedTools !== false) {
@@ -134,14 +146,16 @@ export async function renderAgentSkillStandardMarkdown(
   skill: SourceSkill,
   targetSkillDir: string,
   resolvedLicense: string | undefined,
-  standardProfile: SkillStandardProfile
+  standardProfile: SkillStandardProfile,
+  options: AgentSkillStandardRenderOptions = {}
 ): Promise<RenderedAgentSkillStandardMarkdown | AgentSkillStandardIssue> {
   const classification = classifyAgentSkillStandard(
     graph,
     plugin,
     skill,
-    skill.id,
-    resolvedLicense
+    options.effectiveName ?? skill.id,
+    resolvedLicense,
+    options
   );
   if (classification.status === "unsupported") {
     return classification.issue;

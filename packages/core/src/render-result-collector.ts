@@ -31,6 +31,7 @@ import {
   type SkillsetRenderResultPolicy,
 } from "./render-result";
 import { compareStrings } from "./path";
+import { resolveProjectUseSkillCopies } from "./project-use";
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
@@ -117,6 +118,7 @@ interface RenderedLock {
 interface RenderedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
+  readonly effectiveName?: string;
   readonly feature?: string;
   readonly files: readonly string[];
   readonly kind: string;
@@ -125,6 +127,8 @@ interface RenderedLockItem {
   readonly outputPath: string;
   readonly plugin?: string;
   readonly sourcePath: string;
+  readonly sourceUnit?: string;
+  readonly selectionRule?: string;
   readonly targetState?: string;
   readonly transforms?: readonly JsonRecord[];
   readonly validation?: string;
@@ -209,6 +213,7 @@ export function collectRenderResults(
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentPluginStandardOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedProjectUseComponentOutcomes(graph, options.scopes));
   outcomes.push(
     ...claudeMarketplaceAuthorOutcomes(
       graph,
@@ -233,6 +238,86 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+function unsupportedProjectUseComponentOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (scopes !== undefined && !scopes.includes("project")) return [];
+  const outcomes: SkillsetRenderResult[] = [];
+  for (const copy of resolveProjectUseSkillCopies(graph)) {
+    // Plugin-level content is requested only by whole-plugin selection; an
+    // unrelated sibling under hooks/ or shared/ is not a skill dependency.
+    const wholePluginSelected = graph.pluginPlan?.internalUse.pluginIds.includes(copy.plugin.id);
+    const pluginComponents = wholePluginSelected ? [
+      ...copy.plugin.features.map((feature) => ({
+        component: feature.key,
+        sourcePath: normalizeSourcePath(graph, feature.sourcePath),
+      })),
+      ...(hasMeaningfulFiles(join(copy.plugin.path, "hooks"))
+        ? [{ component: "hooks", sourcePath: normalizePath(relative(graph.rootPath, join(copy.plugin.path, "hooks"))) }]
+        : []),
+      ...(hasMeaningfulFiles(join(copy.plugin.path, "shared"))
+        ? [{ component: "shared", sourcePath: normalizePath(relative(graph.rootPath, join(copy.plugin.path, "shared"))) }]
+        : []),
+    ] : [];
+    for (const target of TARGETS) {
+      if (
+        !copy.skill.targets[target].enabled ||
+        !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id)
+      ) continue;
+      const targetHooks = resolveAdaptiveHookAttachmentsForTarget(
+        graph.adaptiveHooks, graph.hookAttachments, target
+      ).resolved;
+      const skillHook = targetHooks.find((item) =>
+        item.attachment.scope.kind === "skill" &&
+        item.attachment.scope.pluginId === copy.plugin.id &&
+        item.attachment.scope.skillId === copy.skill.id &&
+        providerListAllows(item.definition.providers, target) &&
+        providerListAllows(item.attachment.providers, target) &&
+        adaptiveHookUnsupportedRenderReason(item, target, "frontmatter") === undefined
+      );
+      const pluginHook = wholePluginSelected ? targetHooks.find((item) =>
+        item.attachment.scope.kind === "plugin" &&
+        item.attachment.scope.pluginId === copy.plugin.id &&
+        providerListAllows(item.definition.providers, target) &&
+        providerListAllows(item.attachment.providers, target) &&
+        adaptiveHookUnsupportedRenderReason(item, target, "plugin") === undefined
+      ) : undefined;
+      const components = [
+        ...pluginComponents,
+        ...(skillHook === undefined ? [] : [{
+          component: "hooks",
+          sourcePath: normalizeSourcePath(graph, skillHook.attachment.sourcePath),
+        }]),
+        ...(pluginHook === undefined ? [] : [{
+          component: "hooks",
+          sourcePath: normalizeSourcePath(graph, pluginHook.attachment.sourcePath),
+        }]),
+      ].filter((item, index, all) =>
+        all.findIndex((candidate) => candidate.component === item.component) === index
+      );
+      for (const component of components) {
+        outcomes.push(defineRenderResult({
+          destination: component.component,
+          diagnostics: [{
+            code: "internal-use-component-unsupported",
+            message: `project-use skill copy does not hydrate plugin ${component.component} components`,
+            path: component.sourcePath,
+          }],
+          featureId: "internal-use-components",
+          policy: "unsupported:error",
+          reason: `selected project-use copy is emitted without plugin ${component.component} hydration`,
+          sourcePath: component.sourcePath,
+          sourceUnit: copy.sourceUnit,
+          status: "unsupported",
+          target,
+        }));
+      }
+    }
+  }
+  return outcomes;
 }
 
 function unsupportedCursorRootRulesOutcomes(
@@ -647,6 +732,7 @@ function parseRenderedLockItem(
   return {
     consumers: raw.consumers,
     ...(raw.dependencies === undefined ? {} : { dependencies: raw.dependencies }),
+    ...(raw.effectiveName === undefined ? {} : { effectiveName: raw.effectiveName }),
     ...(raw.feature === undefined ? {} : { feature: raw.feature }),
     files: raw.files,
     kind: raw.kind,
@@ -655,6 +741,8 @@ function parseRenderedLockItem(
     ...(raw.owner === undefined ? {} : { owner: raw.owner }),
     ...(raw.plugin === undefined ? {} : { plugin: raw.plugin }),
     sourcePath: raw.sourcePath,
+    ...(raw.sourceUnit === undefined ? {} : { sourceUnit: raw.sourceUnit }),
+    ...(raw.selectionRule === undefined ? {} : { selectionRule: raw.selectionRule }),
     ...(raw.targetState === undefined ? {} : { targetState: raw.targetState }),
     ...(raw.transforms === undefined ? {} : { transforms: raw.transforms as readonly JsonRecord[] }),
     ...(raw.validation === undefined ? {} : { validation: raw.validation }),
@@ -681,11 +769,21 @@ function outcomeForLockItem(
       reasonForStatus(featureId, target, status, standardProfile)
     : "excluded by build scope";
   const evidence = evidenceFor(featureId, target, standardProfile);
+  const projectUseCopy = item.sourceUnit === undefined
+    ? undefined
+    : resolveProjectUseSkillCopies(graph).find((copy) => copy.sourceUnit === item.sourceUnit);
+  const collisionDiagnostics = projectUseCopy === undefined || projectUseCopy.collisionSources.length === 0
+    ? []
+    : [{
+        code: "internal-use-name-conflict",
+        message: `selected skill name ${item.name} conflicts across ${projectUseCopy.collisionSources.join(", ")}; emitted as ${projectUseCopy.effectiveName}`,
+        path: item.sourcePath,
+      }];
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
-    ...(isIncluded && manifestFacts?.diagnostics !== undefined
-      ? { diagnostics: manifestFacts.diagnostics }
+    ...(isIncluded && [...(manifestFacts?.diagnostics ?? []), ...collisionDiagnostics].length > 0
+      ? { diagnostics: [...(manifestFacts?.diagnostics ?? []), ...collisionDiagnostics] }
       : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
@@ -1992,6 +2090,7 @@ function destinationForLockItem(item: RenderedLockItem): string {
 }
 
 function sourceUnitForLockItem(item: RenderedLockItem, target: TargetName | undefined): string {
+  if (item.sourceUnit !== undefined) return item.sourceUnit;
   if (item.kind === "standalone-skill") return selectorForStandaloneSkill(item.name);
   if (item.kind === "plugin-skill" && item.plugin !== undefined) {
     return selectorForPluginSkill(item.plugin, item.name);

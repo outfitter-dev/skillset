@@ -52,9 +52,9 @@ response to it yet.
 
 ## Select Plugin Content for This Project
 
-`plugins.internal_use` currently validates and reports a project-local
-selection plan; it does not emit project-local copies yet. Rendering those
-copies is deferred to SET-554. Omitting the setting selects none. A boolean
+`plugins.internal_use` selects plugin content for this project and reports the
+selection plan. Selected live skills render as project-use copies; other plugin
+components do not accompany them. Omitting the setting selects none. A boolean
 selects all or none; the object form can select whole plugins, individual live
 skills, and drafts:
 
@@ -79,9 +79,18 @@ The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
 skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
 mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
 are rejected because draft status currently belongs only to skills. The
-`skillset explain` command reports `config` as the origin. `internal_marker`
-defaults to `true`; once project-local rendering exists, set it to `false` only
-when those generated copies should omit the internal metadata marker.
+`skillset explain` reports `config` as the origin. Selected live plugin skills
+are copied into every enabled fixed provider skill root. Workspace skills keep
+their leaf name; colliding plugin copies use `<plugin-id>-<leaf>`, and the
+render result records `internal-use-name-conflict`. Project-use lock entries
+record the canonical source unit, effective name, selection rule, and target
+owner. `internal_marker` defaults to `true` and writes boolean
+`metadata.internal: true` only on those project-use copies; set it to `false`
+to omit the marker. Referenced skill resources travel with the copy. Other
+plugin-level hooks, shared trees, MCP servers, and executables are not hydrated:
+selecting the whole plugin or a skill with its own hook attachment reports the
+unhydrated dependency. An unrelated file in a shared directory does not make
+an individually selected skill depend on it.
 
 ## Plan Plugin Package Paths
 

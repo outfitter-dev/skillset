@@ -28,6 +28,7 @@ import {
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
+import { resolveProjectUseSkillCopies, type ProjectUseSkillCopy } from "./project-use";
 import { withLockProvenance } from "./lock-provenance";
 import { assertCasePortableRenderedPaths, planRenderedFiles } from "./output-plan";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
@@ -239,6 +240,12 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   for (const skill of graph.standaloneSkills) {
     for (const target of targetNames()) {
       rendered.push(...(await renderStandaloneSkill(graph, skill, target, lockRoots)));
+    }
+  }
+
+  for (const copy of resolveProjectUseSkillCopies(graph)) {
+    for (const target of targetNames()) {
+      rendered.push(...(await renderProjectUseSkill(graph, copy, target, lockRoots)));
     }
   }
 
@@ -1379,8 +1386,7 @@ async function renderStandaloneSkill(
 
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
-  const relativeSkillDir = dirname(skill.relativePath);
-  const targetSkillDir = join(outputRoot, relativeSkillDir);
+  const targetSkillDir = join(outputRoot, skill.id);
   const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
@@ -1493,6 +1499,136 @@ async function renderStandaloneSkill(
   return rendered;
 }
 
+async function renderProjectUseSkill(
+  graph: BuildGraph,
+  copy: ProjectUseSkillCopy,
+  target: TargetName,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const { plugin, skill } = copy;
+  if (
+    !skill.targets[target].enabled ||
+    !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, skill.id)
+  ) return [];
+
+  const outputRoot = graph.root.outputs.skills[target];
+  const sourceDir = dirname(skill.sourcePath);
+  const targetSkillDir = join(outputRoot, copy.effectiveName);
+  const rootLicense = await resolveRootLicense(graph);
+  const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
+  const skillLicense = await resolveLicense({
+    graph,
+    label: relative(graph.rootPath, skill.sourcePath),
+    metadata: skill.metadata,
+    ...(pluginLicense === undefined ? {} : { parent: pluginLicense }),
+    scopePath: sourceDir,
+    sourcePath: skill.sourcePath,
+  });
+  const standard = target === "codex"
+    ? await renderAgentSkillStandardMarkdown(
+        graph,
+        plugin,
+        skill,
+        targetSkillDir,
+        skillLicense?.manifestValue,
+        "agent-skills",
+        { effectiveName: copy.effectiveName, internal: graph.root.internalMarker }
+      )
+    : undefined;
+  if (standard !== undefined && "code" in standard) {
+    throw new Error(`skillset: ${standard.path}: ${standard.message}`);
+  }
+  const skillMarkdown = standard === undefined
+    ? await renderSkillMarkdown(graph, plugin, skill, target, {
+        effectiveName: copy.effectiveName,
+        includeAdaptiveHooks: false,
+        internal: graph.root.internalMarker,
+      })
+    : await renderCodexSkillMarkdownFromStandard(
+        graph,
+        plugin,
+        skill,
+        standard.content,
+        standard.preprocessDependencies,
+        graph.root.internalMarker
+      );
+  const resources = standard?.resources ?? skillMarkdown.resources;
+  const generatedCodexAgentFile = await renderCodexSkillAgentFile(
+    graph, plugin, skill, target, sourceDir, targetSkillDir
+  );
+  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
+    graph, skill, target, targetSkillDir
+  );
+  const generatedRelativeFiles = new Set(
+    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
+      .filter((file): file is RenderedFile => file !== undefined)
+      .map((file) => relative(targetSkillDir, file.path))
+  );
+  const rendered: RenderedFile[] = [];
+  const renderedRelativeFiles = new Set<string>();
+  pushSkillRenderedFile(rendered, textFile(
+    join(targetSkillDir, "SKILL.md"),
+    skillMarkdown.content,
+    relative(graph.rootPath, skill.sourcePath)
+  ), targetSkillDir, renderedRelativeFiles, `${skill.sourcePath}.SKILL.md`);
+  for (const file of [generatedCodexAgentFile?.file, generatedToolsMetadataFile]) {
+    if (file !== undefined) pushSkillRenderedFile(
+      rendered, file, targetSkillDir, renderedRelativeFiles, `${skill.sourcePath}.${relative(targetSkillDir, file.path)}`
+    );
+  }
+  if (skillLicense !== undefined) pushSkillRenderedFile(
+    rendered,
+    licenseFileFor(join(targetSkillDir, "LICENSE.txt"), skillLicense),
+    targetSkillDir,
+    renderedRelativeFiles,
+    `${skill.sourcePath}.LICENSE.txt`
+  );
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if (["SKILL.md", "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
+    // Skill-local hook definitions are not hydrated into project-use copies.
+    // Explicit resources are still copied by renderSkillResources below.
+    if (relativeFile.startsWith(`hooks${sep}`)) continue;
+    if (generatedRelativeFiles.has(relativeFile)) continue;
+    pushSkillRenderedFile(
+      rendered,
+      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.${relativeFile}`
+    );
+  }
+  rendered.push(...(await renderSkillResources(
+    resources,
+    skill,
+    targetSkillDir,
+    renderedRelativeFiles
+  )));
+  const lock = await lockItemForSkill({
+    files: rendered,
+    graph,
+    kind: "plugin-skill",
+    license: skillLicense,
+    outputRoot,
+    plugin,
+    preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
+    resources,
+    skill,
+    sourceDir,
+    transforms: skillMarkdown.transforms,
+  });
+  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push({
+    ...lock,
+    consumers: [{ phase: "delta", target }],
+    effectiveName: copy.effectiveName,
+    owner: { target },
+    role: "project-use",
+    selectionRule: copy.selectionRule,
+    sourceUnit: copy.sourceUnit,
+  });
+  return rendered;
+}
+
 async function renderSkillResources(
   resources: readonly SourceResource[],
   skill: SourceSkill,
@@ -1572,7 +1708,12 @@ async function renderSkillMarkdown(
   graph: BuildGraph,
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
-  target: TargetName
+  target: TargetName,
+  options: {
+    readonly effectiveName?: string;
+    readonly includeAdaptiveHooks?: boolean;
+    readonly internal?: boolean;
+  } = {}
 ): Promise<RenderedSkillMarkdown> {
   const metadata = skill.metadata;
   const targetOptions = skill.targets[target].options;
@@ -1580,7 +1721,7 @@ async function renderSkillMarkdown(
     rejectCursorAllowedTools(skill, relative(graph.rootPath, skill.sourcePath));
   }
   const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter, skill.sourcePath), {
-    name:
+    name: options.effectiveName ??
       readString(metadata, "name") ??
       readString(metadata, "id") ??
       readString(skill.frontmatter, "name") ??
@@ -1603,7 +1744,7 @@ async function renderSkillMarkdown(
     target === "cursor"
       ? mergeRecords(withClaudePolicy, renderNativeSkillInvocationPolicy(skill, target))
       : withClaudePolicy;
-  const adaptiveHooks = target === "claude"
+  const adaptiveHooks = target === "claude" && options.includeAdaptiveHooks !== false
     ? renderAdaptiveFrontmatterHooks(graph, skillScope(plugin, skill), target, relative(graph.rootPath, skill.sourcePath))
     : undefined;
   const withAdaptiveHooks = adaptiveHooks === undefined
@@ -1619,11 +1760,14 @@ async function renderSkillMarkdown(
     withAdaptiveHooks,
     targetFrontmatter
   );
-  const frontmatter = renderSkillMetadata(
+  const renderedFrontmatter = renderSkillMetadata(
     withTargetFrontmatter,
     version,
     graph.root.compile.skillset.metadata
   );
+  const frontmatter = options.internal === undefined
+    ? renderedFrontmatter
+    : withProjectUseInternalMarker(renderedFrontmatter, options.internal);
 
   const preprocessDependencies = new Set<string>();
   const resourcePlanner = createEffectiveSkillResourcePlanner(
@@ -1677,7 +1821,9 @@ async function renderCodexSkillMarkdownFromStandard(
   graph: BuildGraph,
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
-  baselineContent: string
+  baselineContent: string,
+  baselinePreprocessDependencies: readonly string[] = [],
+  projectUseInternal?: boolean
 ): Promise<RenderedSkillMarkdown> {
   const baseline = parseMarkdown(
     baselineContent,
@@ -1690,15 +1836,32 @@ async function renderCodexSkillMarkdownFromStandard(
     skill,
     baseline.body
   );
+  const mergedFrontmatter = mergeRecords(baseline.frontmatter, targetFrontmatter);
+  const frontmatter = projectUseInternal === undefined
+    ? mergedFrontmatter
+    : withProjectUseInternalMarker(mergedFrontmatter, projectUseInternal);
   return {
     content: renderValidatedMarkdown(
-      mergeRecords(baseline.frontmatter, targetFrontmatter),
+      frontmatter,
       translated.text,
       `${relative(graph.rootPath, skill.sourcePath)} -> coalesced Codex skill`
     ),
-    preprocessDependencies: [],
+    preprocessDependencies: [...baselinePreprocessDependencies],
     resources: skill.resources,
     transforms: translated.transforms,
+  };
+}
+
+function withProjectUseInternalMarker(frontmatter: JsonRecord, enabled: boolean): JsonRecord {
+  // Project-use ownership wins after provider overrides in both directions.
+  const metadata = { ...(readRecord(frontmatter, "metadata") ?? {}) };
+  delete metadata.internal;
+  const withoutMetadata = { ...frontmatter };
+  delete withoutMetadata.metadata;
+  if (!enabled && Object.keys(metadata).length === 0) return withoutMetadata;
+  return {
+    ...withoutMetadata,
+    metadata: enabled ? { ...metadata, internal: true } : metadata,
   };
 }
 
@@ -2423,6 +2586,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     feature: item.feature,
     files: [...item.files],
     dependencies: item.dependencies === undefined ? undefined : [...item.dependencies],
+    effectiveName: item.effectiveName,
     includedSkills: item.includedSkills === undefined ? undefined : [...item.includedSkills],
     kind: item.kind,
     name: item.name,
@@ -2442,6 +2606,8 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     sourceOrigin: item.sourceOrigin === undefined ? undefined : sourceOriginRecord(item.sourceOrigin),
     sourcePath: item.sourcePath,
     sourcePointer: item.sourcePointer,
+    sourceUnit: item.sourceUnit,
+    selectionRule: item.selectionRule,
     targetState: item.targetState,
     transforms:
       item.transforms === undefined
