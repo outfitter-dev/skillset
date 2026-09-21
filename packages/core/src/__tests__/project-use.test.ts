@@ -174,6 +174,37 @@ plugins:
     expect(markdown).not.toContain("internal:");
   });
 
+  it("keeps the project-use marker when Codex frontmatter tries to override it", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: marker-override\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Use me
+codex:
+  frontmatter:
+    metadata:
+      internal: false
+      owner: demo
+---
+
+Use me.
+`,
+    });
+    await buildSkillsetResult(root);
+    const projectCopy = await readFile(
+      join(root, ".agents/skills/use-me/SKILL.md"),
+      "utf8"
+    );
+    expect(projectCopy).toContain("internal: true");
+    expect(projectCopy).toContain("owner: demo");
+    const packageSkill = await readFile(
+      join(root, "plugins/demo/skills/use-me/SKILL.md"),
+      "utf8"
+    );
+    expect(packageSkill).not.toContain("internal: true");
+  });
+
   it("allocates final names globally across workspace and plugin prefix collisions", async () => {
     const root = await fixture({
       "skillset.yaml": `skillset:

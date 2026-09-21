@@ -1549,7 +1549,8 @@ async function renderProjectUseSkill(
         plugin,
         skill,
         standard.content,
-        standard.preprocessDependencies
+        standard.preprocessDependencies,
+        graph.root.internalMarker
       );
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph, plugin, skill, target, sourceDir, targetSkillDir
@@ -1822,7 +1823,8 @@ async function renderCodexSkillMarkdownFromStandard(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   baselineContent: string,
-  baselinePreprocessDependencies: readonly string[] = []
+  baselinePreprocessDependencies: readonly string[] = [],
+  projectUseInternal = false
 ): Promise<RenderedSkillMarkdown> {
   const baseline = parseMarkdown(
     baselineContent,
@@ -1835,9 +1837,20 @@ async function renderCodexSkillMarkdownFromStandard(
     skill,
     baseline.body
   );
+  const mergedFrontmatter = mergeRecords(baseline.frontmatter, targetFrontmatter);
+  // Target overrides are applied after the standard baseline; project-use
+  // ownership must remain authoritative over an authored internal flag.
+  const frontmatter = projectUseInternal
+    ? mergeRecords(mergedFrontmatter, {
+        metadata: {
+          ...(readRecord(mergedFrontmatter, "metadata") ?? {}),
+          internal: true,
+        },
+      })
+    : mergedFrontmatter;
   return {
     content: renderValidatedMarkdown(
-      mergeRecords(baseline.frontmatter, targetFrontmatter),
+      frontmatter,
       translated.text,
       `${relative(graph.rootPath, skill.sourcePath)} -> coalesced Codex skill`
     ),
