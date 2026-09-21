@@ -204,25 +204,23 @@ describe("deterministic projection runner", () => {
     );
   });
 
-  it("excludes configured generated output roots from copied source workspaces", async () => {
+  it("excludes generated package roots from copied source workspaces", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: output-root-exclusion
-claude:
-  plugins:
-    path: generated/plugins
+claude: true
 codex: false
 `,
       ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
       ".skillset/plugins/demo/skills/demo/SKILL.md": DEMO_SKILL,
-      "generated/plugins/stale/plugin.json": "stale generated output\n",
+      "plugins/stale/plugin.json": "stale generated output\n",
     });
 
     const report = await assertDeterministicProjection(root, {
       afterProjection: async (run) => {
-        if (await exists(join(run.workspacePath, "generated/plugins/stale/plugin.json"))) {
-          throw new Error("copied configured output root into deterministic workspace");
+        if (await exists(join(run.workspacePath, "plugins/stale/plugin.json"))) {
+          throw new Error("copied package output root into deterministic workspace");
         }
       },
     });

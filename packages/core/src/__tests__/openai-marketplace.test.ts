@@ -157,11 +157,9 @@ marketplaces:
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools",
       "skillset.yaml": `
 skillset:
-  name: custom-root
+  name: fixed-root
 claude: false
-codex:
-  plugins:
-    path: generated/chatgpt
+codex: true
 cursor: false
 `,
     });

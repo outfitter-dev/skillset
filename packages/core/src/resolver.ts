@@ -303,7 +303,6 @@ export async function loadBuildGraph(
   const standardProjections = resolveStandardProjectionPlan(
     standardProjectionSourceInventory({ plugins, rules, standaloneSkills })
   );
-  validateSharedPackageOutputRoots(outputs, plugins);
   validatePluginBundleDestinations(outputs, plugins);
   const outputRootOwners = await outputRootsFor(
     rootPath,
@@ -321,6 +320,7 @@ export async function loadBuildGraph(
   validateStandardProjectionTopology(rootPath, protectedRoots, standardProjections, plugins);
   const outputRoots = dedupeOutputRoots(outputRootOwners);
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
+  validateSharedPackageOutputRoots(outputs, plugins);
 
   const graph: BuildGraph = {
     adaptiveHooks,

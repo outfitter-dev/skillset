@@ -384,14 +384,12 @@ codex: true
     });
   });
 
-  it("preserves a configured plugin baseline when graph loading fails", async () => {
+  it("preserves a plugin baseline when graph loading fails", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: plugin-graph-failure-root
-claude:
-  plugins:
-    path: generated/claude
+claude: true
 codex: false
 cursor: false
 `,
@@ -418,8 +416,6 @@ skillset:
   name: plugin-graph-failure-root
 claude:
   enabled: false
-  plugins:
-    path: generated/claude
 codex: true
 cursor: false
 `,
@@ -455,17 +451,13 @@ cursor: false
     });
   });
 
-  it("filters plugin fallback roots by target while fixed skills retain the standard baseline", async () => {
+  it("keeps shared plugin and fixed skill fallback baselines across target filters", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: target-filtered-fallback-root
-claude:
-  plugins:
-    path: generated/claude/plugins
-codex:
-  plugins:
-    path: generated/codex/plugins
+claude: true
+codex: true
 cursor: false
 `,
       ".skillset/skills/standalone/SKILL.md": `
@@ -533,8 +525,8 @@ Body.
       targetFilter: ["codex"],
     });
 
-    expect(claudePlugins.outputState.hasBaseline).toBe(false);
-    expect(codexPlugins.outputState.hasBaseline).toBe(false);
+    expect(claudePlugins.outputState.hasBaseline).toBe(true);
+    expect(codexPlugins.outputState.hasBaseline).toBe(true);
     expect(claudeSkills.outputState.hasBaseline).toBe(true);
     expect(codexSkills.outputState.hasBaseline).toBe(true);
   });
