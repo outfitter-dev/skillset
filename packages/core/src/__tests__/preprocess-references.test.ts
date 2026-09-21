@@ -1,7 +1,7 @@
 /* eslint-disable func-style -- Focused fixture helpers keep grammar cases compact. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -139,6 +139,56 @@ describe("preprocess reference grammar", () => {
     await expect(
       preprocessText("{{> writing/../tone}}", preprocessContext(rootPath))
     ).rejects.toThrow(/must use slash-separated name segments/u);
+  });
+
+  test("rejects shared partial and link symlinks outside the source root", async () => {
+    await files(rootPath, {
+      "outside.md": "PRIVATE_MARKER",
+    });
+    const partialRoot = join(rootPath, ".skillset/shared/partials");
+    await mkdir(partialRoot, { recursive: true });
+    await symlink(join(rootPath, "outside.md"), join(partialRoot, "outside.md"));
+
+    await expect(
+      preprocessText("{{> outside}}", preprocessContext(rootPath))
+    ).rejects.toThrow(/resolves outside its partial root/u);
+    await expect(
+      preprocessText(
+        "{{> shared:partials/outside.md}}",
+        preprocessContext(rootPath)
+      )
+    ).rejects.toThrow(/resolves outside its partial root/u);
+    await expect(
+      preprocessText(
+        "@{{shared:partials/outside.md}}",
+        preprocessContext(rootPath)
+      )
+    ).rejects.toThrow(/resolves outside its partial root/u);
+
+    const pluginPartialRoot = join(
+      rootPath,
+      ".skillset/plugins/demo/shared/partials"
+    );
+    await mkdir(pluginPartialRoot, { recursive: true });
+    await symlink(
+      join(rootPath, "outside.md"),
+      join(pluginPartialRoot, "outside.md")
+    );
+    await expect(
+      preprocessText("{{> plugin:outside}}", preprocessContext(rootPath, true))
+    ).rejects.toThrow(/resolves outside its partial root/u);
+  });
+
+  test("allows a symlink whose target stays inside its partial root", async () => {
+    await files(rootPath, {
+      ".skillset/shared/partials/target.md": "Shared target",
+    });
+    const partialRoot = join(rootPath, ".skillset/shared/partials");
+    await symlink(join(partialRoot, "target.md"), join(partialRoot, "alias.md"));
+
+    await expect(
+      preprocessText("{{> alias}}", preprocessContext(rootPath))
+    ).resolves.toBe("Shared target");
   });
 
   test.each([

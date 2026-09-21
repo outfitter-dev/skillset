@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import {
   basename,
   dirname,
@@ -300,6 +300,7 @@ async function renderPathReference(
     if (!(await isFile(resolvedPath))) {
       throw missingScopedPathReference(specifier, resolvedPath, context);
     }
+    await assertCanonicalPartialContainment(resolvedPath, specifier, context, "path");
     const [rawScheme] = splitSpecifier(specifier);
     const scheme =
       rawScheme === "root"
@@ -349,17 +350,54 @@ async function readPartial(
     if (kind === "path" && !(await isFile(resolved))) {
       throw missingScopedPathReference(specifier, resolved, context);
     }
-    assertNoPartialCycle(resolved, specifier, context);
-    const content = normalizeText(await readFile(resolved, "utf8"));
+    const canonical = await assertCanonicalPartialContainment(
+      resolved,
+      specifier,
+      context,
+      kind
+    );
+    assertNoPartialCycle(canonical, specifier, context);
+    const content = normalizeText(await readFile(canonical, "utf8"));
     return await expandPartials(content, {
       ...context,
-      partialBasePath: resolved,
-      partialStack: [...(context.partialStack ?? []), resolved],
+      partialBasePath: canonical,
+      partialStack: [...(context.partialStack ?? []), canonical],
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`skillset: failed to read partial ${specifier} in ${source}: ${message}`);
   }
+}
+
+async function assertCanonicalPartialContainment(
+  resolved: string,
+  specifier: string,
+  context: PreprocessContext,
+  kind: "named" | "path"
+): Promise<string> {
+  const [scheme] = splitSpecifier(specifier);
+  let sharedRoot = join(context.rootPath, context.sourceRoot, "shared");
+  if (scheme === "plugin") {
+    if (context.pluginPath === undefined) {
+      throw new Error(`skillset: partial ${specifier} requires a plugin-bound source`);
+    }
+    sharedRoot = join(context.pluginPath, "shared");
+  }
+  const partialRoot = kind === "named" ? join(sharedRoot, "partials") : sharedRoot;
+  const [sourceRoot, canonicalRoot, canonical] = await Promise.all([
+    realpath(join(context.rootPath, context.sourceRoot)),
+    realpath(partialRoot),
+    realpath(resolved),
+  ]);
+  try {
+    resolveInside(sourceRoot, canonicalRoot);
+    resolveInside(canonicalRoot, canonical);
+  } catch {
+    throw new Error(
+      `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} resolves outside its partial root`
+    );
+  }
+  return canonical;
 }
 
 function missingScopedPathReference(
