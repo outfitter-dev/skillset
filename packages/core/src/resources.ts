@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import type { Stats } from "node:fs";
-import { isAbsolute, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
@@ -209,13 +209,21 @@ async function assertCanonicalResourceContainment(
   label: string,
   authoredPath: string
 ): Promise<void> {
-  const [canonicalSourceRoot, canonicalResourceRoot, canonicalSource] = await Promise.all([
+  const [canonicalSourceRoot, canonicalOwnerRoot, canonicalResourceRoot, canonicalSource] = await Promise.all([
     realpath(sourceRootPath),
+    realpath(dirname(resourceRootPath)),
     realpath(resourceRootPath),
     realpath(sourcePath),
   ]);
   if (
-    !isCanonicalPathContained(canonicalSourceRoot, canonicalResourceRoot) ||
+    !isCanonicalPathContained(canonicalSourceRoot, canonicalOwnerRoot) ||
+    canonicalResourceRoot !== join(canonicalOwnerRoot, "shared")
+  ) {
+    throw new Error(
+      `skillset: ${label}.resources source resolves outside its source owner: ${authoredPath}`
+    );
+  }
+  if (
     !isCanonicalPathContained(canonicalResourceRoot, canonicalSource)
   ) {
     throw new Error(

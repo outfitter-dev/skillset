@@ -122,6 +122,54 @@ describe("effective skill resources", () => {
     ).rejects.toThrow("resources source resolves outside the source root");
   });
 
+  test("rejects a plugin shared root aliased to a sibling owner", async () => {
+    const pluginSharedPath = join(rootPath, ".skillset/plugins/demo/shared");
+    await files(rootPath, {
+      ".skillset/plugins/other/shared/references/secret.md": "Other plugin",
+    });
+    await mkdir(dirname(pluginSharedPath), { recursive: true });
+    await symlink(
+      join(rootPath, ".skillset/plugins/other/shared"),
+      pluginSharedPath,
+      "dir"
+    );
+
+    await expect(
+      readSkillResources(
+        { references: ["plugin:references/secret.md"] },
+        context
+      )
+    ).rejects.toThrow("resources source resolves outside its source owner");
+    await expect(
+      createEffectiveSkillResourcePlanner([], context).resolveReference(
+        "plugin:references/secret.md"
+      )
+    ).rejects.toThrow("resources source resolves outside its source owner");
+  });
+
+  test("rejects a workspace shared root aliased to a plugin owner", async () => {
+    await files(rootPath, {
+      ".skillset/plugins/other/shared/references/secret.md": "Other plugin",
+    });
+    await symlink(
+      join(rootPath, ".skillset/plugins/other/shared"),
+      context.sharedPath,
+      "dir"
+    );
+
+    await expect(
+      readSkillResources(
+        { references: ["shared:references/secret.md"] },
+        context
+      )
+    ).rejects.toThrow("resources source resolves outside its source owner");
+    await expect(
+      createEffectiveSkillResourcePlanner([], context).resolveReference(
+        "shared:references/secret.md"
+      )
+    ).rejects.toThrow("resources source resolves outside its source owner");
+  });
+
   test("keeps ordinary Markdown resource links declared-only with current guidance", () => {
     expect(
       findUndeclaredResourceLinks(
