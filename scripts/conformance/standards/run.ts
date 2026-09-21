@@ -33,6 +33,7 @@ import {
 } from "./agent-instructions";
 import {
   AGENT_PLUGINS_CODEX_PIN,
+  acquirePinnedAgentPluginsCodex,
   runAgentPluginsProbe,
 } from "./agent-plugins";
 import { runAgentSkillsProbe } from "./agent-skills";
@@ -436,8 +437,9 @@ async function runProfileProbe(
     };
   }
 
+  const codex = await acquirePinnedAgentPluginsCodex(probeState);
   const evidence = await runAgentPluginsProbe({
-    codex: AGENT_PLUGINS_CODEX_PIN,
+    codex,
     packageRoot: join(generatedRoot, "plugins", "portable-proof"),
   });
   return {
@@ -451,7 +453,7 @@ async function runProfileProbe(
       {
         id: "codex",
         integrity: evidence.marketplace.codexBinaryHash,
-        pin: evidence.marketplace.pin.binaryPath,
+        pin: `${AGENT_PLUGINS_CODEX_PIN.archiveUrl}#${AGENT_PLUGINS_CODEX_PIN.archiveSha256}`,
         version: evidence.marketplace.codexVersion,
       },
     ],
