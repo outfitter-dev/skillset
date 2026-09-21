@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { readString } from "./config";
 import { readChangeLedger } from "./change-ledger";
 import { compareStrings, resolveInside } from "./path";
-import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings } from "./source-identity-mapping";
+import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
 import {
   selectorForPluginCompanion,
   selectorForPluginConfig,
@@ -61,8 +61,13 @@ export async function readAppliedChangeRecords(
     if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
     const id = readString(parsed, "id");
     if (id === undefined) continue;
+    const cursor = parsed.sourceMoveCursor;
+    if (cursor !== undefined && cursor !== null && typeof cursor !== "string") {
+      throw new Error(`skillset: ${path}:${index + 1} sourceMoveCursor must be a string or null`);
+    }
+    const recordMappings = sourceMappingsAfterCursor(mappings, cursor);
     const historicalScopes = readHistoryScopes(parsed);
-    const scopes = currentSourceIdentities(historicalScopes, mappings);
+    const scopes = currentSourceIdentities(historicalScopes, recordMappings);
     const bump = readHistoryBump(parsed.bump);
     const group = readHistoryGroup(parsed.group);
     entries.push({
@@ -73,7 +78,7 @@ export async function readAppliedChangeRecords(
       path: `${path}:${index + 1}`,
       reason: readString(parsed, "reason") ?? readString(parsed, "body") ?? "",
       scopes,
-      sourceHashes: currentSourceHashEvidence(readHistoryEvidence(parsed.evidence, historicalScopes), mappings),
+      sourceHashes: currentSourceHashEvidence(readHistoryEvidence(parsed.evidence, historicalScopes), recordMappings),
     });
   }
   const amended = await applyHistoryAmendments(rootPath, options.sourceDir, entries);

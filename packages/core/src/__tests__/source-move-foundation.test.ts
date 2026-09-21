@@ -7,12 +7,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import type { ChangeLedgerEvent } from "../change-ledger";
+import { readAppliedChangeRecords } from "../change-history";
 import {
   currentSourceHashEvidence,
   currentSourceIdentities,
   sourceIdentityMappings,
 } from "../source-identity-mapping";
-import { readReleaseState } from "../release-state";
+import { readReleaseState, writeReleaseState } from "../release-state";
 import { planSourceMove } from "../source-move";
 import { rewriteSourceMoveConfig } from "../source-move-rewrite";
 
@@ -81,6 +82,104 @@ describe("source move foundations", () => {
           updatedAt: "2026-09-17T00:00:00.000Z",
           version: "1.0.0",
         },
+      },
+    });
+  });
+
+  test("keeps a reused selector's later release separate from the moved skill", async () => {
+    const oldHash = `sha256:${"a".repeat(64)}`;
+    const newHash = `sha256:${"b".repeat(64)}`;
+    const events = [
+      release("old-release", "skill:demo", oldHash, "1.0.0", "2026-09-17T00:00:00.000Z"),
+      {
+        createdAt: "2026-09-17T00:00:00.001Z",
+        id: "move",
+        payload: { from: "skill:demo", to: "plugin.tools.skill:demo" },
+        schemaVersion: 1,
+        type: "source.moved",
+      },
+      release("new-release", "skill:demo", newHash, "1.0.0", "2026-09-17T00:00:00.002Z"),
+    ];
+    const root = await fixture({
+      ".skillset/changes/ledger.jsonl": `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+    });
+    expect(await readReleaseState(root)).toEqual({
+      scopes: {
+        "plugin.tools.skill:demo": {
+          sourceHash: oldHash,
+          updatedAt: "2026-09-17T00:00:00.000Z",
+          version: "1.0.0",
+        },
+        "skill:demo": {
+          sourceHash: newHash,
+          updatedAt: "2026-09-17T00:00:00.002Z",
+          version: "1.0.0",
+        },
+      },
+    });
+  });
+
+  test("keeps pre-move and post-move history separate after selector reuse", async () => {
+    const oldHash = `sha256:${"a".repeat(64)}`;
+    const newHash = `sha256:${"b".repeat(64)}`;
+    const history = [
+      { id: "old", scopes: ["skill:demo"], evidence: [{ scope: "skill:demo", sourceHash: oldHash }] },
+      { id: "new", sourceMoveCursor: "move", scopes: ["skill:demo"], evidence: [{ scope: "skill:demo", sourceHash: newHash }] },
+    ];
+    const root = await fixture({
+      ".skillset/changes/history.jsonl": `${history.map((record) => JSON.stringify(record)).join("\n")}\n`,
+      ".skillset/changes/ledger.jsonl": `${JSON.stringify({ createdAt: "2026-09-17T00:00:00.001Z", id: "move", payload: { from: "skill:demo", to: "plugin.tools.skill:demo" }, schemaVersion: 1, type: "source.moved" })}\n`,
+    });
+    const records = await readAppliedChangeRecords(root);
+    expect(records.map((record) => [record.id, record.scopes, [...record.sourceHashes]])).toEqual([
+      ["new", ["skill:demo"], [["skill:demo", [newHash]]]],
+      ["old", ["plugin.tools.skill:demo"], [["plugin.tools.skill:demo", [oldHash]]]],
+    ]);
+    const unknown = await fixture({
+      ".skillset/changes/history.jsonl": `${JSON.stringify({ id: "new", sourceMoveCursor: "missing", scopes: ["skill:demo"] })}\n`,
+      ".skillset/changes/ledger.jsonl": `${JSON.stringify({ createdAt: "2026-09-17T00:00:00.001Z", id: "move", payload: { from: "skill:demo", to: "plugin.tools.skill:demo" }, schemaVersion: 1, type: "source.moved" })}\n`,
+    });
+    await expect(readAppliedChangeRecords(unknown)).rejects.toThrow("unknown source move cursor missing");
+  });
+
+  test("remaps legacy cache but respects the move cursor of a later snapshot", async () => {
+    const old = { version: "1.0.0" };
+    const newer = { version: "2.0.0" };
+    const ledger = `${JSON.stringify({ createdAt: "2026-09-17T00:00:00.001Z", id: "move", payload: { from: "skill:demo", to: "plugin.tools.skill:demo" }, schemaVersion: 1, type: "source.moved" })}\n`;
+    const legacy = await fixture({
+      ".skillset/changes/ledger.jsonl": ledger,
+      ".skillset/changes/state.json": JSON.stringify({ schemaVersion: 1, scopes: { "skill:demo": old } }),
+    });
+    expect(await readReleaseState(legacy)).toEqual({ scopes: { "plugin.tools.skill:demo": old } });
+
+    const current = await fixture({ ".skillset/changes/ledger.jsonl": ledger });
+    await writeReleaseState(current, { scopes: { "plugin.tools.skill:demo": old, "skill:demo": newer } });
+    expect(JSON.parse(await Bun.file(join(current, ".skillset/changes/state.json")).text())).toMatchObject({
+      schemaVersion: 2,
+      sourceMoveCursor: "move",
+    });
+    expect(await readReleaseState(current)).toEqual({ scopes: { "plugin.tools.skill:demo": old, "skill:demo": newer } });
+    const unknown = await fixture({
+      ".skillset/changes/ledger.jsonl": ledger,
+      ".skillset/changes/state.json": JSON.stringify({ schemaVersion: 2, sourceMoveCursor: "missing", scopes: { "skill:demo": newer } }),
+    });
+    await expect(readReleaseState(unknown)).rejects.toThrow("unknown source move cursor missing");
+  });
+
+  test("follows a second move without absorbing a reused original selector", async () => {
+    const events = [
+      release("old-release", "skill:demo", `sha256:${"a".repeat(64)}`, "1.0.0", "2026-09-17T00:00:00.000Z"),
+      { createdAt: "2026-09-17T00:00:00.001Z", id: "move-1", payload: { from: "skill:demo", to: "plugin.tools.skill:demo" }, schemaVersion: 1, type: "source.moved" },
+      release("new-release", "skill:demo", `sha256:${"b".repeat(64)}`, "2.0.0", "2026-09-17T00:00:00.002Z"),
+      { createdAt: "2026-09-17T00:00:00.003Z", id: "move-2", payload: { from: "plugin.tools.skill:demo", to: "plugin.other.skill:demo" }, schemaVersion: 1, type: "source.moved" },
+    ];
+    const root = await fixture({
+      ".skillset/changes/ledger.jsonl": `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+    });
+    expect(await readReleaseState(root)).toMatchObject({
+      scopes: {
+        "plugin.other.skill:demo": { version: "1.0.0" },
+        "skill:demo": { version: "2.0.0" },
       },
     });
   });
@@ -161,6 +260,20 @@ function moved(from: string, to: string): ChangeLedgerEvent {
     schemaVersion: 1,
     sourceUnits: [],
     type: "source.moved",
+  };
+}
+
+function release(id: string, selector: string, sourceHash: string, version: string, createdAt: string) {
+  return {
+    createdAt,
+    id,
+    payload: {
+      releaseId: id,
+      reasonIds: [id],
+      scopes: [{ bump: "minor", entries: [id], selector, sourceHash, version }],
+    },
+    schemaVersion: 1,
+    type: "release.applied",
   };
 }
 

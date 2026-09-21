@@ -3,6 +3,8 @@ import { compareStrings } from "./path";
 import { sourceUnitSelector } from "./source-unit-selector";
 
 export interface SourceIdentityMapping {
+  readonly eventId: string;
+  readonly eventIndex: number;
   readonly from: string;
   readonly to: string;
 }
@@ -10,19 +12,32 @@ export interface SourceIdentityMapping {
 export function sourceIdentityMappings(
   events: readonly ChangeLedgerEvent[]
 ): readonly SourceIdentityMapping[] {
-  return events
-    .filter(
-      (
-        event
-      ): event is Extract<
-        ChangeLedgerEvent,
-        { readonly type: "source.moved" }
-      > => event.type === "source.moved"
-    )
-    .map((event) => ({
-      from: event.payload.from,
-      to: event.payload.to,
-    }));
+  return events.flatMap((event, eventIndex) => event.type === "source.moved"
+    ? [{ eventId: event.id, eventIndex, from: event.payload.from, to: event.payload.to }]
+    : []);
+}
+
+export function sourceMappingsAfterCursor(
+  mappings: readonly SourceIdentityMapping[],
+  cursor: string | null | undefined
+): readonly SourceIdentityMapping[] {
+  if (cursor === null || cursor === undefined) return mappings;
+  const index = mappings.findIndex((mapping) => mapping.eventId === cursor);
+  if (index < 0) throw new Error(`skillset: unknown source move cursor ${cursor}`);
+  return mappings.slice(index + 1);
+}
+
+export function sourceMappingsAfterEvent(
+  mappings: readonly SourceIdentityMapping[],
+  eventIndex: number
+): readonly SourceIdentityMapping[] {
+  return mappings.filter((mapping) => mapping.eventIndex > eventIndex);
+}
+
+export function latestSourceMoveCursor(
+  mappings: readonly SourceIdentityMapping[]
+): string | null {
+  return mappings.at(-1)?.eventId ?? null;
 }
 
 export function currentSourceIdentity(
