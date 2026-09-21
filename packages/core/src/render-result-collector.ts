@@ -267,14 +267,33 @@ function unsupportedProjectUseComponentOutcomes(
         !copy.skill.targets[target].enabled ||
         !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id)
       ) continue;
-      const skillHook = copy.skill.hookAttachments.find((attachment) =>
-        attachment.providers === undefined || attachment.providers.includes(target)
+      const targetHooks = resolveAdaptiveHookAttachmentsForTarget(
+        graph.adaptiveHooks, graph.hookAttachments, target
+      ).resolved;
+      const skillHook = targetHooks.find((item) =>
+        item.attachment.scope.kind === "skill" &&
+        item.attachment.scope.pluginId === copy.plugin.id &&
+        item.attachment.scope.skillId === copy.skill.id &&
+        providerListAllows(item.definition.providers, target) &&
+        providerListAllows(item.attachment.providers, target) &&
+        adaptiveHookUnsupportedRenderReason(item, target, "frontmatter") === undefined
       );
+      const pluginHook = wholePluginSelected ? targetHooks.find((item) =>
+        item.attachment.scope.kind === "plugin" &&
+        item.attachment.scope.pluginId === copy.plugin.id &&
+        providerListAllows(item.definition.providers, target) &&
+        providerListAllows(item.attachment.providers, target) &&
+        adaptiveHookUnsupportedRenderReason(item, target, "plugin") === undefined
+      ) : undefined;
       const components = [
         ...pluginComponents,
         ...(skillHook === undefined ? [] : [{
           component: "hooks",
-          sourcePath: normalizeSourcePath(graph, skillHook.sourcePath),
+          sourcePath: normalizeSourcePath(graph, skillHook.attachment.sourcePath),
+        }]),
+        ...(pluginHook === undefined ? [] : [{
+          component: "hooks",
+          sourcePath: normalizeSourcePath(graph, pluginHook.attachment.sourcePath),
         }]),
       ].filter((item, index, all) =>
         all.findIndex((candidate) => candidate.component === item.component) === index
