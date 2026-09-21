@@ -252,11 +252,6 @@ async function planAuthoredPromotion(
       classification.selector
     );
     const paired = classification.shippedSkill !== undefined;
-    if (paired && baseline === undefined) {
-      throw new SourcePromotionPlanError(
-        `missing draft fork baseline for ${draftSelector}`
-      );
-    }
     const draftSourceHash = await hashSkillDirectory(draftPath);
     const currentShippedHash = paired
       ? await hashSkillDirectory(classification.shippedPath)
@@ -265,11 +260,14 @@ async function planAuthoredPromotion(
       baseline !== undefined &&
       currentShippedHash !== undefined &&
       currentShippedHash !== baseline.payload.sourceHash;
-    const warnings = changedSinceDraft
-      ? [
-          `shipped skill ${classification.selector} changed since the draft was taken; promotion will replace the current authored bytes`,
-        ]
-      : [];
+    const warnings = [
+      ...(paired && baseline === undefined
+        ? [`no recorded fork baseline for ${draftSelector}; cannot determine whether ${classification.selector} changed since drafting; review the authored diff before replacing it`]
+        : []),
+      ...(changedSinceDraft
+        ? [`shipped skill ${classification.selector} changed since the draft was taken; promotion will replace the current authored bytes`]
+        : []),
+    ];
     const diff = await skillDirectoryDiff(
       paired ? classification.shippedPath : undefined,
       draftPath

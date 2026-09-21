@@ -89,6 +89,9 @@ but still accepts explicit `--yes`. The append-only fork and promotion events
 preserve the shipped selector and release history without exposing the private
 baseline in frontmatter. Refusal, stale plans, blocked output effects, and
 interrupted writes restore source, history, generated output, and lock state.
+For a manually paired draft without a recorded fork, promotion diffs against
+the current shipped sibling and warns that changes since drafting are unknown;
+review that diff before `--yes`.
 Same-leaf skills in other containers remain independent.
 
 Move a shipped skill between the workspace and one plugin collection with

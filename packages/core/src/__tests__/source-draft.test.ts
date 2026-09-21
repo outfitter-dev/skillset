@@ -262,12 +262,15 @@ describe("SET-587 source draft lifecycle", () => {
       join(root, ".skillset/skills/_drafts/demo/SKILL.md"),
       skill("demo", "Reused draft.")
     );
-    await expect(
-      planSourcePromotion({
-        draftPath: ".skillset/skills/_drafts/demo",
-        rootPath: root,
-      })
-    ).rejects.toThrow("missing draft fork baseline for skill:demo#draft");
+    const reused = await planSourcePromotion({
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    });
+    expect(reused).not.toHaveProperty("baselineSourceHash");
+    expect(reused).not.toHaveProperty("draftEventId");
+    expect(reused.warnings).toContainEqual(
+      expect.stringContaining("no recorded fork baseline for skill:demo#draft")
+    );
     await buildSkillset(root);
 
     const movedPromotion = await planSourcePromotion({
@@ -509,25 +512,38 @@ describe("SET-587 source draft lifecycle", () => {
     ).toBe(workspace);
   });
 
-  test("refuses a paired promotion without a validated fork baseline", async () => {
+  test("warns and diffs a manually paired draft without a recorded fork", async () => {
     const root = await fixture({
       ".skillset/skills/_drafts/demo/SKILL.md": skill("demo", "Manual draft."),
       ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
       "skillset.yaml": config(),
     });
 
-    await expect(
-      planSourcePromotion({
-        draftPath: ".skillset/skills/_drafts/demo",
-        rootPath: root,
-      })
-    ).rejects.toBeInstanceOf(SourcePromotionPlanError);
-    await expect(
-      planSourcePromotion({
-        draftPath: ".skillset/skills/_drafts/demo",
-        rootPath: root,
-      })
-    ).rejects.toThrow("missing draft fork baseline for skill:demo#draft");
+    await buildSkillset(root);
+    const request = {
+      draftPath: ".skillset/skills/_drafts/demo",
+      rootPath: root,
+    };
+    const plan = await planSourcePromotion(request);
+    expect(plan).toMatchObject({
+      changedSinceDraft: false,
+      kind: "paired",
+      warnings: [
+        expect.stringContaining("no recorded fork baseline for skill:demo#draft"),
+      ],
+    });
+    expect(plan).not.toHaveProperty("baselineSourceHash");
+    expect(plan).not.toHaveProperty("draftEventId");
+    expect(plan.diff.join("\n")).toContain("-description: Shipped demo.");
+    expect(plan.diff.join("\n")).toContain("+description: Manual draft.");
+    await promoteSource({ ...request, expectedPlanHash: plan.planHash });
+    expect(
+      await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")
+    ).toContain("Manual draft.");
+    expect((await readChangeLedger(root)).at(-1)).toMatchObject({
+      payload: { draft: "skill:demo#draft", shipped: "skill:demo" },
+      type: "source.promoted",
+    });
   });
 
   test("refuses invalid lifecycle sources and blocked generated effects without writes", async () => {
