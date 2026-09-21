@@ -13,12 +13,13 @@ import type {
   JsonRecord,
   ProjectionConsumer,
   ProjectionOwner,
+  ProjectionRole,
   SourceOrigin,
   TargetName,
 } from "./types";
 import { isJsonRecord } from "./yaml";
 
-export type GeneratedLockSchemaVersion = 1 | 2 | 3;
+export type GeneratedLockSchemaVersion = 1 | 2 | 3 | 4;
 export type GeneratedLockHashSchema =
   | "skillset-output-v1"
   | "skillset-output-v2";
@@ -33,6 +34,7 @@ export type GeneratedLockProviderConsumer = Extract<
 >;
 export type GeneratedLockConsumer = ProjectionConsumer;
 export type GeneratedLockOwner = ProjectionOwner;
+export type GeneratedLockRole = ProjectionRole;
 
 export interface ParsedGeneratedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
@@ -46,6 +48,7 @@ export interface ParsedGeneratedLockItem {
   readonly outputHash?: string;
   readonly outputPath?: string;
   readonly owner?: GeneratedLockOwner;
+  readonly role?: GeneratedLockRole;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
@@ -92,7 +95,7 @@ export type ParsedCurrentGeneratedLock = Omit<
   ParsedGeneratedLock,
   "schemaVersion"
 > & {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
 };
 
 export interface ParseGeneratedLockOptions {
@@ -133,9 +136,9 @@ export function parseGeneratedLock(
       ? []
       : parseTargets(value.selectedTargets, label);
   const selectedStandards =
-    schemaVersion === 3 ? parseStandards(value.selectedStandards, label) : [];
+    schemaVersion >= 3 ? parseStandards(value.selectedStandards, label) : [];
   const standardProfileEvidence =
-    schemaVersion === 3
+    schemaVersion >= 3
       ? parseStandardProfileEvidence(
           value.standardProfileEvidence,
           selectedStandards,
@@ -188,7 +191,7 @@ export function parseGeneratedLock(
 /**
  * Read generated state that may authorize current compiler behavior.
  *
- * Pre-v3 locks remain structurally recognizable for bounded diagnostics, but
+ * Pre-v4 locks remain structurally recognizable for bounded diagnostics, but
  * they are rebuild-only and must never supply ownership or cleanup authority.
  */
 export function parseCurrentGeneratedLock(
@@ -198,11 +201,13 @@ export function parseCurrentGeneratedLock(
 ): ParsedCurrentGeneratedLock {
   if (
     isJsonRecord(value) &&
-    (value.schemaVersion === 1 || value.schemaVersion === 2)
+    (value.schemaVersion === 1 ||
+      value.schemaVersion === 2 ||
+      value.schemaVersion === 3)
   ) {
     throw invalidLock(
       label,
-      `uses pre-v3 schema ${value.schemaVersion}; this generated state is rebuild-only. Preserve canonical source and user edits, move only owner-reviewed generated output to a recoverable backup, then run skillset build --yes with the current Skillset release. The old lock cannot authorize cleanup`
+      `uses pre-v4 schema ${value.schemaVersion}; this generated state is rebuild-only. Preserve canonical source and user edits, move only owner-reviewed generated output to a recoverable backup, then run skillset build --yes with the current Skillset release. The old lock cannot authorize cleanup`
     );
   }
   return parseGeneratedLock(value, label, options) as ParsedCurrentGeneratedLock;
@@ -300,16 +305,21 @@ function parseGeneratedLockItem(
   const version = optionalString(value.version, label, "version");
 
   if (
-    schemaVersion !== 3 &&
+    schemaVersion < 3 &&
     (value.consumers !== undefined || value.owner !== undefined)
   ) {
     throw invalidLock(label, "legacy items cannot declare consumers or owner");
   }
   const consumers =
-    schemaVersion === 3 ? parseConsumers(value.consumers, label) : [];
+    schemaVersion >= 3 ? parseConsumers(value.consumers, label) : [];
   const owner =
-    schemaVersion === 3 ? parseOwner(value.owner, label) : undefined;
+    schemaVersion >= 3 ? parseOwner(value.owner, label) : undefined;
+  if (schemaVersion < 4 && value.role !== undefined) {
+    throw invalidLock(label, "pre-v4 items cannot declare role");
+  }
+  const role = schemaVersion === 4 ? parseRole(value.role, label) : undefined;
   validateOwnerConsumerRelationship(consumers, owner, label);
+  if (role !== undefined) validateRoleOwnership(role, owner, label);
 
   return {
     consumers,
@@ -323,6 +333,7 @@ function parseGeneratedLockItem(
     ...(outputHash === undefined ? {} : { outputHash }),
     ...(outputPath === undefined ? {} : { outputPath }),
     ...(owner === undefined ? {} : { owner }),
+    ...(role === undefined ? {} : { role }),
     ...(plugin === undefined ? {} : { plugin }),
     ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
     ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
@@ -446,6 +457,16 @@ function parseOwner(
     : { target: parseProviderTarget(value.target, `${label}.owner`) };
 }
 
+function parseRole(value: unknown, label: string): GeneratedLockRole {
+  if (value === "bundle" || value === "project-use" || value === "standard") {
+    return value;
+  }
+  throw invalidLock(
+    label,
+    "role must be bundle, project-use, or standard"
+  );
+}
+
 function validateOwnerConsumerRelationship(
   consumers: readonly GeneratedLockConsumer[],
   owner: GeneratedLockOwner | undefined,
@@ -483,6 +504,28 @@ function validateOwnerConsumerRelationship(
   }
 }
 
+function validateRoleOwnership(
+  role: GeneratedLockRole,
+  owner: GeneratedLockOwner | undefined,
+  label: string
+): void {
+  if (role === "standard") {
+    if (owner === undefined || !("standardProfile" in owner)) {
+      throw invalidLock(label, "standard role requires a standardProfile owner");
+    }
+    return;
+  }
+  if (owner !== undefined && "standardProfile" in owner) {
+    throw invalidLock(
+      label,
+      `${role} role cannot use a standardProfile owner`
+    );
+  }
+  if (role === "project-use" && owner === undefined) {
+    throw invalidLock(label, "project-use role requires a target owner");
+  }
+}
+
 function identityKey(
   value: GeneratedLockConsumer | GeneratedLockOwner
 ): string {
@@ -495,7 +538,7 @@ function parseSchemaVersion(
   value: unknown,
   label: string
 ): GeneratedLockSchemaVersion {
-  if (value === 1 || value === 2 || value === 3) return value;
+  if (value === 1 || value === 2 || value === 3 || value === 4) return value;
   throw invalidLock(label, `unsupported schemaVersion ${String(value)}`);
 }
 
@@ -521,7 +564,7 @@ function parseStandards(
   label: string
 ): readonly StandardProfileId[] {
   if (!Array.isArray(value)) {
-    throw invalidLock(label, "schema v3 selectedStandards must be an array");
+    throw invalidLock(label, "current selectedStandards must be an array");
   }
   return value.map((profile, index) =>
     parseStandardProfile(profile, `${label}.selectedStandards[${index}]`)
@@ -534,13 +577,13 @@ function parseStandardProfileEvidence(
   label: string
 ): Readonly<Partial<Record<StandardProfileId, string>>> {
   // Early v3 locks predate receipt provenance. Preserve them only when they
-  // never claimed a selected standard; any standards-bearing v3 lock must
+  // never claimed a selected standard; any standards-bearing current lock must
   // carry the complete receipt key set.
   if (value === undefined && selectedStandards.length === 0) return {};
   if (!isJsonRecord(value)) {
     throw invalidLock(
       label,
-      "schema v3 standardProfileEvidence must be an object"
+      "current standardProfileEvidence must be an object"
     );
   }
 
@@ -616,8 +659,8 @@ function validateProvenance(
   label: string
 ): void {
   if (value.provenanceHash === undefined) {
-    if (schemaVersion === 3) {
-      throw invalidLock(label, "schema v3 requires provenanceHash");
+    if (schemaVersion >= 3) {
+      throw invalidLock(label, `schema v${schemaVersion} requires provenanceHash`);
     }
     return;
   }

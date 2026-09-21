@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { getStandardProfile, type StandardProfileId } from "@skillset/registry";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { explainPath } from "../authoring";
 import { readContainedLicenseFile } from "../licenses";
 import { renderBuildGraph } from "../render";
 import {
@@ -20,7 +21,7 @@ import { parseMarkdown } from "../yaml";
 const decoder = new TextDecoder();
 
 describe("Agent Skills standard rendering", () => {
-  test("copies implied resources into flattened and Agent Plugins skill packages", async () => {
+  test("copies implied resources into the Agent Plugins skill package", async () => {
     const graph = adopted(
       await fixtureGraph({
         "skillset.yaml": `
@@ -51,28 +52,13 @@ Use @{{plugin:templates/plugin.txt}}.
     );
 
     const rendered = await renderBuildGraph(graph);
-    for (const root of [
-      ".agents/skills/portable",
-      "plugins/demo/agents/skills/portable",
-    ]) {
-      expect(paths(rendered)).toContain(`${root}/references/workspace.md`);
-      expect(paths(rendered)).toContain(`${root}/templates/plugin.txt`);
-      expect(text(rendered, `${root}/SKILL.md`)).toContain(
-        "@references/workspace.md"
-      );
-      expect(text(rendered, `${root}/SKILL.md`)).toContain(
-        "@templates/plugin.txt"
-      );
-    }
-    expect(lockItems(rendered, ".agents/skills/skillset.lock")).toContainEqual(
-      expect.objectContaining({
-        files: expect.arrayContaining([
-          "portable/references/workspace.md",
-          "portable/templates/plugin.txt",
-        ]),
-        name: "portable",
-      })
+    const root = "plugins/demo/agents/skills/portable";
+    expect(paths(rendered)).toContain(`${root}/references/workspace.md`);
+    expect(paths(rendered)).toContain(`${root}/templates/plugin.txt`);
+    expect(text(rendered, `${root}/SKILL.md`)).toContain(
+      "@references/workspace.md"
     );
+    expect(text(rendered, `${root}/SKILL.md`)).toContain("@templates/plugin.txt");
     expect(lockItems(rendered, "plugins/skillset.lock")).toContainEqual(
       expect.objectContaining({
         files: expect.arrayContaining([
@@ -139,8 +125,6 @@ Use references/guide.md.
       expect.arrayContaining([
         ".agents/skills/review/SKILL.md",
         ".agents/skills/review/LICENSE.txt",
-        ".agents/skills/helper/SKILL.md",
-        ".agents/skills/helper/references/guide.md",
         "plugins/demo/agents/skills/helper/SKILL.md",
         "plugins/demo/agents/skills/helper/references/guide.md",
       ])
@@ -179,13 +163,7 @@ Use references/guide.md.
           kind: "standalone-skill",
           name: "review",
           owner: { standardProfile: "agent-skills" },
-        }),
-        expect.objectContaining({
-          consumers: [{ phase: "baseline", standardProfile: "agent-skills" }],
-          kind: "plugin-skill",
-          name: "helper",
-          owner: { standardProfile: "agent-skills" },
-          plugin: "demo",
+          role: "standard",
         }),
       ])
     );
@@ -198,8 +176,18 @@ Use references/guide.md.
         name: "helper",
         owner: { standardProfile: "agent-plugins-1.0" },
         plugin: "demo",
+        role: "standard",
       })
     );
+    expect(
+      await explainPath(
+        graph.rootPath,
+        "plugins/demo/agents/skills/helper/SKILL.md"
+      )
+    ).toMatchObject({
+      entries: [expect.objectContaining({ role: "standard" })],
+      kind: "generated",
+    });
   });
 
   test("uses the resolved license for both frontmatter and the bundled notice", async () => {
@@ -486,6 +474,7 @@ Guide the task.
         ],
         files: expect.arrayContaining(["guide/SKILL.md"]),
         owner: { standardProfile: "agent-skills" },
+        role: "standard",
       })
     );
     expect(items).toContainEqual(
@@ -493,6 +482,7 @@ Guide the task.
         consumers: [{ phase: "delta", target: "codex" }],
         files: ["guide/.skillset.tools.yaml", "guide/agents/openai.yaml"],
         owner: { target: "codex" },
+        role: "bundle",
       })
     );
 
@@ -536,7 +526,7 @@ Guide the task.
     );
   });
 
-  test("adds Codex sidecars to a plugin-owned flattened skill only for its logical consumer", async () => {
+  test("keeps plugin-owned skills in their standard package without a root copy", async () => {
     const graph = adopted(
       await fixtureGraph({
         "skillset.yaml": `
@@ -564,35 +554,29 @@ tools:
 Help with the repository.
 `,
       }),
-      ["agent-skills"]
+      ["agent-plugins-1.0"]
     );
 
     const rendered = await renderBuildGraph(graph);
-    expect(paths(rendered)).toEqual(
-      expect.arrayContaining([
-        ".agents/skills/helper/SKILL.md",
-        ".agents/skills/helper/agents/openai.yaml",
-        ".agents/skills/helper/.skillset.tools.yaml",
-      ])
+    expect(paths(rendered)).toContain(
+      "plugins/demo/agents/skills/helper/SKILL.md"
     );
-    expect(
-      lockItems(rendered, ".agents/skills/skillset.lock").filter(
-        (item) => item.name === "helper"
-      )
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          consumers: [
-            { phase: "baseline", standardProfile: "agent-skills" },
-            { phase: "delta", target: "codex" },
-          ],
-          owner: { standardProfile: "agent-skills" },
-        }),
-        expect.objectContaining({
-          consumers: [{ phase: "delta", target: "codex" }],
-          owner: { target: "codex" },
-        }),
-      ])
+    expect(paths(rendered)).not.toContain(".agents/skills/helper/SKILL.md");
+    expect(paths(rendered)).not.toContain(
+      ".agents/skills/helper/agents/openai.yaml"
+    );
+    expect(paths(rendered)).not.toContain(
+      ".agents/skills/helper/.skillset.tools.yaml"
+    );
+    expect(lockItems(rendered, "plugins/skillset.lock")).toContainEqual(
+      expect.objectContaining({
+        consumers: [
+          { phase: "baseline", standardProfile: "agent-plugins-1.0" },
+        ],
+        name: "helper",
+        owner: { standardProfile: "agent-plugins-1.0" },
+        role: "standard",
+      })
     );
   });
 
@@ -798,21 +782,12 @@ Use the sibling.
       claudeMarketplacePlugins: [],
       includedPaths: new Set(paths(rendered)),
     });
-    for (const skillId of ["dependent", "sibling"]) {
-      expect(results).toContainEqual(
-        expect.objectContaining({
-          diagnostics: expect.arrayContaining([
-            expect.objectContaining({
-              code: "agent-skills-plugin-dependency-required",
-            }),
-          ]),
-          featureId: "plugin-skills",
-          sourceUnit: `plugin.demo.skill:${skillId}`,
-          standardProfile: "agent-skills",
-          status: "unsupported",
-        })
-      );
-    }
+    expect(results).not.toContainEqual(
+      expect.objectContaining({
+        standardProfile: "agent-skills",
+        sourceUnit: expect.stringMatching(/^plugin\.demo\.skill:/),
+      })
+    );
   });
 
   test("publishes self-contained plugin skills without copying unrelated plugin capabilities", async () => {
@@ -871,11 +846,14 @@ Run the hook.
     const rendered = await renderBuildGraph(graph);
     expect(paths(rendered)).toEqual(
       expect.arrayContaining([
-        ".agents/skills/portable/SKILL.md",
-        ".agents/skills/portable/LICENSE.txt",
-        ".agents/skills/portable/references/guide.md",
+        "plugins/demo/agents/skills/portable/SKILL.md",
+        "plugins/demo/agents/skills/portable/LICENSE.txt",
+        "plugins/demo/agents/skills/portable/references/guide.md",
         "plugins/demo/agents/skills/hooked/SKILL.md",
       ])
+    );
+    expect(paths(rendered)).not.toContain(
+      ".agents/skills/portable/SKILL.md"
     );
     expect(paths(rendered)).not.toContain(".agents/skills/hooked/SKILL.md");
     expect(
@@ -888,23 +866,20 @@ Run the hook.
         renderedPath.startsWith(".agents/skills/portable/agents/")
       )
     ).toBe(false);
-    expect(text(rendered, ".agents/skills/portable/SKILL.md")).toContain(
+    expect(
+      text(rendered, "plugins/demo/agents/skills/portable/SKILL.md")
+    ).toContain(
       "Use references/guide.md."
     );
-    expect(text(rendered, ".agents/skills/portable/LICENSE.txt")).toContain(
-      "MIT License"
-    );
+    expect(
+      text(rendered, "plugins/demo/agents/skills/portable/LICENSE.txt")
+    ).toContain("MIT License");
 
     const issues = agentSkillStandardProjectionIssues(graph, undefined);
-    expect(issues).toContainEqual(
+    expect(issues).not.toContainEqual(
       expect.objectContaining({
-        issues: expect.arrayContaining([
-          expect.objectContaining({
-            code: "agent-skills-adaptive-hook-required",
-          }),
-        ]),
-        skill: expect.objectContaining({ id: "hooked" }),
         standardProfile: "agent-skills",
+        skill: expect.objectContaining({ id: "hooked" }),
       })
     );
     expect(
@@ -916,7 +891,7 @@ Run the hook.
     ).toBe(false);
   });
 
-  test("rejects hidden package skill layouts without rejecting their root flattening", async () => {
+  test("rejects hidden package skill layouts without creating a root copy", async () => {
     const graph = adopted(
       await fixtureGraph({
         "skillset.yaml": `
@@ -942,7 +917,7 @@ Help.
     );
 
     const rendered = await renderBuildGraph(graph);
-    expect(paths(rendered)).toContain(".agents/skills/helper/SKILL.md");
+    expect(paths(rendered)).not.toContain(".agents/skills/helper/SKILL.md");
     expect(paths(rendered)).not.toContain(
       "plugins/demo/agents/skills/helper/SKILL.md"
     );
@@ -958,7 +933,7 @@ Help.
     );
   });
 
-  test("rejects cross-source flattened identity collisions even when bytes match", async () => {
+  test("keeps same-name standalone and plugin skills in separate standard placements", async () => {
     const skill = `
 ---
 name: shared
@@ -982,11 +957,15 @@ codex: false
 `,
         ".skillset/plugins/demo/skills/shared/SKILL.md": skill,
       }),
-      ["agent-skills"]
+      ["agent-plugins-1.0", "agent-skills"]
     );
 
-    await expect(renderBuildGraph(graph)).rejects.toThrow(
-      "conflicting source identities"
+    const rendered = await renderBuildGraph(graph);
+    expect(paths(rendered)).toEqual(
+      expect.arrayContaining([
+        ".agents/skills/shared/SKILL.md",
+        "plugins/demo/agents/skills/shared/SKILL.md",
+      ])
     );
   });
 

@@ -22,6 +22,9 @@ export type ProjectionOwner =
   | { readonly standardProfile: StandardProfileId }
   | { readonly target: TargetName };
 
+/** Why one rendered projection occupies its physical destination. */
+export type ProjectionRole = "bundle" | "project-use" | "standard";
+
 export type JsonScalar = boolean | null | number | string;
 export type JsonValue = JsonScalar | JsonValue[] | JsonRecord;
 
@@ -513,6 +516,7 @@ export interface GeneratedEntry {
   readonly outputRoot: string;
   /** Sole physical writer for this generated path. */
   readonly owner?: ProjectionOwner;
+  readonly role?: ProjectionRole;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
   readonly skillReferences?: readonly ProjectAgentSkillProvenance[];

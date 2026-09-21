@@ -8,6 +8,7 @@ import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
 import {
   parseCurrentGeneratedLock,
   parseGeneratedLock,
+  type GeneratedLockSchemaVersion,
   type ParsedGeneratedLockItem,
 } from "./generated-lock";
 import { hasValidLockProvenance } from "./lock-provenance";
@@ -155,7 +156,7 @@ interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "recor
 interface ParsedLock {
   readonly items: readonly ParsedGeneratedLockItem[];
   readonly outputHashesTrusted: boolean;
-  readonly schemaVersion: 1 | 2 | 3;
+  readonly schemaVersion: GeneratedLockSchemaVersion;
 }
 
 interface LockFileEntry {
@@ -653,20 +654,13 @@ async function readManagedLock(
 
   let lock;
   try {
-    const emptyLegacyV2 =
-      isJsonRecord(parsed) &&
-      parsed.schemaVersion === 2 &&
-      Array.isArray(parsed.items) &&
-      parsed.items.length === 0;
-    lock = emptyLegacyV2
-      ? parseGeneratedLock(parsed, displayLockPath, { provenance: "inspect" })
-      : parseCurrentGeneratedLock(
-          parsed,
-          displayLockPath,
-          requireProvenance
-            ? { provenance: "require" }
-            : { provenance: "inspect" }
-        );
+    lock = parseCurrentGeneratedLock(
+      parsed,
+      displayLockPath,
+      requireProvenance
+        ? { provenance: "require" }
+        : { provenance: "inspect" }
+    );
     if (
       !requireProvenance &&
       requiresProvenanceForUnplannedPaths(
@@ -691,7 +685,7 @@ async function readManagedLock(
   return {
     items: lock.items,
     outputHashesTrusted:
-      lock.schemaVersion !== 3 ||
+      lock.schemaVersion < 3 ||
       (isJsonRecord(parsed) && hasValidLockProvenance(parsed)),
     schemaVersion: lock.schemaVersion,
   };
@@ -717,7 +711,7 @@ function requiresProvenanceForUnplannedPaths(
 async function currentOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedGeneratedLockItem,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: GeneratedLockSchemaVersion,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
   const hash = createHash("sha256");
@@ -808,7 +802,7 @@ export function lockDisagreementPaths(
 function snapshotOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedGeneratedLockItem,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: GeneratedLockSchemaVersion,
   snapshots: ReadonlyMap<string, GeneratedFileSnapshot>
 ): string | undefined {
   const hash = createHash("sha256");
@@ -842,7 +836,7 @@ function snapshotOutputHash(
 function renderedOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedGeneratedLockItem,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: GeneratedLockSchemaVersion,
   renderedByPath: ReadonlyMap<string, RenderedFile>
 ): string | undefined {
   const hash = createHash("sha256");

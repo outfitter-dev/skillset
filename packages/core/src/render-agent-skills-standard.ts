@@ -269,11 +269,6 @@ export function agentSkillStandardProjectionIssues(
     for (const skill of graph.standaloneSkills) {
       pushStandardIssue(issues, graph, undefined, skill);
     }
-    for (const plugin of graph.plugins) {
-      for (const skill of plugin.skills) {
-        pushStandardIssue(issues, graph, plugin, skill);
-      }
-    }
   }
   if (
     (scopes === undefined || scopes.includes("plugins")) &&

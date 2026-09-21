@@ -209,6 +209,7 @@ Help with the task.
           consumers?: unknown;
           dependencies?: readonly string[];
           owner?: unknown;
+          role?: unknown;
         }>;
       };
       for (const item of lock.items) {
@@ -219,6 +220,7 @@ Help with the task.
           { phase: "delta", target: "codex" },
         ];
         item.owner = { standardProfile: "agent-plugins-1.0" };
+        item.role = "standard";
       }
       return {
         ...file,
@@ -454,7 +456,7 @@ Demo.
 
     const downgraded = await readFile(lockPath, "utf8");
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
     expect((await stat(outputScript)).mode & 0o777).toBe(0o644);
@@ -501,12 +503,12 @@ Demo.
 
     const downgraded = await readFile(lockPath, "utf8");
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 2; this generated state is rebuild-only"
+      "uses pre-v4 schema 2; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
 
-  it("upgrades coherent empty schema-v2 locks", async () => {
+  it("refuses to upgrade coherent empty schema-v2 locks in place", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -536,10 +538,11 @@ marketplaces:
     delete legacy.selectedStandards;
     await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
 
-    const migrated = await buildSkillsetResult(root);
-    expect(migrated.writes.backupRunId).toBeUndefined();
-    expect((await readJson(lockPath)).schemaVersion).toBe(3);
-    expect((await verifySkillsetResult(root)).ok).toBe(true);
+    const downgraded = await readFile(lockPath, "utf8");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v4 schema 2; this generated state is rebuild-only"
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
 
   it("rejects legacy standards selection before writes", async () => {

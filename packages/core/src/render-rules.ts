@@ -598,6 +598,10 @@ function lockItemForRule(args: {
       relative(args.outputRoot, args.outputPath)
     ),
     ...(args.owner === undefined ? {} : { owner: args.owner }),
+    role:
+      args.owner !== undefined && "standardProfile" in args.owner
+        ? "standard"
+        : "bundle",
     ...(args.preprocessDependencies.length === 0
       ? {}
       : { preprocessDependencies: args.preprocessDependencies }),

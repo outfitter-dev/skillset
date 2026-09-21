@@ -285,6 +285,7 @@ function lockItem(name: string) {
     name,
     outputHash: "output",
     outputPath: `plugins/${name}`,
+    role: "bundle" as const,
     sourceHash: "source",
     sourcePath: `.skillset/plugins/${name}`,
   };

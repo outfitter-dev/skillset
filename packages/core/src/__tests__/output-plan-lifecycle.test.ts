@@ -154,18 +154,18 @@ describe("coalesced output lifecycle", () => {
     ]);
     const lockPath = join(root, ".agents/skills/skillset.lock");
     const lock = JSON.parse(await readFile(lockPath, "utf-8"));
-    lock.schemaVersion = 4;
+    lock.schemaVersion = 5;
     await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
     await expect(
       buildSkillsetResult(root, { scopes: ["repo"] })
-    ).rejects.toThrow("unsupported schemaVersion 4");
+    ).rejects.toThrow("unsupported schemaVersion 5");
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
   });
 
-  test("rejects a pre-v3 inactive lock without granting cleanup ownership", async () => {
+  test("rejects a pre-v4 inactive lock without granting cleanup ownership", async () => {
     const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
@@ -183,7 +183,7 @@ describe("coalesced output lifecycle", () => {
 
     await expect(
       buildSkillsetResult(root, { scopes: ["repo"] })
-    ).rejects.toThrow("uses pre-v3 schema 2; this generated state is rebuild-only");
+    ).rejects.toThrow("uses pre-v4 schema 2; this generated state is rebuild-only");
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
@@ -290,6 +290,7 @@ describe("coalesced output lifecycle", () => {
       fileModes: { "user-owned.txt": "0644" },
       files: ["user-owned.txt"],
       outputHash: outputHash("user-owned.txt", "keep me\n"),
+      role: "bundle",
     });
     await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
@@ -502,6 +503,7 @@ async function appendInactiveStandardPluginItem(
     { phase: "delta", target: "codex" },
   ];
   activeItem.owner = { standardProfile: "agent-plugins-1.0" };
+  activeItem.role = "standard";
   lock.items.push({
     consumers: [{ phase: "baseline", standardProfile: "agent-plugins-1.0" }],
     fileModes: { [relativePath]: "0644" },
@@ -510,6 +512,7 @@ async function appendInactiveStandardPluginItem(
     outputHash: outputHash(relativePath, content),
     outputPath: "former",
     owner: { standardProfile: "agent-plugins-1.0" },
+    role: "standard",
     sourcePath: ".skillset/plugins/former/skillset.yaml",
   });
   lock.selectedStandards = ["agent-plugins-1.0"];
@@ -550,11 +553,12 @@ async function seedManagedStandardRoot(
         outputHash: outputHash(relativePath, content),
         outputPath: "review",
         owner,
+        role: standardOwner === undefined ? "bundle" : "standard",
         sourcePath: ".skillset/skills/review/SKILL.md",
       },
     ],
     outputRoot: ".agents/skills",
-    schemaVersion: 3,
+    schemaVersion: 4,
     standardProfileEvidence: {
       "agent-skills": `sha256:${"a".repeat(64)}`,
     },
@@ -594,11 +598,12 @@ async function seedManagedPluginRoot(root: string): Promise<void> {
             outputHash: outputHash(relativePath, content),
             outputPath: "demo",
             owner: { standardProfile: "agent-plugins-1.0" },
+            role: "standard",
             sourcePath: ".skillset/plugins/demo/plugin.yaml",
           },
         ],
         outputRoot,
-        schemaVersion: 3,
+        schemaVersion: 4,
         standardProfileEvidence: {
           "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
         },
