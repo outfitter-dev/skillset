@@ -94,11 +94,12 @@ export async function classifySkillCollectionMove(
     );
   }
 
+  const workspaceInventory = graph.discoveredSkills?.filter((candidate) =>
+    isWithin(workspaceCollection, dirname(candidate.sourcePath))
+  ) ?? graph.standaloneSkills;
   const destinationInventory =
     toPlugin === undefined
-      ? (graph.discoveredSkills?.filter((candidate) =>
-          isWithin(workspaceCollection, dirname(candidate.sourcePath))
-        ) ?? graph.standaloneSkills)
+      ? workspaceInventory
       : (toPlugin.discoveredSkills ?? toPlugin.skills);
   const leafCollision = destinationInventory.find(
     (candidate) => candidate.id === skill.id
@@ -116,7 +117,7 @@ export async function classifySkillCollectionMove(
 
   const sourceInventory =
     fromPlugin === undefined
-      ? (graph.discoveredSkills ?? graph.standaloneSkills)
+      ? workspaceInventory
       : (fromPlugin.discoveredSkills ?? fromPlugin.skills);
   const draft = sourceInventory.find(
     (candidate) =>

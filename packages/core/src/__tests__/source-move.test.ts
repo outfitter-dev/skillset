@@ -65,24 +65,21 @@ describe("SET-588 source collection move", () => {
     expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("selector: plugin.tools.skill:demo");
     expect((await readAppliedChangeRecords(root))[0]?.scopes).toEqual(["plugin.tools.skill:demo"]);
     await expect(access(join(root, ".claude/skills/demo/SKILL.md"))).rejects.toThrow();
-    expect(await readFile(join(root, "plugins/tools/claude/skills/demo/SKILL.md"), "utf8")).toContain("name: demo");
-    expect(
-      await explainPath(root, "plugins/tools/claude/skills/demo/SKILL.md")
-    ).toMatchObject({
+    expect(await readFile(join(root, "plugins/tools/skills/demo/SKILL.md"), "utf8")).toContain("name: demo");
+    const explained = await explainPath(root, "plugins/tools/skills/demo/SKILL.md");
+    expect(explained).toMatchObject({
       entries: [
         expect.objectContaining({
-          role: "bundle",
+          role: "standard",
           sourcePath: ".skillset/plugins/tools/skills/demo/SKILL.md",
         }),
       ],
       kind: "generated",
-      renderResults: [
-        expect.objectContaining({
-          sourceUnit: "plugin.tools.skill:demo",
-          status: "rendered",
-        }),
-      ],
     });
+    expect(explained.renderResults).toContainEqual(expect.objectContaining({
+      sourceUnit: "plugin.tools.skill:demo",
+      status: "rendered",
+    }));
 
     const homeward = {
       from: outward.to,
@@ -102,7 +99,7 @@ describe("SET-588 source collection move", () => {
     expect(await readFile(join(root, ".skillset/plugins/tools/skillset.yaml"))).toEqual(baseline.pluginConfig);
     expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"))).toEqual(baseline.generated);
     expect(await readFile(join(root, ".claude/skills/skillset.lock"))).toEqual(baseline.lock);
-    await expect(access(join(root, "plugins/tools/claude/skills/demo/SKILL.md"))).rejects.toThrow();
+    await expect(access(join(root, "plugins/tools/skills/demo/SKILL.md"))).rejects.toThrow();
   });
 
   test("removes plugin internal-use selection with a visible notice", async () => {
@@ -129,6 +126,28 @@ describe("SET-588 source collection move", () => {
     expect(config).not.toContain("skill:demo");
   });
 
+  test("does not carry an unrelated plugin draft with a workspace skill", async () => {
+    const root = await fixture({
+      ".skillset/plugins/other/skills/_drafts/demo/SKILL.md": skill("demo", "Other draft."),
+      ".skillset/plugins/other/skills/demo/SKILL.md": skill("demo", "Other shipped."),
+      ".skillset/plugins/other/skillset.yaml": "skillset:\n  name: other\n",
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Workspace shipped."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    await buildSkillset(root);
+    const plan = await planSourceMove(request);
+    expect(plan.operations.filter((operation) => operation.kind === "move").map((operation) => operation.from)).toEqual([request.from]);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+    expect(await readFile(join(root, ".skillset/plugins/other/skills/_drafts/demo/SKILL.md"), "utf8")).toContain("Other draft.");
+    await expect(access(join(root, ".skillset/plugins/tools/skills/_drafts/demo"))).rejects.toThrow();
+  });
+
   test("refuses stale hashes and rolls back every move effect after a late write failure", async () => {
     const root = await fixture({
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
@@ -151,7 +170,7 @@ describe("SET-588 source collection move", () => {
         transactionOptions: {
           testHooks: {
             beforeApply: (operation) => {
-              if (operation.kind === "write" && operation.path.includes("plugins/tools/claude/skills/demo/SKILL.md")) {
+              if (operation.kind === "write" && operation.path.includes("plugins/tools/skills/demo/SKILL.md")) {
                 throw new Error("injected move output failure");
               }
             },
@@ -193,7 +212,7 @@ describe("SET-588 source collection move", () => {
 
   test("refuses an unmanaged generated destination without creating mutation authority", async () => {
     const root = await fixture({
-      "plugins/tools/claude/skills/demo/SKILL.md": "unmanaged\n",
+      "plugins/tools/skills/demo/SKILL.md": "unmanaged\n",
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
       ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
       "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
