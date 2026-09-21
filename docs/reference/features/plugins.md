@@ -29,8 +29,9 @@ Create an empty container with `skillset new plugin <name> --yes`. The command p
 
 When Agent Plugins 1.0 is adopted, each applicable plugin also inherently produces `plugins/<plugin>/agents/`. This standard package is independent of provider selection; plugin and root provider toggles control only provider-native bundles and deltas.
 
-Root `plugins.internal_use` selects plugin content for project-local use and
-defaults to none. Root `plugins.output` is parsed into a deterministic package
+Root `plugins.internal_use` validates and reports a project-local selection
+plan, defaulting to none; it does not render project-local copies until
+SET-554. Root `plugins.output` is parsed into a deterministic package
 path plan; current builds accept only the default `plugins/[name]` placement.
 Custom paths, root placement, `name`, and `combine` remain explicit unsupported
 results until their package-placement features land rather than being silently

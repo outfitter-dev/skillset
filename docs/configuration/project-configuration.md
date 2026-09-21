@@ -52,9 +52,11 @@ response to it yet.
 
 ## Select Plugin Content for This Project
 
-Plugin content is opt-in for project-local use. Omitting
-`plugins.internal_use` selects none of it. A boolean selects all or none; the
-object form can select whole plugins, individual live skills, and drafts:
+`plugins.internal_use` currently validates and reports a project-local
+selection plan; it does not emit project-local copies yet. Rendering those
+copies is deferred to SET-554. Omitting the setting selects none. A boolean
+selects all or none; the object form can select whole plugins, individual live
+skills, and drafts:
 
 ```yaml
 plugins:
@@ -78,8 +80,8 @@ skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
 mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
 are rejected because draft status currently belongs only to skills. The
 `skillset explain` command reports `config` as the origin. `internal_marker`
-defaults to `true`; set it to `false` only when generated project copies are
-intended to omit the future internal metadata marker.
+defaults to `true`; once project-local rendering exists, set it to `false` only
+when those generated copies should omit the internal metadata marker.
 
 ## Plan Plugin Package Paths
 
