@@ -1500,15 +1500,14 @@ skillset:
     expect(report).toEqual({ checkedFiles: 1, issues: [], ok: true });
   });
 
-  it("uses render-result metadata for custom plugin and fixed skill roots", async () => {
+  it("uses render-result metadata for shared plugin and fixed skill roots", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: provider-format-root
 claude: false
 codex:
-  plugins:
-    path: generated/openai-plugins
+  plugins: true
 cursor: false
 `,
       ".skillset/plugins/repo-plugin/skillset.yaml": `
