@@ -56,7 +56,7 @@ Run an explicit normalized hook event.
 ### Usage
 
 ```text
-skillset hooks run <post-tool-use|stop> [--root <path>]
+skillset hooks run <post-tool-use|session-start|stop> [--root <path>]
 ```
 
 ### Options

@@ -395,6 +395,39 @@ describe("@skillset/registry hook evidence", () => {
     const cursorBeforeSubmitPrompt = cursor.events.find((event) => event.name === "BeforeSubmitPrompt");
     const cursorSessionStart = cursor.events.find((event) => event.name === "SessionStart");
 
+    expect(claude.outputLimits).toEqual([
+      {
+        approximate: false,
+        field: "hook-output-string",
+        kind: "hard-cap",
+        source: "https://code.claude.com/docs/en/hooks",
+        unit: "characters",
+        value: 10_000,
+        verifiedAt: "2026-09-16",
+      },
+    ]);
+    expect(codex.outputLimits).toEqual([
+      {
+        approximate: true,
+        field: "additionalContext",
+        kind: "default-spill-threshold",
+        source: "https://developers.openai.com/codex/hooks",
+        unit: "tokens",
+        value: 2_500,
+        verifiedAt: "2026-09-16",
+      },
+      {
+        approximate: false,
+        field: "additionalContext",
+        kind: "configured-example",
+        source: "https://developers.openai.com/codex/hooks",
+        unit: "tokens",
+        value: 5_000,
+        verifiedAt: "2026-09-16",
+      },
+    ]);
+    expect(cursor.outputLimits).toEqual([]);
+
     expect(claudePreToolUse).toMatchObject({
       canBlock: true,
       evidenceKind: "docs-backed-overlay",
