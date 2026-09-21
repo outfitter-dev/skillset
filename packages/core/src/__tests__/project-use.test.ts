@@ -447,6 +447,7 @@ Use me.
       }[];
     };
     const copy = lock.items.find((item) => item.role === "project-use");
+    expect(copy).toBeDefined();
     expect(copy?.files).not.toContain(
       "use-me/hooks/local-shell.json"
     );
