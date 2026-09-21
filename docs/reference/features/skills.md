@@ -119,6 +119,7 @@ after the fork, the preview warns and shows the diff; explicit `--yes` may
 still apply that exact plan. A manually created paired draft without a recorded
 fork compares against the current shipped sibling and warns that Skillset
 cannot tell whether it changed since drafting; review the diff before `--yes`.
+The JSON plan reports `changedSinceDraft: null` without a fork baseline.
 Promotion keeps the shipped selector and its pre-fork release history, appends
 promotion provenance, and removes the draft path and its generated draft
 outputs. A refusal, stale plan, blocked generated

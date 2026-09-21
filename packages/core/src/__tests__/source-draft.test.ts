@@ -266,6 +266,7 @@ describe("SET-587 source draft lifecycle", () => {
       draftPath: ".skillset/skills/_drafts/demo",
       rootPath: root,
     });
+    expect(reused.changedSinceDraft).toBeNull();
     expect(reused).not.toHaveProperty("baselineSourceHash");
     expect(reused).not.toHaveProperty("draftEventId");
     expect(reused.warnings).toContainEqual(
@@ -489,7 +490,7 @@ describe("SET-587 source draft lifecycle", () => {
     });
 
     expect(plan).toMatchObject({
-      changedSinceDraft: false,
+      changedSinceDraft: null,
       draftSelector: "plugin.tools.skill:future#draft",
       kind: "unpaired",
       selector: "plugin.tools.skill:future",
@@ -526,7 +527,7 @@ describe("SET-587 source draft lifecycle", () => {
     };
     const plan = await planSourcePromotion(request);
     expect(plan).toMatchObject({
-      changedSinceDraft: false,
+      changedSinceDraft: null,
       kind: "paired",
       warnings: [
         expect.stringContaining("no recorded fork baseline for skill:demo#draft"),

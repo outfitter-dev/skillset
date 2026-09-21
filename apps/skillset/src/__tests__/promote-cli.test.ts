@@ -10,24 +10,25 @@ const request = {
   yes: false,
 } as const;
 
-const createCore = (): {
+const createCore = (unrecorded = false): {
   readonly calls: {
     readonly expectedPlanHash?: string;
     readonly operation: "apply" | "plan";
   }[];
   readonly value: PromoteCommandCore;
 } => {
-  const warning =
-    "shipped skill skill:demo changed since the draft was taken; promotion will replace the current authored bytes";
+  const warning = unrecorded
+    ? "no recorded fork baseline for skill:demo#draft; cannot determine whether skill:demo changed since drafting"
+    : "shipped skill skill:demo changed since the draft was taken; promotion will replace the current authored bytes";
   const plan = {
-    baselineSourceHash: `sha256:${"1".repeat(64)}`,
-    changedSinceDraft: true,
+    ...(unrecorded ? {} : { baselineSourceHash: `sha256:${"1".repeat(64)}` }),
+    changedSinceDraft: unrecorded ? null : true,
     diff: [
       "diff --skillset SKILL.md",
       "--- shipped/SKILL.md",
       "+++ draft/SKILL.md",
     ],
-    draftEventId: "source-drafted-1",
+    ...(unrecorded ? {} : { draftEventId: "source-drafted-1" }),
     draftSourceHash: `sha256:${"2".repeat(64)}`,
     from: request.draftPath,
     generatedOperations: [
@@ -161,5 +162,29 @@ describe("SET-587 promote command", () => {
     ]);
     expect(output).not.toContain('"content":');
     expect(output).not.toContain('"mode":');
+  });
+
+  test("reports an unknown change state for a manually paired draft", async () => {
+    const fake = createCore(true);
+    let output = "";
+    const write = spyOn(process.stdout, "write").mockImplementation((value) => {
+      output += String(value);
+      return true;
+    });
+    try {
+      await runPromoteCommand(
+        { ...request, jsonOutput: true },
+        { core: fake.value }
+      );
+    } finally {
+      write.mockRestore();
+    }
+    const result = JSON.parse(output) as {
+      data: { plan: { changedSinceDraft: boolean | null; warnings: string[] } };
+    };
+    expect(result.data.plan.changedSinceDraft).toBeNull();
+    expect(result.data.plan.warnings[0]).toContain("no recorded fork baseline");
+    expect(output).not.toContain('"draftEventId":');
+    expect(output).not.toContain('"baselineSourceHash":');
   });
 });

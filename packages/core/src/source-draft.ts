@@ -256,15 +256,14 @@ async function planAuthoredPromotion(
     const currentShippedHash = paired
       ? await hashSkillDirectory(classification.shippedPath)
       : undefined;
-    const changedSinceDraft =
-      baseline !== undefined &&
-      currentShippedHash !== undefined &&
-      currentShippedHash !== baseline.payload.sourceHash;
+    const changedSinceDraft = baseline === undefined || currentShippedHash === undefined
+      ? null
+      : currentShippedHash !== baseline.payload.sourceHash;
     const warnings = [
       ...(paired && baseline === undefined
         ? [`no recorded fork baseline for ${draftSelector}; cannot determine whether ${classification.selector} changed since drafting; review the authored diff before replacing it`]
         : []),
-      ...(changedSinceDraft
+      ...(changedSinceDraft === true
         ? [`shipped skill ${classification.selector} changed since the draft was taken; promotion will replace the current authored bytes`]
         : []),
     ];

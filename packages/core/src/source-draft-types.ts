@@ -47,7 +47,8 @@ export interface SourcePromotionRequest {
 export interface SourcePromotionPlan extends SourceDraftMutationPlan {
   readonly action: "promote";
   readonly baselineSourceHash?: string;
-  readonly changedSinceDraft: boolean;
+  /** Null when no recorded fork baseline permits a comparison. */
+  readonly changedSinceDraft: boolean | null;
   readonly diff: readonly string[];
   readonly draftEventId?: string;
   readonly draftSourceHash: string;

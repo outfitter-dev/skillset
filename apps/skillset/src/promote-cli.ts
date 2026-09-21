@@ -25,7 +25,7 @@ interface PromoteGeneratedOperation {
 
 interface SourcePromotionPlan {
   readonly baselineSourceHash?: string;
-  readonly changedSinceDraft: boolean;
+  readonly changedSinceDraft: boolean | null;
   readonly diff: readonly string[];
   readonly draftEventId?: string;
   readonly draftSourceHash: string;
