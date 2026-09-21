@@ -193,6 +193,28 @@ cursor:
     ).toEqual(["plugins/demo/skills/review/assets/common.txt"]);
   });
 
+  it("does not emit an empty shared skill when its only standard projection is unsupported", async () => {
+    const root = await fixture("metadata:\n  score: 1");
+    await Bun.write(
+      join(root, "skillset.yaml"),
+      "skillset:\n  name: shared-plugin-skill\n  license: none\ncompile:\n  unsupportedDestination: warn\nclaude: false\ncodex: false\ncursor: false\n"
+    );
+
+    const result = await buildSkillsetResult(root);
+    expect(result.data.map((file) => file.path)).not.toContain(
+      "plugins/demo/skills/review/SKILL.md"
+    );
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unsupported-destination-warn",
+          featureId: "plugin-skills",
+          message: expect.stringContaining("metadata value score must be a string"),
+        }),
+      ])
+    );
+  });
+
   it("flattens grouping directories and names both colliding sources", async () => {
     const root = await fixture(
       "",

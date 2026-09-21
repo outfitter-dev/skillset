@@ -697,6 +697,8 @@ async function renderPluginSharedSkillFiles(
     });
   }
 
+  if (providerRenderings.length === 0) return [];
+
   const mergedMarkdown = mergePluginSkillRenderings(
     graph,
     plugin,
