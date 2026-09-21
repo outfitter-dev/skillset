@@ -135,6 +135,79 @@ Draft this skill.
   expect(explain.stdout).toContain("owner: codex");
 });
 
+test("SET-572 status and explain expose only and override policy provenance", async () => {
+  const config = (draftPolicy: "only" | "override") => `skillset:
+  name: project-draft-policy-status
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    skills:
+      demo: true
+    drafts:
+      demo: ${draftPolicy}
+`;
+  const root = await fixture({
+    "skillset.yaml": config("only"),
+    ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+    ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Use this skill.
+---
+
+Use this skill.
+`,
+    ".skillset/plugins/demo/skills/_drafts/use-me/SKILL.md": `---
+name: use-me
+description: Draft this skill.
+---
+
+Draft this skill.
+`,
+  });
+
+  for (const draftPolicy of ["only", "override"] as const) {
+    await writeFile(join(root, "skillset.yaml"), config(draftPolicy));
+    await buildSkillsetResult(root);
+    const effectiveName = draftPolicy === "only" ? "draft-use-me" : "use-me";
+    const jsonResult = await runStatus(root, "--json");
+    const report = (JSON.parse(jsonResult.stdout) as {
+      readonly data: {
+        readonly projectUse: readonly Record<string, unknown>[];
+      };
+    }).data;
+    expect(report.projectUse).toContainEqual({
+      draftOrigin: "_drafts",
+      draftPolicy,
+      effectiveName,
+      owner: { target: "codex" },
+      role: "project-use",
+      selectionRule: "plugins.internal_use.skills.demo: true",
+      shippedSibling: "plugin.demo.skill:use-me",
+      sourcePath: ".skillset/plugins/demo/skills/_drafts/use-me/SKILL.md",
+      sourceUnit: "plugin.demo.skill:use-me",
+      target: "codex",
+    });
+
+    const humanResult = await runStatus(root);
+    expect(humanResult.stdout).toContain(
+      "plugin internal use: demo/use-me (draft)"
+    );
+    expect(humanResult.stdout).toContain(`draftPolicy=${draftPolicy}`);
+    expect(humanResult.stdout).toContain(`effectiveName=${effectiveName}`);
+    const explain = await runExplain(
+      root,
+      `.agents/skills/${effectiveName}/SKILL.md`
+    );
+    expect(explain.stdout).toContain(`draft policy: ${draftPolicy}`);
+    expect(explain.stdout).toContain(`effective name: ${effectiveName}`);
+    expect(explain.stdout).toContain(
+      "selection rule: plugins.internal_use.skills.demo: true"
+    );
+  }
+});
+
 function statusEntry(target: "claude" | "codex" | "cursor") {
   return {
     effectiveName: "use-me",

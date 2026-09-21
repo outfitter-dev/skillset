@@ -14,6 +14,7 @@ import type {
 export interface ProjectUseSkillCopy {
   readonly collisionSources: readonly string[];
   readonly draftOrigin?: NonNullable<SourceSkill["draftOrigin"]>;
+  readonly draftPolicy?: "only" | "override";
   readonly effectiveName: string;
   readonly plugin: SourcePlugin;
   readonly selectionRule: string;
@@ -33,6 +34,7 @@ export interface WorkspaceDraftSkillCopy {
 
 export interface ProjectUseStatusEntry {
   readonly draftOrigin?: NonNullable<SourceSkill["draftOrigin"]>;
+  readonly draftPolicy?: "only" | "override";
   readonly effectiveName: string;
   readonly owner: { readonly target: TargetName };
   readonly role: "bundle" | "project-use";
@@ -47,6 +49,7 @@ interface ProjectUseCandidate {
   readonly collisionIdentity: string;
   readonly decision: NonNullable<BuildGraph["pluginPlan"]>["internalUse"]["decisions"][number];
   readonly plugin: SourcePlugin;
+  readonly shippedSibling?: string;
   readonly skill: SourceSkill;
   readonly sourceUnit: string;
 }
@@ -90,6 +93,11 @@ export function resolveProjectUseSkillCopies(
       collisionIdentity: status === "draft" ? `${sourceUnit}#draft` : sourceUnit,
       decision,
       plugin,
+      ...shippedSiblingFor(
+        plugin.discoveredSkills ?? plugin.skills,
+        skill,
+        plugin.id
+      ),
       skill,
       sourceUnit,
     };
@@ -111,9 +119,7 @@ export function resolveProjectUseSkillCopies(
   }
   const pluginByName = new Map<string, string[]>();
   for (const candidate of candidates) {
-    const desiredName = candidate.skill.status === "draft"
-      ? draftEffectiveName(candidate.skill.id)
-      : candidate.skill.id;
+    const desiredName = projectUseDesiredName(candidate);
     pluginByName.set(desiredName, [
       ...(pluginByName.get(desiredName) ?? []),
       candidate.collisionIdentity,
@@ -121,9 +127,7 @@ export function resolveProjectUseSkillCopies(
   }
 
   const named: ProjectUseNameCandidate[] = candidates.map((candidate) => {
-    const desiredName = candidate.skill.status === "draft"
-      ? draftEffectiveName(candidate.skill.id)
-      : candidate.skill.id;
+    const desiredName = projectUseDesiredName(candidate);
     const collisionSources = [
       ...(workspaceByName.get(desiredName) ?? []),
       ...(pluginByName.get(desiredName) ?? []),
@@ -198,17 +202,26 @@ export function resolveProjectUseSkillCopies(
     ...(candidate.skill.draftOrigin === undefined
       ? {}
       : { draftOrigin: candidate.skill.draftOrigin }),
+    ...(candidate.decision.draftPolicy === undefined
+      ? {}
+      : { draftPolicy: candidate.decision.draftPolicy }),
     effectiveName: effectiveNames.get(candidate) ?? candidate.preferredName,
     plugin: candidate.plugin,
     selectionRule: candidate.decision.rule,
-    ...shippedSiblingFor(
-      candidate.plugin.discoveredSkills ?? candidate.plugin.skills,
-      candidate.skill,
-      candidate.plugin.id
-    ),
+    ...(candidate.shippedSibling === undefined
+      ? {}
+      : { shippedSibling: candidate.shippedSibling }),
     skill: candidate.skill,
     sourceUnit: candidate.sourceUnit,
   }));
+}
+
+function projectUseDesiredName(candidate: ProjectUseCandidate): string {
+  if (candidate.skill.status !== "draft") return candidate.skill.id;
+  return candidate.decision.draftPolicy === "override" &&
+      candidate.shippedSibling !== undefined
+    ? candidate.skill.id
+    : draftEffectiveName(candidate.skill.id);
 }
 
 export function resolveWorkspaceDraftSkillCopies(
@@ -277,6 +290,7 @@ export function projectUseStatusEntries(
       }
       return [{
         ...(copy.draftOrigin === undefined ? {} : { draftOrigin: copy.draftOrigin }),
+        ...(copy.draftPolicy === undefined ? {} : { draftPolicy: copy.draftPolicy }),
         effectiveName: copy.effectiveName,
         owner: { target },
         role: "project-use" as const,

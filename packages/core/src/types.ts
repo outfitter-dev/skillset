@@ -94,9 +94,11 @@ export interface CompileConfig {
 export type InstructionFrontPageDestination = "claude-dir" | "repo-root";
 
 export type InternalUseSelector = boolean | readonly string[];
+export type ProjectDraftPolicy = "only" | "override";
+export type InternalUseDraftSelector = InternalUseSelector | ProjectDraftPolicy;
 
 export interface InternalUseConfig {
-  readonly drafts: Readonly<Record<string, InternalUseSelector>>;
+  readonly drafts: Readonly<Record<string, InternalUseDraftSelector>>;
   readonly plugins: InternalUseSelector;
   readonly skills: Readonly<Record<string, InternalUseSelector>>;
 }
@@ -507,6 +509,7 @@ export interface GeneratedEntry {
   readonly consumers?: readonly ProjectionConsumer[];
   readonly dependencies?: readonly string[];
   readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly feature?: string;
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;

@@ -1810,6 +1810,18 @@ function internalUseByPluginSchema(): SchemaJsonRecord {
   };
 }
 
+function internalUseDraftsByPluginSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: {
+      anyOf: [
+        internalUseSelectorSchema(),
+        { enum: ["only", "override"], type: "string" },
+      ],
+    },
+    type: "object",
+  };
+}
+
 function workspacePluginsSchema(): SchemaJsonRecord {
   const targetOutputProperties = Object.fromEntries(
     TARGET_NAMES.map((target) => [target, packageOutputTargetSchema()])
@@ -1819,7 +1831,7 @@ function workspacePluginsSchema(): SchemaJsonRecord {
       anyOf: [
         { type: "boolean" },
         strictObjectSchema({
-          drafts: internalUseByPluginSchema(),
+          drafts: internalUseDraftsByPluginSchema(),
           plugins: internalUseSelectorSchema(),
           skills: internalUseByPluginSchema(),
         }),

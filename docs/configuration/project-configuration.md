@@ -86,25 +86,36 @@ render result records `internal-use-name-conflict`. Workspace drafts render
 beside live project skills as `draft-<leaf>`. For selected plugin skills,
 omitting `plugins.internal_use.drafts.<plugin>` inherits each selected live
 skill's same-container draft; `true` or a list selects drafts explicitly, and
-`false` excludes them. Excluding a live skill also excludes its paired draft.
+`false` excludes them. The string policy `only` emits only drafts in the
+selected plugin content, while `override` emits a paired draft at its live
+sibling's project name and leaves selected live skills without drafts
+unchanged. A whole-plugin selection brings unpaired drafts into either mode;
+an individual live-skill selection brings only its same-container pair.
+Selection and exclusions resolve before either policy, so excluding a live
+skill also excludes its paired draft and no policy restores excluded content.
 
-Every rendered project draft uses `draft-<leaf>` for its directory and
-frontmatter name, prefixes its description with `[SKILLSET DRAFT] `, and writes
-boolean `metadata.internal: true` even when `internal_marker` is `false`.
+Workspace drafts, side-by-side plugin drafts, `only`-mode drafts, and unpaired
+`override` drafts use `draft-<leaf>` for their directory and frontmatter name.
+A paired `override` draft instead uses its live sibling's effective project-use
+name. Every rendered project draft prefixes its description with
+`[SKILLSET DRAFT] ` and writes boolean `metadata.internal: true` even when
+`internal_marker` is `false`.
 Pairing requires an equal leaf in the same workspace or plugin container.
 Project-use lock entries record the canonical source unit, effective name,
 selection rule, and target owner; project drafts additionally record draft
-origin and the same-container shipped sibling when one exists. Drafts never
-enter plugin packages or marketplace output. `internal_marker` defaults to
-`true` for live project-use copies; set it to `false` to omit their marker.
+origin, applied draft policy, and the same-container shipped sibling when one
+exists. Drafts never enter plugin packages or marketplace output.
+`internal_marker` defaults to `true` for live project-use copies; set it to
+`false` to omit their marker.
 Referenced skill resources travel with copies. Other plugin-level hooks,
 unrelated shared trees, MCP servers, and executables are not hydrated:
 selecting the whole plugin or a skill with its own hook attachment reports the
 unhydrated dependency. An unrelated file in a shared directory does not make
 an individually selected skill depend on it.
 
-Target-eligible adaptive hook attachments on a selected project draft are rejected because
-project draft copies cannot hydrate them; they are never silently dropped.
+Target-eligible adaptive hook attachments on a selected project draft are
+rejected because project draft copies cannot hydrate them; they are never
+silently dropped.
 
 ## Plan Plugin Package Paths
 

@@ -2173,7 +2173,24 @@ function checkInternalUse(
   );
   checkInternalUseSelector(value.plugins, `${path}.plugins`, code, diagnostics);
   checkInternalUseByPlugin(value.skills, `${path}.skills`, code, diagnostics);
-  checkInternalUseByPlugin(value.drafts, `${path}.drafts`, code, diagnostics);
+  checkInternalUseDraftsByPlugin(value.drafts, `${path}.drafts`, code, diagnostics);
+}
+
+function checkInternalUseDraftsByPlugin(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, `${code}-selection`, `${path} must be an object`));
+    return;
+  }
+  for (const [pluginId, selector] of Object.entries(value)) {
+    if (selector === "only" || selector === "override") continue;
+    checkInternalUseSelector(selector, `${path}.${pluginId}`, code, diagnostics);
+  }
 }
 
 function checkInternalUseSelector(

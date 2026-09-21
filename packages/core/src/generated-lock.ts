@@ -14,6 +14,7 @@ import type {
   ProjectionConsumer,
   ProjectionOwner,
   ProjectionRole,
+  ProjectDraftPolicy,
   SourceOrigin,
   TargetName,
 } from "./types";
@@ -40,6 +41,7 @@ export interface ParsedGeneratedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
   readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly feature?: string;
   readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
@@ -286,6 +288,7 @@ function parseGeneratedLockItem(
     "dependencies"
   );
   const draftOrigin = parseDraftOrigin(value.draftOrigin, label);
+  const draftPolicy = parseDraftPolicy(value.draftPolicy, label);
   const feature = optionalString(value.feature, label, "feature");
   const effectiveName = optionalString(value.effectiveName, label, "effectiveName");
   const plugin = optionalString(value.plugin, label, "plugin");
@@ -335,6 +338,7 @@ function parseGeneratedLockItem(
     consumers,
     ...(dependencies === undefined ? {} : { dependencies }),
     ...(draftOrigin === undefined ? {} : { draftOrigin }),
+    ...(draftPolicy === undefined ? {} : { draftPolicy }),
     ...(effectiveName === undefined ? {} : { effectiveName }),
     ...(feature === undefined ? {} : { feature }),
     ...(fileModes === undefined ? {} : { fileModes }),
@@ -361,6 +365,15 @@ function parseGeneratedLockItem(
     ...(validation === undefined ? {} : { validation }),
     ...(version === undefined ? {} : { version }),
   };
+}
+
+function parseDraftPolicy(
+  value: unknown,
+  label: string
+): ProjectDraftPolicy | undefined {
+  if (value === undefined) return undefined;
+  if (value === "only" || value === "override") return value;
+  throw invalidLock(label, "draftPolicy must be only or override");
 }
 
 function parseDraftOrigin(
