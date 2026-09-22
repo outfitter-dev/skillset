@@ -1,11 +1,12 @@
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, symlink } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { expect, test } from "bun:test";
 
 import {
+  collectDevWatchDirectories,
   createDevWatchJsonlStream,
   createDevWatchDebouncer,
   createDevWatchPlan,
@@ -14,10 +15,35 @@ import {
   runDevWatchApply,
   runDevWatchPreview,
   shouldRunDevPreviewForPath,
+  type DevWatchPlan,
   type DevWatchPreviewReport,
   type DevWatchScheduler,
 } from "../dev-watch";
 import { parseCliEventStream } from "../cli-output";
+
+test("SET-647: missing watch roots stay omitted and a watch-root loop raises", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-existence-"));
+  const loop = join(root, "loop");
+  await symlink(basename(loop), loop);
+  const plan = (watchRoots: readonly string[]): DevWatchPlan => ({
+    configPaths: ["skillset.yaml"],
+    ignoredRoots: [],
+    outputRoots: [],
+    rootPath: root,
+    sourceRoot: ".skillset",
+    watchRoots,
+  });
+
+  await expect(collectDevWatchDirectories(plan(["missing"]))).resolves.toEqual([]);
+  await mkdir(join(root, ".skillset"), { recursive: true });
+  await expect(collectDevWatchDirectories(plan([".skillset"]))).resolves.toEqual([
+    ".skillset",
+  ]);
+  await expect(collectDevWatchDirectories(plan(["loop"]))).rejects.toMatchObject({
+    code: "ELOOP",
+    path: loop,
+  });
+});
 
 test("SET-210: dev watch plan covers ordinary source and ignores generated churn", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-ordinary-"));

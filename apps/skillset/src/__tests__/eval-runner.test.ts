@@ -1,6 +1,6 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
@@ -303,6 +303,49 @@ test("SET-387: target rendering failures are retained as render infrastructure e
   expect(
     (JSON.parse(await readFile(cachePath(root, xdg, report.reportPath), "utf8")) as { failureClass?: string }).failureClass,
   ).toBe("render");
+});
+
+test("SET-647: missing eval inputs stay unavailable and a loop raises into setup failure", async () => {
+  const files = {
+    "skillset.yaml": "skillset:\n  name: eval-existence\ncompile:\n  targets: [codex]\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo eval skill.\n---\n\nUse this skill.\n",
+    ".skillset/skills/demo/evals/evals.json": JSON.stringify({
+      skill_name: "demo",
+      evals: [{
+        expected_output: "Ungraded.",
+        files: ["evals/files/brief.txt"],
+        id: 1,
+        prompt: "Read evals/files/brief.txt.",
+      }],
+    }),
+  };
+  const missingRoot = await fixture(files);
+  const missingXdg = { env: { XDG_CACHE_HOME: join(missingRoot, "xdg-cache") } };
+  const missing = await runSkillsetEvals(missingRoot, {
+    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(missingRoot) },
+    xdg: missingXdg,
+  });
+  expect(missing).toMatchObject({
+    state: "failed",
+    trials: [expect.objectContaining({ classification: "unavailable" })],
+  });
+
+  const loopRoot = await fixture(files);
+  const briefPath = join(loopRoot, ".skillset/skills/demo/evals/files/brief.txt");
+  await mkdir(dirname(briefPath), { recursive: true });
+  await symlink(basename(briefPath), briefPath);
+  const loopXdg = { env: { XDG_CACHE_HOME: join(loopRoot, "xdg-cache") } };
+  const looped = await runSkillsetEvals(loopRoot, {
+    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(loopRoot) },
+    xdg: loopXdg,
+  });
+  expect(looped.state).toBe("failed");
+  expect(looped.trials).toEqual([]);
+  expect(
+    (JSON.parse(await readFile(cachePath(loopRoot, loopXdg, looped.reportPath), "utf8")) as {
+      error?: string;
+    }).error
+  ).toMatch(/ELOOP|too many symbolic links/i);
 });
 
 test("SET-387: retained eval lookups reject traversal-shaped run ids", async () => {

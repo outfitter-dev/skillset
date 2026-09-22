@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import {
@@ -14,6 +14,10 @@ import {
 } from "./config";
 import { parseCurrentGeneratedLock } from "./generated-lock";
 import { resolveLicense } from "./licenses";
+import {
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+} from "./fs-existence";
 import { compareStrings, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
@@ -443,12 +447,9 @@ function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
   );
 }
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a test path through a non-directory prefix is
+  // a broken workspace, not a missing declaration or staged artifact.
+  return pathExistsOnDisk(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 async function copyIfExists(

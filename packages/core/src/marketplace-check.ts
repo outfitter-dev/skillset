@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -12,6 +12,10 @@ import {
   type MarketplaceRefPolicyKind,
   type MarketplaceRequestedRefPolicy,
 } from "./marketplace-ref-policy";
+import {
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+} from "./fs-existence";
 import { compareStrings } from "./path";
 import {
   providerSourceForPlugin,
@@ -857,12 +861,12 @@ function isGitRepositoryEnv(key: string): boolean {
 }
 
 async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a lock path through a non-directory prefix
+  // must not look like missing marketplace provenance.
+  return pathExistsOnDisk(path, {
+    missing: MISSING_PATH_ENOENT,
+    probe: "access",
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

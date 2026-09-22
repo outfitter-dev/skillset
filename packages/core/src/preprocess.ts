@@ -10,6 +10,7 @@ import {
   sep,
 } from "node:path";
 
+import { isMissingPathError, MISSING_PATH_ENOENT } from "./fs-existence";
 import { resolveInside } from "./path";
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 
@@ -937,16 +938,9 @@ async function isFile(path: string): Promise<boolean> {
   try {
     return (await stat(path)).isFile();
   } catch (error) {
-    if (isMissingPathError(error)) return false;
+    // ENOTDIR is not absence here: a partial path through a file is invalid
+    // source, not a missing include.
+    if (isMissingPathError(error, MISSING_PATH_ENOENT)) return false;
     throw error;
   }
-}
-
-function isMissingPathError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { readonly code?: unknown }).code === "ENOENT"
-  );
 }

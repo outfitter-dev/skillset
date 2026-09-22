@@ -1,6 +1,6 @@
-import { chmod, mkdtemp, readFile, readdir, stat, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, readdir, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -32,6 +32,21 @@ describe("marketplace check", () => {
         "plugins\\demo\\claude\\.claude-plugin\\marketplace.json"
       )
     ).toBe("plugins/demo/claude/.claude-plugin/marketplace.json");
+  });
+
+  test("SET-647: missing lock provenance stays empty and a lock loop raises", async () => {
+    const root = await fixture(localMarketplaceFiles());
+    const absent = await checkMarketplaces(root);
+    expect(absent.entries.every((entry) => entry.lock.state === "absent")).toBe(
+      true
+    );
+
+    const lockPath = join(root, "skillset.lock");
+    await symlink(basename(lockPath), lockPath);
+    await expect(checkMarketplaces(root)).rejects.toMatchObject({
+      code: "ELOOP",
+      path: lockPath,
+    });
   });
 
   test("SET-297: lists configured catalogs without resolving external repositories", async () => {

@@ -12,6 +12,11 @@ import {
   sep,
 } from "node:path";
 
+import {
+  isMissingPathError,
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+} from "./fs-existence";
 import { compareStrings, validateSlug } from "./path";
 import { SourceRenamePlanError } from "./source-rename-types";
 import type { SourceRenameKind } from "./source-rename-types";
@@ -90,7 +95,7 @@ export async function assertNoSymlinkTraversal(
         );
       }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if (isMissingPathError(error, MISSING_PATH_ENOENT)) {
         return;
       }
       throw error;
@@ -257,15 +262,9 @@ export function remapPath(path: string, from: string, to: string): string {
 }
 
 export async function pathExists(path: string): Promise<boolean> {
-  try {
-    await lstat(path);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
+  // lstat keeps rename planning on the named entry. ENOTDIR is not absence: a
+  // rename path through a file is a containment error, not a missing source.
+  return pathExistsOnDisk(path, { missing: MISSING_PATH_ENOENT, probe: "lstat" });
 }
 
 export async function sameExistingEntry(
