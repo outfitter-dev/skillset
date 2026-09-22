@@ -133,15 +133,15 @@ skillset:
 `,
       ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
-name: demo
+name: review
 description: First demo.
 ---
 
 Body.
 `,
-      ".skillset/plugins/alpha/skills/nested/demo/SKILL.md": `
+      ".skillset/plugins/alpha/skills/other/SKILL.md": `
 ---
-name: demo
+name: review
 description: Nested demo.
 ---
 
@@ -157,13 +157,13 @@ Body.
       expect(error).toBeInstanceOf(SkillsetFeatureDiagnosticError);
       const diagnostic = error as SkillsetFeatureDiagnosticError;
       expect(diagnostic.code).toBe("plugin-skill-flattening-conflict");
-      expect(diagnostic.path).toBe(".skillset/plugins/alpha/skills/nested/demo/SKILL.md");
+      expect(diagnostic.path).toBe(".skillset/plugins/alpha/skills/other/SKILL.md");
       expect(diagnostic.path).not.toInclude("\\");
       expect(diagnostic.message).toContain(
         ".skillset/plugins/alpha/skills/demo/SKILL.md"
       );
       expect(diagnostic.message).toContain(
-        ".skillset/plugins/alpha/skills/nested/demo/SKILL.md"
+        ".skillset/plugins/alpha/skills/other/SKILL.md"
       );
       expect(diagnostic.message).not.toInclude("\\");
     }

@@ -26,7 +26,7 @@ test("CLI JSON serialization is a pass-through of normalized Core diagnostic pat
       code: error.code,
       featureId: error.featureId,
       message: error.message,
-      path: error.path,
+      ...(error.path === undefined ? {} : { path: error.path }),
       severity: "error",
     },
   ]);
