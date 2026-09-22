@@ -139,7 +139,7 @@ describe("buildSkillsetResult", () => {
     }
   });
 
-  it("refuses to hand an edited settings island back to whole-file ownership", async () => {
+  it("hands an edited settings island back without losing foreign settings", async () => {
     const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
     const root = await fixture({
       ...DEMO_FIXTURE,
@@ -152,14 +152,24 @@ describe("buildSkillsetResult", () => {
       const local = (await readFile(settingsPath, "utf8")).replace('"authored"', '"local"');
       await writeFile(settingsPath, local);
       await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
-      await expect(buildSkillsetResult(root)).rejects.toThrow("reconcile foreign settings before turning off");
-      expect(await readFile(settingsPath, "utf8")).toBe(local);
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const output = await readFile(settingsPath, "utf8");
+      expect(output).toContain('"foreign":"local"');
+      expect(output).not.toContain("npx skillset hooks run session-start");
+      const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+        items: Array<{ kind: string; outputPath: string }>;
+      };
+      expect(lock.items).not.toContainEqual(expect.objectContaining({ kind: "settings-entry", outputPath: ".claude/settings.json" }));
+      expect(lock.items).toContainEqual(expect.objectContaining({ kind: "island", outputPath: ".claude/settings.json" }));
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).not.toContain(".claude/settings.json");
+      expect(diff.data.changed).not.toContain("skillset.lock");
     } finally {
       await rm(root, { force: true, recursive: true });
     }
   });
 
-  it("refuses island handback after the owned command is already gone but foreign settings changed", async () => {
+  it("hands the island back when the owned command is already gone but foreign settings changed", async () => {
     const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
     const root = await fixture({
       ...DEMO_FIXTURE,
@@ -172,8 +182,34 @@ describe("buildSkillsetResult", () => {
       const local = '{"foreign":"local"}';
       await writeFile(settingsPath, local);
       await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
-      await expect(buildSkillsetResult(root)).rejects.toThrow("reconcile foreign settings before turning off");
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
       expect(await readFile(settingsPath, "utf8")).toBe(local);
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).not.toContain(".claude/settings.json");
+      expect(diff.data.changed).not.toContain("skillset.lock");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("does not discard accepted foreign settings when the authored island later changes", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      [sourcePath]: '{"foreign":"authored"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      await writeFile(settingsPath, (await readFile(settingsPath, "utf8")).replace('"authored"', '"local"'));
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const handback = await readFile(settingsPath, "utf8");
+      await writeFile(join(root, sourcePath), '{"foreign":"new source"}\n');
+      await expect(buildSkillsetResult(root)).rejects.toThrow("authored settings island changed alongside its live output");
+      expect(await readFile(settingsPath, "utf8")).toBe(handback);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -266,6 +302,10 @@ compile:
       expect((await buildSkillsetResult(root)).ok).toBe(true);
       expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
       expect(await readFile(settingsPath, "utf8")).toContain('"foreign":"keep"');
+      expect(await Bun.file(join(root, "skillset.lock")).exists()).toBe(false);
+      const offDiff = await diffSkillsetResult(root);
+      expect(offDiff.data.changed).not.toContain(".claude/settings.json");
+      expect(offDiff.data.changed).not.toContain("skillset.lock");
     } finally {
       await rm(root, { force: true, recursive: true });
     }

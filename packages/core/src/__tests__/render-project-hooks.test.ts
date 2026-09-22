@@ -4,10 +4,12 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { describe, expect, test } from "bun:test";
+import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
 import {
   renderProjectSessionStartHooks,
   projectSessionStartEntry,
+  projectSessionStartPath,
   SESSION_START_COMMAND,
 } from "../render-project-hooks";
 
@@ -34,6 +36,17 @@ function graph(rootPath: string, mode: "auto" | "on" | "off") {
 }
 
 describe("project SessionStart hook rendering", () => {
+  test("takes Codex destination and context limit from checked-in provider evidence", () => {
+    const destination = getProviderRuntimeHookDestination("codex");
+    expect(destination.status).toBe("verified");
+    if (destination.status !== "verified") return;
+    expect(projectSessionStartPath("codex")).toBe(destination.path.replace("<project>/", ""));
+    const configuredLimit = getProviderHookEvidence("codex").outputLimits.find((limit) => limit.kind === "configured-example" && limit.field === "additionalContext");
+    expect(configuredLimit).toBeDefined();
+    const entry = projectSessionStartEntry("codex");
+    const handler = (entry.hooks as Array<Record<string, unknown>>)[0];
+    expect(handler?.additionalContextLimit).toBe(configuredLimit?.value);
+  });
   test("auto follows every enabled skill root, not the hook files", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-project-hooks-auto-"));
     try {

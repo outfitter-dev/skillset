@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual, promisify } from "node:util";
 import { join, relative } from "node:path";
+import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
 import { readString } from "./config";
 import { parseCurrentGeneratedLock, type ParsedGeneratedLockItem } from "./generated-lock";
@@ -16,20 +17,37 @@ import { isJsonRecord } from "./yaml";
 const execFile = promisify(execFileCallback);
 export const SESSION_START_COMMAND = "npx skillset hooks run session-start";
 export const SESSION_START_KEY_PATH = "hooks.SessionStart[*].hooks[*].command";
-const SESSION_START_FILENAME: Readonly<Record<"claude" | "codex", string>> = {
-  claude: "settings.json",
-  codex: "hooks.json",
-};
+const CODEX_START_SOURCES = ["startup", "resume"] as const;
+const CODEX_PROJECT_HOOKS_PATH = (() => {
+  const destination = getProviderRuntimeHookDestination("codex");
+  if (destination.status !== "verified" || !destination.path.startsWith("<project>/.codex/")) {
+    throw new Error("skillset: Codex project hook destination has no verified project path");
+  }
+  return destination.path.slice("<project>/".length);
+})();
 
 export function projectSessionStartPath(target: "claude" | "codex", projectRoot = `.${target}`): string {
-  return join(projectRoot, SESSION_START_FILENAME[target]);
+  return target === "claude"
+    ? join(projectRoot, "settings.json")
+    : join(projectRoot, relative(".codex", CODEX_PROJECT_HOOKS_PATH));
 }
 
 export function projectSessionStartEntry(target: "claude" | "codex"): JsonRecord {
+  const evidence = getProviderHookEvidence(target);
+  const sessionStart = evidence.events.find((event) => event.name === "SessionStart");
+  if (sessionStart === undefined) throw new Error(`skillset: missing ${target} SessionStart evidence`);
+  const sources = target === "claude" ? sessionStart.matcherValues : CODEX_START_SOURCES;
+  if (sources.some((source) => !sessionStart.matcherValues.includes(source))) {
+    throw new Error(`skillset: unsupported ${target} SessionStart matcher`);
+  }
   const handler: Record<string, JsonValue> = { type: "command", command: SESSION_START_COMMAND };
-  if (target === "codex") handler.additionalContextLimit = 5000;
+  if (target === "codex") {
+    const configuredLimit = evidence.outputLimits.find((limit) => limit.field === "additionalContext" && limit.kind === "configured-example");
+    if (configuredLimit === undefined) throw new Error("skillset: missing Codex additionalContextLimit evidence");
+    handler.additionalContextLimit = configuredLimit.value;
+  }
   return {
-    matcher: target === "claude" ? "startup|resume|clear|compact" : "startup|resume",
+    matcher: sources.join("|"),
     hooks: [handler],
   };
 }
@@ -43,12 +61,17 @@ export interface RenderedProjectHook {
   readonly target: Extract<TargetName, "claude" | "codex">;
 }
 
+export interface ProjectSettingsIsland {
+  readonly file: RenderedFile;
+  readonly sourceHash: string;
+}
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 export async function renderProjectSessionStartHooks(
   graph: BuildGraph,
-  sourceIslands: ReadonlyMap<string, RenderedFile> = new Map()
+  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map()
 ): Promise<readonly RenderedProjectHook[]> {
   const targets = (["claude", "codex"] as const).filter(
     (target) => graph.root.targets[target].enabled
@@ -70,7 +93,7 @@ export async function renderProjectSessionStartHooks(
 async function renderExistingOff(
   graph: BuildGraph,
   targets: readonly ("claude" | "codex")[],
-  sourceIslands: ReadonlyMap<string, RenderedFile>
+  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland>
 ): Promise<readonly RenderedProjectHook[]> {
   const rendered: RenderedProjectHook[] = [];
   for (const target of targets) {
@@ -84,7 +107,7 @@ async function renderProjectHook(
   graph: BuildGraph,
   target: "claude" | "codex",
   removeOnly = false,
-  sourceIslands: ReadonlyMap<string, RenderedFile> = new Map()
+  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map()
 ): Promise<RenderedProjectHook | undefined> {
   const projectRoot = readString(graph.root.targets[target].options, "projectRoot") ?? `.${target}`;
   const outputPath = projectSessionStartPath(target, projectRoot);
@@ -92,7 +115,7 @@ async function renderProjectHook(
   const absolutePath = join(graph.rootPath, outputPath);
   const island = sourceIslands.get(outputPath);
   const commandHash = hashCommand(SESSION_START_COMMAND);
-  const sourceHash = hashBytes(textEncoder.encode(`${relative(graph.rootPath, graph.rootConfigPath)}\0${target}\0${commandHash}${island === undefined ? "" : `\0${hashBytes(island.content)}`}`));
+  const sourceHash = hashBytes(textEncoder.encode(`${relative(graph.rootPath, graph.rootConfigPath)}\0${target}\0${commandHash}${island === undefined ? "" : `\0${hashBytes(island.file.content)}`}`));
   let existing: JsonRecord = {};
   let sourceText = "{}\n";
   let partialSourceHash = "absent";
@@ -108,7 +131,7 @@ async function renderProjectHook(
       throw new Error(`skillset: ${outputPath} is not valid JSON: ${message}`);
     }
     if (island !== undefined) {
-      sourceText = textDecoder.decode(island.content);
+      sourceText = textDecoder.decode(island.file.content);
       existing = JSON.parse(sourceText) as JsonRecord;
       if (!isJsonRecord(existing)) throw new Error(`skillset: ${outputPath} is not a JSON object`);
     }
@@ -116,10 +139,12 @@ async function renderProjectHook(
 
   const previousOwnership = island === undefined ? undefined : await previousSettingsOwnership(graph.rootPath, outputPath);
   const previous = previousOwnership?.settings;
+  const previousIsland = previousOwnership?.island;
+  const islandText = island === undefined ? undefined : textDecoder.decode(island.file.content);
   if (!removeOnly && island !== undefined && partialSourceHash !== "absent" && previous === undefined && previousOwnership?.island === undefined) {
     throw new Error(`skillset: ${outputPath} authored settings island conflicts with an unmanaged live file; reconcile before build`);
   }
-  if (!removeOnly && island !== undefined && previousOwnership?.island !== undefined && sourceText !== textDecoder.decode(island.content)) {
+  if (!removeOnly && previousIsland !== undefined && sourceText !== islandText && (previousIsland.renderInputsHash === undefined || previousIsland.sourceHash !== island?.sourceHash)) {
     throw new Error(`skillset: ${outputPath} authored settings island differs from its live output; reconcile before enabling SessionStart`);
   }
   if (island !== undefined && partialSourceHash !== "absent" && previous?.sourceHash !== undefined) {
@@ -128,7 +153,7 @@ async function renderProjectHook(
       if (previous.renderInputsHash === undefined || liveForeignHash !== previous.renderInputsHash) {
         throw new Error(`skillset: ${outputPath} has simultaneous authored island and foreign settings edits; reconcile before build`);
       }
-      sourceText = textDecoder.decode(island.content);
+      sourceText = textDecoder.decode(island.file.content);
       existing = JSON.parse(sourceText) as JsonRecord;
     }
   }
@@ -147,15 +172,11 @@ async function renderProjectHook(
   if (divergent.length > 0) {
     throw new Error(`skillset: ${outputPath} contains a divergent SessionStart command entry`);
   }
-  if (removeOnly && island !== undefined && partialSourceHash !== "absent") {
-    const withoutCommand = matching.length === 0
-      ? sourceText
-      : composeSessionStartText(sourceText, session, expected, SESSION_START_COMMAND, true);
-    if (withoutCommand !== textDecoder.decode(island.content)) {
-      throw new Error(`skillset: ${outputPath} cannot return to authored island ownership; reconcile foreign settings before turning off`);
-    }
+  if (removeOnly && previousIsland !== undefined && previousIsland.sourceHash !== island?.sourceHash && sourceText !== islandText) {
+    throw new Error(`skillset: ${outputPath} authored settings island changed alongside its live output; reconcile before turning off`);
   }
-  if (removeOnly && matching.length === 0) return undefined;
+  const continuingHandback = previousIsland?.renderInputsHash !== undefined;
+  if (removeOnly && matching.length === 0 && previous === undefined && !continuingHandback) return undefined;
   const existingStat = await stat(absolutePath).catch((error: unknown) => {
     if (isNotFound(error)) return undefined;
     throw error;
@@ -163,11 +184,12 @@ async function renderProjectHook(
   const hadFile = existingStat !== undefined;
   if (removeOnly && !hadFile) return undefined;
   const content = composeSessionStartText(sourceText, session, expected, SESSION_START_COMMAND, removeOnly);
-  const renderInputsHash = island === undefined || removeOnly
-    ? undefined
-    : previous?.sourceHash === sourceHash && previous.renderInputsHash !== undefined
+  let renderInputsHash: string | undefined;
+  if (island !== undefined) {
+    renderInputsHash = !removeOnly && previous?.sourceHash === sourceHash && previous.renderInputsHash !== undefined
       ? previous.renderInputsHash
       : hashForeignSettings(textEncoder.encode(content), commandHash);
+  }
   return {
     file: {
       content: textEncoder.encode(content),

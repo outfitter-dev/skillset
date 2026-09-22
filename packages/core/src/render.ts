@@ -272,19 +272,37 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...(await renderProjectAgents(graph, lockRoots)));
   rendered.push(...(await renderRules(graph, lockRoots)));
   const projectIslands = await renderProjectIslands(graph, lockRoots);
+  const workspaceLock = lockRoots.get(WORKSPACE_LOCK_ROOT);
+  const projectIslandItems = new Map(
+    workspaceLock?.items.filter((item) => item.kind === "island").map((item) => [item.outputPath, item]) ?? []
+  );
   const projectHooks = await renderProjectSessionStartHooks(
     graph,
-    new Map(projectIslands.map((file) => [file.path, file]))
+    new Map(projectIslands.map((file) => {
+      const item = projectIslandItems.get(file.path);
+      if (item === undefined) throw new Error(`skillset: missing island lock item for ${file.path}`);
+      return [file.path, { file, sourceHash: item.sourceHash }];
+    }))
   );
   const composedSettingsPaths = new Set(projectHooks.map((hook) => hook.file.path));
   const managedSettingsPaths = new Set(projectHooks.filter((hook) => hook.managed).map((hook) => hook.file.path));
   rendered.push(...projectIslands.filter((file) => !composedSettingsPaths.has(file.path)));
-  const workspaceLock = lockRoots.get(WORKSPACE_LOCK_ROOT);
   if (workspaceLock !== undefined) {
     for (let index = workspaceLock.items.length - 1; index >= 0; index--) {
       const item = workspaceLock.items[index];
       if (item?.kind === "island" && managedSettingsPaths.has(item.outputPath)) {
         workspaceLock.items.splice(index, 1);
+      } else if (item?.kind === "island") {
+        const handback = projectHooks.find((hook) => !hook.managed && hook.file.path === item.outputPath);
+        if (handback !== undefined) {
+          // After off, the island owns the file; retain accepted foreign bytes as its baseline.
+          workspaceLock.items[index] = {
+            ...item,
+            fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [handback.file]),
+            outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [handback.file]),
+            ...(handback.renderInputsHash === undefined ? {} : { renderInputsHash: handback.renderInputsHash }),
+          };
+        }
       }
     }
   }
