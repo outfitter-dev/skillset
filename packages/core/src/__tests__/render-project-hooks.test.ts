@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 
 import { describe, expect, test } from "bun:test";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
+import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
 
 import {
   renderProjectSessionStartHooks,
@@ -194,6 +195,20 @@ describe("project SessionStart hook rendering", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  test("fails closed on a corrupt workspace lock during ownership checks", async () => {
+    const root = await createTestGitFixtureRoot("skillset-project-hooks-lock-");
+    await writeFile(join(root, "skillset.yaml"), "{}\n");
+    await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
+
+    await expect(renderProjectSessionStartHooks(graph(root, "on"))).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
+    );
+    await expect(renderProjectSessionStartHooks(graph(root, "on"))).rejects.toThrow(
+      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+    );
+    expect(await readFile(join(root, "skillset.lock"), "utf8")).toBe("{ not valid json");
   });
 
   test("blocks a former local Claude SessionStart entry before composing the committed destination", async () => {

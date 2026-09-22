@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
+import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
 
 import { sourceInventoryFromLock } from "../change-status";
 
 test("change status reads a provenance-valid v4 source inventory", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-current-lock-reader-"));
+  const root = await createTestGitFixtureRoot("skillset-current-lock-reader-");
   await writeFile(
     join(root, "skillset.lock"),
     JSON.stringify(
@@ -53,7 +53,7 @@ test("change status reads a provenance-valid v4 source inventory", async () => {
 });
 
 test("change status diagnoses pre-v4 workspace state as rebuild-only", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-current-lock-reader-"));
+  const root = await createTestGitFixtureRoot("skillset-current-lock-reader-");
   await writeFile(
     join(root, "skillset.lock"),
     JSON.stringify({ schemaVersion: 2 }),
@@ -61,6 +61,15 @@ test("change status diagnoses pre-v4 workspace state as rebuild-only", async () 
   );
 
   await expect(sourceInventoryFromLock(root, {})).rejects.toThrow(
-    "uses pre-v4 schema 2; this generated state is rebuild-only"
+    "workspace lock skillset.lock cannot guard generated state because uses pre-v4 schema 2; this generated state is rebuild-only"
+  );
+});
+
+test("change status fails closed on corrupt workspace lock JSON", async () => {
+  const root = await createTestGitFixtureRoot("skillset-current-lock-reader-");
+  await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
+
+  await expect(sourceInventoryFromLock(root, {})).rejects.toThrow(
+    "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
   );
 });

@@ -5,6 +5,8 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   buildSkillsetResult,
   diffSkillsetResult,
+  readInspectableGeneratedLockFromDisk,
+  type ParsedGeneratedLock,
   type SkillsetDiff,
   type SkillsetOptions,
   type SkillsetRenderResult,
@@ -422,68 +424,33 @@ async function findLockItemForOutputPath(
 }
 
 async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock | undefined> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await readFile(resolveInside(rootPath, lockPath), "utf8")) as unknown;
-  } catch {
-    return undefined;
-  }
-  if (!isRecord(parsed) || typeof parsed.outputRoot !== "string" || !Array.isArray(parsed.items)) {
-    return undefined;
-  }
-  const items: ParsedLockItem[] = [];
-  const schemaVersion =
-    parsed.schemaVersion === 4
-      ? 4
-      : parsed.schemaVersion === 3
-        ? 3
-        : parsed.schemaVersion === 2
-          ? 2
-          : 1;
-  for (const item of parsed.items) {
-    if (!isRecord(item) || !Array.isArray(item.files)) continue;
-    const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
-    if (files.length === 0) continue;
-    if (
-      schemaVersion === 4 &&
-      item.role !== "bundle" &&
-      item.role !== "project-use" &&
-      item.role !== "standard"
-    ) {
-      continue;
+  const read = await readInspectableGeneratedLockFromDisk(
+    resolveInside(rootPath, lockPath),
+    {
+      logicalPath: lockPath,
+      missing: "absent",
+      provenance: "inspect",
     }
-    const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
-    const fileModes = readFileModes(item.fileModes, files, schemaVersion);
-    if (schemaVersion !== 1 && fileModes === undefined) continue;
-    const renderInputsHash = typeof item.renderInputsHash === "string" ? item.renderInputsHash : undefined;
-    const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash : undefined;
-    const version = typeof item.version === "string" ? item.version : undefined;
-    items.push({
-      ...(fileModes === undefined ? {} : { fileModes }),
-      files,
-      ...(outputHash === undefined ? {} : { outputHash }),
-      ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
-      ...(sourceHash === undefined ? {} : { sourceHash }),
-      ...(version === undefined ? {} : { version }),
-    });
-  }
-  return { items, outputRoot: parsed.outputRoot, schemaVersion };
+  );
+  if (read.kind === "absent") return undefined;
+  return toParsedLock(read.lock);
 }
 
-function readFileModes(
-  value: unknown,
-  files: readonly string[],
-  schemaVersion: 1 | 2 | 3 | 4
-): Readonly<Record<string, "0644" | "0755">> | undefined {
-  if (schemaVersion === 1 && value === undefined) return undefined;
-  if (!isRecord(value)) return undefined;
-  const modes: Record<string, "0644" | "0755"> = {};
-  for (const file of files) {
-    const mode = value[file];
-    if (mode !== "0644" && mode !== "0755") return undefined;
-    modes[file] = mode;
-  }
-  return modes;
+function toParsedLock(lock: ParsedGeneratedLock): ParsedLock {
+  return {
+    items: lock.items.map((item) => ({
+      ...(item.fileModes === undefined ? {} : { fileModes: item.fileModes }),
+      files: item.files,
+      ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+      ...(item.renderInputsHash === undefined
+        ? {}
+        : { renderInputsHash: item.renderInputsHash }),
+      ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
+      ...(item.version === undefined ? {} : { version: item.version }),
+    })),
+    outputRoot: lock.outputRoot,
+    schemaVersion: lock.schemaVersion,
+  };
 }
 
 async function currentOutputHash(
@@ -550,10 +517,6 @@ function normalizePath(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function unplannedProviderDriftPaths(
   driftPaths: readonly string[],
   safeUpdates: readonly ProviderFormatUpdateAction[],
@@ -599,7 +562,7 @@ interface ParsedLock {
 }
 
 interface ParsedLockItem {
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files: readonly string[];
   readonly outputHash?: string;
   readonly renderInputsHash?: string;
@@ -608,7 +571,7 @@ interface ParsedLockItem {
 }
 
 interface LockItemState {
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files: readonly LockFileEntry[];
   readonly lockPath: string;
   readonly schemaVersion: 1 | 2 | 3 | 4;

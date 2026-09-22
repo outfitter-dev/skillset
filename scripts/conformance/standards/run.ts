@@ -18,7 +18,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 
 import {
   buildSkillsetResult,
-  parseCurrentGeneratedLock,
+  readCurrentGeneratedLockFromDisk,
 } from "@skillset/core";
 import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
 import { getStandardProfile, listStandardProfiles } from "@skillset/registry";
@@ -562,15 +562,18 @@ async function readAdoptedAgentPluginArtifacts(
   const profileId = "agent-plugins-1.0";
   const pluginsRoot = join(root, "plugins");
   const lockPath = join(pluginsRoot, "skillset.lock");
-  const lock = parseCurrentGeneratedLock(
-    JSON.parse(await readFile(lockPath, "utf-8")),
-    "plugins/skillset.lock"
-  );
-  if (lock.outputRoot !== "plugins") {
-    throw new Error(
-      `skillset: Agent Plugins evidence requires lock outputRoot plugins, received ${lock.outputRoot}`
-    );
+  // SET-638: evidence locks are current generated state. The Core fail-closed
+  // current reader names this path and refuses missing, corrupt, or pre-v4
+  // bytes instead of treating them as an empty artifact set.
+  const read = await readCurrentGeneratedLockFromDisk(lockPath, {
+    expectedOutputRoot: "plugins",
+    logicalPath: "plugins/skillset.lock",
+    missing: "error",
+  });
+  if (read.kind !== "present") {
+    throw new Error("skillset: plugins/skillset.lock is missing");
   }
+  const lock = read.lock;
   if (
     lock.selectedStandards.filter((standard) => standard === profileId)
       .length !== 1

@@ -1,21 +1,16 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { isOutputSelected } from "./config";
-import { parseCurrentGeneratedLock } from "./generated-lock";
+import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { storedClaudeMarketplaceProviderEntry } from "./claude-marketplace";
 import {
   marketplaceRequestedRefPolicy,
   type MarketplaceRefPolicyKind,
   type MarketplaceRequestedRefPolicy,
 } from "./marketplace-ref-policy";
-import {
-  MISSING_PATH_ENOENT,
-  pathExists as pathExistsOnDisk,
-} from "./fs-existence";
 import { compareStrings } from "./path";
 import {
   providerSourceForPlugin,
@@ -742,19 +737,13 @@ function canonicalRepository(repo: string): string {
 }
 
 async function readMarketplaceLockEntries(rootPath: string): Promise<readonly MarketplaceLockEntry[]> {
-  const lockPath = join(rootPath, "skillset.lock");
-  if (!(await exists(lockPath))) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await readFile(lockPath, "utf8")) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: workspace lock skillset.lock is invalid: ${message}`);
-  }
-  parseCurrentGeneratedLock(parsed, "workspace lock skillset.lock");
-  if (!isRecord(parsed)) return [];
-  if (!isRecord(parsed.marketplaces) || !Array.isArray(parsed.marketplaces.entries)) return [];
-  return parsed.marketplaces.entries
+  const read = await readCurrentGeneratedLockFromDisk(join(rootPath, "skillset.lock"), {
+    logicalPath: "skillset.lock",
+    missing: "absent",
+  });
+  if (read.kind === "absent" || !isRecord(read.raw)) return [];
+  if (!isRecord(read.raw.marketplaces) || !Array.isArray(read.raw.marketplaces.entries)) return [];
+  return read.raw.marketplaces.entries
     .filter(isMarketplaceLockEntry)
     .sort(compareMarketplaceLockEntries);
 }
@@ -858,15 +847,6 @@ function isGitRepositoryEnv(key: string): boolean {
     key === "GIT_NAMESPACE" ||
     key.startsWith("GIT_ALTERNATE_OBJECT")
   );
-}
-
-async function exists(path: string): Promise<boolean> {
-  // ENOTDIR is not absence here: a lock path through a non-directory prefix
-  // must not look like missing marketplace provenance.
-  return pathExistsOnDisk(path, {
-    missing: MISSING_PATH_ENOENT,
-    probe: "access",
-  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

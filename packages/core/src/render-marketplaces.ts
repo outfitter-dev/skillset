@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { storedClaudeMarketplaceProviderEntry } from "./claude-marketplace";
@@ -9,14 +8,15 @@ import {
   readString,
 } from "./config";
 import {
-  parseCurrentGeneratedLock,
-  parseGeneratedLock,
-} from "./generated-lock";
+  isEmptyV2GeneratedLock,
+  parseCurrentLockOrCorrupt,
+  parseLegacyLockOrCorrupt,
+  readGeneratedLockJsonFromDisk,
+} from "./generated-lock-read";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { hasValidLockProvenance } from "./lock-provenance";
 import { marketplaceRequestedRefPolicy } from "./marketplace-ref-policy";
 import { renderOpenAiMarketplacePlugin } from "./openai-marketplace";
-import { corruptWorkspaceLock } from "./output-safety";
 import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
@@ -710,56 +710,32 @@ const EMPTY_MARKETPLACE_STATE: ExistingMarketplaceState = {
 export async function readExistingMarketplaceState(
   rootPath: string
 ): Promise<ExistingMarketplaceState> {
-  let raw: string;
-  try {
-    raw = await readFile(join(rootPath, "skillset.lock"), "utf8");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+  const json = await readGeneratedLockJsonFromDisk(
+    join(rootPath, "skillset.lock"),
+    { logicalPath: "skillset.lock", missing: "absent" }
+  );
+  if (json.kind === "absent") return EMPTY_MARKETPLACE_STATE;
+  const parsed = json.value;
+  if (isEmptyV2GeneratedLock(parsed)) {
+    // An empty v2 lock carries no ownership or cleanup authority, so it can
+    // safely preserve marketplace selection while the build migrates it.
+    parseLegacyLockOrCorrupt(parsed, {
+      logicalPath: "skillset.lock",
+      provenance: "inspect",
+    });
+  } else {
+    parseCurrentLockOrCorrupt(parsed, {
+      logicalPath: "skillset.lock",
+      provenance: "inspect",
+    });
+    // Marketplace extras are not ownership authority. Invalid provenance keeps
+    // the inspectable lock from granting catalog state, but does not hide the
+    // file: the current-lock parse already accepted its shape.
+    if (!isJsonRecord(parsed) || !hasValidLockProvenance(parsed)) {
       return EMPTY_MARKETPLACE_STATE;
-    throw error;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw corruptWorkspaceLock(
-      "skillset.lock",
-      `it is not valid JSON: ${message}`
-    );
-  }
-  if (!isJsonRecord(parsed)) {
-    throw corruptWorkspaceLock(
-      "skillset.lock",
-      "it is missing a string generatedBy field"
-    );
-  }
-  try {
-    if (
-      parsed.schemaVersion === 2 &&
-      Array.isArray(parsed.items) &&
-      parsed.items.length === 0
-    ) {
-      // An empty v2 lock carries no ownership or cleanup authority, so it can
-      // safely preserve marketplace selection while the build migrates it.
-      parseGeneratedLock(parsed, "workspace lock skillset.lock", {
-        provenance: "inspect",
-      });
-    } else {
-      parseCurrentGeneratedLock(parsed, "workspace lock skillset.lock", {
-        provenance: "inspect",
-      });
-      if (!hasValidLockProvenance(parsed)) {
-        return EMPTY_MARKETPLACE_STATE;
-      }
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw corruptWorkspaceLock(
-      "skillset.lock",
-      message.replace(/^skillset: /, "")
-    );
   }
+  if (!isJsonRecord(parsed)) return EMPTY_MARKETPLACE_STATE;
   const marketplaces = parsed.marketplaces;
   if (!isJsonRecord(marketplaces)) return EMPTY_MARKETPLACE_STATE;
   return {

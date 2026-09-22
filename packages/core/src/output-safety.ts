@@ -10,11 +10,14 @@ import {
 } from "./atomic-file-publication";
 import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
 import {
-  parseCurrentGeneratedLock,
   parseGeneratedLock,
   type GeneratedLockSchemaVersion,
   type ParsedGeneratedLockItem,
 } from "./generated-lock";
+import {
+  parseCurrentLockOrCorrupt,
+  readCurrentGeneratedLockFromDisk,
+} from "./generated-lock-read";
 import { hasValidLockProvenance } from "./lock-provenance";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -39,6 +42,7 @@ import { readSkillsetWorkspaceConfig } from "./xdg";
 
 export const WORKSPACE_LOCK_FILE = "skillset.lock";
 export const OUTPUT_BACKUP_ROOT = ".skillset/snapshots";
+export { corruptWorkspaceLock } from "./generated-lock-read";
 
 export type OutPath = (path: string) => string;
 export type OutputPathResolver = (path: string) => string;
@@ -622,9 +626,6 @@ async function addManagedPathsFromLock(
   } = sinks;
   const renderedByPath = provenancePolicy?.renderedByPath;
   const displayLockPath = outPath(lockPath);
-  const absoluteLockPath = resolveOutputPath(displayLockPath);
-  if (!(await exists(absoluteLockPath))) return false;
-
   const lock = await readManagedLock(
     lockPath,
     displayLockPath,
@@ -634,6 +635,7 @@ async function addManagedPathsFromLock(
     outPath,
     provenancePolicy
   );
+  if (lock === undefined) return false;
   paths.add(displayLockPath);
 
   for (const item of lock.items) {
@@ -691,50 +693,39 @@ async function readManagedLock(
   requireProvenance: boolean,
   outPath: OutPath,
   provenancePolicy: ManagedOutputProvenancePolicy | undefined
-): Promise<ParsedLock> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await readFile(resolveOutputPath(displayLockPath), "utf8")) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw corruptManagedLock(lockPath, displayLockPath, `it is not valid JSON: ${message}`);
-  }
-
-  let lock;
-  try {
-    lock = parseCurrentGeneratedLock(
-      parsed,
-      displayLockPath,
-      requireProvenance
-        ? { provenance: "require" }
-        : { provenance: "inspect" }
-    );
-    if (
-      !requireProvenance &&
-      requiresProvenanceForUnplannedPaths(
-        lock,
-        expectedOutputRoot,
-        outPath,
-        provenancePolicy
-      )
-    ) {
-      lock = parseCurrentGeneratedLock(parsed, displayLockPath, {
-        provenance: "require",
-      });
+): Promise<ParsedLock | undefined> {
+  const read = await readCurrentGeneratedLockFromDisk(
+    resolveOutputPath(displayLockPath),
+    {
+      expectedOutputRoot,
+      logicalPath: displayLockPath,
+      missing: "absent",
+      provenance: requireProvenance ? "require" : "inspect",
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw corruptManagedLock(lockPath, displayLockPath, message);
-  }
-  if (lock.outputRoot !== expectedOutputRoot) {
-    const expected = expectedOutputRoot === "." ? "the workspace root" : JSON.stringify(expectedOutputRoot);
-    throw corruptManagedLock(lockPath, displayLockPath, `its outputRoot ${JSON.stringify(lock.outputRoot)} is not ${expected}`);
+  );
+  if (read.kind === "absent") return undefined;
+
+  let lock = read.lock;
+  if (
+    !requireProvenance &&
+    requiresProvenanceForUnplannedPaths(
+      lock,
+      expectedOutputRoot,
+      outPath,
+      provenancePolicy
+    )
+  ) {
+    lock = parseCurrentLockOrCorrupt(read.raw, {
+      expectedOutputRoot,
+      logicalPath: displayLockPath,
+      provenance: "require",
+    });
   }
   return {
     items: lock.items,
     outputHashesTrusted:
       lock.schemaVersion < 3 ||
-      (isJsonRecord(parsed) && hasValidLockProvenance(parsed)),
+      (isJsonRecord(read.raw) && hasValidLockProvenance(read.raw)),
     schemaVersion: lock.schemaVersion,
   };
 }
@@ -1683,21 +1674,6 @@ async function inspectRestoreTarget(record: OutputBackupRecord, targetPath: stri
     }
   }
   return undefined;
-}
-
-function corruptManagedLock(lockPath: string, displayLockPath: string, reason: string): Error {
-  if (lockPath === WORKSPACE_LOCK_FILE) return corruptWorkspaceLock(displayLockPath, reason);
-  return new Error(
-    `skillset: generated lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
-      "Fix or remove the lock before running build, check, or diff."
-  );
-}
-
-export function corruptWorkspaceLock(displayLockPath: string, reason: string): Error {
-  return new Error(
-    `skillset: workspace lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
-      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
-  );
 }
 
 function joinOutputRoot(outputRoot: string, file: string): string {

@@ -6,8 +6,8 @@ import { join, relative } from "node:path";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
 import { readString } from "./config";
-import { parseCurrentGeneratedLock, type ParsedGeneratedLockItem } from "./generated-lock";
-import { hasValidLockProvenance } from "./lock-provenance";
+import type { ParsedGeneratedLockItem } from "./generated-lock";
+import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { WORKSPACE_LOCK_ROOT } from "./render-support";
 import { hashRenderedFiles } from "./rendered-files-hash";
 import { targetNames } from "./targets";
@@ -148,7 +148,7 @@ async function renderProjectHook(
     }
   }
 
-  const previousOwnership = island === undefined ? undefined : await previousSettingsOwnership(graph.rootPath, outputPath);
+  const previousOwnership = await previousSettingsOwnership(graph.rootPath, outputPath);
   const previous = previousOwnership?.settings;
   const previousIsland = previousOwnership?.island;
   const islandText = island === undefined ? undefined : textDecoder.decode(island.file.content);
@@ -239,20 +239,14 @@ async function previousSettingsOwnership(rootPath: string, outputPath: string): 
   readonly settings: ParsedGeneratedLockItem | undefined;
   readonly island: ParsedGeneratedLockItem | undefined;
 }> {
-  let bytes: string;
-  try {
-    bytes = await readFile(join(rootPath, "skillset.lock"), "utf8");
-  } catch (error) {
-    if (isNotFound(error)) return { settings: undefined, island: undefined };
-    throw error;
-  }
-  const parsed: unknown = JSON.parse(bytes);
-  if (!isJsonRecord(parsed) || parsed.schemaVersion !== 4) return { settings: undefined, island: undefined };
-  const lock = parseCurrentGeneratedLock(parsed, "skillset.lock", { provenance: "inspect" });
-  if (!hasValidLockProvenance(parsed)) return { settings: undefined, island: undefined };
+  const read = await readCurrentGeneratedLockFromDisk(join(rootPath, "skillset.lock"), {
+    logicalPath: "skillset.lock",
+    missing: "absent",
+  });
+  if (read.kind === "absent") return { settings: undefined, island: undefined };
   return {
-    settings: lock.items.find((item) => item.kind === "settings-entry" && item.outputPath === outputPath),
-    island: lock.items.find((item) => item.kind === "island" && item.outputPath === outputPath),
+    settings: read.lock.items.find((item) => item.kind === "settings-entry" && item.outputPath === outputPath),
+    island: read.lock.items.find((item) => item.kind === "island" && item.outputPath === outputPath),
   };
 }
 

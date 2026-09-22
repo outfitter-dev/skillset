@@ -6,7 +6,7 @@ import { dirname, join, relative } from "node:path";
 import {
   diffSkillset,
   isTargetName,
-  parseCurrentGeneratedLock,
+  readCurrentGeneratedLockFromDisk,
   targetNames,
   workspaceChangeFile,
   type SkillsetDiff,
@@ -1115,21 +1115,12 @@ export async function sourceInventoryFromLock(
   rootPath: string,
   _options: SkillsetOptions
 ): Promise<BaselineInventory | undefined> {
-  const lockPath = resolveInside(rootPath, "skillset.lock");
-  if (!(await exists(lockPath))) return undefined;
-  let value: unknown;
-  try {
-    value = JSON.parse(await readFile(lockPath, "utf8")) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `skillset: workspace lock skillset.lock is invalid JSON: ${message}`
-    );
-  }
-  const parsed = parseCurrentGeneratedLock(
-    value,
-    "workspace lock skillset.lock"
+  const read = await readCurrentGeneratedLockFromDisk(
+    resolveInside(rootPath, "skillset.lock"),
+    { logicalPath: "skillset.lock", missing: "absent" }
   );
+  if (read.kind === "absent") return undefined;
+  const parsed = read.lock;
   const sourceInventory = parsed.sourceInventory;
   if (sourceInventory === undefined) return undefined;
 
