@@ -480,7 +480,7 @@ async function runBuildProjection(
   const writePreimages = new Map(
     backupPlan.preimages.map((preimage) => [preimage.targetPath, preimage])
   );
-  const partialPreimageInvalidations = invalidatedPartialPreimages(rendered, writePreimages);
+  const partialPreimageInvalidations = invalidatedPartialPreimages(writeRendered, writePreimages);
   if (partialPreimageInvalidations.length > 0) {
     const partialDiagnostics = partialPreimageInvalidations.map(outputWriteInvalidatedDiagnostic);
     diagnostics.push(...partialDiagnostics);

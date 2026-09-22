@@ -439,6 +439,31 @@ describe("build --repair", () => {
     ).resolves.toBeFalse();
   });
 
+  it("does not require an unrelated project hook preimage for scoped repair", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-core-repair-hook-"));
+    try {
+      const files = normalizeSkillsetFixtureFiles({
+        ...FIXTURE,
+        "skillset.yaml": `${FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`,
+      });
+      for (const [path, content] of Object.entries(files)) {
+        await Bun.write(join(root, path), `${content.trim()}\n`);
+      }
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      await rm(join(root, OUTPUT_PATH));
+
+      const result = await buildSkillsetResult(root, { repair: { paths: [OUTPUT_PATH] } });
+      expect(result.ok).toBe(true);
+      expect(result.writes.writtenPaths).toContain(OUTPUT_PATH);
+      expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+        code: "output-write-preimage-invalidated",
+        outputPath: ".codex/hooks.json",
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("ignores an unmanaged output collision outside the repair scope", async () => {
     const root = await seededFixture();
     const sourceReference = ".skillset/skills/other/references/new.md";
