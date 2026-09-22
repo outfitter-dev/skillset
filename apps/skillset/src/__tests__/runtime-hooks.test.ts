@@ -154,7 +154,7 @@ test("runtime hook spawn uses argv, POSIX sh, or Windows ComSpec by contract", (
     { argv: ['test -z "$GIT_DIR"'], kind: "shell" },
     [],
     posix
-  )).toEqual(["sh", "-lc", 'test -z "$GIT_DIR"']);
+  )).toEqual(["/bin/sh", "-lc", 'test -z "$GIT_DIR"']);
 
   const windows = {
     cwd: "C:\\repo",

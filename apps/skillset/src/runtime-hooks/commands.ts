@@ -145,7 +145,7 @@ function shellSpawnArgv(
       `${command} ${args.map(windowsCmdQuote).join(" ")}`.trim(),
     ];
   }
-  return ["sh", "-lc", `${command} ${args.map(posixShellQuote).join(" ")}`.trim()];
+  return ["/bin/sh", "-lc", `${command} ${args.map(posixShellQuote).join(" ")}`.trim()];
 }
 
 function commandExists(

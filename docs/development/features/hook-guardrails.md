@@ -41,7 +41,7 @@ Runner snippets call `skillset change check --staged` at pre-commit and `skillse
 
 Both runtime events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
 
-Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout, then installed package runners on the hook's own PATH (`Bun.which`, not a login shell). `SKILLSET_HOOK_COMMAND` is the explicit reviewed override: a quoted executable plus optional arguments runs directly; unquoted shell operators run through `sh -lc` on POSIX and `%ComSpec% /d /s /c` on Windows. Discovered `npx`/`bunx` `.cmd` shims on Windows also use `ComSpec`. Git Bash is not required.
+Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout, then installed package runners on the hook's own PATH (`Bun.which`, not a login shell). `SKILLSET_HOOK_COMMAND` is the explicit reviewed override: a quoted executable plus optional arguments runs directly; unquoted shell operators run through `/bin/sh -lc` on POSIX and `%ComSpec% /d /s /c` on Windows. Discovered `npx`/`bunx` `.cmd` shims on Windows also use `ComSpec`. Git Bash is not required.
 
 ## Changing or Regenerating Guardrails
 
