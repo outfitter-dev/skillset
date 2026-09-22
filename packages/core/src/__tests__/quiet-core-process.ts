@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   buildSkillsetResult,
@@ -22,33 +22,27 @@ export const runQuietCoreProcess = async (
   scenario: QuietCoreScenario,
   root: string
 ): Promise<QuietCoreProcessResult> => {
-  const evidenceRoot = await mkdtemp(
-    path.join(tmpdir(), "skillset-core-quiet-")
-  );
+  const evidenceRoot = await createTestFixtureRoot("skillset-core-quiet-");
   const evidencePath = path.join(evidenceRoot, "evidence.json");
-  try {
-    const proc = Bun.spawn(
-      [process.execPath, import.meta.filename, scenario, root, evidencePath],
-      {
-        cwd: process.cwd(),
-        env: process.env,
-        stderr: "pipe",
-        stdout: "pipe",
-      }
-    );
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-    const evidence =
-      exitCode === 0
-        ? JSON.parse(await readFile(evidencePath, "utf-8"))
-        : undefined;
-    return { evidence, exitCode, stderr, stdout };
-  } finally {
-    await rm(evidenceRoot, { force: true, recursive: true });
-  }
+  const proc = Bun.spawn(
+    [process.execPath, import.meta.filename, scenario, root, evidencePath],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      stderr: "pipe",
+      stdout: "pipe",
+    }
+  );
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  const evidence =
+    exitCode === 0
+      ? JSON.parse(await readFile(evidencePath, "utf-8"))
+      : undefined;
+  return { evidence, exitCode, stderr, stdout };
 };
 
 const diffEvidence = async (root: string): Promise<Record<string, unknown>> => {
