@@ -22,6 +22,11 @@ import nodePath from "node:path";
 import { renameDirectoryNoReplace } from "./directory-rename-no-replace";
 import { supportsGeneratedFileModes } from "./generated-file-mode";
 import { compareStrings, isPathInside } from "./path";
+import {
+  prepareRepositoryMutationPath,
+  RepositoryMutationError,
+  resolveWorkspaceMutationRoot,
+} from "./repository-mutation";
 import { hashSkillDirectory } from "./source-tree-identity";
 import type { GeneratedFileMode } from "./types";
 
@@ -1252,32 +1257,14 @@ async function ensureSafeParent(
   state: TransactionState,
   path: NormalizedPath
 ): Promise<void> {
-  const parentRelative = nodePath.relative(
-    state.workspaceRoot,
-    nodePath.dirname(path.absolute)
-  );
-  if (parentRelative === "") {
-    return;
-  }
-  let current = state.workspaceRoot;
-  for (const segment of parentRelative.split(nodePath.sep)) {
-    current = nodePath.join(current, segment);
-    const entry = await lstat(current).catch((error: unknown) => {
-      if (isMissing(error)) {
-        return;
-      }
-      throw error;
-    });
-    if (entry === undefined) {
-      await mkdir(current);
-      state.createdDirectories.push(current);
-      continue;
-    }
-    if (entry.isSymbolicLink() || !entry.isDirectory()) {
-      throw transactionError(
-        `refusing to traverse non-directory parent: ${nodePath.relative(state.workspaceRoot, current)}`
-      );
-    }
+  try {
+    const prepared = await prepareRepositoryMutationPath(
+      state.workspaceRoot,
+      path.absolute
+    );
+    state.createdDirectories.push(...prepared.createdDirectories);
+  } catch (error) {
+    throw asTransactionError(error);
   }
 }
 
@@ -1501,14 +1488,18 @@ async function removeEmptyDirectory(path: string): Promise<void> {
 }
 
 async function resolveWorkspaceRoot(workspaceRoot: string): Promise<string> {
-  const resolved = await realpath(workspaceRoot);
-  const entry = await lstat(resolved);
-  if (entry.isSymbolicLink() || !entry.isDirectory()) {
-    throw transactionError(
-      `workspace root is not a directory: ${workspaceRoot}`
-    );
+  try {
+    return await resolveWorkspaceMutationRoot(workspaceRoot);
+  } catch (error) {
+    throw asTransactionError(error);
   }
-  return resolved;
+}
+
+function asTransactionError(error: unknown): Error {
+  if (error instanceof RepositoryMutationError) {
+    return transactionError(error.message.replace(/^skillset: /u, ""));
+  }
+  return error instanceof Error ? error : transactionError(String(error));
 }
 
 function normalizePath(

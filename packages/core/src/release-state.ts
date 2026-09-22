@@ -7,6 +7,7 @@ import {
 import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { prepareRepositoryMutationPath } from "./repository-mutation";
 import { sourceUnitSelector } from "./source-unit-selector";
 import { latestSourceMoveCursor, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
@@ -155,6 +156,7 @@ export async function writeReleaseState(
       version: value.version,
     };
   }
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   const cursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, options)));
   await publishAtomicFile(
     absolutePath,

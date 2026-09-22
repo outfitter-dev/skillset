@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { appendFile, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { isAbsolute, join, resolve } from "node:path";
 
 import {
   readPendingChangeEntries,
@@ -14,6 +14,7 @@ import { readChangeLedger, type ChangeLedgerEventType } from "@skillset/core/int
 import { changeStatus, detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings, sourceMappingsAfterCursor } from "@skillset/core/internal/source-identity-mapping";
 import {
   selectorForPluginCompanion,
@@ -192,7 +193,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
   const group = options.group === undefined ? undefined : parseGroupArgument(options.group);
   const sourceUnits = ledgerSourceUnits(sourceHashes);
   const groupReference = group === undefined ? undefined : groupRef(group);
-  await mkdir(resolveInside(rootPath, workspaceChangesDir(statusOptions.sourceDir)), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   await writeFile(absolutePath, reasonOnlyMarkdown(reason, { bump: options.bump, ...(group === undefined ? {} : { group }), scopes }), "utf8");
   await appendLedgerEvents(rootPath, statusOptions.sourceDir, [
     {
@@ -289,7 +290,7 @@ export async function amendAppliedChange(rootPath: string, options: ChangeAmendO
   const now = new Date().toISOString();
   const relativePath = workspaceChangeFile(storageOptions.sourceDir, AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
-  await mkdir(dirname(absolutePath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   await appendFile(absolutePath, `${JSON.stringify({
     amendedAt: now,
     id: entry.id,
@@ -350,7 +351,7 @@ export async function migratePendingChangeEntries(
     try {
       for (const migration of migrations) {
         const absoluteToPath = resolveInside(rootPath, migration.toPath);
-        await mkdir(dirname(absoluteToPath), { recursive: true });
+        await prepareRepositoryMutationPath(rootPath, absoluteToPath);
         await writeFile(
           absoluteToPath,
           reasonOnlyMarkdown(migration.reason, {
@@ -361,7 +362,13 @@ export async function migratePendingChangeEntries(
           }),
           "utf8"
         );
-        if (migration.fromPath !== migration.toPath) await rm(resolveInside(rootPath, migration.fromPath), { force: true });
+        if (migration.fromPath !== migration.toPath) {
+          const absoluteFromPath = resolveInside(rootPath, migration.fromPath);
+          await prepareRepositoryMutationPath(rootPath, absoluteFromPath, {
+            createParents: false,
+          });
+          await rm(absoluteFromPath, { force: true });
+        }
       }
       await appendLedgerEvents(rootPath, storageOptions.sourceDir, migrations.flatMap((migration) => migrationLedgerEvents(migration)));
     } catch (error) {
@@ -549,10 +556,13 @@ async function restoreMigrationFiles(rootPath: string, snapshots: readonly Migra
   for (const snapshot of snapshots) {
     const absolutePath = resolveInside(rootPath, snapshot.path);
     if (snapshot.content === undefined) {
+      await prepareRepositoryMutationPath(rootPath, absolutePath, {
+        createParents: false,
+      });
       await rm(absolutePath, { force: true });
       continue;
     }
-    await mkdir(dirname(absolutePath), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, absolutePath);
     await writeFile(absolutePath, snapshot.content, "utf8");
   }
 }
@@ -573,7 +583,7 @@ async function appendLedgerEvents(
 ): Promise<void> {
   const path = workspaceChangeFile(sourceDir, "ledger.jsonl");
   const absolutePath = resolveInside(rootPath, path);
-  await mkdir(dirname(absolutePath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   const now = new Date().toISOString();
   await appendFile(
     absolutePath,
