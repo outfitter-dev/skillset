@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { cp, mkdtemp, rm, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, rm, symlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   assertDeterministicProjection,
@@ -34,7 +34,7 @@ const DEMO_FIXTURE: Record<string, string> = {
 describe("deterministic projection runner", () => {
   it("proves the kitchen-sink fixture projects deterministically without live output writes", async () => {
     const sourceRoot = join(process.cwd(), "fixtures/kitchen-sink");
-    const root = await mkdtemp(join(tmpdir(), "skillset-kitchen-sink-projection-"));
+    const root = await createTestFixtureRoot("skillset-kitchen-sink-projection-");
     await cp(sourceRoot, root, { recursive: true });
     const configPath = join(root, "skillset.yaml");
     const config = await Bun.file(configPath).text();
@@ -193,8 +193,8 @@ describe("deterministic projection runner", () => {
   });
 
   it("rejects source symlinks instead of copying external state", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
-    const external = await mkdtemp(join(tmpdir(), "skillset-deterministic-external-"));
+    const root = await createTestFixtureRoot("skillset-deterministic-projection-");
+    const external = await createTestFixtureRoot("skillset-deterministic-external-");
     await Bun.write(join(external, "config.yaml"), "claude: true\ncodex: false\n");
     await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), `${DEMO_SKILL.trim()}\n`);
     await symlink(join(external, "config.yaml"), join(root, "skillset.yaml"));
@@ -238,7 +238,7 @@ codex: false
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
+  const root = await createTestFixtureRoot("skillset-deterministic-projection-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

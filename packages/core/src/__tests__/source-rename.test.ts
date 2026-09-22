@@ -6,14 +6,13 @@ import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset } from "../build";
 import { createShadowWorkspace } from "../source-rename-apply";
@@ -977,7 +976,7 @@ skillset:
 async function fixture(
   files: Readonly<Record<string, string>>
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-source-rename-"));
+  const root = await createTestFixtureRoot("skillset-source-rename-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });

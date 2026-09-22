@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   verifySkillset,
@@ -333,7 +333,7 @@ compile:
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-core-consumer-"));
+  const root = await createTestFixtureRoot("skillset-core-consumer-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
