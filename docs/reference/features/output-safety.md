@@ -61,7 +61,7 @@ skillset restore <backup-id>
 skillset restore <backup-id> --yes
 ```
 
-Backups live under `.skillset/snapshots/<backup-id>/` with a schema-versioned manifest and per-run bare Git object store. List and restore previews are read-only. Confirmed restore verifies the saved Git payload and hash before writing.
+Backups live under `.skillset/snapshots/<backup-id>/` with a schema-versioned manifest and per-run bare Git object store. The manifest is published atomically only after those payloads are stored, so readers see a complete previous snapshot or a complete replacement, never partial JSON. A snapshot directory without that published manifest is incomplete. List and restore previews are read-only. Confirmed restore verifies the saved Git payload and hash before writing.
 
 For an overwrite backup, restore also requires the current target bytes and Unix mode to still match the generated replacement. For a deletion backup, the target must still be absent. A newer edit or recreated path blocks restore instead of being clobbered. Windows preserves byte safety but does not apply physical Unix-mode checks.
 

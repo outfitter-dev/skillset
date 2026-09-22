@@ -191,9 +191,10 @@ describe("known Skillsets index", () => {
     for (const testOptions of [
       { beforeTemporaryWrite: () => { throw new Error("injected temporary write failure"); } },
       { beforeTemporarySync: () => { throw new Error("injected temporary sync failure"); } },
+      { beforeTemporaryClose: () => { throw new Error("injected temporary close failure"); } },
     ]) {
       await expect(updateKnownSkillsetsIndexForTest(entry(workspacePath, "failed"), options, testOptions)).rejects.toThrow(
-        /injected temporary (write|sync) failure/
+        /injected temporary (write|sync|close) failure/
       );
       expect(await Bun.file(knownSkillsetsIndexPath(options)).exists()).toBe(false);
       expect(await transactionArtifacts(options)).toEqual([]);
