@@ -66,7 +66,7 @@ type OccupantCase = {
   readonly assertPreserved: (targetPath: string, root: string) => Promise<void>;
 };
 
-const preexistingOccupants: readonly OccupantCase[] = [
+const preexistingOccupants: OccupantCase[] = [
   {
     name: "empty directory",
     occupy: async (targetPath) => {
@@ -125,7 +125,7 @@ const preexistingOccupants: readonly OccupantCase[] = [
   },
 ];
 
-const lateOccupants: readonly OccupantCase[] = [
+const lateOccupants: OccupantCase[] = [
   {
     name: "empty directory",
     occupy: async (targetPath) => {
@@ -280,7 +280,7 @@ if (import.meta.main && workerIndex !== -1) {
       );
 
       test.each(lateOccupants)(
-        "refuses a $name that appears before the claim without replacing or following it",
+        "refuses a late $name that appears before the claim without replacing or following it",
         async ({ assertPreserved, occupy }) => {
           await withTemporaryDirectory(async (root) => {
             const sourcePath = join(root, "external");
