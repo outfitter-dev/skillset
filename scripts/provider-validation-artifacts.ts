@@ -1,6 +1,5 @@
 import {
   lstat,
-  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -9,6 +8,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
+
+import { createProviderProbeEnvironment } from "./provider-probe-environment";
 
 const LOCK_PATHS = [
   "skillset.lock",
@@ -73,28 +74,8 @@ export async function validateCodexMarketplaceConsumer(
     join(tmpdir(), "skillset-codex-marketplace-consumer-")
   );
   try {
-    const environment = Object.fromEntries(
-      Object.entries(process.env).filter(
-        (entry): entry is [string, string] => entry[1] !== undefined
-      )
-    );
-    for (const path of [
-      "home",
-      "codex-home",
-      "xdg/cache",
-      "xdg/config",
-      "xdg/data",
-      "xdg/state",
-    ]) {
-      await mkdir(join(isolatedRoot, path), { recursive: true });
-    }
-    Object.assign(environment, {
-      CODEX_HOME: join(isolatedRoot, "codex-home"),
-      HOME: join(isolatedRoot, "home"),
-      XDG_CACHE_HOME: join(isolatedRoot, "xdg/cache"),
-      XDG_CONFIG_HOME: join(isolatedRoot, "xdg/config"),
-      XDG_DATA_HOME: join(isolatedRoot, "xdg/data"),
-      XDG_STATE_HOME: join(isolatedRoot, "xdg/state"),
+    const { env: environment } = await createProviderProbeEnvironment({
+      root: isolatedRoot,
     });
 
     const version = await runCodexConsumer(

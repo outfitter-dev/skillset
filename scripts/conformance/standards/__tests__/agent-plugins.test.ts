@@ -50,6 +50,12 @@ for (const key of ["CODEX_HOME", "HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "X
     process.exit(4);
   }
 }
+for (const key of ["AWS_SECRET_ACCESS_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN"]) {
+  if (process.env[key]) {
+    console.error(\`leaked secret: \${key}\`);
+    process.exit(9);
+  }
+}
 const sourceArg = args.find((arg) => arg.startsWith("marketplaces.skillset_conformance.source="));
 if (sourceArg === undefined) process.exit(5);
 const marketplaceRoot = JSON.parse(sourceArg.slice(sourceArg.indexOf("=") + 1));
@@ -67,7 +73,16 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
       path.join(packageRoot, "plugin.json"),
       "utf-8"
     );
+    const previousSecrets = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+      GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+    };
+    process.env.ANTHROPIC_API_KEY = "anthropic-should-not-leak";
+    process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
+    process.env.GITHUB_TOKEN = "github-should-not-leak";
 
+    try {
     const codex = {
       binaryPath: codexBin,
       sha256: hash(await readFile(codexBin)),
@@ -108,6 +123,11 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
     expect(await readFile(path.join(packageRoot, "plugin.json"), "utf-8")).toBe(
       before
     );
+    } finally {
+      restoreEnv("ANTHROPIC_API_KEY", previousSecrets.ANTHROPIC_API_KEY);
+      restoreEnv("AWS_SECRET_ACCESS_KEY", previousSecrets.AWS_SECRET_ACCESS_KEY);
+      restoreEnv("GITHUB_TOKEN", previousSecrets.GITHUB_TOKEN);
+    }
   });
 
   test("rejects a whole-document MCP schema violation", async () => {
@@ -231,4 +251,9 @@ async function fixturePackage(): Promise<string> {
 
 function hash(value: Uint8Array): `sha256:${string}` {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }

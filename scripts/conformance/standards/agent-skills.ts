@@ -12,6 +12,8 @@ import {
 } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
+import { createProviderProbeEnvironment } from "../../provider-probe-environment";
+
 const AGENTSKILLS_REVISION = "69ef37e9424c0a7ea9dd2293b559e43ec8176379";
 const AGENTSKILLS_ARCHIVE_INTEGRITY =
   "sha256:0c9eabbe602095c4f4d771ee55bf74f6bc7e1c770f25d4fe29ce9802981daa20";
@@ -112,7 +114,10 @@ export async function runAgentSkillsProbe(
     commands.push(command);
     return delegatedRunner(command);
   };
-  const environment = await isolatedEnvironment(tempRoot);
+  const { env: environment } = await createProviderProbeEnvironment({
+    adapters: { npm: true, uv: true },
+    root: join(tempRoot, "environment"),
+  });
   const repositoryBefore = await treeHash(repositoryRoot);
   const skillNames = await listSkills(skillsRoot);
   if (skillNames.length === 0) {
@@ -391,46 +396,6 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-async function isolatedEnvironment(
-  tempRoot: string
-): Promise<Readonly<Record<string, string>>> {
-  const environmentRoot = join(tempRoot, "environment");
-  const home = join(environmentRoot, "home");
-  const cache = join(environmentRoot, "cache");
-  const config = join(environmentRoot, "config");
-  const data = join(environmentRoot, "data");
-  const state = join(environmentRoot, "state");
-  await Promise.all(
-    [home, cache, config, data, state].map((path) =>
-      mkdir(path, { recursive: true })
-    )
-  );
-  return {
-    ...stringEnvironment(process.env),
-    DO_NOT_TRACK: "1",
-    HOME: home,
-    UV_CACHE_DIR: join(cache, "uv"),
-    UV_NO_CONFIG: "1",
-    XDG_CACHE_HOME: cache,
-    XDG_CONFIG_HOME: config,
-    XDG_DATA_HOME: data,
-    XDG_STATE_HOME: state,
-    npm_config_cache: join(cache, "npm"),
-    npm_config_globalconfig: "/dev/null",
-    npm_config_prefix: join(environmentRoot, "npm-prefix"),
-    npm_config_userconfig: join(config, "npmrc"),
-  };
-}
-
-function stringEnvironment(
-  environment: NodeJS.ProcessEnv
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(environment).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined
-    )
-  );
-}
 
 async function listSkills(skillsRoot: string): Promise<readonly string[]> {
   const entries = await readdir(skillsRoot, { withFileTypes: true });
