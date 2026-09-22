@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, sep } from "node:path";
 
 import { compareStrings } from "./path";
@@ -71,6 +71,7 @@ import {
 import { SkillsetRenderResultError, defineRenderResult, parseRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, SkillsetRepairOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
+import { prepareRepositoryMutationPath } from "./repository-mutation";
 import { applyWorkspaceTransaction } from "./workspace-transaction";
 import type { WorkspaceTransactionOptions } from "./workspace-transaction";
 
@@ -573,12 +574,14 @@ async function runBuildProjection(
     const { deletedPaths, writtenPaths } = options.isolated === true
       ? {
           deletedPaths: await removeStaleGeneratedFiles(
+            rootPath,
             new Set(writeStale),
             expectedPaths,
             writePreimages,
             resolveOutputPath
           ),
           writtenPaths: await writeRenderedFiles(
+            rootPath,
             writeRendered,
             writePreimages,
             resolveOutputPath
@@ -600,12 +603,14 @@ async function runBuildProjection(
   const { deletedPaths, writtenPaths } = options.isolated === true
     ? {
         deletedPaths: await removeStaleGeneratedFiles(
+          rootPath,
           new Set(writeStale),
           expectedPaths,
           writePreimages,
           resolveOutputPath
         ),
         writtenPaths: await writeChangedRenderedFiles(
+          rootPath,
           writeRendered,
           actualPaths,
           writePreimages,
@@ -1912,6 +1917,7 @@ async function diagnoseMissingManagedOutputs(
 }
 
 async function writeRenderedFiles(
+  rootPath: string,
   rendered: readonly RenderedFile[],
   writePreimages: ReadonlyMap<string, OutputWritePreimage>,
   resolveOutputPath: OutputPathResolver
@@ -1920,7 +1926,7 @@ async function writeRenderedFiles(
   for (const file of rendered) {
     const outputPath = resolveOutputPath(file.path);
     const preimage = await assertOutputWritePreimage(file.path, writePreimages, resolveOutputPath);
-    await mkdir(dirname(outputPath), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, outputPath);
     await writeFile(outputPath, file.content, {
       flag: preimage.state === "absent" ? "wx" : "w",
     });
@@ -2038,6 +2044,7 @@ async function assertOutputWritePreimages(
 }
 
 async function writeChangedRenderedFiles(
+  rootPath: string,
   rendered: readonly RenderedFile[],
   actualPaths: ReadonlySet<string>,
   writePreimages: ReadonlyMap<string, OutputWritePreimage>,
@@ -2056,7 +2063,7 @@ async function writeChangedRenderedFiles(
         continue;
       }
     }
-    await mkdir(dirname(outputPath), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, outputPath);
     await writeFile(outputPath, file.content, {
       flag: preimage.state === "absent" ? "wx" : "w",
     });
@@ -2067,6 +2074,7 @@ async function writeChangedRenderedFiles(
 }
 
 async function removeStaleGeneratedFiles(
+  rootPath: string,
   actualPaths: ReadonlySet<string>,
   expectedPaths: ReadonlySet<string>,
   writePreimages: ReadonlyMap<string, OutputWritePreimage>,
@@ -2076,7 +2084,11 @@ async function removeStaleGeneratedFiles(
   for (const path of actualPaths) {
     if (expectedPaths.has(path)) continue;
     await assertOutputWritePreimage(path, writePreimages, resolveOutputPath);
-    await rm(resolveOutputPath(path), { force: true });
+    const outputPath = resolveOutputPath(path);
+    await prepareRepositoryMutationPath(rootPath, outputPath, {
+      createParents: false,
+    });
+    await rm(outputPath, { force: true });
     deletedPaths.push(path);
   }
   return deletedPaths.sort(compareStrings);
