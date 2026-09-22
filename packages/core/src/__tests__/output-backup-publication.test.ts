@@ -26,15 +26,17 @@ describe("output backup manifest publication", () => {
 
     const snapshotRoot = join(root, ".skillset/snapshots");
     const runIds = await snapshotRunIds(root);
+    const runId = runIds[0];
+    if (runId === undefined) throw new Error("expected an interrupted snapshot directory");
     expect(runIds).toHaveLength(1);
-    expect(await Bun.file(join(snapshotRoot, runIds[0]!, "git/config")).exists()).toBe(true);
-    expect(await Bun.file(join(snapshotRoot, runIds[0]!, "manifest.json")).exists()).toBe(false);
+    expect(await Bun.file(join(snapshotRoot, runId, "git/config")).exists()).toBe(true);
+    expect(await Bun.file(join(snapshotRoot, runId, "manifest.json")).exists()).toBe(false);
     expect(await inspectOutputBackups(root)).toEqual({
       runs: [{
         detail: "incomplete snapshot: backup manifest has not been published",
-        manifestPath: `.skillset/snapshots/${runIds[0]}/manifest.json`,
+        manifestPath: `.skillset/snapshots/${runId}/manifest.json`,
         records: [],
-        runId: runIds[0],
+        runId,
         state: "corrupt-or-unavailable",
       }],
     });
@@ -123,15 +125,25 @@ function failureHooks(): readonly [string, string][] {
 }
 
 async function snapshotRunIds(root: string): Promise<readonly string[]> {
-  const directory = join(root, ".skillset/snapshots");
-  if (!(await Bun.file(directory).exists())) return [];
-  return (await readdir(directory)).toSorted();
+  try {
+    return (await readdir(join(root, ".skillset/snapshots"))).toSorted();
+  } catch (error) {
+    if (isMissing(error)) return [];
+    throw error;
+  }
 }
 
 async function publicationArtifacts(path: string): Promise<readonly string[]> {
-  const directory = dirname(path);
-  if (!(await Bun.file(directory).exists())) return [];
-  return (await readdir(directory)).filter((file) => file.includes(".tmp-"));
+  try {
+    return (await readdir(dirname(path))).filter((file) => file.includes(".tmp-"));
+  } catch (error) {
+    if (isMissing(error)) return [];
+    throw error;
+  }
+}
+
+function isMissing(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value: T) => void } {
