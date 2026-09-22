@@ -297,6 +297,177 @@ describe("remote repository cache", () => {
     })).rejects.toThrow(`corrupt remote cache ${safe.cacheKey}`);
     await expect(readFile(join(safe.rootPath, "README.md"), "utf8")).resolves.toBe("first\n");
   });
+
+  test("SET-645 a delayed former owner cannot remove a successor cache lock", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    const lockPath = `${location.path}.lock`;
+    const displacedPath = `${lockPath}.displaced`;
+    const successorToken = "c".repeat(32);
+
+    await expect(acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "sha", sha: fixture.firstSha },
+      xdg: fixture.xdg,
+      lock: {
+        afterLockAcquired: async () => {
+          await rename(lockPath, displacedPath);
+          await mkdir(lockPath);
+          await writeFile(
+            join(lockPath, "owner.json"),
+            `${JSON.stringify({ createdAt: Date.now(), pid: process.pid, token: successorToken })}\n`,
+            "utf8"
+          );
+        },
+      },
+    })).rejects.toThrow("lost ownership of remote cache lock");
+    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({
+      token: successorToken,
+    });
+    expect(await Bun.file(displacedPath).exists()).toBe(true);
+    await rm(lockPath, { force: true, recursive: true });
+    await rm(displacedPath, { force: true, recursive: true });
+  });
+
+  test("SET-645 cache heartbeats keep a live over-lease acquisition from being reclaimed by age", async () => {
+    const fixture = await gitRemoteFixture();
+    const entered = deferred<void>();
+    const release = deferred<void>();
+    let heartbeatTick: (() => Promise<void>) | undefined;
+    let now = 0;
+    const holder = acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "sha", sha: fixture.firstSha },
+      xdg: fixture.xdg,
+      lock: {
+        afterLockAcquired: async () => {
+          entered.resolve();
+          await release.promise;
+        },
+        heartbeatMs: 1,
+        leaseMs: 5,
+        now: () => now,
+        startHeartbeat: (heartbeat) => {
+          heartbeatTick = heartbeat;
+          return () => undefined;
+        },
+      },
+    });
+    await entered.promise;
+    now = 6;
+    if (heartbeatTick === undefined) throw new Error("missing remote cache heartbeat tick");
+    await heartbeatTick();
+
+    await expect(acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "sha", sha: fixture.firstSha },
+      xdg: fixture.xdg,
+      lock: {
+        leaseMs: 5,
+        now: () => now,
+        pollMs: 1,
+        timeoutMs: 5,
+      },
+    })).rejects.toThrow("timed out waiting for the remote cache lock");
+    release.resolve();
+    expect((await holder).sha).toBe(fixture.firstSha);
+  });
+
+  test("SET-645 stale cache takeover survives delayed cleanup by a competing former owner", async () => {
+    const fixture = await gitRemoteFixture();
+    const holderAcquired = join(dirname(fixture.remote), "holder-acquired");
+    const successorAcquired = join(dirname(fixture.remote), "successor-acquired");
+    const successorContended = join(dirname(fixture.remote), "successor-contended");
+    const holderResult = join(dirname(fixture.remote), "holder-result");
+    const successorResult = join(dirname(fixture.remote), "successor-result");
+    const releaseHolder = join(dirname(fixture.remote), "release-holder");
+    const releaseSuccessor = join(dirname(fixture.remote), "release-successor");
+    const script = [
+      'import { acquireRemoteRepository } from "./packages/core/src/remote-repository-cache.ts";',
+      "const marker = async (path) => { await Bun.write(path, \"ready\\n\"); };",
+      "const wait = async (path) => { while (!(await Bun.file(path).exists())) await Bun.sleep(1); };",
+      "try {",
+      "  await acquireRemoteRepository({",
+      "    repository: process.env.REPOSITORY,",
+      "    revision: { kind: \"sha\", sha: process.env.SHA },",
+      "    xdg: { env: { GIT_ALLOW_PROTOCOL: \"file\", GIT_CONFIG_COUNT: \"1\", GIT_CONFIG_KEY_0: process.env.GIT_CONFIG_KEY_0, GIT_CONFIG_VALUE_0: process.env.GIT_CONFIG_VALUE_0, XDG_CACHE_HOME: process.env.XDG_CACHE_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME }, homeDir: process.env.HOME_DIR },",
+      "    lock: {",
+      "      afterLockAcquired: async () => { await marker(process.env.ACQUIRED); if (process.env.RELEASE) await wait(process.env.RELEASE); },",
+      "      heartbeatMs: 1000,",
+      "      leaseMs: Number(process.env.LEASE_MS),",
+      "      now: () => Number(process.env.NOW),",
+      "      onLockContention: process.env.CONTENDED ? async () => marker(process.env.CONTENDED) : undefined,",
+      "      pollMs: 1,",
+      "      startHeartbeat: process.env.HEARTBEAT === \"off\" ? () => () => undefined : undefined,",
+      "      timeoutMs: Number(process.env.TIMEOUT_MS),",
+      "    },",
+      "  });",
+      "  await Bun.write(process.env.RESULT, \"ok\\n\");",
+      "} catch (error) {",
+      "  await Bun.write(process.env.RESULT, error instanceof Error ? error.message : String(error));",
+      "}",
+    ].join("\n");
+    const spawnWorker = (env: Record<string, string>) => Bun.spawn({
+      cmd: ["bun", "-e", script],
+      cwd: join(import.meta.dir, "../../../.."),
+      env: {
+        ...process.env,
+        GIT_CONFIG_KEY_0: fixture.xdg.env.GIT_CONFIG_KEY_0!,
+        GIT_CONFIG_VALUE_0: fixture.xdg.env.GIT_CONFIG_VALUE_0!,
+        HOME_DIR: fixture.xdg.homeDir,
+        REPOSITORY: fixture.repository,
+        SHA: fixture.firstSha,
+        XDG_CACHE_HOME: fixture.xdg.env.XDG_CACHE_HOME!,
+        XDG_CONFIG_HOME: fixture.xdg.env.XDG_CONFIG_HOME!,
+        ...env,
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    const holder = spawnWorker({
+      ACQUIRED: holderAcquired,
+      HEARTBEAT: "off",
+      LEASE_MS: "10",
+      NOW: "0",
+      RELEASE: releaseHolder,
+      RESULT: holderResult,
+      TIMEOUT_MS: "2000",
+    });
+    await waitForFile(holderAcquired);
+
+    const successor = spawnWorker({
+      ACQUIRED: successorAcquired,
+      CONTENDED: successorContended,
+      LEASE_MS: "10",
+      NOW: "100",
+      RELEASE: releaseSuccessor,
+      RESULT: successorResult,
+      TIMEOUT_MS: "2000",
+    });
+    await waitForFile(successorContended);
+    await waitForFile(successorAcquired);
+
+    await Bun.write(releaseHolder, "release\n");
+    const [holderStderr, holderExit] = await Promise.all([
+      new Response(holder.stderr).text(),
+      holder.exited,
+    ]);
+    expect(holderExit, holderStderr).toBe(0);
+    expect(await readFile(holderResult, "utf8")).toContain("lost ownership of remote cache lock");
+
+    await Bun.write(releaseSuccessor, "release\n");
+    const [successorStderr, successorExit] = await Promise.all([
+      new Response(successor.stderr).text(),
+      successor.exited,
+    ]);
+    expect(successorExit, successorStderr).toBe(0);
+    expect(await readFile(successorResult, "utf8")).toBe("ok\n");
+  });
 });
 
 interface GitRemoteFixture {
@@ -323,4 +494,20 @@ async function gitRemoteFixture(): Promise<GitRemoteFixture> {
     work,
     xdg: fixture.xdg,
   };
+}
+
+async function waitForFile(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 5_000; attempt += 1) {
+    if (await Bun.file(path).exists()) return;
+    await Bun.sleep(1);
+  }
+  throw new Error(`timed out waiting for test marker ${path}`);
+}
+
+function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value: T) => void } {
+  let resolvePromise: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
 }

@@ -1,9 +1,14 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, mkdir, mkdtemp, realpath, rename, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, realpath, rename, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
+import {
+  startDefaultDirectoryLockHeartbeat,
+  withOwnedDirectoryLock,
+  type DirectoryLockHeartbeatScheduler,
+} from "./directory-lock";
 import { resolveSkillsetXdgPaths, type SkillsetXdgOptions } from "./xdg";
 import {
   parseRemoteRepositoryReference,
@@ -34,7 +39,21 @@ export interface RemoteRepositoryCheckout {
   readonly sha: string;
 }
 
+export interface RemoteRepositoryCacheLockOptions {
+  readonly afterLockAcquired?: () => Promise<void> | void;
+  readonly heartbeatMs?: number;
+  readonly leaseMs?: number;
+  readonly now?: () => number;
+  readonly onLockContention?: () => Promise<void> | void;
+  readonly pid?: number;
+  readonly pollMs?: number;
+  readonly startHeartbeat?: DirectoryLockHeartbeatScheduler;
+  readonly timeoutMs?: number;
+}
+
 export interface AcquireRemoteRepositoryOptions {
+  /** @internal Test seams for owner-fenced cache lock regressions. */
+  readonly lock?: RemoteRepositoryCacheLockOptions;
   readonly repository: string;
   readonly revision: RemoteRepositoryRevision;
   readonly xdg?: SkillsetXdgOptions;
@@ -74,7 +93,9 @@ export async function acquireRemoteRepository(
   const parsed = parseRemoteRepositoryReference(options.repository);
   const location = resolveRemoteRepositoryCache(options.repository, options.revision, options.xdg);
   await ensureCacheParent(location, options.xdg);
-  return withCacheLock(location.path, () => acquireRemoteRepositoryUnlocked(options, parsed, location));
+  return withCacheLock(location.path, options.lock, () =>
+    acquireRemoteRepositoryUnlocked(options, parsed, location)
+  );
 }
 
 async function acquireRemoteRepositoryUnlocked(
@@ -107,36 +128,38 @@ async function acquireRemoteRepositoryUnlocked(
   }
 }
 
-async function withCacheLock<T>(cachePath: string, operation: () => Promise<T>): Promise<T> {
-  const lockPath = `${cachePath}.lock`;
-  const startedAt = Date.now();
-  while (true) {
-    try {
-      await mkdir(lockPath);
-      break;
-    } catch (error) {
-      if (!isAlreadyExistsError(error)) throw error;
-      const lock = await stat(lockPath).catch(() => undefined);
-      if (lock !== undefined && Date.now() - lock.mtimeMs > 10 * 60_000) {
-        await rm(lockPath, { force: true, recursive: true });
-        continue;
-      }
-      if (Date.now() - startedAt > 30_000) {
-        throw new Error("skillset: timed out waiting for the remote cache lock");
-      }
-      await sleep(50);
-    }
-  }
+const REMOTE_CACHE_LOCK_HEARTBEAT_MS = 30_000;
+const REMOTE_CACHE_LOCK_LEASE_MS = 10 * 60_000;
+const REMOTE_CACHE_LOCK_POLL_MS = 50;
+const REMOTE_CACHE_LOCK_TIMEOUT_MS = 30_000;
 
-  try {
-    return await operation();
-  } finally {
-    await rm(lockPath, { force: true, recursive: true });
-  }
-}
-
-function sleep(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+async function withCacheLock<T>(
+  cachePath: string,
+  lock: RemoteRepositoryCacheLockOptions | undefined,
+  operation: () => Promise<T>
+): Promise<T> {
+  return withOwnedDirectoryLock({
+    afterAcquired: lock?.afterLockAcquired,
+    lockPath: `${cachePath}.lock`,
+    lostOwnershipError: () => new Error("skillset: lost ownership of remote cache lock"),
+    onContention: lock?.onLockContention,
+    ownerPid: lock?.pid ?? process.pid,
+    staleOwner: { kind: "lease-only" },
+    startHeartbeat: lock?.startHeartbeat ?? startDefaultDirectoryLockHeartbeat,
+    timeoutError: () => new Error("skillset: timed out waiting for the remote cache lock"),
+    timing: {
+      heartbeatMs: lock?.heartbeatMs ?? REMOTE_CACHE_LOCK_HEARTBEAT_MS,
+      leaseMs: lock?.leaseMs ?? REMOTE_CACHE_LOCK_LEASE_MS,
+      now: lock?.now ?? Date.now,
+      pollMs: lock?.pollMs ?? REMOTE_CACHE_LOCK_POLL_MS,
+      timeoutMs: lock?.timeoutMs ?? REMOTE_CACHE_LOCK_TIMEOUT_MS,
+    },
+  }, async (owned) => {
+    await owned.assertOwned();
+    const result = await operation();
+    await owned.assertOwned();
+    return result;
+  });
 }
 
 async function acquireExisting(
