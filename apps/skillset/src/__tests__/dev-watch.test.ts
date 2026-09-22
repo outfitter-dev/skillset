@@ -231,11 +231,11 @@ test("SET-210/SET-212: dev command validation keeps writes explicitly opt-in", a
   expect(writeFlag.stderr).toContain("write mode with --write");
 
   const applyWrongCommand = await runSkillsetCli("build", "--apply");
-  expect(applyWrongCommand.exitCode).toBe(1);
+  expect(applyWrongCommand.exitCode).toBe(2);
   expect(applyWrongCommand.stderr).toContain("unknown option --apply");
 
   const wrongCommand = await runSkillsetCli("build", "--watch");
-  expect(wrongCommand.exitCode).toBe(1);
+  expect(wrongCommand.exitCode).toBe(2);
   expect(wrongCommand.stderr).toContain("unknown option --watch");
 });
 
@@ -288,7 +288,7 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
   expect(events.map((event) => event.event)).toEqual(["started", "operation", "failed"]);
   expect(events.map((event) => event.sequence)).toEqual([1, 2, 3]);
   expect(events[2]?.data).toMatchObject({ stage: "watch-setup" });
-  expect(exitCode).toBe(3);
+  expect(exitCode).toBe(1);
 });
 
 test("SET-289: initial JSONL operation failures stay in the active sequence", async () => {

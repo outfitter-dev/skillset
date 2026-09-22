@@ -222,7 +222,7 @@ test("SET-555: new skill --draft is plan-first and supports plugin containers", 
     "--root",
     root
   );
-  expect(invalid.exitCode).toBe(1);
+  expect(invalid.exitCode).toBe(2);
   expect(invalid.stderr).toContain(
     "new instruction does not support --draft"
   );
@@ -477,7 +477,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
     "--root",
     root
   );
-  expect(preset.exitCode).toBe(1);
+  expect(preset.exitCode).toBe(2);
   expect(preset.stderr).toContain(
     "new instruction does not support --preset"
   );
@@ -742,11 +742,11 @@ test("SET-165: new rejects import-only flags", async () => {
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
 
   const kind = await runSkillsetCli("new", "skill", "Flag Probe", "--kind", "plugin", "--root", root);
-  expect(kind.exitCode).toBe(1);
+  expect(kind.exitCode).toBe(2);
   expect(kind.stderr).toContain("--kind is only supported with import");
 
   const from = await runSkillsetCli("new", "skill", "Flag Probe", "--from", "codex", "--root", root);
-  expect(from.exitCode).toBe(1);
+  expect(from.exitCode).toBe(2);
   expect(from.stderr).toContain("--from is only supported with import");
 });
 

@@ -9,6 +9,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { ReconcileChoice } from "./reconcile";
 import type {
   ReconcileCommandRequest,
@@ -26,20 +27,20 @@ export const parseRestoreCommandRequest = (
   const parsed = parseRecoveryOptions(args, backupId === undefined ? 1 : 2, context);
   validateRecoveryOwnership(parsed);
   if (parsed.buildMode !== undefined || parsed.scopes !== undefined) {
-    throw new Error("skillset: restore only supports --root, --yes, --json, and --list");
+    throw new CliUsageError("skillset: restore only supports --root, --yes, --json, and --list");
   }
   if (parsed.choice !== undefined) {
-    throw new Error("skillset: --use is only supported with reconcile");
+    throw new CliUsageError("skillset: --use is only supported with reconcile");
   }
   if (parsed.list) {
     if (backupId !== undefined) {
-      throw new Error("skillset: restore --list cannot be combined with a backup id");
+      throw new CliUsageError("skillset: restore --list cannot be combined with a backup id");
     }
     if (parsed.yes) {
-      throw new Error("skillset: restore --list cannot be combined with --yes");
+      throw new CliUsageError("skillset: restore --list cannot be combined with --yes");
     }
   } else if (backupId === undefined) {
-    throw new Error("skillset: expected backup id to restore");
+    throw new CliUsageError("skillset: expected backup id to restore");
   }
   return {
     backupId,
@@ -65,18 +66,18 @@ export const parseReconcileCommandRequest = (
   );
   validateRecoveryOwnership(parsed);
   if (parsed.buildMode !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --updated and --all are not supported with reconcile"
     );
   }
   if (parsed.scopes !== undefined) {
-    throw new Error("skillset: --scope is not supported with reconcile");
+    throw new CliUsageError("skillset: --scope is not supported with reconcile");
   }
   if (parsed.list) {
-    throw new Error("skillset: --list is only supported with restore");
+    throw new CliUsageError("skillset: --list is only supported with restore");
   }
   if (parsed.yes && parsed.choice === undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: reconcile --yes requires --use source or --use output"
     );
   }
@@ -167,7 +168,7 @@ const parseRecoveryOptions = (
       case "--use": {
         const value = reader.readRequiredOptionValue(option);
         if (value !== "source" && value !== "output") {
-          throw new Error("skillset: --use expects source or output");
+          throw new CliUsageError("skillset: --use expects source or output");
         }
         choice = value;
         break;
@@ -197,7 +198,7 @@ const parseRecoveryOptions = (
         break;
       case "--write":
         assertBooleanOption(option);
-        throw new Error(
+        throw new CliUsageError(
           "skillset: --write is only supported with check or dev"
         );
       case "--name":
@@ -210,7 +211,7 @@ const parseRecoveryOptions = (
         readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
   return {
@@ -234,12 +235,12 @@ const parseRecoveryOptions = (
 
 const validateRecoveryOwnership = (parsed: RecoveryOptions): void => {
   if (parsed.changeFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: change options are only supported with change commands"
     );
   }
   if (parsed.changeSince !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --since is only supported with check --ci or change commands"
     );
   }
@@ -250,7 +251,7 @@ const readRequiredPath = (
   expectation: string
 ): string => {
   if (value === undefined || value.startsWith("--")) {
-    throw new Error(`skillset: expected ${expectation}`);
+    throw new CliUsageError(`skillset: expected ${expectation}`);
   }
   return value;
 };

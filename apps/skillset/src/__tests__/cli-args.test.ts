@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { CLI_ROUTE_FLAGS } from "../../../../scripts/cli-contract";
 import { parseCliRequest } from "../cli-args";
-import { CliOutputError } from "../cli-output";
+import { CliUsageError } from "../cli-output";
 
 const ROOT = "/tmp/skillset-cli-args";
 
@@ -1247,7 +1247,7 @@ describe("SET-299 parser failure contract", () => {
         parseCliRequest(args);
         throw new Error("expected parseCliRequest to throw");
       } catch (error) {
-        expect(error).toBeInstanceOf(CliOutputError);
+        expect(error).toBeInstanceOf(CliUsageError);
         expect(error).toMatchObject({ command, exitCode: 2 });
         expect((error as Error).message).toStartWith(message);
       }

@@ -6,6 +6,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { CreateCommandRequest } from "./create-cli";
 import { mergeSetupIncludes } from "./init-args";
 import type { SetupInclude } from "./setup";
@@ -53,7 +54,7 @@ export const parseCreateCommandRequest = (
         json = true;
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
   return {

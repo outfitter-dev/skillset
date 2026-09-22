@@ -4,6 +4,7 @@ import { runCheckCommand } from "./check-cli";
 import { runCreateCommand } from "./create-cli";
 import { parseCliRequest } from "./cli-args";
 import { renderCliHelp } from "./cli-help";
+import { cliExitCode } from "./cli-output";
 import { cliVersion } from "./cli-version";
 import { runDevCommand } from "./dev-cli";
 import { runDraftCommand } from "./draft-cli";
@@ -21,7 +22,6 @@ import {
   runLookupRoute,
   runStatusCommand,
 } from "./inspect-cli";
-import { PromptCancelledError } from "./prompt-adapter";
 import { runMoveCommand } from "./move-cli";
 import { runPromoteCommand } from "./promote-cli";
 import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
@@ -112,9 +112,5 @@ export async function runCli(
 export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
-  process.exitCode = cliErrorExitCode(error);
-}
-
-export function cliErrorExitCode(error: unknown): number {
-  return error instanceof PromptCancelledError ? error.exitCode : 1;
+  process.exitCode = cliExitCode(error);
 }

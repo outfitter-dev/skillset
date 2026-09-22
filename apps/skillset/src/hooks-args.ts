@@ -18,6 +18,7 @@ import {
   tokenizeCsv,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { HooksCommandRequest } from "./hooks-cli";
 import { addLookupTargets, setLookupField } from "./lookup-cli";
 import {
@@ -265,10 +266,10 @@ export const parseHooksCommandRequest = (
       case "--include": {
         const includes = tokenizeCsv(reader.readRequiredOptionValue(option));
         if (includes.length === 0) {
-          throw new Error("skillset: --include requires at least one value");
+          throw new CliUsageError("skillset: --include requires at least one value");
         }
         if (includes.some((include) => include !== "ci")) {
-          throw new Error("skillset: expected --include ci");
+          throw new CliUsageError("skillset: expected --include ci");
         }
         setupFlag = true;
         break;
@@ -288,14 +289,14 @@ export const parseHooksCommandRequest = (
       case "--report": {
         const value = reader.readRequiredOptionValue(option);
         if (option.flag === "--only" && value !== "outputs") {
-          throw new Error("skillset: expected --only outputs");
+          throw new CliUsageError("skillset: expected --only outputs");
         }
         readinessFlag = true;
         break;
       }
       case "--write": {
         assertBooleanOption(option);
-        throw new Error(
+        throw new CliUsageError(
           "skillset: --write is only supported with check or dev"
         );
       }
@@ -307,7 +308,7 @@ export const parseHooksCommandRequest = (
       case "--use": {
         const value = reader.readRequiredOptionValue(option);
         if (value !== "source" && value !== "output") {
-          throw new Error("skillset: --use expects source or output");
+          throw new CliUsageError("skillset: --use expects source or output");
         }
         reconcileFlag = true;
         break;
@@ -320,13 +321,13 @@ export const parseHooksCommandRequest = (
         break;
       }
       default: {
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
       }
     }
   }
 
   if (changeFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: change options are only supported with change commands"
     );
   }
@@ -337,7 +338,7 @@ export const parseHooksCommandRequest = (
     hookRunner !== undefined ||
     hookTarget !== undefined;
   if (hasPrintFlag && hookSubcommand !== "print") {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: hook options are only supported with hooks print"
     );
   }
@@ -346,15 +347,15 @@ export const parseHooksCommandRequest = (
     hookContextFields !== undefined ||
     hookContextFormat !== undefined;
   if (hasContextFlag && hookSubcommand !== "context") {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: hook context options are only supported with hooks context"
     );
   }
   if (hookSubcommand === "context" && hookContextEvent === undefined) {
-    throw new Error("skillset: hooks context requires --event");
+    throw new CliUsageError("skillset: hooks context requires --event");
   }
   if (hookSubcommand === "print" && rootExplicit) {
-    throw new Error("skillset: --root is not supported with hooks print");
+    throw new CliUsageError("skillset: --root is not supported with hooks print");
   }
   if (
     buildMode !== undefined ||
@@ -363,43 +364,43 @@ export const parseHooksCommandRequest = (
     importMetadata ||
     yes
   ) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: non-hook options are not supported with hooks ${hookSubcommand}`
     );
   }
   if (setupFlag) {
-    throw new Error("skillset: setup options are only supported with init");
+    throw new CliUsageError("skillset: setup options are only supported with init");
   }
   if (adoptFlag) {
-    throw new Error("skillset: --adopt is only supported with init");
+    throw new CliUsageError("skillset: --adopt is only supported with init");
   }
   if (readinessFlag) {
-    throw new Error("skillset: readiness flags are only supported with check");
+    throw new CliUsageError("skillset: readiness flags are only supported with check");
   }
   if (testFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: ad hoc test options are only supported with test"
     );
   }
   if (jsonOutput) {
-    throw new Error("skillset: --json is not supported for this command route");
+    throw new CliUsageError("skillset: --json is not supported for this command route");
   }
   if (jsonlOutput) {
-    throw new Error("skillset: unknown option --jsonl");
+    throw new CliUsageError("skillset: unknown option --jsonl");
   }
   if (lookupField !== undefined || lookupTargets.length > 0 || lookupView) {
-    throw new Error("skillset: lookup flags are only supported with lookup");
+    throw new CliUsageError("skillset: lookup flags are only supported with lookup");
   }
   if (isolated) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --isolated is only supported with build, check --only outputs, or diff"
     );
   }
   if (reconcileFlag) {
-    throw new Error("skillset: --use is only supported with reconcile");
+    throw new CliUsageError("skillset: --use is only supported with reconcile");
   }
   if (newFlag) {
-    throw new Error("skillset: new options are only supported with new");
+    throw new CliUsageError("skillset: new options are only supported with new");
   }
   return {
     hookAgentRuntime,
@@ -420,7 +421,7 @@ const readHookSubcommand = (value: string | undefined): HookSubcommand => {
   if (value === "context" || value === "print" || value === "run") {
     return value;
   }
-  throw new Error("skillset: expected hooks subcommand context, print, or run");
+  throw new CliUsageError("skillset: expected hooks subcommand context, print, or run");
 };
 
 const readHookRuntimeContextFields = (
@@ -428,7 +429,7 @@ const readHookRuntimeContextFields = (
 ): readonly HookRuntimeContextField[] => {
   const fields = tokenizeCsv(value);
   if (fields.length === 0) {
-    throw new Error("skillset: --context-fields requires at least one field");
+    throw new CliUsageError("skillset: --context-fields requires at least one field");
   }
   return fields.map(readHookRuntimeContextField);
 };
@@ -442,7 +443,7 @@ const readHookRunner = (value: string): HookRunner => {
   ) {
     return value;
   }
-  throw new Error(
+  throw new CliUsageError(
     "skillset: expected --runner lefthook, husky, pre-commit, or git"
   );
 };

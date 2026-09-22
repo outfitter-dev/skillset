@@ -8,6 +8,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import { rejectProjectionForeignOption } from "./projection-foreign-args";
 import { readImportKind, readImportProvider } from "./source-arg-values";
 
@@ -48,7 +49,7 @@ export const parseCheckCommandRequest = (
       case "--only": {
         const value = reader.readRequiredOptionValue(option);
         if (value !== "outputs") {
-          throw new Error("skillset: expected --only outputs");
+          throw new CliUsageError("skillset: expected --only outputs");
         }
         checkOnly = value;
         break;
@@ -103,23 +104,23 @@ export const parseCheckCommandRequest = (
         break;
       default:
         rejectProjectionForeignOption(reader, option);
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 
   if (yes) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: check does not take mutation confirmation flags"
     );
   }
   if (ciFix && !ciMode) {
-    throw new Error("skillset: check --fix requires --ci");
+    throw new CliUsageError("skillset: check --fix requires --ci");
   }
   if (checkWrite && ciMode) {
-    throw new Error("skillset: check --ci uses --fix instead of --write");
+    throw new CliUsageError("skillset: check --ci uses --fix instead of --write");
   }
   if ((ciReportPath !== undefined || changeSince !== undefined) && !ciMode) {
-    throw new Error("skillset: --report and --since require check --ci");
+    throw new CliUsageError("skillset: --report and --since require check --ci");
   }
   if (
     checkOnly !== undefined &&
@@ -129,25 +130,25 @@ export const parseCheckCommandRequest = (
       ciReportPath !== undefined ||
       changeSince !== undefined)
   ) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: check --only outputs cannot be combined with CI or write flags"
     );
   }
   if (jsonlOutput) {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new CliUsageError("skillset: --jsonl is only supported with dev");
   }
   if (checkOnly !== "outputs" && buildMode !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset check does not support --updated or --all; it checks source diagnostics"
     );
   }
   if (checkOnly !== "outputs" && scopes !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset check does not support --scope; it checks source diagnostics"
     );
   }
   if (isolated && checkOnly !== "outputs") {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --isolated is only supported with build, check --only outputs, or diff"
     );
   }

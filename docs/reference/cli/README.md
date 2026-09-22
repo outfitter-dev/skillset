@@ -1,5 +1,5 @@
 ---
-description: Lists Skillset's public CLI commands and links to contract-generated command reference.
+description: Lists Skillset's public CLI commands, shared exit classes, and links to contract-generated command reference.
 ---
 
 # CLI Reference
@@ -55,3 +55,19 @@ These pages are generated from the same typed presentation and flag contracts us
 <!-- skillset:generated:end cli-command-list -->
 
 For shared argument behavior, see [CLI flag conventions](../cli-flags.md).
+
+## Exit classes
+
+Human, `--json`, and `--jsonl` modes use the same exit class for the same
+result. The shared classifier never infers a code from a message prefix.
+
+| Class | Code | Meaning |
+| --- | ---: | --- |
+| success | `0` | The command completed as requested. |
+| failure | `1` | Validation, data, or unexpected failure. |
+| usage | `2` | The invocation itself is invalid: unknown option, missing required argument, or conflicting flags. |
+
+Codes `3` and `4` are command-specific and appear only when a command sets them
+explicitly through `CliOutputError`. The report command uses `3` for an
+unreadable owned bundle. Structured-output invariant failures use `4`.
+Interactive prompt cancellation uses `130`.
