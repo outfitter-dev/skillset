@@ -56,7 +56,13 @@ import {
   plannedPackageOutputPath,
   validatePackageOutputConfig,
 } from "./package-output-path";
-import { compareStrings, resolveInside, validateSlug } from "./path";
+import {
+  compareStrings,
+  logicalDiagnosticPath,
+  resolveInside,
+  toLogicalDiagnosticPath,
+  validateSlug,
+} from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { parsePortableMcpSource } from "./portable-mcp";
 import { pluginComponentPath } from "./plugin-component-paths";
@@ -533,7 +539,7 @@ async function loadProjectIslands(
 
   for (const island of islands) {
     if (island.target === "codex" && island.relativePath.endsWith(".rules") && island.plugin !== undefined) {
-      const path = relative(rootPath, island.sourcePath);
+      const path = logicalDiagnosticPath(rootPath, island.sourcePath);
       throw new SkillsetFeatureDiagnosticError({
         code: "target-native-island-unsupported",
         featureId: "target-native-islands",
@@ -544,12 +550,12 @@ async function loadProjectIslands(
       });
     }
     if (island.target === "codex" && island.relativePath.endsWith(".rules") && !island.relativePath.startsWith("rules/")) {
-      const path = relative(rootPath, island.sourcePath);
+      const path = logicalDiagnosticPath(rootPath, island.sourcePath);
       throw new SkillsetFeatureDiagnosticError({
         code: "target-native-island-unsupported",
         featureId: "target-native-islands",
         message:
-        `skillset: ${path} targets Codex .rules outside ${join(sourceDir, sourceRootDir, PROVIDER_SOURCE_DIRS.codex, "rules")}/; ` +
+        `skillset: ${path} targets Codex .rules outside ${toLogicalDiagnosticPath(join(sourceDir, sourceRootDir, PROVIDER_SOURCE_DIRS.codex, "rules"))}/; ` +
           "Codex .rules are project-only command policy",
         path,
       });
@@ -571,7 +577,7 @@ async function validatePluginIslandOwners(
     if (!entry.isDirectory()) continue;
     if (pluginIds.has(entry.name)) continue;
     throw new Error(
-      `skillset: ${relative(rootPath, join(pluginsPath, entry.name))} has provider source for unknown plugin ${entry.name}`
+      `skillset: ${logicalDiagnosticPath(rootPath, join(pluginsPath, entry.name))} has provider source for unknown plugin ${entry.name}`
     );
   }
 }
@@ -625,7 +631,7 @@ async function loadProjectAgent(
   externalInputPaths: Set<string>
 ): Promise<SourceProjectAgent> {
   const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
-  const sourceLabel = relative(rootPath, sourcePath);
+  const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
   validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
@@ -748,15 +754,15 @@ async function loadInstructions(
         );
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
-      validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
-      relative(rootPath, sourcePath),
+      validateInstructionFrontmatter(frontmatter, logicalDiagnosticPath(rootPath, sourcePath)).diagnostics,
+      logicalDiagnosticPath(rootPath, sourcePath),
       frontmatter
     );
-    await validateSupports(frontmatter.supports, { externalInputPaths, label: relative(rootPath, sourcePath), rootPath, warnings });
+    await validateSupports(frontmatter.supports, { externalInputPaths, label: logicalDiagnosticPath(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(frontmatter, sourcePath);
     const sourceOrigin = readSourceOrigin(metadata, sourcePath);
     const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
-    const dialect = readDialect(frontmatter, relative(rootPath, sourcePath));
+    const dialect = readDialect(frontmatter, logicalDiagnosticPath(rootPath, sourcePath));
 
     rules.push({
       body: parts.body,
@@ -787,7 +793,7 @@ function classifyRuleSegments(
   return relativeDirectory.split(/[\\/]/u).map((value) => {
     if (value === "[…]") {
       throw new Error(
-        `skillset: ${relative(rootPath, sourcePath)} uses Unicode rule segment […]; rename it to [...]`
+        `skillset: ${logicalDiagnosticPath(rootPath, sourcePath)} uses Unicode rule segment […]; rename it to [...]`
       );
     }
     return {
@@ -834,7 +840,9 @@ async function loadAdaptiveHooks(
       code: firstIssue?.code ?? "adaptive-hook-path-invalid",
       featureId: "adaptive-hooks",
       message: `skillset: ${firstIssue?.message ?? "adaptive hook paths are invalid"}`,
-      path: firstIssue?.paths[0] === undefined ? relative(rootPath, hooksPath) : relative(rootPath, join(ownerPath, firstIssue.paths[0])),
+      path: firstIssue?.paths[0] === undefined
+        ? logicalDiagnosticPath(rootPath, hooksPath)
+        : logicalDiagnosticPath(rootPath, join(ownerPath, firstIssue.paths[0])),
     });
   }
 
@@ -844,7 +852,7 @@ async function loadAdaptiveHooks(
     const classified = classifyAdaptiveHookUnitPath(relativeHookPath);
     if (classified.kind !== "adaptive-unit") continue;
 
-    const label = relative(rootPath, file);
+    const label = logicalDiagnosticPath(rootPath, file);
     let parsed: JsonValue;
     try {
       parsed = JSON.parse(await readFile(file, "utf8")) as JsonValue;
@@ -955,7 +963,7 @@ export function resolveAdaptiveHookScriptPath(
         code: "adaptive-hook-script-flat",
         featureId: "adaptive-hooks",
         message: "skillset: adaptive hook run.script uses ./, but hook-local scripts require a directory hook unit",
-        path: relative(rootPath, hookSourcePath),
+        path: logicalDiagnosticPath(rootPath, hookSourcePath),
       });
     }
     return resolveInside(dirname(hookSourcePath), reference);
@@ -977,7 +985,7 @@ export async function validateAdaptiveHookScriptSource(
       code: "adaptive-hook-script-missing",
       featureId: "adaptive-hooks",
       message: `skillset: adaptive hook run.script ${reference} does not resolve to an existing source file`,
-      path: relative(rootPath, hookSourcePath),
+      path: logicalDiagnosticPath(rootPath, hookSourcePath),
     });
   }
   if (!sourceStat.isFile()) {
@@ -985,7 +993,7 @@ export async function validateAdaptiveHookScriptSource(
       code: "adaptive-hook-script-invalid",
       featureId: "adaptive-hooks",
       message: `skillset: adaptive hook run.script ${reference} must resolve to a file`,
-      path: relative(rootPath, sourcePath),
+      path: logicalDiagnosticPath(rootPath, sourcePath),
     });
   }
 }
@@ -1099,7 +1107,7 @@ async function loadPlugin(
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
-  const configRelativePath = relative(rootPath, configPath);
+  const configRelativePath = logicalDiagnosticPath(rootPath, configPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   let claudeBundlePath: string | undefined;
   let dependencies: SourcePlugin["dependencies"];
@@ -1184,7 +1192,7 @@ async function loadPlugin(
   const skills = discoveredSkills.filter((skill) => skill.status !== "draft");
 
   if (await exists(join(pluginPath, "hooks.json"))) {
-    const path = relative(rootPath, join(pluginPath, "hooks.json"));
+    const path = logicalDiagnosticPath(rootPath, join(pluginPath, "hooks.json"));
     throw new SkillsetFeatureDiagnosticError({
       code: "plugin-root-hooks-unsupported",
       featureId: "plugin-hooks",
@@ -1364,7 +1372,7 @@ async function loadPluginFeatures(
             : key === "mcp"
               ? "plugin-mcp"
               : "plugin-bin",
-        path: relative(rootPath, configPath),
+        path: logicalDiagnosticPath(rootPath, configPath),
       });
     }
     if (feature !== undefined) features.push(feature);
@@ -1402,7 +1410,7 @@ async function loadPluginFeature(
     sourcePath = conventionalSource;
   } else if (raw === true) {
     if (!hasConventionalSource) {
-      throw new Error(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${relative(rootPath, conventionalSource)}`);
+      throw new Error(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${logicalDiagnosticPath(rootPath, conventionalSource)}`);
     }
     sourcePath = conventionalSource;
   } else if (isJsonRecord(raw)) {
@@ -1536,7 +1544,7 @@ async function loadSkillsFromDirectory(
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
     validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourcePath).diagnostics, sourcePath, parts.frontmatter);
-    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: relative(rootPath, sourcePath), rootPath, warnings });
+    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: logicalDiagnosticPath(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
     validateVersionField(parts.frontmatter, `${sourcePath}.version`);
     if (metadata.name !== undefined) {
@@ -1558,7 +1566,7 @@ async function loadSkillsFromDirectory(
       kind: "skill" as const,
       skillId: id,
     };
-    const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, relative(rootPath, sourcePath));
+    const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, logicalDiagnosticPath(rootPath, sourcePath));
     const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope, targets);
@@ -1568,7 +1576,7 @@ async function loadSkillsFromDirectory(
     const declaredStatus = parts.frontmatter.status;
     if (declaredStatus !== undefined && declaredStatus !== "draft") {
       throw new Error(
-        `skillset: ${relative(rootPath, sourcePath)} status must be draft when provided`
+        `skillset: ${logicalDiagnosticPath(rootPath, sourcePath)} status must be draft when provided`
       );
     }
     const draftOrigin = draftFromDirectory
@@ -1584,7 +1592,7 @@ async function loadSkillsFromDirectory(
       sourceRootPath: resolveInside(rootPath, join(sourceDir, sourceRootDir)),
     });
 
-    const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));
+    const dialect = readDialect(parts.frontmatter, logicalDiagnosticPath(rootPath, sourcePath));
     const evalDeclaration = await loadSkillEvalDeclaration(dirname(sourcePath), id, targets);
 
     skills.push({
@@ -1628,7 +1636,7 @@ function validateDuplicateSkillLeaves(
     }
     throw new Error(
       `skillset: duplicate skill leaf ${leaf}: ${matches
-        .map((skill) => relative(rootPath, skill.sourcePath))
+        .map((skill) => logicalDiagnosticPath(rootPath, skill.sourcePath))
         .join(" and ")}`
     );
   }
@@ -1720,7 +1728,7 @@ function warnPortableModel(
   );
   if (missingTargets.length === 0) return;
   warnings.push(
-    `${relative(rootPath, sourcePath)} uses top-level model, which is not portable in Skillset v1; ` +
+    `${logicalDiagnosticPath(rootPath, sourcePath)} uses top-level model, which is not portable in Skillset v1; ` +
       `use target-specific model fields or target defaults for ${missingTargets.join(", ")}.`
   );
 }
@@ -2057,7 +2065,7 @@ function validateProjectRoots(
       );
       if (overlappingAgent !== undefined) {
         throw new Error(
-          `skillset: ${relative(rootPath, overlappingAgent.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
+          `skillset: ${logicalDiagnosticPath(rootPath, overlappingAgent.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
         );
       }
       const overlappingIsland = targetProjectIslands.find((island) =>
@@ -2065,7 +2073,7 @@ function validateProjectRoots(
       );
       if (overlappingIsland === undefined) continue;
       throw new Error(
-        `skillset: ${relative(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
+        `skillset: ${logicalDiagnosticPath(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
       );
     }
   }
@@ -2158,7 +2166,7 @@ function validateOutputRootNotInsideProtectedRoots(
     if (isSameOrInside(absoluteOutputRoot, protectedRoot.path) ||
         (isPluginBundleRootLabel(outputRoot.label) && pathsOverlap(absoluteOutputRoot.toLowerCase(), protectedRoot.path.toLowerCase()))) {
       throw new Error(
-        `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${relative(rootPath, protectedRoot.path)}`
+        `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${logicalDiagnosticPath(rootPath, protectedRoot.path)}`
       );
     }
   }

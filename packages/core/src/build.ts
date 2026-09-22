@@ -55,6 +55,7 @@ import {
 import { renderValidatedJson } from "./structured-output";
 import {
   SkillsetFeatureDiagnosticError,
+  skillsetDiagnostic,
   sourceWarningDiagnostic,
   type SkillsetDiagnostic,
   type SkillsetOperationResult,
@@ -210,7 +211,7 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
   for (const file of rendered) {
     if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
     if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
-    diagnostics.push({
+    diagnostics.push(skillsetDiagnostic({
       code: "codex-agents-size",
       featureId: "project-instructions",
       message:
@@ -220,7 +221,7 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
       outputPath: file.path,
       severity: "warning",
       target: "codex",
-    });
+    }));
   }
   return diagnostics;
 }
@@ -892,53 +893,53 @@ async function inspectOutputPlan(args: {
 }
 
 function unmanagedRepairPathDiagnostic(outputPath: string): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "repair-path-unmanaged",
     featureId: "output-repair",
     message:
       "the requested repair path does not resolve to a managed generated output",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedOutputDivergedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-output-diverged",
     featureId: "output-repair",
     message:
       "generated output and its source both changed since the lock; port the output edit into source, rebuild, and rerun",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedLockUntrustedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-untrusted",
     featureId: "output-repair",
     message:
       "the lock records no verdict for this output, so a repair cannot tell a stale output from a hand-edited one; rebuild the lock with skillset build --yes, then rerun the repair",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedOutputEditPreservedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-output-edit-preserved",
     featureId: "output-repair",
     message:
       "generated output was hand-edited and its source was not; carry the edit into the authoring source with skillset explain, or rerun with --discard-edits to overwrite it",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 
@@ -1095,66 +1096,66 @@ function classifyLockProvenance(
 function managedLockProvenanceStaleDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-provenance-stale",
     featureId: "output-safety",
     message:
       "managed lock differs only in recognized generated provenance; an explicit repair may rebuild it",
     outputPath,
     severity: "warning",
-  };
+  });
 }
 
 function managedLockIntegrityMigrationDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-integrity-migration",
     featureId: "output-safety",
     message:
       "managed v2 lock does not include verifiable lock integrity provenance; run skillset build --yes to migrate it, with the previous lock backed up before writing",
     outputPath,
     severity: "warning",
-  };
+  });
 }
 
 function managedLockRepairInvalidatedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-repair-invalidated",
     featureId: "output-safety",
     message:
       "managed lock no longer matches the approved repair evidence; rerun inspection before writing",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedOutputWriteInvalidatedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-output-write-invalidated",
     featureId: "output-safety",
     message:
       "managed output changed after write safety approval; rerun inspection before writing",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function outputWriteInvalidatedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "output-write-preimage-invalidated",
     featureId: "output-safety",
     message:
       "output changed after final write approval; rerun inspection before writing",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function hasUnknownFixedShapeLockFields(lock: JsonRecord): boolean {
@@ -1573,12 +1574,12 @@ function generatedDriftDiagnostic(
   path: string,
   message = generatedDriftMessage(kind, path)
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: `generated-output-${kind}`,
     message,
     outputPath: path,
     severity: "error",
-  };
+  });
 }
 
 function generatedDriftMessage(
@@ -1610,12 +1611,12 @@ function unsupportedDestinationPolicyDiagnostics(
   if (unsupportedPolicy === "error") return [];
   return renderResults
     .filter(isSoftUnsupportedDestinationOutcome)
-    .map((outcome) => ({
+    .map((outcome) => skillsetDiagnostic({
       code: `unsupported-destination-${unsupportedPolicy}`,
       featureId: outcome.featureId,
       message: unsupportedDestinationPolicyMessage(outcome, unsupportedPolicy),
       ...(outcome.sourcePath === undefined ? {} : { path: outcome.sourcePath }),
-      severity: "warning" as const,
+      severity: "warning",
       sourceUnit: outcome.sourceUnit,
       ...(outcome.target === undefined ? {} : { target: outcome.target }),
     }));
@@ -1899,13 +1900,13 @@ async function diagnoseMissingManagedOutputs(
   for (const file of rendered) {
     if (!previousManagedPaths.has(file.path)) continue;
     if (await exists(resolveOutputPath(file.path))) continue;
-    diagnostics.push({
+    diagnostics.push(skillsetDiagnostic({
       code: "managed-output-missing",
       featureId: "output-safety",
       message: `managed output is missing and will be regenerated: ${file.path}`,
       outputPath: file.path,
       severity: "warning",
-    });
+    }));
   }
   return diagnostics;
 }

@@ -10,7 +10,11 @@ import {
 import { parseGeneratedLock } from "./generated-lock";
 import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
 import { collectRenderResults } from "./render-result-collector";
-import { SkillsetFeatureDiagnosticError, type SkillsetDiagnostic } from "./operation-result";
+import {
+  SkillsetFeatureDiagnosticError,
+  skillsetDiagnostic,
+  type SkillsetDiagnostic,
+} from "./operation-result";
 
 import {
   diffSkillsetResult,
@@ -711,13 +715,13 @@ function renderResultsFromError(error: unknown): readonly SkillsetRenderResult[]
 function diagnosticsFromError(error: unknown): readonly SkillsetDiagnostic[] {
   if (!(error instanceof SkillsetFeatureDiagnosticError)) return [];
   return [
-    {
+    skillsetDiagnostic({
       code: error.code,
       featureId: error.featureId,
       message: error.message,
       ...(error.path === undefined ? {} : { path: error.path }),
       severity: "error",
-    },
+    }),
   ];
 }
 

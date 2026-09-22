@@ -12,6 +12,7 @@ import {
 import { inspectSkillset } from "./lint";
 import {
   SkillsetFeatureDiagnosticError,
+  skillsetDiagnostic,
   type SkillsetDiagnostic,
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
@@ -566,34 +567,34 @@ function driftPaths(drift: SkillsetDiff): readonly string[] {
 }
 
 function lintDiagnostic(issue: LintIssue): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: issue.code,
     ...(issue.featureId === undefined ? {} : { featureId: issue.featureId }),
     message: issue.message,
     path: issue.path,
     severity: issue.severity === "error" ? "error" : "warning",
-  };
+  });
 }
 
 function sourceReadinessFailure(error: unknown): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "source-readiness-failed",
     message: errorMessage(error),
     severity: "error",
-  };
+  });
 }
 
 function failureDiagnostics(error: unknown): readonly SkillsetDiagnostic[] {
   const failure = sourceReadinessFailure(error);
   if (!(error instanceof SkillsetFeatureDiagnosticError)) return [failure];
   return [
-    {
+    skillsetDiagnostic({
       code: error.code,
       featureId: error.featureId,
       message: error.message,
       ...(error.path === undefined ? {} : { path: error.path }),
       severity: "error",
-    },
+    }),
     failure,
   ];
 }
