@@ -2218,7 +2218,7 @@ Body.
       path: ./dist
       repo: git@example.com:acme/skillset-codex.git
 `);
-  expect(localWithRepo.exitCode).toBe(2);
+  expect(localWithRepo.exitCode).toBe(1);
   expect(localWithRepo.stderr).toContain("repo is only supported for git distributions");
 
   const gitWithPath = await planWith(`
@@ -2231,7 +2231,7 @@ Body.
       repo: git@example.com:acme/skillset-codex.git
       path: ./dist
 `);
-  expect(gitWithPath.exitCode).toBe(2);
+  expect(gitWithPath.exitCode).toBe(1);
   expect(gitWithPath.stderr).toContain("path is only supported for local distributions");
 });
 
@@ -2489,11 +2489,11 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(cursor.stderr).toContain("Current primary evidence does not establish a project runtime hook destination for Cursor.");
 
   const cursorWithoutRuntime = await runSkillsetCli("hooks", "print", "--target", "cursor");
-  expect(cursorWithoutRuntime.exitCode).toBe(2);
+  expect(cursorWithoutRuntime.exitCode).toBe(1);
   expect(cursorWithoutRuntime.stderr).toContain("--target is only supported with --agent-runtime");
 
   const invalid = await runSkillsetCli("hooks", "print", "--runner", "git", "--agent-runtime");
-  expect(invalid.exitCode).toBe(2);
+  expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain("cannot be combined");
 
   const invalidRun = await runSkillsetCliWithInput("", "hooks", "run", "bogus");

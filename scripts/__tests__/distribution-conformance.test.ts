@@ -113,7 +113,7 @@ const arg = process.argv[2];
 if (arg === "--version") console.log("1.2.3");
 else if (arg === "--help") console.log("Skillset\\n\\nUsage\\n  skillset <command>");
 else if (arg === "lookup") console.log(JSON.stringify({command:"lookup",exitCode:0,ok:true}));
-else { console.error("skillset: expected command\\nusage: skillset"); process.exit(1); }
+else { console.error("skillset: expected command\\nusage: skillset"); process.exit(2); }
 `
     );
     await chmod(cli, 0o755);
@@ -134,7 +134,7 @@ else { console.error("skillset: expected command\\nusage: skillset"); process.ex
 if (arg === "--version") console.log("1.2.3");
 else if (arg === "--help") console.log("Skillset\\n\\nUsage\\n  skillset <command>");
 else if (arg === "lookup") console.log(JSON.stringify({command:"lookup",exitCode:0,ok:true}));
-else { console.error("skillset: expected command\\nusage: skillset"); process.exit(1); }
+else { console.error("skillset: expected command\\nusage: skillset"); process.exit(2); }
 `
     );
     await smokeDistribution({
@@ -152,7 +152,7 @@ case "$1" in
   --version) printf '1.2.3\\n' ;;
   --help) printf 'Skillset\\n\\nUsage\\n  skillset <command>\\n' ;;
   lookup) printf '{"command":"lookup","exitCode":0,"ok":true}\\n' ;;
-  *) printf 'skillset: expected command\\nusage: skillset\\n' >&2; exit 1 ;;
+  *) printf 'skillset: expected command\\nusage: skillset\\n' >&2; exit 2 ;;
 esac
 `
       );

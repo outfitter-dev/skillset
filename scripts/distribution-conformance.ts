@@ -225,7 +225,7 @@ export async function smokeDistribution(options: SmokeOptions): Promise<void> {
 
     const invalid = await invoke(["__distribution-invalid__"]);
     if (
-      invalid.exitCode !== 1 ||
+      invalid.exitCode !== 2 ||
       !invalid.stderr.includes("skillset: expected command") ||
       !invalid.stderr.includes("usage: skillset")
     ) {
@@ -263,7 +263,7 @@ export async function smokeDistribution(options: SmokeOptions): Promise<void> {
           "--__distribution-invalid__",
         ]);
         if (
-          failure.exitCode !== 1 ||
+          failure.exitCode !== 2 ||
           failure.stdout !== "" ||
           !failure.stderr.startsWith("skillset:")
         ) {
