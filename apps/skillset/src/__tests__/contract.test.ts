@@ -1,4 +1,4 @@
-import { chmod, mkdir, readdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, realpath, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -6442,19 +6442,19 @@ Two body.
 
   await buildSkillset(root);
   const unchangedPath = join(root, ".claude/skills/two/SKILL.md");
-  const initialMtime = (await stat(unchangedPath)).mtimeMs;
+  const pinned = new Date(0);
+  await utimes(unchangedPath, pinned, pinned);
+  const pinnedMtime = (await stat(unchangedPath)).mtimeMs;
 
-  await sleepForMtime();
   await Bun.write(
     join(root, ".skillset/skills/one/SKILL.md"),
     "---\nname: one\ndescription: One changed.\n---\n\nOne body changed.\n"
   );
   await buildSkillset(root);
-  expect((await stat(unchangedPath)).mtimeMs).toBe(initialMtime);
+  expect((await stat(unchangedPath)).mtimeMs).toBe(pinnedMtime);
 
-  await sleepForMtime();
   await buildSkillset(root, { buildMode: "all" });
-  expect((await stat(unchangedPath)).mtimeMs).toBeGreaterThan(initialMtime);
+  expect((await stat(unchangedPath)).mtimeMs).toBeGreaterThan(pinnedMtime);
 });
 
 test("SET-26: mcp source pointer copies repo file with manifest and lock provenance", async () => {
@@ -8757,10 +8757,6 @@ async function runSkillsetCliWithInput(input: string, ...args: readonly string[]
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
-}
-
-async function sleepForMtime(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 25));
 }
 
 async function createExplicitUnmanagedBackup(root: string): Promise<string> {
