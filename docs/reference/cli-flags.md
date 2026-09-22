@@ -109,7 +109,7 @@ Environment overrides exist only for explicit runtime-test and installed-hook in
 <!-- skillset:generated:start cli-environment -->
 | Variable | Contract |
 | --- | --- |
-| `SKILLSET_HOOK_COMMAND` | Override the Skillset executable used by an explicitly installed hook integration. |
+| `SKILLSET_HOOK_COMMAND` | Override the Skillset executable and optional arguments used by an explicitly installed hook integration. Unquoted shell operators run through sh on POSIX and %ComSpec% on Windows. |
 | `SKILLSET_HOOK_EVENT` | Carry the normalized hook event into an explicit hook command. |
 | `SKILLSET_PROVIDER` | Carry the selected provider into an explicit hook command. |
 | `SKILLSET_SESSION_ID` | Carry the provider session id into an explicit hook command. |

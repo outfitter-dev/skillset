@@ -41,7 +41,7 @@ Runner snippets call `skillset change check --staged` at pre-commit and `skillse
 
 Both runtime events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
 
-Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout and installed package runners; `SKILLSET_HOOK_COMMAND` is the explicit reviewed override.
+Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout, then installed package runners on the hook's own PATH (`Bun.which`, not a login shell). `SKILLSET_HOOK_COMMAND` is the explicit reviewed override: a quoted executable plus optional arguments runs directly; unquoted shell operators run through `sh -lc` on POSIX and `%ComSpec% /d /s /c` on Windows. Discovered `npx`/`bunx` `.cmd` shims on Windows also use `ComSpec`. Git Bash is not required.
 
 ## Changing or Regenerating Guardrails
 
@@ -73,7 +73,8 @@ Guardrails call commands that derive diagnostics from [canonical source](../../g
 ## Evidence and Decisions
 
 - `apps/skillset/src/runtime-hooks/{print,run,source-gate,context,commands}.ts` owns the implementation boundary.
-- `apps/skillset/src/__tests__/runtime-hooks.test.ts` proves snippet, gate, dispatch, resolution, and environment behavior.
+- `apps/skillset/src/__tests__/runtime-hooks.test.ts` proves snippet, gate, dispatch, resolution, override parsing, platform spawn, and environment behavior.
+- `scripts/native-smoke.ts` exercises packaged discovery and execution, including Windows `.cmd` runners.
 - `packages/toolkit/src/runtime.ts` and its tests own cross-provider runtime-context normalization.
 - [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) defines the provenance guardrail.
 - [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestions.md) records why runtime configuration remains reviewed and opt-in.
