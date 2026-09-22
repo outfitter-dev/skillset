@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
@@ -17,6 +16,7 @@ import {
   sourceWorkspaceDiagnostics,
   workspaceManifestPaths,
 } from "../package-metadata";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 describe("package metadata checks", () => {
   test("discovers package manifests from the workspace contract", async () => {
@@ -232,7 +232,7 @@ describe("package metadata checks", () => {
 });
 
 async function fixture(files: Record<string, unknown>) {
-  const root = await mkdtemp(join(tmpdir(), "skillset-package-metadata-"));
+  const root = await createTestFixtureRoot("skillset-package-metadata-");
   for (const [path, value] of Object.entries(files)) {
     const destination = join(root, path);
     await mkdir(dirname(destination), { recursive: true });
