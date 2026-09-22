@@ -215,6 +215,77 @@ describe("buildSkillsetResult", () => {
     }
   });
 
+  for (const nextMode of ["off", "on"] as const) {
+    it(`applies a source-only island update after clean handback with the hook ${nextMode}`, async () => {
+      const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+      const sourcePath = ".skillset/_claude/settings.json";
+      const root = await fixture({
+        ...DEMO_FIXTURE,
+        "skillset.yaml": config,
+        [sourcePath]: '{"foreign":"before"}',
+      });
+      try {
+        expect((await buildSkillsetResult(root)).ok).toBe(true);
+        await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+        expect((await buildSkillsetResult(root)).ok).toBe(true);
+        await writeFile(join(root, sourcePath), '{"foreign":"after"}\n');
+        if (nextMode === "on") await writeFile(join(root, "skillset.yaml"), config);
+        expect((await buildSkillsetResult(root)).ok).toBe(true);
+        const settings = await readFile(join(root, ".claude/settings.json"), "utf8");
+        expect(settings).toContain('"foreign":"after"');
+        expect(settings.includes("npx skillset hooks run session-start")).toBe(nextMode === "on");
+        expect((await diffSkillsetResult(root)).data.changed).toEqual([]);
+      } finally {
+        await rm(root, { force: true, recursive: true });
+      }
+    });
+  }
+
+  it("does not erase a byte-only local edit when the authored island changes after handback", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      [sourcePath]: '{"foreign":"before"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      const local = '{\n  "foreign": "before"\n}\n';
+      await writeFile(settingsPath, local);
+      await writeFile(join(root, sourcePath), '{"foreign":"after"}\n');
+      await expect(buildSkillsetResult(root)).rejects.toThrow("authored settings island changed alongside its live output");
+      expect(await readFile(settingsPath, "utf8")).toBe(local);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("enables the hook with a clean source-only update to an off settings island", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: off\n`;
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      [sourcePath]: '{"foreign":"before"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      await writeFile(join(root, sourcePath), '{"foreign":"after"}\n');
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: off", "session_start_hook: on"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settings = await readFile(join(root, ".claude/settings.json"), "utf8");
+      expect(settings).toContain('"foreign":"after"');
+      expect(settings).toContain("npx skillset hooks run session-start");
+      expect((await diffSkillsetResult(root)).data.changed).toEqual([]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("refuses an authored settings island over an unmanaged live settings file", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,

@@ -8,6 +8,7 @@ import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@ski
 import { readString } from "./config";
 import { parseCurrentGeneratedLock, type ParsedGeneratedLockItem } from "./generated-lock";
 import { hasValidLockProvenance } from "./lock-provenance";
+import { hashRenderedFiles, WORKSPACE_LOCK_ROOT } from "./render-support";
 import { targetNames } from "./targets";
 import { hashCommand, hashForeignSettings } from "./settings-entry";
 import { composeSessionStartText, hasCommand } from "./settings-json-edit";
@@ -119,8 +120,10 @@ async function renderProjectHook(
   let existing: JsonRecord = {};
   let sourceText = "{}\n";
   let partialSourceHash = "absent";
+  let liveBytes: Uint8Array | undefined;
   try {
     const sourceBytes = await readFile(absolutePath);
+    liveBytes = sourceBytes;
     partialSourceHash = hashBytes(sourceBytes);
     sourceText = textDecoder.decode(sourceBytes);
     existing = JSON.parse(sourceText) as JsonRecord;
@@ -141,11 +144,29 @@ async function renderProjectHook(
   const previous = previousOwnership?.settings;
   const previousIsland = previousOwnership?.island;
   const islandText = island === undefined ? undefined : textDecoder.decode(island.file.content);
+  const existingStat = await stat(absolutePath).catch((error: unknown) => {
+    if (isNotFound(error)) return undefined;
+    throw error;
+  });
   if (!removeOnly && island !== undefined && partialSourceHash !== "absent" && previous === undefined && previousOwnership?.island === undefined) {
     throw new Error(`skillset: ${outputPath} authored settings island conflicts with an unmanaged live file; reconcile before build`);
   }
-  if (!removeOnly && previousIsland !== undefined && sourceText !== islandText && (previousIsland.renderInputsHash === undefined || previousIsland.sourceHash !== island?.sourceHash)) {
-    throw new Error(`skillset: ${outputPath} authored settings island differs from its live output; reconcile before enabling SessionStart`);
+  if (previousIsland !== undefined && island !== undefined && liveBytes !== undefined && existingStat !== undefined) {
+    if (previousIsland.sourceHash !== island.sourceHash) {
+      const liveOutputHash = hashRenderedFiles(WORKSPACE_LOCK_ROOT, [
+        { ...island.file, content: liveBytes, mode: existingStat.mode & 0o777 },
+      ]);
+      const cleanHandback = liveOutputHash === previousIsland.outputHash &&
+        (previousIsland.renderInputsHash === undefined ||
+          hashForeignSettings(liveBytes, commandHash) === previousIsland.renderInputsHash);
+      if (!cleanHandback) {
+        throw new Error(`skillset: ${outputPath} authored settings island changed alongside its live output; reconcile before build`);
+      }
+      sourceText = textDecoder.decode(island.file.content);
+      existing = JSON.parse(sourceText) as JsonRecord;
+    } else if (!removeOnly && previousIsland.renderInputsHash === undefined && sourceText !== islandText) {
+      throw new Error(`skillset: ${outputPath} authored settings island differs from its live output; reconcile before enabling SessionStart`);
+    }
   }
   if (island !== undefined && partialSourceHash !== "absent" && previous?.sourceHash !== undefined) {
     const liveForeignHash = hashForeignSettings(textEncoder.encode(sourceText), commandHash);
@@ -172,23 +193,18 @@ async function renderProjectHook(
   if (divergent.length > 0) {
     throw new Error(`skillset: ${outputPath} contains a divergent SessionStart command entry`);
   }
-  if (removeOnly && previousIsland !== undefined && previousIsland.sourceHash !== island?.sourceHash && sourceText !== islandText) {
-    throw new Error(`skillset: ${outputPath} authored settings island changed alongside its live output; reconcile before turning off`);
-  }
   const continuingHandback = previousIsland?.renderInputsHash !== undefined;
   if (removeOnly && matching.length === 0 && previous === undefined && !continuingHandback) return undefined;
-  const existingStat = await stat(absolutePath).catch((error: unknown) => {
-    if (isNotFound(error)) return undefined;
-    throw error;
-  });
   const hadFile = existingStat !== undefined;
   if (removeOnly && !hadFile) return undefined;
   const content = composeSessionStartText(sourceText, session, expected, SESSION_START_COMMAND, removeOnly);
   let renderInputsHash: string | undefined;
   if (island !== undefined) {
-    renderInputsHash = !removeOnly && previous?.sourceHash === sourceHash && previous.renderInputsHash !== undefined
-      ? previous.renderInputsHash
-      : hashForeignSettings(textEncoder.encode(content), commandHash);
+    renderInputsHash = removeOnly
+      ? hashForeignSettings(island.file.content, commandHash)
+      : previous?.sourceHash === sourceHash && previous.renderInputsHash !== undefined
+        ? previous.renderInputsHash
+        : hashForeignSettings(textEncoder.encode(content), commandHash);
   }
   return {
     file: {
