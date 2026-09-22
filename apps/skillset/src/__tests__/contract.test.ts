@@ -2497,7 +2497,7 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(invalid.stderr).toContain("cannot be combined");
 
   const invalidRun = await runSkillsetCliWithInput("", "hooks", "run", "bogus");
-  expect(invalidRun.exitCode).toBe(1);
+  expect(invalidRun.exitCode).toBe(2);
   expect(invalidRun.stderr).toContain(
     "expected hooks run event post-tool-use, session-start, or stop"
   );

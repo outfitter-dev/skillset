@@ -22,11 +22,12 @@ import { CliUsageError } from "./cli-output";
 import type { HooksCommandRequest } from "./hooks-cli";
 import { addLookupTargets, setLookupField } from "./lookup-cli";
 import {
+  isHookRunEvent,
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
-  readHookRunEvent,
 } from "./runtime-hooks";
 import type {
+  HookRunEvent,
   HookRuntimeContextField,
   HookRuntimeContextFormat,
   HookRunner,
@@ -40,9 +41,15 @@ export const parseHooksCommandRequest = (
 ): HooksCommandRequest => {
   const hookSubcommand = readHookSubcommand(args[1]);
   let index = 2;
-  let hookRunEvent: ReturnType<typeof readHookRunEvent> | undefined;
+  let hookRunEvent: HookRunEvent | undefined;
   if (hookSubcommand === "run") {
-    hookRunEvent = readHookRunEvent(args[index]);
+    const event = args[index];
+    if (!isHookRunEvent(event)) {
+      throw new CliUsageError(
+        "skillset: expected hooks run event post-tool-use, session-start, or stop"
+      );
+    }
+    hookRunEvent = event;
     index += 1;
   }
 
