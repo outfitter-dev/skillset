@@ -1,13 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +26,7 @@ import {
   expectedReleaseTarballFiles,
   type StagedReleaseTarball,
 } from "../release-tarballs";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 const names = NPM_BOOTSTRAP_PACKAGE_SPECS.map((spec) => spec.name);
 const rootDir = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -355,44 +348,40 @@ describe("one-time npm package bootstrap", () => {
   });
 
   test("projects and validates an exact six-package bootstrap stage", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-bootstrap-test-"));
+    const root = await createTestFixtureRoot("skillset-bootstrap-test-");
     const source = join(root, "source");
     const stage = join(root, "stage");
     await mkdir(source, { recursive: true });
-    try {
-      const packages: StagedReleaseTarball[] = [];
-      for (const [index, spec] of RELEASE_PACKAGE_SPECS.entries()) {
-        packages.push(await packFixture(source, index, spec));
-      }
-
-      const projected = await writeNpmBootstrapStage({
-        packages,
-        sourceCommit,
-        stageDir: stage,
-        version: NPM_BOOTSTRAP_VERSION,
-      });
-      expect(projected.map((entry) => entry.name)).toEqual(names);
-      expect(await readdir(stage)).toHaveLength(7);
-      await expect(
-        readNpmBootstrapStageForNpmVersion(stage, "10.9.8")
-      ).rejects.toThrow("requires npm 11.12.1");
-      const read = await readNpmBootstrapStageForNpmVersion(stage, "11.12.1");
-      expect(read.version).toBe(NPM_BOOTSTRAP_VERSION);
-      expect(read.sourceCommit).toBe(sourceCommit);
-      expect(read.packages.map((entry) => entry.name)).toEqual(names);
-
-      await writeFile(join(stage, projected[0]!.filename), "changed");
-      await expect(
-        readNpmBootstrapStageForNpmVersion(stage, "11.12.1")
-      ).rejects.toThrow("integrity changed");
-      await expect(
-        validateBootstrapTarball(
-          NPM_BOOTSTRAP_PACKAGE_SPECS[0]!,
-          packages.at(-1)!.path
-        )
-      ).rejects.toThrow("identity or exact payload is invalid");
-    } finally {
-      await rm(root, { force: true, recursive: true });
+    const packages: StagedReleaseTarball[] = [];
+    for (const [index, spec] of RELEASE_PACKAGE_SPECS.entries()) {
+      packages.push(await packFixture(source, index, spec));
     }
+
+    const projected = await writeNpmBootstrapStage({
+      packages,
+      sourceCommit,
+      stageDir: stage,
+      version: NPM_BOOTSTRAP_VERSION,
+    });
+    expect(projected.map((entry) => entry.name)).toEqual(names);
+    expect(await readdir(stage)).toHaveLength(7);
+    await expect(
+      readNpmBootstrapStageForNpmVersion(stage, "10.9.8")
+    ).rejects.toThrow("requires npm 11.12.1");
+    const read = await readNpmBootstrapStageForNpmVersion(stage, "11.12.1");
+    expect(read.version).toBe(NPM_BOOTSTRAP_VERSION);
+    expect(read.sourceCommit).toBe(sourceCommit);
+    expect(read.packages.map((entry) => entry.name)).toEqual(names);
+
+    await writeFile(join(stage, projected[0]!.filename), "changed");
+    await expect(
+      readNpmBootstrapStageForNpmVersion(stage, "11.12.1")
+    ).rejects.toThrow("integrity changed");
+    await expect(
+      validateBootstrapTarball(
+        NPM_BOOTSTRAP_PACKAGE_SPECS[0]!,
+        packages.at(-1)!.path
+      )
+    ).rejects.toThrow("identity or exact payload is invalid");
   });
 });
