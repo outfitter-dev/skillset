@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { distTagForVersion, writeGitHubOutput } from "./publish";
 
 type DistTags = Record<string, string | undefined>;
@@ -969,6 +970,7 @@ async function githubJson<T>(repository: string, path: string): Promise<T> {
 async function runText(command: readonly string[], options: { allowFailure?: boolean } = {}) {
   const subprocess = Bun.spawn([...command], {
     cwd: rootDir,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

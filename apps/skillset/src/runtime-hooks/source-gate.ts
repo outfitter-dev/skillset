@@ -1,4 +1,4 @@
-import { gitSafeEnv } from "../git-env";
+import { gitReadOnlyEnv } from "../git-env";
 
 export const HOOK_RELEVANT_SOURCE_PATHS = [
   "skillset.yaml",
@@ -42,7 +42,7 @@ async function capture(argv: readonly string[], options: { readonly cwd: string 
   const proc = Bun.spawn({
     cmd: [...argv],
     cwd: options.cwd,
-    env: gitSafeEnv(),
+    env: gitReadOnlyEnv(),
     stderr: "ignore",
     stdout: "pipe",
   });

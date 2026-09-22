@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  gitSafeEnv,
   readRuntimeContext,
   renderRuntimeContext,
   RUNTIME_CONTEXT_FIELD_DEFINITIONS,
@@ -8,6 +9,10 @@ import {
 } from "@skillset/toolkit/runtime";
 
 describe("@skillset/toolkit runtime", () => {
+  test("SET-632: re-exports the shared sanitized Git environment", () => {
+    expect(gitSafeEnv({ GIT_DIR: ".git", PATH: "/usr/bin" })).toEqual({ PATH: "/usr/bin" });
+  });
+
   test("exports field metadata with provider availability and confidence", () => {
     expect(RUNTIME_CONTEXT_FIELD_DEFINITIONS.map((definition) => definition.field)).toEqual([
       "provider",

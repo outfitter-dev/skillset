@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import {
   nativeManifestName,
   parseNativeManifest,
@@ -486,7 +487,7 @@ async function capture(
 ): Promise<string> {
   const subprocess = Bun.spawn([...command], {
     cwd: options.cwd ?? rootDir,
-    ...(options.env ? { env: { ...options.env } } : {}),
+    env: gitSafeEnv({ ...process.env, ...options.env }),
     stderr: "pipe",
     stdout: "pipe",
   });

@@ -1,4 +1,7 @@
+import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { TARGET_NAMES } from "@skillset/schema";
+
+export { gitReadOnlyEnv, gitRepositoryTargetingKeys, gitSafeEnv } from "@skillset/core/internal/git-env";
 
 type RuntimeTarget = (typeof TARGET_NAMES)[number];
 
@@ -278,24 +281,4 @@ function envNameForField(field: RuntimeContextField): string {
 function shellQuote(value: string): string {
   if (/^[A-Za-z0-9_./:-]*$/.test(value)) return value.length === 0 ? "''" : value;
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
-}
-
-function gitSafeEnv(sourceEnv: Record<string, string | undefined> = process.env): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(sourceEnv)) {
-    if (value === undefined) continue;
-    if (
-      key === "GIT_DIR" ||
-      key === "GIT_WORK_TREE" ||
-      key === "GIT_INDEX_FILE" ||
-      key === "GIT_OBJECT_DIRECTORY" ||
-      key === "GIT_COMMON_DIR" ||
-      key === "GIT_NAMESPACE" ||
-      key.startsWith("GIT_ALTERNATE_OBJECT")
-    ) {
-      continue;
-    }
-    env[key] = value;
-  }
-  return env;
 }

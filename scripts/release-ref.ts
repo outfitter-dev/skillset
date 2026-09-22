@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { RELEASE_PACKAGE_SPECS } from "./release-packages";
 
 export const RELEASE_MANIFEST_PATHS = RELEASE_PACKAGE_SPECS.map((spec) =>
@@ -12,6 +13,7 @@ async function captureResult(
 ): Promise<{ readonly exitCode: number; readonly output: string }> {
   const subprocess = Bun.spawn([...command], {
     cwd,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

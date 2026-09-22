@@ -70,6 +70,11 @@ export {
 } from "./runtime-readiness";
 export { listSkillEvals, type SkillsetEvalListEntry } from "./eval-list";
 export {
+  gitReadOnlyEnv,
+  gitRepositoryTargetingKeys,
+  gitSafeEnv,
+} from "./git-env";
+export {
   doctorSkillset,
   explainPath,
   listFeatureCapabilities,

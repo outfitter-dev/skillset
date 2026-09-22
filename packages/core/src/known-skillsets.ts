@@ -1,6 +1,7 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import { gitSafeEnv } from "./git-env";
 import {
   readSkillsetWorkspaceConfig,
   resolveSkillsetXdgPaths,
@@ -311,7 +312,7 @@ function githubIdentity(owner: string | undefined, repo: string | undefined): st
 async function readGitRemoteUrl(rootPath: string): Promise<string | undefined> {
   const proc = Bun.spawn({
     cmd: ["git", "-C", rootPath, "remote", "get-url", "origin"],
-    env: gitCommandEnv(),
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -335,15 +336,6 @@ async function readWorkspaceCacheKey(rootPath: string): Promise<string | undefin
     throw error;
   }
   return readSkillsetWorkspaceConfig(parseYamlRecord(content, configPath), configPath).cacheKey;
-}
-
-function gitCommandEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value === undefined || key === "GIT_DIR" || key === "GIT_WORK_TREE") continue;
-    env[key] = value;
-  }
-  return env;
 }
 
 async function isExistingDirectory(path: string): Promise<boolean> {

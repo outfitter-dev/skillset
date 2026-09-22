@@ -11,6 +11,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import packageManifest from "../apps/skillset/package.json";
 import {
   assertSupportedBunEvidenceVersion,
@@ -191,6 +192,7 @@ export function renderNativeChecksums(
 
 async function readCommit(): Promise<string> {
   const process = Bun.spawn(["git", "rev-parse", "HEAD"], {
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

@@ -1,3 +1,4 @@
+import { gitRepositoryTargetingKeys } from "@skillset/core";
 import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import {
@@ -153,6 +154,12 @@ export async function validateTestSandbox(
   };
   if (env.GIT_TERMINAL_PROMPT !== "0") {
     throw new Error("GIT_TERMINAL_PROMPT must be disabled in the owned test sandbox");
+  }
+  const leakedGitRepositoryKeys = gitRepositoryTargetingKeys(env);
+  if (leakedGitRepositoryKeys.length > 0) {
+    throw new Error(
+      `${leakedGitRepositoryKeys[0]} must not survive into the owned test sandbox`
+    );
   }
   return { descriptor, descriptorPath, git, xdg };
 }

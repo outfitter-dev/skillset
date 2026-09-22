@@ -18,6 +18,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 
 import {
   buildSkillsetResult,
+  gitSafeEnv,
   readCurrentGeneratedLockFromDisk,
 } from "@skillset/core";
 import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
@@ -753,6 +754,7 @@ async function git(
 ): Promise<{ readonly exitCode: number; readonly stdout: string }> {
   const process = Bun.spawn(["git", ...argv], {
     cwd,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

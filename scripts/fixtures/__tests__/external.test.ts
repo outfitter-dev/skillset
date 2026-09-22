@@ -27,6 +27,7 @@ import {
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
+  runTestGit,
 } from "../../test-helpers/git-remote";
 
 const SHA = "4719dc509fdc45656a830e3ed6060f674e206076";
@@ -315,7 +316,7 @@ test("SET-378: runExternalRepo preserves reports after a graph-load build failur
 
 test("SET-445: external producer persists truthful typed failure phases without detailed content", async () => {
   const checkout = await gitFixture({ "README.md": "# Skillset checkout\n" });
-  await testGit(
+  await runTestGit(
     checkout,
     "remote",
     "add",
@@ -393,7 +394,7 @@ test("SET-445: external producer persists truthful typed failure phases without 
 
 test("SET-445: sandboxed external producer requests only its completed UUID", async () => {
   const checkout = await gitFixture({ "README.md": "# Skillset checkout\n" });
-  await testGit(
+  await runTestGit(
     checkout,
     "remote",
     "add",
@@ -448,7 +449,7 @@ test("SET-445: sandboxed external producer requests only its completed UUID", as
 
 test("SET-445: acquisition failures are receipted once per entry and do not stop the selection", async () => {
   const checkout = await gitFixture({ "README.md": "# Skillset checkout\n" });
-  await testGit(
+  await runTestGit(
     checkout,
     "remote",
     "add",
@@ -523,7 +524,7 @@ test("SET-445: main-shaped fixture reporting excludes URL, root, diagnostic, env
   const checkout = await namedGitFixture("root-path-sentinel", {
     "README.md": "# Skillset checkout\n",
   });
-  await testGit(
+  await runTestGit(
     checkout,
     "remote",
     "add",
@@ -762,25 +763,6 @@ async function externalSandbox(checkout: string) {
     },
     sandboxPath,
   };
-}
-
-async function testGit(cwd: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", cwd, ...args],
-    env: process.env,
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(
-      `git ${args.join(" ")} failed in ${cwd}\n${stdout}${stderr}`.trim()
-    );
-  }
 }
 
 function marketplaceFiles(): Record<string, string> {

@@ -9,6 +9,7 @@ import {
   withOwnedDirectoryLock,
   type DirectoryLockHeartbeatScheduler,
 } from "./directory-lock";
+import { gitSafeEnv } from "./git-env";
 import { resolveSkillsetXdgPaths, type SkillsetXdgOptions } from "./xdg";
 import {
   parseRemoteRepositoryReference,
@@ -403,7 +404,7 @@ async function runGit(
 ): Promise<string> {
   try {
     const result = await execFileAsync("git", ["-C", rootPath, ...args], {
-      env: gitCommandEnv(xdg, isolatedConfig),
+      env: gitSafeEnv(isolatedGitProcessEnv(xdg, isolatedConfig)),
       maxBuffer: 1024 * 1024,
       timeout: 30_000,
     });
@@ -458,14 +459,15 @@ function digest(value: string, length: number): string {
   return createHash("sha256").update(value).digest("hex").slice(0, length);
 }
 
-function gitCommandEnv(
+function isolatedGitProcessEnv(
   xdg: SkillsetXdgOptions | undefined,
   isolatedConfig: boolean
 ): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, ...(xdg?.env ?? {}), GIT_TERMINAL_PROMPT: "0" };
-  for (const key of Object.keys(env)) {
-    if (isGitRepositoryEnv(key)) delete env[key];
-  }
+  const env: Record<string, string> = gitSafeEnv({
+    ...process.env,
+    ...(xdg?.env ?? {}),
+    GIT_TERMINAL_PROMPT: "0",
+  });
   if (isolatedConfig) {
     env.GIT_CONFIG_GLOBAL = "/dev/null";
     env.GIT_CONFIG_NOSYSTEM = "1";
@@ -474,16 +476,6 @@ function gitCommandEnv(
     }
   }
   return env;
-}
-
-function isGitRepositoryEnv(key: string): boolean {
-  return key === "GIT_DIR" ||
-    key === "GIT_WORK_TREE" ||
-    key === "GIT_INDEX_FILE" ||
-    key === "GIT_OBJECT_DIRECTORY" ||
-    key === "GIT_COMMON_DIR" ||
-    key === "GIT_NAMESPACE" ||
-    key.startsWith("GIT_ALTERNATE_OBJECT");
 }
 
 async function pathKind(path: string): Promise<"directory" | "missing" | "other"> {
