@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillsetResult } from "@skillset/core";
 import {
@@ -11,11 +11,8 @@ import {
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-const roots: string[] = [];
-
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-project-use-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-project-use-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
@@ -28,12 +25,6 @@ async function fixture(files: Record<string, string>): Promise<string> {
 
 const skill = (name: string, body: string) =>
   `---\nname: ${name}\ndescription: ${body}\n---\n\n${body}\n`;
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("SET-554 project-use skill copies", () => {
   it("resolves collisions once, marks copies, records provenance, and cleans up deselection", async () => {

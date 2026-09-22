@@ -1,16 +1,13 @@
-import { afterEach, describe, expect, it, test } from "bun:test";
-import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it, test } from "bun:test";
+import { cp, readFile } from "node:fs/promises";
 import path from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillsetResult } from "@skillset/core";
 
 const sourceRoot = path.join(process.cwd(), "fixtures/cursor-parity");
-const roots: string[] = [];
-
 const buildFixtureResult = async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "skillset-cursor-parity-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-cursor-parity-");
   await cp(sourceRoot, root, { recursive: true });
   const result = await buildSkillsetResult(root);
   return { result, root };
@@ -27,12 +24,6 @@ const fileExists = (filePath: string): Promise<boolean> =>
 const unresolvedFixtureClaim = (): never => {
   throw new Error("unresolved Cursor parity fixture claim");
 };
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("SET-550 Cursor parity evidence baseline", () => {
   it("cursor-rules-frontmatter [SET-557]", async () => {
