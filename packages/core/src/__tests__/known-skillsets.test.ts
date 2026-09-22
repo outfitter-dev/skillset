@@ -1,6 +1,6 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir, readFile, realpath, rename, symlink, utimes, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { describe, expect, test } from "bun:test";
 
@@ -16,7 +16,7 @@ import {
 
 describe("known Skillsets index", () => {
   test("reads and writes the managed index under the XDG config location", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-index-"));
+    const root = await createTestFixtureRoot("skillset-known-index-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -44,7 +44,7 @@ describe("known Skillsets index", () => {
   });
 
   test("records a workspace without writing repo-local files", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-record-"));
+    const root = await createTestFixtureRoot("skillset-known-record-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -68,7 +68,7 @@ describe("known Skillsets index", () => {
   });
 
   test("resolves known GitHub identities and skips stale paths", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-resolve-"));
+    const root = await createTestFixtureRoot("skillset-known-resolve-");
     const options = xdgOptions(root);
     const livePath = join(root, "live");
     await mkdir(livePath);
@@ -106,7 +106,7 @@ describe("known Skillsets index", () => {
   });
 
   test("serializes contending updates before either reads the index", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-serialized-"));
+    const root = await createTestFixtureRoot("skillset-known-serialized-");
     const options = xdgOptions(root);
     const firstPath = join(root, "first");
     const secondPath = join(root, "second");
@@ -139,7 +139,7 @@ describe("known Skillsets index", () => {
   });
 
   test("keeps the prior bytes readable until a flushed replacement is published", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-publish-"));
+    const root = await createTestFixtureRoot("skillset-known-publish-");
     const options = xdgOptions(root);
     const firstPath = join(root, "first");
     const secondPath = join(root, "second");
@@ -165,7 +165,7 @@ describe("known Skillsets index", () => {
   });
 
   test("leaves the prior valid index intact when publication fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-failure-"));
+    const root = await createTestFixtureRoot("skillset-known-failure-");
     const options = xdgOptions(root);
     const firstPath = join(root, "first");
     const secondPath = join(root, "second");
@@ -183,7 +183,7 @@ describe("known Skillsets index", () => {
   });
 
   test("cleans temporary files when writing or flushing a replacement fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-temporary-failure-"));
+    const root = await createTestFixtureRoot("skillset-known-temporary-failure-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -202,7 +202,7 @@ describe("known Skillsets index", () => {
   });
 
   test("preserves malformed bytes before write-capable recovery", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-"));
+    const root = await createTestFixtureRoot("skillset-known-recovery-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -222,7 +222,7 @@ describe("known Skillsets index", () => {
   });
 
   test("keeps the malformed active index when recovery publication fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-failure-"));
+    const root = await createTestFixtureRoot("skillset-known-recovery-failure-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -245,7 +245,7 @@ describe("known Skillsets index", () => {
   });
 
   test("keeps malformed lookup strict and read-only", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-readonly-"));
+    const root = await createTestFixtureRoot("skillset-known-readonly-");
     const options = xdgOptions(root);
     const indexPath = knownSkillsetsIndexPath(options);
     const malformed = Buffer.from("{not-json\0", "utf8");
@@ -259,7 +259,7 @@ describe("known Skillsets index", () => {
   });
 
   test("reclaims an expired owner despite PID reuse but preserves a fresh lease", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-stale-lock-"));
+    const root = await createTestFixtureRoot("skillset-known-stale-lock-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -295,11 +295,10 @@ describe("known Skillsets index", () => {
       )
     ).rejects.toThrow("timed out waiting for known Skillsets index lock");
     expect(await currentLockOwner(lockPath)).toMatchObject({ token });
-    await rm(lockPath, { force: true, recursive: true });
   });
 
   test("renews the heartbeat so an over-lease live transaction is not reclaimed", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-heartbeat-"));
+    const root = await createTestFixtureRoot("skillset-known-heartbeat-");
     const options = xdgOptions(root);
     const firstPath = join(root, "first");
     const secondPath = join(root, "second");
@@ -339,7 +338,7 @@ describe("known Skillsets index", () => {
   });
 
   test("does not publish or remove a successor lock after fencing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-fenced-"));
+    const root = await createTestFixtureRoot("skillset-known-fenced-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
@@ -363,12 +362,10 @@ describe("known Skillsets index", () => {
     expect(await currentLockOwner(lockPath)).toMatchObject({
       token: successorToken,
     });
-    await rm(lockPath, { force: true, recursive: true });
-    await rm(displacedPath, { force: true, recursive: true });
   });
 
   test("serializes cross-process updates behind an acquired-lock barrier", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-processes-"));
+    const root = await createTestFixtureRoot("skillset-known-processes-");
     const options = xdgOptions(root);
     const firstPath = join(root, "workspace-first");
     const secondPath = join(root, "workspace-second");
@@ -427,7 +424,7 @@ describe("known Skillsets index", () => {
   });
 
   test("probes at most 128 path-sorted entries and resumes after the compatible cursor", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-bounded-sweep-"));
+    const root = await createTestFixtureRoot("skillset-known-bounded-sweep-");
     const options = xdgOptions(root);
     const currentPath = join(root, "workspace-current");
     await mkdir(currentPath);
@@ -457,7 +454,7 @@ describe("known Skillsets index", () => {
   });
 
   test("converges over a large stale index and becomes byte-idempotent", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-convergence-"));
+    const root = await createTestFixtureRoot("skillset-known-convergence-");
     const options = xdgOptions(root);
     const currentPath = join(root, "zz-current");
     await mkdir(currentPath);
@@ -485,7 +482,7 @@ describe("known Skillsets index", () => {
   });
 
   test("prunes confirmed stale paths while retaining live and symlinked directories", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-mixed-sweep-"));
+    const root = await createTestFixtureRoot("skillset-known-mixed-sweep-");
     const options = xdgOptions(root);
     const livePath = join(root, "live");
     const symlinkPath = join(root, "linked-live");
@@ -515,7 +512,7 @@ describe("known Skillsets index", () => {
   });
 
   test("retains ambiguous inspection failures without failing registration", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-ambiguous-sweep-"));
+    const root = await createTestFixtureRoot("skillset-known-ambiguous-sweep-");
     const options = xdgOptions(root);
     const currentPath = join(root, "current");
     const ambiguousPath = join(root, "ambiguous");
@@ -536,7 +533,7 @@ describe("known Skillsets index", () => {
   });
 
   test("converges moved and re-registered identities onto the current workspace", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-moved-sweep-"));
+    const root = await createTestFixtureRoot("skillset-known-moved-sweep-");
     const options = xdgOptions(root);
     const oldPath = join(root, "old-workspace");
     const currentPath = join(root, "current-workspace");
@@ -566,7 +563,7 @@ describe("known Skillsets index", () => {
   });
 
   test("keeps schema-v1 files without maintenance readable and round-trips an optional cursor", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-cursor-schema-"));
+    const root = await createTestFixtureRoot("skillset-known-cursor-schema-");
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
