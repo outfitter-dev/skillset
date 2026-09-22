@@ -481,7 +481,8 @@ export interface WorkspacePluginPlan {
   >;
 }
 
-export type GeneratedFileMode = 0o644 | 0o755;
+/** Ordinary generated files use 0644/0755; partially owned settings retain their existing mode. */
+export type GeneratedFileMode = number;
 
 export interface RenderedFile {
   readonly content: Uint8Array;
@@ -524,7 +525,7 @@ export interface GeneratedEntry {
   readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly feature?: string;
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files?: readonly string[];
   readonly origin?: string;
   readonly kind?: string;

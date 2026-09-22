@@ -145,6 +145,7 @@ import {
   renderProjectSessionStartHooks,
   type RenderedProjectHook,
 } from "./render-project-hooks";
+import { hashOwnedSettingsEntries } from "./settings-entry";
 import {
   marketplaceLockProvenance,
   readExistingMarketplaceState,
@@ -270,8 +271,23 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
 
   rendered.push(...(await renderProjectAgents(graph, lockRoots)));
   rendered.push(...(await renderRules(graph, lockRoots)));
-  rendered.push(...(await renderProjectIslands(graph, lockRoots)));
-  const projectHooks = await renderProjectSessionStartHooks(graph);
+  const projectIslands = await renderProjectIslands(graph, lockRoots);
+  const projectHooks = await renderProjectSessionStartHooks(
+    graph,
+    new Map(projectIslands.map((file) => [file.path, file]))
+  );
+  const composedSettingsPaths = new Set(projectHooks.map((hook) => hook.file.path));
+  const managedSettingsPaths = new Set(projectHooks.filter((hook) => hook.managed).map((hook) => hook.file.path));
+  rendered.push(...projectIslands.filter((file) => !composedSettingsPaths.has(file.path)));
+  const workspaceLock = lockRoots.get(WORKSPACE_LOCK_ROOT);
+  if (workspaceLock !== undefined) {
+    for (let index = workspaceLock.items.length - 1; index >= 0; index--) {
+      const item = workspaceLock.items[index];
+      if (item?.kind === "island" && managedSettingsPaths.has(item.outputPath)) {
+        workspaceLock.items.splice(index, 1);
+      }
+    }
+  }
   rendered.push(...projectHooks.map((hook) => hook.file));
   const managedProjectHooks = projectHooks.filter((item) => item.managed);
   if (managedProjectHooks.length > 0) {
@@ -2389,6 +2405,10 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
 }
 
 function lockItemForProjectHook(graph: BuildGraph, hook: RenderedProjectHook): LockItem {
+  const outputHash = hashOwnedSettingsEntries(hook.file.content, [hook.ownership]);
+  if (outputHash === undefined) {
+    throw new Error(`skillset: cannot hash owned SessionStart entry in ${hook.file.path}`);
+  }
   return {
     consumers: [{ phase: "delta", target: hook.target }],
     fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [hook.file]),
@@ -2396,12 +2416,13 @@ function lockItemForProjectHook(graph: BuildGraph, hook: RenderedProjectHook): L
     files: [hook.file.path],
     kind: "settings-entry",
     name: `session-start:${hook.target}`,
-    outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [hook.file]),
+    outputHash,
     outputPath: hook.file.path,
     owner: { target: hook.target },
     ownedEntries: [hook.ownership],
+    ...(hook.renderInputsHash === undefined ? {} : { renderInputsHash: hook.renderInputsHash }),
     role: "bundle",
-    sourceHash: hashText(`${relative(graph.rootPath, graph.rootConfigPath)}\0${hook.target}\0${hook.ownership.commandHash}`),
+    sourceHash: hook.sourceHash,
     sourcePath: relative(graph.rootPath, graph.rootConfigPath),
     targetState: "generated",
     validation: "structured",

@@ -1,5 +1,5 @@
 ---
-description: Provider settings retain a no-write boundary and reject unsupported settings source shapes.
+description: Skillset composes one project-local SessionStart entry while leaving user-level provider settings untouched.
 ---
 
 # Settings
@@ -14,7 +14,7 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 Skillset owns one narrow project-local settings entry: the SessionStart command
 `npx skillset hooks run session-start`. It composes that entry into the verified
-Claude `.claude/settings.local.json` and Codex `.codex/hooks.json` destinations;
+Claude `.claude/settings.json` and Codex `.codex/hooks.json` destinations;
 it never reads or writes user-level settings. Other provider settings remain
 provider-native and externally managed.
 
@@ -28,13 +28,14 @@ or `auto` to control the single Skillset-owned project entry.
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| project SessionStart entry | `.claude/settings.local.json` | `.codex/hooks.json` | `implemented` | Field-level ownership preserves foreign keys and array entries. |
+| project SessionStart entry | `.claude/settings.json` | `.codex/hooks.json` | `implemented` | Field-level ownership preserves foreign keys and array entries. |
 | user runtime settings | n/a | n/a | `externally_managed` | Setup and build commands do not write user settings, trust state, marketplaces, or symlinks. |
 
 ## Diagnostics
 
 - Treat user-level settings mutation as out of scope for `skillset build`, `check`, `diff`, `init`, and `create`.
-- Keep settings suggestion output separate from generated plugin definitions until an ADR defines review, provenance, and [activation](../../glossary.md#activation) boundaries.
+- Keep manually suggested PostToolUse and Stop settings separate from the compiled SessionStart entry; neither build nor print installs or trusts runtime hooks.
+- If an earlier local build left Skillset's SessionStart command in `.claude/settings.local.json`, remove only that entry before building the committed `.claude/settings.json` destination. Skillset stops rather than run both copies.
 - Do not use settings as an implicit escape hatch for an unsupported [destination](../../glossary.md#destination).
 
 ## Provenance

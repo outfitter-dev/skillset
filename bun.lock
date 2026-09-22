@@ -30,7 +30,7 @@
     },
     "apps/cli": {
       "name": "@skillset/cli",
-      "version": "0.24.0",
+      "version": "0.27.0",
       "bin": {
         "skillset": "dist/cli.js",
       },
@@ -49,27 +49,27 @@
     },
     "apps/native-darwin-arm64": {
       "name": "@skillset/native-darwin-arm64",
-      "version": "0.24.0",
+      "version": "0.27.0",
     },
     "apps/native-darwin-x64": {
       "name": "@skillset/native-darwin-x64",
-      "version": "0.24.0",
+      "version": "0.27.0",
     },
     "apps/native-linux-arm64-glibc": {
       "name": "@skillset/native-linux-arm64-glibc",
-      "version": "0.24.0",
+      "version": "0.27.0",
     },
     "apps/native-linux-x64-glibc": {
       "name": "@skillset/native-linux-x64-glibc",
-      "version": "0.24.0",
+      "version": "0.27.0",
     },
     "apps/native-windows-x64": {
       "name": "@skillset/native-win32-x64",
-      "version": "0.24.0",
+      "version": "0.27.0",
     },
     "apps/skillset": {
       "name": "skillset",
-      "version": "0.24.0",
+      "version": "0.27.0",
       "bin": {
         "skillset": "dist/cli.js",
       },
@@ -89,6 +89,7 @@
         "@skillset/registry": "workspace:*",
         "@skillset/schema": "workspace:*",
         "@skillset/transforms": "workspace:*",
+        "jsonc-parser": "^3.3.1",
         "yaml": "^2.8.1",
       },
     },

@@ -23,7 +23,7 @@ export const WORKSPACE_LOCK_ROOT = ".";
 
 export interface LockItem {
   readonly consumers?: readonly OutputConsumer[];
-  readonly fileModes: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes: Readonly<Record<string, string>>;
   readonly feature?: string;
   readonly files: readonly string[];
   readonly dependencies?: readonly string[];
@@ -110,7 +110,7 @@ export async function copyFileFromSource(
 export function renderedFileModes(
   outputRoot: string,
   files: readonly RenderedFile[]
-): Readonly<Record<string, "0644" | "0755">> {
+): Readonly<Record<string, string>> {
   return Object.fromEntries(
     [...files]
       .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)

@@ -18,6 +18,7 @@ import {
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
+import { hashOwnedSettingsEntries } from "./settings-entry";
 import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
 import {
   createOperationalPathContext,
@@ -743,6 +744,13 @@ async function currentOutputHash(
   schemaVersion: GeneratedLockSchemaVersion,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const outputPath = resolveOutputPath(entry.displayPath);
+    if (!(await exists(outputPath))) return undefined;
+    return hashOwnedSettingsEntries(await readFile(outputPath), item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
@@ -834,6 +842,12 @@ function snapshotOutputHash(
   schemaVersion: GeneratedLockSchemaVersion,
   snapshots: ReadonlyMap<string, GeneratedFileSnapshot>
 ): string | undefined {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const snapshot = snapshots.get(entry.displayPath);
+    return snapshot === undefined ? undefined : hashOwnedSettingsEntries(snapshot.content, item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
   for (const entry of files) {
@@ -868,6 +882,12 @@ function renderedOutputHash(
   schemaVersion: GeneratedLockSchemaVersion,
   renderedByPath: ReadonlyMap<string, RenderedFile>
 ): string | undefined {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const file = renderedByPath.get(entry.displayPath);
+    return file === undefined ? undefined : hashOwnedSettingsEntries(file.content, item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
@@ -1440,7 +1460,7 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   if (generatedHash !== undefined && typeof generatedHash !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedHash`);
   }
-  if (generatedMode !== undefined && (generatedMode !== "0644" && generatedMode !== "0755")) {
+  if (generatedMode !== undefined && (typeof generatedMode !== "string" || !/^0[0-7]{3}$/.test(generatedMode))) {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedMode`);
   }
   if (originalMode !== undefined && (typeof originalMode !== "string" || !/^[0-7]{4}$/.test(originalMode))) {

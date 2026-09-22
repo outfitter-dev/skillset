@@ -97,18 +97,18 @@ test("parses settings-entry field ownership and requires its selector", () => {
     generatedBy: "skillset@0.1.0",
     items: [{
       consumers: [{ phase: "delta", target: "claude" }],
-      fileModes: { ".claude/settings.local.json": "0644" },
-      files: [".claude/settings.local.json"],
+      fileModes: { ".claude/settings.json": "0600" },
+      files: [".claude/settings.json"],
       kind: "settings-entry",
       name: "session-start:claude",
       owner: { target: "claude" },
       ownedEntries: [{
         commandHash: "sha256:command",
-        file: ".claude/settings.local.json",
+        file: ".claude/settings.json",
         keyPath: "hooks.SessionStart[*].hooks[*].command",
       }],
       outputHash: "sha256:output",
-      outputPath: ".claude/settings.local.json",
+      outputPath: ".claude/settings.json",
       role: "bundle",
       sourceHash: "sha256:source",
       sourcePath: "skillset.yaml",
@@ -122,9 +122,10 @@ test("parses settings-entry field ownership and requires its selector", () => {
   });
   expect(parseCurrentGeneratedLock(lock).items[0]?.ownedEntries).toEqual([{
     commandHash: "sha256:command",
-    file: ".claude/settings.local.json",
+    file: ".claude/settings.json",
     keyPath: "hooks.SessionStart[*].hooks[*].command",
   }]);
+  expect(parseCurrentGeneratedLock(lock).items[0]?.fileModes).toEqual({ ".claude/settings.json": "0600" });
   expect(() => parseCurrentGeneratedLock(withLockProvenance({
     ...lock,
     items: [{

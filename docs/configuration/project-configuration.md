@@ -54,8 +54,8 @@ response to it yet.
 `compile.session_start_hook` accepts `auto`, `on`, or `off` and defaults to
 `auto`. `on` composes the Skillset SessionStart command into the project-local
 Claude and Codex hook files. `off` removes only that command while preserving
-other entries. `auto` enables the composition only when every enabled project
-hook destination is ignored by Git.
+other entries. `auto` enables the composition only when every enabled target's
+project skill output root is ignored by Git, including Cursor when enabled.
 
 ## Select Plugin Content for This Project
 

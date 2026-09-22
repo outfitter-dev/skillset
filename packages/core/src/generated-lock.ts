@@ -45,7 +45,7 @@ export interface ParsedGeneratedLockItem {
   readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly feature?: string;
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files: readonly string[];
   readonly kind?: string;
   readonly name?: string;
@@ -269,14 +269,15 @@ function parseGeneratedLockItem(
     assertManagedRelativePath(file, `${label}.files[${index}]`);
     return file;
   });
+  const kind = optionalString(value.kind, label, "kind");
   const fileModes = parseFileModes(
     value.fileModes,
     files,
     schemaVersion,
-    label
+    label,
+    kind === "settings-entry"
   );
   const outputHash = optionalString(value.outputHash, label, "outputHash");
-  const kind = optionalString(value.kind, label, "kind");
   const name = optionalString(value.name, label, "name");
   const origin = optionalString(value.origin, label, "origin");
   const outputPath = optionalString(value.outputPath, label, "outputPath");
@@ -436,16 +437,19 @@ function parseFileModes(
   value: unknown,
   files: readonly string[],
   schemaVersion: GeneratedLockSchemaVersion,
-  label: string
-): Readonly<Record<string, "0644" | "0755">> | undefined {
+  label: string,
+  preserveSettingsMode: boolean
+): Readonly<Record<string, string>> | undefined {
   if (value === undefined && schemaVersion === 1) return undefined;
   if (!isJsonRecord(value)) {
     throw invalidLock(label, "versioned items require a fileModes object");
   }
-  const modes: Record<string, "0644" | "0755"> = {};
+  const modes: Record<string, string> = {};
   for (const [file, mode] of Object.entries(value)) {
-    if (mode !== "0644" && mode !== "0755") {
-      throw invalidLock(label, `fileModes.${file} must be 0644 or 0755`);
+    if (typeof mode !== "string" || (preserveSettingsMode
+      ? !/^0[0-7]{3}$/.test(mode)
+      : mode !== "0644" && mode !== "0755")) {
+      throw invalidLock(label, `fileModes.${file} must be ${preserveSettingsMode ? "a four-digit octal mode" : "0644 or 0755"}`);
     }
     modes[file] = mode;
   }
