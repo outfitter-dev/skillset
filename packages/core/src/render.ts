@@ -98,7 +98,6 @@ import {
   copyPath,
   exists,
   GENERATED_BY,
-  hashRenderedFiles,
   lockRootsFor,
   normalizeManagedRelativePath,
   renderedFileModes,
@@ -107,6 +106,7 @@ import {
   type LockItem,
   type LockRoot,
 } from "./render-support";
+import { hashRenderedFiles } from "./rendered-files-hash";
 import {
   renderCodexInterface,
   renderPluginManifest,

@@ -8,7 +8,8 @@ import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@ski
 import { readString } from "./config";
 import { parseCurrentGeneratedLock, type ParsedGeneratedLockItem } from "./generated-lock";
 import { hasValidLockProvenance } from "./lock-provenance";
-import { hashRenderedFiles, WORKSPACE_LOCK_ROOT } from "./render-support";
+import { WORKSPACE_LOCK_ROOT } from "./render-support";
+import { hashRenderedFiles } from "./rendered-files-hash";
 import { targetNames } from "./targets";
 import { hashCommand, hashForeignSettings } from "./settings-entry";
 import { composeSessionStartText, hasCommand } from "./settings-json-edit";
