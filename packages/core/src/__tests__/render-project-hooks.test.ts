@@ -197,6 +197,28 @@ describe("project SessionStart hook rendering", () => {
     }
   });
 
+  test("withholds previous ownership from untrusted provenance without hiding the lock", async () => {
+    const root = await createTestGitFixtureRoot("skillset-project-hooks-provenance-");
+    await writeFile(join(root, "skillset.yaml"), "{}\n");
+    await writeFile(
+      join(root, "skillset.lock"),
+      JSON.stringify({
+        generatedBy: "skillset@0.1.0",
+        items: [],
+        outputRoot: ".",
+        provenanceHash: `sha256:${"a".repeat(64)}`,
+        schemaVersion: 4,
+        standardProfileEvidence: {},
+        selectedStandards: [],
+        selectedTargets: [],
+        target: "workspace",
+      }),
+      "utf8"
+    );
+
+    await expect(renderProjectSessionStartHooks(graph(root, "on"))).resolves.toHaveLength(2);
+  });
+
   test("fails closed on a corrupt workspace lock during ownership checks", async () => {
     const root = await createTestGitFixtureRoot("skillset-project-hooks-lock-");
     await writeFile(join(root, "skillset.yaml"), "{}\n");

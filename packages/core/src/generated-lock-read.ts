@@ -118,9 +118,11 @@ export function parseCurrentLockOrCorrupt(
   >
 ): ParsedCurrentGeneratedLock {
   try {
-    const lock = parseCurrentGeneratedLock(value, options.logicalPath, {
-      provenance: options.provenance,
-    });
+    const lock = parseCurrentGeneratedLock(
+      value,
+      options.logicalPath,
+      options.provenance === undefined ? {} : { provenance: options.provenance }
+    );
     assertExpectedOutputRoot(lock.outputRoot, options);
     return lock;
   } catch (error) {
@@ -136,9 +138,11 @@ export function parseLegacyLockOrCorrupt(
   >
 ): ParsedGeneratedLock {
   try {
-    const lock = parseGeneratedLock(value, options.logicalPath, {
-      provenance: options.provenance,
-    });
+    const lock = parseGeneratedLock(
+      value,
+      options.logicalPath,
+      options.provenance === undefined ? {} : { provenance: options.provenance }
+    );
     assertExpectedOutputRoot(lock.outputRoot, options);
     return lock;
   } catch (error) {

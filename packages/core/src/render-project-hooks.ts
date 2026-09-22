@@ -8,6 +8,7 @@ import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@ski
 import { readString } from "./config";
 import type { ParsedGeneratedLockItem } from "./generated-lock";
 import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
+import { hasValidLockProvenance } from "./lock-provenance";
 import { WORKSPACE_LOCK_ROOT } from "./render-support";
 import { hashRenderedFiles } from "./rendered-files-hash";
 import { targetNames } from "./targets";
@@ -242,8 +243,15 @@ async function previousSettingsOwnership(rootPath: string, outputPath: string): 
   const read = await readCurrentGeneratedLockFromDisk(join(rootPath, "skillset.lock"), {
     logicalPath: "skillset.lock",
     missing: "absent",
+    provenance: "inspect",
   });
   if (read.kind === "absent") return { settings: undefined, island: undefined };
+  // Untrusted provenance cannot grant previous ownership, but it is not
+  // absence of the lock file. Corrupt JSON, shape, and unreadability already
+  // failed closed in the disk reader.
+  if (!isJsonRecord(read.raw) || !hasValidLockProvenance(read.raw)) {
+    return { settings: undefined, island: undefined };
+  }
   return {
     settings: read.lock.items.find((item) => item.kind === "settings-entry" && item.outputPath === outputPath),
     island: read.lock.items.find((item) => item.kind === "island" && item.outputPath === outputPath),
