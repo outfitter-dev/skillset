@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, sep } from "node:path";
 
@@ -292,6 +293,8 @@ export async function buildSkillsetResult(
 export interface SkillsetBuildAuthorityHooks {
   readonly afterBackupPersistence?: () => Promise<void> | void;
   readonly afterBackupPlanning?: () => Promise<void> | void;
+  /** Deterministic test seam for edits racing partial settings rendering. */
+  readonly afterRender?: () => Promise<void> | void;
   readonly beforeFinalWriteInspection?: () => Promise<void> | void;
 }
 
@@ -309,6 +312,9 @@ export async function buildSkillsetResultWithAuthority(
     ...(hooks.afterBackupPlanning === undefined
       ? {}
       : { afterBackupPlanning: hooks.afterBackupPlanning }),
+    ...(hooks.afterRender === undefined
+      ? {}
+      : { afterRender: hooks.afterRender }),
     ...(hooks.beforeFinalWriteInspection === undefined
       ? {}
       : { beforeFinalWriteInspection: hooks.beforeFinalWriteInspection }),
@@ -327,6 +333,7 @@ interface SkillsetBuildInternalOptions extends SkillsetBuildInspectionOptions {
   readonly afterBackupPersistence?: () => Promise<void> | void;
   /** @internal Deterministic race injection after backup planning. */
   readonly afterBackupPlanning?: () => Promise<void> | void;
+  readonly afterRender?: () => Promise<void> | void;
   /** @internal Deterministic race injection immediately before final inspection. */
   readonly beforeFinalWriteInspection?: () => Promise<void> | void;
   readonly managedLockRepairPaths?: readonly string[];
@@ -360,6 +367,7 @@ async function runBuildProjection(
   const outPath = outPathMapper(options);
   const repair = normalizeRepairOptions(options.repair, outPath);
   const allRendered = await renderBuildGraph(graph);
+  await inspectionOptions.afterRender?.();
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
@@ -472,6 +480,22 @@ async function runBuildProjection(
   const writePreimages = new Map(
     backupPlan.preimages.map((preimage) => [preimage.targetPath, preimage])
   );
+  const partialPreimageInvalidations = invalidatedPartialPreimages(writeRendered, writePreimages);
+  if (partialPreimageInvalidations.length > 0) {
+    const partialDiagnostics = partialPreimageInvalidations.map(outputWriteInvalidatedDiagnostic);
+    diagnostics.push(...partialDiagnostics);
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      classifyWriteSafety(
+        writeInspection.outputState,
+        partialDiagnostics,
+        writeInspection.managedState.paths.size,
+        inspectionOptions.sourceDrivenOutputPaths ?? []
+      ),
+      renderResultsWithDiagnostics
+    );
+  }
   const planInvalidationDiagnostics = (
     await invalidatedOutputWritePaths(writePreimages, resolveOutputPath)
   ).map(outputWriteInvalidatedDiagnostic);
@@ -600,6 +624,26 @@ async function runBuildProjection(
   return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
+function invalidatedPartialPreimages(
+  rendered: readonly RenderedFile[],
+  preimages: ReadonlyMap<string, OutputWritePreimage>
+): readonly string[] {
+  return rendered
+    .filter((file) => file.partialOwnership === "settings-entry" && file.partialSourceHash !== undefined)
+    .filter((file) => {
+      const preimage = preimages.get(file.path);
+      if (preimage === undefined) return true;
+      const currentHash = preimage.state === "absent" ? "absent" : hashBytes(preimage.content);
+      return currentHash !== file.partialSourceHash;
+    })
+    .map((file) => file.path)
+    .sort(compareStrings);
+}
+
+function hashBytes(bytes: Uint8Array): string {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
 export interface SkillsetDiff {
   readonly added: readonly string[];
   readonly changed: readonly string[];
@@ -635,7 +679,9 @@ async function inspectOutputPlan(args: {
 }): Promise<OutputPlanInspection> {
   const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
   const actualPaths = new Set(actualPathList);
-  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered).filter((path) => actualPaths.has(path));
+  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered)
+    .filter((path) => !args.previousManagedState.partialPaths.has(path))
+    .filter((path) => actualPaths.has(path));
   const added: string[] = [];
   const changed: string[] = [];
   const missing: string[] = [];

@@ -106,6 +106,7 @@ import {
   type LockItem,
   type LockRoot,
 } from "./render-support";
+import { hashRenderedFiles } from "./rendered-files-hash";
 import {
   renderCodexInterface,
   renderPluginManifest,
@@ -141,6 +142,11 @@ import {
   renderNormalizedPluginHookFile,
   skillScope,
 } from "./render-hooks";
+import {
+  renderProjectSessionStartHooks,
+  type RenderedProjectHook,
+} from "./render-project-hooks";
+import { hashOwnedSettingsEntries } from "./settings-entry";
 import {
   marketplaceLockProvenance,
   readExistingMarketplaceState,
@@ -266,7 +272,49 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
 
   rendered.push(...(await renderProjectAgents(graph, lockRoots)));
   rendered.push(...(await renderRules(graph, lockRoots)));
-  rendered.push(...(await renderProjectIslands(graph, lockRoots)));
+  const projectIslands = await renderProjectIslands(graph, lockRoots);
+  const workspaceLock = lockRoots.get(WORKSPACE_LOCK_ROOT);
+  const projectIslandItems = new Map(
+    workspaceLock?.items.filter((item) => item.kind === "island").map((item) => [item.outputPath, item]) ?? []
+  );
+  const projectHooks = await renderProjectSessionStartHooks(
+    graph,
+    new Map(projectIslands.map((file) => {
+      const item = projectIslandItems.get(file.path);
+      if (item === undefined) throw new Error(`skillset: missing island lock item for ${file.path}`);
+      return [file.path, { file, sourceHash: item.sourceHash }];
+    }))
+  );
+  const composedSettingsPaths = new Set(projectHooks.map((hook) => hook.file.path));
+  const managedSettingsPaths = new Set(projectHooks.filter((hook) => hook.managed).map((hook) => hook.file.path));
+  rendered.push(...projectIslands.filter((file) => !composedSettingsPaths.has(file.path)));
+  if (workspaceLock !== undefined) {
+    for (let index = workspaceLock.items.length - 1; index >= 0; index--) {
+      const item = workspaceLock.items[index];
+      if (item?.kind === "island" && managedSettingsPaths.has(item.outputPath)) {
+        workspaceLock.items.splice(index, 1);
+      } else if (item?.kind === "island") {
+        const handback = projectHooks.find((hook) => !hook.managed && hook.file.path === item.outputPath);
+        if (handback !== undefined) {
+          // After off, the island owns the file; retain accepted foreign bytes as its baseline.
+          workspaceLock.items[index] = {
+            ...item,
+            fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [handback.file]),
+            outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [handback.file]),
+            ...(handback.renderInputsHash === undefined ? {} : { renderInputsHash: handback.renderInputsHash }),
+          };
+        }
+      }
+    }
+  }
+  rendered.push(...projectHooks.map((hook) => hook.file));
+  const managedProjectHooks = projectHooks.filter((item) => item.managed);
+  if (managedProjectHooks.length > 0) {
+    const projectHookLock = lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
+    for (const hook of managedProjectHooks) {
+      projectHookLock.items.push(lockItemForProjectHook(graph, hook));
+    }
+  }
   rendered.push(...(await renderChangelogs(graph, lockRoots)));
   if (Object.keys(graph.root.marketplaces).length > 0) {
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
@@ -2375,6 +2423,36 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
   };
 }
 
+function lockItemForProjectHook(graph: BuildGraph, hook: RenderedProjectHook): LockItem {
+  const outputHash = hashOwnedSettingsEntries(hook.file.content, [hook.ownership]);
+  if (outputHash === undefined) {
+    throw new Error(`skillset: cannot hash owned SessionStart entry in ${hook.file.path}`);
+  }
+  return {
+    consumers: [{ phase: "delta", target: hook.target }],
+    fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [hook.file]),
+    feature: "runtime-hooks",
+    files: [hook.file.path],
+    kind: "settings-entry",
+    name: `session-start:${hook.target}`,
+    outputHash,
+    outputPath: hook.file.path,
+    owner: { target: hook.target },
+    ownedEntries: [hook.ownership],
+    ...(hook.renderInputsHash === undefined ? {} : { renderInputsHash: hook.renderInputsHash }),
+    role: "bundle",
+    sourceHash: hook.sourceHash,
+    sourcePath: relative(graph.rootPath, graph.rootConfigPath),
+    targetState: "generated",
+    validation: "structured",
+    version: rootVersion(graph),
+  };
+}
+
+function hashText(value: string): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
 function lockItemForPlugin(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
@@ -2731,6 +2809,9 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     origin: item.origin,
     outputHash: item.outputHash,
     outputPath: item.outputPath,
+    ownedEntries: item.ownedEntries === undefined
+      ? undefined
+      : item.ownedEntries.map((entry) => ({ ...entry })),
     owner: item.owner === undefined ? undefined : { ...item.owner },
     role: item.role,
     plugin: item.plugin,
@@ -3017,22 +3098,6 @@ async function hashResourceSource(
     hash.update(await readFile(file));
     hash.update("\0");
   }
-}
-
-function hashRenderedFiles(outputRoot: string, files: readonly RenderedFile[]): string {
-  const hash = createHash("sha256");
-  hash.update("skillset-output-v2\0");
-
-  for (const file of [...files].sort((left, right) => compareStrings(left.path, right.path))) {
-    hash.update(normalizeManagedRelativePath(relative(outputRoot, file.path)));
-    hash.update("\0");
-    hash.update(file.mode.toString(8).padStart(4, "0"));
-    hash.update("\0");
-    hash.update(file.content);
-    hash.update("\0");
-  }
-
-  return `sha256:${hash.digest("hex")}`;
 }
 
 async function hashChatGptMarketplaceSource(graph: BuildGraph): Promise<string> {

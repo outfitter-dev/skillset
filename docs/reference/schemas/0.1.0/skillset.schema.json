@@ -4235,6 +4235,14 @@
               ],
               "type": "string"
             },
+            "session_start_hook": {
+              "enum": [
+                "auto",
+                "off",
+                "on"
+              ],
+              "type": "string"
+            },
             "skillset": {
               "additionalProperties": false,
               "properties": {

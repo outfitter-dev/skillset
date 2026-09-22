@@ -22,6 +22,12 @@ Skillset supports two hook source styles:
 - Native aggregate hooks preserve [provider-native](../../glossary.md#provider-native) plugin hook files at `hooks/hooks.json`.
 - Adaptive hook units are reusable [source units](../../glossary.md#source-unit) under `hooks/<name>.json` or `hooks/<name>/hook.json`. They attach to plugins, skills, or project agents and render only where Skillset can preserve the intended scope.
 
+## Skillset-Owned Project SessionStart
+
+`compile.session_start_hook` controls one advisory project hook, separate from plugin and adaptive hooks. `on` composes `npx skillset hooks run session-start` into `.claude/settings.json` and `.codex/hooks.json`; `off` removes only Skillset's command and its settings-entry lock claim. `auto` enables it only when every enabled project's skill output root is gitignored, including Cursor's skill root when enabled. Cursor has no verified project hook destination, so it receives no SessionStart entry.
+
+The runner reports stale generated paths and suggests `npx skillset build` and `skillset-help`; it never rebuilds, installs, or trusts the hook. Skillset identifies its entry by command, leaving other settings keys and hook entries intact. See [Settings](settings.md) for field-level ownership and the old Claude local-settings migration guard.
+
 ## Native Aggregate Hooks
 
 The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. The [source root](../../glossary.md#source-root) is `.skillset/`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.

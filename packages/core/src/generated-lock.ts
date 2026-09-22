@@ -15,6 +15,7 @@ import type {
   ProjectionOwner,
   ProjectionRole,
   ProjectDraftPolicy,
+  SettingsEntryOwnership,
   SourceOrigin,
   TargetName,
 } from "./types";
@@ -44,13 +45,14 @@ export interface ParsedGeneratedLockItem {
   readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly feature?: string;
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files: readonly string[];
   readonly kind?: string;
   readonly name?: string;
   readonly origin?: string;
   readonly outputHash?: string;
   readonly outputPath?: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   readonly owner?: GeneratedLockOwner;
   readonly role?: GeneratedLockRole;
   readonly plugin?: string;
@@ -267,14 +269,15 @@ function parseGeneratedLockItem(
     assertManagedRelativePath(file, `${label}.files[${index}]`);
     return file;
   });
+  const kind = optionalString(value.kind, label, "kind");
   const fileModes = parseFileModes(
     value.fileModes,
     files,
     schemaVersion,
-    label
+    label,
+    kind === "settings-entry"
   );
   const outputHash = optionalString(value.outputHash, label, "outputHash");
-  const kind = optionalString(value.kind, label, "kind");
   const name = optionalString(value.name, label, "name");
   const origin = optionalString(value.origin, label, "origin");
   const outputPath = optionalString(value.outputPath, label, "outputPath");
@@ -282,6 +285,7 @@ function parseGeneratedLockItem(
     assertManagedRelativePath(outputPath, `${label}.outputPath`);
   }
   const sourcePath = optionalString(value.sourcePath, label, "sourcePath");
+  const ownedEntries = parseOwnedEntries(value.ownedEntries, label);
   const dependencies = optionalStringArray(
     value.dependencies,
     label,
@@ -333,6 +337,12 @@ function parseGeneratedLockItem(
   const role = schemaVersion === 4 ? parseRole(value.role, label) : undefined;
   validateOwnerConsumerRelationship(consumers, owner, label);
   if (role !== undefined) validateRoleOwnership(role, owner, label);
+  if (kind === "settings-entry" && (ownedEntries === undefined || ownedEntries.length === 0)) {
+    throw invalidLock(label, "settings-entry items require ownedEntries");
+  }
+  if (kind !== "settings-entry" && ownedEntries !== undefined) {
+    throw invalidLock(label, "ownedEntries are only valid for settings-entry items");
+  }
 
   return {
     consumers,
@@ -348,6 +358,7 @@ function parseGeneratedLockItem(
     ...(origin === undefined ? {} : { origin }),
     ...(outputHash === undefined ? {} : { outputHash }),
     ...(outputPath === undefined ? {} : { outputPath }),
+    ...(ownedEntries === undefined ? {} : { ownedEntries }),
     ...(owner === undefined ? {} : { owner }),
     ...(role === undefined ? {} : { role }),
     ...(plugin === undefined ? {} : { plugin }),
@@ -387,6 +398,23 @@ function parseDraftOrigin(
   throw invalidLock(label, "draftOrigin must be _drafts, config, or status");
 }
 
+function parseOwnedEntries(
+  value: unknown,
+  label: string
+): readonly SettingsEntryOwnership[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw invalidLock(label, "ownedEntries must be an array");
+  return value.map((entry, index) => {
+    const entryLabel = `${label}.ownedEntries[${index}]`;
+    if (!isJsonRecord(entry)) throw invalidLock(entryLabel, "must be an object");
+    const file = requiredString(entry.file, entryLabel, "file");
+    assertManagedRelativePath(file, `${entryLabel}.file`);
+    const keyPath = requiredString(entry.keyPath, entryLabel, "keyPath");
+    const commandHash = requiredString(entry.commandHash, entryLabel, "commandHash");
+    return { commandHash, file, keyPath };
+  });
+}
+
 function parseSourceOrigin(
   value: unknown,
   label: string
@@ -409,16 +437,19 @@ function parseFileModes(
   value: unknown,
   files: readonly string[],
   schemaVersion: GeneratedLockSchemaVersion,
-  label: string
-): Readonly<Record<string, "0644" | "0755">> | undefined {
+  label: string,
+  preserveSettingsMode: boolean
+): Readonly<Record<string, string>> | undefined {
   if (value === undefined && schemaVersion === 1) return undefined;
   if (!isJsonRecord(value)) {
     throw invalidLock(label, "versioned items require a fileModes object");
   }
-  const modes: Record<string, "0644" | "0755"> = {};
+  const modes: Record<string, string> = {};
   for (const [file, mode] of Object.entries(value)) {
-    if (mode !== "0644" && mode !== "0755") {
-      throw invalidLock(label, `fileModes.${file} must be 0644 or 0755`);
+    if (typeof mode !== "string" || (preserveSettingsMode
+      ? !/^0[0-7]{3}$/.test(mode)
+      : mode !== "0644" && mode !== "0755")) {
+      throw invalidLock(label, `fileModes.${file} must be ${preserveSettingsMode ? "a four-digit octal mode" : "0644 or 0755"}`);
     }
     modes[file] = mode;
   }

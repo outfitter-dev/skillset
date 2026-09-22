@@ -38,12 +38,31 @@ describe("schema-owned config document contexts", () => {
     expect(readCompileConfig({}, "skillset.yaml").instructionFrontPage).toBe(
       "claude-dir"
     );
+    expect(readCompileConfig({}, "skillset.yaml").sessionStartHook).toBe(
+      "auto"
+    );
     expect(
       readCompileConfig(
         { compile: { instruction_front_page: "repo-root" } },
         "skillset.yaml"
       ).instructionFrontPage
     ).toBe("repo-root");
+    for (const sessionStartHook of ["auto", "on", "off"] as const) {
+      expect(
+        readCompileConfig(
+          { compile: { session_start_hook: sessionStartHook } },
+          "skillset.yaml"
+        ).sessionStartHook
+      ).toBe(sessionStartHook);
+    }
+    expect(() =>
+      readCompileConfig(
+        { compile: { session_start_hook: "sometimes" } },
+        "skillset.yaml"
+      )
+    ).toThrow(
+      "expected skillset.yaml.compile.session_start_hook to be auto, on, or off"
+    );
     expect(readInternalMarker({}, "skillset.yaml")).toBe(true);
     expect(
       readInternalMarker({ internal_marker: false }, "skillset.yaml")

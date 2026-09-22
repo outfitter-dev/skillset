@@ -2462,6 +2462,9 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   const claude = await runSkillsetCli("hooks", "print", "--target", "claude", "--agent-runtime");
   expect(claude.exitCode).toBe(0);
   expect(claude.stdout).toContain(".claude/settings.local.json");
+  expect(claude.stdout).toContain("# Suggested committed project SessionStart destination: .claude/settings.json");
+  expect(claude.stdout).toContain("npx skillset hooks run session-start");
+  expect(claude.stdout).toContain("startup|resume|clear|compact");
   expect(claude.stdout).toContain("PostToolUse");
   expect(claude.stdout).toContain("Stop");
   expect(claude.stdout).toContain("skillset hooks run post-tool-use");
@@ -2472,6 +2475,8 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   const codex = await runSkillsetCli("hooks", "print", "--target", "codex", "--agent-runtime");
   expect(codex.exitCode).toBe(0);
   expect(codex.stdout).toContain("# Suggested destination: .codex/hooks.json");
+  expect(codex.stdout).toContain("startup|resume");
+  expect(codex.stdout).toContain("additionalContextLimit");
   expect(codex.stdout).not.toContain(".codex/hooks/hooks.json");
   expect(codex.stdout).toContain("PostToolUse");
   expect(codex.stdout).toContain("Stop");
@@ -10413,7 +10418,14 @@ async function createExplicitUnmanagedBackup(root: string): Promise<string> {
       sourcePath: ".skillset/rules/root.md",
     }],
     [],
-    { editedPaths: new Set(), hasBaseline: false, lockIncomparablePaths: new Set(), paths: new Set(), renderDriftPaths: new Set() }
+    {
+      editedPaths: new Set(),
+      hasBaseline: false,
+      lockIncomparablePaths: new Set(),
+      partialPaths: new Set(),
+      paths: new Set(),
+      renderDriftPaths: new Set(),
+    }
   );
   const runId = prepared.backup?.runId;
   if (runId === undefined) throw new Error("missing explicit backup id");

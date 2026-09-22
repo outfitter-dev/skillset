@@ -1,6 +1,7 @@
 skillset:
   name: authoring-model
 compile:
+  session_start_hook: on
   unsupportedDestination: warn
 claude: true
 codex: true

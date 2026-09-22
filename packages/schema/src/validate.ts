@@ -18,6 +18,7 @@ import {
   RENDERED_METADATA_SCHEMA_VERSION,
   ROOT_SOURCE_MANIFEST_KEYS,
   ROOT_DRAFT_SELECTOR_PATTERN,
+  SESSION_START_HOOK_MODES,
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
   SOURCE_LICENSE_IDS,
@@ -56,6 +57,7 @@ const targetNames = new Set<string>(TARGET_NAMES);
 const allowedToolsTargetKeys = new Set<string>(ALLOWED_TOOLS_TARGET_KEYS);
 const targetListText = formatList(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
+const sessionStartHookModes = new Set<string>(SESSION_START_HOOK_MODES);
 const unsupportedDestinationPolicies = new Set<string>(
   UNSUPPORTED_DESTINATION_POLICIES
 );
@@ -2317,6 +2319,7 @@ function checkCompile(
       "build",
       "features",
       "instruction_front_page",
+      "session_start_hook",
       "skillset",
       "targets",
       "unsupportedDestination",
@@ -2360,6 +2363,19 @@ function checkCompile(
         `${path}.instruction_front_page`,
         `${codePrefix}/instruction-front-page`,
         "compile.instruction_front_page must be one of claude-dir, repo-root"
+      )
+    );
+  }
+  if (
+    value.session_start_hook !== undefined &&
+    (typeof value.session_start_hook !== "string" ||
+      !sessionStartHookModes.has(value.session_start_hook))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.session_start_hook`,
+        `${codePrefix}/session-start-hook`,
+        "compile.session_start_hook must be one of auto, off, on"
       )
     );
   }

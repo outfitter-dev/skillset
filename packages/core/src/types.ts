@@ -72,6 +72,7 @@ export interface ReleaseState {
 
 export type UnsupportedDestinationPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
+export type SessionStartHookMode = "auto" | "on" | "off";
 export type BuildScope = "repo" | "plugins" | "project" | "user";
 
 export interface CompileSkillsetConfig {
@@ -86,6 +87,7 @@ export interface CompileConfig {
   readonly build: CompileBuildMode;
   readonly features: CompileFeatureConfig;
   readonly instructionFrontPage: InstructionFrontPageDestination;
+  readonly sessionStartHook: SessionStartHookMode;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupportedDestination: UnsupportedDestinationPolicy;
@@ -479,14 +481,25 @@ export interface WorkspacePluginPlan {
   >;
 }
 
-export type GeneratedFileMode = 0o644 | 0o755;
+/** Ordinary generated files use 0644/0755; partially owned settings retain their existing mode. */
+export type GeneratedFileMode = number;
 
 export interface RenderedFile {
   readonly content: Uint8Array;
   /** Normalized portable file mode applied to generated Unix outputs. */
   readonly mode: GeneratedFileMode;
   readonly path: string;
+  /** A provider settings file is composed around field-level owned entries. */
+  readonly partialOwnership?: "settings-entry";
+  /** Digest of the provider settings bytes read before composing owned entries. */
+  readonly partialSourceHash?: string;
   readonly sourcePath?: string;
+}
+
+export interface SettingsEntryOwnership {
+  readonly commandHash: string;
+  readonly file: string;
+  readonly keyPath: string;
 }
 
 /**
@@ -512,13 +525,14 @@ export interface GeneratedEntry {
   readonly draftPolicy?: ProjectDraftPolicy;
   readonly effectiveName?: string;
   readonly feature?: string;
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files?: readonly string[];
   readonly origin?: string;
   readonly kind?: string;
   readonly outputHash?: string;
   readonly outputPath: string;
   readonly outputRoot: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   /** Sole physical writer for this generated path. */
   readonly owner?: ProjectionOwner;
   readonly role?: ProjectionRole;

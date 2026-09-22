@@ -791,6 +791,7 @@ export function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuild
           ...(item.kind === undefined ? {} : { kind: item.kind }),
           ...(item.origin === undefined ? {} : { origin: item.origin }),
           ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+          ...(item.ownedEntries === undefined ? {} : { ownedEntries: item.ownedEntries }),
           ...(item.owner === undefined ? {} : { owner: item.owner }),
           ...(item.role === undefined ? {} : { role: item.role }),
           ...(item.preprocessDependencies === undefined ? {} : { preprocessDependencies: item.preprocessDependencies }),

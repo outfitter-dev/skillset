@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import {
   restoreOutputBackup,
 } from "@skillset/core";
 import { explainPath } from "@skillset/core/internal/authoring";
+import { buildSkillsetResultWithAuthority } from "../build";
 import { assertCasePortableRenderedPaths } from "../render";
 
 const DEMO_FIXTURE: Record<string, string> = {
@@ -33,6 +34,354 @@ Body.
 };
 
 describe("buildSkillsetResult", () => {
+  it("composes the project SessionStart entry with a committed Claude settings island", async () => {
+    const foreign = `{
+  "hooks": {
+    "SessionStart": [{ "matcher": "startup", "hooks": [{ "type": "command", "command": "foreign" }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "keep" }] }]
+  },
+  "foreign": { "format": "keep" }
+}\n`;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`,
+      ".skillset/_claude/settings.json": foreign,
+    });
+    try {
+      const result = await buildSkillsetResult(root);
+      expect(result.ok).toBe(true);
+      const settings = await readFile(join(root, ".claude/settings.json"), "utf8");
+      expect(settings).toContain('"command": "foreign"');
+      expect(settings).toContain('"command": "keep"');
+      expect(settings).toContain("npx skillset hooks run session-start");
+      expect((settings.match(/npx skillset hooks run session-start/g) ?? [])).toHaveLength(1);
+      const foreignEdit = settings.replace('"format": "keep"', '"format": "changed outside Skillset"');
+      expect(foreignEdit).not.toBe(settings);
+      await writeFile(join(root, ".claude/settings.json"), foreignEdit);
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).not.toContain(".claude/settings.json");
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      expect(await readFile(join(root, ".claude/settings.json"), "utf8")).toBe(foreignEdit);
+      const ownedEdit = foreignEdit.replace("startup|resume|clear|compact", "startup");
+      await writeFile(join(root, ".claude/settings.json"), ownedEdit);
+      await expect(diffSkillsetResult(root)).rejects.toThrow("divergent SessionStart command entry");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("propagates later authored settings island changes through composition", async () => {
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`,
+      [sourcePath]: '{"foreign":{"version":"before"}}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      await writeFile(join(root, sourcePath), '{"foreign":{"version":"after"}}\n');
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).toContain(".claude/settings.json");
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settings = await readFile(join(root, ".claude/settings.json"), "utf8");
+      expect(JSON.parse(settings).foreign.version).toBe("after");
+      expect(settings).toContain("npx skillset hooks run session-start");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("fails closed when authored and foreign settings change together", async () => {
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`,
+      [sourcePath]: '{"foreign":{"version":"before"}}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const outputPath = join(root, ".claude/settings.json");
+      const liveEdit = (await readFile(outputPath, "utf8")).replace("before", "local-change");
+      await writeFile(outputPath, liveEdit);
+      await writeFile(join(root, sourcePath), '{"foreign":{"version":"authored-change"}}\n');
+      await expect(buildSkillsetResult(root)).rejects.toThrow("simultaneous authored island and foreign settings edits");
+      expect(await readFile(outputPath, "utf8")).toBe(liveEdit);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("returns settings island ownership after the project hook is turned off", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      ".skillset/_claude/settings.json": '{"foreign":"keep"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settings = await readFile(settingsPath, "utf8");
+      expect(settings).toContain('"foreign":"keep"');
+      expect(settings).not.toContain("npx skillset hooks run session-start");
+      const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+        items: Array<{ kind: string; outputPath: string }>;
+      };
+      expect(lock.items).not.toContainEqual(expect.objectContaining({ kind: "settings-entry", outputPath: ".claude/settings.json" }));
+      expect(lock.items).toContainEqual(expect.objectContaining({ kind: "island", outputPath: ".claude/settings.json" }));
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).not.toContain(".claude/settings.json");
+      expect(diff.data.changed).not.toContain("skillset.lock");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("hands an edited settings island back without losing foreign settings", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      ".skillset/_claude/settings.json": '{"foreign":"authored"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      const local = (await readFile(settingsPath, "utf8")).replace('"authored"', '"local"');
+      await writeFile(settingsPath, local);
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const output = await readFile(settingsPath, "utf8");
+      expect(output).toContain('"foreign":"local"');
+      expect(output).not.toContain("npx skillset hooks run session-start");
+      const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+        items: Array<{ kind: string; outputPath: string }>;
+      };
+      expect(lock.items).not.toContainEqual(expect.objectContaining({ kind: "settings-entry", outputPath: ".claude/settings.json" }));
+      expect(lock.items).toContainEqual(expect.objectContaining({ kind: "island", outputPath: ".claude/settings.json" }));
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).not.toContain(".claude/settings.json");
+      expect(diff.data.changed).not.toContain("skillset.lock");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("hands the island back when the owned command is already gone but foreign settings changed", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      ".skillset/_claude/settings.json": '{"foreign":"authored"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      const local = '{"foreign":"local"}';
+      await writeFile(settingsPath, local);
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      expect(await readFile(settingsPath, "utf8")).toBe(local);
+      const diff = await diffSkillsetResult(root);
+      expect(diff.data.changed).not.toContain(".claude/settings.json");
+      expect(diff.data.changed).not.toContain("skillset.lock");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("does not discard accepted foreign settings when the authored island later changes", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      [sourcePath]: '{"foreign":"authored"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      await writeFile(settingsPath, (await readFile(settingsPath, "utf8")).replace('"authored"', '"local"'));
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const handback = await readFile(settingsPath, "utf8");
+      await writeFile(join(root, sourcePath), '{"foreign":"new source"}\n');
+      await expect(buildSkillsetResult(root)).rejects.toThrow("authored settings island changed alongside its live output");
+      expect(await readFile(settingsPath, "utf8")).toBe(handback);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  for (const nextMode of ["off", "on"] as const) {
+    it(`applies a source-only island update after clean handback with the hook ${nextMode}`, async () => {
+      const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+      const sourcePath = ".skillset/_claude/settings.json";
+      const root = await fixture({
+        ...DEMO_FIXTURE,
+        "skillset.yaml": config,
+        [sourcePath]: '{"foreign":"before"}',
+      });
+      try {
+        expect((await buildSkillsetResult(root)).ok).toBe(true);
+        await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+        expect((await buildSkillsetResult(root)).ok).toBe(true);
+        await writeFile(join(root, sourcePath), '{"foreign":"after"}\n');
+        if (nextMode === "on") await writeFile(join(root, "skillset.yaml"), config);
+        expect((await buildSkillsetResult(root)).ok).toBe(true);
+        const settings = await readFile(join(root, ".claude/settings.json"), "utf8");
+        expect(settings).toContain('"foreign":"after"');
+        expect(settings.includes("npx skillset hooks run session-start")).toBe(nextMode === "on");
+        expect((await diffSkillsetResult(root)).data.changed).toEqual([]);
+      } finally {
+        await rm(root, { force: true, recursive: true });
+      }
+    });
+  }
+
+  it("does not erase a byte-only local edit when the authored island changes after handback", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      [sourcePath]: '{"foreign":"before"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settingsPath = join(root, ".claude/settings.json");
+      const local = '{\n  "foreign": "before"\n}\n';
+      await writeFile(settingsPath, local);
+      await writeFile(join(root, sourcePath), '{"foreign":"after"}\n');
+      await expect(buildSkillsetResult(root)).rejects.toThrow("authored settings island changed alongside its live output");
+      expect(await readFile(settingsPath, "utf8")).toBe(local);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("enables the hook with a clean source-only update to an off settings island", async () => {
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: off\n`;
+    const sourcePath = ".skillset/_claude/settings.json";
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      [sourcePath]: '{"foreign":"before"}',
+    });
+    try {
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      await writeFile(join(root, sourcePath), '{"foreign":"after"}\n');
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: off", "session_start_hook: on"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      const settings = await readFile(join(root, ".claude/settings.json"), "utf8");
+      expect(settings).toContain('"foreign":"after"');
+      expect(settings).toContain("npx skillset hooks run session-start");
+      expect((await diffSkillsetResult(root)).data.changed).toEqual([]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses an authored settings island over an unmanaged live settings file", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`,
+      ".skillset/_claude/settings.json": '{"foreign":"authored"}',
+      ".claude/settings.json": '{"foreign":"unmanaged"}',
+    });
+    try {
+      await expect(buildSkillsetResult(root)).rejects.toThrow("authored settings island conflicts with an unmanaged live file");
+      expect(await readFile(join(root, ".claude/settings.json"), "utf8")).toBe('{"foreign":"unmanaged"}\n');
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("blocks a foreign settings edit that races partial rendering", async () => {
+    const settings = {
+      hooks: {
+        SessionStart: [{ hooks: [{ type: "command", command: "foreign" }] }],
+      },
+      foreign: "before",
+    };
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": `
+skillset:
+  name: core-build-root
+claude: true
+codex: false
+cursor: false
+compile:
+  session_start_hook: on
+`,
+      ".claude/settings.json": `${JSON.stringify(settings, null, 2)}\n`,
+    });
+    const settingsPath = join(root, ".claude/settings.json");
+    try {
+      const raced = { ...settings, foreign: "after" };
+      const result = await buildSkillsetResultWithAuthority(
+        root,
+        {},
+        {},
+        [],
+        {
+          afterRender: async () => {
+            await writeFile(settingsPath, `${JSON.stringify(raced, null, 2)}\n`);
+          },
+        }
+      );
+      expect(result.ok).toBe(false);
+      expect(result.outputState.state).toBe("blocked");
+      expect(result.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "output-write-preimage-invalidated",
+          outputPath: ".claude/settings.json",
+          severity: "error",
+        })
+      );
+      expect(await readFile(settingsPath, "utf8")).toBe(`${JSON.stringify(raced, null, 2)}\n`);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("retains private mode while adding and removing the owned settings entry", async () => {
+    if (process.platform === "win32") return;
+    const config = `${DEMO_FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`;
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": config,
+      ".claude/settings.json": '{"foreign":"keep"}\n',
+    });
+    const settingsPath = join(root, ".claude/settings.json");
+    try {
+      await chmod(settingsPath, 0o600);
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
+      expect(await readFile(settingsPath, "utf8")).toContain('"foreign":"keep"');
+      const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+        items: Array<{ kind: string; fileModes: Record<string, string> }>;
+      };
+      expect(lock.items.find((item) => item.kind === "settings-entry")?.fileModes[".claude/settings.json"]).toBe("0600");
+      expect((await diffSkillsetResult(root)).data.changed).not.toContain(".claude/settings.json");
+      await writeFile(join(root, "skillset.yaml"), config.replace("session_start_hook: on", "session_start_hook: off"));
+      expect((await buildSkillsetResult(root)).ok).toBe(true);
+      expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
+      expect(await readFile(settingsPath, "utf8")).toContain('"foreign":"keep"');
+      expect(await Bun.file(join(root, "skillset.lock")).exists()).toBe(false);
+      const offDiff = await diffSkillsetResult(root);
+      expect(offDiff.data.changed).not.toContain(".claude/settings.json");
+      expect(offDiff.data.changed).not.toContain("skillset.lock");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("preserves an absent output target occupied after final approval", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const occupiedPath = join(root, ".claude/skills/demo/SKILL.md");

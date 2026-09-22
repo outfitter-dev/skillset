@@ -18,6 +18,7 @@ import {
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
+import { hashOwnedSettingsEntries } from "./settings-entry";
 import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
 import {
   createOperationalPathContext,
@@ -39,6 +40,7 @@ export interface ManagedOutputState {
   /** Managed paths whose bytes on disk no longer match the lock's `outputHash`. */
   readonly editedPaths: ReadonlySet<string>;
   readonly hasBaseline: boolean;
+  readonly partialPaths: ReadonlySet<string>;
   readonly paths: ReadonlySet<string>;
   /**
    * Managed paths whose lock item yields no trustworthy disk-vs-lock verdict:
@@ -191,10 +193,17 @@ export async function readManagedOutputState(
   provenancePolicy?: ManagedOutputProvenancePolicy
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
+  const partialPaths = new Set<string>();
   const editedPaths = new Set<string>();
   const lockIncomparablePaths = new Set<string>();
   const renderDriftPaths = new Set<string>();
-  const sinks = { editedPaths, lockIncomparablePaths, paths, renderDriftPaths };
+  const sinks = {
+    editedPaths,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  };
   let hasBaseline = false;
 
   if (includeWorkspaceLock) {
@@ -205,13 +214,21 @@ export async function readManagedOutputState(
     hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, sinks, resolveOutputPath, strictOutputRoots.has(outputRoot), provenancePolicy)) || hasBaseline;
   }
 
-  return { editedPaths, hasBaseline, lockIncomparablePaths, paths, renderDriftPaths };
+  return {
+    editedPaths,
+    hasBaseline,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  };
 }
 
 /** Mutable accumulators filled while walking each managed lock. */
 interface ManagedOutputStateSinks {
   readonly editedPaths: Set<string>;
   readonly lockIncomparablePaths: Set<string>;
+  readonly partialPaths: Set<string>;
   readonly paths: Set<string>;
   readonly renderDriftPaths: Set<string>;
 }
@@ -578,7 +595,13 @@ async function addManagedPathsFromLock(
   requireProvenance: boolean,
   provenancePolicy: ManagedOutputProvenancePolicy | undefined
 ): Promise<boolean> {
-  const { editedPaths, lockIncomparablePaths, paths, renderDriftPaths } = sinks;
+  const {
+    editedPaths,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  } = sinks;
   const renderedByPath = provenancePolicy?.renderedByPath;
   const displayLockPath = outPath(lockPath);
   const absoluteLockPath = resolveOutputPath(displayLockPath);
@@ -599,7 +622,14 @@ async function addManagedPathsFromLock(
     const files = item.files
       .map((file) => ({ displayPath: outPath(joinOutputRoot(expectedOutputRoot, file)), file }))
       .sort((left, right) => compareStrings(left.file, right.file));
-    for (const file of files) paths.add(file.displayPath);
+    if (item.kind === "settings-entry") {
+      for (const file of files) {
+        paths.add(file.displayPath);
+        partialPaths.add(file.displayPath);
+      }
+    } else {
+      for (const file of files) paths.add(file.displayPath);
+    }
     if (!lock.outputHashesTrusted) {
       for (const file of files) {
         lockIncomparablePaths.add(file.displayPath);
@@ -714,6 +744,13 @@ async function currentOutputHash(
   schemaVersion: GeneratedLockSchemaVersion,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const outputPath = resolveOutputPath(entry.displayPath);
+    if (!(await exists(outputPath))) return undefined;
+    return hashOwnedSettingsEntries(await readFile(outputPath), item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
@@ -805,6 +842,12 @@ function snapshotOutputHash(
   schemaVersion: GeneratedLockSchemaVersion,
   snapshots: ReadonlyMap<string, GeneratedFileSnapshot>
 ): string | undefined {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const snapshot = snapshots.get(entry.displayPath);
+    return snapshot === undefined ? undefined : hashOwnedSettingsEntries(snapshot.content, item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
   for (const entry of files) {
@@ -839,6 +882,12 @@ function renderedOutputHash(
   schemaVersion: GeneratedLockSchemaVersion,
   renderedByPath: ReadonlyMap<string, RenderedFile>
 ): string | undefined {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const file = renderedByPath.get(entry.displayPath);
+    return file === undefined ? undefined : hashOwnedSettingsEntries(file.content, item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
@@ -895,6 +944,10 @@ function collectOutputBackupRecords(
       !caseOnlyManagedInspection.targets.has(file.path) &&
       matchesRendered
     ) {
+      continue;
+    }
+
+    if (managedPath === undefined && file.partialOwnership === "settings-entry") {
       continue;
     }
 
@@ -1407,7 +1460,7 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   if (generatedHash !== undefined && typeof generatedHash !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedHash`);
   }
-  if (generatedMode !== undefined && (generatedMode !== "0644" && generatedMode !== "0755")) {
+  if (generatedMode !== undefined && (typeof generatedMode !== "string" || !/^0[0-7]{3}$/.test(generatedMode))) {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedMode`);
   }
   if (originalMode !== undefined && (typeof originalMode !== "string" || !/^[0-7]{4}$/.test(originalMode))) {

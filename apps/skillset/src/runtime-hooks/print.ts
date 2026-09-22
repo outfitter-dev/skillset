@@ -1,4 +1,5 @@
 import type { TargetName } from "@skillset/core/internal/types";
+import { isProjectSessionStartTarget, projectSessionStartEntry, projectSessionStartPath } from "@skillset/core/internal/render-project-hooks";
 import { getProviderRuntimeHookDestination } from "@skillset/registry";
 
 export type HookRunner = "git" | "husky" | "lefthook" | "pre-commit";
@@ -177,8 +178,22 @@ function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
       ],
     },
   };
+  const sessionTarget = isProjectSessionStartTarget(target) ? target : undefined;
+  const sessionStart = sessionTarget === undefined
+    ? undefined
+    : {
+        hooks: { SessionStart: [projectSessionStartEntry(sessionTarget)] },
+      };
+  const sessionPath = sessionTarget === undefined
+    ? undefined
+    : projectSessionStartPath(sessionTarget);
   return [
     `# ${target} agent runtime hook snippet`,
+    ...(sessionStart === undefined || sessionPath === undefined ? [] : [
+      `# Suggested committed project SessionStart destination: ${sessionPath}`,
+      JSON.stringify(sessionStart, null, 2),
+      "",
+    ]),
     `# Suggested destination: ${path}`,
     `# ${note}`,
     JSON.stringify(value, null, 2),

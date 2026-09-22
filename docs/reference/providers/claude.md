@@ -14,6 +14,8 @@ Claude plugin manifests can declare native component roots for skills, commands,
 
 Project agents render as Claude Markdown under `.claude/agents/`. Adaptive instruction source renders as Claude rules, preserving path scopes where the provider supports them. Provider-native files remain separate from adaptive source so Claude-specific semantics are visible rather than presented as portable.
 
+When enabled, the advisory project SessionStart command is composed into committed `.claude/settings.json`, not the per-developer `.claude/settings.local.json` used for other suggested hooks. It owns only its command-matched entry; it reports stale output without rebuilding or changing runtime trust. See [Hooks](../features/hooks.md#skillset-owned-project-sessionstart).
+
 For exact source and [destination](../../glossary.md#destination) behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [instructions](../features/instructions.md), [hooks](../features/hooks.md), and [tools policy](../features/tools-policy.md).
 
 ## Feature Support

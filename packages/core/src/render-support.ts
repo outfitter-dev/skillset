@@ -9,6 +9,7 @@ import type {
   ProjectionRole,
   RenderedFile,
   SourceOrigin,
+  SettingsEntryOwnership,
   TargetName,
 } from "./types";
 import type { OutputConsumer, OutputOwner } from "./output-plan";
@@ -22,7 +23,7 @@ export const WORKSPACE_LOCK_ROOT = ".";
 
 export interface LockItem {
   readonly consumers?: readonly OutputConsumer[];
-  readonly fileModes: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes: Readonly<Record<string, string>>;
   readonly feature?: string;
   readonly files: readonly string[];
   readonly dependencies?: readonly string[];
@@ -38,11 +39,13 @@ export interface LockItem {
     | "plugin-skill"
     | "project-agent"
     | "rule"
+    | "settings-entry"
     | "standalone-skill";
   readonly name: string;
   readonly origin?: string;
   readonly outputHash: string;
   readonly outputPath: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   readonly owner?: OutputOwner;
   readonly role: ProjectionRole;
   readonly plugin?: string;
@@ -62,6 +65,7 @@ export interface LockItem {
   readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
 }
+
 
 export interface ProjectAgentSkillLockReference {
   readonly authored: string;
@@ -106,7 +110,7 @@ export async function copyFileFromSource(
 export function renderedFileModes(
   outputRoot: string,
   files: readonly RenderedFile[]
-): Readonly<Record<string, "0644" | "0755">> {
+): Readonly<Record<string, string>> {
   return Object.fromEntries(
     [...files]
       .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)

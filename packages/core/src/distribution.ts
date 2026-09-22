@@ -7,6 +7,7 @@ import { compareStrings } from "./path";
 import {
   formatGeneratedFileMode,
   generatedFileModeMatches,
+  normalizeGeneratedFileMode,
 } from "./generated-file-mode";
 import {
   isPluginManifestOutputPath,
@@ -90,7 +91,7 @@ async function planDistribution(
   const files = await Promise.all(
     selected.files.map(async (file) => {
       const hash = sha256(file.content);
-      const mode = formatGeneratedFileMode(file.mode);
+      const mode = formatGeneratedFileMode(normalizeGeneratedFileMode(file.mode));
       const destinationPath = joinWorkspacePath(selected.destinationPrefix, stripRequiredPrefix(file.path, selected.sourcePrefix));
       const destination = await distributionDestinationState(graph, config, destinationPath, file);
       const closedManifest = isClosedChatGptManifest(
