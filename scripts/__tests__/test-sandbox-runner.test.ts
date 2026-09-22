@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import {
   pinnedBunExecutableName,
@@ -398,6 +398,30 @@ test("SET-388: explicit retention reports the owned sandbox and descriptor", asy
   expect(result.stderr).toContain(`descriptor: ${descriptorPath}`);
   await expect(access(descriptorPath)).resolves.toBeNull();
   await rm(dirname(descriptorPath), { recursive: true });
+});
+
+test("SET-626: explicit retention keeps fixtures created under the owned sandbox", async () => {
+  const helperPath = join(import.meta.dir, "..", "test-helpers", "fixture-root.ts");
+  const script = `const { createTestFixtureRoot } = await import(${JSON.stringify(helperPath)}); const { join } = await import("node:path"); const root = await createTestFixtureRoot("skillset-retained-fixture-"); await Bun.write(join(root, "sentinel"), "kept"); console.log(JSON.stringify({ root, descriptor: process.env.SKILLSET_TEST_SANDBOX }));`;
+  const result = await run(["bun", "-e", script], {
+    SKILLSET_TEST_SANDBOX: "",
+    SKILLSET_TEST_SANDBOX_RETAIN: "1",
+  });
+  expect(result.exitCode, result.stderr).toBe(0);
+  const evidence = JSON.parse(result.stdout.trim()) as {
+    descriptor: string;
+    root: string;
+  };
+  const sandboxPath = dirname(evidence.descriptor);
+  expect(basename(sandboxPath)).toMatch(/^skillset-test-/u);
+  expect(dirname(evidence.root)).toBe(sandboxPath);
+  try {
+    expect(result.stderr).toContain("retained test sandbox");
+    await expect(access(evidence.descriptor)).resolves.toBeNull();
+    await expect(access(join(evidence.root, "sentinel"))).resolves.toBeNull();
+  } finally {
+    await rm(sandboxPath, { recursive: true });
+  }
 });
 
 test("SET-388: cleanup refuses a replaced sandbox and reports retention", async () => {
