@@ -112,6 +112,8 @@ Resolution tries the current repository, then a matching managed known checkout,
 
 Remote-cache entries are keyed by canonical repository and revision policy. Origin, boundary, Git-directory, and exact-commit checks prevent one corrupt, symlinked, or mismatched entry from being treated as another repository. Marketplace lookup never mutates an external checkout. Successful ordinary workspace commands may maintain the known-checkout index, but a read-only marketplace lookup does not repair that index.
 
+A cooperative lock serializes Skillset processes, but the cache key is deterministic, so an outside claimant can still occupy that namespace. Checkout publication therefore uses the host atomic no-replace directory rename: an occupied empty directory, file, or symlink survives unchanged, and hosts that cannot provide the primitive fail closed instead of replacing the destination.
+
 ## Errors and Recovery
 
 | Problem | Result | Recovery |

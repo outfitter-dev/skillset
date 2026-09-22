@@ -104,7 +104,7 @@ skillset marketplace check
 skillset marketplace check outfitter --json
 ```
 
-The command does not write the marketplace repository, provider indexes, external plugin repositories, or runtime settings. External resolution can contact the declared remote and populate or refresh Skillset's owned XDG remote cache. Floating `latest`, `ref`, or `version` policies are resolved again rather than trusting a warm cache; an exact matching `sha` can reuse verified cached evidence.
+The command does not write the marketplace repository, provider indexes, external plugin repositories, or runtime settings. External resolution can contact the declared remote and populate or refresh Skillset's owned XDG remote cache. Floating `latest`, `ref`, or `version` policies are resolved again rather than trusting a warm cache; an exact matching `sha` can reuse verified cached evidence. Remote-cache publication refuses an occupied destination with atomic no-replace rename and fails closed when that host primitive is unavailable.
 
 Ordinary [build](../glossary.md#build) and check commands remain network-free. The generated [`marketplace` reference](../reference/cli/marketplace.md) owns exact command syntax.
 

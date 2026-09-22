@@ -3,7 +3,7 @@ slug: global-immutable-operational-reports
 title: Global Immutable Operational Reports
 status: draft
 created: 2026-08-14
-updated: 2026-08-14
+updated: 2026-09-22
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 4, 19, 22, 23]
 amends: [19, 22]
@@ -177,9 +177,24 @@ staged bundle. Writes are create-only: there is no supported update, append, or
 overwrite operation. A duplicate ID fails closed.
 
 Portable filesystem APIs do not guarantee a no-replace directory rename on
-every platform. Private ownership of the report root plus random UUIDv4 IDs
-makes an ordinary final-name race infeasible. Injected duplicate-ID tests must
-still prove that an existing final bundle is refused and never overwritten.
+every platform. [SET-497](https://linear.app/outfitter/issue/SET-497) later
+added a host-native atomic no-replace primitive for workspace directory
+installs. This report store does not adopt that primitive.
+
+The completed name is a random UUIDv4 under a private, user-owned `0700`
+report root. Writers never reuse IDs, and a 122-bit random child of that
+root is not a shared install target. An outside or competing claimant cannot
+feasibly occupy a given UUID path.
+
+Adopting no-replace would fail report creation on filesystems that cannot
+provide the primitive (NFS without v4.2 flag support, older overlayfs,
+OpenZFS before 2.2, some network mounts). Operational receipts must remain
+creatable on those volumes. The residual POSIX risk is that an empty
+directory appearing at the exact UUID path between the existence check and
+ordinary rename could be replaced. That race is accepted because the
+ownership and collision assumptions above make it infeasible. Injected
+duplicate-ID tests must still prove that an existing final bundle — including
+an empty UUID directory — is refused and never overwritten.
 
 Failure cleanup removes only the exact owned staged directory. It never
 recursively removes a derived root or unresolved caller path.
@@ -431,3 +446,5 @@ without changing report ownership.
 - [SET-387](https://linear.app/outfitter/issue/SET-387) - current retained-eval path and lifecycle owner.
 - [SET-278](https://linear.app/outfitter/issue/SET-278) - current check/CI readiness report owner.
 - [SET-474](https://linear.app/outfitter/issue/SET-474) - separate machine-scope CLI and ADR reconciliation owner.
+- [SET-497](https://linear.app/outfitter/issue/SET-497) - native no-replace directory primitive that this store deliberately does not adopt.
+- [SET-642](https://linear.app/outfitter/issue/SET-642) - remaining staged-directory publication dispositions, including this UUID/private-root exception.

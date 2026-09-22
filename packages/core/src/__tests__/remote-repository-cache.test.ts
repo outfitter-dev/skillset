@@ -1,8 +1,10 @@
 import {
   access,
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rename,
   rm,
@@ -260,6 +262,78 @@ describe("remote repository cache", () => {
     })).rejects.toThrow(`corrupt remote cache ${corrupt.cacheKey}`);
   });
 
+  test("refuses a late empty-directory claimant without replacing it", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    await mkdir(dirname(location.path), { recursive: true });
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        testHooks: {
+          beforePublish: async ({ cachePath }) => {
+            await mkdir(cachePath);
+          },
+        },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(`corrupt remote cache ${location.cacheKey}`);
+    expect((await lstat(location.path)).isDirectory()).toBe(true);
+    expect(await readdir(location.path)).toEqual([]);
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
+  test("fails closed when atomic no-replace rename is unsupported", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        testHooks: {
+          renameDirectory: () => ({
+            kind: "unsupported",
+            reason: "probe filesystem lacks renameat2",
+          }),
+        },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(
+      /cannot atomically publish remote cache .*probe filesystem lacks renameat2.*supported local filesystem/u
+    );
+    await expect(lstat(location.path)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
+  test("rejects a pre-existing empty cache directory without replacing it", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    await mkdir(location.path, { recursive: true });
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(`corrupt remote cache ${location.cacheKey}`);
+    expect(await readdir(location.path)).toEqual([]);
+  });
+
   test("rejects symlinked cache entries and Git directories before checkout cleanup", async () => {
     const fixture = await gitRemoteFixture();
     const pinned = await acquireRemoteRepository({
@@ -489,6 +563,22 @@ interface GitRemoteFixture {
     readonly env: Record<string, string>;
     readonly homeDir: string;
   };
+}
+
+async function leftoverAcquireDirectories(parent: string): Promise<string[]> {
+  try {
+    return (await readdir(parent)).filter((entry) => entry.startsWith(".acquire-"));
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 async function gitRemoteFixture(): Promise<GitRemoteFixture> {
