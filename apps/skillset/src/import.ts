@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -12,6 +12,10 @@ import {
   type NativeHookLiftDiagnostic,
   type SkillsetRenderResult,
 } from "@skillset/core";
+import {
+  renameDirectoryNoReplace,
+  type DirectoryRenameNoReplaceResult,
+} from "@skillset/core/internal/directory-rename-no-replace";
 import {
   listProviderPluginComponentManifestFields,
   listProviderSkillFrontmatterFields,
@@ -129,6 +133,15 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
   "user-facing-name",
 ]);
 
+/** Test-only hooks that observe or substitute the import directory claim. */
+export interface ImportTestHooks {
+  readonly beforeClaim?: () => Promise<void>;
+  readonly renameDirectory?: (
+    sourcePath: string,
+    destinationPath: string
+  ) => DirectoryRenameNoReplaceResult;
+}
+
 export interface ImportOptions {
   readonly kind: SingularImportKind;
   readonly mergeTargetNativeSkill?: boolean;
@@ -139,6 +152,7 @@ export interface ImportOptions {
   readonly sourceDir?: string;
   readonly sourceOrigin?: (sourcePath: string, copiedFile?: string) => SourceOrigin;
   readonly sourcePath: string;
+  readonly testHooks?: ImportTestHooks;
 }
 
 export interface ImportSourcesOptions {
@@ -265,11 +279,8 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
 
   const mayMergeTargetNativeSkill =
     options.kind === "skill" && options.mergeTargetNativeSkill === true;
-  if ((await exists(targetPath)) && !mayMergeTargetNativeSkill) {
-    throw new Error(
-      `skillset: import target already exists: ${targetPath}. ` +
-        "Import never overwrites; remove the existing source or import under a different --name."
-    );
+  if ((await importTargetOccupied(targetPath)) && !mayMergeTargetNativeSkill) {
+    throw importTargetAlreadyExistsError(targetPath);
   }
 
   const targetParent = dirname(targetPath);
@@ -316,17 +327,12 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       pluginSkillFrontmatter
     );
 
-    if (await exists(targetPath)) {
-      if (!mayMergeTargetNativeSkill) {
-        throw new Error(
-          `skillset: import target already exists: ${targetPath}. ` +
-            "Import never overwrites; remove the existing source or import under a different --name."
-        );
-      }
+    if (mayMergeTargetNativeSkill && (await exists(targetPath))) {
       mergedOriginal = await mergeImportedProviderSkill(targetPath, stagingPath);
       await rm(stagingPath, { force: true, recursive: true });
     } else {
-      await rename(stagingPath, targetPath);
+      await options.testHooks?.beforeClaim?.();
+      claimImportedSourceDirectory(stagingPath, targetPath, options.testHooks);
     }
     committed = true;
     let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
@@ -2011,11 +2017,59 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (isEnoent(error)) {
       return false;
     }
     throw error;
   }
+}
+
+async function importTargetOccupied(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if (isEnoent(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isEnoent(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+function importTargetAlreadyExistsError(targetPath: string): Error {
+  return new Error(
+    `skillset: import target already exists: ${targetPath}. ` +
+      "Import never overwrites; remove the existing source or import under a different --name."
+  );
+}
+
+function unsupportedImportInstallError(targetPath: string, reason: string): Error {
+  return new Error(
+    `skillset: cannot atomically install import target ${targetPath}: ${reason} ` +
+      "(directory installs require atomic no-replace rename support; move the workspace to a supported local filesystem)"
+  );
+}
+
+function claimImportedSourceDirectory(
+  stagingPath: string,
+  targetPath: string,
+  testHooks: ImportTestHooks | undefined
+): void {
+  const result = (testHooks?.renameDirectory ?? renameDirectoryNoReplace)(
+    stagingPath,
+    targetPath
+  );
+  if (result.kind === "installed") {
+    return;
+  }
+  if (result.kind === "occupied") {
+    throw importTargetAlreadyExistsError(targetPath);
+  }
+  throw unsupportedImportInstallError(targetPath, result.reason);
 }
 
 function errorMessage(error: unknown): string {
