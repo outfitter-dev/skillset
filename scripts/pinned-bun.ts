@@ -461,7 +461,8 @@ export async function resolvePinnedBun(repoRoot: string): Promise<PinnedBun> {
 
   if (await isPinnedBunRoot(root, version, pinnedBunExecutableName())) {
     // Roots published before the shim existed hold only the interpreter.
-    await ensurePinnedBunx(binDir).catch(() => {});
+    // A failed repair must not let `bunx` fall through to the ambient PATH.
+    await ensurePinnedBunx(binDir);
     return { binDir, binPath, source: "cached", version };
   }
 

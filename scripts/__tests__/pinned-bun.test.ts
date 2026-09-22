@@ -8,7 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 
 import {
   adoptPinnedBun,
@@ -110,6 +110,46 @@ describe.skipIf(!posix)("adoptPinnedBun", () => {
     const bunxPath = join(targetRoot, "bin", pinnedBunxExecutableName());
     expect(await Bun.file(bunxPath).exists()).toBe(true);
     const child = Bun.spawn({ cmd: [bunxPath, "--version"], stdout: "pipe" });
+    expect((await new Response(child.stdout).text()).trim()).toBe(version);
+    expect(await child.exited).toBe(0);
+  });
+
+  test("an ambient replacement cannot redirect a running gate's next bun lookup", async () => {
+    const version = "9.9.9";
+    const source = await fakeInterpreter(version);
+    const targetRoot = join(await temporaryDir("cache"), version);
+    await adoptPinnedBun(version, targetRoot, source);
+
+    const runRoot = await temporaryDir("run");
+    const started = join(runRoot, "started");
+    const proceed = join(runRoot, "proceed");
+    const child = Bun.spawn({
+      cmd: [
+        "/bin/sh",
+        "-c",
+        ': > "$STARTED"; while [ ! -e "$PROCEED" ]; do sleep 0.01; done; bun --version',
+      ],
+      env: {
+        ...process.env,
+        PATH: [join(targetRoot, "bin"), dirname(source), process.env.PATH]
+          .filter(Boolean)
+          .join(delimiter),
+        PROCEED: proceed,
+        STARTED: started,
+      },
+      stdout: "pipe",
+    });
+    try {
+      const deadline = Date.now() + 5_000;
+      while (!(await Bun.file(started).exists()) && Date.now() < deadline) {
+        await Bun.sleep(10);
+      }
+      expect(await Bun.file(started).exists()).toBe(true);
+      await writeFile(source, '#!/bin/sh\necho "1.2.3"\n');
+    } finally {
+      await writeFile(proceed, "");
+    }
+
     expect((await new Response(child.stdout).text()).trim()).toBe(version);
     expect(await child.exited).toBe(0);
   });
