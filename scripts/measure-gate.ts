@@ -38,6 +38,7 @@ import { dirname, join, resolve } from "node:path";
 
 import {
   type PinnedBunSource,
+  prependExecutablePath,
   readPin,
   resolvePinnedBun,
 } from "./pinned-bun";
@@ -126,6 +127,8 @@ export interface MeasurementReport {
   readonly commandSucceeded: boolean;
   readonly resourceAccounting: ResourceAccounting;
   readonly revision: RevisionSnapshot;
+  /** Re-read after the timed region; absent when it could not be read. */
+  readonly revisionAfter: RevisionSnapshot | null;
   readonly toolchainBefore: ToolchainSnapshot;
   readonly toolchainAfter: ToolchainSnapshot;
   readonly hostBefore: HostSnapshot;
@@ -178,7 +181,10 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   await mkdir(options.outDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/gu, "-");
+  // A timestamp alone collides when parallel runs share a label and land in
+  // the same millisecond: both truncate one log and the later JSON write
+  // silently replaces the earlier report.
+  const stamp = `${new Date().toISOString().replace(/[:.]/gu, "-")}-${randomUUID().slice(0, 8)}`;
   const base = join(options.outDir, `${options.label}-${stamp}`);
   const logPath = `${base}.log`;
   const rusagePath = `${base}.rusage.txt`;
@@ -217,7 +223,18 @@ async function main(argv: readonly string[]): Promise<number> {
     const child = Bun.spawn({
       cmd: [...wrapper, ...options.command],
       cwd: options.repoRoot,
-      env: process.env,
+      // Put the resolved pinned interpreter first, so the command measured is
+      // the one this report claims. Spawning with an unmodified environment
+      // ran it under whatever `bun` PATH happened to resolve, which is the
+      // contested global: a stable ambient-versus-pin mismatch then produced
+      // an attributable report for a run under the wrong runtime.
+      env: {
+        ...process.env,
+        PATH: prependExecutablePath(
+          dirname(toolchainBefore.resolvedBunPath),
+          process.env.PATH
+        ),
+      },
       stderr: logFd,
       stdin: "ignore",
       stdout: logFd,
@@ -232,6 +249,17 @@ async function main(argv: readonly string[]): Promise<number> {
 
   const hostAfter = readHost();
   const toolchainAfter = await readToolchain(options.repoRoot);
+  // The Evidence Contract requires hashing tracked inputs on both sides: a
+  // command that writes bun.lock or generated output would otherwise keep the
+  // pre-run hash and still claim the revision it started from.
+  let revisionAfter: RevisionSnapshot | undefined;
+  try {
+    revisionAfter = await readRevision(options.repoRoot);
+  } catch (error) {
+    console.error(
+      `measure-gate: could not re-read revision after the run: ${message(error)}`
+    );
+  }
   const resources =
     wrapper.length === 0
       ? {}
@@ -245,7 +273,8 @@ async function main(argv: readonly string[]): Promise<number> {
   const attributabilityIssues = collectAttributabilityIssues(
     revision,
     toolchainBefore,
-    toolchainAfter
+    toolchainAfter,
+    revisionAfter
   );
   const report: MeasurementReport = {
     attributabilityIssues,
@@ -263,6 +292,7 @@ async function main(argv: readonly string[]): Promise<number> {
     resourceAccounting,
     resources,
     revision,
+    revisionAfter: revisionAfter ?? null,
     rusagePath,
     schemaVersion: 2,
     signal,
@@ -430,14 +460,43 @@ function readHost(): HostSnapshot {
 export function collectAttributabilityIssues(
   revision: RevisionSnapshot,
   before: ToolchainSnapshot,
-  after: ToolchainSnapshot
+  after: ToolchainSnapshot,
+  revisionAfter?: RevisionSnapshot
 ): string[] {
   const reasons: string[] = [];
-  // The ambient interpreter launches the measured command: this harness spawns
-  // with an unmodified environment, so `bun run ...` resolves through PATH.
-  // Since SET-621 the *resolved* interpreter is a cache copy that cannot
-  // change under a run, so comparing only that would make this guard vacuous
-  // and would have let the swap that invalidated test-warm-2 pass as clean.
+  if (revisionAfter === undefined) {
+    reasons.push(
+      "the repository state after the run could not be read, so the sample cannot claim the tree it names"
+    );
+  } else {
+    if (revisionAfter.head !== revision.head) {
+      reasons.push(
+        `the measured command moved HEAD: ${revision.head} -> ${revisionAfter.head}`
+      );
+    }
+    if (revisionAfter.lockfileSha256 !== revision.lockfileSha256) {
+      reasons.push(
+        "the measured command changed bun.lock, so the sample's toolchain inputs are not the ones it recorded"
+      );
+    }
+    // Compare the entries themselves, not how many there are: replacing one
+    // untracked file with another leaves the count identical while the tree
+    // the sample claims has changed underneath it.
+    if (!sameEntries(revision.dirtyEntries, revisionAfter.dirtyEntries)) {
+      reasons.push(
+        `the measured command changed the working tree: ${revision.dirtyEntries.length} -> ${revisionAfter.dirtyEntries.length} entries, contents differ`
+      );
+    }
+  }
+  // The measured command now runs with the resolved pinned interpreter leading
+  // PATH, so an ambient swap no longer decides which `bun` it gets. The ambient
+  // pair is still compared, for two reasons. The resolved interpreter is a
+  // cache copy that cannot change under a run, so comparing only that would
+  // make this guard vacuous. And the ambient binary stays reachable to anything
+  // resolving it by absolute path or through an environment this harness does
+  // not control, so a mid-run replacement still means the sample was taken in
+  // an environment that no longer exists. That is refused rather than reasoned
+  // about: it is the event that invalidated test-warm-2.
   if (before.ambientBunVersion !== after.ambientBunVersion) {
     reasons.push(
       `ambient interpreter version changed during the sample: ${before.ambientBunVersion} -> ${after.ambientBunVersion}`
@@ -469,6 +528,17 @@ export function collectAttributabilityIssues(
     );
   }
   return reasons;
+}
+
+/** Whether two `git status --porcelain` listings describe the same tree. */
+function sameEntries(
+  before: readonly string[],
+  after: readonly string[]
+): boolean {
+  return (
+    before.length === after.length &&
+    before.every((entry, index) => entry === after[index])
+  );
 }
 
 /**

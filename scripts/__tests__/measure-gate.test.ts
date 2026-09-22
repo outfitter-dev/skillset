@@ -102,6 +102,9 @@ describe("measure-gate report", () => {
     // Both sides of the timed region are sampled so an interpreter swap is
     // detected rather than averaged into the result.
     expect(report.toolchainAfter.resolvedBunVersion).toBe(Bun.version);
+    expect(report.revisionAfter).not.toBeNull();
+    // Parallel runs sharing a label must not share output paths.
+    expect(reportName).toMatch(/-[0-9a-f]{8}\.json$/u);
     expect(report.hostBefore.cpuCount).toBeGreaterThan(0);
     expect(Array.isArray(report.hostBefore.loadAverage)).toBe(true);
     expect(typeof report.wallMs).toBe("number");
@@ -273,7 +276,12 @@ const CLEAN_REVISION = {
 describe("collectAttributabilityIssues", () => {
   test("accepts a clean tree with a steady toolchain", () => {
     expect(
-      collectAttributabilityIssues(CLEAN_REVISION, TOOLCHAIN, TOOLCHAIN)
+      collectAttributabilityIssues(
+        CLEAN_REVISION,
+        TOOLCHAIN,
+        TOOLCHAIN,
+        CLEAN_REVISION
+      )
     ).toEqual([]);
   });
 
@@ -284,7 +292,12 @@ describe("collectAttributabilityIssues", () => {
     // the only thing that can still catch this.
     const after = { ...TOOLCHAIN, ambientBunVersion: "1.4.2" };
 
-    const issues = collectAttributabilityIssues(CLEAN_REVISION, TOOLCHAIN, after);
+    const issues = collectAttributabilityIssues(
+      CLEAN_REVISION,
+      TOOLCHAIN,
+      after,
+      CLEAN_REVISION
+    );
 
     expect(issues).toHaveLength(1);
     expect(issues[0]).toContain("ambient interpreter version changed");
@@ -295,14 +308,21 @@ describe("collectAttributabilityIssues", () => {
     const after = { ...TOOLCHAIN, ambientBunPath: "/opt/homebrew/bin/bun" };
 
     expect(
-      collectAttributabilityIssues(CLEAN_REVISION, TOOLCHAIN, after).join(" ")
+      collectAttributabilityIssues(
+      CLEAN_REVISION,
+      TOOLCHAIN,
+      after,
+      CLEAN_REVISION
+    ).join(" ")
     ).toContain("ambient interpreter path changed");
   });
 
   test("rejects a resolved interpreter that does not match the pin", () => {
     const off = { ...TOOLCHAIN, resolvedBunVersion: "1.3.10" };
 
-    expect(collectAttributabilityIssues(CLEAN_REVISION, off, off).join(" ")).toContain(
+    expect(collectAttributabilityIssues(CLEAN_REVISION, off, off, CLEAN_REVISION).join(
+      " "
+    )).toContain(
       "does not match the pin"
     );
   });
@@ -315,8 +335,101 @@ describe("collectAttributabilityIssues", () => {
     };
 
     expect(
-      collectAttributabilityIssues(dirty, TOOLCHAIN, TOOLCHAIN).join(" ")
+      collectAttributabilityIssues(dirty, TOOLCHAIN, TOOLCHAIN, dirty).join(" ")
     ).toContain("dirty");
+  });
+});
+
+describe("collectAttributabilityIssues, post-run repository state", () => {
+  test("rejects a sample whose command moved HEAD", () => {
+    const after = { ...CLEAN_REVISION, head: "b".repeat(40) };
+
+    const issues = collectAttributabilityIssues(
+      CLEAN_REVISION,
+      TOOLCHAIN,
+      TOOLCHAIN,
+      after
+    );
+
+    expect(issues.join(" ")).toContain("moved HEAD");
+  });
+
+  test("rejects a sample whose command rewrote bun.lock", () => {
+    // An install measured against the lockfile it then rewrote cannot claim
+    // the toolchain inputs its report records.
+    const after = { ...CLEAN_REVISION, lockfileSha256: "1".repeat(64) };
+
+    const issues = collectAttributabilityIssues(
+      CLEAN_REVISION,
+      TOOLCHAIN,
+      TOOLCHAIN,
+      after
+    );
+
+    expect(issues.join(" ")).toContain("changed bun.lock");
+  });
+
+  test("rejects a sample whose command dirtied the working tree", () => {
+    const after = {
+      ...CLEAN_REVISION,
+      dirty: true,
+      dirtyEntries: ["?? generated.txt"],
+    };
+
+    const issues = collectAttributabilityIssues(
+      CLEAN_REVISION,
+      TOOLCHAIN,
+      TOOLCHAIN,
+      after
+    );
+
+    expect(issues.join(" ")).toContain("changed the working tree");
+  });
+
+  test("rejects a tree whose entries changed without changing in number", () => {
+    // The count is a weaker signal than it looks: swapping one untracked file
+    // for another leaves it identical while the tree has moved.
+    const before = {
+      ...CLEAN_REVISION,
+      dirty: true,
+      dirtyEntries: ["?? one.txt"],
+    };
+    const after = {
+      ...CLEAN_REVISION,
+      dirty: true,
+      dirtyEntries: ["?? two.txt"],
+    };
+
+    const issues = collectAttributabilityIssues(
+      before,
+      TOOLCHAIN,
+      TOOLCHAIN,
+      after
+    );
+
+    expect(issues.join(" ")).toContain("changed the working tree");
+  });
+
+  test("rejects a sample whose post-run state could not be read", () => {
+    const issues = collectAttributabilityIssues(
+      CLEAN_REVISION,
+      TOOLCHAIN,
+      TOOLCHAIN,
+      undefined
+    );
+
+    expect(issues.join(" ")).toContain("could not be read");
+  });
+
+  test("accepts a run that left the repository as it found it", () => {
+    expect(
+      collectAttributabilityIssues(
+        CLEAN_REVISION,
+        TOOLCHAIN,
+        TOOLCHAIN,
+        CLEAN_REVISION
+      )
+    ).toEqual([]);
   });
 });
 
