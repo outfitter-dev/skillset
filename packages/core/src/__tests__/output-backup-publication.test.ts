@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -96,6 +96,29 @@ describe("output backup manifest publication", () => {
     expect(incomplete.length).toBeGreaterThan(0);
     expect(incomplete.every((run) => run.state === "corrupt-or-unavailable")).toBe(true);
     expect(await publicationArtifacts(manifestPath)).toEqual([]);
+  });
+
+  test("keeps sibling inspection isolated when a snapshot directory is unreadable", async () => {
+    if (process.platform === "win32" || process.getuid?.() === 0) return;
+
+    const root = await mkdtemp(join(tmpdir(), "skillset-backup-isolate-"));
+    const first = await persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n"));
+    const unreadable = join(root, ".skillset/snapshots", "deadbeef12");
+    await mkdir(unreadable, { recursive: true });
+    await chmod(unreadable, 0o000);
+    try {
+      const inspection = await inspectOutputBackups(root);
+      expect(inspection.runs).toContainEqual(expect.objectContaining({
+        runId: first.backup?.runId,
+        state: "restorable-now",
+      }));
+      expect(inspection.runs).toContainEqual(expect.objectContaining({
+        runId: "deadbeef12",
+        state: "corrupt-or-unavailable",
+      }));
+    } finally {
+      await chmod(unreadable, 0o700);
+    }
   });
 });
 

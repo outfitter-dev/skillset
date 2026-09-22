@@ -1268,17 +1268,19 @@ async function writeGitBackupStorage(
 
 async function inspectOutputBackupRun(rootPath: string, runId: string): Promise<OutputBackupInspectionRun> {
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
-  if (!(await exists(resolveInside(rootPath, manifestPath)))) {
-    return {
-      detail: "incomplete snapshot: backup manifest has not been published",
-      manifestPath,
-      records: [],
-      runId,
-      state: "corrupt-or-unavailable",
-    };
-  }
   let envelope: OutputBackupManifestEnvelope;
   try {
+    // Keep this probe inside the per-run catch: one unreadable snapshot must
+    // not hide independently inspectable siblings.
+    if (!(await exists(resolveInside(rootPath, manifestPath)))) {
+      return {
+        detail: "incomplete snapshot: backup manifest has not been published",
+        manifestPath,
+        records: [],
+        runId,
+        state: "corrupt-or-unavailable",
+      };
+    }
     envelope = await readBackupManifestEnvelope(rootPath, manifestPath, runId);
   } catch (error) {
     return {
