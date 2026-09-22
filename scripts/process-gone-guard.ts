@@ -5,9 +5,9 @@
  * still running. A test that asserts "this process is gone" must poll
  * `process.kill(pid, 0)` until ESRCH or a deadline — never observe once.
  *
- * This guard rejects the one-shot pattern:
- * `expect(() => process.kill(pid, 0)).toThrow()`
- * Use `expectProcessGone` from `scripts/test-helpers/process.ts` instead.
+ * This guard rejects a one-shot `process.kill(pid, 0)` existence check
+ * wrapped in `expect(...).toThrow()`. Use `expectProcessGone` from
+ * `scripts/test-helpers/process.ts` instead.
  *
  * Run it with `bun run process-gone:guard`.
  */
