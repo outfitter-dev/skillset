@@ -1,10 +1,10 @@
 import { chmod, mkdtemp, readFile, readdir, stat, symlink, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   createTestGitFixtureRoot,
   createTestGitRemote,
@@ -291,7 +291,7 @@ marketplaces:
   });
 
   test("reports unavailable external plugin refs without marketplace writes", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-unavailable-"));
+    const parent = await createTestFixtureRoot("skillset-marketplace-unavailable-");
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -322,7 +322,7 @@ marketplaces:
   });
 
   test("ignores invalid known-index checkouts and falls through to remote resolution", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-marketplace-invalid-known-"));
+    const root = await createTestFixtureRoot("skillset-marketplace-invalid-known-");
     const marketplace = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1033,7 +1033,10 @@ Use this demo skill.
 }
 
 async function fixture(files: Record<string, string>, parent?: string): Promise<string> {
-  const root = await mkdtemp(join(parent ?? tmpdir(), "skillset-marketplace-check-"));
+  const root =
+    parent === undefined
+      ? await createTestFixtureRoot("skillset-marketplace-check-")
+      : await mkdtemp(join(parent, "skillset-marketplace-check-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
