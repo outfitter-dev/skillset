@@ -328,7 +328,7 @@ describe("remote repository cache", () => {
     expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({
       token: successorToken,
     });
-    expect(await Bun.file(displacedPath).exists()).toBe(true);
+    await access(displacedPath);
     await rm(lockPath, { force: true, recursive: true });
     await rm(displacedPath, { force: true, recursive: true });
   });
