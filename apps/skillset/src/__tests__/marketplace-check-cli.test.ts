@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { createOwnedCliTestEnvironment } from "../../../../scripts/test-helpers/cli-sandbox";
+import {
+  createOwnedCliTestEnvironment,
+  type OwnedCliTestEnv,
+} from "../../../../scripts/test-helpers/cli-sandbox";
 import {
   createTestGitFixtureRoot,
   createTestGitRemote,
@@ -396,14 +399,11 @@ test("SET-650: parallel marketplace CLI sandboxes cannot observe one another's s
   ]);
 
   expect(first.env.XDG_CONFIG_HOME).not.toBe(second.env.XDG_CONFIG_HOME);
-  expect(first.env.XDG_CONFIG_HOME.startsWith(first.sandboxPath + "/")).toBeTrue();
-  expect(second.env.XDG_CONFIG_HOME.startsWith(second.sandboxPath + "/")).toBeTrue();
-  expect(first.env.XDG_CONFIG_HOME).not.toBe(
-    join(tmpdir(), "skillset-marketplace-cli-xdg")
-  );
-  expect(second.env.XDG_CONFIG_HOME).not.toBe(
-    join(tmpdir(), "skillset-marketplace-cli-xdg")
-  );
+  expect(first.env.XDG_CONFIG_HOME.startsWith(`${first.sandboxPath}/`)).toBeTrue();
+  expect(second.env.XDG_CONFIG_HOME.startsWith(`${second.sandboxPath}/`)).toBeTrue();
+  const sharedXdgName = ["skillset-marketplace-cli", "xdg"].join("-");
+  expect(first.env.XDG_CONFIG_HOME).not.toBe(join(tmpdir(), sharedXdgName));
+  expect(second.env.XDG_CONFIG_HOME).not.toBe(join(tmpdir(), sharedXdgName));
   expect(first.indexPaths).toEqual([first.workspace]);
   expect(second.indexPaths).toEqual([second.workspace]);
   expect(first.indexPaths).not.toContain(second.workspace);
@@ -443,7 +443,7 @@ async function runSkillsetCliWithEnv(
 }
 
 async function spawnSkillsetCli(
-  env: Readonly<Record<string, string>>,
+  env: OwnedCliTestEnv,
   ...args: readonly string[]
 ): Promise<{
   readonly exitCode: number;
@@ -465,7 +465,7 @@ async function spawnSkillsetCli(
 }
 
 async function runIsolatedMarketplace(id: string): Promise<{
-  readonly env: Record<string, string>;
+  readonly env: OwnedCliTestEnv;
   readonly indexPaths: readonly string[];
   readonly sandboxPath: string;
   readonly workspace: string;

@@ -10,6 +10,7 @@ import {
   FIXED_SHARED_TEST_STATE_ROOT_ALLOWLIST,
   isCliTestRunnerSite,
   isSandboxDescriptorConstructionSite,
+  RECORDED_CLI_PROCESS_BOUNDARY_SITES,
   RECORDED_CLI_TEST_RUNNER_SITES,
   RECORDED_SANDBOX_DESCRIPTOR_SITES,
   scanFixedSharedTestStateRoots,
@@ -25,10 +26,12 @@ test("SET-650: owned CLI environments take HOME, TMP, XDG, provider roots, and s
     },
   });
 
-  expect(owned.env.HOME).toBe(process.env.HOME);
-  expect(owned.env.TMPDIR.startsWith(sandbox.descriptor.sandboxPath + "/")).toBeTrue();
-  expect(owned.env.TMP).toBe(owned.env.TMPDIR);
-  expect(owned.env.TEMP).toBe(owned.env.TMPDIR);
+  const home = process.env.HOME;
+  if (home === undefined) throw new Error("HOME must be set in the owned test sandbox");
+  expect(owned.home).toBe(home);
+  expect(owned.env.HOME).toBe(home);
+  expect(owned.tmp.startsWith(`${sandbox.descriptor.sandboxPath}/`)).toBeTrue();
+  expect(owned.env.TMPDIR).toBe(process.env.TMPDIR);
   expect(owned.xdg).toEqual(sandbox.xdg);
   expect(owned.env.XDG_CONFIG_HOME).toBe(sandbox.xdg.config);
   expect(owned.env.CLAUDE_CONFIG_DIR.startsWith(sandbox.xdg.config + "/")).toBeTrue();
@@ -117,25 +120,33 @@ test("SET-650: remaining CLI runner and descriptor sites stay recorded for SET-6
   const descriptors: string[] = [];
   for (const file of await listTrackedTestFiles()) {
     const content = await Bun.file(file).text();
-    if (isCliTestRunnerSite(content)) runners.push(file);
+    if (isCliTestRunnerSite(file, content)) runners.push(file);
     if (isSandboxDescriptorConstructionSite(file, content)) descriptors.push(file);
   }
 
   expect(runners).toEqual([...RECORDED_CLI_TEST_RUNNER_SITES]);
   expect(descriptors).toEqual([...RECORDED_SANDBOX_DESCRIPTOR_SITES]);
+  for (const file of RECORDED_CLI_PROCESS_BOUNDARY_SITES) {
+    expect(await Bun.file(file).exists()).toBe(true);
+  }
 });
 
 test("SET-650: runner detection ignores inventory and fixture mentions of cli.ts", () => {
   expect(
     isCliTestRunnerSite(
+      "apps/skillset/src/__tests__/inventory.test.ts",
       'const files = ["create-cli.ts", "distribution-cli.ts"];'
     )
   ).toBe(false);
   expect(
-    isCliTestRunnerSite('writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");')
+    isCliTestRunnerSite(
+      "scripts/__tests__/bootstrap.test.ts",
+      'writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");'
+    )
   ).toBe(false);
   expect(
     isCliTestRunnerSite(
+      "apps/skillset/src/__tests__/example.test.ts",
       'const proc = Bun.spawn({ cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args] });'
     )
   ).toBe(true);

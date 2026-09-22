@@ -12,8 +12,24 @@ import {
   type ValidatedTestSandbox,
 } from "../../apps/skillset/src/verification-sandbox";
 
+export interface OwnedCliTestEnv extends Record<string, string> {
+  readonly CLAUDE_CONFIG_DIR: string;
+  readonly CODEX_HOME: string;
+  readonly CURSOR_CONFIG_DIR: string;
+  readonly GIT_CONFIG_GLOBAL: string;
+  readonly GIT_CONFIG_NOSYSTEM: string;
+  readonly GIT_CONFIG_SYSTEM: string;
+  readonly GIT_TERMINAL_PROMPT: string;
+  readonly HOME: string;
+  readonly NODE_ENV: string;
+  readonly XDG_CACHE_HOME: string;
+  readonly XDG_CONFIG_HOME: string;
+  readonly XDG_DATA_HOME: string;
+  readonly XDG_STATE_HOME: string;
+}
+
 export interface OwnedCliTestEnvironment {
-  readonly env: Record<string, string>;
+  readonly env: OwnedCliTestEnv;
   readonly git: ValidatedTestSandbox["git"];
   readonly home: string;
   readonly provider: {
@@ -66,22 +82,28 @@ export const RECORDED_CLI_TEST_RUNNER_SITES = [
   "apps/skillset/src/__tests__/isolated-build.test.ts",
   "apps/skillset/src/__tests__/known-skillsets-cli.test.ts",
   "apps/skillset/src/__tests__/lookup-cli.test.ts",
-  "apps/skillset/src/__tests__/lookup-pty.test.ts",
   "apps/skillset/src/__tests__/marketplace-check-cli.test.ts",
-  "apps/skillset/src/__tests__/marketplace-pty.test.ts",
   "apps/skillset/src/__tests__/new-interactive.test.ts",
   "apps/skillset/src/__tests__/new-source.test.ts",
   "apps/skillset/src/__tests__/operation-receipt.test.ts",
   "apps/skillset/src/__tests__/plugin-adoption.test.ts",
   "apps/skillset/src/__tests__/project-use-status.test.ts",
   "apps/skillset/src/__tests__/provider-format-updates.test.ts",
-  "apps/skillset/src/__tests__/reconcile-pty.test.ts",
   "apps/skillset/src/__tests__/report-cli.test.ts",
   "apps/skillset/src/__tests__/resolve.test.ts",
-  "apps/skillset/src/__tests__/runtime-hooks.test.ts",
   "apps/skillset/src/__tests__/skillset.test.ts",
-  "apps/skillset/src/__tests__/standard-profile-bundle.test.ts",
   "apps/skillset/src/__tests__/test-interactive.test.ts",
+] as const;
+
+/**
+ * Process-boundary suites that spawn the CLI through expect/PTY rather than
+ * `Bun.spawn`. SET-625 keeps these in the real-spawn tier.
+ */
+export const RECORDED_CLI_PROCESS_BOUNDARY_SITES = [
+  "apps/skillset/src/__tests__/interactive-cli-pty.test.ts",
+  "apps/skillset/src/__tests__/lookup-pty.test.ts",
+  "apps/skillset/src/__tests__/marketplace-pty.test.ts",
+  "apps/skillset/src/__tests__/reconcile-pty.test.ts",
 ] as const;
 
 /**
@@ -90,7 +112,6 @@ export const RECORDED_CLI_TEST_RUNNER_SITES = [
  * not a construction site.
  */
 export const RECORDED_SANDBOX_DESCRIPTOR_SITES = [
-  "apps/skillset/src/__tests__/interactive-cli-pty.test.ts",
   "apps/skillset/src/__tests__/known-skillsets-cli.test.ts",
   "apps/skillset/src/__tests__/report-export-request.test.ts",
   "apps/skillset/src/__tests__/report-parent-export.test.ts",
@@ -106,6 +127,21 @@ export const FIXED_SHARED_TEST_STATE_ROOT_ALLOWLIST: readonly FixedSharedTestSta
       prefix: "/tmp/skillset-test-owned/",
       reason:
         "unit-test expected values for inherited PTY environment composition",
+    },
+    {
+      file: "scripts/__tests__/cli-sandbox.test.ts",
+      prefix: "skillset-marketplace-cli-xdg",
+      reason: "scanner examples for the fixed shared-root guard",
+    },
+    {
+      file: "scripts/__tests__/cli-sandbox.test.ts",
+      prefix: "/tmp/skillset-shared-xdg",
+      reason: "scanner examples for the fixed shared-root guard",
+    },
+    {
+      file: "scripts/__tests__/cli-sandbox.test.ts",
+      prefix: "/tmp/skillset-test-owned/",
+      reason: "scanner examples for the fixed shared-root guard",
     },
   ];
 
@@ -132,9 +168,6 @@ export async function createOwnedCliTestEnvironment(
     GIT_TERMINAL_PROMPT: "0",
     HOME: owned.home,
     NODE_ENV: "test",
-    TEMP: owned.tmp,
-    TMP: owned.tmp,
-    TMPDIR: owned.tmp,
     [TEST_SANDBOX_ENV]: sandbox.descriptorPath,
     XDG_CACHE_HOME: sandbox.xdg.cache,
     XDG_CONFIG_HOME: sandbox.xdg.config,
@@ -142,59 +175,57 @@ export async function createOwnedCliTestEnvironment(
     XDG_STATE_HOME: sandbox.xdg.state,
     ...options.env,
   };
-  const env = gitSafeEnv(merged);
-  env.CLAUDE_CONFIG_DIR = requireOwnedPath(
-    env.CLAUDE_CONFIG_DIR,
-    sandbox.descriptor.sandboxPath,
-    "CLAUDE_CONFIG_DIR"
-  );
-  env.CODEX_HOME = requireOwnedPath(
-    env.CODEX_HOME,
-    sandbox.descriptor.sandboxPath,
-    "CODEX_HOME"
-  );
-  env.CURSOR_CONFIG_DIR = requireOwnedPath(
-    env.CURSOR_CONFIG_DIR,
-    sandbox.descriptor.sandboxPath,
-    "CURSOR_CONFIG_DIR"
-  );
-  env.TEMP = requireOwnedPath(env.TEMP, sandbox.descriptor.sandboxPath, "TEMP");
-  env.TMP = requireOwnedPath(env.TMP, sandbox.descriptor.sandboxPath, "TMP");
-  env.TMPDIR = requireOwnedPath(
-    env.TMPDIR,
-    sandbox.descriptor.sandboxPath,
-    "TMPDIR"
-  );
-  env.XDG_CACHE_HOME = requireOwnedPath(
-    env.XDG_CACHE_HOME,
-    sandbox.descriptor.sandboxPath,
-    "XDG_CACHE_HOME"
-  );
-  env.XDG_CONFIG_HOME = requireOwnedPath(
-    env.XDG_CONFIG_HOME,
-    sandbox.descriptor.sandboxPath,
-    "XDG_CONFIG_HOME"
-  );
-  env.XDG_DATA_HOME = requireOwnedPath(
-    env.XDG_DATA_HOME,
-    sandbox.descriptor.sandboxPath,
-    "XDG_DATA_HOME"
-  );
-  env.XDG_STATE_HOME = requireOwnedPath(
-    env.XDG_STATE_HOME,
-    sandbox.descriptor.sandboxPath,
-    "XDG_STATE_HOME"
-  );
-  env.GIT_CONFIG_GLOBAL = sandbox.git.global;
-  env.GIT_CONFIG_SYSTEM = sandbox.git.system;
-  env.GIT_TERMINAL_PROMPT = "0";
-  env[TEST_SANDBOX_ENV] = sandbox.descriptorPath;
+  const raw = gitSafeEnv(merged);
+  const env: OwnedCliTestEnv = {
+    ...raw,
+    CLAUDE_CONFIG_DIR: requireOwnedPath(
+      raw.CLAUDE_CONFIG_DIR,
+      sandbox.descriptor.sandboxPath,
+      "CLAUDE_CONFIG_DIR"
+    ),
+    CODEX_HOME: requireOwnedPath(
+      raw.CODEX_HOME,
+      sandbox.descriptor.sandboxPath,
+      "CODEX_HOME"
+    ),
+    CURSOR_CONFIG_DIR: requireOwnedPath(
+      raw.CURSOR_CONFIG_DIR,
+      sandbox.descriptor.sandboxPath,
+      "CURSOR_CONFIG_DIR"
+    ),
+    GIT_CONFIG_GLOBAL: sandbox.git.global,
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CONFIG_SYSTEM: sandbox.git.system,
+    GIT_TERMINAL_PROMPT: "0",
+    HOME: raw.HOME ?? owned.home,
+    NODE_ENV: raw.NODE_ENV ?? "test",
+    [TEST_SANDBOX_ENV]: sandbox.descriptorPath,
+    XDG_CACHE_HOME: requireOwnedPath(
+      raw.XDG_CACHE_HOME,
+      sandbox.descriptor.sandboxPath,
+      "XDG_CACHE_HOME"
+    ),
+    XDG_CONFIG_HOME: requireOwnedPath(
+      raw.XDG_CONFIG_HOME,
+      sandbox.descriptor.sandboxPath,
+      "XDG_CONFIG_HOME"
+    ),
+    XDG_DATA_HOME: requireOwnedPath(
+      raw.XDG_DATA_HOME,
+      sandbox.descriptor.sandboxPath,
+      "XDG_DATA_HOME"
+    ),
+    XDG_STATE_HOME: requireOwnedPath(
+      raw.XDG_STATE_HOME,
+      sandbox.descriptor.sandboxPath,
+      "XDG_STATE_HOME"
+    ),
+  };
   await Promise.all(
     [
       env.CLAUDE_CONFIG_DIR,
       env.CODEX_HOME,
       env.CURSOR_CONFIG_DIR,
-      env.TMPDIR,
       env.XDG_CACHE_HOME,
       env.XDG_CONFIG_HOME,
       env.XDG_DATA_HOME,
@@ -204,14 +235,14 @@ export async function createOwnedCliTestEnvironment(
   return {
     env,
     git: sandbox.git,
-    home: env.HOME ?? owned.home,
+    home: env.HOME,
     provider: {
       claude: env.CLAUDE_CONFIG_DIR,
       codex: env.CODEX_HOME,
       cursor: env.CURSOR_CONFIG_DIR,
     },
     sandbox,
-    tmp: env.TMPDIR,
+    tmp: owned.tmp,
     xdg: {
       cache: env.XDG_CACHE_HOME,
       config: env.XDG_CONFIG_HOME,
@@ -255,18 +286,17 @@ export function scanFixedSharedTestStateRoots(
   return findings;
 }
 
-export function isCliTestRunnerSite(content: string): boolean {
-  if (!/\bcli\.ts\b/u.test(content) || !/\bBun\.spawn(?:Sync)?\b/u.test(content)) {
+export function isCliTestRunnerSite(file: string, content: string): boolean {
+  if (file === "scripts/__tests__/cli-sandbox.test.ts") return false;
+  if (!/(?:["'`]|\/)cli\.ts\b/u.test(content) || !/\bBun\.spawn(?:Sync)?\b/u.test(content)) {
     return false;
   }
   return (
-    /Bun\.spawn(?:Sync)?\s*\(\s*(?:\[[^\]]*)?["'`][^"'`]*cli\.ts/u.test(content) ||
-    /Bun\.spawn(?:Sync)?\s*\(\s*(?:\[[^\]]*)?(?:process\.execPath|["'`]bun["'`])/u.test(
+    /cmd:\s*\[\s*["'`]bun["'`]\s*,\s*join\([^)]*cli\.ts/u.test(content) ||
+    /\[\s*(?:process\.execPath|["'`]bun["'`])[\s\S]{0,240}cli\.ts/u.test(content) ||
+    (/Bun\.spawn(?:Sync)?\(\s*\[\s*(?:process\.execPath|["'`]bun["'`])[\s\S]{0,240}(?:CLI|cli|cliPath)/u.test(
       content
-    ) &&
-      /(?:const|let)\s+(?:CLI|cli|cliPath)\b[\s\S]{0,400}cli\.ts/u.test(content) ||
-    /cmd:\s*\[["'`]bun["'`]\s*,\s*join\([^)]*cli\.ts/u.test(content) ||
-    /\[["'`]bun["'`]\s*,\s*join\([^)]*cli\.ts/u.test(content)
+    ) && /(?:const|let)\s+(?:CLI|cli|cliPath)\s*=/u.test(content))
   );
 }
 
