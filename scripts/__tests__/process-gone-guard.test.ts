@@ -5,24 +5,29 @@ import {
   scanImmediateProcessGoneAssertions,
 } from "../process-gone-guard";
 
+function goneAssertion(pidExpr: string): string {
+  return `expect(() => process.kill(${pidExpr}, 0))` + ".toThrow();";
+}
+
 describe("process-gone assertion guard", () => {
   test("SET-633: flags one-shot process.kill(pid, 0) gone assertions", () => {
+    const pidGone = goneAssertion("pid");
     expect(
       scanImmediateProcessGoneAssertions(
         "apps/skillset/src/__tests__/example.test.ts",
-        "expect(() => process.kill(pid, 0)).toThrow();"
+        pidGone
       )
     ).toEqual([
       {
         file: "apps/skillset/src/__tests__/example.test.ts",
         line: 1,
-        text: "expect(() => process.kill(pid, 0)).toThrow();",
+        text: pidGone,
       },
     ]);
     expect(
       scanImmediateProcessGoneAssertions(
         "apps/skillset/src/__tests__/example.test.ts",
-        "expect(() => process.kill(childPid!, 0)).toThrow();"
+        goneAssertion("childPid!")
       )
     ).toHaveLength(1);
   });
