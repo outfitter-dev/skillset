@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -14,6 +13,7 @@ import type {
   MarketplacePluginEntryConfig,
   RenderedFile,
 } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const decoder = new TextDecoder();
 
@@ -452,9 +452,7 @@ marketplaces:
             logo: ./assets/logo.svg
 `,
     });
-    const outside = await mkdtemp(
-      join(tmpdir(), "skillset-marketplace-asset-")
-    );
+    const outside = await createTestFixtureRoot("skillset-marketplace-asset-");
     await Bun.write(join(outside, "logo.svg"), "outside");
     const [plugin] = graph.plugins;
     if (plugin === undefined) throw new Error("missing fixture plugin alpha");
@@ -583,7 +581,7 @@ function json(
 async function fixtureGraph(
   files: Record<string, string>
 ): Promise<BuildGraph> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-openai-marketplace-"));
+  const root = await createTestFixtureRoot("skillset-openai-marketplace-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {

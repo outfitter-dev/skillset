@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { chmod, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
 import { renderResultsForLock } from "../build";
@@ -29,6 +28,7 @@ import { loadBuildGraph } from "../resolver";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
 import { withLockProvenance } from "../lock-provenance";
 import type { JsonRecord } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -3541,7 +3541,7 @@ async function renderErrorResults(root: string): Promise<readonly SkillsetRender
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-render-build-"));
+  const root = await createTestFixtureRoot("skillset-render-build-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
