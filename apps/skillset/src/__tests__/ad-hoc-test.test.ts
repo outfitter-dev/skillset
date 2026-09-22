@@ -7,6 +7,8 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
+import { expectProcessGone } from "../../../../scripts/test-helpers/process";
+
 import {
   listAdHocTestRuns,
   type AdHocTestStatus,
@@ -580,7 +582,7 @@ Use this skill.
     state: "failed",
   });
   for (const pid of providerPids) {
-    expect(() => process.kill(pid, 0)).toThrow();
+    await expectProcessGone(pid);
   }
 });
 

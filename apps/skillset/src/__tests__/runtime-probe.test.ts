@@ -3,6 +3,7 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
+import { expectProcessGone } from "../../../../scripts/test-helpers/process";
 import { runRuntimeProbe } from "../runtime-probe";
 
 function command(bin: string, cwd: string) {
@@ -37,7 +38,7 @@ test("runtime probe cancels a spawned process when onProcess aborts", async () =
   ).rejects.toMatchObject({ name: "AbortError" });
 
   expect(pid).toBeDefined();
-  expect(() => process.kill(pid!, 0)).toThrow();
+  await expectProcessGone(pid!);
 });
 
 test("runtime probe terminates a spawned process when an output callback fails", async () => {
@@ -63,8 +64,8 @@ test("runtime probe terminates a spawned process when an output callback fails",
 
   expect(pid).toBeDefined();
   expect(childPid).toBeDefined();
-  expect(() => process.kill(pid!, 0)).toThrow();
-  expect(() => process.kill(childPid!, 0)).toThrow();
+  await expectProcessGone(pid!);
+  await expectProcessGone(childPid!);
 });
 
 test("runtime probe AbortSignal terminates descendants holding provider pipes", async () => {
@@ -94,8 +95,8 @@ test("runtime probe AbortSignal terminates descendants holding provider pipes", 
   expect(performance.now() - startedAt).toBeLessThan(2_000);
   expect(pid).toBeDefined();
   expect(childPid).toBeDefined();
-  expect(() => process.kill(pid!, 0)).toThrow();
-  expect(() => process.kill(childPid!, 0)).toThrow();
+  await expectProcessGone(pid!);
+  await expectProcessGone(childPid!);
 });
 
 test("runtime probe timeout terminates descendants holding provider pipes", async () => {
@@ -124,8 +125,8 @@ test("runtime probe timeout terminates descendants holding provider pipes", asyn
   expect(performance.now() - startedAt).toBeLessThan(2_000);
   expect(pid).toBeDefined();
   expect(childPid).toBeDefined();
-  expect(() => process.kill(pid!, 0)).toThrow();
-  expect(() => process.kill(childPid!, 0)).toThrow();
+  await expectProcessGone(pid!);
+  await expectProcessGone(childPid!);
 });
 
 test("runtime probe retains binary version only when proof requests it", async () => {

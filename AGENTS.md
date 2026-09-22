@@ -63,6 +63,7 @@ bun run public-closure:guard
 bun run target-topology:guard
 bun run change-stream:guard
 bun run git-env:guard
+bun run process-gone:guard
 ./scripts/bootstrap.sh [repo|agent|codex|claude|cursor|doctor|teardown]
 ```
 
@@ -77,6 +78,8 @@ bun run git-env:guard
 `bun run git-env:guard` checks direct production and test spawn calls whose executable is a `"git"` literal or a locally initialized argv alias, and fails when they omit the shared sanitized environment (`gitSafeEnv`, `gitReadOnlyEnv`, or `testGitEnv`). Command wrappers must sanitize at their spawn site because the syntax guard does not follow values across function parameters. Hook-exported `GIT_DIR` overrides `git -C` and cwd discovery; the helper lives in `@skillset/core` and is the only definition.
 
 `bun run change-stream:guard` keeps the append-only `.skillset/changes/*.jsonl` streams safe to merge. `.gitattributes` declares the built-in `merge=union` strategy for them so cross-branch merges and restacks keep both sides' appended records instead of conflicting; the guard checks what union cannot — trailing newline, valid JSONL objects, unique record ids, the declared `merge=union` attribute, and no newly introduced timestamp inversion. Record order is load-bearing because release/pending state folds events in file order. Five inversions predate the guard and are recorded as exact `previousId -> id` pairs in `INVERSION_ALLOWANCES`; never sort a stream to fix a failure, reorder only the newly appended block.
+
+`bun run process-gone:guard` rejects one-shot `expect(() => process.kill(pid, 0)).toThrow()` "process is gone" assertions in `apps/`, `packages/`, and `scripts/`. After a process group is killed, Linux can briefly report a descendant as still running; tests must `await expectProcessGone(pid)` from `scripts/test-helpers/process.ts`, which polls until ESRCH or a deadline and still fails a genuine survivor.
 
 `bun run target-topology:guard` uses the TypeScript AST and the canonical schema target registry to reject hand-enumerated target collections, same-subject target equality subsets, and implicit multi-target dispatch fallbacks. Deliberate schema declarations, historical migrations, and provider-native format boundaries require exact per-match allowlist evidence.
 
