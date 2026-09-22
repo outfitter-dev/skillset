@@ -1,9 +1,9 @@
 /* eslint-disable func-style -- Resource fixtures stay adjacent to their focused assertions. */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   createEffectiveSkillResourcePlanner,
@@ -17,17 +17,13 @@ describe("effective skill resources", () => {
   let rootPath: string;
 
   beforeEach(async () => {
-    rootPath = await mkdtemp(join(tmpdir(), "skillset-effective-resources-"));
+    rootPath = await createTestFixtureRoot("skillset-effective-resources-");
     context = {
       label: ".skillset/plugins/demo/skills/example/SKILL.md",
       pluginSharedPath: join(rootPath, ".skillset/plugins/demo/shared"),
       sharedPath: join(rootPath, ".skillset/shared"),
       sourceRootPath: join(rootPath, ".skillset"),
     };
-  });
-
-  afterEach(async () => {
-    await rm(rootPath, { force: true, recursive: true });
   });
 
   test("plans both scopes and all four implied resource groups", async () => {
