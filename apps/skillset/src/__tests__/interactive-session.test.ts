@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { cliErrorExitCode } from "../cli-core";
 import { runInitCommand } from "../init-cli";
@@ -470,7 +470,7 @@ describe("SET-291 prompt adapters", () => {
   });
 
   test("the init orchestration boundary previews then leaves default-No repositories untouched", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-interactive-init-"));
+    const root = await createTestFixtureRoot("skillset-interactive-init-");
     await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([
       { kind: "select", value: "all" },
@@ -512,7 +512,7 @@ describe("SET-291 prompt adapters", () => {
   });
 
   test("explicit adoption skips the matching prompt but collects missing choices", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-explicit-init-"));
+    const root = await createTestFixtureRoot("skillset-explicit-init-");
     await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([
       { kind: "checkbox", value: ["claude", "codex"] },
@@ -552,7 +552,7 @@ describe("SET-291 prompt adapters", () => {
   });
 
   test("machine init bypasses an injected interactive session", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-machine-init-"));
+    const root = await createTestFixtureRoot("skillset-machine-init-");
     await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([]);
     const session = createInteractiveSession({
