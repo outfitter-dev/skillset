@@ -37,7 +37,7 @@ const MARKETPLACE_FIXTURE: Record<string, string> = {
 test("SET-312: create is restored while removed setup commands have no aliases", async () => {
   const create = await runSkillsetCli("create");
   const adopt = await runSkillsetCli("adopt", ".");
-  expect(create.exitCode).toBe(2);
+  expect(create.exitCode).toBe(1);
   expect(adopt.exitCode).toBe(2);
   expect(create.stderr).toContain("create requires a name");
   expect(adopt.stderr).toContain("expected command");

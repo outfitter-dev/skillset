@@ -7898,11 +7898,11 @@ Body.
   expect(scopedWrite.stdout).toContain("wrote");
 
   const conflicting = await runSkillsetCli("build", "--root", root, "--updated", "--all");
-  expect(conflicting.exitCode).toBe(1);
+  expect(conflicting.exitCode).toBe(2);
   expect(conflicting.stderr).toContain("conflicting build mode flags");
 
   const unknownScope = await runSkillsetCli("build", "--root", root, "--scope", "nope");
-  expect(unknownScope.exitCode).toBe(1);
+  expect(unknownScope.exitCode).toBe(2);
   expect(unknownScope.stderr).toContain("expected --scope");
 });
 

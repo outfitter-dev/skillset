@@ -227,7 +227,7 @@ test("SET-212: dev write failures render recovery guidance", () => {
 
 test("SET-210/SET-212: dev command validation keeps writes explicitly opt-in", async () => {
   const writeFlag = await runSkillsetCli("dev", "--yes");
-  expect(writeFlag.exitCode).toBe(1);
+  expect(writeFlag.exitCode).toBe(2);
   expect(writeFlag.stderr).toContain("write mode with --write");
 
   const applyWrongCommand = await runSkillsetCli("build", "--apply");

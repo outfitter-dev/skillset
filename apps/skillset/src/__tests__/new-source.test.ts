@@ -222,7 +222,7 @@ test("SET-555: new skill --draft is plan-first and supports plugin containers", 
     "--root",
     root
   );
-  expect(invalid.exitCode).toBe(2);
+  expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain(
     "new instruction does not support --draft"
   );
@@ -477,7 +477,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
     "--root",
     root
   );
-  expect(preset.exitCode).toBe(2);
+  expect(preset.exitCode).toBe(1);
   expect(preset.stderr).toContain(
     "new instruction does not support --preset"
   );

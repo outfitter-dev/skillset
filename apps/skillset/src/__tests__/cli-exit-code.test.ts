@@ -78,12 +78,14 @@ const runCli = async (args: readonly string[]): Promise<number> => {
 };
 
 describe("SET-635 shared CLI exit classes", () => {
-  test.each(classifierCases)(
-    "classifies $name as $expected in every mode",
-    ({ error, expected }) => {
-      expect(cliExitCode(error)).toBe(expected);
+  test("classifies representative failures the same in every mode", () => {
+    for (const { error, expected, name } of classifierCases) {
+      expect({ name, exitCode: cliExitCode(error) }).toEqual({
+        name,
+        exitCode: expected,
+      });
     }
-  );
+  });
 
   test("human and --json modes share one classifier for representative failures", async () => {
     for (const { expected, human, json, name } of spawnedCases) {

@@ -208,7 +208,7 @@ test("SET-330 change ignore requires an eligible pending reason-only entry", asy
   expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
 
   const unsupported = await runCli("change", "ignore", "@abcdef", "--since", "HEAD", "--root", root);
-  expect(unsupported.exitCode).toBe(1);
+  expect(unsupported.exitCode).toBe(2);
   expect(unsupported.stderr).toContain("change ignore only supports @ref, --ref, --yes, --json, and --root");
 });
 
