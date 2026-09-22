@@ -18,6 +18,8 @@ Adaptive project agents render as TOML under `.codex/agents/`. Adaptive instruct
 
 For exact source and destination behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [instructions](../features/instructions.md), [hooks](../features/hooks.md), [apps](../features/apps.md), and [tools policy](../features/tools-policy.md).
 
+With `compile.session_start_hook: on` (or eligible `auto`), Skillset composes one advisory project SessionStart command into `.codex/hooks.json`. The path is drawn from the checked-in provider-location evidence and shared with `hooks print --agent-runtime --target codex`; plugin hooks remain a separate output surface. The command reports stale output but does not rebuild or grant runtime trust.
+
 ## Feature Support
 
 <!-- skillset:generated:start provider-feature-support -->

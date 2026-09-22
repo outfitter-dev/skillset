@@ -36,6 +36,7 @@ or `auto` to control the single Skillset-owned project entry.
 - Treat user-level settings mutation as out of scope for `skillset build`, `check`, `diff`, `init`, and `create`.
 - Keep manually suggested PostToolUse and Stop settings separate from the compiled SessionStart entry; neither build nor print installs or trusts runtime hooks.
 - If an earlier local build left Skillset's SessionStart command in `.claude/settings.local.json`, remove only that entry before building the committed `.claude/settings.json` destination. Skillset stops rather than run both copies.
+- After turning the hook off, a source-backed settings island can retain foreign edits already present in the project file. If that authored island later changes too, reconcile the two versions before rebuilding; Skillset will not silently discard the retained edits.
 - Do not use settings as an implicit escape hatch for an unsupported [destination](../../glossary.md#destination).
 
 ## Provenance
