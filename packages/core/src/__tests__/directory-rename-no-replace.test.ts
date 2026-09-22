@@ -13,6 +13,7 @@ import {
 import nodePath from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
+import { reapOwnedProcess, waitForPath } from "../../../../scripts/test-helpers/wait";
 import {
   renameDirectoryNoReplace,
   toWindowsExtendedPath,
@@ -48,9 +49,7 @@ if (import.meta.main && workerIndex !== -1) {
     throw new Error("directory rename test worker is missing an argument");
   }
   await writeFile(readyPath, "ready\n");
-  while (await missing(gatePath)) {
-    await Bun.sleep(1);
-  }
+  await waitForPath(gatePath, "directory-rename race gate");
   process.stdout.write(
     JSON.stringify(renameDirectoryNoReplace(sourcePath, destinationPath))
   );
@@ -280,45 +279,50 @@ if (import.meta.main && workerIndex !== -1) {
               { stderr: "pipe", stdout: "pipe" }
             )
           );
-          while (
-            await Promise.all(
-              children.map((child) => missing(child.readyPath))
-            ).then((states) => states.some(Boolean))
-          ) {
-            await Bun.sleep(1);
-          }
-          await writeFile(gatePath, "go\n");
+          try {
+            for (const child of children) {
+              await waitForPath(
+                child.readyPath,
+                `directory-rename worker ${child.name} ready marker`
+              );
+            }
+            await writeFile(gatePath, "go\n");
 
-          const results = await Promise.all(
-            processes.map(async (process) => {
-              const [exitCode, stdout, stderr] = await Promise.all([
-                process.exited,
-                new Response(process.stdout).text(),
-                new Response(process.stderr).text(),
-              ]);
-              expect(stderr).toBe("");
-              expect(exitCode).toBe(0);
-              return JSON.parse(stdout) as DirectoryRenameNoReplaceResult;
-            })
-          );
+            const results = await Promise.all(
+              processes.map(async (process) => {
+                const [exitCode, stdout, stderr] = await Promise.all([
+                  process.exited,
+                  new Response(process.stdout).text(),
+                  new Response(process.stderr).text(),
+                ]);
+                expect(stderr).toBe("");
+                expect(exitCode).toBe(0);
+                return JSON.parse(stdout) as DirectoryRenameNoReplaceResult;
+              })
+            );
 
-          expect(results.map((result) => result.kind).toSorted()).toEqual([
-            "installed",
-            "occupied",
-          ]);
-          const marker = await readFile(
-            nodePath.join(destinationPath, "marker.txt"),
-            "utf-8"
-          );
-          const winner = marker.trim();
-          expect(["a", "b"]).toContain(winner);
-          const loser = winner === "a" ? "b" : "a";
-          expect(
-            await readFile(
-              nodePath.join(root, `source-${loser}`, "marker.txt"),
+            expect(results.map((result) => result.kind).toSorted()).toEqual([
+              "installed",
+              "occupied",
+            ]);
+            const marker = await readFile(
+              nodePath.join(destinationPath, "marker.txt"),
               "utf-8"
-            )
-          ).toBe(`${loser}\n`);
+            );
+            const winner = marker.trim();
+            expect(["a", "b"]).toContain(winner);
+            const loser = winner === "a" ? "b" : "a";
+            expect(
+              await readFile(
+                nodePath.join(root, `source-${loser}`, "marker.txt"),
+                "utf-8"
+              )
+            ).toBe(`${loser}\n`);
+          } finally {
+            for (const process of processes) {
+              reapOwnedProcess(process);
+            }
+          }
         });
       }
     );

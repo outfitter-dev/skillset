@@ -5,6 +5,7 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
+import { waitForPath } from "../../../../scripts/test-helpers/wait";
 import {
   readSkillsetEvalStatus,
   runSkillsetEvals,
@@ -185,7 +186,7 @@ test("SET-387: provider infrastructure failures and cancellation stay distinct f
     signal: controller.signal,
     xdg,
   });
-  await waitForPath(started);
+  await waitForPath(started, "eval provider trial start marker");
   controller.abort();
   const cancelled = await running;
   expect(cancelled.trials[0]).toMatchObject({
@@ -225,18 +226,26 @@ test("SET-387: cancellation between trials preserves completed evidence and fail
       ],
     }),
   });
-  const marker = join(root, "first-complete");
+  const firstComplete = join(root, "first-complete");
+  const secondStarted = join(root, "second-started");
   const controller = new AbortController();
   const run = runSkillsetEvals(root, {
-    env: { ...process.env, EVAL_MARKER: marker, SKILLSET_TEST_CODEX_BIN: await betweenTrialCodexBin(root) },
+    env: {
+      ...process.env,
+      EVAL_TRIAL1_MARKER: firstComplete,
+      EVAL_TRIAL2_MARKER: secondStarted,
+      SKILLSET_TEST_CODEX_BIN: await betweenTrialCodexBin(root),
+    },
     signal: controller.signal,
     xdg: { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } },
   });
-  const markerDeadline = Date.now() + 1_000;
-  while (!await Bun.file(marker).exists() && Date.now() < markerDeadline) await Bun.sleep(5);
-  expect(await Bun.file(marker).exists()).toBe(true);
-  await Bun.sleep(30);
-  controller.abort();
+  try {
+    await waitForPath(firstComplete, "eval trial 1 completion marker");
+    await waitForPath(secondStarted, "eval trial 2 start marker");
+    controller.abort();
+  } finally {
+    controller.abort();
+  }
   const report = await run;
   expect(report).toMatchObject({ state: "failed" });
   expect(report.trials[0]).toMatchObject({ classification: "completed", evalId: 1 });
@@ -385,22 +394,16 @@ async function sleepingCodexBin(
   return executable(root, "sleeping-codex", `#!/bin/sh\n${announce}sleep 10\n`);
 }
 
-/** Wait for a path to appear, failing loudly rather than hanging. */
-async function waitForPath(path: string, timeoutMs = 10_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await Bun.file(path).exists()) return;
-    await Bun.sleep(10);
-  }
-  throw new Error(`timed out after ${timeoutMs}ms waiting for ${path}`);
-}
-
 async function interleavedCodexBin(root: string): Promise<string> {
   return executable(root, "interleaved-codex", "#!/bin/sh\nprintf 'stdout one\\n'\nprintf 'stderr one\\n' >&2\nprintf 'stdout two\\n'\nprintf 'stderr two\\n' >&2\n");
 }
 
 async function betweenTrialCodexBin(root: string): Promise<string> {
-  return executable(root, "between-trial-codex", "#!/bin/sh\ninput=\"$(cat)\"\nif [ \"$input\" = first ]; then\n  touch \"$EVAL_MARKER\"\n  exit 0\nfi\nsleep 1\n");
+  return executable(
+    root,
+    "between-trial-codex",
+    "#!/bin/sh\ninput=\"$(cat)\"\nif [ \"$input\" = first ]; then\n  : > \"$EVAL_TRIAL1_MARKER\"\n  exit 0\nfi\n: > \"$EVAL_TRIAL2_MARKER\"\nsleep 10\n"
+  );
 }
 
 async function laterTrialSetupFailureBin(root: string): Promise<string> {

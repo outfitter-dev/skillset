@@ -4,6 +4,7 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 
 import { describe, expect, test } from "bun:test";
 
+import { waitForPath } from "../../../../scripts/test-helpers/wait";
 import {
   knownSkillsetsIndexPath,
   normalizeKnownSkillsetIdentity,
@@ -377,7 +378,7 @@ describe("known Skillsets index", () => {
     const script = [
       'import { updateKnownSkillsetsIndexForTest } from "./packages/core/src/known-skillsets.ts";',
       'const marker = async (path) => { await Bun.write(path, "ready\\n"); };',
-      'const wait = async (path) => { while (!(await Bun.file(path).exists())) await Bun.sleep(1); };',
+      'const wait = async (path) => { const deadline = performance.now() + 10_000; while (!(await Bun.file(path).exists())) { if (performance.now() >= deadline) throw new Error(`timed out after 10000ms waiting for worker release gate at ${path}`); await Bun.sleep(1); } };',
       'await updateKnownSkillsetsIndexForTest({ cacheKey: process.env.CACHE_KEY, identities: [], path: process.env.WORKSPACE }, { env: { XDG_CONFIG_HOME: process.env.XDG_ROOT }, homeDir: process.env.HOME_ROOT }, {',
       '  afterLockAcquired: async () => { await marker(process.env.ACQUIRED); if (process.env.RELEASE) await wait(process.env.RELEASE); },',
       '  onLockContention: process.env.CONTENDED ? async () => marker(process.env.CONTENDED) : undefined,',
@@ -413,10 +414,10 @@ describe("known Skillsets index", () => {
     try {
       const first = spawnWorker("first", firstPath, firstAcquired, releaseFirst);
       workers.push(first);
-      await waitForFile(firstAcquired);
+      await waitForPath(firstAcquired, "first known-Skillsets worker acquired-lock marker");
       const second = spawnWorker("second", secondPath, secondAcquired, undefined, secondContended);
       workers.push(second);
-      await waitForFile(secondContended);
+      await waitForPath(secondContended, "second known-Skillsets worker lock-contention marker");
       expect(await Bun.file(secondAcquired).exists()).toBe(false);
       await Bun.write(releaseFirst, "release\n");
       for (const proc of workers) {
@@ -653,14 +654,6 @@ async function currentLockOwner(
   if (owner === undefined)
     throw new Error(`missing current owner for ${lockPath}`);
   return owner;
-}
-
-async function waitForFile(path: string): Promise<void> {
-  for (let attempt = 0; attempt < 5_000; attempt += 1) {
-    if (await Bun.file(path).exists()) return;
-    await Bun.sleep(1);
-  }
-  throw new Error(`timed out waiting for test marker ${path}`);
 }
 
 function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value: T) => void } {
