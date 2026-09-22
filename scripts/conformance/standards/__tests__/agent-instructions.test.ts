@@ -1,7 +1,7 @@
 /* eslint-disable func-style, no-use-before-define, unicorn/import-style -- Test scenarios precede their disposable fixture helpers. */
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { chmod, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,20 +10,12 @@ import {
   isProviderProbePassthroughVariable,
   PROVIDER_PROBE_ISOLATION_VARIABLES,
 } from "../../../provider-probe-environment";
+import { createTestFixtureRoot } from "../../../test-helpers/fixture-root";
 import { runAgentInstructionsProbe } from "../agent-instructions";
 
 const ROOT_SENTINEL = "SKILLSET_ROOT_INSTRUCTIONS_7BFC7A";
 const NESTED_SENTINEL = "SKILLSET_NESTED_INSTRUCTIONS_D02DD1";
 const FIXTURE_VERSION = "codex-cli 0.154.0-test-fixture";
-const fixtureRoots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    fixtureRoots
-      .splice(0)
-      .map((path) => rm(path, { force: true, recursive: true }))
-  );
-});
 
 describe("SET-411 Agent Instructions external probe", () => {
   test("verifies pinned Codex and observes distinct root and nested AGENTS.md", async () => {
@@ -141,8 +133,7 @@ async function fakeCodex(): Promise<{
   readonly binarySha256: string;
   readonly version: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-fake-codex-"));
-  fixtureRoots.push(root);
+  const root = await createTestFixtureRoot("skillset-fake-codex-");
   const binaryPath = join(root, "codex");
   await writeFile(
     binaryPath,
