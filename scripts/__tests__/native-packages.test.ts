@@ -1,6 +1,5 @@
-import { afterAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import productManifest from "../../apps/skillset/package.json";
@@ -18,14 +17,7 @@ import {
   nativePackageManifestDiagnostics,
 } from "../native-packages";
 import { getNativeTarget } from "../native-targets";
-
-const roots: string[] = [];
-
-afterAll(async () => {
-  await Promise.all(
-    roots.map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 function currentTarget() {
   if (process.platform === "darwin") {
@@ -64,8 +56,7 @@ describe("SET-420 native npm packages", () => {
   });
 
   test("rejects lifecycle scripts and dependency surfaces in native packages", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-native-manifests-"));
-    roots.push(root);
+    const root = await createTestFixtureRoot("skillset-native-manifests-");
     const optionalDependencies = Object.fromEntries(
       REQUIRED_NATIVE_DISTRIBUTIONS.map((distribution) => [
         distribution.npmPackage,
@@ -101,8 +92,7 @@ describe("SET-420 native npm packages", () => {
 
   test("packs exactly one executable plus package metadata", async () => {
     if (process.platform === "win32") return;
-    const root = await mkdtemp(join(tmpdir(), "skillset-native-package-test-"));
-    roots.push(root);
+    const root = await createTestFixtureRoot("skillset-native-package-test-");
     const nativeOutputDir = join(root, "native");
     const packDir = join(root, "packs");
     const target = currentTarget();
