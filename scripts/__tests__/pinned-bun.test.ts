@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   chmod,
+  copyFile,
   mkdir,
   mkdtemp,
+  readFile,
+  readlink,
   realpath,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,6 +16,7 @@ import { delimiter, dirname, join } from "node:path";
 
 import {
   adoptPinnedBun,
+  ensurePinnedBunx,
   isTransientSpawnFailure,
   pinnedBunExecutableName,
   pinnedBunxExecutableName,
@@ -61,6 +66,60 @@ const cacheIsWarm =
   "valid";
 
 const posix = process.platform !== "win32";
+
+describe.skipIf(!posix)("ensurePinnedBunx", () => {
+  async function binDir(): Promise<string> {
+    const dir = await temporaryDir("bunx-repair");
+    await copyFile(await fakeInterpreter("9.9.9"), join(dir, "bun"));
+    return dir;
+  }
+
+  test("replaces a dangling staged-path link", async () => {
+    const dir = await binDir();
+    const bunx = join(dir, "bunx");
+    await symlink(join(dir, "deleted-staging", "bun"), bunx);
+
+    await ensurePinnedBunx(dir);
+
+    expect(await readlink(bunx)).toBe("bun");
+    const child = Bun.spawn({ cmd: [bunx, "--version"], stdout: "pipe" });
+    expect((await new Response(child.stdout).text()).trim()).toBe("9.9.9");
+    expect(await child.exited).toBe(0);
+  });
+
+  test("replaces an existing wrong executable", async () => {
+    const dir = await binDir();
+    const bunx = join(dir, "bunx");
+    await writeFile(bunx, '#!/bin/sh\necho "1.2.3"\n');
+    await chmod(bunx, 0o755);
+
+    await ensurePinnedBunx(dir);
+
+    expect(await readlink(bunx)).toBe("bun");
+  });
+
+  test("concurrent repairs converge on the owned relative link", async () => {
+    const dir = await binDir();
+    const bunx = join(dir, "bunx");
+    await symlink("wrong-bun", bunx);
+
+    await Promise.all(Array.from({ length: 8 }, () => ensurePinnedBunx(dir)));
+
+    expect(await readlink(bunx)).toBe("bun");
+  });
+});
+
+test.skipIf(posix)("ensurePinnedBunx repairs a stale Windows copy", async () => {
+  const dir = await temporaryDir("bunx-windows-repair");
+  const bun = join(dir, pinnedBunExecutableName());
+  const bunx = join(dir, pinnedBunxExecutableName());
+  await writeFile(bun, "pinned runtime");
+  await writeFile(bunx, "ambient runtime");
+
+  await Promise.all(Array.from({ length: 4 }, () => ensurePinnedBunx(dir)));
+
+  expect(await readFile(bunx, "utf8")).toBe("pinned runtime");
+});
 
 describe.skipIf(!posix)("adoptPinnedBun", () => {
   test("publishes a copy that is independent of the source path", async () => {

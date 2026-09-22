@@ -12,13 +12,16 @@
  * global install: the pinned version is cached under the user cache directory,
  * version-scoped, and resolved per run.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   chmod,
   copyFile,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
+  readlink,
   realpath,
   rename,
   rm,
@@ -93,28 +96,63 @@ export function pinnedBunxExecutableName(
  *
  * Bun dispatches on argv[0], so a link named `bunx` is the whole mechanism;
  * Windows gets a copy because symlinks there need privileges we should not
- * require. Idempotent: an existing shim is left alone.
+ * require. Only an owned shim is left alone; stale links and copies are
+ * replaced atomically so a cached root cannot fall through to ambient bunx.
  */
-async function ensurePinnedBunx(
+export async function ensurePinnedBunx(
   binDir: string,
   executableName = pinnedBunExecutableName(),
   bunxName = pinnedBunxExecutableName()
 ): Promise<void> {
   const bunxPath = join(binDir, bunxName);
-  if (await pathExists(bunxPath)) return;
+  if (await isPinnedBunx(binDir, executableName, bunxName)) return;
+  const stagedPath = join(binDir, `${bunxName}.${randomUUID()}.tmp`);
   try {
     if (process.platform === "win32") {
-      await copyFile(join(binDir, executableName), bunxPath);
+      await copyFile(join(binDir, executableName), stagedPath);
     } else {
       // Relative, so the link survives the atomic rename that publishes a
       // staging directory into its final cache root. An absolute link would
       // point at the staging path and dangle the moment it is published.
-      await symlink(executableName, bunxPath);
+      await symlink(executableName, stagedPath);
     }
-  } catch (error) {
-    // A concurrent publisher winning the race is the expected case.
-    if (!(await pathExists(bunxPath))) throw error;
+    await rename(stagedPath, bunxPath);
+  } finally {
+    await rm(stagedPath, { force: true }).catch(() => {});
   }
+  if (!(await isPinnedBunx(binDir, executableName, bunxName))) {
+    throw new Error(`pinned bunx could not be repaired at ${bunxPath}`);
+  }
+}
+
+async function isPinnedBunx(
+  binDir: string,
+  executableName: string,
+  bunxName: string
+): Promise<boolean> {
+  const bunxPath = join(binDir, bunxName);
+  try {
+    const info = await lstat(bunxPath);
+    if (process.platform !== "win32") {
+      return info.isSymbolicLink() && (await readlink(bunxPath)) === executableName;
+    }
+    if (!info.isFile() || info.isSymbolicLink()) return false;
+    // A copied Windows launcher has no link target to inspect. Compare its
+    // bytes with the pinned interpreter rather than trusting an existing name.
+    const [bunHash, bunxHash] = await Promise.all([
+      hashFile(join(binDir, executableName)),
+      hashFile(bunxPath),
+    ]);
+    return bunHash === bunxHash;
+  } catch {
+    return false;
+  }
+}
+
+async function hashFile(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 /** Native executable name produced by Bun's platform installer. */
