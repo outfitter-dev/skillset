@@ -16,6 +16,9 @@ import { isJsonRecord } from "./yaml";
 
 export const WORKSPACE_LOCK_LOGICAL_PATH = "skillset.lock";
 
+/** Isolated builds remap generated paths under this prefix. It is display only. */
+const ISOLATED_LOCK_PREFIX = ".skillset/cache/latest/";
+
 export type GeneratedLockSchemaPolicy = "current" | "legacy";
 export type GeneratedLockMissingPolicy = OnDiskJsonMissingPolicy;
 
@@ -169,7 +172,14 @@ export function isEmptyV2GeneratedLock(value: unknown): boolean {
 }
 
 export function isWorkspaceLockPath(logicalPath: string): boolean {
-  return logicalPath === WORKSPACE_LOCK_LOGICAL_PATH;
+  return lockIdentityPath(logicalPath) === WORKSPACE_LOCK_LOGICAL_PATH;
+}
+
+function lockIdentityPath(logicalPath: string): string {
+  const normalized = logicalPath.replaceAll("\\", "/");
+  return normalized.startsWith(ISOLATED_LOCK_PREFIX)
+    ? normalized.slice(ISOLATED_LOCK_PREFIX.length)
+    : normalized;
 }
 
 export function corruptManagedLock(logicalPath: string, reason: string): Error {

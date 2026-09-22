@@ -5,10 +5,12 @@ import { join } from "node:path";
 import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
 import { withLockProvenance } from "../lock-provenance";
 import {
+  isWorkspaceLockPath,
   readCurrentGeneratedLockFromDisk,
   readInspectableGeneratedLockFromDisk,
   readLegacyGeneratedLockFromDisk,
 } from "../generated-lock-read";
+import { readManagedOutputState } from "../output-safety";
 import { readExistingMarketplaceState } from "../render-marketplaces";
 
 function errno(code: string): Error & { code: string } {
@@ -123,6 +125,72 @@ test.each(["EACCES", "EIO", "ELOOP"] as const)(
     );
   }
 );
+
+test.each([
+  {
+    expected: "workspace lock skillset.lock",
+    logicalPath: "skillset.lock",
+  },
+  {
+    expected: "workspace lock .skillset/cache/latest/skillset.lock",
+    logicalPath: ".skillset/cache/latest/skillset.lock",
+  },
+  {
+    expected: "generated lock plugins/skillset.lock",
+    logicalPath: "plugins/skillset.lock",
+  },
+  {
+    expected: "generated lock .skillset/cache/latest/plugins/skillset.lock",
+    logicalPath: ".skillset/cache/latest/plugins/skillset.lock",
+  },
+] as const)("classifies $logicalPath for recovery guidance", async ({ expected, logicalPath }) => {
+  expect(isWorkspaceLockPath(logicalPath)).toBe(expected.startsWith("workspace lock"));
+  await expect(
+    readCurrentGeneratedLockFromDisk("/tmp/skillset.lock", {
+      logicalPath,
+      missing: "absent",
+      readText: async () => {
+        throw errno("EACCES");
+      },
+    })
+  ).rejects.toThrow(
+    `${expected} cannot guard generated state because it cannot be read (EACCES)`
+  );
+  await expect(
+    readCurrentGeneratedLockFromDisk("/tmp/skillset.lock", {
+      logicalPath,
+      missing: "absent",
+      readText: async () => {
+        throw errno("EACCES");
+      },
+    })
+  ).rejects.toThrow(
+    expected.startsWith("workspace lock")
+      ? "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+      : "Fix or remove the lock before running build, check, or diff."
+  );
+});
+
+test("isolated output-safety remaps keep workspace recovery on the workspace lock", async () => {
+  const root = await createTestGitFixtureRoot("skillset-lock-read-isolated-");
+  const isolated = (path: string) => join(".skillset/cache/latest", path);
+  await mkdir(join(root, ".skillset/cache/latest/plugins"), { recursive: true });
+  await writeFile(join(root, isolated("skillset.lock")), "{ not valid json", "utf8");
+  await writeFile(join(root, isolated("plugins/skillset.lock")), "{ not valid json", "utf8");
+
+  await expect(readManagedOutputState(root, [], true, isolated)).rejects.toThrow(
+    "workspace lock .skillset/cache/latest/skillset.lock cannot guard generated state because it is not valid JSON"
+  );
+  await expect(readManagedOutputState(root, [], true, isolated)).rejects.toThrow(
+    "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+  );
+  await expect(readManagedOutputState(root, ["plugins"], false, isolated)).rejects.toThrow(
+    "generated lock .skillset/cache/latest/plugins/skillset.lock cannot guard generated state because it is not valid JSON"
+  );
+  await expect(readManagedOutputState(root, ["plugins"], false, isolated)).rejects.toThrow(
+    "Fix or remove the lock before running build, check, or diff."
+  );
+});
 
 test("missing locks are absent only when the caller allows it", async () => {
   const root = await createTestGitFixtureRoot("skillset-lock-read-missing-");
