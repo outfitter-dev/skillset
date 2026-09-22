@@ -409,18 +409,33 @@ describe("known Skillsets index", () => {
         stderr: "pipe",
         stdout: "pipe",
       });
-    const first = spawnWorker("first", firstPath, firstAcquired, releaseFirst);
-    await waitForFile(firstAcquired);
-    const second = spawnWorker("second", secondPath, secondAcquired, undefined, secondContended);
-    await waitForFile(secondContended);
-    expect(await Bun.file(secondAcquired).exists()).toBe(false);
-    await Bun.write(releaseFirst, "release\n");
-    for (const proc of [first, second]) {
-      const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
-      expect(exitCode, stderr).toBe(0);
+    const workers: ReturnType<typeof spawnWorker>[] = [];
+    try {
+      const first = spawnWorker("first", firstPath, firstAcquired, releaseFirst);
+      workers.push(first);
+      await waitForFile(firstAcquired);
+      const second = spawnWorker("second", secondPath, secondAcquired, undefined, secondContended);
+      workers.push(second);
+      await waitForFile(secondContended);
+      expect(await Bun.file(secondAcquired).exists()).toBe(false);
+      await Bun.write(releaseFirst, "release\n");
+      for (const proc of workers) {
+        const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
+        expect(exitCode, stderr).toBe(0);
+      }
+      expect((await readKnownSkillsetsIndex(options)).skillsets.map((item) => item.cacheKey)).toEqual(["first", "second"]);
+      expect(await transactionArtifacts(options)).toEqual([]);
+    } finally {
+      // An early marker or assertion failure must not strand the first worker
+      // waiting for a release file after the test sandbox begins cleanup.
+      if (workers.some((worker) => worker.exitCode === null && worker.signalCode === null)) {
+        await Bun.write(releaseFirst, "release\n").catch(() => undefined);
+      }
+      for (const worker of workers) {
+        if (worker.exitCode === null && worker.signalCode === null) worker.kill();
+      }
+      await Promise.allSettled(workers.map((worker) => worker.exited));
     }
-    expect((await readKnownSkillsetsIndex(options)).skillsets.map((item) => item.cacheKey)).toEqual(["first", "second"]);
-    expect(await transactionArtifacts(options)).toEqual([]);
   });
 
   test("probes at most 128 path-sorted entries and resumes after the compatible cursor", async () => {
