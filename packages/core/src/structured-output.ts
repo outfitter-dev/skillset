@@ -46,8 +46,7 @@ export function validateGeneratedStructuredOutput(args: {
       validateMarkdown(args.content, label);
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: invalid generated output ${label}: ${message}`);
+    throw wrapGeneratedOutputError(error, label);
   }
 }
 
@@ -55,8 +54,7 @@ function validateJson(content: string, label: string): void {
   try {
     JSON.parse(content);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${label} JSON parse error: ${message}`);
+    throw labeledParseError("JSON", label, error);
   }
 }
 
@@ -64,8 +62,7 @@ function validateMarkdown(content: string, label: string): void {
   try {
     parseMarkdown(content, label);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${label} Markdown parse error: ${message}`);
+    throw labeledParseError("Markdown", label, error);
   }
 }
 
@@ -73,8 +70,7 @@ function validateToml(content: string, label: string): void {
   try {
     Bun.TOML.parse(content);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${label} TOML parse error: ${message}`);
+    throw labeledParseError("TOML", label, error);
   }
 }
 
@@ -82,9 +78,31 @@ function validateYaml(content: string, label: string): void {
   try {
     parseYamlRecord(content, label);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${label} YAML parse error: ${message}`);
+    throw labeledParseError("YAML", label, error);
   }
+}
+
+function labeledParseError(kind: string, label: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (messageIncludesLabel(message, label)) {
+    return error instanceof Error ? error : new Error(message);
+  }
+  return new Error(`${label} ${kind} parse error: ${message}`);
+}
+
+function wrapGeneratedOutputError(error: unknown, label: string): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("invalid generated output")) {
+    return error instanceof Error ? error : new Error(message);
+  }
+  if (messageIncludesLabel(message, label)) {
+    return new Error(`skillset: invalid generated output: ${message}`);
+  }
+  return new Error(`skillset: invalid generated output ${label}: ${message}`);
+}
+
+function messageIncludesLabel(message: string, label: string): boolean {
+  return label.length > 0 && message.includes(label);
 }
 
 function stringifyToml(value: JsonRecord): string {
