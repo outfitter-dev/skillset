@@ -39,10 +39,10 @@ export interface DirectoryLockTiming {
 }
 
 export interface WithOwnedDirectoryLockOptions {
-  readonly afterAcquired?: () => Promise<void> | void;
+  readonly afterAcquired?: (() => Promise<void> | void) | undefined;
   readonly lockPath: string;
   readonly lostOwnershipError: () => Error;
-  readonly onContention?: () => Promise<void> | void;
+  readonly onContention?: (() => Promise<void> | void) | undefined;
   readonly ownerPid: number;
   readonly staleOwner: DirectoryLockStaleOwnerPolicy;
   readonly startHeartbeat: DirectoryLockHeartbeatScheduler;
