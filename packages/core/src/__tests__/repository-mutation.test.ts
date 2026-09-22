@@ -209,10 +209,9 @@ describe("repository mutation ancestry", () => {
         message: "skillset: unable to inspect .skillset: EIO",
       });
 
-      await mkdir(join(root, "loop-a"));
-      await symlink(join(root, "loop-b"), join(root, "loop-a/next"));
+      await symlink(join(root, "loop-b"), join(root, "loop-a"));
       await symlink(join(root, "loop-a"), join(root, "loop-b"));
-      await expect(resolveWorkspaceMutationRoot(join(root, "loop-a/next"))).rejects.toMatchObject({
+      await expect(resolveWorkspaceMutationRoot(join(root, "loop-a"))).rejects.toMatchObject({
         code: "ELOOP",
         message: expect.stringContaining("unable to inspect"),
       });
@@ -231,12 +230,16 @@ describe("repository mutation ancestry", () => {
         await expect(
           prepareRepositoryMutationPath(root, join(parent, "changes/state.json"))
         ).rejects.toBeInstanceOf(RepositoryMutationError);
-        await expect(
-          prepareRepositoryMutationPath(root, join(parent, "changes/state.json"))
-        ).rejects.toMatchObject({
-          code: "EACCES",
-          logicalPath: ".skillset",
-        });
+        try {
+          await prepareRepositoryMutationPath(root, join(parent, "changes/state.json"));
+          throw new Error("expected EACCES while inspecting a chmod-denied parent");
+        } catch (error) {
+          expect(error).toBeInstanceOf(RepositoryMutationError);
+          expect(error).toMatchObject({
+            code: "EACCES",
+            logicalPath: ".skillset/changes",
+          });
+        }
       } finally {
         await chmod(parent, 0o700);
       }

@@ -2,18 +2,21 @@ import { describe, expect, test } from "bun:test";
 import {
   lstat,
   mkdir,
-  mkdtemp,
+  readdir,
   readFile,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillset, ISOLATED_OUT_ROOT } from "@skillset/core";
+import { buildSkillset } from "@skillset/core";
 import { writeReleaseState } from "@skillset/core/internal/release-state";
 
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 import { addChangeEntry } from "../change-workflow";
 import { importSource } from "../import";
 import { scaffoldSourceUnit } from "../new-source";
@@ -23,7 +26,7 @@ import { initSkillset } from "../setup";
 const withBoundary = async (
   operation: (root: string, outside: string) => Promise<void>
 ): Promise<void> => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-mutation-boundary-"));
+  const parent = await createTestGitFixtureRoot("skillset-mutation-boundary-");
   const root = join(parent, "repo");
   const outside = join(parent, "outside");
   await mkdir(root);
@@ -34,6 +37,12 @@ const withBoundary = async (
   } finally {
     await rm(parent, { force: true, recursive: true });
   }
+};
+
+const commitWorkspace = async (root: string): Promise<void> => {
+  await initializeTestGitRepository(root, {
+    disposableRoot: join(root, ".."),
+  });
 };
 
 const initWorkspace = async (root: string): Promise<void> => {
@@ -120,8 +129,8 @@ describe("SET-637 repository mutation boundaries", () => {
     await withBoundary(async (root, outside) => {
       await initWorkspace(root);
       await scaffoldSourceUnit(root, { kind: "skill", name: "demo", write: true });
-      await rm(join(root, ".skillset/changes"), { force: true, recursive: true });
-      await symlink(outside, join(root, ".skillset/changes"));
+      await commitWorkspace(root);
+      const preserved = await replaceWithSymlink(join(root, ".skillset/changes"), outside);
       await expect(
         addChangeEntry(root, {
           bump: "patch",
@@ -135,7 +144,8 @@ describe("SET-637 repository mutation boundaries", () => {
       await expect(writeReleaseState(root, { scopes: {} })).rejects.toThrow(
         "refusing to traverse symbolic link: .skillset/changes"
       );
-      await assertSentinelUnchanged(outside, "state.json");
+      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
+      await expect(lstat(join(preserved, "state.json"))).resolves.toBeDefined();
     });
   });
 
@@ -143,6 +153,7 @@ describe("SET-637 repository mutation boundaries", () => {
     await withBoundary(async (root, outside) => {
       await initWorkspace(root);
       await scaffoldSourceUnit(root, { kind: "skill", name: "demo", write: true });
+      await commitWorkspace(root);
       const added = await addChangeEntry(root, {
         bump: "patch",
         reason: {
@@ -151,47 +162,44 @@ describe("SET-637 repository mutation boundaries", () => {
         },
         scopes: ["skill:demo"],
       });
-      const changes = join(root, ".skillset/changes");
-      const preserved = join(outside, "preserved-changes");
-      await mkdir(preserved);
-      await writeFile(
-        join(preserved, "sentinel.txt"),
-        await readFile(join(outside, "sentinel.txt"), "utf8")
-      );
-      for (const name of ["ledger.jsonl", `${added.entry.id}.md`]) {
-        await writeFile(join(preserved, name), await readFile(join(changes, name)));
-      }
-      await rm(changes, { force: true, recursive: true });
-      await symlink(preserved, changes);
+      const preserved = await replaceWithSymlink(join(root, ".skillset/changes"), outside);
+      expect(added.entry.id.length).toBeGreaterThan(0);
       await expect(applyRelease(root)).rejects.toThrow(
         "refusing to traverse symbolic link: .skillset/changes"
       );
-      expect(await readFile(join(preserved, "sentinel.txt"), "utf8")).toBe("outside\n");
+      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
       await expect(lstat(join(preserved, "history.jsonl"))).rejects.toHaveProperty(
         "code",
         "ENOENT"
       );
-      await expect(lstat(join(preserved, "state.json"))).rejects.toHaveProperty(
+      await expect(lstat(join(preserved, "releases.jsonl"))).rejects.toHaveProperty(
         "code",
         "ENOENT"
       );
     });
   });
 
-  test("isolated generated-output writes refuse a symlinked cache parent", async () => {
+  test("generated-output writes refuse a symlinked .agents parent", async () => {
     await withBoundary(async (root, outside) => {
       await initWorkspace(root);
       await scaffoldSourceUnit(root, { kind: "skill", name: "demo", write: true });
-      await mkdir(join(root, ".skillset/cache"), { recursive: true });
-      await rm(join(root, ".skillset/cache"), { force: true, recursive: true });
-      await symlink(outside, join(root, ".skillset/cache"));
-      await expect(buildSkillset(root, { isolated: true })).rejects.toThrow(
+      await symlink(outside, join(root, ".agents"));
+      await expect(buildSkillset(root)).rejects.toThrow(
         "refusing to traverse symbolic link"
       );
-      await expect(
-        lstat(join(outside, ISOLATED_OUT_ROOT.split("/").at(-1) ?? "latest"))
-      ).rejects.toHaveProperty("code", "ENOENT");
-      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
+      await assertSentinelUnchanged(outside, "skills");
     });
   });
 });
+
+async function replaceWithSymlink(path: string, outside: string): Promise<string> {
+  const preserved = join(outside, "preserved");
+  await mkdir(preserved);
+  for (const entry of await readdir(path, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    await writeFile(join(preserved, entry.name), await readFile(join(path, entry.name)));
+  }
+  await rm(path, { force: true, recursive: true });
+  await symlink(preserved, path);
+  return preserved;
+}
