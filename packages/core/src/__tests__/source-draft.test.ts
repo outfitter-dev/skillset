@@ -5,13 +5,11 @@ import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
 import { buildSkillset } from "../build";
@@ -26,6 +24,7 @@ import {
   SourcePromotionPlanError,
 } from "../source-draft";
 import { moveSource, planSourceMove } from "../source-move";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("SET-587 source draft lifecycle", () => {
   test("plans and atomically copies a shipped skill with fork provenance", async () => {
@@ -1086,7 +1085,7 @@ function skill(name: string, description: string): string {
 async function fixture(
   files: Readonly<Record<string, string>>
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-source-draft-"));
+  const root = await createTestFixtureRoot("skillset-source-draft-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });

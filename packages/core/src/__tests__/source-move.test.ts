@@ -2,14 +2,14 @@
 /* eslint-disable unicorn/import-style -- Named path helpers keep fixture assertions compact. */
 
 import { describe, expect, test } from "bun:test";
-import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { explainPath } from "../authoring";
 import { buildSkillset } from "../build";
 import { readAppliedChangeRecords } from "../change-history";
 import { moveSource, planSourceMove, SourceMovePlanError } from "../source-move";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("SET-588 source collection move", () => {
   test("keeps the planner and apply transaction free of Git shell execution", async () => {
@@ -234,7 +234,7 @@ function skill(name: string, description: string): string {
 }
 
 async function fixture(files: Readonly<Record<string, string>>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-source-move-"));
+  const root = await createTestFixtureRoot("skillset-source-move-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });

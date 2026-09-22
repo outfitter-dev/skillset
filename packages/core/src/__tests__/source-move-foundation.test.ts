@@ -2,8 +2,7 @@
 /* eslint-disable unicorn/import-style -- Named path helpers keep fixture setup concise. */
 
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import type { ChangeLedgerEvent } from "../change-ledger";
@@ -16,6 +15,7 @@ import {
 import { readReleaseState, writeReleaseState } from "../release-state";
 import { planSourceMove } from "../source-move";
 import { rewriteSourceMoveConfig } from "../source-move-rewrite";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("source move foundations", () => {
   test("folds append-only identity mappings through history scopes and evidence", () => {
@@ -303,7 +303,7 @@ function skill(name: string, description: string): string {
 async function fixture(
   files: Readonly<Record<string, string>>
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-source-move-"));
+  const root = await createTestFixtureRoot("skillset-source-move-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });
