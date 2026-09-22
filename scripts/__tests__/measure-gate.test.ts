@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -164,6 +164,90 @@ describe("measure-gate report", () => {
     expect(report.attributable).toBe(false);
     expect(report.attributabilityIssues.join(" ")).toContain("dirty");
     expect(report.revision.dirtyEntries).toContain("?? untracked.txt");
+  });
+
+  test("refuses to start when HEAD cannot be resolved", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "skillset-measure-gate-"));
+    const unbornRepo = await mkdtemp(join(tmpdir(), "skillset-measure-unborn-"));
+    const init = Bun.spawn({
+      cmd: ["git", "init", "--quiet"],
+      cwd: unbornRepo,
+      stderr: "ignore",
+      stdout: "ignore",
+    });
+    expect(await init.exited).toBe(0);
+
+    const child = Bun.spawn({
+      cmd: [
+        process.execPath,
+        join(repoRoot, "scripts", "measure-gate.ts"),
+        "--label",
+        "unborn-head",
+        "--repo",
+        unbornRepo,
+        "--out",
+        outDir,
+        "--",
+        "true",
+      ],
+      cwd: repoRoot,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    expect(await child.exited).toBe(2);
+    expect((await readdir(outDir)).some((name) => name.endsWith(".json"))).toBe(
+      false
+    );
+  });
+
+  test("refuses to start when git status cannot inspect the tree", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "skillset-measure-gate-"));
+    const lockedRepo = await mkdtemp(join(tmpdir(), "skillset-measure-locked-"));
+    for (const args of [
+      ["init", "--quiet"],
+      ["commit", "--allow-empty", "-m", "base", "--quiet"],
+    ]) {
+      const git = Bun.spawn({
+        cmd: ["git", ...args],
+        cwd: lockedRepo,
+        env: {
+          ...process.env,
+          GIT_AUTHOR_EMAIL: "t@example.com",
+          GIT_AUTHOR_NAME: "t",
+          GIT_COMMITTER_EMAIL: "t@example.com",
+          GIT_COMMITTER_NAME: "t",
+        },
+        stderr: "ignore",
+        stdout: "ignore",
+      });
+      expect(await git.exited).toBe(0);
+    }
+    // Identity commands still succeed; status cannot read the index. An
+    // empty `.git/index.lock` is not enough on current Git, which treats a
+    // stale lock as ignorable.
+    await chmod(join(lockedRepo, ".git", "index"), 0o000);
+
+    const child = Bun.spawn({
+      cmd: [
+        process.execPath,
+        join(repoRoot, "scripts", "measure-gate.ts"),
+        "--label",
+        "index-lock",
+        "--repo",
+        lockedRepo,
+        "--out",
+        outDir,
+        "--",
+        "true",
+      ],
+      cwd: repoRoot,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    expect(await child.exited).toBe(2);
+    expect((await readdir(outDir)).some((name) => name.endsWith(".json"))).toBe(
+      false
+    );
   });
 });
 

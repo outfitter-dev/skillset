@@ -164,7 +164,12 @@ async function main(argv: readonly string[]): Promise<number> {
     return 2;
   }
 
-  const repoCheck = await git(["rev-parse", "--git-dir"], options.repoRoot);
+  let repoCheck = "";
+  try {
+    repoCheck = await git(["rev-parse", "--git-dir"], options.repoRoot);
+  } catch {
+    repoCheck = "";
+  }
   if (repoCheck.length === 0) {
     console.error(
       `measure-gate: --repo ${options.repoRoot} is not a git repository; refusing to start a run whose revision cannot be recorded`
@@ -186,7 +191,15 @@ async function main(argv: readonly string[]): Promise<number> {
     await Bun.sleep(options.leadInSeconds * 1000);
   }
 
-  const revision = await readRevision(options.repoRoot);
+  let revision: RevisionSnapshot;
+  try {
+    revision = await readRevision(options.repoRoot);
+  } catch (error) {
+    console.error(
+      `measure-gate: could not record revision for ${options.repoRoot}: ${message(error)}; refusing to start a run whose revision cannot be recorded`
+    );
+    return 2;
+  }
   const toolchainBefore = await readToolchain(options.repoRoot);
   const hostBefore = readHost();
 
@@ -560,7 +573,10 @@ async function git(args: readonly string[], cwd: string): Promise<string> {
     stdout: "pipe",
   });
   const text = await new Response(child.stdout).text();
-  await child.exited;
+  const code = await child.exited;
+  if (code !== 0) {
+    throw new Error(`git ${args.join(" ")} exited ${code}`);
+  }
   return text.trim();
 }
 
