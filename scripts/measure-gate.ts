@@ -22,7 +22,7 @@
  *
  * Usage:
  *   bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>]
- *     [--out <dir>] [--note <text>] [--cold] [--repo <dir>]
+ *     [--out <dir>] [--note <text>] [--repo <dir>]
  *     -- <command> [args...]
  *
  * `--repo` measures a checkout other than this one. The baseline for a goal
@@ -105,10 +105,10 @@ export type ResourceAccounting = "complete" | "suspect" | "unavailable";
 
 /** One measured gate invocation. */
 export interface MeasurementReport {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly label: string;
   readonly note: string | null;
-  readonly thermalCondition: "cold" | "warm";
+  // No cold/warm field: the harness does not establish a cache condition.
   readonly command: readonly string[];
   readonly startedAt: string;
   readonly endedAt: string;
@@ -142,7 +142,6 @@ interface Options {
   readonly label: string;
   readonly repoRoot: string;
   readonly note: string | null;
-  readonly cold: boolean;
   readonly leadInSeconds: number;
   readonly outDir: string;
   readonly command: readonly string[];
@@ -162,7 +161,7 @@ async function main(argv: readonly string[]): Promise<number> {
   } catch (error) {
     console.error(`measure-gate: ${message(error)}`);
     console.error(
-      "usage: bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>] [--out <dir>] [--note <text>] [--cold] -- <command> [args...]"
+      "usage: bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>] [--out <dir>] [--note <text>] -- <command> [args...]"
     );
     return 2;
   }
@@ -294,10 +293,9 @@ async function main(argv: readonly string[]): Promise<number> {
     revision,
     revisionAfter: revisionAfter ?? null,
     rusagePath,
-    schemaVersion: 2,
+    schemaVersion: 3,
     signal,
     startedAt: startedAt.toISOString(),
-    thermalCondition: options.cold ? "cold" : "warm",
     toolchainAfter,
     toolchainBefore,
     wallMs,
@@ -325,7 +323,6 @@ async function main(argv: readonly string[]): Promise<number> {
 function parseOptions(argv: readonly string[]): Options {
   let label: string | undefined;
   let note: string | null = null;
-  let cold = false;
   let leadInSeconds = 0;
   let measuredRepoRoot = scriptRepoRoot;
   let outDir = join(scriptRepoRoot, ".skillset", "cache", "measure");
@@ -359,9 +356,6 @@ function parseOptions(argv: readonly string[]): Options {
         leadInSeconds = requireNumber(flag, requireValue(flag, value));
         index += 1;
         break;
-      case "--cold":
-        cold = true;
-        break;
       default:
         throw new Error(`unknown flag ${JSON.stringify(flag)}`);
     }
@@ -377,7 +371,6 @@ function parseOptions(argv: readonly string[]): Options {
     throw new Error("a command is required after --");
   }
   return {
-    cold,
     command,
     label,
     leadInSeconds,

@@ -93,9 +93,9 @@ describe("measure-gate report", () => {
     expect(report.label).toBe("harness-selftest");
     expect(report.exitCode).toBe(0);
     expect(report.command).toEqual(["true"]);
-    expect(report.thermalCondition).toBe("warm");
+    expect(report).not.toHaveProperty("thermalCondition");
     expect(report.commandSucceeded).toBe(true);
-    expect(report.schemaVersion).toBe(2);
+    expect(report.schemaVersion).toBe(3);
     expect(report.revision.head).toMatch(/^[0-9a-f]{40}$/u);
     expect(report.revision.lockfileSha256).toMatch(/^[0-9a-f]{64}$/u);
     expect(report.toolchainBefore.resolvedBunVersion).toBe(Bun.version);
