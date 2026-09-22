@@ -116,8 +116,7 @@ function expressionMentionsSanitizer(node: ts.Node): boolean {
 
 function identifierIsSanitized(id: ts.Identifier): boolean {
   if (SANITIZER_NAMES.has(id.text)) return true;
-  const owner = enclosingFunction(id);
-  if (owner === undefined) return false;
+  const owner = enclosingFunction(id) ?? id.getSourceFile();
   let sanitized = false;
   const visit = (current: ts.Node): void => {
     if (
