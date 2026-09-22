@@ -1,6 +1,6 @@
 import { watch, type FSWatcher } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
 
 import {
   buildSkillsetResult,
@@ -16,6 +16,8 @@ import {
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SchemaJsonRecord } from "@skillset/schema";
+
+import { isPathInside } from "@skillset/core/internal/path";
 
 import { classifyCliFailure, createCliEventStream } from "./cli-output";
 
@@ -538,12 +540,9 @@ async function isDirectory(path: string): Promise<boolean> {
 }
 
 function normalizeEventPath(rootPath: string, eventPath: string): string | undefined {
-  const candidate = isAbsolute(eventPath)
-    ? relative(rootPath, eventPath)
-    : eventPath;
-  const normalized = normalizeRelativePath(candidate);
-  if (normalized.startsWith("../") || normalized === "..") return undefined;
-  return normalized;
+  const absolute = isAbsolute(eventPath) ? eventPath : resolve(rootPath, eventPath);
+  if (!isPathInside(rootPath, absolute, { allowEqual: true })) return undefined;
+  return normalizeRelativePath(relative(rootPath, absolute));
 }
 
 function relativePath(rootPath: string, path: string): string {
@@ -555,8 +554,7 @@ function normalizeRelativePath(path: string): string {
 }
 
 function isSameOrInside(path: string, root: string): boolean {
-  const normalizedRoot = normalizeRelativePath(root);
-  return path === normalizedRoot || path.startsWith(`${normalizedRoot}/`);
+  return isPathInside(root, path, { allowEqual: true, path: posix });
 }
 
 function sortedUnique(values: readonly string[]): readonly string[] {

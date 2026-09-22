@@ -10,6 +10,7 @@ import {
   type DirectoryLockHeartbeatScheduler,
 } from "./directory-lock";
 import { gitSafeEnv } from "./git-env";
+import { isPathInside, isRelativePathInside } from "./path";
 import { resolveSkillsetXdgPaths, type SkillsetXdgOptions } from "./xdg";
 import {
   parseRemoteRepositoryReference,
@@ -497,7 +498,7 @@ async function ensureCacheParent(
   const trustedBase = await realpath(cacheBase);
   const parent = dirname(location.path);
   const relativeParent = relative(resolve(cacheBase), resolve(parent));
-  if (!isContainedRelativePath(relativeParent)) {
+  if (!isRelativePathInside(relativeParent, { allowEqual: true })) {
     throw new Error(`skillset: remote cache ${location.cacheKey} escapes the XDG cache`);
   }
 
@@ -520,11 +521,7 @@ async function ensureCacheParent(
 }
 
 function isContainedPath(parent: string, candidate: string): boolean {
-  return isContainedRelativePath(relative(parent, candidate));
-}
-
-function isContainedRelativePath(path: string): boolean {
-  return path === "" || (path !== ".." && !path.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) && !isAbsolute(path));
+  return isPathInside(parent, candidate, { allowEqual: true });
 }
 
 function isNotFoundError(error: unknown): boolean {

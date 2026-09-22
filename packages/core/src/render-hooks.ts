@@ -18,7 +18,7 @@ import {
 import { readRecord, readString, readStringArray } from "./config";
 import { nativeHookEventName } from "./hook-capabilities";
 import { validateHookDefinition } from "./hooks";
-import { compareStrings } from "./path";
+import { compareStrings, isPathInside } from "./path";
 import { exists, textFile } from "./render-support";
 import { renderValidatedJson } from "./structured-output";
 import { targetDescriptor } from "./targets";
@@ -168,15 +168,15 @@ function adaptiveHookCommand(
       `skillset: adaptive hook ${item.definition.name} has unresolved run.script ${script}`
     );
   }
-  const relativeScriptPath = relative(
-    plugin.path,
-    reference.sourcePath
-  ).replaceAll("\\", "/");
-  if (relativeScriptPath.startsWith("../") || relativeScriptPath === "..") {
+  if (!isPathInside(plugin.path, reference.sourcePath, { allowEqual: true })) {
     throw new Error(
       `skillset: adaptive hook ${item.definition.name} script must stay inside plugin ${plugin.id}`
     );
   }
+  const relativeScriptPath = relative(
+    plugin.path,
+    reference.sourcePath
+  ).replaceAll("\\", "/");
   const outputPath = join(basePath, relativeScriptPath);
   if (!scriptFiles.has(outputPath)) {
     scriptFiles.set(outputPath, {

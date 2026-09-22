@@ -17,7 +17,7 @@ import {
   MISSING_PATH_ENOENT,
   pathExists as pathExistsOnDisk,
 } from "./fs-existence";
-import { compareStrings, validateSlug } from "./path";
+import { compareStrings, isPathInside, validateSlug } from "./path";
 import { SourceRenamePlanError } from "./source-rename-types";
 import type { SourceRenameKind } from "./source-rename-types";
 import { targetNames } from "./targets";
@@ -287,8 +287,7 @@ export function isCaseOnlyRename(from: string, to: string): boolean {
 }
 
 export function isWithin(root: string, path: string): boolean {
-  const rel = relative(root, path);
-  return rel === "" || (!rel.startsWith("..") && !rel.includes(`..${sep}`));
+  return isPathInside(root, path, { allowEqual: true });
 }
 
 export function display(rootPath: string, path: string): string {

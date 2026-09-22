@@ -17,7 +17,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 
 import {
   lockDisagreementPaths,
@@ -29,7 +29,7 @@ import {
   normalizeGeneratedFileMode,
   supportsGeneratedFileModes,
 } from "@skillset/core/internal/generated-file-mode";
-import { compareStrings } from "@skillset/core/internal/path";
+import { compareStrings, isPathInside, isRelativePathInside } from "@skillset/core/internal/path";
 
 import { gitSafeEnv } from "./git-env";
 
@@ -148,7 +148,7 @@ export async function readConflictedPaths(
       )
     ),
   ]
-    .filter((path) => !path.startsWith(".."))
+    .filter((path) => isRelativePathInside(path, { allowEqual: true, path: posix }))
     .sort(compareStrings);
 }
 
@@ -180,11 +180,7 @@ export async function readUnstagedProjectionPaths(
     rootPath,
     resolve(rootPath, sourceRoot)
   ).replaceAll("\\", "/");
-  if (
-    normalizedSourceRoot === ".." ||
-    normalizedSourceRoot.startsWith("../") ||
-    isAbsolute(normalizedSourceRoot)
-  ) {
+  if (!isRelativePathInside(normalizedSourceRoot, { allowEqual: true, path: posix })) {
     throw new Error(
       "skillset: resolve source root must be inside the workspace"
     );
@@ -201,7 +197,7 @@ export async function readUnstagedProjectionPaths(
   ]
     .filter(
       (path) =>
-        !path.startsWith("..") &&
+        isRelativePathInside(path, { allowEqual: true, path: posix }) &&
         !ignoredPaths.has(path) &&
         (path === "skillset.yaml" ||
           normalizedSourceRoot.length === 0 ||
@@ -370,12 +366,7 @@ async function safeWorktreePath(
   const root = await realpath(rootPath);
   const absolute = resolve(root, candidatePath);
   const relativePath = relative(root, absolute);
-  if (
-    relativePath.length === 0 ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${sep}`) ||
-    isAbsolute(relativePath)
-  ) {
+  if (!isPathInside(root, absolute)) {
     throw new Error(
       `skillset: resolve refuses path outside the workspace: ${candidatePath}`
     );

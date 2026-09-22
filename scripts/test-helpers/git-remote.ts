@@ -1,5 +1,7 @@
 import { lstat, mkdtemp, realpath } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
+
+import { isPathInside } from "@skillset/core/internal/path";
 
 import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { validateTestSandbox } from "../../apps/skillset/src/verification-sandbox";
@@ -237,8 +239,7 @@ function testGitEnv(): Record<string, string> {
 }
 
 function isInside(parent: string, child: string): boolean {
-  const path = relative(parent, child);
-  return path.length > 0 && !path.startsWith("..") && !isAbsolute(path);
+  return isPathInside(parent, child);
 }
 
 async function hasGitMarker(path: string): Promise<boolean> {

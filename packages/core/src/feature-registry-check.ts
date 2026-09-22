@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { relative, resolve } from "node:path";
 
 import {
   skillsetFeatureRegistry,
@@ -10,7 +10,7 @@ import {
   type SkillsetRuntimeSupport,
   type SkillsetTargetSupport,
 } from "./feature-registry";
-import { compareStrings } from "./path";
+import { compareStrings, isPathInside } from "./path";
 import { targetNames } from "./targets";
 import type { TargetName } from "./types";
 
@@ -616,11 +616,7 @@ async function pushMissingMarkdownFragment(
 }
 
 function isInsideRoot(rootPath: string, ref: string): boolean {
-  const relativePath = relative(rootPath, resolve(rootPath, ref));
-  return (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") && !isAbsolute(relativePath))
-  );
+  return isPathInside(resolve(rootPath), resolve(rootPath, ref), { allowEqual: true });
 }
 
 function supportRequiresEvidence(

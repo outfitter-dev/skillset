@@ -21,7 +21,7 @@ import nodePath from "node:path";
 
 import { renameDirectoryNoReplace } from "./directory-rename-no-replace";
 import { supportsGeneratedFileModes } from "./generated-file-mode";
-import { compareStrings } from "./path";
+import { compareStrings, isPathInside } from "./path";
 import { hashSkillDirectory } from "./source-tree-identity";
 import type { GeneratedFileMode } from "./types";
 
@@ -1517,7 +1517,7 @@ function normalizePath(
 ): NormalizedPath {
   const absolute = nodePath.resolve(workspaceRoot, candidate);
   const relativePath = nodePath.relative(workspaceRoot, absolute);
-  if (relativePath === "" || !isContainedRelativePath(relativePath)) {
+  if (!isPathInside(workspaceRoot, absolute)) {
     throw transactionError(`path escapes workspace root: ${candidate}`);
   }
   return { absolute, relative: relativePath };
@@ -1681,14 +1681,6 @@ async function removeCreatedDirectoriesWithin(
       state.createdDirectories.splice(index, 1);
     }
   }
-}
-
-function isContainedRelativePath(relativePath: string): boolean {
-  return (
-    relativePath !== ".." &&
-    !relativePath.startsWith(`..${nodePath.sep}`) &&
-    !nodePath.isAbsolute(relativePath)
-  );
 }
 
 function isMissing(error: unknown): boolean {

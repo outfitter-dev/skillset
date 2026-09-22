@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, dirname, join, posix, relative, sep } from "node:path";
+import { basename, dirname, join, posix, relative } from "node:path";
 
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 
@@ -58,6 +58,7 @@ import {
 } from "./package-output-path";
 import {
   compareStrings,
+  isPathInside,
   logicalDiagnosticPath,
   resolveInside,
   toLogicalDiagnosticPath,
@@ -2017,8 +2018,7 @@ function normalizeWorkspacePath(path: string): string {
 }
 
 function isInsidePath(path: string, root: string): boolean {
-  const relativePath = relative(root, path);
-  return relativePath === "" || (!relativePath.startsWith("..") && !relativePath.includes(`..${sep}`));
+  return isPathInside(root, path, { allowEqual: true });
 }
 
 function validateStandardProjectionTopology(
@@ -2178,9 +2178,5 @@ function validateOutputRootNotInsideProtectedRoots(
 }
 
 function isSameOrInside(candidate: string, parent: string): boolean {
-  const relativePath = relative(parent, candidate);
-  return (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") && !relativePath.includes(`..${sep}`))
-  );
+  return isPathInside(parent, candidate, { allowEqual: true });
 }

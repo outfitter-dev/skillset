@@ -1,8 +1,8 @@
 import { realpath, stat } from "node:fs/promises";
 import type { Stats } from "node:fs";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, join, relative } from "node:path";
 
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings, isPathInside, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
 import { isJsonRecord } from "./yaml";
 
@@ -233,13 +233,7 @@ async function assertCanonicalResourceContainment(
 }
 
 function isCanonicalPathContained(parent: string, candidate: string): boolean {
-  const relativePath = relative(parent, candidate);
-  return (
-    relativePath === "" ||
-    (relativePath !== ".." &&
-      !relativePath.startsWith(`..${sep}`) &&
-      !isAbsolute(relativePath))
-  );
+  return isPathInside(parent, candidate, { allowEqual: true });
 }
 
 interface ParsedResourcePath {

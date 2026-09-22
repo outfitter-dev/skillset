@@ -9,7 +9,7 @@ import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument, validateWorkspaceConfigDocument } from "@skillset/core/internal/config";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { gitSafeEnv } from "./git-env";
-import { validateSlug } from "@skillset/core/internal/path";
+import { isPathInside, validateSlug } from "@skillset/core/internal/path";
 import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { selectorForTargetNativeIsland } from "@skillset/core/internal/source-unit-selector";
 import { isTargetName, targetNames } from "@skillset/core/internal/config";
@@ -648,7 +648,7 @@ async function nestedPluginSources(rootPath: string): Promise<readonly string[]>
     if (!(await stat(absolutePath)).isDirectory()) continue;
     if (!(await hasNativePluginManifest(absolutePath))) continue;
     const realSource = await realpath(absolutePath);
-    if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
+    if (!isPathInside(realRoot, realSource, { allowEqual: true })) continue;
     if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
@@ -671,7 +671,7 @@ async function nestedAgentPluginSources(
     if (!(await stat(absolutePath)).isDirectory()) continue;
     if (!(await hasAgentPluginManifest(absolutePath))) continue;
     const realSource = await realpath(absolutePath);
-    if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
+    if (!isPathInside(realRoot, realSource, { allowEqual: true })) continue;
     if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
@@ -890,7 +890,7 @@ async function marketplacePluginSources(rootPath: string): Promise<readonly stri
     if (!(await stat(absolutePath)).isDirectory()) continue;
     if (await isManagedPluginOutputCandidate(rootPath, absolutePath)) continue;
     const realSource = await realpath(absolutePath);
-    if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
+    if (!isPathInside(realRoot, realSource, { allowEqual: true })) continue;
     if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
@@ -950,7 +950,7 @@ async function isManagedPluginOutputCandidate(rootPath: string, absolutePath: st
   const outputRoot = join(rootPath, "plugins");
   const resolvedOutputRoot = resolve(outputRoot);
   const resolvedPath = resolve(absolutePath);
-  if (resolvedPath !== resolvedOutputRoot && !resolvedPath.startsWith(`${resolvedOutputRoot}/`)) return false;
+  if (!isPathInside(resolvedOutputRoot, resolvedPath, { allowEqual: true })) return false;
   if (!(await pathExists(join(outputRoot, "skillset.lock")))) return false;
   const relativePath = relative(resolvedOutputRoot, resolvedPath).replaceAll("\\", "/");
   if (relativePath.length === 0) return true;

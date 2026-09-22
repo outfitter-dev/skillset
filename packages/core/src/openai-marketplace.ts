@@ -1,5 +1,5 @@
 import { realpathSync, statSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import {
   mergeRecords,
@@ -8,6 +8,7 @@ import {
   readStringArray,
 } from "./config";
 import type { ResolvedLicense } from "./licenses";
+import { isPathInside } from "./path";
 import { pluginBundleRoot } from "./plugin-output";
 import { renderPluginManifest } from "./render-plugin-manifest";
 import type {
@@ -276,14 +277,7 @@ function validateLocalInterfaceAsset(
 }
 
 function isPathContainedBy(root: string, candidate: string): boolean {
-  const contained = relative(root, candidate);
-  return (
-    contained !== "" &&
-    contained !== ".." &&
-    !contained.startsWith(`..${"/"}`) &&
-    !contained.startsWith(`..${"\\"}`) &&
-    !isAbsolute(contained)
-  );
+  return isPathInside(root, candidate);
 }
 
 function assertNoSourceCredentials(source: JsonRecord, entryId: string): void {

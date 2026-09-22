@@ -18,7 +18,7 @@ import {
   MISSING_PATH_ENOENT,
   pathExists as pathExistsOnDisk,
 } from "./fs-existence";
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings, isPathInside, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
   pluginBundleRoot,
@@ -600,13 +600,7 @@ function sourceSnapshotsRoot(_sourceDir: string): string {
 }
 
 function isSameOrInside(parentPath: string, candidatePath: string): boolean {
-  const relativePath = relative(resolve(parentPath), resolve(candidatePath));
-  return (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") &&
-      !relativePath.startsWith("../") &&
-      relativePath !== "..")
-  );
+  return isPathInside(resolve(parentPath), resolve(candidatePath), { allowEqual: true });
 }
 
 function stripUndefinedRecord(record: JsonRecord): JsonRecord {
