@@ -5,15 +5,13 @@ import {
   access,
   lstat,
   mkdir,
-  mkdtemp,
   readdir,
   readFile,
-  rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import nodePath from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   renameDirectoryNoReplace,
@@ -30,14 +28,8 @@ const supportedPlatformTest = test.skipIf(!supportedPlatform);
 const withTemporaryDirectory = async (
   operation: (root: string) => Promise<void> | void
 ): Promise<void> => {
-  const root = await mkdtemp(
-    nodePath.join(tmpdir(), "skillset-directory-rename-")
-  );
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-directory-rename-");
+  await operation(root);
 };
 
 const missing = async (path: string): Promise<boolean> =>
