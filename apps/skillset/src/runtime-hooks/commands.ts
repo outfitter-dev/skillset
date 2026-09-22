@@ -95,7 +95,10 @@ function commandExists(
   cwd: string,
   env: Record<string, string | undefined>
 ): boolean {
-  return Bun.which(command, { PATH: env.PATH, cwd }) !== null;
+  return Bun.which(
+    command,
+    env.PATH === undefined ? { cwd } : { PATH: env.PATH, cwd }
+  ) !== null;
 }
 
 async function isLocalSkillsetCheckout(rootPath: string): Promise<boolean> {
