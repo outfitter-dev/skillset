@@ -98,17 +98,23 @@ export function pinnedBunxExecutableName(
  * Windows gets a copy because symlinks there need privileges we should not
  * require. Only an owned shim is left alone; stale links and copies are
  * replaced atomically so a cached root cannot fall through to ambient bunx.
+ * The platform argument lets the copy path be exercised on non-Windows CI.
  */
 export async function ensurePinnedBunx(
   binDir: string,
   executableName = pinnedBunExecutableName(),
-  bunxName = pinnedBunxExecutableName()
+  bunxName = pinnedBunxExecutableName(),
+  platform: NodeJS.Platform = process.platform
 ): Promise<void> {
+  const bunPath = join(binDir, executableName);
   const bunxPath = join(binDir, bunxName);
-  if (await isPinnedBunx(binDir, executableName, bunxName)) return;
+  if (!(await isExecutable(bunPath))) {
+    throw new Error(`pinned Bun interpreter is missing or unusable at ${bunPath}`);
+  }
+  if (await isPinnedBunx(binDir, executableName, bunxName, platform)) return;
   const stagedPath = join(binDir, `${bunxName}.${randomUUID()}.tmp`);
   try {
-    if (process.platform === "win32") {
+    if (platform === "win32") {
       await copyFile(join(binDir, executableName), stagedPath);
     } else {
       // Relative, so the link survives the atomic rename that publishes a
@@ -120,7 +126,7 @@ export async function ensurePinnedBunx(
   } finally {
     await rm(stagedPath, { force: true }).catch(() => {});
   }
-  if (!(await isPinnedBunx(binDir, executableName, bunxName))) {
+  if (!(await isPinnedBunx(binDir, executableName, bunxName, platform))) {
     throw new Error(`pinned bunx could not be repaired at ${bunxPath}`);
   }
 }
@@ -128,12 +134,14 @@ export async function ensurePinnedBunx(
 async function isPinnedBunx(
   binDir: string,
   executableName: string,
-  bunxName: string
+  bunxName: string,
+  platform: NodeJS.Platform
 ): Promise<boolean> {
   const bunxPath = join(binDir, bunxName);
   try {
+    if (!(await isExecutable(join(binDir, executableName)))) return false;
     const info = await lstat(bunxPath);
-    if (process.platform !== "win32") {
+    if (platform !== "win32") {
       return info.isSymbolicLink() && (await readlink(bunxPath)) === executableName;
     }
     if (!info.isFile() || info.isSymbolicLink()) return false;

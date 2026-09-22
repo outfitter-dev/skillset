@@ -87,6 +87,17 @@ describe.skipIf(!posix)("ensurePinnedBunx", () => {
     expect(await child.exited).toBe(0);
   });
 
+  test("fails closed when the sibling interpreter is absent", async () => {
+    const dir = await temporaryDir("bunx-missing-bun");
+    const bunx = join(dir, "bunx");
+    await symlink("bun", bunx);
+
+    await expect(ensurePinnedBunx(dir)).rejects.toThrow(
+      "pinned Bun interpreter is missing or unusable"
+    );
+    expect(await readlink(bunx)).toBe("bun");
+  });
+
   test("replaces an existing wrong executable", async () => {
     const dir = await binDir();
     const bunx = join(dir, "bunx");
@@ -109,14 +120,19 @@ describe.skipIf(!posix)("ensurePinnedBunx", () => {
   });
 });
 
-test.skipIf(posix)("ensurePinnedBunx repairs a stale Windows copy", async () => {
+test("ensurePinnedBunx repairs a stale Windows-style copy", async () => {
   const dir = await temporaryDir("bunx-windows-repair");
-  const bun = join(dir, pinnedBunExecutableName());
-  const bunx = join(dir, pinnedBunxExecutableName());
+  const bun = join(dir, "bun.exe");
+  const bunx = join(dir, "bunx.exe");
   await writeFile(bun, "pinned runtime");
+  await chmod(bun, 0o755);
   await writeFile(bunx, "ambient runtime");
 
-  await Promise.all(Array.from({ length: 4 }, () => ensurePinnedBunx(dir)));
+  await Promise.all(
+    Array.from({ length: 4 }, () =>
+      ensurePinnedBunx(dir, "bun.exe", "bunx.exe", "win32")
+    )
+  );
 
   expect(await readFile(bunx, "utf8")).toBe("pinned runtime");
 });
