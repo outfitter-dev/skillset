@@ -1153,6 +1153,97 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("copies a directory without removing its source", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source", "nested"), { recursive: true });
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "skill\n");
+      await writeFile(nodePath.join(root, "source", "nested", "tool.sh"), "#!/bin/sh\n");
+      await chmod(nodePath.join(root, "source", "nested", "tool.sh"), 0o755);
+
+      const report = await applyWorkspaceTransaction(root, {
+        copies: [{ from: "source", to: "drafts/source" }],
+      });
+
+      expect(report.operations).toEqual([
+        { from: "source", kind: "copy", to: "drafts/source" },
+      ]);
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"))).toEqual(
+        await readFile(nodePath.join(root, "drafts", "source", "SKILL.md"))
+      );
+      expect((await stat(nodePath.join(root, "drafts", "source", "nested", "tool.sh"))).mode & 0o111).not.toBe(0);
+    });
+  });
+
+  test("refuses an occupied copy target without changing either tree", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await mkdir(nodePath.join(root, "draft"));
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "source\n");
+      await writeFile(nodePath.join(root, "draft", "SKILL.md"), "draft\n");
+
+      await expect(
+        applyWorkspaceTransaction(root, {
+          copies: [{ from: "source", to: "draft" }],
+        })
+      ).rejects.toThrow("copy target already exists: draft");
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"), "utf8")).toBe("source\n");
+      expect(await readFile(nodePath.join(root, "draft", "SKILL.md"), "utf8")).toBe("draft\n");
+    });
+  });
+
+  test("refuses a copy target that appears before atomic install", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "source\n");
+
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          { copies: [{ from: "source", to: "draft" }] },
+          {
+            testHooks: {
+              beforeApply: async (operation) => {
+                if (operation.kind === "copy") {
+                  await mkdir(nodePath.join(root, "draft"));
+                  await writeFile(nodePath.join(root, "draft", "SKILL.md"), "late\n");
+                }
+              },
+            },
+          }
+        )
+      ).rejects.toThrow("copy target appeared before atomic install: draft");
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"), "utf8")).toBe("source\n");
+      expect(await readFile(nodePath.join(root, "draft", "SKILL.md"), "utf8")).toBe("late\n");
+    });
+  });
+
+  test("removes an installed copy when a later operation fails", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "source\n");
+
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          {
+            copies: [{ from: "source", to: "draft" }],
+            writes: [{ content: "late\n", path: "zz.txt" }],
+          },
+          {
+            testHooks: {
+              beforeApply: (operation) => {
+                if (operation.kind === "write") throw new Error("injected post-copy failure");
+              },
+            },
+          }
+        )
+      ).rejects.toThrow("injected post-copy failure");
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"), "utf8")).toBe("source\n");
+      await expect(access(nodePath.join(root, "draft"))).rejects.toThrow();
+      await expect(access(nodePath.join(root, "zz.txt"))).rejects.toThrow();
+    });
+  });
+
   test("reports a distinct error when rollback itself fails", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "move.txt"), "move before\n");

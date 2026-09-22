@@ -32,16 +32,16 @@ describe("documentation reference artifacts", () => {
     const second = buildDocsReferenceArtifacts(buildDocsReferenceModel());
 
     expect(second).toEqual(first);
-    expect(model.cliCommands).toHaveLength(26);
+    expect(model.cliCommands).toHaveLength(28);
     expect(
       model.cliCommands.reduce(
         (count, command) => count + command.routes.length,
         0
       )
-    ).toBe(49);
+    ).toBe(51);
     expect(model.support.targets).toHaveLength(3);
     expect(model.support.features).toHaveLength(41);
-    expect(first).toHaveLength(28);
+    expect(first).toHaveLength(30);
     expect(first.map(({ path }) => path)).toEqual(
       [...first.map(({ path }) => path)].toSorted()
     );
