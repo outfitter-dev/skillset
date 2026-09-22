@@ -1,9 +1,13 @@
 export {
-  runSkillsetCommand,
+  MISSING_SKILLSET_RUNNER,
+  parseSkillsetHookCommand,
   resolveSkillsetCommand,
+  runSkillsetCommand,
+  skillsetHookSpawnArgv,
   type ResolvedSkillsetCommand,
   type RunSkillsetCommand,
   type RunSkillsetCommandOptions,
+  type SkillsetHookSpawnOptions,
 } from "./commands";
 export {
   readHookContextStdin,
