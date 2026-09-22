@@ -95,7 +95,7 @@ Generated test output uses the logical cache root in reports and `latest.json`; 
   runs/<run-id>/
 ```
 
-Each run writes a complete retained directory under `runs/<run-id>/`, including the isolated workspace and `report.json` / `report.md`. `latest/` is a real refreshed copy of the most recent run, not a symlink, so local marketplaces or generated plugin trees can be inspected with stable paths on platforms where symlinks are fragile. `latest.json` records the active run id, source selection, report path, and generated output path. Retention defaults to keeping prior run directories; pruning is a future option rather than implicit cleanup.
+Each run writes a complete retained directory under `runs/<run-id>/`, including the isolated workspace and `report.json` / `report.md`. `latest/` is a real refreshed copy of the most recent run, not a symlink, so local marketplaces or generated plugin trees can be inspected with stable paths on platforms where symlinks are fragile. `latest.json` records the active run id, source selection, report path, and generated output path. `latest.json`, `status.json`, and final `report.json` are published atomically so concurrent readers observe a complete previous document or a complete replacement. Retention defaults to keeping prior run directories; pruning is a future option rather than implicit cleanup.
 
 The check vocabulary is deliberately small. `projection: true` means the isolated build succeeds and the selected generated-output diff is clean after the build. `pluginManifests: true` derives enabled provider manifest paths and verifies selected plugin manifest identity, including release-resolved version and shared metadata. File checks remain available through `checks.files` with explicit generated paths:
 
@@ -254,7 +254,7 @@ Runs write retained artifacts under the logical repo cache path:
     report.json
 ```
 
-The physical files live in the repo's XDG-backed Skillset cache bucket. Reports keep logical `.skillset/cache/...` paths so humans, issue comments, and future eval tooling can refer to stable locations without depending on a machine-specific cache root.
+The physical files live in the repo's XDG-backed Skillset cache bucket. Reports keep logical `.skillset/cache/...` paths so humans, issue comments, and future eval tooling can refer to stable locations without depending on a machine-specific cache root. Mutable `status.json`, the XDG `latest.json` pointer, and final `report.json` are published atomically. Write-once setup files such as `config.json` stay out of that path: a run does not launch until they finish writing, and list/status ignore incomplete directories that never published a readable status.
 
 `status` reports `queued`, `building`, `running`, `passed`, or `failed`; `tail` streams retained JSONL output; and `list` shows recent ad hoc runs. Those lifecycle words are reserved and cannot be declaration names. `--background` starts a worker and returns as soon as the queued run is recorded.
 
@@ -359,6 +359,8 @@ has lifecycle state `completed`; this is not a quality judgment. Eval data conta
 per-run or per-trial verdict boolean: CLI exit code describes only
 execution/infrastructure state, never whether a model response met an authored
 expectation.
+
+Eval `latest.json` pointers, mutable `status.json`, and final `report.json` are published atomically so a poller never observes partial JSON.
 
 Generated eval evidence lives under the logical cache root:
 

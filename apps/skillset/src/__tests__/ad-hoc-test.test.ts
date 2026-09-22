@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
@@ -13,7 +13,15 @@ import {
   readAdHocTestStatus,
   startAdHocTestRun,
   tailAdHocTestRun,
+  writeAdHocReport,
+  writeAdHocStatus,
 } from "../ad-hoc-test";
+import {
+  deferred,
+  publicationArtifacts,
+  publicationFailureHooks,
+  seedPublishedFile,
+} from "./publication-test-helpers";
 import { runAdHocTestCommand } from "../ad-hoc-test-cli";
 import { retainedRunRootPaths } from "../retained-runs";
 import { runSkillsetTest } from "../test-runner";
@@ -1631,4 +1639,110 @@ async function runSkillsetCli(
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+describe("ad-hoc status and report publication", () => {
+  test("keeps the prior status.json readable until a flushed replacement is published", async () => {
+    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-status-")), "status.json");
+    await writeAdHocStatus(path, ".skillset/cache/tests/ad-hoc/runs/prior/status.json", adHocStatus("queued"));
+    const before = await readFile(path);
+    const beforePublish = deferred<void>();
+    const release = deferred<void>();
+
+    const published = writeAdHocStatus(path, ".skillset/cache/tests/ad-hoc/runs/prior/status.json", adHocStatus("running"), {
+      beforePublish: async () => {
+        beforePublish.resolve();
+        await release.promise;
+      },
+    });
+    await beforePublish.promise;
+    expect(await readFile(path)).toEqual(before);
+    release.resolve();
+    await published;
+    expect(JSON.parse(await readFile(path, "utf8"))).toMatchObject({ state: "running" });
+    expect(await publicationArtifacts(path)).toEqual([]);
+  });
+
+  test("leaves the previous status byte-identical when write, flush, close, or pre-rename fails", async () => {
+    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-status-keep-")), "status.json");
+    await writeAdHocStatus(path, ".skillset/cache/tests/ad-hoc/runs/prior/status.json", adHocStatus("building"));
+    const before = await readFile(path);
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeAdHocStatus(
+        path,
+        ".skillset/cache/tests/ad-hoc/runs/prior/status.json",
+        adHocStatus("failed"),
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await readFile(path)).toEqual(before);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+
+  test("list ignores incomplete run directories that never published status.json", async () => {
+    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-status-first-")), "status.json");
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeAdHocStatus(
+        path,
+        ".skillset/cache/tests/ad-hoc/runs/lost/status.json",
+        adHocStatus("queued"),
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await Bun.file(path).exists()).toBe(false);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+
+  test("leaves no published report.json when the first completion marker write fails", async () => {
+    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-report-first-")), "report.json");
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeAdHocReport(
+        path,
+        ".skillset/cache/tests/ad-hoc/runs/lost/report.json",
+        { ok: false, schemaVersion: 1, state: "failed" },
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await Bun.file(path).exists()).toBe(false);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+
+  test("leaves the previous report byte-identical when a replacement fails", async () => {
+    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-report-keep-")), "report.json");
+    await seedPublishedFile(path, `${JSON.stringify({ ok: true, schemaVersion: 1, state: "passed" })}\n`);
+    const before = await readFile(path);
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeAdHocReport(
+        path,
+        ".skillset/cache/tests/ad-hoc/runs/prior/report.json",
+        { ok: false, schemaVersion: 1, state: "failed" },
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await readFile(path)).toEqual(before);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+});
+
+function adHocStatus(state: AdHocTestStatus["state"]): AdHocTestStatus {
+  return {
+    kind: "ad-hoc",
+    latestRoot: ".skillset/cache/tests/latest",
+    name: "ad-hoc-codex",
+    outputPath: ".skillset/cache/tests/ad-hoc/runs/prior/output.jsonl",
+    promptPath: ".skillset/cache/tests/ad-hoc/runs/prior/prompt.md",
+    reportPath: ".skillset/cache/tests/ad-hoc/runs/prior/report.json",
+    runId: "prior",
+    runPath: ".skillset/cache/tests/ad-hoc/runs/prior",
+    schemaVersion: 1,
+    startedAt: "2026-09-22T00:00:00.000Z",
+    state,
+    target: "codex",
+    timeoutMs: 120_000,
+    updatedAt: "2026-09-22T00:00:00.000Z",
+  };
 }

@@ -2,6 +2,7 @@ import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { publishAtomicFile } from "@skillset/core/internal/atomic-file-publication";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
@@ -41,8 +42,10 @@ import { isJsonRecord } from "@skillset/core/internal/yaml";
 
 import {
   makeRetainedRunId,
+  publishRetainedJson,
   retainedRunPaths,
   writeRetainedRunLatest,
+  type AtomicFilePublicationTestHooks,
   type RetainedRunPaths,
 } from "./retained-runs";
 import {
@@ -270,12 +273,12 @@ async function runLoadedSkillsetTest(
       workspacePath: logicalWorkspacePath,
     };
 
-    await writeFile(
+    await writeDeterministicTestReport(
       reportPath,
-      renderValidatedJson(report, join(logicalRunPath, "report.json")),
-      "utf8"
+      join(logicalRunPath, "report.json"),
+      reportMarkdownPath,
+      report
     );
-    await writeFile(reportMarkdownPath, renderMarkdownReport(report), "utf8");
     await refreshLatest(paths, latestPath, logicalLatestPath, report);
 
     return {
@@ -541,6 +544,17 @@ function renderActivationProbeMarkdown(record: JsonRecord): string {
     String(record.harness ?? ""),
     "",
   ].join("\n");
+}
+
+export async function writeDeterministicTestReport(
+  reportPath: string,
+  logicalReportPath: string,
+  reportMarkdownPath: string,
+  report: JsonRecord,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<void> {
+  await publishRetainedJson(reportPath, logicalReportPath, report, testHooks);
+  await publishAtomicFile(reportMarkdownPath, renderMarkdownReport(report));
 }
 
 async function refreshLatest(

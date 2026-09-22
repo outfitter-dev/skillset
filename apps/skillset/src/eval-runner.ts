@@ -9,12 +9,20 @@ import {
 } from "@skillset/core/internal/fs-existence";
 import { pluginBundleRoot } from "@skillset/core/internal/plugin-output";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
-import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { stageSkillsetSourceWorkspace } from "@skillset/core/internal/test-evaluation";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 
 import { createRuntimeProbeCommand, runRuntimeProbe } from "./runtime-probe";
-import { appendRetainedRunEvent, makeRetainedRunId, readRetainedRunLatest, retainedRunPaths, writeRetainedRunLatest, type RetainedRunPaths } from "./retained-runs";
+import {
+  appendRetainedRunEvent,
+  makeRetainedRunId,
+  publishRetainedJson,
+  readRetainedRunLatest,
+  retainedRunPaths,
+  writeRetainedRunLatest,
+  type AtomicFilePublicationTestHooks,
+  type RetainedRunPaths,
+} from "./retained-runs";
 
 const EVAL_ROOT = ".skillset/cache/evals";
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -115,7 +123,7 @@ export async function runSkillsetEvals(
   const runId = makeRetainedRunId("eval", { includeName: true });
   const paths = evalRunPaths(root, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
-  let status = await writeEvalStatus(paths, {
+  let status = await writeEvalStatusAt(paths, {
     kind: "eval",
     latestRoot: paths.logical.latestPath,
     reportPath: paths.logical.reportPath,
@@ -161,7 +169,7 @@ export async function runSkillsetEvals(
       await cp(targetStagingPath, targetWorkspacePath, { recursive: true });
       workspaceGraphByTarget.set(target, await loadBuildGraph(targetWorkspacePath));
     }
-    status = await writeEvalStatus(paths, { ...status, state: "running", updatedAt: new Date().toISOString() });
+    status = await writeEvalStatusAt(paths, { ...status, state: "running", updatedAt: new Date().toISOString() });
     let cancelled = false;
     for (const entry of entries) {
       if (isAborted(options.signal)) {
@@ -180,7 +188,7 @@ export async function runSkillsetEvals(
       ? "completed"
       : "failed";
     const endedAt = new Date().toISOString();
-    await writeFile(paths.absolute.reportPath, renderValidatedJson({
+    await writeEvalReportAt(paths, {
       endedAt,
       kind: "eval",
       runId,
@@ -189,15 +197,15 @@ export async function runSkillsetEvals(
       trials: trials as unknown as JsonRecord[],
       ...(cancelled ? { failureClass: "cancelled" } : {}),
       workspacePath: paths.logical.workspacePath,
-    }, paths.logical.reportPath), "utf8");
-    status = await writeEvalStatus(paths, { ...status, endedAt, state, updatedAt: endedAt });
+    });
+    status = await writeEvalStatusAt(paths, { ...status, endedAt, state, updatedAt: endedAt });
     await appendEvalEvent(paths, "status", `eval ${state}`);
     await refreshEvalLatest(paths);
     return evalRunReport(paths, runId, state, trials);
   } catch (error) {
     const endedAt = new Date().toISOString();
     const failureClass = isAborted(options.signal) ? "cancelled" : failurePhase;
-    await writeFile(paths.absolute.reportPath, renderValidatedJson({
+    await writeEvalReportAt(paths, {
       endedAt,
       error: messageFor(error),
       failureClass,
@@ -207,8 +215,8 @@ export async function runSkillsetEvals(
       state: "failed",
       trials: trials as unknown as JsonRecord[],
       workspacePath: paths.logical.workspacePath,
-    }, paths.logical.reportPath), "utf8");
-    await writeEvalStatus(paths, { ...status, endedAt, error: messageFor(error), state: "failed", updatedAt: endedAt });
+    });
+    await writeEvalStatusAt(paths, { ...status, endedAt, error: messageFor(error), state: "failed", updatedAt: endedAt });
     await appendEvalEvent(paths, "status", `eval failed: ${messageFor(error)}`);
     await refreshEvalLatest(paths);
     return evalRunReport(paths, runId, "failed", trials);
@@ -417,9 +425,31 @@ function evalTargetWorkspacePath(paths: EvalRunPaths, target: TargetName): strin
   return join(paths.absolute.workspacePath, target);
 }
 
-async function writeEvalStatus(paths: EvalRunPaths, status: SkillsetEvalRunStatus): Promise<SkillsetEvalRunStatus> {
-  await writeFile(paths.absolute.statusPath, renderValidatedJson(status as unknown as JsonRecord, paths.logical.statusPath), "utf8");
+export async function writeEvalStatus(
+  absolutePath: string,
+  logicalPath: string,
+  status: SkillsetEvalRunStatus,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<SkillsetEvalRunStatus> {
+  await publishRetainedJson(absolutePath, logicalPath, status as unknown as JsonRecord, testHooks);
   return status;
+}
+
+export async function writeEvalReport(
+  absolutePath: string,
+  logicalPath: string,
+  report: JsonRecord,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<void> {
+  await publishRetainedJson(absolutePath, logicalPath, report, testHooks);
+}
+
+async function writeEvalStatusAt(paths: EvalRunPaths, status: SkillsetEvalRunStatus): Promise<SkillsetEvalRunStatus> {
+  return writeEvalStatus(paths.absolute.statusPath, paths.logical.statusPath, status);
+}
+
+async function writeEvalReportAt(paths: EvalRunPaths, report: JsonRecord): Promise<void> {
+  await writeEvalReport(paths.absolute.reportPath, paths.logical.reportPath, report);
 }
 
 async function readEvalStatus(path: string): Promise<SkillsetEvalRunStatus> {
