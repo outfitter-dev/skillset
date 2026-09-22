@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
@@ -20,6 +19,7 @@ import { loadBuildGraph } from "../resolver";
 import { targetNames } from "../targets";
 import type { JsonRecord, JsonValue } from "../types";
 import { parseMarkdown } from "../yaml";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("adaptive hook attachment resolution", () => {
   test("resolves immutable target definitions before expanding attachments", () => {
@@ -977,7 +977,7 @@ function hook(
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-adaptive-hooks-"));
+  const root = await createTestFixtureRoot("skillset-adaptive-hooks-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
@@ -1005,7 +1005,7 @@ async function runGeneratedHookCommand(
   readonly stderr: string;
   readonly stdout: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-generated-hook-"));
+  const root = await createTestFixtureRoot("skillset-generated-hook-");
   const binDir = join(root, "bin");
   await mkdir(binDir);
   const shim = join(binDir, "skillset");

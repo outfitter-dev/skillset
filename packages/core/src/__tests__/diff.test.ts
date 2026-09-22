@@ -1,12 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { diffSkillsetResult } from "@skillset/core";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { runQuietCoreProcess } from "./quiet-core-process";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -119,7 +118,7 @@ compile:
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-core-diff-"));
+  const root = await createTestFixtureRoot("skillset-core-diff-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
