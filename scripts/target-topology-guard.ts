@@ -67,7 +67,7 @@ export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] 
   allow("packages/registry/src/index.ts", "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
   allow("packages/registry/src/schema-snapshots.ts", "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
   allow("scripts/source-layout-migration.ts", "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),
-  allow("packages/core/src/render-project-hooks.ts", "renderProjectSessionStartHooks", "R1", '["claude", "codex"]', "Project SessionStart hooks intentionally target only the two providers with verified project-hook destinations."),
+  allow("packages/core/src/render-project-hooks.ts", "PROJECT_SESSION_START_TARGETS", "R1", '["claude", "codex"]', "Project SessionStart rendering and manual guidance share the two providers with verified project-hook destinations."),
   allow("scripts/bootstrap/main.ts", "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex" || command === "cursor"', "Bootstrap exposes provider-specific setup commands for the supported agent runtimes."),
   allow("packages/core/src/render-result-collector.ts", "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Commands and agents are provider-native companion formats for Claude and Cursor.", 2),
   allow("packages/core/src/render-result-collector.ts", "pluginAuthorRenderFacts", "R3", 'target === "claude" -> target === "codex" -> else [cursor]', "Provider-native author omission diagnostics use provider names and distinct stable codes.", 2),

@@ -19,6 +19,9 @@ import { isJsonRecord } from "./yaml";
 const execFile = promisify(execFileCallback);
 export const SESSION_START_COMMAND = "npx skillset hooks run session-start";
 export const SESSION_START_KEY_PATH = "hooks.SessionStart[*].hooks[*].command";
+export const PROJECT_SESSION_START_TARGETS = ["claude", "codex"] as const satisfies readonly TargetName[];
+const PROJECT_SESSION_START_TARGET_SET: ReadonlySet<TargetName> = new Set(PROJECT_SESSION_START_TARGETS);
+type ProjectSessionStartTarget = (typeof PROJECT_SESSION_START_TARGETS)[number];
 const CODEX_START_SOURCES = ["startup", "resume"] as const;
 const CODEX_PROJECT_HOOKS_PATH = (() => {
   const destination = getProviderRuntimeHookDestination("codex");
@@ -28,13 +31,17 @@ const CODEX_PROJECT_HOOKS_PATH = (() => {
   return destination.path.slice("<project>/".length);
 })();
 
-export function projectSessionStartPath(target: "claude" | "codex", projectRoot = `.${target}`): string {
+export function isProjectSessionStartTarget(target: TargetName): target is ProjectSessionStartTarget {
+  return PROJECT_SESSION_START_TARGET_SET.has(target);
+}
+
+export function projectSessionStartPath(target: ProjectSessionStartTarget, projectRoot = `.${target}`): string {
   return target === "claude"
     ? join(projectRoot, "settings.json")
     : join(projectRoot, relative(".codex", CODEX_PROJECT_HOOKS_PATH));
 }
 
-export function projectSessionStartEntry(target: "claude" | "codex"): JsonRecord {
+export function projectSessionStartEntry(target: ProjectSessionStartTarget): JsonRecord {
   const evidence = getProviderHookEvidence(target);
   const sessionStart = evidence.events.find((event) => event.name === "SessionStart");
   if (sessionStart === undefined) throw new Error(`skillset: missing ${target} SessionStart evidence`);
@@ -60,7 +67,7 @@ export interface RenderedProjectHook {
   readonly ownership: SettingsEntryOwnership;
   readonly renderInputsHash?: string;
   readonly sourceHash: string;
-  readonly target: Extract<TargetName, "claude" | "codex">;
+  readonly target: ProjectSessionStartTarget;
 }
 
 export interface ProjectSettingsIsland {
@@ -75,7 +82,7 @@ export async function renderProjectSessionStartHooks(
   graph: BuildGraph,
   sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map()
 ): Promise<readonly RenderedProjectHook[]> {
-  const targets = (["claude", "codex"] as const).filter(
+  const targets = PROJECT_SESSION_START_TARGETS.filter(
     (target) => graph.root.targets[target].enabled
   );
   if (graph.root.compile.sessionStartHook === "off") return renderExistingOff(graph, targets, sourceIslands);
@@ -94,7 +101,7 @@ export async function renderProjectSessionStartHooks(
 
 async function renderExistingOff(
   graph: BuildGraph,
-  targets: readonly ("claude" | "codex")[],
+  targets: readonly ProjectSessionStartTarget[],
   sourceIslands: ReadonlyMap<string, ProjectSettingsIsland>
 ): Promise<readonly RenderedProjectHook[]> {
   const rendered: RenderedProjectHook[] = [];
@@ -107,7 +114,7 @@ async function renderExistingOff(
 
 async function renderProjectHook(
   graph: BuildGraph,
-  target: "claude" | "codex",
+  target: ProjectSessionStartTarget,
   removeOnly = false,
   sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map()
 ): Promise<RenderedProjectHook | undefined> {
