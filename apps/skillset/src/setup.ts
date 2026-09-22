@@ -219,7 +219,7 @@ async function applySetupPlan(
 
   if (options.write === true) {
     if (kind === "create" && !(await pathExists(rootPath))) {
-      await mkdir(rootPath);
+      await mkdir(rootPath, { recursive: true });
     }
     for (const file of plannedFiles) {
       const absolutePath = join(rootPath, file.path);

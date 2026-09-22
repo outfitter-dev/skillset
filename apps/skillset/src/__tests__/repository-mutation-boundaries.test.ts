@@ -21,7 +21,7 @@ import { addChangeEntry } from "../change-workflow";
 import { importSource } from "../import";
 import { scaffoldSourceUnit } from "../new-source";
 import { applyRelease } from "../release";
-import { initSkillset } from "../setup";
+import { createSkillset, initSkillset } from "../setup";
 
 const withBoundary = async (
   operation: (root: string, outside: string) => Promise<void>
@@ -61,7 +61,16 @@ const assertSentinelUnchanged = async (outside: string, escaped: string): Promis
 
 describe("SET-637 repository mutation boundaries", () => {
   test("setup, new-source, and a valid in-repository layout still write", async () => {
-    await withBoundary(async (root) => {
+    await withBoundary(async (root, outside) => {
+      const home = join(root, "home");
+      await mkdir(home);
+      const globalSource = await createSkillset({ global: true, homeDir: home, write: true });
+      expect(globalSource.rootPath).toBe(join(home, ".skillset/source"));
+      expect(await readFile(join(home, ".skillset/source/skillset.yaml"), "utf8")).toContain(
+        "skillset:"
+      );
+      await assertSentinelUnchanged(outside, "skillset.yaml");
+
       await initWorkspace(root);
       expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("skillset:");
       expect((await lstat(join(root, ".skillset"))).isDirectory()).toBe(true);
