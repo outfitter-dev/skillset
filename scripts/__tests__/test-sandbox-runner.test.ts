@@ -12,6 +12,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
   pinnedBunExecutableName,
   pinnedBunInstallCommand,
@@ -343,7 +344,7 @@ test("SET-388: child commands use a portable umask under restrictive callers", a
 });
 
 test("SET-388: inherited worktree descriptors fail before child execution or cleanup", async () => {
-  const worktree = await mkdtemp(join(tmpdir(), "skillset-worktree-forgery-"));
+  const worktree = await createTestFixtureRoot("skillset-worktree-forgery-");
   const sandboxPath = join(worktree, "skillset-test-nested");
   const xdg = {
     cache: join(sandboxPath, "xdg", "cache"),
@@ -384,7 +385,6 @@ test("SET-388: inherited worktree descriptors fail before child execution or cle
   expect(result.stderr).toContain("Git worktree");
   await expect(access(sentinel)).rejects.toThrow();
   await expect(access(descriptorPath)).resolves.toBeNull();
-  await rm(worktree, { recursive: true });
 });
 
 test("SET-388: explicit retention reports the owned sandbox and descriptor", async () => {
@@ -494,7 +494,7 @@ async function runVersion(binPath: string): Promise<string> {
 }
 
 async function decoyEnvironment() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-decoy-"));
+  const root = await createTestFixtureRoot("skillset-decoy-");
   const home = join(root, "home");
   const roots = {
     cache: join(root, "xdg-cache"),
@@ -543,7 +543,7 @@ async function decoyEnvironment() {
 }
 
 async function gitContaminationEnvironment() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-git-decoy-"));
+  const root = await createTestFixtureRoot("skillset-git-decoy-");
   const home = join(root, "home");
   const gitRoot = join(root, "git");
   const template = join(root, "template");
