@@ -2,10 +2,11 @@
  * Git subprocess environment guard (SET-632).
  *
  * Hook-exported `GIT_DIR` (and related repository-targeting variables) override
- * `git -C` and cwd discovery. Every production or test spawn that passes `"git"`
- * in argv must use the shared sanitized environment (`gitSafeEnv`,
- * `gitReadOnlyEnv`, or the test helper `testGitEnv`). A newly introduced bare
- * git spawn fails this guard.
+ * `git -C` and cwd discovery. Direct spawn calls whose executable is a `"git"`
+ * literal or a locally initialized argv alias must use the shared sanitized
+ * environment (`gitSafeEnv`, `gitReadOnlyEnv`, or the test helper `testGitEnv`).
+ * Command wrappers must sanitize at their spawn site; this syntax guard does not
+ * attempt interprocedural data flow through wrapper parameters.
  */
 
 import { existsSync } from "node:fs";
@@ -14,7 +15,10 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
-import { gitSafeEnv } from "../apps/skillset/src/git-env";
+import {
+  gitRepositoryTargetingKeys,
+  gitSafeEnv,
+} from "../apps/skillset/src/git-env";
 
 export interface GitEnvViolation {
   readonly column: number;
@@ -67,7 +71,7 @@ function isGitSpawn(node: ts.CallExpression): boolean {
   if (name === undefined || !SPAWN_CALLEES.has(name)) return false;
   const first = node.arguments[0];
   if (first === undefined) return false;
-  return isGitString(first) || arrayStartsWithGit(first) || objectCmdStartsWithGit(first);
+  return expressionStartsWithGit(first);
 }
 
 function envIsSanitized(node: ts.CallExpression): boolean {
@@ -96,43 +100,55 @@ function optionsObject(node: ts.CallExpression): ts.ObjectLiteralExpression | un
   return undefined;
 }
 
-function expressionIsSanitized(node: ts.Expression): boolean {
-  if (expressionMentionsSanitizer(node)) return true;
-  return ts.isIdentifier(node) && identifierIsSanitized(node);
+function expressionIsSanitized(
+  node: ts.Expression,
+  seen: ReadonlySet<ts.Node> = new Set()
+): boolean {
+  const expression = unwrapExpression(node);
+  if (seen.has(expression)) return false;
+  const nextSeen = new Set(seen).add(expression);
+  if (ts.isCallExpression(expression)) {
+    return sanitizerCallName(expression) !== undefined;
+  }
+  if (ts.isIdentifier(expression)) {
+    const initializer = localInitializer(expression);
+    return initializer !== undefined && expressionIsSanitized(initializer, nextSeen);
+  }
+  if (ts.isObjectLiteralExpression(expression)) {
+    let includesSanitizedEnv = false;
+    for (const property of expression.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        if (expressionIsAmbientProcessEnv(property.expression, nextSeen)) return false;
+        includesSanitizedEnv ||= expressionIsSanitized(property.expression, nextSeen);
+        continue;
+      }
+      const name = staticPropertyName(property);
+      if (
+        name !== undefined &&
+        gitRepositoryTargetingKeys({ [name]: "guard-probe" }).length > 0
+      ) {
+        return false;
+      }
+    }
+    return includesSanitizedEnv;
+  }
+  if (ts.isConditionalExpression(expression)) {
+    return (
+      expressionIsSanitized(expression.whenTrue, nextSeen) &&
+      expressionIsSanitized(expression.whenFalse, nextSeen)
+    );
+  }
+  return false;
 }
 
-function expressionMentionsSanitizer(node: ts.Node): boolean {
-  let found = false;
-  const visit = (current: ts.Node): void => {
-    if (ts.isIdentifier(current) && SANITIZER_NAMES.has(current.text)) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(current, visit);
-  };
-  visit(node);
-  return found;
+function sanitizerCallName(node: ts.CallExpression): string | undefined {
+  const name = calleeName(node);
+  return name !== undefined && SANITIZER_NAMES.has(name) ? name : undefined;
 }
 
 function identifierIsSanitized(id: ts.Identifier): boolean {
-  if (SANITIZER_NAMES.has(id.text)) return true;
-  const owner = enclosingFunction(id) ?? id.getSourceFile();
-  let sanitized = false;
-  const visit = (current: ts.Node): void => {
-    if (
-      ts.isVariableDeclaration(current) &&
-      ts.isIdentifier(current.name) &&
-      current.name.text === id.text &&
-      current.initializer !== undefined &&
-      expressionMentionsSanitizer(current.initializer)
-    ) {
-      sanitized = true;
-      return;
-    }
-    ts.forEachChild(current, visit);
-  };
-  visit(owner);
-  return sanitized;
+  const initializer = localInitializer(id);
+  return initializer !== undefined && expressionIsSanitized(initializer);
 }
 
 function enclosingFunction(node: ts.Node): ts.Node | undefined {
@@ -157,24 +173,104 @@ function calleeName(node: ts.CallExpression): string | undefined {
   return undefined;
 }
 
+function expressionStartsWithGit(
+  node: ts.Expression,
+  seen: ReadonlySet<ts.Node> = new Set()
+): boolean {
+  const expression = unwrapExpression(node);
+  if (seen.has(expression)) return false;
+  const nextSeen = new Set(seen).add(expression);
+  if (isGitString(expression)) return true;
+  if (ts.isArrayLiteralExpression(expression)) return arrayStartsWithGit(expression, nextSeen);
+  if (ts.isObjectLiteralExpression(expression)) return objectCmdStartsWithGit(expression, nextSeen);
+  if (ts.isIdentifier(expression)) {
+    const initializer = localInitializer(expression);
+    return initializer !== undefined && expressionStartsWithGit(initializer, nextSeen);
+  }
+  return false;
+}
+
 function isGitString(node: ts.Expression): boolean {
   return ts.isStringLiteral(node) && node.text === "git";
 }
 
-function arrayStartsWithGit(node: ts.Expression): boolean {
-  if (!ts.isArrayLiteralExpression(node)) return false;
+function arrayStartsWithGit(
+  node: ts.ArrayLiteralExpression,
+  seen: ReadonlySet<ts.Node> = new Set()
+): boolean {
   const first = node.elements[0];
-  return first !== undefined && isGitString(first);
+  if (first === undefined) return false;
+  return ts.isSpreadElement(first)
+    ? expressionStartsWithGit(first.expression, seen)
+    : expressionStartsWithGit(first, seen);
 }
 
-function objectCmdStartsWithGit(node: ts.Expression): boolean {
-  if (!ts.isObjectLiteralExpression(node)) return false;
+function objectCmdStartsWithGit(
+  node: ts.ObjectLiteralExpression,
+  seen: ReadonlySet<ts.Node> = new Set()
+): boolean {
   const cmd = findProperty(node, "cmd") ?? findProperty(node, "command");
-  return (
-    cmd !== undefined &&
-    ts.isPropertyAssignment(cmd) &&
-    arrayStartsWithGit(cmd.initializer)
-  );
+  if (cmd === undefined) return false;
+  if (ts.isPropertyAssignment(cmd)) return expressionStartsWithGit(cmd.initializer, seen);
+  if (ts.isShorthandPropertyAssignment(cmd)) return expressionStartsWithGit(cmd.name, seen);
+  return false;
+}
+
+function expressionIsAmbientProcessEnv(
+  node: ts.Expression,
+  seen: ReadonlySet<ts.Node> = new Set()
+): boolean {
+  const expression = unwrapExpression(node);
+  if (seen.has(expression)) return false;
+  const nextSeen = new Set(seen).add(expression);
+  if (
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === "process" &&
+    expression.name.text === "env"
+  ) {
+    return true;
+  }
+  if (ts.isIdentifier(expression)) {
+    const initializer = localInitializer(expression);
+    return initializer !== undefined && expressionIsAmbientProcessEnv(initializer, nextSeen);
+  }
+  return false;
+}
+
+function localInitializer(id: ts.Identifier): ts.Expression | undefined {
+  let match: ts.VariableDeclaration | undefined;
+  const source = id.getSourceFile();
+  const owner = enclosingFunction(id) ?? source;
+  const usePosition = id.getStart(source);
+  const visit = (node: ts.Node): void => {
+    if (node.getStart(source) >= usePosition) return;
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === id.text &&
+      node.initializer !== undefined &&
+      (match === undefined || node.getStart(source) > match.getStart(source))
+    ) {
+      match = node;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(owner);
+  return match?.initializer;
+}
+
+function unwrapExpression(node: ts.Expression): ts.Expression {
+  let current = node;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isNonNullExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
 }
 
 function findProperty(
@@ -188,6 +284,17 @@ function findProperty(
     }
     return false;
   });
+}
+
+function staticPropertyName(node: ts.ObjectLiteralElementLike): string | undefined {
+  if (
+    ts.isPropertyAssignment(node) ||
+    ts.isShorthandPropertyAssignment(node) ||
+    ts.isMethodDeclaration(node)
+  ) {
+    if (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) return node.name.text;
+  }
+  return undefined;
 }
 
 function ownerOf(node: ts.Node, source: ts.SourceFile): string {

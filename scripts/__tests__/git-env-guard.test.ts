@@ -48,6 +48,36 @@ Bun.spawn({ cmd: ["git", "status"], env: testGitEnv() });
     ).toEqual([]);
   });
 
+  test("SET-632: resolves local argv aliases and rejects ambient env restored after sanitizing", () => {
+    const violations = scanGitEnvSource(
+      "packages/core/src/example.ts",
+      `
+import { gitSafeEnv } from "./git-env";
+const command = ["git", "status"] as const;
+const inherited = process.env;
+Bun.spawn(command, { env: { ...gitSafeEnv(), ...inherited } });
+const args = command;
+Bun.spawn({ cmd: [...args], env: gitSafeEnv() });
+`
+    );
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.text).toBe(
+      "Bun.spawn(command, { env: { ...gitSafeEnv(), ...inherited } })"
+    );
+  });
+
+  test("SET-632: sanitizer mentions outside an environment spread do not satisfy the guard", () => {
+    const violations = scanGitEnvSource(
+      "packages/core/src/example.ts",
+      `
+Bun.spawn(["git", "status"], { env: { PATH: gitSafeEnv().PATH } });
+Bun.spawn(["git", "status"], { env: { ...gitSafeEnv(), GIT_DIR: ".git" } });
+`
+    );
+    expect(violations).toHaveLength(2);
+  });
+
   test("SET-632: scans production and test TypeScript under apps, packages, and scripts", () => {
     expect(isGitEnvSourcePath("packages/core/src/render-project-hooks.ts")).toBe(true);
     expect(isGitEnvSourcePath("packages/core/src/__tests__/render-project-hooks.test.ts")).toBe(true);

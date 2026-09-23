@@ -298,6 +298,24 @@ test("SET-388: nested runners reuse the validated descriptor", async () => {
   expect(result.stdout.trim().split("\n")).toHaveLength(1);
 });
 
+test("SET-632: nested runners reject repository targeting added inside the sandbox", async () => {
+  const result = await run([
+    "bun",
+    "-e",
+    `const proc=Bun.spawn({cmd:["bun",${JSON.stringify(runner)},"--","bun","-e","console.log('unexpected')"],env:{...process.env,GIT_DIR:"/ambient/.git"},stderr:"pipe",stdout:"pipe"});const [exitCode,stderr]=await Promise.all([proc.exited,new Response(proc.stderr).text()]);console.log(JSON.stringify({exitCode,stderr}));`,
+  ]);
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  const nested = JSON.parse(result.stdout.trim()) as {
+    readonly exitCode: number;
+    readonly stderr: string;
+  };
+  expect(nested.exitCode).toBe(1);
+  expect(nested.stderr).toContain(
+    "GIT_DIR must not survive into the owned test sandbox"
+  );
+});
+
 test("SET-388: child commands use a portable umask under restrictive callers", async () => {
   if (process.platform === "win32") {
     return;
