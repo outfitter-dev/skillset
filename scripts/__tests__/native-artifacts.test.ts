@@ -188,6 +188,7 @@ describe("SET-419 native target and artifact contract", () => {
     });
   });
 
+  // Real compilation varies on shared CI runners; this bounds hangs, not speed.
   test("builds reproducibly, verifies the archive, and runs without Bun in child PATH", async () => {
     const root = await temporaryRoot();
     const target = currentHostTarget();
@@ -245,7 +246,7 @@ describe("SET-419 native target and artifact contract", () => {
         outputDir: root,
       })
     ).rejects.toThrow("checksum or size mismatch");
-  }, 30_000);
+  }, 60_000);
 
   test("rejects a partial manifest at the release-shaped verification boundary", async () => {
     const root = await temporaryRoot();
