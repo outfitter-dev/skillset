@@ -1,13 +1,23 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  rmdir,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
+const CLAIM_PREFIX = "claim-";
 const MAX_PROCESS_ID = 2_147_483_647;
 const OWNER_TOKEN_PATTERN = /^[0-9a-f]{32}$/;
 
 export interface DirectoryLockOwner {
   readonly createdAt: number;
   readonly pid: number;
+  readonly ticket: number;
   readonly token: string;
 }
 
@@ -20,7 +30,7 @@ export type DirectoryLockHeartbeatScheduler = (
  * Domain-specific stale-owner policy. Callers must choose one; the helper
  * does not default this.
  *
- * - `lease-only`: reclaim when the last heartbeat, owner timestamp, or lock
+ * - `lease-only`: reclaim when the last heartbeat, owner timestamp, or claim
  *   mtime is older than the lease, even if the recorded PID is still alive
  *   (known Skillsets index and remote cache).
  * - `lease-and-dead-process`: reclaim only when the lease has expired and
@@ -55,47 +65,78 @@ export interface OwnedDirectoryLock {
   readonly token: string;
 }
 
+interface DirectoryLockClaim {
+  readonly path: string;
+  readonly owner: DirectoryLockOwner | undefined;
+  readonly mtimeMs: number | undefined;
+}
+
+interface ClaimDisposition {
+  readonly contended: boolean;
+  readonly entered: boolean;
+}
+
+/**
+ * Acquire an owner-fenced directory lock.
+ *
+ * Every contender owns a unique claim directory and removes only that claim.
+ * Bakery tickets serialize contenders that publish concurrently. This avoids
+ * renaming or deleting the shared lock root, so delayed cleanup by a former
+ * owner cannot displace a successor or expose a gap for a third process.
+ */
 export async function withOwnedDirectoryLock<T>(
   options: WithOwnedDirectoryLockOptions,
   operation: (lock: OwnedDirectoryLock) => Promise<T>
 ): Promise<T> {
   const token = randomBytes(16).toString("hex");
-  const owner: DirectoryLockOwner = {
-    createdAt: options.timing.now(),
-    pid: options.ownerPid,
-    token,
-  };
+  const claimPath = join(options.lockPath, `${CLAIM_PREFIX}${token}`);
   const startedAt = Date.now();
 
-  while (true) {
-    let created = false;
-    try {
-      await mkdir(options.lockPath);
-      created = true;
-      await writeFile(ownerPath(options.lockPath), `${JSON.stringify(owner)}\n`, "utf8");
-      await writeHeartbeat(options.lockPath, token, options.timing.now());
-      break;
-    } catch (error) {
-      if (created) {
-        await cleanupFailedCreate(options.lockPath, token, options);
-        throw error;
-      }
-      if (!isAlreadyExistsError(error)) throw error;
-      await options.onContention?.();
-      if (await reclaimDeadLock(options.lockPath, options)) continue;
+  await createClaimDirectory(options.lockPath, claimPath);
+
+  let owner: DirectoryLockOwner;
+  try {
+    owner = {
+      createdAt: options.timing.now(),
+      pid: options.ownerPid,
+      ticket: await nextTicket(options.lockPath, options.timing),
+      token,
+    };
+    await writeFile(ownerPath(claimPath), `${JSON.stringify(owner)}\n`, "utf8");
+    await writeHeartbeat(claimPath, token, options.timing.now());
+  } catch (error) {
+    await removeClaim(claimPath, options.lockPath);
+    throw error;
+  }
+
+  const stopHeartbeat = startClaimHeartbeat(claimPath, owner, options);
+  try {
+    while (true) {
+      const disposition = await claimDisposition(
+        options.lockPath,
+        claimPath,
+        owner,
+        options
+      );
+      if (disposition.contended) await options.onContention?.();
+      if (disposition.entered) break;
       if (Date.now() - startedAt > options.timing.timeoutMs) {
         throw options.timeoutError();
       }
       await Bun.sleep(options.timing.pollMs);
     }
-  }
 
-  const stopHeartbeat = startOwnedHeartbeat(options.lockPath, token, options);
-  try {
     await options.afterAcquired?.();
     return await operation({
       assertOwned: async () => {
-        if ((await readOwner(options.lockPath, options.timing))?.token !== token) {
+        if (
+          !(await isCurrentOwner(
+            options.lockPath,
+            claimPath,
+            owner,
+            options.timing
+          ))
+        ) {
           throw options.lostOwnershipError();
         }
       },
@@ -103,7 +144,25 @@ export async function withOwnedDirectoryLock<T>(
     });
   } finally {
     await stopHeartbeat();
-    await removeOwnedLock(options.lockPath, token, options.timing);
+    await removeClaim(claimPath, options.lockPath);
+  }
+}
+
+async function createClaimDirectory(
+  lockPath: string,
+  claimPath: string
+): Promise<void> {
+  while (true) {
+    await mkdir(lockPath, { recursive: true });
+    try {
+      await mkdir(claimPath);
+      return;
+    } catch (error) {
+      // The previous owner may remove an empty lock root after our recursive
+      // mkdir observes it but before our unique claim is created.
+      if (isMissingError(error)) continue;
+      throw error;
+    }
   }
 }
 
@@ -118,22 +177,122 @@ export function startDefaultDirectoryLockHeartbeat(
   return () => clearInterval(timer);
 }
 
-function startOwnedHeartbeat(
+async function nextTicket(
   lockPath: string,
-  token: string,
+  timing: DirectoryLockTiming
+): Promise<number> {
+  const claims = await readClaims(lockPath, timing);
+  const maximum = claims.reduce(
+    (value, claim) => Math.max(value, claim.owner?.ticket ?? 0),
+    0
+  );
+  if (maximum >= Number.MAX_SAFE_INTEGER) {
+    throw new Error(
+      `skillset: directory lock ${lockPath} exhausted its ticket space`
+    );
+  }
+  return maximum + 1;
+}
+
+async function claimDisposition(
+  lockPath: string,
+  claimPath: string,
+  owner: DirectoryLockOwner,
+  options: WithOwnedDirectoryLockOptions
+): Promise<ClaimDisposition> {
+  const claims = await readClaims(lockPath, options.timing);
+  const ownClaim = claims.find((claim) => claim.path === claimPath);
+  if (ownClaim?.owner?.token !== owner.token) {
+    return { contended: true, entered: false };
+  }
+
+  let contended = false;
+  for (const claim of claims) {
+    if (claim.path === claimPath) continue;
+    contended = true;
+    if (await isStaleClaim(claim, options)) {
+      await rm(claim.path, { force: true, recursive: true });
+      continue;
+    }
+    // A claim without owner metadata is still choosing its ticket. Waiting for
+    // it is the bakery-algorithm guard that prevents two simultaneous first
+    // contenders from both observing an empty queue and entering.
+    if (claim.owner === undefined || compareOwners(claim.owner, owner) < 0) {
+      return { contended, entered: false };
+    }
+  }
+  return { contended, entered: true };
+}
+
+async function isCurrentOwner(
+  lockPath: string,
+  claimPath: string,
+  owner: DirectoryLockOwner,
+  timing: DirectoryLockTiming
+): Promise<boolean> {
+  const claims = await readClaims(lockPath, timing);
+  const ownClaim = claims.find((claim) => claim.path === claimPath);
+  if (ownClaim?.owner?.token !== owner.token) return false;
+  return !claims.some(
+    (claim) =>
+      claim.path !== claimPath &&
+      claim.owner !== undefined &&
+      compareOwners(claim.owner, owner) < 0
+  );
+}
+
+function compareOwners(
+  left: DirectoryLockOwner,
+  right: DirectoryLockOwner
+): number {
+  if (left.ticket !== right.ticket) return left.ticket - right.ticket;
+  if (left.token === right.token) return 0;
+  return left.token < right.token ? -1 : 1;
+}
+
+async function isStaleClaim(
+  claim: DirectoryLockClaim,
+  options: WithOwnedDirectoryLockOptions
+): Promise<boolean> {
+  const heartbeat =
+    claim.owner === undefined
+      ? undefined
+      : await readHeartbeat(claim.path, claim.owner.token, options.timing);
+  const lastActiveAt = heartbeat ?? claim.owner?.createdAt ?? claim.mtimeMs;
+  if (
+    lastActiveAt === undefined ||
+    options.timing.now() - lastActiveAt <= options.timing.leaseMs
+  ) {
+    return false;
+  }
+  if (
+    options.staleOwner.kind === "lease-and-dead-process" &&
+    claim.owner !== undefined &&
+    options.staleOwner.isProcessAlive(claim.owner.pid)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function startClaimHeartbeat(
+  claimPath: string,
+  owner: DirectoryLockOwner,
   options: WithOwnedDirectoryLockOptions
 ): () => Promise<void> {
   let inFlight: Promise<void> | undefined;
   const heartbeat = (): Promise<void> => {
     if (inFlight !== undefined) return inFlight;
     inFlight = (async () => {
-      if ((await readOwner(lockPath, options.timing))?.token !== token) return;
+      if ((await readOwner(claimPath, options.timing))?.token !== owner.token) {
+        return;
+      }
       try {
-        await writeHeartbeat(lockPath, token, options.timing.now());
+        await writeHeartbeat(claimPath, owner.token, options.timing.now());
       } catch {
         // Ownership verification before the domain mutation remains
-        // authoritative when a heartbeat write races fencing or a transient
-        // filesystem failure.
+        // authoritative when a heartbeat write races stale-claim removal or a
+        // transient filesystem failure.
       }
     })().finally(() => {
       inFlight = undefined;
@@ -147,83 +306,45 @@ function startOwnedHeartbeat(
   };
 }
 
-async function reclaimDeadLock(
+async function readClaims(
   lockPath: string,
-  options: WithOwnedDirectoryLockOptions
-): Promise<boolean> {
-  const owner = await readOwner(lockPath, options.timing);
-  const heartbeat = owner === undefined ? undefined : await readHeartbeat(lockPath, owner.token, options.timing);
-  const lock = await stat(lockPath).catch(() => undefined);
-  const lastActiveAt = heartbeat ?? owner?.createdAt ?? lock?.mtimeMs;
-  if (lastActiveAt === undefined || options.timing.now() - lastActiveAt <= options.timing.leaseMs) {
-    return false;
-  }
-  if (
-    options.staleOwner.kind === "lease-and-dead-process" &&
-    owner !== undefined &&
-    options.staleOwner.isProcessAlive(owner.pid)
-  ) {
-    return false;
-  }
-  return fenceAndRemoveLock(lockPath, owner?.token, options.timing);
-}
-
-async function cleanupFailedCreate(
-  lockPath: string,
-  token: string,
-  options: WithOwnedDirectoryLockOptions
-): Promise<void> {
-  await rm(heartbeatPath(lockPath, token), { force: true });
-  const currentOwner = await readOwner(lockPath, options.timing);
-  if (currentOwner === undefined) {
-    await fenceAndRemoveLock(lockPath, undefined, options.timing);
-    return;
-  }
-  if (currentOwner.token === token) {
-    await removeOwnedLock(lockPath, token, options.timing);
-  }
-}
-
-async function removeOwnedLock(
-  lockPath: string,
-  token: string,
   timing: DirectoryLockTiming
-): Promise<void> {
-  if ((await readOwner(lockPath, timing))?.token !== token) return;
-  await fenceAndRemoveLock(lockPath, token, timing);
-}
-
-async function fenceAndRemoveLock(
-  lockPath: string,
-  expectedToken: string | undefined,
-  timing: DirectoryLockTiming
-): Promise<boolean> {
-  const tombstonePath = `${lockPath}.tombstone-${randomBytes(12).toString("hex")}`;
+): Promise<readonly DirectoryLockClaim[]> {
+  let names: readonly string[];
   try {
-    await rename(lockPath, tombstonePath);
+    names = await readdir(lockPath);
   } catch (error) {
-    if (isMissingError(error)) return true;
+    if (isMissingError(error)) return [];
     throw error;
   }
-  const movedToken = (await readOwner(tombstonePath, timing))?.token;
-  if (movedToken !== expectedToken) {
-    try {
-      await rename(tombstonePath, lockPath);
-    } catch (error) {
-      if (!isAlreadyExistsError(error)) throw error;
-    }
-    return false;
-  }
-  await rm(tombstonePath, { force: true, recursive: true });
-  return true;
+  const claims = names
+    .filter((name) => name.startsWith(CLAIM_PREFIX))
+    .map(async (name): Promise<DirectoryLockClaim> => {
+      const path = join(lockPath, name);
+      const [owner, metadata] = await Promise.all([
+        readOwner(path, timing),
+        stat(path).catch(() => undefined),
+      ]);
+      return { mtimeMs: metadata?.mtimeMs, owner, path };
+    });
+  return Promise.all(claims);
+}
+
+async function removeClaim(claimPath: string, lockPath: string): Promise<void> {
+  await rm(claimPath, { force: true, recursive: true });
+  // Removing an empty root is safe: a concurrently created claim makes rmdir
+  // fail with ENOTEMPTY, and no operation ever removes a claim it does not own.
+  await rmdir(lockPath).catch(() => {});
 }
 
 async function readOwner(
-  lockPath: string,
+  claimPath: string,
   timing: DirectoryLockTiming
 ): Promise<DirectoryLockOwner | undefined> {
   try {
-    const value = JSON.parse(await readFile(ownerPath(lockPath), "utf8")) as Partial<DirectoryLockOwner>;
+    const value = JSON.parse(
+      await readFile(ownerPath(claimPath), "utf8")
+    ) as Partial<DirectoryLockOwner>;
     if (
       typeof value.createdAt !== "number" ||
       !isValidTimestamp(value.createdAt, timing) ||
@@ -231,26 +352,47 @@ async function readOwner(
       !Number.isSafeInteger(value.pid) ||
       value.pid <= 0 ||
       value.pid > MAX_PROCESS_ID ||
+      typeof value.ticket !== "number" ||
+      !Number.isSafeInteger(value.ticket) ||
+      value.ticket <= 0 ||
       typeof value.token !== "string" ||
-      !OWNER_TOKEN_PATTERN.test(value.token)
-    ) return undefined;
-    return { createdAt: value.createdAt, pid: value.pid, token: value.token };
+      !OWNER_TOKEN_PATTERN.test(value.token) ||
+      claimPath.split(/[/\\]/u).at(-1) !== `${CLAIM_PREFIX}${value.token}`
+    ) {
+      return undefined;
+    }
+    return {
+      createdAt: value.createdAt,
+      pid: value.pid,
+      ticket: value.ticket,
+      token: value.token,
+    };
   } catch {
     return undefined;
   }
 }
 
-async function writeHeartbeat(lockPath: string, token: string, heartbeatAt: number): Promise<void> {
-  await writeFile(heartbeatPath(lockPath, token), `${JSON.stringify({ heartbeatAt, token })}\n`, "utf8");
+async function writeHeartbeat(
+  claimPath: string,
+  token: string,
+  heartbeatAt: number
+): Promise<void> {
+  await writeFile(
+    heartbeatPath(claimPath, token),
+    `${JSON.stringify({ heartbeatAt, token })}\n`,
+    "utf8"
+  );
 }
 
 async function readHeartbeat(
-  lockPath: string,
+  claimPath: string,
   token: string,
   timing: DirectoryLockTiming
 ): Promise<number | undefined> {
   try {
-    const value = JSON.parse(await readFile(heartbeatPath(lockPath, token), "utf8")) as {
+    const value = JSON.parse(
+      await readFile(heartbeatPath(claimPath, token), "utf8")
+    ) as {
       readonly heartbeatAt?: unknown;
       readonly token?: unknown;
     };
@@ -269,17 +411,12 @@ function isValidTimestamp(value: unknown, timing: DirectoryLockTiming): value is
     value <= timing.now() + timing.leaseMs;
 }
 
-function ownerPath(lockPath: string): string {
-  return join(lockPath, "owner.json");
+function ownerPath(claimPath: string): string {
+  return join(claimPath, "owner.json");
 }
 
-function heartbeatPath(lockPath: string, token: string): string {
-  return join(lockPath, `heartbeat-${token}.json`);
-}
-
-function isAlreadyExistsError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error &&
-    (error.code === "EEXIST" || error.code === "ENOTEMPTY");
+function heartbeatPath(claimPath: string, token: string): string {
+  return join(claimPath, `heartbeat-${token}.json`);
 }
 
 function isMissingError(error: unknown): boolean {

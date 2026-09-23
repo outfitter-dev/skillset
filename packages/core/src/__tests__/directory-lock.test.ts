@@ -19,15 +19,20 @@ describe("owner-fenced directory lock", () => {
     const root = await createTestGitFixtureRoot("skillset-directory-lock-release-");
     const lockPath = join(root, "resource.lock");
     const displacedPath = `${lockPath}.displaced`;
-    await withOwnedDirectoryLock(lockOptions(lockPath, {
-      afterAcquired: async () => {
-        await rename(lockPath, displacedPath);
-        await seedLock(lockPath, SUCCESSOR_TOKEN, 1_000);
-      },
-    }), async (lock) => {
-      await expect(lock.assertOwned()).rejects.toThrow("lost ownership of directory lock");
-    });
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({
+    await withOwnedDirectoryLock(
+      lockOptions(lockPath, {
+        afterAcquired: async () => {
+          await rename(lockPath, displacedPath);
+          await seedLock(lockPath, SUCCESSOR_TOKEN, 1_000);
+        },
+      }),
+      async (lock) => {
+        await expect(lock.assertOwned()).rejects.toThrow(
+          "lost ownership of directory lock"
+        );
+      }
+    );
+    expect(await currentOwner(lockPath)).toMatchObject({
       token: SUCCESSOR_TOKEN,
     });
     expect(await lockArtifacts(root)).toContain("resource.lock.displaced");
@@ -57,12 +62,20 @@ describe("owner-fenced directory lock", () => {
     const lockPath = join(root, "resource.lock");
     await seedLock(lockPath, "a".repeat(32), 0, process.pid);
 
-    await expect(withOwnedDirectoryLock(lockOptions(lockPath, {
-      now: () => 100,
-      staleOwner: { isProcessAlive: () => true, kind: "lease-and-dead-process" },
-      timeoutMs: 5,
-    }), async () => "should-not-run")).rejects.toThrow("timed out waiting for directory lock");
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({
+    await expect(
+      withOwnedDirectoryLock(
+        lockOptions(lockPath, {
+          now: () => 100,
+          staleOwner: {
+            isProcessAlive: () => true,
+            kind: "lease-and-dead-process",
+          },
+          timeoutMs: 5,
+        }),
+        async () => "should-not-run"
+      )
+    ).rejects.toThrow("timed out waiting for directory lock");
+    expect(await currentOwner(lockPath)).toMatchObject({
       token: "a".repeat(32),
     });
     await rm(lockPath, { force: true, recursive: true });
@@ -118,6 +131,8 @@ describe("owner-fenced directory lock", () => {
     const holderAcquired = join(root, "holder-acquired");
     const successorAcquired = join(root, "successor-acquired");
     const successorContended = join(root, "successor-contended");
+    const thirdAcquired = join(root, "third-acquired");
+    const thirdContended = join(root, "third-contended");
     const releaseHolder = join(root, "release-holder");
     const releaseSuccessor = join(root, "release-successor");
     const script = [
@@ -166,20 +181,86 @@ describe("owner-fenced directory lock", () => {
     await waitForFile(successorAcquired);
     expect(await Bun.file(holderAcquired).exists()).toBe(true);
 
+    const third = spawnWorker({
+      ACQUIRED: thirdAcquired,
+      CONTENDED: thirdContended,
+      LEASE_MS: "10",
+      NOW: "100",
+      TIMEOUT_MS: "2000",
+    });
+    await waitForFile(thirdContended);
+    expect(await Bun.file(thirdAcquired).exists()).toBe(false);
+
     await Bun.write(releaseHolder, "release\n");
     const [holderStderr, holderExit] = await Promise.all([
       new Response(holder.stderr).text(),
       holder.exited,
     ]);
     expect(holderExit, holderStderr).toBe(0);
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8")).token).toMatch(/^[0-9a-f]{32}$/);
+    expect((await currentOwner(lockPath)).token).toMatch(/^[0-9a-f]{32}$/);
+    expect(await Bun.file(thirdAcquired).exists()).toBe(false);
 
     await Bun.write(releaseSuccessor, "release\n");
+    const [successorStderr, successorExit, thirdStderr, thirdExit] =
+      await Promise.all([
+        new Response(successor.stderr).text(),
+        successor.exited,
+        new Response(third.stderr).text(),
+        third.exited,
+      ]);
+    expect(successorExit, successorStderr).toBe(0);
+    expect(thirdExit, thirdStderr).toBe(0);
+    expect(await Bun.file(thirdAcquired).exists()).toBe(true);
+    expect(await lockArtifacts(root)).toEqual([]);
+  });
+
+  test("SET-645 a crashed claim is recovered without displacing its successor", async () => {
+    const root = await createTestGitFixtureRoot(
+      "skillset-directory-lock-crash-"
+    );
+    const lockPath = join(root, "resource.lock");
+    const holderAcquired = join(root, "holder-acquired");
+    const successorAcquired = join(root, "successor-acquired");
+    const releaseHolder = join(root, "release-holder");
+    const script = [
+      'import { withOwnedDirectoryLock } from "./packages/core/src/directory-lock.ts";',
+      "const wait = async (path) => { while (!(await Bun.file(path).exists())) await Bun.sleep(1); };",
+      "await withOwnedDirectoryLock({",
+      '  afterAcquired: async () => { await Bun.write(process.env.ACQUIRED, "ready\\n"); if (process.env.RELEASE) await wait(process.env.RELEASE); },',
+      "  lockPath: process.env.LOCK_PATH,",
+      '  lostOwnershipError: () => new Error("lost ownership"),',
+      "  ownerPid: process.pid,",
+      '  staleOwner: { kind: "lease-only" },',
+      "  startHeartbeat: () => () => undefined,",
+      '  timeoutError: () => new Error("timeout"),',
+      "  timing: { heartbeatMs: 1000, leaseMs: 10, now: () => Number(process.env.NOW), pollMs: 1, timeoutMs: 2000 },",
+      "}, async () => undefined);",
+    ].join("\n");
+    const spawnWorker = (env: Record<string, string>) =>
+      Bun.spawn({
+        cmd: ["bun", "-e", script],
+        cwd: join(import.meta.dir, "../../../.."),
+        env: { ...process.env, LOCK_PATH: lockPath, ...env },
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+
+    const holder = spawnWorker({
+      ACQUIRED: holderAcquired,
+      NOW: "0",
+      RELEASE: releaseHolder,
+    });
+    await waitForFile(holderAcquired);
+    holder.kill();
+    await holder.exited;
+
+    const successor = spawnWorker({ ACQUIRED: successorAcquired, NOW: "100" });
     const [successorStderr, successorExit] = await Promise.all([
       new Response(successor.stderr).text(),
       successor.exited,
     ]);
     expect(successorExit, successorStderr).toBe(0);
+    expect(await Bun.file(successorAcquired).exists()).toBe(true);
     expect(await lockArtifacts(root)).toEqual([]);
   });
 });
@@ -213,18 +294,50 @@ function lockOptions(
   };
 }
 
-async function seedLock(lockPath: string, token: string, heartbeatAt: number, pid = 1_234): Promise<void> {
-  await mkdir(lockPath, { recursive: true });
+async function seedLock(
+  lockPath: string,
+  token: string,
+  heartbeatAt: number,
+  pid = 1_234
+): Promise<void> {
+  const claimPath = join(lockPath, `claim-${token}`);
+  await mkdir(claimPath, { recursive: true });
   await writeFile(
-    join(lockPath, "owner.json"),
-    `${JSON.stringify({ createdAt: heartbeatAt, pid, token })}\n`,
+    join(claimPath, "owner.json"),
+    `${JSON.stringify({ createdAt: heartbeatAt, pid, ticket: 1, token })}\n`,
     "utf8"
   );
   await writeFile(
-    join(lockPath, `heartbeat-${token}.json`),
+    join(claimPath, `heartbeat-${token}.json`),
     `${JSON.stringify({ heartbeatAt, token })}\n`,
     "utf8"
   );
+}
+
+async function currentOwner(
+  lockPath: string
+): Promise<{ readonly token: string }> {
+  const claims = (await readdir(lockPath))
+    .filter((name) => name.startsWith("claim-"))
+    .toSorted();
+  const owners = await Promise.all(
+    claims.map(
+      async (claim) =>
+        JSON.parse(
+          await readFile(join(lockPath, claim, "owner.json"), "utf8")
+        ) as {
+          readonly ticket: number;
+          readonly token: string;
+        }
+    )
+  );
+  const owner = owners.toSorted(
+    (left, right) =>
+      left.ticket - right.ticket || left.token.localeCompare(right.token)
+  )[0];
+  if (owner === undefined)
+    throw new Error(`missing current owner for ${lockPath}`);
+  return owner;
 }
 
 async function lockArtifacts(root: string): Promise<readonly string[]> {

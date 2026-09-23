@@ -276,14 +276,25 @@ describe("known Skillsets index", () => {
     expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([entry(workspacePath, "recovered")]);
     expect(await transactionArtifacts(options)).toEqual([]);
 
-    await seedLock(lockPath, { createdAt: 100, heartbeatAt: 100, pid: 1234, token });
-    await expect(updateKnownSkillsetsIndexForTest(entry(workspacePath, "blocked"), options, {
-      leaseMs: 10,
-      now: () => 100,
-      pollMs: 1,
-      timeoutMs: 5,
-    })).rejects.toThrow("timed out waiting for known Skillsets index lock");
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token });
+    await seedLock(lockPath, {
+      createdAt: 100,
+      heartbeatAt: 100,
+      pid: 1234,
+      token,
+    });
+    await expect(
+      updateKnownSkillsetsIndexForTest(
+        entry(workspacePath, "blocked"),
+        options,
+        {
+          leaseMs: 10,
+          now: () => 100,
+          pollMs: 1,
+          timeoutMs: 5,
+        }
+      )
+    ).rejects.toThrow("timed out waiting for known Skillsets index lock");
+    expect(await currentLockOwner(lockPath)).toMatchObject({ token });
     await rm(lockPath, { force: true, recursive: true });
   });
 
@@ -349,7 +360,9 @@ describe("known Skillsets index", () => {
       },
     })).rejects.toThrow("lost ownership of known Skillsets index lock");
     expect(await Bun.file(indexPath).exists()).toBe(false);
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token: successorToken });
+    expect(await currentLockOwner(lockPath)).toMatchObject({
+      token: successorToken,
+    });
     await rm(lockPath, { force: true, recursive: true });
     await rm(displacedPath, { force: true, recursive: true });
   });
@@ -588,15 +601,46 @@ async function seedLock(
   lockPath: string,
   owner: { readonly createdAt: number; readonly heartbeatAt: number; readonly pid: number; readonly token: string }
 ): Promise<void> {
-  await mkdir(lockPath, { recursive: true });
-  await writeFile(join(lockPath, "owner.json"), `${JSON.stringify(owner)}\n`, "utf8");
+  const claimPath = join(lockPath, `claim-${owner.token}`);
+  await mkdir(claimPath, { recursive: true });
   await writeFile(
-    join(lockPath, `heartbeat-${owner.token}.json`),
+    join(claimPath, "owner.json"),
+    `${JSON.stringify({ ...owner, ticket: 1 })}\n`,
+    "utf8"
+  );
+  await writeFile(
+    join(claimPath, `heartbeat-${owner.token}.json`),
     `${JSON.stringify({ heartbeatAt: owner.heartbeatAt, token: owner.token })}\n`,
     "utf8"
   );
   const old = new Date(0);
-  await utimes(lockPath, old, old);
+  await utimes(claimPath, old, old);
+}
+
+async function currentLockOwner(
+  lockPath: string
+): Promise<{ readonly ticket: number; readonly token: string }> {
+  const claims = (await readdir(lockPath)).filter((name) =>
+    name.startsWith("claim-")
+  );
+  const owners = await Promise.all(
+    claims.map(
+      async (claim) =>
+        JSON.parse(
+          await readFile(join(lockPath, claim, "owner.json"), "utf8")
+        ) as {
+          readonly ticket: number;
+          readonly token: string;
+        }
+    )
+  );
+  const owner = owners.toSorted(
+    (left, right) =>
+      left.ticket - right.ticket || left.token.localeCompare(right.token)
+  )[0];
+  if (owner === undefined)
+    throw new Error(`missing current owner for ${lockPath}`);
+  return owner;
 }
 
 async function waitForFile(path: string): Promise<void> {

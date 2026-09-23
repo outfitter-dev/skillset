@@ -309,23 +309,33 @@ describe("remote repository cache", () => {
     const displacedPath = `${lockPath}.displaced`;
     const successorToken = "c".repeat(32);
 
-    await expect(acquireRemoteRepository({
-      repository: fixture.repository,
-      revision: { kind: "sha", sha: fixture.firstSha },
-      xdg: fixture.xdg,
-      lock: {
-        afterLockAcquired: async () => {
-          await rename(lockPath, displacedPath);
-          await mkdir(lockPath);
-          await writeFile(
-            join(lockPath, "owner.json"),
-            `${JSON.stringify({ createdAt: Date.now(), pid: process.pid, token: successorToken })}\n`,
-            "utf8"
-          );
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        xdg: fixture.xdg,
+        lock: {
+          afterLockAcquired: async () => {
+            await rename(lockPath, displacedPath);
+            const claimPath = join(lockPath, `claim-${successorToken}`);
+            await mkdir(claimPath, { recursive: true });
+            await writeFile(
+              join(claimPath, "owner.json"),
+              `${JSON.stringify({ createdAt: Date.now(), pid: process.pid, ticket: 1, token: successorToken })}\n`,
+              "utf8"
+            );
+          },
         },
-      },
-    })).rejects.toThrow("lost ownership of remote cache lock");
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({
+      })
+    ).rejects.toThrow("lost ownership of remote cache lock");
+    expect(
+      JSON.parse(
+        await readFile(
+          join(lockPath, `claim-${successorToken}`, "owner.json"),
+          "utf8"
+        )
+      )
+    ).toMatchObject({
       token: successorToken,
     });
     await access(displacedPath);
