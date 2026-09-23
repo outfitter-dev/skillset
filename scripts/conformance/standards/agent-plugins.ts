@@ -21,6 +21,8 @@ import Ajv2020 from "ajv/dist/2020";
 import type { ErrorObject } from "ajv/dist/2020";
 import ajvPackage from "ajv/package.json";
 
+import { createProviderProbeEnvironment } from "../../provider-probe-environment";
+
 const PROFILE_ID = "agent-plugins-1.0" as const;
 const REQUIRED_CODEX_LINE = "0.154.0";
 const PLUGIN_SCHEMA_ID =
@@ -281,7 +283,9 @@ async function validateCodexMarketplace(
     );
     await writeFile(catalogPath, catalog);
 
-    const environment = await isolatedEnvironment(isolatedRoot);
+    const { env: environment } = await createProviderProbeEnvironment({
+      root: isolatedRoot,
+    });
     const codexBinaryHash = await assertCodexIntegrity(pin);
     const version = await runCodex(
       pin.binaryPath,
@@ -434,27 +438,6 @@ async function visit(
   }
 }
 
-async function isolatedEnvironment(
-  isolatedRoot: string
-): Promise<Record<string, string>> {
-  const environment = Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined
-    )
-  );
-  const roots = {
-    CODEX_HOME: path.join(isolatedRoot, "codex-home"),
-    HOME: path.join(isolatedRoot, "home"),
-    XDG_CACHE_HOME: path.join(isolatedRoot, "xdg", "cache"),
-    XDG_CONFIG_HOME: path.join(isolatedRoot, "xdg", "config"),
-    XDG_DATA_HOME: path.join(isolatedRoot, "xdg", "data"),
-    XDG_STATE_HOME: path.join(isolatedRoot, "xdg", "state"),
-  };
-  await Promise.all(
-    Object.values(roots).map((root) => mkdir(root, { recursive: true }))
-  );
-  return { ...environment, ...roots };
-}
 
 async function runCodex(
   codexBin: string,

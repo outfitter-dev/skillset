@@ -5,6 +5,11 @@ import { chmod, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  isProviderProbeIsolationVariable,
+  isProviderProbePassthroughVariable,
+  PROVIDER_PROBE_ISOLATION_VARIABLES,
+} from "../../../provider-probe-environment";
 import { runAgentInstructionsProbe } from "../agent-instructions";
 
 const ROOT_SENTINEL = "SKILLSET_ROOT_INSTRUCTIONS_7BFC7A";
@@ -27,13 +32,21 @@ describe("SET-411 Agent Instructions external probe", () => {
     const rootInstructions = `# Root instructions\n\n${ROOT_SENTINEL}\n`;
     const nestedInstructions = `# Nested instructions\n\n${NESTED_SENTINEL}\n`;
 
-    const evidence = await runAgentInstructionsProbe({
-      codex: fixture,
-      nestedInstructions,
-      nestedSentinel: NESTED_SENTINEL,
-      rootInstructions,
-      rootSentinel: ROOT_SENTINEL,
-    });
+    const previousSecret = process.env.AWS_SECRET_ACCESS_KEY;
+    process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
+    let evidence: Awaited<ReturnType<typeof runAgentInstructionsProbe>>;
+    try {
+      evidence = await runAgentInstructionsProbe({
+        codex: fixture,
+        nestedInstructions,
+        nestedSentinel: NESTED_SENTINEL,
+        rootInstructions,
+        rootSentinel: ROOT_SENTINEL,
+      });
+    } finally {
+      if (previousSecret === undefined) delete process.env.AWS_SECRET_ACCESS_KEY;
+      else process.env.AWS_SECRET_ACCESS_KEY = previousSecret;
+    }
 
     expect(evidence.consumer).toEqual({
       binarySha256: fixture.binarySha256,
@@ -52,18 +65,22 @@ describe("SET-411 Agent Instructions external probe", () => {
       persistentRuntimeConfigurationWritten: false,
       temporaryWorkspaceRemoved: true,
     });
-    expect(evidence.environment.isolatedVariables).toEqual([
-      "CODEX_HOME",
-      "HOME",
-      "LANG",
-      "PATH",
-      "TERM",
-      "TMPDIR",
-      "XDG_CACHE_HOME",
-      "XDG_CONFIG_HOME",
-      "XDG_DATA_HOME",
-      "XDG_STATE_HOME",
-    ]);
+    expect(evidence.environment.isolatedVariables).toEqual(
+      expect.arrayContaining([...PROVIDER_PROBE_ISOLATION_VARIABLES, "LANG", "PATH", "TERM"])
+    );
+    expect(evidence.environment.isolatedVariables).not.toContain(
+      "AWS_SECRET_ACCESS_KEY"
+    );
+    expect(
+      evidence.environment.isolatedVariables.every(
+        (name) =>
+          isProviderProbeIsolationVariable(name) ||
+          isProviderProbePassthroughVariable(name) ||
+          name === "LANG" ||
+          name === "PATH" ||
+          name === "TERM"
+      )
+    ).toBe(true);
     expect(evidence.invocations).toEqual([
       {
         argv: [
@@ -143,6 +160,7 @@ case "\${CODEX_HOME:-}" in *skillset-agent-instructions-*) ;; *) exit 3 ;; esac
 case "\${HOME:-}" in *skillset-agent-instructions-*) ;; *) exit 4 ;; esac
 case "\${XDG_CONFIG_HOME:-}" in *skillset-agent-instructions-*) ;; *) exit 5 ;; esac
 case "\${TMPDIR:-}" in *skillset-agent-instructions-*) ;; *) exit 6 ;; esac
+if [ -n "\${AWS_SECRET_ACCESS_KEY:-}" ]; then exit 9; fi
 if [ "$(basename "$PWD")" = "docs" ]; then
   grep -q '${NESTED_SENTINEL}' AGENTS.md
   printf '%s\\n' '[{"type":"message","content":"${NESTED_SENTINEL}"}]'

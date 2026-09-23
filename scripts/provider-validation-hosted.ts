@@ -3,6 +3,7 @@ import { cp, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { basename, dirname, join, posix, relative, sep } from "node:path";
 
 import { getProviderValidationLane } from "../packages/registry/src/provider-validation";
+import { createProviderProbeEnvironment } from "./provider-probe-environment";
 import {
   assertContained,
   assertTreeHasNoSymlinks,
@@ -237,38 +238,10 @@ export async function stageValidationInputs(
   const canonicalRoot = await realpath(root);
   const stage = join(temp, "stage");
   await mkdir(stage, { recursive: true });
-  const environmentRoot = join(temp, "validation-environment");
-  const environment = {
-    CLAUDE_CONFIG_DIR: join(environmentRoot, "config", "claude"),
-    CODEX_HOME: join(environmentRoot, "config", "codex"),
-    CURSOR_CONFIG_DIR: join(environmentRoot, "config", "cursor"),
-    HOME: join(environmentRoot, "home"),
-    npm_config_cache: join(environmentRoot, "cache", "npm"),
-    npm_config_userconfig: join(environmentRoot, "config", "npmrc"),
-    PIP_CACHE_DIR: join(environmentRoot, "cache", "pip"),
-    PIP_CONFIG_FILE: "/dev/null",
-    TMPDIR: join(environmentRoot, "tmp"),
-    UV_CACHE_DIR: join(environmentRoot, "cache", "uv"),
-    UV_NO_CONFIG: "1",
-    XDG_CACHE_HOME: join(environmentRoot, "cache"),
-    XDG_CONFIG_HOME: join(environmentRoot, "config"),
-    XDG_DATA_HOME: join(environmentRoot, "data"),
-    XDG_STATE_HOME: join(environmentRoot, "state"),
-  };
-  await Promise.all(
-    [
-      environment.CLAUDE_CONFIG_DIR,
-      environment.CODEX_HOME,
-      environment.CURSOR_CONFIG_DIR,
-      environment.HOME,
-      environment.npm_config_cache,
-      environment.PIP_CACHE_DIR,
-      environment.TMPDIR,
-      environment.UV_CACHE_DIR,
-      environment.XDG_DATA_HOME,
-      environment.XDG_STATE_HOME,
-    ].map((path) => mkdir(path, { recursive: true }))
-  );
+  const { env: environment } = await createProviderProbeEnvironment({
+    adapters: { npm: true, pip: true, uv: true },
+    root: join(temp, "validation-environment"),
+  });
   const stagedClaudeMarketplaces: string[] = [];
   const stagedClaudePlugins = new Set<string>();
   const representedClaudePlugins = new Set<string>();
@@ -735,35 +708,12 @@ async function runRequired(
   argv: readonly [string, ...string[]],
   temp: string
 ): Promise<void> {
-  const environmentRoot = join(temp, "acquisition-environment");
-  const home = join(environmentRoot, "home");
-  const cache = join(environmentRoot, "cache");
-  const config = join(environmentRoot, "config");
-  const data = join(environmentRoot, "data");
-  const state = join(environmentRoot, "state");
-  await Promise.all(
-    [home, cache, config, data, state].map((path) =>
-      mkdir(path, { recursive: true })
-    )
-  );
+  const { env } = await createProviderProbeEnvironment({
+    adapters: { npm: true, pip: true, uv: true },
+    root: join(temp, "acquisition-environment"),
+  });
   const child = Bun.spawn([...argv], {
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: join(config, "claude"),
-      CODEX_HOME: join(config, "codex"),
-      CURSOR_CONFIG_DIR: join(config, "cursor"),
-      HOME: home,
-      npm_config_cache: join(cache, "npm"),
-      npm_config_userconfig: join(config, "npmrc"),
-      PIP_CACHE_DIR: join(cache, "pip"),
-      PIP_CONFIG_FILE: "/dev/null",
-      UV_CACHE_DIR: join(cache, "uv"),
-      UV_NO_CONFIG: "1",
-      XDG_CACHE_HOME: cache,
-      XDG_CONFIG_HOME: config,
-      XDG_DATA_HOME: data,
-      XDG_STATE_HOME: state,
-    },
+    env,
     stderr: "pipe",
     stdout: "pipe",
   });

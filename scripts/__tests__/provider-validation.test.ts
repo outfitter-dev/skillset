@@ -99,11 +99,19 @@ for (const key of ["CODEX_HOME", "HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "X
     process.exit(3);
   }
 }
+for (const key of ["AWS_SECRET_ACCESS_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN"]) {
+  if (process.env[key]) {
+    console.error(\`leaked secret: \${key}\`);
+    process.exit(9);
+  }
+}
 console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: [] }));
 `
     );
     await chmod(codex, 0o755);
+    const previousSecrets = plantUnrelatedSecrets();
 
+    try {
     await expect(
       validateCodexMarketplaceConsumer(root, codex)
     ).resolves.toEqual({
@@ -111,6 +119,9 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
       codexVersion: "codex-cli 0.154.0",
       pluginIds: ["demo@demo"],
     });
+    } finally {
+      restoreUnrelatedSecrets(previousSecrets);
+    }
   });
 
   test("runs staged Codex marketplace consumption through hosted production orchestration and records the receipt", async () => {
@@ -661,9 +672,40 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     );
     expect(agentCanary).not.toMatch(/^description:/mu);
     for (const root of [...staged.cursorRoots, staged.cursorCanary]) {
-      expect(
-        await readFile(join(root, "scripts/validate-plugins.mjs"), "utf8")
-      ).toBe("verified-validator\n");
+    expect(
+      await readFile(join(root, "scripts/validate-plugins.mjs"), "utf8")
+    ).toBe("verified-validator\n");
+    }
+  });
+
+  test("stages validator environments without unrelated secret-shaped ambient variables", async () => {
+    const root = await fixtureRoot();
+    const inventory = await enumerateProviderArtifacts(root);
+    const temp = await mkdtemp(join(tmpdir(), "skillset-provider-stage-env-"));
+    const previousSecrets = plantUnrelatedSecrets();
+    try {
+      const staged = await stageValidationInputs(root, temp, inventory, {
+        agentSkills: join(temp, "agent-tool"),
+        claude: join(temp, "claude-tool"),
+        codex: join(temp, "codex"),
+        codexPython: join(temp, "python"),
+        codexValidator: join(temp, "codex-validator"),
+        cursor: await fixtureCursorTool(temp),
+      });
+      expect(staged.environment.HOME).toBe(
+        join(temp, "validation-environment", "home")
+      );
+      expect(staged.environment.CODEX_HOME).toBe(
+        join(temp, "validation-environment", "config", "codex")
+      );
+      expect(staged.environment.CLAUDE_CONFIG_DIR).toBe(
+        join(temp, "validation-environment", "config", "claude")
+      );
+      expect(staged.environment.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+      expect(staged.environment.ANTHROPIC_API_KEY).toBeUndefined();
+      expect(staged.environment.GITHUB_TOKEN).toBeUndefined();
+    } finally {
+      restoreUnrelatedSecrets(previousSecrets);
     }
   });
 
@@ -1080,6 +1122,30 @@ async function writeLock(
     path,
     `${JSON.stringify({ generatedBy: "skillset@0.1.0", items, outputRoot }, null, 2)}\n`
   );
+}
+
+const UNRELATED_SECRETS = [
+  "ANTHROPIC_API_KEY",
+  "AWS_SECRET_ACCESS_KEY",
+  "GITHUB_TOKEN",
+] as const;
+
+function plantUnrelatedSecrets(): Record<string, string | undefined> {
+  const previous = Object.fromEntries(
+    UNRELATED_SECRETS.map((name) => [name, process.env[name]])
+  );
+  for (const name of UNRELATED_SECRETS) {
+    process.env[name] = `${name}-should-not-leak`;
+  }
+  return previous;
+}
+
+function restoreUnrelatedSecrets(
+  previous: Record<string, string | undefined>
+): void {
+  for (const [name, value] of Object.entries(previous)) {
+    restoreEnvironment(name, value);
+  }
 }
 
 function restoreEnvironment(name: string, value: string | undefined): void {
