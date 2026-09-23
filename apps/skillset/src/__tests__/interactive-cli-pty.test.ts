@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
@@ -109,163 +108,149 @@ test.skipIf(!existsSync(EXPECT))(
   "SET-298: controlled route PTYs prove navigation, empty search, and disabled reasons",
   async () => {
     const surfaceRoot = await createTestGitFixtureRoot("skillset-surface-pty-");
-    const xdgRoot = await mkdtemp(
-      path.join(tmpdir(), "skillset-surface-pty-xdg-")
+    const xdgRoot = await createTestFixtureRoot("skillset-surface-pty-xdg-");
+    const initRoot = path.join(surfaceRoot, "init");
+    await mkdir(initRoot);
+    await Bun.write(path.join(initRoot, "AGENTS.md"), "# Existing guidance\n");
+    await initializeTestGitRepository(initRoot, {
+      disposableRoot: surfaceRoot,
+    });
+    const initialized = await runSurfaceExpect(
+      initRoot,
+      xdgRoot,
+      80,
+      "init --root $env(WORKSPACE_ROOT)",
+      [
+        'expect "How should Skillset start?"',
+        'send -- "\\033\\[B\\033\\[B\\r"',
+        'expect "Generate for:"',
+        'send -- "\\003"',
+        "expect eof",
+      ]
     );
-    try {
-      const initRoot = path.join(surfaceRoot, "init");
-      await mkdir(initRoot);
-      await Bun.write(
-        path.join(initRoot, "AGENTS.md"),
-        "# Existing guidance\n"
-      );
-      await initializeTestGitRepository(initRoot, {
-        disposableRoot: surfaceRoot,
-      });
-      const initialized = await runSurfaceExpect(
-        initRoot,
-        xdgRoot,
-        80,
-        "init --root $env(WORKSPACE_ROOT)",
-        [
-          'expect "How should Skillset start?"',
-          'send -- "\\033\\[B\\033\\[B\\r"',
-          'expect "Generate for:"',
-          'send -- "\\003"',
-          "expect eof",
-        ]
-      );
-      expect(initialized.exitCode).toBe(130);
-      expect(initialized.stdout).toContain("Start empty");
-      expect(initialized.stdout).toContain(
-        "skillset: interactive prompt cancelled"
-      );
-      await expect(
-        Bun.file(path.join(initRoot, "skillset.yaml")).exists()
-      ).resolves.toBe(false);
+    expect(initialized.exitCode).toBe(130);
+    expect(initialized.stdout).toContain("Start empty");
+    expect(initialized.stdout).toContain(
+      "skillset: interactive prompt cancelled"
+    );
+    await expect(
+      Bun.file(path.join(initRoot, "skillset.yaml")).exists()
+    ).resolves.toBe(false);
 
-      const newRoot = path.join(surfaceRoot, "new");
-      await mkdir(newRoot);
-      await Bun.write(
-        path.join(newRoot, "skillset.yaml"),
-        "skillset:\n  name: terminal-new\n"
-      );
-      const created = await runSurfaceExpect(
-        newRoot,
-        xdgRoot,
-        40,
-        "new --root $env(WORKSPACE_ROOT)",
-        [
-          'expect "Create a new:"',
-          'send -- "\\033\\[B\\r"',
-          'expect "Name:"',
-          'send -- "\\003"',
-          "expect eof",
-        ]
-      );
-      expect(created.exitCode).toBe(130);
-      expect(created.stdout).toContain("Project agent");
-      expect(created.stdout).toContain(
-        "skillset: interactive prompt cancelled"
-      );
-      await expect(
-        Bun.file(path.join(newRoot, ".skillset/subagents")).exists()
-      ).resolves.toBe(false);
+    const newRoot = path.join(surfaceRoot, "new");
+    await mkdir(newRoot);
+    await Bun.write(
+      path.join(newRoot, "skillset.yaml"),
+      "skillset:\n  name: terminal-new\n"
+    );
+    const created = await runSurfaceExpect(
+      newRoot,
+      xdgRoot,
+      40,
+      "new --root $env(WORKSPACE_ROOT)",
+      [
+        'expect "Create a new:"',
+        'send -- "\\033\\[B\\r"',
+        'expect "Name:"',
+        'send -- "\\003"',
+        "expect eof",
+      ]
+    );
+    expect(created.exitCode).toBe(130);
+    expect(created.stdout).toContain("Project agent");
+    expect(created.stdout).toContain("skillset: interactive prompt cancelled");
+    await expect(
+      Bun.file(path.join(newRoot, ".skillset/subagents")).exists()
+    ).resolves.toBe(false);
 
-      const testRoot = path.join(surfaceRoot, "test");
-      await mkdir(path.join(testRoot, ".skillset/skills/demo"), {
-        recursive: true,
-      });
-      await Bun.write(
-        path.join(testRoot, "skillset.yaml"),
-        "skillset:\n  name: terminal-test\n"
-      );
-      await Bun.write(
-        path.join(testRoot, ".skillset/skills/demo/SKILL.md"),
-        "---\nname: demo\ndescription: Terminal test skill.\n---\n\n# Demo\n"
-      );
-      await Bun.write(
-        path.join(testRoot, ".skillset/tests.yaml"),
-        Array.from(
-          { length: 8 },
-          (_, index) => `test-${index}:
+    const testRoot = path.join(surfaceRoot, "test");
+    await mkdir(path.join(testRoot, ".skillset/skills/demo"), {
+      recursive: true,
+    });
+    await Bun.write(
+      path.join(testRoot, "skillset.yaml"),
+      "skillset:\n  name: terminal-test\n"
+    );
+    await Bun.write(
+      path.join(testRoot, ".skillset/skills/demo/SKILL.md"),
+      "---\nname: demo\ndescription: Terminal test skill.\n---\n\n# Demo\n"
+    );
+    await Bun.write(
+      path.join(testRoot, ".skillset/tests.yaml"),
+      Array.from(
+        { length: 8 },
+        (_, index) => `test-${index}:
   select:
     skills:
       primary: ["demo"]
   checks:
     projection: true
 `
-        ).join("")
-      );
-      const tested = await runSurfaceExpect(
-        testRoot,
-        xdgRoot,
-        80,
-        "test --root $env(WORKSPACE_ROOT)",
-        ['expect "Run:"', 'send -- "\\003"', "expect eof"]
-      );
-      expect(tested.exitCode).toBe(130);
-      expect(tested.stdout).toContain("All tests");
-      expect(tested.stdout).toContain("skillset: interactive prompt cancelled");
+      ).join("")
+    );
+    const tested = await runSurfaceExpect(
+      testRoot,
+      xdgRoot,
+      80,
+      "test --root $env(WORKSPACE_ROOT)",
+      ['expect "Run:"', 'send -- "\\003"', "expect eof"]
+    );
+    expect(tested.exitCode).toBe(130);
+    expect(tested.stdout).toContain("All tests");
+    expect(tested.stdout).toContain("skillset: interactive prompt cancelled");
 
-      const searched = await runSurfaceExpect(testRoot, xdgRoot, 80, "lookup", [
-        'expect "Look up:"',
-        'send -- "no-such-subject"',
-        'expect "No matches found"',
+    const searched = await runSurfaceExpect(testRoot, xdgRoot, 80, "lookup", [
+      'expect "Look up:"',
+      'send -- "no-such-subject"',
+      'expect "No matches found"',
+      'send -- "\\003"',
+      "expect eof",
+    ]);
+    expect(searched.exitCode).toBe(130);
+    expect(searched.stdout).toContain("No matches found");
+    expect(searched.stdout).toContain("skillset: interactive prompt cancelled");
+
+    const reconcileRoot = path.join(surfaceRoot, "reconcile");
+    await mkdir(path.join(reconcileRoot, ".skillset/skills/demo"), {
+      recursive: true,
+    });
+    await Bun.write(
+      path.join(reconcileRoot, "skillset.yaml"),
+      "skillset:\n  name: terminal-reconcile\nclaude: true\ncodex: false\ncursor: false\n"
+    );
+    await Bun.write(
+      path.join(reconcileRoot, ".skillset/skills/demo/SKILL.md"),
+      "---\nname: demo\ndescription: Terminal reconcile skill.\n---\n\n# Demo\n"
+    );
+    const built = await runCli(
+      xdgRoot,
+      "build",
+      "--yes",
+      "--root",
+      reconcileRoot
+    );
+    expect(built.exitCode).toBe(0);
+    await rm(path.join(reconcileRoot, ".claude/skills/demo/SKILL.md"));
+    const reconciled = await runSurfaceExpect(
+      reconcileRoot,
+      xdgRoot,
+      80,
+      "reconcile .claude/skills/demo/SKILL.md --root $env(WORKSPACE_ROOT)",
+      [
+        'expect "Resolution:"',
+        'expect "Generated output is missing"',
         'send -- "\\003"',
         "expect eof",
-      ]);
-      expect(searched.exitCode).toBe(130);
-      expect(searched.stdout).toContain("No matches found");
-      expect(searched.stdout).toContain(
-        "skillset: interactive prompt cancelled"
-      );
-
-      const reconcileRoot = path.join(surfaceRoot, "reconcile");
-      await mkdir(path.join(reconcileRoot, ".skillset/skills/demo"), {
-        recursive: true,
-      });
-      await Bun.write(
-        path.join(reconcileRoot, "skillset.yaml"),
-        "skillset:\n  name: terminal-reconcile\nclaude: true\ncodex: false\ncursor: false\n"
-      );
-      await Bun.write(
-        path.join(reconcileRoot, ".skillset/skills/demo/SKILL.md"),
-        "---\nname: demo\ndescription: Terminal reconcile skill.\n---\n\n# Demo\n"
-      );
-      const built = await runCli(
-        xdgRoot,
-        "build",
-        "--yes",
-        "--root",
-        reconcileRoot
-      );
-      expect(built.exitCode).toBe(0);
-      await rm(path.join(reconcileRoot, ".claude/skills/demo/SKILL.md"));
-      const reconciled = await runSurfaceExpect(
-        reconcileRoot,
-        xdgRoot,
-        80,
-        "reconcile .claude/skills/demo/SKILL.md --root $env(WORKSPACE_ROOT)",
-        [
-          'expect "Resolution:"',
-          'expect "Generated output is missing"',
-          'send -- "\\003"',
-          "expect eof",
-        ]
-      );
-      expect(reconciled.exitCode).toBe(130);
-      expect(reconciled.stdout).toContain("Output wins");
-      expect(Bun.stripANSI(reconciled.stdout).replace(/\s+/gu, " ")).toContain(
-        "Generated output is missing; output cannot win."
-      );
-      expect(reconciled.stdout).toContain(
-        "skillset: interactive prompt cancelled"
-      );
-    } finally {
-      await rm(surfaceRoot, { force: true, recursive: true });
-      await rm(xdgRoot, { force: true, recursive: true });
-    }
+      ]
+    );
+    expect(reconciled.exitCode).toBe(130);
+    expect(reconciled.stdout).toContain("Output wins");
+    expect(Bun.stripANSI(reconciled.stdout).replace(/\s+/gu, " ")).toContain(
+      "Generated output is missing; output cannot win."
+    );
+    expect(reconciled.stdout).toContain(
+      "skillset: interactive prompt cancelled"
+    );
   },
   30_000
 );
