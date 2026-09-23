@@ -2,13 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   realpath,
-  rm,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { createOperationReport } from "@skillset/core/internal/report";
 import { createReportBundle } from "@skillset/core/internal/report-store";
@@ -159,9 +157,7 @@ describe("SET-453 report CLI", () => {
     ) {
       return;
     }
-    const root = await realpath(
-      await mkdtemp(join(tmpdir(), "skillset-report-cli-read-failure-"))
-    );
+    const root = await realpath(await createTestFixtureRoot("skillset-report-cli-read-failure-"));
     const inaccessible = join(root, "inaccessible");
     await mkdir(inaccessible, { mode: 0o700 });
     await chmod(inaccessible, 0o000);
@@ -185,7 +181,6 @@ describe("SET-453 report CLI", () => {
       });
     } finally {
       await chmod(inaccessible, 0o700);
-      await rm(root, { force: true, recursive: true });
     }
   });
 
@@ -251,7 +246,7 @@ describe("SET-453 report CLI", () => {
 });
 
 async function createFixture() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-report-cli-"));
+  const root = await createTestFixtureRoot("skillset-report-cli-");
   const statePath = join(root, "state");
   await mkdir(statePath, { recursive: true });
   const stateBase = await realpath(statePath);
