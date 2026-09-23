@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { chmod, cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
@@ -9,6 +8,7 @@ import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
 } from "../../../../scripts/test-helpers/git-remote";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const cli = path.join(import.meta.dir, "..", "cli.ts");
 const repoRoot = path.resolve(import.meta.dir, "../../../..");
@@ -40,7 +40,7 @@ describe("SET-287 finite read-only JSON", () => {
   }
 
   test("restore --list emits a no-write finite result without creating snapshots", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-restore-list-"));
+    const root = await createTestFixtureRoot("skillset-json-restore-list-");
     const result = await runJsonRoute("restore", "--list", "--root", root);
 
     expect(result.exitCode).toBe(0);
@@ -59,7 +59,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("init JSON preserves preview versus confirmed write authority", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-"));
+    const root = await createTestFixtureRoot("skillset-json-init-");
     const preview = await runJsonRoute("init", "--root", root);
     const previewEnvelope = JSON.parse(preview.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
     expect(previewEnvelope.data).toMatchObject({ state: "planned", writes: [] });
@@ -81,7 +81,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("init JSON resolves a relative --root once from the invocation cwd", async () => {
-    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-relative-root-"));
+    const parent = await createTestFixtureRoot("skillset-json-relative-root-");
     await mkdir(path.join(parent, "workspace"));
     const proc = Bun.spawn(
       [process.execPath, cli, "init", "--root", "workspace", "--yes", "--json"],
@@ -110,7 +110,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("init JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
-    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-init-xdg-"));
+    const parent = await createTestFixtureRoot("skillset-json-init-xdg-");
     const root = path.join(parent, "workspace");
     await mkdir(root);
     const configHome = path.join(parent, "not-a-directory");
@@ -138,7 +138,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("init JSON reports a seeded release-state write", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-baseline-"));
+    const root = await createTestFixtureRoot("skillset-json-init-baseline-");
     await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
     await writeFile(
       path.join(root, ".skillset", "skills", "demo", "SKILL.md"),
@@ -152,7 +152,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("import JSON reports the imported source and seeded release state", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-import-baseline-"));
+    const root = await createTestFixtureRoot("skillset-json-import-baseline-");
     const source = path.join(root, "incoming", "SKILL.md");
     await mkdir(path.join(root, ".skillset"), { recursive: true });
     await mkdir(path.dirname(source), { recursive: true });
@@ -169,7 +169,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("import JSON reports writes completed before a batch failure", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-import-partial-"));
+    const root = await createTestFixtureRoot("skillset-json-import-partial-");
     const source = path.join(root, "incoming");
     await mkdir(path.join(root, ".skillset"), { recursive: true });
     await mkdir(path.join(source, "first"), { recursive: true });
@@ -193,7 +193,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("init adoption JSON reports imported units and release state", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-writes-"));
+    const root = await createTestFixtureRoot("skillset-json-adopt-writes-");
     await runJsonRoute("init", "--yes", "--root", root);
     await mkdir(path.join(root, ".agents", "skills", "one"), { recursive: true });
     await writeFile(
@@ -220,7 +220,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("init JSON rejects retired external acquisition grammar", async () => {
-    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-destination-"));
+    const parent = await createTestFixtureRoot("skillset-json-adopt-destination-");
     const source = path.join(parent, "source");
     const destination = path.join(parent, "destination");
     await mkdir(path.join(source, ".agents", "skills", "one"), { recursive: true });
@@ -243,7 +243,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("blocked init adoption JSON reports a global receipt without workspace writes", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-blocked-"));
+    const root = await createTestFixtureRoot("skillset-json-adopt-blocked-");
     await mkdir(path.join(root, ".claude-plugin"), { recursive: true });
     await mkdir(path.join(root, ".codex-plugin"), { recursive: true });
     await writeFile(
@@ -274,7 +274,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("build JSON distinguishes plans from mutations", async () => {
-    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-kinds-"));
+    const parent = await createTestFixtureRoot("skillset-json-build-kinds-");
     const root = path.join(parent, "workspace");
     await cp(fixtureRoot, root, { recursive: true });
 
@@ -303,7 +303,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("build apply emits a finite summary and every changed path", async () => {
-    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-"));
+    const parent = await createTestFixtureRoot("skillset-json-build-");
     const root = path.join(parent, "workspace");
     await cp(fixtureRoot, root, { recursive: true });
 
@@ -322,7 +322,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("build JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
-    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-xdg-"));
+    const parent = await createTestFixtureRoot("skillset-json-build-xdg-");
     const root = path.join(parent, "workspace");
     const configHome = path.join(parent, "not-a-directory");
     await cp(fixtureRoot, root, { recursive: true });
@@ -353,7 +353,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("build JSON blocks unmanaged output without writing", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-build-diagnostics-"));
+    const root = await createTestFixtureRoot("skillset-json-build-diagnostics-");
     await mkdir(path.join(root, ".skillset", "rules"), { recursive: true });
     await writeFile(
       path.join(root, "skillset.yaml"),
@@ -386,7 +386,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("change migrate does not report a ledger write for a no-op", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-migrate-"));
+    const root = await createTestFixtureRoot("skillset-json-migrate-");
     await mkdir(path.join(root, ".skillset"), { recursive: true });
     await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: migrate-json\n");
 
@@ -476,7 +476,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("diff JSON preserves source diagnostics", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-diff-json-"));
+    const root = await createTestFixtureRoot("skillset-diff-json-");
     await mkdir(path.join(root, ".skillset", "plugins", "alpha", "skills", "modelish"), {
       recursive: true,
     });
@@ -514,7 +514,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("check keeps lint failures structured", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-check-json-"));
+    const root = await createTestFixtureRoot("skillset-check-json-");
     await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
     await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: check-json\nclaude: true\ncodex: false\n");
     await writeFile(
@@ -537,7 +537,7 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("check JSON remains stderr-clean when the known-workspace index is unwritable", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-check-clean-"));
+    const root = await createTestFixtureRoot("skillset-json-check-clean-");
     await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
     await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: clean-json-check\n");
     await writeFile(
@@ -545,7 +545,7 @@ describe("SET-287 finite read-only JSON", () => {
       "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
     );
     await buildSkillset(root);
-    const configHome = await mkdtemp(path.join(tmpdir(), "skillset-json-xdg-"));
+    const configHome = await createTestFixtureRoot("skillset-json-xdg-");
     await chmod(configHome, 0o555);
     const proc = Bun.spawn(
       [process.execPath, cli, "check", "--root", root, "--json"],
