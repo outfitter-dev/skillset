@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { writeDeterministicTestReport } from "../test-runner";
+import type { RetainedRunPaths } from "../retained-runs";
+import {
+  refreshDeterministicTestLatest,
+  writeDeterministicTestReport,
+} from "../test-runner";
 import {
   deferred,
   publicationArtifacts,
@@ -12,6 +16,62 @@ import {
 } from "./publication-test-helpers";
 
 describe("deterministic test-runner report publication", () => {
+  test("keeps an old latest pointer readable while the latest snapshot refreshes", async () => {
+    const repository = await mkdtemp(join(tmpdir(), "skillset-test-latest-"));
+    const previous = retainedRunPaths(repository, "previous");
+    const next = retainedRunPaths(repository, "next");
+    const latestPath = join(previous.absolute.rootPath, "latest");
+    const logicalLatestPath = ".skillset/cache/tests/latest";
+    await mkdir(previous.absolute.runPath, { recursive: true });
+    await mkdir(next.absolute.runPath, { recursive: true });
+    await writeDeterministicTestReport(
+      join(previous.absolute.runPath, "report.json"),
+      join(previous.logical.runPath, "report.json"),
+      join(previous.absolute.runPath, "report.md"),
+      testReport(true, "previous")
+    );
+    await writeDeterministicTestReport(
+      join(next.absolute.runPath, "report.json"),
+      join(next.logical.runPath, "report.json"),
+      join(next.absolute.runPath, "report.md"),
+      testReport(false, "next")
+    );
+    await refreshDeterministicTestLatest(
+      previous,
+      latestPath,
+      logicalLatestPath,
+      testReport(true, "previous")
+    );
+    const latestRemoved = deferred<void>();
+    const release = deferred<void>();
+    const refreshing = refreshDeterministicTestLatest(
+      next,
+      latestPath,
+      logicalLatestPath,
+      testReport(false, "next"),
+      {
+        afterLatestRemoved: async () => {
+          latestRemoved.resolve();
+          await release.promise;
+        },
+      }
+    );
+
+    await latestRemoved.promise;
+    try {
+      const pointer = JSON.parse(
+        await readFile(previous.absolute.latestJsonPath, "utf8")
+      ) as { readonly reportPath: string; readonly runId: string };
+      expect(pointer.runId).toBe("previous");
+      expect(
+        JSON.parse(await readFile(join(repository, pointer.reportPath), "utf8"))
+      ).toMatchObject({ runId: "previous" });
+    } finally {
+      release.resolve();
+      await refreshing;
+    }
+  });
+
   test("keeps the prior report.json readable until a flushed replacement is published", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-test-report-"));
     const reportPath = join(root, "report.json");
@@ -89,19 +149,38 @@ function logicalReport(_root: string): string {
   return ".skillset/cache/tests/runs/prior/report.json";
 }
 
-function testReport(ok: boolean) {
+function testReport(ok: boolean, runId = "prior") {
   return {
     checks: [],
     generatedFiles: 0,
     name: "self",
     ok,
     proofReceipts: [],
-    runId: "prior",
+    runId,
     runtimeTests: [],
     schemaVersion: 4,
     selection: { skills: { primary: ["demo"] } },
     source: "repo:.skillset",
     targets: ["claude"],
     workspacePath: ".skillset/cache/tests/latest/workspace",
+  };
+}
+
+function retainedRunPaths(repository: string, runId: string): RetainedRunPaths {
+  const absoluteRoot = join(repository, ".skillset/cache/tests");
+  const logicalRoot = ".skillset/cache/tests";
+  return {
+    absolute: {
+      latestJsonPath: join(absoluteRoot, "latest.json"),
+      rootPath: absoluteRoot,
+      runPath: join(absoluteRoot, "runs", runId),
+      runsRoot: join(absoluteRoot, "runs"),
+    },
+    logical: {
+      latestJsonPath: `${logicalRoot}/latest.json`,
+      rootPath: logicalRoot,
+      runPath: `${logicalRoot}/runs/${runId}`,
+      runsRoot: `${logicalRoot}/runs`,
+    },
   };
 }

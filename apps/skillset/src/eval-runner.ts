@@ -478,11 +478,11 @@ async function refreshEvalLatest(paths: EvalRunPaths): Promise<void> {
   await cp(paths.absolute.runPath, paths.absolute.latestPath, { recursive: true });
   await writeRetainedRunLatest(paths.retained, {
     kind: "eval",
-    reportPath: join(paths.logical.latestPath, "report.json").replaceAll("\\", "/"),
+    reportPath: paths.logical.reportPath,
     runId: paths.logical.runPath.split("/").at(-1) ?? "",
     runPath: paths.logical.runPath,
     schemaVersion: 1,
-    statusPath: join(paths.logical.latestPath, "status.json").replaceAll("\\", "/"),
+    statusPath: paths.logical.statusPath,
   });
 }
 

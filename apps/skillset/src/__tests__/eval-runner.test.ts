@@ -119,6 +119,18 @@ test("SET-387: eval run resolves standalone and flattened grouped plugin skills 
   expect(retainedReport).toContain("deliberately ungraded expectation");
   expect(JSON.parse(retainedReport)).not.toHaveProperty("ok");
   expect(JSON.parse(retainedReport)).not.toHaveProperty("proofReceipts");
+  expect(
+    JSON.parse(
+      await readFile(
+        cachePath(root, xdg, ".skillset/cache/evals/latest.json"),
+        "utf8"
+      )
+    )
+  ).toMatchObject({
+    reportPath: report.reportPath,
+    runId: report.runId,
+    statusPath: report.statusPath,
+  });
 });
 
 test("SET-387: nested trial artifacts keep hyphen-colliding plugin owners distinct", async () => {

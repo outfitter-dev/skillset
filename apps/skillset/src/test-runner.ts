@@ -279,7 +279,12 @@ async function runLoadedSkillsetTest(
       reportMarkdownPath,
       report
     );
-    await refreshLatest(paths, latestPath, logicalLatestPath, report);
+    await refreshDeterministicTestLatest(
+      paths,
+      latestPath,
+      logicalLatestPath,
+      report
+    );
 
     return {
       ...(logicalActivationPath === undefined
@@ -557,18 +562,24 @@ export async function writeDeterministicTestReport(
   await publishAtomicFile(reportMarkdownPath, renderMarkdownReport(report));
 }
 
-async function refreshLatest(
+export interface DeterministicTestLatestRefreshTestHooks {
+  readonly afterLatestRemoved?: () => Promise<void> | void;
+}
+
+export async function refreshDeterministicTestLatest(
   paths: RetainedRunPaths,
   latestPath: string,
   logicalLatestPath: string,
-  report: JsonRecord
+  report: JsonRecord,
+  testHooks: DeterministicTestLatestRefreshTestHooks = {}
 ): Promise<void> {
   await rm(latestPath, { force: true, recursive: true });
+  await testHooks.afterLatestRemoved?.();
   await cp(paths.absolute.runPath, latestPath, { recursive: true });
   const latest = {
     name: report.name,
     ok: report.ok,
-    reportPath: join(logicalLatestPath, "report.json").replaceAll("\\", "/"),
+    reportPath: join(paths.logical.runPath, "report.json").replaceAll("\\", "/"),
     runId: report.runId,
     runPath: paths.logical.runPath,
     schemaVersion: TEST_SCHEMA,
