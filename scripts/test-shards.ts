@@ -244,6 +244,7 @@ async function main(argv: readonly string[]): Promise<number> {
     assertRunning();
     const report = {
       schemaVersion: 1,
+      status: "passed",
       startedAt,
       endedAt: new Date().toISOString(),
       head,
