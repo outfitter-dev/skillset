@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   resolveWorkspaceRegistrationPolicy,
   TEST_SANDBOX_ENV,
@@ -116,7 +117,7 @@ test("SET-388: descriptors reject foreign ownership and symlink escapes", async 
     })
   ).rejects.toThrow("regular descriptor file");
 
-  const foreignRoot = await mkdtemp(join(tmpdir(), "foreign-sandbox-"));
+  const foreignRoot = await createTestFixtureRoot("foreign-sandbox-");
   const foreignXdg = testSandboxXdg(foreignRoot);
   await Promise.all(
     Object.values(foreignXdg).map((path) => mkdir(path, { recursive: true }))
@@ -302,7 +303,7 @@ test("SET-388: test mode refuses registration without the canonical marker", asy
 });
 
 async function createDescriptor() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-sandbox-contract-"));
+  const root = await createTestFixtureRoot("skillset-sandbox-contract-");
   const sandboxPath = join(root, "skillset-test-owned");
   const git = testSandboxGit(sandboxPath);
   const xdg = testSandboxXdg(sandboxPath);
