@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { chmod, lstat, mkdtemp, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -371,9 +370,11 @@ describe("bootstrap repo policy", () => {
     const config = loadBootstrapConfig();
     const codexRoot = await makeRepoRoot();
     const claudeRoot = await makeRepoRoot();
+    const nonRepoRoot = await createTestFixtureRoot("skillset-bootstrap-nonrepo-");
+    expect(isRepoRoot(nonRepoRoot)).toBe(false);
     expect(
       resolveRepoRoot(
-        tmpdir(),
+        nonRepoRoot,
         {
           CLAUDE_PROJECT_DIR: claudeRoot,
           CODEX_WORKTREE_PATH: codexRoot,
