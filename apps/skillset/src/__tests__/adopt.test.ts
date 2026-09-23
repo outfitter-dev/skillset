@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
@@ -141,45 +142,49 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
   const remote = pathToFileURL(source).href;
 
   const report = await adoptSkillset(remote, { write: true });
+  try {
+    expect(report.ok).toBe(true);
+    expect(report.rootPath).not.toBe(source);
+    expect(report.acquisition.kind).toBe("git");
+    if (report.acquisition.kind === "git") {
+      expect(report.acquisition.repo).toBe(remote);
+      expect(report.acquisition.rootPath).toBe(report.rootPath);
+      expect(report.acquisition.ref).toMatch(/^[0-9a-f]{40}$/);
+    }
+    expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
+      ["instructions", true],
+      ["plugin", true],
+    ]);
 
-  expect(report.ok).toBe(true);
-  expect(report.rootPath).not.toBe(source);
-  expect(report.acquisition.kind).toBe("git");
-  if (report.acquisition.kind === "git") {
-    expect(report.acquisition.repo).toBe(remote);
-    expect(report.acquisition.rootPath).toBe(report.rootPath);
-    expect(report.acquisition.ref).toMatch(/^[0-9a-f]{40}$/);
+    const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
+    expect(markdown).toContain("## Acquisition");
+    expect(markdown).toContain("- source: git remote");
+    expect(markdown).toContain(`- repo: \`${remote}\``);
+    if (report.acquisition.kind === "git") {
+      const ref = report.acquisition.ref;
+      const pluginLock = JSON.parse(
+        await readFile(cachePath(report.rootPath, join(ISOLATED_OUT_ROOT, "plugins/skillset.lock")), "utf8")
+      ) as {
+        items: readonly {
+          kind: string;
+          name: string;
+          sourceOrigin?: { path: string; ref?: string; repo?: string };
+        }[];
+      };
+      expect(pluginLock.items.find((item) => item.kind === "plugin" && item.name === "demo")?.sourceOrigin).toEqual({
+        path: "plugins/demo",
+        ref,
+        repo: remote,
+      });
+      const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", report.rootPath);
+      expect(explain.exitCode).toBe(0);
+      expect(explain.stdout).toContain(`source origin: ${remote} @ ${ref} path plugins/demo`);
+    }
+  } finally {
+    if (report.acquisition.kind === "git" && report.acquisition.rootPath !== source) {
+      await rm(report.acquisition.rootPath, { force: true, recursive: true });
+    }
   }
-  expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
-    ["instructions", true],
-    ["plugin", true],
-  ]);
-
-  const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
-  expect(markdown).toContain("## Acquisition");
-  expect(markdown).toContain("- source: git remote");
-  expect(markdown).toContain(`- repo: \`${remote}\``);
-  if (report.acquisition.kind === "git") {
-    const ref = report.acquisition.ref;
-    const pluginLock = JSON.parse(
-      await readFile(cachePath(report.rootPath, join(ISOLATED_OUT_ROOT, "plugins/skillset.lock")), "utf8")
-    ) as {
-      items: readonly {
-        kind: string;
-        name: string;
-        sourceOrigin?: { path: string; ref?: string; repo?: string };
-      }[];
-    };
-    expect(pluginLock.items.find((item) => item.kind === "plugin" && item.name === "demo")?.sourceOrigin).toEqual({
-      path: "plugins/demo",
-      ref,
-      repo: remote,
-    });
-    const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", report.rootPath);
-    expect(explain.exitCode).toBe(0);
-    expect(explain.stdout).toContain(`source origin: ${remote} @ ${ref} path plugins/demo`);
-  }
-
 });
 
 test("SET-277: adoption resolves relative destinations from the caller cwd", async () => {
@@ -205,6 +210,7 @@ test("SET-277: local and remote acquisition write the same adoption plan into a 
   const localDestination = join(parent, "local");
   const remoteDestination = join(parent, "remote");
   const before = await walkFiles(source);
+  const beforeRemoteClones = await temporaryRoots("skillset-adopt-remote-");
 
   const local = await adoptSkillset(source, { destination: localDestination, write: true });
   const remote = await adoptSkillset(pathToFileURL(source).href, { destination: remoteDestination, write: true });
@@ -218,6 +224,7 @@ test("SET-277: local and remote acquisition write the same adoption plan into a 
   expect(await readFile(join(remoteDestination, ".git", "config"), "utf8")).not.toContain('[remote "origin"]');
   expect(await exists(join(remoteDestination, ".git", "shallow"))).toBe(false);
   expect(await walkFiles(source)).toEqual(before);
+  expect(await temporaryRoots("skillset-adopt-remote-")).toEqual(beforeRemoteClones);
 });
 
 test("SET-277: adoption honors an explicit workspace name", async () => {
@@ -1165,6 +1172,10 @@ async function exists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function temporaryRoots(prefix: string): Promise<readonly string[]> {
+  return (await readdir(tmpdir())).filter((name) => name.startsWith(prefix)).toSorted();
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{
