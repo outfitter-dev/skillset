@@ -347,7 +347,11 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       });
     } catch (error) {
       if (mergedOriginal === undefined) {
-        await rm(targetPath, { force: true, recursive: true });
+        throw new Error(
+          `skillset: import baseline failed for ${targetPath}: ${errorMessage(error)}. ` +
+            "Inspect the destination; after fixing the baseline error, remove it and rerun only if it is the intended import.",
+          { cause: error }
+        );
       } else {
         await writeFile(join(targetPath, "SKILL.md"), mergedOriginal);
       }

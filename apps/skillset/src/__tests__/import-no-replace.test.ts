@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop -- Worker barriers and fixture setup are intentionally ordered. */
 
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import {
   lstat,
   mkdir,
@@ -13,6 +14,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { renameDirectoryNoReplace } from "@skillset/core/internal/directory-rename-no-replace";
 
 import { importSource } from "../import";
 
@@ -253,6 +255,37 @@ if (import.meta.main && workerIndex !== -1) {
           expect(await readFile(join(report.targetPath, "SKILL.md"), "utf-8")).toContain(
             "imported body"
           );
+          expect(await leftoverStaging(join(root, ".skillset/skills"), "demo")).toEqual([]);
+        });
+      });
+
+      test("preserves a replacement when baseline seeding fails after the claim", async () => {
+        await withTemporaryDirectory(async (root) => {
+          const sourcePath = join(root, "external");
+          const targetPath = join(root, ".skillset/skills/demo");
+          const replacement = "---\nname: \"\n---\n\nreplacement winner\n";
+          await writeSkill(sourcePath, "demo", "imported body");
+          await writeFile(join(root, "skillset.yaml"), "skillset:\n  name: test-root\n  version: 1.0.0\n");
+
+          await expect(
+            importSource({
+              kind: "skill",
+              rootPath: root,
+              sourcePath,
+              testHooks: {
+                renameDirectory: (stagingPath, destinationPath) => {
+                  const result = renameDirectoryNoReplace(stagingPath, destinationPath);
+                  if (result.kind === "installed") {
+                    rmSync(destinationPath, { force: true, recursive: true });
+                    mkdirSync(destinationPath);
+                    writeFileSync(join(destinationPath, "SKILL.md"), replacement);
+                  }
+                  return result;
+                },
+              },
+            })
+          ).rejects.toThrow("remove it and rerun only if it is the intended import");
+          expect(await readFile(join(targetPath, "SKILL.md"), "utf-8")).toBe(replacement);
           expect(await leftoverStaging(join(root, ".skillset/skills"), "demo")).toEqual([]);
         });
       });
