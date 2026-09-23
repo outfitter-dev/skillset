@@ -891,8 +891,11 @@ test("adopt preserves survey skip outcomes when imported source cannot load", as
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(false);
-  expect(report.buildError).toBeUndefined();
+  // Failed imports retain their destination for safe recovery, so graph loading
+  // reports the same broken source alongside the import failure.
+  expect(report.buildError).toContain("named partial missing");
   expect(report.imports[0]?.detail).toContain("named partial missing");
+  expect(await readFile(join(root, ".skillset/skills/bad/SKILL.md"), "utf-8")).toContain("{{> missing}}");
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
   expect(report.renderResults).toContainEqual(
     expect.objectContaining({
