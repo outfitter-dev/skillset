@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { createInteractiveSession } from "../interactive-session";
 import {
   listNewSourceContainers,
@@ -36,7 +36,7 @@ function scriptedSession(
 }
 
 async function workspace(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-interactive-"));
+  const root = await createTestFixtureRoot("skillset-new-interactive-");
   await initSkillset({ cwd: root, rootPath: root, write: true });
   return root;
 }
@@ -657,7 +657,7 @@ describe("SET-293 derived new-source choices", () => {
   });
 
   test("uninitialized workspaces fail through the existing plan error before confirmation", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-new-uninitialized-"));
+    const root = await createTestFixtureRoot("skillset-new-uninitialized-");
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "skill" },
       { kind: "input", value: "Fresh Skill" },
