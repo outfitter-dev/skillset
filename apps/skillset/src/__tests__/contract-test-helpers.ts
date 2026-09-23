@@ -1,8 +1,13 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
-import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { collectSourceInventory } from "../change-status";
 
 export async function contractFixture(
   files: Record<string, string>
@@ -28,6 +33,35 @@ export async function writeHistory(
     `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`,
     "utf8"
   );
+}
+
+export async function writePendingChange(
+  root: string,
+  filename: string,
+  content: string
+): Promise<void> {
+  const pendingPath = join(root, ".skillset/changes");
+  await mkdir(pendingPath, { recursive: true });
+  await writeFile(join(pendingPath, filename), `${content.trim()}\n`, "utf8");
+}
+
+export function sourceInventoryUnit(
+  inventory: Awaited<ReturnType<typeof collectSourceInventory>>,
+  id: string
+): { readonly hash: string; readonly sourcePaths: readonly string[] } {
+  const unit = inventory.units.find((item) => item.id === id);
+  if (unit === undefined) throw new Error(`missing source inventory unit ${id}`);
+  return { hash: unit.hash, sourcePaths: unit.sourcePaths };
+}
+
+export async function commitFixture(root: string): Promise<void> {
+  await initializeTestGitRepository(root, {
+    disposableRoot: dirname(root),
+  });
+}
+
+export async function runGit(root: string, ...args: readonly string[]): Promise<void> {
+  await runTestGit(root, ...args);
 }
 
 export async function runSkillsetCli(...args: readonly string[]): Promise<{
