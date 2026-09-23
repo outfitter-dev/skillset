@@ -1,8 +1,12 @@
-import { appendFile, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
 import { buildSkillset, listSkillEvals } from "@skillset/core";
+import {
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+} from "@skillset/core/internal/fs-existence";
 import { pluginBundleRoot } from "@skillset/core/internal/plugin-output";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
@@ -529,12 +533,9 @@ function toolCalls(value: Record<string, unknown>): number | undefined {
 }
 
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a declared eval input through a non-directory
+  // prefix must not be classified as unavailable.
+  return pathExistsOnDisk(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 function isMissingBinaryError(error: unknown): boolean {

@@ -1,9 +1,10 @@
 import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import {
@@ -14,6 +15,7 @@ import {
   tailAdHocTestRun,
 } from "../ad-hoc-test";
 import { runAdHocTestCommand } from "../ad-hoc-test-cli";
+import { retainedRunRootPaths } from "../retained-runs";
 import { runSkillsetTest } from "../test-runner";
 import { parseCliEventStream } from "../cli-output";
 
@@ -1379,6 +1381,78 @@ Runtime failure body.
   expect(timeoutStatus.failureClass).toBe("timeout");
   expect(timeoutStatus.error).toContain("test command timed out");
   expect(timeoutStatus.error).not.toContain("try command");
+});
+
+test("SET-647: missing retained runs stay empty and a runs-root loop raises", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: ad-hoc-existence
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ad hoc test skill.
+---
+
+Use this skill.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  await expect(listAdHocTestRuns(root, { xdg })).resolves.toEqual([]);
+
+  const graph = await loadBuildGraph(root, { xdg });
+  const runsRoot = retainedRunRootPaths(
+    root,
+    graph,
+    ".skillset/cache/tests/ad-hoc",
+    xdg
+  ).absolute.runsRoot;
+  await mkdir(dirname(runsRoot), { recursive: true });
+  await symlink(basename(runsRoot), runsRoot);
+  await expect(listAdHocTestRuns(root, { xdg })).rejects.toMatchObject({
+    code: "ELOOP",
+    path: runsRoot,
+  });
+});
+
+test("SET-647: a retained run status loop cannot disappear from the run list", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: ad-hoc-status-loop
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ad hoc test skill.
+---
+
+Use this skill.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const graph = await loadBuildGraph(root, { xdg });
+  const runsRoot = retainedRunRootPaths(
+    root,
+    graph,
+    ".skillset/cache/tests/ad-hoc",
+    xdg
+  ).absolute.runsRoot;
+  const incompleteRun = join(runsRoot, "incomplete");
+  await mkdir(incompleteRun, { recursive: true });
+  await expect(listAdHocTestRuns(root, { xdg })).resolves.toEqual([]);
+
+  const loopRun = join(runsRoot, "loop");
+  await mkdir(loopRun);
+  const statusPath = join(loopRun, "status.json");
+  await symlink("status.json", statusPath);
+  await expect(listAdHocTestRuns(root, { xdg })).rejects.toMatchObject({
+    code: "ELOOP",
+    path: statusPath,
+  });
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {

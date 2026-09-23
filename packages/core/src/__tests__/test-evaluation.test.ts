@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import {
   evaluateSkillsetTestRuntime,
@@ -305,6 +305,103 @@ blocked:
       expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(
         false
       );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("SET-647: treats a missing exists-check path as absence and raises ELOOP", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: existence-root
+compile:
+  targets: [codex]
+`,
+      ".skillset/skills/demo/SKILL.md": SOURCE,
+      ".skillset/tests.yaml": `
+presence:
+  checks:
+    files:
+      - path: missing-check.txt
+      - path: loop
+`,
+    });
+    const stagingRoot = await mkdtemp(
+      join(tmpdir(), "skillset-test-evaluation-existence-")
+    );
+    const workspacePath = join(stagingRoot, "workspace");
+    await mkdir(workspacePath, { recursive: true });
+
+    try {
+      const { declaration, graph } = await loadSkillsetTestDeclaration(
+        root,
+        "presence"
+      );
+      await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
+      const missing = await evaluateSkillsetTestWorkspace(
+        workspacePath,
+        graph,
+        declaration,
+        {
+          buildMode: "all",
+          sourceDir: graph.sourceDir,
+          targetFilter: declaration.targets,
+        }
+      );
+      expect(missing.ok).toBe(false);
+      expect(missing.checks).toContainEqual({
+        detail: "path does not exist",
+        kind: "exists",
+        ok: false,
+        path: "missing-check.txt",
+      });
+      expect(missing.checks).toContainEqual({
+        detail: "path does not exist",
+        kind: "exists",
+        ok: false,
+        path: "loop",
+      });
+
+      const loopPath = join(workspacePath, "loop");
+      await symlink(basename(loopPath), loopPath);
+      await expect(
+        evaluateSkillsetTestWorkspace(workspacePath, graph, declaration, {
+          buildMode: "all",
+          sourceDir: graph.sourceDir,
+          targetFilter: declaration.targets,
+        })
+      ).rejects.toMatchObject({ code: "ELOOP", path: loopPath });
+    } finally {
+      await rm(stagingRoot, { force: true, recursive: true });
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("SET-647: raises when a test declaration path is a symlink loop", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: declaration-loop-root
+compile:
+  targets: [codex]
+`,
+      ".skillset/skills/demo/SKILL.md": SOURCE,
+      ".skillset/tests.yaml": `
+presence:
+  checks:
+    projection: true
+`,
+    });
+    const testsPath = join(root, ".skillset/tests.yaml");
+    await rm(testsPath);
+    await symlink(basename(testsPath), testsPath);
+
+    try {
+      await expect(loadSkillsetTestDeclaration(root, "presence")).rejects.toMatchObject({
+        code: "ELOOP",
+        path: testsPath,
+      });
     } finally {
       await rm(root, { force: true, recursive: true });
     }

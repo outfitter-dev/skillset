@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { spawn as spawnNode } from "node:child_process";
 import { join, resolve } from "node:path";
 
@@ -7,6 +7,13 @@ import {
   ISOLATED_OUT_ROOT,
 } from "@skillset/core";
 
+import {
+  assignErrorPath,
+  isMissingPathError,
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+  readOptionalText,
+} from "@skillset/core/internal/fs-existence";
 import { compareStrings } from "@skillset/core/internal/path";
 import {
   appendRetainedRunEvent,
@@ -406,8 +413,9 @@ export async function listAdHocTestRuns(
   const runs: AdHocTestListEntry[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    const statusPath = join(runsRoot, entry.name, "status.json");
     try {
-      const status = await readStatus(join(runsRoot, entry.name, "status.json"));
+      const status = await readStatus(statusPath);
       runs.push({
         ...(status.endedAt === undefined ? {} : { endedAt: status.endedAt }),
         kind: status.kind,
@@ -418,8 +426,15 @@ export async function listAdHocTestRuns(
         state: status.state,
         target: status.target,
       });
-    } catch {
-      // Ignore incomplete run directories; status is the durable record.
+    } catch (error) {
+      // A run being written may have no status or a partial status. Filesystem
+      // failures must remain visible instead of silently dropping that run.
+      if (
+        isMissingPathError(error, MISSING_PATH_ENOENT) ||
+        error instanceof SyntaxError ||
+        (error instanceof Error && error.message === "skillset: test status is malformed")
+      ) continue;
+      throw assignErrorPath(error, statusPath);
     }
   }
   return runs.sort((left, right) => compareStrings(right.startedAt, left.startedAt));
@@ -706,20 +721,16 @@ async function readStatus(path: string): Promise<AdHocTestStatus> {
 }
 
 async function readOptional(path: string): Promise<string | undefined> {
-  try {
-    return await readFile(path, "utf8");
-  } catch {
-    return undefined;
-  }
+  // Optional run artifacts may be absent (ENOENT). ENOTDIR, EACCES, ELOOP, and
+  // other operational errors must not look like a missing stdout, stderr, or
+  // final-message file.
+  return readOptionalText(path, { missing: MISSING_PATH_ENOENT });
 }
 
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a retained-run root through a non-directory
+  // prefix must not look like an empty run list.
+  return pathExistsOnDisk(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 function parseTailLine(line: string): AdHocTestTailLine {

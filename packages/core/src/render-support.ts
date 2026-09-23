@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+import { MISSING_PATH_ENOENT, pathExists } from "./fs-existence";
 import { formatGeneratedFileMode, normalizeGeneratedFileMode } from "./generated-file-mode";
 
 import type {
@@ -126,20 +127,9 @@ export function normalizeManagedRelativePath(path: string): string {
 }
 
 export async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return false;
-    }
-    throw error;
-  }
+  // ENOTDIR is not absence here: a render surface through a non-directory
+  // prefix must surface instead of being read as missing content.
+  return pathExists(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 export function lockRootsFor(
