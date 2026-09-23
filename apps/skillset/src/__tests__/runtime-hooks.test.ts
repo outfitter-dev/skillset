@@ -149,6 +149,10 @@ test("runtime hook override parser treats argv and shell syntax distinctly", () 
     argv: ['test -z "$GIT_DIR"'],
     kind: "shell",
   });
+  expect(parseSkillsetHookCommand('echo "%PATH%"')).toEqual({
+    argv: ['echo "%PATH%"'],
+    kind: "shell",
+  });
   expect(parseSkillsetHookCommand("echo invoked>marker&rem")).toEqual({
     argv: ["echo invoked>marker&rem"],
     kind: "shell",
@@ -198,6 +202,17 @@ test("runtime hook spawn uses argv, POSIX sh, or Windows ComSpec by contract", (
     "/s",
     "/c",
     '"C:\\Program Files\\nodejs\\npx.cmd" --yes skillset',
+  ]);
+  expect(skillsetHookSpawnArgv(
+    { argv: ["C:\\Program Files\\skillset\\skillset.BAT"], kind: "argv" },
+    ["change", "status"],
+    windows
+  )).toEqual([
+    "C:\\Windows\\System32\\cmd.exe",
+    "/d",
+    "/s",
+    "/c",
+    '"C:\\Program Files\\skillset\\skillset.BAT" change status',
   ]);
   expect(skillsetHookSpawnArgv(
     { argv: ["echo invoked>marker&rem"], kind: "shell" },

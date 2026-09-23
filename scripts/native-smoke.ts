@@ -1,6 +1,6 @@
 import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, delimiter, dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 
 import packageManifest from "../apps/skillset/package.json";
 import { getNativeTarget } from "./native-targets";
@@ -131,15 +131,15 @@ export async function smokeNativeExecutable(
 async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
   const smokeRoot = await mkdtemp(join(tmpdir(), "skillset-native-hook-smoke-"));
   const repo = join(smokeRoot, "repo");
-  const tools = join(smokeRoot, "tools");
+  const tools = join(smokeRoot, "tools with spaces");
   const gitBin = join(smokeRoot, "git-bin");
   const discoveredMarker = join(smokeRoot, "discovered-skillset-was-invoked");
   const overrideMarker = join(smokeRoot, "override-skillset-was-invoked");
   const shellMarker = join(smokeRoot, "shell-override-was-invoked");
   await mkdir(repo, { recursive: true });
   await mkdir(tools, { recursive: true });
-  await mkdir(gitBin, { recursive: true });
-  await isolateGit(gitBin);
+  const hookPath = await isolatedHookPath(gitBin, tools);
+  const missingRunnerPath = hookPath.split(delimiter).filter((path) => path !== tools).join(delimiter);
   await writeFile(join(repo, "skillset.yaml"), "skillset:\n  schema: 1\n");
   await runGit(repo, ["init"]);
 
@@ -148,19 +148,15 @@ async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
     const discovered = await run(
       executable,
       ["hooks", "run", "post-tool-use", "--root", repo],
-      [tools, gitBin].join(delimiter)
+      hookPath
     );
     assertSuccess(discovered, "runtime-hook discovery");
-    if (!(await readMarker(discoveredMarker)).includes("change")) {
-      throw new Error(
-        `Native runtime-hook discovery did not execute the PATH runner ${discoveredRunner}`
-      );
-    }
+    await assertHookArgs(discoveredMarker, `PATH runner ${discoveredRunner}`);
 
     const missing = await run(
       executable,
       ["hooks", "run", "post-tool-use", "--root", repo],
-      gitBin
+      missingRunnerPath
     );
     if (
       missing.exitCode === 0 ||
@@ -177,13 +173,11 @@ async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
     const override = await run(
       executable,
       ["hooks", "run", "post-tool-use", "--root", repo],
-      gitBin,
-      { SKILLSET_HOOK_COMMAND: overrideRunner }
+      missingRunnerPath,
+      { SKILLSET_HOOK_COMMAND: quoteHookExecutable(overrideRunner) }
     );
     assertSuccess(override, "runtime-hook argv override");
-    if (!(await readMarker(overrideMarker)).includes("change")) {
-      throw new Error("Native runtime-hook argv override did not execute the override executable");
-    }
+    await assertHookArgs(overrideMarker, "argv override");
 
     const shellOverride = process.platform === "win32"
       ? `echo invoked>${shellMarker}&rem`
@@ -191,7 +185,7 @@ async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
     const shell = await run(
       executable,
       ["hooks", "run", "post-tool-use", "--root", repo],
-      gitBin,
+      missingRunnerPath,
       { SKILLSET_HOOK_COMMAND: shellOverride }
     );
     assertSuccess(shell, "runtime-hook shell override");
@@ -201,26 +195,29 @@ async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
   }
 }
 
-async function isolateGit(binDir: string): Promise<void> {
+async function isolatedHookPath(binDir: string, tools: string): Promise<string> {
   const git = Bun.which("git");
   if (!git) throw new Error("Native runtime-hook smoke requires git");
-  const isolated = join(
-    binDir,
-    process.platform === "win32" ? "git.exe" : "git"
-  );
+  if (process.platform === "win32") {
+    const gitDirectory = dirname(git);
+    for (const runner of ["skillset", "bunx", "bun", "npx"]) {
+      if (Bun.which(runner, { PATH: gitDirectory }) !== null) {
+        throw new Error(
+          `Native runtime-hook smoke cannot isolate ${runner} from Git directory ${gitDirectory}`
+        );
+      }
+    }
+    return [tools, gitDirectory].join(delimiter);
+  }
+
+  await mkdir(binDir, { recursive: true });
+  const isolated = join(binDir, "git");
   try {
     await symlink(git, isolated);
   } catch {
     await copyFile(git, isolated);
   }
-  if (process.platform === "win32" && basename(git).toLowerCase() === "git.exe") {
-    const cmdShim = join(dirname(git), "git.cmd");
-    try {
-      await copyFile(cmdShim, join(binDir, "git.cmd"));
-    } catch {
-      // git.exe is enough when the cmd shim is absent
-    }
-  }
+  return [tools, binDir].join(delimiter);
 }
 
 async function writeFakeSkillset(binDir: string, marker: string): Promise<string> {
@@ -233,7 +230,7 @@ async function writeFakeSkillset(binDir: string, marker: string): Promise<string
   } else {
     await writeFile(
       path,
-      `#!/bin/sh\nprintf '%s\\n' "$@" > '${marker}'\nexit 0\n`
+      `#!/bin/sh\nprintf '%s\\n' "$*" > '${marker}'\nexit 0\n`
     );
     await chmod(path, 0o755);
   }
@@ -266,4 +263,21 @@ async function readMarker(path: string): Promise<string> {
     }
     throw error;
   }
+}
+
+async function assertHookArgs(path: string, label: string): Promise<void> {
+  const actual = (await readMarker(path)).trimEnd();
+  const expected = "change status --root .";
+  if (actual !== expected) {
+    throw new Error(
+      `Native runtime-hook ${label} forwarded ${JSON.stringify(actual)} instead of ${JSON.stringify(expected)}`
+    );
+  }
+}
+
+function quoteHookExecutable(path: string): string {
+  if (path.includes('"')) {
+    throw new Error(`Native runtime-hook smoke cannot quote executable path ${path}`);
+  }
+  return `"${path}"`;
 }
