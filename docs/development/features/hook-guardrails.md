@@ -41,7 +41,7 @@ Runner snippets call `skillset change check --staged` at pre-commit and `skillse
 
 Both runtime events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
 
-Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout and installed package runners; `SKILLSET_HOOK_COMMAND` is the explicit reviewed override.
+Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout, then installed package runners on the hook's own PATH; `SKILLSET_HOOK_COMMAND` is the explicit reviewed override.
 
 ## Changing or Regenerating Guardrails
 

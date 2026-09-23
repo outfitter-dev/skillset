@@ -86,6 +86,21 @@ test("runtime hook command resolver falls back to stable package runners", async
   });
 });
 
+test("runtime hook command resolver probes only the supplied PATH", async () => {
+  await expect(resolveWithPath([])).rejects.toThrow(MISSING_SKILLSET_RUNNER);
+
+  const hidden = await isolatedBins({ hidden: ["skillset"] });
+  await expect(resolveSkillsetCommand(hidden.root, { PATH: hidden.visibleBin })).rejects.toThrow(
+    MISSING_SKILLSET_RUNNER
+  );
+
+  const shadowed = await isolatedBins({ hidden: ["skillset"], visible: ["bunx"] });
+  await expect(resolveSkillsetCommand(shadowed.root, { PATH: shadowed.visibleBin })).resolves.toEqual({
+    argv: ["bunx", "skillset"],
+    kind: "argv",
+  });
+});
+
 test("runtime hook command runner strips inherited Git repository environment", async () => {
   const root = await gitFixture();
   const previousGitDir = process.env.GIT_DIR;
@@ -431,15 +446,36 @@ async function gitFixture(): Promise<string> {
   return root;
 }
 
+const MISSING_SKILLSET_RUNNER =
+  "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND";
+
 async function resolveWithPath(commands: readonly string[]) {
+  const bins = await isolatedBins({ visible: commands });
+  return resolveSkillsetCommand(bins.root, { PATH: bins.visibleBin });
+}
+
+async function isolatedBins(options: {
+  readonly hidden?: readonly string[];
+  readonly visible?: readonly string[];
+}): Promise<{
+  readonly hiddenBin: string;
+  readonly root: string;
+  readonly visibleBin: string;
+}> {
   const root = await mkdtemp(join(tmpdir(), "skillset-hooks-path-"));
-  const binDir = join(root, "bin");
-  await mkdir(binDir, { recursive: true });
+  const hiddenBin = join(root, "hidden-bin");
+  const visibleBin = join(root, "visible-bin");
+  await mkdir(hiddenBin, { recursive: true });
+  await mkdir(visibleBin, { recursive: true });
+  await writeBins(hiddenBin, options.hidden ?? []);
+  await writeBins(visibleBin, options.visible ?? []);
+  return { hiddenBin, root, visibleBin };
+}
+
+async function writeBins(binDir: string, commands: readonly string[]): Promise<void> {
   for (const command of commands) {
     const binPath = join(binDir, command);
     await writeFile(binPath, "#!/bin/sh\nexit 0\n");
     await chmod(binPath, 0o755);
   }
-
-  return resolveSkillsetCommand(root, { PATH: binDir });
 }
