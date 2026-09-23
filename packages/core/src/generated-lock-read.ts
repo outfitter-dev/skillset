@@ -233,7 +233,15 @@ function assertExpectedOutputRoot(
 
 function lockReadError(logicalPath: string, error: unknown): Error {
   if (isCorruptLockError(error, logicalPath)) return error as Error;
-  return corruptManagedLock(logicalPath, reasonFromReadError(logicalPath, error));
+  const wrapped = corruptManagedLock(
+    logicalPath,
+    reasonFromReadError(logicalPath, error)
+  );
+  if (!(error instanceof OnDiskJsonError)) return wrapped;
+  return Object.assign(wrapped, {
+    ...(error.failure.code === undefined ? {} : { code: error.failure.code }),
+    path: error.failure.path,
+  });
 }
 
 function reasonFromReadError(logicalPath: string, error: unknown): string {

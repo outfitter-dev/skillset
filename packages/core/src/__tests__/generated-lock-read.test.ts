@@ -112,8 +112,9 @@ test.each([
 test.each(["EACCES", "EIO", "ELOOP"] as const)(
   "does not downgrade %s to absence",
   async (code) => {
+    const path = "/tmp/skillset.lock";
     await expect(
-      readCurrentGeneratedLockFromDisk("/tmp/skillset.lock", {
+      readCurrentGeneratedLockFromDisk(path, {
         logicalPath: "skillset.lock",
         missing: "absent",
         readText: async () => {
@@ -123,6 +124,15 @@ test.each(["EACCES", "EIO", "ELOOP"] as const)(
     ).rejects.toThrow(
       `workspace lock skillset.lock cannot guard generated state because it cannot be read (${code})`
     );
+    await expect(
+      readCurrentGeneratedLockFromDisk(path, {
+        logicalPath: "skillset.lock",
+        missing: "absent",
+        readText: async () => {
+          throw errno(code);
+        },
+      })
+    ).rejects.toMatchObject({ code, path });
   }
 );
 
