@@ -680,7 +680,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   test("stages validator environments without unrelated secret-shaped ambient variables", async () => {
     const root = await fixtureRoot();
     const inventory = await enumerateProviderArtifacts(root);
-    const temp = await mkdtemp(join(tmpdir(), "skillset-provider-stage-env-"));
+    const temp = await createTestFixtureRoot("skillset-provider-stage-env-");
     const previousSecrets = plantUnrelatedSecrets();
     try {
       const staged = await stageValidationInputs(root, temp, inventory, {
