@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 import {
   createProviderProbeEnvironment,
@@ -77,7 +77,7 @@ describe("SET-646 provider probe environment", () => {
   });
 
   test("isolates provider roots and omits unrelated secret-shaped ambient variables", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-probe-env-"));
+    const root = await createTestFixtureRoot("skillset-provider-probe-env-");
     const { env, roots } = await createProviderProbeEnvironment({
       adapters: { npm: true, pip: true, uv: true },
       extras: { LANG: "C", TERM: "dumb" },
@@ -125,9 +125,7 @@ describe("SET-646 provider probe environment", () => {
   });
 
   test("opts in to declared credentials and fails closed when a required credential is missing", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-provider-probe-cred-")
-    );
+    const root = await createTestFixtureRoot("skillset-provider-probe-cred-");
 
     const present = await createProviderProbeEnvironment({
       credentials: {
@@ -165,9 +163,7 @@ describe("SET-646 provider probe environment", () => {
   });
 
   test("does not let extras replace isolated provider roots", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-provider-probe-extra-")
-    );
+    const root = await createTestFixtureRoot("skillset-provider-probe-extra-");
     const { env } = await createProviderProbeEnvironment({
       extras: {
         HOME: "/tmp/leaky-home",
@@ -183,7 +179,7 @@ describe("SET-646 provider probe environment", () => {
   });
 
   test("preserves Windows Path spelling and protects reserved names case-insensitively", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-probe-win-"));
+    const root = await createTestFixtureRoot("skillset-provider-probe-win-");
     const { env } = await createProviderProbeEnvironment({
       adapters: { npm: true, pip: true },
       extras: {
