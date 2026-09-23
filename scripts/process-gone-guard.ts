@@ -16,6 +16,8 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import ts from "typescript";
+
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
 
 export interface ProcessGoneViolation {
@@ -23,9 +25,6 @@ export interface ProcessGoneViolation {
   readonly line: number;
   readonly text: string;
 }
-
-export const IMMEDIATE_PROCESS_GONE_PATTERN =
-  /expect\(\(\)\s*=>\s*process\.kill\([^,]+,\s*0\)\)\.toThrow/u;
 
 const GUARD_OWN_PATHS = new Set([
   "scripts/process-gone-guard.ts",
@@ -46,11 +45,86 @@ export function scanImmediateProcessGoneAssertions(
   file: string,
   content: string
 ): readonly ProcessGoneViolation[] {
-  return content.split(/\r?\n/u).flatMap((text, index) =>
-    IMMEDIATE_PROCESS_GONE_PATTERN.test(text)
-      ? [{ file, line: index + 1, text: text.trim() }]
-      : []
+  const source = ts.createSourceFile(
+    file,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
   );
+  const violations: ProcessGoneViolation[] = [];
+
+  const visit = (node: ts.Node): void => {
+    if (isImmediateProcessGoneAssertion(node)) {
+      const reportedNode = ts.isExpressionStatement(node.parent)
+        ? node.parent
+        : node;
+      const start = source.getLineAndCharacterOfPosition(
+        reportedNode.getStart(source)
+      );
+      violations.push({
+        file,
+        line: start.line + 1,
+        text: reportedNode.getText(source).replace(/\s+/gu, " "),
+      });
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return violations;
+}
+
+function isImmediateProcessGoneAssertion(
+  node: ts.Node
+): node is ts.CallExpression {
+  if (
+    !ts.isCallExpression(node) ||
+    !ts.isPropertyAccessExpression(node.expression)
+  ) {
+    return false;
+  }
+  if (
+    node.expression.name.text !== "toThrow" &&
+    node.expression.name.text !== "toThrowError"
+  ) {
+    return false;
+  }
+  const expectCall = node.expression.expression;
+  if (
+    !ts.isCallExpression(expectCall) ||
+    !ts.isIdentifier(expectCall.expression) ||
+    expectCall.expression.text !== "expect" ||
+    expectCall.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const callback = expectCall.arguments[0];
+  return (
+    callback !== undefined &&
+    (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) &&
+    containsProcessKillZero(callback.body)
+  );
+}
+
+function containsProcessKillZero(node: ts.Node): boolean {
+  if (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isIdentifier(node.expression.expression) &&
+    node.expression.expression.text === "process" &&
+    node.expression.name.text === "kill" &&
+    node.arguments.length === 2 &&
+    node.arguments[1]?.kind === ts.SyntaxKind.NumericLiteral &&
+    (node.arguments[1] as ts.NumericLiteral).text === "0"
+  ) {
+    return true;
+  }
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found && containsProcessKillZero(child)) found = true;
+  });
+  return found;
 }
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -67,12 +141,21 @@ async function runText(command: readonly string[]): Promise<string> {
     new Response(subprocess.stdout).text(),
     new Response(subprocess.stderr).text(),
   ]);
-  if (exitCode !== 0) throw new Error(`${command.join(" ")} failed: ${stderr.trim()}`);
+  if (exitCode !== 0)
+    throw new Error(`${command.join(" ")} failed: ${stderr.trim()}`);
   return stdout;
 }
 
 async function main(): Promise<void> {
-  const files = (await runText(["git", "ls-files", "--cached", "--others", "--exclude-standard"]))
+  const files = (
+    await runText([
+      "git",
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+    ])
+  )
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -82,7 +165,9 @@ async function main(): Promise<void> {
   for (const file of scannable) {
     const path = `${rootDir}/${file}`;
     if (!existsSync(path)) continue;
-    violations.push(...scanImmediateProcessGoneAssertions(file, await Bun.file(path).text()));
+    violations.push(
+      ...scanImmediateProcessGoneAssertions(file, await Bun.file(path).text())
+    );
   }
 
   if (violations.length === 0) {
