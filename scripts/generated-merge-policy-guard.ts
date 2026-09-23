@@ -18,7 +18,7 @@
 
 import path from "node:path";
 
-import { parseGeneratedLock } from "@skillset/core";
+import { readLegacyGeneratedLockFromDisk } from "@skillset/core";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { CHANGE_STREAM_PATHSPEC } from "./change-stream-guard";
@@ -115,14 +115,24 @@ export const readGeneratedPaths = async (
   const locks = await listFiles(rootPath, [LOCK_FILE, `*/${LOCK_FILE}`]);
   const generated = new Set<string>();
   const parsedLocks = await Promise.all(
-    locks.filter(isLockPath).map(async (lock) => ({
-      lock,
-      parsed: parseGeneratedLock(
-        await Bun.file(path.join(rootPath, lock)).json(),
-        lock,
-        { provenance: "inspect" }
-      ),
-    }))
+    locks.filter(isLockPath).map(async (lock) => {
+      // SET-638: this guard inspects committed locks for merge-policy claims
+      // only. It uses the Core fail-closed disk reader with an explicit legacy
+      // inspect policy so pre-v4 committed state stays readable and corruption
+      // cannot be treated as an empty generated set.
+      const read = await readLegacyGeneratedLockFromDisk(
+        path.join(rootPath, lock),
+        {
+          logicalPath: lock,
+          missing: "error",
+          provenance: "inspect",
+        }
+      );
+      if (read.kind !== "present") {
+        throw new Error(`skillset: committed lock ${lock} is missing`);
+      }
+      return { lock, parsed: read.lock };
+    })
   );
   for (const { lock, parsed } of parsedLocks) {
     generated.add(lock);

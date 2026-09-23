@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 
 import { describe, expect, test } from "bun:test";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
+import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
 
 import {
   renderProjectSessionStartHooks,
@@ -194,6 +195,42 @@ describe("project SessionStart hook rendering", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  test("withholds previous ownership from untrusted provenance without hiding the lock", async () => {
+    const root = await createTestGitFixtureRoot("skillset-project-hooks-provenance-");
+    await writeFile(join(root, "skillset.yaml"), "{}\n");
+    await writeFile(
+      join(root, "skillset.lock"),
+      JSON.stringify({
+        generatedBy: "skillset@0.1.0",
+        items: [],
+        outputRoot: ".",
+        provenanceHash: `sha256:${"a".repeat(64)}`,
+        schemaVersion: 4,
+        standardProfileEvidence: {},
+        selectedStandards: [],
+        selectedTargets: [],
+        target: "workspace",
+      }),
+      "utf8"
+    );
+
+    await expect(renderProjectSessionStartHooks(graph(root, "on"))).resolves.toHaveLength(2);
+  });
+
+  test("fails closed on a corrupt workspace lock during ownership checks", async () => {
+    const root = await createTestGitFixtureRoot("skillset-project-hooks-lock-");
+    await writeFile(join(root, "skillset.yaml"), "{}\n");
+    await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
+
+    await expect(renderProjectSessionStartHooks(graph(root, "on"))).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
+    );
+    await expect(renderProjectSessionStartHooks(graph(root, "on"))).rejects.toThrow(
+      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+    );
+    expect(await readFile(join(root, "skillset.lock"), "utf8")).toBe("{ not valid json");
   });
 
   test("blocks a former local Claude SessionStart entry before composing the committed destination", async () => {

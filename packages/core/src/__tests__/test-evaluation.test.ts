@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, mkdir, readFile, rm, symlink } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
@@ -459,6 +466,45 @@ codex:
       category: "Productivity",
       displayName: "Canonical Tools",
     });
+  });
+
+  it("fails closed when staging a corrupt workspace lock", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: evaluation-root
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/skills/demo/SKILL.md": SOURCE,
+      ".skillset/tests.yaml": `
+demo:
+  checks:
+    projection: true
+`,
+    });
+    await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
+    const stagingRoot = await mkdtemp(
+      join(tmpdir(), "skillset-test-evaluation-corrupt-")
+    );
+    const workspacePath = join(stagingRoot, "workspace");
+    await mkdir(workspacePath, { recursive: true });
+
+    try {
+      const { declaration, graph } = await loadSkillsetTestDeclaration(
+        root,
+        "demo"
+      );
+      await expect(
+        stageSkillsetTestWorkspace(root, graph, declaration, workspacePath)
+      ).rejects.toThrow(
+        "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
+      );
+    } finally {
+      await rm(stagingRoot, { force: true, recursive: true });
+      await rm(root, { force: true, recursive: true });
+    }
   });
 
   it("remains independent from the CLI app implementation", async () => {

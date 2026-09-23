@@ -470,6 +470,25 @@ export {
   type ParsedCurrentGeneratedLock,
 } from "./generated-lock";
 export {
+  corruptGeneratedLock,
+  corruptManagedLock,
+  corruptWorkspaceLock,
+  isEmptyV2GeneratedLock,
+  isPreV4GeneratedLock,
+  isWorkspaceLockPath,
+  parseCurrentLockOrCorrupt,
+  parseLegacyLockOrCorrupt,
+  readCurrentGeneratedLockFromDisk,
+  readGeneratedLockJsonFromDisk,
+  readInspectableGeneratedLockFromDisk,
+  readLegacyGeneratedLockFromDisk,
+  WORKSPACE_LOCK_LOGICAL_PATH,
+  type GeneratedLockDiskRead,
+  type GeneratedLockMissingPolicy,
+  type GeneratedLockSchemaPolicy,
+  type ReadGeneratedLockFromDiskOptions,
+} from "./generated-lock-read";
+export {
   compareNormalizedOutputTreeEntries,
   compareNormalizedOutputTrees,
   formatNormalizedTreeComparison,

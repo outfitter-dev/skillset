@@ -12,7 +12,7 @@ import {
   readString,
   readStringArray,
 } from "./config";
-import { parseCurrentGeneratedLock } from "./generated-lock";
+import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { resolveLicense } from "./licenses";
 import {
   MISSING_PATH_ENOENT,
@@ -557,11 +557,12 @@ async function copyWorkspaceManagedFiles(
   workspaceLockPath: string,
   sourceDir: string
 ): Promise<void> {
-  if (!(await pathExists(workspaceLockPath))) return;
-  const lock = parseCurrentGeneratedLock(
-    JSON.parse(await readFile(workspaceLockPath, "utf8")) as unknown,
-    "workspace lock skillset.lock"
-  );
+  const read = await readCurrentGeneratedLockFromDisk(workspaceLockPath, {
+    logicalPath: "skillset.lock",
+    missing: "absent",
+  });
+  if (read.kind === "absent") return;
+  const lock = read.lock;
   const ignoredOperationalPaths = ignoredSourceOperationalPaths(
     rootPath,
     sourceDir

@@ -374,7 +374,9 @@ marketplaces:
 
     await expect(
       checkMarketplaces(root, { name: "outfitter" })
-    ).rejects.toThrow("workspace lock skillset.lock has invalid provenanceHash");
+    ).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because has invalid provenanceHash"
+    );
   });
 
   test("blocks pinned marketplace entries when the source sha cannot be verified", async () => {
@@ -544,7 +546,9 @@ Use this demo skill.
 
     await expect(
       checkMarketplaces(marketplace, { name: "outfitter", xdg: remote.xdg })
-    ).rejects.toThrow("workspace lock skillset.lock has invalid provenanceHash");
+    ).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because has invalid provenanceHash"
+    );
     const tamperedVerify = await verifySkillsetResult(marketplace, { xdg: remote.xdg });
     expect(tamperedVerify.data.failures).toContain("stale generated file: skillset.lock");
   });
