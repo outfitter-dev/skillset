@@ -1,8 +1,8 @@
-import { mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { stat, symlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   assignErrorPath,
@@ -142,10 +142,6 @@ function expectThrown(
 async function withTempRoot(
   operation: (root: string) => Promise<void>
 ): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-fs-existence-"));
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-fs-existence-");
+  await operation(root);
 }

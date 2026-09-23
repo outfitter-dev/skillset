@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 import {
   downloadVerified,
@@ -20,12 +20,8 @@ const acquisition = {
 const withTemporaryDirectory = async (
   operation: (root: string) => Promise<void>
 ): Promise<void> => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-acquisition-"));
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-provider-acquisition-");
+  await operation(root);
 };
 
 const okResponse = (): Response =>
