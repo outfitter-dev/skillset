@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { type LintDiagnostic, type LintSubject, runLintRules } from "@skillset/lint";
 
@@ -10,6 +10,7 @@ import {
   findUndeclaredResourceLinks,
   isScriptTargetPath,
 } from "./resources";
+import { logicalDiagnosticPath, toLogicalDiagnosticPath } from "./path";
 import { loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
@@ -129,20 +130,20 @@ async function lintSubjectForSkill(graph: BuildGraph, skill: SourceSkill): Promi
     files: [basename(skill.sourcePath)],
     frontmatter: skill.frontmatter,
     kind: "skill",
-    path: relative(graph.rootPath, skill.sourcePath),
+    path: logicalDiagnosticPath(graph.rootPath, skill.sourcePath),
     raw: await readFile(skill.sourcePath, "utf8"),
   };
 }
 
 function lintIssueFromDiagnostic(diagnostic: LintDiagnostic, sourceFeatureId?: SkillFeatureId): LintIssue {
   const featureId = diagnostic.featureId ?? sourceFeatureId;
-  return {
+  return lintIssue({
     code: diagnostic.code === undefined ? diagnostic.rule : `${diagnostic.rule}:${diagnostic.code}`,
     ...(featureId === undefined ? {} : { featureId }),
     message: diagnostic.message,
     path: diagnostic.path,
     severity: diagnostic.severity,
-  };
+  });
 }
 
 async function lintPluginHooks(graph: BuildGraph): Promise<readonly LintIssue[]> {
@@ -178,7 +179,7 @@ async function lintHookFile(
   const hookPath = join(plugin.path, relativeHookPath);
   if (!(await fileExists(hookPath))) return [];
 
-  const path = relative(graph.rootPath, hookPath);
+  const path = logicalDiagnosticPath(graph.rootPath, hookPath);
   let parsed: JsonValue;
   try {
     parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
@@ -186,13 +187,13 @@ async function lintHookFile(
     const message = error instanceof Error ? error.message : String(error);
     const targetLabel = targetDescriptor(target).displayLabel;
     return [
-      {
+      lintIssue({
         code: "hook-invalid-json",
         featureId: "plugin-hooks",
         severity: "error",
         path,
         message: `${targetLabel} hook file ${path} is not valid JSON: ${message}`,
-      },
+      }),
     ];
   }
 
@@ -204,7 +205,7 @@ async function lintHookFile(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return [{ code: "hook-target-incompatible", featureId: "plugin-hooks", message, path, severity: "error" }];
+    return [lintIssue({ code: "hook-target-incompatible", featureId: "plugin-hooks", message, path, severity: "error" })];
   }
 
   return [];
@@ -224,10 +225,10 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
   ];
 
   for (const skill of skills) {
-    const path = relative(graph.rootPath, skill.sourcePath);
+    const path = logicalDiagnosticPath(graph.rootPath, skill.sourcePath);
 
     for (const undeclared of findUndeclaredResourceLinks(skill.body, skill.resources)) {
-      issues.push({
+      issues.push(lintIssue({
         code: "resource-undeclared-link",
         featureId: "resources",
         severity: "error",
@@ -235,11 +236,11 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
         message:
           `${path} links to undeclared resource ${undeclared.reference}; ` +
           undeclared.suggestion,
-      });
+      }));
     }
 
     for (const offender of findPluginRootScriptLinks(skill.body)) {
-      issues.push({
+      issues.push(lintIssue({
         code: "skill-plugin-root-script",
         featureId: "resources",
         severity: "error",
@@ -247,22 +248,22 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
         message:
           `${path} links to a plugin-root script path ${offender}; ` +
           "skills should copy scripts skill-local via resources.scripts and reference ./scripts/<name> so the script travels with the generated skill.",
-      });
+      }));
     }
 
     for (const resource of skill.resources) {
       if (resource.kind !== "file" || !isScriptTargetPath(resource.targetPath)) continue;
       if (await sourceIsExecutable(resource.sourcePath)) continue;
-      issues.push({
+      issues.push(lintIssue({
         code: "resource-script-not-executable",
         featureId: "resources",
         severity: "error",
         path,
         message:
           `${path} declares script resource ${resource.from} -> ${resource.targetPath}, ` +
-          `but ${relative(graph.rootPath, resource.sourcePath)} is not executable. ` +
+          `but ${logicalDiagnosticPath(graph.rootPath, resource.sourcePath)} is not executable. ` +
           "Run chmod +x on the source so the generated skill-local script keeps its executable expectation.",
-      });
+      }));
     }
   }
 
@@ -323,8 +324,8 @@ function lintSkill(
 
   const markdownSearchableBody = maskMarkdownCodeRegions(skill.body);
   if (!graph.root.compile.features.promptArguments && hasSkillsetPromptArguments(skill.body)) {
-    const path = relative(graph.rootPath, skill.sourcePath);
-    issues.push({
+    const path = logicalDiagnosticPath(graph.rootPath, skill.sourcePath);
+    issues.push(lintIssue({
       code: "prompt-arguments-disabled",
       featureId,
       severity: "error",
@@ -332,16 +333,16 @@ function lintSkill(
       message:
         `${path} uses Skillset prompt argument placeholders while compile.features.promptArguments is false. ` +
         "Enable compile.features.promptArguments or remove the {{$ARGUMENTS...}} placeholders.",
-    });
+    }));
   }
 
   const searchableBody = maskSkillsetPromptArguments(markdownSearchableBody);
   const matches = CLAUDE_DYNAMIC_PATTERNS.filter(({ pattern }) => pattern.test(searchableBody));
   if (matches.length === 0) return issues;
 
-  const path = relative(graph.rootPath, skill.sourcePath);
+  const path = logicalDiagnosticPath(graph.rootPath, skill.sourcePath);
   const labels = matches.map((match) => match.label).join(", ");
-  issues.push({
+  issues.push(lintIssue({
     code: "codex-claude-dynamic-context",
     featureId,
     severity: "error",
@@ -349,7 +350,7 @@ function lintSkill(
     message:
       `${path} uses Claude dynamic context (${labels}) while Codex output is enabled. ` +
       "Set codex: false for this skill or move the dynamic behavior into a target-safe script/fallback before emitting Codex.",
-  });
+  }));
 
   return issues;
 }
@@ -380,7 +381,7 @@ function maskMarkdownCodeRegions(body: string): string {
 }
 
 function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
-  const path = relative(graph.rootPath, skill.sourcePath);
+  const path = logicalDiagnosticPath(graph.rootPath, skill.sourcePath);
 
   try {
     if (skill.targets.claude.enabled) {
@@ -393,13 +394,13 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [
-      {
+      lintIssue({
         code: "skill-tools-invalid",
         featureId: "tools-policy",
         severity: "error",
         path,
         message,
-      },
+      }),
     ];
   }
 
@@ -412,7 +413,7 @@ function lintUnsupportedAllowedTools(
   target: "codex" | "cursor"
 ): readonly LintIssue[] {
   if (!skill.targets[target].enabled) return [];
-  const path = relative(graph.rootPath, skill.sourcePath);
+  const path = logicalDiagnosticPath(graph.rootPath, skill.sourcePath);
   const allowedTools = readAllowedTools(skill.frontmatter, target, path);
   if (allowedTools === undefined || allowedTools === false) return [];
 
@@ -422,7 +423,7 @@ function lintUnsupportedAllowedTools(
       ? "Set allowed_tools.codex: false or move Codex tool dependencies into agents/openai.yaml."
       : "Set allowed_tools.cursor: false or express Cursor tool policy through tools.";
   return [
-    {
+    lintIssue({
       code: `${target}-allowed-tools-unsupported`,
       featureId: "tools-policy",
       severity: "error",
@@ -430,8 +431,17 @@ function lintUnsupportedAllowedTools(
       message:
         `${path} sets allowed_tools for ${targetLabel}, but ${targetLabel} skills do not currently have a skill-local allowed-tools equivalent. ` +
         remediation,
-    },
+    }),
   ];
+}
+
+function lintIssue(issue: LintIssue): LintIssue {
+  const path = toLogicalDiagnosticPath(issue.path);
+  return {
+    ...issue,
+    message: path === issue.path ? issue.message : issue.message.replaceAll(issue.path, path),
+    path,
+  };
 }
 
 function formatLintError(issues: readonly LintIssue[]): string {

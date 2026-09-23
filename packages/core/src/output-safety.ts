@@ -19,7 +19,11 @@ import {
 } from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
 import { hashOwnedSettingsEntries } from "./settings-entry";
-import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
+import {
+  skillsetDiagnostic,
+  type SkillsetDiagnostic,
+  type SkillsetWriteSummary,
+} from "./operation-result";
 import {
   createOperationalPathContext,
   logicalOperationalPath,
@@ -1063,13 +1067,13 @@ async function firstUnmanagedDirectoryEntry(
 }
 
 function outputShapeCollisionDiagnostic(path: string): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "unmanaged-output-collision",
     featureId: "output-safety",
     message: `existing output shape is not fully owned by Skillset; refusing to replace ${path}`,
     outputPath: path,
     severity: "error",
-  };
+  });
 }
 
 async function inspectCaseOnlyManagedAliases(
@@ -1154,26 +1158,26 @@ function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiag
   const reason = record.reason === "managed-target-edit"
     ? "existing generated output differs from the previous lock"
     : "existing file is not owned by Skillset";
-  return {
+  return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
     message: `${reason}; ${record.targetPath} will be backed up before ${record.action}${rootRulesGuidance(record)}`,
     outputPath: record.targetPath,
     severity: "warning",
-  };
+  });
 }
 
 function backupDiagnostic(record: OutputBackupRecord, runId: string, manifestPath: string): SkillsetDiagnostic {
   const reason = record.reason === "managed-target-edit"
     ? "existing generated output differs from the previous lock"
     : "existing file is not owned by Skillset";
-  return {
+  return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
     message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})${rootRulesGuidance(record)}`,
     outputPath: record.targetPath,
     severity: "warning",
-  };
+  });
 }
 
 function rootRulesGuidance(

@@ -27,7 +27,7 @@ import {
   renderCodexDependencyNotice,
 } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
-import { compareStrings } from "./path";
+import { compareStrings, logicalDiagnosticPath } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import {
   resolveProjectUseSkillCopies,
@@ -665,8 +665,8 @@ async function renderPluginSharedSkills(
         featureId: "plugin-skills",
         message:
           `skillset: plugin ${plugin.id} skills flatten to duplicate name ${skill.id}: ` +
-          `${relative(graph.rootPath, existing.sourcePath)} and ${relative(graph.rootPath, skill.sourcePath)}`,
-        path: relative(graph.rootPath, skill.sourcePath),
+          `${logicalDiagnosticPath(graph.rootPath, existing.sourcePath)} and ${logicalDiagnosticPath(graph.rootPath, skill.sourcePath)}`,
+        path: logicalDiagnosticPath(graph.rootPath, skill.sourcePath),
       });
     }
     skillByName.set(skill.id, skill);
@@ -747,7 +747,7 @@ async function renderPluginSharedSkillFiles(
           code: "plugin-skill-provider-incompatible",
           featureId: "plugin-skills",
           message: `skillset: plugin ${plugin.id} skill ${skill.id} provider codex is incompatible at ${standardMarkdown.path}: ${standardMarkdown.message}`,
-          path: relative(graph.rootPath, skill.sourcePath),
+          path: logicalDiagnosticPath(graph.rootPath, skill.sourcePath),
         });
       }
       providerRenderings.push({
@@ -1026,7 +1026,7 @@ function throwPluginSkillProviderIncompatible(
     code: "plugin-skill-provider-incompatible",
     featureId: "plugin-skills",
     message: `skillset: plugin ${plugin.id} skill ${skill.id} provider ${provider} conflicts at ${field}`,
-    path: relative(graph.rootPath, skill.sourcePath),
+    path: logicalDiagnosticPath(graph.rootPath, skill.sourcePath),
   });
 }
 
@@ -1598,7 +1598,7 @@ async function renderProjectSkillCopy(
       code: "project-draft-hooks-unsupported",
       featureId: "draft-skills",
       message: `skillset: project draft ${skill.id} has adaptive hooks that cannot be rendered in its project copy`,
-      path: relative(graph.rootPath, skill.sourcePath),
+      path: logicalDiagnosticPath(graph.rootPath, skill.sourcePath),
     });
   }
 
