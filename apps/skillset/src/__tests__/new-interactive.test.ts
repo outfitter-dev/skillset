@@ -767,6 +767,7 @@ describe("SET-293 derived new-source choices", () => {
         env
       );
       expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
       expect(result.stdout).toContain("write confirmation required");
       expect(result.stdout).not.toContain("Create source:");
     }
@@ -781,7 +782,7 @@ describe("SET-293 derived new-source choices", () => {
 async function runCli(
   args: readonly string[],
   env: Readonly<Record<string, string | undefined>>
-): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+): Promise<{ readonly exitCode: number; readonly stderr: string; readonly stdout: string }> {
   const process = Bun.spawn(
     ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
     {
@@ -790,9 +791,10 @@ async function runCli(
       stdout: "pipe",
     }
   );
-  const [exitCode, stdout] = await Promise.all([
+  const [exitCode, stdout, stderr] = await Promise.all([
     process.exited,
     new Response(process.stdout).text(),
+    new Response(process.stderr).text(),
   ]);
-  return { exitCode, stdout };
+  return { exitCode, stderr, stdout };
 }
