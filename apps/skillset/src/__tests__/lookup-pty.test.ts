@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const EXPECT = "/usr/bin/expect";
 const CLI = path.join(import.meta.dir, "..", "cli.ts");
@@ -78,31 +77,27 @@ async function runExpect(
   readonly stderr: string;
   readonly stdout: string;
 }> {
-  const xdgRoot = await mkdtemp(path.join(tmpdir(), "skillset-lookup-pty-"));
-  try {
-    const script = [
-      "set timeout 15",
-      `spawn -noecho /bin/sh -c "stty columns ${columns} rows 24; exec env CI=false NO_COLOR=1 TERM=xterm XDG_CONFIG_HOME=$env(XDG_ROOT) bun $env(SKILLSET_CLI) lookup ${lookupArguments}"`,
-      ...interactions,
-      "catch wait result",
-      "exit [lindex $result 3]",
-    ].join("\n");
-    const proc = Bun.spawn([EXPECT, "-c", script], {
-      env: {
-        ...process.env,
-        SKILLSET_CLI: CLI,
-        XDG_ROOT: xdgRoot,
-      },
-      stderr: "pipe",
-      stdout: "pipe",
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-    return { exitCode, stderr, stdout };
-  } finally {
-    await rm(xdgRoot, { force: true, recursive: true });
-  }
+  const xdgRoot = await createTestFixtureRoot("skillset-lookup-pty-");
+  const script = [
+    "set timeout 15",
+    `spawn -noecho /bin/sh -c "stty columns ${columns} rows 24; exec env CI=false NO_COLOR=1 TERM=xterm XDG_CONFIG_HOME=$env(XDG_ROOT) bun $env(SKILLSET_CLI) lookup ${lookupArguments}"`,
+    ...interactions,
+    "catch wait result",
+    "exit [lindex $result 3]",
+  ].join("\n");
+  const proc = Bun.spawn([EXPECT, "-c", script], {
+    env: {
+      ...process.env,
+      SKILLSET_CLI: CLI,
+      XDG_ROOT: xdgRoot,
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
 }
