@@ -649,7 +649,7 @@ export function isTransientAcquisitionNetworkError(error: unknown): boolean {
 }
 
 function isRetryableAcquisitionStatus(status: number): boolean {
-  return status === 429 || status >= 500;
+  return status >= 500;
 }
 
 function acquisitionRetryDelayMs(attempt: number): number {

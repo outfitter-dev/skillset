@@ -114,6 +114,21 @@ describe("hosted provider validation acquisition", () => {
     });
   });
 
+  test("does not retry a 429", async () => {
+    await withTemporaryDirectory(async (root) => {
+      let calls = 0;
+      await expect(
+        downloadVerified(acquisition, join(root, "validator.tgz"), {
+          fetch: async () => {
+            calls += 1;
+            return new Response("rate limited", { status: 429 });
+          },
+        })
+      ).rejects.toThrow("failed to acquire https://example.test/validator.tgz: 429");
+      expect(calls).toBe(1);
+    });
+  });
+
   test("fails closed after exhausted transient retries", async () => {
     await withTemporaryDirectory(async (root) => {
       const destination = join(root, "validator.tgz");
