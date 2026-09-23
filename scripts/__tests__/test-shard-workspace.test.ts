@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, readFile, symlink } from "node:fs/promises";
+import { mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
@@ -8,6 +8,7 @@ import {
   prepareShardWorkspace,
   removeOwnedRunRoot,
   writeFailedShardReceipt,
+  writeRunAssets,
 } from "../test-shard-workspace";
 
 test("SET-608: report output cannot overlap source or follow a direct symlink", async () => {
@@ -57,10 +58,31 @@ test("SET-608: every shard owns distinct Git, XDG, temp and dependency state", a
   expect(first.repo).not.toBe(second.repo);
 });
 
+test("SET-608: unsafe run roots remain untouched before ownership rejection", async () => {
+  const root = await createTestFixtureRoot("skillset-shard-unsafe-");
+  const unsafe = join(root, "skillset-shards-nested");
+  await mkdir(unsafe);
+  await expect(
+    writeRunAssets(
+      unsafe,
+      "invocation",
+      join(root, "repo"),
+      join(root, "reports"),
+      "head",
+      new TextEncoder().encode("{}")
+    )
+  ).rejects.toThrow("not an owned OS-temp directory");
+  expect(await readdir(unsafe)).toEqual([]);
+});
+
 test("SET-608: canceled runs publish failure and refuse unowned cleanup", async () => {
   const root = await createTestFixtureRoot("skillset-shard-failure-");
   const out = join(root, "reports");
   await mkdir(out);
+  await writeFile(
+    join(out, "aggregate.json"),
+    JSON.stringify({ schemaVersion: 1, status: "passed" })
+  );
   await writeFailedShardReceipt(
     out,
     "2026-09-23T00:00:00.000Z",
@@ -75,6 +97,7 @@ test("SET-608: canceled runs publish failure and refuse unowned cleanup", async 
     reason: "interrupted by SIGTERM",
     retainedRunRoot: root,
   });
+  expect(receipt.status).not.toBe("passed");
   await expect(removeOwnedRunRoot(root, "not-the-owner")).rejects.toThrow();
   expect(await readFile(join(out, "aggregate.json"), "utf8")).toContain(
     "interrupted by SIGTERM"

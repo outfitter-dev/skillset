@@ -60,8 +60,17 @@ export async function writeRunAssets(
   timingBytes: Uint8Array
 ): Promise<{ timingCopy: string; timingSha256: string }> {
   const tempRoot = await realpath(tmpdir());
-  if (pathsOverlap(root, repo) || pathsOverlap(root, out))
-    throw new Error("shard run root overlaps source or report output");
+  const stat = await lstat(root);
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    (await realpath(root)) !== root ||
+    dirname(root) !== tempRoot ||
+    !basename(root).startsWith("skillset-shards-") ||
+    pathsOverlap(root, repo) ||
+    pathsOverlap(root, out)
+  )
+    throw new Error("shard run root is not an owned OS-temp directory");
   await writeFile(
     join(root, MARKER),
     JSON.stringify({ invocationId, repo, head })
@@ -69,8 +78,6 @@ export async function writeRunAssets(
   const timingCopy = join(root, "timings.json");
   await writeFile(timingCopy, timingBytes);
   await chmod(timingCopy, 0o444);
-  if (dirname(root) !== tempRoot)
-    throw new Error("shard run root is not directly under the OS temp root");
   return { timingCopy, timingSha256: sha256(timingBytes) };
 }
 
