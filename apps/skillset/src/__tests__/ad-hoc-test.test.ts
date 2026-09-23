@@ -1417,6 +1417,44 @@ Use this skill.
   });
 });
 
+test("SET-647: a retained run status loop cannot disappear from the run list", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: ad-hoc-status-loop
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ad hoc test skill.
+---
+
+Use this skill.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const graph = await loadBuildGraph(root, { xdg });
+  const runsRoot = retainedRunRootPaths(
+    root,
+    graph,
+    ".skillset/cache/tests/ad-hoc",
+    xdg
+  ).absolute.runsRoot;
+  const incompleteRun = join(runsRoot, "incomplete");
+  await mkdir(incompleteRun, { recursive: true });
+  await expect(listAdHocTestRuns(root, { xdg })).resolves.toEqual([]);
+
+  const loopRun = join(runsRoot, "loop");
+  await mkdir(loopRun);
+  const statusPath = join(loopRun, "status.json");
+  await symlink("status.json", statusPath);
+  await expect(listAdHocTestRuns(root, { xdg })).rejects.toMatchObject({
+    code: "ELOOP",
+    path: statusPath,
+  });
+});
+
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-ad-hoc-test-"));
   for (const [path, content] of Object.entries(files)) {

@@ -8,6 +8,8 @@ import {
 } from "@skillset/core";
 
 import {
+  assignErrorPath,
+  isMissingPathError,
   MISSING_PATH_ENOENT,
   pathExists as pathExistsOnDisk,
   readOptionalText,
@@ -411,8 +413,9 @@ export async function listAdHocTestRuns(
   const runs: AdHocTestListEntry[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
+    const statusPath = join(runsRoot, entry.name, "status.json");
     try {
-      const status = await readStatus(join(runsRoot, entry.name, "status.json"));
+      const status = await readStatus(statusPath);
       runs.push({
         ...(status.endedAt === undefined ? {} : { endedAt: status.endedAt }),
         kind: status.kind,
@@ -423,8 +426,15 @@ export async function listAdHocTestRuns(
         state: status.state,
         target: status.target,
       });
-    } catch {
-      // Ignore incomplete run directories; status is the durable record.
+    } catch (error) {
+      // A run being written may have no status or a partial status. Filesystem
+      // failures must remain visible instead of silently dropping that run.
+      if (
+        isMissingPathError(error, MISSING_PATH_ENOENT) ||
+        error instanceof SyntaxError ||
+        (error instanceof Error && error.message === "skillset: test status is malformed")
+      ) continue;
+      throw assignErrorPath(error, statusPath);
     }
   }
   return runs.sort((left, right) => compareStrings(right.startedAt, left.startedAt));
