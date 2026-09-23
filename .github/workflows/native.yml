@@ -72,6 +72,9 @@ jobs:
         run: bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
       - name: Prove structured diagnostic paths on Windows
         if: runner.os == 'Windows'
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
         run: bun run test:focused -- apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
       - name: Prove packaged atomic no-replace directory rename
         run: bun scripts/native-directory-rename-smoke.ts
