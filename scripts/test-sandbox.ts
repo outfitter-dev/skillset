@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative } from "node:path";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,
@@ -60,7 +61,7 @@ try {
     flag: "wx",
   });
   const env: Record<string, string | undefined> = {
-    ...process.env,
+    ...gitSafeEnv(),
     // Bun 1.4 persists transpiled files larger than 50 KB under the ambient
     // cache root. Tests use disposable source and own the complete sandbox, so
     // the documented cache-disable switch keeps both nested and decoy runs

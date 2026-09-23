@@ -190,6 +190,32 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
   expect(await decoySnapshot(decoy.files)).toEqual(before);
 });
 
+test("SET-388: fresh runner strips inherited Git repository targeting", async () => {
+  const names = [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  ];
+  const result = await run(
+    [
+      "bun",
+      "-e",
+      `console.log(JSON.stringify(Object.fromEntries(${JSON.stringify(names)}.map((name) => [name, process.env[name]]))))`,
+    ],
+    {
+      ...Object.fromEntries(names.map((name) => [name, `/ambient/${name}`])),
+      SKILLSET_TEST_SANDBOX: "",
+    }
+  );
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout.trim())).toEqual({});
+});
+
 test("SET-389: Git fixtures ignore ambient config, includes, templates, hooks, and identity", async () => {
   const contamination = await gitContaminationEnvironment();
   const before = await fileSnapshot(contamination.files);
