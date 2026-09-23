@@ -182,6 +182,41 @@ describe("SET-646 provider probe environment", () => {
     expect(env.LANG).toBe("C");
   });
 
+  test("preserves Windows Path spelling and protects reserved names case-insensitively", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-provider-probe-win-"));
+    const { env } = await createProviderProbeEnvironment({
+      adapters: { npm: true, pip: true },
+      extras: {
+        home: "C:\\leaky-home",
+        NPM_CONFIG_CACHE: "C:\\leaky-cache",
+      },
+      platform: "win32",
+      root,
+      source: { Path: "C:\\Windows\\System32" },
+    });
+
+    expect(env.Path).toBe("C:\\Windows\\System32");
+    expect(env.PATH).toBeUndefined();
+    expect(env.home).toBeUndefined();
+    expect(env.HOME).toBe(join(root, "home"));
+    expect(env.NPM_CONFIG_CACHE).toBeUndefined();
+    expect(env.npm_config_globalconfig).toBe("NUL");
+    expect(env.PIP_CONFIG_FILE).toBe("NUL");
+    expect(isProviderProbePassthroughVariable("Path", "win32")).toBe(true);
+    expect(isProviderProbePassthroughVariable("Path", "linux")).toBe(false);
+    expect(isProviderProbeIsolationVariable("home", "win32")).toBe(true);
+
+    await expect(
+      createProviderProbeEnvironment({
+        createDirectories: false,
+        credentials: { required: ["home"] },
+        platform: "win32",
+        root,
+        source: { home: "C:\\leaky-home" },
+      })
+    ).rejects.toThrow("overlaps the isolation or allowlist contract");
+  });
+
   test("rejects a relative root before creating directories", async () => {
     await expect(
       createProviderProbeEnvironment({
