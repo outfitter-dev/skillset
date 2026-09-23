@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   validateCliResult,
@@ -278,7 +278,7 @@ interface ReceiptFixture {
 }
 
 async function receiptFixture(workspaceName = "workspace"): Promise<ReceiptFixture> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-operation-receipt-"));
+  const root = await createTestFixtureRoot("skillset-operation-receipt-");
   const workspace = join(root, workspaceName);
   await mkdir(workspace, { recursive: true });
   const stateBase = process.env.XDG_STATE_HOME;

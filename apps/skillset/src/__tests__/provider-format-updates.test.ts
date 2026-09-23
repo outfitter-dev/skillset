@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -1221,7 +1221,7 @@ Review code.
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-format-updates-"));
+  const root = await createTestFixtureRoot("skillset-provider-format-updates-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     const destination = join(root, path);
     await mkdir(dirname(destination), { recursive: true });
