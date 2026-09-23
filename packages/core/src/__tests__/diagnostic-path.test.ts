@@ -21,7 +21,7 @@ afterEach(async () => {
 
 describe("logical diagnostic path normalization", () => {
   it("converts literal Windows separators and leaves POSIX and selectors unchanged", () => {
-    expect(toLogicalDiagnosticPath(".skillset\\plugins\\alpha\\hooks.json")).toBe(
+    expect(toLogicalDiagnosticPath(".skillset\\plugins\\alpha\\hooks.json", "\\")).toBe(
       ".skillset/plugins/alpha/hooks.json"
     );
     expect(toLogicalDiagnosticPath(".skillset/plugins/alpha/hooks.json")).toBe(
@@ -38,7 +38,7 @@ describe("logical diagnostic path normalization", () => {
       "C:\\repo\\.skillset\\plugins\\alpha\\hooks.json"
     );
     expect(relativePath).toBe(".skillset\\plugins\\alpha\\hooks.json");
-    expect(toLogicalDiagnosticPath(relativePath)).toBe(
+    expect(toLogicalDiagnosticPath(relativePath, "\\")).toBe(
       ".skillset/plugins/alpha/hooks.json"
     );
     expect(
@@ -46,13 +46,14 @@ describe("logical diagnostic path normalization", () => {
         path.win32.relative(
           "C:\\repo",
           path.win32.join("C:\\repo", ".skillset", "plugins", "alpha", "SKILL.md")
-        )
+        ),
+        "\\"
       )
     ).toBe(".skillset/plugins/alpha/SKILL.md");
   });
 
   it("rewrites matching path fragments in feature diagnostic messages", () => {
-    const native = ".skillset\\plugins\\alpha\\hooks.json";
+    const native = path.join(".skillset", "plugins", "alpha", "hooks.json");
     const error = new SkillsetFeatureDiagnosticError({
       code: "plugin-root-hooks-unsupported",
       featureId: "plugin-hooks",
@@ -67,9 +68,9 @@ describe("logical diagnostic path normalization", () => {
   it("normalizes SkillsetDiagnostic path and outputPath fields", () => {
     const diagnostic = skillsetDiagnostic({
       code: "generated-output-missing",
-      message: "missing generated file: plugins\\demo\\skills\\review\\SKILL.md",
-      outputPath: "plugins\\demo\\skills\\review\\SKILL.md",
-      path: ".skillset\\plugins\\demo\\skills\\review\\SKILL.md",
+      message: `missing generated file: ${path.join("plugins", "demo", "skills", "review", "SKILL.md")}`,
+      outputPath: path.join("plugins", "demo", "skills", "review", "SKILL.md"),
+      path: path.join(".skillset", "plugins", "demo", "skills", "review", "SKILL.md"),
       severity: "error",
     });
     expect(diagnostic.path).toBe(".skillset/plugins/demo/skills/review/SKILL.md");
@@ -195,6 +196,30 @@ Body.
     });
     expect(issue?.path).not.toInclude("\\");
     expect(issue?.message).not.toInclude("\\");
+  });
+
+  it("preserves a literal backslash in a POSIX source filename", async () => {
+    if (path.sep !== "/") return;
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: literal-backslash
+claude: true
+codex: false
+`,
+      ".skillset/skills/demo\\child/SKILL.md": `
+---
+name: other
+description: Demo.
+---
+
+Body.
+`,
+    });
+
+    const result = await inspectSkillset(await loadBuildGraph(root));
+    const issue = result.issues.find((entry) => entry.code === "skill-name-directory-mismatch");
+    expect(issue?.path).toBe(".skillset/skills/demo\\child/SKILL.md");
   });
 });
 

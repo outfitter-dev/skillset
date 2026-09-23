@@ -8,10 +8,12 @@ import { relative, resolve, sep } from "node:path";
  * or actual filesystem operands through this helper — those keep their native
  * spelling. Callers that already computed `relative(root, absolute)` should
  * still run the result through here so Windows `\` does not leak into
- * structured diagnostics.
+ * structured diagnostics. A literal backslash is a valid POSIX filename
+ * character, so only replace separators for paths known to use Windows
+ * syntax.
  */
-export function toLogicalDiagnosticPath(path: string): string {
-  return path.replaceAll("\\", "/");
+export function toLogicalDiagnosticPath(path: string, sourceSeparator: "/" | "\\" = sep): string {
+  return sourceSeparator === "\\" ? path.replaceAll("\\", "/") : path;
 }
 
 /**

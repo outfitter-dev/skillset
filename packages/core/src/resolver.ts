@@ -156,17 +156,19 @@ export async function loadBuildGraph(
 ): Promise<BuildGraph> {
   const workspace = await resolveWorkspaceLayout(rootPath, options);
   const { sourceDir, sourcePath, sourceRoot, sourceRootDir, sourceRootPath } = workspace;
-  const rootConfig = parseYamlRecord(await readFile(workspace.configPath, "utf8"), workspace.configPath);
+  const configLabel = workspace.configRelativePath;
+  const sourceManifestLabel = workspace.splitRootManifestRelativePath ?? configLabel;
+  const rootConfig = parseYamlRecord(await readFile(workspace.configPath, "utf8"), configLabel);
   const sourceManifest = workspace.splitRootManifestPath === undefined
     ? rootConfig
-    : parseYamlRecord(await readFile(workspace.splitRootManifestPath, "utf8"), workspace.splitRootManifestPath);
+    : parseYamlRecord(await readFile(workspace.splitRootManifestPath, "utf8"), sourceManifestLabel);
   if (workspace.splitRootManifestPath === undefined) {
-    validateConfigDocument(rootConfig, workspace.configPath, { allowCompile: true });
+    validateConfigDocument(rootConfig, configLabel, { allowCompile: true });
   } else {
-    validateWorkspaceConfigDocument(rootConfig, workspace.configPath);
-    validateRootSourceManifestDocument(sourceManifest, workspace.splitRootManifestPath);
+    validateWorkspaceConfigDocument(rootConfig, configLabel);
+    validateRootSourceManifestDocument(sourceManifest, sourceManifestLabel);
   }
-  const metadataLabel = workspace.splitRootManifestPath ?? workspace.configPath;
+  const metadataLabel = sourceManifestLabel;
   const metadata = readSkillsetMetadata(sourceManifest, metadataLabel);
   validateSchemaField(metadata, `${metadataLabel}.skillset.schema`);
   validateVersionField(metadata, `${metadataLabel}.skillset.version`);
@@ -178,19 +180,19 @@ export async function loadBuildGraph(
     outputMetadata,
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
-  const distributions = readDistributionConfig(rootConfig, workspace.configPath);
-  const marketplaces = readMarketplaceCatalogConfig(rootConfig, workspace.configPath);
-  const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, workspace.configPath);
+  const distributions = readDistributionConfig(rootConfig, configLabel);
+  const marketplaces = readMarketplaceCatalogConfig(rootConfig, configLabel);
+  const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, configLabel);
   const drafts = readDraftSelectors(sourceManifest, metadataLabel);
-  const internalMarker = readInternalMarker(rootConfig, workspace.configPath);
-  const pluginsConfig = readWorkspacePluginsConfig(rootConfig, workspace.configPath);
+  const internalMarker = readInternalMarker(rootConfig, configLabel);
+  const pluginsConfig = readWorkspacePluginsConfig(rootConfig, configLabel);
   validatePackageOutputConfig(pluginsConfig.output);
-  const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
+  const rootTargets = resolveTargets(readCompileTargets(rootConfig, configLabel), rootConfig, configLabel, {
     allowDefaults: true,
     objectInheritsEnabled: true,
   });
-  const compileConfig = readCompileConfig(rootConfig, workspace.configPath);
-  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, workspace.configPath);
+  const compileConfig = readCompileConfig(rootConfig, configLabel);
+  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, configLabel);
   const compile = {
     ...compileConfig,
     build: options.buildMode ?? compileConfig.build,
@@ -630,8 +632,8 @@ async function loadProjectAgent(
   warnings: string[],
   externalInputPaths: Set<string>
 ): Promise<SourceProjectAgent> {
-  const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
   const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
+  const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourceLabel);
   validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
@@ -742,7 +744,7 @@ async function loadInstructions(
 
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
-    const parts = parseMarkdown(content, sourcePath);
+    const parts = parseMarkdown(content, logicalDiagnosticPath(rootPath, sourcePath));
     const rootFrontPage = sourcePath === rootRulesPath;
     const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
     const segments = rootFrontPage
@@ -1108,7 +1110,7 @@ async function loadPlugin(
   const pluginPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
   const configRelativePath = logicalDiagnosticPath(rootPath, configPath);
-  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  const config = parseYamlRecord(await readFile(configPath, "utf8"), configRelativePath);
   let claudeBundlePath: string | undefined;
   let dependencies: SourcePlugin["dependencies"];
   let metadata: SourcePlugin["metadata"];
@@ -1542,24 +1544,25 @@ async function loadSkillsFromDirectory(
 
   for (const sourcePath of skillFiles) {
     const content = await readFile(sourcePath, "utf8");
-    const parts = parseMarkdown(content, sourcePath);
-    validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourcePath).diagnostics, sourcePath, parts.frontmatter);
-    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: logicalDiagnosticPath(rootPath, sourcePath), rootPath, warnings });
-    const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
-    validateVersionField(parts.frontmatter, `${sourcePath}.version`);
+    const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
+    const parts = parseMarkdown(content, sourceLabel);
+    validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
+    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
+    const metadata = readSkillsetMetadata(parts.frontmatter, sourceLabel);
+    validateVersionField(parts.frontmatter, `${sourceLabel}.version`);
     if (metadata.name !== undefined) {
-      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.name; use top-level name`);
+      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.name; use top-level name`);
     }
     if (metadata.id !== undefined) {
-      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.id; use top-level name`);
+      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.id; use top-level name`);
     }
     if (metadata.version !== undefined) {
-      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.version; use top-level version`);
+      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.version; use top-level version`);
     }
-    const sourceOrigin = readSourceOrigin(metadata, sourcePath);
+    const sourceOrigin = readSourceOrigin(metadata, sourceLabel);
     const id = validateSlug(
       readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)),
-      `skill id in ${sourcePath}`
+      `skill id in ${sourceLabel}`
     );
     const scope = {
       ...parentScope,
@@ -1567,7 +1570,7 @@ async function loadSkillsFromDirectory(
       skillId: id,
     };
     const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, logicalDiagnosticPath(rootPath, sourcePath));
-    const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");
+    const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourceLabel, "skills");
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope, targets);
     const relativePath = relative(relativeBasePath, sourcePath);
@@ -1586,7 +1589,7 @@ async function loadSkillsFromDirectory(
         : undefined;
     const groupPath = sourceSegments.slice(0, -1).filter((segment) => segment !== "_drafts");
     const resources = await readSkillResources(parts.frontmatter.resources, {
-      label: sourcePath,
+      label: sourceLabel,
       ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
       sharedPath: resolveInside(rootPath, join(sourceDir, sourceRootDir, SHARED_DIR)),
       sourceRootPath: resolveInside(rootPath, join(sourceDir, sourceRootDir)),

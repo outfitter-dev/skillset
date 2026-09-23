@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { SkillsetFeatureDiagnosticError } from "@skillset/core";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
@@ -15,11 +15,12 @@ const cli = join(import.meta.dir, "..", "cli.ts");
 const repoRoot = join(import.meta.dir, "../../../..");
 
 test("CLI JSON serialization is a pass-through of normalized Core diagnostic paths", () => {
+  const nativePath = join(".skillset", "plugins", "alpha", "hooks.json");
   const error = new SkillsetFeatureDiagnosticError({
     code: "plugin-root-hooks-unsupported",
     featureId: "plugin-hooks",
-    message: "skillset: plugin alpha uses unsupported root hooks.json at .skillset\\plugins\\alpha\\hooks.json",
-    path: ".skillset\\plugins\\alpha\\hooks.json",
+    message: `skillset: plugin alpha uses unsupported root hooks.json at ${nativePath}`,
+    path: nativePath,
   });
   const serialized = serializeDiagnostics([
     {
@@ -80,6 +81,46 @@ Body.
   expect(diagnostic?.path).not.toInclude("\\");
   expect(diagnostic?.message).not.toInclude("\\");
   expect(JSON.stringify(envelope.diagnostics)).not.toContain("\\\\");
+});
+
+test("source parser failures use logical paths in CLI JSON messages", async () => {
+  const cases = [
+    {
+      files: { "skillset.yaml": "[]\n" },
+      label: "skillset.yaml",
+    },
+    {
+      files: normalizeSkillsetFixtureFiles({
+        "skillset.yaml": `
+skillset:
+  name: parser-root
+claude: true
+codex: false
+`,
+        ".skillset/skills/demo/SKILL.md": "---\nname: [\n---\n",
+      }),
+      label: ".skillset/skills/demo/SKILL.md",
+    },
+  ];
+
+  for (const { files, label } of cases) {
+    const disposableRoot = await createTestGitFixtureRoot("skillset-parser-diagnostic-path-");
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    for (const [filePath, content] of Object.entries(files)) {
+      const absolutePath = join(root, filePath);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await Bun.write(absolutePath, content);
+    }
+
+    const result = await runJsonRoute("check", "--root", root);
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(result.exitCode).not.toBe(0);
+    const diagnostic = envelope.diagnostics.find((entry) => entry.code === "check-build-error");
+    expect(diagnostic?.message).toContain(label);
+    expect(diagnostic?.message).not.toContain(root);
+    expect(diagnostic?.message).not.toContain("\\");
+  }
 });
 
 async function runJsonRoute(
