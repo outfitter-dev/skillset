@@ -614,18 +614,103 @@ function assertCursorSourceDoesNotShadowValidator(
   }
 }
 
-async function downloadVerified(
+const ACQUISITION_FETCH_ATTEMPTS = 3;
+const TRANSIENT_ACQUISITION_NETWORK_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+export type AcquisitionFetch = (url: string) => Promise<Response>;
+
+export interface DownloadVerifiedOptions {
+  readonly fetch?: AcquisitionFetch;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+export function isTransientAcquisitionNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if (
+    "code" in error &&
+    typeof error.code === "string" &&
+    TRANSIENT_ACQUISITION_NETWORK_CODES.has(error.code)
+  ) {
+    return true;
+  }
+  return /socket connection was closed|other side closed|network error|fetch failed/iu.test(
+    error.message
+  );
+}
+
+function isRetryableAcquisitionStatus(status: number): boolean {
+  return status >= 500;
+}
+
+function acquisitionRetryDelayMs(attempt: number): number {
+  return 200 * attempt;
+}
+
+export async function downloadVerified(
   acquisition: { readonly integrity: string; readonly url: string },
-  destination: string
+  destination: string,
+  options: DownloadVerifiedOptions = {}
 ): Promise<void> {
-  const response = await fetch(acquisition.url);
-  if (!response.ok)
-    throw new Error(
-      `skillset: failed to acquire ${acquisition.url}: ${response.status}`
-    );
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readAcquisitionBytes(acquisition, options);
   await writeFile(destination, bytes);
   await verifyBytes(bytes, acquisition.integrity, acquisition.url);
+}
+
+async function readAcquisitionBytes(
+  acquisition: { readonly integrity: string; readonly url: string },
+  options: DownloadVerifiedOptions
+): Promise<Uint8Array> {
+  const fetchAcquisition = options.fetch ?? fetch;
+  const sleep = options.sleep ?? ((ms: number) => Bun.sleep(ms));
+  let lastError: unknown;
+  /* eslint-disable no-await-in-loop -- Bounded acquisition retries are sequential. */
+  for (let attempt = 1; attempt <= ACQUISITION_FETCH_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetchAcquisition(acquisition.url);
+      if (!response.ok) {
+        const error = new Error(
+          `skillset: failed to acquire ${acquisition.url}: ${response.status}`
+        );
+        if (
+          isRetryableAcquisitionStatus(response.status) &&
+          attempt < ACQUISITION_FETCH_ATTEMPTS
+        ) {
+          lastError = error;
+          await sleep(acquisitionRetryDelayMs(attempt));
+          continue;
+        }
+        throw error;
+      }
+      return new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      lastError = error;
+      if (
+        error instanceof Error &&
+        error.message.startsWith("skillset: failed to acquire")
+      ) {
+        throw error;
+      }
+      if (
+        !isTransientAcquisitionNetworkError(error) ||
+        attempt === ACQUISITION_FETCH_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await sleep(acquisitionRetryDelayMs(attempt));
+    }
+  }
+  /* eslint-enable no-await-in-loop -- Re-enable after the sequential retry loop. */
+  throw lastError;
 }
 
 async function verifyFileHash(path: string, integrity: string): Promise<void> {
