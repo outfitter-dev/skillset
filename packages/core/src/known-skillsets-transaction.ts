@@ -1,7 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
+
+import {
+  type AtomicFilePublicationTestHooks,
+  publishAtomicFile,
+} from "./atomic-file-publication";
 
 const LOCK_HEARTBEAT_MS = 5_000;
 const LOCK_LEASE_MS = 30_000;
@@ -31,11 +36,8 @@ type KnownSkillsetsHeartbeatScheduler = (
   heartbeatMs: number
 ) => () => void;
 
-export interface KnownSkillsetsTransactionTestOptions {
+export interface KnownSkillsetsTransactionTestOptions extends AtomicFilePublicationTestHooks {
   readonly afterLockAcquired?: () => Promise<void> | void;
-  readonly beforePublish?: () => Promise<void> | void;
-  readonly beforeTemporarySync?: () => Promise<void> | void;
-  readonly beforeTemporaryWrite?: () => Promise<void> | void;
   readonly heartbeatMs?: number;
   readonly leaseMs?: number;
   readonly now?: () => number;
@@ -101,39 +103,17 @@ export async function withKnownSkillsetsTransaction<T>(
       assertOwned,
       indexPath,
       publish: async (content) => {
-        await publishAtomically(indexPath, content, assertOwned, testOptions);
+        await publishAtomicFile(indexPath, content, {
+          beforeRename: assertOwned,
+          mode: 0o600,
+          testHooks: testOptions,
+        });
       },
       quarantine: async () => quarantineIndex(indexPath, assertOwned),
     });
   } finally {
     await stopHeartbeat();
     await removeOwnedLock(lockPath, token, settings);
-  }
-}
-
-async function publishAtomically(
-  indexPath: string,
-  content: string,
-  assertOwned: () => Promise<void>,
-  testOptions: KnownSkillsetsTransactionTestOptions
-): Promise<void> {
-  const temporaryPath = join(dirname(indexPath), `.${basename(indexPath)}.tmp-${randomBytes(16).toString("hex")}`);
-  try {
-    const file = await open(temporaryPath, "wx", 0o600);
-    try {
-      await testOptions.beforeTemporaryWrite?.();
-      await file.writeFile(content, "utf8");
-      await testOptions.beforeTemporarySync?.();
-      await file.sync();
-    } finally {
-      await file.close();
-    }
-    await testOptions.beforePublish?.();
-    await assertOwned();
-    await rename(temporaryPath, indexPath);
-    await syncDirectory(dirname(indexPath));
-  } finally {
-    await rm(temporaryPath, { force: true });
   }
 }
 

@@ -4,6 +4,10 @@ import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 
+import {
+  type AtomicFilePublicationTestHooks,
+  publishAtomicFile,
+} from "./atomic-file-publication";
 import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
 import {
   parseCurrentGeneratedLock,
@@ -419,9 +423,14 @@ export async function planOutputBackups(
   };
 }
 
+export interface OutputBackupPersistTestHooks extends AtomicFilePublicationTestHooks {
+  readonly afterPayloadStorage?: () => Promise<void> | void;
+}
+
 export async function persistOutputBackupPlan(
   rootPath: string,
-  plan: OutputBackupPlan
+  plan: OutputBackupPlan,
+  testHooks: OutputBackupPersistTestHooks = {}
 ): Promise<{
   readonly backup?: OutputBackupSummary;
   readonly diagnostics: readonly SkillsetDiagnostic[];
@@ -439,6 +448,7 @@ export async function persistOutputBackupPlan(
   const runId = runHash.slice("sha256:".length, "sha256:".length + 12);
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
   const { records: finalized, storage } = await writeGitBackupStorage(rootPath, runId, records);
+  await testHooks.afterPayloadStorage?.();
 
   const manifest: OutputBackupManifest = {
     generatedBy: "skillset@0.1.0",
@@ -448,9 +458,13 @@ export async function persistOutputBackupPlan(
     schemaVersion: 2 as const,
     storage,
   };
-  const absoluteManifestPath = resolveInside(rootPath, manifestPath);
-  await mkdir(dirname(absoluteManifestPath), { recursive: true });
-  await writeFile(absoluteManifestPath, renderValidatedJson(manifest as unknown as JsonRecord, manifestPath), "utf8");
+  // The manifest is the snapshot completion marker. Publish it only after
+  // backup payloads are stored so an interrupted run cannot look restorable.
+  await publishAtomicFile(
+    resolveInside(rootPath, manifestPath),
+    renderValidatedJson(manifest as unknown as JsonRecord, manifestPath),
+    { testHooks }
+  );
 
   return {
     backup: { manifestPath, records: finalized, runHash, runId },
@@ -1256,6 +1270,17 @@ async function inspectOutputBackupRun(rootPath: string, runId: string): Promise<
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
   let envelope: OutputBackupManifestEnvelope;
   try {
+    // Keep this probe inside the per-run catch: one unreadable snapshot must
+    // not hide independently inspectable siblings.
+    if (!(await exists(resolveInside(rootPath, manifestPath)))) {
+      return {
+        detail: "incomplete snapshot: backup manifest has not been published",
+        manifestPath,
+        records: [],
+        runId,
+        state: "corrupt-or-unavailable",
+      };
+    }
     envelope = await readBackupManifestEnvelope(rootPath, manifestPath, runId);
   } catch (error) {
     return {

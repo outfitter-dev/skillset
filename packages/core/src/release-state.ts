@@ -1,6 +1,9 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile, stat } from "node:fs/promises";
 
+import {
+  type AtomicFilePublicationTestHooks,
+  publishAtomicFile,
+} from "./atomic-file-publication";
 import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
@@ -138,7 +141,8 @@ function mergeReleaseStates(
 export async function writeReleaseState(
   rootPath: string,
   state: ReleaseState,
-  options: SkillsetOptions = {}
+  options: SkillsetOptions = {},
+  testHooks: AtomicFilePublicationTestHooks = {}
 ): Promise<string> {
   const relativePath = workspaceChangeFile(options.sourceDir, STATE_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
@@ -151,9 +155,12 @@ export async function writeReleaseState(
       version: value.version,
     };
   }
-  await mkdir(dirname(absolutePath), { recursive: true });
   const cursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, options)));
-  await writeFile(absolutePath, stringifyJson({ schemaVersion: 2, sourceMoveCursor: cursor, scopes }), "utf8");
+  await publishAtomicFile(
+    absolutePath,
+    stringifyJson({ schemaVersion: 2, sourceMoveCursor: cursor, scopes }),
+    { testHooks }
+  );
   return relativePath;
 }
 
