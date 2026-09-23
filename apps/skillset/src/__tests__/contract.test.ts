@@ -8653,7 +8653,7 @@ test("SET-62: nested plugin scan dedupes marketplace sources and guards containm
     }),
     "plugins/alpha/.claude-plugin/plugin.json": JSON.stringify({ name: "alpha" }),
   });
-  const outside = await mkdtemp(join(tmpdir(), "skillset-contract-outside-"));
+  const outside = await createTestFixtureRoot("skillset-contract-outside-");
   await Bun.write(join(outside, ".claude-plugin/plugin.json"), JSON.stringify({ name: "escape" }));
   await symlink(outside, join(root, "plugins/escape"), "dir");
 
@@ -8708,7 +8708,7 @@ compile:
 });
 
 test("SET-250: init accepts Cursor as an explicit setup target", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-setup-cursor-"));
+  const root = await createTestFixtureRoot("skillset-setup-cursor-");
 
   const written = await runSkillsetCli("init", "--root", root, "--targets", "cursor", "--yes");
 
@@ -8753,7 +8753,7 @@ test("SET-62: recognized-but-unimportable surfaces become structured survey skip
 });
 
 test("SET-27: init previews by default and writes only with confirmation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-setup-init-"));
+  const root = await createTestFixtureRoot("skillset-setup-init-");
 
   const preview = await runSkillsetCli("init", "--root", root, "--targets", "claude");
   expect(preview.exitCode).toBe(0);
@@ -8784,7 +8784,7 @@ test("SET-27: init previews by default and writes only with confirmation", async
 });
 
 test("SET-209: init rejects retired layout flags", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-setup-root-layout-"));
+  const root = await createTestFixtureRoot("skillset-setup-root-layout-");
 
   const preview = await runSkillsetCli("init", "--root", root, "--layout", "root");
   expect(preview.exitCode).toBe(1);
@@ -8805,13 +8805,13 @@ test("SET-209: init layout flags stay retired in existing workspaces", async () 
 });
 
 test("SET-27: init scaffolds optional CI only when requested", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
+  const root = await createTestFixtureRoot("skillset-setup-shaped-");
 
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   expect(await fileExists(join(root, ".skillset/subagents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(root, ".github/workflows/skillset-ci.yml"))).toBe(false);
 
-  const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
+  const shaped = await createTestFixtureRoot("skillset-setup-shaped-");
   await expect(
     runSkillsetCli("init", "--root", shaped, "--include", "ci", "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -8820,7 +8820,7 @@ test("SET-27: init scaffolds optional CI only when requested", async () => {
 });
 
 test("SET-464: starter RULES.md makes fresh init source active", async () => {
-  const empty = await mkdtemp(join(tmpdir(), "skillset-setup-empty-guidance-"));
+  const empty = await createTestFixtureRoot("skillset-setup-empty-guidance-");
   const emptyResult = await runSkillsetCli("init", "--root", empty, "--yes");
 
   expect(emptyResult.exitCode).toBe(0);
@@ -8857,7 +8857,7 @@ test("SET-464: starter RULES.md makes fresh init source active", async () => {
 });
 
 test("SET-464: create guidance targets the created child root", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-create-guidance-parent-"));
+  const parent = await createTestFixtureRoot("skillset-create-guidance-parent-");
   const createdRoot = join(parent, "child-loadout");
 
   const result = await runSkillsetCli(
@@ -8898,7 +8898,7 @@ test("SET-464: default-root active guidance keeps the bare transcript", async ()
 });
 
 test("SET-464: explicit elsewhere-root init guidance targets that root", async () => {
-  const caller = await mkdtemp(join(tmpdir(), "skillset-init-guidance-caller-"));
+  const caller = await createTestFixtureRoot("skillset-init-guidance-caller-");
   const elsewhere = join(caller, "elsewhere $(not-run) 'quoted");
   const quotedElsewhere = shellQuote(elsewhere);
   await mkdir(elsewhere);
@@ -8970,10 +8970,10 @@ test("SET-464: init fails loudly for malformed active source", async () => {
 });
 
 test("SET-464: import guidance follows the canonical build transcript", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-import-guidance-root-"));
+  const parent = await createTestFixtureRoot("skillset-import-guidance-root-");
   const root = join(parent, "workspace $(not-run) 'quoted");
   const caller = join(parent, "caller");
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-guidance-src-"));
+  const external = await createTestFixtureRoot("skillset-import-guidance-src-");
   await mkdir(root);
   await mkdir(caller);
   await Bun.write(
@@ -9063,7 +9063,7 @@ test("SET-143: init accepts the canonical root config plus .skillset workspace",
 });
 
 test("SET-312: create makes a named child under an explicit parent", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-"));
+  const parent = await createTestFixtureRoot("skillset-setup-create-");
 
   const preview = await runSkillsetCli("create", "my-skillset", "--root", parent);
   expect(preview.exitCode).toBe(0);
@@ -9119,7 +9119,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
 });
 
 test("SET-312: create uses its normalized name as directory and identity", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-custom-"));
+  const parent = await createTestFixtureRoot("skillset-setup-create-custom-");
 
   const written = await runSkillsetCli(
     "create",
@@ -9145,7 +9145,7 @@ test("SET-312: create uses its normalized name as directory and identity", async
 });
 
 test("SET-312: init refuses missing directories and create refuses collisions", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-boundaries-"));
+  const parent = await createTestFixtureRoot("skillset-setup-boundaries-");
   const missing = await runSkillsetCli("init", "missing", "--root", parent);
   expect(missing.exitCode).toBe(1);
   expect(missing.stderr).toContain("init directory does not exist");
@@ -9167,7 +9167,7 @@ test("SET-312: init refuses missing directories and create refuses collisions", 
 });
 
 test("SET-312: create JSON remains prompt-free and plan-first", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-json-"));
+  const parent = await createTestFixtureRoot("skillset-setup-json-");
   const preview = await runSkillsetCli(
     "create",
     "json-demo",
@@ -9185,7 +9185,7 @@ test("SET-312: create JSON remains prompt-free and plan-first", async () => {
 });
 
 test("SET-27: create supports global source path without touching runtime config", async () => {
-  const home = await mkdtemp(join(tmpdir(), "skillset-setup-home-"));
+  const home = await createTestFixtureRoot("skillset-setup-home-");
 
   const report = await createSkillset({ global: true, homeDir: home, write: true });
 
@@ -9212,14 +9212,14 @@ test("SET-27: create supports global source path without touching runtime config
 });
 
 test("SET-27: setup refuses unsafe overwrite", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
+  const parent = await createTestFixtureRoot("skillset-setup-overwrite-");
   await Bun.write(join(parent, "occupied/README.md"), "already here\n");
 
   const initOccupied = await runSkillsetCli("init", "occupied", "--root", parent, "--yes");
   expect(initOccupied.exitCode).toBe(0);
   expect(await readFile(join(parent, "occupied/README.md"), "utf8")).toBe("already here\n");
 
-  const initRoot = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
+  const initRoot = await createTestFixtureRoot("skillset-setup-overwrite-");
   await Bun.write(join(initRoot, "skillset.yaml"), "not: skillset\n");
   const init = await runSkillsetCli("init", "--root", initRoot, "--yes");
   expect(init.exitCode).toBe(1);
