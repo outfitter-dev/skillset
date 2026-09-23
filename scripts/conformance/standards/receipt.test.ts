@@ -1,11 +1,11 @@
 /* eslint-disable func-style, sort-keys -- The fixture helper leads the cases, and the canonicalization case intentionally reverses key order. */
 import { describe, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { listStandardProfiles } from "@skillset/registry";
 
+import { createTestFixtureRoot } from "../../test-helpers/fixture-root";
 import {
   createStandardsConformanceReceipt,
   hashStandardsConformanceReceipt,
@@ -82,50 +82,46 @@ function sampleReceipt(): StandardsConformanceReceipt {
 describe("SET-411 standards conformance receipt", () => {
   test("reproves every adopted receipt from registry evidence and fixture bytes without a Git checkout", async () => {
     const repositoryRoot = path.resolve(import.meta.dir, "../../..");
-    const isolatedRoot = await mkdtemp(
-      path.join(tmpdir(), "skillset-adopted-standards-check-")
+    const isolatedRoot = await createTestFixtureRoot(
+      "skillset-adopted-standards-check-"
     );
-    try {
-      await mkdir(path.join(isolatedRoot, "fixtures", "standards"), {
-        recursive: true,
-      });
-      await Promise.all([
-        cp(
-          path.join(repositoryRoot, "fixtures", "standards-adoption"),
-          path.join(isolatedRoot, "fixtures", "standards-adoption"),
-          { recursive: true }
-        ),
-        cp(
-          path.join(repositoryRoot, "fixtures", "standards", "evidence"),
-          path.join(isolatedRoot, "fixtures", "standards", "evidence"),
-          { recursive: true }
-        ),
-      ]);
+    await mkdir(path.join(isolatedRoot, "fixtures", "standards"), {
+      recursive: true,
+    });
+    await Promise.all([
+      cp(
+        path.join(repositoryRoot, "fixtures", "standards-adoption"),
+        path.join(isolatedRoot, "fixtures", "standards-adoption"),
+        { recursive: true }
+      ),
+      cp(
+        path.join(repositoryRoot, "fixtures", "standards", "evidence"),
+        path.join(isolatedRoot, "fixtures", "standards", "evidence"),
+        { recursive: true }
+      ),
+    ]);
 
-      const results = await verifyAllAdoptedStandardsConformance(isolatedRoot);
-      const adoptedProfiles = listStandardProfiles()
-        .filter((profile) => profile.lifecycle === "adopted")
-        .map((profile) => {
-          if (profile.adoption === undefined) {
-            throw new Error(`missing adoption evidence for ${profile.id}`);
-          }
-          return profile;
-        });
-
-      expect(results.map((result) => result.profile)).toEqual(
-        adoptedProfiles.map((profile) => profile.id)
-      );
-      for (const [index, result] of results.entries()) {
-        const profile = adoptedProfiles[index];
-        if (profile?.adoption === undefined) {
-          throw new Error(`missing result profile at index ${index}`);
+    const results = await verifyAllAdoptedStandardsConformance(isolatedRoot);
+    const adoptedProfiles = listStandardProfiles()
+      .filter((profile) => profile.lifecycle === "adopted")
+      .map((profile) => {
+        if (profile.adoption === undefined) {
+          throw new Error(`missing adoption evidence for ${profile.id}`);
         }
-        expect(result.artifactCount).toBeGreaterThan(0);
-        expect(result.receiptHash).toBe(profile.adoption.receipt.contentHash);
-        expect(result.rendererCommit).toBe(profile.adoption.rendererCommit);
+        return profile;
+      });
+
+    expect(results.map((result) => result.profile)).toEqual(
+      adoptedProfiles.map((profile) => profile.id)
+    );
+    for (const [index, result] of results.entries()) {
+      const profile = adoptedProfiles[index];
+      if (profile?.adoption === undefined) {
+        throw new Error(`missing result profile at index ${index}`);
       }
-    } finally {
-      await rm(isolatedRoot, { force: true, recursive: true });
+      expect(result.artifactCount).toBeGreaterThan(0);
+      expect(result.receiptHash).toBe(profile.adoption.receipt.contentHash);
+      expect(result.rendererCommit).toBe(profile.adoption.rendererCommit);
     }
   });
 
