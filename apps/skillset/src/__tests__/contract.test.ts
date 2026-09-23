@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { createOperationalPathContext, planDistributions, resolveOperationalPath } from "@skillset/core";
 
 import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult, targetNames } from "@skillset/core";
@@ -1350,8 +1351,8 @@ Body.
 // SET-10: import returns a report and preserves target-native fields verbatim.
 
 test("SET-10: skill import reports copied files and classifies frontmatter", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(
     join(external, "myskill/SKILL.md"),
     [
@@ -1408,8 +1409,8 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
 });
 
 test("SET-58: imported plugin manifests round-trip metadata fields through build", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   const originalManifest = {
     name: "roundtrip",
     version: "2.4.6",
@@ -1456,8 +1457,8 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
 });
 
 test("SET-369: native interface descriptions do not replace manifest descriptions", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   const originalManifest = {
     name: "description-roundtrip",
     version: "1.2.3",
@@ -1515,8 +1516,8 @@ test("SET-369: native interface descriptions do not replace manifest description
 });
 
 test("SET-10: plugin import reports native hook lift diagnostics without rewriting hooks", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(join(external, "native-hooks/.claude-plugin/plugin.json"), JSON.stringify({
     name: "native-hooks",
     version: "1.0.0",
@@ -1579,8 +1580,8 @@ test("SET-10: plugin import reports native hook lift diagnostics without rewriti
 });
 
 test("SET-250: plugin import detects Cursor manifests and native hook lift diagnostics", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(join(external, "cursor-hooks/.cursor-plugin/plugin.json"), JSON.stringify({
     description: "Cursor hooks.",
     name: "cursor-hooks",
@@ -1627,8 +1628,8 @@ test("SET-10: copied import paths normalize native separators before hook lift c
 });
 
 test("SET-10: importing a SKILL.md path copies the full skill directory", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(
     join(external, "full-skill/SKILL.md"),
     "---\nname: full-skill\ndescription: Full skill.\n---\n\nSee references/notes.md.\n"
@@ -1650,8 +1651,8 @@ test("SET-10: importing a SKILL.md path copies the full skill directory", async 
 });
 
 test("SET-10: inferred skills-root import copies each skill and dedupes symlinked directories", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(join(external, "skills/other/SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n");
   await Bun.write(
     join(external, "skills/shared/SKILL.md"),
@@ -1671,8 +1672,8 @@ test("SET-10: inferred skills-root import copies each skill and dedupes symlinke
 });
 
 test("SET-10: plugin import reports the config and copied files", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(
     join(external, "widget/skillset.yaml"),
     "skillset:\n  name: widget\nclaude: true\ncodex: true\n"
@@ -1697,8 +1698,8 @@ test("SET-10: plugin import reports the config and copied files", async () => {
 });
 
 test("SET-10: inferred plugin-root import writes source config for native plugin manifests", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(join(root, "skillset.yaml"), "\n");
   await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: import-root\n");
   await Bun.write(
@@ -1738,8 +1739,8 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
 });
 
 test("SET-10: import never overwrites an existing source", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(join(external, "dup/SKILL.md"), "---\nname: dup\ndescription: Dup.\n---\n\nBody.\n");
 
   await importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "dup") });
@@ -1749,8 +1750,8 @@ test("SET-10: import never overwrites an existing source", async () => {
 });
 
 test("SET-10: failed imports do not leave source target directories", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const root = await createTestFixtureRoot("skillset-import-root-");
+  const external = await createTestFixtureRoot("skillset-import-src-");
   await Bun.write(
     join(external, "not-a-skill.md"),
     "---\nname: partial-import\ndescription: Invalid import source.\n---\n\nBody.\n"
@@ -1938,7 +1939,7 @@ codex: true
 });
 
 test("SET-109: distribute plan previews plugin distribution without writing", async () => {
-  const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
+  const destination = await createTestFixtureRoot("skillset-distribution-dest-");
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -1995,7 +1996,7 @@ Body.
 });
 
 test("SET-110: distribute plan does not preserve fields outside the closed ChatGPT manifest", async () => {
-  const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
+  const destination = await createTestFixtureRoot("skillset-distribution-dest-");
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -2046,7 +2047,7 @@ Body.
 test("SET-394: distribute plan preserves executable mode intent and detects local mode drift", async () => {
   if (process.platform === "win32") return;
 
-  const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-mode-dest-"));
+  const destination = await createTestFixtureRoot("skillset-distribution-mode-dest-");
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
