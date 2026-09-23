@@ -1,8 +1,12 @@
-import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 
 import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
+import {
+  startDefaultDirectoryLockHeartbeat,
+  withOwnedDirectoryLock,
+  type DirectoryLockHeartbeatScheduler,
+} from "@skillset/core/internal/directory-lock";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import {
   pluginScopeFromSourceUnit,
@@ -34,7 +38,7 @@ export interface ChangeLedgerLockOptions {
   readonly pid?: number;
   readonly pollMs?: number;
   /** @internal Test seam for deterministically advancing an owned heartbeat. */
-  readonly startHeartbeat?: ChangeLedgerHeartbeatScheduler;
+  readonly startHeartbeat?: DirectoryLockHeartbeatScheduler;
   readonly timeoutMs?: number;
 }
 
@@ -71,8 +75,6 @@ const REFRESHABLE_EVIDENCE_CODES = new Set(["change-evidence-missing", "change-e
 const CHANGE_LEDGER_LOCK_HEARTBEAT_MS = 10_000;
 const CHANGE_LEDGER_LOCK_LEASE_MS = 60_000;
 const CHANGE_LEDGER_LOCK_TIMEOUT_MS = 10_000;
-const MAX_PROCESS_ID = 2_147_483_647;
-const OWNER_TOKEN_PATTERN = /^[0-9a-f]{32}$/;
 
 export async function refreshChangeEvidenceWithAppend(
   rootPath: string,
@@ -202,52 +204,26 @@ export async function withChangeLedgerLock<T>(
   const lockPath = resolveInside(rootPath, `${ledgerPath}.lock`);
   await mkdir(dirname(lockPath), { recursive: true });
   const settings = changeLedgerLockSettings(input);
-  const token = randomBytes(16).toString("hex");
-  const owner: ChangeLedgerLockOwner = { createdAt: settings.now(), pid: settings.pid, token };
-  const startedAt = Date.now();
-  while (true) {
-    let created = false;
-    try {
-      await mkdir(lockPath);
-      created = true;
-      await writeFile(changeLedgerLockOwnerPath(lockPath), `${JSON.stringify(owner)}\n`, "utf8");
-      await writeChangeLedgerHeartbeat(lockPath, token, settings.now());
-      break;
-    } catch (error) {
-      if (created) {
-        await rm(changeLedgerHeartbeatPath(lockPath, token), { force: true });
-        const currentOwner = await readChangeLedgerLockOwner(lockPath, settings);
-        if (currentOwner === undefined) await fenceAndRemoveChangeLedgerLock(lockPath, undefined, settings);
-        else if (currentOwner.token === token) await removeOwnedChangeLedgerLock(lockPath, token, settings);
-        throw error;
-      }
-      if (!isAlreadyExistsError(error)) throw error;
-      if (await reclaimDeadChangeLedgerLock(lockPath, settings)) continue;
-      if (Date.now() - startedAt > settings.timeoutMs) {
-        throw new Error(`skillset: timed out waiting for change ledger lock ${ledgerPath}.lock`);
-      }
-      await Bun.sleep(settings.pollMs);
-    }
-  }
-  const stopHeartbeat = startChangeLedgerHeartbeat(lockPath, token, settings);
-  try {
-    return await operation({
-      assertOwned: async () => {
-        if ((await readChangeLedgerLockOwner(lockPath, settings))?.token !== token) {
-          throw new Error(`skillset: lost ownership of change ledger lock ${ledgerPath}.lock before append`);
-        }
-      },
-    });
-  } finally {
-    await stopHeartbeat();
-    await removeOwnedChangeLedgerLock(lockPath, token, settings);
-  }
-}
-
-interface ChangeLedgerLockOwner {
-  readonly createdAt: number;
-  readonly pid: number;
-  readonly token: string;
+  return withOwnedDirectoryLock({
+    lockPath,
+    lostOwnershipError: () =>
+      new Error(`skillset: lost ownership of change ledger lock ${ledgerPath}.lock before append`),
+    ownerPid: settings.pid,
+    staleOwner: {
+      isProcessAlive: settings.isProcessAlive,
+      kind: "lease-and-dead-process",
+    },
+    startHeartbeat: settings.startHeartbeat,
+    timeoutError: () =>
+      new Error(`skillset: timed out waiting for change ledger lock ${ledgerPath}.lock`),
+    timing: {
+      heartbeatMs: settings.heartbeatMs,
+      leaseMs: settings.leaseMs,
+      now: settings.now,
+      pollMs: settings.pollMs,
+      timeoutMs: settings.timeoutMs,
+    },
+  }, async (lock) => operation({ assertOwned: lock.assertOwned }));
 }
 
 interface ChangeLedgerLockSettings {
@@ -257,14 +233,9 @@ interface ChangeLedgerLockSettings {
   readonly now: () => number;
   readonly pid: number;
   readonly pollMs: number;
-  readonly startHeartbeat: ChangeLedgerHeartbeatScheduler;
+  readonly startHeartbeat: DirectoryLockHeartbeatScheduler;
   readonly timeoutMs: number;
 }
-
-type ChangeLedgerHeartbeatScheduler = (
-  heartbeat: () => Promise<void>,
-  heartbeatMs: number
-) => () => void;
 
 function changeLedgerLockSettings(input: ChangeLedgerLockOptions | undefined): ChangeLedgerLockSettings {
   return {
@@ -274,157 +245,9 @@ function changeLedgerLockSettings(input: ChangeLedgerLockOptions | undefined): C
     now: input?.now ?? Date.now,
     pid: input?.pid ?? process.pid,
     pollMs: input?.pollMs ?? 20,
-    startHeartbeat: input?.startHeartbeat ?? startDefaultChangeLedgerHeartbeat,
+    startHeartbeat: input?.startHeartbeat ?? startDefaultDirectoryLockHeartbeat,
     timeoutMs: input?.timeoutMs ?? CHANGE_LEDGER_LOCK_TIMEOUT_MS,
   };
-}
-
-function startChangeLedgerHeartbeat(
-  lockPath: string,
-  token: string,
-  settings: ChangeLedgerLockSettings
-): () => Promise<void> {
-  let inFlight: Promise<void> | undefined;
-  const heartbeat = (): Promise<void> => {
-    if (inFlight !== undefined) return inFlight;
-    inFlight = (async () => {
-      if ((await readChangeLedgerLockOwner(lockPath, settings))?.token !== token) return;
-      try {
-        await writeChangeLedgerHeartbeat(lockPath, token, settings.now());
-      } catch {
-        // Ownership verification before append remains authoritative when a
-        // heartbeat write races fencing or a transient filesystem failure.
-      }
-    })().finally(() => {
-      inFlight = undefined;
-    });
-    return inFlight;
-  };
-  const stop = settings.startHeartbeat(heartbeat, settings.heartbeatMs);
-  return async () => {
-    stop();
-    await inFlight;
-  };
-}
-
-function startDefaultChangeLedgerHeartbeat(
-  heartbeat: () => Promise<void>,
-  heartbeatMs: number
-): () => void {
-  const timer = setInterval(() => {
-    void heartbeat();
-  }, heartbeatMs);
-  timer.unref();
-  return () => clearInterval(timer);
-}
-
-async function reclaimDeadChangeLedgerLock(
-  lockPath: string,
-  settings: ChangeLedgerLockSettings
-): Promise<boolean> {
-  const owner = await readChangeLedgerLockOwner(lockPath, settings);
-  const heartbeat = owner === undefined ? undefined : await readChangeLedgerHeartbeat(lockPath, owner.token, settings);
-  const lock = await stat(lockPath).catch(() => undefined);
-  const lastActiveAt = heartbeat ?? owner?.createdAt ?? lock?.mtimeMs;
-  if (lastActiveAt === undefined || settings.now() - lastActiveAt <= settings.leaseMs) return false;
-  if (owner !== undefined && settings.isProcessAlive(owner.pid)) return false;
-  return fenceAndRemoveChangeLedgerLock(lockPath, owner?.token, settings);
-}
-
-async function removeOwnedChangeLedgerLock(
-  lockPath: string,
-  token: string,
-  settings: ChangeLedgerLockSettings
-): Promise<void> {
-  if ((await readChangeLedgerLockOwner(lockPath, settings))?.token !== token) return;
-  await fenceAndRemoveChangeLedgerLock(lockPath, token, settings);
-}
-
-async function fenceAndRemoveChangeLedgerLock(
-  lockPath: string,
-  expectedToken: string | undefined,
-  settings: ChangeLedgerLockSettings
-): Promise<boolean> {
-  const tombstonePath = `${lockPath}.tombstone-${randomBytes(12).toString("hex")}`;
-  try {
-    await rename(lockPath, tombstonePath);
-  } catch (error) {
-    if (isMissingError(error)) return true;
-    throw error;
-  }
-  const movedToken = (await readChangeLedgerLockOwner(tombstonePath, settings))?.token;
-  if (movedToken !== expectedToken) {
-    try {
-      await rename(tombstonePath, lockPath);
-    } catch (error) {
-      if (!isAlreadyExistsError(error)) throw error;
-    }
-    return false;
-  }
-  await rm(tombstonePath, { force: true, recursive: true });
-  return true;
-}
-
-async function readChangeLedgerLockOwner(
-  lockPath: string,
-  settings: ChangeLedgerLockSettings
-): Promise<ChangeLedgerLockOwner | undefined> {
-  try {
-    const value = JSON.parse(await readFile(changeLedgerLockOwnerPath(lockPath), "utf8")) as Partial<ChangeLedgerLockOwner>;
-    if (
-      typeof value.createdAt !== "number" ||
-      !isValidChangeLedgerTimestamp(value.createdAt, settings) ||
-      typeof value.pid !== "number" ||
-      !Number.isSafeInteger(value.pid) ||
-      value.pid <= 0 ||
-      value.pid > MAX_PROCESS_ID ||
-      typeof value.token !== "string" ||
-      !OWNER_TOKEN_PATTERN.test(value.token)
-    ) return undefined;
-    return { createdAt: value.createdAt, pid: value.pid, token: value.token };
-  } catch {
-    return undefined;
-  }
-}
-
-async function writeChangeLedgerHeartbeat(lockPath: string, token: string, heartbeatAt: number): Promise<void> {
-  await writeFile(changeLedgerHeartbeatPath(lockPath, token), `${JSON.stringify({ heartbeatAt, token })}\n`, "utf8");
-}
-
-async function readChangeLedgerHeartbeat(
-  lockPath: string,
-  token: string,
-  settings: ChangeLedgerLockSettings
-): Promise<number | undefined> {
-  try {
-    const value = JSON.parse(await readFile(changeLedgerHeartbeatPath(lockPath, token), "utf8")) as {
-      readonly heartbeatAt?: unknown;
-      readonly token?: unknown;
-    };
-    return value.token === token && isValidChangeLedgerTimestamp(value.heartbeatAt, settings)
-      ? value.heartbeatAt
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function isValidChangeLedgerTimestamp(
-  value: unknown,
-  settings: ChangeLedgerLockSettings
-): value is number {
-  return typeof value === "number" &&
-    Number.isFinite(value) &&
-    value >= 0 &&
-    value <= settings.now() + settings.leaseMs;
-}
-
-function changeLedgerLockOwnerPath(lockPath: string): string {
-  return join(lockPath, "owner.json");
-}
-
-function changeLedgerHeartbeatPath(lockPath: string, token: string): string {
-  return join(lockPath, `heartbeat-${token}.json`);
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -434,13 +257,4 @@ function isProcessAlive(pid: number): boolean {
   } catch (error) {
     return !(typeof error === "object" && error !== null && "code" in error && error.code === "ESRCH");
   }
-}
-
-function isAlreadyExistsError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error &&
-    (error.code === "EEXIST" || error.code === "ENOTEMPTY");
-}
-
-function isMissingError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }

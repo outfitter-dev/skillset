@@ -247,17 +247,17 @@ test("SET-329 malformed semantic owners are reclaimed without process liveness p
 
 test("SET-329 invalid owner and heartbeat timestamp domains recover from bounded current facts", async () => {
   const now = Date.now();
-  const staleOwner = `${JSON.stringify({ createdAt: now - 1000, pid: 999_999, token: VALID_OWNER_TOKEN })}\n`;
+  const staleOwner = `${JSON.stringify({ createdAt: now - 1000, pid: 999_999, ticket: 1, token: VALID_OWNER_TOKEN })}\n`;
   const timestampCases = [
-    { heartbeatContent: `{"heartbeatAt":1e309,"token":"${VALID_OWNER_TOKEN}"}\n`, ownerContent: staleOwner, probes: 1 },
+    { heartbeatContent: `{"heartbeatAt":1e309,"token":"${VALID_OWNER_TOKEN}"}\n`, ownerContent: staleOwner, probes: 2 },
     {
       heartbeatContent: `${JSON.stringify({ heartbeatAt: now + 11, token: VALID_OWNER_TOKEN })}\n`,
       ownerContent: staleOwner,
-      probes: 1,
+      probes: 2,
     },
     {
       heartbeatContent: `${JSON.stringify({ heartbeatAt: now - 1000, token: VALID_OWNER_TOKEN })}\n`,
-      ownerContent: `${JSON.stringify({ createdAt: now + 11, pid: 999_999, token: VALID_OWNER_TOKEN })}\n`,
+      ownerContent: `${JSON.stringify({ createdAt: now + 11, pid: 999_999, ticket: 1, token: VALID_OWNER_TOKEN })}\n`,
       probes: 0,
     },
   ];
@@ -312,7 +312,7 @@ test("SET-329 public refresh reclaims missing and malformed aged owners without 
 
 test("SET-329 public refresh rejects nonfinite and over-skew lock timestamps without residue", async () => {
   const now = Date.now();
-  const staleOwner = `${JSON.stringify({ createdAt: now - 120_000, pid: 999_999, token: VALID_OWNER_TOKEN })}\n`;
+  const staleOwner = `${JSON.stringify({ createdAt: now - 120_000, pid: 999_999, ticket: 1, token: VALID_OWNER_TOKEN })}\n`;
   const timestampCases = [
     {
       heartbeatContent: `{"heartbeatAt":1e309,"token":"${VALID_OWNER_TOKEN}"}\n`,
@@ -324,7 +324,7 @@ test("SET-329 public refresh rejects nonfinite and over-skew lock timestamps wit
     },
     {
       heartbeatContent: `${JSON.stringify({ heartbeatAt: now - 120_000, token: VALID_OWNER_TOKEN })}\n`,
-      ownerContent: `${JSON.stringify({ createdAt: now + 120_000, pid: 999_999, token: VALID_OWNER_TOKEN })}\n`,
+      ownerContent: `${JSON.stringify({ createdAt: now + 120_000, pid: 999_999, ticket: 1, token: VALID_OWNER_TOKEN })}\n`,
     },
   ];
   for (const timestampCase of timestampCases) {
@@ -346,13 +346,33 @@ test("SET-329 refresh times out without reclaiming a live over-lease owner", asy
   await writeReason(root, "abcdef123456", "This pending reason proves process liveness vetoes age-only lock reclamation.");
   await seedLedgerLock(root, { createdAt: 0, heartbeatAt: 0, pid: 1234, token: LIVE_OWNER_TOKEN });
 
-  await expect(refreshChangeEvidence(root, {
-    lock: { isProcessAlive: (pid) => pid === 1234, leaseMs: 10, now: () => 1000, pollMs: 1, timeoutMs: 10 },
-    since: "HEAD",
-    write: true,
-  })).rejects.toThrow("timed out waiting for change ledger lock");
-  expect(JSON.parse(await readFile(join(root, ".skillset/changes/ledger.jsonl.lock/owner.json"), "utf8"))).toMatchObject({ token: LIVE_OWNER_TOKEN });
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  await expect(
+    refreshChangeEvidence(root, {
+      lock: {
+        isProcessAlive: (pid) => pid === 1234,
+        leaseMs: 10,
+        now: () => 1000,
+        pollMs: 1,
+        timeoutMs: 10,
+      },
+      since: "HEAD",
+      write: true,
+    })
+  ).rejects.toThrow("timed out waiting for change ledger lock");
+  expect(
+    JSON.parse(
+      await readFile(
+        join(
+          root,
+          `.skillset/changes/ledger.jsonl.lock/claim-${LIVE_OWNER_TOKEN}/owner.json`
+        ),
+        "utf8"
+      )
+    )
+  ).toMatchObject({ token: LIVE_OWNER_TOKEN });
+  expect(
+    await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
+  ).toBe(false);
 });
 
 test("SET-329 refresh heartbeats keep a live holder beyond its lease", async () => {
@@ -403,23 +423,37 @@ test("SET-329 a fenced owner cannot append or remove its successor lock", async 
   await writeReason(root, "abcdef123456", "This pending reason proves a fenced former owner cannot append evidence or delete its successor.");
   const lockPath = join(root, ".skillset/changes/ledger.jsonl.lock");
   const oldTombstone = `${lockPath}.externally-fenced`;
-  await expect(refreshChangeEvidence(root, {
-    beforeOwnershipVerification: async () => {
-      await rename(lockPath, oldTombstone);
-      await mkdir(lockPath);
-      await writeFile(
-        join(lockPath, "owner.json"),
-        `${JSON.stringify({ createdAt: Date.now(), pid: process.pid, token: SUCCESSOR_OWNER_TOKEN })}\n`,
+  await expect(
+    refreshChangeEvidence(root, {
+      beforeOwnershipVerification: async () => {
+        await rename(lockPath, oldTombstone);
+        const claimPath = join(lockPath, `claim-${SUCCESSOR_OWNER_TOKEN}`);
+        await mkdir(claimPath, { recursive: true });
+        await writeFile(
+          join(claimPath, "owner.json"),
+          `${JSON.stringify({ createdAt: Date.now(), pid: process.pid, ticket: 1, token: SUCCESSOR_OWNER_TOKEN })}\n`,
+          "utf8"
+        );
+      },
+      lock: { heartbeatMs: 1000 },
+      since: "HEAD",
+      write: true,
+    })
+  ).rejects.toThrow("lost ownership of change ledger lock");
+  expect(
+    await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
+  ).toBe(false);
+  expect(
+    JSON.parse(
+      await readFile(
+        join(lockPath, `claim-${SUCCESSOR_OWNER_TOKEN}`, "owner.json"),
         "utf8"
-      );
-    },
-    lock: { heartbeatMs: 1000 },
-    since: "HEAD",
-    write: true,
-  })).rejects.toThrow("lost ownership of change ledger lock");
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
-  expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token: SUCCESSOR_OWNER_TOKEN });
-  expect(await ledgerLockArtifacts(root)).toContain("ledger.jsonl.lock.externally-fenced");
+      )
+    )
+  ).toMatchObject({ token: SUCCESSOR_OWNER_TOKEN });
+  expect(await ledgerLockArtifacts(root)).toContain(
+    "ledger.jsonl.lock.externally-fenced"
+  );
   await rm(lockPath, { force: true, recursive: true });
   await rm(oldTombstone, { force: true, recursive: true });
   for (const artifact of await ledgerLockArtifacts(root)) await rm(join(root, ".skillset/changes", artifact), { force: true });
@@ -475,10 +509,15 @@ async function seedLedgerLock(
   owner: { readonly createdAt: number; readonly heartbeatAt: number; readonly pid: number; readonly token: string }
 ): Promise<void> {
   const lockPath = join(root, ".skillset/changes/ledger.jsonl.lock");
-  await mkdir(lockPath, { recursive: true });
-  await writeFile(join(lockPath, "owner.json"), `${JSON.stringify(owner)}\n`, "utf8");
+  const claimPath = join(lockPath, `claim-${owner.token}`);
+  await mkdir(claimPath, { recursive: true });
   await writeFile(
-    join(lockPath, `heartbeat-${owner.token}.json`),
+    join(claimPath, "owner.json"),
+    `${JSON.stringify({ ...owner, ticket: 1 })}\n`,
+    "utf8"
+  );
+  await writeFile(
+    join(claimPath, `heartbeat-${owner.token}.json`),
     `${JSON.stringify({ heartbeatAt: owner.heartbeatAt, token: owner.token })}\n`,
     "utf8"
   );
@@ -486,27 +525,46 @@ async function seedLedgerLock(
 
 async function seedMalformedLedgerLock(root: string, ownerContent: string | undefined): Promise<void> {
   const lockPath = join(root, ".skillset/changes/ledger.jsonl.lock");
-  await mkdir(lockPath, { recursive: true });
-  if (ownerContent !== undefined) await writeFile(join(lockPath, "owner.json"), ownerContent, "utf8");
-  await writeFile(join(lockPath, "heartbeat-unparseable.json"), "stale\n", "utf8");
+  const claimPath = join(lockPath, `claim-${VALID_OWNER_TOKEN}`);
+  await mkdir(claimPath, { recursive: true });
+  if (ownerContent !== undefined) {
+    await writeFile(join(claimPath, "owner.json"), ownerContent, "utf8");
+  }
+  await writeFile(
+    join(claimPath, "heartbeat-unparseable.json"),
+    "stale\n",
+    "utf8"
+  );
   const old = new Date(Date.now() - 120_000);
-  await utimes(lockPath, old, old);
+  await utimes(claimPath, old, old);
 }
 
 async function seedRawLedgerLock(root: string, ownerContent: string, heartbeatContent: string): Promise<void> {
   const lockPath = join(root, ".skillset/changes/ledger.jsonl.lock");
-  await mkdir(lockPath, { recursive: true });
-  await writeFile(join(lockPath, "owner.json"), ownerContent, "utf8");
-  await writeFile(join(lockPath, `heartbeat-${VALID_OWNER_TOKEN}.json`), heartbeatContent, "utf8");
+  const claimPath = join(lockPath, `claim-${VALID_OWNER_TOKEN}`);
+  await mkdir(claimPath, { recursive: true });
+  await writeFile(join(claimPath, "owner.json"), ownerContent, "utf8");
+  await writeFile(
+    join(claimPath, `heartbeat-${VALID_OWNER_TOKEN}.json`),
+    heartbeatContent,
+    "utf8"
+  );
   const old = new Date(Date.now() - 120_000);
-  await utimes(lockPath, old, old);
+  await utimes(claimPath, old, old);
 }
 
 async function ledgerHeartbeatAt(root: string): Promise<unknown> {
   const lockPath = join(root, ".skillset/changes/ledger.jsonl.lock");
-  const owner = JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8")) as { readonly token: string };
+  const claim = (await readdir(lockPath)).find((name) =>
+    name.startsWith("claim-")
+  );
+  if (claim === undefined) throw new Error("missing change-ledger lock claim");
+  const claimPath = join(lockPath, claim);
+  const owner = JSON.parse(
+    await readFile(join(claimPath, "owner.json"), "utf8")
+  ) as { readonly token: string };
   const heartbeat = JSON.parse(
-    await readFile(join(lockPath, `heartbeat-${owner.token}.json`), "utf8")
+    await readFile(join(claimPath, `heartbeat-${owner.token}.json`), "utf8")
   ) as { readonly heartbeatAt?: unknown };
   return heartbeat.heartbeatAt;
 }
