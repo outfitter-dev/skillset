@@ -7,7 +7,7 @@ import {
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { collectSourceInventory } from "../change-status";
+import type { collectSourceInventory } from "../change-status";
 
 export async function contractFixture(
   files: Record<string, string>
