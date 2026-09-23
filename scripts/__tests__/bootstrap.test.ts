@@ -316,11 +316,7 @@ describe("bootstrap repo policy", () => {
       "skillset-bootstrap-mode-failure-"
     );
     const work = await mkdtemp(join(root, "work-"));
-    try {
-      await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
   });
 
   test("bootstrap leaves unmerged checkout modes untouched", async () => {
@@ -483,14 +479,12 @@ describe("readRepoHealth", () => {
     const health = readRepoHealth(root);
     expect(health.coreBare).toBe(false);
     expect(health.staleWorktrees).toEqual([]);
-    rmSync(root, { force: true, recursive: true });
   });
 
   test("flags core.bare corruption", async () => {
     const root = await initRepo();
     await runTestGit(root, "config", "core.bare", "true");
     expect(readRepoHealth(root).coreBare).toBe(true);
-    rmSync(root, { force: true, recursive: true });
   });
 
   test("flags worktrees locked by dead processes and keeps live locks", async () => {
@@ -523,6 +517,5 @@ describe("readRepoHealth", () => {
         worktree.path.endsWith("/wt-dead")
       )
     ).toEqual([true]);
-    rmSync(root, { force: true, recursive: true });
   });
 });
