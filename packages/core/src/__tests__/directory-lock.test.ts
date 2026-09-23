@@ -144,7 +144,9 @@ describe("owner-fenced directory lock", () => {
           entered = true;
         }
       )
-    ).rejects.toThrow("timed out waiting for directory lock");
+    ).rejects.toThrow(
+      `timed out waiting for directory lock: ${lockPath} contains legacy or incomplete lock state`
+    );
 
     expect(entered).toBe(false);
     expect(
@@ -166,11 +168,33 @@ describe("owner-fenced directory lock", () => {
       timeoutMs: 5,
     }), async () => {
       entered = true;
-    })).rejects.toThrow("timed out waiting for directory lock");
+    })).rejects.toThrow(
+      `timed out waiting for directory lock: ${lockPath} contains legacy or incomplete lock state`
+    );
 
     expect(entered).toBe(false);
     expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token });
     expect((await readdir(lockPath)).some((name) => name.startsWith("claim-"))).toBe(false);
+    await rm(lockPath, { force: true, recursive: true });
+  });
+
+  test("SET-645 an empty root left by a crash fails with offline recovery guidance", async () => {
+    const root = await createTestGitFixtureRoot(
+      "skillset-directory-lock-empty-root-"
+    );
+    const lockPath = join(root, "resource.lock");
+    await mkdir(lockPath);
+
+    await expect(
+      withOwnedDirectoryLock(
+        lockOptions(lockPath, { timeoutMs: 5 }),
+        async () => "should-not-run"
+      )
+    ).rejects.toThrow(
+      `${lockPath} contains legacy or incomplete lock state; stop all Skillset processes that can access it, confirm no owner is active, remove the lock directory, and retry`
+    );
+
+    expect(await readdir(lockPath)).toEqual([]);
     await rm(lockPath, { force: true, recursive: true });
   });
 

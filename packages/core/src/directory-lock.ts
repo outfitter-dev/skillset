@@ -186,10 +186,19 @@ async function createClaimDirectory(
     // before the fenced owner is revalidated, so legacy recovery fails closed.
     await options.onContention?.();
     if (Date.now() - startedAt > options.timing.timeoutMs) {
-      throw options.timeoutError();
+      throw incompatibleLockStateTimeoutError(lockPath, options.timeoutError());
     }
     await Bun.sleep(options.timing.pollMs);
   }
+}
+
+function incompatibleLockStateTimeoutError(
+  lockPath: string,
+  timeoutError: Error
+): Error {
+  return new Error(
+    `${timeoutError.message}: ${lockPath} contains legacy or incomplete lock state; stop all Skillset processes that can access it, confirm no owner is active, remove the lock directory, and retry`
+  );
 }
 
 export function startDefaultDirectoryLockHeartbeat(
