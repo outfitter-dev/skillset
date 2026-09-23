@@ -70,6 +70,9 @@ jobs:
         run: bun test packages/core/src/__tests__/directory-rename-no-replace.test.ts
       - name: Prove workspace transaction directory race
         run: bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
+      - name: Prove structured diagnostic paths on Windows
+        if: runner.os == 'Windows'
+        run: bun run test:focused -- apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
       - name: Prove packaged atomic no-replace directory rename
         run: bun scripts/native-directory-rename-smoke.ts
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
