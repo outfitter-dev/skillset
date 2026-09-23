@@ -175,7 +175,7 @@ export function testSandboxGit(sandboxPath: string) {
   };
 }
 
-function parseDescriptor(value: unknown): TestSandboxDescriptor {
+export function parseDescriptor(value: unknown): TestSandboxDescriptor {
   if (typeof value !== "object" || value === null)
     throw new Error("test sandbox descriptor must be an object");
   const descriptor = value as Record<string, unknown>;
