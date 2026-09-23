@@ -101,6 +101,54 @@ codex: false
       }),
       label: ".skillset/skills/demo/SKILL.md",
     },
+    {
+      files: normalizeSkillsetFixtureFiles({
+        "skillset.yaml": `
+skillset:
+  name: plugin-schema-root
+claude: true
+codex: false
+`,
+        ".skillset/plugins/alpha/skillset.yaml": "skillset: []\n",
+      }),
+      label: ".skillset/plugins/alpha/skillset.yaml",
+    },
+    {
+      files: normalizeSkillsetFixtureFiles({
+        "skillset.yaml": `
+skillset:
+  name: instruction-schema-root
+claude: true
+codex: false
+`,
+        ".skillset/rules/README.md": "---\nskillset: []\n---\n\nBody.\n",
+      }),
+      label: ".skillset/rules/README.md",
+    },
+    {
+      files: normalizeSkillsetFixtureFiles({
+        "skillset.yaml": `
+skillset:
+  name: project-agent-root
+claude: true
+codex: false
+`,
+        ".skillset/subagents/reviewer.md": "---\nname: '!!!'\ndescription: Review.\n---\n\nBody.\n",
+      }),
+      label: ".skillset/subagents/reviewer.md",
+    },
+    {
+      files: normalizeSkillsetFixtureFiles({
+        "skillset.yaml": `
+skillset:
+  name: plugin-feature-root
+claude: true
+codex: false
+`,
+        ".skillset/plugins/alpha/skillset.yaml": "mcp:\n  source: bad\n",
+      }),
+      label: ".skillset/plugins/alpha/skillset.yaml.mcp.source",
+    },
   ];
 
   for (const { files, label } of cases) {
