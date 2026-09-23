@@ -1,10 +1,9 @@
-import { afterEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { constants } from "node:fs";
 import {
   chmod,
   lstat,
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   realpath,
@@ -14,8 +13,8 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { createOperationReport } from "@skillset/core/internal/report";
 import {
@@ -37,15 +36,6 @@ import {
 
 const FIRST_ID = "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5";
 const SECOND_ID = "8f4ff612-f753-49da-a350-bf22e52ca0b8";
-const fixtureRoots = new Set<string>();
-
-afterEach(async () => {
-  await Promise.all(
-    [...fixtureRoots].map((root) => rm(root, { force: true, recursive: true }))
-  );
-  fixtureRoots.clear();
-});
-
 test("SET-445: parent imports only explicit create-only report requests", async () => {
   const fixture = await createSandboxFixture();
   await writeChildReport(fixture, FIRST_ID, "requested");
@@ -654,10 +644,7 @@ test("SET-445: artifact publication never replaces a late collision", async () =
 type SandboxFixture = Awaited<ReturnType<typeof createSandboxFixture>>;
 
 async function createSandboxFixture() {
-  const root = await realpath(
-    await mkdtemp(join(tmpdir(), "skillset-export-request-"))
-  );
-  fixtureRoots.add(root);
+  const root = await realpath(await createTestFixtureRoot("skillset-export-request-"));
   const sandboxPath = join(root, "skillset-test-owned");
   const parentState = join(root, "parent-state");
   const git = testSandboxGit(sandboxPath);
