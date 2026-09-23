@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -114,7 +114,9 @@ describe("owner-fenced directory lock", () => {
     await entered.promise;
     now = 20;
     if (heartbeatTick === undefined) throw new Error("missing heartbeat test seam");
+    await utimes(lockPath, new Date(0), new Date(0));
     await heartbeatTick();
+    expect((await stat(lockPath)).mtimeMs).toBeGreaterThan(0);
 
     await expect(withOwnedDirectoryLock(lockOptions(lockPath, {
       now: () => now,
@@ -123,6 +125,64 @@ describe("owner-fenced directory lock", () => {
     release.resolve();
     await holder;
     expect(await lockArtifacts(root)).toEqual([]);
+  });
+
+  test("SET-645 an active legacy root lock blocks claim-protocol entry", async () => {
+    const root = await createTestGitFixtureRoot("skillset-directory-lock-legacy-live-");
+    const lockPath = join(root, "resource.lock");
+    const token = "a".repeat(32);
+    await seedLegacyLock(lockPath, token, 100, process.pid);
+    let entered = false;
+
+    await expect(withOwnedDirectoryLock(lockOptions(lockPath, {
+      now: () => 100,
+      timeoutMs: 5,
+    }), async () => {
+      entered = true;
+    })).rejects.toThrow("timed out waiting for directory lock");
+
+    expect(entered).toBe(false);
+    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token });
+    expect((await readdir(lockPath)).some((name) => name.startsWith("claim-"))).toBe(false);
+    await rm(lockPath, { force: true, recursive: true });
+  });
+
+  test("SET-645 a stale legacy root lock migrates before claim-protocol entry", async () => {
+    const root = await createTestGitFixtureRoot("skillset-directory-lock-legacy-stale-");
+    const lockPath = join(root, "resource.lock");
+    await seedLegacyLock(lockPath, "a".repeat(32), 0, 999_999);
+
+    await withOwnedDirectoryLock(lockOptions(lockPath, {
+      now: () => 100,
+    }), async (lock) => lock.assertOwned());
+
+    expect(await lockArtifacts(root)).toEqual([]);
+  });
+
+  test("SET-645 stale fencing revalidates a heartbeat read during publication", async () => {
+    const root = await createTestGitFixtureRoot("skillset-directory-lock-revalidate-");
+    const lockPath = join(root, "resource.lock");
+    const token = "a".repeat(32);
+    await seedLock(lockPath, token, 0);
+    await writeFile(join(lockPath, `claim-${token}`, `heartbeat-${token}.json`), "{", "utf8");
+    let fenced = 0;
+
+    await expect(withOwnedDirectoryLock(lockOptions(lockPath, {
+      afterStaleClaimFenced: async (fencedPath) => {
+        fenced += 1;
+        await writeFile(
+          join(fencedPath, `heartbeat-${token}.json`),
+          `${JSON.stringify({ heartbeatAt: 100, token })}\n`,
+          "utf8"
+        );
+      },
+      now: () => 100,
+      timeoutMs: 5,
+    }), async () => "should-not-run")).rejects.toThrow("timed out waiting for directory lock");
+
+    expect(fenced).toBe(1);
+    expect(await currentOwner(lockPath)).toMatchObject({ token });
+    await rm(lockPath, { force: true, recursive: true });
   });
 
   test("SET-645 stale takeover survives delayed cleanup by a competing former owner", async () => {
@@ -269,6 +329,7 @@ function lockOptions(
   lockPath: string,
   overrides: {
     readonly afterAcquired?: () => Promise<void> | void;
+    readonly afterStaleClaimFenced?: (claimPath: string) => Promise<void> | void;
     readonly now?: () => number;
     readonly staleOwner?: DirectoryLockStaleOwnerPolicy;
     readonly startHeartbeat?: DirectoryLockHeartbeatScheduler;
@@ -284,6 +345,7 @@ function lockOptions(
   };
   return {
     afterAcquired: overrides.afterAcquired,
+    afterStaleClaimFenced: overrides.afterStaleClaimFenced,
     lockPath,
     lostOwnershipError: () => new Error("lost ownership of directory lock"),
     staleOwner: overrides.staleOwner ?? { kind: "lease-only" as const },
@@ -292,6 +354,25 @@ function lockOptions(
     timing,
     ownerPid: process.pid,
   };
+}
+
+async function seedLegacyLock(
+  lockPath: string,
+  token: string,
+  heartbeatAt: number,
+  pid: number
+): Promise<void> {
+  await mkdir(lockPath, { recursive: true });
+  await writeFile(
+    join(lockPath, "owner.json"),
+    `${JSON.stringify({ createdAt: heartbeatAt, pid, token })}\n`,
+    "utf8"
+  );
+  await writeFile(
+    join(lockPath, `heartbeat-${token}.json`),
+    `${JSON.stringify({ heartbeatAt, token })}\n`,
+    "utf8"
+  );
 }
 
 async function seedLock(

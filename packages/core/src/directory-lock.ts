@@ -3,9 +3,11 @@ import {
   mkdir,
   readFile,
   readdir,
+  rename,
   rm,
   rmdir,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -50,6 +52,7 @@ export interface DirectoryLockTiming {
 
 export interface WithOwnedDirectoryLockOptions {
   readonly afterAcquired?: (() => Promise<void> | void) | undefined;
+  readonly afterStaleClaimFenced?: ((claimPath: string) => Promise<void> | void) | undefined;
   readonly lockPath: string;
   readonly lostOwnershipError: () => Error;
   readonly onContention?: (() => Promise<void> | void) | undefined;
@@ -76,6 +79,12 @@ interface ClaimDisposition {
   readonly entered: boolean;
 }
 
+interface LegacyDirectoryLockOwner {
+  readonly createdAt: number;
+  readonly pid: number;
+  readonly token: string;
+}
+
 /**
  * Acquire an owner-fenced directory lock.
  *
@@ -92,7 +101,7 @@ export async function withOwnedDirectoryLock<T>(
   const claimPath = join(options.lockPath, `${CLAIM_PREFIX}${token}`);
   const startedAt = Date.now();
 
-  await createClaimDirectory(options.lockPath, claimPath);
+  await createClaimDirectory(options.lockPath, claimPath, options, startedAt);
 
   let owner: DirectoryLockOwner;
   try {
@@ -102,8 +111,9 @@ export async function withOwnedDirectoryLock<T>(
       ticket: await nextTicket(options.lockPath, options.timing),
       token,
     };
-    await writeFile(ownerPath(claimPath), `${JSON.stringify(owner)}\n`, "utf8");
+    await writeJsonAtomically(ownerPath(claimPath), owner);
     await writeHeartbeat(claimPath, token, options.timing.now());
+    await touchLockRoot(options.lockPath);
   } catch (error) {
     await removeClaim(claimPath, options.lockPath);
     throw error;
@@ -150,19 +160,39 @@ export async function withOwnedDirectoryLock<T>(
 
 async function createClaimDirectory(
   lockPath: string,
-  claimPath: string
+  claimPath: string,
+  options: WithOwnedDirectoryLockOptions,
+  startedAt: number
 ): Promise<void> {
   while (true) {
-    await mkdir(lockPath, { recursive: true });
+    let createdRoot = false;
     try {
-      await mkdir(claimPath);
-      return;
+      await mkdir(lockPath);
+      createdRoot = true;
     } catch (error) {
-      // The previous owner may remove an empty lock root after our recursive
-      // mkdir observes it but before our unique claim is created.
       if (isMissingError(error)) continue;
-      throw error;
+      if (!isAlreadyExistsError(error)) throw error;
     }
+
+    if (createdRoot || await hasClaimProtocolState(lockPath)) {
+      try {
+        await mkdir(claimPath);
+        return;
+      } catch (error) {
+        // The final claimant may remove the empty root before this claim is
+        // created. Re-read the layout instead of adding a claim to a legacy
+        // lock that won the intervening mkdir race.
+        if (isMissingError(error)) continue;
+        throw error;
+      }
+    }
+
+    await options.onContention?.();
+    if (await reclaimLegacyLock(lockPath, options)) continue;
+    if (Date.now() - startedAt > options.timing.timeoutMs) {
+      throw options.timeoutError();
+    }
+    await Bun.sleep(options.timing.pollMs);
   }
 }
 
@@ -194,6 +224,58 @@ async function nextTicket(
   return maximum + 1;
 }
 
+async function hasClaimProtocolState(lockPath: string): Promise<boolean> {
+  try {
+    return (await readdir(lockPath)).some((name) => name.startsWith(CLAIM_PREFIX));
+  } catch (error) {
+    if (isMissingError(error)) return false;
+    throw error;
+  }
+}
+
+async function reclaimLegacyLock(
+  lockPath: string,
+  options: WithOwnedDirectoryLockOptions
+): Promise<boolean> {
+  const owner = await readLegacyOwner(lockPath, options.timing);
+  if (!(await isStaleLegacyLock(lockPath, owner, options))) return false;
+
+  const fencedPath = `${lockPath}.legacy-reclaim-${randomBytes(12).toString("hex")}`;
+  try {
+    await rename(lockPath, fencedPath);
+  } catch (error) {
+    if (isMissingError(error)) return true;
+    throw error;
+  }
+
+  const fencedOwner = await readLegacyOwner(fencedPath, options.timing);
+  if (!(await isStaleLegacyLock(fencedPath, fencedOwner, options))) {
+    try {
+      await rename(fencedPath, lockPath);
+    } catch (error) {
+      // A successor that acquired the legacy path during fencing remains the
+      // current lock. Keep the revalidated former owner fenced beside it.
+      if (!isAlreadyExistsError(error)) throw error;
+    }
+    return false;
+  }
+  await rm(fencedPath, { force: true, recursive: true });
+  return true;
+}
+
+async function isStaleLegacyLock(
+  lockPath: string,
+  owner: LegacyDirectoryLockOwner | undefined,
+  options: WithOwnedDirectoryLockOptions
+): Promise<boolean> {
+  const heartbeat = owner === undefined
+    ? undefined
+    : await readHeartbeat(lockPath, owner.token, options.timing);
+  const metadata = await stat(lockPath).catch(() => undefined);
+  const lastActiveAt = heartbeat ?? owner?.createdAt ?? metadata?.mtimeMs;
+  return isStaleOwner(lastActiveAt, owner, options);
+}
+
 async function claimDisposition(
   lockPath: string,
   claimPath: string,
@@ -210,8 +292,7 @@ async function claimDisposition(
   for (const claim of claims) {
     if (claim.path === claimPath) continue;
     contended = true;
-    if (await isStaleClaim(claim, options)) {
-      await rm(claim.path, { force: true, recursive: true });
+    if (await reclaimStaleClaim(lockPath, claim, options)) {
       continue;
     }
     // A claim without owner metadata is still choosing its ticket. Waiting for
@@ -259,19 +340,50 @@ async function isStaleClaim(
       ? undefined
       : await readHeartbeat(claim.path, claim.owner.token, options.timing);
   const lastActiveAt = heartbeat ?? claim.owner?.createdAt ?? claim.mtimeMs;
-  if (
-    lastActiveAt === undefined ||
-    options.timing.now() - lastActiveAt <= options.timing.leaseMs
-  ) {
+  return isStaleOwner(lastActiveAt, claim.owner, options);
+}
+
+function isStaleOwner(
+  lastActiveAt: number | undefined,
+  owner: { readonly pid: number } | undefined,
+  options: WithOwnedDirectoryLockOptions
+): boolean {
+  if (lastActiveAt === undefined || options.timing.now() - lastActiveAt <= options.timing.leaseMs) {
     return false;
   }
-  if (
-    options.staleOwner.kind === "lease-and-dead-process" &&
-    claim.owner !== undefined &&
-    options.staleOwner.isProcessAlive(claim.owner.pid)
-  ) {
+  return options.staleOwner.kind !== "lease-and-dead-process" ||
+    owner === undefined ||
+    !options.staleOwner.isProcessAlive(owner.pid);
+}
+
+async function reclaimStaleClaim(
+  lockPath: string,
+  claim: DirectoryLockClaim,
+  options: WithOwnedDirectoryLockOptions
+): Promise<boolean> {
+  if (!(await isStaleClaim(claim, options))) return false;
+  const fencedPath = join(
+    lockPath,
+    `.claim-reclaim-${randomBytes(12).toString("hex")}`
+  );
+  try {
+    await rename(claim.path, fencedPath);
+  } catch (error) {
+    if (isMissingError(error)) return true;
+    throw error;
+  }
+
+  await options.afterStaleClaimFenced?.(fencedPath);
+  const fencedClaim = await readClaim(
+    fencedPath,
+    options.timing,
+    claim.owner?.token ?? claimTokenFromPath(claim.path)
+  );
+  if (!(await isStaleClaim(fencedClaim, options))) {
+    await rename(fencedPath, claim.path);
     return false;
   }
+  await rm(fencedPath, { force: true, recursive: true });
   return true;
 }
 
@@ -289,6 +401,7 @@ function startClaimHeartbeat(
       }
       try {
         await writeHeartbeat(claimPath, owner.token, options.timing.now());
+        await touchLockRoot(options.lockPath);
       } catch {
         // Ownership verification before the domain mutation remains
         // authoritative when a heartbeat write races stale-claim removal or a
@@ -319,15 +432,20 @@ async function readClaims(
   }
   const claims = names
     .filter((name) => name.startsWith(CLAIM_PREFIX))
-    .map(async (name): Promise<DirectoryLockClaim> => {
-      const path = join(lockPath, name);
-      const [owner, metadata] = await Promise.all([
-        readOwner(path, timing),
-        stat(path).catch(() => undefined),
-      ]);
-      return { mtimeMs: metadata?.mtimeMs, owner, path };
-    });
+    .map((name) => readClaim(join(lockPath, name), timing));
   return Promise.all(claims);
+}
+
+async function readClaim(
+  claimPath: string,
+  timing: DirectoryLockTiming,
+  expectedToken?: string
+): Promise<DirectoryLockClaim> {
+  const [owner, metadata] = await Promise.all([
+    readOwner(claimPath, timing, expectedToken),
+    stat(claimPath).catch(() => undefined),
+  ]);
+  return { mtimeMs: metadata?.mtimeMs, owner, path: claimPath };
 }
 
 async function removeClaim(claimPath: string, lockPath: string): Promise<void> {
@@ -339,7 +457,8 @@ async function removeClaim(claimPath: string, lockPath: string): Promise<void> {
 
 async function readOwner(
   claimPath: string,
-  timing: DirectoryLockTiming
+  timing: DirectoryLockTiming,
+  expectedToken?: string
 ): Promise<DirectoryLockOwner | undefined> {
   try {
     const value = JSON.parse(
@@ -357,7 +476,9 @@ async function readOwner(
       value.ticket <= 0 ||
       typeof value.token !== "string" ||
       !OWNER_TOKEN_PATTERN.test(value.token) ||
-      claimPath.split(/[/\\]/u).at(-1) !== `${CLAIM_PREFIX}${value.token}`
+      (expectedToken === undefined
+        ? claimPath.split(/[/\\]/u).at(-1) !== `${CLAIM_PREFIX}${value.token}`
+        : value.token !== expectedToken)
     ) {
       return undefined;
     }
@@ -372,16 +493,53 @@ async function readOwner(
   }
 }
 
+async function readLegacyOwner(
+  lockPath: string,
+  timing: DirectoryLockTiming
+): Promise<LegacyDirectoryLockOwner | undefined> {
+  try {
+    const value = JSON.parse(
+      await readFile(ownerPath(lockPath), "utf8")
+    ) as Partial<LegacyDirectoryLockOwner>;
+    if (
+      typeof value.createdAt !== "number" ||
+      !isValidTimestamp(value.createdAt, timing) ||
+      typeof value.pid !== "number" ||
+      !Number.isSafeInteger(value.pid) ||
+      value.pid <= 0 ||
+      value.pid > MAX_PROCESS_ID ||
+      typeof value.token !== "string" ||
+      !OWNER_TOKEN_PATTERN.test(value.token)
+    ) {
+      return undefined;
+    }
+    return { createdAt: value.createdAt, pid: value.pid, token: value.token };
+  } catch {
+    return undefined;
+  }
+}
+
 async function writeHeartbeat(
   claimPath: string,
   token: string,
   heartbeatAt: number
 ): Promise<void> {
-  await writeFile(
-    heartbeatPath(claimPath, token),
-    `${JSON.stringify({ heartbeatAt, token })}\n`,
-    "utf8"
-  );
+  await writeJsonAtomically(heartbeatPath(claimPath, token), { heartbeatAt, token });
+}
+
+async function writeJsonAtomically(path: string, value: unknown): Promise<void> {
+  const temporaryPath = `${path}.tmp-${randomBytes(12).toString("hex")}`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(value)}\n`, "utf8");
+    await rename(temporaryPath, path);
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
+}
+
+async function touchLockRoot(lockPath: string): Promise<void> {
+  const now = new Date();
+  await utimes(lockPath, now, now);
 }
 
 async function readHeartbeat(
@@ -419,6 +577,19 @@ function heartbeatPath(claimPath: string, token: string): string {
   return join(claimPath, `heartbeat-${token}.json`);
 }
 
+function claimTokenFromPath(claimPath: string): string | undefined {
+  const name = claimPath.split(/[/\\]/u).at(-1);
+  const token = name?.startsWith(CLAIM_PREFIX)
+    ? name.slice(CLAIM_PREFIX.length)
+    : undefined;
+  return token !== undefined && OWNER_TOKEN_PATTERN.test(token) ? token : undefined;
+}
+
 function isMissingError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error &&
+    (error.code === "EEXIST" || error.code === "ENOTEMPTY");
 }

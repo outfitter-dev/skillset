@@ -249,11 +249,11 @@ test("SET-329 invalid owner and heartbeat timestamp domains recover from bounded
   const now = Date.now();
   const staleOwner = `${JSON.stringify({ createdAt: now - 1000, pid: 999_999, ticket: 1, token: VALID_OWNER_TOKEN })}\n`;
   const timestampCases = [
-    { heartbeatContent: `{"heartbeatAt":1e309,"token":"${VALID_OWNER_TOKEN}"}\n`, ownerContent: staleOwner, probes: 1 },
+    { heartbeatContent: `{"heartbeatAt":1e309,"token":"${VALID_OWNER_TOKEN}"}\n`, ownerContent: staleOwner, probes: 2 },
     {
       heartbeatContent: `${JSON.stringify({ heartbeatAt: now + 11, token: VALID_OWNER_TOKEN })}\n`,
       ownerContent: staleOwner,
-      probes: 1,
+      probes: 2,
     },
     {
       heartbeatContent: `${JSON.stringify({ heartbeatAt: now - 1000, token: VALID_OWNER_TOKEN })}\n`,
