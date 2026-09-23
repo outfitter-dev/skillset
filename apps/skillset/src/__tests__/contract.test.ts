@@ -1,6 +1,5 @@
 import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -9418,7 +9417,7 @@ claude: true
 codex: true
 `,
   });
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-source-"));
+  const external = await createTestFixtureRoot("skillset-import-source-");
   await Bun.write(join(external, "SKILL.md"), `---
 name: adopted
 description: Adopted skill.
@@ -9453,7 +9452,7 @@ compile:
     - codex
 `,
   });
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-dedicated-"));
+  const external = await createTestFixtureRoot("skillset-import-dedicated-");
   await Bun.write(join(external, "SKILL.md"), `---
 name: adopted
 description: Adopted skill.
@@ -9480,7 +9479,7 @@ claude: true
 codex: true
 `,
   });
-  const external = await mkdtemp(join(tmpdir(), "skillset-import-plugin-"));
+  const external = await createTestFixtureRoot("skillset-import-plugin-");
   await Bun.write(join(external, "skillset.yaml"), `skillset:
   name: widget
   version: 0.8.0
