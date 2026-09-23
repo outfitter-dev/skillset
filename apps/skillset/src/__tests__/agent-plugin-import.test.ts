@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { renderBuildGraph } from "@skillset/core/internal/render";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
@@ -322,9 +323,7 @@ describe("Agent Plugins package import", () => {
   ])(
     "blocks canonically unmappable manifest metadata before adoption writes",
     async (metadata, message) => {
-      const root = await mkdtemp(
-        join(tmpdir(), "skillset-agent-plugin-metadata-blocked-")
-      );
+      const root = await createTestFixtureRoot("skillset-agent-plugin-metadata-blocked-");
       await writeJson(join(root, "plugin.json"), {
         $schema: SCHEMA,
         name: "blocked-metadata",
@@ -382,9 +381,7 @@ describe("Agent Plugins package import", () => {
   ])(
     "blocks invalid Agent Skill %s before adoption writes",
     async (_label, source, message) => {
-      const root = await mkdtemp(
-        join(tmpdir(), "skillset-agent-plugin-skill-blocked-")
-      );
+      const root = await createTestFixtureRoot("skillset-agent-plugin-skill-blocked-");
       await writeJson(join(root, "plugin.json"), {
         $schema: SCHEMA,
         description: "Package with invalid skill.",
@@ -461,9 +458,7 @@ describe("Agent Plugins package import", () => {
     );
     expect(await Bun.file(join(root, ".skillset")).exists()).toBe(false);
 
-    const adoptionRoot = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-mcp-blocked-")
-    );
+    const adoptionRoot = await createTestFixtureRoot("skillset-agent-plugin-mcp-blocked-");
     await writeJson(join(adoptionRoot, "plugin.json"), {
       $schema: SCHEMA,
       description: "Authenticated MCP package.",
@@ -532,9 +527,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("blocks license metadata combined with bundled license text before writes", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-license-blocked-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-license-blocked-");
     await writeJson(join(root, "plugin.json"), {
       $schema: SCHEMA,
       description: "Multiply licensed package.",
@@ -675,9 +668,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("blocks Agent Skill license metadata combined with bundled text before writes", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-skill-license-blocked-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-skill-license-blocked-");
     await writeJson(join(root, "plugin.json"), {
       $schema: SCHEMA,
       description: "Conflicting skill license package.",
@@ -828,9 +819,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption preview detects the standard package and writes nothing", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-adopt-preview-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-adopt-preview-");
     await writeJson(join(root, "plugin.json"), {
       $schema: SCHEMA,
       description: "Preview package.",
@@ -858,9 +847,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption does not misclassify an unrelated plugin.json", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-unrelated-plugin-preview-")
-    );
+    const root = await createTestFixtureRoot("skillset-unrelated-plugin-preview-");
     await writeJson(join(root, "plugin.json"), {
       apiVersion: 2,
       name: "unrelated-plugin",
@@ -877,9 +864,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption write imports the package through the surveyed standard identity", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-adopt-write-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-adopt-write-");
     await writeJson(join(root, "plugin.json"), {
       $schema: SCHEMA,
       description: "Adopted package.",
@@ -918,9 +903,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption preview blocks extension-bearing packages before setup writes", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-adopt-blocked-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-adopt-blocked-");
     await writeJson(join(root, "plugin.json"), {
       $schema: SCHEMA,
       description: "Blocked package.",
@@ -950,9 +933,7 @@ describe("Agent Plugins package import", () => {
 
   test("adoption preflight blocks POSIX backslash paths without setup writes", async () => {
     if (process.platform === "win32") return;
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-path-blocked-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-path-blocked-");
     await writeJson(join(root, "plugin.json"), {
       $schema: SCHEMA,
       description: "Package with a non-portable source path.",
@@ -985,9 +966,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption blocks nested Agent Plugins packages with the same declared identity", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-identity-collision-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-identity-collision-");
     for (const path of ["plugins/one", "plugins/two"]) {
       await writeJson(join(root, path, "plugin.json"), {
         $schema: SCHEMA,
@@ -1022,9 +1001,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption blocks Agent Plugins and native packages with the same declared identity", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-cross-plugin-identity-collision-")
-    );
+    const root = await createTestFixtureRoot("skillset-cross-plugin-identity-collision-");
     await writeJson(join(root, "plugins/agent/plugin.json"), {
       $schema: SCHEMA,
       description: "Agent Plugins package.",
@@ -1059,9 +1036,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption preflights native fallback destination identities", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-effective-plugin-identity-collision-")
-    );
+    const root = await createTestFixtureRoot("skillset-effective-plugin-identity-collision-");
     await writeJson(join(root, "plugins/agent/plugin.json"), {
       $schema: SCHEMA,
       description: "Agent Plugins package.",
@@ -1095,9 +1070,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption blocks co-located native and Agent Plugins packages", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-colocated-plugin-authority-")
-    );
+    const root = await createTestFixtureRoot("skillset-colocated-plugin-authority-");
     await writeJson(join(root, "plugins/shared-tools/plugin.json"), {
       $schema: SCHEMA,
       description: "Agent Plugins package.",
@@ -1153,9 +1126,7 @@ describe("Agent Plugins package import", () => {
   });
 
   test("adoption keeps distinct nested Agent Plugins identities independent", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-distinct-identities-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugin-distinct-identities-");
     for (const [path, name] of [
       ["plugins/one", "one-tools"],
       ["plugins/two", "two-tools"],
