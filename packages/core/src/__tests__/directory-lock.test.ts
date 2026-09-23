@@ -134,6 +134,33 @@ describe("owner-fenced directory lock", () => {
     await seedLegacyLock(lockPath, token, 100, process.pid);
     let entered = false;
 
+    await expect(
+      withOwnedDirectoryLock(
+        lockOptions(lockPath, {
+          now: () => 100,
+          timeoutMs: 5,
+        }),
+        async () => {
+          entered = true;
+        }
+      )
+    ).rejects.toThrow("timed out waiting for directory lock");
+
+    expect(entered).toBe(false);
+    expect(
+      JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))
+    ).toMatchObject({ token });
+    expect((await readdir(lockPath)).some((name) => name.startsWith("claim-"))).toBe(false);
+    await rm(lockPath, { force: true, recursive: true });
+  });
+
+  test("SET-645 a stale legacy root lock fails closed until offline cleanup", async () => {
+    const root = await createTestGitFixtureRoot("skillset-directory-lock-legacy-stale-");
+    const lockPath = join(root, "resource.lock");
+    const token = "a".repeat(32);
+    await seedLegacyLock(lockPath, token, 0, 999_999);
+    let entered = false;
+
     await expect(withOwnedDirectoryLock(lockOptions(lockPath, {
       now: () => 100,
       timeoutMs: 5,
@@ -145,18 +172,6 @@ describe("owner-fenced directory lock", () => {
     expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token });
     expect((await readdir(lockPath)).some((name) => name.startsWith("claim-"))).toBe(false);
     await rm(lockPath, { force: true, recursive: true });
-  });
-
-  test("SET-645 a stale legacy root lock migrates before claim-protocol entry", async () => {
-    const root = await createTestGitFixtureRoot("skillset-directory-lock-legacy-stale-");
-    const lockPath = join(root, "resource.lock");
-    await seedLegacyLock(lockPath, "a".repeat(32), 0, 999_999);
-
-    await withOwnedDirectoryLock(lockOptions(lockPath, {
-      now: () => 100,
-    }), async (lock) => lock.assertOwned());
-
-    expect(await lockArtifacts(root)).toEqual([]);
   });
 
   test("SET-645 stale fencing revalidates a heartbeat read during publication", async () => {

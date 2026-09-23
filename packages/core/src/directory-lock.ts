@@ -79,12 +79,6 @@ interface ClaimDisposition {
   readonly entered: boolean;
 }
 
-interface LegacyDirectoryLockOwner {
-  readonly createdAt: number;
-  readonly pid: number;
-  readonly token: string;
-}
-
 /**
  * Acquire an owner-fenced directory lock.
  *
@@ -187,8 +181,10 @@ async function createClaimDirectory(
       }
     }
 
+    // A legacy owner cannot observe a migration marker. Renaming its lock
+    // directory would create a vacancy that another old process could acquire
+    // before the fenced owner is revalidated, so legacy recovery fails closed.
     await options.onContention?.();
-    if (await reclaimLegacyLock(lockPath, options)) continue;
     if (Date.now() - startedAt > options.timing.timeoutMs) {
       throw options.timeoutError();
     }
@@ -231,49 +227,6 @@ async function hasClaimProtocolState(lockPath: string): Promise<boolean> {
     if (isMissingError(error)) return false;
     throw error;
   }
-}
-
-async function reclaimLegacyLock(
-  lockPath: string,
-  options: WithOwnedDirectoryLockOptions
-): Promise<boolean> {
-  const owner = await readLegacyOwner(lockPath, options.timing);
-  if (!(await isStaleLegacyLock(lockPath, owner, options))) return false;
-
-  const fencedPath = `${lockPath}.legacy-reclaim-${randomBytes(12).toString("hex")}`;
-  try {
-    await rename(lockPath, fencedPath);
-  } catch (error) {
-    if (isMissingError(error)) return true;
-    throw error;
-  }
-
-  const fencedOwner = await readLegacyOwner(fencedPath, options.timing);
-  if (!(await isStaleLegacyLock(fencedPath, fencedOwner, options))) {
-    try {
-      await rename(fencedPath, lockPath);
-    } catch (error) {
-      // A successor that acquired the legacy path during fencing remains the
-      // current lock. Keep the revalidated former owner fenced beside it.
-      if (!isAlreadyExistsError(error)) throw error;
-    }
-    return false;
-  }
-  await rm(fencedPath, { force: true, recursive: true });
-  return true;
-}
-
-async function isStaleLegacyLock(
-  lockPath: string,
-  owner: LegacyDirectoryLockOwner | undefined,
-  options: WithOwnedDirectoryLockOptions
-): Promise<boolean> {
-  const heartbeat = owner === undefined
-    ? undefined
-    : await readHeartbeat(lockPath, owner.token, options.timing);
-  const metadata = await stat(lockPath).catch(() => undefined);
-  const lastActiveAt = heartbeat ?? owner?.createdAt ?? metadata?.mtimeMs;
-  return isStaleOwner(lastActiveAt, owner, options);
 }
 
 async function claimDisposition(
@@ -488,32 +441,6 @@ async function readOwner(
       ticket: value.ticket,
       token: value.token,
     };
-  } catch {
-    return undefined;
-  }
-}
-
-async function readLegacyOwner(
-  lockPath: string,
-  timing: DirectoryLockTiming
-): Promise<LegacyDirectoryLockOwner | undefined> {
-  try {
-    const value = JSON.parse(
-      await readFile(ownerPath(lockPath), "utf8")
-    ) as Partial<LegacyDirectoryLockOwner>;
-    if (
-      typeof value.createdAt !== "number" ||
-      !isValidTimestamp(value.createdAt, timing) ||
-      typeof value.pid !== "number" ||
-      !Number.isSafeInteger(value.pid) ||
-      value.pid <= 0 ||
-      value.pid > MAX_PROCESS_ID ||
-      typeof value.token !== "string" ||
-      !OWNER_TOKEN_PATTERN.test(value.token)
-    ) {
-      return undefined;
-    }
-    return { createdAt: value.createdAt, pid: value.pid, token: value.token };
   } catch {
     return undefined;
   }
