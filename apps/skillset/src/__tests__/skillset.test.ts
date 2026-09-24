@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { RETIRED_RULE_DEFAULTS_SURFACE } from "@skillset/schema";
 
 import { seedReleaseBaselines } from "../adoption";
 import { explainPath, listGeneratedEntries } from "@skillset/core/internal/authoring";
@@ -1529,6 +1530,37 @@ skillset:
 
   await expect(loadBuildGraph(providerSurfaceRoot)).rejects.toThrow(
     "unsupported defaults surface \"skill\""
+  );
+});
+
+test("target defaults accept rules and reject the retired rule surface with its rewrite", async () => {
+  const rulesRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+codex:
+  defaults:
+    rules:
+      enabled: false
+`,
+    ".skillset/rules/root.md": "# Root\n",
+  });
+
+  await expect(loadBuildGraph(rulesRoot)).resolves.toBeDefined();
+
+  const retiredRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+codex:
+  defaults:
+    ${RETIRED_RULE_DEFAULTS_SURFACE}:
+      enabled: false
+`,
+  });
+
+  await expect(loadBuildGraph(retiredRoot)).rejects.toThrow(
+    `skillset.yaml.codex.defaults.${RETIRED_RULE_DEFAULTS_SURFACE} is retired; use skillset.yaml.codex.defaults.rules`
   );
 });
 

@@ -2108,7 +2108,7 @@ function featureIdForLockItem(item: RenderedLockItem): string {
 function destinationForLockItem(item: RenderedLockItem): string {
   if (item.kind === "standalone-skill" || item.kind === "plugin-skill") return "skill";
   if (item.kind === "plugin") return "plugin-manifest";
-  if (item.kind === "rule") return "instruction";
+  if (item.kind === "rule") return "rule";
   if (item.kind === "project-agent") return "agent";
   if (item.kind === "island") return "target-native-island";
   if (item.kind === "changelog") return "changelog";

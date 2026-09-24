@@ -101,6 +101,7 @@ export {
 export { skillsetSchemaExamples } from "./examples";
 export { isSkillsetReport, validateSkillsetReport } from "./report";
 export {
+  RETIRED_RULE_DEFAULTS_SURFACE,
   RETIRED_RULE_SELECTOR_PREFIX,
   RULE_SOURCE_HASH_DOMAIN,
 } from "./retired-vocabulary";
