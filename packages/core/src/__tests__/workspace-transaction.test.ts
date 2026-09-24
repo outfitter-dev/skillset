@@ -3,7 +3,6 @@ import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   realpath,
@@ -12,8 +11,8 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import nodePath from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   applyWorkspaceTransaction,
@@ -23,29 +22,17 @@ import {
 const withWorkspace = async (
   operation: (root: string) => Promise<void>
 ): Promise<void> => {
-  const root = await mkdtemp(
-    nodePath.join(tmpdir(), "skillset-workspace-transaction-")
-  );
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-workspace-transaction-");
+  await operation(root);
 };
 
 const detectCaseSensitiveWorkspaceVolume = async (): Promise<boolean> => {
-  const probeRoot = await mkdtemp(
-    nodePath.join(tmpdir(), "skillset-workspace-case-probe-")
+  const probeRoot = await createTestFixtureRoot("skillset-workspace-case-probe-");
+  await writeFile(nodePath.join(probeRoot, "probe.txt"), "probe\n");
+  return await access(nodePath.join(probeRoot, "PROBE.txt")).then(
+    () => false,
+    () => true
   );
-  try {
-    await writeFile(nodePath.join(probeRoot, "probe.txt"), "probe\n");
-    return await access(nodePath.join(probeRoot, "PROBE.txt")).then(
-      () => false,
-      () => true
-    );
-  } finally {
-    await rm(probeRoot, { force: true, recursive: true });
-  }
 };
 
 /**
@@ -1032,28 +1019,22 @@ describe("workspace transactions", () => {
 
   test("refuses paths that escape or traverse symbolic links", async () => {
     await withWorkspace(async (root) => {
-      const outside = await mkdtemp(
-        nodePath.join(tmpdir(), "skillset-workspace-transaction-outside-")
-      );
-      try {
-        await expect(
-          applyWorkspaceTransaction(root, {
-            writes: [{ content: "nope\n", path: "../outside.txt" }],
-          })
-        ).rejects.toThrow("path escapes workspace root");
+      const outside = await createTestFixtureRoot("skillset-workspace-transaction-outside-");
+      await expect(
+        applyWorkspaceTransaction(root, {
+          writes: [{ content: "nope\n", path: "../outside.txt" }],
+        })
+      ).rejects.toThrow("path escapes workspace root");
 
-        await symlink(outside, nodePath.join(root, "linked"));
-        await expect(
-          applyWorkspaceTransaction(root, {
-            writes: [{ content: "nope\n", path: "linked/escaped.txt" }],
-          })
-        ).rejects.toThrow("refusing to traverse symbolic link");
-        await expect(
-          access(nodePath.join(outside, "escaped.txt"))
-        ).rejects.toThrow();
-      } finally {
-        await rm(outside, { force: true, recursive: true });
-      }
+      await symlink(outside, nodePath.join(root, "linked"));
+      await expect(
+        applyWorkspaceTransaction(root, {
+          writes: [{ content: "nope\n", path: "linked/escaped.txt" }],
+        })
+      ).rejects.toThrow("refusing to traverse symbolic link");
+      await expect(
+        access(nodePath.join(outside, "escaped.txt"))
+      ).rejects.toThrow();
     });
   });
 

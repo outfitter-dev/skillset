@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   createProgram,
@@ -94,7 +94,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
   });
 
   test("SET-191: update writes refreshed schema snapshots only after explicit write", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-providers-"));
+    const root = await createTestFixtureRoot("skillset-providers-");
     const schemaPath = join(root, "schema-snapshots.ts");
     const adoptedBody = schemaBody(["alpha"]);
     const liveBody = schemaBody(["alpha", "beta"]);
@@ -139,9 +139,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
   ] as const)(
     "SET-485: update preserves %s rollingLatest=%s provenance",
     async (kind, rollingLatest) => {
-      const root = await mkdtemp(
-        join(tmpdir(), "skillset-providers-provenance-")
-      );
+      const root = await createTestFixtureRoot("skillset-providers-provenance-");
       const schemaPath = join(root, "schema-snapshots.ts");
       const adoptedBody = schemaBody(["alpha"]);
       const liveBody = schemaBody(["alpha", "beta"]);
@@ -163,44 +161,38 @@ describe("SET-335 registry-owned provider maintenance", () => {
           ? { [schemaUrl]: liveBody }
           : { [listingUrl]: listingBody, [schemaUrl]: liveBody };
 
-      try {
-        const report = await runProviderMaintenance(root, "update", {
-          destinationSnapshots: [],
-          fetcher: fetchMap(responses),
-          now: "2026-08-15T03:00:00.000Z",
-          schemaSnapshotPath: schemaPath,
-          schemaSnapshots: [snapshot],
-          write: true,
-        });
+      const report = await runProviderMaintenance(root, "update", {
+        destinationSnapshots: [],
+        fetcher: fetchMap(responses),
+        now: "2026-08-15T03:00:00.000Z",
+        schemaSnapshotPath: schemaPath,
+        schemaSnapshots: [snapshot],
+        write: true,
+      });
 
-        expect(report.wrote).toBe(true);
-        expect(
-          report.schemaResults[0]?.updatedSnapshot?.provenance.rollingLatest
-        ).toBe(rollingLatest);
-        const source = await readFile(schemaPath, "utf8");
-        expect(source).toContain(`"rollingLatest": ${rollingLatest}`);
-        expect(typeDiagnostics(schemaPath)).toEqual([]);
-        const imported = (await import(pathToFileURL(schemaPath).href)) as {
-          readonly listProviderSchemaSnapshots: () => readonly ProviderSchemaSnapshot[];
-        };
-        const [writtenSnapshot] = imported.listProviderSchemaSnapshots();
-        expect(writtenSnapshot).toBeDefined();
-        if (writtenSnapshot === undefined)
-          throw new Error("expected refreshed schema snapshot");
-        expect(writtenSnapshot.provenance.rollingLatest).toBe(rollingLatest);
-        expect(hashProviderSchemaSnapshot(writtenSnapshot)).toBe(
-          writtenSnapshot.provenance.contentHash
-        );
-      } finally {
-        await rm(root, { force: true, recursive: true });
-      }
+      expect(report.wrote).toBe(true);
+      expect(
+        report.schemaResults[0]?.updatedSnapshot?.provenance.rollingLatest
+      ).toBe(rollingLatest);
+      const source = await readFile(schemaPath, "utf8");
+      expect(source).toContain(`"rollingLatest": ${rollingLatest}`);
+      expect(typeDiagnostics(schemaPath)).toEqual([]);
+      const imported = (await import(pathToFileURL(schemaPath).href)) as {
+        readonly listProviderSchemaSnapshots: () => readonly ProviderSchemaSnapshot[];
+      };
+      const [writtenSnapshot] = imported.listProviderSchemaSnapshots();
+      expect(writtenSnapshot).toBeDefined();
+      if (writtenSnapshot === undefined)
+        throw new Error("expected refreshed schema snapshot");
+      expect(writtenSnapshot.provenance.rollingLatest).toBe(rollingLatest);
+      expect(hashProviderSchemaSnapshot(writtenSnapshot)).toBe(
+        writtenSnapshot.provenance.contentHash
+      );
     }
   );
 
   test("SET-191: update preserves existing fetchedAt by default for deterministic CLI output", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-providers-deterministic-")
-    );
+    const root = await createTestFixtureRoot("skillset-providers-deterministic-");
     const firstPath = join(root, "first.ts");
     const secondPath = join(root, "second.ts");
     const adoptedBody = schemaBody(["alpha"]);
@@ -233,7 +225,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
   });
 
   test("SET-335: network failures are actionable and never write snapshots", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-providers-error-"));
+    const root = await createTestFixtureRoot("skillset-providers-error-");
     const schemaPath = join(root, "schema-snapshots.ts");
     const adoptedBody = schemaBody(["alpha"]);
     const url = "https://example.com/unavailable-schema.json";
@@ -257,7 +249,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
   });
 
   test("SET-382: unknown manual overlay formats fail before fetch or write", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-overlay-"));
+    const root = await createTestFixtureRoot("skillset-provider-overlay-");
     const schemaPath = join(root, "schema-snapshots.ts");
     const unknownOverlay = {
       ...providerSchemaManualOverlays[0],
@@ -301,7 +293,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
   });
 
   test("SET-382: canonical manual overlay formats ignore the report snapshot seam", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-overlay-"));
+    const root = await createTestFixtureRoot("skillset-provider-overlay-");
     const schemaPath = join(root, "schema-snapshots.ts");
     const adoptedBody = schemaBody(["alpha"]);
     const liveBody = schemaBody(["alpha", "beta"]);
@@ -358,7 +350,7 @@ describe("SET-335 registry-owned provider maintenance", () => {
   });
 
   test("SET-335: real schema snapshot source rendering is exact and importable", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-source-"));
+    const root = await createTestFixtureRoot("skillset-provider-source-");
     const path = join(root, "schema-snapshots.ts");
     const source = renderProviderSchemaSnapshotsSource(
       listProviderSchemaSnapshots(),

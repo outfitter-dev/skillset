@@ -1,14 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-  mkdtemp,
-  mkdir,
-  readFile,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   evaluateSkillsetTestRuntime,
@@ -62,20 +55,16 @@ claim:
 `,
     });
 
-    try {
-      const { declaration } = await loadSkillsetTestDeclaration(root, "claim");
-      expect(declaration.activationProbes[0]?.runtime).toMatchObject({
-        claims: [{ capability: "mcp-server", subject: "github" }],
-        resolvedClaims: [
-          {
-            claim: { capability: "mcp-server", subject: "github" },
-            requirementIds: ["activation:codex:mcp-server:github:proven"],
-          },
-        ],
-      });
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    const { declaration } = await loadSkillsetTestDeclaration(root, "claim");
+    expect(declaration.activationProbes[0]?.runtime).toMatchObject({
+      claims: [{ capability: "mcp-server", subject: "github" }],
+      resolvedClaims: [
+        {
+          claim: { capability: "mcp-server", subject: "github" },
+          requirementIds: ["activation:codex:mcp-server:github:proven"],
+        },
+      ],
+    });
   });
 
   it("stages a caller-owned workspace, evaluates static checks, and normalizes fake-probe assertions", async () => {
@@ -108,75 +97,68 @@ demo:
           contains: accepted
 `,
     });
-    const stagingRoot = await mkdtemp(
-      join(tmpdir(), "skillset-test-evaluation-")
-    );
+    const stagingRoot = await createTestFixtureRoot("skillset-test-evaluation-");
     const workspacePath = join(stagingRoot, "workspace");
     await mkdir(workspacePath, { recursive: true });
 
-    try {
-      const { declaration, graph } = await loadSkillsetTestDeclaration(
-        root,
-        "demo"
-      );
-      await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
-      const evaluation = await evaluateSkillsetTestWorkspace(
-        workspacePath,
-        graph,
-        declaration,
-        {
-          buildMode: "all",
-          sourceDir: graph.sourceDir,
-          targetFilter: declaration.targets,
-        }
-      );
-      const requests: SkillsetRuntimeProbeRequest[] = [];
-      const runtime = await evaluateSkillsetTestRuntime(
-        workspacePath,
-        declaration,
-        { sourceDir: graph.sourceDir },
-        {
-          run: async (request) => {
-            requests.push(request);
-            return {
-              command: ["fake", request.target],
-              response: "accepted",
-              state: "passed",
-            };
-          },
-        }
-      );
+    const { declaration, graph } = await loadSkillsetTestDeclaration(
+      root,
+      "demo"
+    );
+    await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
+    const evaluation = await evaluateSkillsetTestWorkspace(
+      workspacePath,
+      graph,
+      declaration,
+      {
+        buildMode: "all",
+        sourceDir: graph.sourceDir,
+        targetFilter: declaration.targets,
+      }
+    );
+    const requests: SkillsetRuntimeProbeRequest[] = [];
+    const runtime = await evaluateSkillsetTestRuntime(
+      workspacePath,
+      declaration,
+      { sourceDir: graph.sourceDir },
+      {
+        run: async (request) => {
+          requests.push(request);
+          return {
+            command: ["fake", request.target],
+            response: "accepted",
+            state: "passed",
+          };
+        },
+      }
+    );
 
-      expect(evaluation.ok).toBe(true);
-      expect(evaluation.checks.map((check) => check.kind)).toEqual([
-        "projection",
-        "contains",
-      ]);
-      expect(
-        await Bun.file(
-          join(workspacePath, ".claude/skills/demo/SKILL.md")
-        ).text()
-      ).toContain("Demo body.");
-      expect(requests).toEqual([
-        expect.objectContaining({
-          name: "demo-live-demo-claude",
-          prompt: "Say demo.",
-          promptProvenance: "inline",
-          target: "claude",
-          workspacePath,
-        }),
-      ]);
-      expect(runtime).toEqual([
-        expect.objectContaining({
-          assertions: [expect.objectContaining({ kind: "contains", ok: true })],
-          ok: true,
-          target: "claude",
-        }),
-      ]);
-    } finally {
-      await rm(stagingRoot, { force: true, recursive: true });
-      await rm(root, { force: true, recursive: true });
-    }
+    expect(evaluation.ok).toBe(true);
+    expect(evaluation.checks.map((check) => check.kind)).toEqual([
+      "projection",
+      "contains",
+    ]);
+    expect(
+      await Bun.file(
+        join(workspacePath, ".claude/skills/demo/SKILL.md")
+      ).text()
+    ).toContain("Demo body.");
+    expect(requests).toEqual([
+      expect.objectContaining({
+        name: "demo-live-demo-claude",
+        prompt: "Say demo.",
+        promptProvenance: "inline",
+        target: "claude",
+        workspacePath,
+      }),
+    ]);
+    expect(runtime).toEqual([
+      expect.objectContaining({
+        assertions: [expect.objectContaining({ kind: "contains", ok: true })],
+        ok: true,
+        target: "claude",
+      }),
+    ]);
   });
 
   it("reports a missing runtime render before invoking the probe", async () => {
@@ -205,54 +187,47 @@ missing:
           contains: absent
 `,
     });
-    const stagingRoot = await mkdtemp(
-      join(tmpdir(), "skillset-test-evaluation-")
-    );
+    const stagingRoot = await createTestFixtureRoot("skillset-test-evaluation-");
     const workspacePath = join(stagingRoot, "workspace");
     await mkdir(workspacePath, { recursive: true });
     let calls = 0;
 
-    try {
-      const { declaration, graph } = await loadSkillsetTestDeclaration(
-        root,
-        "missing"
-      );
-      await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
-      const evaluation = await evaluateSkillsetTestWorkspace(
-        workspacePath,
-        graph,
-        declaration,
-        {
-          buildMode: "all",
-          sourceDir: graph.sourceDir,
-          targetFilter: declaration.targets,
-        }
-      );
-      const runtime = await evaluateSkillsetTestRuntime(
-        workspacePath,
-        declaration,
-        { sourceDir: graph.sourceDir },
-        {
-          run: async () => {
-            calls += 1;
-            return { command: [], state: "passed" };
-          },
-        }
-      );
+    const { declaration, graph } = await loadSkillsetTestDeclaration(
+      root,
+      "missing"
+    );
+    await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
+    const evaluation = await evaluateSkillsetTestWorkspace(
+      workspacePath,
+      graph,
+      declaration,
+      {
+        buildMode: "all",
+        sourceDir: graph.sourceDir,
+        targetFilter: declaration.targets,
+      }
+    );
+    const runtime = await evaluateSkillsetTestRuntime(
+      workspacePath,
+      declaration,
+      { sourceDir: graph.sourceDir },
+      {
+        run: async () => {
+          calls += 1;
+          return { command: [], state: "passed" };
+        },
+      }
+    );
 
-      expect(evaluation.ok).toBe(true);
-      expect(calls).toBe(0);
-      expect(runtime).toEqual([
-        expect.objectContaining({
-          failureClass: "render",
-          ok: false,
-          state: "failed",
-        }),
-      ]);
-    } finally {
-      await rm(stagingRoot, { force: true, recursive: true });
-      await rm(root, { force: true, recursive: true });
-    }
+    expect(evaluation.ok).toBe(true);
+    expect(calls).toBe(0);
+    expect(runtime).toEqual([
+      expect.objectContaining({
+        failureClass: "render",
+        ok: false,
+        state: "failed",
+      }),
+    ]);
   });
 
   it("fails build-only evaluation when projection returns a blocked result", async () => {
@@ -273,48 +248,44 @@ blocked:
       "AGENTS.md": "# Unmanaged instructions\n",
     });
 
-    try {
-      const loaded = await loadSkillsetTestDeclaration(
-        root,
-        "blocked"
-      );
-      const { graph } = loaded;
-      const declaration = {
-        ...loaded.declaration,
-        checks: [{ kind: "build" as const }],
-      };
-      const evaluation = await evaluateSkillsetTestWorkspace(
-        root,
-        graph,
-        declaration,
-        {
-          buildMode: "all",
-          sourceDir: graph.sourceDir,
-          targetFilter: declaration.targets,
-        }
-      );
+    const loaded = await loadSkillsetTestDeclaration(
+      root,
+      "blocked"
+    );
+    const { graph } = loaded;
+    const declaration = {
+      ...loaded.declaration,
+      checks: [{ kind: "build" as const }],
+    };
+    const evaluation = await evaluateSkillsetTestWorkspace(
+      root,
+      graph,
+      declaration,
+      {
+        buildMode: "all",
+        sourceDir: graph.sourceDir,
+        targetFilter: declaration.targets,
+      }
+    );
 
-      expect(evaluation.ok).toBe(false);
-      expect(evaluation.buildError).toBe(
-        "skillset: build blocked by unmanaged-output-collision"
-      );
-      expect(evaluation.checks).toEqual([{
-        detail: "skillset: build blocked by unmanaged-output-collision",
-        kind: "build",
-        ok: false,
-      }]);
-      expect(evaluation.generatedFiles).toBeGreaterThan(0);
-      expect(evaluation.rendered.length).toBe(evaluation.generatedFiles);
-      expect(evaluation.renderResults.length).toBeGreaterThan(0);
-      expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(
-        "# Unmanaged instructions\n"
-      );
-      expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(
-        false
-      );
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    expect(evaluation.ok).toBe(false);
+    expect(evaluation.buildError).toBe(
+      "skillset: build blocked by unmanaged-output-collision"
+    );
+    expect(evaluation.checks).toEqual([{
+      detail: "skillset: build blocked by unmanaged-output-collision",
+      kind: "build",
+      ok: false,
+    }]);
+    expect(evaluation.generatedFiles).toBeGreaterThan(0);
+    expect(evaluation.rendered.length).toBe(evaluation.generatedFiles);
+    expect(evaluation.renderResults.length).toBeGreaterThan(0);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(
+      "# Unmanaged instructions\n"
+    );
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(
+      false
+    );
   });
 
   it("SET-647: treats a missing exists-check path as absence and raises ELOOP", async () => {
@@ -334,55 +305,50 @@ presence:
       - path: loop
 `,
     });
-    const stagingRoot = await mkdtemp(
-      join(tmpdir(), "skillset-test-evaluation-existence-")
+    const stagingRoot = await createTestFixtureRoot(
+      "skillset-test-evaluation-existence-"
     );
     const workspacePath = join(stagingRoot, "workspace");
     await mkdir(workspacePath, { recursive: true });
 
-    try {
-      const { declaration, graph } = await loadSkillsetTestDeclaration(
-        root,
-        "presence"
-      );
-      await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
-      const missing = await evaluateSkillsetTestWorkspace(
-        workspacePath,
-        graph,
-        declaration,
-        {
-          buildMode: "all",
-          sourceDir: graph.sourceDir,
-          targetFilter: declaration.targets,
-        }
-      );
-      expect(missing.ok).toBe(false);
-      expect(missing.checks).toContainEqual({
-        detail: "path does not exist",
-        kind: "exists",
-        ok: false,
-        path: "missing-check.txt",
-      });
-      expect(missing.checks).toContainEqual({
-        detail: "path does not exist",
-        kind: "exists",
-        ok: false,
-        path: "loop",
-      });
+    const { declaration, graph } = await loadSkillsetTestDeclaration(
+      root,
+      "presence"
+    );
+    await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
+    const missing = await evaluateSkillsetTestWorkspace(
+      workspacePath,
+      graph,
+      declaration,
+      {
+        buildMode: "all",
+        sourceDir: graph.sourceDir,
+        targetFilter: declaration.targets,
+      }
+    );
+    expect(missing.ok).toBe(false);
+    expect(missing.checks).toContainEqual({
+      detail: "path does not exist",
+      kind: "exists",
+      ok: false,
+      path: "missing-check.txt",
+    });
+    expect(missing.checks).toContainEqual({
+      detail: "path does not exist",
+      kind: "exists",
+      ok: false,
+      path: "loop",
+    });
 
-      const loopPath = join(workspacePath, "loop");
-      await symlink(basename(loopPath), loopPath);
-      await expect(
-        evaluateSkillsetTestWorkspace(workspacePath, graph, declaration, {
-          buildMode: "all",
-          sourceDir: graph.sourceDir,
-          targetFilter: declaration.targets,
-        })
-      ).rejects.toMatchObject({ code: "ELOOP", path: loopPath });
-    } finally {
-      await rm(stagingRoot, { force: true, recursive: true });
-      await rm(root, { force: true, recursive: true });
-    }
+    const loopPath = join(workspacePath, "loop");
+    await symlink(basename(loopPath), loopPath);
+    await expect(
+      evaluateSkillsetTestWorkspace(workspacePath, graph, declaration, {
+        buildMode: "all",
+        sourceDir: graph.sourceDir,
+        targetFilter: declaration.targets,
+      })
+    ).rejects.toMatchObject({ code: "ELOOP", path: loopPath });
   });
 
   it("SET-647: raises when a test declaration path is a symlink loop", async () => {
@@ -404,14 +370,10 @@ presence:
     await rm(testsPath);
     await symlink(basename(testsPath), testsPath);
 
-    try {
-      await expect(loadSkillsetTestDeclaration(root, "presence")).rejects.toMatchObject({
-        code: "ELOOP",
-        path: testsPath,
-      });
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(loadSkillsetTestDeclaration(root, "presence")).rejects.toMatchObject({
+      code: "ELOOP",
+      path: testsPath,
+    });
   });
 
   it("expects an opted-out Cursor plugin license to be omitted", async () => {
@@ -485,26 +447,21 @@ demo:
 `,
     });
     await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
-    const stagingRoot = await mkdtemp(
-      join(tmpdir(), "skillset-test-evaluation-corrupt-")
+    const stagingRoot = await createTestFixtureRoot(
+      "skillset-test-evaluation-corrupt-"
     );
     const workspacePath = join(stagingRoot, "workspace");
     await mkdir(workspacePath, { recursive: true });
 
-    try {
-      const { declaration, graph } = await loadSkillsetTestDeclaration(
-        root,
-        "demo"
-      );
-      await expect(
-        stageSkillsetTestWorkspace(root, graph, declaration, workspacePath)
-      ).rejects.toThrow(
-        "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
-      );
-    } finally {
-      await rm(stagingRoot, { force: true, recursive: true });
-      await rm(root, { force: true, recursive: true });
-    }
+    const { declaration, graph } = await loadSkillsetTestDeclaration(
+      root,
+      "demo"
+    );
+    await expect(
+      stageSkillsetTestWorkspace(root, graph, declaration, workspacePath)
+    ).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
+    );
   });
 
   it("remains independent from the CLI app implementation", async () => {
@@ -577,62 +534,53 @@ plugin-license:
     pluginManifests: true
 `,
   });
-  const stagingRoot = await mkdtemp(
-    join(tmpdir(), "skillset-test-evaluation-license-")
-  );
+  const stagingRoot = await createTestFixtureRoot("skillset-test-evaluation-license-");
   const workspacePath = join(stagingRoot, "workspace");
   await mkdir(workspacePath, { recursive: true });
 
-  try {
-    const { declaration, graph } = await loadSkillsetTestDeclaration(
-      root,
-      "plugin-license"
-    );
-    await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
-    const evaluation = await evaluateSkillsetTestWorkspace(
-      workspacePath,
-      graph,
-      declaration,
-      {
-        buildMode: "all",
-        sourceDir: graph.sourceDir,
-        targetFilter: declaration.targets,
-      }
-    );
-    const manifest = JSON.parse(
-      await readFile(
-        join(
-          workspacePath,
-          target === "codex"
-            ? "plugins/tools/plugin.json"
-            : `plugins/tools/.${target}-plugin/plugin.json`
-        ),
-        "utf8"
-      )
-    ) as {
-      author?: { email?: string; name?: string };
-      extensions?: {
-        "com.openai"?: {
-          interface?: { category?: string; displayName?: string };
-        };
+  const { declaration, graph } = await loadSkillsetTestDeclaration(
+    root,
+    "plugin-license"
+  );
+  await stageSkillsetTestWorkspace(root, graph, declaration, workspacePath);
+  const evaluation = await evaluateSkillsetTestWorkspace(
+    workspacePath,
+    graph,
+    declaration,
+    {
+      buildMode: "all",
+      sourceDir: graph.sourceDir,
+      targetFilter: declaration.targets,
+    }
+  );
+  const manifest = JSON.parse(
+    await readFile(
+      join(
+        workspacePath,
+        target === "codex"
+          ? "plugins/tools/plugin.json"
+          : `plugins/tools/.${target}-plugin/plugin.json`
+      ),
+      "utf8"
+    )
+  ) as {
+    author?: { email?: string; name?: string };
+    extensions?: {
+      "com.openai"?: {
+        interface?: { category?: string; displayName?: string };
       };
-      interface?: { category?: string; displayName?: string };
-      license?: string;
     };
+    interface?: { category?: string; displayName?: string };
+    license?: string;
+  };
 
-    return { checks: evaluation.checks, manifest };
-  } finally {
-    await rm(stagingRoot, { force: true, recursive: true });
-    await rm(root, { force: true, recursive: true });
-  }
+  return { checks: evaluation.checks, manifest };
 }
 
 async function fixture(
   files: Readonly<Record<string, string>>
 ): Promise<string> {
-  const root = await mkdtemp(
-    join(tmpdir(), "skillset-test-evaluation-fixture-")
-  );
+  const root = await createTestFixtureRoot("skillset-test-evaluation-fixture-");
   for (const [path, content] of Object.entries(files)) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
