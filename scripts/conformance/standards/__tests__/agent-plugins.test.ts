@@ -4,14 +4,13 @@ import { createHash } from "node:crypto";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { createTestFixtureRoot } from "../../../test-helpers/fixture-root";
 import {
   runAgentPluginsProbe,
   validateAgentPluginsSchemas,
@@ -163,9 +162,7 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
   });
 
   test("rejects a selected root that only contains an obsolete agents package", async () => {
-    const root = await mkdtemp(
-      path.join(tmpdir(), "skillset-agent-plugins-test-")
-    );
+    const root = await createTestFixtureRoot("skillset-agent-plugins-test-");
     const packageRoot = path.join(root, "plugins", "candidate-plugin");
     const obsoleteRoot = path.join(packageRoot, "agents");
     await mkdir(obsoleteRoot, { recursive: true });
@@ -206,9 +203,7 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
 });
 
 async function fixturePackage(): Promise<string> {
-  const root = await mkdtemp(
-    path.join(tmpdir(), "skillset-agent-plugins-test-")
-  );
+  const root = await createTestFixtureRoot("skillset-agent-plugins-test-");
   const packageRoot = path.join(root, "plugins", "candidate-plugin");
   await mkdir(packageRoot, { recursive: true });
   await writeFile(
