@@ -15,11 +15,14 @@ import {
   type Option,
 } from "@clack/prompts";
 
+import { PromptCancelledError } from "./prompt-cancelled-error";
 import {
   createTerminalRenderer,
   terminalColorEnabled,
   type TerminalRenderer,
 } from "./terminal-renderer";
+
+export { PromptCancelledError } from "./prompt-cancelled-error";
 
 export interface PromptChoice<Value> {
   readonly checked?: boolean;
@@ -103,15 +106,6 @@ export interface PromptContext {
   readonly input?: Readable;
   readonly output?: Writable;
   readonly signal?: AbortSignal;
-}
-
-export class PromptCancelledError extends Error {
-  readonly exitCode = 130;
-
-  constructor() {
-    super("skillset: interactive prompt cancelled");
-    this.name = "PromptCancelledError";
-  }
 }
 
 export function normalizePromptError(error: unknown): never {
