@@ -217,13 +217,23 @@ export async function packageBinDiagnostics(rootPath: string) {
 }
 
 export async function bunRuntimeDiagnostics(rootPath: string) {
-  const manifest = await readManifest(
+  const { engines: workspaceEngines } = await readManifest(
+    join(rootPath, "package.json")
+  );
+  const supportedRange = isRecord(workspaceEngines)
+    ? workspaceEngines.bun
+    : undefined;
+  if (typeof supportedRange !== "string" || supportedRange.length === 0) {
+    return ["package.json must declare a supported Bun range in engines.bun"];
+  }
+  const { engines } = await readManifest(
     join(rootPath, "apps", "cli", "package.json")
   );
-  const engines = manifest.engines;
-  return isRecord(engines) && engines.bun === ">=1.4.0"
+  return isRecord(engines) && engines.bun === supportedRange
     ? []
-    : ["apps/cli/package.json must require Bun >=1.4.0"];
+    : [
+        `apps/cli/package.json Bun engine must match package.json engines.bun (${supportedRange})`,
+      ];
 }
 
 export async function sourceWorkspaceDiagnostics(rootPath: string) {

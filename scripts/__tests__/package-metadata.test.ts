@@ -141,6 +141,7 @@ describe("package metadata checks", () => {
 
   test("separates the Bun CLI floor from the dependency-free Node launcher", async () => {
     const root = await fixture({
+      "package.json": { engines: { bun: ">=1.4.0" } },
       "apps/cli/package.json": { engines: { bun: ">=1.4.0" } },
       "apps/skillset/package.json": {
         engines: { node: ">=18" },
@@ -149,6 +150,22 @@ describe("package metadata checks", () => {
     });
 
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    await writeFile(
+      join(root, "package.json"),
+      `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
+    );
+    expect(await bunRuntimeDiagnostics(root)).toEqual([
+      "apps/cli/package.json Bun engine must match package.json engines.bun (>=1.4.0 <1.5.0)",
+    ]);
+    await writeFile(
+      join(root, "apps/cli/package.json"),
+      `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
+    );
+    expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    await writeFile(join(root, "package.json"), '{"engines":{}}\n');
+    expect(await bunRuntimeDiagnostics(root)).toEqual([
+      "package.json must declare a supported Bun range in engines.bun",
+    ]);
     expect(await launcherRuntimeDiagnostics(root)).toContain(
       "apps/skillset/package.json must declare exactly the five required native packages as optional dependencies"
     );

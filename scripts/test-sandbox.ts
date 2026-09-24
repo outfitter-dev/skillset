@@ -104,14 +104,11 @@ try {
     XDG_STATE_HOME: xdg.state,
   };
   scrubGitConfigParameters(env);
-  // Pin the interpreter, not the machine. Checks such as the native size
-  // baseline compare recorded evidence against `Bun.version`, so a contributor
-  // whose global Bun differs from `.bun-version` would otherwise fail tests
-  // that pass in CI. Resolution always yields a path under our own cache, even
-  // when the ambient Bun already matches the pin: that path is shared with
-  // every other repository whose bootstrap installs a pinned Bun over it, and
-  // this PATH entry governs the whole run. A matching ambient interpreter is
-  // adopted by copy, so CI pays one copy on a cold cache rather than nothing.
+  // Pin the test interpreter, not the machine. Native evidence accepts the
+  // supported Bun range, but tests and CI still need one repeatable runtime.
+  // Even a matching ambient Bun is copied into our version-scoped cache:
+  // another repository can overwrite the shared global path during a run.
+  // This PATH entry governs the whole run, including nested child processes.
   const pinnedBun = await resolvePinnedBun(repoRoot);
   env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
   const childCommand =
