@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { createInteractiveSession } from "../interactive-session";
 import { PromptCancelledError, ScriptedPromptAdapter } from "../prompt-adapter";
@@ -36,7 +36,7 @@ function scriptedSession(
 }
 
 async function workspace(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-test-interactive-"));
+  const root = await createTestFixtureRoot("skillset-test-interactive-");
   await initSkillset({ cwd: root, rootPath: root, write: true });
   await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
   await writeFile(

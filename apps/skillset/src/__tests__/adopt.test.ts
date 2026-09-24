@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
@@ -183,7 +183,7 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
 });
 
 test("SET-277: adoption resolves relative destinations from the caller cwd", async () => {
-  const cwd = await mkdtemp(join(tmpdir(), "skillset-adopt-cwd-"));
+  const cwd = await createTestFixtureRoot("skillset-adopt-cwd-");
   const source = join(cwd, "source");
   await mkdir(source);
   await writeFile(join(source, "AGENTS.md"), AGENTS_CONTENT, "utf8");
@@ -201,7 +201,7 @@ test("SET-277: adoption resolves relative destinations from the caller cwd", asy
 
 test("SET-277: local and remote acquisition write the same adoption plan into a destination", async () => {
   const source = await gitFixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-from-"));
+  const parent = await createTestFixtureRoot("skillset-init-from-");
   const localDestination = join(parent, "local");
   const remoteDestination = join(parent, "remote");
   const before = await walkFiles(source);
@@ -222,7 +222,7 @@ test("SET-277: local and remote acquisition write the same adoption plan into a 
 
 test("SET-277: adoption honors an explicit workspace name", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-name-"));
+  const parent = await createTestFixtureRoot("skillset-init-name-");
   const destination = join(parent, "destination");
 
   const result = await adoptSkillset(source, {
@@ -279,7 +279,7 @@ test("SET-277: adoption can copy into a destination nested below its source", as
 
 test("SET-277: acquisition previews without creating its destination", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preview-"));
+  const parent = await createTestFixtureRoot("skillset-init-preview-");
   const destination = join(parent, "preview");
 
   const preview = await adoptSkillset(source, { destination });
@@ -290,7 +290,7 @@ test("SET-277: acquisition previews without creating its destination", async () 
 
 test("SET-277: acquisition validates adoption before copying its destination", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preflight-"));
+  const parent = await createTestFixtureRoot("skillset-init-preflight-");
   const destination = join(parent, "invalid-selection");
 
   await expect(

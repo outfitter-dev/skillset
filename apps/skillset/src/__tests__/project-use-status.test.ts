@@ -1,20 +1,13 @@
-import { afterEach, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { expect, test } from "bun:test";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillsetResult } from "@skillset/core";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 const cli = join(import.meta.dir, "..", "cli.ts");
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 test("SET-554 status exposes coherent project-use provenance in JSON and human output", async () => {
   const root = await fixture({
@@ -221,8 +214,7 @@ function statusEntry(target: "claude" | "codex" | "cursor") {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-project-use-status-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-project-use-status-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
