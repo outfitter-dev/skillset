@@ -7,7 +7,7 @@ import {
   diagnoseSourceMetadataCompatibility,
   validateAgentFrontmatter,
   validateAdaptiveHookUnitSource,
-  validateInstructionFrontmatter,
+  validateRuleFrontmatter,
   validateSkillFrontmatter,
   type SkillsetSchemaDiagnostic,
 } from "@skillset/schema";
@@ -757,7 +757,7 @@ async function loadInstructions(
         );
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
-      validateInstructionFrontmatter(frontmatter, sourceLabel).diagnostics,
+      validateRuleFrontmatter(frontmatter, sourceLabel).diagnostics,
       sourceLabel,
       frontmatter
     );

@@ -1790,7 +1790,7 @@ export function validateAgentFrontmatter(
   return result(diagnostics);
 }
 
-export function validateInstructionFrontmatter(
+export function validateRuleFrontmatter(
   value: unknown,
   path = "$"
 ): SkillsetSchemaValidationResult {
@@ -1799,89 +1799,89 @@ export function validateInstructionFrontmatter(
     return result([
       diagnostic(
         path,
-        "schema/instruction-frontmatter/type",
-        "instruction frontmatter must be an object"
+        "schema/rule-frontmatter/type",
+        "rule frontmatter must be an object"
       ),
     ]);
   checkRetiredTargetsKey(
     value,
     path,
-    "schema/instruction-frontmatter/key",
+    "schema/rule-frontmatter/key",
     diagnostics
   );
   checkOptionalNonEmptyString(
     value.name,
     `${path}.name`,
-    "schema/instruction-frontmatter/name",
+    "schema/rule-frontmatter/name",
     diagnostics
   );
   checkOptionalNonEmptyString(
     value.description,
     `${path}.description`,
-    "schema/instruction-frontmatter/description",
+    "schema/rule-frontmatter/description",
     diagnostics
   );
   checkOptionalNonEmptyString(
     value.summary,
     `${path}.summary`,
-    "schema/instruction-frontmatter/summary",
+    "schema/rule-frontmatter/summary",
     diagnostics
   );
   checkOptionalNonEmptyString(
     value.title,
     `${path}.title`,
-    "schema/instruction-frontmatter/title",
+    "schema/rule-frontmatter/title",
     diagnostics
   );
   checkOptionalSemverString(
     value.version,
     `${path}.version`,
-    "schema/instruction-frontmatter/version",
+    "schema/rule-frontmatter/version",
     diagnostics
   );
   checkOptionalDialect(
     value.dialect,
     `${path}.dialect`,
-    "schema/instruction-frontmatter/dialect",
+    "schema/rule-frontmatter/dialect",
     diagnostics
   );
   checkOptionalStringArray(
     value.paths,
     `${path}.paths`,
-    "schema/instruction-frontmatter/paths",
+    "schema/rule-frontmatter/paths",
     diagnostics
   );
   checkTargetBlock(
     value.claude,
     `${path}.claude`,
-    "schema/instruction-frontmatter/target",
+    "schema/rule-frontmatter/target",
     diagnostics
   );
   checkTargetBlock(
     value.codex,
     `${path}.codex`,
-    "schema/instruction-frontmatter/target",
+    "schema/rule-frontmatter/target",
     diagnostics
   );
   if (isSchemaRecord(value.codex) && value.codex.mode === "symlink") {
     diagnostics.push(
       diagnostic(
         `${path}.codex.mode`,
-        "schema/instruction-frontmatter/codex-mode",
-        "Codex instruction mode symlink is unsupported; use codex: true or codex: false"
+        "schema/rule-frontmatter/codex-mode",
+        "Codex rule mode symlink is unsupported; use codex: true or codex: false"
       )
     );
   }
   checkTargetBlock(
     value.cursor,
     `${path}.cursor`,
-    "schema/instruction-frontmatter/target",
+    "schema/rule-frontmatter/target",
     diagnostics
   );
   checkOptionalObject(
     value.metadata,
     `${path}.metadata`,
-    "schema/instruction-frontmatter/metadata",
+    "schema/rule-frontmatter/metadata",
     diagnostics
   );
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);

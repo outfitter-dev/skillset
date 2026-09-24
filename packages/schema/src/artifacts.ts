@@ -11,7 +11,7 @@ import {
   cliEventContract,
   cliResultContract,
   hookContract,
-  instructionFrontmatterContract,
+  ruleFrontmatterContract,
   pluginConfigContract,
   reportContract,
   skillEvalContract,
@@ -37,7 +37,7 @@ const schemaFileNames = {
   "cli-event": "cli-event.schema.json",
   "cli-result": "cli-result.schema.json",
   hook: "hook.schema.json",
-  "instruction-frontmatter": "instruction-frontmatter.schema.json",
+  "rule-frontmatter": "rule-frontmatter.schema.json",
   "plugin-config": "plugin-config.schema.json",
   report: "report.schema.json",
   "skill-eval": "skill-eval.schema.json",
@@ -88,7 +88,7 @@ function combinedSchemaArtifact(): SkillsetJsonSchemaArtifact {
         { $ref: "#/$defs/source-metadata" },
         { $ref: "#/$defs/skill-frontmatter" },
         { $ref: "#/$defs/agent-frontmatter" },
-        { $ref: "#/$defs/instruction-frontmatter" },
+        { $ref: "#/$defs/rule-frontmatter" },
         { $ref: "#/$defs/skill-eval" },
         { $ref: "#/$defs/hook" },
         { $ref: "#/$defs/adaptive-hook" },
@@ -117,7 +117,7 @@ export const skillsetWorkspaceJsonSchema = workspaceConfigContract.schema;
 export const skillsetSourceMetadataJsonSchema = sourceMetadataContract.schema;
 export const skillsetSkillFrontmatterJsonSchema = skillFrontmatterContract.schema;
 export const skillsetAgentFrontmatterJsonSchema = agentFrontmatterContract.schema;
-export const skillsetInstructionFrontmatterJsonSchema = instructionFrontmatterContract.schema;
+export const skillsetRuleFrontmatterJsonSchema = ruleFrontmatterContract.schema;
 export const skillsetPluginConfigJsonSchema = pluginConfigContract.schema;
 export const skillsetSkillEvalJsonSchema = skillEvalContract.schema;
 export const skillsetHookJsonSchema = hookContract.schema;

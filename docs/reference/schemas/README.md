@@ -15,7 +15,7 @@ The combined schema is [`skillset.schema.json`](./0.1.0/skillset.schema.json). U
 | `source-metadata` | [`source-metadata.schema.json`](./0.1.0/source-metadata.schema.json) | Shared source metadata for workspaces, plugins, and generated attribution. |
 | `skill-frontmatter` | [`skill-frontmatter.schema.json`](./0.1.0/skill-frontmatter.schema.json) | Adaptive Skillset skill frontmatter. |
 | `agent-frontmatter` | [`agent-frontmatter.schema.json`](./0.1.0/agent-frontmatter.schema.json) | Adaptive Skillset agent frontmatter. |
-| `instruction-frontmatter` | [`instruction-frontmatter.schema.json`](./0.1.0/instruction-frontmatter.schema.json) | Adaptive Skillset instruction/rules frontmatter. |
+| `rule-frontmatter` | [`rule-frontmatter.schema.json`](./0.1.0/rule-frontmatter.schema.json) | Adaptive Skillset rule frontmatter. |
 | `hook` | [`hook.schema.json`](./0.1.0/hook.schema.json) | Skillset hook definition source contract for aggregate hook event maps. |
 | `adaptive-hook` | [`adaptive-hook.schema.json`](./0.1.0/adaptive-hook.schema.json) | Skillset adaptive hook unit source contract for reusable portable hooks. |
 | `change-entry` | [`change-entry.schema.json`](./0.1.0/change-entry.schema.json) | Compatibility-only legacy pending change-entry frontmatter contract. |
@@ -34,7 +34,7 @@ The examples are generated from typed fixtures and checked against the same sche
 | `source-metadata` | [`source-metadata.yaml`](../examples/source-metadata.yaml) | Shared source metadata used under the skillset key. |
 | `skill-frontmatter` | [`skill-frontmatter.yaml`](../examples/skill-frontmatter.yaml) | Adaptive skill frontmatter; allowed_tools.agents is Agent Skills tool policy, not a provider or standards selector. |
 | `agent-frontmatter` | [`agent-frontmatter.yaml`](../examples/agent-frontmatter.yaml) | Adaptive project-agent frontmatter. |
-| `instruction-frontmatter` | [`instruction-frontmatter.yaml`](../examples/instruction-frontmatter.yaml) | Adaptive instruction/rules frontmatter. |
+| `rule-frontmatter` | [`rule-frontmatter.yaml`](../examples/rule-frontmatter.yaml) | Adaptive rule frontmatter. |
 | `hook` | [`hook.yaml`](../examples/hook.yaml) | Hook definition source object. |
 | `adaptive-hook` | [`adaptive-hook.yaml`](../examples/adaptive-hook.yaml) | Adaptive reusable hook unit. |
 | `change-entry` | [`change-entry.yaml`](../examples/change-entry.yaml) | Compatibility-only legacy pending change-entry frontmatter. |
@@ -44,3 +44,5 @@ The examples are generated from typed fixtures and checked against the same sche
 ## Editor Integration
 
 Workspace manifests can use the YAML language-server comment `# yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json`. Skillset scaffolds this comment because the manifest schema is strict and should not need an extra `$schema` key in authored YAML.
+
+Rule frontmatter is published as [`rule-frontmatter.schema.json`](./0.1.0/rule-frontmatter.schema.json) with no alias at its previous file name. Editor associations that still point at the file retired by [ADR-0037](../../adrs/0037-rules-name-authored-guidance-source.md) must switch to `https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/rule-frontmatter.schema.json`.

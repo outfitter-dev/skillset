@@ -187,6 +187,8 @@ function renderSchemaReadme(): string {
     "",
     `Workspace manifests can use the YAML language-server comment \`# yaml-language-server: $schema=${schemaUri("workspace-config")}\`. Skillset scaffolds this comment because the manifest schema is strict and should not need an extra \`$schema\` key in authored YAML.`,
     "",
+    `Rule frontmatter is published as [\`rule-frontmatter.schema.json\`](./${SKILLSET_SCHEMA_VERSION}/rule-frontmatter.schema.json) with no alias at its previous file name. Editor associations that still point at the file retired by [ADR-0037](../../adrs/0037-rules-name-authored-guidance-source.md) must switch to \`${schemaUri("rule-frontmatter")}\`.`,
+    "",
   ].join("\n");
 }
 
