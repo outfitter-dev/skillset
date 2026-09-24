@@ -1,10 +1,10 @@
 import { mkdtemp, readFile, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   createTestGitFixtureRoot,
   createTestGitRemote,
@@ -389,7 +389,9 @@ Use this demo skill.
 }, 15_000);
 
 async function fixture(files: Record<string, string>, parent?: string): Promise<string> {
-  const root = await mkdtemp(join(parent ?? tmpdir(), "skillset-marketplace-cli-"));
+  const root = parent
+    ? await mkdtemp(join(parent, "skillset-marketplace-cli-"))
+    : await createTestFixtureRoot("skillset-marketplace-cli-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
@@ -403,7 +405,8 @@ async function runSkillsetCli(
   readonly stderr: string;
   readonly stdout: string;
 }> {
-  return runSkillsetCliWithEnv({ XDG_CONFIG_HOME: join(tmpdir(), "skillset-marketplace-cli-xdg") }, ...args);
+  const xdgConfigHome = await createTestFixtureRoot("skillset-marketplace-cli-xdg-");
+  return runSkillsetCliWithEnv({ XDG_CONFIG_HOME: xdgConfigHome }, ...args);
 }
 
 async function runSkillsetCliWithEnv(

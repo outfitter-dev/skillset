@@ -3,7 +3,6 @@ import {
   chmod,
   lstat,
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   realpath,
@@ -12,8 +11,8 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { createOperationReport } from "@skillset/core/internal/report";
 import {
@@ -433,9 +432,7 @@ async function writeChildReport(
 }
 
 async function createSandboxFixture() {
-  const root = await realpath(
-    await mkdtemp(join(tmpdir(), "skillset-parent-export-"))
-  );
+  const root = await realpath(await createTestFixtureRoot("skillset-parent-export-"));
   const sandboxPath = join(root, "skillset-test-owned");
   const parentState = join(root, "parent-state");
   const git = testSandboxGit(sandboxPath);
