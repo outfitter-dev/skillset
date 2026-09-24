@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   buildSkillset,
@@ -74,7 +74,7 @@ test("SET-392: activation with no requirements remains ready without provider ca
 });
 
 test("SET-392: status activation preserves a finite graph failure", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-activation-invalid-"));
+  const root = await createTestFixtureRoot("skillset-activation-invalid-");
   await Bun.write(
     join(root, "skillset.yaml"),
     `skillset:
@@ -1067,7 +1067,7 @@ test("SET-392: activation routes preserve provider effect asymmetry", async () =
 });
 
 async function activationFixture(targets = "[codex]"): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-activation-cli-"));
+  const root = await createTestFixtureRoot("skillset-activation-cli-");
   const files = {
     ".skillset/plugins/alpha/.mcp.json": JSON.stringify({
       mcpServers: { alpha: { command: "alpha-mcp" } },
@@ -1123,7 +1123,7 @@ compile:
 }
 
 async function emptyActivationFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-activation-empty-"));
+  const root = await createTestFixtureRoot("skillset-activation-empty-");
   await Bun.write(
     join(root, "skillset.yaml"),
     `skillset:

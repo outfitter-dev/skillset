@@ -1,9 +1,9 @@
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset, buildSkillsetResult, verifySkillset } from "@skillset/core";
 import { inspectSkillset, lintSkillset } from "@skillset/core";
@@ -641,13 +641,13 @@ test("compareStrings orders by code unit independent of locale", () => {
 });
 
 async function kitchenSink(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-kitchen-"));
+  const root = await createTestFixtureRoot("skillset-kitchen-");
   await cp(KITCHEN_SINK_FIXTURE, root, { recursive: true });
   return root;
 }
 
 async function adaptiveHooksFixture(target: "claude" | "codex"): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-adaptive-hooks-"));
+  const root = await createTestFixtureRoot("skillset-adaptive-hooks-");
   await cp(ADAPTIVE_HOOKS_FIXTURE, root, { recursive: true });
   const configPath = join(root, "skillset.yaml");
   await writeFile(
@@ -672,7 +672,7 @@ async function allowUnsupportedStandardDestinations(root: string): Promise<void>
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-hardening-"));
+  const root = await createTestFixtureRoot("skillset-hardening-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trimStart().trimEnd()}\n`);
   }

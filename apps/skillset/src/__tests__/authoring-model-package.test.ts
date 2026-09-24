@@ -1,20 +1,13 @@
-import { afterEach, expect, test } from "bun:test";
-import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { expect, test } from "bun:test";
+import { cp, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillsetResult } from "@skillset/core";
 import { explainPath } from "@skillset/core/internal/authoring";
 
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
-});
-
 test("SET-558: grouped source projects into one provider-adjacent package", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-authoring-package-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-authoring-package-");
   await cp(join(process.cwd(), "fixtures/authoring-model"), root, { recursive: true });
 
   const result = await buildSkillsetResult(root);

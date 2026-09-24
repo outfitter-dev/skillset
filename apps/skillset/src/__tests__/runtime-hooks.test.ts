@@ -1,6 +1,6 @@
 import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 import type { SkillsetVerifyResult } from "@skillset/core";
@@ -462,7 +462,7 @@ async function isolatedBins(options: {
   readonly root: string;
   readonly visibleBin: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-hooks-path-"));
+  const root = await createTestFixtureRoot("skillset-hooks-path-");
   const hiddenBin = join(root, "hidden-bin");
   const visibleBin = join(root, "visible-bin");
   await mkdir(hiddenBin, { recursive: true });

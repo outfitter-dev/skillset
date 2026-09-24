@@ -3,13 +3,12 @@ import { createHash } from "node:crypto";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readdir,
   readFile,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { targetRecord } from "@skillset/core";
 import type { BuildGraph, SourcePlugin } from "@skillset/core/internal/types";
@@ -390,7 +389,7 @@ test("invalid activation timeouts fail before launching a provider", async () =>
 });
 
 test("provider adapter fixtures preserve workspace, HOME, XDG, and provider state", async () => {
-  const harness = await mkdtemp(join(tmpdir(), "skillset-activation-adapter-"));
+  const harness = await createTestFixtureRoot("skillset-activation-adapter-");
   const workspace = join(harness, "workspace");
   const home = join(harness, "home");
   const xdg = join(harness, "xdg");

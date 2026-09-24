@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { readPendingChangeEntries } from "../change-entries";
 import { readAppliedChangeRecords } from "../change-workflow";
@@ -28,7 +28,7 @@ describe("source move identity epochs", () => {
       { id: oldId, scopes: ["skill:demo"], evidence: [{ scope: "skill:demo", sourceHash: oldHash }] },
       { id: newId, sourceMoveCursor: "move", scopes: ["skill:demo"], evidence: [{ scope: "skill:demo", sourceHash: newHash }] },
     ];
-    const root = await mkdtemp(join(tmpdir(), "skillset-move-epochs-"));
+    const root = await createTestFixtureRoot("skillset-move-epochs-");
     for (const [path, content] of Object.entries({
       ".skillset/changes/ledger.jsonl": `${ledger.join("\n")}\n`,
       ".skillset/changes/history.jsonl": `${history.map((record) => JSON.stringify(record)).join("\n")}\n`,
