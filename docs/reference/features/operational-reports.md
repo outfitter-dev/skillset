@@ -134,6 +134,10 @@ under its existing lifecycle.
 
 ## Failure Behavior
 
+Report retrieval uses the shared [CLI exit classes](../cli/README.md#exit-classes).
+`1` and `2` follow that vocabulary. `3` and `4` are explicit command-specific
+codes; the shared classifier never infers them.
+
 | Condition | Exit | Diagnostic |
 | --- | ---: | --- |
 | Full UUID is not found | `1` | `report.not_found` |

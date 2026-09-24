@@ -1852,7 +1852,7 @@ Body.
   expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
 
   const retiredPreviewFlag = await runSkillsetCli("build", "--root", root, "--dry-run");
-  expect(retiredPreviewFlag.exitCode).toBe(1);
+  expect(retiredPreviewFlag.exitCode).toBe(2);
   expect(retiredPreviewFlag.stderr).toContain("unknown option");
   expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
 
@@ -2133,7 +2133,7 @@ Body.
   });
 
   const writeFlag = await runSkillsetCli("distribute", "plan", "--root", root, "--yes");
-  expect(writeFlag.exitCode).toBe(1);
+  expect(writeFlag.exitCode).toBe(2);
   expect(writeFlag.stderr).toContain("build/write options are not supported with distribute plan");
 
   const unknown = await runSkillsetCli("distribute", "plan", "missing", "--root", root);
@@ -2280,23 +2280,23 @@ test("SET-25: CLI help succeeds before command validation", async () => {
 
 test("SET-281: providers is not a public CLI command", async () => {
   const removed = await runSkillsetCli("providers", "check");
-  expect(removed.exitCode).toBe(1);
+  expect(removed.exitCode).toBe(2);
   expect(removed.stderr).toContain("expected command");
   expect(removed.stderr).not.toContain("skillset providers");
 });
 
 test("SET-278: check rejects destination flags and retired check commands are removed", async () => {
   const checkScope = await runSkillsetCli("check", "--scope", "repo");
-  expect(checkScope.exitCode).toBe(1);
+  expect(checkScope.exitCode).toBe(2);
   expect(checkScope.stderr).toContain("skillset check does not support --scope");
 
   const checkUpdated = await runSkillsetCli("check", "--updated");
-  expect(checkUpdated.exitCode).toBe(1);
+  expect(checkUpdated.exitCode).toBe(2);
   expect(checkUpdated.stderr).toContain("skillset check does not support --updated or --all");
 
   for (const command of ["lint", "verify", "ci"]) {
     const retired = await runSkillsetCli(command);
-    expect(retired.exitCode).toBe(1);
+    expect(retired.exitCode).toBe(2);
     expect(retired.stderr).toContain("expected command");
     expect(retired.stderr).not.toContain(`skillset ${command} [`);
   }
@@ -2497,33 +2497,33 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(invalid.stderr).toContain("cannot be combined");
 
   const invalidRun = await runSkillsetCliWithInput("", "hooks", "run", "bogus");
-  expect(invalidRun.exitCode).toBe(1);
+  expect(invalidRun.exitCode).toBe(2);
   expect(invalidRun.stderr).toContain(
     "expected hooks run event post-tool-use, session-start, or stop"
   );
 
   const runWithPrintFlag = await runSkillsetCliWithInput("", "hooks", "run", "stop", "--agent-runtime");
-  expect(runWithPrintFlag.exitCode).toBe(1);
+  expect(runWithPrintFlag.exitCode).toBe(2);
   expect(runWithPrintFlag.stderr).toContain("hook options are only supported with hooks print");
 
   const scoped = await runSkillsetCli("hooks", "print", "--runner", "git", "--scope", "repo");
-  expect(scoped.exitCode).toBe(1);
+  expect(scoped.exitCode).toBe(2);
   expect(scoped.stderr).toContain("non-hook options are not supported");
 
   const updated = await runSkillsetCli("hooks", "print", "--runner", "git", "--updated");
-  expect(updated.exitCode).toBe(1);
+  expect(updated.exitCode).toBe(2);
   expect(updated.stderr).toContain("non-hook options are not supported");
 
   const since = await runSkillsetCli("hooks", "print", "--runner", "git", "--since", "HEAD");
-  expect(since.exitCode).toBe(1);
+  expect(since.exitCode).toBe(2);
   expect(since.stderr).toContain("non-hook options are not supported");
 
   const named = await runSkillsetCli("hooks", "print", "--runner", "git", "--name", "demo");
-  expect(named.exitCode).toBe(1);
+  expect(named.exitCode).toBe(2);
   expect(named.stderr).toContain("non-hook options are not supported");
 
   const importKind = await runSkillsetCli("hooks", "print", "--runner", "git", "--kind", "skill");
-  expect(importKind.exitCode).toBe(1);
+  expect(importKind.exitCode).toBe(2);
   expect(importKind.stderr).toContain("non-hook options are not supported");
 });
 
@@ -2568,11 +2568,11 @@ test("SET-228: hooks context emits helper-backed runtime context", async () => {
   }));
 
   const missingEvent = await runSkillsetCli("hooks", "context", "--format", "env");
-  expect(missingEvent.exitCode).toBe(1);
+  expect(missingEvent.exitCode).toBe(2);
   expect(missingEvent.stderr).toContain("hooks context requires --event");
 
   const printWithContextFlag = await runSkillsetCli("hooks", "print", "--runner", "git", "--context-fields", "provider");
-  expect(printWithContextFlag.exitCode).toBe(1);
+  expect(printWithContextFlag.exitCode).toBe(2);
   expect(printWithContextFlag.stderr).toContain("hook context options are only supported with hooks context");
 
   const cliPath = shellQuote(join(import.meta.dir, "..", "cli.ts"));
@@ -2610,12 +2610,12 @@ test("SET-55: hooks run is a CLI-owned runtime entrypoint", async () => {
 
 test("SET-44: change status and check reject scoped source coverage", async () => {
   const status = await runSkillsetCli("change", "status", "--scope", "repo");
-  expect(status.exitCode).toBe(1);
+  expect(status.exitCode).toBe(2);
   expect(status.stderr).toContain("change status is a whole-source command");
   expect(status.stderr).toContain("--scope is not supported");
 
   const check = await runSkillsetCli("change", "check", "--scope", "repo");
-  expect(check.exitCode).toBe(1);
+  expect(check.exitCode).toBe(2);
   expect(check.stderr).toContain("change check is a whole-source command");
   expect(check.stderr).toContain("--scope is not supported");
 });
@@ -2812,7 +2812,7 @@ Demo body.
   });
 
   const mixed = await runSkillsetCli("test", "self", "--target", "claude", "--root", root);
-  expect(mixed.exitCode).toBe(1);
+  expect(mixed.exitCode).toBe(2);
   expect(mixed.stderr).toContain("declared test self cannot be combined with ad hoc test flags");
 
   const second = await runSkillsetCli("test", "self", "--root", root);
@@ -3636,11 +3636,11 @@ Demo body.
 
 test("SET-50: skillset test rejects build scope and write flags", async () => {
   const scoped = await runSkillsetCli("test", "--scope", "repo");
-  expect(scoped.exitCode).toBe(1);
+  expect(scoped.exitCode).toBe(2);
   expect(scoped.stderr).toContain("build/write options are not supported with test");
 
   const write = await runSkillsetCli("test", "--yes");
-  expect(write.exitCode).toBe(1);
+  expect(write.exitCode).toBe(2);
   expect(write.stderr).toContain("build/write options are not supported with test");
 });
 
@@ -5602,13 +5602,13 @@ Migrate should preserve evidence for every declared scope before rewriting this 
 
 test("SET-241: change write flags are scoped to explicit migration", async () => {
   const add = await runSkillsetCli("change", "add", "--yes");
-  expect(add.exitCode).toBe(1);
+  expect(add.exitCode).toBe(2);
   expect(add.stderr).toContain(
     "--yes is only supported with change ignore, change migrate, or change refresh"
   );
 
   const conflicting = await runSkillsetCli("change", "migrate", "--dry-run");
-  expect(conflicting.exitCode).toBe(1);
+  expect(conflicting.exitCode).toBe(2);
   expect(conflicting.stderr).toContain("unknown option --dry-run");
 });
 
@@ -6031,7 +6031,7 @@ Original source body.
   expect(source).not.toContain("metadata:");
 
   const removed = await runSkillsetCli("suggest-source", generatedPath, "--root", root);
-  expect(removed.exitCode).toBe(1);
+  expect(removed.exitCode).toBe(2);
   expect(removed.stderr).toContain("expected command");
 });
 
@@ -6846,7 +6846,7 @@ test("SET-282: --write is rejected outside check", async () => {
     ["reconcile", "missing", "--write", "--root", root],
   ]) {
     const result = await runSkillsetCli(...args);
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("--write is only supported with check");
   }
 });
@@ -6854,7 +6854,7 @@ test("SET-282: --write is rejected outside check", async () => {
 test("SET-282: reconcile rejects retired source and output root options", async () => {
   for (const flag of ["--source", "--dist"]) {
     const result = await runSkillsetCli("reconcile", "missing", flag, "alternate");
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(`unknown option ${flag}`);
   }
 });
@@ -7356,11 +7356,11 @@ Body.
   expect(await readFile(manifestPath, "utf8")).toContain(`"version": "9.9.9"`);
 
   const yesFlag = await runSkillsetCli("release", "audit", "--yes", "--root", root);
-  expect(yesFlag.exitCode).toBe(1);
+  expect(yesFlag.exitCode).toBe(2);
   expect(yesFlag.stderr).toContain("--yes is only supported with release apply");
 
   const dryRun = await runSkillsetCli("release", "audit", "--dry-run", "--root", root);
-  expect(dryRun.exitCode).toBe(1);
+  expect(dryRun.exitCode).toBe(2);
   expect(dryRun.stderr).toContain("unknown option --dry-run");
 });
 
@@ -7653,7 +7653,7 @@ Body.
   });
 
   const scoped = await runSkillsetCli("release", "apply", "--yes", "--scope", "plugins", "--root", root);
-  expect(scoped.exitCode).toBe(1);
+  expect(scoped.exitCode).toBe(2);
   expect(scoped.stderr).toContain("--scope is not supported with release commands yet");
 });
 
@@ -7898,11 +7898,11 @@ Body.
   expect(scopedWrite.stdout).toContain("wrote");
 
   const conflicting = await runSkillsetCli("build", "--root", root, "--updated", "--all");
-  expect(conflicting.exitCode).toBe(1);
+  expect(conflicting.exitCode).toBe(2);
   expect(conflicting.stderr).toContain("conflicting build mode flags");
 
   const unknownScope = await runSkillsetCli("build", "--root", root, "--scope", "nope");
-  expect(unknownScope.exitCode).toBe(1);
+  expect(unknownScope.exitCode).toBe(2);
   expect(unknownScope.stderr).toContain("expected --scope");
 });
 
@@ -8786,7 +8786,7 @@ test("SET-209: init rejects retired layout flags", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-root-layout-"));
 
   const preview = await runSkillsetCli("init", "--root", root, "--layout", "root");
-  expect(preview.exitCode).toBe(1);
+  expect(preview.exitCode).toBe(2);
   expect(preview.stderr).toContain("unknown option --layout");
   expect(await fileExists(join(root, "skillset.yaml"))).toBe(false);
 });
@@ -8798,7 +8798,7 @@ test("SET-209: init layout flags stay retired in existing workspaces", async () 
 
   for (const layout of ["root", "nested"]) {
     const result = await runSkillsetCli("init", "--root", root, "--layout", layout);
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("unknown option --layout");
   }
 });
@@ -9203,7 +9203,7 @@ test("SET-27: create supports global source path without touching runtime config
   expect(await fileExists(join(home, ".codex"))).toBe(false);
 
   const removedCreate = await runSkillsetCli("create", "--global", "--root", home);
-  expect(removedCreate.exitCode).toBe(1);
+  expect(removedCreate.exitCode).toBe(2);
   expect(removedCreate.stderr).toContain("unknown option --global");
 
   await expect(createSkillset({ global: true, homeDir: home, include: ["ci"], write: false }))
@@ -9511,19 +9511,19 @@ Body.
 
 test("SET-27: setup-only flags fail loudly outside their setup command", async () => {
   const initGlobal = await runSkillsetCli("init", "--global");
-  expect(initGlobal.exitCode).toBe(1);
+  expect(initGlobal.exitCode).toBe(2);
   expect(initGlobal.stderr).toContain("unknown option --global");
 
   const createLayout = await runSkillsetCli("create", "--layout", "nested");
-  expect(createLayout.exitCode).toBe(1);
+  expect(createLayout.exitCode).toBe(2);
   expect(createLayout.stderr).toContain("unknown option --layout");
 
   const buildTargets = await runSkillsetCli("build", "--targets", "claude");
-  expect(buildTargets.exitCode).toBe(1);
+  expect(buildTargets.exitCode).toBe(2);
   expect(buildTargets.stderr).toContain("setup options are only supported with init");
 
   const createGlobalPath = await runSkillsetCli("create", "team-loadout", "--global");
-  expect(createGlobalPath.exitCode).toBe(1);
+  expect(createGlobalPath.exitCode).toBe(2);
   expect(createGlobalPath.stderr).toContain("unknown option --global");
 });
 
@@ -9914,7 +9914,7 @@ Audit body.
 
   for (const retired of ["doctor", "features"]) {
     const removed = await runSkillsetCli(retired);
-    expect(removed.exitCode).toBe(1);
+    expect(removed.exitCode).toBe(2);
     expect(removed.stderr).toContain("expected command");
   }
 });

@@ -502,11 +502,11 @@ CLI fixture body.
   expect(JSON.stringify(listEnvelope.data)).toContain(report.runId);
 
   const retiredCommand = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Old command.", "--root", root);
-  expect(retiredCommand.exitCode).toBe(1);
+  expect(retiredCommand.exitCode).toBe(2);
   expect(retiredCommand.stderr).toContain("expected command");
 
   const retired = await runSkillsetCli(env, "runtime-tester", "run", "--target", "codex", "--prompt", "Old command.", "--root", root);
-  expect(retired.exitCode).toBe(1);
+  expect(retired.exitCode).toBe(2);
   expect(retired.stderr).toContain("expected command");
 });
 

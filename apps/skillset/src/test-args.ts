@@ -17,6 +17,7 @@ import {
   tokenizeCsv,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import { addLookupTargets, setLookupField } from "./lookup-cli";
 import {
   readHookRuntimeContextField,
@@ -228,7 +229,7 @@ export const parseTestCommandRequest = (
       case "--context-fields": {
         const fields = tokenizeCsv(reader.readRequiredOptionValue(option));
         if (fields.length === 0) {
-          throw new Error(
+          throw new CliUsageError(
             "skillset: --context-fields requires at least one field"
           );
         }
@@ -285,10 +286,10 @@ export const parseTestCommandRequest = (
       case "--include": {
         const includes = tokenizeCsv(reader.readRequiredOptionValue(option));
         if (includes.length === 0) {
-          throw new Error("skillset: --include requires at least one value");
+          throw new CliUsageError("skillset: --include requires at least one value");
         }
         if (includes.some((include) => include !== "ci")) {
-          throw new Error("skillset: expected --include ci");
+          throw new CliUsageError("skillset: expected --include ci");
         }
         setupFlag = true;
         break;
@@ -308,7 +309,7 @@ export const parseTestCommandRequest = (
       case "--report": {
         const value = reader.readRequiredOptionValue(option);
         if (option.flag === "--only" && value !== "outputs") {
-          throw new Error("skillset: expected --only outputs");
+          throw new CliUsageError("skillset: expected --only outputs");
         }
         readinessFlag = true;
         break;
@@ -320,7 +321,7 @@ export const parseTestCommandRequest = (
       }
       case "--write": {
         assertBooleanOption(option);
-        throw new Error(
+        throw new CliUsageError(
           "skillset: --write is only supported with check or dev"
         );
       }
@@ -332,7 +333,7 @@ export const parseTestCommandRequest = (
       case "--use": {
         const value = reader.readRequiredOptionValue(option);
         if (value !== "source" && value !== "output") {
-          throw new Error("skillset: --use expects source or output");
+          throw new CliUsageError("skillset: --use expects source or output");
         }
         reconcileFlag = true;
         break;
@@ -345,37 +346,37 @@ export const parseTestCommandRequest = (
         break;
       }
       default: {
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
       }
     }
   }
 
   if (changeFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: change options are only supported with change commands"
     );
   }
   if (hookPrint) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: hook options are only supported with hooks print"
     );
   }
   if (hookContext) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: hook context options are only supported with hooks context"
     );
   }
   if (setupFlag) {
-    throw new Error("skillset: setup options are only supported with init");
+    throw new CliUsageError("skillset: setup options are only supported with init");
   }
   if (adoptFlag) {
-    throw new Error("skillset: --adopt is only supported with init");
+    throw new CliUsageError("skillset: --adopt is only supported with init");
   }
   if (readinessFlag) {
-    throw new Error("skillset: readiness flags are only supported with check");
+    throw new CliUsageError("skillset: readiness flags are only supported with check");
   }
   if (sinceFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --since is only supported with check --ci or change commands"
     );
   }
@@ -391,7 +392,7 @@ export const parseTestCommandRequest = (
     adHocClaudeSettingSources !== undefined ||
     adHocBackground;
   if (testName !== undefined && hasAdHocFlags) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: declared test ${testName} cannot be combined with ad hoc test flags`
     );
   }
@@ -412,36 +413,36 @@ export const parseTestCommandRequest = (
     yes,
   });
   if (jsonlOutput) {
-    throw new Error("skillset: unknown option --jsonl");
+    throw new CliUsageError("skillset: unknown option --jsonl");
   }
   if (lookupField !== undefined || lookupTargets.length > 0 || lookupView) {
-    throw new Error("skillset: lookup flags are only supported with lookup");
+    throw new CliUsageError("skillset: lookup flags are only supported with lookup");
   }
   if (isolated) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --isolated is only supported with build, check --only outputs, or diff"
     );
   }
   if (adHocSubcommand === "worker") {
     if (adHocRunId === undefined) {
-      throw new Error("skillset: test worker requires run id");
+      throw new CliUsageError("skillset: test worker requires run id");
     }
     if (workerUnsupported) {
-      throw new Error(
+      throw new CliUsageError(
         "skillset: test worker only supports <run-id> and --root <path>"
       );
     }
   }
   if (buildMode !== undefined || scopes !== undefined || yes) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: build/write options are not supported with test; test output always writes under logical .skillset/cache/tests"
     );
   }
   if (reconcileFlag) {
-    throw new Error("skillset: --use is only supported with reconcile");
+    throw new CliUsageError("skillset: --use is only supported with reconcile");
   }
   if (newFlag) {
-    throw new Error("skillset: new options are only supported with new");
+    throw new CliUsageError("skillset: new options are only supported with new");
   }
   return {
     jsonOutput,
@@ -469,7 +470,7 @@ const readHookRunner = (value: string): void => {
     value !== "lefthook" &&
     value !== "pre-commit"
   ) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: expected --runner lefthook, husky, pre-commit, or git"
     );
   }

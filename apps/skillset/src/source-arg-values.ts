@@ -1,5 +1,6 @@
 import { isTargetName, TARGET_LIST_TEXT } from "@skillset/core";
 import type { TargetName } from "@skillset/core/internal/types";
+import { CliUsageError } from "./cli-output";
 
 export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
 export type ImportProvider =
@@ -16,7 +17,7 @@ export const readImportKind = (value: string): ImportKind => {
   ) {
     return value;
   }
-  throw new Error(
+  throw new CliUsageError(
     "skillset: expected --kind skill, skills, plugin, or plugins"
   );
 };
@@ -25,7 +26,7 @@ export const readImportProvider = (value: string): ImportProvider => {
   if (value === "agents" || isTargetName(value) || value === "skillset") {
     return value;
   }
-  throw new Error(
+  throw new CliUsageError(
     `skillset: expected --from ${TARGET_LIST_TEXT}; also agents or skillset`
   );
 };

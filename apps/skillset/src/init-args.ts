@@ -12,6 +12,7 @@ import {
   tokenizeCsv,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { InitCommandRequest } from "./init-cli";
 import type { SetupInclude } from "./setup";
 export interface InitExplicitOptions {
@@ -85,16 +86,16 @@ export const parseInitCommandRequest = (
         break;
       case "--isolated":
         assertBooleanOption(option);
-        throw new Error(
+        throw new CliUsageError(
           "skillset: --isolated is only supported with build, check --only outputs, or diff"
         );
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 
   if (buildMode !== undefined || scopes !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: build mode and scope flags are not supported with adopt; adoption always builds the full projection isolated"
     );
   }
@@ -131,12 +132,12 @@ export const mergeSetupIncludes = (
 ): readonly SetupInclude[] => {
   const includes = tokenizeCsv(value);
   if (includes.length === 0) {
-    throw new Error("skillset: --include requires at least one value");
+    throw new CliUsageError("skillset: --include requires at least one value");
   }
   const seen = new Set<SetupInclude>(current ?? []);
   for (const include of includes) {
     if (include !== "ci") {
-      throw new Error("skillset: expected --include ci");
+      throw new CliUsageError("skillset: expected --include ci");
     }
     seen.add(include);
   }

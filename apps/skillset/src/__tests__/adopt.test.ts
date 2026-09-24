@@ -38,7 +38,7 @@ test("SET-312: create is restored while removed setup commands have no aliases",
   const create = await runSkillsetCli("create");
   const adopt = await runSkillsetCli("adopt", ".");
   expect(create.exitCode).toBe(1);
-  expect(adopt.exitCode).toBe(1);
+  expect(adopt.exitCode).toBe(2);
   expect(create.stderr).toContain("create requires a name");
   expect(adopt.stderr).toContain("expected command");
   const packageJson = JSON.parse(await readFile(join(import.meta.dir, "../../package.json"), "utf8")) as { readonly bin: Record<string, string> };
@@ -1112,15 +1112,15 @@ test("adopt CLI without --yes prints the survey and writes nothing", async () =>
 test("adopt CLI rejects isolation and build-shape flags", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
   const isolated = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--isolated");
-  expect(isolated.exitCode).toBe(1);
+  expect(isolated.exitCode).toBe(2);
   expect(isolated.stderr).toContain("--isolated is only supported with build, check --only outputs, or diff");
 
   const scoped = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--scope", "plugins");
-  expect(scoped.exitCode).toBe(1);
+  expect(scoped.exitCode).toBe(2);
   expect(scoped.stderr).toContain("not supported with adopt");
 
   const updated = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--updated");
-  expect(updated.exitCode).toBe(1);
+  expect(updated.exitCode).toBe(2);
   expect(updated.stderr).toContain("not supported with adopt");
 
   const include = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--include", "ci");

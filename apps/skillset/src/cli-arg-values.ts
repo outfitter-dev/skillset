@@ -7,6 +7,8 @@ import type {
   TargetName,
 } from "@skillset/core/internal/types";
 
+import { CliUsageError } from "./cli-output";
+
 export interface CliParseContext {
   readonly cwd: string;
 }
@@ -32,11 +34,11 @@ export const resolveCliRoot = (
 
 export const readPositiveInteger = (value: string, flag: string): number => {
   if (!/^[0-9]+$/u.test(value)) {
-    throw new Error(`skillset: expected ${flag} to be a positive integer`);
+    throw new CliUsageError(`skillset: expected ${flag} to be a positive integer`);
   }
   const parsed = Number.parseInt(value, 10);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new Error(`skillset: expected ${flag} to be a positive integer`);
+    throw new CliUsageError(`skillset: expected ${flag} to be a positive integer`);
   }
   return parsed;
 };
@@ -55,7 +57,7 @@ export const readClaudeSettingSources = (
   ) {
     return normalized;
   }
-  throw new Error(
+  throw new CliUsageError(
     `skillset: expected ${label} to be isolated, user, project, or local`
   );
 };
@@ -64,12 +66,12 @@ export const readTargetName = (value: string): TargetName => {
   if (isTargetName(value)) {
     return value;
   }
-  throw new Error(`skillset: expected --target ${TARGET_LIST_TEXT}`);
+  throw new CliUsageError(`skillset: expected --target ${TARGET_LIST_TEXT}`);
 };
 
 export const readLookupTarget = (value: string): TargetName => {
   if (isTargetName(value)) return value;
-  throw new Error(
+  throw new CliUsageError(
     `skillset: unknown lookup compatibility target ${value}; expected ${TARGET_LIST_TEXT}`
   );
 };
@@ -80,12 +82,12 @@ export const readTargetNames = (
 ): readonly TargetName[] => {
   const targets = tokenizeCsv(value);
   if (targets.length === 0) {
-    throw new Error(`skillset: ${flag} requires at least one target`);
+    throw new CliUsageError(`skillset: ${flag} requires at least one target`);
   }
   const seen = new Set<TargetName>();
   for (const target of targets) {
     if (!isTargetName(target)) {
-      throw new Error(`skillset: expected ${flag} ${TARGET_LIST_TEXT}`);
+      throw new CliUsageError(`skillset: expected ${flag} ${TARGET_LIST_TEXT}`);
     }
     seen.add(target);
   }
@@ -97,7 +99,7 @@ export const mergeBuildMode = (
   next: CompileBuildMode
 ): CompileBuildMode => {
   if (current !== undefined && current !== next) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: conflicting build mode flags --${current} and --${next}`
     );
   }
@@ -107,11 +109,11 @@ export const mergeBuildMode = (
 export const readBuildScopes = (value: string): readonly BuildScope[] => {
   const scopes = tokenizeCsv(value);
   if (scopes.length === 0) {
-    throw new Error("skillset: --scope requires at least one scope");
+    throw new CliUsageError("skillset: --scope requires at least one scope");
   }
   if (scopes.includes("all")) {
     if (scopes.length > 1) {
-      throw new Error(
+      throw new CliUsageError(
         "skillset: --scope all cannot be combined with other scopes"
       );
     }
@@ -120,7 +122,7 @@ export const readBuildScopes = (value: string): readonly BuildScope[] => {
   const seen = new Set<BuildScope>();
   for (const scope of scopes) {
     if (!isBuildScope(scope)) {
-      throw new Error(
+      throw new CliUsageError(
         "skillset: expected --scope repo, plugins, project, user, all, or a comma-separated combination"
       );
     }

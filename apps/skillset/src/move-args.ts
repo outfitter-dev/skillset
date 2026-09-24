@@ -1,6 +1,7 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { resolveCliRoot } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { MoveCommandRequest } from "./move-cli";
 
 export const parseMoveCommandRequest = (
@@ -19,7 +20,7 @@ export const parseMoveCommandRequest = (
     if (positional !== undefined) {
       if (from === undefined) from = positional;
       else if (to === undefined) to = positional;
-      else throw new Error("skillset: move accepts exactly <from> and <to>");
+      else throw new CliUsageError("skillset: move accepts exactly <from> and <to>");
       continue;
     }
     const option = reader.readOption();
@@ -40,7 +41,7 @@ export const parseMoveCommandRequest = (
         break;
       }
       default: {
-        throw new Error(
+        throw new CliUsageError(
           `skillset: move only supports --json, --root, and --yes; received ${option.raw}`
         );
       }
@@ -48,7 +49,7 @@ export const parseMoveCommandRequest = (
   }
 
   if (from === undefined || to === undefined) {
-    throw new Error("skillset: move requires <from> and <to>");
+    throw new CliUsageError("skillset: move requires <from> and <to>");
   }
   return {
     from,

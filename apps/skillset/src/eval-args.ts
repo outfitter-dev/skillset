@@ -3,6 +3,7 @@ import type { SkillsetOptions } from "@skillset/core/internal/types";
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { readPositiveInteger, resolveCliRoot } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { EvalCommandRequest } from "./eval-cli";
 
 export function parseEvalCommandRequest(
@@ -37,7 +38,7 @@ export function parseEvalCommandRequest(
     } else if (option.flag === "--timeout-ms" && subcommand === "run") {
       timeoutMs = readPositiveInteger(reader.readRequiredOptionValue(option), "--timeout-ms");
     } else {
-      throw new Error(`skillset: eval ${subcommand} does not support ${option.flag}`);
+      throw new CliUsageError(`skillset: eval ${subcommand} does not support ${option.flag}`);
     }
   }
   const options: SkillsetOptions = {};
@@ -70,5 +71,5 @@ export function parseEvalCommandRequest(
 
 function readEvalSubcommand(value: string | undefined): "list" | "run" | "status" | "tail" {
   if (value === "list" || value === "run" || value === "status" || value === "tail") return value;
-  throw new Error("skillset: eval requires list, run, status, or tail");
+  throw new CliUsageError("skillset: eval requires list, run, status, or tail");
 }

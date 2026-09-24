@@ -1,7 +1,8 @@
 import { reportCliError, runCli } from "./cli-core";
 import {
   CliOutputError,
-  classifyCliFailure,
+  CliUsageError,
+  cliExitCode,
   createCliEvent,
   createCliResult,
   readCliCommand,
@@ -18,9 +19,8 @@ export async function runCliEntrypoint(
   try {
     mode = readCliMachineMode(args);
     if (mode !== undefined && (args.includes("--help") || args.includes("-h"))) {
-      throw new CliOutputError(
+      throw new CliUsageError(
         "skillset: --help cannot be combined with --json or --jsonl",
-        2,
         readCliCommand(args)
       );
     }
@@ -37,7 +37,7 @@ export async function runCliEntrypoint(
       return;
     }
     const message = error instanceof Error ? error.message : String(error);
-    const exitCode = classifyCliFailure(error);
+    const exitCode = cliExitCode(error);
     const command = error instanceof CliOutputError
       ? error.command ?? readCliCommand(args)
       : readCliCommand(args);

@@ -13,6 +13,7 @@ import {
 } from "@skillset/schema";
 
 import { CLI_LEAF_SUBCOMMANDS, isCliCommand } from "./cli-commands";
+import { PromptCancelledError } from "./prompt-adapter";
 
 export type CliMachineMode = "json" | "jsonl";
 
@@ -28,17 +29,18 @@ export class CliOutputError extends Error {
   }
 }
 
-export function classifyCliFailure(error: unknown): number {
-  if (error instanceof CliOutputError) return error.exitCode;
-  if (
-    error instanceof Error &&
-    (error.message.startsWith("skillset: expected") ||
-      error.message.startsWith("skillset: --") ||
-      error.message.startsWith("skillset: unknown option"))
-  ) {
-    return 2;
+export class CliUsageError extends CliOutputError {
+  constructor(message: string, command?: string) {
+    super(message, 2, command);
+    this.name = "CliUsageError";
   }
-  return 3;
+}
+
+export function cliExitCode(error: unknown): number {
+  if (error instanceof PromptCancelledError) return error.exitCode;
+  if (error instanceof CliUsageError) return 2;
+  if (error instanceof CliOutputError) return error.exitCode;
+  return 1;
 }
 
 export function readCliCommand(args: readonly string[]): string {
@@ -56,7 +58,7 @@ export function readCliMachineMode(
   const json = args.includes("--json");
   const jsonl = args.includes("--jsonl");
   if (json && jsonl) {
-    throw new CliOutputError("skillset: --json and --jsonl are mutually exclusive");
+    throw new CliUsageError("skillset: --json and --jsonl are mutually exclusive");
   }
   if (json) return "json";
   if (jsonl) return "jsonl";

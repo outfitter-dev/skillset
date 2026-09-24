@@ -153,7 +153,7 @@ test("CLI accepts --isolated for build and the narrow output check", async () =>
   expect(outputs.exitCode).toBe(0);
 
   const check = await runSkillsetCli("check", "--isolated", "--root", root);
-  expect(check.exitCode).toBe(1);
+  expect(check.exitCode).toBe(2);
   expect(check.stderr).toContain("--isolated is only supported with build, check --only outputs, or diff");
 });
 
