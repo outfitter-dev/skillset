@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import { validateTestSandbox } from "../../apps/skillset/src/verification-sandbox";
+import { createTestFixtureRoot } from "./fixture-root";
 
 export interface TestGitRemote {
   readonly env: Record<string, string>;
@@ -100,10 +101,7 @@ export async function initializeTestGitRepository(
 export async function createTestGitFixtureRoot(
   prefix = "skillset-test-git-fixture-"
 ): Promise<string> {
-  const sandbox = await validateTestSandbox();
-  return mkdtemp(
-    join(sandbox.descriptor.sandboxPath, validateFixturePrefix(prefix))
-  );
+  return createTestFixtureRoot(prefix);
 }
 
 export async function runTestGit(cwd: string, ...args: readonly string[]): Promise<string> {
@@ -241,20 +239,6 @@ function testGitEnv(): Record<string, string> {
 function isInside(parent: string, child: string): boolean {
   const path = relative(parent, child);
   return path.length > 0 && !path.startsWith("..") && !isAbsolute(path);
-}
-
-function validateFixturePrefix(prefix: string): string {
-  if (
-    prefix.length === 0 ||
-    prefix === "." ||
-    prefix === ".." ||
-    isAbsolute(prefix) ||
-    prefix.includes("/") ||
-    prefix.includes("\\")
-  ) {
-    throw new Error("Git fixture prefix must be a non-empty safe basename");
-  }
-  return prefix;
 }
 
 async function hasGitMarker(path: string): Promise<boolean> {

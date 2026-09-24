@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -8,6 +7,7 @@ import {
   reconcileReleaseAssets,
 } from "../release-assets";
 import { resolveMacosSigningPolicy } from "../release-signing";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 describe("coordinated release assets", () => {
   test("declares the exact five archives, manifest, and checksum inventory", () => {
@@ -33,7 +33,7 @@ describe("coordinated release assets", () => {
   });
 
   test("backfills missing matching assets and blocks mismatched bytes", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-release-assets-"));
+    const root = await createTestFixtureRoot("skillset-release-assets-");
     const localDir = join(root, "local");
     const remoteDir = join(root, "remote");
     const missingOutput = join(root, "missing.txt");

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdtemp, readdir, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -8,6 +7,7 @@ import {
   collectAttributabilityIssues,
   parseResourceUsage,
 } from "../measure-gate";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 
@@ -62,7 +62,7 @@ describe("parseResourceUsage", () => {
 
 describe("measure-gate report", () => {
   test("records the revision, toolchain and exit code of the measured command", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "skillset-measure-gate-"));
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
 
     const child = Bun.spawn({
       cmd: [
@@ -111,8 +111,8 @@ describe("measure-gate report", () => {
   });
 
   test("marks a sample invalid when the tree cannot back the revision it claims", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "skillset-measure-gate-"));
-    const dirtyRepo = await mkdtemp(join(tmpdir(), "skillset-measure-dirty-"));
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
+    const dirtyRepo = await createTestFixtureRoot("skillset-measure-dirty-");
     for (const args of [
       ["init", "--quiet"],
       ["commit", "--allow-empty", "-m", "base", "--quiet"],
@@ -170,8 +170,8 @@ describe("measure-gate report", () => {
   });
 
   test("refuses to start when HEAD cannot be resolved", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "skillset-measure-gate-"));
-    const unbornRepo = await mkdtemp(join(tmpdir(), "skillset-measure-unborn-"));
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
+    const unbornRepo = await createTestFixtureRoot("skillset-measure-unborn-");
     const init = Bun.spawn({
       cmd: ["git", "init", "--quiet"],
       cwd: unbornRepo,
@@ -204,8 +204,8 @@ describe("measure-gate report", () => {
   });
 
   test("refuses to start when git status cannot inspect the tree", async () => {
-    const outDir = await mkdtemp(join(tmpdir(), "skillset-measure-gate-"));
-    const lockedRepo = await mkdtemp(join(tmpdir(), "skillset-measure-locked-"));
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
+    const lockedRepo = await createTestFixtureRoot("skillset-measure-locked-");
     for (const args of [
       ["init", "--quiet"],
       ["commit", "--allow-empty", "-m", "base", "--quiet"],

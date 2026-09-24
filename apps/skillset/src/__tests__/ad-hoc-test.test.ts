@@ -1590,7 +1590,7 @@ echo "fake-cursor prompt=$last"
 async function fakeFailureBin(root: string, name: string, message: string, exitCode: number): Promise<string> {
   const bin = join(root, "bin", name);
   await mkdir(dirname(bin), { recursive: true });
-  await writeFile(bin, `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(message)} >&2\nexit ${exitCode}\n`, "utf8");
+  await writeFile(bin, `#!/bin/sh\nif [ "$1" = "exec" ]; then cat >/dev/null; fi\nprintf '%s\\n' ${JSON.stringify(message)} >&2\nexit ${exitCode}\n`, "utf8");
   await chmod(bin, 0o755);
   return bin;
 }

@@ -3,7 +3,6 @@ import {
   chmod,
   copyFile,
   mkdir,
-  mkdtemp,
   readFile,
   readlink,
   realpath,
@@ -11,7 +10,6 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 
 import {
@@ -24,6 +22,7 @@ import {
   pinnedBunRootState,
   resolvePinnedBun,
 } from "../pinned-bun";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 /**
  * `~/.bun/bin/bun` is a contested path. Every repository whose agent bootstrap
@@ -39,7 +38,7 @@ import {
  * already the cached one, which would make the property vacuously true.
  */
 async function temporaryDir(label: string): Promise<string> {
-  return mkdtemp(join(tmpdir(), `skillset-pinned-bun-${label}-`));
+  return createTestFixtureRoot(`skillset-pinned-bun-${label}-`);
 }
 
 /**

@@ -1,14 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  symlink,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, symlink, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { listFeatureSupportMatrixProjections } from "../../../packages/core/src";
@@ -16,6 +7,7 @@ import {
   buildDocsReferenceArtifacts,
   generateDocsReferenceArtifacts,
 } from "../../docs-reference";
+import { createTestFixtureRoot } from "../../test-helpers/fixture-root";
 import {
   buildDocsReferenceModel,
   type DocsReferenceModel,
@@ -172,151 +164,133 @@ describe("documentation reference artifacts", () => {
 
   test("generates into a temporary root and preserves the CLI index boundaries", async () => {
     const root = await referenceFixture();
-    try {
-      const original = await readFile(join(root, CLI_INDEX), "utf8");
-      const prefix = original.slice(
-        0,
-        original.indexOf("<!-- skillset:generated:start cli-command-list -->")
-      );
-      const suffix = original.slice(
-        original.indexOf("<!-- skillset:generated:end cli-command-list -->") +
-          "<!-- skillset:generated:end cli-command-list -->".length
-      );
+    const original = await readFile(join(root, CLI_INDEX), "utf8");
+    const prefix = original.slice(
+      0,
+      original.indexOf("<!-- skillset:generated:start cli-command-list -->")
+    );
+    const suffix = original.slice(
+      original.indexOf("<!-- skillset:generated:end cli-command-list -->") +
+        "<!-- skillset:generated:end cli-command-list -->".length
+    );
 
-      await generateDocsReferenceArtifacts(root);
-      await generateDocsReferenceArtifacts(root, { check: true });
+    await generateDocsReferenceArtifacts(root);
+    await generateDocsReferenceArtifacts(root, { check: true });
 
-      const generated = await readFile(join(root, CLI_INDEX), "utf8");
-      expect(generated.startsWith(prefix)).toBe(true);
-      expect(generated.endsWith(suffix)).toBe(true);
-      expect(
-        generated.match(/<!-- skillset:generated:start cli-command-list -->/gu)
-      ).toHaveLength(1);
-      expect(
-        generated.match(/<!-- skillset:generated:end cli-command-list -->/gu)
-      ).toHaveLength(1);
-      expect(generated).toContain("<!-- feature-support:start -->");
-      expect(generated).toContain("[`skillset build`](./build.md)");
-      expect(
-        await readFile(join(root, "docs/reference/support-matrix.md"), "utf8")
-      ).toContain(`${GENERATED_HEADER}\n`);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    const generated = await readFile(join(root, CLI_INDEX), "utf8");
+    expect(generated.startsWith(prefix)).toBe(true);
+    expect(generated.endsWith(suffix)).toBe(true);
+    expect(
+      generated.match(/<!-- skillset:generated:start cli-command-list -->/gu)
+    ).toHaveLength(1);
+    expect(
+      generated.match(/<!-- skillset:generated:end cli-command-list -->/gu)
+    ).toHaveLength(1);
+    expect(generated).toContain("<!-- feature-support:start -->");
+    expect(generated).toContain("[`skillset build`](./build.md)");
+    expect(
+      await readFile(join(root, "docs/reference/support-matrix.md"), "utf8")
+    ).toContain(`${GENERATED_HEADER}\n`);
   });
 
   test("updates provider blocks while preserving authored bytes", async () => {
     const root = await referenceFixture();
-    try {
-      const indexPath = join(root, "docs/reference/providers/README.md");
-      const providerPath = join(root, "docs/reference/providers/codex.md");
-      const originalIndex = await readFile(indexPath, "utf8");
-      const originalProvider = await readFile(providerPath, "utf8");
+    const indexPath = join(root, "docs/reference/providers/README.md");
+    const providerPath = join(root, "docs/reference/providers/codex.md");
+    const originalIndex = await readFile(indexPath, "utf8");
+    const originalProvider = await readFile(providerPath, "utf8");
 
-      await generateDocsReferenceArtifacts(root);
-      const generatedIndex = await readFile(indexPath, "utf8");
-      const generatedProvider = await readFile(providerPath, "utf8");
-      await generateDocsReferenceArtifacts(root, { check: true });
+    await generateDocsReferenceArtifacts(root);
+    const generatedIndex = await readFile(indexPath, "utf8");
+    const generatedProvider = await readFile(providerPath, "utf8");
+    await generateDocsReferenceArtifacts(root, { check: true });
 
-      expect(generatedIndex).toContain("[Claude](./claude.md)");
-      expect(generatedProvider).toContain(
-        "| Feature | Feature status | Target support | Qualification | Docs |"
-      );
-      expect(generatedProvider).toContain("| Project Agents |");
-      const repeatedQualification = buildDocsReferenceModel()
-        .providers.find((provider) => provider.id === "codex")
-        ?.features.find(
-          (feature) =>
-            feature.note !== undefined && feature.note === feature.reason
-        )?.note;
-      if (repeatedQualification === undefined)
-        throw new Error("expected repeated provider qualification fixture");
-      expect(generatedProvider.split(repeatedQualification)).toHaveLength(2);
-      expect(authoredOutsideBlock(generatedIndex, "provider-list")).toBe(
-        authoredOutsideBlock(originalIndex, "provider-list")
-      );
-      expect(
-        authoredOutsideBlock(generatedProvider, "provider-feature-support")
-      ).toBe(
-        authoredOutsideBlock(originalProvider, "provider-feature-support")
-      );
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    expect(generatedIndex).toContain("[Claude](./claude.md)");
+    expect(generatedProvider).toContain(
+      "| Feature | Feature status | Target support | Qualification | Docs |"
+    );
+    expect(generatedProvider).toContain("| Project Agents |");
+    const repeatedQualification = buildDocsReferenceModel()
+      .providers.find((provider) => provider.id === "codex")
+      ?.features.find(
+        (feature) =>
+          feature.note !== undefined && feature.note === feature.reason
+      )?.note;
+    if (repeatedQualification === undefined)
+      throw new Error("expected repeated provider qualification fixture");
+    expect(generatedProvider.split(repeatedQualification)).toHaveLength(2);
+    expect(authoredOutsideBlock(generatedIndex, "provider-list")).toBe(
+      authoredOutsideBlock(originalIndex, "provider-list")
+    );
+    expect(
+      authoredOutsideBlock(generatedProvider, "provider-feature-support")
+    ).toBe(authoredOutsideBlock(originalProvider, "provider-feature-support"));
   });
 
   test("repairs public and development feature-support blocks while preserving authored bytes", async () => {
     const root = await referenceFixture();
-    try {
-      const publicPath = join(root, "docs/reference/features/hooks.md");
-      const developmentPath = join(
-        root,
-        "docs/development/features/feature-registry.md"
-      );
-      const originalPublic = await readFile(publicPath, "utf8");
-      const originalDevelopment = await readFile(developmentPath, "utf8");
+    const publicPath = join(root, "docs/reference/features/hooks.md");
+    const developmentPath = join(
+      root,
+      "docs/development/features/feature-registry.md"
+    );
+    const originalPublic = await readFile(publicPath, "utf8");
+    const originalDevelopment = await readFile(developmentPath, "utf8");
 
-      await expect(
-        generateDocsReferenceArtifacts(root, { check: true })
-      ).rejects.toThrow("- missing or stale: docs/reference/features/hooks.md");
-      await expect(
-        generateDocsReferenceArtifacts(root, { check: true })
-      ).rejects.toThrow(
-        "- missing or stale: docs/development/features/feature-registry.md"
-      );
-      await generateDocsReferenceArtifacts(root);
-      const generatedPublic = await readFile(publicPath, "utf8");
-      const generatedDevelopment = await readFile(developmentPath, "utf8");
-      await generateDocsReferenceArtifacts(root);
-      const regeneratedPublic = await readFile(publicPath, "utf8");
-      const regeneratedDevelopment = await readFile(developmentPath, "utf8");
-      await generateDocsReferenceArtifacts(root, { check: true });
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow("- missing or stale: docs/reference/features/hooks.md");
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow(
+      "- missing or stale: docs/development/features/feature-registry.md"
+    );
+    await generateDocsReferenceArtifacts(root);
+    const generatedPublic = await readFile(publicPath, "utf8");
+    const generatedDevelopment = await readFile(developmentPath, "utf8");
+    await generateDocsReferenceArtifacts(root);
+    const regeneratedPublic = await readFile(publicPath, "utf8");
+    const regeneratedDevelopment = await readFile(developmentPath, "utf8");
+    await generateDocsReferenceArtifacts(root, { check: true });
 
-      expect(generatedPublic).toContain(
-        "| `adaptive-hooks` | `implemented` | `transformed` | `degraded` | `degraded` |"
-      );
-      expect(generatedPublic).toContain(
-        "| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |"
-      );
-      expect(generatedDevelopment).toContain(
-        "| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |"
-      );
-      expect(authoredOutsideBlock(generatedPublic, "feature-support")).toBe(
-        authoredOutsideBlock(originalPublic, "feature-support")
-      );
-      expect(
-        authoredOutsideBlock(generatedDevelopment, "feature-support")
-      ).toBe(authoredOutsideBlock(originalDevelopment, "feature-support"));
-      expect(regeneratedPublic).toBe(generatedPublic);
-      expect(regeneratedDevelopment).toBe(generatedDevelopment);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    expect(generatedPublic).toContain(
+      "| `adaptive-hooks` | `implemented` | `transformed` | `degraded` | `degraded` |"
+    );
+    expect(generatedPublic).toContain(
+      "| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |"
+    );
+    expect(generatedDevelopment).toContain(
+      "| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |"
+    );
+    expect(authoredOutsideBlock(generatedPublic, "feature-support")).toBe(
+      authoredOutsideBlock(originalPublic, "feature-support")
+    );
+    expect(authoredOutsideBlock(generatedDevelopment, "feature-support")).toBe(
+      authoredOutsideBlock(originalDevelopment, "feature-support")
+    );
+    expect(regeneratedPublic).toBe(generatedPublic);
+    expect(regeneratedDevelopment).toBe(generatedDevelopment);
   });
 
   test("refuses malformed development feature-support markers", async () => {
     const root = await referenceFixture();
-    try {
-      const featurePath = join(
-        root,
-        "docs/development/features/feature-registry.md"
-      );
-      const original = await readFile(featurePath, "utf8");
-      await writeFile(
-        featurePath,
-        original.replace(
-          "<!-- skillset:generated:end feature-support -->",
-          "<!-- skillset:generated:end feature-support extra -->"
-        ),
-        "utf8"
-      );
+    const featurePath = join(
+      root,
+      "docs/development/features/feature-registry.md"
+    );
+    const original = await readFile(featurePath, "utf8");
+    await writeFile(
+      featurePath,
+      original.replace(
+        "<!-- skillset:generated:end feature-support -->",
+        "<!-- skillset:generated:end feature-support extra -->"
+      ),
+      "utf8"
+    );
 
-      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
-        "invalid generated markers"
-      );
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+      "invalid generated markers"
+    );
   });
 
   test.each([
@@ -352,150 +326,121 @@ describe("documentation reference artifacts", () => {
     ],
   ])("refuses %s feature-support markers", async (_case, mutate) => {
     const root = await referenceFixture();
-    try {
-      const featurePath = join(root, "docs/reference/features/agents.md");
-      const original = await readFile(featurePath, "utf8");
-      await writeFile(featurePath, mutate(original), "utf8");
+    const featurePath = join(root, "docs/reference/features/agents.md");
+    const original = await readFile(featurePath, "utf8");
+    await writeFile(featurePath, mutate(original), "utf8");
 
-      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
-        "invalid generated markers"
-      );
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+      "invalid generated markers"
+    );
   });
 
   test("removes stale generated CLI pages but preserves the current set", async () => {
     const root = await referenceFixture();
-    try {
-      await generateDocsReferenceArtifacts(root);
-      const stalePath = join(root, "docs/reference/cli/obsolete.md");
-      await writeFile(stalePath, generatedPage("Obsolete"), "utf8");
-      const crlfStalePath = join(root, "docs/reference/cli/obsolete-crlf.md");
-      await writeFile(
-        crlfStalePath,
-        generatedPage("Obsolete CRLF").replaceAll("\n", "\r\n"),
-        "utf8"
-      );
+    await generateDocsReferenceArtifacts(root);
+    const stalePath = join(root, "docs/reference/cli/obsolete.md");
+    await writeFile(stalePath, generatedPage("Obsolete"), "utf8");
+    const crlfStalePath = join(root, "docs/reference/cli/obsolete-crlf.md");
+    await writeFile(
+      crlfStalePath,
+      generatedPage("Obsolete CRLF").replaceAll("\n", "\r\n"),
+      "utf8"
+    );
 
-      await generateDocsReferenceArtifacts(root);
+    await generateDocsReferenceArtifacts(root);
 
-      expect(await Bun.file(stalePath).exists()).toBe(false);
-      expect(await Bun.file(crlfStalePath).exists()).toBe(false);
-      expect(
-        await Bun.file(join(root, "docs/reference/cli/build.md")).exists()
-      ).toBe(true);
-      await generateDocsReferenceArtifacts(root, { check: true });
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    expect(await Bun.file(stalePath).exists()).toBe(false);
+    expect(await Bun.file(crlfStalePath).exists()).toBe(false);
+    expect(
+      await Bun.file(join(root, "docs/reference/cli/build.md")).exists()
+    ).toBe(true);
+    await generateDocsReferenceArtifacts(root, { check: true });
   });
 
   test("refuses symbolic links within its generated root", async () => {
     const root = await referenceFixture();
-    try {
-      const outside = join(root, "outside.md");
-      const linked = join(root, "docs/reference/cli/linked.md");
-      await writeFile(outside, "# Outside\n", "utf8");
-      await symlink(outside, linked);
+    const outside = join(root, "outside.md");
+    const linked = join(root, "docs/reference/cli/linked.md");
+    await writeFile(outside, "# Outside\n", "utf8");
+    await symlink(outside, linked);
 
-      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
-        "refusing symbolic link in generated CLI reference root"
-      );
-      expect(await readFile(outside, "utf8")).toBe("# Outside\n");
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+      "refusing symbolic link in generated CLI reference root"
+    );
+    expect(await readFile(outside, "utf8")).toBe("# Outside\n");
   });
 
   test("refuses symbolic links in registry-owned feature pages", async () => {
     const root = await referenceFixture();
-    try {
-      const outside = join(root, "outside-feature.md");
-      const linked = join(root, "docs/reference/features/agents.md");
-      await writeFile(outside, "# Outside\n", "utf8");
-      await unlink(linked);
-      await symlink(outside, linked);
+    const outside = join(root, "outside-feature.md");
+    const linked = join(root, "docs/reference/features/agents.md");
+    await writeFile(outside, "# Outside\n", "utf8");
+    await unlink(linked);
+    await symlink(outside, linked);
 
-      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
-        "refusing symbolic link in documentation artifact path"
-      );
-      expect(await readFile(outside, "utf8")).toBe("# Outside\n");
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+      "refusing symbolic link in documentation artifact path"
+    );
+    expect(await readFile(outside, "utf8")).toBe("# Outside\n");
   });
 
   test("check reports missing and stale artifacts without repairing them", async () => {
     const root = await referenceFixture();
-    try {
-      await generateDocsReferenceArtifacts(root);
-      const missingPath = join(root, "docs/reference/cli/build.md");
-      const stalePath = join(root, "docs/reference/cli/check.md");
-      const staleProviderPath = join(
-        root,
-        "docs/reference/providers/claude.md"
-      );
-      await unlink(missingPath);
-      await writeFile(stalePath, `${GENERATED_HEADER}\n\n# Stale\n`, "utf8");
-      const staleProvider = (await readFile(staleProviderPath, "utf8")).replace(
-        "| Project Agents |",
-        "| Stale Project Agents |"
-      );
-      await writeFile(staleProviderPath, staleProvider, "utf8");
+    await generateDocsReferenceArtifacts(root);
+    const missingPath = join(root, "docs/reference/cli/build.md");
+    const stalePath = join(root, "docs/reference/cli/check.md");
+    const staleProviderPath = join(root, "docs/reference/providers/claude.md");
+    await unlink(missingPath);
+    await writeFile(stalePath, `${GENERATED_HEADER}\n\n# Stale\n`, "utf8");
+    const staleProvider = (await readFile(staleProviderPath, "utf8")).replace(
+      "| Project Agents |",
+      "| Stale Project Agents |"
+    );
+    await writeFile(staleProviderPath, staleProvider, "utf8");
 
-      await expect(
-        generateDocsReferenceArtifacts(root, { check: true })
-      ).rejects.toThrow(
-        "skillset: documentation reference artifacts are stale; run bun run docs:generate"
-      );
-      await expect(
-        generateDocsReferenceArtifacts(root, { check: true })
-      ).rejects.toThrow("- missing or stale: docs/reference/cli/build.md");
-      await expect(
-        generateDocsReferenceArtifacts(root, { check: true })
-      ).rejects.toThrow("- missing or stale: docs/reference/cli/check.md");
-      await expect(
-        generateDocsReferenceArtifacts(root, { check: true })
-      ).rejects.toThrow(
-        "- missing or stale: docs/reference/providers/claude.md"
-      );
-      expect(await Bun.file(missingPath).exists()).toBe(false);
-      expect(await readFile(stalePath, "utf8")).toBe(
-        `${GENERATED_HEADER}\n\n# Stale\n`
-      );
-      expect(await readFile(staleProviderPath, "utf8")).toBe(staleProvider);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow(
+      "skillset: documentation reference artifacts are stale; run bun run docs:generate"
+    );
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow("- missing or stale: docs/reference/cli/build.md");
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow("- missing or stale: docs/reference/cli/check.md");
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow("- missing or stale: docs/reference/providers/claude.md");
+    expect(await Bun.file(missingPath).exists()).toBe(false);
+    expect(await readFile(stalePath, "utf8")).toBe(
+      `${GENERATED_HEADER}\n\n# Stale\n`
+    );
+    expect(await readFile(staleProviderPath, "utf8")).toBe(staleProvider);
   });
 
   test("refuses to overwrite an unexpected unmanaged CLI page", async () => {
     const root = await referenceFixture();
-    try {
-      const unmanagedPath = join(root, "docs/reference/cli/custom.md");
-      await writeFile(unmanagedPath, "# Maintainer-authored page\n", "utf8");
+    const unmanagedPath = join(root, "docs/reference/cli/custom.md");
+    await writeFile(unmanagedPath, "# Maintainer-authored page\n", "utf8");
 
-      await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
-        [
-          "skillset: refusing to replace unmanaged CLI reference artifacts",
-          "- docs/reference/cli/custom.md",
-        ].join("\n")
-      );
-      expect(await readFile(unmanagedPath, "utf8")).toBe(
-        "# Maintainer-authored page\n"
-      );
-      expect(
-        await Bun.file(join(root, "docs/reference/cli/build.md")).exists()
-      ).toBe(false);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+      [
+        "skillset: refusing to replace unmanaged CLI reference artifacts",
+        "- docs/reference/cli/custom.md",
+      ].join("\n")
+    );
+    expect(await readFile(unmanagedPath, "utf8")).toBe(
+      "# Maintainer-authored page\n"
+    );
+    expect(
+      await Bun.file(join(root, "docs/reference/cli/build.md")).exists()
+    ).toBe(false);
   });
 });
 
 async function referenceFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-docs-reference-"));
+  const root = await createTestFixtureRoot("skillset-docs-reference-");
   await writeFixture(
     root,
     CLI_INDEX,
