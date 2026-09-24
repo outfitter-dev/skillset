@@ -62,7 +62,7 @@ bag. See the generated
 [`report` example](../examples/report.json) for the exhaustive shape.
 
 Logical identity fields accept colon-free relative paths plus the explicit
-`instructions:<relative-path>`, `plugin:.` or `plugin:<relative-path>`,
+`plugin:.` or `plugin:<relative-path>`, `rules:<relative-path>`,
 `plugins:<relative-path>`, `skills:<relative-path>`, and
 `skill:<source-id>` forms. No other colon-bearing form is valid, so
 drive-relative paths and URI-like values cannot be mistaken for retained

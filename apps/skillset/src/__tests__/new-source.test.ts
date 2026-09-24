@@ -216,7 +216,7 @@ test("SET-555: new skill --draft is plan-first and supports plugin containers", 
 
   const invalid = await runSkillsetCli(
     "new",
-    "instruction",
+    "rule",
     "Wrong Draft",
     "--draft",
     "--root",
@@ -224,7 +224,7 @@ test("SET-555: new skill --draft is plan-first and supports plugin containers", 
   );
   expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain(
-    "new instruction does not support --draft"
+    "new rule does not support --draft"
   );
 });
 
@@ -383,7 +383,7 @@ test("SET-165: new skill can place source inside an existing plugin container", 
   expect(await fileExists(join(root, ".skillset/plugins/acme-tools/skills/docs-cli-expert/SKILL.md"))).toBe(true);
 });
 
-test("SET-309: new instruction previews and writes canonical workspace source", async () => {
+test("SET-309: new rule previews and writes canonical workspace source", async () => {
   const root = await createTestFixtureRoot("skillset-new-instruction-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
@@ -391,7 +391,7 @@ test("SET-309: new instruction previews and writes canonical workspace source", 
 
   const preview = await runSkillsetCli(
     "new",
-    "instruction",
+    "rule",
     "Review Guidance",
     "--root",
     root
@@ -405,7 +405,7 @@ test("SET-309: new instruction previews and writes canonical workspace source", 
 
   const written = await runSkillsetCli(
     "new",
-    "instruction",
+    "rule",
     "Review Guidance",
     "--root",
     root,
@@ -427,7 +427,7 @@ test("SET-309: new instruction previews and writes canonical workspace source", 
   });
 });
 
-test("SET-309: new instruction supports plugin placement and collision safety", async () => {
+test("SET-309: new rule supports plugin placement and collision safety", async () => {
   const root = await createTestFixtureRoot("skillset-new-instruction-plugin-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
@@ -440,7 +440,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
 
   const written = await runSkillsetCli(
     "new",
-    "instruction",
+    "rule",
     "Review Guidance",
     "--in",
     "acme",
@@ -455,7 +455,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
 
   const collision = await runSkillsetCli(
     "new",
-    "instruction",
+    "rule",
     "Review Guidance",
     "--in",
     "acme",
@@ -470,7 +470,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
 
   const preset = await runSkillsetCli(
     "new",
-    "instruction",
+    "rule",
     "Other Guidance",
     "--preset",
     "minimal",
@@ -479,7 +479,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
   );
   expect(preset.exitCode).toBe(1);
   expect(preset.stderr).toContain(
-    "new instruction does not support --preset"
+    "new rule does not support --preset"
   );
 });
 

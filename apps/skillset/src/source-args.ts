@@ -2,6 +2,7 @@ import type {
   SkillsetOptions,
   TargetName,
 } from "@skillset/core/internal/types";
+import { RETIRED_RULE_KIND } from "@skillset/schema";
 
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import {
@@ -303,6 +304,9 @@ const readNewSourceKind = (
   value: string | undefined
 ): NewSourceKind | undefined => {
   if (value === undefined || value.startsWith("--")) return undefined;
+  if (value === RETIRED_RULE_KIND) {
+    throw new Error(`skillset: new ${RETIRED_RULE_KIND} is retired; use skillset new rule`);
+  }
   return isNewSourceKind(value) ? value : undefined;
 };
 

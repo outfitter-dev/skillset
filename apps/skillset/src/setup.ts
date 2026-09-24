@@ -90,7 +90,7 @@ export interface SetupReport {
 }
 
 export interface SetupImportCandidate {
-  readonly kind: "instructions" | "plugin" | "plugins" | "skills";
+  readonly kind: "plugin" | "plugins" | "rules" | "skills";
   readonly path: string;
   readonly plugin?: {
     readonly identity: string;
@@ -459,13 +459,13 @@ async function detectImportCandidates(
     nativeGroups,
     agentPluginClassification.declaredIdentities
   );
-  // Instruction candidates are for un-adopted repos: an existing
-  // skillset.yaml means the repo already authors instructions in
+  // Root instruction files are candidates only for un-adopted repos: an existing
+  // skillset.yaml means the repo already authors rules in
   // .skillset/rules, so its root files are (or will be) generated.
   if (!alreadyAdopted) {
     for (const name of ROOT_INSTRUCTION_FILES) {
       if (await isImportableInstructionFile(join(rootPath, name))) {
-        candidates.push({ kind: "instructions", path: name });
+        candidates.push({ kind: "rules", path: name });
       }
     }
   }

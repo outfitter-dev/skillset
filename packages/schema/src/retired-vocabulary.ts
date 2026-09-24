@@ -21,3 +21,6 @@ export const RULE_SOURCE_HASH_DOMAIN = "instruction";
 
 /** Target-defaults surface key retired for `rules`. */
 export const RETIRED_RULE_DEFAULTS_SURFACE = "instructions";
+
+/** `skillset new` kind and `skillset lookup` subject retired for `rule`. */
+export const RETIRED_RULE_KIND = "instruction";

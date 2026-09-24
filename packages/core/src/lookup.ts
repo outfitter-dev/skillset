@@ -48,7 +48,7 @@ import {
 } from "./tools-realization";
 import type { TargetName } from "./types";
 
-export type LookupSubject = "activation" | "agent" | "hooks" | "instruction" | "locations" | "plugin" | "skill" | "standards" | "workspace";
+export type LookupSubject = "activation" | "agent" | "hooks" | "locations" | "plugin" | "rule" | "skill" | "standards" | "workspace";
 export type LookupView = "compat" | "events" | "examples" | "fields" | "frontmatter" | "schema" | "values";
 export type LookupDiagnosticSeverity = "error" | "warning";
 
@@ -200,8 +200,8 @@ const SUBJECTS = [
   },
   {
     defaultViews: ["frontmatter", "fields", "schema", "examples", "compat"],
-    description: "Adaptive project-instruction frontmatter and instruction compatibility facts.",
-    subject: "instruction",
+    description: "Adaptive rule frontmatter and rule compatibility facts.",
+    subject: "rule",
   },
   {
     defaultViews: ["fields", "schema", "examples"],
@@ -229,7 +229,7 @@ const SUBJECTS = [
 const CONTRACTS_BY_SUBJECT: Partial<Record<LookupSubject, SkillsetSchemaContract>> = {
   agent: agentFrontmatterContract,
   hooks: hookContract,
-  instruction: ruleFrontmatterContract,
+  rule: ruleFrontmatterContract,
   skill: skillFrontmatterContract,
   workspace: workspaceConfigContract,
 };
@@ -237,7 +237,7 @@ const CONTRACTS_BY_SUBJECT: Partial<Record<LookupSubject, SkillsetSchemaContract
 const SUBJECT_FEATURES: Partial<Record<LookupSubject, readonly SkillsetFeatureId[]>> = {
   agent: ["project-agents"],
   hooks: ["plugin-hooks", "adaptive-hooks"],
-  instruction: ["project-instructions"],
+  rule: ["project-instructions"],
   plugin: ["plugin-manifests"],
   skill: ["standalone-skills"],
 };
@@ -257,7 +257,7 @@ const ASPECT_FEATURES: Partial<Record<LookupSubject, Record<string, readonly Ski
     toolkit: ["runtime-context"],
     units: ["adaptive-hooks"],
   },
-  instruction: {
+  rule: {
     rules: ["project-instructions"],
   },
   plugin: {
@@ -415,7 +415,7 @@ export function listLookupViews(subject: LookupSubject): readonly LookupView[] {
     if (view === "events") return subject === "hooks";
     if (view === "compat") return subject === "activation" || subject === "locations" || subject === "standards" || SUBJECT_FEATURES[subject] !== undefined;
     if (view === "frontmatter") {
-      return subject === "agent" || subject === "instruction" || subject === "skill";
+      return subject === "agent" || subject === "rule" || subject === "skill";
     }
     return contract !== undefined;
   });

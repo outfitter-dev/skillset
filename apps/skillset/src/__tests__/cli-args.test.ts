@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { RETIRED_RULE_KIND } from "@skillset/schema";
 
 import { CLI_ROUTE_FLAGS } from "../../../../scripts/cli-contract";
 import { parseCliRequest } from "../cli-args";
@@ -1108,6 +1109,16 @@ describe("SET-299 CLI request characterization", () => {
     for (const { args, message } of conflictRows) {
       expect(() => parseCliRequest(args)).toThrow(message);
     }
+  });
+
+  test("rejects the retired rule kind with its rewrite", () => {
+    expect(() => parseCliRequest(["new", RETIRED_RULE_KIND, "Review Guidance"])).toThrow(
+      `skillset: new ${RETIRED_RULE_KIND} is retired; use skillset new rule`
+    );
+    expect(() => parseCliRequest(["lookup", RETIRED_RULE_KIND])).toThrow(
+      `skillset: lookup subject ${RETIRED_RULE_KIND} is retired; use skillset lookup rule`
+    );
+    expect(canonical(parseCliRequest(["new", "rule", "Review Guidance"]))).toMatchObject({ request: { newKind: "rule" } });
   });
 });
 

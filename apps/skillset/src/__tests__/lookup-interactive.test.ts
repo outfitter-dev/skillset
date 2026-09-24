@@ -157,12 +157,12 @@ describe("SET-296 derived interactive lookup", () => {
     const cases = [
       {
         answer: "skill",
-        choices: ["skill", "agent", "instruction"],
+        choices: ["skill", "agent", "rule"],
         overrides: { lookupViews: ["frontmatter"] },
       },
       {
         answer: "workspace",
-        choices: ["skill", "agent", "instruction", "workspace", "hooks"],
+        choices: ["skill", "agent", "rule", "workspace", "hooks"],
         overrides: { lookupViews: ["fields"] },
       },
       {
@@ -182,7 +182,7 @@ describe("SET-296 derived interactive lookup", () => {
       },
       {
         answer: "skill",
-        choices: ["skill", "agent", "instruction", "workspace", "hooks"],
+        choices: ["skill", "agent", "rule", "workspace", "hooks"],
         overrides: { lookupField: "does.not.exist" },
       },
     ] as const;

@@ -94,8 +94,8 @@ test("adopt plan mode surveys only and writes nothing", async () => {
   expect(report.acquisition).toEqual({ input: root, kind: "path", rootPath: root });
   expect(report.alreadyAdopted).toBe(false);
   expect(report.candidates).toEqual([
-    { kind: "instructions", path: "AGENTS.md" },
     { kind: "plugin", path: "plugins/demo" },
+    { kind: "rules", path: "AGENTS.md" },
   ]);
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
   expect(report.renderResults).toContainEqual(
@@ -152,8 +152,8 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
       expect(report.acquisition.ref).toMatch(/^[0-9a-f]{40}$/);
     }
     expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
-      ["instructions", true],
       ["plugin", true],
+      ["rules", true],
     ]);
 
     const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
@@ -319,8 +319,8 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   expect(report.ok).toBe(true);
   expect(report.write).toBe(true);
   expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
-    ["instructions", true],
     ["plugin", true],
+    ["rules", true],
   ]);
   expect(report.builtFiles).toBeGreaterThan(0);
   expect(report.buildError).toBeUndefined();
@@ -467,7 +467,7 @@ test("failed instruction adoption reports its partial copied destination", async
   });
 
   const report = await adoptSkillset(root, { write: true });
-  const imported = report.imports.find((result) => result.candidate.kind === "instructions");
+  const imported = report.imports.find((result) => result.candidate.kind === "rules");
 
   expect(report.ok).toBe(false);
   expect(imported?.ok).toBe(false);
@@ -927,7 +927,7 @@ test("adopt records an instructions collision as a failed import without throwin
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(false);
-  const failed = report.imports.find((result) => result.candidate.kind === "instructions");
+  const failed = report.imports.find((result) => result.candidate.kind === "rules");
   expect(failed?.ok).toBe(false);
   expect(failed?.detail).toContain("already exists");
   expect(await readFile(join(root, ".skillset/rules/agents.md"), "utf8")).toBe(
@@ -1109,7 +1109,7 @@ test("adopt CLI without --yes prints the survey and writes nothing", async () =>
   const result = await runSkillsetCli("init", "--root", root, "--adopt", "all");
 
   expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain("import candidate instructions AGENTS.md");
+  expect(result.stdout).toContain("import candidate rules AGENTS.md");
   expect(result.stdout).toContain("import candidate plugin plugins/demo");
   expect(result.stdout).toContain("skipped commands .claude/commands");
   expect(result.stdout).toContain("rerun init with --adopt and --yes");

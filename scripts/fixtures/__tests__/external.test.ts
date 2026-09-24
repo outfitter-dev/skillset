@@ -137,15 +137,15 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     report.stages.find(
       (stage) =>
         stage.stage === "import" &&
-        stage.detail.includes("instructions:AGENTS.md")
+        stage.detail.includes("rules:AGENTS.md")
     )?.detail
   ).toContain(".skillset/rules/agents.md");
   const importedAgents = await readFile(join(clone, ".skillset/rules/agents.md"), "utf8");
   expect(importedAgents).toContain("skillset:\n  origin:\n    path: AGENTS.md");
   expect(importedAgents).toContain("# Demo agents\n\nHandwritten instructions.");
   expect(report.survey.candidates).toEqual([
-    { kind: "instructions", path: "AGENTS.md" },
     { kind: "plugin", path: "plugins/demo" },
+    { kind: "rules", path: "AGENTS.md" },
   ]);
   expect(report.survey.diagnostics).toEqual([]);
   expect(report.survey.skips).toEqual([
@@ -196,13 +196,13 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(markdown).toContain("## Conformance Evidence");
   expect(markdown).toContain("opt-in external adoption conformance evidence");
   expect(markdown).toContain("## Survey");
-  expect(markdown).toContain("- candidate instructions: `AGENTS.md`");
+  expect(markdown).toContain("- candidate rules: `AGENTS.md`");
   expect(markdown).toContain("- candidate plugin: `plugins/demo`");
   expect(markdown).toContain(
     "- skipped commands `.claude/commands`: project-level commands have no portable source home yet"
   );
   expect(markdown).toContain(
-    "instructions:AGENTS.md -> .skillset/rules/agents.md"
+    "rules:AGENTS.md -> .skillset/rules/agents.md"
   );
   expect(markdown).toContain("## Round-trip (target projections, report-only)");
   expect(markdown).toContain("### plugin demo (claude)");
@@ -650,7 +650,7 @@ function failedExternalReport(secret: string): ExternalRunReport {
       renderResults: { failed: 1, rendered: 2, skipped: 3, unsupported: 4 },
     },
     survey: {
-      candidates: [{ kind: "instructions", path: "AGENTS.md" }],
+      candidates: [{ kind: "rules", path: "AGENTS.md" }],
       diagnostics: [],
       skips: [],
     },
@@ -690,7 +690,7 @@ function sensitiveExternalReport(): ExternalRunReport {
     },
     survey: {
       candidates: [
-        { kind: "instructions", path: "fixture-content-sentinel.md" },
+        { kind: "rules", path: "fixture-content-sentinel.md" },
       ],
       diagnostics: [
         {

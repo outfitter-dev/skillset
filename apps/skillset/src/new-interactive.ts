@@ -342,7 +342,7 @@ async function resolveContainer(
   session: InteractiveSession
 ): Promise<string | undefined> {
   if (
-    (kind !== "skill" && kind !== "instruction") ||
+    (kind !== "skill" && kind !== "rule") ||
     request.newContainer !== undefined
   ) {
     return request.newContainer;
@@ -357,7 +357,7 @@ async function resolveContainer(
       description:
         kind === "skill"
           ? "Create under the workspace skills directory"
-          : "Create under the workspace instruction directory",
+          : "Create under the workspace rules directory",
       name: "Workspace",
       value: WORKSPACE_CONTAINER,
     },
@@ -365,7 +365,7 @@ async function resolveContainer(
       description:
         kind === "skill"
           ? "Create inside this plugin"
-          : "Create this instruction inside the plugin",
+          : "Create this rule inside the plugin",
       name: container,
       value: container,
     })),
