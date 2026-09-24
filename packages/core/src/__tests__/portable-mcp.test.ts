@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { chmod, mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { getProviderMcpEvidence } from "@skillset/registry";
@@ -17,12 +16,13 @@ import { renderBuildGraph } from "../render";
 import { collectRenderResults } from "../render-result-collector";
 import { loadBuildGraph } from "../resolver";
 import type { JsonRecord } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 async function fixture(
   source: unknown,
   options: { readonly includeSchema?: boolean } = {}
 ): Promise<{ pluginRoot: string; sourcePath: string }> {
-  const pluginRoot = await mkdtemp(join(tmpdir(), "skillset-portable-mcp-"));
+  const pluginRoot = await createTestFixtureRoot("skillset-portable-mcp-");
   const sourcePath = join(pluginRoot, ".mcp.json");
   const input =
     options.includeSchema === false ||
@@ -382,7 +382,7 @@ describe("portable MCP", () => {
   });
 
   it("cuts provider bundle bytes over from source copying to typed rendering", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-portable-mcp-build-"));
+    const root = await createTestFixtureRoot("skillset-portable-mcp-build-");
     const files: Readonly<Record<string, string>> = {
       ".skillset/plugins/tools/.mcp.json": JSON.stringify({
         $schema: AGENT_PLUGINS_MCP_SCHEMA,
@@ -540,7 +540,7 @@ cursor: false
   });
 
   it("keeps standard support paths while omitting a provider-unsupported server", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-portable-mcp-support-"));
+    const root = await createTestFixtureRoot("skillset-portable-mcp-support-");
     await mkdir(join(root, ".skillset/plugins/tools/bin/work"), {
       recursive: true,
     });
@@ -580,9 +580,7 @@ cursor: false
   });
 
   it("rejects plugin references outside the neutral support envelope", async () => {
-    const root = await mkdtemp(
-      join(tmpdir(), "skillset-portable-mcp-collision-")
-    );
+    const root = await createTestFixtureRoot("skillset-portable-mcp-collision-");
     await mkdir(join(root, ".skillset/plugins/tools"), { recursive: true });
     await writeFile(
       join(root, "skillset.yaml"),
@@ -629,9 +627,7 @@ cursor: false
       const targetConfig = (["claude", "codex", "cursor"] as const)
         .map((target) => `${target}: ${target === testCase.target}`)
         .join("\n");
-      const root = await mkdtemp(
-        join(tmpdir(), "skillset-portable-mcp-policy-")
-      );
+      const root = await createTestFixtureRoot("skillset-portable-mcp-policy-");
       await mkdir(join(root, ".skillset/plugins/tools"), { recursive: true });
       await writeFile(
         join(root, "skillset.yaml"),
@@ -925,9 +921,7 @@ cursor: false
       "does not exist"
     );
 
-    const outside = await mkdtemp(
-      join(tmpdir(), "skillset-portable-mcp-outside-")
-    );
+    const outside = await createTestFixtureRoot("skillset-portable-mcp-outside-");
     const outsideFile = join(outside, "server.js");
     await writeFile(outsideFile, "");
     await symlink(outsideFile, join(input.pluginRoot, "bin/arg-escape.js"));

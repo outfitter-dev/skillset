@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillsetResult, verifySkillsetResult } from "../build";
@@ -11,14 +11,6 @@ import {
   pluginTargetRoot,
   providerSourceForPlugin,
 } from "../plugin-output";
-
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("shared plugin package root ownership", () => {
   it("keeps package and manifest paths fixed across marketplace roots", () => {
@@ -142,8 +134,7 @@ async function fixture(
   customTarget: "claude" | "codex" | "cursor" = "claude",
   implicitRoots = false
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-package-roots-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-package-roots-");
   const outputConfig = implicitRoots
     ? "claude: true\ncodex: true\ncursor: true"
     : `claude:

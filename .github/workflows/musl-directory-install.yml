@@ -6,16 +6,24 @@ on:
       - .github/workflows/musl-directory-install.yml
       - .bun-version
       - bun.lock
+      - apps/skillset/src/verification-sandbox.ts
       - packages/core/src/**
       - scripts/native-directory-rename-smoke.ts
+      - scripts/pinned-bun.ts
+      - scripts/test-helpers/fixture-root.ts
+      - scripts/test-sandbox.ts
   push:
     branches: [main]
     paths:
       - .github/workflows/musl-directory-install.yml
       - .bun-version
       - bun.lock
+      - apps/skillset/src/verification-sandbox.ts
       - packages/core/src/**
       - scripts/native-directory-rename-smoke.ts
+      - scripts/pinned-bun.ts
+      - scripts/test-helpers/fixture-root.ts
+      - scripts/test-sandbox.ts
   workflow_dispatch: {}
 
 permissions:
@@ -55,7 +63,7 @@ jobs:
               test "$(bun -p process.arch)" = "$EXPECTED_ARCH"
               cat /etc/alpine-release
               ldd /usr/local/bin/bun
-              bun test packages/core/src/__tests__/directory-rename-no-replace.test.ts
-              bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
+              bun scripts/test-sandbox.ts bun test packages/core/src/__tests__/directory-rename-no-replace.test.ts
+              bun scripts/test-sandbox.ts bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
               bun scripts/native-directory-rename-smoke.ts
             '

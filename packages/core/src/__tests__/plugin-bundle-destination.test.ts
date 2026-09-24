@@ -1,23 +1,13 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillsetResult } from "../build";
 
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
-
 describe("legacy per-plugin bundle destinations", () => {
   it("cannot split a plugin away from the shared package root", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-bundle-destination-"));
-    roots.push(root);
+    const root = await createTestFixtureRoot("skillset-bundle-destination-");
     const files = normalizeSkillsetFixtureFiles({
       "skillset.yaml": `
 skillset:

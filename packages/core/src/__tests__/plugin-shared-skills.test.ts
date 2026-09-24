@@ -1,21 +1,13 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { explainPath } from "../authoring";
 import { buildSkillsetResult } from "../build";
 import { checkProviderFormatConformance } from "../provider-format-conformance";
 import { parseMarkdown } from "../yaml";
-
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("shared plugin skills", () => {
   it("emits one skill and unions compatible provider-only keys", async () => {
@@ -304,8 +296,7 @@ async function fixture(
   body = "Review changes.",
   skillPath = ".skillset/plugins/demo/skills/review/SKILL.md"
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-shared-plugin-skill-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-shared-plugin-skill-");
   const files = normalizeSkillsetFixtureFiles({
     [skillPath]: `---
 name: review

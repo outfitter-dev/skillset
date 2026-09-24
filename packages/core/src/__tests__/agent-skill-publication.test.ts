@@ -1,16 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { classifyIndividualAgentSkillPublication } from "../agent-skill-publication";
 import { loadBuildGraph } from "../resolver";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const fixtureGraph = async (files: Record<string, string>) => {
-  const root = await mkdtemp(
-    path.join(tmpdir(), "skillset-agent-skill-publication-")
-  );
+  const root = await createTestFixtureRoot("skillset-agent-skill-publication-");
   await Promise.all(
     Object.entries(normalizeSkillsetFixtureFiles(files)).map(
       ([filePath, content]) =>

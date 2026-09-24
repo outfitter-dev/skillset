@@ -1,9 +1,9 @@
 /* eslint-disable func-style -- Focused fixture helpers keep grammar cases compact. */
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   type PreprocessContext,
@@ -15,11 +15,7 @@ describe("preprocess reference grammar", () => {
   let rootPath: string;
 
   beforeEach(async () => {
-    rootPath = await mkdtemp(join(tmpdir(), "skillset-preprocess-references-"));
-  });
-
-  afterEach(async () => {
-    await rm(rootPath, { force: true, recursive: true });
+    rootPath = await createTestFixtureRoot("skillset-preprocess-references-");
   });
 
   test("uses {{> X}} for inline references and @{{X}} for links", async () => {

@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillsetResult } from "@skillset/core";
 import {
@@ -13,11 +13,8 @@ import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-const roots: string[] = [];
-
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-project-drafts-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-project-drafts-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
@@ -61,12 +58,6 @@ async function treeBytes(root: string): Promise<Readonly<Record<string, string>>
     )
   );
 }
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("SET-555 side-by-side project drafts", () => {
   it("renders resolved workspace and plugin drafts, records provenance, excludes packages, and cleans up false", async () => {

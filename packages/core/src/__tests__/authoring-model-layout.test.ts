@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
+import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillset, buildSkillsetResult } from "@skillset/core";
@@ -12,11 +12,8 @@ import {
 } from "@skillset/core/internal/authoring";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 
-const roots: string[] = [];
-
 async function authoringFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-authoring-model-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-authoring-model-");
   await cp(join(process.cwd(), "fixtures/authoring-model"), root, {
     recursive: true,
   });
@@ -24,8 +21,7 @@ async function authoringFixture(): Promise<string> {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-layout-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-layout-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
@@ -63,12 +59,6 @@ async function filesBelow(root: string): Promise<readonly string[]> {
   await visit(root);
   return paths.sort();
 }
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("SET-551/585 current authoring model", () => {
   it("renders grouped project drafts while excluding them from packages", async () => {

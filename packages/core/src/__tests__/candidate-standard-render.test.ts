@@ -1,7 +1,6 @@
 /* eslint-disable func-style, no-use-before-define, unicorn/import-style -- Behavioral cases lead the disposable fixture helpers. */
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { listStandardProfiles } from "@skillset/registry";
@@ -9,6 +8,7 @@ import { listStandardProfiles } from "@skillset/registry";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { renderCandidateStandardProfile } from "../candidate-standard-render";
 import type { RenderedFile } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("candidate standard rendering", () => {
   test.each([
@@ -95,7 +95,7 @@ function ownedBy(
 async function fixtureRoot(
   options: { readonly includeSkill?: boolean } = {}
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-candidate-standard-"));
+  const root = await createTestFixtureRoot("skillset-candidate-standard-");
   const files = normalizeSkillsetFixtureFiles({
     ".skillset/plugins/demo/skillset.yaml": `
 skillset:

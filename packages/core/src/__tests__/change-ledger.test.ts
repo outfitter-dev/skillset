@@ -1,10 +1,10 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { readChangeLedger } from "../change-ledger";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("readChangeLedger", () => {
   test("reads every initial schema-versioned event type in append order", async () => {
@@ -141,13 +141,13 @@ describe("readChangeLedger", () => {
   });
 
   test("returns an empty ledger when the file is absent", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-ledger-empty-"));
+    const root = await createTestFixtureRoot("skillset-ledger-empty-");
 
     await expect(readChangeLedger(root)).resolves.toEqual([]);
   });
 
   test("fails with a precise line diagnostic for malformed JSONL", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-ledger-malformed-"));
+    const root = await createTestFixtureRoot("skillset-ledger-malformed-");
     await mkdir(join(root, ".skillset/changes"), { recursive: true });
     await writeFile(
       join(root, ".skillset/changes/ledger.jsonl"),
@@ -200,7 +200,7 @@ describe("readChangeLedger", () => {
 });
 
 async function ledgerFixture(records: readonly object[]): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-ledger-"));
+  const root = await createTestFixtureRoot("skillset-ledger-");
   await mkdir(join(root, ".skillset/changes"), { recursive: true });
   await writeFile(
     join(root, ".skillset/changes/ledger.jsonl"),

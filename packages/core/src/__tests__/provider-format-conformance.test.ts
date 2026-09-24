@@ -1,6 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -10,6 +8,7 @@ import {
   formatProviderFormatConformanceReport,
   providerFormatConformanceFiles,
 } from "@skillset/core";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const PROVIDER_FORMAT_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -1613,7 +1612,7 @@ function textFile(path: string, content: string) {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-format-conformance-"));
+  const root = await createTestFixtureRoot("skillset-provider-format-conformance-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

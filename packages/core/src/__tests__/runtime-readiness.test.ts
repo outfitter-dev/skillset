@@ -1,6 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -28,6 +26,7 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { withLockProvenance } from "../lock-provenance";
 import { loadBuildGraph } from "../resolver";
 import type { BuildGraph, SourcePlugin, TargetName } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("SET-390 activation readiness", () => {
   it("derives and merges canonical dependency, MCP, and app subjects", () => {
@@ -1218,7 +1217,7 @@ function requirementFixture(
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-readiness-"));
+  const root = await createTestFixtureRoot("skillset-runtime-readiness-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {

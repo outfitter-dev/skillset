@@ -2,8 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildSkillsetResult, scopedOutputRoots } from "../build";
@@ -14,6 +13,7 @@ import {
   type ManagedOutputProvenancePolicy,
 } from "../output-safety";
 import { loadBuildGraph } from "../resolver";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const SKILL = `---
 name: review
@@ -432,14 +432,14 @@ cursor: false
 }
 
 async function fixture(config: string): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-output-plan-"));
+  const root = await createTestFixtureRoot("skillset-output-plan-");
   await Bun.write(join(root, "skillset.yaml"), config);
   await Bun.write(join(root, ".skillset/skills/review/SKILL.md"), SKILL);
   return root;
 }
 
 async function fixtureWithoutSkills(config: string): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-output-plan-"));
+  const root = await createTestFixtureRoot("skillset-output-plan-");
   await Bun.write(join(root, "skillset.yaml"), config);
   await Bun.write(
     join(root, ".skillset/rules/root.md"),

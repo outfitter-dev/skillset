@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -10,6 +9,7 @@ import {
   readNormalizedOutputTree,
   type NormalizedOutputTreeEntry,
 } from "@skillset/core";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("normalized output trees", () => {
   it("enumerates nested paths in deterministic POSIX order and preserves binary bytes", async () => {
@@ -144,7 +144,7 @@ function entry(entries: readonly NormalizedOutputTreeEntry[], path: string): Nor
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-normalized-tree-"));
+  const root = await createTestFixtureRoot("skillset-normalized-tree-");
   for (const [path, content] of Object.entries(files)) {
     await Bun.write(join(root, path), content);
   }

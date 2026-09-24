@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { buildSkillsetResult, checkAdapterConformance } from "@skillset/core";
@@ -10,6 +9,7 @@ import { renderBuildGraph } from "../render";
 import { collectRenderResults } from "../render-result-collector";
 import { loadBuildGraph } from "../resolver";
 import { parseMarkdown } from "../yaml";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const skill = (name: string, policy = ""): string => `
 ---
@@ -22,9 +22,7 @@ Use ${name}.
 `;
 
 const fixture = async (files: Record<string, string>): Promise<string> => {
-  const root = await mkdtemp(
-    path.join(tmpdir(), "skillset-invocation-policy-")
-  );
+  const root = await createTestFixtureRoot("skillset-invocation-policy-");
   await Promise.all(
     Object.entries(files).map(([file, content]) =>
       Bun.write(path.join(root, file), `${content.trim()}\n`)

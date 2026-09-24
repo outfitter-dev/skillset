@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -14,6 +13,7 @@ import { validateAgentPluginManifest } from "../render-agent-plugins-standard";
 import { collectRenderResults } from "../render-result-collector";
 import { loadBuildGraph } from "../resolver";
 import type { BuildGraph, RenderedFile } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const decoder = new TextDecoder();
 
@@ -495,7 +495,7 @@ codex: true
 cursor: false
 `,
     });
-    const outside = await mkdtemp(join(tmpdir(), "skillset-chatgpt-asset-"));
+    const outside = await createTestFixtureRoot("skillset-chatgpt-asset-");
     await Bun.write(join(outside, "logo.svg"), "outside asset\n");
     await symlink(
       join(outside, "logo.svg"),
@@ -966,9 +966,7 @@ cursor: false
           ? { ".skillset/plugins/demo/assets/.keep": "keep" }
           : {}),
       });
-      const outside = await mkdtemp(
-        join(tmpdir(), "skillset-agent-plugin-support-")
-      );
+      const outside = await createTestFixtureRoot("skillset-agent-plugin-support-");
       await Bun.write(join(outside, "secret.txt"), "secret\n");
       const linkPath =
         kind === "top-level"
@@ -1003,9 +1001,7 @@ codex: false
 cursor: false
 `,
       });
-      const outside = await mkdtemp(
-        join(tmpdir(), "skillset-agent-plugin-license-")
-      );
+      const outside = await createTestFixtureRoot("skillset-agent-plugin-license-");
       const outsideLicense = join(outside, "LICENSE.txt");
       await Bun.write(outsideLicense, "external license\n");
       await symlink(
@@ -1069,9 +1065,7 @@ cursor: false
     });
     const graph = adopted(await loadBuildGraph(root), ["agent-plugins-1.0"]);
     const pluginRoot = join(root, ".skillset/plugins/demo");
-    const outside = await mkdtemp(
-      join(tmpdir(), "skillset-agent-plugin-provider-")
-    );
+    const outside = await createTestFixtureRoot("skillset-agent-plugin-provider-");
     await Bun.write(join(outside, "run.md"), "Run.\n");
     await symlink(outside, join(pluginRoot, "commands"));
     await Bun.write(join(pluginRoot, "rules/.keep"), "keep\n");
@@ -1148,7 +1142,7 @@ async function fixtureGraph(
 }
 
 async function fixtureRoot(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-agent-plugins-"));
+  const root = await createTestFixtureRoot("skillset-agent-plugins-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {

@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -29,12 +27,13 @@ import type {
   SourceSkill,
   TargetName,
 } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const targets = ["claude", "codex", "cursor"] as const;
 
 describe("registry-backed plugin component paths", () => {
   test("projects every registry component path and manifest field", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-plugin-components-"));
+    const root = await createTestFixtureRoot("skillset-plugin-components-");
     const componentsByTarget = new Map(
       targets.map((target) => [target, registryComponents(target)])
     );
@@ -245,7 +244,7 @@ function skill(path: string): string {
 async function fixtureGraph(
   pluginFiles: Record<string, string>
 ): Promise<BuildGraph> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-component-fixture-"));
+  const root = await createTestFixtureRoot("skillset-component-fixture-");
   const files = normalizeSkillsetFixtureFiles({
     ".skillset/plugins/demo/skillset.yaml": `
 skillset:

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { getStandardProfile, type StandardProfileId } from "@skillset/registry";
 
@@ -254,7 +254,7 @@ description: Review a change.
 Review the change.
 `,
       });
-      const outside = await mkdtemp(join(tmpdir(), "skillset-outside-license-"));
+      const outside = await createTestFixtureRoot("skillset-outside-license-");
       const secretPath = join(outside, "secret.txt");
       await Bun.write(secretPath, "outside-secret\n");
       await symlink(secretPath, join(root, licensePath));
@@ -279,7 +279,7 @@ Review.
 `,
       "skillset.yaml": "skillset:\n  name: license-race\n",
     });
-    const outside = await mkdtemp(join(tmpdir(), "skillset-license-race-"));
+    const outside = await createTestFixtureRoot("skillset-license-race-");
     const outsideSecret = join(outside, "secret.txt");
     await Bun.write(outsideSecret, "outside-secret\n");
     const licensePath = join(root, ".skillset/skills/review/LICENSE.txt");
@@ -1062,9 +1062,7 @@ resources:
 Review the change.
 `,
       });
-      const outside = await mkdtemp(
-        join(tmpdir(), "skillset-outside-resource-")
-      );
+      const outside = await createTestFixtureRoot("skillset-outside-resource-");
       const target =
         kind === "file" ? join(outside, "secret.txt") : join(outside, "secret");
       if (kind === "file") {
@@ -1161,7 +1159,7 @@ async function fixtureGraph(
 }
 
 async function fixtureRoot(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-agent-skills-"));
+  const root = await createTestFixtureRoot("skillset-agent-skills-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {
