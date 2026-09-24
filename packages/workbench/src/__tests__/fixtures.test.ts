@@ -83,9 +83,9 @@ describe("workbench fixtures", () => {
       ".skillset/hooks/hooks.json:3: error: schema/hook: hook event PreToolUse entries must be objects",
       ".skillset/hooks/hooks.json:6: error: schema/hook: hook event SessionStart must be an array",
       ".skillset/hooks/hooks.json:13: error: schema/hook: hook event Stop hook handlers must include a non-empty string type",
-      ".skillset/rules/root.md:2: error: schema/instruction-frontmatter: dialect must be claude when present",
-      ".skillset/rules/root.md:3: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
-      ".skillset/rules/root.md:5: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
+      ".skillset/rules/root.md:2: error: schema/rule-frontmatter: dialect must be claude when present",
+      ".skillset/rules/root.md:3: error: schema/rule-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/rules/root.md:5: error: schema/rule-frontmatter: unsupported supports key tools; v1 supports packages",
       ".skillset/skills/broken/SKILL.md:2: error: schema/skill-frontmatter: description must be a non-empty string",
       ".skillset/skills/broken/SKILL.md:2: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
       ".skillset/skills/broken/SKILL.md:5: error: schema/skill-frontmatter: skillset.name is unsupported in skills; use top-level name",
@@ -120,7 +120,7 @@ const cleanSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
   { kind: "skill", path: ".skillset/skills/reference/SKILL.md" },
   { kind: "agent", path: ".skillset/subagents/reviewer.md" },
-  { kind: "instruction", path: ".skillset/rules/root.md" },
+  { kind: "rule", path: ".skillset/rules/root.md" },
   { kind: "hook", path: ".skillset/hooks/hooks.json" },
 ];
 
@@ -128,7 +128,7 @@ const invalidSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
   { kind: "skill", path: ".skillset/skills/broken/SKILL.md" },
   { kind: "agent", path: ".skillset/subagents/broken.md" },
-  { kind: "instruction", path: ".skillset/rules/root.md" },
+  { kind: "rule", path: ".skillset/rules/root.md" },
   { kind: "hook", path: ".skillset/hooks/hooks.json" },
 ];
 

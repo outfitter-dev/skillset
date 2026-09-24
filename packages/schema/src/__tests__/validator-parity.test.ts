@@ -3,18 +3,18 @@ import Ajv2020 from "ajv/dist/2020";
 
 import {
   agentFrontmatterContract,
-  instructionFrontmatterContract,
   pluginConfigContract,
   ROOT_DRAFT_SELECTOR_PATTERN,
+  ruleFrontmatterContract,
   SOURCE_UNIT_SELECTOR_PATTERN,
   skillFrontmatterContract,
   skillsetSchemaExamples,
   sourceMetadataContract,
   TARGET_NAMES,
   validateAgentFrontmatter,
-  validateInstructionFrontmatter,
   validatePluginConfig,
   validateRootSourceManifest,
+  validateRuleFrontmatter,
   validateSingleFileRootConfig,
   validateSkillFrontmatter,
   validateSourceMetadata,
@@ -97,9 +97,9 @@ const skillsetBlockCases: Record<string, ParityCase> = {
   "agent frontmatter": skillsetBlockCase(agentFrontmatterContract, validateAgentFrontmatter, {
     description: "Reviews code.",
   }),
-  "instruction frontmatter": skillsetBlockCase(
-    instructionFrontmatterContract,
-    validateInstructionFrontmatter,
+  "rule frontmatter": skillsetBlockCase(
+    ruleFrontmatterContract,
+    validateRuleFrontmatter,
     { description: "Review rules." }
   ),
   "skill frontmatter": skillsetBlockCase(skillFrontmatterContract, validateSkillFrontmatter, {

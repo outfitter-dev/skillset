@@ -458,9 +458,9 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     },
   },
   {
-    description: "Adaptive instruction/rules frontmatter.",
-    id: "instruction-frontmatter",
-    path: "instruction-frontmatter.yaml",
+    description: "Adaptive rule frontmatter.",
+    id: "rule-frontmatter",
+    path: "rule-frontmatter.yaml",
     value: {
       claude: {
         path: ".claude/rules/source.md",
