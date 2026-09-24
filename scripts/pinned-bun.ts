@@ -457,7 +457,10 @@ async function installPinnedBun(
   try {
     const install = Bun.spawn({
       cmd: pinnedBunInstallCommand(version),
-      env: { ...process.env, BUN_INSTALL: staging },
+      // The official installer can offer to append PATH setup to a writable
+      // shell profile when Bun is absent from PATH. This cache install must
+      // leave user-level shell configuration alone.
+      env: { ...process.env, BUN_INSTALL: staging, SHELL: "/bin/sh" },
       stderr: "inherit",
       stdout: "ignore",
     });

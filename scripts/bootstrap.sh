@@ -51,8 +51,6 @@ case "$SUBCOMMAND" in
     ;;
 esac
 
-export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-
 # Bun writes its runtime transpiler cache to BUN_RUNTIME_TRANSPILER_CACHE_PATH,
 # resolved relative to the current working directory. An inherited relative
 # value therefore drops `<cwd>/bun/*.pile` into whatever directory bun runs in,
@@ -65,7 +63,10 @@ case "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:-}" in
   /*|0) ;;
   *) export BUN_RUNTIME_TRANSPILER_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/bun/transpiler" ;;
 esac
-export PATH="$BUN_INSTALL/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+# The shared global installation may be read as a bootstrap seed, but this
+# repository must never install over it. The session interpreter is resolved
+# into the version-scoped cache before any lifecycle command runs.
+export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
 hash -r 2>/dev/null || true
 
 cd "$REPO_ROOT"
@@ -79,60 +80,82 @@ read_pinned_bun_version() {
   tr -d '[:space:]' < "$BUN_VERSION_FILE"
 }
 
-install_pinned_bun() {
-  local pinned_version="$1"
-  echo "Installing Bun $pinned_version for Skillset bootstrap..." >&2
-  curl -fsSL https://bun.sh/install | bash -s -- "bun-v$pinned_version"
-  export PATH="$BUN_INSTALL/bin:$PATH"
-  hash -r 2>/dev/null || true
-}
-
 pinned_version="$(read_pinned_bun_version)"
-if [[ -z "$pinned_version" ]]; then
-  echo "Error: .bun-version is empty" >&2
+if [[ ! "$pinned_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: .bun-version must hold a three-part version" >&2
   exit 1
 fi
 
-bun_version_is_compatible() {
-  local actual="$1"
-  local pinned="$2"
-  local actual_major actual_minor actual_patch_raw actual_patch
-  local pinned_major pinned_minor pinned_patch_raw pinned_patch
-
-  IFS=. read -r actual_major actual_minor actual_patch_raw <<< "$actual"
-  IFS=. read -r pinned_major pinned_minor pinned_patch_raw <<< "$pinned"
-  actual_patch="${actual_patch_raw%%[^0-9]*}"
-  pinned_patch="${pinned_patch_raw%%[^0-9]*}"
-
-  [[ "${actual_major:-0}" =~ ^[0-9]+$ ]] || return 1
-  [[ "${actual_minor:-0}" =~ ^[0-9]+$ ]] || return 1
-  [[ "${actual_patch:-0}" =~ ^[0-9]+$ ]] || return 1
-  [[ "${pinned_major:-0}" =~ ^[0-9]+$ ]] || return 1
-  [[ "${pinned_minor:-0}" =~ ^[0-9]+$ ]] || return 1
-  [[ "${pinned_patch:-0}" =~ ^[0-9]+$ ]] || return 1
-
-  [[ "$actual_major" -eq "$pinned_major" ]] &&
-    [[ "$actual_minor" -eq "$pinned_minor" ]] &&
-    [[ "$actual_patch" -ge "$pinned_patch" ]]
+cached_pinned_bun() {
+  local platform arch candidate
+  platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "$platform" in
+    darwin|linux) ;;
+    *) return 1 ;;
+  esac
+  case "$arch" in
+    arm64|aarch64) arch="arm64" ;;
+    x86_64|amd64) arch="x64" ;;
+    *) return 1 ;;
+  esac
+  candidate="$HOME/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/bun"
+  if [[ -x "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
+    printf '%s\n' "$candidate"
+  else
+    return 1
+  fi
 }
 
-if ! command -v bun >/dev/null 2>&1; then
-  case "$SUBCOMMAND" in
-    repo|agent|codex|claude|cursor)
-      install_pinned_bun "$pinned_version"
-      ;;
-    *)
+bootstrap_bun="$(cached_pinned_bun || command -v bun || true)"
+bootstrap_version=""
+if [[ -n "$bootstrap_bun" ]]; then
+  bootstrap_version="$("$bootstrap_bun" --version 2>/dev/null || true)"
+fi
+
+case "$SUBCOMMAND" in
+  doctor|sweep|teardown)
+    if [[ -z "$bootstrap_version" ]]; then
       echo "Error: Bun is required for '$SUBCOMMAND' and will not be installed by that command." >&2
       exit 1
-      ;;
-  esac
-else
-  actual_version="$(bun --version 2>/dev/null || true)"
-  if [[ "$SUBCOMMAND" != "doctor" && "$SUBCOMMAND" != "sweep" && "$SUBCOMMAND" != "teardown" ]] &&
-    ! bun_version_is_compatible "$actual_version" "$pinned_version"; then
-    echo "Bun $actual_version is not compatible with pinned $pinned_version; repairing bootstrap runtime..." >&2
-    install_pinned_bun "$pinned_version"
+    fi
+    # These paths never provision Bun, but their child checks still resolve
+    # `bun` by PATH. A previously cached pin must remain usable without a
+    # global install.
+    export PATH="$(dirname "$bootstrap_bun"):$PATH"
+    exec "$bootstrap_bun" "$SCRIPT_DIR/bootstrap/main.ts" "$@"
+    ;;
+esac
+
+# An ambient Bun from another repository might be too old to parse the
+# resolver itself. Bootstrap under the exact pin before asking it to load TS.
+if [[ "$bootstrap_version" != "$pinned_version" ]]; then
+  bootstrap_seed="$(mktemp -d "${TMPDIR:-/tmp}/skillset-bootstrap-bun.XXXXXX")"
+  trap 'rm -rf -- "$bootstrap_seed"' EXIT
+  echo "Installing Bun $pinned_version into a temporary Skillset bootstrap seed..." >&2
+  # With no Bun on PATH, the upstream installer otherwise offers to append
+  # PATH setup to a writable shell profile. This bootstrap owns neither it
+  # nor the contributor's global install.
+  curl -fsSL https://bun.sh/install | BUN_INSTALL="$bootstrap_seed" SHELL=/bin/sh bash -s -- "bun-v$pinned_version"
+  bootstrap_bun="$bootstrap_seed/bin/bun"
+  if [[ ! -x "$bootstrap_bun" ]]; then
+    echo "Error: Bun installer produced no usable bootstrap interpreter" >&2
+    exit 1
   fi
 fi
 
-exec bun "$SCRIPT_DIR/bootstrap/main.ts" "$@"
+pinned_bun="$("$bootstrap_bun" "$SCRIPT_DIR/bootstrap/resolve-runtime.ts")"
+if [[ ! -x "$pinned_bun" ]] || [[ "$("$pinned_bun" --version)" != "$pinned_version" ]]; then
+  echo "Error: Skillset could not resolve pinned Bun $pinned_version" >&2
+  exit 1
+fi
+export PATH="$(dirname "$pinned_bun"):$PATH"
+hash -r 2>/dev/null || true
+
+# The temporary seed exists only for cold starts. The resolver has copied or
+# installed the pinned interpreter into its durable cache before this exec.
+if [[ -n "${bootstrap_seed:-}" ]]; then
+  rm -rf -- "$bootstrap_seed"
+  trap - EXIT
+fi
+exec "$pinned_bun" "$SCRIPT_DIR/bootstrap/main.ts" "$@"

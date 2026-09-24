@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { chmod, lstat, mkdtemp, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -57,6 +67,76 @@ const makeRepoRoot = async (): Promise<string> => {
   writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");
   return root;
 };
+
+const makeShellBootstrapFixture = async (): Promise<{
+  root: string;
+  home: string;
+  fakeBin: string;
+  installer: string;
+  installLog: string;
+}> => {
+  const root = await createTestFixtureRoot("skillset-bootstrap-shell-");
+  const home = join(root, "home");
+  const fakeBin = join(root, "fake-bin");
+  const installer = join(root, "installer.sh");
+  const installLog = join(root, "install.log");
+  await Promise.all([
+    mkdir(join(root, "scripts", "bootstrap"), { recursive: true }),
+    mkdir(home, { recursive: true }),
+    mkdir(fakeBin, { recursive: true }),
+    mkdir(join(root, "tmp"), { recursive: true }),
+  ]);
+  await Promise.all([
+    copyFile(
+      join(repoRoot, "scripts", "bootstrap.sh"),
+      join(root, "scripts", "bootstrap.sh")
+    ),
+    copyFile(
+      join(repoRoot, "scripts", "pinned-bun.ts"),
+      join(root, "scripts", "pinned-bun.ts")
+    ),
+    copyFile(
+      join(repoRoot, "scripts", "bootstrap", "resolve-runtime.ts"),
+      join(root, "scripts", "bootstrap", "resolve-runtime.ts")
+    ),
+    writeFile(join(root, ".bun-version"), `${Bun.version}\n`),
+    writeFile(
+      join(root, "scripts", "bootstrap", "main.ts"),
+      'console.log(JSON.stringify({ version: Bun.version, path: process.execPath, which: Bun.which("bun"), args: process.argv.slice(2) }));\n'
+    ),
+    writeFile(
+      installer,
+      '#!/bin/sh\nprintf "used\\n" >> "$SKILLSET_TEST_INSTALL_LOG"\nmkdir -p "$BUN_INSTALL/bin"\ncp "$SKILLSET_TEST_BUN_SOURCE" "$BUN_INSTALL/bin/bun"\nchmod +x "$BUN_INSTALL/bin/bun"\ncase "$SHELL" in */zsh) printf "# bun\\n" >> "$HOME/.zshrc";; esac\n'
+    ),
+    writeFile(join(home, ".zshrc"), "# user shell\n"),
+  ]);
+  const curl = join(fakeBin, "curl");
+  await writeFile(curl, '#!/bin/sh\nexec /bin/cat "$SKILLSET_TEST_INSTALLER"\n');
+  await chmod(curl, 0o755);
+  return { fakeBin, home, installer, installLog, root };
+};
+
+const runShellBootstrapFixture = (
+  fixture: Awaited<ReturnType<typeof makeShellBootstrapFixture>>,
+  command: string
+) =>
+  Bun.spawnSync({
+    cmd: ["bash", join(fixture.root, "scripts", "bootstrap.sh"), command],
+    cwd: fixture.root,
+    env: {
+      ...process.env,
+      BUN_INSTALL: join(fixture.home, ".bun"),
+      HOME: fixture.home,
+      PATH: `${fixture.fakeBin}:/usr/bin:/bin`,
+      SHELL: "/bin/zsh",
+      SKILLSET_TEST_BUN_SOURCE: process.execPath,
+      SKILLSET_TEST_INSTALLER: fixture.installer,
+      SKILLSET_TEST_INSTALL_LOG: fixture.installLog,
+      TMPDIR: join(fixture.root, "tmp"),
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
 
 describe("bootstrap dispatcher", () => {
   test("keeps legacy flags routed to repo", () => {
@@ -131,6 +211,117 @@ describe("bootstrap dispatcher", () => {
     expect(proc.stdout.toString()).toContain(
       "repo|agent|codex|claude|cursor|doctor|teardown"
     );
+  });
+
+  test("cold session bootstrap uses a versioned cache without creating global Bun", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const result = runShellBootstrapFixture(fixture, "claude");
+    expect(result.exitCode).toBe(0);
+    const report = JSON.parse(result.stdout.toString()) as {
+      version: string;
+      path: string;
+      args: string[];
+    };
+    expect(report.version).toBe(Bun.version);
+    expect(report.path).toBe(
+      join(
+        fixture.home,
+        ".cache",
+        "skillset",
+        "bun",
+        `${process.platform}-${process.arch}`,
+        Bun.version,
+        "bin",
+        "bun"
+      )
+    );
+    expect(report.args).toEqual(["claude"]);
+    expect(await readFile(fixture.installLog, "utf-8")).toBe("used\n");
+    expect(
+      await Bun.file(join(fixture.home, ".bun", "bin", "bun")).exists()
+    ).toBe(false);
+    expect(await readFile(join(fixture.home, ".zshrc"), "utf-8")).toBe(
+      "# user shell\n"
+    );
+    for (const command of ["doctor", "teardown"]) {
+      const diagnostic = runShellBootstrapFixture(fixture, command);
+      expect(diagnostic.exitCode).toBe(0);
+      const diagnosticReport = JSON.parse(diagnostic.stdout.toString());
+      expect(diagnosticReport.args).toEqual([command]);
+      expect(diagnosticReport.which).toBe(report.path);
+    }
+  });
+
+  test("session bootstrap leaves a different global Bun's bytes and inode time untouched", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const globalBin = join(fixture.home, ".bun", "bin");
+    const globalBun = join(globalBin, "bun");
+    await mkdir(globalBin, { recursive: true });
+    await writeFile(
+      globalBun,
+      `#!/bin/sh\nif [ "$1" = "--version" ]; then printf '1.3.14\\n'; exit 0; fi\nexec "${process.execPath}" "$@"\n`
+    );
+    await chmod(globalBun, 0o755);
+    const before = await stat(globalBun);
+    const beforeBytes = await readFile(globalBun);
+    const result = runShellBootstrapFixture(fixture, "claude");
+    expect(result.exitCode).toBe(0);
+    const report = JSON.parse(result.stdout.toString()) as {
+      version: string;
+      path: string;
+    };
+    expect(report.version).toBe(Bun.version);
+    expect(report.path).toContain(join(fixture.home, ".cache", "skillset", "bun"));
+    expect(await readFile(fixture.installLog, "utf-8")).toBe("used\n");
+    const after = await stat(globalBun);
+    expect(await readFile(globalBun)).toEqual(beforeBytes);
+    expect(after.ino).toBe(before.ino);
+    expect(after.ctimeMs).toBe(before.ctimeMs);
+  });
+
+  test("TypeScript repair installs into the owned cache without rewriting global Bun", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const globalBin = join(fixture.home, ".bun", "bin");
+    const globalBun = join(globalBin, "bun");
+    await mkdir(globalBin, { recursive: true });
+    await writeFile(globalBun, '#!/bin/sh\nprintf "1.3.14\\n"\n');
+    await chmod(globalBun, 0o755);
+    const before = await stat(globalBun);
+    const beforeBytes = await readFile(globalBun);
+    const repairModule = join(repoRoot, "scripts", "bootstrap", "bun.ts");
+    const script = [
+      `import { installPinnedBun } from ${JSON.stringify(repairModule)};`,
+      `await installPinnedBun(${JSON.stringify(fixture.root)});`,
+      'console.log(process.env.PATH?.split(":")[0]);',
+    ].join("\n");
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "-e", script],
+      cwd: fixture.root,
+      env: {
+        ...process.env,
+        BUN_INSTALL: join(fixture.home, ".bun"),
+        HOME: fixture.home,
+        PATH: `${globalBin}:/usr/bin:/bin`,
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toString().trim()).toBe(
+      join(
+        fixture.home,
+        ".cache",
+        "skillset",
+        "bun",
+        `${process.platform}-${process.arch}`,
+        Bun.version,
+        "bin"
+      )
+    );
+    const after = await stat(globalBun);
+    expect(await readFile(globalBun)).toEqual(beforeBytes);
+    expect(after.ino).toBe(before.ino);
+    expect(after.ctimeMs).toBe(before.ctimeMs);
   });
 });
 
