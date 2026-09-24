@@ -6,6 +6,10 @@ import { expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import {
+  createOwnedCliTestEnvironment,
+  type OwnedCliTestEnv,
+} from "../../../../scripts/test-helpers/cli-sandbox";
+import {
   createTestGitFixtureRoot,
   createTestGitRemote,
 } from "../../../../scripts/test-helpers/git-remote";
@@ -388,6 +392,26 @@ Use this demo skill.
   await expect(readdir(marketplace)).resolves.not.toContain("plugins-claude");
 }, 15_000);
 
+test("SET-650: parallel marketplace CLI sandboxes cannot observe one another's state", async () => {
+  const [first, second] = await Promise.all([
+    runIsolatedMarketplace("alpha"),
+    runIsolatedMarketplace("beta"),
+  ]);
+
+  expect(first.env.XDG_CONFIG_HOME).not.toBe(second.env.XDG_CONFIG_HOME);
+  expect(first.env.XDG_CONFIG_HOME.startsWith(`${first.sandboxPath}/`)).toBeTrue();
+  expect(second.env.XDG_CONFIG_HOME.startsWith(`${second.sandboxPath}/`)).toBeTrue();
+  const sharedXdgName = ["skillset-marketplace-cli", "xdg"].join("-");
+  expect(first.env.XDG_CONFIG_HOME).not.toBe(join(tmpdir(), sharedXdgName));
+  expect(second.env.XDG_CONFIG_HOME).not.toBe(join(tmpdir(), sharedXdgName));
+  expect(first.indexPaths).toEqual([first.workspace]);
+  expect(second.indexPaths).toEqual([second.workspace]);
+  expect(first.indexPaths).not.toContain(second.workspace);
+  expect(second.indexPaths).not.toContain(first.workspace);
+  await expect(Bun.file(join(second.xdgConfig, "skillset", "alpha.marker")).exists()).resolves.toBe(false);
+  await expect(Bun.file(join(first.xdgConfig, "skillset", "beta.marker")).exists()).resolves.toBe(false);
+}, 20_000);
+
 async function fixture(files: Record<string, string>, parent?: string): Promise<string> {
   const root = await mkdtemp(join(parent ?? tmpdir(), "skillset-marketplace-cli-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
@@ -403,7 +427,7 @@ async function runSkillsetCli(
   readonly stderr: string;
   readonly stdout: string;
 }> {
-  return runSkillsetCliWithEnv({ XDG_CONFIG_HOME: join(tmpdir(), "skillset-marketplace-cli-xdg") }, ...args);
+  return runSkillsetCliWithEnv({}, ...args);
 }
 
 async function runSkillsetCliWithEnv(
@@ -414,9 +438,21 @@ async function runSkillsetCliWithEnv(
   readonly stderr: string;
   readonly stdout: string;
 }> {
+  const owned = await createOwnedCliTestEnvironment({ env });
+  return spawnSkillsetCli(owned.env, ...args);
+}
+
+async function spawnSkillsetCli(
+  env: OwnedCliTestEnv,
+  ...args: readonly string[]
+): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
-    env: { ...process.env, ...env },
+    env,
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -426,4 +462,72 @@ async function runSkillsetCliWithEnv(
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+async function runIsolatedMarketplace(id: string): Promise<{
+  readonly env: OwnedCliTestEnv;
+  readonly indexPaths: readonly string[];
+  readonly sandboxPath: string;
+  readonly workspace: string;
+  readonly xdgConfig: string;
+}> {
+  const owned = await createOwnedCliTestEnvironment({ isolate: true });
+  const workspace = await fixture(
+    {
+      "skillset.yaml": `
+skillset:
+  name: marketplace-${id}
+workspace:
+  cacheKey: marketplace-${id}
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - plugin: local-tools
+`,
+      ".skillset/plugins/local-tools/skillset.yaml": `
+skillset:
+  name: local-tools
+`,
+      ".skillset/plugins/local-tools/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Use this demo skill.
+`,
+    },
+    owned.sandbox.descriptor.sandboxPath
+  );
+  await buildSkillsetResult(workspace);
+  const built = await spawnSkillsetCli(
+    owned.env,
+    "build",
+    "--yes",
+    "--root",
+    workspace
+  );
+  expect(built.exitCode, `${built.stdout}${built.stderr}`).toBe(0);
+  const checked = await spawnSkillsetCli(
+    owned.env,
+    "marketplace",
+    "check",
+    "outfitter",
+    "--root",
+    workspace
+  );
+  expect(checked.exitCode, `${checked.stdout}${checked.stderr}`).toBe(0);
+  const markerDir = join(owned.env.XDG_CONFIG_HOME, "skillset");
+  await Bun.write(join(markerDir, `${id}.marker`), `${id}\n`);
+  const index = JSON.parse(
+    await readFile(join(markerDir, "skillsets.json"), "utf8")
+  ) as { readonly skillsets: readonly { readonly path: string }[] };
+  return {
+    env: owned.env,
+    indexPaths: index.skillsets.map((entry) => entry.path),
+    sandboxPath: owned.sandbox.descriptor.sandboxPath,
+    workspace,
+    xdgConfig: owned.env.XDG_CONFIG_HOME,
+  };
 }
