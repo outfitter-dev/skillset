@@ -3,15 +3,15 @@ import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
   pinnedBunExecutableName,
   pinnedBunInstallCommand,
@@ -73,83 +73,71 @@ for (const staleKind of [
   test(`SET-604: pinned runtime publication replaces a ${staleKind} cache`, async () => {
     if (process.platform === "win32") return;
 
-    const root = await mkdtemp(join(tmpdir(), "skillset-bun-publish-"));
+    const root = await createTestFixtureRoot("skillset-bun-publish-");
     const target = join(root, "target");
     const staging = join(root, "staging");
-    try {
-      await writeFakeBun(staging, "1.4.0");
-      if (staleKind === "partial") {
-        await mkdir(target);
-        await writeFile(join(target, "interrupted-install"), "partial\n");
-      } else if (staleKind === "spawn-invalid") {
-        const binPath = join(target, "bin", "bun");
-        await mkdir(dirname(binPath), { recursive: true });
-        await writeFile(binPath, "not an executable\n");
-        await chmod(binPath, 0o755);
-      } else {
-        await writeFakeBun(
-          target,
-          staleKind === "wrong-version" ? "1.3.0" : "1.4.0",
-          staleKind === "non-executable" ? 0o644 : 0o755
-        );
-      }
-
-      await publishPinnedBunCache("1.4.0", staging, target);
-
-      expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
-      await expect(access(staging)).rejects.toThrow();
-      expect(
-        await Array.fromAsync(new Bun.Glob("target.invalid-*").scan(root))
-      ).toEqual([]);
-    } finally {
-      await rm(root, { force: true, recursive: true });
+    await writeFakeBun(staging, "1.4.0");
+    if (staleKind === "partial") {
+      await mkdir(target);
+      await writeFile(join(target, "interrupted-install"), "partial\n");
+    } else if (staleKind === "spawn-invalid") {
+      const binPath = join(target, "bin", "bun");
+      await mkdir(dirname(binPath), { recursive: true });
+      await writeFile(binPath, "not an executable\n");
+      await chmod(binPath, 0o755);
+    } else {
+      await writeFakeBun(
+        target,
+        staleKind === "wrong-version" ? "1.3.0" : "1.4.0",
+        staleKind === "non-executable" ? 0o644 : 0o755
+      );
     }
+
+    await publishPinnedBunCache("1.4.0", staging, target);
+
+    expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
+    await expect(access(staging)).rejects.toThrow();
+    expect(
+      await Array.fromAsync(new Bun.Glob("target.invalid-*").scan(root))
+    ).toEqual([]);
   });
 }
 
 test("SET-604: pinned runtime publication rejects a wrong staged version", async () => {
   if (process.platform === "win32") return;
 
-  const root = await mkdtemp(join(tmpdir(), "skillset-bun-staging-"));
+  const root = await createTestFixtureRoot("skillset-bun-staging-");
   const target = join(root, "target");
   const staging = join(root, "staging");
-  try {
-    await writeFakeBun(staging, "1.3.0");
+  await writeFakeBun(staging, "1.3.0");
 
-    await expect(
-      publishPinnedBunCache("1.4.0", staging, target)
-    ).rejects.toThrow("staged runtime does not report bun-v1.4.0");
+  await expect(
+    publishPinnedBunCache("1.4.0", staging, target)
+  ).rejects.toThrow("staged runtime does not report bun-v1.4.0");
 
-    await expect(access(staging)).resolves.toBeNull();
-    await expect(access(target)).rejects.toThrow();
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  await expect(access(staging)).resolves.toBeNull();
+  await expect(access(target)).rejects.toThrow();
 });
 
 test("SET-604: concurrent pinned runtime publishers accept only a valid winner", async () => {
   if (process.platform === "win32") return;
 
-  const root = await mkdtemp(join(tmpdir(), "skillset-bun-race-"));
+  const root = await createTestFixtureRoot("skillset-bun-race-");
   const target = join(root, "target");
   const first = join(root, "first");
   const second = join(root, "second");
-  try {
-    await Promise.all([
-      writeFakeBun(target, "1.3.0"),
-      writeFakeBun(first, "1.4.0"),
-      writeFakeBun(second, "1.4.0"),
-    ]);
+  await Promise.all([
+    writeFakeBun(target, "1.3.0"),
+    writeFakeBun(first, "1.4.0"),
+    writeFakeBun(second, "1.4.0"),
+  ]);
 
-    await Promise.all([
-      publishPinnedBunCache("1.4.0", first, target),
-      publishPinnedBunCache("1.4.0", second, target),
-    ]);
+  await Promise.all([
+    publishPinnedBunCache("1.4.0", first, target),
+    publishPinnedBunCache("1.4.0", second, target),
+  ]);
 
-    expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
 });
 
 test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox", async () => {
@@ -343,7 +331,7 @@ test("SET-388: child commands use a portable umask under restrictive callers", a
 });
 
 test("SET-388: inherited worktree descriptors fail before child execution or cleanup", async () => {
-  const worktree = await mkdtemp(join(tmpdir(), "skillset-worktree-forgery-"));
+  const worktree = await createTestFixtureRoot("skillset-worktree-forgery-");
   const sandboxPath = join(worktree, "skillset-test-nested");
   const xdg = {
     cache: join(sandboxPath, "xdg", "cache"),
@@ -384,7 +372,6 @@ test("SET-388: inherited worktree descriptors fail before child execution or cle
   expect(result.stderr).toContain("Git worktree");
   await expect(access(sentinel)).rejects.toThrow();
   await expect(access(descriptorPath)).resolves.toBeNull();
-  await rm(worktree, { recursive: true });
 });
 
 test("SET-388: explicit retention reports the owned sandbox and descriptor", async () => {
@@ -494,7 +481,7 @@ async function runVersion(binPath: string): Promise<string> {
 }
 
 async function decoyEnvironment() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-decoy-"));
+  const root = await createTestFixtureRoot("skillset-decoy-");
   const home = join(root, "home");
   const roots = {
     cache: join(root, "xdg-cache"),
@@ -543,7 +530,7 @@ async function decoyEnvironment() {
 }
 
 async function gitContaminationEnvironment() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-git-decoy-"));
+  const root = await createTestFixtureRoot("skillset-git-decoy-");
   const home = join(root, "home");
   const gitRoot = join(root, "git");
   const template = join(root, "template");
