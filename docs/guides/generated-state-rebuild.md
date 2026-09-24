@@ -4,7 +4,7 @@ description: Rebuilds pre-v4 generated state for current projection roles withou
 
 # Rebuild Generated State for Inherent Standards
 
-Skillset 0.27.0 makes every adopted, applicable Agent standard an inherent projection. Existing provider targets remain provider choices, but valid instruction, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/` package output without a standards selector.
+Skillset 0.27.0 makes every adopted, applicable Agent standard an inherent projection. Existing provider targets remain provider choices, but valid rule, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/` package output without a standards selector.
 
 This is a one-time generated-state rebuild, not a source migration. Preserve `skillset.yaml`, `.skillset/`, provider-native source, user edits, and unmanaged neighbors. Do not add `compile.agents` or another opt-out. Plugin-owned skills now have one standard placement inside their Agent Plugins package; `.agents/skills/` contains standalone standard skills unless a separately owned project-use projection is present. Pre-v4 locks can explain why a rebuild is required, but they cannot prove ownership or authorize deletion.
 

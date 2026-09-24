@@ -80,12 +80,12 @@ fixtures/<case>/
   ...other repo files as needed
 ```
 
-Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable operational output backed by XDG storage and stays ignored rather than checked in; `.skillset/snapshots/` is local recovery output with a tracked ignore sentinel. Plugins, standalone skills, instructions, project subagents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/_cursor`, `.skillset/plugins/<plugin>/_claude`, `.skillset/plugins/<plugin>/_codex`, and `.skillset/plugins/<plugin>/_cursor`.
+Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable operational output backed by XDG storage and stays ignored rather than checked in; `.skillset/snapshots/` is local recovery output with a tracked ignore sentinel. Plugins, standalone skills, rules, project subagents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/_cursor`, `.skillset/plugins/<plugin>/_claude`, `.skillset/plugins/<plugin>/_codex`, and `.skillset/plugins/<plugin>/_cursor`.
 
 Inline temp fixtures should use root `skillset.yaml` plus `.skillset/` unless a test is specifically covering a retired-layout rejection or migration helper.
 
 ## kitchen-sink scope
 
-`kitchen-sink/` is the complete-surface **positive** golden reference: one build that exercises plugins, skills, instructions, shared resources, hooks, and Claude/Codex companions. It stays broad and is not split.
+`kitchen-sink/` is the complete-surface **positive** golden reference: one build that exercises plugins, skills, rules, shared resources, hooks, and Claude/Codex companions. It stays broad and is not split.
 
 It intentionally does not cover negative cases, feature isolation, project agents, provider source, or change/release lifecycle. Those live as in-test temp fixtures in `src/__tests__/`. If a future scenario needs a durable, inspectable fake repo (for example a lifecycle-specific case), add a new `fixtures/<case>/` rather than overloading kitchen-sink.

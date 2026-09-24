@@ -12,11 +12,11 @@ The Claude [target](../../glossary.md#target) [renders](../../glossary.md#render
 
 Claude plugin manifests can declare native component roots for skills, commands, agents, hooks, MCP servers, LSP servers, output styles, themes, and monitors. Skillset renders `skillset.listing.display_name` as the manifest's human-readable `displayName` for Claude Code 2.1.143 and later while preserving `skillset.name` as the component namespace and lookup identity. An explicit `claude.manifest.displayName` wins in the plugin manifest. For marketplace installs, Claude gives an entry-level `displayName` precedence over the manifest label, so `claude.marketplace.displayName` remains the narrower UI override. Executable helpers under `bin/` are provider-native. Default plugin settings remain outside Skillset's [activation](../../glossary.md#activation) authority: a [build](../../glossary.md#build) may render definitions, but it does not enable a plugin or mutate live Claude settings.
 
-Project agents render as Claude Markdown under `.claude/agents/`. Adaptive instruction source renders as Claude rules, preserving path scopes where the provider supports them. Provider-native files remain separate from adaptive source so Claude-specific semantics are visible rather than presented as portable.
+Project agents render as Claude Markdown under `.claude/agents/`. Adaptive rule source renders as Claude rules, preserving path scopes where the provider supports them. Provider-native files remain separate from adaptive source so Claude-specific semantics are visible rather than presented as portable.
 
 When enabled, the advisory project SessionStart command is composed into committed `.claude/settings.json`, not the per-developer `.claude/settings.local.json` used for other suggested hooks. It owns only its command-matched entry; it reports stale output without rebuilding or changing runtime trust. See [Hooks](../features/hooks.md#skillset-owned-project-sessionstart).
 
-For exact source and [destination](../../glossary.md#destination) behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [instructions](../features/instructions.md), [hooks](../features/hooks.md), and [tools policy](../features/tools-policy.md).
+For exact source and [destination](../../glossary.md#destination) behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [rules](../features/rules.md), [hooks](../features/hooks.md), and [tools policy](../features/tools-policy.md).
 
 ## Feature Support
 
@@ -45,13 +45,13 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 | Plugin Monitors | `implemented` | `pass_through` | — | [1](../features/monitors.md), [2](../features/plugins.md) |
 | Plugin Output Styles | `implemented` | `pass_through` | — | [1](../features/output-styles.md), [2](../features/plugins.md) |
 | Plugin README | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
-| Plugin Rules | `implemented` | `not_applicable` | — | [1](../features/instructions.md), [2](../features/plugins.md) |
+| Plugin Rules | `implemented` | `not_applicable` | — | [1](../features/rules.md), [2](../features/plugins.md) |
 | Plugin Scripts | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Skills | `implemented` | `native` | — | [1](../features/plugins.md), [2](../features/skills.md) |
 | Plugin Source | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Themes | `implemented` | `pass_through` | — | [1](../features/themes.md), [2](../features/plugins.md) |
 | Project Agents | `implemented` | `native` | — | [1](../features/agents.md) |
-| Project Instructions | `implemented` | `transformed` | — | [1](../features/instructions.md) |
+| Project Instructions | `implemented` | `transformed` | — | [1](../features/rules.md) |
 | Releases | `implemented` | `metadata_only` | — | [1](../features/releases.md) |
 | Render Results | `implemented` | `not_applicable` | — | [1](../../development/features/render-results.md) |
 | Resources | `implemented` | `native` | — | [1](../features/resources.md) |

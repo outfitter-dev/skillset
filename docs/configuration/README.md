@@ -9,7 +9,7 @@ Skillset configuration is layered. Start with the narrowest layer that expresses
 | If you need to... | Start here |
 | --- | --- |
 | Select providers or configure project-wide compilation | [Project configuration](project-configuration.md) |
-| Add metadata to a skill, agent, or instruction | [Frontmatter](frontmatter.md) |
+| Add metadata to a skill, agent, or rule | [Frontmatter](frontmatter.md) |
 | Change one provider's output or behavior | [Target overrides](target-overrides.md) |
 | Express portable or [provider-native](../glossary.md#provider-native) tool intent | [Tools policy](tools-policy.md) |
 
@@ -17,7 +17,7 @@ Skillset configuration is layered. Start with the narrowest layer that expresses
 
 A Skillset [workspace](../glossary.md#workspace) supplies project-wide settings. Defaults then flow through a [cascade](../glossary.md#cascade): workspace defaults, plugin defaults, [source-unit](../glossary.md#source-unit) fields, and finally provider-specific fields. A more specific layer should refine the shared intent rather than define a second copy of it.
 
-For the files behind those layers, see the [workspace layout](../reference/source/workspace-layout.md), [instruction source](../reference/source/instructions.md), and [preprocessing reference](../reference/source/preprocessing.md).
+For the files behind those layers, see the [workspace layout](../reference/source/workspace-layout.md), [rule source](../reference/source/rules.md), and [preprocessing reference](../reference/source/preprocessing.md).
 
 ## Exact Contracts and Inspection
 

@@ -2,7 +2,7 @@
 
 Skillset is a source-first compiler for provider-native agent loadouts.
 
-Write a skill, instruction, agent, hook, or plugin once in a repository-owned source tree. Skillset validates that source, then renders reviewable Claude, Codex, and Cursor files without installing or activating them.
+Write a skill, rule, agent, hook, or plugin once in a repository-owned source tree. Skillset validates that source, then renders reviewable Claude, Codex, and Cursor files without installing or activating them.
 
 ## Install
 
@@ -58,9 +58,9 @@ Skillset renders files. It does not install, trust, activate, symlink, or mutate
 
 ## What it can author
 
-Skillset currently handles standalone skills, project instructions and agents, plugins, resources, hooks, provider-native components, change records, and release projections. Support is intentionally explicit: see the generated [feature support matrix](docs/reference/support-matrix.md) for current target evidence and the [CLI reference](docs/reference/cli/README.md) for every public command.
+Skillset currently handles standalone skills, project rules and agents, plugins, resources, hooks, provider-native components, change records, and release projections. Support is intentionally explicit: see the generated [feature support matrix](docs/reference/support-matrix.md) for current target evidence and the [CLI reference](docs/reference/cli/README.md) for every public command.
 
-Generated output stays native to each provider. A shared instruction may become Claude rules, a directory-local Codex `AGENTS.md`, and Cursor `.mdc` rules. A feature without a faithful destination is diagnosed or handled by the workspace's explicit unsupported-destination policy.
+Generated output stays native to each provider. A shared rule may become Claude rules, a directory-local Codex `AGENTS.md`, and Cursor `.mdc` rules. A feature without a faithful destination is diagnosed or handled by the workspace's explicit unsupported-destination policy.
 
 ## Work safely
 

@@ -38,7 +38,7 @@ Provider-native files derived from Skillset source. Generated output may be comm
 
 ## Loadout
 
-A reusable collection of agent-facing skills, instructions, agents, hooks, plugins, and related resources prepared for one or more providers.
+A reusable collection of agent-facing skills, rules, agents, hooks, plugins, and related resources prepared for one or more providers.
 
 ## Projection
 
@@ -62,7 +62,7 @@ The directory containing authored Skillset units. In the canonical workspace lay
 
 ## Source unit
 
-One addressable authored item—such as a skill, instruction, agent, hook, plugin, or resource—that Skillset can validate, track, and project.
+One addressable authored item—such as a skill, rule, agent, hook, plugin, or resource—that Skillset can validate, track, and project.
 
 ## Target
 
