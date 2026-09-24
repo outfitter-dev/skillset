@@ -1,5 +1,5 @@
 {
-  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/instruction-frontmatter.schema.json",
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/rule-frontmatter.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
   "properties": {
@@ -449,6 +449,6 @@
       "type": "string"
     }
   },
-  "title": "Instruction Frontmatter",
+  "title": "Rule Frontmatter",
   "type": "object"
 }

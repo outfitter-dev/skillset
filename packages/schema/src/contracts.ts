@@ -269,7 +269,7 @@ export const AGENT_FRONTMATTER_KEYS = [
   "supports",
 ] as const;
 
-export const INSTRUCTION_FRONTMATTER_KEYS = [
+export const RULE_FRONTMATTER_KEYS = [
   "claude",
   "codex",
   "cursor",
@@ -420,15 +420,15 @@ export const agentFrontmatterContract = contract(
   }
 );
 
-export const instructionFrontmatterContract = contract(
-  "instruction-frontmatter",
-  "Instruction Frontmatter",
-  "Adaptive Skillset instruction/rules frontmatter.",
+export const ruleFrontmatterContract = contract(
+  "rule-frontmatter",
+  "Rule Frontmatter",
+  "Adaptive Skillset rule frontmatter.",
   {
     additionalProperties: true,
     properties: {
       claude: targetOverrideSchema(),
-      codex: instructionCodexOverrideSchema(),
+      codex: ruleCodexOverrideSchema(),
       cursor: targetOverrideSchema(),
       description: nonEmptyStringSchema(),
       dialect: { enum: ["claude"], type: "string" },
@@ -1032,7 +1032,7 @@ export const skillsetSchemaContracts = [
   sourceMetadataContract,
   skillFrontmatterContract,
   agentFrontmatterContract,
-  instructionFrontmatterContract,
+  ruleFrontmatterContract,
   hookContract,
   adaptiveHookContract,
   changeEntryContract,
@@ -1914,7 +1914,7 @@ function agentTargetOverrideSchema(): SchemaJsonRecord {
   };
 }
 
-function instructionCodexOverrideSchema(): SchemaJsonRecord {
+function ruleCodexOverrideSchema(): SchemaJsonRecord {
   return {
     anyOf: [
       { type: "boolean" },

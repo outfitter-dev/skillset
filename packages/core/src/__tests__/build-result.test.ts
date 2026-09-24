@@ -1786,7 +1786,7 @@ Review the change.
     const root = await fixture({
       "skillset.yaml": `
 skillset:
-  name: invalid-instruction-frontmatter
+  name: invalid-rule-frontmatter
 codex: true
 `,
       ".skillset/rules/root.md": `

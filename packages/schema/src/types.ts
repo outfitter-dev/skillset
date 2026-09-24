@@ -19,7 +19,7 @@ export type SkillsetSchemaContractId =
   | "cli-event"
   | "cli-result"
   | "hook"
-  | "instruction-frontmatter"
+  | "rule-frontmatter"
   | "plugin-config"
   | "report"
   | "skill-eval"

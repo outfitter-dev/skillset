@@ -6,7 +6,7 @@ description: Defines portable instruction source, path scoping, provider destina
 
 Instructions are durable repository guidance authored as [source units](../../glossary.md#source-unit) under `.skillset/rules/**/*.md`. They are not invokable skills. Skillset keeps the source hierarchy and [renders](../../glossary.md#render) each enabled provider's supported instruction form.
 
-For the current field set and override shape, use the generated [instruction frontmatter schema](../schemas/0.1.0/instruction-frontmatter.schema.json) and [example](../examples/instruction-frontmatter.yaml). The [instructions feature page](../features/instructions.md) owns the current support summary.
+For the current field set and override shape, use the generated [rule frontmatter schema](../schemas/0.1.0/rule-frontmatter.schema.json) and [example](../examples/rule-frontmatter.yaml). The [instructions feature page](../features/instructions.md) owns the current support summary.
 
 ## Authoring
 
