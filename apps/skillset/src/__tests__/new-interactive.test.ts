@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { createInteractiveSession } from "../interactive-session";
 import {
   listNewSourceContainers,
@@ -36,7 +36,7 @@ function scriptedSession(
 }
 
 async function workspace(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-interactive-"));
+  const root = await createTestFixtureRoot("skillset-new-interactive-");
   await initSkillset({ cwd: root, rootPath: root, write: true });
   return root;
 }
@@ -657,7 +657,7 @@ describe("SET-293 derived new-source choices", () => {
   });
 
   test("uninitialized workspaces fail through the existing plan error before confirmation", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-new-uninitialized-"));
+    const root = await createTestFixtureRoot("skillset-new-uninitialized-");
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "skill" },
       { kind: "input", value: "Fresh Skill" },
@@ -767,6 +767,7 @@ describe("SET-293 derived new-source choices", () => {
         env
       );
       expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
       expect(result.stdout).toContain("write confirmation required");
       expect(result.stdout).not.toContain("Create source:");
     }
@@ -781,7 +782,7 @@ describe("SET-293 derived new-source choices", () => {
 async function runCli(
   args: readonly string[],
   env: Readonly<Record<string, string | undefined>>
-): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+): Promise<{ readonly exitCode: number; readonly stderr: string; readonly stdout: string }> {
   const process = Bun.spawn(
     ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
     {
@@ -790,9 +791,10 @@ async function runCli(
       stdout: "pipe",
     }
   );
-  const [exitCode, stdout] = await Promise.all([
+  const [exitCode, stdout, stderr] = await Promise.all([
     process.exited,
     new Response(process.stdout).text(),
+    new Response(process.stderr).text(),
   ]);
-  return { exitCode, stdout };
+  return { exitCode, stderr, stdout };
 }
