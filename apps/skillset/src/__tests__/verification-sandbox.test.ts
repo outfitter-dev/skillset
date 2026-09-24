@@ -7,9 +7,9 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   resolveWorkspaceRegistrationPolicy,
   TEST_SANDBOX_ENV,
@@ -116,7 +116,7 @@ test("SET-388: descriptors reject foreign ownership and symlink escapes", async 
     })
   ).rejects.toThrow("regular descriptor file");
 
-  const foreignRoot = await mkdtemp(join(tmpdir(), "foreign-sandbox-"));
+  const foreignRoot = await createTestFixtureRoot("foreign-sandbox-");
   const foreignXdg = testSandboxXdg(foreignRoot);
   await Promise.all(
     Object.values(foreignXdg).map((path) => mkdir(path, { recursive: true }))
@@ -185,9 +185,9 @@ test("SET-388: descriptors reject owned-looking sandboxes outside the OS temp ro
 
 test("SET-388: descriptors reject Git worktree roots and nested worktree paths", async () => {
   for (const nested of [false, true]) {
-    const root = await mkdtemp(join(tmpdir(), nested
-      ? "skillset-worktree-parent-"
-      : "skillset-test-worktree-"));
+    const root = await createTestFixtureRoot(
+      nested ? "skillset-worktree-parent-" : "skillset-test-worktree-"
+    );
     const sandboxPath = nested ? join(root, "skillset-test-nested") : root;
     if (nested) {
       await writeFile(join(root, ".git"), "gitdir: /tmp/linked-worktree\n");
@@ -219,7 +219,6 @@ test("SET-388: descriptors reject Git worktree roots and nested worktree paths",
         XDG_STATE_HOME: xdg.state,
       })
     ).rejects.toThrow("Git worktree");
-    await rm(root, { recursive: true });
   }
 });
 
@@ -302,7 +301,7 @@ test("SET-388: test mode refuses registration without the canonical marker", asy
 });
 
 async function createDescriptor() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-sandbox-contract-"));
+  const root = await createTestFixtureRoot("skillset-sandbox-contract-");
   const sandboxPath = join(root, "skillset-test-owned");
   const git = testSandboxGit(sandboxPath);
   const xdg = testSandboxXdg(sandboxPath);
