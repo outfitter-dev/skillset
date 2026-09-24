@@ -14,7 +14,7 @@ These layers have different jobs:
 
 1. `compile.targets` establishes the root provider plan.
 2. Root `claude`, `codex`, and `cursor` blocks configure provider output and inherit that plan unless explicitly enabled or disabled.
-3. Target defaults fill omitted values for `agents`, `instructions`, `plugins`, or `skills`.
+3. Target defaults fill omitted values for `agents`, `plugins`, `rules`, or `skills`.
 4. Plugin and [source-unit](../glossary.md#source-unit) provider toggles refine one scope and may opt a provider back in.
 5. A [target-native island](../glossary.md#target-native-island) preserves a native file whose meaning is not portable.
 
@@ -62,7 +62,7 @@ codex:
       model: gpt-5
 ```
 
-`defaults.codex.skills` is shorthand for the same layer. Defaults are supported for `agents`, `instructions`, `plugins`, and `skills`; misspelled or unknown surfaces fail validation. Plugin defaults override workspace defaults, file-level target fields override plugin defaults, and provider fields override shared fields during the [cascade](../glossary.md#cascade).
+`defaults.codex.skills` is shorthand for the same layer. Defaults are supported for `agents`, `plugins`, `rules`, and `skills`; misspelled or unknown surfaces fail validation, and the retired `instructions` surface fails with its `rules` rewrite. Plugin defaults override workspace defaults, file-level target fields override plugin defaults, and provider fields override shared fields during the [cascade](../glossary.md#cascade).
 
 ## Prefer Shared Intent
 

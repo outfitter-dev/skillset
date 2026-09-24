@@ -1353,7 +1353,7 @@ function isCursorRulePath(path: string): boolean {
 }
 
 function isCursorRuleFile(file: ProviderFormatConformanceFile): boolean {
-  return (file.target === "cursor" && file.destination === "instructions") || isCursorRulePath(file.path);
+  return (file.target === "cursor" && file.destination === "rule") || isCursorRulePath(file.path);
 }
 
 function skillTarget(path: string): TargetName | undefined {
