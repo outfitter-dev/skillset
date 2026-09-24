@@ -83,7 +83,7 @@
     },
     {
       "from": "docs/features/instructions.md",
-      "primary": "docs/reference/features/instructions.md",
+      "primary": "docs/reference/features/rules.md",
       "status": "moved"
     },
     {
@@ -216,7 +216,7 @@
         "docs/configuration/target-overrides.md",
         "docs/configuration/tools-policy.md",
         "docs/guides/importing.md",
-        "docs/reference/source/instructions.md",
+        "docs/reference/source/rules.md",
         "docs/reference/source/preprocessing.md",
         "docs/reference/source/workspace-layout.md"
       ]
@@ -262,6 +262,16 @@
     {
       "from": "docs/tenets.md",
       "primary": "docs/project/tenets.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/reference/features/instructions.md",
+      "primary": "docs/reference/features/rules.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/reference/source/instructions.md",
+      "primary": "docs/reference/source/rules.md",
       "status": "moved"
     }
   ]

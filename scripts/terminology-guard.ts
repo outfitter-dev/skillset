@@ -10,6 +10,10 @@
  * `target` where the code is modeling the Claude/Codex provider enum; new
  * adopter-facing language should prefer provider/destination.
  *
+ * It also blocks the retired rule spellings from ADR-0037 (`instruction-frontmatter`,
+ * `instruction:<id>`, `skillset new instruction`, `defaults.instructions`, and
+ * friends) while leaving Agent Instructions and provider "instruction" words alone.
+ *
  * Allowlists are deliberately small and explicit; see ALLOWLIST_PATHS and
  * ALLOWLIST_LINE below and the "Updating the allowlist" note at the bottom.
  */
@@ -54,6 +58,24 @@ export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
   { label: "compile.unsupported -> compile.unsupportedDestination", pattern: /compile\.unsupported(?!Destination)/ },
   { label: "lowering -> render/derive", pattern: /\blowering\b/i },
   { label: "lowered -> rendered/derived", pattern: /\blowered\b/i },
+  // ADR-0037: authored guidance source is a "rule". These patterns name the
+  // retired Skillset spellings, not the English word: Agent Instructions,
+  // `compile.agents.instructions`, `compile.instruction_front_page`, Codex
+  // `developer_instructions`, and provider "instruction file" prose keep their
+  // owners' words. The `project-instructions` feature ID is renamed with fresh
+  // Agent Instructions evidence in SET-658 and is not banned yet.
+  { label: "instruction-frontmatter -> rule-frontmatter", pattern: /instruction-frontmatter/ },
+  { label: "InstructionFrontmatter -> RuleFrontmatter", pattern: /[Ii]nstructionFrontmatter|INSTRUCTION_FRONTMATTER/ },
+  { label: "instruction frontmatter -> rule frontmatter", pattern: /\binstruction frontmatter\b/i },
+  { label: "selectorForInstruction -> selectorForRule", pattern: /selectorForInstruction/ },
+  { label: "instruction:<id> -> rule:<id>", pattern: /\binstruction:(?=[A-Za-z0-9._[(/-])/ },
+  { label: "\"instruction\" kind -> \"rule\"", pattern: /(?:^|[=:|(,[])\s*["']instruction["']/ },
+  { label: "new/lookup instruction -> new/lookup rule", pattern: /\b(?:new|lookup) instruction\b/ },
+  { label: "source-instruction -> source-rule", pattern: /\bsource-instruction\b/ },
+  { label: "defaults.instructions -> defaults.rules", pattern: /\bdefaults\.instructions\b/ },
+  { label: "instructions import kind -> rules", pattern: /\bkind:\s*["']instructions["']|["']instructions:[^"'\s]/ },
+  { label: "instructions.md reference page -> rules.md", pattern: /\b(?:features|source)\/instructions\.md\b/ },
+  { label: "instructionsDir/loadInstructions -> rulesDir/loadRules", pattern: /\b(?:instructionsDir|loadInstructions)\b/ },
 ];
 
 /**
@@ -64,6 +86,8 @@ export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
 export const ALLOWLIST_PATHS: readonly string[] = [
   // Historical decision records keep their original vocabulary.
   "docs/adrs/",
+  // The docs migration map records moved pages under their historical paths.
+  "docs/migration-map.json",
   // Goal packets describe the old vocabulary they are cutting over.
   ".agents/plans/",
   // The committed 2026-07-18 audit preserves the retired term as historical
@@ -88,6 +112,9 @@ export const ALLOWLIST_PATHS: readonly string[] = [
   // The `deterministic-projection` conformance concept is intentionally not renamed.
   "packages/core/src/deterministic-projection.ts",
   "packages/core/src/__tests__/deterministic-projection.test.ts",
+  // ADR-0037: the one module that must quote retired rule spellings, for the
+  // cutover errors that name each rewrite and for change-history translation.
+  "packages/schema/src/retired-vocabulary.ts",
   // This guard and its test necessarily contain the retired terms as patterns.
   "scripts/terminology-guard.ts",
   "scripts/__tests__/terminology-guard.test.ts",

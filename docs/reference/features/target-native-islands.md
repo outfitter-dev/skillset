@@ -41,7 +41,7 @@ Target `projectRoot` configuration can replace the default project dotfolder. Sk
 
 Known text and structured files are preprocessed and then parsed or schema-validated where their format has a contract. Unknown text and binary files copy byte-for-byte. No provider-source file may leak into another target.
 
-Codex `.rules` files are command-execution policy and are accepted only from `.skillset/_codex/rules/**/*.rules`. Portable instruction prose belongs in `.skillset/rules/**/*.md` and renders to [provider-specific instruction surfaces](instructions.md); Codex plugin `.rules` are unsupported.
+Codex `.rules` files are command-execution policy and are accepted only from `.skillset/_codex/rules/**/*.rules`. Portable rule prose belongs in `.skillset/rules/**/*.md` and renders to [provider-specific rule destinations](rules.md); Codex plugin `.rules` are unsupported.
 
 | Portable source | Claude | Codex | Cursor |
 | --- | --- | --- | --- |

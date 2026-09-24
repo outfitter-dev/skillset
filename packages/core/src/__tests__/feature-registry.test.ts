@@ -95,7 +95,7 @@ describe("feature registry", () => {
     }
   });
 
-  it("documents portable instruction rendering alongside every target-native island", async () => {
+  it("documents portable rule rendering alongside every target-native island", async () => {
     const feature = getSkillsetFeature("target-native-islands");
     expect(feature?.docs).toContain("docs/reference/features/target-native-islands.md");
 

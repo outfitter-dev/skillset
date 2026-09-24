@@ -33,13 +33,13 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 | Plugin Monitors | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/monitors.md), [2](./features/plugins.md) |
 | Plugin Output Styles | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/output-styles.md), [2](./features/plugins.md) |
 | Plugin README | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
-| Plugin Rules | `implemented` | `not_applicable` | `not_applicable` | `pass_through` | [1](./features/instructions.md), [2](./features/plugins.md) |
+| Plugin Rules | `implemented` | `not_applicable` | `not_applicable` | `pass_through` | [1](./features/rules.md), [2](./features/plugins.md) |
 | Plugin Scripts | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
 | Plugin Skills | `implemented` | `native` | `native` | `native` | [1](./features/plugins.md), [2](./features/skills.md) |
 | Plugin Source | `implemented` | `pass_through` | `pass_through` | `planned` | [1](./features/plugins.md) |
 | Plugin Themes | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/themes.md), [2](./features/plugins.md) |
 | Project Agents | `implemented` | `native` | `transformed` | `native` | [1](./features/agents.md) |
-| Project Instructions | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/instructions.md) |
+| Project Instructions | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/rules.md) |
 | Releases | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](./features/releases.md) |
 | Render Results | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/render-results.md) |
 | Resources | `implemented` | `native` | `native` | `native` | [1](./features/resources.md) |

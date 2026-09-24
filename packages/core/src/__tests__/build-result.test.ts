@@ -1319,7 +1319,7 @@ codex: false
     expect(await readFile(join(root, unmanagedPath), "utf8")).toBe("keep me\n");
   });
 
-  it("validates skill, agent, and instruction frontmatter with the shared schemas", async () => {
+  it("validates skill, agent, and rule frontmatter with the shared schemas", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -1782,7 +1782,7 @@ Review the change.
     await expect(buildSkillsetResult(root)).rejects.toThrow("skills must be a string array");
   });
 
-  it("rejects invalid instruction frontmatter through the shared schema", async () => {
+  it("rejects invalid rule frontmatter through the shared schema", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:

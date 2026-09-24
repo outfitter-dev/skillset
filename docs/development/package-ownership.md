@@ -62,7 +62,7 @@ File size alone does not justify extraction. Split an anchor when a coherent res
 | `packages/core/src/render-support.ts` | Private render constants, text/file helpers, safe copying, and lock-root primitives | No orchestration or public root API |
 | `packages/core/src/render-marketplaces.ts` | Marketplace selection, provider catalog output, lock parsing, and provenance | No plugin assembly or generic lock orchestration |
 | `packages/core/src/render-plugin-manifest.ts` | Provider manifest serialization and manifest-local component predicates | Hooks may inform output presence; manifest rendering must not own hooks |
-| `packages/core/src/render-rules.ts` | Instruction destination selection, preprocessing, formatting, hashing, and rule lock items | No agent, skill, or plugin orchestration |
+| `packages/core/src/render-rules.ts` | Rule destination selection, preprocessing, formatting, hashing, and rule lock items | No agent, skill, or plugin orchestration |
 | `packages/core/src/render-hooks.ts` | Adaptive and native hook materialization, runtime-context wrapping, normalization, and validation | No manifest or generic companion orchestration |
 | `packages/core/src/resolver.ts` | Graph construction, layout and path validation, target filtering, source loading, and path-dependent semantic validation | Shared structural fields move through Schema; extraction follows discovery or validation responsibilities |
 | `packages/core/src/build.ts` | Build/diff/check orchestration, destination policy, drift, write/backup behavior, scope filtering, and operation results | CLI presentation remains in the app; a write/report slice must stand alone |

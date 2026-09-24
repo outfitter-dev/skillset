@@ -50,6 +50,71 @@ describe("terminology guard", () => {
     expect(scanContent("a.md", "compile.unsupportedDestination defaults to error")).toEqual([]);
   });
 
+  it("flags retired rule spellings (ADR-0037)", () => {
+    const labelsFor = (file: string, text: string) => scanContent(file, text).map((v) => v.label);
+    expect(labelsFor("a.ts", 'const id = "instruction-frontmatter";')).toContain(
+      "instruction-frontmatter -> rule-frontmatter"
+    );
+    expect(labelsFor("a.ts", "validateInstructionFrontmatter(value)")).toContain(
+      "InstructionFrontmatter -> RuleFrontmatter"
+    );
+    expect(labelsFor("a.ts", "INSTRUCTION_FRONTMATTER_KEYS")).toContain("InstructionFrontmatter -> RuleFrontmatter");
+    expect(labelsFor("a.md", "Instruction frontmatter can carry paths.")).toContain(
+      "instruction frontmatter -> rule frontmatter"
+    );
+    expect(labelsFor("a.ts", "selectorForInstruction(rule.id)")).toContain("selectorForInstruction -> selectorForRule");
+    expect(labelsFor("a.json", '"sourceUnit": "instruction:fixtures"')).toContain("instruction:<id> -> rule:<id>");
+    expect(labelsFor("a.ts", 'kind: "instruction",')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.ts", 'if (kind === "instruction") return;')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.ts", 'type Kind = "agent" | "instruction";')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.ts", '    "instruction",')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.md", "Run `skillset new instruction Review`.")).toContain(
+      "new/lookup instruction -> new/lookup rule"
+    );
+    expect(labelsFor("a.md", "skillset lookup instruction")).toContain("new/lookup instruction -> new/lookup rule");
+    expect(labelsFor("a.ts", 'return "source-instruction";')).toContain("source-instruction -> source-rule");
+    expect(labelsFor("a.md", "Set codex.defaults.instructions to false.")).toContain(
+      "defaults.instructions -> defaults.rules"
+    );
+    expect(labelsFor("a.ts", '{ kind: "instructions", path: "AGENTS.md" }')).toContain(
+      "instructions import kind -> rules"
+    );
+    expect(labelsFor("a.ts", '"instructions:AGENTS.md"')).toContain("instructions import kind -> rules");
+    expect(labelsFor("a.md", "[Instructions](../reference/features/instructions.md)")).toContain(
+      "instructions.md reference page -> rules.md"
+    );
+    expect(labelsFor("a.ts", "graph.instructionsDir")).toContain(
+      "instructionsDir/loadInstructions -> rulesDir/loadRules"
+    );
+  });
+
+  it("keeps instruction vocabulary that Skillset does not own", () => {
+    for (const text of [
+      "Agent Instructions is an adopted standard profile.",
+      'standardProfile: "agent-instructions"',
+      "compile:\n  agents:\n    instructions: true",
+      "compile.agents.instructions",
+      "compile.instruction_front_page: repo-root",
+      "INSTRUCTION_FRONT_PAGE_DESTINATIONS",
+      "schema/single-file-root-config/instruction-front-page",
+      "developer_instructions = \"...\"",
+      'intent: "doc.project-instructions"',
+      "Codex reads AGENTS.md instruction files from the repository root.",
+      "The `.skillset/_codex/rules/**/*.rules` island is Codex command policy.",
+      '["instructions", "rules"],',
+      "instruction: keep this YAML key",
+      'the pre-ADR-0037 "instruction" spellings of rule source',
+    ]) {
+      expect(scanContent("a.md", text)).toEqual([]);
+    }
+  });
+
+  it("exempts only rule-cutover history and the retired-vocabulary module", () => {
+    expect(isScannablePath("packages/schema/src/retired-vocabulary.ts")).toBe(false);
+    expect(isScannablePath("docs/migration-map.json")).toBe(false);
+    expect(isScannablePath("packages/schema/src/contracts.ts")).toBe(true);
+  });
+
   it("flags the bare render verb but not ordinary lower-* English", () => {
     expect(scanContent("a.md", "Skillset lowering to Claude").length).toBeGreaterThan(0);
     expect(scanContent("a.md", "lower-level opt-outs and lower-case names")).toEqual([]);

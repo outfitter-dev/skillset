@@ -44,7 +44,7 @@ surface early instead of failing silently at read time.
 
 Skills are not the only surface with this problem. Rules already support the
 same `shared:`/`plugin:`/named-partial preprocessing as skills
-([Instructions](../../reference/features/instructions.md)), so a rule body can mention
+([Instructions](../../reference/features/rules.md)), so a rule body can mention
 a stale path exactly the same way a skill body can. Project agents
 (`.skillset/agents/*.md`) run their bodies through the identical
 `preprocessText` pipeline
@@ -355,7 +355,7 @@ visibility without false confidence.
   rename-cascade support for.
 - [Skills](../../reference/features/skills.md) - current skill body preprocessing
   contract this ADR extends.
-- [Instructions](../../reference/features/instructions.md) - current rule body
+- [Instructions](../../reference/features/rules.md) - current rule body
   preprocessing contract this ADR extends.
 - [Agents](../../reference/features/agents.md) - current project agent `skills:`
   frontmatter and body preprocessing contract this ADR extends.

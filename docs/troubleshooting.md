@@ -19,7 +19,7 @@ If you chose Homebrew, a direct GitHub asset, the Bun distribution, or a reposit
 
 ## Initialization found provider files but imported nothing
 
-This is expected when `init` only surveyed the repository. Before confirming a plain scaffold, review the candidate ids and rerun the survey as `init --adopt <id|all> --yes`; setup and adoption then happen together. A plain `init --yes` writes the scaffold without adopting reported candidates, and a later survey deliberately stops offering root instruction files once the repository is initialized. If the scaffold already exists, preserve the original guidance while you author its canonical equivalent under `.skillset/rules/` using the [Instructions reference](reference/features/instructions.md), then build and review the generated result before removing the original.
+This is expected when `init` only surveyed the repository. Before confirming a plain scaffold, review the candidate ids and rerun the survey as `init --adopt <id|all> --yes`; setup and adoption then happen together. A plain `init --yes` writes the scaffold without adopting reported candidates, and a later survey deliberately stops offering root instruction files once the repository is initialized. If the scaffold already exists, preserve the original guidance while you author its canonical equivalent under `.skillset/rules/` using the [Rules reference](reference/features/rules.md), then build and review the generated result before removing the original.
 
 See [Import Existing Work](guides/importing.md) for the difference between whole-repository adoption and direct import.
 

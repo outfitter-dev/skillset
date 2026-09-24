@@ -4,7 +4,7 @@ description: Configure provider selection and project-wide compiler behavior in 
 
 # Project Configuration
 
-The root `skillset.yaml` defines a Skillset [workspace](../glossary.md#workspace). Authored skills, agents, instructions, plugins, and shared inputs live under its [source root](../glossary.md#source-root), `.skillset/`.
+The root `skillset.yaml` defines a Skillset [workspace](../glossary.md#workspace). Authored skills, agents, rules, plugins, and shared inputs live under its [source root](../glossary.md#source-root), `.skillset/`.
 
 A small manifest can select providers and keep the default [build](../glossary.md#build) policy explicit:
 

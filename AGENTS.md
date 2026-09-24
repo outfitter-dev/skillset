@@ -20,7 +20,7 @@ For repository documentation, follow [docs/development/documentation-system.md](
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
 - Emit target-native plugin bundles under `plugins/<plugin>/<provider>/` by default, with shared generated provenance in `plugins/skillset.lock`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
-- Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
+- Emit source rules from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
 - Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata["skillset.schema"]` fields.
 - Write deterministic `skillset.lock` files near generated outputs.
@@ -66,7 +66,7 @@ bun run change-stream:guard
 
 `bun run package-ownership:guard` blocks app-level package facade files from returning under `apps/skillset/src/`. Prefer importing an owned package root API or a documented private workspace internal directly instead of adding `export * from "@skillset/<package>/internal/*"` shims in the CLI app.
 
-`bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
+`bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover, and the pre-ADR-0037 "instruction" spellings of rule source) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. Agent Instructions and provider "instruction" words are not retired. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
 
 `bun run public-closure:guard` scans only generated public artifacts under `plugins/skillset/**` and rejects routes or references into contributor-only `skillset-dev*` material, development docs, fixtures, package internals, and repository scripts. Contributor and self-hosted `.agents/`, `.claude/`, `.cursor/`, and `.skillset/` trees are deliberately outside this public-closure scan.
 
