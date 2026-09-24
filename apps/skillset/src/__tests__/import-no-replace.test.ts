@@ -5,15 +5,13 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import {
   lstat,
   mkdir,
-  mkdtemp,
   readdir,
   readFile,
-  rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { renameDirectoryNoReplace } from "@skillset/core/internal/directory-rename-no-replace";
 
 import { importSource } from "../import";
@@ -24,12 +22,8 @@ const supportedPlatform = ["darwin", "linux", "win32"].includes(process.platform
 const withTemporaryDirectory = async (
   operation: (root: string) => Promise<void>
 ): Promise<void> => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-import-no-replace-"));
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-import-no-replace-");
+  await operation(root);
 };
 
 const missing = async (path: string): Promise<boolean> =>

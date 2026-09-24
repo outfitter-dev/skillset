@@ -1,8 +1,7 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, it } from "bun:test";
 import path from "node:path";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { inspectSkillset } from "../lint";
 import {
@@ -12,12 +11,6 @@ import {
 import { toLogicalDiagnosticPath } from "../path";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
-
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
-});
 
 describe("logical diagnostic path normalization", () => {
   it("converts literal Windows separators and leaves POSIX and selectors unchanged", () => {
@@ -224,8 +217,7 @@ Body.
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "skillset-diagnostic-path-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-diagnostic-path-");
   for (const [filePath, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(path.join(root, filePath), `${content.trim()}\n`);
   }

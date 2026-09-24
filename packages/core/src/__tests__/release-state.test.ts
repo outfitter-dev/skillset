@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { readReleaseState, writeReleaseState } from "../release-state";
 
@@ -9,7 +9,7 @@ const STATE_PATH = ".skillset/changes/state.json";
 
 describe("release state publication", () => {
   test("writes a complete replacement that readers can parse", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-release-state-"));
+    const root = await createTestFixtureRoot("skillset-release-state-");
     const relative = await writeReleaseState(root, {
       scopes: { "skill:demo": { updatedAt: "2026-09-22T00:00:00.000Z", version: "1.0.0" } },
     });
@@ -60,7 +60,7 @@ describe("release state publication", () => {
   });
 
   test("leaves no published state when the first write fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-release-state-first-"));
+    const root = await createTestFixtureRoot("skillset-release-state-first-");
 
     for (const [hook, message] of failureHooks()) {
       await expect(writeReleaseState(root, {
@@ -82,7 +82,7 @@ function failureHooks(): readonly [string, string][] {
 }
 
 async function seededState(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-release-state-seed-"));
+  const root = await createTestFixtureRoot("skillset-release-state-seed-");
   await writeReleaseState(root, {
     scopes: { "skill:demo": { updatedAt: "2026-09-22T00:00:00.000Z", version: "1.0.0" } },
   });
