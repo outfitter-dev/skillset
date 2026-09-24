@@ -1,9 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
 import { changeCheck } from "../change-entries";
+import { changeStatus, snapshotGitIndex } from "../change-status";
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
@@ -61,6 +63,26 @@ test("SET-503 check --ci and check --ci --fix pass on the post-merge-main shape"
   expect(fixed.stdout + fixed.stderr).not.toContain("change-scope-invalid");
   expect(fixed.exitCode).toBe(0);
 });
+
+test("failed Git-ref snapshots remove their temporary root", async () => {
+  const root = await removedUnitFixture();
+  const before = await snapshotRootNames("skillset-ref-");
+
+  await expect(changeStatus(root, { since: "missing-ref" })).rejects.toThrow("missing-ref");
+  expect(await snapshotRootNames("skillset-ref-")).toEqual(before);
+});
+
+test("failed Git-index snapshots remove their temporary root", async () => {
+  const root = await createTestGitFixtureRoot("skillset-change-index-failure-");
+  const before = await snapshotRootNames("skillset-index-");
+
+  await expect(snapshotGitIndex(root)).rejects.toThrow("not a git repository");
+  expect(await snapshotRootNames("skillset-index-")).toEqual(before);
+});
+
+async function snapshotRootNames(prefix: string): Promise<readonly string[]> {
+  return (await readdir(tmpdir())).filter((name) => name.startsWith(prefix)).toSorted();
+}
 
 /**
  * Builds a worktree whose committed source unit `skill:doomed` was removed on the
