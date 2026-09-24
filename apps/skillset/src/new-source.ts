@@ -16,7 +16,7 @@ import { formatList } from "@skillset/schema";
 
 import { planNewAdaptiveHook } from "./new-hook";
 
-export type NewSourceKind = "agent" | "hook" | "instruction" | "plugin" | "skill";
+export type NewSourceKind = "agent" | "hook" | "plugin" | "rule" | "skill";
 export type NewSourceScope = "repo";
 
 export interface NewSourceKindDefinition {
@@ -47,10 +47,10 @@ export const NEW_SOURCE_KINDS: readonly NewSourceKindDefinition[] = [
     name: "Project agent",
   },
   {
-    description: "Instruction file under the canonical rules source directory",
+    description: "Rule file under the canonical rules source directory",
     enabled: true,
-    id: "instruction",
-    name: "Instruction",
+    id: "rule",
+    name: "Rule",
   },
   {
     description: "Adaptive runtime hook",
@@ -229,8 +229,8 @@ async function planSourceUnit(
   switch (options.kind) {
     case "agent":
       return planAgent(sourceRoot, id, displayName, options);
-    case "instruction":
-      return planInstruction(rootPath, sourceRoot, id, displayName, options);
+    case "rule":
+      return planRule(rootPath, sourceRoot, id, displayName, options);
     case "skill":
       return planSkill(rootPath, sourceRoot, id, displayName, options);
     case "plugin":
@@ -429,7 +429,7 @@ async function planSkill(
   return uniquePlans(files);
 }
 
-async function planInstruction(
+async function planRule(
   rootPath: string,
   sourceRoot: string,
   id: string,
@@ -437,7 +437,7 @@ async function planInstruction(
   options: NewSourceOptions
 ): Promise<readonly NewSourcePlannedFile[]> {
   if (options.presets !== undefined && options.presets.length > 0) {
-    throw new Error("skillset: new instruction does not support --preset");
+    throw new Error("skillset: new rule does not support --preset");
   }
   const container = options.container === undefined
     ? undefined
@@ -455,7 +455,7 @@ async function planInstruction(
     : join(sourceRoot, "plugins", container, "rules");
   return [
     {
-      content: renderInstruction(displayName),
+      content: renderRule(displayName),
       path: join(rulesRoot, `${id}.md`),
     },
   ];
@@ -568,7 +568,7 @@ function renderAgent(id: string, displayName: string): string {
   return `---\nname: ${id}\ndescription: ${yamlString(description)}\n---\n\nUse this agent for ${displayName} work.\n`;
 }
 
-function renderInstruction(displayName: string): string {
+function renderRule(displayName: string): string {
   return `# ${displayName}\n\nAdd repository instructions here.\n`;
 }
 

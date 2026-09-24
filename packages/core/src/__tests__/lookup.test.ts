@@ -18,7 +18,7 @@ describe("lookupSkillsetReference", () => {
       "locations",
       "skill",
       "agent",
-      "instruction",
+      "rule",
       "workspace",
       "hooks",
       "plugin",
@@ -286,7 +286,7 @@ describe("lookupSkillsetReference", () => {
       listLookupSubjects({ views: ["frontmatter"] }).map(
         (subject) => subject.subject
       )
-    ).toEqual(["skill", "agent", "instruction"]);
+    ).toEqual(["skill", "agent", "rule"]);
     expect(
       listLookupSubjects({ views: ["events"] }).map(
         (subject) => subject.subject
@@ -296,7 +296,7 @@ describe("lookupSkillsetReference", () => {
       listLookupSubjects({ views: ["fields"] }).map(
         (subject) => subject.subject
       )
-    ).toEqual(["skill", "agent", "instruction", "workspace", "hooks"]);
+    ).toEqual(["skill", "agent", "rule", "workspace", "hooks"]);
     expect(
       listLookupSubjects({ field: "compile.targets" }).map(
         (subject) => subject.subject
@@ -311,7 +311,7 @@ describe("lookupSkillsetReference", () => {
       listLookupSubjects({ field: "does.not.exist" }).map(
         (subject) => subject.subject
       )
-    ).toEqual(["skill", "agent", "instruction", "workspace", "hooks"]);
+    ).toEqual(["skill", "agent", "rule", "workspace", "hooks"]);
     expect(
       listLookupSubjects({
         aspects: ["adaptive"],

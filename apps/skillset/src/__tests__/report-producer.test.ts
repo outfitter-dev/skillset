@@ -43,7 +43,7 @@ describe("CLI operational report producer", () => {
       unsupported: 0,
     } as const;
     const candidateIds = [
-      adoptCandidateId({ kind: "instructions", path: "AGENTS.md" }),
+      adoptCandidateId({ kind: "rules", path: "AGENTS.md" }),
       adoptCandidateId({ kind: "plugins", path: ".claude/plugins" }),
     ];
     const adoption = createCliAdoptionReport({
@@ -127,7 +127,7 @@ describe("CLI operational report producer", () => {
       fixture.result.command,
     ]).toEqual(["init.adopt", "import", "conformance.external"]);
     expect(adoption.payload.candidateIds).toEqual([
-      "instructions:AGENTS.md",
+      "rules:AGENTS.md",
       "plugins:.claude/plugins",
     ]);
     expect(fixture.payload.fixture.manifestEntrySha256).toBe(

@@ -530,7 +530,7 @@ describe("SET-291 prompt adapters", () => {
     await runInitCommand(
       {
         directory: undefined,
-        initAdopt: ["instructions:AGENTS.md"],
+        initAdopt: ["rules:AGENTS.md"],
         jsonOutput: false,
         options: {},
         rootExplicit: true,

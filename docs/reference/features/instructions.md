@@ -57,7 +57,7 @@ Skillset rejects invalid frontmatter, unsupported preprocessing expressions, uns
 
 Provider toggles can make one instruction unavailable to a [target](../../glossary.md#target). They do not change the instruction's shared meaning or suppress its applicable adopted Agent Instructions projection.
 
-Use [`skillset new instruction`](../cli/new.md) to scaffold source and [`skillset explain`](../cli/explain.md) to trace a source instruction or [generated output](../../glossary.md#generated-output) to its lock-backed destinations.
+Use [`skillset new rule`](../cli/new.md) to scaffold source and [`skillset explain`](../cli/explain.md) to trace a source instruction or [generated output](../../glossary.md#generated-output) to its lock-backed destinations.
 
 ## Provenance
 
