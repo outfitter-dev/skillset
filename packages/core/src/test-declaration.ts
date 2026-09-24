@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { extname, isAbsolute, join, relative, sep } from "node:path";
 
 import {
@@ -13,6 +13,10 @@ import {
   readString,
   resolveTargets,
 } from "./config";
+import {
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+} from "./fs-existence";
 import { compareStrings, resolveInside } from "./path";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
 import {
@@ -1239,10 +1243,7 @@ export function skillsetTestSelectionRecord(
 }
 
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a tests.yaml path through a file is a broken
+  // source root, not an omitted test declaration.
+  return pathExistsOnDisk(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }

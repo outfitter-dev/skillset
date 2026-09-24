@@ -22,6 +22,9 @@ describe("schema-owned source reference contract", () => {
   test("uses schema mutation policy as the rewrite gate", () => {
     expect(() => assertRewrittenSourceReference("agent-skills")).not.toThrow();
     expect(() =>
+      assertRewrittenSourceReference("internal-plugin-selection")
+    ).not.toThrow();
+    expect(() =>
       assertRewrittenSourceReference("skill-resource-destination")
     ).toThrow("must use rewrite policy");
   });

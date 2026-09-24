@@ -52,6 +52,19 @@ case "$SUBCOMMAND" in
 esac
 
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+
+# Bun writes its runtime transpiler cache to BUN_RUNTIME_TRANSPILER_CACHE_PATH,
+# resolved relative to the current working directory. An inherited relative
+# value therefore drops `<cwd>/bun/*.pile` into whatever directory bun runs in,
+# including a clean repository checkout. Only two values are safe to honour: an
+# absolute path, and `0`, bun's documented disable switch that
+# scripts/test-sandbox.ts relies on. Anything else is replaced, because a
+# `${VAR:-default}` fallback would not help here — the failure mode is a value
+# that is set, just set to something relative.
+case "${BUN_RUNTIME_TRANSPILER_CACHE_PATH:-}" in
+  /*|0) ;;
+  *) export BUN_RUNTIME_TRANSPILER_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/bun/transpiler" ;;
+esac
 export PATH="$BUN_INSTALL/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 hash -r 2>/dev/null || true
 

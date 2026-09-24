@@ -1,12 +1,16 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+import { MISSING_PATH_ENOENT, pathExists } from "./fs-existence";
 import { formatGeneratedFileMode, normalizeGeneratedFileMode } from "./generated-file-mode";
 
 import type {
   AppliedTransform,
+  ProjectDraftPolicy,
+  ProjectionRole,
   RenderedFile,
   SourceOrigin,
+  SettingsEntryOwnership,
   TargetName,
 } from "./types";
 import type { OutputConsumer, OutputOwner } from "./output-plan";
@@ -20,10 +24,13 @@ export const WORKSPACE_LOCK_ROOT = ".";
 
 export interface LockItem {
   readonly consumers?: readonly OutputConsumer[];
-  readonly fileModes: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes: Readonly<Record<string, string>>;
   readonly feature?: string;
   readonly files: readonly string[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: ProjectDraftPolicy;
+  readonly effectiveName?: string;
   readonly includedSkills?: readonly string[];
   readonly kind:
     | "changelog"
@@ -33,12 +40,15 @@ export interface LockItem {
     | "plugin-skill"
     | "project-agent"
     | "rule"
+    | "settings-entry"
     | "standalone-skill";
   readonly name: string;
   readonly origin?: string;
   readonly outputHash: string;
   readonly outputPath: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   readonly owner?: OutputOwner;
+  readonly role: ProjectionRole;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
@@ -48,11 +58,15 @@ export interface LockItem {
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly sourcePointer?: string;
+  readonly sourceUnit?: string;
+  readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly targetState?: string;
   readonly transforms?: readonly AppliedTransform[];
   readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
 }
+
 
 export interface ProjectAgentSkillLockReference {
   readonly authored: string;
@@ -97,7 +111,7 @@ export async function copyFileFromSource(
 export function renderedFileModes(
   outputRoot: string,
   files: readonly RenderedFile[]
-): Readonly<Record<string, "0644" | "0755">> {
+): Readonly<Record<string, string>> {
   return Object.fromEntries(
     [...files]
       .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
@@ -113,20 +127,9 @@ export function normalizeManagedRelativePath(path: string): string {
 }
 
 export async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return false;
-    }
-    throw error;
-  }
+  // ENOTDIR is not absence here: a render surface through a non-directory
+  // prefix must surface instead of being read as missing content.
+  return pathExists(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 export function lockRootsFor(

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { chmod, lstat, mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,12 +24,13 @@ import {
 } from "../bootstrap/repo";
 import { isRepoRoot } from "../bootstrap/shared";
 import { resolveCleanupTarget } from "../bootstrap/teardown";
+import { collectToolStatus } from "../bootstrap/tools";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
   runTestGit,
 } from "../test-helpers/git-remote";
-import { collectToolStatus } from "../bootstrap/tools";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 const packageJson = JSON.parse(
@@ -44,8 +45,8 @@ const expectedWorkspaces = Array.isArray(packageJson.workspaces)
   ? packageJson.workspaces
   : [];
 
-const makeRepoRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), "skillset-bootstrap-root-"));
+const makeRepoRoot = async (): Promise<string> => {
+  const root = await createTestFixtureRoot("skillset-bootstrap-root-");
   mkdirSync(join(root, ".skillset"), { recursive: true });
   mkdirSync(join(root, "apps/skillset/src"), { recursive: true });
   writeFileSync(
@@ -53,10 +54,7 @@ const makeRepoRoot = (): string => {
     '{"name":"skillset-workspace","packageManager":"bun@1.4.0","engines":{"bun":">=1.4.0"},"workspaces":[]}\n'
   );
   writeFileSync(join(root, ".bun-version"), "1.4.0\n");
-  writeFileSync(
-    join(root, "skillset.yaml"),
-    "skillset:\n  name: skillset\n"
-  );
+  writeFileSync(join(root, "skillset.yaml"), "skillset:\n  name: skillset\n");
   writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");
   return root;
 };
@@ -174,108 +172,100 @@ describe("bootstrap repo policy", () => {
     );
   });
 
-  test("repo root detection accepts current and migration workspace markers", () => {
-    const ordinaryRoot = makeRepoRoot();
-    const legacyRoot = makeRepoRoot();
-    const dedicatedRoot = makeRepoRoot();
-    try {
-      expect(isRepoRoot(ordinaryRoot)).toBe(true);
+  test("repo root detection accepts current and migration workspace markers", async () => {
+    const ordinaryRoot = await makeRepoRoot();
+    const legacyRoot = await makeRepoRoot();
+    const dedicatedRoot = await makeRepoRoot();
+    expect(isRepoRoot(ordinaryRoot)).toBe(true);
 
-      rmSync(join(legacyRoot, "skillset.yaml"), { force: true });
-      writeFileSync(join(legacyRoot, "skillset.yaml"), "skillset:\n  name: legacy\n");
-      expect(isRepoRoot(legacyRoot)).toBe(true);
+    rmSync(join(legacyRoot, "skillset.yaml"), { force: true });
+    writeFileSync(
+      join(legacyRoot, "skillset.yaml"),
+      "skillset:\n  name: legacy\n"
+    );
+    expect(isRepoRoot(legacyRoot)).toBe(true);
 
-      rmSync(join(dedicatedRoot, "skillset.yaml"), { force: true });
-      writeFileSync(join(dedicatedRoot, "skillset.yaml"), "skillset:\n  name: dedicated\n");
-      mkdirSync(join(dedicatedRoot, "skillset"), { recursive: true });
-      expect(isRepoRoot(dedicatedRoot)).toBe(true);
-    } finally {
-      rmSync(ordinaryRoot, { force: true, recursive: true });
-      rmSync(legacyRoot, { force: true, recursive: true });
-      rmSync(dedicatedRoot, { force: true, recursive: true });
-    }
+    rmSync(join(dedicatedRoot, "skillset.yaml"), { force: true });
+    writeFileSync(
+      join(dedicatedRoot, "skillset.yaml"),
+      "skillset:\n  name: dedicated\n"
+    );
+    mkdirSync(join(dedicatedRoot, "skillset"), { recursive: true });
+    expect(isRepoRoot(dedicatedRoot)).toBe(true);
   });
 
   test("stale Bun is repaired before policy enforcement fails", async () => {
-    const root = makeRepoRoot();
+    const root = await makeRepoRoot();
     const installs: string[] = [];
     let checks = 0;
-    try {
-      await ensureBunAvailable(
-        {
-          config: loadBootstrapConfig(),
-          force: false,
-          host: {
-            bunPolicy: "compatible",
-            provider: "generic",
-            remote: false,
-          },
-          repoRoot: root,
-          update: false,
+    await ensureBunAvailable(
+      {
+        config: loadBootstrapConfig(),
+        force: false,
+        host: {
+          bunPolicy: "compatible",
+          provider: "generic",
+          remote: false,
         },
-        {
-          checkBunVersion: (_repoRoot, policy) => {
-            checks += 1;
-            return checks === 1
-              ? {
-                  actual: "1.3.14",
-                  ok: false,
-                  pinned: "1.4.0",
-                  policy,
-                  reason:
-                    "Expected Bun 1.4.0 or newer compatible patch, found 1.3.14",
-                }
-              : {
-                  actual: "1.4.0",
-                  ok: true,
-                  pinned: "1.4.0",
-                  policy,
-                };
-          },
-          installPinnedBun: async (installRoot, versionFile) => {
-            installs.push(`${installRoot}:${versionFile ?? ""}`);
-          },
-        }
-      );
+        repoRoot: root,
+        update: false,
+      },
+      {
+        checkBunVersion: (_repoRoot, policy) => {
+          checks += 1;
+          return checks === 1
+            ? {
+                actual: "1.3.14",
+                ok: false,
+                pinned: "1.4.0",
+                policy,
+                reason:
+                  "Expected Bun 1.4.0 or newer compatible patch, found 1.3.14",
+              }
+            : {
+                actual: "1.4.0",
+                ok: true,
+                pinned: "1.4.0",
+                policy,
+              };
+        },
+        installPinnedBun: async (installRoot, versionFile) => {
+          installs.push(`${installRoot}:${versionFile ?? ""}`);
+        },
+      }
+    );
 
-      expect(checks).toBe(2);
-      expect(installs).toEqual([`${root}:.bun-version`]);
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    expect(checks).toBe(2);
+    expect(installs).toEqual([`${root}:.bun-version`]);
   });
 
   test("dependency state allows workspace packages without dependencies", async () => {
-    const root = mkdtempSync(join(tmpdir(), "skillset-install-state-"));
-    try {
-      writeFileSync(
-        join(root, "package.json"),
-        '{"name":"root","workspaces":["packages/*"]}\n'
-      );
-      mkdirSync(join(root, "node_modules"), { recursive: true });
-      mkdirSync(join(root, "packages/no-deps"), { recursive: true });
-      writeFileSync(
-        join(root, "packages/no-deps/package.json"),
-        '{"name":"no-deps"}\n'
-      );
-      mkdirSync(join(root, "packages/with-deps/node_modules"), {
-        recursive: true,
-      });
-      writeFileSync(
-        join(root, "packages/with-deps/package.json"),
-        '{"name":"with-deps","dependencies":{"yaml":"^2.8.1"}}\n'
-      );
+    const root = await createTestFixtureRoot("skillset-install-state-");
+    writeFileSync(
+      join(root, "package.json"),
+      '{"name":"root","workspaces":["packages/*"]}\n'
+    );
+    mkdirSync(join(root, "node_modules"), { recursive: true });
+    mkdirSync(join(root, "packages/no-deps"), { recursive: true });
+    writeFileSync(
+      join(root, "packages/no-deps/package.json"),
+      '{"name":"no-deps"}\n'
+    );
+    mkdirSync(join(root, "packages/with-deps/node_modules"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, "packages/with-deps/package.json"),
+      '{"name":"with-deps","dependencies":{"yaml":"^2.8.1"}}\n'
+    );
 
-      await expect(hasRepoInstallState(root)).resolves.toBe(true);
+    await expect(hasRepoInstallState(root)).resolves.toBe(true);
 
-      rmSync(join(root, "packages/with-deps/node_modules"), {
-        force: true,
-        recursive: true,
-      });
-      await expect(hasRepoInstallState(root)).resolves.toBe(false);
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    rmSync(join(root, "packages/with-deps/node_modules"), {
+      force: true,
+      recursive: true,
+    });
+    await expect(hasRepoInstallState(root)).resolves.toBe(false);
   });
 
   test("bootstrap normalizes tracked checkout modes without touching untracked files or symlinks", async () => {
@@ -326,11 +316,7 @@ describe("bootstrap repo policy", () => {
       "skillset-bootstrap-mode-failure-"
     );
     const work = await mkdtemp(join(root, "work-"));
-    try {
-      await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
   });
 
   test("bootstrap leaves unmerged checkout modes untouched", async () => {
@@ -365,68 +351,53 @@ describe("bootstrap repo policy", () => {
     expect((await lstat(conflicted)).mode % 0o1000).toBe(0o600);
   });
 
-  test("root resolution prefers provider env vars before cwd", () => {
+  test("root resolution prefers provider env vars before cwd", async () => {
     const config = loadBootstrapConfig();
-    const codexRoot = makeRepoRoot();
-    const claudeRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          claudeRoot,
-          {
-            CLAUDE_PROJECT_DIR: claudeRoot,
-            CODEX_WORKTREE_PATH: codexRoot,
-          } as NodeJS.ProcessEnv,
-          config
-        )
-      ).toBe(codexRoot);
-    } finally {
-      rmSync(codexRoot, { force: true, recursive: true });
-      rmSync(claudeRoot, { force: true, recursive: true });
-    }
+    const codexRoot = await makeRepoRoot();
+    const claudeRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        claudeRoot,
+        {
+          CLAUDE_PROJECT_DIR: claudeRoot,
+          CODEX_WORKTREE_PATH: codexRoot,
+        } as NodeJS.ProcessEnv,
+        config
+      )
+    ).toBe(codexRoot);
   });
 
-  test("provider-specific root resolution prefers the requested provider", () => {
+  test("provider-specific root resolution prefers the requested provider", async () => {
     const config = loadBootstrapConfig();
-    const codexRoot = makeRepoRoot();
-    const claudeRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          tmpdir(),
-          {
-            CLAUDE_PROJECT_DIR: claudeRoot,
-            CODEX_WORKTREE_PATH: codexRoot,
-          } as NodeJS.ProcessEnv,
-          config,
-          "claude"
-        )
-      ).toBe(claudeRoot);
-    } finally {
-      rmSync(codexRoot, { force: true, recursive: true });
-      rmSync(claudeRoot, { force: true, recursive: true });
-    }
+    const codexRoot = await makeRepoRoot();
+    const claudeRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        tmpdir(),
+        {
+          CLAUDE_PROJECT_DIR: claudeRoot,
+          CODEX_WORKTREE_PATH: codexRoot,
+        } as NodeJS.ProcessEnv,
+        config,
+        "claude"
+      )
+    ).toBe(claudeRoot);
   });
 
-  test("Claude sentinel env does not act as a repo root", () => {
+  test("Claude sentinel env does not act as a repo root", async () => {
     const config = loadBootstrapConfig();
-    const sentinelRoot = makeRepoRoot();
-    const cwdRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          cwdRoot,
-          {
-            CLAUDECODE: sentinelRoot,
-          } as NodeJS.ProcessEnv,
-          config,
-          "claude"
-        )
-      ).toBe(cwdRoot);
-    } finally {
-      rmSync(sentinelRoot, { force: true, recursive: true });
-      rmSync(cwdRoot, { force: true, recursive: true });
-    }
+    const sentinelRoot = await makeRepoRoot();
+    const cwdRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        cwdRoot,
+        {
+          CLAUDECODE: sentinelRoot,
+        } as NodeJS.ProcessEnv,
+        config,
+        "claude"
+      )
+    ).toBe(cwdRoot);
   });
 
   test("host detection honors explicit provider and remote overrides", () => {
@@ -454,21 +425,17 @@ describe("bootstrap repo policy", () => {
     ).toMatchObject({ provider: "cursor" });
   });
 
-  test("Cursor root resolution falls back to cwd without a provider env var", () => {
+  test("Cursor root resolution falls back to cwd without a provider env var", async () => {
     const config = loadBootstrapConfig();
-    const cwdRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          cwdRoot,
-          { CURSOR_AGENT: "1" } as NodeJS.ProcessEnv,
-          config,
-          "cursor"
-        )
-      ).toBe(cwdRoot);
-    } finally {
-      rmSync(cwdRoot, { force: true, recursive: true });
-    }
+    const cwdRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        cwdRoot,
+        { CURSOR_AGENT: "1" } as NodeJS.ProcessEnv,
+        config,
+        "cursor"
+      )
+    ).toBe(cwdRoot);
   });
 
   test("linked worktree detection compares git dir and common dir", () => {
@@ -512,14 +479,12 @@ describe("readRepoHealth", () => {
     const health = readRepoHealth(root);
     expect(health.coreBare).toBe(false);
     expect(health.staleWorktrees).toEqual([]);
-    rmSync(root, { force: true, recursive: true });
   });
 
   test("flags core.bare corruption", async () => {
     const root = await initRepo();
     await runTestGit(root, "config", "core.bare", "true");
     expect(readRepoHealth(root).coreBare).toBe(true);
-    rmSync(root, { force: true, recursive: true });
   });
 
   test("flags worktrees locked by dead processes and keeps live locks", async () => {
@@ -552,6 +517,5 @@ describe("readRepoHealth", () => {
         worktree.path.endsWith("/wt-dead")
       )
     ).toEqual([true]);
-    rmSync(root, { force: true, recursive: true });
   });
 });

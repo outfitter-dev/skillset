@@ -1,4 +1,6 @@
 import type { TargetName } from "@skillset/core/internal/types";
+import { isProjectSessionStartTarget, projectSessionStartEntry, projectSessionStartPath } from "@skillset/core/internal/render-project-hooks";
+import { getProviderRuntimeHookDestination } from "@skillset/registry";
 
 export type HookRunner = "git" | "husky" | "lefthook" | "pre-commit";
 
@@ -29,10 +31,8 @@ function validateHookPrintOptions(options: HookPrintOptions): void {
     throw new Error("skillset: hooks print --agent-runtime cannot be combined with --runner");
   }
   if (options.agentRuntime) {
-    if (options.target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target claude or --target codex");
-    if (options.target === "cursor") {
-      throw new Error("skillset: hooks print --agent-runtime only supports --target claude or --target codex; Cursor has no documented runtime hook destination");
-    }
+    if (options.target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
+    requireRuntimeHookDestination(options.target);
     if (options.preCommit || options.prePush) {
       throw new Error("skillset: hooks print --agent-runtime cannot be combined with --pre-commit or --pre-push");
     }
@@ -148,18 +148,9 @@ function renderGitSnippet(options: { readonly preCommit: boolean; readonly prePu
   return sections.join("\n\n");
 }
 
-const AGENT_RUNTIME_DESTINATIONS = {
-  claude: ".claude/settings.local.json",
-  codex: ".codex/hooks/hooks.json",
-  cursor: undefined,
-} satisfies Readonly<Record<TargetName, string | undefined>>;
-
 function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
   if (target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
-  const path = AGENT_RUNTIME_DESTINATIONS[target];
-  if (path === undefined) {
-    throw new Error("skillset: hooks print --agent-runtime only supports --target claude or --target codex; Cursor has no documented runtime hook destination");
-  }
+  const path = requireRuntimeHookDestination(target).replace(/^<project>\//u, "");
   const note =
     "Generated suggestion only. Review before adding to project-local runtime config; Skillset does not install or trust hooks.";
   const value = {
@@ -187,11 +178,33 @@ function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
       ],
     },
   };
+  const sessionTarget = isProjectSessionStartTarget(target) ? target : undefined;
+  const sessionStart = sessionTarget === undefined
+    ? undefined
+    : {
+        hooks: { SessionStart: [projectSessionStartEntry(sessionTarget)] },
+      };
+  const sessionPath = sessionTarget === undefined
+    ? undefined
+    : projectSessionStartPath(sessionTarget);
   return [
     `# ${target} agent runtime hook snippet`,
+    ...(sessionStart === undefined || sessionPath === undefined ? [] : [
+      `# Suggested committed project SessionStart destination: ${sessionPath}`,
+      JSON.stringify(sessionStart, null, 2),
+      "",
+    ]),
     `# Suggested destination: ${path}`,
     `# ${note}`,
     JSON.stringify(value, null, 2),
     "",
   ].join("\n");
+}
+
+function requireRuntimeHookDestination(target: TargetName): string {
+  const destination = getProviderRuntimeHookDestination(target);
+  if (destination.status === "unknown") {
+    throw new Error(`skillset: hooks print --agent-runtime has no verified destination for --target ${target}: ${destination.reason}`);
+  }
+  return destination.path;
 }

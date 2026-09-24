@@ -25,13 +25,21 @@ describe("Agent Skills standards probe", () => {
     const commands: AgentSkillsProbeCommand[] = [];
     const runner = createRunner(commands);
 
-    const result = await runAgentSkillsProbe({
-      acquireReference: preparedReference,
-      repositoryRoot: fixture.repositoryRoot,
-      runner,
-      skillsRoot: fixture.skillsRoot,
-      tempRoot: fixture.tempRoot,
-    });
+    const previousSecret = process.env.AWS_SECRET_ACCESS_KEY;
+    process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
+    let result: Awaited<ReturnType<typeof runAgentSkillsProbe>>;
+    try {
+      result = await runAgentSkillsProbe({
+        acquireReference: preparedReference,
+        repositoryRoot: fixture.repositoryRoot,
+        runner,
+        skillsRoot: fixture.skillsRoot,
+        tempRoot: fixture.tempRoot,
+      });
+    } finally {
+      if (previousSecret === undefined) delete process.env.AWS_SECRET_ACCESS_KEY;
+      else process.env.AWS_SECRET_ACCESS_KEY = previousSecret;
+    }
 
     expect(result.validator).toMatchObject({
       negativeCanaryRejected: true,
@@ -80,6 +88,11 @@ describe("Agent Skills standards probe", () => {
       )
     ).toBe(true);
     expect(copyCommands[0]?.env.npm_config_globalconfig).toBe("/dev/null");
+    expect(copyCommands[0]?.env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(copyCommands[0]?.env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(copyCommands[0]?.env.CODEX_HOME?.endsWith("/probe/environment/config/codex")).toBe(
+      true
+    );
   });
 
   test("fails when the standards validator accepts the negative canary", async () => {

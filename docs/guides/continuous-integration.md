@@ -22,7 +22,7 @@ skillset init --include ci --yes
 
 This creates `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: later `init` runs report it as existing and do not replace your edits. Review its permissions and consider pinning the Skillset version before relying on it as a required check.
 
-The scaffold comments preserve the configuration boundary: `compile.targets` selects providers, adopted applicable Agent standards render inherently, `.skillset/agents/` is project-agent source, and `defaults.<provider>.agents` is provider configuration. CI validates the resulting source and generated state; it does not introduce a standards opt-out.
+The scaffold comments preserve the configuration boundary: `compile.targets` selects providers, adopted applicable Agent standards render inherently, `.skillset/subagents/` is project-agent source, and `defaults.<provider>.agents` is provider configuration. CI validates the resulting source and generated state; it does not introduce a standards opt-out.
 
 The generated [`init` reference](../reference/cli/init.md) owns the complete option inventory.
 

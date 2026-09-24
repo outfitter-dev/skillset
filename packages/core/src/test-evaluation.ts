@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import {
@@ -12,8 +12,12 @@ import {
   readString,
   readStringArray,
 } from "./config";
-import { parseCurrentGeneratedLock } from "./generated-lock";
+import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { resolveLicense } from "./licenses";
+import {
+  MISSING_PATH_ENOENT,
+  pathExists as pathExistsOnDisk,
+} from "./fs-existence";
 import { compareStrings, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
@@ -443,12 +447,9 @@ function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
   );
 }
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a test path through a non-directory prefix is
+  // a broken workspace, not a missing declaration or staged artifact.
+  return pathExistsOnDisk(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 async function copyIfExists(
@@ -556,11 +557,12 @@ async function copyWorkspaceManagedFiles(
   workspaceLockPath: string,
   sourceDir: string
 ): Promise<void> {
-  if (!(await pathExists(workspaceLockPath))) return;
-  const lock = parseCurrentGeneratedLock(
-    JSON.parse(await readFile(workspaceLockPath, "utf8")) as unknown,
-    "workspace lock skillset.lock"
-  );
+  const read = await readCurrentGeneratedLockFromDisk(workspaceLockPath, {
+    logicalPath: "skillset.lock",
+    missing: "absent",
+  });
+  if (read.kind === "absent") return;
+  const lock = read.lock;
   const ignoredOperationalPaths = ignoredSourceOperationalPaths(
     rootPath,
     sourceDir

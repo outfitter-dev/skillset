@@ -684,7 +684,7 @@ semantics.
 6. Explain once that `.agents/skills/` is portable Agent Skills-compatible output
    consumed by Codex, while `.codex/` owns Codex-native repository components.
    Keep the source families explicit: `.skillset/skills/` renders into skill
-   roots, while `.skillset/agents/` contains project-agent/subagent profiles and
+   roots, while `.skillset/subagents/` contains project-agent/subagent profiles and
    renders into provider agent destinations. It never maps to `.agents/`.
 7. Add glossary entries for output baseline, output state, reconcile, recovery
    snapshot, release state, and report.

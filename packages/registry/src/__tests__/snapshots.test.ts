@@ -4,6 +4,9 @@ import {
   PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA,
   PROVIDER_SCHEMA_SNAPSHOT_SCHEMA,
   assertProviderSchemaSnapshots,
+  cursorParityClaims,
+  cursorParitySources,
+  cursorPluginComponentsObservation,
   getProviderDestinationFormatSnapshot,
   getProviderHookEvidence,
   getProviderSchemaSnapshot,
@@ -22,6 +25,39 @@ import {
 } from "../index";
 
 describe("@skillset/registry snapshots", () => {
+  it("pins the SET-550 Cursor parity claim vocabulary and provenance", () => {
+    expect(cursorParityClaims.map(({ id, status }) => ({ id, status }))).toEqual([
+      { id: "cursor-rules-frontmatter", status: "verified" },
+      { id: "cursor-rules-globs-escaping", status: "not-documented" },
+      { id: "cursor-rules-nested-dirs", status: "partial" },
+      { id: "cursor-agents-md-root", status: "evidence-only" },
+      { id: "cursor-skills-path", status: "verified" },
+      { id: "cursor-subagents-path", status: "verified" },
+      { id: "cursor-plugin-assets", status: "partial" },
+      { id: "cursor-plugin-rules", status: "verified" },
+      { id: "cursor-hooks-events", status: "verified" },
+      { id: "cursor-settings-allow-deny", status: "partial" },
+    ]);
+    expect(Object.values(cursorParitySources).every((source) =>
+      source.fetchedAt === "2026-09-16" &&
+      /^sha256:[a-f\d]{64}$/u.test(source.contentHash) &&
+      source.url.startsWith("https://cursor.com/")
+    )).toBe(true);
+    expect(cursorPluginComponentsObservation).toMatchObject({
+      id: "cursor-plugin-components",
+      source: "plugins",
+    });
+    expect(cursorPluginComponentsObservation.components).toEqual([
+      "agents",
+      "commands",
+      "hooks",
+      "mcpServers",
+      "rules",
+      "skills",
+      "variables",
+    ]);
+  });
+
   it("exports deterministic adopted provider destination formats", () => {
     expect(listProviderDestinationFormatSnapshots()).toBe(providerDestinationFormatSnapshots);
     expect(providerDestinationFormatSnapshots.map((snapshot) => snapshot.id)).toEqual([
@@ -58,7 +94,7 @@ describe("@skillset/registry snapshots", () => {
     for (const snapshot of providerDestinationFormatSnapshots) {
       expect(snapshot.schema).toBe(PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA);
       expect(snapshot.provenance.fetchedAt).toMatch(
-        /^2026-(?:06-23|08-14|09-11)T/u
+        /^2026-(?:06-23|08-14|09-11|09-16)T/u
       );
       expect(snapshot.provenance.sources.length).toBeGreaterThan(0);
       expect(snapshot.provenance.contentHash).toBe(hashProviderDestinationFormatSnapshot(snapshot));
@@ -358,6 +394,39 @@ describe("@skillset/registry hook evidence", () => {
     const codexPreToolUse = codex.events.find((event) => event.name === "PreToolUse");
     const cursorBeforeSubmitPrompt = cursor.events.find((event) => event.name === "BeforeSubmitPrompt");
     const cursorSessionStart = cursor.events.find((event) => event.name === "SessionStart");
+
+    expect(claude.outputLimits).toEqual([
+      {
+        approximate: false,
+        field: "hook-output-string",
+        kind: "hard-cap",
+        source: "https://code.claude.com/docs/en/hooks",
+        unit: "characters",
+        value: 10_000,
+        verifiedAt: "2026-09-16",
+      },
+    ]);
+    expect(codex.outputLimits).toEqual([
+      {
+        approximate: true,
+        field: "additionalContext",
+        kind: "default-spill-threshold",
+        source: "https://developers.openai.com/codex/hooks",
+        unit: "tokens",
+        value: 2_500,
+        verifiedAt: "2026-09-16",
+      },
+      {
+        approximate: false,
+        field: "additionalContext",
+        kind: "configured-example",
+        source: "https://developers.openai.com/codex/hooks",
+        unit: "tokens",
+        value: 5_000,
+        verifiedAt: "2026-09-16",
+      },
+    ]);
+    expect(cursor.outputLimits).toEqual([]);
 
     expect(claudePreToolUse).toMatchObject({
       canBlock: true,

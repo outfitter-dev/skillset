@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -14,8 +14,8 @@ import {
   runProviderFormatUpdates,
 } from "../provider-format-updates";
 
-const CODEX_PLUGIN_MANIFEST = "plugins/alpha/chatgpt/plugin.json";
-const AGENT_PLUGIN_MANIFEST = "plugins/alpha/agents/plugin.json";
+const CODEX_PLUGIN_MANIFEST = "plugins/alpha/plugin.json";
+const AGENT_PLUGIN_MANIFEST = "plugins/alpha/plugin.json";
 const CODEX_AGENT = ".codex/agents/reviewer.toml";
 
 test("SET-531: legacy Codex migrations do not rewrite ChatGPT manifests", async () => {
@@ -168,21 +168,18 @@ test("SET-278: check writes generated drift caused by target defaults", async ()
     "skillset.yaml": `
 skillset:
   name: config-drift
-  outputs:
-    skills:
-      codex: .codex/skills
 defaults:
-  codex:
+  claude:
     skills:
       frontmatter:
         review-state: initial
-claude: false
-codex: true
+claude: true
+codex: false
 `,
     ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
   });
   const configPath = join(root, "skillset.yaml");
-  const generatedPath = ".codex/skills/demo/SKILL.md";
+  const generatedPath = ".claude/skills/demo/SKILL.md";
   await writeFile(
     configPath,
     (await readFile(configPath, "utf8")).replace("review-state: initial", "review-state: updated"),
@@ -251,10 +248,10 @@ test("SET-278: check writes project-agent drift caused by target defaults", asyn
 
 test("SET-278: check writes project-agent drift caused by adaptive hooks", async () => {
   const generatedPath = ".claude/agents/reviewer.md";
-  const hookPath = ".skillset/agents/reviewer/hooks/session.json";
+  const hookPath = ".skillset/subagents/reviewer/hooks/session.json";
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: agent-hook-drift\nclaude: true\ncodex: false\ncursor: false\n",
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -391,9 +388,9 @@ test("SET-278: check writes inherited plugin license metadata drift", async () =
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(AGENT_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/agents/LICENSE.txt");
+  expect(report.fixedPaths).toContain("plugins/alpha/LICENSE.txt");
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/LICENSE.txt");
+  expect(report.fixedPaths).toContain("plugins/alpha/LICENSE.txt");
 });
 
 test("SET-278: check writes root-owner-derived plugin manifest drift", async () => {
@@ -422,6 +419,13 @@ test("SET-278: check writes root-owner-derived plugin manifest drift", async () 
 test("SET-278: check writes plugin manifest drift caused by companion surfaces", async () => {
   const root = await builtFixture({
     ...pluginFixture(),
+    "skillset.yaml": `
+skillset:
+  name: provider-update-root
+claude: false
+codex: false
+cursor: false
+`,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
@@ -436,7 +440,7 @@ mcp: false
   );
   await writeFile(
     join(root, ".skillset/plugins/alpha/.mcp.json"),
-    '{"mcpServers":{"alpha":{"command":"node"}}}\n',
+    '{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json","mcpServers":{"alpha":{"command":"node","type":"stdio"}}}\n',
     "utf8"
   );
 
@@ -444,7 +448,7 @@ mcp: false
 
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
-  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/mcp.json");
+  expect(report.fixedPaths).toContain("plugins/alpha/mcp.json");
 });
 
 test("SET-278: check writes plugin manifest drift caused by native companion paths", async () => {
@@ -457,7 +461,7 @@ test("SET-278: check writes plugin manifest drift caused by native companion pat
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(report.fixedPaths).toContain("plugins/alpha/chatgpt/.app.json");
+  expect(report.fixedPaths).toContain("plugins/alpha/.app.json");
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain(
     '"apps": "./.app.json"'
   );
@@ -531,7 +535,7 @@ test("SET-278: check writes source drift in secondary provider files", async () 
     ...pluginFixture(),
     ".skillset/LICENSE.txt": "Original inherited license.\n",
   });
-  const generatedPath = "plugins/alpha/chatgpt/LICENSE.txt";
+  const generatedPath = "plugins/alpha/LICENSE.txt";
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
 
   const report = await ciSkillset(root, { fix: true });
@@ -711,7 +715,7 @@ test("SET-279: inherited root license drift defers an overlapping Codex manifest
     ".skillset/LICENSE.txt": "Original inherited license.\n",
   });
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
-  const licensePath = join(root, "plugins/alpha/chatgpt/LICENSE.txt");
+  const licensePath = join(root, "plugins/alpha/LICENSE.txt");
   await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
   await markCurrentPluginManifestAsManaged(root);
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
@@ -776,7 +780,7 @@ test("SET-279: unrelated legacy lock items block otherwise safe migrations", asy
   await markCurrentPluginManifestAsManaged(root);
   await removePluginRenderInputsHashForPath(
     root,
-    "plugins/beta/chatgpt/plugin.json"
+    "plugins/beta/plugin.json"
   );
 
   const blocked = await runSkillsetCli("update", "--yes", "--root", root);
@@ -823,7 +827,7 @@ test("SET-398: check reports a coherent v2 lock as rebuild-only", async () => {
 
   expect(report.ok).toBe(false);
   expect(report.buildError).toContain(
-    "uses pre-v3 schema 2; this generated state is rebuild-only"
+    "uses pre-v4 schema 2; this generated state is rebuild-only"
   );
   expect(report.fixedPaths).toEqual([]);
   expect(report.providerUpdatePaths).toEqual([]);
@@ -884,7 +888,7 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
   expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
-test("SET-279: invalid v3 locks do not route ordinary source drift through update", async () => {
+test("SET-279: invalid current locks do not route ordinary source drift through update", async () => {
   const root = await builtFixture(pluginFixture());
   await invalidatePluginRenderInputsHash(root);
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
@@ -1192,7 +1196,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -1205,7 +1209,7 @@ Review code.
 
 function agentFixtureSource(): Record<string, string> {
   return {
-    ".skillset/agents/reviewer.md": `
+    ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -1217,7 +1221,7 @@ Review code.
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-format-updates-"));
+  const root = await createTestFixtureRoot("skillset-provider-format-updates-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     const destination = join(root, path);
     await mkdir(dirname(destination), { recursive: true });

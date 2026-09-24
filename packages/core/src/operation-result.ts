@@ -1,3 +1,4 @@
+import { toLogicalDiagnosticPath } from "./path";
 import type { SkillsetRenderResult } from "./render-result";
 import type { OutputBackupRecord } from "./output-safety";
 
@@ -42,11 +43,15 @@ export class SkillsetFeatureDiagnosticError extends Error {
     readonly message: string;
     readonly path?: string;
   }) {
-    super(args.message);
+    const normalized = withLogicalDiagnosticPaths({
+      message: args.message,
+      ...(args.path === undefined ? {} : { path: args.path }),
+    });
+    super(normalized.message);
     this.name = "SkillsetFeatureDiagnosticError";
     this.code = args.code;
     this.featureId = args.featureId;
-    if (args.path !== undefined) this.path = args.path;
+    if (normalized.path !== undefined) this.path = normalized.path;
   }
 }
 
@@ -78,9 +83,41 @@ export interface SkillsetOperationResult<Data> {
 }
 
 export function sourceWarningDiagnostic(message: string): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "source-warning",
     message,
     severity: "warning",
+  });
+}
+
+/**
+ * Construct a Core operation diagnostic with portable logical path fields.
+ *
+ * Path fragments that already appear in `message` and match `path` or
+ * `outputPath` are rewritten to the same POSIX spelling. Selectors, JSON
+ * pointers, and filesystem operands must not be passed as those fields.
+ */
+export function skillsetDiagnostic(diagnostic: SkillsetDiagnostic): SkillsetDiagnostic {
+  return withLogicalDiagnosticPaths(diagnostic);
+}
+
+function withLogicalDiagnosticPaths<
+  T extends { readonly message: string; readonly outputPath?: string; readonly path?: string },
+>(value: T): T {
+  const path = value.path === undefined ? undefined : toLogicalDiagnosticPath(value.path);
+  const outputPath =
+    value.outputPath === undefined ? undefined : toLogicalDiagnosticPath(value.outputPath);
+  let message = value.message;
+  if (value.path !== undefined && path !== undefined && path !== value.path) {
+    message = message.replaceAll(value.path, path);
+  }
+  if (value.outputPath !== undefined && outputPath !== undefined && outputPath !== value.outputPath) {
+    message = message.replaceAll(value.outputPath, outputPath);
+  }
+  return {
+    ...value,
+    message,
+    ...(outputPath === undefined ? {} : { outputPath }),
+    ...(path === undefined ? {} : { path }),
   };
 }

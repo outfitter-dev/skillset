@@ -1,10 +1,10 @@
-import { chmod, mkdtemp, readFile, readdir, stat, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { chmod, mkdtemp, readFile, readdir, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   createTestGitFixtureRoot,
   createTestGitRemote,
@@ -32,6 +32,21 @@ describe("marketplace check", () => {
         "plugins\\demo\\claude\\.claude-plugin\\marketplace.json"
       )
     ).toBe("plugins/demo/claude/.claude-plugin/marketplace.json");
+  });
+
+  test("SET-647: missing lock provenance stays empty and a lock loop raises", async () => {
+    const root = await fixture(localMarketplaceFiles());
+    const absent = await checkMarketplaces(root);
+    expect(absent.entries.every((entry) => entry.lock.state === "absent")).toBe(
+      true
+    );
+
+    const lockPath = join(root, "skillset.lock");
+    await symlink(basename(lockPath), lockPath);
+    await expect(checkMarketplaces(root)).rejects.toMatchObject({
+      code: "ELOOP",
+      path: lockPath,
+    });
   });
 
   test("SET-297: lists configured catalogs without resolving external repositories", async () => {
@@ -68,9 +83,9 @@ marketplaces:
     expect(report.entries).toContainEqual(expect.objectContaining({
       catalog: "outfitter",
       entryId: "local-tools",
-      generatedPath: "plugins/local-tools/claude/.claude-plugin/plugin.json",
+      generatedPath: "plugins/local-tools/.claude-plugin/plugin.json",
       plugin: "local-tools",
-      providerSource: "./plugins/local-tools/claude",
+      providerSource: "./plugins/local-tools",
       readiness: "marketplace-ready",
       requestedTarget: "claude",
       resolvedTargetSupport: true,
@@ -78,11 +93,10 @@ marketplaces:
       states: ["declared", "resolved", "renderable", "generated", "verified", "locked", "marketplace-ready"],
     }));
     expect(report.entries).toContainEqual(expect.objectContaining({
-      generatedPath: "plugins/local-tools/chatgpt/plugin.json",
+      generatedPath: "plugins/local-tools/plugin.json",
       generatedPaths: [
-        ".agents/skills/demo/SKILL.md",
-        "plugins/local-tools/chatgpt/plugin.json",
-        "plugins/local-tools/chatgpt/skills/demo/SKILL.md",
+        "plugins/local-tools/plugin.json",
+        "plugins/local-tools/skills/demo/SKILL.md",
       ],
       lock: expect.objectContaining({ state: "locked" }),
       readiness: "marketplace-ready",
@@ -98,14 +112,14 @@ marketplaces:
     expect(unbuiltReport.ok).toBe(false);
     expect(unbuiltReport.entries[0]).toEqual(expect.objectContaining({
       readiness: "not-ready",
-      reason: "missing generated file: plugins/local-tools/claude/.claude-plugin/plugin.json",
+      reason: "missing generated file: plugins/local-tools/.claude-plugin/plugin.json",
       resolvedTargetSupport: true,
     }));
 
     const stale = await fixture(localMarketplaceFiles());
     await buildSkillsetResult(stale);
     await writeFile(
-      join(stale, "plugins/local-tools/claude/.claude-plugin/plugin.json"),
+      join(stale, "plugins/local-tools/.claude-plugin/plugin.json"),
       "{ \"stale\": true }\n"
     );
 
@@ -114,7 +128,7 @@ marketplaces:
     expect(staleReport.ok).toBe(false);
     expect(staleReport.entries[0]).toEqual(expect.objectContaining({
       readiness: "not-ready",
-      reason: "version drift: plugins/local-tools/claude/.claude-plugin/plugin.json version is missing, expected 0.1.0",
+      reason: "version drift: plugins/local-tools/.claude-plugin/plugin.json version is missing, expected 0.1.0",
       resolvedTargetSupport: true,
     }));
   });
@@ -277,7 +291,7 @@ marketplaces:
   });
 
   test("reports unavailable external plugin refs without marketplace writes", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-unavailable-"));
+    const parent = await createTestFixtureRoot("skillset-marketplace-unavailable-");
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -308,7 +322,7 @@ marketplaces:
   });
 
   test("ignores invalid known-index checkouts and falls through to remote resolution", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-marketplace-invalid-known-"));
+    const root = await createTestFixtureRoot("skillset-marketplace-invalid-known-");
     const marketplace = await fixture({
       "skillset.yaml": `
 skillset:
@@ -354,13 +368,15 @@ marketplaces:
     const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
       marketplaces: { entries: Array<{ generatedPaths: string[]; resolved: { generatedPaths: string[] } }> };
     };
-    lock.marketplaces.entries[0]!.generatedPaths = ["plugins/local-tools/claude/stale.json"];
-    lock.marketplaces.entries[0]!.resolved.generatedPaths = ["plugins/local-tools/claude/stale.json"];
+    lock.marketplaces.entries[0]!.generatedPaths = ["plugins/local-tools/stale.json"];
+    lock.marketplaces.entries[0]!.resolved.generatedPaths = ["plugins/local-tools/stale.json"];
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
     await expect(
       checkMarketplaces(root, { name: "outfitter" })
-    ).rejects.toThrow("workspace lock skillset.lock has invalid provenanceHash");
+    ).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because has invalid provenanceHash"
+    );
   });
 
   test("blocks pinned marketplace entries when the source sha cannot be verified", async () => {
@@ -530,7 +546,9 @@ Use this demo skill.
 
     await expect(
       checkMarketplaces(marketplace, { name: "outfitter", xdg: remote.xdg })
-    ).rejects.toThrow("workspace lock skillset.lock has invalid provenanceHash");
+    ).rejects.toThrow(
+      "workspace lock skillset.lock cannot guard generated state because has invalid provenanceHash"
+    );
     const tamperedVerify = await verifySkillsetResult(marketplace, { xdg: remote.xdg });
     expect(tamperedVerify.data.failures).toContain("stale generated file: skillset.lock");
   });
@@ -931,7 +949,7 @@ marketplaces:
     expect(updated.writtenPaths).toEqual([]);
     expect(updated.check.entries[0]).toEqual(expect.objectContaining({
       readiness: "not-ready",
-      reason: "version drift: plugins/stale-tools/claude/.claude-plugin/plugin.json version is 1.0.0, expected 2.0.0",
+      reason: "version drift: plugins/stale-tools/.claude-plugin/plugin.json version is 1.0.0, expected 2.0.0",
     }));
   });
 
@@ -1015,7 +1033,10 @@ Use this demo skill.
 }
 
 async function fixture(files: Record<string, string>, parent?: string): Promise<string> {
-  const root = await mkdtemp(join(parent ?? tmpdir(), "skillset-marketplace-check-"));
+  const root =
+    parent === undefined
+      ? await createTestFixtureRoot("skillset-marketplace-check-")
+      : await mkdtemp(join(parent, "skillset-marketplace-check-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

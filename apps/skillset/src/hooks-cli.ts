@@ -61,6 +61,9 @@ export async function runHooksCommand({
       stderr: process.stderr,
       ...(stdinText === undefined ? {} : { stdinText }),
     });
+    if (result.output.length > 0) {
+      process.stdout.write(result.output);
+    }
     if (result.exitCode !== 0) {
       process.exitCode = result.exitCode;
     }

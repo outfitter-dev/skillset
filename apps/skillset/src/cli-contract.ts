@@ -109,6 +109,11 @@ export const CLI_FLAGS = {
     meaning: "Show projection-level source and output paths.",
     value: "boolean",
   },
+  "--draft": {
+    family: "mode",
+    meaning: "Create a new skill under the selected container's _drafts directory.",
+    value: "boolean",
+  },
   "--event": {
     family: "input",
     meaning: "Select a hook event; repeat where the route permits.",
@@ -180,6 +185,12 @@ export const CLI_FLAGS = {
     family: "selection",
     meaning: "Include an optional init scaffold component.",
     value: "repeatable-value",
+  },
+  "--discard-edits": {
+    family: "mutation",
+    meaning:
+      "Overwrite hand-edited generated output during a repair instead of preserving it.",
+    value: "boolean",
   },
   "--isolated": {
     family: "mode",
@@ -359,6 +370,12 @@ export const CLI_FLAGS = {
       "Enable deterministic ordinary output writes for a route whose default is continuous or comprehensive preview.",
     value: "boolean",
   },
+  "--repair": {
+    family: "mode",
+    meaning:
+      "Classify generated output against the lock and a fresh render, restoring missing output and refusing to discard hand edits. Names the managed output paths to repair, or repairs all of them.",
+    value: "repeatable-value",
+  },
   "--yes": {
     family: "mutation",
     meaning: "Confirm a fully specified plan-first mutation without prompting.",
@@ -369,8 +386,10 @@ export const CLI_FLAGS = {
 export const CLI_ROUTE_FLAGS = {
   build: [
     "--all",
+    "--discard-edits",
     "--isolated",
     "--json",
+    "--repair",
     "--root",
     "--scope",
     "--updated",
@@ -421,6 +440,7 @@ export const CLI_ROUTE_FLAGS = {
   "eval status": ["--json", "--root"],
   "eval tail": ["--json", "--lines", "--root"],
   "distribute plan": ["--json", "--root"],
+  draft: ["--json", "--root", "--yes"],
   explain: ["--activation", "--json", "--root", "--scope"],
   "hooks context": ["--context-fields", "--event", "--format", "--root"],
   "hooks print": [
@@ -455,9 +475,11 @@ export const CLI_ROUTE_FLAGS = {
   "lookup features": ["--json"],
   "marketplace check": ["--json", "--root"],
   "marketplace update": ["--json", "--root", "--yes"],
+  move: ["--json", "--root", "--yes"],
   new: [
     "--attach",
     "--command",
+    "--draft",
     "--event",
     "--id",
     "--in",
@@ -470,6 +492,7 @@ export const CLI_ROUTE_FLAGS = {
     "--script",
     "--yes",
   ],
+  promote: ["--json", "--root", "--yes"],
   reconcile: ["--json", "--root", "--use", "--yes"],
   rename: ["--json", "--root", "--yes"],
   "release amend": ["--json", "--reason", "--reason-file", "--ref", "--root"],
@@ -477,6 +500,7 @@ export const CLI_ROUTE_FLAGS = {
   "release audit": ["--json", "--root"],
   "release plan": ["--json", "--root"],
   "report show": ["--json"],
+  resolve: ["--json", "--root", "--yes"],
   restore: ["--json", "--list", "--root", "--yes"],
   status: ["--activation", "--json", "--root"],
   test: [
@@ -503,13 +527,17 @@ export const HIDDEN_CLI_ROUTES = {
 
 export const FINITE_JSON_ROUTES = [
   "create",
+  "draft",
   "init",
   "import",
   "new",
+  "promote",
   "check",
   "explain",
   "reconcile",
   "rename",
+  "resolve",
+  "move",
   "build",
   "update",
   "diff",

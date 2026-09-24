@@ -3,17 +3,14 @@ import path from "node:path";
 
 import type { StandardProfileId } from "@skillset/registry";
 
-import { classifyIndividualAgentSkillPublication } from "./agent-skill-publication";
 import { isOutputSelected } from "./config";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import type { LogicalRenderedFile, OutputConsumer } from "./output-plan";
-import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import {
   agentSkillSourceUnit,
   agentSkillStandardDirectory,
   asAgentSkillStandardFile,
   asCodexAgentSkillDeltaFile,
-  classifyAgentPluginSkillLayout,
   classifyAgentSkillStandard,
   renderAgentSkillStandardMarkdown,
 } from "./render-agent-skills-standard";
@@ -34,6 +31,7 @@ import type {
   BuildGraph,
   RenderedFile,
   SourcePlugin,
+  SourceResource,
   SourceSkill,
 } from "./types";
 
@@ -52,6 +50,7 @@ export interface AgentSkillLockItemArgs {
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
+  readonly resources: readonly SourceResource[];
   readonly skill: SourceSkill;
   readonly sourceDir: string;
   readonly transforms: readonly AppliedTransform[];
@@ -88,9 +87,8 @@ interface RenderStandardAgentSkillTreeArgs {
 
 /**
  * Render the adopted skill baselines independently from provider bundles.
- * The root profile deliberately flattens standalone and plugin-owned skills;
- * a same-name collision therefore remains visible to the output planner as a
- * conflicting source identity rather than being resolved by insertion order.
+ * The root profile contains standalone skills only. Plugin-owned skills use
+ * their canonical Agent Plugins package placement.
  */
 export async function renderAgentSkillStandards(
   graph: BuildGraph,
@@ -100,26 +98,13 @@ export async function renderAgentSkillStandards(
 ): Promise<readonly RenderedFile[]> {
   const renderFlattened =
     graph.standardProjections.adopted.includes("agent-skills");
-  const renderPackages =
-    graph.standardProjections.adopted.includes("agent-plugins-1.0");
-  if (!renderFlattened && !renderPackages) return [];
+  if (!renderFlattened) return [];
 
   const rendered: RenderedFile[] = [];
   const rootLicense = await resolveRootLicense(graph);
   if (renderFlattened) {
     rendered.push(
       ...(await renderFlattenedAgentSkills(
-        graph,
-        lockRoots,
-        createLockItem,
-        rootLicense,
-        renderCodexSkillMarkdown
-      ))
-    );
-  }
-  if (renderPackages) {
-    rendered.push(
-      ...(await renderAgentPluginSkillComponents(
         graph,
         lockRoots,
         createLockItem,
@@ -137,7 +122,6 @@ export function shouldCoalesceStandaloneCodexSkill(
 ): boolean {
   return (
     graph.standardProjections.adopted.includes("agent-skills") &&
-    graph.root.outputs.skills.codex === AGENT_SKILLS_OUTPUT_ROOT &&
     skill.targets.codex.enabled &&
     isOutputSelected(graph.root.outputs.targetOutputs.codex.skills, skill.id) &&
     classifyAgentSkillStandard(graph, undefined, skill).status === "supported"
@@ -170,85 +154,6 @@ async function renderFlattenedAgentSkills(
         renderCodexSkillMarkdown,
       }))
     );
-  }
-  for (const plugin of graph.plugins) {
-    const pluginLicense = await resolvePluginLicense(
-      graph,
-      plugin,
-      rootLicense
-    );
-    for (const skill of plugin.skills) {
-      if (
-        classifyIndividualAgentSkillPublication(graph, plugin, skill).status !==
-        "eligible"
-      ) {
-        continue;
-      }
-      rendered.push(
-        ...(await renderStandardAgentSkillTree({
-          codexConsumer: shouldConsumeFlattenedPluginSkill(
-            graph,
-            plugin,
-            skill
-          ),
-          createLockItem,
-          graph,
-          inheritedLicense: pluginLicense,
-          lockRoots,
-          outputRoot: AGENT_SKILLS_OUTPUT_ROOT,
-          plugin,
-          skill,
-          standardProfile: "agent-skills",
-          targetSkillDir: agentSkillStandardDirectory(
-            AGENT_SKILLS_OUTPUT_ROOT,
-            skill
-          ),
-          renderCodexSkillMarkdown,
-        }))
-      );
-    }
-  }
-  return rendered;
-}
-
-async function renderAgentPluginSkillComponents(
-  graph: BuildGraph,
-  lockRoots: Map<string, LockRoot>,
-  createLockItem: AgentSkillLockItemFactory,
-  rootLicense: ResolvedLicense | undefined,
-  renderCodexSkillMarkdown: CodexSkillMarkdownRenderer
-): Promise<readonly RenderedFile[]> {
-  const rendered: RenderedFile[] = [];
-  for (const plugin of graph.plugins) {
-    if (classifyAgentPluginStandard(plugin).status !== "supported") continue;
-    const pluginLicense = await resolvePluginLicense(
-      graph,
-      plugin,
-      rootLicense
-    );
-    for (const skill of plugin.skills) {
-      if (classifyAgentPluginSkillLayout(graph, plugin, skill) !== undefined) {
-        continue;
-      }
-      rendered.push(
-        ...(await renderStandardAgentSkillTree({
-          codexConsumer: false,
-          createLockItem,
-          graph,
-          inheritedLicense: pluginLicense,
-          lockRoots,
-          outputRoot: "plugins",
-          plugin,
-          skill,
-          standardProfile: "agent-plugins-1.0",
-          targetSkillDir: agentSkillStandardDirectory(
-            `plugins/${plugin.id}/agents/skills`,
-            skill
-          ),
-          renderCodexSkillMarkdown,
-        }))
-      );
-    }
   }
   return rendered;
 }
@@ -291,6 +196,7 @@ async function renderStandardAgentSkillTree(
     sourceDir,
     sourceUnit,
     markdown.file,
+    markdown.resources,
     skillLicense
   );
   const baselineConsumer: OutputConsumer = {
@@ -311,6 +217,7 @@ async function renderStandardAgentSkillTree(
         ...(codexMarkdown?.preprocessDependencies ?? []),
       ]),
     ].sort(),
+    resources: markdown.resources,
     skill: args.skill,
     sourceDir,
     transforms: [],
@@ -321,6 +228,7 @@ async function renderStandardAgentSkillTree(
       ? [baselineConsumer, codexConsumer]
       : [baselineConsumer],
     owner: { standardProfile: args.standardProfile },
+    role: "standard",
   });
   if (!args.codexConsumer) return baseline;
 
@@ -347,6 +255,7 @@ async function renderStandardAgentSkillTree(
       outputRoot: args.outputRoot,
       ...(args.plugin === undefined ? {} : { plugin: args.plugin }),
       preprocessDependencies: auxiliary.preprocessDependencies,
+      resources: markdown.resources,
       skill: args.skill,
       sourceDir,
       transforms: [],
@@ -355,6 +264,7 @@ async function renderStandardAgentSkillTree(
       ...deltaLock,
       consumers: [codexConsumer],
       owner: { target: "codex" },
+      role: "bundle",
     });
   }
   return [...baseline, ...codexBaseline, ...auxiliary.files];
@@ -365,6 +275,7 @@ async function renderBaselineFiles(
   sourceDir: string,
   sourceUnit: string,
   markdown: LogicalRenderedFile,
+  resources: readonly SourceResource[],
   skillLicense: ResolvedLicense | undefined
 ): Promise<readonly LogicalRenderedFile[]> {
   const baseline: LogicalRenderedFile[] = [];
@@ -394,7 +305,13 @@ async function renderBaselineFiles(
     );
   }
   await pushSourceFiles(args, sourceDir, sourceUnit, baseline, relativeFiles);
-  await pushDeclaredResources(args, sourceUnit, baseline, relativeFiles);
+  await pushEffectiveResources(
+    args,
+    resources,
+    sourceUnit,
+    baseline,
+    relativeFiles
+  );
   return baseline;
 }
 
@@ -433,13 +350,14 @@ async function pushSourceFiles(
   }
 }
 
-async function pushDeclaredResources(
+async function pushEffectiveResources(
   args: RenderStandardAgentSkillTreeArgs,
+  resources: readonly SourceResource[],
   sourceUnit: string,
   baseline: LogicalRenderedFile[],
   relativeFiles: Set<string>
 ): Promise<void> {
-  for (const resource of args.skill.resources) {
+  for (const resource of resources) {
     const files = await copyPath(
       resource.sourcePath,
       path.join(args.targetSkillDir, resource.targetPath)
@@ -490,18 +408,6 @@ async function renderCodexAgentSkillAuxiliaryFiles(
   };
 }
 
-function shouldConsumeFlattenedPluginSkill(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  skill: SourceSkill
-): boolean {
-  return (
-    plugin.targets.codex.enabled &&
-    skill.targets.codex.enabled &&
-    isOutputSelected(graph.root.outputs.targetOutputs.codex.plugins, plugin.id)
-  );
-}
-
 function pushSkillRenderedFile(
   rendered: LogicalRenderedFile[],
   file: LogicalRenderedFile,
@@ -533,21 +439,6 @@ async function resolveRootLicense(
     metadata: graph.root.metadata,
     scopePath: graph.sourceRootPath,
     sourcePath: graph.rootManifestPath,
-  });
-}
-
-async function resolvePluginLicense(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  rootLicense: ResolvedLicense | undefined
-): Promise<ResolvedLicense | undefined> {
-  return resolveLicense({
-    graph,
-    label: path.relative(graph.rootPath, plugin.configPath),
-    metadata: plugin.metadata,
-    ...(rootLicense === undefined ? {} : { parent: rootLicense }),
-    scopePath: plugin.path,
-    sourcePath: plugin.configPath,
   });
 }
 

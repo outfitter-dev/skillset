@@ -31,6 +31,7 @@ import {
   type SkillsetRenderResultPolicy,
 } from "./render-result";
 import { compareStrings } from "./path";
+import { resolveProjectUseSkillCopies } from "./project-use";
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
@@ -49,6 +50,7 @@ import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import {
   agentSkillSourceUnit,
   agentSkillStandardProjectionIssues,
+  draftSkillDescriptionWasTruncated,
 } from "./render-agent-skills-standard";
 import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
@@ -117,6 +119,9 @@ interface RenderedLock {
 interface RenderedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: "only" | "override";
+  readonly effectiveName?: string;
   readonly feature?: string;
   readonly files: readonly string[];
   readonly kind: string;
@@ -125,6 +130,9 @@ interface RenderedLockItem {
   readonly outputPath: string;
   readonly plugin?: string;
   readonly sourcePath: string;
+  readonly sourceUnit?: string;
+  readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly targetState?: string;
   readonly transforms?: readonly JsonRecord[];
   readonly validation?: string;
@@ -204,10 +212,12 @@ export function collectRenderResults(
   }
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedCursorRootRulesOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedMcpOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentPluginStandardOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedProjectUseComponentOutcomes(graph, options.scopes));
   outcomes.push(
     ...claudeMarketplaceAuthorOutcomes(
       graph,
@@ -232,6 +242,113 @@ export function collectRenderResults(
       `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
+}
+
+function unsupportedProjectUseComponentOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (scopes !== undefined && !scopes.includes("project")) return [];
+  const outcomes: SkillsetRenderResult[] = [];
+  for (const copy of resolveProjectUseSkillCopies(graph)) {
+    // Plugin-level content is requested only by whole-plugin selection; an
+    // unrelated sibling under hooks/ or shared/ is not a skill dependency.
+    const wholePluginSelected = graph.pluginPlan?.internalUse.pluginIds.includes(copy.plugin.id);
+    const pluginComponents = wholePluginSelected ? [
+      ...copy.plugin.features.map((feature) => ({
+        component: feature.key,
+        sourcePath: normalizeSourcePath(graph, feature.sourcePath),
+      })),
+      ...(hasMeaningfulFiles(join(copy.plugin.path, "hooks"))
+        ? [{ component: "hooks", sourcePath: normalizePath(relative(graph.rootPath, join(copy.plugin.path, "hooks"))) }]
+        : []),
+      ...(hasMeaningfulFiles(join(copy.plugin.path, "shared"))
+        ? [{ component: "shared", sourcePath: normalizePath(relative(graph.rootPath, join(copy.plugin.path, "shared"))) }]
+        : []),
+    ] : [];
+    for (const target of TARGETS) {
+      if (
+        !copy.skill.targets[target].enabled ||
+        !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id)
+      ) continue;
+      const targetHooks = resolveAdaptiveHookAttachmentsForTarget(
+        graph.adaptiveHooks, graph.hookAttachments, target
+      ).resolved;
+      const skillHook = targetHooks.find((item) =>
+        item.attachment.scope.kind === "skill" &&
+        item.attachment.scope.pluginId === copy.plugin.id &&
+        item.attachment.scope.skillId === copy.skill.id &&
+        providerListAllows(item.definition.providers, target) &&
+        providerListAllows(item.attachment.providers, target) &&
+        adaptiveHookUnsupportedRenderReason(item, target, "frontmatter") === undefined
+      );
+      const pluginHook = wholePluginSelected ? targetHooks.find((item) =>
+        item.attachment.scope.kind === "plugin" &&
+        item.attachment.scope.pluginId === copy.plugin.id &&
+        providerListAllows(item.definition.providers, target) &&
+        providerListAllows(item.attachment.providers, target) &&
+        adaptiveHookUnsupportedRenderReason(item, target, "plugin") === undefined
+      ) : undefined;
+      const components = [
+        ...pluginComponents,
+        ...(skillHook === undefined ? [] : [{
+          component: "hooks",
+          sourcePath: normalizeSourcePath(graph, skillHook.attachment.sourcePath),
+        }]),
+        ...(pluginHook === undefined ? [] : [{
+          component: "hooks",
+          sourcePath: normalizeSourcePath(graph, pluginHook.attachment.sourcePath),
+        }]),
+      ].filter((item, index, all) =>
+        all.findIndex((candidate) => candidate.component === item.component) === index
+      );
+      for (const component of components) {
+        outcomes.push(defineRenderResult({
+          destination: component.component,
+          diagnostics: [{
+            code: "internal-use-component-unsupported",
+            message: `project-use skill copy does not hydrate plugin ${component.component} components`,
+            path: component.sourcePath,
+          }],
+          featureId: "internal-use-components",
+          policy: "unsupported:error",
+          reason: `selected project-use copy is emitted without plugin ${component.component} hydration`,
+          sourcePath: component.sourcePath,
+          sourceUnit: copy.sourceUnit,
+          status: "unsupported",
+          target,
+        }));
+      }
+    }
+  }
+  return outcomes;
+}
+
+function unsupportedCursorRootRulesOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (
+    (scopes !== undefined && !scopes.includes("project")) ||
+    !graph.root.targets.cursor.enabled
+  ) {
+    return [];
+  }
+  const rootRule = graph.rules.find((rule) => rule.rootFrontPage);
+  if (rootRule === undefined || !rootRule.targets.cursor.enabled) return [];
+  return [
+    defineRenderResult({
+      destination: "AGENTS.md",
+      featureId: "cursor-agents-md-root",
+      policy: "unsupported:error",
+      reason:
+        "Cursor project-root AGENTS.md placement remains unsupported pending renderer contract evidence",
+      sourcePath: normalizePath(relative(graph.rootPath, rootRule.sourcePath)),
+      sourceUnit: selectorForInstruction(rootRule.id),
+      status: "unsupported",
+      target: "cursor",
+    }),
+  ];
 }
 
 function appendEquivalentLockOutcome(
@@ -619,6 +736,9 @@ function parseRenderedLockItem(
   return {
     consumers: raw.consumers,
     ...(raw.dependencies === undefined ? {} : { dependencies: raw.dependencies }),
+    ...(raw.draftOrigin === undefined ? {} : { draftOrigin: raw.draftOrigin }),
+    ...(raw.draftPolicy === undefined ? {} : { draftPolicy: raw.draftPolicy }),
+    ...(raw.effectiveName === undefined ? {} : { effectiveName: raw.effectiveName }),
     ...(raw.feature === undefined ? {} : { feature: raw.feature }),
     files: raw.files,
     kind: raw.kind,
@@ -627,6 +747,9 @@ function parseRenderedLockItem(
     ...(raw.owner === undefined ? {} : { owner: raw.owner }),
     ...(raw.plugin === undefined ? {} : { plugin: raw.plugin }),
     sourcePath: raw.sourcePath,
+    ...(raw.sourceUnit === undefined ? {} : { sourceUnit: raw.sourceUnit }),
+    ...(raw.selectionRule === undefined ? {} : { selectionRule: raw.selectionRule }),
+    ...(raw.shippedSibling === undefined ? {} : { shippedSibling: raw.shippedSibling }),
     ...(raw.targetState === undefined ? {} : { targetState: raw.targetState }),
     ...(raw.transforms === undefined ? {} : { transforms: raw.transforms as readonly JsonRecord[] }),
     ...(raw.validation === undefined ? {} : { validation: raw.validation }),
@@ -653,11 +776,44 @@ function outcomeForLockItem(
       reasonForStatus(featureId, target, status, standardProfile)
     : "excluded by build scope";
   const evidence = evidenceFor(featureId, target, standardProfile);
+  const projectUseCopy = item.sourceUnit === undefined
+    ? undefined
+    : resolveProjectUseSkillCopies(graph).find(
+        (copy) =>
+          copy.sourceUnit === item.sourceUnit &&
+          copy.effectiveName === item.effectiveName
+      );
+  const collisionDiagnostics = projectUseCopy === undefined || projectUseCopy.collisionSources.length === 0
+    ? []
+    : [{
+        code: "internal-use-name-conflict",
+        message: `selected skill name ${item.name} conflicts across ${projectUseCopy.collisionSources.join(", ")}; emitted as ${projectUseCopy.effectiveName}`,
+        path: item.sourcePath,
+      }];
+  const sourceSkill = item.draftOrigin === undefined
+    ? undefined
+    : graph.discoveredSkills?.find(
+        (skill) => relative(graph.rootPath, skill.sourcePath) === item.sourcePath
+      );
+  const draftDiagnostics =
+    sourceSkill === undefined || !draftSkillDescriptionWasTruncated(sourceSkill, target)
+      ? []
+      : [{
+          code: "draft-description-truncated",
+          message:
+            "draft description exceeded the 1024-character Agent Skills limit and was truncated after the compiler draft prefix",
+          path: item.sourcePath,
+        }];
+  const diagnostics = [
+    ...(manifestFacts?.diagnostics ?? []),
+    ...collisionDiagnostics,
+    ...draftDiagnostics,
+  ];
 
   return defineRenderResult({
     destination: destinationForLockItem(item),
-    ...(isIncluded && manifestFacts?.diagnostics !== undefined
-      ? { diagnostics: manifestFacts.diagnostics }
+    ...(isIncluded && diagnostics.length > 0
+      ? { diagnostics }
       : {}),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
@@ -1116,7 +1272,7 @@ function featureOutcomesForLockItem(
 
   if (item.kind === "plugin" && standardProfile === "agent-plugins-1.0") {
     const mcpOutputPaths = outputPaths.filter((path) =>
-      path.endsWith("/agents/mcp.json")
+      path.endsWith("/mcp.json")
     );
     const plugin = graph.plugins.find((candidate) => candidate.id === item.name);
     const feature = plugin?.features.find(
@@ -1240,8 +1396,31 @@ function featureOutcomesForLockItem(
     );
   }
 
+  const cursorToolIntentOutputPaths =
+    target === "cursor" && toolsRealizationPlanForLockItem(graph, item, target) !== undefined
+      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
+      : [];
+  if (cursorToolIntentOutputPaths.length > 0) {
+    const plan = toolsRealizationPlanForLockItem(graph, item, "cursor");
+    outcomes.push(
+      featureOutcome({
+        destination: "skill-frontmatter",
+        ...toolsPlanRenderFacts(plan, item.sourcePath),
+        featureId: "tools-policy",
+        isIncluded: cursorToolIntentOutputPaths.some((path) => includedPaths.has(path)),
+        mapOutputPath,
+        outputKind: "metadata",
+        outputPaths: cursorToolIntentOutputPaths,
+        sourcePath: item.sourcePath,
+        sourceUnit: sourceUnitForLockItem(item, target),
+        status: "metadata_only",
+        target,
+      })
+    );
+  }
+
   const toolIntentOutputPaths = outputPaths.filter((path) => path.endsWith("/.skillset.tools.yaml"));
-  if (toolIntentOutputPaths.length > 0 && target !== undefined) {
+  if (toolIntentOutputPaths.length > 0 && target === "codex") {
     const plan = toolsRealizationPlanForLockItem(graph, item, target);
     outcomes.push(
       featureOutcome({
@@ -1636,7 +1815,7 @@ function unsupportedPluginFeatureOutcomes(
     }
 
     if (!pluginTargetSelected(graph, plugin.id, "codex")) continue;
-    const agentsPath = join(plugin.path, "agents");
+    const agentsPath = join(plugin.path, "subagents");
     if (!hasMeaningfulFiles(agentsPath)) continue;
     const featureId = "plugin-agents";
     const evidence = evidenceFor(featureId, "codex");
@@ -1647,7 +1826,7 @@ function unsupportedPluginFeatureOutcomes(
         featureId,
         policy: "unsupported:error",
         reason: requiredReasonForStatus(featureId, "codex", "unsupported"),
-        sourcePath: `${pluginPath}/agents`,
+        sourcePath: `${pluginPath}/subagents`,
         sourceUnit: selectorForPluginFeature(plugin.id, "agents"),
         status: "unsupported",
         target: "codex",
@@ -1707,26 +1886,29 @@ function unsupportedAgentPluginStandardOutcomes(
       );
     }
 
-    for (const [relativePath, featureId] of [
-      ["hooks", "plugin-hooks"],
-      ["agents", "plugin-agents"],
-      ["commands", "plugin-commands"],
-      ["rules", "plugin-rules"],
-      [".lsp.json", "plugin-lsp-servers"],
-      ["settings.json", "future-companion-source-pointers"],
-      ["themes", "plugin-themes"],
-      ["monitors", "plugin-monitors"],
-      ["output-styles", "plugin-output-styles"],
+    for (const [relativePath, destination, featureId] of [
+      ["hooks", "hooks", "plugin-hooks"],
+      ["subagents", "agents", "plugin-agents"],
+      ["commands", "commands", "plugin-commands"],
+      ["rules", "rules", "plugin-rules"],
+      [".lsp.json", ".lsp.json", "plugin-lsp-servers"],
+      ["settings.json", "settings.json", "future-companion-source-pointers"],
+      ["themes", "themes", "plugin-themes"],
+      ["monitors", "monitors", "plugin-monitors"],
+      ["output-styles", "output-styles", "plugin-output-styles"],
     ] as const) {
       const sourcePath = join(plugin.path, relativePath);
       if (!hasMeaningfulFiles(sourcePath)) continue;
       outcomes.push(
         unsupportedAgentPluginFeatureOutcome({
-          destination: relativePath,
+          destination,
           featureId,
           plugin,
           sourcePath: `${pluginPath}/${relativePath}`,
-          sourceUnit: selectorForPluginFeature(plugin.id, relativePath),
+          sourceUnit: selectorForPluginFeature(
+            plugin.id,
+            featureId === "plugin-agents" ? "agents" : relativePath
+          ),
         })
       );
     }
@@ -1907,6 +2089,7 @@ function featureIdForLockItem(item: RenderedLockItem): string {
   if (item.kind === "project-agent") return "project-agents";
   if (item.kind === "island") return "target-native-islands";
   if (item.kind === "changelog") return "releases";
+  if (item.kind === "settings-entry") return "runtime-hooks";
   if (item.kind === "plugin-feature" && item.feature === "app") {
     return "plugin-apps";
   }
@@ -1929,6 +2112,7 @@ function destinationForLockItem(item: RenderedLockItem): string {
   if (item.kind === "project-agent") return "agent";
   if (item.kind === "island") return "target-native-island";
   if (item.kind === "changelog") return "changelog";
+  if (item.kind === "settings-entry") return "settings";
   // Plugin feature artifacts use the bare scope name (e.g. `mcp`, `bin`), the
   // same convention companion files use via their featureKey, so a given
   // destination is named identically across producers and never just mirrors
@@ -1938,6 +2122,7 @@ function destinationForLockItem(item: RenderedLockItem): string {
 }
 
 function sourceUnitForLockItem(item: RenderedLockItem, target: TargetName | undefined): string {
+  if (item.sourceUnit !== undefined) return item.sourceUnit;
   if (item.kind === "standalone-skill") return selectorForStandaloneSkill(item.name);
   if (item.kind === "plugin-skill" && item.plugin !== undefined) {
     return selectorForPluginSkill(item.plugin, item.name);
@@ -1968,6 +2153,7 @@ function statusForLockItem(item: RenderedLockItem, target: TargetName | undefine
   if (item.kind === "island" || item.kind === "plugin-feature") return "target_native";
   if (item.kind === "rule") return "transformed";
   if (item.kind === "project-agent" && target === "codex") return "transformed";
+  if (item.kind === "settings-entry") return "rendered";
   if (item.transforms !== undefined && item.transforms.length > 0) return "transformed";
   if (item.validation === "opaque-copy") return "target_native";
   return "rendered";
@@ -1980,11 +2166,14 @@ function resultSubjectsForLockItem(
   outputPaths: readonly string[]
 ): readonly RenderResultSubject[] {
   if (item.consumers.length > 0) {
-    return item.consumers.map((consumer) =>
-      "standardProfile" in consumer
-        ? { standardProfile: consumer.standardProfile }
-        : { target: consumer.target }
-    );
+    return item.consumers.flatMap<RenderResultSubject>((consumer) => {
+      if ("standardProfile" in consumer) {
+        return [{ standardProfile: consumer.standardProfile }];
+      }
+      return lockItemProducesTargetOutput(graph, item, consumer.target)
+        ? [{ target: consumer.target }]
+        : [];
+    });
   }
   if (item.owner !== undefined) {
     return [
@@ -1995,6 +2184,25 @@ function resultSubjectsForLockItem(
   }
   const target = targetForLockItem(graph, lock, item, outputPaths);
   return [target === undefined ? {} : { target }];
+}
+
+function lockItemProducesTargetOutput(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName
+): boolean {
+  if (item.kind !== "plugin-feature" || item.feature !== "mcp") return true;
+  const plugin = graph.plugins.find((candidate) => candidate.id === item.plugin);
+  const model = plugin?.features.find(
+    (feature) => feature.key === "mcp"
+  )?.portableMcp;
+  if (model === undefined) return true;
+  return Object.keys(model.servers).some(
+    (name) =>
+      !model.providerUnsupported.some(
+        (entry) => entry.name === name && entry.target === target
+      )
+  );
 }
 
 function targetForLockItem(
@@ -2041,6 +2249,7 @@ function companionForPath(
     const parts = pluginPathPartsForOutput(graph, outputRoot, target, path);
     if (parts === undefined) continue;
     const { pluginId, pluginPath } = parts;
+    if (!pluginTargetSelected(graph, pluginId, target)) continue;
     if (pluginPath === "README.md") {
       return { featureId: "plugin-readme", featureKey: "readme", pluginId, sourceRelativePath: "README.md", target };
     }

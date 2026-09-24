@@ -1,8 +1,8 @@
 export const CLI_COMMANDS = [
-  "build", "change", "check", "create", "dev", "diff", "distribute",
+  "build", "change", "check", "create", "dev", "diff", "distribute", "draft",
   "eval", "explain", "hooks", "import", "init",
-  "list", "lookup", "marketplace", "new", "release",
-  "reconcile", "rename", "report", "restore", "status", "test", "update",
+  "list", "lookup", "marketplace", "move", "new", "promote", "release",
+  "reconcile", "rename", "report", "resolve", "restore", "status", "test", "update",
 ] as const;
 
 export type CliCommand = (typeof CLI_COMMANDS)[number];

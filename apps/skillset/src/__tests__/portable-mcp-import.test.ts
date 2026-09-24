@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { importSource } from "../import";
 
 async function roots(): Promise<{ external: string; root: string }> {
   return {
-    external: await mkdtemp(join(tmpdir(), "skillset-mcp-import-source-")),
-    root: await mkdtemp(join(tmpdir(), "skillset-mcp-import-root-")),
+    external: await createTestFixtureRoot("skillset-mcp-import-source-"),
+    root: await createTestFixtureRoot("skillset-mcp-import-root-"),
   };
 }
 

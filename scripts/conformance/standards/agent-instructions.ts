@@ -13,6 +13,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createProviderProbeEnvironment } from "../../provider-probe-environment";
+
 const TEMP_PREFIX = "skillset-agent-instructions-";
 const PROBE_PROMPT = "Return the agent-instructions conformance probe context.";
 
@@ -100,13 +102,15 @@ export async function runAgentInstructionsProbe(
     const workspace = join(temp, "workspace");
     const nestedWorkspace = join(workspace, "docs");
     const environmentRoot = join(temp, "environment");
-    const environment = isolatedEnvironment(environmentRoot);
-    await Promise.all([
-      mkdir(nestedWorkspace, { recursive: true }),
-      ...Object.values(environment)
-        .filter((path) => path.startsWith(environmentRoot))
-        .map((path) => mkdir(path, { recursive: true })),
-    ]);
+    const { env: environment } = await createProviderProbeEnvironment({
+      extras: {
+        LANG: "C",
+        PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+        TERM: "dumb",
+      },
+      root: environmentRoot,
+    });
+    await mkdir(nestedWorkspace, { recursive: true });
     await Promise.all([
       writeFile(join(workspace, "AGENTS.md"), input.rootInstructions, "utf-8"),
       writeFile(
@@ -221,20 +225,6 @@ function assertProbeInput(input: AgentInstructionsProbeInput): void {
   }
 }
 
-function isolatedEnvironment(root: string): Readonly<Record<string, string>> {
-  return {
-    CODEX_HOME: join(root, "config", "codex"),
-    HOME: join(root, "home"),
-    LANG: "C",
-    PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
-    TERM: "dumb",
-    TMPDIR: join(root, "tmp"),
-    XDG_CACHE_HOME: join(root, "cache"),
-    XDG_CONFIG_HOME: join(root, "config"),
-    XDG_DATA_HOME: join(root, "data"),
-    XDG_STATE_HOME: join(root, "state"),
-  };
-}
 
 async function verifyCodexPin(
   pin: AgentInstructionsCodexPin,

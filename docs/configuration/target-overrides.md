@@ -6,7 +6,7 @@ description: Configure provider-specific output and behavior without duplicating
 
 A [target](../glossary.md#target) is a provider selected for a compiler run. `compile.targets` establishes the root plan; target overrides refine that plan or, at supported lower-level scopes, explicitly opt a provider back in.
 
-Agent standards are not targets. Applicable adaptive source produces each adopted standard profile inherently. No `agents` target, root `agents`, plugin field, or frontmatter field enables or disables that floor; `.skillset/agents/` and `defaults.<provider>.agents` keep their project-agent meanings.
+Agent standards are not targets. Applicable adaptive source produces each adopted standard profile inherently. No `agents` target, root `agents`, plugin field, or frontmatter field enables or disables that floor; `.skillset/subagents/` and `defaults.<provider>.agents` keep their project-agent meanings.
 
 ## Distinguish Selection from Configuration
 
@@ -24,7 +24,10 @@ Do not add a bare top-level `targets` key. Keep root selection in `compile.targe
 
 ## Configure Output Roots
 
-Boolean output settings use Skillset's default roots. An array includes named plugins or skills. An object can set `path`, `include`, or `enabled: false`:
+Boolean output settings use Skillset's default roots. An array includes named
+plugins or skills. Plugin objects can select `include` or `enabled: false`;
+skill objects also accept only selection fields. A nondefault plugin `path`
+is rejected while shared packages have fixed placement, until SET-561:
 
 ```yaml
 compile:
@@ -35,10 +38,16 @@ claude:
 
 codex:
   plugins:
-    path: generated/codex
+    include: [review]
   skills:
-    path: .agents/skills
+    include: [review]
 ```
+
+The fixed roots are `.claude/skills`, `.agents/skills`, and `.cursor/skills`.
+`<target>.skills.path` and `skillset.outputs.skills.<target>` are rejected.
+Shared plugin packages currently stay at `plugins/<name>`; custom placement
+through `<target>.plugins.path` or root `plugins.output` is deferred
+to SET-561.
 
 When `compile.targets` is present, a root provider object without `enabled` inherits that target set; an output-path object does not silently re-enable a provider. See the [workspace schema](../reference/schemas/README.md) for every accepted shape.
 

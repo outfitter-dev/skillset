@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   realpath,
@@ -14,8 +13,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import type { SkillsetOperationReport } from "@skillset/schema";
 
@@ -953,9 +952,7 @@ function fixtureReport(
 }
 
 async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-report-store-"));
-  roots.push(root);
-  return root;
+  return createTestFixtureRoot("skillset-report-store-");
 }
 
 function storeBoundary(reportRoot: string, trustedBase: string) {

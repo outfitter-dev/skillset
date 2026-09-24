@@ -24,7 +24,7 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0007](0007-source-manifest-listing-metadata.md) | Source Manifest Listing Metadata | Accepted |
 | [0008](0008-unified-source-layout.md) | Unified Source Layout | Superseded |
 | [0009](0009-skillset-workspace-layout.md) | Skillset Workspace Layout | Accepted |
-| [0010](0010-named-partials.md) | Named Partials | Accepted |
+| [0010](0010-named-partials.md) | Named Partials | Superseded |
 | [0011](0011-source-test-selection-shape.md) | Source Test Selection Shape | Accepted |
 | [0012](0012-fixtures-tests-dogfooding-and-evals.md) | Fixtures, Tests, Dogfooding, and Evals | Accepted |
 | [0013](0013-changelog-and-versioning.md) | Changelog and Version Bump Workflow | Superseded |
@@ -47,3 +47,7 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0030](0030-chatgpt-product-bundles-and-standards-only-builds.md) | ChatGPT Product Bundles and Standards-Only Builds | Accepted |
 | [0031](0031-agent-instructions-opt-out-owns-shared-agents-md.md) | Agent Instructions Opt-Out Owns Shared AGENTS.md | Superseded |
 | [0032](0032-standards-compilation-is-inherent.md) | Standards Compilation Is Inherent | Accepted |
+| [0033](0033-workspace-authoring-model.md) | Workspace Authoring Model | Accepted |
+| [0034](0034-exact-shared-references.md) | Exact Shared References | Accepted |
+| [0035](0035-rule-scope-and-provenanced-instruction-sections.md) | Rule Scope and Provenanced Instruction Sections | Accepted |
+| [0036](0036-plugin-skills-belong-to-the-standard-package.md) | Plugin Skills Belong to the Standard Package | Accepted |

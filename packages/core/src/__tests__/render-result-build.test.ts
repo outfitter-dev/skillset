@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { chmod, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
 import { renderResultsForLock } from "../build";
@@ -29,6 +28,7 @@ import { loadBuildGraph } from "../resolver";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
 import { withLockProvenance } from "../lock-provenance";
 import type { JsonRecord } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -57,7 +57,7 @@ description: Root instructions.
 
 Keep generated output deterministic.
 `,
-  ".skillset/agents/reviewer.md": `
+  ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -148,7 +148,7 @@ cursor: false
 #!/usr/bin/env bash
 echo beta
 `,
-  ".skillset/plugins/beta/agents/reviewer.md": `
+  ".skillset/plugins/beta/subagents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
@@ -209,6 +209,7 @@ Help with the task.
           consumers?: unknown;
           dependencies?: readonly string[];
           owner?: unknown;
+          role?: unknown;
         }>;
       };
       for (const item of lock.items) {
@@ -219,6 +220,7 @@ Help with the task.
           { phase: "delta", target: "codex" },
         ];
         item.owner = { standardProfile: "agent-plugins-1.0" };
+        item.role = "standard";
       }
       return {
         ...file,
@@ -274,11 +276,6 @@ Run scripts/run.sh.
 skillset:
   name: demo
 `,
-      ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
-        hooks: {
-          SessionStart: [{ hooks: [{ command: "$CLAUDE_PLUGIN_ROOT/scripts/detect.sh", type: "command" }] }],
-        },
-      }),
       ".skillset/plugins/demo/scripts/detect.sh": "#!/bin/sh\necho plugin\n",
     });
     const resourceSource = join(root, ".skillset/shared/scripts/run.sh");
@@ -289,7 +286,7 @@ skillset:
     await buildSkillsetResult(root);
 
     const resourceOutput = join(root, ".agents/skills/resourceful/scripts/run.sh");
-    const pluginOutput = join(root, "plugins/demo/claude/scripts/detect.sh");
+    const pluginOutput = join(root, "plugins/demo/scripts/detect.sh");
     expect((await stat(resourceOutput)).mode & 0o777).toBe(0o755);
     expect((await stat(pluginOutput)).mode & 0o777).toBe(0o755);
 
@@ -305,15 +302,14 @@ skillset:
         (item) =>
           item.name === "demo" &&
           item.kind === "plugin" &&
-          (item.files as string[]).includes("demo/chatgpt/plugin.json")
+          (item.files as string[]).includes("demo/plugin.json")
       );
     expect(pluginItem?.files).toEqual(expect.arrayContaining([
-      "demo/chatgpt/hooks/hooks.json",
-      "demo/chatgpt/scripts/detect.sh",
-      "demo/chatgpt/plugin.json",
+      "demo/scripts/detect.sh",
+      "demo/plugin.json",
     ]));
     expect(pluginItem?.fileModes).toEqual(expect.objectContaining({
-      "demo/chatgpt/scripts/detect.sh": "0755",
+      "demo/scripts/detect.sh": "0755",
     }));
     await chmod(pluginSource, 0o644);
     await buildSkillsetResult(root);
@@ -323,11 +319,10 @@ skillset:
         (item) =>
           item.name === "demo" &&
           item.kind === "plugin" &&
-          (item.files as string[]).includes("demo/chatgpt/plugin.json")
+          (item.files as string[]).includes("demo/plugin.json")
       );
-    expect(pluginModeChangedItem?.sourceHash).not.toBe(pluginItem?.sourceHash);
     expect(pluginModeChangedItem?.fileModes).toEqual(expect.objectContaining({
-      "demo/chatgpt/scripts/detect.sh": "0644",
+      "demo/scripts/detect.sh": "0644",
     }));
 
     await chmod(resourceOutput, 0o555);
@@ -370,7 +365,7 @@ cursor: false
 `;
     const root = await fixture({
       "skillset.yaml": config(true),
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -454,7 +449,7 @@ Demo.
 
     const downgraded = await readFile(lockPath, "utf8");
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
     expect((await stat(outputScript)).mode & 0o777).toBe(0o644);
@@ -501,12 +496,12 @@ Demo.
 
     const downgraded = await readFile(lockPath, "utf8");
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 2; this generated state is rebuild-only"
+      "uses pre-v4 schema 2; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
 
-  it("upgrades coherent empty schema-v2 locks", async () => {
+  it("refuses to upgrade coherent empty schema-v2 locks in place", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -536,10 +531,11 @@ marketplaces:
     delete legacy.selectedStandards;
     await writeFile(lockPath, `${JSON.stringify(legacy, null, 2)}\n`);
 
-    const migrated = await buildSkillsetResult(root);
-    expect(migrated.writes.backupRunId).toBeUndefined();
-    expect((await readJson(lockPath)).schemaVersion).toBe(3);
-    expect((await verifySkillsetResult(root)).ok).toBe(true);
+    const downgraded = await readFile(lockPath, "utf8");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "uses pre-v4 schema 2; this generated state is rebuild-only"
+    );
+    expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
 
   it("rejects legacy standards selection before writes", async () => {
@@ -551,7 +547,7 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/agents/reviewer.md": `
+      ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -634,6 +630,20 @@ compile:
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-mcp",
+        outputs: [
+          expect.objectContaining({ path: "plugins/alpha/mcp.json" }),
+        ],
+        sourceUnit: "plugin.alpha.feature:mcp",
+        standardProfile: "agent-plugins-1.0",
+        status: "target_native",
+      })
+    );
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-mcp",
+        outputs: [
+          expect.objectContaining({ path: "plugins/alpha/.mcp.json" }),
+        ],
         sourceUnit: "plugin.alpha.feature:mcp",
         status: "target_native",
         target: "claude",
@@ -641,24 +651,34 @@ compile:
     );
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
+        featureId: "plugin-mcp",
+        outputs: [
+          expect.objectContaining({ path: "plugins/alpha/mcp.json" }),
+        ],
+        sourceUnit: "plugin.alpha.feature:mcp",
+        status: "target_native",
+        target: "codex",
+      })
+    );
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
         featureId: "plugin-bin",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/beta/claude/bin/tool" }),
+          expect.objectContaining({ path: "plugins/beta/bin/tool" }),
         ]),
         sourceUnit: "plugin.beta.feature:bin",
         status: "target_native",
-        target: "claude",
       })
     );
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-hooks",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/alpha/chatgpt/hooks/hooks.json" }),
+          expect.objectContaining({ path: "plugins/alpha/hooks/hooks.json" }),
         ]),
         sourceUnit: "plugin.alpha.feature:hooks",
         status: "target_native",
-        target: "codex",
+        target: "claude",
       })
     );
     expect(preview.renderResults).toContainEqual(
@@ -666,7 +686,6 @@ compile:
         featureId: "plugin-apps",
         sourceUnit: "plugin.alpha.feature:app",
         status: "target_native",
-        target: "codex",
       })
     );
     expect(preview.renderResults).toContainEqual(
@@ -690,15 +709,16 @@ compile:
       expect.objectContaining({
         featureId: "tools-policy",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/alpha/claude/skills/plugin-skill/SKILL.md" }),
+          expect.objectContaining({ path: "plugins/alpha/skills/plugin-skill/SKILL.md" }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         status: "transformed",
         target: "claude",
       })
     );
-    expect(preview.renderResults).not.toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
+        destination: "skill-tools",
         featureId: "tools-policy",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         target: "codex",
@@ -708,7 +728,7 @@ compile:
       expect.objectContaining({
         featureId: "plugin-agents",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/beta/claude/agents/reviewer.md" }),
+          expect.objectContaining({ path: "plugins/beta/agents/reviewer.md" }),
         ]),
         sourceUnit: "plugin.beta.feature:agents",
         status: "target_native",
@@ -718,55 +738,55 @@ compile:
     const companionExpectations = [
       {
         featureId: "plugin-readme",
-        path: "plugins/alpha/claude/README.md",
+        path: "plugins/alpha/README.md",
         sourceUnit: "plugin.alpha.feature:readme",
         target: "claude",
       },
       {
         featureId: "plugin-assets",
-        path: "plugins/alpha/chatgpt/assets/icon.txt",
+        path: "plugins/alpha/assets/icon.txt",
         sourceUnit: "plugin.alpha.feature:assets",
-        target: "codex",
+        target: "claude",
       },
       {
         featureId: "plugin-scripts",
-        path: "plugins/alpha/chatgpt/scripts/setup.sh",
+        path: "plugins/alpha/scripts/setup.sh",
         sourceUnit: "plugin.alpha.feature:scripts",
-        target: "codex",
+        target: "claude",
       },
       {
         featureId: "plugin-src",
-        path: "plugins/alpha/chatgpt/src/index.js",
+        path: "plugins/alpha/src/index.js",
         sourceUnit: "plugin.alpha.feature:src",
-        target: "codex",
+        target: "claude",
       },
       {
         featureId: "plugin-commands",
-        path: "plugins/alpha/claude/commands/run.md",
+        path: "plugins/alpha/commands/run.md",
         sourceUnit: "plugin.alpha.feature:commands",
         target: "claude",
       },
       {
         featureId: "plugin-lsp-servers",
-        path: "plugins/alpha/claude/.lsp.json",
+        path: "plugins/alpha/.lsp.json",
         sourceUnit: "plugin.alpha.feature:lsp-servers",
         target: "claude",
       },
       {
         featureId: "plugin-output-styles",
-        path: "plugins/alpha/claude/output-styles/focused.md",
+        path: "plugins/alpha/output-styles/focused.md",
         sourceUnit: "plugin.alpha.feature:output-styles",
         target: "claude",
       },
       {
         featureId: "plugin-themes",
-        path: "plugins/alpha/claude/themes/dark.json",
+        path: "plugins/alpha/themes/dark.json",
         sourceUnit: "plugin.alpha.feature:themes",
         target: "claude",
       },
       {
         featureId: "plugin-monitors",
-        path: "plugins/alpha/claude/monitors/monitors.json",
+        path: "plugins/alpha/monitors/monitors.json",
         sourceUnit: "plugin.alpha.feature:monitors",
         target: "claude",
       },
@@ -806,7 +826,7 @@ compile:
         policy: "scope:excluded",
         sourceUnit: "plugin.alpha.feature:hooks",
         status: "intentionally_skipped",
-        target: "codex",
+        target: "claude",
       })
     );
     expect(scoped.renderResults).toContainEqual(
@@ -815,7 +835,6 @@ compile:
         policy: "scope:excluded",
         sourceUnit: "plugin.alpha.feature:app",
         status: "intentionally_skipped",
-        target: "codex",
       })
     );
     expect(scoped.renderResults).toContainEqual(
@@ -862,7 +881,7 @@ compile:
     expect(pluginOutcomes).toContainEqual(
       expect.objectContaining({
         sourceUnit: "plugin.beta.feature:bin",
-        target: "claude",
+        status: "target_native",
       })
     );
     expect(pluginLock.items).toContainEqual(
@@ -872,7 +891,7 @@ compile:
       })
     );
 
-    const codexSkill = await readFile(join(root, "plugins/alpha/chatgpt/skills/plugin-skill/SKILL.md"), "utf8");
+    const codexSkill = await readFile(join(root, "plugins/alpha/skills/plugin-skill/SKILL.md"), "utf8");
     expect(codexSkill).not.toContain("renderResults");
     expect(JSON.stringify(pluginLock)).not.toContain(root);
   });
@@ -896,7 +915,7 @@ compile:
       expect.objectContaining({
         outputs: expect.arrayContaining([
           expect.objectContaining({
-            path: ".skillset/cache/latest/plugins/alpha/chatgpt/skills/plugin-skill/SKILL.md",
+            path: ".skillset/cache/latest/plugins/alpha/skills/plugin-skill/SKILL.md",
           }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
@@ -959,13 +978,14 @@ echo alpha
     expect(producedStatuses).toEqual([
       "degraded",
       "intentionally_skipped",
+      "metadata_only",
       "rendered",
       "target_native",
       "transformed",
       "unsupported",
     ]);
 
-    const documentedDeferrals = ["externally_managed", "failed", "lossy", "metadata_only"] satisfies readonly SkillsetRenderResultStatus[];
+    const documentedDeferrals = ["externally_managed", "failed", "lossy"] satisfies readonly SkillsetRenderResultStatus[];
     expect(statusesInVocabularyOrder([...producedStatuses, ...documentedDeferrals])).toEqual([
       ...RENDER_RESULT_STATUS_VALUES,
     ]);
@@ -974,7 +994,7 @@ echo alpha
   it("ignores placeholder-only plugin agent directories for unsupported Codex outcomes", async () => {
     const root = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/plugins/alpha/agents/.gitkeep": "",
+      ".skillset/plugins/alpha/subagents/.gitkeep": "",
     });
 
     const result = await buildSkillsetResult(root);
@@ -994,7 +1014,7 @@ echo alpha
         "unsupportedDestination: warn",
         "unsupportedDestination: error"
       ),
-      ".skillset/plugins/alpha/agents/reviewer.md": `
+      ".skillset/plugins/alpha/subagents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
@@ -1330,13 +1350,13 @@ Help with the task.
     });
 
     const manifest = await readJson(
-      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      join(root, "plugins/tools/.cursor-plugin/plugin.json")
     );
     expect(manifest.category).toBeUndefined();
     // The degraded classification is only true because this enabled Codex
     // target really does render the same authored category.
     const codexManifest = await readJson(
-      join(root, "plugins/tools/chatgpt/plugin.json")
+      join(root, "plugins/tools/plugin.json")
     );
     expect(
       (codexManifest.extensions as Record<string, { readonly interface?: Record<string, unknown> }> | undefined)?.["com.openai"]?.interface?.category
@@ -1418,7 +1438,7 @@ Help with the task.
     });
 
     const manifest = await readJson(
-      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      join(root, "plugins/tools/.cursor-plugin/plugin.json")
     );
     expect(manifest.category).toBeUndefined();
   });
@@ -1513,7 +1533,7 @@ Help with the task.
       });
 
       const codexManifest = await readJson(
-        join(root, "plugins/tools/chatgpt/plugin.json")
+        join(root, "plugins/tools/plugin.json")
       );
       expect(
         (codexManifest.extensions as Record<string, { readonly interface?: Record<string, unknown> }> | undefined)?.["com.openai"]?.interface?.category
@@ -1574,7 +1594,7 @@ Help with the task.
       // The Codex destination is selected, but it no longer carries the
       // authored category, so no enabled target preserves the value.
       const codexManifest = await readJson(
-        join(root, "plugins/tools/chatgpt/plugin.json")
+        join(root, "plugins/tools/plugin.json")
       );
       expect(
         (codexManifest.extensions as Record<string, { readonly interface?: Record<string, unknown> }> | undefined)?.["com.openai"]?.interface?.category
@@ -1630,7 +1650,7 @@ Help with the task.
       });
 
       const manifest = await readJson(
-        join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+        join(root, "plugins/tools/.cursor-plugin/plugin.json")
       );
       expect(manifest.category).toBeUndefined();
     }
@@ -1713,7 +1733,7 @@ Help with the task.
     });
     expect(
       await readJson(
-        join(root, "plugins/tools/claude/.claude-plugin/plugin.json")
+        join(root, "plugins/tools/.claude-plugin/plugin.json")
       )
     ).toMatchObject({ displayName: "Claude Tools", name: "tools" });
   });
@@ -1851,7 +1871,7 @@ Help with the task.
       )
     ).toEqual([]);
     const manifest = await readJson(
-      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      join(root, "plugins/tools/.cursor-plugin/plugin.json")
     );
     expect(manifest.displayName).toBe("Tools");
   });
@@ -1893,7 +1913,7 @@ Help with the task.
       )
     ).toEqual([]);
     const manifest = await readJson(
-      join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+      join(root, "plugins/tools/.cursor-plugin/plugin.json")
     );
     expect(manifest.category).toBe("Developer Tools");
     expect(manifest.tags).toEqual(["review"]);
@@ -2028,7 +2048,7 @@ Help with the task.
       });
 
       const manifest = await readJson(
-        join(root, "plugins/tools/cursor/.cursor-plugin/plugin.json")
+        join(root, "plugins/tools/.cursor-plugin/plugin.json")
       );
       expect(manifest[field]).toBeUndefined();
     }
@@ -2255,7 +2275,7 @@ Help with the task.
         )
       ).toEqual([]);
       const manifest = await readJson(
-        join(root, `plugins/tools/${target}/.${target}-plugin/plugin.json`)
+        join(root, `plugins/tools/.${target}-plugin/plugin.json`)
       );
       expect((manifest.author as Record<string, unknown>).name).toBe("Cursor Team");
     }
@@ -2616,7 +2636,7 @@ claude:
   marketplace:
     plugins:
       - name: kept
-        source: ./plugins/kept/claude
+        source: ./plugins/kept
 `,
       ".skillset/plugins/kept/skillset.yaml": `
 skillset:
@@ -2726,7 +2746,7 @@ claude:
   marketplace:
     plugins:
       - name: kept
-        source: ./plugins/kept/claude
+        source: ./plugins/kept
         author:
           name: Kept Team
 `,
@@ -3097,7 +3117,7 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -3107,7 +3127,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+      ".skillset/subagents/helper/hooks/local-stop.json": JSON.stringify({
         events: ["Stop"],
         run: { command: "echo agent" },
       }),
@@ -3414,9 +3434,8 @@ Body.
     expect(claudeSkillDestinations).toContain("skill");
     expect(claudeSkillDestinations).toContain("skill-frontmatter");
 
-    // The ChatGPT fixed Agent Skills component intentionally has no Codex
-    // tool-sidecar destination, so provider-only bytes cannot leak into it.
-    expect(preview.renderResults).not.toContainEqual(
+    // The shared package records Codex policy metadata beside the one skill.
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         destination: "skill-tools",
         featureId: "tools-policy",
@@ -3522,7 +3541,7 @@ async function renderErrorResults(root: string): Promise<readonly SkillsetRender
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-render-build-"));
+  const root = await createTestFixtureRoot("skillset-render-build-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

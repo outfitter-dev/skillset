@@ -106,9 +106,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       claude: true,
       codex: {
-        plugins: {
-          path: "generated/codex",
-        },
+        plugins: true,
       },
       compile: {
         build: "updated",
@@ -140,11 +138,13 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           },
         ],
       },
+      drafts: ["plugin.skillset.skill:experimental"],
       distributions: {
         plugins: {
           path: "dist/plugins",
         },
       },
+      internal_marker: true,
       marketplaces: {
         outfitter: {
           description: "Curated Outfitter provider plugins.",
@@ -162,7 +162,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
                   products: [],
                 },
                 source: {
-                  path: "./plugins/outfitter-core/chatgpt",
+                  path: "./plugins/outfitter-core",
                   source: "local",
                 },
               },
@@ -213,6 +213,14 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           ],
           targets: ["claude", "codex", "cursor"],
           title: "Outfitter",
+        },
+      },
+      plugins: {
+        internal_use: {
+          plugins: ["skillset"],
+          skills: {
+            skillset: ["use-skillset", "!experimental"],
+          },
         },
       },
       skillset: {
@@ -441,7 +449,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       name: "release-reviewer",
       skillset: {
         origin: {
-          path: ".skillset/agents/release-reviewer.md",
+          path: ".skillset/subagents/release-reviewer.md",
         },
         schema: 1,
       },

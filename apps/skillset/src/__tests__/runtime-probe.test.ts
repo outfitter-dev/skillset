@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { runRuntimeProbe } from "../runtime-probe";
 
@@ -16,7 +16,7 @@ function command(bin: string, cwd: string) {
 }
 
 test("runtime probe cancels a spawned process when onProcess aborts", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-probe-"));
+  const root = await createTestFixtureRoot("skillset-runtime-probe-");
   const bin = join(root, "bin", "sleeping-probe");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(bin, "#!/bin/sh\nsleep 10\n", "utf8");
@@ -41,7 +41,7 @@ test("runtime probe cancels a spawned process when onProcess aborts", async () =
 });
 
 test("runtime probe terminates a spawned process when an output callback fails", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-probe-"));
+  const root = await createTestFixtureRoot("skillset-runtime-probe-");
   const bin = await processTreeBin(root, "callback-tree");
   const callbackError = new Error("output callback failed");
   let pid: number | undefined;
@@ -68,7 +68,7 @@ test("runtime probe terminates a spawned process when an output callback fails",
 });
 
 test("runtime probe AbortSignal terminates descendants holding provider pipes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-probe-"));
+  const root = await createTestFixtureRoot("skillset-runtime-probe-");
   const bin = await processTreeBin(root, "abort-tree");
   const controller = new AbortController();
   let pid: number | undefined;
@@ -99,7 +99,7 @@ test("runtime probe AbortSignal terminates descendants holding provider pipes", 
 });
 
 test("runtime probe timeout terminates descendants holding provider pipes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-probe-"));
+  const root = await createTestFixtureRoot("skillset-runtime-probe-");
   const bin = await processTreeBin(root, "timeout-tree");
   let pid: number | undefined;
   let childPid: number | undefined;
@@ -129,7 +129,7 @@ test("runtime probe timeout terminates descendants holding provider pipes", asyn
 });
 
 test("runtime probe retains binary version only when proof requests it", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-probe-"));
+  const root = await createTestFixtureRoot("skillset-runtime-probe-");
   const bin = join(root, "bin", "versioned-probe");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(

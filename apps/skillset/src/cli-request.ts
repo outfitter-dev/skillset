@@ -3,6 +3,7 @@ import type { ChangeCommandRequest } from "./change-cli";
 import type { CheckCommandRequest } from "./check-cli";
 import type { CreateCommandRequest } from "./create-cli";
 import type { DevCommandRequest } from "./dev-cli";
+import type { DraftCommandRequest } from "./draft-cli";
 import type { EvalCommandRequest } from "./eval-cli";
 import type {
   DistributionCommandRequest,
@@ -10,6 +11,8 @@ import type {
 } from "./distribution-cli";
 import type { HooksCommandRequest } from "./hooks-cli";
 import type { InitCommandRequest } from "./init-cli";
+import type { MoveCommandRequest } from "./move-cli";
+import type { PromoteCommandRequest } from "./promote-cli";
 import type {
   ExplainCommandRequest,
   ListCommandRequest,
@@ -24,6 +27,7 @@ import type {
 import type { ReleaseCommandRequest } from "./release-cli";
 import type { ReportCommandRequest } from "./report-cli";
 import type { RenameCommandRequest } from "./rename-cli";
+import type { ResolveCommandRequest } from "./resolve-cli";
 import type { ImportCommandRequest, NewCommandRequest } from "./source-cli";
 import type { TestCommandRequest } from "./test-cli";
 import type { UpdateCommandRequest } from "./update-cli";
@@ -34,6 +38,7 @@ export type CliRequest =
   | { readonly command: "check"; readonly request: CheckCommandRequest }
   | { readonly command: "create"; readonly request: CreateCommandRequest }
   | { readonly command: "dev"; readonly request: DevCommandRequest }
+  | { readonly command: "draft"; readonly request: DraftCommandRequest }
   | { readonly command: "eval"; readonly request: EvalCommandRequest }
   | { readonly command: "diff"; readonly request: DiffCommandRequest }
   | {
@@ -58,7 +63,9 @@ export type CliRequest =
       readonly command: "marketplace";
       readonly request: MarketplaceCommandRequest;
     }
+  | { readonly command: "move"; readonly request: MoveCommandRequest }
   | { readonly command: "new"; readonly request: NewCommandRequest }
+  | { readonly command: "promote"; readonly request: PromoteCommandRequest }
   | {
       readonly command: "reconcile";
       readonly request: ReconcileCommandRequest;
@@ -66,6 +73,7 @@ export type CliRequest =
   | { readonly command: "rename"; readonly request: RenameCommandRequest }
   | { readonly command: "release"; readonly request: ReleaseCommandRequest }
   | { readonly command: "report"; readonly request: ReportCommandRequest }
+  | { readonly command: "resolve"; readonly request: ResolveCommandRequest }
   | { readonly command: "restore"; readonly request: RestoreCommandRequest }
   | { readonly command: "status"; readonly request: StatusCommandRequest }
   | { readonly command: "test"; readonly request: TestCommandRequest }

@@ -87,9 +87,11 @@ The confirmed ordinary build owns `.agents/plugins/marketplace.json` alongside t
 
 ### Claude local catalog paths
 
-Claude local entries retain the generated bundle's explicit repository-relative source. With the default plugin root, an entry such as `local-tools` uses `./plugins/local-tools/claude`; a custom Claude plugin root uses its own provider-native relative source. Skillset leaves `metadata.pluginRoot` out when each entry already names its complete source, so consumers do not rebase that path a second time.
+All local provider entries point to the shared package root. With the default placement, `local-tools` uses `./plugins/local-tools`; manifests inside that package select each provider's native metadata. Skillset leaves `metadata.pluginRoot` out when each entry already names its complete source, so consumers do not rebase the path a second time.
 
-An explicit `marketplaces` declaration is also the supported workaround for an older implicit Claude catalog that still contains a generated `metadata.pluginRoot`. Declare the local plugin under a Claude catalog, rebuild, and use the resulting catalog before upgrading the compiler. Do not shorten the source to `./local-tools` to compensate: Claude resolves sources relative to the catalog and needs the provider-native bundle path.
+An explicit `marketplaces` declaration is also the supported workaround for an older implicit Claude catalog that still contains a generated `metadata.pluginRoot`. Declare the local plugin under a Claude catalog, rebuild, and use the resulting catalog before upgrading the compiler. Do not shorten the source to `./local-tools`: the catalog resolves from the repository root and the generated package remains at `./plugins/local-tools`.
+
+Nondefault legacy `claude.plugins.path` values fail before writing a catalog: the shared package currently builds at `plugins/<name>/`, so a nested catalog would advertise a package absent from its standalone marketplace root. Custom package placement belongs to SET-561 through `plugins.output`.
 
 Marketplace entries point to a plugin bundle, not an individual `SKILL.md`. A consumer can select one discovered skill with its `--skill` option. Its default discovery depth and any `--full-depth` expansion remain consumer behavior; Skillset's catalog keeps the plugin boundary and does not promote every nested source file into a catalog entry.
 

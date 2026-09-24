@@ -1,13 +1,139 @@
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { scaffoldSourceUnit } from "../new-source";
 
+test("SET-584: new plugin previews, writes, receives a skill, and builds", async () => {
+  const root = await createTestFixtureRoot("skillset-new-plugin-container-");
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const preview = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--root",
+    root
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/skillset.yaml"
+  );
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/skills/.gitkeep"
+  );
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/README.md"
+  );
+  expect(preview.stdout).toContain("write confirmation required");
+  expect(
+    await fileExists(join(root, ".skillset/plugins/review-tools"))
+  ).toBe(false);
+
+  const written = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain("created plugin review-tools");
+  expect(
+    await readFile(
+      join(root, ".skillset/plugins/review-tools/skillset.yaml"),
+      "utf8"
+    )
+  ).toBe(
+    'skillset:\n  schema: 1\n  name: review-tools\n  description: "Review Tools plugin container."\n'
+  );
+  expect(
+    await readFile(
+      join(root, ".skillset/plugins/review-tools/README.md"),
+      "utf8"
+    )
+  ).toBe(
+    "# Review Tools\n\nAdd portable skills and plugin-owned source to this container.\n"
+  );
+  expect(
+    await fileExists(
+      join(root, ".skillset/plugins/review-tools/skills/.gitkeep")
+    )
+  ).toBe(true);
+
+  const skill = await runSkillsetCli(
+    "new",
+    "skill",
+    "Review Helper",
+    "--in",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(skill.exitCode).toBe(0);
+  await expect(
+    runSkillsetCli("build", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+  await expect(runSkillsetCli("check", "--root", root)).resolves.toMatchObject({
+    exitCode: 0,
+  });
+});
+
+test("SET-584: new plugin rejects invalid identity, nesting, and collisions", async () => {
+  const root = await createTestFixtureRoot("skillset-new-plugin-invalid-");
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const invalid = await runSkillsetCli(
+    "new",
+    "plugin",
+    "Review Tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(invalid.exitCode).toBe(1);
+  expect(invalid.stderr).toContain(
+    'expected plugin id to be a lowercase slug, received "Review Tools"'
+  );
+
+  const nested = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--in",
+    "parent",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(nested.exitCode).toBe(1);
+  expect(nested.stderr).toContain("a plugin container cannot nest inside another");
+
+  await mkdir(join(root, ".skillset/plugins/review-tools"), { recursive: true });
+  const collision = await runSkillsetCli(
+    "new",
+    "plugin",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(collision.exitCode).toBe(1);
+  expect(collision.stderr).toContain(
+    "refusing to overwrite existing plugin container .skillset/plugins/review-tools"
+  );
+});
+
 test("SET-165: new skill previews by default and writes ordinary repo source with confirmation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-ordinary-"));
+  const root = await createTestFixtureRoot("skillset-new-ordinary-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
 
   const preview = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root);
@@ -38,8 +164,72 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   expect(check.exitCode).toBe(0);
 });
 
+test("SET-555: new skill --draft is plan-first and supports plugin containers", async () => {
+  const root = await createTestFixtureRoot("skillset-new-draft-");
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+  await expect(
+    runSkillsetCli(
+      "new",
+      "plugin",
+      "review-tools",
+      "--root",
+      root,
+      "--yes"
+    )
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const preview = await runSkillsetCli(
+    "new",
+    "skill",
+    "Future Review",
+    "--draft",
+    "--in",
+    "review-tools",
+    "--root",
+    root
+  );
+  const path = join(
+    root,
+    ".skillset/plugins/review-tools/skills/_drafts/future-review/SKILL.md"
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain(
+    "+ .skillset/plugins/review-tools/skills/_drafts/future-review/SKILL.md"
+  );
+  expect(await fileExists(path)).toBe(false);
+
+  const written = await runSkillsetCli(
+    "new",
+    "skill",
+    "Future Review",
+    "--draft",
+    "--in",
+    "review-tools",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(await readFile(path, "utf8")).toContain("name: future-review");
+
+  const invalid = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Wrong Draft",
+    "--draft",
+    "--root",
+    root
+  );
+  expect(invalid.exitCode).toBe(1);
+  expect(invalid.stderr).toContain(
+    "new instruction does not support --draft"
+  );
+});
+
 test("SET-408: new skill rejects ids outside the Agent Skills naming contract", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-standard-name-"));
+  const root = await createTestFixtureRoot("skillset-new-standard-name-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -71,9 +261,9 @@ test("SET-408: new skill rejects ids outside the Agent Skills naming contract", 
 });
 
 test("SET-464: new guidance preserves the selected workspace root", async () => {
-  const caller = await mkdtemp(join(tmpdir(), "skillset-new-caller-"));
+  const caller = await createTestFixtureRoot("skillset-new-caller-");
   const root = join(
-    await mkdtemp(join(tmpdir(), "skillset-new-guidance-")),
+    await createTestFixtureRoot("skillset-new-guidance-"),
     "target's workspace"
   );
   await mkdir(root, { recursive: true });
@@ -130,7 +320,7 @@ test("SET-464: new guidance preserves the selected workspace root", async () => 
 });
 
 test("SET-165: new skill separates stable id and display name in dedicated source repos", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-new-dedicated-"));
+  const parent = await createTestFixtureRoot("skillset-new-dedicated-");
   await expect(runSkillsetCli("create", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
@@ -172,7 +362,7 @@ test("SET-165: new skill separates stable id and display name in dedicated sourc
 });
 
 test("SET-165: new skill can place source inside an existing plugin container", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-plugin-"));
+  const root = await createTestFixtureRoot("skillset-new-plugin-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await mkdir(join(root, ".skillset/plugins/acme-tools"), { recursive: true });
   await Bun.write(join(root, ".skillset/plugins/acme-tools/skillset.yaml"), "skillset:\n  name: acme-tools\n");
@@ -194,7 +384,7 @@ test("SET-165: new skill can place source inside an existing plugin container", 
 });
 
 test("SET-309: new instruction previews and writes canonical workspace source", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-instruction-"));
+  const root = await createTestFixtureRoot("skillset-new-instruction-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -238,7 +428,7 @@ test("SET-309: new instruction previews and writes canonical workspace source", 
 });
 
 test("SET-309: new instruction supports plugin placement and collision safety", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-instruction-plugin-"));
+  const root = await createTestFixtureRoot("skillset-new-instruction-plugin-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -294,7 +484,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
 });
 
 test("SET-310: new hook previews and writes a schema-valid attached adaptive unit", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-hook-"));
+  const root = await createTestFixtureRoot("skillset-new-hook-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -302,8 +492,8 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   await Bun.write(
     workspaceConfigPath,
     (await readFile(workspaceConfigPath, "utf8")).replace(
-      "compile:\n",
-      "compile:\n  unsupportedDestination: warn\n"
+      "compile:\n  targets:\n    - claude\n    - codex\n    - cursor\n",
+      "compile:\n  targets: [codex]\n  unsupportedDestination: warn\n"
     )
   );
   await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
@@ -381,18 +571,16 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   await expect(runSkillsetCli("build", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
-  for (const target of ["claude", "codex", "cursor"]) {
-    expect(
-      await fileExists(join(root, "plugins/guard", target === "codex" ? "chatgpt" : target, "hooks/hooks.json"))
-    ).toBe(true);
-  }
+  expect(
+    await fileExists(join(root, "plugins/guard/hooks/hooks.json"))
+  ).toBe(true);
   await expect(runSkillsetCli("check", "--root", root)).resolves.toMatchObject({
     exitCode: 0,
   });
 });
 
 test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisions before writes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-hook-invalid-"));
+  const root = await createTestFixtureRoot("skillset-new-hook-invalid-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -471,7 +659,7 @@ test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisi
 });
 
 test("SET-310: non-hook source kinds reject hook-only flags", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-non-hook-options-"));
+  const root = await createTestFixtureRoot("skillset-new-non-hook-options-");
   await expect(
     runSkillsetCli("init", "--root", root, "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
@@ -505,7 +693,7 @@ test("SET-310: non-hook source kinds reject hook-only flags", async () => {
 });
 
 test("SET-165: new refuses collisions and missing plugin containers", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-collision-"));
+  const root = await createTestFixtureRoot("skillset-new-collision-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
@@ -534,13 +722,13 @@ test("SET-165: new refuses collisions and missing plugin containers", async () =
 });
 
 test("SET-165/310: new supports project agents and requires complete hook intent", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-agent-"));
+  const root = await createTestFixtureRoot("skillset-new-agent-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
 
   const agent = await runSkillsetCli("new", "agent", "Release Reviewer", "--root", root, "--yes");
   expect(agent.exitCode).toBe(0);
-  expect(agent.stdout).toContain("+ .skillset/agents/release-reviewer.md");
-  const source = await readFile(join(root, ".skillset/agents/release-reviewer.md"), "utf8");
+  expect(agent.stdout).toContain("+ .skillset/subagents/release-reviewer.md");
+  const source = await readFile(join(root, ".skillset/subagents/release-reviewer.md"), "utf8");
   expect(source).toContain("name: release-reviewer");
   expect(source).toContain('description: "Use this agent for Release Reviewer work."');
 
@@ -550,7 +738,7 @@ test("SET-165/310: new supports project agents and requires complete hook intent
 });
 
 test("SET-165: new rejects import-only flags", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-flags-"));
+  const root = await createTestFixtureRoot("skillset-new-flags-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
 
   const kind = await runSkillsetCli("new", "skill", "Flag Probe", "--kind", "plugin", "--root", root);
@@ -563,7 +751,7 @@ test("SET-165: new rejects import-only flags", async () => {
 });
 
 test("SET-165: new requires an initialized workspace", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-uninitialized-"));
+  const root = await createTestFixtureRoot("skillset-new-uninitialized-");
 
   const result = await runSkillsetCli("new", "skill", "Fresh Skill", "--root", root, "--yes");
 

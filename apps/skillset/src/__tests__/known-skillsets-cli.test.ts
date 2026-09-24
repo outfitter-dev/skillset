@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -9,6 +8,7 @@ import {
   initializeTestGitRepository,
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 test("SET-233: check records the workspace in the managed known-Skillsets index", async () => {
   const root = await createTestGitFixtureRoot("skillset-known-cli-");
@@ -103,7 +103,7 @@ test("SET-288: JSON build preview records the workspace in the managed index", a
 });
 
 test("SET-384: a successful command preserves and recovers a malformed managed index", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-cli-"));
+  const root = await createTestFixtureRoot("skillset-known-recovery-cli-");
   const xdgConfigHome = join(root, "xdg-config");
   const skillsetConfig = join(xdgConfigHome, "skillset");
   const workspace = join(root, "workspace");
@@ -132,7 +132,7 @@ test("SET-384: a successful command preserves and recovers a malformed managed i
 });
 
 test("SET-388: direct test-mode checks refuse user-state mutation without a valid marker", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-known-hermetic-cli-"));
+  const root = await createTestFixtureRoot("skillset-known-hermetic-cli-");
   const xdgConfigHome = join(root, "xdg-config");
   const indexPath = join(xdgConfigHome, "skillset", "skillsets.json");
   const workspace = join(root, "workspace");
@@ -163,7 +163,7 @@ test("SET-388: direct test-mode checks refuse user-state mutation without a vali
 });
 
 test("SET-388: a valid sandbox marker registers only in isolated XDG state", async () => {
-  const sandbox = await mkdtemp(join(tmpdir(), "skillset-test-cli-registration-"));
+  const sandbox = await createTestFixtureRoot("skillset-test-cli-registration-");
   const xdg = {
     cache: join(sandbox, "xdg", "cache"),
     config: join(sandbox, "xdg", "config"),
@@ -216,7 +216,7 @@ test("SET-388: a valid sandbox marker registers only in isolated XDG state", asy
 });
 
 test("SET-388: malformed sandbox markers fail before the registration warning boundary", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-known-marker-cli-"));
+  const root = await createTestFixtureRoot("skillset-known-marker-cli-");
   const marker = join(root, "descriptor.json");
   const workspace = join(root, "workspace");
   await writeWorkspace(workspace);

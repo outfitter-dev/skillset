@@ -1,9 +1,10 @@
-import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { chmod, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import {
@@ -14,6 +15,7 @@ import {
   tailAdHocTestRun,
 } from "../ad-hoc-test";
 import { runAdHocTestCommand } from "../ad-hoc-test-cli";
+import { retainedRunRootPaths } from "../retained-runs";
 import { runSkillsetTest } from "../test-runner";
 import { parseCliEventStream } from "../cli-output";
 
@@ -252,7 +254,7 @@ Use this skill to answer fixture questions.
   expect(command).toContain("--verbose");
   expect(command).toContain("--setting-sources \"\"");
   expect(command).toContain("--plugin-dir");
-  expect(command).toContain("plugins/acme/claude");
+  expect(command).toContain("plugins/acme");
 
   const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-claude prompt=Inspect Claude fixture."))).toBe(true);
@@ -305,7 +307,7 @@ Use this skill to answer fixture questions.
   expect(command).toContain("--trust");
   expect(command).toContain("--workspace");
   expect(command).toContain("--plugin-dir");
-  expect(command).toContain("plugins/acme/cursor");
+  expect(command).toContain("plugins/acme");
 
   const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-cursor prompt=Inspect Cursor fixture."))).toBe(true);
@@ -1044,12 +1046,13 @@ skillset:
   name: target-proof-fixture
 compile:
   targets: [claude, codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/plugins/tools/_codex/.app.json": JSON.stringify({
+    ".skillset/plugins/tools/.app.json": JSON.stringify({
       name: "tools",
     }),
     ".skillset/tests/target-proof.yaml": `
@@ -1058,6 +1061,7 @@ select:
 targets: [claude, codex]
 activation:
   - name: app proof
+    targets: [claude, codex]
     prompt: Use the app.
     expect:
       plugin: tools
@@ -1096,12 +1100,13 @@ skillset:
   name: unsupported-proof-fixture
 compile:
   targets: [codex]
+  unsupportedDestination: warn
 `,
     ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/plugins/tools/_codex/.app.json": JSON.stringify({
+    ".skillset/plugins/tools/.app.json": JSON.stringify({
       name: "tools",
     }),
     ".skillset/tests/unsupported-proof.yaml": `
@@ -1110,6 +1115,7 @@ select:
 targets: [codex]
 activation:
   - name: app proof
+    targets: [codex]
     prompt: Use the app.
     expect:
       plugin: tools
@@ -1377,8 +1383,80 @@ Runtime failure body.
   expect(timeoutStatus.error).not.toContain("try command");
 });
 
+test("SET-647: missing retained runs stay empty and a runs-root loop raises", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: ad-hoc-existence
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ad hoc test skill.
+---
+
+Use this skill.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  await expect(listAdHocTestRuns(root, { xdg })).resolves.toEqual([]);
+
+  const graph = await loadBuildGraph(root, { xdg });
+  const runsRoot = retainedRunRootPaths(
+    root,
+    graph,
+    ".skillset/cache/tests/ad-hoc",
+    xdg
+  ).absolute.runsRoot;
+  await mkdir(dirname(runsRoot), { recursive: true });
+  await symlink(basename(runsRoot), runsRoot);
+  await expect(listAdHocTestRuns(root, { xdg })).rejects.toMatchObject({
+    code: "ELOOP",
+    path: runsRoot,
+  });
+});
+
+test("SET-647: a retained run status loop cannot disappear from the run list", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: ad-hoc-status-loop
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ad hoc test skill.
+---
+
+Use this skill.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const graph = await loadBuildGraph(root, { xdg });
+  const runsRoot = retainedRunRootPaths(
+    root,
+    graph,
+    ".skillset/cache/tests/ad-hoc",
+    xdg
+  ).absolute.runsRoot;
+  const incompleteRun = join(runsRoot, "incomplete");
+  await mkdir(incompleteRun, { recursive: true });
+  await expect(listAdHocTestRuns(root, { xdg })).resolves.toEqual([]);
+
+  const loopRun = join(runsRoot, "loop");
+  await mkdir(loopRun);
+  const statusPath = join(loopRun, "status.json");
+  await symlink("status.json", statusPath);
+  await expect(listAdHocTestRuns(root, { xdg })).rejects.toMatchObject({
+    code: "ELOOP",
+    path: statusPath,
+  });
+});
+
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-ad-hoc-test-"));
+  const root = await createTestFixtureRoot("skillset-ad-hoc-test-");
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(root, path);
     await mkdir(dirname(fullPath), { recursive: true });
@@ -1512,7 +1590,7 @@ echo "fake-cursor prompt=$last"
 async function fakeFailureBin(root: string, name: string, message: string, exitCode: number): Promise<string> {
   const bin = join(root, "bin", name);
   await mkdir(dirname(bin), { recursive: true });
-  await writeFile(bin, `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(message)} >&2\nexit ${exitCode}\n`, "utf8");
+  await writeFile(bin, `#!/bin/sh\nif [ "$1" = "exec" ]; then cat >/dev/null; fi\nprintf '%s\\n' ${JSON.stringify(message)} >&2\nexit ${exitCode}\n`, "utf8");
   await chmod(bin, 0o755);
   return bin;
 }

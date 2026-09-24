@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   getProviderDestinationFormatSnapshot,
@@ -17,6 +15,7 @@ import {
   type AdapterConformanceCase,
   type SkillsetRenderResult,
 } from "@skillset/core";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const CONFORMANCE_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -43,7 +42,7 @@ description: Root instructions.
 
 Keep generated output deterministic.
 `,
-  ".skillset/agents/reviewer.md": `
+  ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -62,14 +61,7 @@ dependencies:
     - name: external-tools
       range: ^2.1.0
       marketplace: acme
-mcp: true
-`,
-  ".skillset/plugins/alpha/.mcp.json": `
-{
-  "mcpServers": {
-    "alpha": { "command": "node" }
-  }
-}
+mcp: false
 `,
   ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
@@ -101,8 +93,6 @@ compile:
       { featureId: "project-instructions", sourceUnit: "instruction:root", target: "cursor" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "codex" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "cursor" },
-      { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "claude" },
-      { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "cursor" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },
       { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
@@ -155,7 +145,7 @@ hooks:
         featureId: "adaptive-hooks",
         outputs: [
           expect.objectContaining({
-            path: "plugins/demo/cursor/hooks/hooks.json",
+            path: "plugins/demo/hooks/hooks.json",
           }),
         ],
         reason:
@@ -201,7 +191,7 @@ skillset:
         featureId: "plugin-hooks",
         outputs: [
           expect.objectContaining({
-            path: "plugins/demo/cursor/hooks/hooks.json",
+            path: "plugins/demo/hooks/hooks.json",
           }),
         ],
         sourceUnit: "plugin.demo.feature:hooks",
@@ -277,7 +267,11 @@ echo alpha
         : profile
     ) satisfies readonly StandardProfile[];
     const profile = profiles.find((entry) => entry.id === "agent-skills")!;
+    const pluginProfile = profiles.find(
+      (entry) => entry.id === "agent-plugins-1.0"
+    )!;
     const evidence = profile.provenance.snapshots[0]!;
+    const pluginEvidence = pluginProfile.provenance.snapshots[0]!;
     const result: SkillsetRenderResult = {
       evidence: [
         {
@@ -294,8 +288,16 @@ echo alpha
     };
     const pluginResult: SkillsetRenderResult = {
       ...result,
+      evidence: [
+        {
+          kind: "external-docs",
+          ref: pluginEvidence.url,
+          verifiedAt: pluginProfile.provenance.observedAt,
+        },
+      ],
       featureId: "plugin-skills",
       sourceUnit: "plugin.alpha.skill:review",
+      standardProfile: "agent-plugins-1.0",
     };
 
     const candidateProfiles = profiles.map((profile) =>
@@ -315,7 +317,7 @@ echo alpha
           {
             featureId: "plugin-skills",
             sourceUnit: "plugin.alpha.skill:review",
-            standardProfile: "agent-skills",
+            standardProfile: "agent-plugins-1.0",
           },
         ],
         undefined,
@@ -393,7 +395,7 @@ function outcome(
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-adapter-conformance-"));
+  const root = await createTestFixtureRoot("skillset-adapter-conformance-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

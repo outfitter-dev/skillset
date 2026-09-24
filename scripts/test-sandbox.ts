@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative } from "node:path";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,
@@ -11,6 +12,7 @@ import {
   validateTestSandbox,
   type TestSandboxDescriptor,
 } from "../apps/skillset/src/verification-sandbox";
+import { prependExecutablePath, resolvePinnedBun } from "./pinned-bun";
 
 const argv = process.argv.slice(2);
 const command = argv[0] === "--" ? argv.slice(1) : argv;
@@ -59,7 +61,7 @@ try {
     flag: "wx",
   });
   const env: Record<string, string | undefined> = {
-    ...process.env,
+    ...gitSafeEnv(),
     // Bun 1.4 persists transpiled files larger than 50 KB under the ambient
     // cache root. Tests use disposable source and own the complete sandbox, so
     // the documented cache-disable switch keeps both nested and decoy runs
@@ -77,8 +79,23 @@ try {
     XDG_STATE_HOME: xdg.state,
   };
   scrubGitConfigParameters(env);
+  // Pin the interpreter, not the machine. Checks such as the native size
+  // baseline compare recorded evidence against `Bun.version`, so a contributor
+  // whose global Bun differs from `.bun-version` would otherwise fail tests
+  // that pass in CI. Resolution always yields a path under our own cache, even
+  // when the ambient Bun already matches the pin: that path is shared with
+  // every other repository whose bootstrap installs a pinned Bun over it, and
+  // this PATH entry governs the whole run. A matching ambient interpreter is
+  // adopted by copy, so CI pays one copy on a cold cache rather than nothing.
+  const pinnedBun = await resolvePinnedBun(repoRoot);
+  env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
+  const childCommand =
+    basename(command[0] ?? "") === "bun"
+      ? [pinnedBun.binPath, ...command.slice(1)]
+      : [...command];
+
   await validateTestSandbox(env, repoRoot);
-  process.exitCode = await run(command, env);
+  process.exitCode = await run(childCommand, env);
 } catch (error) {
   retain = true;
   console.error(`skillset: test sandbox failed: ${message(error)}`);

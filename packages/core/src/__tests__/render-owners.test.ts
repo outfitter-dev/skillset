@@ -1,14 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
   chmod,
-  mkdtemp,
   mkdir,
-  rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   createSourceFile,
@@ -203,77 +201,73 @@ describe("render owner boundaries", () => {
   });
 
   it("provides deterministic text, lock-root, existence, and recursive-copy primitives", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-render-owners-"));
-    try {
-      const source = join(root, "source");
-      await mkdir(join(source, "nested"), { recursive: true });
-      await writeFile(join(source, "z.txt"), "z\n");
-      await writeFile(join(source, "a.txt"), "a\n");
-      await chmod(join(source, "z.txt"), 0o755);
-      await writeFile(join(source, "nested", "b.txt"), "b\n");
-      await writeFile(join(source, ".DS_Store"), "ignored\n");
-      await symlink(join(source, "a.txt"), join(source, "ignored-link"));
+    const root = await createTestFixtureRoot("skillset-render-owners-");
+    const source = join(root, "source");
+    await mkdir(join(source, "nested"), { recursive: true });
+    await writeFile(join(source, "z.txt"), "z\n");
+    await writeFile(join(source, "a.txt"), "a\n");
+    await chmod(join(source, "z.txt"), 0o755);
+    await writeFile(join(source, "nested", "b.txt"), "b\n");
+    await writeFile(join(source, ".DS_Store"), "ignored\n");
+    await symlink(join(source, "a.txt"), join(source, "ignored-link"));
 
-      const copied = await copyPath(source, "generated");
-      expect(copied.map((file) => file.path)).toEqual([
-        join("generated", "a.txt"),
-        join("generated", "nested", "b.txt"),
-        join("generated", "z.txt"),
-      ]);
-      expect(
-        await Promise.all(
-          copied.map((file) => new Response(file.content).text())
-        )
-      ).toEqual(["a\n", "b\n", "z\n"]);
-      expect(copied.map((file) => file.mode)).toEqual([0o644, 0o644, 0o755]);
-      expect(await copyPath(join(source, "a.txt"), "single.txt")).toEqual([
-        {
-          content: new TextEncoder().encode("a\n"),
-          mode: 0o644,
-          path: "single.txt",
-        },
-      ]);
-
-      expect(await exists(source)).toBe(true);
-      expect(await exists(join(root, "missing"))).toBe(false);
-      expect(textFile("generated.txt", "body\n", "source.md")).toEqual({
-        content: new TextEncoder().encode("body\n"),
+    const copied = await copyPath(source, "generated");
+    expect(copied.map((file) => file.path)).toEqual([
+      join("generated", "a.txt"),
+      join("generated", "nested", "b.txt"),
+      join("generated", "z.txt"),
+    ]);
+    expect(
+      await Promise.all(
+        copied.map((file) => new Response(file.content).text())
+      )
+    ).toEqual(["a\n", "b\n", "z\n"]);
+    expect(copied.map((file) => file.mode)).toEqual([0o644, 0o644, 0o755]);
+    expect(await copyPath(join(source, "a.txt"), "single.txt")).toEqual([
+      {
+        content: new TextEncoder().encode("a\n"),
         mode: 0o644,
-        path: "generated.txt",
-        sourcePath: "source.md",
-      });
-      expect(textFile("generated.txt", "body\n")).not.toHaveProperty(
-        "sourcePath"
-      );
-      expect(GENERATED_BY).toMatch(/^skillset@/);
-      expect(WORKSPACE_LOCK_ROOT).toBe(".");
-      expect(
-        normalizeManagedRelativePath("demo\\codex\\plugin.json")
-      ).toBe("demo/codex/plugin.json");
-      expect(
-        renderedFileModes(".", [
-          {
-            content: new Uint8Array(),
-            mode: 0o644,
-            path: "demo\\codex\\plugin.json",
-          },
-        ])
-      ).toEqual({ "demo/codex/plugin.json": "0644" });
+        path: "single.txt",
+      },
+    ]);
 
-      const roots = new Map<string, LockRoot>();
-      const claude = lockRootsFor(roots, "plugins/demo", "claude");
-      claude.items.push(lockItem("claude"));
-      expect(lockRootsFor(roots, "plugins/demo", "claude")).toBe(claude);
+    expect(await exists(source)).toBe(true);
+    expect(await exists(join(root, "missing"))).toBe(false);
+    expect(textFile("generated.txt", "body\n", "source.md")).toEqual({
+      content: new TextEncoder().encode("body\n"),
+      mode: 0o644,
+      path: "generated.txt",
+      sourcePath: "source.md",
+    });
+    expect(textFile("generated.txt", "body\n")).not.toHaveProperty(
+      "sourcePath"
+    );
+    expect(GENERATED_BY).toMatch(/^skillset@/);
+    expect(WORKSPACE_LOCK_ROOT).toBe(".");
+    expect(
+      normalizeManagedRelativePath("demo\\codex\\plugin.json")
+    ).toBe("demo/codex/plugin.json");
+    expect(
+      renderedFileModes(".", [
+        {
+          content: new Uint8Array(),
+          mode: 0o644,
+          path: "demo\\codex\\plugin.json",
+        },
+      ])
+    ).toEqual({ "demo/codex/plugin.json": "0644" });
 
-      const workspace = lockRootsFor(roots, "plugins/demo", "codex");
-      expect(workspace).toEqual({
-        items: [lockItem("claude")],
-        target: "workspace",
-      });
-      expect(roots.get("plugins/demo")).toBe(workspace);
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    const roots = new Map<string, LockRoot>();
+    const claude = lockRootsFor(roots, "plugins/demo", "claude");
+    claude.items.push(lockItem("claude"));
+    expect(lockRootsFor(roots, "plugins/demo", "claude")).toBe(claude);
+
+    const workspace = lockRootsFor(roots, "plugins/demo", "codex");
+    expect(workspace).toEqual({
+      items: [lockItem("claude")],
+      target: "workspace",
+    });
+    expect(roots.get("plugins/demo")).toBe(workspace);
   });
 });
 
@@ -285,6 +279,7 @@ function lockItem(name: string) {
     name,
     outputHash: "output",
     outputPath: `plugins/${name}`,
+    role: "bundle" as const,
     sourceHash: "source",
     sourcePath: `.skillset/plugins/${name}`,
   };

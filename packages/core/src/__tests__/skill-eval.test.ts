@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { listSkillEvals, normalizeEvalDisplayPath } from "../eval-list";
 import { loadBuildGraph } from "../resolver";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const SKILL = `---
 name: demo
@@ -99,7 +99,7 @@ describe("portable skill eval declarations", () => {
 async function fixture(
   files: Readonly<Record<string, string>>
 ): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-eval-"));
+  const root = await createTestFixtureRoot("skillset-eval-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });

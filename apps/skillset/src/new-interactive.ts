@@ -33,6 +33,7 @@ export interface InteractiveNewRequest {
   readonly hookScript?: string;
   readonly positionalName: string | undefined;
   readonly newContainer: string | undefined;
+  readonly newDraft?: boolean;
   readonly newId: string | undefined;
   readonly newKind: NewSourceKind | undefined;
   readonly newName: string | undefined;
@@ -65,6 +66,7 @@ export async function runInteractiveNew(
   const options = {
     ...(container === undefined ? {} : { container }),
     ...(identity.id === undefined ? {} : { id: identity.id }),
+    ...(request.newDraft ? { draft: true } : {}),
     kind,
     ...hookIntent,
     ...(identity.displayName === undefined

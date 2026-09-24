@@ -6,7 +6,7 @@ description: Explains how Skillset renders adaptive and Codex-native source into
 
 Provider id: `codex`
 
-The Codex [target](../../glossary.md#target) [renders](../../glossary.md#render) project guidance and configuration under `.codex/`, directory-local `AGENTS.md` files, ChatGPT product bundles under `plugins/<plugin>/chatgpt/`, and the repository ChatGPT catalog at `.agents/plugins/marketplace.json` as [generated output](../../glossary.md#generated-output). Each product bundle uses the closed Agent Plugins root manifest and fixed portable components, with reviewed Codex-native interface, app, and hook meaning under `extensions.com.openai`. ChatGPT is product terminology for the bundle and catalog; `codex` remains the target and runtime identity, while Agent Plugins remains the portable package standard. [Adaptive source](../../glossary.md#adaptive-source) remains [canonical source](../../glossary.md#canonical-source); Codex-only behavior belongs in explicit [provider-native](../../glossary.md#provider-native) source or Codex-scoped overrides.
+The Codex [target](../../glossary.md#target) [renders](../../glossary.md#render) project guidance and configuration under `.codex/`, directory-local `AGENTS.md` files, ChatGPT product manifests and components inside the shared `plugins/<plugin>/` package, and the repository ChatGPT catalog at `.agents/plugins/marketplace.json` as [generated output](../../glossary.md#generated-output). Each product bundle uses the closed Agent Plugins root manifest and fixed portable components, with reviewed Codex-native interface, app, and hook meaning under `extensions.com.openai`. ChatGPT is product terminology for the bundle and catalog; `codex` remains the target and runtime identity, while Agent Plugins remains the portable package standard. [Adaptive source](../../glossary.md#adaptive-source) remains [canonical source](../../glossary.md#canonical-source); Codex-only behavior belongs in explicit [provider-native](../../glossary.md#provider-native) source or Codex-scoped overrides.
 
 ## Provider Shape
 
@@ -17,6 +17,8 @@ An ordinary build also owns `.agents/plugins/marketplace.json`. With no declared
 Adaptive project agents render as TOML under `.codex/agents/`. Adaptive instruction source renders to directory-local `AGENTS.md` files. Codex `.rules` files are command-execution policy, not prose guidance, and remain a provider-native surface rather than an alternative rendering of instructions. Tool policy that has no skill-local Codex enforcement surface remains visible metadata rather than a false [activation](../../glossary.md#activation) claim.
 
 For exact source and destination behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [instructions](../features/instructions.md), [hooks](../features/hooks.md), [apps](../features/apps.md), and [tools policy](../features/tools-policy.md).
+
+With `compile.session_start_hook: on` (or eligible `auto`), Skillset composes one advisory project SessionStart command into `.codex/hooks.json`. The path is drawn from the checked-in provider-location evidence and shared with `hooks print --agent-runtime --target codex`; plugin hooks remain a separate output surface. The command reports stale output but does not rebuild or grant runtime trust.
 
 ## Feature Support
 

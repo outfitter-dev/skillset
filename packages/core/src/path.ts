@@ -1,5 +1,32 @@
 import { relative, resolve, sep } from "node:path";
 
+/**
+ * Normalize a repository-relative or logical diagnostic path to POSIX `/`.
+ *
+ * Use this for `SkillsetDiagnostic.path` / `outputPath`, `LintIssue.path`, and
+ * `SkillsetFeatureDiagnosticError.path`. Do not pass JSON pointers, selectors,
+ * or actual filesystem operands through this helper — those keep their native
+ * spelling. Callers that already computed `relative(root, absolute)` should
+ * still run the result through here so Windows `\` does not leak into
+ * structured diagnostics. A literal backslash is a valid POSIX filename
+ * character, so only replace separators for paths known to use Windows
+ * syntax.
+ */
+export function toLogicalDiagnosticPath(path: string, sourceSeparator: "/" | "\\" = sep): string {
+  return sourceSeparator === "\\" ? path.replaceAll("\\", "/") : path;
+}
+
+/**
+ * Repository-relative logical diagnostic path for a source or output file.
+ *
+ * Computes `relative(rootPath, absolutePath)` then converts native separators
+ * to `/`. The absolute argument is a filesystem operand; the return value is
+ * the portable diagnostic identity.
+ */
+export function logicalDiagnosticPath(rootPath: string, absolutePath: string): string {
+  return toLogicalDiagnosticPath(relative(rootPath, absolutePath));
+}
+
 export function resolveInside(root: string, candidate: string): string {
   const resolvedRoot = resolve(root);
   const resolved = resolve(resolvedRoot, candidate);

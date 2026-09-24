@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
@@ -20,6 +19,7 @@ import { loadBuildGraph } from "../resolver";
 import { targetNames } from "../targets";
 import type { JsonRecord, JsonValue } from "../types";
 import { parseMarkdown } from "../yaml";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("adaptive hook attachment resolution", () => {
   test("resolves immutable target definitions before expanding attachments", () => {
@@ -202,40 +202,7 @@ hooks:
     const hookOutputs = (await renderBuildGraph(graph))
       .map((file) => file.path)
       .filter((path) => path.endsWith("/hooks/hooks.json"));
-    expect(hookOutputs).toEqual(["plugins/demo/cursor/hooks/hooks.json"]);
-  });
-
-  test("keeps omitted attachment providers enabled for every configured target", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-omitted-providers
-claude: true
-codex: true
-cursor: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  Stop:
-    - shell-policy
-`,
-      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        events: ["Stop"],
-        run: { command: "echo ok" },
-      }),
-    }));
-
-    expect(graph.hookAttachments.find((attachment) => attachment.hook === "shell-policy")?.providers).toBeUndefined();
-    const hookOutputs = (await renderBuildGraph(graph))
-      .map((file) => file.path)
-      .filter((path) => path.endsWith("/hooks/hooks.json"));
-    expect(hookOutputs).toEqual([
-      "plugins/demo/chatgpt/hooks/hooks.json",
-      "plugins/demo/claude/hooks/hooks.json",
-      "plugins/demo/cursor/hooks/hooks.json",
-    ]);
+    expect(hookOutputs).toEqual(["plugins/demo/hooks/hooks.json"]);
   });
 
   test("rejects invalid plugin attachment providers through schema diagnostics", async () => {
@@ -318,7 +285,7 @@ skillset:
 claude: true
 codex: false
 `,
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -328,7 +295,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/helper-session.json": JSON.stringify({ events: ["SessionStart"], run: { command: "node ./session.js" } }),
+      ".skillset/subagents/helper/hooks/helper-session.json": JSON.stringify({ events: ["SessionStart"], run: { command: "node ./session.js" } }),
     }));
 
     expect(graph.adaptiveHooks.map((hook) => `${hook.scope.kind}:${hook.name}`)).toEqual(["agent:helper-session"]);
@@ -563,85 +530,7 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    expect(rendered.map((file) => file.path)).not.toContain("plugins/demo/claude/hooks/hooks.json");
-  });
-
-  test("renders plugin-level adaptive hooks to native Claude and Codex hook files", async () => {
-    const root = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-render
-claude: true
-codex: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  PreToolUse:
-    - hook: shell-policy
-      match: Bash
-      status: Checking shell command
-      providers: [claude, codex]
-`,
-      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        events: ["PreToolUse"],
-        status: "Checking the definition",
-        run: {
-          env: {
-            CHECK: "1",
-            MESSAGE: "two words",
-          },
-          script: "{{scripts.dir}}/check.sh",
-        },
-      }),
-      ".skillset/plugins/demo/scripts/check.sh": "#!/bin/sh\nexit 0\n",
-    });
-    await chmod(join(root, ".skillset/plugins/demo/scripts/check.sh"), 0o755);
-    const graph = await loadBuildGraph(root);
-
-    const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json");
-    const claudeManifest = renderedJson(rendered, "plugins/demo/claude/.claude-plugin/plugin.json");
-    const codexManifest = renderedJson(rendered, "plugins/demo/chatgpt/plugin.json");
-
-    expect(claudeManifest.hooks).toBe("./hooks/hooks.json");
-    expect(codexManifest.extensions).toEqual(expect.objectContaining({
-      "com.openai": expect.objectContaining({ hooks: "./hooks/hooks.json" }),
-    }));
-    expect(claudeHooks).toEqual({
-      hooks: {
-        PreToolUse: [{
-          hooks: [{ command: "env CHECK=1 MESSAGE='two words' sh -c '$CLAUDE_PLUGIN_ROOT/scripts/check.sh'", type: "command" }],
-          matcher: "Bash",
-          statusMessage: "Checking shell command",
-        }],
-      },
-    });
-    expect(codexHooks).toEqual({
-      hooks: {
-        PreToolUse: [{
-          hooks: [{ command: "env CHECK=1 MESSAGE='two words' sh -c '$PLUGIN_ROOT/scripts/check.sh'", type: "command" }],
-          matcher: "Bash",
-          statusMessage: "Checking shell command",
-        }],
-      },
-    });
-    expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
-      "plugins/demo/claude/scripts/check.sh",
-      "plugins/demo/chatgpt/scripts/check.sh",
-    ]));
-    expect(rendered).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        mode: 0o755,
-        path: "plugins/demo/claude/scripts/check.sh",
-      }),
-      expect.objectContaining({
-        mode: 0o755,
-        path: "plugins/demo/chatgpt/scripts/check.sh",
-      }),
-    ]));
+    expect(rendered.map((file) => file.path)).toContain("plugins/demo/hooks/hooks.json");
   });
 
   test("renders definition hook status when an attachment does not override it", async () => {
@@ -668,7 +557,7 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual({
+    expect(renderedJson(rendered, "plugins/demo/hooks/hooks.json")).toEqual({
       hooks: {
         PreToolUse: [{
           hooks: [{ command: "echo ok", type: "command" }],
@@ -676,129 +565,6 @@ hooks:
         }],
       },
     });
-  });
-
-  test("omits portable hook status from Cursor native handlers without changing grouped targets", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-cursor-status
-claude: true
-codex: true
-cursor: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  PreToolUse:
-    - hook: shell-policy
-      status: Checking shell command
-`,
-      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        events: ["PreToolUse"],
-        run: { command: "echo ok" },
-      }),
-    }));
-
-    const rendered = await renderBuildGraph(graph);
-    const groupedHooks = {
-      hooks: {
-        PreToolUse: [{
-          hooks: [{ command: "echo ok", type: "command" }],
-          statusMessage: "Checking shell command",
-        }],
-      },
-    };
-    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual(groupedHooks);
-    expect(renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json")).toEqual(groupedHooks);
-    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
-      version: 1,
-      hooks: {
-        preToolUse: [{ command: "echo ok", type: "command" }],
-      },
-    });
-  });
-
-  test("renders target-effective plugin hook definitions without leaking portable base values", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-target-effective-render
-claude: true
-codex: true
-cursor: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  auto:
-    - shell-policy
-`,
-      ".skillset/plugins/demo/hooks/shell-policy/hook.json": JSON.stringify({
-        codex: {
-          context: null,
-          events: ["Stop"],
-          match: null,
-          run: { env: { CODEX: "1" }, script: "./codex.sh" },
-        },
-        context: { env: ["provider"], strategy: "inline" },
-        cursor: {
-          context: null,
-          events: ["WorkspaceOpen"],
-          match: null,
-          run: { env: { CURSOR: "1" }, script: "./cursor.sh" },
-        },
-        events: ["PreToolUse"],
-        match: "Bash",
-        run: { env: { CLAUDE: "1" }, script: "./claude.sh" },
-      }),
-      ".skillset/plugins/demo/hooks/shell-policy/claude.sh": "#!/bin/sh\necho claude\n",
-      ".skillset/plugins/demo/hooks/shell-policy/codex.sh": "#!/bin/sh\necho codex\n",
-      ".skillset/plugins/demo/hooks/shell-policy/cursor.sh": "#!/bin/sh\necho cursor\n",
-    }));
-
-    const rendered = await renderBuildGraph(graph);
-
-    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual({
-      hooks: {
-        PreToolUse: [{
-          hooks: [{
-            command: "SKILLSET_PROVIDER=claude env CLAUDE=1 sh -c '$CLAUDE_PLUGIN_ROOT/hooks/shell-policy/claude.sh'",
-            type: "command",
-          }],
-          matcher: "Bash",
-        }],
-      },
-    });
-    expect(renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json")).toEqual({
-      hooks: {
-        Stop: [{
-          hooks: [{ command: "env CODEX=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/codex.sh'", type: "command" }],
-        }],
-      },
-    });
-    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
-      version: 1,
-      hooks: {
-        workspaceOpen: [{
-          command: "env CURSOR=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/cursor.sh'",
-          type: "command",
-        }],
-      },
-    });
-    expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
-      "plugins/demo/claude/hooks/shell-policy/claude.sh",
-      "plugins/demo/chatgpt/hooks/shell-policy/codex.sh",
-      "plugins/demo/cursor/hooks/shell-policy/cursor.sh",
-    ]));
-    expect(rendered.map((file) => file.path)).not.toEqual(expect.arrayContaining([
-      "plugins/demo/claude/hooks/shell-policy/codex.sh",
-      "plugins/demo/claude/hooks/shell-policy/cursor.sh",
-      "plugins/demo/chatgpt/hooks/shell-policy/claude.sh",
-      "plugins/demo/cursor/hooks/shell-policy/claude.sh",
-    ]));
   });
 
   test("rejects plugin adaptive hook run.env keys that cannot render as shell assignments", async () => {
@@ -823,51 +589,6 @@ hooks:
     }));
 
     await expect(renderBuildGraph(graph)).rejects.toThrow("run.env key BAD-NAME is not a valid shell environment variable name");
-  });
-
-  test("lowers Claude-compatible aggregate groups to the Cursor native envelope without changing Claude", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: cursor-native-hook-envelope
-claude: true
-codex: false
-cursor: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-`,
-      ".skillset/plugins/demo/hooks/hooks.json": JSON.stringify({
-        hooks: {
-          UserPromptSubmit: [{
-            hooks: [{ command: "./hooks/check-prompt.sh", timeout: 12, type: "command" }],
-            matcher: "UserPromptSubmit",
-          }],
-        },
-      }),
-    }));
-
-    const rendered = await renderBuildGraph(graph);
-    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual({
-      hooks: {
-        UserPromptSubmit: [{
-          hooks: [{ command: "./hooks/check-prompt.sh", timeout: 12, type: "command" }],
-          matcher: "UserPromptSubmit",
-        }],
-      },
-    });
-    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
-      version: 1,
-      hooks: {
-        beforeSubmitPrompt: [{
-          command: "./hooks/check-prompt.sh",
-          matcher: "UserPromptSubmit",
-          timeout: 12,
-          type: "command",
-        }],
-      },
-    });
   });
 
   test("preserves the pinned Cursor native hook fixture and documented flat handler fields", async () => {
@@ -913,7 +634,7 @@ skillset:
 
     const rendered = renderedJson(
       await renderBuildGraph(graph),
-      "plugins/demo/cursor/hooks/hooks.json"
+      "plugins/demo/hooks/hooks.json"
     );
     expect(rendered).toMatchObject(pinnedRalphLoopHooks);
     expect(rendered).toEqual({
@@ -984,184 +705,6 @@ skillset:
     }
   });
 
-  test("renders plugin hook run.env around the whole shell command", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-env-command
-claude: true
-codex: false
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  Stop:
-    - shell-policy
-`,
-      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        events: ["Stop"],
-        run: {
-          command: "echo \"$CHECK\" && ./check.sh",
-          env: { CHECK: "1" },
-        },
-      }),
-    }));
-
-    const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    expect(claudeHooks).toEqual({
-      hooks: {
-        Stop: [{
-          hooks: [{ command: "env CHECK=1 sh -c 'echo \"$CHECK\" && ./check.sh'", type: "command" }],
-        }],
-      },
-    });
-  });
-
-  test("renders inline hook context for plugin-level adaptive hooks", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-context-render
-claude: true
-codex: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  Stop:
-    - session-summary
-`,
-      ".skillset/plugins/demo/hooks/session-summary.json": JSON.stringify({
-        context: {
-          env: ["provider", "hook.event", "session.id"],
-          strategy: "inline",
-        },
-        events: ["Stop"],
-        run: { command: "node ./session-summary.js" },
-      }),
-    }));
-
-    const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json");
-
-    expect(claudeHooks).toEqual({
-      hooks: {
-        Stop: [{
-          hooks: [{
-            command: 'SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop SKILLSET_SESSION_ID="${CLAUDE_SESSION_ID:-}" node ./session-summary.js',
-            type: "command",
-          }],
-        }],
-      },
-    });
-    expect(codexHooks).toEqual({
-      hooks: {
-        Stop: [{
-          hooks: [{
-            command: 'SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop SKILLSET_SESSION_ID="${CODEX_SESSION_ID:-}" node ./session-summary.js',
-            type: "command",
-          }],
-        }],
-      },
-    });
-  });
-
-  test("renders toolkit hook context for plugin-level adaptive hooks", async () => {
-    const graph = await loadBuildGraph(await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-toolkit-context-render
-claude: true
-codex: true
-cursor: true
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  Stop:
-    - session-summary
-`,
-      ".skillset/plugins/demo/hooks/session-summary.json": JSON.stringify({
-        context: {
-          env: ["provider", "hook.event", "session.id"],
-          strategy: "toolkit",
-        },
-        events: ["Stop"],
-        run: { command: `printf '%s|%s|' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat` },
-      }),
-    }));
-
-    const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins/demo/chatgpt/hooks/hooks.json");
-    const cursorHooks = renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json");
-
-    expect(claudeHooks).toEqual({
-      hooks: {
-        Stop: [{
-          hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
-            type: "command",
-          }],
-        }],
-      },
-    });
-    expect(codexHooks).toEqual({
-      hooks: {
-        Stop: [{
-          hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
-            type: "command",
-          }],
-        }],
-      },
-    });
-    expect(cursorHooks).toEqual({
-      version: 1,
-      hooks: {
-        stop: [{
-          command: 'skillset_hook_payload="$(mktemp)" && trap \'rm -f "$skillset_hook_payload"\' 0 && cat > "$skillset_hook_payload" && eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\' < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat )',
-          type: "command",
-        }],
-      },
-    });
-
-    const command = ((claudeHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
-    const codexCommand = ((codexHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
-    const cursorCommand = (cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[];
-    const cursorPayload = '{"conversation_id":"cursor-hook-conversation","text":"payload"}\n';
-    const [claudeResult, codexResult, cursorResult] = await Promise.all([
-      runGeneratedHookCommand(String(command[0]?.command)),
-      runGeneratedHookCommand(String(codexCommand[0]?.command), {
-        CURSOR_SESSION_ID: "contaminated-cursor-session",
-      }),
-      runGeneratedHookCommand(String(cursorCommand[0]?.command), {
-        CLAUDE_SESSION_ID: "wrong-claude-session",
-        CURSOR_SESSION_ID: "cursor-session",
-      }, cursorPayload),
-    ]);
-    expect(claudeResult).toEqual({
-      exitCode: 0,
-      stderr: "",
-      stdout: "claude||payload",
-    });
-    expect(codexResult).toEqual({
-      exitCode: 0,
-      stderr: "",
-      stdout: "codex||payload",
-    });
-    expect(cursorResult).toEqual({
-      exitCode: 0,
-      stderr: "",
-      stdout: `cursor|cursor-hook-conversation|${cursorPayload}`,
-    });
-  });
-
   test("renders Claude skill and project-agent adaptive hooks into frontmatter", async () => {
     const graph = await loadBuildGraph(await fixture({
       "skillset.yaml": `
@@ -1187,7 +730,7 @@ Body.
         events: ["PreToolUse"],
         run: { command: "echo skill" },
       }),
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -1198,7 +741,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+      ".skillset/subagents/helper/hooks/local-stop.json": JSON.stringify({
         events: ["Stop"],
         run: { command: "echo agent" },
       }),
@@ -1250,7 +793,7 @@ Body.
         match: "Bash",
         run: { command: "echo skill base" },
       }),
-      ".skillset/agents/helper.md": `
+      ".skillset/subagents/helper.md": `
 ---
 description: Demo helper.
 hooks:
@@ -1260,7 +803,7 @@ hooks:
 
 Body.
 `,
-      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+      ".skillset/subagents/helper/hooks/local-stop.json": JSON.stringify({
         claude: { context: null, match: null, run: { command: "echo agent override" } },
         context: { env: ["provider"], strategy: "inline" },
         events: ["Stop"],
@@ -1434,7 +977,7 @@ function hook(
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-adaptive-hooks-"));
+  const root = await createTestFixtureRoot("skillset-adaptive-hooks-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
@@ -1462,7 +1005,7 @@ async function runGeneratedHookCommand(
   readonly stderr: string;
   readonly stdout: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-generated-hook-"));
+  const root = await createTestFixtureRoot("skillset-generated-hook-");
   const binDir = join(root, "bin");
   await mkdir(binDir);
   const shim = join(binDir, "skillset");

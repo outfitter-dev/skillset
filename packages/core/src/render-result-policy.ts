@@ -52,7 +52,7 @@ function suggestionForBlockedOutcome(outcome: SkillsetRenderResult): string {
     return "scope the hook attachment to Claude with providers, disable Codex for this source, or wait for a documented Codex hook destination";
   }
   if (outcome.target === "codex" && outcome.featureId === "plugin-agents") {
-    return "set codex: false for the plugin, move portable project agents to .skillset/agents, or keep Claude-only files in Claude provider source";
+    return "set codex: false for the plugin, move portable project subagents to .skillset/subagents, or keep Claude-only files in Claude provider source";
   }
   if (outcome.target === "codex" && outcome.featureId === "plugin-bin") {
     return "set bin: false, set codex: false for the plugin, remove Codex plugin output selection, or keep executable helpers in Claude provider source";

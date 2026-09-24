@@ -12,6 +12,7 @@ A small manifest can select providers and keep the default [build](../glossary.m
 compile:
   targets: [claude, codex, cursor]
   build: updated
+  session_start_hook: auto
   unsupportedDestination: error
 ```
 
@@ -44,6 +45,103 @@ Failed [render results](../glossary.md#render-result) block every policy. Check 
 `compile.skillset.metadata` defaults to `true`. Set it to `false` to suppress the compiler-owned `metadata.version` and `metadata["skillset.schema"]` fields on rendered skills. Authored provider metadata remains intact.
 
 `compile.features.promptArguments` also defaults to `true`. Set it to `false` to reject Skillset-owned `{{$ARGUMENTS...}}` expressions. See the [preprocessing reference](../reference/source/preprocessing.md) for expression and target behavior.
+
+`compile.instruction_front_page` accepts `claude-dir` (the default) or
+`repo-root`. The setting is validated now so the instruction front-page
+renderer can consume one stable spelling; current builds do not move a file in
+response to it yet.
+
+`compile.session_start_hook` accepts `auto`, `on`, or `off` and defaults to
+`auto`. `on` composes the Skillset SessionStart command into the project-local
+Claude and Codex hook files. `off` removes only that command while preserving
+other entries. `auto` enables the composition only when every enabled target's
+project skill output root is ignored by Git, including Cursor when enabled.
+
+## Select Plugin Content for This Project
+
+`plugins.internal_use` selects plugin content for this project and reports the
+selection plan. Selected live skills render as project-use copies; other plugin
+components do not accompany them. Omitting the setting selects none. A boolean
+selects all or none; the object form can select whole plugins, individual live
+skills, and drafts:
+
+```yaml
+plugins:
+  internal_use:
+    plugins: [review-tools]
+    skills:
+      review-tools: [review, "!proofread"]
+    drafts:
+      review-tools: [future-review]
+```
+
+Selections are unions and exclusions always win. Quote exclusions as
+`"!name"`. A negative-only list means everything in that scope except the
+named entries. Selecting and excluding the same unit is an error, and excluding
+a whole plugin also excludes its skills and drafts. Reordering lists does not
+change the result. Provider-specific `skills` filters apply after this
+workspace selection.
+
+The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
+skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
+mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
+are rejected because draft status currently belongs only to skills. The
+`skillset explain` reports `config` as the origin. Selected live plugin skills
+are copied into every enabled fixed provider skill root. Workspace skills keep
+their leaf name; colliding plugin copies use `<plugin-id>-<leaf>`, and the
+render result records `internal-use-name-conflict`. Workspace drafts render
+beside live project skills as `draft-<leaf>`. For selected plugin skills,
+omitting `plugins.internal_use.drafts.<plugin>` inherits each selected live
+skill's same-container draft; `true` or a list selects drafts explicitly, and
+`false` excludes them. The string policy `only` emits only drafts in the
+selected plugin content, while `override` emits a paired draft at its live
+sibling's project name and leaves selected live skills without drafts
+unchanged. A whole-plugin selection brings unpaired drafts into either mode;
+an individual live-skill selection brings only its same-container pair.
+Selection and exclusions resolve before either policy, so excluding a live
+skill also excludes its paired draft and no policy restores excluded content.
+
+Workspace drafts, side-by-side plugin drafts, `only`-mode drafts, and unpaired
+`override` drafts use `draft-<leaf>` for their directory and frontmatter name.
+A paired `override` draft instead uses its live sibling's effective project-use
+name. Every rendered project draft prefixes its description with
+`[SKILLSET DRAFT] ` and writes boolean `metadata.internal: true` even when
+`internal_marker` is `false`.
+Pairing requires an equal leaf in the same workspace or plugin container.
+Project-use lock entries record the canonical source unit, effective name,
+selection rule, and target owner; project drafts additionally record draft
+origin, applied draft policy, and the same-container shipped sibling when one
+exists. Drafts never enter plugin packages or marketplace output.
+`internal_marker` defaults to `true` for live project-use copies; set it to
+`false` to omit their marker.
+Referenced skill resources travel with copies. Other plugin-level hooks,
+unrelated shared trees, MCP servers, and executables are not hydrated:
+selecting the whole plugin or a skill with its own hook attachment reports the
+unhydrated dependency. An unrelated file in a shared directory does not make
+an individually selected skill depend on it.
+
+Target-eligible adaptive hook attachments on a selected project draft are
+rejected because project draft copies cannot hydrate them; they are never
+silently dropped.
+
+## Plan Plugin Package Paths
+
+`plugins.output` parses package placement now. The default is
+`plugins/[name]`; custom placement remains a check error until package placement
+support lands. The four expansion forms are:
+
+| Configuration | Plugin `toolbox` expands to |
+| --- | --- |
+| `plugins/` | `plugins/toolbox/` |
+| `plugins/[name]/dist` | `plugins/toolbox/dist/` |
+| `[name]` | `toolbox/` |
+| `.` | the repository root |
+
+Paths are workspace-relative, use forward slashes, and may contain at most one
+`[name]` token. `{{name}}`, `$PROJECT_ROOT`, absolute paths, and traversal are
+invalid. A target block such as `plugins.output.codex` may override `path` and
+may parse the future `name` and `combine` keys; those keys remain unsupported
+until their owning package-placement features land.
 
 ## Configure Other Workspace Features
 

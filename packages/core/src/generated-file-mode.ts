@@ -6,7 +6,7 @@ export const EXECUTABLE_OUTPUT_MODE = 0o755;
 export const REGULAR_OUTPUT_MODE = 0o644;
 
 /** Normalize source permissions to the portable generated-file contract. */
-export function normalizeGeneratedFileMode(mode: number): GeneratedFileMode {
+export function normalizeGeneratedFileMode(mode: number): 0o644 | 0o755 {
   return (mode & 0o111) === 0 ? REGULAR_OUTPUT_MODE : EXECUTABLE_OUTPUT_MODE;
 }
 
@@ -42,6 +42,8 @@ export async function applyGeneratedFileMode(
   await chmod(path, file.mode);
 }
 
-export function formatGeneratedFileMode(mode: GeneratedFileMode): "0644" | "0755" {
-  return mode === EXECUTABLE_OUTPUT_MODE ? "0755" : "0644";
+export function formatGeneratedFileMode(mode: 0o644 | 0o755): "0644" | "0755";
+export function formatGeneratedFileMode(mode: GeneratedFileMode): string;
+export function formatGeneratedFileMode(mode: GeneratedFileMode): string {
+  return (mode & 0o777).toString(8).padStart(4, "0");
 }

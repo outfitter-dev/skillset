@@ -7,6 +7,7 @@ import {
   resolveOperationalPath,
   verifySkillsetResult,
 } from "@skillset/core";
+import { toLogicalDiagnosticPath } from "@skillset/core/internal/path";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SkillsetCliDiagnostic } from "@skillset/schema";
@@ -148,7 +149,7 @@ function ciReportDiagnostics(
       diagnostics.push({
         code: "check-generated-drift",
         message: `generated output is ${state}`,
-        path,
+        path: toLogicalDiagnosticPath(path),
         severity: "error",
       });
     }

@@ -1,4 +1,4 @@
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { targetNames } from "./targets";
 import type { BuildGraph, TargetName } from "./types";
 
@@ -9,13 +9,11 @@ export function isDefaultPluginOutputRoot(path: string): boolean {
 }
 
 export function pluginTargetRoot(
-  outputRoot: string,
-  target: TargetName,
+  _outputRoot: string,
+  _target: TargetName,
   pluginId: string
 ): string {
-  return isDefaultPluginOutputRoot(outputRoot)
-    ? join(outputRoot, pluginId, target === "codex" ? "chatgpt" : target).replaceAll("\\", "/")
-    : join(outputRoot, "plugins", pluginId).replaceAll("\\", "/");
+  return join(DEFAULT_PLUGIN_OUTPUT_ROOT, pluginId).replaceAll("\\", "/");
 }
 
 /** The bundle-owning identity of a plugin; `{ id }` keeps the default shape. */
@@ -24,19 +22,12 @@ export interface PluginBundleSource {
   readonly id: string;
 }
 
-/**
- * The root that owns one plugin's complete bundle for one target. A plugin
- * with its own claude bundle destination owns that exact path — no implicit
- * `plugins/<id>` or provider segment is appended.
- */
+/** The root that owns one plugin package for every enabled target. */
 export function pluginBundleRoot(
   outputRoot: string,
   target: TargetName,
   plugin: PluginBundleSource
 ): string {
-  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
-    return plugin.claudeBundlePath;
-  }
   return pluginTargetRoot(outputRoot, target, plugin.id);
 }
 
@@ -73,19 +64,12 @@ export function isPluginManifestOutputPath(
     (directory === "" ? "plugin.json" : `${directory}/plugin.json`);
 }
 
-/**
- * The root whose `skillset.lock` records one plugin's rendered output for one
- * target. A plugin-owned claude bundle carries its own lock at the bundle
- * destination; every other shape locks at the shared plugins root.
- */
+/** The shared root whose `skillset.lock` records generated plugin packages. */
 export function pluginLockRootPath(
   outputRoot: string,
-  target: TargetName,
-  plugin: PluginBundleSource
+  _target: TargetName,
+  _plugin: PluginBundleSource
 ): string {
-  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
-    return plugin.claudeBundlePath;
-  }
   return outputRoot;
 }
 
@@ -109,76 +93,46 @@ export function chatGptMarketplacePath(): string {
 }
 
 export function providerSourceForPlugin(
-  outputRoot: string,
-  target: TargetName,
+  _outputRoot: string,
+  _target: TargetName,
   plugin: PluginBundleSource
 ): string {
-  if (target === "claude" && plugin.claudeBundlePath !== undefined) {
-    const marketplaceRoot = isDefaultPluginOutputRoot(outputRoot) ? "." : outputRoot;
-    return `./${relative(marketplaceRoot, plugin.claudeBundlePath).replaceAll("\\", "/")}`;
-  }
-  return isDefaultPluginOutputRoot(outputRoot)
-    ? `./plugins/${plugin.id}/${target === "codex" ? "chatgpt" : target}`
-    : `./plugins/${plugin.id}`;
+  return `./plugins/${plugin.id}`;
 }
 
 export function pluginTargetForOutputPath(
   graph: BuildGraph,
   path: string
 ): TargetName | undefined {
-  if (bundleRootPluginForOutputPath(graph, path) !== undefined) return "claude";
-  for (const target of targetNames()) {
-    const outputRoot = graph.root.outputs.plugins[target];
-    if (isDefaultPluginOutputRoot(outputRoot)) {
-      const parts = path.split("/");
-      const bundleSegment = target === "codex" ? "chatgpt" : target;
-      if (parts.length >= 3 && parts[0] === outputRoot && parts[2] === bundleSegment) return target;
-      continue;
+  if (path.endsWith("/.claude-plugin/plugin.json")) return "claude";
+  if (path.endsWith("/.cursor-plugin/plugin.json")) return "cursor";
+  if (path.endsWith("/plugin.json")) {
+    for (const plugin of graph.plugins) {
+      const root = pluginBundleRoot(graph.root.outputs.plugins.codex, "codex", plugin);
+      if (path === `${root}/plugin.json`) return "codex";
     }
-    if (path === outputRoot || path.startsWith(`${outputRoot}/`)) return target;
   }
-  return undefined;
-}
 
-function bundleRootPluginForOutputPath(
-  graph: BuildGraph,
-  path: string
-): PluginBundleSource | undefined {
-  return graph.plugins.find(
-    (plugin) =>
-      plugin.claudeBundlePath !== undefined &&
-      (path === plugin.claudeBundlePath ||
-        path.startsWith(`${plugin.claudeBundlePath}/`))
-  );
+  const matching = targetNames().filter((target) => {
+    const outputRoot = graph.root.outputs.plugins[target];
+    return graph.plugins.some((plugin) => {
+      const root = pluginBundleRoot(outputRoot, target, plugin);
+      return path === root || path.startsWith(`${root}/`);
+    });
+  });
+  return matching.length === 1 ? matching[0] : undefined;
 }
 
 export function pluginPathPartsForOutput(
-  graph: BuildGraph,
-  outputRoot: string,
-  target: TargetName,
+  _graph: BuildGraph,
+  _outputRoot: string,
+  _target: TargetName,
   path: string
 ): { readonly pluginId: string; readonly pluginPath: string } | undefined {
-  if (target === "claude") {
-    const bundleOwner = bundleRootPluginForOutputPath(graph, path);
-    if (bundleOwner?.claudeBundlePath !== undefined) {
-      if (path === bundleOwner.claudeBundlePath) return undefined;
-      return {
-        pluginId: bundleOwner.id,
-        pluginPath: path.slice(bundleOwner.claudeBundlePath.length + 1),
-      };
-    }
-  }
-  const prefix = isDefaultPluginOutputRoot(outputRoot)
-    ? `${outputRoot}/`
-    : `${outputRoot}/plugins/`;
+  const prefix = `${DEFAULT_PLUGIN_OUTPUT_ROOT}/`;
   if (!path.startsWith(prefix)) return undefined;
   const rest = path.slice(prefix.length);
   const parts = rest.split("/");
-  if (isDefaultPluginOutputRoot(outputRoot)) {
-    const bundleSegment = target === "codex" ? "chatgpt" : target;
-    if (parts.length < 3 || parts[1] !== bundleSegment) return undefined;
-    return { pluginId: parts[0]!, pluginPath: parts.slice(2).join("/") };
-  }
   if (parts.length < 2) return undefined;
   return { pluginId: parts[0]!, pluginPath: parts.slice(1).join("/") };
 }

@@ -6,6 +6,7 @@ import { parseCliRequest } from "./cli-args";
 import { renderCliHelp } from "./cli-help";
 import { cliVersion } from "./cli-version";
 import { runDevCommand } from "./dev-cli";
+import { runDraftCommand } from "./draft-cli";
 import { runEvalCommand } from "./eval-cli";
 import {
   runDistributionCommand,
@@ -21,8 +22,11 @@ import {
   runStatusCommand,
 } from "./inspect-cli";
 import { PromptCancelledError } from "./prompt-adapter";
+import { runMoveCommand } from "./move-cli";
+import { runPromoteCommand } from "./promote-cli";
 import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
 import { runRenameCommand } from "./rename-cli";
+import { runResolveCommand } from "./resolve-cli";
 import { runReleaseCommand } from "./release-cli";
 import { runReportCommand } from "./report-cli";
 import { runImportCommand, runNewCommand } from "./source-cli";
@@ -54,6 +58,8 @@ export async function runCli(
       return runCreateCommand(route.request);
     case "dev":
       return runDevCommand(route.request);
+    case "draft":
+      return runDraftCommand(route.request);
     case "diff":
       return runDiffCommand(route.request);
     case "eval":
@@ -76,8 +82,12 @@ export async function runCli(
         : runLookupRoute(route.request.value);
     case "marketplace":
       return runMarketplaceCommand(route.request);
+    case "move":
+      return runMoveCommand(route.request);
     case "new":
       return runNewCommand(route.request);
+    case "promote":
+      return runPromoteCommand(route.request);
     case "reconcile":
       return runReconcileCommand(route.request);
     case "rename":
@@ -86,6 +96,8 @@ export async function runCli(
       return runReleaseCommand(route.request);
     case "report":
       return runReportCommand(route.request);
+    case "resolve":
+      return runResolveCommand(route.request);
     case "restore":
       return runRestoreCommand(route.request);
     case "status":

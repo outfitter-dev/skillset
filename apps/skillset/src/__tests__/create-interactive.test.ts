@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   formatInteractiveCreatePlan,
@@ -30,7 +30,7 @@ function scriptedSession(
 
 describe("SET-312 named repository create", () => {
   test("asks name then CWD-default parent and defaults to all providers", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "skillset-create-declined-"));
+    const cwd = await createTestFixtureRoot("skillset-create-declined-");
     const { adapter, session } = scriptedSession([
       { kind: "input", value: "Team Loadout" },
       { kind: "input", value: cwd },
@@ -78,7 +78,7 @@ describe("SET-312 named repository create", () => {
   });
 
   test("specific providers open the derived provider picker", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "skillset-create-providers-"));
+    const cwd = await createTestFixtureRoot("skillset-create-providers-");
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "specific" },
       { kind: "checkbox", value: ["codex"] },
@@ -111,7 +111,7 @@ describe("SET-312 named repository create", () => {
   });
 
   test("explicit values skip matching prompts and confirmed create initializes Git", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "skillset-create-written-"));
+    const cwd = await createTestFixtureRoot("skillset-create-written-");
     const { adapter, session } = scriptedSession([
       { kind: "confirm", value: true },
     ]);

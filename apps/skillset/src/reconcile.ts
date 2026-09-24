@@ -4,7 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   buildSkillsetResult,
   diffSkillsetResult,
-  parseCurrentGeneratedLock,
+  readCurrentGeneratedLockFromDisk,
   type ParsedGeneratedLock,
 } from "@skillset/core";
 import {
@@ -334,23 +334,11 @@ export async function readReconcileLock(
   rootPath: string,
   lockPath: string
 ): Promise<ParsedGeneratedLock | undefined> {
-  let raw: string;
-  try {
-    raw = await readFile(resolve(rootPath, lockPath), "utf8");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return undefined;
-    }
-    throw error;
-  }
-  let value: unknown;
-  try {
-    value = JSON.parse(raw) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: generated lock ${lockPath} is invalid JSON: ${message}`);
-  }
-  return parseCurrentGeneratedLock(value, `generated lock ${lockPath}`);
+  const read = await readCurrentGeneratedLockFromDisk(resolve(rootPath, lockPath), {
+    logicalPath: lockPath,
+    missing: "absent",
+  });
+  return read.kind === "absent" ? undefined : read.lock;
 }
 
 export function renderReconcileReport(report: ReconcileReport): string {

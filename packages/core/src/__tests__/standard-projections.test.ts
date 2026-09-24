@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { listStandardProfiles, type StandardProfile } from '@skillset/registry'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createTestFixtureRoot } from '../../../../scripts/test-helpers/fixture-root'
 
 import {
   resolveCandidateStandardProjectionPlan,
@@ -39,38 +38,34 @@ describe('standard projection resolution', () => {
   })
 
   test('rejects providerless operations when scopes exclude every applicable standard', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'skillset-standard-projection-scope-'))
-    try {
-      await Bun.write(join(root, 'skillset.yaml'), [
-        'skillset:',
-        '  name: scope-only-standard',
-        'compile:',
-        '  targets: []',
-        '',
-      ].join('\n'))
-      await Bun.write(join(root, '.skillset/skills/review/SKILL.md'), [
-        '---',
-        'name: review',
-        'description: Review changes.',
-        '---',
-        '',
-        'Review the change.',
-        '',
-      ].join('\n'))
+    const root = await createTestFixtureRoot('skillset-standard-projection-scope-')
+    await Bun.write(join(root, 'skillset.yaml'), [
+      'skillset:',
+      '  name: scope-only-standard',
+      'compile:',
+      '  targets: []',
+      '',
+    ].join('\n'))
+    await Bun.write(join(root, '.skillset/skills/review/SKILL.md'), [
+      '---',
+      'name: review',
+      'description: Review changes.',
+      '---',
+      '',
+      'Review the change.',
+      '',
+    ].join('\n'))
 
-      for (const operation of [
-        () => buildSkillsetResult(root, { scopes: ['project'] }),
-        () => diffSkillsetResult(root, { scopes: ['plugins'] }),
-        () => verifySkillsetResult(root, { scopes: ['project'] }),
-      ]) {
-        await expect(operation()).rejects.toThrow('no eligible build projection is selected')
-      }
-      expect(await Bun.file(join(root, 'AGENTS.md')).exists()).toBe(false)
-      expect(await Bun.file(join(root, '.agents/skills/skillset.lock')).exists()).toBe(false)
-      expect(await Bun.file(join(root, 'plugins/skillset.lock')).exists()).toBe(false)
-    } finally {
-      await rm(root, { force: true, recursive: true })
+    for (const operation of [
+      () => buildSkillsetResult(root, { scopes: ['project'] }),
+      () => diffSkillsetResult(root, { scopes: ['plugins'] }),
+      () => verifySkillsetResult(root, { scopes: ['project'] }),
+    ]) {
+      await expect(operation()).rejects.toThrow('no eligible build projection is selected')
     }
+    expect(await Bun.file(join(root, 'AGENTS.md')).exists()).toBe(false)
+    expect(await Bun.file(join(root, '.agents/skills/skillset.lock')).exists()).toBe(false)
+    expect(await Bun.file(join(root, 'plugins/skillset.lock')).exists()).toBe(false)
   })
 
   test.each([
@@ -85,14 +80,14 @@ describe('standard projection resolution', () => {
     expect(resolveStandardProjectionPlan(inventory, adoptedProfiles()).adopted).toEqual(expected)
   })
 
-  test('counts standalone and plugin-owned skills for Agent Skills applicability', () => {
+  test('counts standalone skills for Agent Skills and plugins for Agent Plugins', () => {
     expect(
       standardProjectionSourceInventory({
         plugins: [{ skills: [{}, {}] } as unknown as SourcePlugin],
         rules: [{}] as SourceRule[],
         standaloneSkills: [{}] as StandaloneSkill[],
       })
-    ).toEqual({ instructions: 1, plugins: 1, skills: 3 })
+    ).toEqual({ instructions: 1, plugins: 1, skills: 1 })
 
     const pluginOnly = standardProjectionSourceInventory({
       plugins: [{ skills: [{}] } as unknown as SourcePlugin],
@@ -101,7 +96,7 @@ describe('standard projection resolution', () => {
     })
     expect(
       resolveStandardProjectionPlan(pluginOnly, adoptedProfiles()).adopted
-    ).toEqual(['agent-plugins-1.0', 'agent-skills'])
+    ).toEqual(['agent-plugins-1.0'])
   })
 
   test('assigns adopted standards to protected roots and existing scopes', () => {
@@ -122,13 +117,13 @@ describe('standard projection resolution', () => {
       },
       {
         lockRoot: 'plugins',
-        path: 'plugins/alpha/agents',
+        path: 'plugins/alpha',
         scope: 'plugins',
         standardProfile: 'agent-plugins-1.0',
       },
       {
         lockRoot: 'plugins',
-        path: 'plugins/beta/agents',
+        path: 'plugins/beta',
         scope: 'plugins',
         standardProfile: 'agent-plugins-1.0',
       },
@@ -141,7 +136,7 @@ describe('standard projection resolution', () => {
     const files = [
       { path: 'AGENTS.md' },
       { path: '.agents/skills/review/SKILL.md' },
-      { path: 'plugins/demo/agents/plugin.json' },
+      { path: 'plugins/demo/plugin.json' },
       { path: 'plugins/README.md' },
       { path: 'plugins/skillset.lock' },
     ] as RenderedFile[]
@@ -153,7 +148,7 @@ describe('standard projection resolution', () => {
       '.agents/skills/review/SKILL.md',
     ])
     expect(scopedRenderedFiles(graph, files, ['plugins']).map(file => file.path)).toEqual([
-      'plugins/demo/agents/plugin.json',
+      'plugins/demo/plugin.json',
       'plugins/README.md',
       'plugins/skillset.lock',
     ])

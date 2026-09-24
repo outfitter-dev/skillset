@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { cp, mkdtemp, rm, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, rm, symlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   assertDeterministicProjection,
@@ -34,7 +34,7 @@ const DEMO_FIXTURE: Record<string, string> = {
 describe("deterministic projection runner", () => {
   it("proves the kitchen-sink fixture projects deterministically without live output writes", async () => {
     const sourceRoot = join(process.cwd(), "fixtures/kitchen-sink");
-    const root = await mkdtemp(join(tmpdir(), "skillset-kitchen-sink-projection-"));
+    const root = await createTestFixtureRoot("skillset-kitchen-sink-projection-");
     await cp(sourceRoot, root, { recursive: true });
     const configPath = join(root, "skillset.yaml");
     const config = await Bun.file(configPath).text();
@@ -59,13 +59,13 @@ describe("deterministic projection runner", () => {
     });
     try {
       expect(report.ok).toBe(true);
-      expect(report.outputComparison.identical).toContain("plugins/skillset/claude/.claude-plugin/plugin.json");
-      expect(report.outputComparison.identical).toContain("plugins/skillset/chatgpt/plugin.json");
-      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/claude/.claude-plugin/plugin.json"))).toBe(true);
+      expect(report.outputComparison.identical).toContain("plugins/skillset/.claude-plugin/plugin.json");
+      expect(report.outputComparison.identical).toContain("plugins/skillset/plugin.json");
+      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/.claude-plugin/plugin.json"))).toBe(true);
       const codexManifest = await Bun.file(
         join(
           report.runs[0].outputRoot,
-          "plugins/skillset/chatgpt/plugin.json"
+          "plugins/skillset/plugin.json"
         )
       ).json();
       const nonEmptyString = expect.stringMatching(/\S/u);
@@ -193,8 +193,8 @@ describe("deterministic projection runner", () => {
   });
 
   it("rejects source symlinks instead of copying external state", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
-    const external = await mkdtemp(join(tmpdir(), "skillset-deterministic-external-"));
+    const root = await createTestFixtureRoot("skillset-deterministic-projection-");
+    const external = await createTestFixtureRoot("skillset-deterministic-external-");
     await Bun.write(join(external, "config.yaml"), "claude: true\ncodex: false\n");
     await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), `${DEMO_SKILL.trim()}\n`);
     await symlink(join(external, "config.yaml"), join(root, "skillset.yaml"));
@@ -204,24 +204,23 @@ describe("deterministic projection runner", () => {
     );
   });
 
-  it("excludes configured generated output roots from copied source workspaces", async () => {
+  it("excludes generated package roots from copied source workspaces", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: output-root-exclusion
-claude:
-  skills:
-    path: generated/skills
+claude: true
 codex: false
 `,
-      ".skillset/skills/demo/SKILL.md": DEMO_SKILL,
-      "generated/skills/stale/SKILL.md": "stale generated output\n",
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/demo/SKILL.md": DEMO_SKILL,
+      "plugins/stale/plugin.json": "stale generated output\n",
     });
 
     const report = await assertDeterministicProjection(root, {
       afterProjection: async (run) => {
-        if (await exists(join(run.workspacePath, "generated/skills/stale/SKILL.md"))) {
-          throw new Error("copied configured output root into deterministic workspace");
+        if (await exists(join(run.workspacePath, "plugins/stale/plugin.json"))) {
+          throw new Error("copied package output root into deterministic workspace");
         }
       },
     });
@@ -239,7 +238,7 @@ codex: false
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
+  const root = await createTestFixtureRoot("skillset-deterministic-projection-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

@@ -1,6 +1,5 @@
-import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseNativeArgs } from "../native";
@@ -21,19 +20,10 @@ import {
   getNativeTarget,
   nativeArchiveName,
 } from "../native-targets";
-
-const temporaryRoots: string[] = [];
-
-afterAll(async () => {
-  await Promise.all(
-    temporaryRoots.map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-native-test-"));
-  temporaryRoots.push(root);
-  return root;
+  return createTestFixtureRoot("skillset-native-test-");
 }
 
 function currentHostTarget() {

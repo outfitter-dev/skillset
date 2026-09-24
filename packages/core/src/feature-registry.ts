@@ -401,7 +401,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-assets",
     sourceShape: "plugin assets/",
     summary: "Copies plugin asset companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
+    targetSupport: {
+      claude: {
+        evidence: [docs("docs/reference/features/plugins.md"), providerSnapshot("claude-plugin")],
+        note: "2026-09-21: The Claude plugin snapshot has no assets component; package-root assets are portable presentation, not Claude pass-through.",
+        status: "not_applicable",
+      },
+      codex: { evidence: [docs("docs/reference/features/plugins.md")], status: "pass_through" },
+    },
     title: "Plugin Assets",
   }),
   feature({
@@ -744,7 +751,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "project-agents",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/agents/*.md",
+    sourceShape: ".skillset/subagents/*.md",
     status: "implemented",
     summary: "Renders portable project agents to Claude Markdown agents and Codex TOML agents.",
     runtimeSupport: {

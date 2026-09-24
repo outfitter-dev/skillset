@@ -1,0 +1,1 @@
+Cursor-native plugin island baseline.

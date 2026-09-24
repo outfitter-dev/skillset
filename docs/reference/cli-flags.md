@@ -35,6 +35,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--command <value>` | `input` | `value` | Set the command action for a new adaptive hook. |
 | `--context-fields <value>` | `selection` | `value` | Select normalized hook runtime context fields. |
 | `--details` | `output` | `boolean` | Show projection-level source and output paths. |
+| `--draft` | `mode` | `boolean` | Create a new skill under the selected container's _drafts directory. |
 | `--event <value>...` | `input` | `repeatable-value` | Select a hook event; repeat where the route permits. |
 | `--events` | `selection` | `boolean` | Show lookup event facts. |
 | `--examples` | `selection` | `boolean` | Show lookup examples. |
@@ -49,6 +50,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--id <value>` | `input` | `value` | Set an explicit stable source-unit id. |
 | `--in <value>` | `selection` | `value` | Select the containing plugin for a new source unit. |
 | `--include <value>...` | `selection` | `repeatable-value` | Include an optional init scaffold component. |
+| `--discard-edits` | `mutation` | `boolean` | Overwrite hand-edited generated output during a repair instead of preserving it. |
 | `--isolated` | `mode` | `boolean` | Use the isolated generated-output mirror instead of live output roots. |
 | `--json` | `output` | `boolean` | Emit exactly one versioned finite JSON result document. |
 | `--jsonl` | `output` | `boolean` | Emit a versioned newline-delimited event stream. |
@@ -83,6 +85,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--values` | `selection` | `boolean` | Show lookup finite-value facts. |
 | `--version` | `output` | `boolean` | Print the Skillset product version. |
 | `--write` | `mutation` | `boolean` | Enable deterministic ordinary output writes for a route whose default is continuous or comprehensive preview. |
+| `--repair <value>...` | `mode` | `repeatable-value` | Classify generated output against the lock and a fresh render, restoring missing output and refusing to discard hand edits. Names the managed output paths to repair, or repairs all of them. |
 | `--yes` | `mutation` | `boolean` | Confirm a fully specified plan-first mutation without prompting. |
 <!-- skillset:generated:end cli-flag-vocabulary -->
 

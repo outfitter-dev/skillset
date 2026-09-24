@@ -10,12 +10,16 @@ import { parseCreateCommandRequest } from "./create-args";
 import { parseDevCommandRequest } from "./dev-args";
 import { parseEvalCommandRequest } from "./eval-args";
 import * as distribution from "./distribution-args";
+import { parseDraftCommandRequest } from "./draft-args";
 import { parseHooksCommandRequest } from "./hooks-args";
 import { parseInitCommandRequest } from "./init-args";
 import * as inspection from "./inspect-args";
+import { parseMoveCommandRequest } from "./move-args";
+import { parsePromoteCommandRequest } from "./promote-args";
 import { parseLookupCommandRequest } from "./lookup-args";
 import * as recovery from "./recovery-args";
 import { parseRenameCommandRequest } from "./rename-args";
+import { parseResolveCommandRequest } from "./resolve-args";
 import { parseReleaseCommandRequest } from "./release-args";
 import { parseReportCommandRequest } from "./report-args";
 import * as source from "./source-args";
@@ -34,7 +38,6 @@ export const parseCliRequest = (
       );
     }
     const parseContext = context ?? { cwd: process.cwd() };
-
     switch (command) {
       case "build": {
         return {
@@ -79,6 +82,7 @@ export const parseCliRequest = (
           ),
         };
       }
+      case "draft": return { command, request: parseDraftCommandRequest(args, parseContext) };
       case "explain": {
         return {
           command,
@@ -121,12 +125,14 @@ export const parseCliRequest = (
           ),
         };
       }
+      case "move": return { command, request: parseMoveCommandRequest(args, parseContext) };
       case "new": {
         return {
           command,
           request: source.parseNewCommandRequest(args, parseContext),
         };
       }
+      case "promote": return { command, request: parsePromoteCommandRequest(args, parseContext) };
       case "reconcile": {
         return {
           command,
@@ -134,6 +140,7 @@ export const parseCliRequest = (
         };
       }
       case "rename": return { command, request: parseRenameCommandRequest(args, parseContext) };
+      case "resolve": return { command, request: parseResolveCommandRequest(args, parseContext) };
       case "release": {
         return {
           command,
@@ -142,18 +149,8 @@ export const parseCliRequest = (
       }
       case "report": return { command, request: parseReportCommandRequest(args, parseContext) };
       case "restore": return { command, request: recovery.parseRestoreCommandRequest(args, parseContext) };
-      case "status": {
-        return {
-          command,
-          request: inspection.parseStatusCommandRequest(args, parseContext),
-        };
-      }
-      case "test": {
-        return {
-          command,
-          request: parseTestCommandRequest(args, parseContext),
-        };
-      }
+      case "status": return { command, request: inspection.parseStatusCommandRequest(args, parseContext) };
+      case "test": return { command, request: parseTestCommandRequest(args, parseContext) };
       case "update": {
         return {
           command,

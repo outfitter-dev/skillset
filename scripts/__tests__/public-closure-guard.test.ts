@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -9,18 +8,10 @@ import {
   scanGeneratedPublicContent,
   scanGeneratedPublicTree,
 } from "../public-closure-guard";
-
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 async function fixtureRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-public-closure-"));
-  roots.push(root);
+  const root = await createTestFixtureRoot("skillset-public-closure-");
   await writeFile(join(root, "package.json"), '{"scripts":{}}\n');
   return root;
 }

@@ -1,14 +1,11 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
-  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import productManifest from "../../apps/skillset/package.json";
@@ -31,20 +28,12 @@ import {
 } from "../native-artifacts";
 import { REQUIRED_NATIVE_TARGETS, nativeArchiveName } from "../native-targets";
 import { provePublishedLauncherNegatives } from "../published-launcher-negatives";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 const repoRoot = join(import.meta.dir, "..", "..");
-const roots: string[] = [];
-
-afterAll(async () => {
-  await Promise.all(
-    roots.map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-distribution-test-"));
-  roots.push(root);
-  return root;
+  return createTestFixtureRoot("skillset-distribution-test-");
 }
 
 describe("SET-424 distribution conformance", () => {

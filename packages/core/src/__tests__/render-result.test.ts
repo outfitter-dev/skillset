@@ -149,8 +149,8 @@ describe("render results", () => {
     const outcome = defineRenderResult({
       featureId: "plugin-manifests",
       outputs: [
-        { path: "plugins/acme/claude/.claude-plugin/plugin.json" },
-        { path: "plugins/acme/chatgpt/plugin.json" },
+        { path: "plugins/acme/.claude-plugin/plugin.json" },
+        { path: "plugins/acme/plugin.json" },
       ],
       sourcePath: ".skillset/plugins/acme/skillset.yaml",
       sourceUnit: "plugin:acme",
@@ -158,8 +158,8 @@ describe("render results", () => {
     });
 
     expect(outcome.outputs?.map((output) => output.path)).toEqual([
-      "plugins/acme/chatgpt/plugin.json",
-      "plugins/acme/claude/.claude-plugin/plugin.json",
+      "plugins/acme/.claude-plugin/plugin.json",
+      "plugins/acme/plugin.json",
     ]);
   });
 

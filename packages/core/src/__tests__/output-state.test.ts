@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { doctorSkillset } from "../authoring";
@@ -384,14 +384,12 @@ codex: true
     });
   });
 
-  it("preserves a configured plugin baseline when graph loading fails", async () => {
+  it("preserves a plugin baseline when graph loading fails", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: plugin-graph-failure-root
-claude:
-  plugins:
-    path: generated/claude
+claude: true
 codex: false
 cursor: false
 `,
@@ -410,7 +408,7 @@ Body.
     });
     const baseline = await buildSkillsetResult(root, { scopes: ["plugins"] });
     expect(baseline.ok).toBe(true);
-    expect(baseline.writes.paths).toContain("generated/claude/skillset.lock");
+    expect(baseline.writes.paths).toContain("plugins/skillset.lock");
     await writeFile(
       join(root, "skillset.yaml"),
       `
@@ -418,8 +416,6 @@ skillset:
   name: plugin-graph-failure-root
 claude:
   enabled: false
-  plugins:
-    path: generated/claude
 codex: true
 cursor: false
 `,
@@ -455,21 +451,13 @@ cursor: false
     });
   });
 
-  it("filters plugin and standalone-skill fallback roots by target", async () => {
+  it("keeps shared plugin and fixed skill fallback baselines across target filters", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: target-filtered-fallback-root
-claude:
-  plugins:
-    path: generated/claude/plugins
-  skills:
-    path: generated/claude/skills
-codex:
-  plugins:
-    path: generated/codex/plugins
-  skills:
-    path: generated/codex/skills
+claude: true
+codex: true
 cursor: false
 `,
       ".skillset/skills/standalone/SKILL.md": `
@@ -497,12 +485,23 @@ Body.
       targetFilter: ["claude"],
     });
     expect(baseline.ok).toBe(true);
-    expect(baseline.writes.paths).toContain(
-      "generated/claude/plugins/skillset.lock"
-    );
-    expect(baseline.writes.paths).toContain(
-      "generated/claude/skills/skillset.lock"
-    );
+    expect(baseline.writes.paths).toContain("plugins/skillset.lock");
+    expect(baseline.writes.paths).toContain(".claude/skills/skillset.lock");
+    expect(baseline.writes.paths).toContain(".agents/skills/skillset.lock");
+    const pluginLock = JSON.parse(
+      await readFile(join(root, "plugins/skillset.lock"), "utf8")
+    ) as {
+      readonly items: readonly {
+        readonly consumers?: readonly Record<string, string>[];
+      }[];
+      readonly selectedTargets: readonly string[];
+    };
+    expect(pluginLock.selectedTargets).toEqual(["claude"]);
+    const targetConsumers = pluginLock.items.flatMap(
+      (item) => item.consumers ?? []
+    ).filter((consumer) => consumer.phase === "delta");
+    expect(targetConsumers).toContainEqual({ phase: "delta", target: "claude" });
+    expect(targetConsumers).not.toContainEqual({ phase: "delta", target: "codex" });
     await writeFile(
       join(root, ".skillset/plugins/tools/skills/demo/SKILL.md"),
       "---\nname: demo\ndescription: [\n---\nBroken plugin skill.\n",
@@ -527,9 +526,9 @@ Body.
     });
 
     expect(claudePlugins.outputState.hasBaseline).toBe(true);
-    expect(codexPlugins.outputState.hasBaseline).toBe(false);
+    expect(codexPlugins.outputState.hasBaseline).toBe(true);
     expect(claudeSkills.outputState.hasBaseline).toBe(true);
-    expect(codexSkills.outputState.hasBaseline).toBe(false);
+    expect(codexSkills.outputState.hasBaseline).toBe(true);
   });
 
   it("scopes status and readiness baseline evidence when plugin rendering fails", async () => {
@@ -1098,10 +1097,10 @@ codex: true
     const downgraded = await readFile(lockPath, "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(downgraded);
   });
@@ -1137,10 +1136,10 @@ cursor: false
     const edited = await readFile(lockPath, "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(edited);
   });
@@ -1181,10 +1180,10 @@ cursor: false
     const generated = await readFile(join(root, "AGENTS.md"), "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(lockPath, "utf8")).toBe(edited);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(generated);
@@ -1211,10 +1210,10 @@ cursor: false
     const generated = await readFile(join(root, "AGENTS.md"), "utf8");
 
     await expect(diffSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "uses pre-v3 schema 1; this generated state is rebuild-only"
+      "uses pre-v4 schema 1; this generated state is rebuild-only"
     );
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(generated);
   });
@@ -1523,10 +1522,20 @@ Repo body.
 skillset:
   name: demo--plugin
 `,
-      ".skillset/plugins/demo--plugin/README.md": "# Demo plugin\n",
+      ".skillset/plugins/demo--plugin/skills/helper/SKILL.md": `
+---
+name: helper
+description: Demo plugin skill.
+---
+
+Plugin body.
+`,
     });
     await buildSkillsetResult(root);
-    const pluginSource = join(root, ".skillset/plugins/demo--plugin/README.md");
+    const pluginSource = join(
+      root,
+      ".skillset/plugins/demo--plugin/skills/helper/SKILL.md"
+    );
     await Bun.write(
       pluginSource,
       `${await Bun.file(pluginSource).text()}\nPlugin change.\n`
@@ -1538,7 +1547,7 @@ skillset:
     expect(repoOnly.renderResults).toContainEqual(
       expect.objectContaining({
         policy: "scope:excluded",
-        sourceUnit: "plugin.demo--plugin.feature:readme",
+        sourceUnit: "plugin.demo--plugin.skill:helper",
       })
     );
     expect((await diffSkillsetResult(root)).outputState.state).toBe(
@@ -1548,7 +1557,7 @@ skillset:
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-output-state-"));
+  const root = await createTestFixtureRoot("skillset-output-state-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {

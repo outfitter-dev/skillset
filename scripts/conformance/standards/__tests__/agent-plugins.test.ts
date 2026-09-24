@@ -50,12 +50,19 @@ for (const key of ["CODEX_HOME", "HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "X
     process.exit(4);
   }
 }
+for (const key of ["AWS_SECRET_ACCESS_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN"]) {
+  if (process.env[key]) {
+    console.error(\`leaked secret: \${key}\`);
+    process.exit(9);
+  }
+}
 const sourceArg = args.find((arg) => arg.startsWith("marketplaces.skillset_conformance.source="));
 if (sourceArg === undefined) process.exit(5);
 const marketplaceRoot = JSON.parse(sourceArg.slice(sourceArg.indexOf("=") + 1));
 const catalog = JSON.parse(await readFile(join(marketplaceRoot, ".agents/plugins/marketplace.json"), "utf-8"));
+if (catalog.plugins[0].source.path !== "./plugins/candidate-plugin") process.exit(6);
 const packagePath = join(marketplaceRoot, catalog.plugins[0].source.path);
-if (!packagePath.endsWith("/agents")) process.exit(6);
+if (packagePath.endsWith("/agents")) process.exit(7);
 const manifest = JSON.parse(await readFile(join(packagePath, "plugin.json"), "utf-8"));
 await readFile(join(packagePath, "mcp.json"), "utf-8");
 console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catalog.name }], installed: [] }));
@@ -66,7 +73,16 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
       path.join(packageRoot, "plugin.json"),
       "utf-8"
     );
+    const previousSecrets = {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+      GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+    };
+    process.env.ANTHROPIC_API_KEY = "anthropic-should-not-leak";
+    process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
+    process.env.GITHUB_TOKEN = "github-should-not-leak";
 
+    try {
     const codex = {
       binaryPath: codexBin,
       sha256: hash(await readFile(codexBin)),
@@ -107,6 +123,11 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
     expect(await readFile(path.join(packageRoot, "plugin.json"), "utf-8")).toBe(
       before
     );
+    } finally {
+      restoreEnv("ANTHROPIC_API_KEY", previousSecrets.ANTHROPIC_API_KEY);
+      restoreEnv("AWS_SECRET_ACCESS_KEY", previousSecrets.AWS_SECRET_ACCESS_KEY);
+      restoreEnv("GITHUB_TOKEN", previousSecrets.GITHUB_TOKEN);
+    }
   });
 
   test("rejects a whole-document MCP schema violation", async () => {
@@ -141,6 +162,30 @@ console.log(JSON.stringify({ available: [{ pluginId: manifest.name + "@" + catal
     ).rejects.toThrow("rejects symlink linked-plugin.json");
   });
 
+  test("rejects a selected root that only contains an obsolete agents package", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "skillset-agent-plugins-test-")
+    );
+    const packageRoot = path.join(root, "plugins", "candidate-plugin");
+    const obsoleteRoot = path.join(packageRoot, "agents");
+    await mkdir(obsoleteRoot, { recursive: true });
+    await writeFile(path.join(obsoleteRoot, "plugin.json"), "{}\n");
+    await writeFile(path.join(obsoleteRoot, "mcp.json"), "{}\n");
+
+    await expect(
+      runAgentPluginsProbe({
+        codex: {
+          binaryPath: path.join(root, "unused-codex"),
+          sha256: `sha256:${"0".repeat(64)}`,
+          version: "0.154.0",
+        },
+        packageRoot,
+      })
+    ).rejects.toThrow(
+      "Agent Plugins probe package is missing plugin.json, mcp.json"
+    );
+  });
+
   test("rejects a Codex executable whose bytes do not match the pin", async () => {
     const packageRoot = await fixturePackage();
     const codexBin = path.join(packageRoot, "..", "fake-codex");
@@ -164,7 +209,7 @@ async function fixturePackage(): Promise<string> {
   const root = await mkdtemp(
     path.join(tmpdir(), "skillset-agent-plugins-test-")
   );
-  const packageRoot = path.join(root, "plugins", "candidate-plugin", "agents");
+  const packageRoot = path.join(root, "plugins", "candidate-plugin");
   await mkdir(packageRoot, { recursive: true });
   await writeFile(
     path.join(packageRoot, "plugin.json"),
@@ -206,4 +251,9 @@ async function fixturePackage(): Promise<string> {
 
 function hash(value: Uint8Array): `sha256:${string}` {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }

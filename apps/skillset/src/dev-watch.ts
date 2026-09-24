@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
@@ -9,6 +9,10 @@ import {
 } from "@skillset/core";
 
 import { lintSkillset } from "@skillset/core";
+import {
+  directoryExists,
+  MISSING_PATH_ENOENT,
+} from "@skillset/core/internal/fs-existence";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SchemaJsonRecord } from "@skillset/schema";
@@ -528,11 +532,9 @@ async function collectDirectories(rootPath: string): Promise<readonly string[]> 
 }
 
 async function isDirectory(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isDirectory();
-  } catch {
-    return false;
-  }
+  // ENOTDIR is not absence here: a configured watch root through a file must
+  // not silently disappear from the watch set.
+  return directoryExists(path, { missing: MISSING_PATH_ENOENT, probe: "stat" });
 }
 
 function normalizeEventPath(rootPath: string, eventPath: string): string | undefined {

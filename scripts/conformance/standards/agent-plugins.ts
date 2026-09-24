@@ -21,6 +21,8 @@ import Ajv2020 from "ajv/dist/2020";
 import type { ErrorObject } from "ajv/dist/2020";
 import ajvPackage from "ajv/package.json";
 
+import { createProviderProbeEnvironment } from "../../provider-probe-environment";
+
 const PROFILE_ID = "agent-plugins-1.0" as const;
 const REQUIRED_CODEX_LINE = "0.154.0";
 const PLUGIN_SCHEMA_ID =
@@ -32,7 +34,7 @@ type JsonObject = Readonly<Record<string, unknown>>;
 export interface AgentPluginsProbeInput {
   /** Released Codex executable pinned by exact version and binary bytes. */
   readonly codex: CodexConsumerPin;
-  /** Exact generated `plugins/<plugin>/agents` package root. */
+  /** Exact generated `plugins/<plugin>` package root. */
   readonly packageRoot: string;
 }
 
@@ -40,6 +42,49 @@ export interface CodexConsumerPin {
   readonly binaryPath: string;
   readonly sha256: `sha256:${string}`;
   readonly version: string;
+}
+
+export const AGENT_PLUGINS_CODEX_PIN = {
+  archiveSha256: "sha256:185cecddf9e269d4ef3b871e5529d5e6057cc3583591876c55bb78de35e44c87",
+  archiveUrl: "https://registry.npmjs.org/@openai/codex/-/codex-0.154.0-alpha.6.2-darwin-arm64.tgz",
+  sha256: "sha256:1d8b80de0a27f69b152bfb9b7b3b4fd3b8c589e4e76213db27219eab9ae53afa",
+  version: "0.154.0-alpha.6.2",
+} as const;
+
+/** Acquire an immutable consumer without relying on the auto-updating desktop app. */
+export async function acquirePinnedAgentPluginsCodex(
+  tempRoot: string,
+  fetcher: typeof fetch = fetch
+): Promise<CodexConsumerPin> {
+  if (process.platform !== "darwin" || process.arch !== "arm64") {
+    throw new Error("skillset: Agent Plugins consumer pin requires macOS arm64");
+  }
+  const response = await fetcher(AGENT_PLUGINS_CODEX_PIN.archiveUrl);
+  if (!response.ok) {
+    throw new Error(`skillset: failed to acquire pinned Codex: ${response.status}`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const hash = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  if (hash !== AGENT_PLUGINS_CODEX_PIN.archiveSha256) {
+    throw new Error("skillset: pinned Codex archive integrity mismatch");
+  }
+  const archive = path.join(tempRoot, "codex.tgz");
+  await writeFile(archive, bytes);
+  const child = Bun.spawn(["tar", "-xzf", archive, "-C", tempRoot], {
+    cwd: tempRoot,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+  if (exitCode !== 0) {
+    throw new Error(`skillset: failed to extract pinned Codex (${exitCode}): ${stderr.trim()}`);
+  }
+  const binaryPath = path.join(tempRoot, "package/vendor/aarch64-apple-darwin/bin/codex");
+  const canonicalBinary = await realpath(binaryPath);
+  if (!canonicalBinary.startsWith(`${await realpath(tempRoot)}${path.sep}`)) {
+    throw new Error("skillset: pinned Codex binary escaped probe temp root");
+  }
+  return { binaryPath: canonicalBinary, sha256: AGENT_PLUGINS_CODEX_PIN.sha256, version: AGENT_PLUGINS_CODEX_PIN.version };
 }
 
 export interface AgentPluginsSchemaEvidence {
@@ -190,9 +235,8 @@ async function validateCodexMarketplace(
     const marketplaceRoot = path.join(isolatedRoot, "marketplace");
     const stagedPackage = path.join(
       marketplaceRoot,
-      "packages",
-      manifest.name,
-      "agents"
+      "plugins",
+      manifest.name
     );
     await mkdir(path.join(marketplaceRoot, ".agents", "plugins"), {
       recursive: true,
@@ -222,7 +266,7 @@ async function validateCodexMarketplace(
               installation: "AVAILABLE",
             },
             source: {
-              path: `./packages/${manifest.name}/agents`,
+              path: `./plugins/${manifest.name}`,
               source: "local",
             },
           },
@@ -239,7 +283,9 @@ async function validateCodexMarketplace(
     );
     await writeFile(catalogPath, catalog);
 
-    const environment = await isolatedEnvironment(isolatedRoot);
+    const { env: environment } = await createProviderProbeEnvironment({
+      root: isolatedRoot,
+    });
     const codexBinaryHash = await assertCodexIntegrity(pin);
     const version = await runCodex(
       pin.binaryPath,
@@ -327,11 +373,6 @@ async function inventoryPackage(
     );
   }
   const canonicalRoot = await realpath(packageRoot);
-  if (path.basename(canonicalRoot) !== "agents") {
-    throw new Error(
-      "skillset: Agent Plugins probe requires the exact generated /agents package root"
-    );
-  }
   const files: { hash: string; mode: number; path: string }[] = [];
   await visit(canonicalRoot, canonicalRoot, files);
   const required = new Set(["plugin.json", "mcp.json"]);
@@ -397,27 +438,6 @@ async function visit(
   }
 }
 
-async function isolatedEnvironment(
-  isolatedRoot: string
-): Promise<Record<string, string>> {
-  const environment = Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined
-    )
-  );
-  const roots = {
-    CODEX_HOME: path.join(isolatedRoot, "codex-home"),
-    HOME: path.join(isolatedRoot, "home"),
-    XDG_CACHE_HOME: path.join(isolatedRoot, "xdg", "cache"),
-    XDG_CONFIG_HOME: path.join(isolatedRoot, "xdg", "config"),
-    XDG_DATA_HOME: path.join(isolatedRoot, "xdg", "data"),
-    XDG_STATE_HOME: path.join(isolatedRoot, "xdg", "state"),
-  };
-  await Promise.all(
-    Object.values(roots).map((root) => mkdir(root, { recursive: true }))
-  );
-  return { ...environment, ...roots };
-}
 
 async function runCodex(
   codexBin: string,

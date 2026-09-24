@@ -15,6 +15,17 @@ export interface SourceRenameMoveOperation {
   readonly to: string;
 }
 
+export interface SourceMutationCopyOperation {
+  readonly from: string;
+  readonly kind: "copy";
+  readonly to: string;
+}
+
+export interface SourceMutationDeleteOperation {
+  readonly kind: "delete";
+  readonly path: string;
+}
+
 /** A source-document replacement to apply after its enclosing move, if any. */
 export interface SourceRenameUpdateOperation {
   readonly content: string;
@@ -25,6 +36,11 @@ export interface SourceRenameUpdateOperation {
 export type SourceRenameOperation =
   | SourceRenameMoveOperation
   | SourceRenameUpdateOperation;
+
+export type SourceMutationOperation =
+  | SourceMutationCopyOperation
+  | SourceMutationDeleteOperation
+  | SourceRenameOperation;
 
 export type SourceRenameGeneratedOperation =
   | {
