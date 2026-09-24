@@ -1,6 +1,6 @@
-import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
@@ -1456,7 +1456,7 @@ Use this skill.
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-ad-hoc-test-"));
+  const root = await createTestFixtureRoot("skillset-ad-hoc-test-");
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(root, path);
     await mkdir(dirname(fullPath), { recursive: true });

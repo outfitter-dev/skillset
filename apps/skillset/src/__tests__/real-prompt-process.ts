@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PassThrough } from "node:stream";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { ClackPromptAdapter } from "../prompt-adapter";
 
@@ -27,35 +27,29 @@ export interface RealPromptProcessResult {
 export const runRealPromptProcess = async (
   scenario: RealPromptScenario
 ): Promise<RealPromptProcessResult> => {
-  const evidenceRoot = await mkdtemp(
-    path.join(tmpdir(), "skillset-real-prompt-")
-  );
+  const evidenceRoot = await createTestFixtureRoot("skillset-real-prompt-");
   const evidencePath = path.join(evidenceRoot, "evidence.json");
-  try {
-    const proc = Bun.spawn(
-      [process.execPath, import.meta.filename, scenario, evidencePath],
-      {
-        cwd: process.cwd(),
-        env: process.env,
-        stderr: "pipe",
-        stdout: "pipe",
-      }
-    );
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-    const evidence =
-      exitCode === 0
-        ? (JSON.parse(
-            await readFile(evidencePath, "utf8")
-          ) as RealPromptProcessEvidence)
-        : undefined;
-    return { evidence, exitCode, stderr, stdout };
-  } finally {
-    await rm(evidenceRoot, { force: true, recursive: true });
-  }
+  const proc = Bun.spawn(
+    [process.execPath, import.meta.filename, scenario, evidencePath],
+    {
+      cwd: process.cwd(),
+      env: process.env,
+      stderr: "pipe",
+      stdout: "pipe",
+    }
+  );
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  const evidence =
+    exitCode === 0
+      ? (JSON.parse(
+          await readFile(evidencePath, "utf8")
+        ) as RealPromptProcessEvidence)
+      : undefined;
+  return { evidence, exitCode, stderr, stdout };
 };
 
 const ttyInput = (): PassThrough & { isTTY: true } =>

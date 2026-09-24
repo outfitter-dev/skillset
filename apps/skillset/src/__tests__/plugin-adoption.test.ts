@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   buildSkillset,
@@ -1079,7 +1079,7 @@ function skill(body: string): string {
 }
 
 async function pluginFixture(files: Readonly<Record<string, string>>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-plugin-adoption-"));
+  const root = await createTestFixtureRoot("skillset-plugin-adoption-");
   for (const [path, content] of Object.entries(files)) {
     const absolutePath = join(root, path);
     await mkdir(dirname(absolutePath), { recursive: true });
