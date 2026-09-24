@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
+import { RETIRED_RULE_SELECTOR_PREFIX } from "@skillset/schema";
+
 import { readChangeLedger } from "../change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -126,6 +128,7 @@ describe("readChangeLedger", () => {
         evidence: [
           { hashSchemaId: "skillset-source-unit-v1", scope: "standalone-skill:demo", sourceHash: hash("1") },
           { hashSchema: "skillset-source-unit-v2", selector: "plugin-skill:tools/search", sourceHash: hash("2") },
+          { hashSchema: "skillset-source-unit-v3", selector: `${RETIRED_RULE_SELECTOR_PREFIX}fixtures`, sourceHash: hash("4") },
           "target-native-island:codex:plugin:tools:hooks/hooks.json",
         ],
       }),
@@ -136,6 +139,7 @@ describe("readChangeLedger", () => {
     expect(record?.sourceUnits).toEqual([
       { selector: "plugin.tools.codex.hooks:hooks/hooks.json" },
       { hashSchema: "skillset-source-unit-v2", selector: "plugin.tools.skill:search", sourceHash: hash("2") },
+      { hashSchema: "skillset-source-unit-v3", selector: "rule:fixtures", sourceHash: hash("4") },
       { hashSchema: "skillset-source-unit-v1", selector: "skill:demo", sourceHash: hash("1") },
     ]);
   });

@@ -5,6 +5,7 @@ import { readChangeLedger } from "./change-ledger";
 import { compareStrings, resolveInside } from "./path";
 import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
 import {
+  historicalRuleSelector,
   selectorForPluginCompanion,
   selectorForPluginConfig,
   selectorForPluginFeature,
@@ -176,7 +177,8 @@ function historicalSourceUnitSelector(raw: string): string {
   if (raw === "root-config") return selectorForRootConfig();
   if (raw.startsWith("standalone-skill:")) return selectorForStandaloneSkill(raw.slice("standalone-skill:".length));
   if (raw.startsWith("project-agent:")) return selectorForProjectAgent(raw.slice("project-agent:".length));
-  if (raw.startsWith("instruction:")) return raw;
+  const rule = historicalRuleSelector(raw);
+  if (rule !== undefined) return rule;
   if (raw.startsWith("plugin-config:")) return selectorForPluginConfig(raw.slice("plugin-config:".length));
   if (raw.startsWith("plugin-skill:")) {
     const [pluginId, skillId] = raw.slice("plugin-skill:".length).split("/");

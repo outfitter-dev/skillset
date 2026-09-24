@@ -100,6 +100,10 @@ export {
 } from "./contracts";
 export { skillsetSchemaExamples } from "./examples";
 export { isSkillsetReport, validateSkillsetReport } from "./report";
+export {
+  RETIRED_RULE_SELECTOR_PREFIX,
+  RULE_SOURCE_HASH_DOMAIN,
+} from "./retired-vocabulary";
 export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {
   readSourceAuthorName,

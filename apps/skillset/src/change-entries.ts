@@ -17,7 +17,7 @@ import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { readReleaseState } from "@skillset/core/internal/release-state";
 import { currentSourceHashEvidence, currentSourceIdentity, sourceIdentityMappings, sourceMappingsAfterEvent } from "@skillset/core/internal/source-identity-mapping";
-import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
+import { pluginScopeFromSourceUnit, retiredRuleSelectorMessage, sourceUnitDisplay, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, JsonValue } from "@skillset/core/internal/types";
 import { workspaceChangesDir } from "@skillset/core";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "@skillset/core/internal/yaml";
@@ -483,6 +483,11 @@ function validatePendingEntry(
       issues.push(entryError(entry, "change-scope-mixed", "pending change entry must not mix repo/project scopes with user/global scopes"));
     }
     for (const scope of entry.scopes) {
+      const retired = retiredRuleSelectorMessage(scope);
+      if (retired !== undefined) {
+        issues.push(entryError(entry, "change-scope-retired", `scope ${retired}`));
+        continue;
+      }
       if (!context.validScopeIds.has(scope)) {
         issues.push(entryError(entry, "change-scope-invalid", `scope ${sourceUnitDisplay(scope)} does not match a known source unit`));
       }
