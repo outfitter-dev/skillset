@@ -127,6 +127,15 @@ const PRESENTATION = {
       "diff [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
     ],
   },
+  draft: {
+    examples: [
+      "skillset draft .skillset/skills/demo",
+      "skillset draft .skillset/plugins/tools/skills/demo --yes",
+    ],
+    group: "Author",
+    summary: "Preview and atomically fork a shipped skill into its draft sibling.",
+    synopses: ["draft <shipped-path> [--yes] [--json] [--root <path>]"],
+  },
   "eval list": {
     group: "Inspect",
     summary: "List portable skill eval cases and their resolved target matrix.",
@@ -177,7 +186,7 @@ const PRESENTATION = {
   "hooks run": {
     group: "Integrate",
     summary: "Run an explicit normalized hook event.",
-    synopses: ["hooks run <post-tool-use|stop> [--root <path>]"],
+    synopses: ["hooks run <post-tool-use|session-start|stop> [--root <path>]"],
   },
   import: {
     group: "Author",
@@ -241,12 +250,30 @@ const PRESENTATION = {
     summary: "Preview and confirm resolved marketplace artifacts.",
     synopses: ["marketplace update [name] [--yes] [--json] [--root <path>]"],
   },
+  move: {
+    examples: [
+      "skillset move .skillset/skills/demo .skillset/plugins/tools/skills/demo",
+      "skillset move .skillset/plugins/tools/skills/demo .skillset/skills/demo --yes",
+    ],
+    group: "Author",
+    summary: "Preview and atomically move a skill between workspace and plugin collections.",
+    synopses: ["move <from> <to> [--yes] [--json] [--root <path>]"],
+  },
   new: {
     group: "Author",
-    summary: "Create a new skill, project agent, instruction, or hook in source.",
+    summary: "Create a new plugin, skill, project agent, instruction, or hook in source.",
     synopses: [
-      "new [skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
+      "new [plugin|skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--draft] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
     ],
+  },
+  promote: {
+    examples: [
+      "skillset promote .skillset/skills/_drafts/demo",
+      "skillset promote .skillset/plugins/tools/skills/_drafts/demo --yes",
+    ],
+    group: "Author",
+    summary: "Preview and atomically promote a draft skill to its shipped sibling.",
+    synopses: ["promote <draft-path> [--yes] [--json] [--root <path>]"],
   },
   reconcile: {
     examples: [

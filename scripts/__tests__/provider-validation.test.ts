@@ -2,13 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   realpath,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 import {
@@ -34,6 +32,7 @@ import {
   stageCursorHookConformanceInputs,
   validateCursorHookConformance,
 } from "../provider-validation-hooks";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 describe("SET-463 hosted provider validation orchestration", () => {
   test("formats acquisition failures with an actual newline", () => {
@@ -53,25 +52,19 @@ describe("SET-463 hosted provider validation orchestration", () => {
     const canonicalRoot = await realpath(root);
     const inventory = await enumerateProviderArtifacts(root);
 
-    expect(inventory.agentPlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/agents"),
-    ]);
-    expect(inventory.chatgptPlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/chatgpt"),
+    expect(inventory.pluginPackages).toEqual([
+      join(canonicalRoot, "plugins/demo"),
     ]);
     expect(inventory.claudePlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/claude"),
+      join(canonicalRoot, "plugins/demo"),
     ]);
     expect(inventory.codexPlugins).toEqual([]);
     expect(inventory.cursorPlugins).toEqual([
-      join(canonicalRoot, "plugins/demo/cursor"),
+      join(canonicalRoot, "plugins/demo"),
     ]);
     expect(inventory.skills).toEqual([
       join(canonicalRoot, ".agents/skills/standalone/SKILL.md"),
-      join(canonicalRoot, "plugins/demo/agents/skills/demo/SKILL.md"),
-      join(canonicalRoot, "plugins/demo/chatgpt/skills/demo/SKILL.md"),
-      join(canonicalRoot, "plugins/demo/claude/skills/demo/SKILL.md"),
-      join(canonicalRoot, "plugins/demo/cursor/skills/demo/SKILL.md"),
+      join(canonicalRoot, "plugins/demo/skills/demo/SKILL.md"),
     ]);
     expect(inventory.claudeMarketplaces).toEqual([
       join(canonicalRoot, ".claude-plugin/marketplace.json"),
@@ -105,11 +98,19 @@ for (const key of ["CODEX_HOME", "HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "X
     process.exit(3);
   }
 }
+for (const key of ["AWS_SECRET_ACCESS_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN"]) {
+  if (process.env[key]) {
+    console.error(\`leaked secret: \${key}\`);
+    process.exit(9);
+  }
+}
 console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: [] }));
 `
     );
     await chmod(codex, 0o755);
+    const previousSecrets = plantUnrelatedSecrets();
 
+    try {
     await expect(
       validateCodexMarketplaceConsumer(root, codex)
     ).resolves.toEqual({
@@ -117,11 +118,14 @@ console.log(JSON.stringify({ available: [{ pluginId: "demo@demo" }], installed: 
       codexVersion: "codex-cli 0.154.0",
       pluginIds: ["demo@demo"],
     });
+    } finally {
+      restoreUnrelatedSecrets(previousSecrets);
+    }
   });
 
   test("runs staged Codex marketplace consumption through hosted production orchestration and records the receipt", async () => {
     const root = await fixtureRoot();
-    const temp = await mkdtemp(join(tmpdir(), "skillset-codex-hosted-"));
+    const temp = await createTestFixtureRoot("skillset-codex-hosted-");
     const codex = join(temp, "fake-codex");
     await writeFile(
       codex,
@@ -189,7 +193,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
 
   test("rejects symlink path components before resolving outside the repository", async () => {
     const root = await fixtureRoot();
-    const outside = await mkdtemp(join(tmpdir(), "skillset-provider-outside-"));
+    const outside = await createTestFixtureRoot("skillset-provider-outside-");
     await writeFile(join(outside, "SKILL.md"), "outside");
     await symlink(outside, join(root, ".agents/skills/escape"));
     await writeLock(
@@ -207,7 +211,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     const root = await fixtureRoot();
     await symlink(
       join(root, ".cursor-plugin/marketplace.json"),
-      join(root, "plugins/demo/chatgpt/nested-link")
+      join(root, "plugins/demo/nested-link")
     );
 
     await expect(enumerateProviderArtifacts(root)).rejects.toThrow(
@@ -348,7 +352,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   });
 
   test("validates every staged ChatGPT root manifest as internal authoring conformance", async () => {
-    const temp = await mkdtemp(join(tmpdir(), "skillset-chatgpt-hosted-"));
+    const temp = await createTestFixtureRoot("skillset-chatgpt-hosted-");
     const valid = join(temp, "valid");
     const invalid = join(temp, "invalid");
     await mkdir(valid, { recursive: true });
@@ -386,7 +390,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   });
 
   test("reports generated Cursor hooks and the malformed-handler canary as internal authoring conformance", async () => {
-    const temp = await mkdtemp(join(tmpdir(), "skillset-cursor-hooks-hosted-"));
+    const temp = await createTestFixtureRoot("skillset-cursor-hooks-hosted-");
     const inputs = await stageCursorHookConformanceInputs(temp);
     const checks = await validateCursorHookConformance(inputs);
 
@@ -468,7 +472,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   test("validates generated Agent Plugins manifests with a rejection canary", async () => {
     const root = await fixtureRoot();
     const checks = await validateAgentPluginConformance([
-      join(root, "plugins/demo/agents"),
+      join(root, "plugins/demo"),
     ]);
 
     expect(checks).toEqual([
@@ -489,20 +493,23 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     ]);
   });
 
-  test("permits candidate branches without materialized Agent Plugins packages", async () => {
+  test("rejects plugin manifests below the immediate package root", async () => {
     const root = await fixtureRoot();
     const lockPath = join(root, "plugins/skillset.lock");
     const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
-      items: { outputPath: string }[];
+      items: { kind: string; outputPath: string }[];
     };
-    lock.items = lock.items.filter(
-      ({ outputPath }) => !outputPath.startsWith("demo/agents/")
-    );
+    await mkdir(join(root, "plugins/demo/nested"), { recursive: true });
+    await writeFile(join(root, "plugins/demo/nested/plugin.json"), "{}\n");
+    lock.items.push({
+      kind: "plugin",
+      outputPath: "demo/nested/plugin.json",
+    });
     await writeFile(lockPath, `${JSON.stringify(lock)}\n`);
 
-    await expect(enumerateProviderArtifacts(root)).resolves.toMatchObject({
-      agentPlugins: [],
-    });
+    await expect(enumerateProviderArtifacts(root)).rejects.toThrow(
+      "unsupported generated plugin manifest plugins/demo/nested/plugin.json"
+    );
   });
 
   test("bounds validator stdout and stderr with deterministic actionable evidence", async () => {
@@ -603,7 +610,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   test("stages every positive validator input outside the checkout", async () => {
     const root = await fixtureRoot();
     const inventory = await enumerateProviderArtifacts(root);
-    const temp = await mkdtemp(join(tmpdir(), "skillset-provider-stage-"));
+    const temp = await createTestFixtureRoot("skillset-provider-stage-");
     const cursor = join(temp, "cursor-tool");
     for (const path of ["scripts", "schemas", "node_modules"])
       await mkdir(join(cursor, path), { recursive: true });
@@ -630,6 +637,23 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
       }
     }
     expect(staged.inventory.skills).toHaveLength(inventory.skills.length);
+    expect(staged.inventory.pluginPackages).toHaveLength(1);
+    const [chatGptChecks, agentPluginChecks] = await Promise.all([
+      validateChatGptPluginConformance(staged.inventory.pluginPackages),
+      validateAgentPluginConformance(staged.inventory.pluginPackages),
+    ]);
+    expect(chatGptChecks).toEqual([
+      expect.objectContaining({
+        id: "chatgpt-plugin-generated-manifest",
+        result: "passed",
+      }),
+    ]);
+    expect(agentPluginChecks).toContainEqual(
+      expect.objectContaining({
+        id: "agent-plugins-generated-native",
+        result: "passed",
+      })
+    );
     for (const skill of staged.inventory.skills) {
       const source = await readFile(skill, "utf8");
       const frontmatterName = source.match(/^name:\s*(.+)$/mu)?.[1];
@@ -647,9 +671,40 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     );
     expect(agentCanary).not.toMatch(/^description:/mu);
     for (const root of [...staged.cursorRoots, staged.cursorCanary]) {
-      expect(
-        await readFile(join(root, "scripts/validate-plugins.mjs"), "utf8")
-      ).toBe("verified-validator\n");
+    expect(
+      await readFile(join(root, "scripts/validate-plugins.mjs"), "utf8")
+    ).toBe("verified-validator\n");
+    }
+  });
+
+  test("stages validator environments without unrelated secret-shaped ambient variables", async () => {
+    const root = await fixtureRoot();
+    const inventory = await enumerateProviderArtifacts(root);
+    const temp = await createTestFixtureRoot("skillset-provider-stage-env-");
+    const previousSecrets = plantUnrelatedSecrets();
+    try {
+      const staged = await stageValidationInputs(root, temp, inventory, {
+        agentSkills: join(temp, "agent-tool"),
+        claude: join(temp, "claude-tool"),
+        codex: join(temp, "codex"),
+        codexPython: join(temp, "python"),
+        codexValidator: join(temp, "codex-validator"),
+        cursor: await fixtureCursorTool(temp),
+      });
+      expect(staged.environment.HOME).toBe(
+        join(temp, "validation-environment", "home")
+      );
+      expect(staged.environment.CODEX_HOME).toBe(
+        join(temp, "validation-environment", "config", "codex")
+      );
+      expect(staged.environment.CLAUDE_CONFIG_DIR).toBe(
+        join(temp, "validation-environment", "config", "claude")
+      );
+      expect(staged.environment.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+      expect(staged.environment.ANTHROPIC_API_KEY).toBeUndefined();
+      expect(staged.environment.GITHUB_TOKEN).toBeUndefined();
+    } finally {
+      restoreUnrelatedSecrets(previousSecrets);
     }
   });
 
@@ -668,7 +723,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
       })}\n`
     );
     const inventory = await enumerateProviderArtifacts(root);
-    const temp = await mkdtemp(join(tmpdir(), "skillset-provider-tamper-"));
+    const temp = await createTestFixtureRoot("skillset-provider-tamper-");
     const cursor = join(temp, "cursor-tool");
     for (const path of ["scripts", "schemas", "node_modules"]) {
       await mkdir(join(cursor, path), { recursive: true });
@@ -699,7 +754,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
       join(root, ".agents/plugins/marketplace.json"),
       `${JSON.stringify({ interface: { displayName: "Demo" }, name: "demo", plugins: [] })}\n`
     );
-    const temp = await mkdtemp(join(tmpdir(), "skillset-provider-codex-gap-"));
+    const temp = await createTestFixtureRoot("skillset-provider-codex-gap-");
 
     await expect(
       stageValidationInputs(
@@ -718,6 +773,42 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     ).rejects.toThrow("Codex marketplace omits generated plugins");
   });
 
+  test("rejects Codex marketplace sources outside the generated package inventory", async () => {
+    const root = await fixtureRoot();
+    await mkdir(join(root, "plugins/other"), { recursive: true });
+    await writeFile(join(root, "plugins/other/plugin.json"), "{}\n");
+    await writeFile(
+      join(root, ".agents/plugins/marketplace.json"),
+      `${JSON.stringify({
+        interface: { displayName: "Demo" },
+        name: "demo",
+        plugins: [
+          {
+            name: "other",
+            source: { path: "./plugins/other", source: "local" },
+          },
+        ],
+      })}\n`
+    );
+    const temp = await createTestFixtureRoot("skillset-provider-codex-extra-");
+
+    await expect(
+      stageValidationInputs(
+        root,
+        temp,
+        await enumerateProviderArtifacts(root),
+        {
+          agentSkills: join(temp, "agent-tool"),
+          claude: join(temp, "claude-tool"),
+          codex: join(temp, "codex"),
+          codexPython: join(temp, "python"),
+          codexValidator: join(temp, "codex-validator"),
+          cursor: await fixtureCursorTool(temp),
+        }
+      )
+    ).rejects.toThrow("Codex marketplace source is not a generated plugin");
+  });
+
   test("rejects marketplace source paths that resolve differently under staging", async () => {
     for (const provider of ["claude", "cursor"] as const) {
       const root = await fixtureRoot();
@@ -734,7 +825,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         })}\n`
       );
       const inventory = await enumerateProviderArtifacts(root);
-      const temp = await mkdtemp(join(tmpdir(), "skillset-provider-escape-"));
+      const temp = await createTestFixtureRoot("skillset-provider-escape-");
       const cursor = await fixtureCursorTool(temp);
 
       await expect(
@@ -765,9 +856,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
           })}\n`
         );
         const inventory = await enumerateProviderArtifacts(root);
-        const temp = await mkdtemp(
-          join(tmpdir(), "skillset-provider-platform-")
-        );
+        const temp = await createTestFixtureRoot("skillset-provider-platform-");
 
         await expect(
           stageValidationInputs(root, temp, inventory, {
@@ -817,10 +906,8 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   });
 
   test("writes deterministic failure evidence for inventory failures", async () => {
-    const runnerTemp = await mkdtemp(
-      join(tmpdir(), "skillset-provider-report-")
-    );
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-invalid-"));
+    const runnerTemp = await createTestFixtureRoot("skillset-provider-report-");
+    const root = await createTestFixtureRoot("skillset-provider-invalid-");
     const reportPath = join(runnerTemp, "provider-validation.md");
     const previousActions = process.env.GITHUB_ACTIONS;
     const previousTemp = process.env.RUNNER_TEMP;
@@ -845,10 +932,8 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   });
 
   test("writes stale verification as freshness failure evidence", async () => {
-    const runnerTemp = await mkdtemp(
-      join(tmpdir(), "skillset-provider-report-")
-    );
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-stale-"));
+    const runnerTemp = await createTestFixtureRoot("skillset-provider-report-");
+    const root = await createTestFixtureRoot("skillset-provider-stale-");
     const reportPath = join(runnerTemp, "provider-validation.md");
     const previousActions = process.env.GITHUB_ACTIONS;
     const previousTemp = process.env.RUNNER_TEMP;
@@ -873,12 +958,10 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   });
 
   test("rejects an existing symlink report target", async () => {
-    const runnerTemp = await mkdtemp(
-      join(tmpdir(), "skillset-provider-report-")
-    );
-    const root = await mkdtemp(join(tmpdir(), "skillset-provider-invalid-"));
+    const runnerTemp = await createTestFixtureRoot("skillset-provider-report-");
+    const root = await createTestFixtureRoot("skillset-provider-invalid-");
     const outside = join(
-      await mkdtemp(join(tmpdir(), "skillset-outside-")),
+      await createTestFixtureRoot("skillset-outside-"),
       "report"
     );
     await writeFile(outside, "unchanged");
@@ -906,51 +989,44 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
 
 function sampleInventory(): ProviderArtifactInventory {
   return {
-    agentPlugins: ["/tmp/stage/plugins/demo/agents"],
-    chatgptPlugins: ["/tmp/stage/plugins/demo/chatgpt"],
     claudeMarketplaces: ["/tmp/stage/.claude-plugin/marketplace.json"],
     claudePlugins: ["/tmp/stage/plugins/demo/claude"],
     codexMarketplaces: ["/tmp/stage/.agents/plugins/marketplace.json"],
     codexPlugins: ["/tmp/stage/plugins/demo/codex"],
     cursorMarketplaces: ["/tmp/stage/.cursor-plugin/marketplace.json"],
     cursorPlugins: ["/tmp/stage/plugins/demo/cursor"],
+    pluginPackages: ["/tmp/stage/plugins/demo"],
     skills: ["/tmp/stage/.agents/skills/demo/SKILL.md"],
   };
 }
 
 async function fixtureRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-validation-"));
+  const root = await createTestFixtureRoot("skillset-provider-validation-");
   for (const path of [
     ".agents/plugins",
     ".agents/skills/standalone",
     ".claude-plugin",
     ".cursor-plugin",
-    "plugins/demo/agents/skills/demo",
-    "plugins/demo/claude/.claude-plugin",
-    "plugins/demo/claude/skills/demo",
-    "plugins/demo/chatgpt/skills/demo",
-    "plugins/demo/cursor/.cursor-plugin",
-    "plugins/demo/cursor/skills/demo",
+    "plugins/demo/.claude-plugin",
+    "plugins/demo/.cursor-plugin",
+    "plugins/demo/skills/demo",
   ])
     await mkdir(join(root, path), { recursive: true });
   for (const path of [
     ".agents/skills/standalone/SKILL.md",
-    "plugins/demo/agents/plugin.json",
-    "plugins/demo/agents/skills/demo/SKILL.md",
-    "plugins/demo/claude/.claude-plugin/plugin.json",
-    "plugins/demo/claude/skills/demo/SKILL.md",
-    "plugins/demo/chatgpt/plugin.json",
-    "plugins/demo/chatgpt/skills/demo/SKILL.md",
-    "plugins/demo/cursor/.cursor-plugin/plugin.json",
-    "plugins/demo/cursor/skills/demo/SKILL.md",
+    "plugins/demo/plugin.json",
+    "plugins/demo/.claude-plugin/plugin.json",
+    "plugins/demo/.cursor-plugin/plugin.json",
+    "plugins/demo/skills/demo/SKILL.md",
   ])
     await writeFile(
       join(root, path),
-      path.endsWith("/agents/plugin.json")
+      path === "plugins/demo/plugin.json"
         ? `${JSON.stringify({
             $schema:
               "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
             description: "demo",
+            extensions: { "com.openai": { interface: {} } },
             name: "demo",
             version: "1.0.0",
           })}\n`
@@ -970,7 +1046,7 @@ async function fixtureRoot(): Promise<string> {
             authentication: "ON_INSTALL",
             installation: "AVAILABLE",
           },
-          source: { path: "./plugins/demo/chatgpt", source: "local" },
+          source: { path: "./plugins/demo", source: "local" },
         },
       ],
     })}\n`
@@ -979,14 +1055,14 @@ async function fixtureRoot(): Promise<string> {
     join(root, ".claude-plugin/marketplace.json"),
     `${JSON.stringify({
       name: "demo",
-      plugins: [{ name: "demo", source: "./plugins/demo/claude" }],
+      plugins: [{ name: "demo", source: "./plugins/demo" }],
     })}\n`
   );
   await writeFile(
     join(root, ".cursor-plugin/marketplace.json"),
     `${JSON.stringify({
       name: "demo",
-      plugins: [{ name: "demo", source: "plugins/demo/cursor" }],
+      plugins: [{ name: "demo", source: "plugins/demo" }],
     })}\n`
   );
   await writeLock(
@@ -994,15 +1070,14 @@ async function fixtureRoot(): Promise<string> {
     ".agents/skills",
     [{ kind: "standalone-skill", outputPath: "standalone/SKILL.md" }]
   );
+  await writeLock(join(root, "skillset.lock"), "plugins", [
+    { kind: "plugin", outputPath: "demo/plugin.json" },
+  ]);
   await writeLock(join(root, "plugins/skillset.lock"), "plugins", [
-    { kind: "plugin", outputPath: "demo/agents/plugin.json" },
-    { kind: "plugin-skill", outputPath: "demo/agents/skills/demo/SKILL.md" },
-    { kind: "plugin", outputPath: "demo/claude/.claude-plugin/plugin.json" },
-    { kind: "plugin-skill", outputPath: "demo/claude/skills/demo/SKILL.md" },
-    { kind: "plugin", outputPath: "demo/chatgpt/plugin.json" },
-    { kind: "plugin-skill", outputPath: "demo/chatgpt/skills/demo/SKILL.md" },
-    { kind: "plugin", outputPath: "demo/cursor/.cursor-plugin/plugin.json" },
-    { kind: "plugin-skill", outputPath: "demo/cursor/skills/demo/SKILL.md" },
+    { kind: "plugin", outputPath: "demo/plugin.json" },
+    { kind: "plugin", outputPath: "demo/.claude-plugin/plugin.json" },
+    { kind: "plugin", outputPath: "demo/.cursor-plugin/plugin.json" },
+    { kind: "plugin-skill", outputPath: "demo/skills/demo/SKILL.md" },
   ]);
   for (const path of [
     ".claude/skills/skillset.lock",
@@ -1038,6 +1113,30 @@ async function writeLock(
     path,
     `${JSON.stringify({ generatedBy: "skillset@0.1.0", items, outputRoot }, null, 2)}\n`
   );
+}
+
+const UNRELATED_SECRETS = [
+  "ANTHROPIC_API_KEY",
+  "AWS_SECRET_ACCESS_KEY",
+  "GITHUB_TOKEN",
+] as const;
+
+function plantUnrelatedSecrets(): Record<string, string | undefined> {
+  const previous = Object.fromEntries(
+    UNRELATED_SECRETS.map((name) => [name, process.env[name]])
+  );
+  for (const name of UNRELATED_SECRETS) {
+    process.env[name] = `${name}-should-not-leak`;
+  }
+  return previous;
+}
+
+function restoreUnrelatedSecrets(
+  previous: Record<string, string | undefined>
+): void {
+  for (const [name, value] of Object.entries(previous)) {
+    restoreEnvironment(name, value);
+  }
 }
 
 function restoreEnvironment(name: string, value: string | undefined): void {

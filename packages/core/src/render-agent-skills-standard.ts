@@ -12,7 +12,7 @@ import type { LogicalRenderedFile } from "./output-plan";
 import { formatPreprocessDependency, preprocessText } from "./preprocess";
 import { textFile } from "./render-support";
 import {
-  resolveDeclaredResourceReference,
+  createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
 } from "./resources";
 import { readAllowedTools } from "./skill-policy";
@@ -23,7 +23,9 @@ import type {
   JsonRecord,
   JsonValue,
   SourcePlugin,
+  SourceResource,
   SourceSkill,
+  TargetName,
 } from "./types";
 import { skillVersion } from "./versioning";
 
@@ -66,6 +68,37 @@ export interface RenderedAgentSkillStandardMarkdown {
   readonly content: string;
   readonly file: LogicalRenderedFile;
   readonly preprocessDependencies: readonly string[];
+  readonly resources: readonly SourceResource[];
+}
+
+export interface AgentSkillStandardRenderOptions {
+  readonly draft?: boolean;
+  readonly effectiveName?: string;
+  readonly internal?: boolean;
+}
+
+export const DRAFT_DESCRIPTION_PREFIX = "[SKILLSET DRAFT] ";
+const AGENT_SKILLS_DESCRIPTION_LIMIT = 1024;
+
+export function draftSkillDescription(description: string): string {
+  const prefixed = `${DRAFT_DESCRIPTION_PREFIX}${description}`;
+  if (characterLength(prefixed) <= AGENT_SKILLS_DESCRIPTION_LIMIT) {
+    return prefixed;
+  }
+  const available =
+    AGENT_SKILLS_DESCRIPTION_LIMIT -
+    characterLength(DRAFT_DESCRIPTION_PREFIX) -
+    1;
+  return `${DRAFT_DESCRIPTION_PREFIX}${[...description].slice(0, available).join("")}…`;
+}
+
+export function draftSkillDescriptionWasTruncated(skill: SourceSkill, target?: TargetName): boolean {
+  const override = target === undefined
+    ? undefined
+    : readString(readRecord(skill.targets[target].options, "frontmatter") ?? {}, "description");
+  return characterLength(
+    `${DRAFT_DESCRIPTION_PREFIX}${override ?? resolvedSkillDescription(skill)}`
+  ) > AGENT_SKILLS_DESCRIPTION_LIMIT;
 }
 
 export function agentSkillSourceUnit(
@@ -82,10 +115,14 @@ export function classifyAgentSkillStandard(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   directoryName = skill.id,
-  resolvedLicense?: string
+  resolvedLicense?: string,
+  options: AgentSkillStandardRenderOptions = {}
 ): AgentSkillStandardClassification {
-  const name = resolvedSkillName(skill);
-  const description = resolvedSkillDescription(skill);
+  const name = options.effectiveName ?? resolvedSkillName(skill);
+  const sourceDescription = resolvedSkillDescription(skill);
+  const description = options.draft === true
+    ? draftSkillDescription(sourceDescription)
+    : sourceDescription;
   const label = path.relative(graph.rootPath, skill.sourcePath);
   const nameIssue = validateName(name, directoryName, label);
   if (nameIssue !== undefined) {
@@ -111,6 +148,12 @@ export function classifyAgentSkillStandard(
   if (metadataIssue !== undefined) {
     return { issue: metadataIssue, status: "unsupported" };
   }
+  if (options.internal === true) {
+    frontmatter.metadata = {
+      ...(readRecord(frontmatter, "metadata") ?? {}),
+      internal: true,
+    };
+  }
 
   const allowedTools = readAllowedTools(skill.frontmatter, "agents", label);
   if (allowedTools !== undefined && allowedTools !== false) {
@@ -132,20 +175,33 @@ export async function renderAgentSkillStandardMarkdown(
   skill: SourceSkill,
   targetSkillDir: string,
   resolvedLicense: string | undefined,
-  standardProfile: SkillStandardProfile
+  standardProfile: SkillStandardProfile,
+  options: AgentSkillStandardRenderOptions = {}
 ): Promise<RenderedAgentSkillStandardMarkdown | AgentSkillStandardIssue> {
   const classification = classifyAgentSkillStandard(
     graph,
     plugin,
     skill,
-    skill.id,
-    resolvedLicense
+    options.effectiveName ?? skill.id,
+    resolvedLicense,
+    options
   );
   if (classification.status === "unsupported") {
     return classification.issue;
   }
 
   const preprocessDependencies = new Set<string>();
+  const resourcePlanner = createEffectiveSkillResourcePlanner(
+    skill.resources,
+    {
+      label: skill.sourcePath,
+      ...(plugin === undefined
+        ? {}
+        : { pluginSharedPath: path.join(plugin.path, "shared") }),
+      sharedPath: path.join(graph.sourceRootPath, "shared"),
+      sourceRootPath: graph.sourceRootPath,
+    }
+  );
   const body = await preprocessText(skill.body, {
     frontmatter: skill.frontmatter,
     preprocessDependencies,
@@ -154,18 +210,13 @@ export async function renderAgentSkillStandardMarkdown(
     sourceRoot: graph.sourceRoot,
     promptArguments: graph.root.compile.features.promptArguments,
     renderPathReference: (reference) =>
-      reference.scheme === undefined
-        ? reference.specifier.replaceAll("\\", "/")
-        : resolveDeclaredResourceReference(
-            reference.specifier,
-            skill.resources,
-            skill.sourcePath
-          ),
+      resourcePlanner.resolveReference(reference.specifier),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
+  const resources = resourcePlanner.resources();
   const content = renderValidatedMarkdown(
     classification.frontmatter,
-    rewriteResourceLinks(body, skill.resources, skill.sourcePath),
+    rewriteResourceLinks(body, resources, skill.sourcePath),
     `${path.relative(graph.rootPath, skill.sourcePath)} -> Agent Skills`
   );
   return {
@@ -184,6 +235,7 @@ export async function renderAgentSkillStandardMarkdown(
         formatPreprocessDependency(graph.rootPath, dependency)
       )
       .sort(),
+    resources,
   };
 }
 
@@ -224,27 +276,11 @@ export function agentSkillStandardDirectory(
 }
 
 export function classifyAgentPluginSkillLayout(
-  graph: BuildGraph,
-  plugin: SourcePlugin,
-  skill: SourceSkill
+  _graph: BuildGraph,
+  _plugin: SourcePlugin,
+  _skill: SourceSkill
 ): AgentSkillStandardIssue | undefined {
-  const relativePath = path
-    .relative(plugin.path, skill.sourcePath)
-    .replaceAll("\\", "/");
-  const parts = relativePath.split("/");
-  if (
-    parts.length === 3 &&
-    parts[0] === "skills" &&
-    parts[1] === skill.id &&
-    parts[2] === "SKILL.md"
-  ) {
-    return undefined;
-  }
-  return issue(
-    "agent-plugins-skill-immediate-child",
-    path.relative(graph.rootPath, skill.sourcePath),
-    `Agent Plugins discovers only immediate skills/<name>/SKILL.md children; ${relativePath} would be hidden`
-  );
+  return undefined;
 }
 
 /** Standard-scoped failures never invalidate the shared adaptive source. */
@@ -259,11 +295,6 @@ export function agentSkillStandardProjectionIssues(
   ) {
     for (const skill of graph.standaloneSkills) {
       pushStandardIssue(issues, graph, undefined, skill);
-    }
-    for (const plugin of graph.plugins) {
-      for (const skill of plugin.skills) {
-        pushStandardIssue(issues, graph, plugin, skill);
-      }
     }
   }
   if (

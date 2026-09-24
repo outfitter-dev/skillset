@@ -27,3 +27,5 @@ Activation gives those files runtime authority. Depending on the provider, activ
 - Changing Claude, Codex, Cursor, or other user-level settings.
 
 After `skillset build --yes`, use `skillset check --only outputs` to prove the repository projection is current. Then follow the target provider's own review and activation process. The generated [support matrix](../reference/support-matrix.md) describes what Skillset can render; it does not claim that any output is installed or active.
+
+The optional project SessionStart hook follows the same boundary: it reports stale generated paths and recommends a build, but never runs the build, installs a hook, or changes provider trust on its own. See [Hooks](../reference/features/hooks.md#skillset-owned-project-sessionstart).

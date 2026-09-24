@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { createInteractiveSession } from "../interactive-session";
 import {
   listNewSourceContainers,
@@ -36,7 +36,7 @@ function scriptedSession(
 }
 
 async function workspace(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-new-interactive-"));
+  const root = await createTestFixtureRoot("skillset-new-interactive-");
   await initSkillset({ cwd: root, rootPath: root, write: true });
   return root;
 }
@@ -65,12 +65,14 @@ describe("SET-293 derived new-source choices", () => {
   test("kind and preset metadata drive validation and disabled choices", () => {
     expect(NEW_SOURCE_KINDS.map((kind) => [kind.id, kind.enabled])).toEqual([
       ["skill", true],
+      ["plugin", true],
       ["agent", true],
       ["instruction", true],
       ["hook", true],
     ]);
     expect(NEW_SOURCE_KINDS.map((kind) => kind.description)).toEqual([
       "Skill directory, SKILL.md, and optional supporting files",
+      "Plugin container with a manifest and empty skills directory",
       "Markdown file with repository-level agent instructions",
       "Instruction file under the canonical rules source directory",
       "Adaptive runtime hook",
@@ -91,6 +93,34 @@ describe("SET-293 derived new-source choices", () => {
     ]);
     expect(() => parseSkillPresets(["missing"])).toThrow(
       "expected --preset minimal, support, references, assets, scripts, evals, reference-file, or examples-file"
+    );
+  });
+
+  test("SET-584: plugin is an interactive source kind without placement or preset prompts", async () => {
+    const root = await workspace();
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "plugin" },
+      { kind: "input", value: "review-tools" },
+      { kind: "confirm", value: true },
+    ]);
+
+    await runNewCommand(request(root), { interactiveSession: session });
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+      "confirm",
+    ]);
+    const pluginRoot = join(root, ".skillset/plugins/review-tools");
+    expect(await Bun.file(join(pluginRoot, "skillset.yaml")).text()).toContain(
+      "name: review-tools"
+    );
+    expect(await Bun.file(join(pluginRoot, "README.md")).text()).toContain(
+      "# Review Tools"
+    );
+    expect(await Bun.file(join(pluginRoot, "skills/.gitkeep")).exists()).toBe(
+      true
     );
   });
 
@@ -203,7 +233,7 @@ describe("SET-293 derived new-source choices", () => {
     ]);
     expect(
       await Bun.file(
-        join(root, ".skillset/agents/release-reviewer.md")
+        join(root, ".skillset/subagents/release-reviewer.md")
       ).exists()
     ).toBe(true);
   });
@@ -627,7 +657,7 @@ describe("SET-293 derived new-source choices", () => {
   });
 
   test("uninitialized workspaces fail through the existing plan error before confirmation", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-new-uninitialized-"));
+    const root = await createTestFixtureRoot("skillset-new-uninitialized-");
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "skill" },
       { kind: "input", value: "Fresh Skill" },
@@ -737,6 +767,7 @@ describe("SET-293 derived new-source choices", () => {
         env
       );
       expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
       expect(result.stdout).toContain("write confirmation required");
       expect(result.stdout).not.toContain("Create source:");
     }
@@ -751,7 +782,7 @@ describe("SET-293 derived new-source choices", () => {
 async function runCli(
   args: readonly string[],
   env: Readonly<Record<string, string | undefined>>
-): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+): Promise<{ readonly exitCode: number; readonly stderr: string; readonly stdout: string }> {
   const process = Bun.spawn(
     ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
     {
@@ -760,9 +791,10 @@ async function runCli(
       stdout: "pipe",
     }
   );
-  const [exitCode, stdout] = await Promise.all([
+  const [exitCode, stdout, stderr] = await Promise.all([
     process.exited,
     new Response(process.stdout).text(),
+    new Response(process.stderr).text(),
   ]);
-  return { exitCode, stdout };
+  return { exitCode, stderr, stdout };
 }

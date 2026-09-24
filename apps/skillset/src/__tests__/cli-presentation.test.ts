@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { resolve } from "node:path";
 
 import { CLI_ROUTE_FLAGS, HIDDEN_CLI_ROUTES } from "../cli-contract";
 import { renderCliHelp } from "../cli-help";
 import { CLI_PRESENTATION_CATALOG } from "../cli-presentation";
+import { cliVersion } from "../cli-version";
 import { terminalColorEnabled } from "../terminal-renderer";
 
 describe("SET-307 CLI presentation", () => {
@@ -25,7 +27,7 @@ describe("SET-307 CLI presentation", () => {
     expect(output).toContain("skillset <command> --help");
     expect(output).toContain("skillset --version");
     expect(output).not.toContain("--claude-setting-sources");
-    expect(output.split("\n").length).toBeLessThan(50);
+    expect(output.split("\n").length).toBeLessThan(54);
   });
 
   test("selects focused route and command-family help", () => {
@@ -129,5 +131,33 @@ describe("SET-307 CLI presentation", () => {
     expect(terminalColorEnabled({ isTTY: false, term: "xterm-256color" })).toBe(
       false
     );
+  });
+
+  test("flushes fast-path help and version output to a pipe", async () => {
+    const cli = resolve(import.meta.dir, "../cli.ts");
+    for (const args of [
+      ["--version"],
+      ["--help"],
+      ["build", "--help"],
+      ["--help", "--all"],
+    ]) {
+      const child = Bun.spawn([process.execPath, cli, ...args], {
+        env: { ...process.env, NO_COLOR: "1" },
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited,
+      ]);
+      expect(exitCode, args.join(" ")).toBe(0);
+      expect(stderr, args.join(" ")).toBe("");
+      expect(stdout, args.join(" ")).toBe(
+        args[0] === "--version"
+          ? `${cliVersion}\n`
+          : `${renderCliHelp(args, { color: false })}\n`
+      );
+    }
   });
 });

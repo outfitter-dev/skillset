@@ -1,10 +1,10 @@
 ---
-description: Defines Skillset Markdown preprocessing variables, prompt arguments, path references, named partials, escapes, and failure behavior.
+description: Defines Skillset Markdown preprocessing variables, prompt arguments, exact partials, marked links, escapes, and failure behavior.
 ---
 
 # Preprocessing
 
-Skillset preprocesses Markdown [source](../../glossary.md#canonical-source) before [target](../../glossary.md#target) serialization. The language is deliberately small: it substitutes known document and path context, resolves declared references, and expands local partials without becoming a general template engine.
+Skillset preprocesses Markdown [source](../../glossary.md#canonical-source) before [target](../../glossary.md#target) serialization. The language substitutes known document and path context, expands exact partials, and resolves marked links without becoming a general template engine.
 
 Preprocessing applies to supported Markdown source, including skills and [instructions](instructions.md). Invalid reserved expressions fail with the source path and relevant name. Unrelated double-brace text, such as JSX object literals, remains unchanged.
 
@@ -42,32 +42,40 @@ Skill Markdown can contain `{{$ARGUMENTS}}`, positional forms such as `{{$ARGUME
 
 The workspace setting `compile.features.promptArguments` defaults to enabled. When disabled, Skillset-owned prompt argument expressions are rejected. See [project configuration](../../configuration/project-configuration.md) for the owning setting.
 
-## Path references
+## Exact partials
 
-A path partial inserts another file's content:
+Use `{{> ...}}` to insert another Markdown file. Names resolve to one exact file; Skillset does not search by basename or fall back between workspace and plugin roots.
+
+| Expression | Exact source |
+| --- | --- |
+| `{{> intro}}` | `<source-root>/shared/partials/intro.md` |
+| `{{> writing/tone}}` | `<source-root>/shared/partials/writing/tone.md` |
+| `{{> plugin:intro}}` | Current plugin `shared/partials/intro.md` |
+| `{{> plugin:writing/tone}}` | Current plugin `shared/partials/writing/tone.md` |
+| `{{> shared:references/common.md}}` | `<source-root>/shared/references/common.md` |
+| `{{> shared:partials/intro.md}}` | `<source-root>/shared/partials/intro.md` |
+| `{{> plugin:references/common.md}}` | Current plugin `shared/references/common.md` |
+
+`plugin:` requires plugin-bound source. Missing files report the workspace or plugin scope and the single expected repository-relative path. Included Markdown is recursively preprocessed, dependencies are recorded in generated provenance, unsafe traversal is rejected, and recursive cycles fail with the include chain.
+
+Bare `{{shared:...}}`, `{{plugin:...}}`, `{{@...}}`, relative-path partials, `root:`, and plugin-basename aliases are retired grammar and fail with current-syntax guidance.
+
+## Marked links
+
+Use a leading `@` outside the braces to resolve a path without inserting its contents:
 
 ```markdown
-{{shared:references/common.md}}
-{{plugin:references/plugin.md}}
-{{references/local-fragment.md}}
+Read @{{shared:references/common.md}}.
+Use @{{plugin:templates/checklist.md}}.
 ```
 
-`shared:` resolves under `.skillset/shared/`. `plugin:` resolves under the current plugin's `shared/` directory and is available only to plugin-bound source. Relative references resolve from the current source file. Unsafe traversal outside the owning source scope is rejected.
+The accepted scopes are `shared:` and `plugin:`. `plugin:` is available only to plugin-bound source. For a skill body, the first path segment must be exactly `references`, `scripts`, `assets`, or `templates`. The linked file becomes an effective skill resource, defaults to the same `<group>/<rest>` destination beside `SKILL.md`, and the rendered text keeps the leading `@`, such as `@references/common.md`. An explicit `resources` exact-file or directory `to:` mapping wins and changes the rendered target.
 
-Prefix a path reference with `@` to resolve it without copying its content:
+For instructions and project agents, marked links resolve to the appropriate committed source path; they do not create a skill resource. Code spans and fenced code blocks preserve marked-link text literally and imply no copy. Copied Markdown resources are opaque files and are not recursively preprocessed.
 
-```markdown
-See {{@shared:references/common.md}}.
-See {{@references/local-fragment.md}}.
-```
+Missing files, invalid groups, unsafe traversal, symlink escapes, and destination collisions fail before output writes. Marked links accept files only; use explicit [`resources`](../features/resources.md) for directories, unlinked files, and destination remaps.
 
-A resolve-only reference validates the source file and renders a path appropriate to the source family. Instructions and project agents point back to committed `.skillset/` source. Skills point to a skill-local or declared generated resource destination so the reference remains valid beside the rendered skill. Resolve-only references do not copy files by themselves. Adaptive workspace instructions cannot use `plugin:` references because they have no plugin owner.
-
-## Named partials
-
-Named partials use `{{> name}}`. Resolution checks the workspace `.skillset/partials/` root and, for plugin-bound source, the current plugin's `partials/` root according to the compiler's scoped precedence. A direct `<name>.md` wins within a root. If no direct file exists, a unique recursive basename match is accepted.
-
-Plugin-bound source may explicitly spell its own namespace as `{{> <plugin>.<name>}}`. It may not reach into another plugin. Missing partials, multiple basename matches, unsafe paths, and recursive cycles fail loudly; cycle diagnostics include the partial chain. Included partials may themselves contain supported expressions and partials, and their dependencies are recorded in generated provenance.
+Cursor receives the same literal leading-`@` text as the other generated skill formats. Skillset copies the target file and validates the path, but it does not claim that Cursor interprets that text as a native UI context mention.
 
 ## Disable preprocessing
 
@@ -78,4 +86,4 @@ skillset:
   preprocess: false
 ```
 
-The control is source-only and is removed from [generated output](../../glossary.md#generated-output). Use it for documents whose double-brace syntax belongs to another language; do not use it to hide a missing field, broken partial, or unsafe reference.
+The control is source-only and is removed from [generated output](../../glossary.md#generated-output). No partial expands and no marked link implies a resource while preprocessing is disabled. Use it for documents whose double-brace syntax belongs to another language; do not use it to hide a missing field, broken partial, or unsafe reference.

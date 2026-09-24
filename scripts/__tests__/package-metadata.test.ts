@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
@@ -17,6 +16,7 @@ import {
   sourceWorkspaceDiagnostics,
   workspaceManifestPaths,
 } from "../package-metadata";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 describe("package metadata checks", () => {
   test("discovers package manifests from the workspace contract", async () => {
@@ -141,6 +141,7 @@ describe("package metadata checks", () => {
 
   test("separates the Bun CLI floor from the dependency-free Node launcher", async () => {
     const root = await fixture({
+      "package.json": { engines: { bun: ">=1.4.0" } },
       "apps/cli/package.json": { engines: { bun: ">=1.4.0" } },
       "apps/skillset/package.json": {
         engines: { node: ">=18" },
@@ -149,6 +150,22 @@ describe("package metadata checks", () => {
     });
 
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    await writeFile(
+      join(root, "package.json"),
+      `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
+    );
+    expect(await bunRuntimeDiagnostics(root)).toEqual([
+      "apps/cli/package.json Bun engine must match package.json engines.bun (>=1.4.0 <1.5.0)",
+    ]);
+    await writeFile(
+      join(root, "apps/cli/package.json"),
+      `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
+    );
+    expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    await writeFile(join(root, "package.json"), '{"engines":{}}\n');
+    expect(await bunRuntimeDiagnostics(root)).toEqual([
+      "package.json must declare a supported Bun range in engines.bun",
+    ]);
     expect(await launcherRuntimeDiagnostics(root)).toContain(
       "apps/skillset/package.json must declare exactly the five required native packages as optional dependencies"
     );
@@ -232,7 +249,7 @@ describe("package metadata checks", () => {
 });
 
 async function fixture(files: Record<string, unknown>) {
-  const root = await mkdtemp(join(tmpdir(), "skillset-package-metadata-"));
+  const root = await createTestFixtureRoot("skillset-package-metadata-");
   for (const [path, value] of Object.entries(files)) {
     const destination = join(root, path);
     await mkdir(dirname(destination), { recursive: true });

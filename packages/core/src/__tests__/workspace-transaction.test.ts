@@ -3,7 +3,6 @@ import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   readdir,
   realpath,
@@ -12,8 +11,8 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import nodePath from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   applyWorkspaceTransaction,
@@ -23,29 +22,17 @@ import {
 const withWorkspace = async (
   operation: (root: string) => Promise<void>
 ): Promise<void> => {
-  const root = await mkdtemp(
-    nodePath.join(tmpdir(), "skillset-workspace-transaction-")
-  );
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-workspace-transaction-");
+  await operation(root);
 };
 
 const detectCaseSensitiveWorkspaceVolume = async (): Promise<boolean> => {
-  const probeRoot = await mkdtemp(
-    nodePath.join(tmpdir(), "skillset-workspace-case-probe-")
+  const probeRoot = await createTestFixtureRoot("skillset-workspace-case-probe-");
+  await writeFile(nodePath.join(probeRoot, "probe.txt"), "probe\n");
+  return await access(nodePath.join(probeRoot, "PROBE.txt")).then(
+    () => false,
+    () => true
   );
-  try {
-    await writeFile(nodePath.join(probeRoot, "probe.txt"), "probe\n");
-    return await access(nodePath.join(probeRoot, "PROBE.txt")).then(
-      () => false,
-      () => true
-    );
-  } finally {
-    await rm(probeRoot, { force: true, recursive: true });
-  }
 };
 
 /**
@@ -1032,28 +1019,22 @@ describe("workspace transactions", () => {
 
   test("refuses paths that escape or traverse symbolic links", async () => {
     await withWorkspace(async (root) => {
-      const outside = await mkdtemp(
-        nodePath.join(tmpdir(), "skillset-workspace-transaction-outside-")
-      );
-      try {
-        await expect(
-          applyWorkspaceTransaction(root, {
-            writes: [{ content: "nope\n", path: "../outside.txt" }],
-          })
-        ).rejects.toThrow("path escapes workspace root");
+      const outside = await createTestFixtureRoot("skillset-workspace-transaction-outside-");
+      await expect(
+        applyWorkspaceTransaction(root, {
+          writes: [{ content: "nope\n", path: "../outside.txt" }],
+        })
+      ).rejects.toThrow("path escapes workspace root");
 
-        await symlink(outside, nodePath.join(root, "linked"));
-        await expect(
-          applyWorkspaceTransaction(root, {
-            writes: [{ content: "nope\n", path: "linked/escaped.txt" }],
-          })
-        ).rejects.toThrow("refusing to traverse symbolic link");
-        await expect(
-          access(nodePath.join(outside, "escaped.txt"))
-        ).rejects.toThrow();
-      } finally {
-        await rm(outside, { force: true, recursive: true });
-      }
+      await symlink(outside, nodePath.join(root, "linked"));
+      await expect(
+        applyWorkspaceTransaction(root, {
+          writes: [{ content: "nope\n", path: "linked/escaped.txt" }],
+        })
+      ).rejects.toThrow("refusing to traverse symbolic link");
+      await expect(
+        access(nodePath.join(outside, "escaped.txt"))
+      ).rejects.toThrow();
     });
   });
 
@@ -1150,6 +1131,97 @@ describe("workspace transactions", () => {
           entry.startsWith(".skillset-workspace-")
         )
       ).toEqual([]);
+    });
+  });
+
+  test("copies a directory without removing its source", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source", "nested"), { recursive: true });
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "skill\n");
+      await writeFile(nodePath.join(root, "source", "nested", "tool.sh"), "#!/bin/sh\n");
+      await chmod(nodePath.join(root, "source", "nested", "tool.sh"), 0o755);
+
+      const report = await applyWorkspaceTransaction(root, {
+        copies: [{ from: "source", to: "drafts/source" }],
+      });
+
+      expect(report.operations).toEqual([
+        { from: "source", kind: "copy", to: "drafts/source" },
+      ]);
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"))).toEqual(
+        await readFile(nodePath.join(root, "drafts", "source", "SKILL.md"))
+      );
+      expect((await stat(nodePath.join(root, "drafts", "source", "nested", "tool.sh"))).mode & 0o111).not.toBe(0);
+    });
+  });
+
+  test("refuses an occupied copy target without changing either tree", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await mkdir(nodePath.join(root, "draft"));
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "source\n");
+      await writeFile(nodePath.join(root, "draft", "SKILL.md"), "draft\n");
+
+      await expect(
+        applyWorkspaceTransaction(root, {
+          copies: [{ from: "source", to: "draft" }],
+        })
+      ).rejects.toThrow("copy target already exists: draft");
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"), "utf8")).toBe("source\n");
+      expect(await readFile(nodePath.join(root, "draft", "SKILL.md"), "utf8")).toBe("draft\n");
+    });
+  });
+
+  test("refuses a copy target that appears before atomic install", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "source\n");
+
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          { copies: [{ from: "source", to: "draft" }] },
+          {
+            testHooks: {
+              beforeApply: async (operation) => {
+                if (operation.kind === "copy") {
+                  await mkdir(nodePath.join(root, "draft"));
+                  await writeFile(nodePath.join(root, "draft", "SKILL.md"), "late\n");
+                }
+              },
+            },
+          }
+        )
+      ).rejects.toThrow("copy target appeared before atomic install: draft");
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"), "utf8")).toBe("source\n");
+      expect(await readFile(nodePath.join(root, "draft", "SKILL.md"), "utf8")).toBe("late\n");
+    });
+  });
+
+  test("removes an installed copy when a later operation fails", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await writeFile(nodePath.join(root, "source", "SKILL.md"), "source\n");
+
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          {
+            copies: [{ from: "source", to: "draft" }],
+            writes: [{ content: "late\n", path: "zz.txt" }],
+          },
+          {
+            testHooks: {
+              beforeApply: (operation) => {
+                if (operation.kind === "write") throw new Error("injected post-copy failure");
+              },
+            },
+          }
+        )
+      ).rejects.toThrow("injected post-copy failure");
+      expect(await readFile(nodePath.join(root, "source", "SKILL.md"), "utf8")).toBe("source\n");
+      await expect(access(nodePath.join(root, "draft"))).rejects.toThrow();
+      await expect(access(nodePath.join(root, "zz.txt"))).rejects.toThrow();
     });
   });
 

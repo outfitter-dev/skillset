@@ -10,6 +10,10 @@ import {
 import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { validateSlug } from "./path";
+import {
+  pluginComponentPath,
+  pluginComponents,
+} from "./plugin-component-paths";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import { renderAgentPluginManifest } from "./agent-plugin-manifest";
 import {
@@ -330,8 +334,10 @@ function renderChatGptPluginManifest(
   const extension = mergeRecords(
     mergeRecords(
       {
-        ...(hasApp ? { apps: "./.app.json" } : {}),
-        ...(hasHooks ? { hooks: "./hooks/hooks.json" } : {}),
+        ...(hasApp ? { apps: pluginComponentPath("codex", "apps") } : {}),
+        ...(hasHooks
+          ? { hooks: pluginComponentPath("codex", "hooks") }
+          : {}),
       },
       mergeRecords(legacyExtension, authoredExtension)
     ),
@@ -424,10 +430,10 @@ function readLegacyOpenAiExtension(
     if (value === undefined) continue;
     const expected =
       key === "apps"
-        ? "./.app.json"
+        ? pluginComponentPath("codex", "apps")
         : key === "hooks"
-          ? "./hooks/hooks.json"
-          : "./skills/";
+          ? pluginComponentPath("codex", "hooks")
+          : pluginComponentPath("codex", "skills");
     if (value !== expected) {
       throw new Error(
         `skillset: plugin ${plugin.id} legacy .codex-plugin/plugin.json.${key} must use the fixed ${expected} component path`
@@ -520,7 +526,10 @@ function validateOpenAiExtension(plugin: SourcePlugin, value: JsonRecord): void 
   for (const key of ["apps", "hooks"] as const) {
     const field = value[key];
     if (field === undefined) continue;
-    const expected = key === "apps" ? "./.app.json" : "./hooks/hooks.json";
+    const expected = pluginComponentPath(
+      "codex",
+      key === "apps" ? "apps" : "hooks"
+    );
     if (field !== expected) {
       throw new Error(
         `skillset: plugin ${pluginId} extensions.com.openai.${key} must use the fixed ${expected} component path`
@@ -608,58 +617,94 @@ export function withOptionalSurfacePaths(
     if (value !== undefined) withPaths[key] = value;
   }
 
-  if (enabledSkills.length > 0) withPaths.skills = "./skills/";
-  if (target === "claude") {
-    if (pluginHasPath(plugin, "commands")) withPaths.commands = "./commands";
-    if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents";
-    if (
-      pluginHasPath(plugin, "hooks/hooks.json") ||
-      hasAdaptivePluginHookOutput(graph, plugin, target)
-    )
-      withPaths.hooks = "./hooks/hooks.json";
-    if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
-    if (pluginHasPath(plugin, ".lsp.json"))
-      withPaths.lspServers = "./.lsp.json";
-    if (pluginHasPath(plugin, "output-styles"))
-      withPaths.outputStyles = "./output-styles/";
-    // Themes and monitors are experimental Claude plugin components; declare them
-    // under the documented `experimental` manifest key.
-    const experimental: Record<string, JsonValue> = {};
-    if (pluginHasPath(plugin, "themes")) experimental.themes = "./themes/";
-    if (pluginHasPath(plugin, "monitors/monitors.json")) {
-      experimental.monitors = "./monitors/monitors.json";
+  for (const component of pluginComponents(target)) {
+    const manifestField = component.manifestField;
+    if (manifestField === undefined) continue;
+    const value = pluginComponentManifestValue(
+      graph,
+      plugin,
+      enabledSkills,
+      target,
+      component.kind,
+      component.path
+    );
+    if (value !== undefined) {
+      setManifestField(withPaths, manifestField, value);
     }
-    if (Object.keys(experimental).length > 0)
-      withPaths.experimental = experimental;
-  } else if (target === "codex") {
-    if (
-      pluginHasPath(plugin, "hooks/hooks.json") ||
-      hasAdaptivePluginHookOutput(graph, plugin, target)
-    ) {
-      withPaths.hooks = "./hooks/hooks.json";
-    }
-    if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
-    if (pluginHasFeature(plugin, "app")) withPaths.apps = "./.app.json";
-  } else {
-    if (pluginHasSurfacePath(graph, plugin, target, "rules")) {
-      withPaths.rules = "./rules/";
-    }
-    if (pluginHasSurfacePath(graph, plugin, target, "commands")) {
-      withPaths.commands = "./commands/";
-    }
-    if (pluginHasSurfacePath(graph, plugin, target, "agents")) {
-      withPaths.agents = "./agents/";
-    }
-    if (
-      pluginHasSurfacePath(graph, plugin, target, "hooks/hooks.json") ||
-      hasAdaptivePluginHookOutput(graph, plugin, target)
-    ) {
-      withPaths.hooks = "./hooks/hooks.json";
-    }
-    if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./mcp.json";
   }
 
   return withPaths;
+}
+
+function pluginComponentManifestValue(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  enabledSkills: readonly SourceSkill[],
+  target: TargetName,
+  kind: string,
+  path: string
+): JsonValue | undefined {
+  if (kind === "skills") {
+    return enabledSkills.length === 0 ? undefined : path;
+  }
+  if (kind === "hooks") {
+    const sourcePath = componentSourcePath(path);
+    const hasHooks =
+      target === "cursor"
+        ? pluginHasSurfacePath(graph, plugin, target, sourcePath)
+        : pluginHasPath(plugin, sourcePath);
+    return hasHooks || hasAdaptivePluginHookOutput(graph, plugin, target)
+      ? path
+      : undefined;
+  }
+  if (kind === "mcp") return pluginHasFeature(plugin, "mcp") ? path : undefined;
+  if (kind === "apps") return pluginHasFeature(plugin, "app") ? path : undefined;
+  if (kind === "agents") {
+    const hasAuthoredSubagents = pluginHasPath(plugin, "subagents");
+    const hasCursorNativeAgents =
+      target === "cursor" &&
+      pluginHasSurfacePath(
+        graph,
+        plugin,
+        target,
+        componentSourcePath(path)
+      );
+    return hasAuthoredSubagents || hasCursorNativeAgents ? path : undefined;
+  }
+
+  const sourcePath = componentSourcePath(path);
+  const hasPath =
+    target === "cursor"
+      ? pluginHasSurfacePath(graph, plugin, target, sourcePath)
+      : pluginHasPath(plugin, sourcePath);
+  return hasPath ? path : undefined;
+}
+
+function componentSourcePath(path: string): string {
+  const withoutPrefix = path.startsWith("./") ? path.slice(2) : path;
+  return withoutPrefix.endsWith("/") ? withoutPrefix.slice(0, -1) : withoutPrefix;
+}
+
+function setManifestField(
+  manifest: Record<string, JsonValue>,
+  field: string,
+  value: JsonValue
+): void {
+  const [head, ...tail] = field.split(".");
+  if (head === undefined) return;
+  if (tail.length === 0) {
+    manifest[head] = value;
+    return;
+  }
+  const nested: Record<string, JsonValue> = {};
+  const current = manifest[head];
+  if (isJsonRecord(current)) {
+    for (const [key, nestedValue] of Object.entries(current)) {
+      if (nestedValue !== undefined) nested[key] = nestedValue;
+    }
+  }
+  setManifestField(nested, tail.join("."), value);
+  manifest[head] = nested;
 }
 
 function pluginHasFeature(

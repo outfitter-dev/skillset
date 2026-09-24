@@ -5,7 +5,7 @@ status: draft
 created: 2026-07-10
 updated: 2026-07-10
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, global-xdg-managed-installs-and-sync]
+depends_on: [0, declarative-user-scope-config]
 ---
 
 # ADR: Catalog-Owned Marketplace Refresh Pull Requests
@@ -263,7 +263,7 @@ catalog pull remain complete paths.
 ## References
 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.
-- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - establishes Skillset-owned XDG state and the no-activation boundary.
+- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - establishes Skillset-owned XDG state and the no-activation boundary.
 - [Marketplaces](../../reference/features/marketplaces.md) - current source, readiness, update, and lock contract.
 - [CI](../../reference/features/ci.md) - current report and generated-drift workflow behavior.
 - [GitHub workflow events: `repository_dispatch`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#repository_dispatch) - dispatch runs from the target default branch and exposes bounded client payload.

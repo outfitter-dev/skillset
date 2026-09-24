@@ -10,16 +10,22 @@ import {
   CODEX_MARKETPLACE_INTERFACE_KEYS,
   CODEX_MARKETPLACE_PRODUCT_INPUTS,
   CODEX_MARKETPLACE_SOURCE_KINDS,
+  INSTRUCTION_FRONT_PAGE_DESTINATIONS,
+  PACKAGE_OUTPUT_PATH_PATTERN,
+  PLUGIN_DRAFT_SELECTOR_PATTERN,
   PLUGIN_CONFIG_KEYS,
   RENDERED_METADATA_SCHEMA_KEY,
   RENDERED_METADATA_SCHEMA_VERSION,
   ROOT_SOURCE_MANIFEST_KEYS,
+  ROOT_DRAFT_SELECTOR_PATTERN,
+  SESSION_START_HOOK_MODES,
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
   SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
   SOURCE_METADATA_KEYS,
   SOURCE_LISTING_KEYS,
+  SOURCE_UNIT_SELECTOR_PATTERN,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
 } from "./contracts";
@@ -51,9 +57,16 @@ const targetNames = new Set<string>(TARGET_NAMES);
 const allowedToolsTargetKeys = new Set<string>(ALLOWED_TOOLS_TARGET_KEYS);
 const targetListText = formatList(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
+const sessionStartHookModes = new Set<string>(SESSION_START_HOOK_MODES);
 const unsupportedDestinationPolicies = new Set<string>(
   UNSUPPORTED_DESTINATION_POLICIES
 );
+const instructionFrontPageDestinations = new Set<string>(
+  INSTRUCTION_FRONT_PAGE_DESTINATIONS
+);
+const packageOutputPathPattern = new RegExp(PACKAGE_OUTPUT_PATH_PATTERN);
+const pluginDraftSelectorPattern = new RegExp(PLUGIN_DRAFT_SELECTOR_PATTERN);
+const rootDraftSelectorPattern = new RegExp(ROOT_DRAFT_SELECTOR_PATTERN);
 const sourceLicenseValues = new Set<string>([
   ...SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
@@ -566,6 +579,30 @@ function validateConfigContext(
       diagnostics,
       `schema/${context.code}`
     );
+  if (value.drafts !== undefined)
+    checkDraftSelectors(
+      value.drafts,
+      `${path}.drafts`,
+      `schema/${context.code}/drafts`,
+      diagnostics,
+      context.supportsPluginFeatures
+        ? pluginDraftSelectorPattern
+        : rootDraftSelectorPattern
+    );
+  if (context.supportsCompile) {
+    checkOptionalBoolean(
+      value.internal_marker,
+      `${path}.internal_marker`,
+      `schema/${context.code}/internal-marker`,
+      diagnostics
+    );
+    checkWorkspacePlugins(
+      value.plugins,
+      `${path}.plugins`,
+      `schema/${context.code}/plugins`,
+      diagnostics
+    );
+  }
   checkDependencies(
     value.dependencies,
     `${path}.dependencies`,
@@ -2072,6 +2109,197 @@ function checkRetiredTargetsKey(
     );
 }
 
+function checkDraftSelectors(
+  value: SchemaJsonValue,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  pattern: RegExp
+): void {
+  checkStringArray(value, path, "drafts", code, diagnostics, true, true);
+  if (!Array.isArray(value)) return;
+  for (const [index, selector] of value.entries()) {
+    if (typeof selector !== "string" || !pattern.test(selector)) {
+      diagnostics.push(
+        diagnostic(
+          `${path}[${index}]`,
+          code,
+          "drafts entries must select skills in the current config scope"
+        )
+      );
+    }
+  }
+}
+
+function checkWorkspacePlugins(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, code, "plugins must be an object"));
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set(["internal_use", "output"]),
+    path,
+    `${code}-key`,
+    diagnostics
+  );
+  checkInternalUse(value.internal_use, `${path}.internal_use`, code, diagnostics);
+  checkPackageOutput(value.output, `${path}.output`, code, diagnostics);
+}
+
+function checkInternalUse(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined || typeof value === "boolean") return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(
+      diagnostic(path, `${code}-internal-use`, "plugins.internal_use must be a boolean or an object")
+    );
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set(["drafts", "plugins", "skills"]),
+    path,
+    `${code}-internal-use-key`,
+    diagnostics
+  );
+  checkInternalUseSelector(value.plugins, `${path}.plugins`, code, diagnostics);
+  checkInternalUseByPlugin(value.skills, `${path}.skills`, code, diagnostics);
+  checkInternalUseDraftsByPlugin(value.drafts, `${path}.drafts`, code, diagnostics);
+}
+
+function checkInternalUseDraftsByPlugin(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, `${code}-selection`, `${path} must be an object`));
+    return;
+  }
+  for (const [pluginId, selector] of Object.entries(value)) {
+    if (selector === "only" || selector === "override") continue;
+    checkInternalUseSelector(selector, `${path}.${pluginId}`, code, diagnostics);
+  }
+}
+
+function checkInternalUseSelector(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined || typeof value === "boolean") return;
+  checkStringArray(value, path, "selection", `${code}-selection`, diagnostics, true, true);
+}
+
+function checkInternalUseByPlugin(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, `${code}-selection`, `${path} must be an object`));
+    return;
+  }
+  for (const [pluginId, selector] of Object.entries(value)) {
+    checkInternalUseSelector(
+      selector,
+      `${path}.${pluginId}`,
+      code,
+      diagnostics
+    );
+  }
+}
+
+function checkPackageOutput(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (typeof value === "string") {
+    checkPackageOutputPath(value, path, code, diagnostics);
+    return;
+  }
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, `${code}-output`, "plugins.output must be a path or an object"));
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set(["path", ...TARGET_NAMES]),
+    path,
+    `${code}-output-key`,
+    diagnostics
+  );
+  if (value.path !== undefined) checkPackageOutputPath(value.path, `${path}.path`, code, diagnostics);
+  for (const target of TARGET_NAMES) {
+    checkPackageTargetOutput(value[target], `${path}.${target}`, code, diagnostics);
+  }
+}
+
+function checkPackageTargetOutput(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (typeof value === "string") {
+    checkPackageOutputPath(value, path, code, diagnostics);
+    return;
+  }
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, `${code}-output`, `${path} must be a path or an object`));
+    return;
+  }
+  checkAllowedKeys(
+    value,
+    new Set(["combine", "name", "path"]),
+    path,
+    `${code}-output-key`,
+    diagnostics
+  );
+  if (value.path !== undefined) checkPackageOutputPath(value.path, `${path}.path`, code, diagnostics);
+  checkOptionalBoolean(value.combine, `${path}.combine`, `${code}-output-combine`, diagnostics);
+  if (value.name !== undefined && (typeof value.name !== "string" || value.name.trim().length === 0)) {
+    diagnostics.push(diagnostic(`${path}.name`, `${code}-output-name`, `${path}.name must be a non-empty string`));
+  }
+}
+
+function checkPackageOutputPath(
+  value: SchemaJsonValue,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (typeof value !== "string" || !packageOutputPathPattern.test(value)) {
+    diagnostics.push(
+      diagnostic(
+        path,
+        `${code}-output-path`,
+        `${path} must be a relative forward-slash path using at most one [name] token`
+      )
+    );
+  }
+}
+
 function checkCompile(
   value: SchemaJsonValue | undefined,
   path: string,
@@ -2090,6 +2318,8 @@ function checkCompile(
     new Set([
       "build",
       "features",
+      "instruction_front_page",
+      "session_start_hook",
       "skillset",
       "targets",
       "unsupportedDestination",
@@ -2120,6 +2350,32 @@ function checkCompile(
         `${path}.unsupportedDestination`,
         `${codePrefix}/unsupported-destination`,
         "compile.unsupportedDestination must be one of error, warn, skip, force"
+      )
+    );
+  }
+  if (
+    value.instruction_front_page !== undefined &&
+    (typeof value.instruction_front_page !== "string" ||
+      !instructionFrontPageDestinations.has(value.instruction_front_page))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.instruction_front_page`,
+        `${codePrefix}/instruction-front-page`,
+        "compile.instruction_front_page must be one of claude-dir, repo-root"
+      )
+    );
+  }
+  if (
+    value.session_start_hook !== undefined &&
+    (typeof value.session_start_hook !== "string" ||
+      !sessionStartHookModes.has(value.session_start_hook))
+  ) {
+    diagnostics.push(
+      diagnostic(
+        `${path}.session_start_hook`,
+        `${codePrefix}/session-start-hook`,
+        "compile.session_start_hook must be one of auto, off, on"
       )
     );
   }

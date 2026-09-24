@@ -45,12 +45,25 @@ export const REPORT_RELATIVE_ID_PATTERN =
   "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$";
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
+export const SESSION_START_HOOK_MODES = ["auto", "off", "on"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = [
   "error",
   "warn",
   "skip",
   "force",
 ] as const;
+export const INSTRUCTION_FRONT_PAGE_DESTINATIONS = [
+  "claude-dir",
+  "repo-root",
+] as const;
+export const PACKAGE_OUTPUT_PATH_PATTERN =
+  "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$";
+export const SOURCE_UNIT_SELECTOR_PATTERN =
+  "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$";
+export const ROOT_DRAFT_SELECTOR_PATTERN =
+  "^(?:skill:[a-z0-9][a-z0-9._-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.skill:[a-z0-9][a-z0-9._-]*)$";
+export const PLUGIN_DRAFT_SELECTOR_PATTERN =
+  "^skill:[a-z0-9][a-z0-9._-]*$";
 export const CODEX_MARKETPLACE_SOURCE_KINDS = [
   "git-subdir",
   "local",
@@ -115,8 +128,11 @@ const SHARED_CONFIG_KEYS = [
 export const SINGLE_FILE_ROOT_CONFIG_KEYS = [
   ...SHARED_CONFIG_KEYS,
   "compile",
+  "drafts",
   "distributions",
+  "internal_marker",
   "marketplaces",
+  "plugins",
   "workspace",
 ] as const;
 
@@ -145,6 +161,7 @@ export const ROOT_SOURCE_MANIFEST_KEYS = [
 export const PLUGIN_CONFIG_KEYS = [
   ...SHARED_CONFIG_KEYS,
   "bin",
+  "drafts",
   "hooks",
   "mcp",
 ] as const;
@@ -282,6 +299,8 @@ export const workspaceConfigContract = contract(
         skillset: strictObjectSchema({
           metadata: { type: "boolean" },
         }),
+        instruction_front_page: enumSchema(INSTRUCTION_FRONT_PAGE_DESTINATIONS),
+        session_start_hook: enumSchema(SESSION_START_HOOK_MODES),
         targets: arraySchema(enumSchema(TARGET_NAMES), {
           uniqueItems: true,
         }),
@@ -289,8 +308,11 @@ export const workspaceConfigContract = contract(
       }),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
+      drafts: draftSelectorsSchema(ROOT_DRAFT_SELECTOR_PATTERN),
       distributions: { type: "object" },
+      internal_marker: { type: "boolean" },
       marketplaces: marketplaceCatalogsSchema(),
+      plugins: workspacePluginsSchema(),
       skillset: sourceMetadataSchema(),
       supports: supportsSchema(),
       workspace: strictObjectSchema({
@@ -319,6 +341,7 @@ export const pluginConfigContract = contract(
       cursor: pluginTargetOverrideSchema("cursor"),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
+      drafts: draftSelectorsSchema(PLUGIN_DRAFT_SELECTOR_PATTERN),
       hooks: hookAttachmentSchema(),
       mcp: targetOverrideSchema(),
       skillset: sourceMetadataSchema(),
@@ -1161,7 +1184,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     name: nonEmptyStringSchema(),
     origin: sourceOriginSchema(),
     owner: sourceAuthorObjectSchema(),
-    outputs: { type: "object" },
+    outputs: sourceOutputsSchema(),
     presentation: { type: "object" },
     preprocess: { type: "boolean" },
     repository: { type: "string" },
@@ -1701,6 +1724,9 @@ function workspaceTargetOverrideSchema(): SchemaJsonRecord {
       {
         additionalProperties: true,
         not: { required: ["bundle"] },
+        properties: {
+          skills: fixedSkillOutputSelectionSchema(),
+        },
         type: "object",
       },
     ],
@@ -1724,16 +1750,139 @@ function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): Sche
             }),
             required: ["path"],
           },
+          skills: fixedSkillOutputSelectionSchema(),
         },
         type: "object",
       }
     : {
         additionalProperties: true,
         not: { required: ["bundle"] },
+        properties: {
+          skills: fixedSkillOutputSelectionSchema(),
+        },
         type: "object",
       };
   return {
     anyOf: [{ type: "boolean" }, objectSchema],
+  };
+}
+
+function fixedSkillOutputSelectionSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      arraySchema({ type: "string" }),
+      {
+        additionalProperties: true,
+        not: { required: ["path"] },
+        properties: {
+          enabled: { type: "boolean" },
+          include: arraySchema({ type: "string" }),
+        },
+        type: "object",
+      },
+    ],
+  };
+}
+
+function draftSelectorsSchema(pattern: string): SchemaJsonRecord {
+  return arraySchema(
+    {
+      minLength: 1,
+      pattern,
+      type: "string",
+    },
+    { uniqueItems: true }
+  );
+}
+
+function internalUseSelectorSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      arraySchema(nonEmptyStringSchema(), { uniqueItems: true }),
+    ],
+  };
+}
+
+function internalUseByPluginSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: internalUseSelectorSchema(),
+    type: "object",
+  };
+}
+
+function internalUseDraftsByPluginSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: {
+      anyOf: [
+        internalUseSelectorSchema(),
+        { enum: ["only", "override"], type: "string" },
+      ],
+    },
+    type: "object",
+  };
+}
+
+function workspacePluginsSchema(): SchemaJsonRecord {
+  const targetOutputProperties = Object.fromEntries(
+    TARGET_NAMES.map((target) => [target, packageOutputTargetSchema()])
+  );
+  return strictObjectSchema({
+    internal_use: {
+      anyOf: [
+        { type: "boolean" },
+        strictObjectSchema({
+          drafts: internalUseDraftsByPluginSchema(),
+          plugins: internalUseSelectorSchema(),
+          skills: internalUseByPluginSchema(),
+        }),
+      ],
+    },
+    output: {
+      anyOf: [
+        packageOutputPathSchema(),
+        strictObjectSchema({
+          path: packageOutputPathSchema(),
+          ...targetOutputProperties,
+        }),
+      ],
+    },
+  });
+}
+
+function packageOutputTargetSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      packageOutputPathSchema(),
+      strictObjectSchema({
+        combine: { type: "boolean" },
+        name: nonEmptyStringSchema(),
+        path: packageOutputPathSchema(),
+      }),
+    ],
+  };
+}
+
+function packageOutputPathSchema(): SchemaJsonRecord {
+  return {
+    minLength: 1,
+    pattern: PACKAGE_OUTPUT_PATH_PATTERN,
+    type: "string",
+  };
+}
+
+function sourceOutputsSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
+    properties: {
+      skills: {
+        additionalProperties: true,
+        allOf: TARGET_NAMES.map((target) => ({ not: { required: [target] } })),
+        type: "object",
+      },
+    },
+    type: "object",
   };
 }
 

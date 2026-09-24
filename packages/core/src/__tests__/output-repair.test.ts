@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "../build";
@@ -439,6 +439,27 @@ describe("build --repair", () => {
     ).resolves.toBeFalse();
   });
 
+  it("does not require an unrelated project hook preimage for scoped repair", async () => {
+    const root = await createTestFixtureRoot("skillset-core-repair-hook-");
+    const files = normalizeSkillsetFixtureFiles({
+      ...FIXTURE,
+      "skillset.yaml": `${FIXTURE["skillset.yaml"]}\ncompile:\n  session_start_hook: on\n`,
+    });
+    for (const [path, content] of Object.entries(files)) {
+      await Bun.write(join(root, path), `${content.trim()}\n`);
+    }
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await rm(join(root, OUTPUT_PATH));
+
+    const result = await buildSkillsetResult(root, { repair: { paths: [OUTPUT_PATH] } });
+    expect(result.ok).toBe(true);
+    expect(result.writes.writtenPaths).toContain(OUTPUT_PATH);
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: "output-write-preimage-invalidated",
+      outputPath: ".codex/hooks.json",
+    }));
+  });
+
   it("ignores an unmanaged output collision outside the repair scope", async () => {
     const root = await seededFixture();
     const sourceReference = ".skillset/skills/other/references/new.md";
@@ -589,7 +610,7 @@ codex: true
 
 /** A fixture whose generated output and lock are already current. */
 async function seededFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-core-repair-"));
+  const root = await createTestFixtureRoot("skillset-core-repair-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(FIXTURE)
   )) {

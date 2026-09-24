@@ -2,8 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildSkillsetResult, scopedOutputRoots } from "../build";
@@ -14,6 +13,7 @@ import {
   type ManagedOutputProvenancePolicy,
 } from "../output-safety";
 import { loadBuildGraph } from "../resolver";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const SKILL = `---
 name: review
@@ -46,8 +46,8 @@ describe("coalesced output lifecycle", () => {
     ).toContain("Review the change.");
   });
 
-  test("retains an adopted standard root alongside a custom provider root", async () => {
-    const root = await fixture(customCodexConfig());
+  test("retains an adopted standard root when fixed-root provider output is disabled", async () => {
+    const root = await fixture(standardsOnlyCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -66,15 +66,16 @@ describe("coalesced output lifecycle", () => {
     expect(
       await Bun.file(join(root, ".agents/skills/review/SKILL.md")).exists()
     ).toBe(true);
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(true);
+    const lock = JSON.parse(
+      await readFile(join(root, ".agents/skills/skillset.lock"), "utf-8")
+    );
+    expect(lock.items[0]?.consumers).toEqual([
+      { phase: "baseline", standardProfile: "agent-skills" },
+    ]);
   });
 
   test("rolls back an inactive-root transition atomically", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -103,15 +104,10 @@ describe("coalesced output lifecycle", () => {
     expect(
       await Bun.file(join(root, ".agents/skills/skillset.lock")).exists()
     ).toBe(true);
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("applies inactive-root cleanup only inside an isolated projection", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     const xdg = {
       env: { XDG_CACHE_HOME: join(root, "xdg-cache") },
       homeDir: root,
@@ -152,30 +148,25 @@ describe("coalesced output lifecycle", () => {
   });
 
   test("rejects a future-schema inactive lock without granting cleanup ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
     const lockPath = join(root, ".agents/skills/skillset.lock");
     const lock = JSON.parse(await readFile(lockPath, "utf-8"));
-    lock.schemaVersion = 4;
+    lock.schemaVersion = 5;
     await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
     await expect(
       buildSkillsetResult(root, { scopes: ["repo"] })
-    ).rejects.toThrow("unsupported schemaVersion 4");
+    ).rejects.toThrow("unsupported schemaVersion 5");
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
-  test("rejects a pre-v3 inactive lock without granting cleanup ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+  test("rejects a pre-v4 inactive lock without granting cleanup ownership", async () => {
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -192,19 +183,14 @@ describe("coalesced output lifecycle", () => {
 
     await expect(
       buildSkillsetResult(root, { scopes: ["repo"] })
-    ).rejects.toThrow("uses pre-v3 schema 2; this generated state is rebuild-only");
+    ).rejects.toThrow("uses pre-v4 schema 2; this generated state is rebuild-only");
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects a malformed inactive lock without granting legacy-root ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -220,15 +206,10 @@ describe("coalesced output lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects traversal in an inactive lock without deleting outside its root", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -249,15 +230,10 @@ describe("coalesced output lifecycle", () => {
       buildSkillsetResult(root, { scopes: ["repo"] })
     ).rejects.toThrow("must stay inside its output root");
     expect(await readFile(outsidePath, "utf-8")).toBe(outsideContent);
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("rejects a tampered inactive lock without granting cleanup ownership", async () => {
-    const root = await fixtureWithoutSkills(customCodexConfig());
+    const root = await fixtureWithoutSkills(defaultCodexConfig());
     await seedManagedStandardRoot(root, [
       { phase: "baseline", standardProfile: "agent-skills" },
     ]);
@@ -275,11 +251,6 @@ describe("coalesced output lifecycle", () => {
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");
-    expect(
-      await Bun.file(
-        join(root, "generated/codex-skills/review/SKILL.md")
-      ).exists()
-    ).toBe(false);
   });
 
   test("inspects invalid provenance only for active paths so managed edits can be backed up", async () => {
@@ -319,6 +290,7 @@ describe("coalesced output lifecycle", () => {
       fileModes: { "user-owned.txt": "0644" },
       files: ["user-owned.txt"],
       outputHash: outputHash("user-owned.txt", "keep me\n"),
+      role: "bundle",
     });
     await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
@@ -414,7 +386,7 @@ describe("coalesced output lifecycle", () => {
   });
 
   test("removes an inactive standard plugin root only in plugin scope", async () => {
-    const root = await fixture(customCodexConfig());
+    const root = await fixture(defaultCodexConfig());
     await seedManagedPluginRoot(root);
     await Bun.write(join(root, "plugins/unmanaged.txt"), "keep me\n");
     const graph = await loadBuildGraph(root);
@@ -449,26 +421,25 @@ cursor: false
 `;
 }
 
-function customCodexConfig(): string {
+function standardsOnlyCodexConfig(): string {
   return `skillset:
   name: output-plan-lifecycle
 claude: false
 codex:
-  skills:
-    path: generated/codex-skills
+  skills: false
 cursor: false
 `;
 }
 
 async function fixture(config: string): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-output-plan-"));
+  const root = await createTestFixtureRoot("skillset-output-plan-");
   await Bun.write(join(root, "skillset.yaml"), config);
   await Bun.write(join(root, ".skillset/skills/review/SKILL.md"), SKILL);
   return root;
 }
 
 async function fixtureWithoutSkills(config: string): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-output-plan-"));
+  const root = await createTestFixtureRoot("skillset-output-plan-");
   await Bun.write(join(root, "skillset.yaml"), config);
   await Bun.write(
     join(root, ".skillset/rules/root.md"),
@@ -495,10 +466,7 @@ function providerOutputPath(
   prefix: string
 ): string {
   const path = files.find(
-    (file) =>
-      file.path.startsWith(prefix) &&
-      file.path.includes("/chatgpt/") &&
-      !file.path.endsWith("/skillset.lock")
+    (file) => file.path === `${prefix}demo/plugin.json`
   )?.path;
   if (path === undefined) {
     throw new Error(`expected a live provider output under ${prefix}`);
@@ -532,6 +500,7 @@ async function appendInactiveStandardPluginItem(
     { phase: "delta", target: "codex" },
   ];
   activeItem.owner = { standardProfile: "agent-plugins-1.0" };
+  activeItem.role = "standard";
   lock.items.push({
     consumers: [{ phase: "baseline", standardProfile: "agent-plugins-1.0" }],
     fileModes: { [relativePath]: "0644" },
@@ -540,6 +509,7 @@ async function appendInactiveStandardPluginItem(
     outputHash: outputHash(relativePath, content),
     outputPath: "former",
     owner: { standardProfile: "agent-plugins-1.0" },
+    role: "standard",
     sourcePath: ".skillset/plugins/former/skillset.yaml",
   });
   lock.selectedStandards = ["agent-plugins-1.0"];
@@ -580,11 +550,12 @@ async function seedManagedStandardRoot(
         outputHash: outputHash(relativePath, content),
         outputPath: "review",
         owner,
+        role: standardOwner === undefined ? "bundle" : "standard",
         sourcePath: ".skillset/skills/review/SKILL.md",
       },
     ],
     outputRoot: ".agents/skills",
-    schemaVersion: 3,
+    schemaVersion: 4,
     standardProfileEvidence: {
       "agent-skills": `sha256:${"a".repeat(64)}`,
     },
@@ -624,11 +595,12 @@ async function seedManagedPluginRoot(root: string): Promise<void> {
             outputHash: outputHash(relativePath, content),
             outputPath: "demo",
             owner: { standardProfile: "agent-plugins-1.0" },
+            role: "standard",
             sourcePath: ".skillset/plugins/demo/plugin.yaml",
           },
         ],
         outputRoot,
-        schemaVersion: 3,
+        schemaVersion: 4,
         standardProfileEvidence: {
           "agent-plugins-1.0": `sha256:${"b".repeat(64)}`,
         },

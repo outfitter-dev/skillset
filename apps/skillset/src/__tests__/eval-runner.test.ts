@@ -1,6 +1,6 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
@@ -11,7 +11,7 @@ import {
   tailSkillsetEvalRun,
 } from "../eval-runner";
 
-test("SET-387: eval run executes the deterministic owner-aware case-target matrix without grading", async () => {
+test("SET-387: eval run resolves standalone and flattened grouped plugin skills before runtime probes", async () => {
   const root = await fixture({
     "skillset.yaml": "skillset:\n  name: eval-runtime\ncompile:\n  targets: [claude, codex]\n  unsupportedDestination: warn\n",
     ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo eval skill.\n---\n\nUse this skill.\n",
@@ -27,8 +27,8 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
     }),
     ".skillset/skills/demo/evals/files/brief.txt": "Eval brief\n",
     ".skillset/plugins/acme/skillset.yaml": "skillset:\n  name: acme\n  title: Acme\n  summary: Eval owner fixture.\n",
-    ".skillset/plugins/acme/skills/acme-demo/SKILL.md": "---\nname: acme-demo\ndescription: Plugin-owned eval skill.\n---\n\nUse this skill.\n",
-    ".skillset/plugins/acme/skills/acme-demo/evals/evals.json": JSON.stringify({
+    ".skillset/plugins/acme/skills/(engineering)/acme-demo/SKILL.md": "---\nname: acme-demo\ndescription: Plugin-owned eval skill.\n---\n\nUse this skill.\n",
+    ".skillset/plugins/acme/skills/(engineering)/acme-demo/evals/evals.json": JSON.stringify({
       skill_name: "acme-demo",
       evals: [{ expected_output: "Plugin expectation.", id: 1, prompt: "Run the plugin-owned eval." }],
     }),
@@ -59,6 +59,15 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
     command: [],
     failureClass: "setup",
   });
+  const pluginClaude = report.trials.find((trial) =>
+    trial.owner.kind === "plugin" && trial.target === "claude"
+  );
+  expect(pluginClaude).toMatchObject({
+    classification: "completed",
+    owner: { kind: "plugin", plugin: "acme" },
+    skill: "acme-demo",
+  });
+  expect(pluginClaude?.command.length).toBeGreaterThan(0);
   expect(report.trials.every((trial) => !("ok" in trial))).toBe(true);
   expect(report.trials.filter((trial) => trial.owner.kind === "standalone").every((trial) => trial.expectations.length === 1)).toBe(true);
   expect(report.trials.find((trial) =>
@@ -74,7 +83,20 @@ test("SET-387: eval run executes the deterministic owner-aware case-target matri
       expect(await readFile(staged, "utf8")).toBe("Eval brief\n");
     }
     const trialWorkspace = cachePath(root, xdg, trial.workspacePath);
-    expect(await Bun.file(join(trialWorkspace, `.agents/skills/${trial.skill}/SKILL.md`)).exists()).toBe(true);
+    const standardSkillPath = trial.owner.kind === "plugin"
+      ? `plugins/${trial.owner.plugin}/skills/${trial.skill}/SKILL.md`
+      : `.agents/skills/${trial.skill}/SKILL.md`;
+    expect(await Bun.file(join(trialWorkspace, standardSkillPath)).exists()).toBe(true);
+    if (trial.owner.kind === "plugin") {
+      expect(
+        await Bun.file(
+          join(
+            trialWorkspace,
+            `plugins/${trial.owner.plugin}/skills/(engineering)/${trial.skill}/SKILL.md`
+          )
+        ).exists()
+      ).toBe(false);
+    }
     if (trial.target === "codex") {
       expect(await Bun.file(join(trialWorkspace, `.claude/skills/${trial.skill}/SKILL.md`)).exists()).toBe(false);
     }
@@ -150,12 +172,22 @@ test("SET-387: provider infrastructure failures and cancellation stay distinct f
   });
 
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), 50);
-  const cancelled = await runSkillsetEvals(root, {
-    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: await sleepingCodexBin(root) },
+  // Abort once a trial is genuinely in flight rather than after a fixed delay.
+  // A wall-clock timer cannot guarantee a trial has started: under CPU
+  // oversubscription the abort landed first, no trial was recorded, and this
+  // test failed reproducibly under `bun test --parallel`.
+  const started = join(root, "trial-started");
+  const running = runSkillsetEvals(root, {
+    env: {
+      ...process.env,
+      SKILLSET_TEST_CODEX_BIN: await sleepingCodexBin(root, started),
+    },
     signal: controller.signal,
     xdg,
   });
+  await waitForPath(started);
+  controller.abort();
+  const cancelled = await running;
   expect(cancelled.trials[0]).toMatchObject({
     classification: "infrastructure_failure",
     failureClass: "cancelled",
@@ -315,7 +347,7 @@ async function evalFixture(): Promise<string> {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-eval-runner-"));
+  const root = await createTestFixtureRoot("skillset-eval-runner-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });
@@ -336,8 +368,31 @@ async function capturingCodexBin(root: string): Promise<string> {
   return executable(root, "capturing-codex", "#!/bin/sh\nlast=\"\"\nprev=\"\"\nfor arg in \"$@\"; do\n  if [ \"$prev\" = \"--output-last-message\" ]; then last=\"$arg\"; fi\n  prev=\"$arg\"\ndone\ninput=\"$(cat)\"\nprintf '%s\\n' \"$input\" > \"$last\"\nprintf '%s\\n' \"$input\"\n");
 }
 
-async function sleepingCodexBin(root: string): Promise<string> {
-  return executable(root, "sleeping-codex", "#!/bin/sh\nsleep 1\n");
+/**
+ * A stand-in provider that announces itself before sleeping.
+ *
+ * `startedMarker` is created the moment the provider runs, which lets a test
+ * observe that a trial is actually in flight instead of guessing with a timer.
+ */
+async function sleepingCodexBin(
+  root: string,
+  startedMarker?: string
+): Promise<string> {
+  const announce =
+    startedMarker === undefined ? "" : `: > "${startedMarker}"\n`;
+  // Sleep well beyond the marker poll so the abort cannot arrive after the
+  // trial has already finished on a fast, idle host.
+  return executable(root, "sleeping-codex", `#!/bin/sh\n${announce}sleep 10\n`);
+}
+
+/** Wait for a path to appear, failing loudly rather than hanging. */
+async function waitForPath(path: string, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await Bun.file(path).exists()) return;
+    await Bun.sleep(10);
+  }
+  throw new Error(`timed out after ${timeoutMs}ms waiting for ${path}`);
 }
 
 async function interleavedCodexBin(root: string): Promise<string> {

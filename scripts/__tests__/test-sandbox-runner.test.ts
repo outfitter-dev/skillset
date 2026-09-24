@@ -3,15 +3,15 @@ import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
   realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { homedir } from "node:os";
+import { basename, delimiter, dirname, join } from "node:path";
 
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
   pinnedBunExecutableName,
   pinnedBunInstallCommand,
@@ -19,6 +19,7 @@ import {
   prependExecutablePath,
   publishPinnedBunCache,
 } from "../pinned-bun";
+import { resolveTestRepoIdentity, TEST_SANDBOX_LEASE } from "../test-sandbox-retention";
 
 const runner = join(import.meta.dir, "..", "test-sandbox.ts");
 
@@ -73,83 +74,71 @@ for (const staleKind of [
   test(`SET-604: pinned runtime publication replaces a ${staleKind} cache`, async () => {
     if (process.platform === "win32") return;
 
-    const root = await mkdtemp(join(tmpdir(), "skillset-bun-publish-"));
+    const root = await createTestFixtureRoot("skillset-bun-publish-");
     const target = join(root, "target");
     const staging = join(root, "staging");
-    try {
-      await writeFakeBun(staging, "1.4.0");
-      if (staleKind === "partial") {
-        await mkdir(target);
-        await writeFile(join(target, "interrupted-install"), "partial\n");
-      } else if (staleKind === "spawn-invalid") {
-        const binPath = join(target, "bin", "bun");
-        await mkdir(dirname(binPath), { recursive: true });
-        await writeFile(binPath, "not an executable\n");
-        await chmod(binPath, 0o755);
-      } else {
-        await writeFakeBun(
-          target,
-          staleKind === "wrong-version" ? "1.3.0" : "1.4.0",
-          staleKind === "non-executable" ? 0o644 : 0o755
-        );
-      }
-
-      await publishPinnedBunCache("1.4.0", staging, target);
-
-      expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
-      await expect(access(staging)).rejects.toThrow();
-      expect(
-        await Array.fromAsync(new Bun.Glob("target.invalid-*").scan(root))
-      ).toEqual([]);
-    } finally {
-      await rm(root, { force: true, recursive: true });
+    await writeFakeBun(staging, "1.4.0");
+    if (staleKind === "partial") {
+      await mkdir(target);
+      await writeFile(join(target, "interrupted-install"), "partial\n");
+    } else if (staleKind === "spawn-invalid") {
+      const binPath = join(target, "bin", "bun");
+      await mkdir(dirname(binPath), { recursive: true });
+      await writeFile(binPath, "not an executable\n");
+      await chmod(binPath, 0o755);
+    } else {
+      await writeFakeBun(
+        target,
+        staleKind === "wrong-version" ? "1.3.0" : "1.4.0",
+        staleKind === "non-executable" ? 0o644 : 0o755
+      );
     }
+
+    await publishPinnedBunCache("1.4.0", staging, target);
+
+    expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
+    await expect(access(staging)).rejects.toThrow();
+    expect(
+      await Array.fromAsync(new Bun.Glob("target.invalid-*").scan(root))
+    ).toEqual([]);
   });
 }
 
 test("SET-604: pinned runtime publication rejects a wrong staged version", async () => {
   if (process.platform === "win32") return;
 
-  const root = await mkdtemp(join(tmpdir(), "skillset-bun-staging-"));
+  const root = await createTestFixtureRoot("skillset-bun-staging-");
   const target = join(root, "target");
   const staging = join(root, "staging");
-  try {
-    await writeFakeBun(staging, "1.3.0");
+  await writeFakeBun(staging, "1.3.0");
 
-    await expect(
-      publishPinnedBunCache("1.4.0", staging, target)
-    ).rejects.toThrow("staged runtime does not report bun-v1.4.0");
+  await expect(
+    publishPinnedBunCache("1.4.0", staging, target)
+  ).rejects.toThrow("staged runtime does not report bun-v1.4.0");
 
-    await expect(access(staging)).resolves.toBeNull();
-    await expect(access(target)).rejects.toThrow();
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  await expect(access(staging)).resolves.toBeNull();
+  await expect(access(target)).rejects.toThrow();
 });
 
 test("SET-604: concurrent pinned runtime publishers accept only a valid winner", async () => {
   if (process.platform === "win32") return;
 
-  const root = await mkdtemp(join(tmpdir(), "skillset-bun-race-"));
+  const root = await createTestFixtureRoot("skillset-bun-race-");
   const target = join(root, "target");
   const first = join(root, "first");
   const second = join(root, "second");
-  try {
-    await Promise.all([
-      writeFakeBun(target, "1.3.0"),
-      writeFakeBun(first, "1.4.0"),
-      writeFakeBun(second, "1.4.0"),
-    ]);
+  await Promise.all([
+    writeFakeBun(target, "1.3.0"),
+    writeFakeBun(first, "1.4.0"),
+    writeFakeBun(second, "1.4.0"),
+  ]);
 
-    await Promise.all([
-      publishPinnedBunCache("1.4.0", first, target),
-      publishPinnedBunCache("1.4.0", second, target),
-    ]);
+  await Promise.all([
+    publishPinnedBunCache("1.4.0", first, target),
+    publishPinnedBunCache("1.4.0", second, target),
+  ]);
 
-    expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
 });
 
 test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox", async () => {
@@ -188,6 +177,32 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
   expect(observed.count).toBeUndefined();
   await expect(access(observed.marker)).rejects.toThrow();
   expect(await decoySnapshot(decoy.files)).toEqual(before);
+});
+
+test("SET-388: fresh runner strips inherited Git repository targeting", async () => {
+  const names = [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  ];
+  const result = await run(
+    [
+      "bun",
+      "-e",
+      `console.log(JSON.stringify(Object.fromEntries(${JSON.stringify(names)}.map((name) => [name, process.env[name]]))))`,
+    ],
+    {
+      ...Object.fromEntries(names.map((name) => [name, `/ambient/${name}`])),
+      SKILLSET_TEST_SANDBOX: "",
+    }
+  );
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout.trim())).toEqual({});
 });
 
 test("SET-389: Git fixtures ignore ambient config, includes, templates, hooks, and identity", async () => {
@@ -317,7 +332,7 @@ test("SET-388: child commands use a portable umask under restrictive callers", a
 });
 
 test("SET-388: inherited worktree descriptors fail before child execution or cleanup", async () => {
-  const worktree = await mkdtemp(join(tmpdir(), "skillset-worktree-forgery-"));
+  const worktree = await createTestFixtureRoot("skillset-worktree-forgery-");
   const sandboxPath = join(worktree, "skillset-test-nested");
   const xdg = {
     cache: join(sandboxPath, "xdg", "cache"),
@@ -358,7 +373,6 @@ test("SET-388: inherited worktree descriptors fail before child execution or cle
   expect(result.stderr).toContain("Git worktree");
   await expect(access(sentinel)).rejects.toThrow();
   await expect(access(descriptorPath)).resolves.toBeNull();
-  await rm(worktree, { recursive: true });
 });
 
 test("SET-388: explicit retention reports the owned sandbox and descriptor", async () => {
@@ -370,8 +384,70 @@ test("SET-388: explicit retention reports the owned sandbox and descriptor", asy
   const descriptorPath = result.stdout.trim();
   expect(result.stderr).toContain("retained test sandbox");
   expect(result.stderr).toContain(`descriptor: ${descriptorPath}`);
-  await expect(access(descriptorPath)).resolves.toBeNull();
-  await rm(dirname(descriptorPath), { recursive: true });
+  const sandboxPath = dirname(descriptorPath);
+  try {
+    await expect(access(descriptorPath)).resolves.toBeNull();
+    const descriptor = JSON.parse(await readFile(descriptorPath, "utf8")) as { invocationId: string };
+    const lease = JSON.parse(await readFile(join(sandboxPath, TEST_SANDBOX_LEASE), "utf8")) as {
+      gitCommonDir: string;
+      invocationId: string;
+      pid: number;
+    };
+    expect(lease.invocationId).toBe(descriptor.invocationId);
+    expect(lease.gitCommonDir).toBe(await resolveTestRepoIdentity(join(import.meta.dir, "..", "..")));
+    expect(Number.isSafeInteger(lease.pid)).toBe(true);
+  } finally {
+    await rm(sandboxPath, { recursive: true });
+  }
+});
+
+test("SET-628: unavailable Git identity does not fail test execution or authorize cleanup", async () => {
+  if (process.platform === "win32") return;
+  const bin = await createTestFixtureRoot("skillset-failing-git-");
+  const fakeGit = join(bin, "git");
+  await writeFile(fakeGit, "#!/bin/sh\nexit 1\n");
+  await chmod(fakeGit, 0o755);
+  const result = await run(
+    ["bun", "-e", "console.log(process.env.SKILLSET_TEST_SANDBOX)"],
+    {
+      PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+      SKILLSET_TEST_SANDBOX: "",
+      SKILLSET_TEST_SANDBOX_RETAIN: "1",
+    }
+  );
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.stderr).toContain("could not record test sandbox lease");
+  expect(result.stderr).toContain("could not scan stale test sandboxes");
+  const sandboxPath = dirname(result.stdout.trim());
+  try {
+    await expect(access(join(sandboxPath, TEST_SANDBOX_LEASE))).rejects.toThrow();
+  } finally {
+    await rm(sandboxPath, { recursive: true });
+  }
+});
+
+test("SET-626: explicit retention keeps fixtures created under the owned sandbox", async () => {
+  const helperPath = join(import.meta.dir, "..", "test-helpers", "fixture-root.ts");
+  const script = `const { createTestFixtureRoot } = await import(${JSON.stringify(helperPath)}); const { join } = await import("node:path"); const root = await createTestFixtureRoot("skillset-retained-fixture-"); await Bun.write(join(root, "sentinel"), "kept"); console.log(JSON.stringify({ root, descriptor: process.env.SKILLSET_TEST_SANDBOX }));`;
+  const result = await run(["bun", "-e", script], {
+    SKILLSET_TEST_SANDBOX: "",
+    SKILLSET_TEST_SANDBOX_RETAIN: "1",
+  });
+  expect(result.exitCode, result.stderr).toBe(0);
+  const evidence = JSON.parse(result.stdout.trim()) as {
+    descriptor: string;
+    root: string;
+  };
+  const sandboxPath = dirname(evidence.descriptor);
+  expect(basename(sandboxPath)).toMatch(/^skillset-test-/u);
+  expect(dirname(evidence.root)).toBe(sandboxPath);
+  try {
+    expect(result.stderr).toContain("retained test sandbox");
+    await expect(access(evidence.descriptor)).resolves.toBeNull();
+    await expect(access(join(evidence.root, "sentinel"))).resolves.toBeNull();
+  } finally {
+    await rm(sandboxPath, { recursive: true });
+  }
 });
 
 test("SET-388: cleanup refuses a replaced sandbox and reports retention", async () => {
@@ -444,7 +520,7 @@ async function runVersion(binPath: string): Promise<string> {
 }
 
 async function decoyEnvironment() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-decoy-"));
+  const root = await createTestFixtureRoot("skillset-decoy-");
   const home = join(root, "home");
   const roots = {
     cache: join(root, "xdg-cache"),
@@ -493,7 +569,7 @@ async function decoyEnvironment() {
 }
 
 async function gitContaminationEnvironment() {
-  const root = await mkdtemp(join(tmpdir(), "skillset-git-decoy-"));
+  const root = await createTestFixtureRoot("skillset-git-decoy-");
   const home = join(root, "home");
   const gitRoot = join(root, "git");
   const template = join(root, "template");

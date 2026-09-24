@@ -130,6 +130,7 @@ export const parseImportCommandRequest = (
 export interface NewExplicitOptions {
   readonly container: string | undefined;
   readonly displayName: string | undefined;
+  readonly draft: boolean;
   readonly id: string | undefined;
   readonly json: boolean;
   readonly presets: readonly string[] | undefined;
@@ -153,6 +154,7 @@ export const parseNewCommandRequest = (
   let container: string | undefined;
   let buildMode: "all" | "updated" | undefined;
   let displayName: string | undefined;
+  let draft = false;
   let hookAttachment: string | undefined;
   let hookCommand: string | undefined;
   let hookEvents: string[] | undefined;
@@ -182,6 +184,10 @@ export const parseNewCommandRequest = (
         break;
       case "--in":
         container = reader.readRequiredOptionValue(option);
+        break;
+      case "--draft":
+        assertBooleanOption(option);
+        draft = true;
         break;
       case "--attach":
         hookAttachment = reader.readRequiredOptionValue(option);
@@ -251,6 +257,7 @@ export const parseNewCommandRequest = (
   const explicit: NewExplicitOptions = {
     container,
     displayName,
+    draft,
     id,
     json,
     presets: presets === undefined ? undefined : parseSkillPresets(presets),
@@ -266,6 +273,7 @@ export const parseNewCommandRequest = (
     ...(hookScript === undefined ? {} : { hookScript }),
     jsonOutput: explicit.json,
     newContainer: explicit.container,
+    newDraft: explicit.draft,
     newId: explicit.id,
     newKind: kind,
     newName: explicit.displayName,

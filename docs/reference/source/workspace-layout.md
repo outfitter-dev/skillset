@@ -11,20 +11,20 @@ A Skillset [workspace](../../glossary.md#workspace) keeps its root `skillset.yam
 ```text
 skillset.yaml
 .skillset/
-  agents/
+  RULES.md
+  subagents/
     <agent-name>.md
   changes/
   hooks/
-  partials/
   plugins/
     <plugin-name>/
       skillset.yaml
       README.md
-      agents/
+      subagents/
       commands/
       hooks/
-      partials/
       shared/
+        partials/
       skills/
       _claude/
       _codex/
@@ -36,6 +36,7 @@ skillset.yaml
     references/
     scripts/
     templates/
+    partials/
   skills/
     <skill-name>/
       SKILL.md
@@ -57,12 +58,13 @@ Use the [project configuration guide](../../configuration/project-configuration.
 | Source path | Purpose |
 | --- | --- |
 | `.skillset/skills/<skill>/` | Standalone skills and their skill-local support files. |
+| `.skillset/RULES.md` | Unscoped instruction front page for root `AGENTS.md`. |
 | `.skillset/rules/**/*.md` | Durable portable project instructions. |
-| `.skillset/agents/*.md` | Portable project-agent definitions. |
+| `.skillset/subagents/*.md` | Portable project-agent definitions. |
 | `.skillset/hooks/` | Adaptive project hook definitions. |
 | `.skillset/plugins/<plugin>/` | Plugin-scoped source, including skills and native companion material. |
 | `.skillset/shared/` | Workspace resources that a skill may declare and copy into its generated directory. |
-| `.skillset/partials/` | Workspace named partials used during Markdown preprocessing. |
+| `.skillset/shared/partials/` | Workspace named partials used during Markdown preprocessing. |
 | `.skillset/tests.yaml` and `.skillset/tests/*.yaml` | Workspace-owned behavioral test declarations. |
 | `.skillset/changes/` | Committed change and [release state](../features/releases.md). |
 
@@ -78,11 +80,20 @@ Codex command-policy files are one important distinction: `.skillset/_codex/rule
 
 ## Generated destinations and provenance
 
-An enabled [target](../../glossary.md#target) receives files in its native repository layout. Standalone skills normally render below `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`; project instructions render to Claude and Cursor rule roots or Codex `AGENTS.md` files; plugin bundles normally render below `plugins/<plugin>/claude/`, `plugins/<plugin>/chatgpt/` for the Codex-selected product bundle, or `plugins/<plugin>/cursor/`. Configuration can select or relocate supported destinations.
+An enabled [target](../../glossary.md#target) receives files in its native repository layout. Standalone skills normally render below `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`; plugin-owned skills render once inside `plugins/<plugin>/skills/`; project instructions render to Claude and Cursor rule roots or Codex `AGENTS.md` files; provider manifests and supported components share the same `plugins/<plugin>/` package. Custom package placement remains unsupported until SET-561. A plugin-owned skill appears in a repository skill root only through a separately owned project-use projection.
 
-Nearby `skillset.lock` files record source paths, target ownership, hashes, and render evidence. Generated paths are reviewable and may be committed, but edit `.skillset/` when the intent is portable. Use `skillset explain <path>` to trace one source or destination and `skillset check --only outputs` to detect [drift](../../glossary.md#drift). Exact flags belong to the generated [CLI reference](../cli/README.md).
+Nearby `skillset.lock` files record source paths, destination ownership, projection role, hashes, and render evidence. Current locks distinguish `standard`, `project-use`, and provider `bundle` roles. Generated paths are reviewable and may be committed, but edit `.skillset/` when the intent is portable. Use `skillset explain <path>` to trace one source or destination and its role, and `skillset check --only outputs` to detect [drift](../../glossary.md#drift). Exact flags belong to the generated [CLI reference](../cli/README.md).
 
 Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. [Build and activation are separate workflows](../../start/build-versus-activation.md).
+
+`skillset move <from> <to>` moves one shipped skill between
+`.skillset/skills/<leaf>` and
+`.skillset/plugins/<plugin>/skills/<leaf>` inside this workspace. It preserves
+the leaf identity, carries only a same-container `_drafts/<leaf>` sibling,
+rewrites current source selectors, and appends identity history without
+rewriting old change records. External checkouts, another workspace, arbitrary
+directories, and leaf changes are refused before any write. The command is
+plan-first; rerun the displayed operation with `--yes` to apply it atomically.
 
 ## Operational storage and lifetimes
 

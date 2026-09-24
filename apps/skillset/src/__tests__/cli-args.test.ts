@@ -270,9 +270,37 @@ describe("SET-299 CLI request characterization", () => {
         command: "new",
         request: {
           jsonOutput: false,
+          newDraft: false,
           newKind: "skill",
           options: {},
           rootPath: ROOT,
+          yes: false,
+        },
+      },
+    },
+    {
+      route: "draft",
+      args: ["draft", "shipped", "--root", ROOT],
+      expected: {
+        command: "draft",
+        request: {
+          jsonOutput: false,
+          rootPath: ROOT,
+          shippedPath: "shipped",
+          yes: false,
+        },
+      },
+    },
+    {
+      route: "move",
+      args: ["move", "old", "new", "--root", ROOT],
+      expected: {
+        command: "move",
+        request: {
+          from: "old",
+          jsonOutput: false,
+          rootPath: ROOT,
+          to: "new",
           yes: false,
         },
       },
@@ -286,6 +314,19 @@ describe("SET-299 CLI request characterization", () => {
           jsonOutput: false,
           managedPath: "managed.md",
           options: {},
+          rootPath: ROOT,
+          yes: false,
+        },
+      },
+    },
+    {
+      route: "promote",
+      args: ["promote", "_drafts/demo", "--root", ROOT],
+      expected: {
+        command: "promote",
+        request: {
+          draftPath: "_drafts/demo",
+          jsonOutput: false,
           rootPath: ROOT,
           yes: false,
         },
@@ -529,14 +570,14 @@ describe("SET-299 CLI request characterization", () => {
     },
     {
       route: "hooks run",
-      args: ["hooks", "run", "stop", "--root", ROOT],
+      args: ["hooks", "run", "session-start", "--root", ROOT],
       expected: {
         command: "hooks",
         request: {
           hookAgentRuntime: false,
           hookPreCommit: false,
           hookPrePush: false,
-          hookRunEvent: "stop",
+          hookRunEvent: "session-start",
           hookSubcommand: "run",
           rootPath: ROOT,
         },
@@ -703,6 +744,15 @@ describe("SET-299 CLI request characterization", () => {
     expect(
       [...cases, ...leafCases].map(({ route }) => route).toSorted()
     ).toEqual(Object.keys(CLI_ROUTE_FLAGS).toSorted());
+  });
+
+  test("accepts the existing stop hook run event", () => {
+    expect(
+      canonical(parseCliRequest(["hooks", "run", "stop", "--root", ROOT]))
+    ).toMatchObject({
+      command: "hooks",
+      request: { hookRunEvent: "stop", hookSubcommand: "run" },
+    });
   });
 
   test("keeps the hidden test worker executable with explicit protocol grammar", () => {

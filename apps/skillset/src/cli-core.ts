@@ -1,103 +1,100 @@
-import { runBuildCommand, runDiffCommand } from "./build-cli";
-import { runChangeCommand } from "./change-cli";
-import { runCheckCommand } from "./check-cli";
-import { runCreateCommand } from "./create-cli";
-import { parseCliRequest } from "./cli-args";
 import { renderCliHelp } from "./cli-help";
 import { cliVersion } from "./cli-version";
-import { runDevCommand } from "./dev-cli";
-import { runEvalCommand } from "./eval-cli";
-import {
-  runDistributionCommand,
-  runMarketplaceCommand,
-} from "./distribution-cli";
-import { runHooksCommand } from "./hooks-cli";
-import { runInitCommand } from "./init-cli";
-import {
-  runExplainCommand,
-  runListCommand,
-  runLookupFeaturesCommand,
-  runLookupRoute,
-  runStatusCommand,
-} from "./inspect-cli";
-import { PromptCancelledError } from "./prompt-adapter";
-import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
-import { runRenameCommand } from "./rename-cli";
-import { runResolveCommand } from "./resolve-cli";
-import { runReleaseCommand } from "./release-cli";
-import { runReportCommand } from "./report-cli";
-import { runImportCommand, runNewCommand } from "./source-cli";
-import { runTestCommand } from "./test-cli";
-import { runUpdateCommand } from "./update-cli";
+import { PromptCancelledError } from "./prompt-cancelled-error";
 
 export async function runCli(
   rawArgs: readonly string[] = process.argv.slice(2)
 ): Promise<void> {
   if (rawArgs.length === 1 && rawArgs[0] === "--version") {
-    console.log(cliVersion);
+    await writeFastPath(`${cliVersion}\n`);
     return;
   }
 
   if (rawArgs.some((arg) => arg === "--help" || arg === "-h")) {
-    console.log(renderCliHelp(rawArgs));
+    await writeFastPath(`${renderCliHelp(rawArgs)}\n`);
     return;
   }
 
+  const { parseCliRequest } = await import("./cli-args");
   const route = parseCliRequest(rawArgs);
   switch (route.command) {
     case "build":
-      return runBuildCommand(route.request);
+      return (await import("./build-cli")).runBuildCommand(route.request);
     case "change":
-      return runChangeCommand(route.request);
+      return (await import("./change-cli")).runChangeCommand(route.request);
     case "check":
-      return runCheckCommand(route.request);
+      return (await import("./check-cli")).runCheckCommand(route.request);
     case "create":
-      return runCreateCommand(route.request);
+      return (await import("./create-cli")).runCreateCommand(route.request);
     case "dev":
-      return runDevCommand(route.request);
+      return (await import("./dev-cli")).runDevCommand(route.request);
+    case "draft":
+      return (await import("./draft-cli")).runDraftCommand(route.request);
     case "diff":
-      return runDiffCommand(route.request);
+      return (await import("./build-cli")).runDiffCommand(route.request);
     case "eval":
-      return runEvalCommand(route.request);
+      return (await import("./eval-cli")).runEvalCommand(route.request);
     case "distribute":
-      return runDistributionCommand(route.request);
+      return (await import("./distribution-cli")).runDistributionCommand(
+        route.request
+      );
     case "explain":
-      return runExplainCommand(route.request);
+      return (await import("./inspect-cli")).runExplainCommand(route.request);
     case "hooks":
-      return runHooksCommand(route.request);
+      return (await import("./hooks-cli")).runHooksCommand(route.request);
     case "import":
-      return runImportCommand(route.request);
+      return (await import("./source-cli")).runImportCommand(route.request);
     case "init":
-      return runInitCommand(route.request);
+      return (await import("./init-cli")).runInitCommand(route.request);
     case "list":
-      return runListCommand(route.request);
+      return (await import("./inspect-cli")).runListCommand(route.request);
     case "lookup":
       return route.request.kind === "features"
-        ? runLookupFeaturesCommand(route.request.value)
-        : runLookupRoute(route.request.value);
+        ? (await import("./inspect-cli")).runLookupFeaturesCommand(
+            route.request.value
+          )
+        : (await import("./inspect-cli")).runLookupRoute(route.request.value);
     case "marketplace":
-      return runMarketplaceCommand(route.request);
+      return (await import("./distribution-cli")).runMarketplaceCommand(
+        route.request
+      );
+    case "move":
+      return (await import("./move-cli")).runMoveCommand(route.request);
     case "new":
-      return runNewCommand(route.request);
+      return (await import("./source-cli")).runNewCommand(route.request);
+    case "promote":
+      return (await import("./promote-cli")).runPromoteCommand(route.request);
     case "reconcile":
-      return runReconcileCommand(route.request);
+      return (await import("./recovery-cli")).runReconcileCommand(
+        route.request
+      );
     case "rename":
-      return runRenameCommand(route.request);
+      return (await import("./rename-cli")).runRenameCommand(route.request);
     case "release":
-      return runReleaseCommand(route.request);
+      return (await import("./release-cli")).runReleaseCommand(route.request);
     case "report":
-      return runReportCommand(route.request);
+      return (await import("./report-cli")).runReportCommand(route.request);
     case "resolve":
-      return runResolveCommand(route.request);
+      return (await import("./resolve-cli")).runResolveCommand(route.request);
     case "restore":
-      return runRestoreCommand(route.request);
+      return (await import("./recovery-cli")).runRestoreCommand(route.request);
     case "status":
-      return runStatusCommand(route.request);
+      return (await import("./inspect-cli")).runStatusCommand(route.request);
     case "test":
-      return runTestCommand(route.request);
+      return (await import("./test-cli")).runTestCommand(route.request);
     case "update":
-      return runUpdateCommand(route.request);
+      return (await import("./update-cli")).runUpdateCommand(route.request);
   }
+}
+
+function writeFastPath(text: string): Promise<void> {
+  // A fast process can exit before Bun flushes console.log to a pipe.
+  return new Promise((resolve, reject) => {
+    process.stdout.write(text, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
 }
 
 export function reportCliError(error: unknown): void {

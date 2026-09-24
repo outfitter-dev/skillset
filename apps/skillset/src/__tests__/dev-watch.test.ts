@@ -1,11 +1,12 @@
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, symlink } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { expect, test } from "bun:test";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
+  collectDevWatchDirectories,
   createDevWatchJsonlStream,
   createDevWatchDebouncer,
   createDevWatchPlan,
@@ -14,13 +15,38 @@ import {
   runDevWatchApply,
   runDevWatchPreview,
   shouldRunDevPreviewForPath,
+  type DevWatchPlan,
   type DevWatchPreviewReport,
   type DevWatchScheduler,
 } from "../dev-watch";
 import { parseCliEventStream } from "../cli-output";
 
+test("SET-647: missing watch roots stay omitted and a watch-root loop raises", async () => {
+  const root = await createTestFixtureRoot("skillset-dev-watch-existence-");
+  const loop = join(root, "loop");
+  await symlink(basename(loop), loop);
+  const plan = (watchRoots: readonly string[]): DevWatchPlan => ({
+    configPaths: ["skillset.yaml"],
+    ignoredRoots: [],
+    outputRoots: [],
+    rootPath: root,
+    sourceRoot: ".skillset",
+    watchRoots,
+  });
+
+  await expect(collectDevWatchDirectories(plan(["missing"]))).resolves.toEqual([]);
+  await mkdir(join(root, ".skillset"), { recursive: true });
+  await expect(collectDevWatchDirectories(plan([".skillset"]))).resolves.toEqual([
+    ".skillset",
+  ]);
+  await expect(collectDevWatchDirectories(plan(["loop"]))).rejects.toMatchObject({
+    code: "ELOOP",
+    path: loop,
+  });
+});
+
 test("SET-210: dev watch plan covers ordinary source and ignores generated churn", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-ordinary-"));
+  const root = await createTestFixtureRoot("skillset-dev-watch-ordinary-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
@@ -48,7 +74,7 @@ test("SET-210: dev watch plan covers ordinary source and ignores generated churn
 });
 
 test("SET-210: dev watch plan covers created source repos", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-dev-watch-root-"));
+  const parent = await createTestFixtureRoot("skillset-dev-watch-root-");
   await expect(runSkillsetCli("create", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
@@ -97,7 +123,7 @@ test("SET-210: dev watch debounces repeated triggers without sleeping", () => {
 });
 
 test("SET-210: dev preview reports clean generated-output state", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-preview-"));
+  const root = await createTestFixtureRoot("skillset-dev-watch-preview-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
@@ -115,7 +141,7 @@ test("SET-210: dev preview reports clean generated-output state", async () => {
 });
 
 test("SET-451: dev preview reports blocked output collisions in text and JSONL", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-blocked-preview-"));
+  const root = await createTestFixtureRoot("skillset-dev-watch-blocked-preview-");
   await Bun.write(
     join(root, "skillset.yaml"),
     "skillset:\n  name: blocked-preview\ncompile:\n  targets: [codex]\n"
@@ -160,7 +186,7 @@ test("SET-451: dev preview reports blocked output collisions in text and JSONL",
 });
 
 test("SET-212: dev write writes generated output with build safeguards", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-"));
+  const root = await createTestFixtureRoot("skillset-dev-watch-apply-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
@@ -188,7 +214,7 @@ test("SET-212: dev write writes generated output with build safeguards", async (
 });
 
 test("SET-212: dev write blocks unmanaged collisions without backup writes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-backup-"));
+  const root = await createTestFixtureRoot("skillset-dev-watch-apply-backup-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
@@ -269,7 +295,7 @@ test("SET-289: dev JSONL emits controlled started, operation, and terminal event
 });
 
 test("SET-289: JSONL watch setup failures stay in the active sequence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-setup-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-setup-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
   let exitCode: number | undefined;
@@ -292,7 +318,7 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
 });
 
 test("SET-289: initial JSONL operation failures stay in the active sequence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-initial-failure-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-initial-failure-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
 
@@ -312,7 +338,7 @@ test("SET-289: initial JSONL operation failures stay in the active sequence", as
 });
 
 test("SET-289: debounced JSONL operation failures terminate the active sequence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-operation-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-operation-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
   let runs = 0;
@@ -339,7 +365,7 @@ test("SET-289: debounced JSONL operation failures terminate the active sequence"
 });
 
 test("SET-289: JSONL signals during the initial operation still terminate the sequence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-initial-signal-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-initial-signal-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
 
@@ -357,7 +383,7 @@ test("SET-289: JSONL signals during the initial operation still terminate the se
 });
 
 test("SET-289: signals do not wait for a stalled initial operation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-stalled-initial-signal-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-stalled-initial-signal-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
   let signal: (() => void) | undefined;
@@ -389,7 +415,7 @@ test("SET-289: signals do not wait for a stalled initial operation", async () =>
 });
 
 test("SET-289: signals do not wait for stalled watch-root collection", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-stalled-roots-signal-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-stalled-roots-signal-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
   let signal: (() => void) | undefined;
@@ -425,7 +451,7 @@ test("SET-289: signals do not wait for stalled watch-root collection", async () 
 });
 
 test("SET-289: write signals wait for the initial operation before completing", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-apply-signal-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-apply-signal-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
   let signal: (() => void) | undefined;
@@ -479,7 +505,7 @@ test("SET-289: write signals wait for the initial operation before completing", 
 });
 
 test("SET-289: shutdown cancels operations queued behind an active run", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-queued-signal-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-queued-signal-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
   let runs = 0;
@@ -529,7 +555,7 @@ test("SET-289: shutdown cancels operations queued behind an active run", async (
 });
 
 test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-"));
+  const root = await createTestFixtureRoot("skillset-dev-jsonl-");
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), "dev", "--jsonl", "--root", root],

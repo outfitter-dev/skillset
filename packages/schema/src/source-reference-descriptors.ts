@@ -46,6 +46,44 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
     scope: "agent-visible-skills",
   }),
   freezeDescriptor({
+    contracts: ["workspace-config", "root-source-manifest", "plugin-config"],
+    id: "configured-draft-selector",
+    kind: "source-unit-identity",
+    mutationPolicy: "rewrite",
+    notes: [
+      "Draft declarations use the same canonical skill selectors as source selection.",
+      "A collection move rewrites the selector while preserving the configured draft policy.",
+    ],
+    pathPatterns: ["drafts[*]"],
+    scope: "workspace-or-plugin-config",
+  }),
+  freezeDescriptor({
+    contracts: ["workspace-config", "root-source-manifest"],
+    id: "distribution-source-selector",
+    kind: "source-unit-identity",
+    mutationPolicy: "rewrite",
+    notes: [
+      "Distribution sources remain attached to the moved skill identity.",
+    ],
+    pathPatterns: ["distributions.<id>.from.selector"],
+    scope: "workspace-or-plugin-config",
+  }),
+  freezeDescriptor({
+    contracts: ["workspace-config", "root-source-manifest"],
+    id: "internal-plugin-selection",
+    kind: "source-unit-identity",
+    mutationPolicy: "rewrite",
+    notes: [
+      "Plugin-to-workspace moves remove direct plugin internal-use entries because workspace skills are never selected implicitly.",
+      "Other plugin selections and boolean selector policies remain unchanged.",
+    ],
+    pathPatterns: [
+      "plugins.internal_use.skills.<plugin>[*]",
+      "plugins.internal_use.drafts.<plugin>[*]",
+    ],
+    scope: "workspace-or-plugin-config",
+  }),
+  freezeDescriptor({
     contracts: ["skill-frontmatter"],
     id: "skill-resource-source",
     kind: "source-path",
@@ -164,7 +202,7 @@ export const skillsetSourceReferenceExclusions = Object.freeze([
   }),
   freezeExclusion({
     id: "unmarked-prose-and-markdown",
-    reason: "Unmarked prose, Markdown links, and code spans are not structured references; marked {{@...}} tokens remain in the first reference contract.",
+    reason: "Unmarked prose, Markdown links, and code spans are not structured references; marked @{{...}} tokens remain in the first reference contract.",
   }),
   freezeExclusion({
     id: "append-only-history",

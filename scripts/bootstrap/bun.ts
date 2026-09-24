@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
-import { repoFile, run, runInherit } from "./shared";
+import { prependExecutablePath, resolvePinnedBun } from "../pinned-bun";
+import { repoFile, run } from "./shared";
 import type { BunPolicy } from "./config";
 
 export interface BunCheck {
@@ -106,22 +107,7 @@ export const checkBunVersion = (
   };
 };
 
-export const installPinnedBun = async (
-  repoRoot: string,
-  versionFile?: string
-): Promise<void> => {
-  const pinned = readPinnedBunVersion(repoRoot, versionFile);
-  const code = await runInherit(
-    [
-      "bash",
-      "-lc",
-      'curl -fsSL https://bun.sh/install | bash -s -- "$1"',
-      "bash",
-      `bun-v${pinned}`,
-    ],
-    repoRoot
-  );
-  if (code !== 0) {
-    throw new Error(`Bun install failed with exit code ${String(code)}`);
-  }
+export const installPinnedBun = async (repoRoot: string): Promise<void> => {
+  const runtime = await resolvePinnedBun(repoRoot);
+  process.env.PATH = prependExecutablePath(runtime.binDir, process.env.PATH);
 };

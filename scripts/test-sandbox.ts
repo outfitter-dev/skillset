@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join, relative } from "node:path";
+import { basename, join } from "node:path";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,
@@ -12,6 +13,12 @@ import {
   type TestSandboxDescriptor,
 } from "../apps/skillset/src/verification-sandbox";
 import { prependExecutablePath, resolvePinnedBun } from "./pinned-bun";
+import {
+  collectStaleTestSandboxes,
+  removeOwnedSandbox,
+  resolveTestRepoIdentity,
+  TEST_SANDBOX_LEASE,
+} from "./test-sandbox-retention";
 
 const argv = process.argv.slice(2);
 const command = argv[0] === "--" ? argv.slice(1) : argv;
@@ -59,8 +66,27 @@ try {
   await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, {
     flag: "wx",
   });
+  try {
+    const gitCommonDir = await resolveTestRepoIdentity(repoRoot);
+    await writeFile(
+      join(sandboxPath, TEST_SANDBOX_LEASE),
+      `${JSON.stringify({ gitCommonDir, invocationId: descriptor.invocationId, pid: process.pid })}\n`,
+      { flag: "wx" }
+    );
+  } catch (error) {
+    // Without a valid lease the collector fails closed; test execution must
+    // not depend on housekeeping being available.
+    console.error(`skillset: could not record test sandbox lease: ${message(error)}`);
+  }
+  try {
+    const collected = await collectStaleTestSandboxes(tempRoot, repoRoot);
+    console.error(`skillset: collected ${collected.collected} stale test sandbox(es); ${collected.retained} retained; ${collected.skipped} unowned or invalid`);
+    for (const failure of collected.failures) console.error(`skillset: could not collect stale test sandbox ${failure}`);
+  } catch (error) {
+    console.error(`skillset: could not scan stale test sandboxes: ${message(error)}`);
+  }
   const env: Record<string, string | undefined> = {
-    ...process.env,
+    ...gitSafeEnv(),
     // Bun 1.4 persists transpiled files larger than 50 KB under the ambient
     // cache root. Tests use disposable source and own the complete sandbox, so
     // the documented cache-disable switch keeps both nested and decoy runs
@@ -78,11 +104,11 @@ try {
     XDG_STATE_HOME: xdg.state,
   };
   scrubGitConfigParameters(env);
-  // Pin the interpreter, not the machine. Checks such as the native size
-  // baseline compare recorded evidence against `Bun.version`, so a contributor
-  // whose global Bun differs from `.bun-version` would otherwise fail tests
-  // that pass in CI. Resolution is a no-op when the ambient Bun already
-  // matches, which is the CI case.
+  // Pin the test interpreter, not the machine. Native evidence accepts the
+  // supported Bun range, but tests and CI still need one repeatable runtime.
+  // Even a matching ambient Bun is copied into our version-scoped cache:
+  // another repository can overwrite the shared global path during a run.
+  // This PATH entry governs the whole run, including nested child processes.
   const pinnedBun = await resolvePinnedBun(repoRoot);
   env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
   const childCommand =
@@ -164,25 +190,6 @@ async function run(
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
   }
-}
-
-async function removeOwnedSandbox(
-  sandboxPath: string,
-  tempRoot: string
-): Promise<void> {
-  const canonical = await realpath(sandboxPath).catch(() => undefined);
-  const relativePath =
-    canonical === undefined ? undefined : relative(tempRoot, canonical);
-  if (
-    canonical !== sandboxPath ||
-    !relativePath ||
-    relativePath.startsWith("..") ||
-    isAbsolute(relativePath) ||
-    !basename(canonical).startsWith("skillset-test-")
-  ) {
-    throw new Error(`refusing to clean unowned test sandbox: ${sandboxPath}`);
-  }
-  await rm(canonical, { recursive: true });
 }
 
 function message(error: unknown): string {

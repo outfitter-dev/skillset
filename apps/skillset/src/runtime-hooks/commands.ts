@@ -32,10 +32,10 @@ export async function resolveSkillsetCommand(
     return { argv: ["bun", "./apps/skillset/src/cli.ts"], kind: "argv" };
   }
 
-  if (await commandExists("skillset", rootPath, env)) return { argv: ["skillset"], kind: "argv" };
-  if (await commandExists("bunx", rootPath, env)) return { argv: ["bunx", "skillset"], kind: "argv" };
-  if (await commandExists("bun", rootPath, env)) return { argv: ["bun", "x", "skillset"], kind: "argv" };
-  if (await commandExists("npx", rootPath, env)) return { argv: ["npx", "--yes", "skillset"], kind: "argv" };
+  if (commandExists("skillset", rootPath, env)) return { argv: ["skillset"], kind: "argv" };
+  if (commandExists("bunx", rootPath, env)) return { argv: ["bunx", "skillset"], kind: "argv" };
+  if (commandExists("bun", rootPath, env)) return { argv: ["bun", "x", "skillset"], kind: "argv" };
+  if (commandExists("npx", rootPath, env)) return { argv: ["npx", "--yes", "skillset"], kind: "argv" };
 
   throw new Error(
     "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND"
@@ -90,16 +90,15 @@ async function runShell(command: string, args: readonly string[], options: {
   return proc.exited;
 }
 
-async function commandExists(
+function commandExists(
   command: string,
   cwd: string,
   env: Record<string, string | undefined>
-): Promise<boolean> {
-  const result = await capture(["/bin/sh", "-lc", `command -v ${shellQuote(command)} >/dev/null 2>&1`], {
-    cwd,
-    env,
-  });
-  return result.exitCode === 0;
+): boolean {
+  return Bun.which(
+    command,
+    env.PATH === undefined ? { cwd } : { PATH: env.PATH, cwd }
+  ) !== null;
 }
 
 async function isLocalSkillsetCheckout(rootPath: string): Promise<boolean> {
@@ -112,23 +111,6 @@ async function isLocalSkillsetCheckout(rootPath: string): Promise<boolean> {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
     throw error;
   }
-}
-
-async function capture(argv: readonly string[], options: {
-  readonly cwd: string;
-  readonly env: Record<string, string | undefined>;
-}): Promise<{
-  readonly exitCode: number;
-}> {
-  const proc = Bun.spawn({
-    cmd: [...argv],
-    cwd: options.cwd,
-    env: gitSafeEnv(options.env),
-    stderr: "ignore",
-    stdout: "ignore",
-  });
-  const exitCode = await proc.exited;
-  return { exitCode };
 }
 
 async function exists(path: string): Promise<boolean> {

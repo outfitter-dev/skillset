@@ -7,7 +7,9 @@ import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingCha
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
+import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   pluginIdForSelector,
@@ -374,9 +376,11 @@ async function appendHistory(
   const relativePath = workspaceChangeFile(sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
   await mkdir(dirname(absolutePath), { recursive: true });
+  const sourceMoveCursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, sourceDir === undefined ? {} : { sourceDir })));
   const lines = entries.flatMap((entry) => entry.id === undefined || entry.bump === undefined ? [] : [
     JSON.stringify({
       appliedAt,
+      sourceMoveCursor,
       bump: entry.bump,
       ...(entry.group === undefined ? {} : { group: groupJson(entry.group) }),
       id: entry.id,

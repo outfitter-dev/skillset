@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { buildSkillsetResult, checkAdapterConformance } from "@skillset/core";
@@ -10,6 +9,7 @@ import { renderBuildGraph } from "../render";
 import { collectRenderResults } from "../render-result-collector";
 import { loadBuildGraph } from "../resolver";
 import { parseMarkdown } from "../yaml";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const skill = (name: string, policy = ""): string => `
 ---
@@ -22,9 +22,7 @@ Use ${name}.
 `;
 
 const fixture = async (files: Record<string, string>): Promise<string> => {
-  const root = await mkdtemp(
-    path.join(tmpdir(), "skillset-invocation-policy-")
-  );
+  const root = await createTestFixtureRoot("skillset-invocation-policy-");
   await Promise.all(
     Object.entries(files).map(([file, content]) =>
       Bun.write(path.join(root, file), `${content.trim()}\n`)
@@ -52,7 +50,7 @@ test("SET-522: lowers canonical invocation policy across provider skill surfaces
       `implicit_invocation: false
 cursor:
   frontmatter:
-    disable-model-invocation: false`
+    disable-model-invocation: true`
     ),
     ".skillset/plugins/policy/skills/shared-false/SKILL.md": skill(
       "shared-false",
@@ -89,33 +87,26 @@ cursor: true
 
   const build = await buildSkillsetResult(root);
 
-  const policy = async (target: "claude" | "cursor", name: string) =>
+  const policy = async (name: string) =>
     parseMarkdown(
       await readFile(
-        path.join(root, `plugins/policy/${target}/skills/${name}/SKILL.md`),
+        path.join(root, `plugins/policy/skills/${name}/SKILL.md`),
         "utf-8"
       ),
-      `${target}:${name}`
+      name
     ).frontmatter["disable-model-invocation"];
-  expect(await policy("claude", "absent")).toBeUndefined();
-  expect(await policy("cursor", "absent")).toBeUndefined();
+  expect(await policy("absent")).toBeUndefined();
 
-  expect(await policy("claude", "shared-true")).toBe(false);
-  expect(await policy("cursor", "shared-true")).toBe(false);
+  expect(await policy("shared-true")).toBe(false);
 
-  expect(await policy("claude", "shared-false")).toBe(true);
-  expect(await policy("cursor", "shared-false")).toBe(true);
+  expect(await policy("shared-false")).toBe(true);
 
-  expect(await policy("claude", "targeted")).toBe(true);
-  expect(await policy("cursor", "targeted")).toBe(true);
+  expect(await policy("targeted")).toBe(true);
 
-  expect(await policy("claude", "cursor-only")).toBeUndefined();
-  expect(await policy("cursor", "cursor-only")).toBe(true);
+  expect(await policy("cursor-only")).toBe(true);
 
-  expect(await policy("claude", "native-only")).toBeUndefined();
-  expect(await policy("cursor", "native-only")).toBe(true);
-  expect(await policy("cursor", "native-override")).toBe(false);
-  expect(await policy("claude", "native-override")).toBe(true);
+  expect(await policy("native-only")).toBe(true);
+  expect(await policy("native-override")).toBe(true);
 
   const standaloneCursor = parseMarkdown(
     await readFile(
@@ -196,6 +187,34 @@ cursor: true
   ];
   expect(checkAdapterConformance(invocationOutcomes, conformanceCases)).toEqual(
     { issues: [], ok: true }
+  );
+});
+
+test("SET-522: rejects divergent provider invocation policy in one shared skill", async () => {
+  const root = await fixture({
+    ".skillset/plugins/policy/skills/divergent/SKILL.md": skill(
+      "divergent",
+      `implicit_invocation: false
+cursor:
+  frontmatter:
+    disable-model-invocation: false`
+    ),
+    ".skillset/plugins/policy/skillset.yaml": `
+skillset:
+  name: policy
+codex: false
+`,
+    "skillset.yaml": `
+skillset:
+  name: divergent-invocation-policy
+claude: true
+codex: false
+cursor: true
+`,
+  });
+
+  await expect(buildSkillsetResult(root)).rejects.toThrow(
+    "plugin policy skill divergent provider cursor conflicts at disable-model-invocation"
   );
 });
 

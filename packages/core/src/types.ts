@@ -1,6 +1,7 @@
 import type { StandardProfileId } from "@skillset/registry";
 
 import type { PortableMcpModel } from "./portable-mcp";
+import type { ResolvedInternalUseSelection } from "./internal-use";
 import type { SkillsetXdgOptions } from "./xdg";
 
 export type TargetName = "claude" | "codex" | "cursor";
@@ -21,6 +22,9 @@ export type ProjectionOwner =
   | { readonly standardProfile: StandardProfileId }
   | { readonly target: TargetName };
 
+/** Why one rendered projection occupies its physical destination. */
+export type ProjectionRole = "bundle" | "project-use" | "standard";
+
 export type JsonScalar = boolean | null | number | string;
 export type JsonValue = JsonScalar | JsonValue[] | JsonRecord;
 
@@ -40,10 +44,13 @@ export interface ResolvedTarget {
 
 export interface RootConfig {
   readonly compile: CompileConfig;
+  readonly drafts: readonly string[];
   readonly distributions: Readonly<Record<string, DistributionConfig>>;
+  readonly internalMarker: boolean;
   readonly marketplaces: Readonly<Record<string, MarketplaceCatalogConfig>>;
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
+  readonly plugins: WorkspacePluginsConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
   readonly workspace: SkillsetWorkspaceConfig;
 }
@@ -65,6 +72,7 @@ export interface ReleaseState {
 
 export type UnsupportedDestinationPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
+export type SessionStartHookMode = "auto" | "on" | "off";
 export type BuildScope = "repo" | "plugins" | "project" | "user";
 
 export interface CompileSkillsetConfig {
@@ -78,9 +86,39 @@ export interface CompileFeatureConfig {
 export interface CompileConfig {
   readonly build: CompileBuildMode;
   readonly features: CompileFeatureConfig;
+  readonly instructionFrontPage: InstructionFrontPageDestination;
+  readonly sessionStartHook: SessionStartHookMode;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupportedDestination: UnsupportedDestinationPolicy;
+}
+
+export type InstructionFrontPageDestination = "claude-dir" | "repo-root";
+
+export type InternalUseSelector = boolean | readonly string[];
+export type ProjectDraftPolicy = "only" | "override";
+export type InternalUseDraftSelector = InternalUseSelector | ProjectDraftPolicy;
+
+export interface InternalUseConfig {
+  readonly drafts: Readonly<Record<string, InternalUseDraftSelector>>;
+  readonly plugins: InternalUseSelector;
+  readonly skills: Readonly<Record<string, InternalUseSelector>>;
+}
+
+export interface PackageOutputTargetConfig {
+  readonly combine?: boolean;
+  readonly name?: string;
+  readonly path?: string;
+}
+
+export interface PackageOutputConfig {
+  readonly path: string;
+  readonly targets: Readonly<Record<TargetName, PackageOutputTargetConfig>>;
+}
+
+export interface WorkspacePluginsConfig {
+  readonly internalUse: InternalUseConfig;
+  readonly output: PackageOutputConfig;
 }
 
 export type DistributionDestinationKind = "git" | "local";
@@ -203,6 +241,7 @@ export interface CodexMarketplacePluginConfig {
 }
 
 export interface PluginConfig {
+  readonly drafts: readonly string[];
   readonly metadata: JsonRecord;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
@@ -255,8 +294,11 @@ export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
+  readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly evalDeclaration?: SourceSkillEval;
   readonly frontmatter: JsonRecord;
+  /** Organizational source segments between the skills root and skill leaf. */
+  readonly groupPath?: readonly string[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
   readonly metadata: JsonRecord;
@@ -264,6 +306,7 @@ export interface SourceSkill {
   readonly resources: readonly SourceResource[];
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
+  readonly status?: "draft" | "live";
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
@@ -307,7 +350,10 @@ export interface SourcePlugin {
    */
   readonly claudeBundlePath?: string;
   readonly configPath: string;
+  readonly configuredDrafts?: readonly string[];
   readonly dependencies: readonly SourcePluginDependency[];
+  /** Complete discovered inventory, including drafts excluded from projections. */
+  readonly discoveredSkills?: readonly SourceSkill[];
   readonly features: readonly SourcePluginFeature[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
@@ -341,9 +387,16 @@ export interface SourceRule {
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
+  readonly segments?: readonly SourceRuleSegment[];
+  readonly rootFrontPage?: boolean;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourceRuleSegment {
+  readonly classification: "any-depth" | "literal" | "one-level";
+  readonly value: string;
 }
 
 export interface SourceIslandFile {
@@ -392,10 +445,13 @@ export interface BuildGraph {
   readonly configuredBuildMode: CompileBuildMode;
   /** Repository-local compiler inputs resolved outside the canonical source root. */
   readonly externalInputPaths: readonly string[];
+  /** Complete discovered skill inventory, including drafts excluded from projections. */
+  readonly discoveredSkills?: readonly SourceSkill[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
+  readonly pluginPlan?: WorkspacePluginPlan;
   readonly plugins: readonly SourcePlugin[];
   readonly projectAgents: readonly SourceProjectAgent[];
   readonly projectIslands: readonly SourceIslandFile[];
@@ -418,14 +474,32 @@ export interface BuildGraph {
   readonly warnings: readonly string[];
 }
 
-export type GeneratedFileMode = 0o644 | 0o755;
+export interface WorkspacePluginPlan {
+  readonly internalUse: ResolvedInternalUseSelection;
+  readonly packagePaths: Readonly<
+    Record<TargetName, Readonly<Record<string, string>>>
+  >;
+}
+
+/** Ordinary generated files use 0644/0755; partially owned settings retain their existing mode. */
+export type GeneratedFileMode = number;
 
 export interface RenderedFile {
   readonly content: Uint8Array;
   /** Normalized portable file mode applied to generated Unix outputs. */
   readonly mode: GeneratedFileMode;
   readonly path: string;
+  /** A provider settings file is composed around field-level owned entries. */
+  readonly partialOwnership?: "settings-entry";
+  /** Digest of the provider settings bytes read before composing owned entries. */
+  readonly partialSourceHash?: string;
   readonly sourcePath?: string;
+}
+
+export interface SettingsEntryOwnership {
+  readonly commandHash: string;
+  readonly file: string;
+  readonly keyPath: string;
 }
 
 /**
@@ -447,16 +521,21 @@ export interface GeneratedEntry {
   /** Logical standards baseline and provider delta consumers, in render order. */
   readonly consumers?: readonly ProjectionConsumer[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: ProjectDraftPolicy;
+  readonly effectiveName?: string;
   readonly feature?: string;
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files?: readonly string[];
   readonly origin?: string;
   readonly kind?: string;
   readonly outputHash?: string;
   readonly outputPath: string;
   readonly outputRoot: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   /** Sole physical writer for this generated path. */
   readonly owner?: ProjectionOwner;
+  readonly role?: ProjectionRole;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
   readonly skillReferences?: readonly ProjectAgentSkillProvenance[];
@@ -464,6 +543,9 @@ export interface GeneratedEntry {
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly sourcePointer?: string;
+  readonly sourceUnit?: string;
+  readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly target: string;
   readonly targetState?: string;
   readonly transforms?: readonly AppliedTransform[];

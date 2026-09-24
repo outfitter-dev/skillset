@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset } from "@skillset/core";
-import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 const SKILL_BODY = [
   "Skills live in .claude/skills/x and config in ~/.claude/foo.",
@@ -20,9 +19,7 @@ const DIALECT_FIXTURE: Record<string, string> = {
 skillset:
   name: dialect-root
 claude: true
-codex:
-  skills:
-    path: generated/codex-skills
+codex: true
 `,
   ".skillset/skills/x/SKILL.md": `---
 name: x
@@ -41,64 +38,11 @@ ${SKILL_BODY}
 `,
 };
 
-const TRANSLATED_BODY = [
-  "Skills live in .agents/skills/x and config in ~/.codex/foo.",
-  "",
-  "Read AGENTS.md first, then ask the `helper` agent to verify.",
-  "",
-  "Use $ARGUMENTS verbatim.",
-].join("\n");
-
-test("dialect: claude lowers only the separate Codex delta while preserving the adopted baseline", async () => {
+test("dialect: claude rejects a divergent Codex delta at the fixed Agent Skills root", async () => {
   const root = await fixture(DIALECT_FIXTURE);
-  await buildSkillset(root);
-
-  const baseline = await readFile(join(root, ".agents/skills/x/SKILL.md"), "utf8");
-  expect(parseMarkdown(baseline, "agent skill").body.trim()).toBe(SKILL_BODY);
-
-  const codex = await readFile(
-    join(root, "generated/codex-skills/x/SKILL.md"),
-    "utf8"
+  await expect(buildSkillset(root)).rejects.toThrow(
+    "generated output collision at .agents/skills/x/SKILL.md requires incompatible bytes"
   );
-  expect(parseMarkdown(codex, "codex skill").body.trim()).toBe(TRANSLATED_BODY);
-
-  const claude = await readFile(join(root, ".claude/skills/x/SKILL.md"), "utf8");
-  expect(parseMarkdown(claude, "claude skill").body.trim()).toBe(SKILL_BODY);
-  expect(claude).toContain(".claude/skills/x");
-  expect(claude).not.toContain(".agents/skills/x");
-
-  expect(baseline).not.toContain("dialect: claude");
-  expect(codex).not.toContain("dialect: claude");
-  expect(claude).not.toContain("dialect: claude");
-
-  const codexLock = JSON.parse(
-    await readFile(join(root, "generated/codex-skills/skillset.lock"), "utf8")
-  ) as { items: readonly { name: string; transforms?: readonly unknown[] }[] };
-  const codexItem = codexLock.items.find((item) => item.name === "x");
-  expect(codexItem?.transforms).toEqual([
-    { count: 1, intent: "doc.project-instructions" },
-    { count: 1, intent: "invoke.subagent" },
-    { count: 1, intent: "path.skills-dir" },
-    { count: 1, intent: "path.user-config-dir" },
-  ]);
-
-  const claudeLock = JSON.parse(
-    await readFile(join(root, ".claude/skills/skillset.lock"), "utf8")
-  ) as { items: readonly { transforms?: readonly unknown[] }[] };
-  expect(
-    claudeLock.items.every((item) => item.transforms === undefined)
-  ).toBe(true);
-  expect(
-    codexLock.items.find((item) => item.name === "y")?.transforms
-  ).toBeUndefined();
-
-  const portableCodex = await readFile(
-    join(root, "generated/codex-skills/y/SKILL.md"),
-    "utf8"
-  );
-  expect(
-    parseMarkdown(portableCodex, "portable codex skill").body.trim()
-  ).toBe(SKILL_BODY);
 });
 
 test("unknown dialect values fail the build loudly", async () => {
@@ -158,7 +102,7 @@ Keep CLAUDE.md current; agents live under .claude/agents.
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-dialect-"));
+  const root = await createTestFixtureRoot("skillset-dialect-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), content);
   }

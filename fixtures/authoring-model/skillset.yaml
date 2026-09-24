@@ -1,0 +1,19 @@
+skillset:
+  name: authoring-model
+compile:
+  session_start_hook: on
+  unsupportedDestination: warn
+claude: true
+codex: true
+cursor: true
+drafts: []
+internal_marker: true
+plugins:
+  internal_use:
+    drafts:
+      mg-skills: override
+    plugins:
+      - mg-skills
+    skills:
+      mg-skills:
+        - "!proofread"

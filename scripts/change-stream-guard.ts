@@ -20,8 +20,8 @@
  * newer one silently changes derived release state.
  *
  * Global chronological order was never an invariant. The committed ledger
- * already contains five inversions inherited by every branch, so this guard
- * allows exactly those recorded adjacent pairs and fails on anything new. See
+ * contains historical inversions, so this guard allows exactly the recorded
+ * adjacent pairs and fails on anything new. See
  * INVERSION_ALLOWANCES and the "Updating the allowances" note at the bottom.
  */
 
@@ -72,6 +72,60 @@ export const CHANGE_STREAM_PATHSPEC = ".skillset/changes/*.jsonl";
  * the exact drift `merge=union` plus this guard now makes visible.
  */
 export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-e190e6c9e3ff282e",
+    previousId: "evt-f29f6f15ad22219f",
+    rationale: "2026-09-20 restacking appended the preserved SET-553 placement stream after refreshed fixed-root parent evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-550f268687267821",
+    previousId: "evt-5b301a51324ee148",
+    rationale: "2026-09-20 restacking appended the preserved SET-558 branch stream after refreshed SET-553 parent evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-a4c03dcd21bcd159",
+    previousId: "evt-66438657d2379d76",
+    rationale: "2026-09-21 restacking appended the preserved SET-587 branch stream after refreshed SET-588 parent evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-bc6cedb0fd301d06",
+    previousId: "evt-37b7e5d8b80978b9",
+    rationale: "2026-09-21 restacking appended the preserved SET-588 branch stream after refreshed SET-572 evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-d395e6948a4b9b22",
+    previousId: "evt-5afa2531cfc30bfc",
+    rationale: "2026-09-21 restacking appended the preserved SET-572 branch stream after refreshed SET-555 evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-77622f03d33686a0",
+    previousId: "evt-a6dfd6ae03244be2",
+    rationale: "2026-09-21 restacking appended the preserved SET-555 branch stream after refreshed SET-554 evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-34f7e6a29b38779e",
+    previousId: "evt-e35bb835212d8084",
+    rationale: "2026-09-21 restacking appended the preserved SET-554 branch stream after merged SET-558 evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-8852d0f1883a3a5d",
+    previousId: "evt-dce5d5d573d6cc76",
+    rationale: "2026-09-20 restacking appended the preserved SET-552 branch stream after later SET-551 and SET-553 evidence; both append-only blocks retain their original event order.",
+  },
+  {
+    file: ".skillset/changes/ledger.jsonl",
+    id: "evt-4fefce8aafcf6049",
+    previousId: "evt-45aac3dafe33f5b4",
+    rationale: "2026-09-20 restacking appended the preserved SET-551 branch stream after newer main repair-stack evidence; both append-only blocks retain their original event order.",
+  },
   {
     file: ".skillset/changes/ledger.jsonl",
     id: "evt-48d9b0bbb0b0b696",

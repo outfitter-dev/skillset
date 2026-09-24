@@ -9,6 +9,7 @@ import { resolveInside } from "./path";
 import {
   resolvePreprocessNamedPartialReference,
   resolvePreprocessPathReference,
+  rewritePreprocessReferences,
 } from "./preprocess";
 import {
   updateMarkdownSourceDocument,
@@ -27,14 +28,12 @@ import { writableRecord } from "./source-rename-structured";
 import type { BuildGraph, JsonRecord, JsonValue, SourceSkill } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
-const MARKED_PATH_REFERENCE = /\{\{\s*@([^}\s]+)\s*\}\}/gu;
-const NAMED_PARTIAL_REFERENCE = /\{\{\s*>\s*([^}\s]+)\s*\}\}/gu;
-
 export interface SkillIdentityRename {
   readonly from: string;
-  readonly pluginId?: string;
+  readonly fromPluginId?: string;
   readonly sourcePath: string;
   readonly to: string;
+  readonly toPluginId?: string;
 }
 
 interface MarkdownUpdateArgs {
@@ -136,54 +135,55 @@ async function rewriteMarkdownBody(
 ): Promise<string> {
   const context = preprocessContext(args.graph, args.documentPath, frontmatter);
   const outputPath = args.renamedPath(args.documentPath);
-  let body = initialBody;
-  for (const match of [...initialBody.matchAll(MARKED_PATH_REFERENCE)]) {
-    const specifier = match[1];
-    if (specifier === undefined) {
-      continue;
+  const body = await rewritePreprocessReferences(
+    initialBody,
+    context,
+    async (reference) => {
+      let resolved: string;
+      try {
+        resolved =
+          reference.kind === "inline-named"
+            ? await resolvePreprocessNamedPartialReference(
+                reference.specifier,
+                context
+              )
+            : resolvePreprocessPathReference(reference.specifier, context);
+      } catch {
+        return reference.token;
+      }
+
+      const replacement =
+        reference.kind === "inline-named"
+          ? rewriteNamedPartialSpecifier(
+              reference.specifier,
+              resolved,
+              args.renamedPath,
+              args.graph
+            )
+          : rewritePathSpecifier(
+              reference.specifier,
+              resolved,
+              outputPath,
+              args.renamedPath,
+              args.graph
+            );
+      if (
+        replacement === undefined ||
+        replacement === reference.specifier
+      ) {
+        return reference.token;
+      }
+      return reference.kind === "link"
+        ? `@{{${replacement}}}`
+        : `{{> ${replacement}}}`;
     }
-    let resolved: string;
-    try {
-      resolved = resolvePreprocessPathReference(specifier, context);
-    } catch {
-      continue;
-    }
-    const replacement = rewritePathSpecifier(
-      specifier,
-      resolved,
-      outputPath,
-      args.renamedPath,
-      args.graph
-    );
-    if (replacement !== undefined && replacement !== specifier) {
-      body = body.replace(match[0], `{{@${replacement}}}`);
-    }
-  }
-  for (const match of [...initialBody.matchAll(NAMED_PARTIAL_REFERENCE)]) {
-    const specifier = match[1];
-    if (specifier === undefined) {
-      continue;
-    }
-    let resolved: string;
-    try {
-      resolved = await resolvePreprocessNamedPartialReference(
-        specifier,
-        context
-      );
-    } catch {
-      continue;
-    }
-    const replacement = rewriteNamedPartialSpecifier(
-      specifier,
-      resolved,
-      args.renamedPath,
-      args.graph
-    );
-    if (replacement !== undefined && replacement !== specifier) {
-      body = body.replace(match[0], `{{> ${replacement}}}`);
-    }
-  }
-  reportUnmarkedMention(args, initialBody);
+  );
+  const unstructuredBody = await rewritePreprocessReferences(
+    initialBody,
+    context,
+    () => ""
+  );
+  reportUnmarkedMention(args, unstructuredBody);
   return body;
 }
 
@@ -200,13 +200,9 @@ function rewriteAgentSkillReferences(
       if (typeof item !== "string") {
         return item;
       }
-      if (identityRename.pluginId === undefined) {
-        return item === identityRename.from ? identityRename.to : item;
-      }
-      const prefix = `plugin.${identityRename.pluginId}.skill:`;
-      return item === `${prefix}${identityRename.from}`
-        ? `${prefix}${identityRename.to}`
-        : item;
+      const from = agentSkillReference(identityRename.from, identityRename.fromPluginId);
+      const to = agentSkillReference(identityRename.to, identityRename.toPluginId);
+      return item === from ? to : item;
     });
   };
   const skills = rewrite(frontmatter.skills);
@@ -224,6 +220,10 @@ function rewriteAgentSkillReferences(
     };
   }
   return updated;
+}
+
+function agentSkillReference(skillId: string, pluginId?: string): string {
+  return pluginId === undefined ? skillId : `plugin.${pluginId}.skill:${skillId}`;
 }
 
 function rewriteHookAttachments(
@@ -356,14 +356,11 @@ function resourceMatchesRename(
 }
 
 function reportUnmarkedMention(args: MarkdownUpdateArgs, body: string): void {
-  const structured = body
-    .replace(MARKED_PATH_REFERENCE, "")
-    .replace(NAMED_PARTIAL_REFERENCE, "");
   const path = display(args.graph.rootPath, args.fromPath);
   const name = basename(args.fromPath);
   if (
-    structured.includes(path) ||
-    (name.length > 0 && structured.includes(name))
+    body.includes(path) ||
+    (name.length > 0 && body.includes(name))
   ) {
     args.warnings.add(
       `unmarked source mention may need manual update in ${display(args.graph.rootPath, args.documentPath)}`
@@ -428,20 +425,21 @@ function rewriteNamedPartialSpecifier(
   if (next === resolved || !next.endsWith(".md")) {
     return undefined;
   }
-  const plugin = pluginForPath(graph, resolved);
-  const root =
-    plugin === undefined
-      ? join(graph.sourceRootPath, "partials")
-      : join(plugin.path, "partials");
+  const pluginScoped = specifier.startsWith("plugin:");
+  const plugin = pluginScoped ? pluginForPath(graph, resolved) : undefined;
+  const root = pluginScoped
+    ? plugin === undefined
+      ? undefined
+      : join(plugin.path, "shared", "partials")
+    : join(graph.sourceRootPath, "shared", "partials");
+  if (root === undefined) {
+    return undefined;
+  }
   if (!isWithin(root, resolved) || !isWithin(root, next)) {
     return undefined;
   }
   const name = toPosix(relative(root, next)).replace(/\.md$/u, "");
-  const qualified =
-    specifier.includes(".") &&
-    plugin !== undefined &&
-    specifier.startsWith(`${plugin.id}.`);
-  return qualified ? `${plugin.id}.${name}` : name;
+  return pluginScoped ? `plugin:${name}` : name;
 }
 
 function isAgentDocument(graph: BuildGraph, path: string): boolean {

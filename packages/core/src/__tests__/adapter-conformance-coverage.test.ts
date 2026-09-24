@@ -88,7 +88,9 @@ describe("adapter conformance coverage", () => {
 
   it("keeps adopted standard envelope coverage separate from providers", () => {
     const profiles = listStandardProfiles()
-      .filter((profile) => profile.id === "agent-skills")
+      .filter((profile) =>
+        profile.id === "agent-skills" || profile.id === "agent-plugins-1.0"
+      )
       .map((profile) => ({
         ...profile,
         lifecycle: "adopted" as const,
@@ -102,8 +104,8 @@ describe("adapter conformance coverage", () => {
         },
         {
           featureId: "plugin-skills",
-          fixtureRef: "fixtures/standards/agent-skills",
-          standardProfile: "agent-skills",
+          fixtureRef: "fixtures/standards/agent-plugins-1.0",
+          standardProfile: "agent-plugins-1.0",
         },
       ],
       undefined,
@@ -128,11 +130,13 @@ describe("adapter conformance coverage", () => {
       report.entries.find(
         (candidate) =>
           "standardProfile" in candidate &&
-          candidate.standardProfile === "agent-skills" &&
+          candidate.standardProfile === "agent-plugins-1.0" &&
           candidate.featureId === "plugin-skills"
       )
     ).toMatchObject({
       coverage: "covered",
+      fixtureRefs: ["fixtures/standards/agent-plugins-1.0"],
+      standardProfile: "agent-plugins-1.0",
       supportStatus: "required",
     });
   });

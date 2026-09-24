@@ -2,11 +2,12 @@
 id: 10
 slug: named-partials
 title: Named Partials
-status: accepted
+status: superseded
 created: 2026-06-27
-updated: 2026-07-20
+updated: 2026-09-16
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [9]
+superseded_by: ['34']
 ---
 
 # ADR-0010: Named Partials

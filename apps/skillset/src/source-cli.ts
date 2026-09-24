@@ -23,7 +23,10 @@ import type {
   NewSourceReport,
   NewSourceScope,
 } from "./new-source";
-import { scaffoldSourceUnit } from "./new-source";
+import {
+  NEW_SOURCE_KIND_LIST_TEXT,
+  scaffoldSourceUnit,
+} from "./new-source";
 import { quoteShellArgument } from "./recovery-guidance";
 import {
   formatScaffoldFileLine,
@@ -148,6 +151,7 @@ export interface NewCommandRequest {
   readonly positionalName: string | undefined;
   readonly jsonOutput: boolean;
   readonly newContainer: string | undefined;
+  readonly newDraft?: boolean;
   readonly newId: string | undefined;
   readonly newKind: NewSourceKind | undefined;
   readonly newName: string | undefined;
@@ -172,6 +176,7 @@ export async function runNewCommand(
     positionalName,
     jsonOutput,
     newContainer,
+    newDraft,
     newId,
     newKind,
     newName,
@@ -197,6 +202,7 @@ export async function runNewCommand(
         ...(hookScript === undefined ? {} : { hookScript }),
         positionalName,
         newContainer,
+        ...(newDraft === undefined ? {} : { newDraft }),
         newId,
         newKind,
         newName,
@@ -220,12 +226,13 @@ export async function runNewCommand(
   }
   if (newKind === undefined) {
     throw new Error(
-      "skillset: expected new kind skill, agent, instruction, or hook"
+      `skillset: expected new kind ${NEW_SOURCE_KIND_LIST_TEXT}`
     );
   }
   const report = await scaffoldSourceUnit(rootPath, {
     ...(newContainer === undefined ? {} : { container: newContainer }),
     ...(newId === undefined ? {} : { id: newId }),
+    ...(newDraft ? { draft: true } : {}),
     kind: newKind,
     ...(hookAttachment === undefined ? {} : { hookAttachment }),
     ...(hookCommand === undefined ? {} : { hookCommand }),

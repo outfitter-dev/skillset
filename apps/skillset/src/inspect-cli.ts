@@ -9,6 +9,7 @@ import {
   explainPath,
   listFeatureCapabilities,
   listGeneratedEntries,
+  listSourceSkills,
 } from "@skillset/core/internal/authoring";
 import { diffSkillsetResult } from "@skillset/core/internal/build";
 import type {
@@ -57,12 +58,24 @@ export async function runListCommand({
   rootPath,
 }: ListCommandRequest): Promise<void> {
   return runFiniteCommand({
-    execute: () => listGeneratedEntries(rootPath, options),
+    execute: async () => {
+      const [entries, sourceSkills] = await Promise.all([
+        listGeneratedEntries(rootPath, options),
+        listSourceSkills(rootPath, options),
+      ]);
+      return { entries, sourceSkills };
+    },
     exitCode: () => 0,
-    json: (entries) => ({ command: "list", data: { entries } }),
+    json: ({ entries, sourceSkills }) => ({
+      command: "list",
+      data: { entries, sourceSkills },
+    }),
     jsonOutput,
-    renderHuman: (entries, writer) => {
-      writeLine(writer, renderGeneratedEntryList(entries, details));
+    renderHuman: ({ entries, sourceSkills }, writer) => {
+      writeLine(
+        writer,
+        renderGeneratedEntryList(entries, details, {}, sourceSkills)
+      );
     },
   });
 }
@@ -238,6 +251,25 @@ function printExplainResult(
     writer,
     `  standards: ${formatStandardProfileSummary(result.standardProfiles)}`
   );
+  if (result.sourceSkill !== undefined) {
+    writeLine(writer, `  source skill: ${result.sourceSkill.id}`);
+    writeLine(
+      writer,
+      `    status: ${result.sourceSkill.status}${result.sourceSkill.draftOrigin === undefined ? "" : ` (${result.sourceSkill.draftOrigin})`}`
+    );
+    if (result.sourceSkill.groupPath.length > 0) {
+      writeLine(
+        writer,
+        `    group: ${result.sourceSkill.groupPath.join("/")}`
+      );
+    }
+    if (result.sourceSkill.internalUse !== undefined) {
+      writeLine(
+        writer,
+        `    internal use: ${result.sourceSkill.internalUse.selected ? "selected" : "excluded"} (${result.sourceSkill.internalUse.rule})`
+      );
+    }
+  }
   for (const entry of result.entries) {
     writeLine(
       writer,
@@ -246,6 +278,27 @@ function printExplainResult(
     const owner = formatGeneratedEntryOwner(entry.owner, entry.consumers);
     if (owner !== undefined) {
       writeLine(writer, `    owner: ${owner}`);
+    }
+    if (entry.role !== undefined) {
+      writeLine(writer, `    role: ${entry.role}`);
+    }
+    if (entry.effectiveName !== undefined) {
+      writeLine(writer, `    effective name: ${entry.effectiveName}`);
+    }
+    if (entry.draftOrigin !== undefined) {
+      writeLine(writer, `    draft origin: ${entry.draftOrigin}`);
+    }
+    if (entry.draftPolicy !== undefined) {
+      writeLine(writer, `    draft policy: ${entry.draftPolicy}`);
+    }
+    if (entry.shippedSibling !== undefined) {
+      writeLine(writer, `    shipped sibling: ${entry.shippedSibling}`);
+    }
+    if (entry.selectionRule !== undefined) {
+      writeLine(writer, `    selection rule: ${entry.selectionRule}`);
+    }
+    if (entry.sourceUnit !== undefined) {
+      writeLine(writer, `    source unit: ${entry.sourceUnit}`);
     }
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
@@ -421,6 +474,38 @@ function printStatusReport(
     writer,
     `  standards: ${formatStandardProfileSummary(report.standardProfiles)}`
   );
+  if (report.pluginPlan !== undefined) {
+    const selected = [
+      ...report.pluginPlan.internalUse.skills.map((skill) =>
+        `${skill.pluginId}/${skill.skillId}`
+      ),
+      ...report.pluginPlan.internalUse.drafts.map((skill) =>
+        `${skill.pluginId}/${skill.skillId} (draft)`
+      ),
+    ].join(", ");
+    writeLine(
+      writer,
+      `  plugin internal use: ${selected.length === 0 ? "none" : selected}`
+    );
+    for (const target of targetNames()) {
+      const paths = Object.entries(report.pluginPlan.packagePaths[target])
+        .map(([pluginId, path]) => `${pluginId}=${path}`)
+        .join(", ");
+      writeLine(
+        writer,
+        `  plugin packages [${target}]: ${paths.length === 0 ? "none" : paths}`
+      );
+    }
+  }
+  for (const entry of report.projectUse) {
+    const draftDetails = entry.draftOrigin === undefined
+      ? ""
+      : `; draftOrigin=${entry.draftOrigin}${entry.draftPolicy === undefined ? "" : `; draftPolicy=${entry.draftPolicy}`}${entry.shippedSibling === undefined ? "" : `; shippedSibling=${entry.shippedSibling}`}`;
+    writeLine(
+      writer,
+      `  ${entry.draftOrigin === undefined ? "project use" : "project draft"} [${entry.target}]: source=${entry.sourceUnit} (${entry.sourcePath}); selection=${entry.selectionRule}; effectiveName=${entry.effectiveName}; role=${entry.role}; owner=${entry.owner.target}${draftDetails}`
+    );
+  }
   for (const issue of report.lintIssues) {
     writeLine(
       writer,

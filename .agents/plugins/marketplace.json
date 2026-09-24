@@ -39,7 +39,7 @@
         "installation": "AVAILABLE"
       },
       "source": {
-        "path": "./plugins/skillset/chatgpt",
+        "path": "./plugins/skillset",
         "source": "local"
       },
       "version": "0.1.1"

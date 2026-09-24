@@ -23,13 +23,16 @@ import {
   applyFeatureTargetDefaults,
   readCompileConfig,
   readCompileTargets,
+  readDraftSelectors,
   readDistributionConfig,
   readMarketplaceCatalogConfig,
+  readInternalMarker,
   readClaudeBundlePath,
   readOutputConfig,
   readRecord,
   readSkillsetMetadata,
   readSkillsetName,
+  readWorkspacePluginsConfig,
   isTargetName,
   readString,
   readStringArray,
@@ -48,9 +51,21 @@ import {
   validateAdaptiveHookUnitPaths,
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
-import { compareStrings, resolveInside, validateSlug } from "./path";
+import { resolveInternalUseSelection } from "./internal-use";
+import {
+  plannedPackageOutputPath,
+  validatePackageOutputConfig,
+} from "./package-output-path";
+import {
+  compareStrings,
+  logicalDiagnosticPath,
+  resolveInside,
+  toLogicalDiagnosticPath,
+  validateSlug,
+} from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
 import { parsePortableMcpSource } from "./portable-mcp";
+import { pluginComponentPath } from "./plugin-component-paths";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
@@ -104,12 +119,13 @@ const RESERVED_PLUGIN_OUTPUT_NAMES = new Set([
   "skillset.lock",
 ]);
 const SOURCE_ROOT_DIR = "";
+const ROOT_RULES_FILE = "RULES.md";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
-const PROJECT_AGENTS_DIR = "agents";
+const PROJECT_AGENTS_DIR = "subagents";
 const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
   claude: "_claude",
   codex: "_codex",
@@ -140,17 +156,19 @@ export async function loadBuildGraph(
 ): Promise<BuildGraph> {
   const workspace = await resolveWorkspaceLayout(rootPath, options);
   const { sourceDir, sourcePath, sourceRoot, sourceRootDir, sourceRootPath } = workspace;
-  const rootConfig = parseYamlRecord(await readFile(workspace.configPath, "utf8"), workspace.configPath);
+  const configLabel = workspace.configRelativePath;
+  const sourceManifestLabel = workspace.splitRootManifestRelativePath ?? configLabel;
+  const rootConfig = parseYamlRecord(await readFile(workspace.configPath, "utf8"), configLabel);
   const sourceManifest = workspace.splitRootManifestPath === undefined
     ? rootConfig
-    : parseYamlRecord(await readFile(workspace.splitRootManifestPath, "utf8"), workspace.splitRootManifestPath);
+    : parseYamlRecord(await readFile(workspace.splitRootManifestPath, "utf8"), sourceManifestLabel);
   if (workspace.splitRootManifestPath === undefined) {
-    validateConfigDocument(rootConfig, workspace.configPath, { allowCompile: true });
+    validateConfigDocument(rootConfig, configLabel, { allowCompile: true });
   } else {
-    validateWorkspaceConfigDocument(rootConfig, workspace.configPath);
-    validateRootSourceManifestDocument(sourceManifest, workspace.splitRootManifestPath);
+    validateWorkspaceConfigDocument(rootConfig, configLabel);
+    validateRootSourceManifestDocument(sourceManifest, sourceManifestLabel);
   }
-  const metadataLabel = workspace.splitRootManifestPath ?? workspace.configPath;
+  const metadataLabel = sourceManifestLabel;
   const metadata = readSkillsetMetadata(sourceManifest, metadataLabel);
   validateSchemaField(metadata, `${metadataLabel}.skillset.schema`);
   validateVersionField(metadata, `${metadataLabel}.skillset.version`);
@@ -162,15 +180,19 @@ export async function loadBuildGraph(
     outputMetadata,
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
-  const distributions = readDistributionConfig(rootConfig, workspace.configPath);
-  const marketplaces = readMarketplaceCatalogConfig(rootConfig, workspace.configPath);
-  const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, workspace.configPath);
-  const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
+  const distributions = readDistributionConfig(rootConfig, configLabel);
+  const marketplaces = readMarketplaceCatalogConfig(rootConfig, configLabel);
+  const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, configLabel);
+  const drafts = readDraftSelectors(sourceManifest, metadataLabel);
+  const internalMarker = readInternalMarker(rootConfig, configLabel);
+  const pluginsConfig = readWorkspacePluginsConfig(rootConfig, configLabel);
+  validatePackageOutputConfig(pluginsConfig.output);
+  const rootTargets = resolveTargets(readCompileTargets(rootConfig, configLabel), rootConfig, configLabel, {
     allowDefaults: true,
     objectInheritsEnabled: true,
   });
-  const compileConfig = readCompileConfig(rootConfig, workspace.configPath);
-  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, workspace.configPath);
+  const compileConfig = readCompileConfig(rootConfig, configLabel);
+  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, configLabel);
   const compile = {
     ...compileConfig,
     build: options.buildMode ?? compileConfig.build,
@@ -178,10 +200,13 @@ export async function loadBuildGraph(
   };
   const root = {
     compile,
+    drafts,
     distributions,
+    internalMarker,
     marketplaces,
     metadata,
     outputs,
+    plugins: pluginsConfig,
     targets: filteredTargets,
     workspace: workspaceConfig,
   };
@@ -197,7 +222,15 @@ export async function loadBuildGraph(
   await validateSupports(sourceManifest.supports, { externalInputPaths, label: metadataLabel, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
   const rootAdaptiveHooks = await loadAdaptiveHooks(rootPath, sourceRootPath, { kind: "root" }, filteredTargets);
-  const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs, externalInputPaths);
+  let plugins = await loadPlugins(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    outputs,
+    externalInputPaths
+  );
   try {
     validatePluginDependencyGraph(plugins);
   } catch (error) {
@@ -207,9 +240,37 @@ export async function loadBuildGraph(
       path: join(sourceRoot, PLUGINS_DIR),
     });
   }
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
-  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
-  const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, externalInputPaths);
+  let discoveredStandaloneSkills = await loadStandaloneSkills(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    externalInputPaths
+  );
+  ({ plugins, standaloneSkills: discoveredStandaloneSkills } = applyRootConfiguredDrafts(
+    drafts,
+    plugins,
+    discoveredStandaloneSkills,
+    metadataLabel
+  ));
+  const standaloneSkills = discoveredStandaloneSkills.filter((skill) => skill.status !== "draft");
+  const { rules, instructionsDir } = await loadInstructions(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    externalInputPaths
+  );
+  const projectAgents = await loadProjectAgents(
+    rootPath,
+    sourceDir,
+    sourceRootDir,
+    filteredTargets,
+    warnings,
+    externalInputPaths
+  );
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
   const adaptiveHooks = [
     ...rootAdaptiveHooks,
@@ -231,9 +292,21 @@ export async function loadBuildGraph(
     standaloneSkills,
   });
 
-  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
+  if (plugins.length === 0 && discoveredStandaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
+
+  const pluginPlan = {
+    internalUse: resolveInternalUseSelection(pluginsConfig.internalUse, plugins),
+    packagePaths: targetRecord((target) =>
+      Object.fromEntries(
+        plugins.map((plugin) => [
+          plugin.id,
+          plannedPackageOutputPath(pluginsConfig.output, target, plugin.id),
+        ])
+      )
+    ),
+  };
 
   const standardProjections = resolveStandardProjectionPlan(
     standardProjectionSourceInventory({ plugins, rules, standaloneSkills })
@@ -243,9 +316,13 @@ export async function loadBuildGraph(
     rootPath,
     outputs,
     plugins,
-    standaloneSkills,
+    discoveredStandaloneSkills,
     rules,
-    standardProjections
+    standardProjections,
+    [
+      ...pluginPlan.internalUse.skills,
+      ...pluginPlan.internalUse.drafts,
+    ]
   );
   const protectedRoots = [
     { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
@@ -255,14 +332,20 @@ export async function loadBuildGraph(
   validateStandardProjectionTopology(rootPath, protectedRoots, standardProjections, plugins);
   const outputRoots = dedupeOutputRoots(outputRootOwners);
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
+  validateSharedPackageOutputRoots(outputs, plugins);
 
   const graph: BuildGraph = {
     adaptiveHooks,
     configuredBuildMode: compileConfig.build,
     externalInputPaths: [...externalInputPaths].sort(compareStrings),
+    discoveredSkills: [
+      ...discoveredStandaloneSkills,
+      ...plugins.flatMap((plugin) => plugin.discoveredSkills ?? plugin.skills),
+    ],
     hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
+    pluginPlan,
     plugins,
     projectAgents,
     projectIslands,
@@ -385,6 +468,19 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
     }
   }
 
+  for (const [oldPath, newPath] of [
+    [join(sourceRootDir, "agents"), join(sourceRootDir, PROJECT_AGENTS_DIR)],
+    [join(sourceRootDir, "partials"), join(sourceRootDir, SHARED_DIR, "partials")],
+    [join(sourceRootDir, RULES_DIR, ROOT_RULES_FILE), join(sourceRootDir, ROOT_RULES_FILE)],
+  ] as const) {
+    const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
+    if (await exists(absoluteOldPath)) {
+      throw new Error(
+        `skillset: ${join(sourceDir, oldPath)} uses the retired source layout; move it to ${join(sourceDir, newPath)}`
+      );
+    }
+  }
+
   const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return;
   for (const entry of await readdir(pluginsPath, { withFileTypes: true })) {
@@ -394,6 +490,16 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
     if (await exists(absolutePluginConfigPath)) {
       throw new Error(
         `skillset: ${join(sourceDir, pluginConfigPath)} uses retired plugin config.yaml; rename it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, ROOT_SOURCE_MANIFEST_FILE)}`
+      );
+    }
+    for (const [oldName, newPath] of [
+      ["agents", PROJECT_AGENTS_DIR],
+      ["partials", join(SHARED_DIR, "partials")],
+    ] as const) {
+      const oldPath = join(sourceRootDir, PLUGINS_DIR, entry.name, oldName);
+      if (!(await exists(resolveInside(rootPath, join(sourceDir, oldPath))))) continue;
+      throw new Error(
+        `skillset: ${join(sourceDir, oldPath)} uses the retired source layout; move it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, newPath)}`
       );
     }
     for (const [oldProviderDir, newProviderDir] of Object.entries(PROVIDER_SOURCE_DIRS)) {
@@ -435,7 +541,7 @@ async function loadProjectIslands(
 
   for (const island of islands) {
     if (island.target === "codex" && island.relativePath.endsWith(".rules") && island.plugin !== undefined) {
-      const path = relative(rootPath, island.sourcePath);
+      const path = logicalDiagnosticPath(rootPath, island.sourcePath);
       throw new SkillsetFeatureDiagnosticError({
         code: "target-native-island-unsupported",
         featureId: "target-native-islands",
@@ -446,12 +552,12 @@ async function loadProjectIslands(
       });
     }
     if (island.target === "codex" && island.relativePath.endsWith(".rules") && !island.relativePath.startsWith("rules/")) {
-      const path = relative(rootPath, island.sourcePath);
+      const path = logicalDiagnosticPath(rootPath, island.sourcePath);
       throw new SkillsetFeatureDiagnosticError({
         code: "target-native-island-unsupported",
         featureId: "target-native-islands",
         message:
-        `skillset: ${path} targets Codex .rules outside ${join(sourceDir, sourceRootDir, PROVIDER_SOURCE_DIRS.codex, "rules")}/; ` +
+        `skillset: ${path} targets Codex .rules outside ${toLogicalDiagnosticPath(join(sourceDir, sourceRootDir, PROVIDER_SOURCE_DIRS.codex, "rules"))}/; ` +
           "Codex .rules are project-only command policy",
         path,
       });
@@ -473,7 +579,7 @@ async function validatePluginIslandOwners(
     if (!entry.isDirectory()) continue;
     if (pluginIds.has(entry.name)) continue;
     throw new Error(
-      `skillset: ${relative(rootPath, join(pluginsPath, entry.name))} has provider source for unknown plugin ${entry.name}`
+      `skillset: ${logicalDiagnosticPath(rootPath, join(pluginsPath, entry.name))} has provider source for unknown plugin ${entry.name}`
     );
   }
 }
@@ -513,7 +619,7 @@ async function loadProjectAgents(
     agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings, externalInputPaths));
   }
 
-  validateProjectAgentCollisions(agents);
+  validateProjectAgentCollisions(rootPath, agents);
   return agents;
 }
 
@@ -526,13 +632,13 @@ async function loadProjectAgent(
   warnings: string[],
   externalInputPaths: Set<string>
 ): Promise<SourceProjectAgent> {
-  const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
-  const sourceLabel = relative(rootPath, sourcePath);
+  const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
+  const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourceLabel);
   validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
   const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
-  const outputName = sanitizeProjectAgentName(name, sourcePath);
+  const outputName = sanitizeProjectAgentName(name, sourceLabel);
   const scope = { agentId: outputName, kind: "agent" as const };
   const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, sourceLabel);
   const description = readString(parts.frontmatter, "description");
@@ -547,7 +653,7 @@ async function loadProjectAgent(
     throw new Error(`skillset: ${sourceLabel} initialPrompt must not contain </initial_prompt>`);
   }
   readStringArray(parts.frontmatter, "skills");
-  const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "agents");
+  const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourceLabel, "agents");
   warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, join(agentsPath, basename(sourcePath, ".md")), scope, targets);
 
@@ -571,19 +677,19 @@ function rejectUnsupportedPortableFrontmatter(frontmatter: JsonRecord, label: st
   }
 }
 
-function sanitizeProjectAgentName(name: string, sourcePath: string): string {
+function sanitizeProjectAgentName(name: string, sourceLabel: string): string {
   const outputName = name
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   if (outputName.length === 0) {
-    throw new Error(`skillset: ${sourcePath} project agent name must contain a letter or number`);
+    throw new Error(`skillset: ${sourceLabel} project agent name must contain a letter or number`);
   }
-  return validateSlug(outputName, `project agent output name in ${sourcePath}`);
+  return validateSlug(outputName, `project agent output name in ${sourceLabel}`);
 }
 
-function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): void {
+function validateProjectAgentCollisions(rootPath: string, agents: readonly SourceProjectAgent[]): void {
   const seenOutputPaths = new Map<string, SourceProjectAgent>();
   const seenTargetNames = new Map<string, SourceProjectAgent>();
   for (const agent of agents) {
@@ -593,7 +699,7 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
       const outputExisting = seenOutputPaths.get(outputKey);
       if (outputExisting !== undefined) {
         throw new Error(
-          `skillset: project agents ${outputExisting.sourcePath} and ${agent.sourcePath} both generate ${target} agent ${agent.outputName}`
+          `skillset: project agents ${logicalDiagnosticPath(rootPath, outputExisting.sourcePath)} and ${logicalDiagnosticPath(rootPath, agent.sourcePath)} both generate ${target} agent ${agent.outputName}`
         );
       }
       seenOutputPaths.set(outputKey, agent);
@@ -603,7 +709,7 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
       const nameExisting = seenTargetNames.get(nameKey);
       if (nameExisting !== undefined) {
         throw new Error(
-          `skillset: project agents ${nameExisting.sourcePath} and ${agent.sourcePath} both generate ${target} agent named ${targetName}`
+          `skillset: project agents ${logicalDiagnosticPath(rootPath, nameExisting.sourcePath)} and ${logicalDiagnosticPath(rootPath, agent.sourcePath)} both generate ${target} agent named ${targetName}`
         );
       }
       seenTargetNames.set(nameKey, agent);
@@ -624,30 +730,42 @@ async function loadInstructions(
   warnings: string[],
   externalInputPaths: Set<string>
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
+  const sourceRootPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
   const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
-  if (canonicalFiles.length === 0) {
+  const rootRulesPath = join(sourceRootPath, ROOT_RULES_FILE);
+  const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
+  if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
     return { rules: [], instructionsDir: join(sourceRootDir, RULES_DIR) };
   }
 
-  const ruleFiles = canonicalFiles;
+  const ruleFiles = [...rootRulesFiles, ...canonicalFiles];
   const rules: SourceRule[] = [];
 
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
-    const parts = parseMarkdown(content, sourcePath);
-    const relativePath = relative(canonicalPath, sourcePath);
+    const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
+    const parts = parseMarkdown(content, sourceLabel);
+    const rootFrontPage = sourcePath === rootRulesPath;
+    const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
+    const segments = rootFrontPage
+      ? []
+      : classifyRuleSegments(
+          relative(canonicalPath, dirname(sourcePath)),
+          rootPath,
+          sourcePath
+        );
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
-      validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
-      relative(rootPath, sourcePath),
+      validateInstructionFrontmatter(frontmatter, sourceLabel).diagnostics,
+      sourceLabel,
       frontmatter
     );
-    await validateSupports(frontmatter.supports, { externalInputPaths, label: relative(rootPath, sourcePath), rootPath, warnings });
-    const metadata = readSkillsetMetadata(frontmatter, sourcePath);
-    const sourceOrigin = readSourceOrigin(metadata, sourcePath);
-    const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
-    const dialect = readDialect(frontmatter, relative(rootPath, sourcePath));
+    await validateSupports(frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
+    const metadata = readSkillsetMetadata(frontmatter, sourceLabel);
+    const sourceOrigin = readSourceOrigin(metadata, sourceLabel);
+    const targets = resolveFeatureTargets(rootTargets, frontmatter, sourceLabel, "instructions");
+    const dialect = readDialect(frontmatter, sourceLabel);
 
     rules.push({
       body: parts.body,
@@ -655,6 +773,8 @@ async function loadInstructions(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      segments,
+      ...(rootFrontPage ? { rootFrontPage: true } : {}),
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
       targets,
@@ -665,6 +785,30 @@ async function loadInstructions(
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
     instructionsDir: join(sourceRootDir, RULES_DIR),
   };
+}
+
+function classifyRuleSegments(
+  relativeDirectory: string,
+  rootPath: string,
+  sourcePath: string
+): NonNullable<SourceRule["segments"]> {
+  if (relativeDirectory === "." || relativeDirectory.length === 0) return [];
+  return relativeDirectory.split(/[\\/]/u).map((value) => {
+    if (value === "[…]") {
+      throw new Error(
+        `skillset: ${logicalDiagnosticPath(rootPath, sourcePath)} uses Unicode rule segment […]; rename it to [...]`
+      );
+    }
+    return {
+      classification:
+        value === "[.]"
+          ? "one-level"
+          : value === "[...]"
+            ? "any-depth"
+            : "literal",
+      value,
+    };
+  });
 }
 
 /**
@@ -699,7 +843,9 @@ async function loadAdaptiveHooks(
       code: firstIssue?.code ?? "adaptive-hook-path-invalid",
       featureId: "adaptive-hooks",
       message: `skillset: ${firstIssue?.message ?? "adaptive hook paths are invalid"}`,
-      path: firstIssue?.paths[0] === undefined ? relative(rootPath, hooksPath) : relative(rootPath, join(ownerPath, firstIssue.paths[0])),
+      path: firstIssue?.paths[0] === undefined
+        ? logicalDiagnosticPath(rootPath, hooksPath)
+        : logicalDiagnosticPath(rootPath, join(ownerPath, firstIssue.paths[0])),
     });
   }
 
@@ -709,7 +855,7 @@ async function loadAdaptiveHooks(
     const classified = classifyAdaptiveHookUnitPath(relativeHookPath);
     if (classified.kind !== "adaptive-unit") continue;
 
-    const label = relative(rootPath, file);
+    const label = logicalDiagnosticPath(rootPath, file);
     let parsed: JsonValue;
     try {
       parsed = JSON.parse(await readFile(file, "utf8")) as JsonValue;
@@ -820,7 +966,7 @@ export function resolveAdaptiveHookScriptPath(
         code: "adaptive-hook-script-flat",
         featureId: "adaptive-hooks",
         message: "skillset: adaptive hook run.script uses ./, but hook-local scripts require a directory hook unit",
-        path: relative(rootPath, hookSourcePath),
+        path: logicalDiagnosticPath(rootPath, hookSourcePath),
       });
     }
     return resolveInside(dirname(hookSourcePath), reference);
@@ -842,7 +988,7 @@ export async function validateAdaptiveHookScriptSource(
       code: "adaptive-hook-script-missing",
       featureId: "adaptive-hooks",
       message: `skillset: adaptive hook run.script ${reference} does not resolve to an existing source file`,
-      path: relative(rootPath, hookSourcePath),
+      path: logicalDiagnosticPath(rootPath, hookSourcePath),
     });
   }
   if (!sourceStat.isFile()) {
@@ -850,7 +996,7 @@ export async function validateAdaptiveHookScriptSource(
       code: "adaptive-hook-script-invalid",
       featureId: "adaptive-hooks",
       message: `skillset: adaptive hook run.script ${reference} must resolve to a file`,
-      path: relative(rootPath, sourcePath),
+      path: logicalDiagnosticPath(rootPath, sourcePath),
     });
   }
 }
@@ -963,38 +1109,50 @@ async function loadPlugin(
   externalInputPaths: Set<string>
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR, id));
-  const configPath = await resolvePluginConfigPath(pluginPath);
-  const configRelativePath = relative(rootPath, configPath);
-  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  const configPath = await resolvePluginConfigPath(pluginPath, logicalDiagnosticPath(rootPath, pluginPath));
+  const configRelativePath = logicalDiagnosticPath(rootPath, configPath);
+  const config = parseYamlRecord(await readFile(configPath, "utf8"), configRelativePath);
   let claudeBundlePath: string | undefined;
   let dependencies: SourcePlugin["dependencies"];
   let metadata: SourcePlugin["metadata"];
   let sourceOrigin: SourceOrigin | undefined;
   let configuredId: string;
+  let configuredDrafts: readonly string[];
   let inheritedTargets: BuildGraph["root"]["targets"];
   let targets: SourcePlugin["targets"];
   try {
-    validateConfigDocument(config, configPath, { allowHooks: true });
+    validateConfigDocument(config, configRelativePath, { allowHooks: true });
+    configuredDrafts = readDraftSelectors(config, configRelativePath);
     claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
-    await validateSupports(config.supports, { externalInputPaths, label: configRelativePath, rootPath, warnings });
+    if (claudeBundlePath !== undefined) {
+      throw new Error(
+        `skillset: ${configRelativePath}.claude.bundle.path cannot split a shared plugin package; custom package placement is unsupported until SET-561`
+      );
+    }
+    await validateSupports(config.supports, {
+      externalInputPaths,
+      label: configRelativePath,
+      rootPath,
+      warnings,
+    });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
-    metadata = readSkillsetMetadata(config, configPath);
+    metadata = readSkillsetMetadata(config, configRelativePath);
     appendSourceMetadataCompatibilityWarnings(
       warnings,
       metadata,
       configRelativePath
     );
-    validateSchemaField(metadata, `${configPath}.skillset.schema`);
-    validateVersionField(metadata, `${configPath}.skillset.version`);
-    sourceOrigin = readSourceOrigin(metadata, configPath);
-    configuredId = readSkillsetName(metadata, id, configPath);
-    validateSlug(configuredId, `skillset.name in ${configPath}`);
+    validateSchemaField(metadata, `${configRelativePath}.skillset.schema`);
+    validateVersionField(metadata, `${configRelativePath}.skillset.version`);
+    sourceOrigin = readSourceOrigin(metadata, configRelativePath);
+    configuredId = readSkillsetName(metadata, id, configRelativePath);
+    validateSlug(configuredId, `skillset.name in ${configRelativePath}`);
     if (configuredId !== id) {
       throw new Error(
         `skillset: plugin directory ${id} does not match skillset.name ${configuredId}`
       );
     }
-    inheritedTargets = resolveTargets(parentTargets, config, configPath, {
+    inheritedTargets = resolveTargets(parentTargets, config, configRelativePath, {
       allowDefaults: true,
     });
     targets = applyFeatureTargetDefaults(inheritedTargets, "plugins");
@@ -1009,7 +1167,7 @@ async function loadPlugin(
     rootPath,
     pluginPath,
     config,
-    configPath,
+    configRelativePath,
     targets,
     id,
     configuredOutputRoots(outputs)
@@ -1019,10 +1177,25 @@ async function loadPlugin(
   }
   const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id }, targets);
-  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id, externalInputPaths);
+  const discoveredSkills = applyConfiguredDraftSelectors(
+    await loadSkills(
+      rootPath,
+      sourceDir,
+      sourceRootDir,
+      pluginPath,
+      inheritedTargets,
+      warnings,
+      id,
+      externalInputPaths
+    ),
+    configuredDrafts,
+    configRelativePath,
+    (selector) => selector.startsWith("skill:") ? selector.slice("skill:".length) : undefined
+  );
+  const skills = discoveredSkills.filter((skill) => skill.status !== "draft");
 
   if (await exists(join(pluginPath, "hooks.json"))) {
-    const path = relative(rootPath, join(pluginPath, "hooks.json"));
+    const path = logicalDiagnosticPath(rootPath, join(pluginPath, "hooks.json"));
     throw new SkillsetFeatureDiagnosticError({
       code: "plugin-root-hooks-unsupported",
       featureId: "plugin-hooks",
@@ -1035,6 +1208,8 @@ async function loadPlugin(
     adaptiveHooks,
     ...(claudeBundlePath === undefined ? {} : { claudeBundlePath }),
     dependencies,
+    configuredDrafts,
+    discoveredSkills,
     features,
     hookAttachments,
     id,
@@ -1044,6 +1219,116 @@ async function loadPlugin(
     ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
     targets,
   };
+}
+
+function applyRootConfiguredDrafts(
+  selectors: readonly string[],
+  plugins: readonly SourcePlugin[],
+  standaloneSkills: readonly SourceSkill[],
+  label: string
+): { readonly plugins: readonly SourcePlugin[]; readonly standaloneSkills: readonly SourceSkill[] } {
+  if (selectors.length === 0) return { plugins, standaloneSkills };
+  const standaloneIds = new Set(standaloneSkills.map((skill) => skill.id));
+  const pluginIds = new Map(
+    plugins.map((plugin) => [
+      plugin.id,
+      new Set((plugin.discoveredSkills ?? plugin.skills).map((skill) => skill.id)),
+    ])
+  );
+  const standaloneSelectors: string[] = [];
+  const pluginSelectors = new Map<string, string[]>();
+
+  for (const selector of selectors) {
+    if (selector.startsWith("skill:")) {
+      const skillId = selector.slice("skill:".length);
+      if (!standaloneIds.has(skillId)) {
+        throw unknownDraftSelectorError(selector, [
+          ...standaloneIds,
+          ...[...pluginIds].flatMap(([pluginId, ids]) =>
+            [...ids].map((id) => `plugin.${pluginId}.skill:${id}`)
+          ),
+        ], label);
+      }
+      standaloneSelectors.push(selector);
+      continue;
+    }
+    const match = selector.match(/^plugin\.([^.]+)\.skill:(.+)$/u);
+    const pluginId = match?.[1];
+    const skillId = match?.[2];
+    if (
+      pluginId === undefined ||
+      skillId === undefined ||
+      !pluginIds.get(pluginId)?.has(skillId)
+    ) {
+      throw unknownDraftSelectorError(selector, [
+        ...[...standaloneIds].map((id) => `skill:${id}`),
+        ...[...pluginIds].flatMap(([knownPluginId, ids]) =>
+          [...ids].map((id) => `plugin.${knownPluginId}.skill:${id}`)
+        ),
+      ], label);
+    }
+    pluginSelectors.set(pluginId, [
+      ...(pluginSelectors.get(pluginId) ?? []),
+      `skill:${skillId}`,
+    ]);
+  }
+
+  return {
+    plugins: plugins.map((plugin) => {
+      const configured = pluginSelectors.get(plugin.id) ?? [];
+      if (configured.length === 0) return plugin;
+      const discoveredSkills = applyConfiguredDraftSelectors(
+        plugin.discoveredSkills ?? plugin.skills,
+        configured,
+        label,
+        (selector) => selector.slice("skill:".length)
+      );
+      return {
+        ...plugin,
+        discoveredSkills,
+        skills: discoveredSkills.filter((skill) => skill.status !== "draft"),
+      };
+    }),
+    standaloneSkills: applyConfiguredDraftSelectors(
+      standaloneSkills,
+      standaloneSelectors,
+      label,
+      (selector) => selector.slice("skill:".length)
+    ),
+  };
+}
+
+function applyConfiguredDraftSelectors(
+  skills: readonly SourceSkill[],
+  selectors: readonly string[],
+  label: string,
+  skillIdForSelector: (selector: string) => string | undefined
+): SourceSkill[] {
+  if (selectors.length === 0) return [...skills];
+  const knownIds = [...new Set(skills.map((skill) => skill.id))].sort(compareStrings);
+  const configured = new Set<string>();
+  for (const selector of selectors) {
+    const skillId = skillIdForSelector(selector);
+    if (skillId === undefined || !knownIds.includes(skillId)) {
+      throw unknownDraftSelectorError(selector, knownIds.map((id) => `skill:${id}`), label);
+    }
+    configured.add(skillId);
+  }
+  return skills.map((skill) =>
+    configured.has(skill.id) && skill.status !== "draft"
+      ? { ...skill, draftOrigin: "config", status: "draft" }
+      : skill
+  );
+}
+
+function unknownDraftSelectorError(
+  selector: string,
+  knownSelectors: readonly string[],
+  label: string
+): Error {
+  return new Error(
+    `skillset: ${label}.drafts names absent unit ${JSON.stringify(selector)}; known ids: ${[...knownSelectors].sort(compareStrings).join(", ") || "none"}`
+  );
 }
 
 function appendSourceMetadataCompatibilityWarnings(
@@ -1062,7 +1347,7 @@ async function loadPluginFeatures(
   rootPath: string,
   pluginPath: string,
   config: JsonRecord,
-  configPath: string,
+  configLabel: string,
   targets: SourcePlugin["targets"],
   pluginId: string,
   outputRoots: readonly ActiveOutputRoot[]
@@ -1075,7 +1360,7 @@ async function loadPluginFeatures(
         rootPath,
         pluginPath,
         config,
-        configPath,
+        configLabel,
         targets,
         pluginId,
         outputRoots,
@@ -1090,7 +1375,7 @@ async function loadPluginFeatures(
             : key === "mcp"
               ? "plugin-mcp"
               : "plugin-bin",
-        path: relative(rootPath, configPath),
+        path: configLabel,
       });
     }
     if (feature !== undefined) features.push(feature);
@@ -1102,7 +1387,7 @@ async function loadPluginFeature(
   rootPath: string,
   pluginPath: string,
   config: JsonRecord,
-  configPath: string,
+  configLabel: string,
   targets: SourcePlugin["targets"],
   pluginId: string,
   outputRoots: readonly ActiveOutputRoot[],
@@ -1128,7 +1413,7 @@ async function loadPluginFeature(
     sourcePath = conventionalSource;
   } else if (raw === true) {
     if (!hasConventionalSource) {
-      throw new Error(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${relative(rootPath, conventionalSource)}`);
+      throw new Error(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${logicalDiagnosticPath(rootPath, conventionalSource)}`);
     }
     sourcePath = conventionalSource;
   } else if (isJsonRecord(raw)) {
@@ -1136,10 +1421,10 @@ async function loadPluginFeature(
     if (sourcePointer === undefined) {
       throw new Error(`skillset: plugin ${pluginId} feature ${key} requires source`);
     }
-    sourcePath = await resolveRepoSourcePointer(rootPath, sourcePointer, `${configPath}.${key}.source`, outputRoots);
+    sourcePath = await resolveRepoSourcePointer(rootPath, sourcePointer, `${configLabel}.${key}.source`, outputRoots);
     origin = "explicit";
   } else {
-    throw new Error(`skillset: expected ${configPath}.${key} to be true, false, or an object`);
+    throw new Error(`skillset: expected ${configLabel}.${key} to be true, false, or an object`);
   }
 
   const stats = await stat(sourcePath);
@@ -1181,8 +1466,12 @@ async function loadPluginFeature(
 }
 
 function pluginFeatureTargetPath(key: SourcePluginFeatureKey): string {
-  if (key === "app") return ".app.json";
-  return key === "mcp" ? ".mcp.json" : "bin";
+  const componentKind = key === "app" ? "apps" : key;
+  const manifestPath = pluginComponentPath("codex", componentKind);
+  const sourcePath = manifestPath.startsWith("./")
+    ? manifestPath.slice(2)
+    : manifestPath;
+  return sourcePath.endsWith("/") ? sourcePath.slice(0, -1) : sourcePath;
 }
 
 async function resolveRepoSourcePointer(
@@ -1207,7 +1496,7 @@ async function resolveRepoSourcePointer(
   return sourcePath;
 }
 
-async function resolvePluginConfigPath(pluginPath: string): Promise<string> {
+async function resolvePluginConfigPath(pluginPath: string, pluginLabel: string): Promise<string> {
   const candidates = [];
   for (const file of PLUGIN_CONFIG_FILES) {
     const candidate = join(pluginPath, file);
@@ -1215,10 +1504,10 @@ async function resolvePluginConfigPath(pluginPath: string): Promise<string> {
   }
 
   if (candidates.length === 0) {
-    throw new Error(`skillset: expected plugin config skillset.yaml in ${pluginPath}`);
+    throw new Error(`skillset: expected plugin config skillset.yaml in ${pluginLabel}`);
   }
   if (candidates.length > 1) {
-    throw new Error(`skillset: plugin ${pluginPath} has both skillset.yaml and config.yaml`);
+    throw new Error(`skillset: plugin ${pluginLabel} has both skillset.yaml and config.yaml`);
   }
 
   return candidates[0] ?? join(pluginPath, "skillset.yaml");
@@ -1256,43 +1545,58 @@ async function loadSkillsFromDirectory(
 
   for (const sourcePath of skillFiles) {
     const content = await readFile(sourcePath, "utf8");
-    const parts = parseMarkdown(content, sourcePath);
-    validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourcePath).diagnostics, sourcePath, parts.frontmatter);
-    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: relative(rootPath, sourcePath), rootPath, warnings });
-    const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
-    validateVersionField(parts.frontmatter, `${sourcePath}.version`);
+    const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
+    const parts = parseMarkdown(content, sourceLabel);
+    validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
+    await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
+    const metadata = readSkillsetMetadata(parts.frontmatter, sourceLabel);
+    validateVersionField(parts.frontmatter, `${sourceLabel}.version`);
     if (metadata.name !== undefined) {
-      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.name; use top-level name`);
+      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.name; use top-level name`);
     }
     if (metadata.id !== undefined) {
-      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.id; use top-level name`);
+      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.id; use top-level name`);
     }
     if (metadata.version !== undefined) {
-      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.version; use top-level version`);
+      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.version; use top-level version`);
     }
-    const sourceOrigin = readSourceOrigin(metadata, sourcePath);
+    const sourceOrigin = readSourceOrigin(metadata, sourceLabel);
     const id = validateSlug(
       readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)),
-      `skill id in ${sourcePath}`
+      `skill id in ${sourceLabel}`
     );
     const scope = {
       ...parentScope,
       kind: "skill" as const,
       skillId: id,
     };
-    const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, relative(rootPath, sourcePath));
-    const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");
+    const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, logicalDiagnosticPath(rootPath, sourcePath));
+    const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourceLabel, "skills");
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope, targets);
     const relativePath = relative(relativeBasePath, sourcePath);
+    const sourceSegments = relative(skillsPath, dirname(sourcePath)).split(/[\\/]/u);
+    const draftFromDirectory = sourceSegments.includes("_drafts");
+    const declaredStatus = parts.frontmatter.status;
+    if (declaredStatus !== undefined && declaredStatus !== "draft") {
+      throw new Error(
+        `skillset: ${logicalDiagnosticPath(rootPath, sourcePath)} status must be draft when provided`
+      );
+    }
+    const draftOrigin = draftFromDirectory
+      ? "_drafts"
+      : declaredStatus === "draft"
+        ? "status"
+        : undefined;
+    const groupPath = sourceSegments.slice(0, -1).filter((segment) => segment !== "_drafts");
     const resources = await readSkillResources(parts.frontmatter.resources, {
-      label: sourcePath,
+      label: sourceLabel,
       ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
       sharedPath: resolveInside(rootPath, join(sourceDir, sourceRootDir, SHARED_DIR)),
       sourceRootPath: resolveInside(rootPath, join(sourceDir, sourceRootDir)),
     });
 
-    const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));
+    const dialect = readDialect(parts.frontmatter, logicalDiagnosticPath(rootPath, sourcePath));
     const evalDeclaration = await loadSkillEvalDeclaration(dirname(sourcePath), id, targets);
 
     skills.push({
@@ -1301,6 +1605,7 @@ async function loadSkillsFromDirectory(
       ...(dialect === undefined ? {} : { dialect }),
       ...(evalDeclaration === undefined ? {} : { evalDeclaration }),
       frontmatter: parts.frontmatter,
+      groupPath,
       hookAttachments,
       id,
       metadata,
@@ -1308,11 +1613,53 @@ async function loadSkillsFromDirectory(
       resources,
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+      status: draftOrigin === undefined ? "live" : "draft",
+      ...(draftOrigin === undefined ? {} : { draftOrigin }),
       targets,
     });
   }
 
+  validateDuplicateSkillLeaves(skills, skillsPath, rootPath);
   return skills.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
+}
+
+function validateDuplicateSkillLeaves(
+  skills: readonly SourceSkill[],
+  skillsPath: string,
+  rootPath: string
+): void {
+  const byLeaf = new Map<string, SourceSkill[]>();
+  for (const skill of skills) {
+    const leaf = basename(dirname(skill.sourcePath));
+    byLeaf.set(leaf, [...(byLeaf.get(leaf) ?? []), skill]);
+  }
+
+  for (const [leaf, matches] of byLeaf) {
+    if (matches.length < 2 || isLiveDraftCounterpartPair(matches, skillsPath)) {
+      continue;
+    }
+    throw new Error(
+      `skillset: duplicate skill leaf ${leaf}: ${matches
+        .map((skill) => logicalDiagnosticPath(rootPath, skill.sourcePath))
+        .join(" and ")}`
+    );
+  }
+}
+
+function isLiveDraftCounterpartPair(
+  skills: readonly SourceSkill[],
+  skillsPath: string
+): boolean {
+  if (skills.length !== 2) return false;
+  const draft = skills.find((skill) => skill.draftOrigin === "_drafts");
+  const live = skills.find((skill) => skill.status === "live");
+  if (draft === undefined || live === undefined) return false;
+  const draftDirectory = relative(skillsPath, dirname(draft.sourcePath))
+    .split(/[\\/]/u)
+    .filter((segment) => segment !== "_drafts")
+    .join("/");
+  const liveDirectory = relative(skillsPath, dirname(live.sourcePath)).replaceAll("\\", "/");
+  return draftDirectory === liveDirectory;
 }
 
 function validateSourceFrontmatter(
@@ -1385,23 +1732,29 @@ function warnPortableModel(
   );
   if (missingTargets.length === 0) return;
   warnings.push(
-    `${relative(rootPath, sourcePath)} uses top-level model, which is not portable in Skillset v1; ` +
+    `${logicalDiagnosticPath(rootPath, sourcePath)} uses top-level model, which is not portable in Skillset v1; ` +
       `use target-specific model fields or target defaults for ${missingTargets.join(", ")}.`
   );
 }
 
 async function findSkillFiles(root: string): Promise<string[]> {
-  const files: string[] = [];
   const entries = await readdir(root, { withFileTypes: true });
+  if (entries.some((entry) => entry.isFile() && entry.name === SKILL_FILE)) {
+    return [join(root, SKILL_FILE)];
+  }
+
+  const files: string[] = [];
 
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
+      if (entry.name.startsWith("_") && entry.name !== "_drafts") {
+        throw new Error(
+          `skillset: ${path} uses reserved skill-directory syntax; only _drafts is allowed`
+        );
+      }
       files.push(...(await findSkillFiles(path)));
       continue;
-    }
-    if (entry.isFile() && entry.name === SKILL_FILE) {
-      files.push(path);
     }
   }
 
@@ -1489,14 +1842,16 @@ async function outputRootsFor(
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
   rules: readonly SourceRule[],
-  standardProjections: BuildGraph["standardProjections"]
+  standardProjections: BuildGraph["standardProjections"],
+  projectUseSkills: readonly { readonly pluginId: string; readonly skillId: string }[]
 ): Promise<readonly ActiveOutputRoot[]> {
   const activeRoots = activeOutputRoots(
     outputs,
     plugins,
     standaloneSkills,
     rules,
-    standardProjections
+    standardProjections,
+    projectUseSkills
   );
   const roots = [...activeRoots];
   const activePaths = new Set(activeRoots.map((outputRoot) => outputRoot.path));
@@ -1574,6 +1929,21 @@ function validatePluginBundleDestinations(
   }
 }
 
+function validateSharedPackageOutputRoots(
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[]
+): void {
+  for (const target of targetNames()) {
+    if (outputs.plugins[target] === DEFAULT_PLUGIN_OUTPUT_ROOT) continue;
+    if (!plugins.some((plugin) =>
+      plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id)
+    )) continue;
+    throw new Error(
+      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement is unsupported until SET-561 (${target}.plugins.path or plugins.output.${target}.path)`
+    );
+  }
+}
+
 function pathsOverlap(left: string, right: string): boolean {
   return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
 }
@@ -1593,7 +1963,8 @@ function activeOutputRoots(
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
   rules: readonly SourceRule[],
-  standardProjections: BuildGraph["standardProjections"]
+  standardProjections: BuildGraph["standardProjections"],
+  projectUseSkills: readonly { readonly pluginId: string; readonly skillId: string }[]
 ): readonly ActiveOutputRoot[] {
   const roots: ActiveOutputRoot[] = standardProjectionManagedOutputRoots(standardProjections)
     .map((path) => ({
@@ -1618,7 +1989,17 @@ function activeOutputRoots(
     if (target === "claude") {
       roots.push(...pluginBundleOutputRoots(enabledPlugins));
     }
-    if (standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))) {
+    if (
+      projectUseSkills.some(({ pluginId, skillId }) => {
+        const plugin = plugins.find((candidate) => candidate.id === pluginId);
+        const skill = (plugin?.discoveredSkills ?? plugin?.skills ?? []).find(
+          (candidate) => candidate.id === skillId
+        );
+        return skill !== undefined && skill.targets[target].enabled &&
+          outputIncludes(outputs.targetOutputs[target].skills, skill.id);
+      }) ||
+      standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))
+    ) {
       roots.push({ label: `outputs.skills.${target}`, path: outputs.skills[target] });
     }
   }
@@ -1688,7 +2069,7 @@ function validateProjectRoots(
       );
       if (overlappingAgent !== undefined) {
         throw new Error(
-          `skillset: ${relative(rootPath, overlappingAgent.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
+          `skillset: ${logicalDiagnosticPath(rootPath, overlappingAgent.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
         );
       }
       const overlappingIsland = targetProjectIslands.find((island) =>
@@ -1696,7 +2077,7 @@ function validateProjectRoots(
       );
       if (overlappingIsland === undefined) continue;
       throw new Error(
-        `skillset: ${relative(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
+        `skillset: ${logicalDiagnosticPath(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
       );
     }
   }
@@ -1789,7 +2170,7 @@ function validateOutputRootNotInsideProtectedRoots(
     if (isSameOrInside(absoluteOutputRoot, protectedRoot.path) ||
         (isPluginBundleRootLabel(outputRoot.label) && pathsOverlap(absoluteOutputRoot.toLowerCase(), protectedRoot.path.toLowerCase()))) {
       throw new Error(
-        `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${relative(rootPath, protectedRoot.path)}`
+        `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${logicalDiagnosticPath(rootPath, protectedRoot.path)}`
       );
     }
   }

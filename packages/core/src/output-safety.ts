@@ -4,12 +4,20 @@ import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, relative } from "node:path";
 
+import {
+  type AtomicFilePublicationTestHooks,
+  publishAtomicFile,
+} from "./atomic-file-publication";
 import { readOutputConfig, readSkillsetMetadata, targetNames } from "./config";
 import {
-  parseCurrentGeneratedLock,
   parseGeneratedLock,
+  type GeneratedLockSchemaVersion,
   type ParsedGeneratedLockItem,
 } from "./generated-lock";
+import {
+  parseCurrentLockOrCorrupt,
+  readCurrentGeneratedLockFromDisk,
+} from "./generated-lock-read";
 import { hasValidLockProvenance } from "./lock-provenance";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -17,7 +25,12 @@ import {
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
 import { renderValidatedJson } from "./structured-output";
-import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
+import { hashOwnedSettingsEntries } from "./settings-entry";
+import {
+  skillsetDiagnostic,
+  type SkillsetDiagnostic,
+  type SkillsetWriteSummary,
+} from "./operation-result";
 import {
   createOperationalPathContext,
   logicalOperationalPath,
@@ -29,6 +42,7 @@ import { readSkillsetWorkspaceConfig } from "./xdg";
 
 export const WORKSPACE_LOCK_FILE = "skillset.lock";
 export const OUTPUT_BACKUP_ROOT = ".skillset/snapshots";
+export { corruptWorkspaceLock } from "./generated-lock-read";
 
 export type OutPath = (path: string) => string;
 export type OutputPathResolver = (path: string) => string;
@@ -38,6 +52,7 @@ export interface ManagedOutputState {
   /** Managed paths whose bytes on disk no longer match the lock's `outputHash`. */
   readonly editedPaths: ReadonlySet<string>;
   readonly hasBaseline: boolean;
+  readonly partialPaths: ReadonlySet<string>;
   readonly paths: ReadonlySet<string>;
   /**
    * Managed paths whose lock item yields no trustworthy disk-vs-lock verdict:
@@ -155,7 +170,7 @@ interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "recor
 interface ParsedLock {
   readonly items: readonly ParsedGeneratedLockItem[];
   readonly outputHashesTrusted: boolean;
-  readonly schemaVersion: 1 | 2 | 3;
+  readonly schemaVersion: GeneratedLockSchemaVersion;
 }
 
 interface LockFileEntry {
@@ -190,10 +205,17 @@ export async function readManagedOutputState(
   provenancePolicy?: ManagedOutputProvenancePolicy
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
+  const partialPaths = new Set<string>();
   const editedPaths = new Set<string>();
   const lockIncomparablePaths = new Set<string>();
   const renderDriftPaths = new Set<string>();
-  const sinks = { editedPaths, lockIncomparablePaths, paths, renderDriftPaths };
+  const sinks = {
+    editedPaths,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  };
   let hasBaseline = false;
 
   if (includeWorkspaceLock) {
@@ -204,13 +226,21 @@ export async function readManagedOutputState(
     hasBaseline = (await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, sinks, resolveOutputPath, strictOutputRoots.has(outputRoot), provenancePolicy)) || hasBaseline;
   }
 
-  return { editedPaths, hasBaseline, lockIncomparablePaths, paths, renderDriftPaths };
+  return {
+    editedPaths,
+    hasBaseline,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  };
 }
 
 /** Mutable accumulators filled while walking each managed lock. */
 interface ManagedOutputStateSinks {
   readonly editedPaths: Set<string>;
   readonly lockIncomparablePaths: Set<string>;
+  readonly partialPaths: Set<string>;
   readonly paths: Set<string>;
   readonly renderDriftPaths: Set<string>;
 }
@@ -397,9 +427,14 @@ export async function planOutputBackups(
   };
 }
 
+export interface OutputBackupPersistTestHooks extends AtomicFilePublicationTestHooks {
+  readonly afterPayloadStorage?: () => Promise<void> | void;
+}
+
 export async function persistOutputBackupPlan(
   rootPath: string,
-  plan: OutputBackupPlan
+  plan: OutputBackupPlan,
+  testHooks: OutputBackupPersistTestHooks = {}
 ): Promise<{
   readonly backup?: OutputBackupSummary;
   readonly diagnostics: readonly SkillsetDiagnostic[];
@@ -417,6 +452,7 @@ export async function persistOutputBackupPlan(
   const runId = runHash.slice("sha256:".length, "sha256:".length + 12);
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
   const { records: finalized, storage } = await writeGitBackupStorage(rootPath, runId, records);
+  await testHooks.afterPayloadStorage?.();
 
   const manifest: OutputBackupManifest = {
     generatedBy: "skillset@0.1.0",
@@ -426,9 +462,13 @@ export async function persistOutputBackupPlan(
     schemaVersion: 2 as const,
     storage,
   };
-  const absoluteManifestPath = resolveInside(rootPath, manifestPath);
-  await mkdir(dirname(absoluteManifestPath), { recursive: true });
-  await writeFile(absoluteManifestPath, renderValidatedJson(manifest as unknown as JsonRecord, manifestPath), "utf8");
+  // The manifest is the snapshot completion marker. Publish it only after
+  // backup payloads are stored so an interrupted run cannot look restorable.
+  await publishAtomicFile(
+    resolveInside(rootPath, manifestPath),
+    renderValidatedJson(manifest as unknown as JsonRecord, manifestPath),
+    { testHooks }
+  );
 
   return {
     backup: { manifestPath, records: finalized, runHash, runId },
@@ -577,12 +617,15 @@ async function addManagedPathsFromLock(
   requireProvenance: boolean,
   provenancePolicy: ManagedOutputProvenancePolicy | undefined
 ): Promise<boolean> {
-  const { editedPaths, lockIncomparablePaths, paths, renderDriftPaths } = sinks;
+  const {
+    editedPaths,
+    lockIncomparablePaths,
+    partialPaths,
+    paths,
+    renderDriftPaths,
+  } = sinks;
   const renderedByPath = provenancePolicy?.renderedByPath;
   const displayLockPath = outPath(lockPath);
-  const absoluteLockPath = resolveOutputPath(displayLockPath);
-  if (!(await exists(absoluteLockPath))) return false;
-
   const lock = await readManagedLock(
     lockPath,
     displayLockPath,
@@ -592,13 +635,21 @@ async function addManagedPathsFromLock(
     outPath,
     provenancePolicy
   );
+  if (lock === undefined) return false;
   paths.add(displayLockPath);
 
   for (const item of lock.items) {
     const files = item.files
       .map((file) => ({ displayPath: outPath(joinOutputRoot(expectedOutputRoot, file)), file }))
       .sort((left, right) => compareStrings(left.file, right.file));
-    for (const file of files) paths.add(file.displayPath);
+    if (item.kind === "settings-entry") {
+      for (const file of files) {
+        paths.add(file.displayPath);
+        partialPaths.add(file.displayPath);
+      }
+    } else {
+      for (const file of files) paths.add(file.displayPath);
+    }
     if (!lock.outputHashesTrusted) {
       for (const file of files) {
         lockIncomparablePaths.add(file.displayPath);
@@ -642,57 +693,39 @@ async function readManagedLock(
   requireProvenance: boolean,
   outPath: OutPath,
   provenancePolicy: ManagedOutputProvenancePolicy | undefined
-): Promise<ParsedLock> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await readFile(resolveOutputPath(displayLockPath), "utf8")) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw corruptManagedLock(lockPath, displayLockPath, `it is not valid JSON: ${message}`);
-  }
-
-  let lock;
-  try {
-    const emptyLegacyV2 =
-      isJsonRecord(parsed) &&
-      parsed.schemaVersion === 2 &&
-      Array.isArray(parsed.items) &&
-      parsed.items.length === 0;
-    lock = emptyLegacyV2
-      ? parseGeneratedLock(parsed, displayLockPath, { provenance: "inspect" })
-      : parseCurrentGeneratedLock(
-          parsed,
-          displayLockPath,
-          requireProvenance
-            ? { provenance: "require" }
-            : { provenance: "inspect" }
-        );
-    if (
-      !requireProvenance &&
-      requiresProvenanceForUnplannedPaths(
-        lock,
-        expectedOutputRoot,
-        outPath,
-        provenancePolicy
-      )
-    ) {
-      lock = parseCurrentGeneratedLock(parsed, displayLockPath, {
-        provenance: "require",
-      });
+): Promise<ParsedLock | undefined> {
+  const read = await readCurrentGeneratedLockFromDisk(
+    resolveOutputPath(displayLockPath),
+    {
+      expectedOutputRoot,
+      logicalPath: displayLockPath,
+      missing: "absent",
+      provenance: requireProvenance ? "require" : "inspect",
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw corruptManagedLock(lockPath, displayLockPath, message);
-  }
-  if (lock.outputRoot !== expectedOutputRoot) {
-    const expected = expectedOutputRoot === "." ? "the workspace root" : JSON.stringify(expectedOutputRoot);
-    throw corruptManagedLock(lockPath, displayLockPath, `its outputRoot ${JSON.stringify(lock.outputRoot)} is not ${expected}`);
+  );
+  if (read.kind === "absent") return undefined;
+
+  let lock = read.lock;
+  if (
+    !requireProvenance &&
+    requiresProvenanceForUnplannedPaths(
+      lock,
+      expectedOutputRoot,
+      outPath,
+      provenancePolicy
+    )
+  ) {
+    lock = parseCurrentLockOrCorrupt(read.raw, {
+      expectedOutputRoot,
+      logicalPath: displayLockPath,
+      provenance: "require",
+    });
   }
   return {
     items: lock.items,
     outputHashesTrusted:
-      lock.schemaVersion !== 3 ||
-      (isJsonRecord(parsed) && hasValidLockProvenance(parsed)),
+      lock.schemaVersion < 3 ||
+      (isJsonRecord(read.raw) && hasValidLockProvenance(read.raw)),
     schemaVersion: lock.schemaVersion,
   };
 }
@@ -717,9 +750,16 @@ function requiresProvenanceForUnplannedPaths(
 async function currentOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedGeneratedLockItem,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: GeneratedLockSchemaVersion,
   resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const outputPath = resolveOutputPath(entry.displayPath);
+    if (!(await exists(outputPath))) return undefined;
+    return hashOwnedSettingsEntries(await readFile(outputPath), item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
@@ -808,9 +848,15 @@ export function lockDisagreementPaths(
 function snapshotOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedGeneratedLockItem,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: GeneratedLockSchemaVersion,
   snapshots: ReadonlyMap<string, GeneratedFileSnapshot>
 ): string | undefined {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const snapshot = snapshots.get(entry.displayPath);
+    return snapshot === undefined ? undefined : hashOwnedSettingsEntries(snapshot.content, item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
   for (const entry of files) {
@@ -842,9 +888,15 @@ function snapshotOutputHash(
 function renderedOutputHash(
   files: readonly LockFileEntry[],
   item: ParsedGeneratedLockItem,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: GeneratedLockSchemaVersion,
   renderedByPath: ReadonlyMap<string, RenderedFile>
 ): string | undefined {
+  if (item.kind === "settings-entry") {
+    const entry = files[0];
+    if (files.length !== 1 || entry === undefined || item.ownedEntries === undefined) return undefined;
+    const file = renderedByPath.get(entry.displayPath);
+    return file === undefined ? undefined : hashOwnedSettingsEntries(file.content, item.ownedEntries);
+  }
   const hash = createHash("sha256");
   hash.update(schemaVersion === 1 ? "skillset-output-v1\0" : "skillset-output-v2\0");
 
@@ -901,6 +953,10 @@ function collectOutputBackupRecords(
       !caseOnlyManagedInspection.targets.has(file.path) &&
       matchesRendered
     ) {
+      continue;
+    }
+
+    if (managedPath === undefined && file.partialOwnership === "settings-entry") {
       continue;
     }
 
@@ -1016,13 +1072,13 @@ async function firstUnmanagedDirectoryEntry(
 }
 
 function outputShapeCollisionDiagnostic(path: string): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "unmanaged-output-collision",
     featureId: "output-safety",
     message: `existing output shape is not fully owned by Skillset; refusing to replace ${path}`,
     outputPath: path,
     severity: "error",
-  };
+  });
 }
 
 async function inspectCaseOnlyManagedAliases(
@@ -1107,26 +1163,36 @@ function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiag
   const reason = record.reason === "managed-target-edit"
     ? "existing generated output differs from the previous lock"
     : "existing file is not owned by Skillset";
-  return {
+  return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; ${record.targetPath} will be backed up before ${record.action}`,
+    message: `${reason}; ${record.targetPath} will be backed up before ${record.action}${rootRulesGuidance(record)}`,
     outputPath: record.targetPath,
     severity: "warning",
-  };
+  });
 }
 
 function backupDiagnostic(record: OutputBackupRecord, runId: string, manifestPath: string): SkillsetDiagnostic {
   const reason = record.reason === "managed-target-edit"
     ? "existing generated output differs from the previous lock"
     : "existing file is not owned by Skillset";
-  return {
+  return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})`,
+    message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})${rootRulesGuidance(record)}`,
     outputPath: record.targetPath,
     severity: "warning",
-  };
+  });
+}
+
+function rootRulesGuidance(
+  record: Pick<OutputBackupPlanRecord, "reason" | "sourcePath" | "targetPath">
+): string {
+  return record.reason === "unmanaged-collision" &&
+    record.targetPath === "AGENTS.md" &&
+    record.sourcePath?.endsWith("/RULES.md") === true
+    ? "; move authored root instructions to .skillset/RULES.md"
+    : "";
 }
 
 async function writeGitBackupStorage(
@@ -1195,6 +1261,17 @@ async function inspectOutputBackupRun(rootPath: string, runId: string): Promise<
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
   let envelope: OutputBackupManifestEnvelope;
   try {
+    // Keep this probe inside the per-run catch: one unreadable snapshot must
+    // not hide independently inspectable siblings.
+    if (!(await exists(resolveInside(rootPath, manifestPath)))) {
+      return {
+        detail: "incomplete snapshot: backup manifest has not been published",
+        manifestPath,
+        records: [],
+        runId,
+        state: "corrupt-or-unavailable",
+      };
+    }
     envelope = await readBackupManifestEnvelope(rootPath, manifestPath, runId);
   } catch (error) {
     return {
@@ -1403,7 +1480,7 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   if (generatedHash !== undefined && typeof generatedHash !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedHash`);
   }
-  if (generatedMode !== undefined && (generatedMode !== "0644" && generatedMode !== "0755")) {
+  if (generatedMode !== undefined && (typeof generatedMode !== "string" || !/^0[0-7]{3}$/.test(generatedMode))) {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedMode`);
   }
   if (originalMode !== undefined && (typeof originalMode !== "string" || !/^[0-7]{4}$/.test(originalMode))) {
@@ -1597,21 +1674,6 @@ async function inspectRestoreTarget(record: OutputBackupRecord, targetPath: stri
     }
   }
   return undefined;
-}
-
-function corruptManagedLock(lockPath: string, displayLockPath: string, reason: string): Error {
-  if (lockPath === WORKSPACE_LOCK_FILE) return corruptWorkspaceLock(displayLockPath, reason);
-  return new Error(
-    `skillset: generated lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
-      "Fix or remove the lock before running build, check, or diff."
-  );
-}
-
-export function corruptWorkspaceLock(displayLockPath: string, reason: string): Error {
-  return new Error(
-    `skillset: workspace lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
-      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
-  );
 }
 
 function joinOutputRoot(outputRoot: string, file: string): string {

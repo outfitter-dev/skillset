@@ -314,6 +314,32 @@ export {
   type SourceRenameUpdateOperation,
 } from "./source-rename";
 export {
+  moveSource,
+  planSourceMove,
+  SourceMovePlanError,
+  type SourceMoveApplyRequest,
+  type SourceMoveKind,
+  type SourceMovePlan,
+  type SourceMoveReport,
+  type SourceMoveRequest,
+} from "./source-move";
+export {
+  draftSource,
+  planSourceDraft,
+  planSourcePromotion,
+  promoteSource,
+  SourceDraftPlanError,
+  SourcePromotionPlanError,
+  type SourceDraftApplyRequest,
+  type SourceDraftPlan,
+  type SourceDraftReport,
+  type SourceDraftRequest,
+  type SourcePromotionApplyRequest,
+  type SourcePromotionPlan,
+  type SourcePromotionReport,
+  type SourcePromotionRequest,
+} from "./source-draft";
+export {
   listLookupFields,
   listLookupSubjects,
   listLookupViews,
@@ -443,6 +469,25 @@ export {
   type ParsedGeneratedLockItem,
   type ParsedCurrentGeneratedLock,
 } from "./generated-lock";
+export {
+  corruptGeneratedLock,
+  corruptManagedLock,
+  corruptWorkspaceLock,
+  isEmptyV2GeneratedLock,
+  isPreV4GeneratedLock,
+  isWorkspaceLockPath,
+  parseCurrentLockOrCorrupt,
+  parseLegacyLockOrCorrupt,
+  readCurrentGeneratedLockFromDisk,
+  readGeneratedLockJsonFromDisk,
+  readInspectableGeneratedLockFromDisk,
+  readLegacyGeneratedLockFromDisk,
+  WORKSPACE_LOCK_LOGICAL_PATH,
+  type GeneratedLockDiskRead,
+  type GeneratedLockMissingPolicy,
+  type GeneratedLockSchemaPolicy,
+  type ReadGeneratedLockFromDiskOptions,
+} from "./generated-lock-read";
 export {
   compareNormalizedOutputTreeEntries,
   compareNormalizedOutputTrees,

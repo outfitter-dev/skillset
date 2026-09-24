@@ -64,6 +64,16 @@ export interface ProviderHookEventEvidence {
   readonly unsupportedOutputFields: readonly string[];
 }
 
+export interface ProviderHookOutputLimitEvidence {
+  readonly approximate: boolean;
+  readonly field: "additionalContext" | "hook-output-string";
+  readonly kind: "configured-example" | "default-spill-threshold" | "hard-cap";
+  readonly source: string;
+  readonly unit: "characters" | "tokens";
+  readonly value: number;
+  readonly verifiedAt: string;
+}
+
 export interface ProviderHookConfigEvidence {
   readonly handlerEnvelope: "flat" | "grouped";
   readonly groupFields: readonly string[];
@@ -76,6 +86,7 @@ export interface ProviderHookEvidence {
   readonly events: readonly ProviderHookEventEvidence[];
   readonly evidenceKind: ProviderHookEvidenceKind;
   readonly handlerTypes: readonly ProviderHookHandlerEvidence[];
+  readonly outputLimits: readonly ProviderHookOutputLimitEvidence[];
   readonly providerRef: string;
   readonly sources: readonly string[];
   readonly target: ProviderHookEvidenceTarget;
@@ -157,6 +168,17 @@ const claudeHookEvidence = defineProviderHookEvidence({
     { type: "mcp_tool", fields: ["type", "name", "input", "timeout", "async", "if"] },
     { type: "prompt", fields: ["type", "prompt", "timeout", "if"] },
   ],
+  outputLimits: [
+    {
+      approximate: false,
+      field: "hook-output-string",
+      kind: "hard-cap",
+      source: "https://code.claude.com/docs/en/hooks",
+      unit: "characters",
+      value: 10_000,
+      verifiedAt: "2026-09-16",
+    },
+  ],
   providerRef: "claude-hooks-overlay",
   sources: ["https://code.claude.com/docs/en/hooks"],
   target: "claude",
@@ -231,6 +253,26 @@ const codexHookEvidence = defineProviderHookEvidence({
   handlerTypes: [
     { type: "command", fields: ["type", "command", "timeout", "async"], skippedFields: ["async"] },
   ],
+  outputLimits: [
+    {
+      approximate: true,
+      field: "additionalContext",
+      kind: "default-spill-threshold",
+      source: "https://developers.openai.com/codex/hooks",
+      unit: "tokens",
+      value: 2_500,
+      verifiedAt: "2026-09-16",
+    },
+    {
+      approximate: false,
+      field: "additionalContext",
+      kind: "configured-example",
+      source: "https://developers.openai.com/codex/hooks",
+      unit: "tokens",
+      value: 5_000,
+      verifiedAt: "2026-09-16",
+    },
+  ],
   providerRef: "codex-hooks-schema",
   sources: [
     "https://developers.openai.com/codex/hooks",
@@ -253,6 +295,7 @@ const cursorHookEvidence = defineProviderHookEvidence({
     { type: "command", fields: ["type", "command", "timeout", "loop_limit", "failClosed", "matcher"] },
     { type: "prompt", fields: ["type", "prompt", "timeout", "loop_limit", "failClosed", "matcher", "model"] },
   ],
+  outputLimits: [],
   providerRef: "cursor-hooks-docs",
   sources: [
     "https://cursor.com/docs/hooks",
@@ -281,6 +324,7 @@ function defineProviderHookEvidence(evidence: ProviderHookEvidence): ProviderHoo
     ...evidence,
     events: [...evidence.events].sort((left, right) => left.name.localeCompare(right.name)),
     handlerTypes: [...evidence.handlerTypes].sort((left, right) => left.type.localeCompare(right.type)),
+    outputLimits: [...evidence.outputLimits],
   };
 }
 

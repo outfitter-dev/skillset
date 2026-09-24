@@ -1,15 +1,13 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   access,
   chmod,
   mkdir,
-  mkdtemp,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   SkillsetLauncherError,
@@ -21,18 +19,8 @@ import {
 } from "../launcher";
 import { getNativeDistribution } from "../native-distribution";
 
-const temporaryRoots: string[] = [];
-
-afterAll(async () => {
-  await Promise.all(
-    temporaryRoots.map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
-
 async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-launcher-test-"));
-  temporaryRoots.push(root);
-  return root;
+  return createTestFixtureRoot("skillset-launcher-test-");
 }
 
 describe("SET-420 npm native launcher", () => {

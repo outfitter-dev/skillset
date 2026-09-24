@@ -3,14 +3,15 @@
 import { describe, expect, test } from "bun:test";
 import {
   access,
+  lstat,
   mkdir,
-  mkdtemp,
+  readdir,
   readFile,
-  rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import nodePath from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   renameDirectoryNoReplace,
@@ -27,14 +28,8 @@ const supportedPlatformTest = test.skipIf(!supportedPlatform);
 const withTemporaryDirectory = async (
   operation: (root: string) => Promise<void> | void
 ): Promise<void> => {
-  const root = await mkdtemp(
-    nodePath.join(tmpdir(), "skillset-directory-rename-")
-  );
-  try {
-    await operation(root);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
+  const root = await createTestFixtureRoot("skillset-directory-rename-");
+  await operation(root);
 };
 
 const missing = async (path: string): Promise<boolean> =>
@@ -157,6 +152,83 @@ if (import.meta.main && workerIndex !== -1) {
               "utf-8"
             )
           ).toBe("destination\n");
+        });
+      }
+    );
+
+    supportedPlatformTest(
+      "reports occupied for an empty destination directory",
+      async () => {
+        await withTemporaryDirectory(async (root) => {
+          const sourcePath = nodePath.join(root, "source");
+          const destinationPath = nodePath.join(root, "destination");
+          await mkdir(sourcePath);
+          await mkdir(destinationPath);
+          await writeFile(nodePath.join(sourcePath, "marker.txt"), "source\n");
+
+          expect(renameDirectoryNoReplace(sourcePath, destinationPath)).toEqual(
+            {
+              kind: "occupied",
+            }
+          );
+          expect(await readdir(destinationPath)).toEqual([]);
+          expect(
+            await readFile(nodePath.join(sourcePath, "marker.txt"), "utf-8")
+          ).toBe("source\n");
+        });
+      }
+    );
+
+    supportedPlatformTest(
+      "reports occupied for a file destination without replacing it",
+      async () => {
+        await withTemporaryDirectory(async (root) => {
+          const sourcePath = nodePath.join(root, "source");
+          const destinationPath = nodePath.join(root, "destination");
+          await mkdir(sourcePath);
+          await writeFile(nodePath.join(sourcePath, "marker.txt"), "source\n");
+          await writeFile(destinationPath, "keep-file\n");
+
+          expect(renameDirectoryNoReplace(sourcePath, destinationPath)).toEqual(
+            {
+              kind: "occupied",
+            }
+          );
+          expect(await readFile(destinationPath, "utf-8")).toBe("keep-file\n");
+          expect(
+            await readFile(nodePath.join(sourcePath, "marker.txt"), "utf-8")
+          ).toBe("source\n");
+        });
+      }
+    );
+
+    supportedPlatformTest(
+      "reports occupied for a symlink destination without following it",
+      async () => {
+        await withTemporaryDirectory(async (root) => {
+          const sourcePath = nodePath.join(root, "source");
+          const destinationPath = nodePath.join(root, "destination");
+          const linkedPath = nodePath.join(root, "linked");
+          await mkdir(sourcePath);
+          await mkdir(linkedPath);
+          await writeFile(nodePath.join(sourcePath, "marker.txt"), "source\n");
+          await writeFile(nodePath.join(linkedPath, "keep.txt"), "linked\n");
+          await symlink(linkedPath, destinationPath);
+
+          expect(renameDirectoryNoReplace(sourcePath, destinationPath)).toEqual(
+            {
+              kind: "occupied",
+            }
+          );
+          expect(await lstat(destinationPath).then((entry) => entry.isSymbolicLink())).toBe(
+            true
+          );
+          expect(await readFile(nodePath.join(linkedPath, "keep.txt"), "utf-8")).toBe(
+            "linked\n"
+          );
+          expect(
+            await readFile(nodePath.join(sourcePath, "marker.txt"), "utf-8")
+          ).toBe("source\n");
         });
       }
     );

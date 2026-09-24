@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
@@ -141,49 +142,53 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
   const remote = pathToFileURL(source).href;
 
   const report = await adoptSkillset(remote, { write: true });
+  try {
+    expect(report.ok).toBe(true);
+    expect(report.rootPath).not.toBe(source);
+    expect(report.acquisition.kind).toBe("git");
+    if (report.acquisition.kind === "git") {
+      expect(report.acquisition.repo).toBe(remote);
+      expect(report.acquisition.rootPath).toBe(report.rootPath);
+      expect(report.acquisition.ref).toMatch(/^[0-9a-f]{40}$/);
+    }
+    expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
+      ["instructions", true],
+      ["plugin", true],
+    ]);
 
-  expect(report.ok).toBe(true);
-  expect(report.rootPath).not.toBe(source);
-  expect(report.acquisition.kind).toBe("git");
-  if (report.acquisition.kind === "git") {
-    expect(report.acquisition.repo).toBe(remote);
-    expect(report.acquisition.rootPath).toBe(report.rootPath);
-    expect(report.acquisition.ref).toMatch(/^[0-9a-f]{40}$/);
+    const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
+    expect(markdown).toContain("## Acquisition");
+    expect(markdown).toContain("- source: git remote");
+    expect(markdown).toContain(`- repo: \`${remote}\``);
+    if (report.acquisition.kind === "git") {
+      const ref = report.acquisition.ref;
+      const pluginLock = JSON.parse(
+        await readFile(cachePath(report.rootPath, join(ISOLATED_OUT_ROOT, "plugins/skillset.lock")), "utf8")
+      ) as {
+        items: readonly {
+          kind: string;
+          name: string;
+          sourceOrigin?: { path: string; ref?: string; repo?: string };
+        }[];
+      };
+      expect(pluginLock.items.find((item) => item.kind === "plugin" && item.name === "demo")?.sourceOrigin).toEqual({
+        path: "plugins/demo",
+        ref,
+        repo: remote,
+      });
+      const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", report.rootPath);
+      expect(explain.exitCode).toBe(0);
+      expect(explain.stdout).toContain(`source origin: ${remote} @ ${ref} path plugins/demo`);
+    }
+  } finally {
+    if (report.acquisition.kind === "git" && report.acquisition.rootPath !== source) {
+      await rm(report.acquisition.rootPath, { force: true, recursive: true });
+    }
   }
-  expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
-    ["instructions", true],
-    ["plugin", true],
-  ]);
-
-  const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
-  expect(markdown).toContain("## Acquisition");
-  expect(markdown).toContain("- source: git remote");
-  expect(markdown).toContain(`- repo: \`${remote}\``);
-  if (report.acquisition.kind === "git") {
-    const ref = report.acquisition.ref;
-    const pluginLock = JSON.parse(
-      await readFile(cachePath(report.rootPath, join(ISOLATED_OUT_ROOT, "plugins/skillset.lock")), "utf8")
-    ) as {
-      items: readonly {
-        kind: string;
-        name: string;
-        sourceOrigin?: { path: string; ref?: string; repo?: string };
-      }[];
-    };
-    expect(pluginLock.items.find((item) => item.kind === "plugin" && item.name === "demo")?.sourceOrigin).toEqual({
-      path: "plugins/demo",
-      ref,
-      repo: remote,
-    });
-    const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", report.rootPath);
-    expect(explain.exitCode).toBe(0);
-    expect(explain.stdout).toContain(`source origin: ${remote} @ ${ref} path plugins/demo`);
-  }
-
 });
 
 test("SET-277: adoption resolves relative destinations from the caller cwd", async () => {
-  const cwd = await mkdtemp(join(tmpdir(), "skillset-adopt-cwd-"));
+  const cwd = await createTestFixtureRoot("skillset-adopt-cwd-");
   const source = join(cwd, "source");
   await mkdir(source);
   await writeFile(join(source, "AGENTS.md"), AGENTS_CONTENT, "utf8");
@@ -201,10 +206,11 @@ test("SET-277: adoption resolves relative destinations from the caller cwd", asy
 
 test("SET-277: local and remote acquisition write the same adoption plan into a destination", async () => {
   const source = await gitFixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-from-"));
+  const parent = await createTestFixtureRoot("skillset-init-from-");
   const localDestination = join(parent, "local");
   const remoteDestination = join(parent, "remote");
   const before = await walkFiles(source);
+  const beforeRemoteClones = await temporaryRoots("skillset-adopt-remote-");
 
   const local = await adoptSkillset(source, { destination: localDestination, write: true });
   const remote = await adoptSkillset(pathToFileURL(source).href, { destination: remoteDestination, write: true });
@@ -218,11 +224,12 @@ test("SET-277: local and remote acquisition write the same adoption plan into a 
   expect(await readFile(join(remoteDestination, ".git", "config"), "utf8")).not.toContain('[remote "origin"]');
   expect(await exists(join(remoteDestination, ".git", "shallow"))).toBe(false);
   expect(await walkFiles(source)).toEqual(before);
+  expect(await temporaryRoots("skillset-adopt-remote-")).toEqual(beforeRemoteClones);
 });
 
 test("SET-277: adoption honors an explicit workspace name", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-name-"));
+  const parent = await createTestFixtureRoot("skillset-init-name-");
   const destination = join(parent, "destination");
 
   const result = await adoptSkillset(source, {
@@ -279,7 +286,7 @@ test("SET-277: adoption can copy into a destination nested below its source", as
 
 test("SET-277: acquisition previews without creating its destination", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preview-"));
+  const parent = await createTestFixtureRoot("skillset-init-preview-");
   const destination = join(parent, "preview");
 
   const preview = await adoptSkillset(source, { destination });
@@ -290,7 +297,7 @@ test("SET-277: acquisition previews without creating its destination", async () 
 
 test("SET-277: acquisition validates adoption before copying its destination", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
-  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preflight-"));
+  const parent = await createTestFixtureRoot("skillset-init-preflight-");
   const destination = join(parent, "invalid-selection");
 
   await expect(
@@ -538,21 +545,13 @@ test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor
   await buildSkillset(root);
   const outputFrontmatter = async (path: string) =>
     parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
-  const cursor = await outputFrontmatter(
-    join(root, "plugins/cursor-native/cursor/skills/helper/SKILL.md")
+  const shared = await outputFrontmatter(
+    join(root, "plugins/cursor-native/skills/helper/SKILL.md")
   );
-  const claude = await outputFrontmatter(
-    join(root, "plugins/cursor-native/claude/skills/helper/SKILL.md")
-  );
-  const codex = await outputFrontmatter(
-    join(root, "plugins/cursor-native/chatgpt/skills/helper/SKILL.md")
-  );
-  expect(cursor["disable-model-invocation"]).toBe(true);
-  expect(claude["disable-model-invocation"]).toBeUndefined();
-  expect(codex["disable-model-invocation"]).toBeUndefined();
+  expect(shared["disable-model-invocation"]).toBe(true);
   expect(
     await Bun.file(
-      join(root, "plugins/cursor-native/chatgpt/skills/helper/agents/openai.yaml")
+      join(root, "plugins/cursor-native/skills/helper/agents/openai.yaml")
     ).exists()
   ).toBe(false);
 });
@@ -608,28 +607,14 @@ test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to
   await rm(join(root, ".cursor-plugin"), { recursive: true });
   await rm(join(root, "skills"), { recursive: true });
   await buildSkillset(root);
-  const outputFrontmatter = async (target: "claude" | "codex" | "cursor") => {
-    const path = join(
-      root,
-      `plugins/mixed-native/${target === "codex" ? "chatgpt" : target}/skills/helper/SKILL.md`
-    );
+  const outputFrontmatter = async () => {
+    const path = join(root, "plugins/mixed-native/skills/helper/SKILL.md");
     return parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
   };
-  expect((await outputFrontmatter("claude"))["disable-model-invocation"]).toBe(
-    true
-  );
-  expect((await outputFrontmatter("cursor"))["disable-model-invocation"]).toBe(
-    true
-  );
-  expect(
-    (await outputFrontmatter("codex"))["disable-model-invocation"]
-  ).toBeUndefined();
+  expect((await outputFrontmatter())["disable-model-invocation"]).toBe(true);
   expect(
     await Bun.file(
-      join(
-        root,
-        "plugins/mixed-native/chatgpt/skills/helper/agents/openai.yaml"
-      )
+      join(root, "plugins/mixed-native/skills/helper/agents/openai.yaml")
     ).exists()
   ).toBe(false);
 });
@@ -913,8 +898,11 @@ test("adopt preserves survey skip outcomes when imported source cannot load", as
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(false);
-  expect(report.buildError).toBeUndefined();
+  // Failed imports retain their destination for safe recovery, so graph loading
+  // reports the same broken source alongside the import failure.
+  expect(report.buildError).toContain("named partial missing");
   expect(report.imports[0]?.detail).toContain("named partial missing");
+  expect(await readFile(join(root, ".skillset/skills/bad/SKILL.md"), "utf-8")).toContain("{{> missing}}");
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
   expect(report.renderResults).toContainEqual(
     expect.objectContaining({
@@ -1184,6 +1172,10 @@ async function exists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function temporaryRoots(prefix: string): Promise<readonly string[]> {
+  return (await readdir(tmpdir())).filter((name) => name.startsWith(prefix)).toSorted();
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{

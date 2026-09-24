@@ -1,7 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { chmod, lstat, mkdtemp, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmod,
+  copyFile,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -24,12 +33,13 @@ import {
 } from "../bootstrap/repo";
 import { isRepoRoot } from "../bootstrap/shared";
 import { resolveCleanupTarget } from "../bootstrap/teardown";
+import { collectToolStatus } from "../bootstrap/tools";
+import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
   runTestGit,
 } from "../test-helpers/git-remote";
-import { collectToolStatus } from "../bootstrap/tools";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 const packageJson = JSON.parse(
@@ -44,8 +54,8 @@ const expectedWorkspaces = Array.isArray(packageJson.workspaces)
   ? packageJson.workspaces
   : [];
 
-const makeRepoRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), "skillset-bootstrap-root-"));
+const makeRepoRoot = async (): Promise<string> => {
+  const root = await createTestFixtureRoot("skillset-bootstrap-root-");
   mkdirSync(join(root, ".skillset"), { recursive: true });
   mkdirSync(join(root, "apps/skillset/src"), { recursive: true });
   writeFileSync(
@@ -53,13 +63,80 @@ const makeRepoRoot = (): string => {
     '{"name":"skillset-workspace","packageManager":"bun@1.4.0","engines":{"bun":">=1.4.0"},"workspaces":[]}\n'
   );
   writeFileSync(join(root, ".bun-version"), "1.4.0\n");
-  writeFileSync(
-    join(root, "skillset.yaml"),
-    "skillset:\n  name: skillset\n"
-  );
+  writeFileSync(join(root, "skillset.yaml"), "skillset:\n  name: skillset\n");
   writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");
   return root;
 };
+
+const makeShellBootstrapFixture = async (): Promise<{
+  root: string;
+  home: string;
+  fakeBin: string;
+  installer: string;
+  installLog: string;
+}> => {
+  const root = await createTestFixtureRoot("skillset-bootstrap-shell-");
+  const home = join(root, "home");
+  const fakeBin = join(root, "fake-bin");
+  const installer = join(root, "installer.sh");
+  const installLog = join(root, "install.log");
+  await Promise.all([
+    mkdir(join(root, "scripts", "bootstrap"), { recursive: true }),
+    mkdir(home, { recursive: true }),
+    mkdir(fakeBin, { recursive: true }),
+    mkdir(join(root, "tmp"), { recursive: true }),
+  ]);
+  await Promise.all([
+    copyFile(
+      join(repoRoot, "scripts", "bootstrap.sh"),
+      join(root, "scripts", "bootstrap.sh")
+    ),
+    copyFile(
+      join(repoRoot, "scripts", "pinned-bun.ts"),
+      join(root, "scripts", "pinned-bun.ts")
+    ),
+    copyFile(
+      join(repoRoot, "scripts", "bootstrap", "resolve-runtime.ts"),
+      join(root, "scripts", "bootstrap", "resolve-runtime.ts")
+    ),
+    writeFile(join(root, ".bun-version"), `${Bun.version}\n`),
+    writeFile(
+      join(root, "scripts", "bootstrap", "main.ts"),
+      'console.log(JSON.stringify({ version: Bun.version, path: process.execPath, which: Bun.which("bun"), args: process.argv.slice(2) }));\n'
+    ),
+    writeFile(
+      installer,
+      '#!/bin/sh\nprintf "used\\n" >> "$SKILLSET_TEST_INSTALL_LOG"\nmkdir -p "$BUN_INSTALL/bin"\ncp "$SKILLSET_TEST_BUN_SOURCE" "$BUN_INSTALL/bin/bun"\nchmod +x "$BUN_INSTALL/bin/bun"\ncase "$SHELL" in */zsh) printf "# bun\\n" >> "$HOME/.zshrc";; esac\n'
+    ),
+    writeFile(join(home, ".zshrc"), "# user shell\n"),
+  ]);
+  const curl = join(fakeBin, "curl");
+  await writeFile(curl, '#!/bin/sh\nexec /bin/cat "$SKILLSET_TEST_INSTALLER"\n');
+  await chmod(curl, 0o755);
+  return { fakeBin, home, installer, installLog, root };
+};
+
+const runShellBootstrapFixture = (
+  fixture: Awaited<ReturnType<typeof makeShellBootstrapFixture>>,
+  command: string
+) =>
+  Bun.spawnSync({
+    cmd: ["bash", join(fixture.root, "scripts", "bootstrap.sh"), command],
+    cwd: fixture.root,
+    env: {
+      ...process.env,
+      BUN_INSTALL: join(fixture.home, ".bun"),
+      HOME: fixture.home,
+      PATH: `${fixture.fakeBin}:/usr/bin:/bin`,
+      SHELL: "/bin/zsh",
+      SKILLSET_TEST_BUN_SOURCE: process.execPath,
+      SKILLSET_TEST_INSTALLER: fixture.installer,
+      SKILLSET_TEST_INSTALL_LOG: fixture.installLog,
+      TMPDIR: join(fixture.root, "tmp"),
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
 
 describe("bootstrap dispatcher", () => {
   test("keeps legacy flags routed to repo", () => {
@@ -135,6 +212,117 @@ describe("bootstrap dispatcher", () => {
       "repo|agent|codex|claude|cursor|doctor|teardown"
     );
   });
+
+  test("cold session bootstrap uses a versioned cache without creating global Bun", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const result = runShellBootstrapFixture(fixture, "claude");
+    expect(result.exitCode).toBe(0);
+    const report = JSON.parse(result.stdout.toString()) as {
+      version: string;
+      path: string;
+      args: string[];
+    };
+    expect(report.version).toBe(Bun.version);
+    expect(report.path).toBe(
+      join(
+        fixture.home,
+        ".cache",
+        "skillset",
+        "bun",
+        `${process.platform}-${process.arch}`,
+        Bun.version,
+        "bin",
+        "bun"
+      )
+    );
+    expect(report.args).toEqual(["claude"]);
+    expect(await readFile(fixture.installLog, "utf-8")).toBe("used\n");
+    expect(
+      await Bun.file(join(fixture.home, ".bun", "bin", "bun")).exists()
+    ).toBe(false);
+    expect(await readFile(join(fixture.home, ".zshrc"), "utf-8")).toBe(
+      "# user shell\n"
+    );
+    for (const command of ["doctor", "teardown"]) {
+      const diagnostic = runShellBootstrapFixture(fixture, command);
+      expect(diagnostic.exitCode).toBe(0);
+      const diagnosticReport = JSON.parse(diagnostic.stdout.toString());
+      expect(diagnosticReport.args).toEqual([command]);
+      expect(diagnosticReport.which).toBe(report.path);
+    }
+  });
+
+  test("session bootstrap leaves a different global Bun's bytes and inode time untouched", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const globalBin = join(fixture.home, ".bun", "bin");
+    const globalBun = join(globalBin, "bun");
+    await mkdir(globalBin, { recursive: true });
+    await writeFile(
+      globalBun,
+      `#!/bin/sh\nif [ "$1" = "--version" ]; then printf '1.3.14\\n'; exit 0; fi\nexec "${process.execPath}" "$@"\n`
+    );
+    await chmod(globalBun, 0o755);
+    const before = await stat(globalBun);
+    const beforeBytes = await readFile(globalBun);
+    const result = runShellBootstrapFixture(fixture, "claude");
+    expect(result.exitCode).toBe(0);
+    const report = JSON.parse(result.stdout.toString()) as {
+      version: string;
+      path: string;
+    };
+    expect(report.version).toBe(Bun.version);
+    expect(report.path).toContain(join(fixture.home, ".cache", "skillset", "bun"));
+    expect(await readFile(fixture.installLog, "utf-8")).toBe("used\n");
+    const after = await stat(globalBun);
+    expect(await readFile(globalBun)).toEqual(beforeBytes);
+    expect(after.ino).toBe(before.ino);
+    expect(after.ctimeMs).toBe(before.ctimeMs);
+  });
+
+  test("TypeScript repair installs into the owned cache without rewriting global Bun", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const globalBin = join(fixture.home, ".bun", "bin");
+    const globalBun = join(globalBin, "bun");
+    await mkdir(globalBin, { recursive: true });
+    await writeFile(globalBun, '#!/bin/sh\nprintf "1.3.14\\n"\n');
+    await chmod(globalBun, 0o755);
+    const before = await stat(globalBun);
+    const beforeBytes = await readFile(globalBun);
+    const repairModule = join(repoRoot, "scripts", "bootstrap", "bun.ts");
+    const script = [
+      `import { installPinnedBun } from ${JSON.stringify(repairModule)};`,
+      `await installPinnedBun(${JSON.stringify(fixture.root)});`,
+      'console.log(process.env.PATH?.split(":")[0]);',
+    ].join("\n");
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "-e", script],
+      cwd: fixture.root,
+      env: {
+        ...process.env,
+        BUN_INSTALL: join(fixture.home, ".bun"),
+        HOME: fixture.home,
+        PATH: `${globalBin}:/usr/bin:/bin`,
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toString().trim()).toBe(
+      join(
+        fixture.home,
+        ".cache",
+        "skillset",
+        "bun",
+        `${process.platform}-${process.arch}`,
+        Bun.version,
+        "bin"
+      )
+    );
+    const after = await stat(globalBun);
+    expect(await readFile(globalBun)).toEqual(beforeBytes);
+    expect(after.ino).toBe(before.ino);
+    expect(after.ctimeMs).toBe(before.ctimeMs);
+  });
 });
 
 describe("bootstrap repo policy", () => {
@@ -174,108 +362,100 @@ describe("bootstrap repo policy", () => {
     );
   });
 
-  test("repo root detection accepts current and migration workspace markers", () => {
-    const ordinaryRoot = makeRepoRoot();
-    const legacyRoot = makeRepoRoot();
-    const dedicatedRoot = makeRepoRoot();
-    try {
-      expect(isRepoRoot(ordinaryRoot)).toBe(true);
+  test("repo root detection accepts current and migration workspace markers", async () => {
+    const ordinaryRoot = await makeRepoRoot();
+    const legacyRoot = await makeRepoRoot();
+    const dedicatedRoot = await makeRepoRoot();
+    expect(isRepoRoot(ordinaryRoot)).toBe(true);
 
-      rmSync(join(legacyRoot, "skillset.yaml"), { force: true });
-      writeFileSync(join(legacyRoot, "skillset.yaml"), "skillset:\n  name: legacy\n");
-      expect(isRepoRoot(legacyRoot)).toBe(true);
+    rmSync(join(legacyRoot, "skillset.yaml"), { force: true });
+    writeFileSync(
+      join(legacyRoot, "skillset.yaml"),
+      "skillset:\n  name: legacy\n"
+    );
+    expect(isRepoRoot(legacyRoot)).toBe(true);
 
-      rmSync(join(dedicatedRoot, "skillset.yaml"), { force: true });
-      writeFileSync(join(dedicatedRoot, "skillset.yaml"), "skillset:\n  name: dedicated\n");
-      mkdirSync(join(dedicatedRoot, "skillset"), { recursive: true });
-      expect(isRepoRoot(dedicatedRoot)).toBe(true);
-    } finally {
-      rmSync(ordinaryRoot, { force: true, recursive: true });
-      rmSync(legacyRoot, { force: true, recursive: true });
-      rmSync(dedicatedRoot, { force: true, recursive: true });
-    }
+    rmSync(join(dedicatedRoot, "skillset.yaml"), { force: true });
+    writeFileSync(
+      join(dedicatedRoot, "skillset.yaml"),
+      "skillset:\n  name: dedicated\n"
+    );
+    mkdirSync(join(dedicatedRoot, "skillset"), { recursive: true });
+    expect(isRepoRoot(dedicatedRoot)).toBe(true);
   });
 
   test("stale Bun is repaired before policy enforcement fails", async () => {
-    const root = makeRepoRoot();
+    const root = await makeRepoRoot();
     const installs: string[] = [];
     let checks = 0;
-    try {
-      await ensureBunAvailable(
-        {
-          config: loadBootstrapConfig(),
-          force: false,
-          host: {
-            bunPolicy: "compatible",
-            provider: "generic",
-            remote: false,
-          },
-          repoRoot: root,
-          update: false,
+    await ensureBunAvailable(
+      {
+        config: loadBootstrapConfig(),
+        force: false,
+        host: {
+          bunPolicy: "compatible",
+          provider: "generic",
+          remote: false,
         },
-        {
-          checkBunVersion: (_repoRoot, policy) => {
-            checks += 1;
-            return checks === 1
-              ? {
-                  actual: "1.3.14",
-                  ok: false,
-                  pinned: "1.4.0",
-                  policy,
-                  reason:
-                    "Expected Bun 1.4.0 or newer compatible patch, found 1.3.14",
-                }
-              : {
-                  actual: "1.4.0",
-                  ok: true,
-                  pinned: "1.4.0",
-                  policy,
-                };
-          },
-          installPinnedBun: async (installRoot, versionFile) => {
-            installs.push(`${installRoot}:${versionFile ?? ""}`);
-          },
-        }
-      );
+        repoRoot: root,
+        update: false,
+      },
+      {
+        checkBunVersion: (_repoRoot, policy) => {
+          checks += 1;
+          return checks === 1
+            ? {
+                actual: "1.3.14",
+                ok: false,
+                pinned: "1.4.0",
+                policy,
+                reason:
+                  "Expected Bun 1.4.0 or newer compatible patch, found 1.3.14",
+              }
+            : {
+                actual: "1.4.0",
+                ok: true,
+                pinned: "1.4.0",
+                policy,
+              };
+        },
+        installPinnedBun: async (installRoot, versionFile) => {
+          installs.push(`${installRoot}:${versionFile ?? ""}`);
+        },
+      }
+    );
 
-      expect(checks).toBe(2);
-      expect(installs).toEqual([`${root}:.bun-version`]);
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    expect(checks).toBe(2);
+    expect(installs).toEqual([`${root}:.bun-version`]);
   });
 
   test("dependency state allows workspace packages without dependencies", async () => {
-    const root = mkdtempSync(join(tmpdir(), "skillset-install-state-"));
-    try {
-      writeFileSync(
-        join(root, "package.json"),
-        '{"name":"root","workspaces":["packages/*"]}\n'
-      );
-      mkdirSync(join(root, "node_modules"), { recursive: true });
-      mkdirSync(join(root, "packages/no-deps"), { recursive: true });
-      writeFileSync(
-        join(root, "packages/no-deps/package.json"),
-        '{"name":"no-deps"}\n'
-      );
-      mkdirSync(join(root, "packages/with-deps/node_modules"), {
-        recursive: true,
-      });
-      writeFileSync(
-        join(root, "packages/with-deps/package.json"),
-        '{"name":"with-deps","dependencies":{"yaml":"^2.8.1"}}\n'
-      );
+    const root = await createTestFixtureRoot("skillset-install-state-");
+    writeFileSync(
+      join(root, "package.json"),
+      '{"name":"root","workspaces":["packages/*"]}\n'
+    );
+    mkdirSync(join(root, "node_modules"), { recursive: true });
+    mkdirSync(join(root, "packages/no-deps"), { recursive: true });
+    writeFileSync(
+      join(root, "packages/no-deps/package.json"),
+      '{"name":"no-deps"}\n'
+    );
+    mkdirSync(join(root, "packages/with-deps/node_modules"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, "packages/with-deps/package.json"),
+      '{"name":"with-deps","dependencies":{"yaml":"^2.8.1"}}\n'
+    );
 
-      await expect(hasRepoInstallState(root)).resolves.toBe(true);
+    await expect(hasRepoInstallState(root)).resolves.toBe(true);
 
-      rmSync(join(root, "packages/with-deps/node_modules"), {
-        force: true,
-        recursive: true,
-      });
-      await expect(hasRepoInstallState(root)).resolves.toBe(false);
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    rmSync(join(root, "packages/with-deps/node_modules"), {
+      force: true,
+      recursive: true,
+    });
+    await expect(hasRepoInstallState(root)).resolves.toBe(false);
   });
 
   test("bootstrap normalizes tracked checkout modes without touching untracked files or symlinks", async () => {
@@ -326,11 +506,7 @@ describe("bootstrap repo policy", () => {
       "skillset-bootstrap-mode-failure-"
     );
     const work = await mkdtemp(join(root, "work-"));
-    try {
-      await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
-    } finally {
-      rmSync(root, { force: true, recursive: true });
-    }
+    await expect(normalizeTrackedCheckoutModes(work)).rejects.toThrow();
   });
 
   test("bootstrap leaves unmerged checkout modes untouched", async () => {
@@ -365,68 +541,55 @@ describe("bootstrap repo policy", () => {
     expect((await lstat(conflicted)).mode % 0o1000).toBe(0o600);
   });
 
-  test("root resolution prefers provider env vars before cwd", () => {
+  test("root resolution prefers provider env vars before cwd", async () => {
     const config = loadBootstrapConfig();
-    const codexRoot = makeRepoRoot();
-    const claudeRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          claudeRoot,
-          {
-            CLAUDE_PROJECT_DIR: claudeRoot,
-            CODEX_WORKTREE_PATH: codexRoot,
-          } as NodeJS.ProcessEnv,
-          config
-        )
-      ).toBe(codexRoot);
-    } finally {
-      rmSync(codexRoot, { force: true, recursive: true });
-      rmSync(claudeRoot, { force: true, recursive: true });
-    }
+    const codexRoot = await makeRepoRoot();
+    const claudeRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        claudeRoot,
+        {
+          CLAUDE_PROJECT_DIR: claudeRoot,
+          CODEX_WORKTREE_PATH: codexRoot,
+        } as NodeJS.ProcessEnv,
+        config
+      )
+    ).toBe(codexRoot);
   });
 
-  test("provider-specific root resolution prefers the requested provider", () => {
+  test("provider-specific root resolution prefers the requested provider", async () => {
     const config = loadBootstrapConfig();
-    const codexRoot = makeRepoRoot();
-    const claudeRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          tmpdir(),
-          {
-            CLAUDE_PROJECT_DIR: claudeRoot,
-            CODEX_WORKTREE_PATH: codexRoot,
-          } as NodeJS.ProcessEnv,
-          config,
-          "claude"
-        )
-      ).toBe(claudeRoot);
-    } finally {
-      rmSync(codexRoot, { force: true, recursive: true });
-      rmSync(claudeRoot, { force: true, recursive: true });
-    }
+    const codexRoot = await makeRepoRoot();
+    const claudeRoot = await makeRepoRoot();
+    const nonRepoRoot = await createTestFixtureRoot("skillset-bootstrap-nonrepo-");
+    expect(isRepoRoot(nonRepoRoot)).toBe(false);
+    expect(
+      resolveRepoRoot(
+        nonRepoRoot,
+        {
+          CLAUDE_PROJECT_DIR: claudeRoot,
+          CODEX_WORKTREE_PATH: codexRoot,
+        } as NodeJS.ProcessEnv,
+        config,
+        "claude"
+      )
+    ).toBe(claudeRoot);
   });
 
-  test("Claude sentinel env does not act as a repo root", () => {
+  test("Claude sentinel env does not act as a repo root", async () => {
     const config = loadBootstrapConfig();
-    const sentinelRoot = makeRepoRoot();
-    const cwdRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          cwdRoot,
-          {
-            CLAUDECODE: sentinelRoot,
-          } as NodeJS.ProcessEnv,
-          config,
-          "claude"
-        )
-      ).toBe(cwdRoot);
-    } finally {
-      rmSync(sentinelRoot, { force: true, recursive: true });
-      rmSync(cwdRoot, { force: true, recursive: true });
-    }
+    const sentinelRoot = await makeRepoRoot();
+    const cwdRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        cwdRoot,
+        {
+          CLAUDECODE: sentinelRoot,
+        } as NodeJS.ProcessEnv,
+        config,
+        "claude"
+      )
+    ).toBe(cwdRoot);
   });
 
   test("host detection honors explicit provider and remote overrides", () => {
@@ -454,21 +617,17 @@ describe("bootstrap repo policy", () => {
     ).toMatchObject({ provider: "cursor" });
   });
 
-  test("Cursor root resolution falls back to cwd without a provider env var", () => {
+  test("Cursor root resolution falls back to cwd without a provider env var", async () => {
     const config = loadBootstrapConfig();
-    const cwdRoot = makeRepoRoot();
-    try {
-      expect(
-        resolveRepoRoot(
-          cwdRoot,
-          { CURSOR_AGENT: "1" } as NodeJS.ProcessEnv,
-          config,
-          "cursor"
-        )
-      ).toBe(cwdRoot);
-    } finally {
-      rmSync(cwdRoot, { force: true, recursive: true });
-    }
+    const cwdRoot = await makeRepoRoot();
+    expect(
+      resolveRepoRoot(
+        cwdRoot,
+        { CURSOR_AGENT: "1" } as NodeJS.ProcessEnv,
+        config,
+        "cursor"
+      )
+    ).toBe(cwdRoot);
   });
 
   test("linked worktree detection compares git dir and common dir", () => {
@@ -512,14 +671,12 @@ describe("readRepoHealth", () => {
     const health = readRepoHealth(root);
     expect(health.coreBare).toBe(false);
     expect(health.staleWorktrees).toEqual([]);
-    rmSync(root, { force: true, recursive: true });
   });
 
   test("flags core.bare corruption", async () => {
     const root = await initRepo();
     await runTestGit(root, "config", "core.bare", "true");
     expect(readRepoHealth(root).coreBare).toBe(true);
-    rmSync(root, { force: true, recursive: true });
   });
 
   test("flags worktrees locked by dead processes and keeps live locks", async () => {
@@ -552,6 +709,5 @@ describe("readRepoHealth", () => {
         worktree.path.endsWith("/wt-dead")
       )
     ).toEqual([true]);
-    rmSync(root, { force: true, recursive: true });
   });
 });

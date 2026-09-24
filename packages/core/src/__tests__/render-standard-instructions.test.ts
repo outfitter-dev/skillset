@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -8,6 +6,7 @@ import { renderBuildGraph } from "../render";
 import { collectRenderResults } from "../render-result-collector";
 import { loadBuildGraph } from "../resolver";
 import type { BuildGraph, RenderedFile } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const textDecoder = new TextDecoder();
 
@@ -250,7 +249,7 @@ function fileBytes(
 }
 
 async function fixtureGraph(compile: string): Promise<BuildGraph> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-agent-instructions-"));
+  const root = await createTestFixtureRoot("skillset-agent-instructions-");
   const files = normalizeSkillsetFixtureFiles({
     "skillset.yaml": `
 skillset:

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   buildSkillset,
@@ -320,7 +320,7 @@ test("SET-485: mixed-provider adoption keeps Cursor discovery metadata provider-
   );
   const codexManifest = JSON.parse(
     await readFile(
-      join(generatedRoot, "plugins/demo/chatgpt/plugin.json"),
+      join(generatedRoot, "plugins/demo/plugin.json"),
       "utf8"
     )
   ) as { keywords?: string[] };
@@ -328,7 +328,7 @@ test("SET-485: mixed-provider adoption keeps Cursor discovery metadata provider-
     await readFile(
       join(
         generatedRoot,
-        "plugins/demo/cursor/.cursor-plugin/plugin.json"
+        "plugins/demo/.cursor-plugin/plugin.json"
       ),
       "utf8"
     )
@@ -378,7 +378,7 @@ compile:
   );
   const codexManifest = JSON.parse(
     await readFile(
-      join(generatedRoot, "plugins/demo/chatgpt/plugin.json"),
+      join(generatedRoot, "plugins/demo/plugin.json"),
       "utf8"
     )
   ) as {
@@ -388,7 +388,7 @@ compile:
   };
   const cursorManifest = JSON.parse(
     await readFile(
-      join(generatedRoot, "plugins/demo/cursor/.cursor-plugin/plugin.json"),
+      join(generatedRoot, "plugins/demo/.cursor-plugin/plugin.json"),
       "utf8"
     )
   ) as { category?: string; keywords?: string[]; tags?: string[] };
@@ -442,7 +442,7 @@ test("SET-531: legacy Codex interface copy imports through the typed OpenAI boun
     ISOLATED_OUT_ROOT
   );
   const generated = JSON.parse(
-    await readFile(join(generatedRoot, "plugins/demo/chatgpt/plugin.json"), "utf8")
+    await readFile(join(generatedRoot, "plugins/demo/plugin.json"), "utf8")
   ) as {
     extensions?: {
       "com.openai"?: { interface?: Record<string, unknown> };
@@ -508,7 +508,7 @@ test("SET-523: Claude display labels lift and provider-specific differences roun
     await readFile(
       join(
         resolveOperationalPath(createOperationalPathContext(claudeOnly), ISOLATED_OUT_ROOT),
-        "plugins/demo/claude/.claude-plugin/plugin.json"
+        "plugins/demo/.claude-plugin/plugin.json"
       ),
       "utf8"
     )
@@ -934,12 +934,11 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
   for (const provider of ["claude", "codex", "cursor"] as const) {
     const manifestPath =
       provider === "codex"
-        ? join(generatedRoot, "plugins", "demo", "chatgpt", "plugin.json")
+        ? join(generatedRoot, "plugins", "demo", "plugin.json")
         : join(
             generatedRoot,
             "plugins",
             "demo",
-            provider,
             `.${provider}-plugin`,
             "plugin.json"
           );
@@ -1080,7 +1079,7 @@ function skill(body: string): string {
 }
 
 async function pluginFixture(files: Readonly<Record<string, string>>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-plugin-adoption-"));
+  const root = await createTestFixtureRoot("skillset-plugin-adoption-");
   for (const [path, content] of Object.entries(files)) {
     const absolutePath = join(root, path);
     await mkdir(dirname(absolutePath), { recursive: true });

@@ -21,11 +21,12 @@
       ],
       "kind": "plugin-feature",
       "name": "chatgpt-marketplace",
-      "outputHash": "sha256:1b54e5132ec254603f34327f053c8b870d6fdcfffda9bbdf29f7486da2c988a0",
+      "outputHash": "sha256:80062ec81dd6d4fb5404a1db4d3b6c635e30be78a784c4880f6dff9eac5681bc",
       "outputPath": ".agents/plugins/marketplace.json",
       "owner": {
         "target": "codex"
       },
+      "role": "bundle",
       "sourceHash": "sha256:7680c3a23037f235a7d68f4dfbe8a6c6f2e07e32768b511e169abdc3be9e8cec",
       "sourcePath": "skillset.yaml",
       "targetState": "generated",
@@ -43,6 +44,7 @@
       "outputHash": "sha256:72ff7c747fd2e1408fabd8035669d4584756c05ed129abf564d29037f1deef2f",
       "outputPath": ".claude/settings.json",
       "preprocessDependencies": [],
+      "role": "bundle",
       "sourceHash": "sha256:713324eeb285f7b5c087321cbdb94f4798d7b79bfd877c9787e9b4320abe90fe",
       "sourcePath": ".skillset/_claude/settings.json",
       "validation": "structured",
@@ -60,6 +62,7 @@
       "outputHash": "sha256:fdcde720382edcb35f12b8ac6732c4a28bca7c1167941d46f2ee683b1c4382a4",
       "outputPath": ".codex/hooks/hooks.json",
       "preprocessDependencies": [],
+      "role": "bundle",
       "sourceHash": "sha256:83bd50d9972ac7db83484849f0d78fc30b131f7d80aed1190ede15c3175cee06",
       "sourcePath": ".skillset/_codex/hooks/hooks.json",
       "validation": "structured",
@@ -76,6 +79,7 @@
       "name": "fixtures",
       "outputHash": "sha256:96097dc24d136d495c3fe42f163f5e3f674cb115d4bc86692b784c64e1e611bc",
       "outputPath": ".cursor/rules/fixtures.mdc",
+      "role": "bundle",
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules/fixtures.md",
       "version": "0.1.1"
@@ -92,6 +96,7 @@
       "name": "skillset",
       "outputHash": "sha256:ce69ba3b8858cc2b15a523f258fe9f96c14ee692fc2d06f4e70665f8b78b94c9",
       "outputPath": ".skillset/plugins/skillset/CHANGELOG.md",
+      "role": "bundle",
       "sourceHash": "sha256:f50c452c78adcfdaeeac449f639270b6a295e1b3a585317ed86e151061c63294",
       "sourcePath": ".skillset/plugins/skillset/skillset.yaml",
       "targetState": "generated",
@@ -121,6 +126,7 @@
       "owner": {
         "standardProfile": "agent-instructions"
       },
+      "role": "standard",
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
@@ -149,13 +155,14 @@
       "owner": {
         "standardProfile": "agent-instructions"
       },
+      "role": "standard",
       "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:387ec6b3d909ee4020d0440f36e2e8c84465ff5d81a787acd78b65c71f492597",
+  "provenanceHash": "sha256:98585c4d4cac441f3cc72562e96ecd093bcb6833c99071d5890fbd80a9a01e52",
   "renderResults": [
     {
       "destination": "changelog",
@@ -286,9 +293,9 @@
         },
         {
           "kind": "provider-snapshot",
-          "note": "sha256:b02aeab7b95d881cd961dfb8c34a5f1e32d2368f234c27d6d2eb65d74e995bd3",
+          "note": "sha256:4dafac23fa5461b8ce0a39dd8b69d0003628774a43e004c881a4e41a98588518",
           "ref": "cursor-rules",
-          "verifiedAt": "2026-06-23"
+          "verifiedAt": "2026-09-16"
         }
       ],
       "featureId": "project-instructions",
@@ -399,7 +406,7 @@
       "target": "codex"
     }
   ],
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "selectedStandards": [
     "agent-instructions",
     "agent-plugins-1.0",
@@ -414,8 +421,8 @@
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
     "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
-    "agent-plugins-1.0": "sha256:f1b89300d6c879de1c7a89f060faee2e6e6c76c71bbbcd9b0909d8ec00c18984",
-    "agent-skills": "sha256:984d0c3d846d1a89cb0fdadb09f2bb82e476dd81217688cfeab3ecdee16e58b2"
+    "agent-plugins-1.0": "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
+    "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
   "target": "workspace"
 }

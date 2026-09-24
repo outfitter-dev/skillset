@@ -20,6 +20,7 @@ describe("destination ownership classifier", () => {
 
   it("classifies the closed ChatGPT root manifest as generated", () => {
     const classification = classifyDestinationOwnership({
+      chatGptManifest: true,
       content: encoder.encode(JSON.stringify({
         interface: {
           brandColor: "#10A37F",
@@ -30,7 +31,7 @@ describe("destination ownership classifier", () => {
         version: "1.2.3",
         xMarketplaceReviewId: "openai-owned",
       })),
-      path: "plugins/demo/chatgpt/plugin.json",
+      path: "plugins/demo/plugin.json",
       target: "codex",
     });
 

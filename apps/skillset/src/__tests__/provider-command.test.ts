@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   isProviderCommandMissingBinary,
@@ -10,7 +10,7 @@ import {
 } from "../provider-command";
 
 test("provider command uses literal argv, accepts optional stdin, and preserves split UTF-8", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-command-"));
+  const root = await createTestFixtureRoot("skillset-provider-command-");
   const marker = join(root, "shell-ran");
   const bin = await executable(
     root,
@@ -46,7 +46,7 @@ printf '\\251'
 });
 
 test("provider command bounds retained output while continuing to drain both streams", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-command-"));
+  const root = await createTestFixtureRoot("skillset-provider-command-");
   const bin = await executable(
     root,
     "noisy",
@@ -96,7 +96,7 @@ printf 'done' >&2
 });
 
 test("provider command abort and timeout terminate a detached descendant tree", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-command-"));
+  const root = await createTestFixtureRoot("skillset-provider-command-");
   const bin = await processTreeBin(root, "abort-tree");
   const controller = new AbortController();
   let pid: number | undefined;
@@ -144,7 +144,7 @@ test("provider command abort and timeout terminate a detached descendant tree", 
 });
 
 test("provider command classifies missing binaries without exposing spawn details", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-command-"));
+  const root = await createTestFixtureRoot("skillset-provider-command-");
   const missing = join(root, "does-not-exist");
 
   try {
@@ -164,7 +164,7 @@ test("provider command classifies missing binaries without exposing spawn detail
 });
 
 test("provider command classifies non-executable binaries as unavailable", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-command-"));
+  const root = await createTestFixtureRoot("skillset-provider-command-");
   const path = join(root, "not-executable");
   await writeFile(path, "#!/bin/sh\nexit 0\n", "utf8");
   await chmod(path, 0o644);

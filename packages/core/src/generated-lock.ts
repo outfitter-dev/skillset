@@ -13,12 +13,15 @@ import type {
   JsonRecord,
   ProjectionConsumer,
   ProjectionOwner,
+  ProjectionRole,
+  ProjectDraftPolicy,
+  SettingsEntryOwnership,
   SourceOrigin,
   TargetName,
 } from "./types";
 import { isJsonRecord } from "./yaml";
 
-export type GeneratedLockSchemaVersion = 1 | 2 | 3;
+export type GeneratedLockSchemaVersion = 1 | 2 | 3 | 4;
 export type GeneratedLockHashSchema =
   | "skillset-output-v1"
   | "skillset-output-v2";
@@ -33,19 +36,25 @@ export type GeneratedLockProviderConsumer = Extract<
 >;
 export type GeneratedLockConsumer = ProjectionConsumer;
 export type GeneratedLockOwner = ProjectionOwner;
+export type GeneratedLockRole = ProjectionRole;
 
 export interface ParsedGeneratedLockItem {
   readonly consumers: readonly GeneratedLockConsumer[];
   readonly dependencies?: readonly string[];
+  readonly draftOrigin?: "_drafts" | "config" | "status";
+  readonly draftPolicy?: ProjectDraftPolicy;
+  readonly effectiveName?: string;
   readonly feature?: string;
-  readonly fileModes?: Readonly<Record<string, "0644" | "0755">>;
+  readonly fileModes?: Readonly<Record<string, string>>;
   readonly files: readonly string[];
   readonly kind?: string;
   readonly name?: string;
   readonly origin?: string;
   readonly outputHash?: string;
   readonly outputPath?: string;
+  readonly ownedEntries?: readonly SettingsEntryOwnership[];
   readonly owner?: GeneratedLockOwner;
+  readonly role?: GeneratedLockRole;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
   readonly renderInputsHash?: string;
@@ -54,6 +63,9 @@ export interface ParsedGeneratedLockItem {
   readonly sourceOrigin?: SourceOrigin;
   readonly targetState?: string;
   readonly sourcePointer?: string;
+  readonly sourceUnit?: string;
+  readonly selectionRule?: string;
+  readonly shippedSibling?: string;
   readonly transforms?: readonly Record<string, unknown>[];
   readonly validation?: string;
   readonly version?: string;
@@ -92,7 +104,7 @@ export type ParsedCurrentGeneratedLock = Omit<
   ParsedGeneratedLock,
   "schemaVersion"
 > & {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
 };
 
 export interface ParseGeneratedLockOptions {
@@ -133,9 +145,9 @@ export function parseGeneratedLock(
       ? []
       : parseTargets(value.selectedTargets, label);
   const selectedStandards =
-    schemaVersion === 3 ? parseStandards(value.selectedStandards, label) : [];
+    schemaVersion >= 3 ? parseStandards(value.selectedStandards, label) : [];
   const standardProfileEvidence =
-    schemaVersion === 3
+    schemaVersion >= 3
       ? parseStandardProfileEvidence(
           value.standardProfileEvidence,
           selectedStandards,
@@ -188,7 +200,7 @@ export function parseGeneratedLock(
 /**
  * Read generated state that may authorize current compiler behavior.
  *
- * Pre-v3 locks remain structurally recognizable for bounded diagnostics, but
+ * Pre-v4 locks remain structurally recognizable for bounded diagnostics, but
  * they are rebuild-only and must never supply ownership or cleanup authority.
  */
 export function parseCurrentGeneratedLock(
@@ -198,11 +210,13 @@ export function parseCurrentGeneratedLock(
 ): ParsedCurrentGeneratedLock {
   if (
     isJsonRecord(value) &&
-    (value.schemaVersion === 1 || value.schemaVersion === 2)
+    (value.schemaVersion === 1 ||
+      value.schemaVersion === 2 ||
+      value.schemaVersion === 3)
   ) {
     throw invalidLock(
       label,
-      `uses pre-v3 schema ${value.schemaVersion}; this generated state is rebuild-only. Preserve canonical source and user edits, move only owner-reviewed generated output to a recoverable backup, then run skillset build --yes with the current Skillset release. The old lock cannot authorize cleanup`
+      `uses pre-v4 schema ${value.schemaVersion}; this generated state is rebuild-only. Preserve canonical source and user edits, move only owner-reviewed generated output to a recoverable backup, then run skillset build --yes with the current Skillset release. The old lock cannot authorize cleanup`
     );
   }
   return parseGeneratedLock(value, label, options) as ParsedCurrentGeneratedLock;
@@ -255,14 +269,15 @@ function parseGeneratedLockItem(
     assertManagedRelativePath(file, `${label}.files[${index}]`);
     return file;
   });
+  const kind = optionalString(value.kind, label, "kind");
   const fileModes = parseFileModes(
     value.fileModes,
     files,
     schemaVersion,
-    label
+    label,
+    kind === "settings-entry"
   );
   const outputHash = optionalString(value.outputHash, label, "outputHash");
-  const kind = optionalString(value.kind, label, "kind");
   const name = optionalString(value.name, label, "name");
   const origin = optionalString(value.origin, label, "origin");
   const outputPath = optionalString(value.outputPath, label, "outputPath");
@@ -270,12 +285,16 @@ function parseGeneratedLockItem(
     assertManagedRelativePath(outputPath, `${label}.outputPath`);
   }
   const sourcePath = optionalString(value.sourcePath, label, "sourcePath");
+  const ownedEntries = parseOwnedEntries(value.ownedEntries, label);
   const dependencies = optionalStringArray(
     value.dependencies,
     label,
     "dependencies"
   );
+  const draftOrigin = parseDraftOrigin(value.draftOrigin, label);
+  const draftPolicy = parseDraftPolicy(value.draftPolicy, label);
   const feature = optionalString(value.feature, label, "feature");
+  const effectiveName = optionalString(value.effectiveName, label, "effectiveName");
   const plugin = optionalString(value.plugin, label, "plugin");
   const preprocessDependencies = optionalStringArray(
     value.preprocessDependencies,
@@ -294,26 +313,43 @@ function parseGeneratedLockItem(
     label,
     "sourcePointer"
   );
+  const sourceUnit = optionalString(value.sourceUnit, label, "sourceUnit");
+  const selectionRule = optionalString(value.selectionRule, label, "selectionRule");
+  const shippedSibling = optionalString(value.shippedSibling, label, "shippedSibling");
   const targetState = optionalString(value.targetState, label, "targetState");
   const transforms = optionalRecordArray(value.transforms, label, "transforms");
   const validation = optionalString(value.validation, label, "validation");
   const version = optionalString(value.version, label, "version");
 
   if (
-    schemaVersion !== 3 &&
+    schemaVersion < 3 &&
     (value.consumers !== undefined || value.owner !== undefined)
   ) {
     throw invalidLock(label, "legacy items cannot declare consumers or owner");
   }
   const consumers =
-    schemaVersion === 3 ? parseConsumers(value.consumers, label) : [];
+    schemaVersion >= 3 ? parseConsumers(value.consumers, label) : [];
   const owner =
-    schemaVersion === 3 ? parseOwner(value.owner, label) : undefined;
+    schemaVersion >= 3 ? parseOwner(value.owner, label) : undefined;
+  if (schemaVersion < 4 && value.role !== undefined) {
+    throw invalidLock(label, "pre-v4 items cannot declare role");
+  }
+  const role = schemaVersion === 4 ? parseRole(value.role, label) : undefined;
   validateOwnerConsumerRelationship(consumers, owner, label);
+  if (role !== undefined) validateRoleOwnership(role, owner, label);
+  if (kind === "settings-entry" && (ownedEntries === undefined || ownedEntries.length === 0)) {
+    throw invalidLock(label, "settings-entry items require ownedEntries");
+  }
+  if (kind !== "settings-entry" && ownedEntries !== undefined) {
+    throw invalidLock(label, "ownedEntries are only valid for settings-entry items");
+  }
 
   return {
     consumers,
     ...(dependencies === undefined ? {} : { dependencies }),
+    ...(draftOrigin === undefined ? {} : { draftOrigin }),
+    ...(draftPolicy === undefined ? {} : { draftPolicy }),
+    ...(effectiveName === undefined ? {} : { effectiveName }),
     ...(feature === undefined ? {} : { feature }),
     ...(fileModes === undefined ? {} : { fileModes }),
     files,
@@ -322,7 +358,9 @@ function parseGeneratedLockItem(
     ...(origin === undefined ? {} : { origin }),
     ...(outputHash === undefined ? {} : { outputHash }),
     ...(outputPath === undefined ? {} : { outputPath }),
+    ...(ownedEntries === undefined ? {} : { ownedEntries }),
     ...(owner === undefined ? {} : { owner }),
+    ...(role === undefined ? {} : { role }),
     ...(plugin === undefined ? {} : { plugin }),
     ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
     ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
@@ -330,11 +368,51 @@ function parseGeneratedLockItem(
     ...(sourceHash === undefined ? {} : { sourceHash }),
     ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
     ...(sourcePointer === undefined ? {} : { sourcePointer }),
+    ...(sourceUnit === undefined ? {} : { sourceUnit }),
+    ...(selectionRule === undefined ? {} : { selectionRule }),
+    ...(shippedSibling === undefined ? {} : { shippedSibling }),
     ...(targetState === undefined ? {} : { targetState }),
     ...(transforms === undefined ? {} : { transforms }),
     ...(validation === undefined ? {} : { validation }),
     ...(version === undefined ? {} : { version }),
   };
+}
+
+function parseDraftPolicy(
+  value: unknown,
+  label: string
+): ProjectDraftPolicy | undefined {
+  if (value === undefined) return undefined;
+  if (value === "only" || value === "override") return value;
+  throw invalidLock(label, "draftPolicy must be only or override");
+}
+
+function parseDraftOrigin(
+  value: unknown,
+  label: string
+): "_drafts" | "config" | "status" | undefined {
+  if (value === undefined) return undefined;
+  if (value === "_drafts" || value === "config" || value === "status") {
+    return value;
+  }
+  throw invalidLock(label, "draftOrigin must be _drafts, config, or status");
+}
+
+function parseOwnedEntries(
+  value: unknown,
+  label: string
+): readonly SettingsEntryOwnership[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw invalidLock(label, "ownedEntries must be an array");
+  return value.map((entry, index) => {
+    const entryLabel = `${label}.ownedEntries[${index}]`;
+    if (!isJsonRecord(entry)) throw invalidLock(entryLabel, "must be an object");
+    const file = requiredString(entry.file, entryLabel, "file");
+    assertManagedRelativePath(file, `${entryLabel}.file`);
+    const keyPath = requiredString(entry.keyPath, entryLabel, "keyPath");
+    const commandHash = requiredString(entry.commandHash, entryLabel, "commandHash");
+    return { commandHash, file, keyPath };
+  });
 }
 
 function parseSourceOrigin(
@@ -359,16 +437,19 @@ function parseFileModes(
   value: unknown,
   files: readonly string[],
   schemaVersion: GeneratedLockSchemaVersion,
-  label: string
-): Readonly<Record<string, "0644" | "0755">> | undefined {
+  label: string,
+  preserveSettingsMode: boolean
+): Readonly<Record<string, string>> | undefined {
   if (value === undefined && schemaVersion === 1) return undefined;
   if (!isJsonRecord(value)) {
     throw invalidLock(label, "versioned items require a fileModes object");
   }
-  const modes: Record<string, "0644" | "0755"> = {};
+  const modes: Record<string, string> = {};
   for (const [file, mode] of Object.entries(value)) {
-    if (mode !== "0644" && mode !== "0755") {
-      throw invalidLock(label, `fileModes.${file} must be 0644 or 0755`);
+    if (typeof mode !== "string" || (preserveSettingsMode
+      ? !/^0[0-7]{3}$/.test(mode)
+      : mode !== "0644" && mode !== "0755")) {
+      throw invalidLock(label, `fileModes.${file} must be ${preserveSettingsMode ? "a four-digit octal mode" : "0644 or 0755"}`);
     }
     modes[file] = mode;
   }
@@ -446,6 +527,16 @@ function parseOwner(
     : { target: parseProviderTarget(value.target, `${label}.owner`) };
 }
 
+function parseRole(value: unknown, label: string): GeneratedLockRole {
+  if (value === "bundle" || value === "project-use" || value === "standard") {
+    return value;
+  }
+  throw invalidLock(
+    label,
+    "role must be bundle, project-use, or standard"
+  );
+}
+
 function validateOwnerConsumerRelationship(
   consumers: readonly GeneratedLockConsumer[],
   owner: GeneratedLockOwner | undefined,
@@ -483,6 +574,28 @@ function validateOwnerConsumerRelationship(
   }
 }
 
+function validateRoleOwnership(
+  role: GeneratedLockRole,
+  owner: GeneratedLockOwner | undefined,
+  label: string
+): void {
+  if (role === "standard") {
+    if (owner === undefined || !("standardProfile" in owner)) {
+      throw invalidLock(label, "standard role requires a standardProfile owner");
+    }
+    return;
+  }
+  if (owner !== undefined && "standardProfile" in owner) {
+    throw invalidLock(
+      label,
+      `${role} role cannot use a standardProfile owner`
+    );
+  }
+  if (role === "project-use" && owner === undefined) {
+    throw invalidLock(label, "project-use role requires a target owner");
+  }
+}
+
 function identityKey(
   value: GeneratedLockConsumer | GeneratedLockOwner
 ): string {
@@ -495,7 +608,7 @@ function parseSchemaVersion(
   value: unknown,
   label: string
 ): GeneratedLockSchemaVersion {
-  if (value === 1 || value === 2 || value === 3) return value;
+  if (value === 1 || value === 2 || value === 3 || value === 4) return value;
   throw invalidLock(label, `unsupported schemaVersion ${String(value)}`);
 }
 
@@ -521,7 +634,7 @@ function parseStandards(
   label: string
 ): readonly StandardProfileId[] {
   if (!Array.isArray(value)) {
-    throw invalidLock(label, "schema v3 selectedStandards must be an array");
+    throw invalidLock(label, "current selectedStandards must be an array");
   }
   return value.map((profile, index) =>
     parseStandardProfile(profile, `${label}.selectedStandards[${index}]`)
@@ -534,13 +647,13 @@ function parseStandardProfileEvidence(
   label: string
 ): Readonly<Partial<Record<StandardProfileId, string>>> {
   // Early v3 locks predate receipt provenance. Preserve them only when they
-  // never claimed a selected standard; any standards-bearing v3 lock must
+  // never claimed a selected standard; any standards-bearing current lock must
   // carry the complete receipt key set.
   if (value === undefined && selectedStandards.length === 0) return {};
   if (!isJsonRecord(value)) {
     throw invalidLock(
       label,
-      "schema v3 standardProfileEvidence must be an object"
+      "current standardProfileEvidence must be an object"
     );
   }
 
@@ -616,8 +729,8 @@ function validateProvenance(
   label: string
 ): void {
   if (value.provenanceHash === undefined) {
-    if (schemaVersion === 3) {
-      throw invalidLock(label, "schema v3 requires provenanceHash");
+    if (schemaVersion >= 3) {
+      throw invalidLock(label, `schema v${schemaVersion} requires provenanceHash`);
     }
     return;
   }

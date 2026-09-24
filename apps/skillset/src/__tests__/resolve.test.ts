@@ -12,6 +12,8 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 
+import { buildSkillset } from "@skillset/core";
+
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
@@ -27,7 +29,7 @@ import {
 const GENERATED_ALPHA = ".agents/skills/alpha/SKILL.md";
 const HAND_EDITED = ".claude/skills/alpha/SKILL.md";
 const PLUGIN_SOURCE = ".skillset/plugins/demo/skills/alpha/SKILL.md";
-const PLUGIN_HAND_EDITED = "plugins/demo/claude/skills/alpha/SKILL.md";
+const PLUGIN_HAND_EDITED = "plugins/demo/skills/alpha/SKILL.md";
 const AUTHORED_ALPHA = ".skillset/skills/alpha/SKILL.md";
 
 describe("skillset resolve", () => {
@@ -702,7 +704,7 @@ async function conflictFixture(options: {
   }
   await writeFile(
     join(root, "skillset.yaml"),
-    `skillset:\n  name: resolve-test\n  version: 0.1.0\nclaude: true\ncodex: false\n${
+    `skillset:\n  name: resolve-test\n  version: 0.1.0\nclaude: true\ncodex: false\ncursor: false\n${
       options.externalSupport === true
         ? 'supports:\n  packages:\n    - name: resolve-fixture\n      range: ">=1.0.0"\n      source: repo:package.json\n'
         : ""
@@ -956,10 +958,8 @@ async function deleteEditFixture(): Promise<string> {
 }
 
 async function build(root: string): Promise<void> {
-  const result = await runCli("build", "--root", root, "--yes");
-  if (result.exitCode !== 0) {
-    throw new Error(`resolve fixture build failed: ${result.stderr}`);
-  }
+  // Setup needs generated files; the resolve cases still exercise the real CLI.
+  await buildSkillset(root);
 }
 
 async function commitAll(root: string, message: string): Promise<void> {

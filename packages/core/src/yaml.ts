@@ -7,7 +7,12 @@ export function isJsonRecord(value: unknown): value is JsonRecord {
 }
 
 export function parseYamlRecord(content: string, label: string): JsonRecord {
-  const parsed = YAML.parse(content) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = YAML.parse(content) as unknown;
+  } catch (error) {
+    throw yamlSyntaxError(error, label);
+  }
   if (parsed === null) return {};
   if (!isJsonRecord(parsed)) {
     throw new Error(`skillset: expected ${label} to contain a YAML object`);
@@ -76,4 +81,12 @@ function sortValue(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(sortValue);
   if (isJsonRecord(value)) return sortRecord(value);
   return value;
+}
+
+function yamlSyntaxError(error: unknown, label: string): Error {
+  const cause = error instanceof Error ? error : undefined;
+  const detail = cause?.message ?? String(error);
+  return new Error(`skillset: ${label} is not valid YAML: ${detail}`, {
+    ...(cause === undefined ? {} : { cause }),
+  });
 }

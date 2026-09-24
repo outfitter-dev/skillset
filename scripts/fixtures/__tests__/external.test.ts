@@ -164,15 +164,15 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   ]);
   expect(report.roundTrips).toHaveLength(2);
   expect(report.roundTrips.map((entry) => [entry.target, entry.generatedRoot])).toEqual([
-    ["claude", ".skillset/cache/latest/plugins/demo/claude"],
-    ["cursor", ".skillset/cache/latest/plugins/demo/cursor"],
+    ["claude", ".skillset/cache/latest/plugins/demo"],
+    ["cursor", ".skillset/cache/latest/plugins/demo"],
   ]);
   const roundTrip = report.roundTrips.find((entry) => entry.target === "claude");
   expect(roundTrip?.kind).toBe("plugin");
   expect(roundTrip?.name).toBe("demo");
   expect(roundTrip?.originalRoot).toBe("plugins/demo");
   expect(roundTrip?.generatedRoot).toBe(
-    ".skillset/cache/latest/plugins/demo/claude"
+    ".skillset/cache/latest/plugins/demo"
   );
   expect(roundTrip?.comparison.identical).toContain("commands/hello.md");
   // Generated skill frontmatter gains metadata.version/generated, so the
@@ -216,7 +216,7 @@ test("SET-344: runExternalRepo reports a Cursor-only target projection", async (
 
   expect(report.ok).toBe(true);
   expect(report.roundTrips.map((entry) => [entry.target, entry.generatedRoot])).toEqual([
-    ["cursor", ".skillset/cache/latest/plugins/demo/cursor"],
+    ["cursor", ".skillset/cache/latest/plugins/demo"],
   ]);
 });
 

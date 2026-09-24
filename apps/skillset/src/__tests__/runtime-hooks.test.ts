@@ -1,8 +1,9 @@
 import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
+import type { SkillsetVerifyResult } from "@skillset/core";
 
 import {
   createTestGitFixtureRoot,
@@ -81,6 +82,21 @@ test("runtime hook command resolver falls back to stable package runners", async
   });
   await expect(resolveWithPath(["npx"])).resolves.toEqual({
     argv: ["npx", "--yes", "skillset"],
+    kind: "argv",
+  });
+});
+
+test("runtime hook command resolver probes only the supplied PATH", async () => {
+  await expect(resolveWithPath([])).rejects.toThrow(MISSING_SKILLSET_RUNNER);
+
+  const hidden = await isolatedBins({ hidden: ["skillset"] });
+  await expect(resolveSkillsetCommand(hidden.root, { PATH: hidden.visibleBin })).rejects.toThrow(
+    MISSING_SKILLSET_RUNNER
+  );
+
+  const shadowed = await isolatedBins({ hidden: ["skillset"], visible: ["bunx"] });
+  await expect(resolveSkillsetCommand(shadowed.root, { PATH: shadowed.visibleBin })).resolves.toEqual({
+    argv: ["bunx", "skillset"],
     kind: "argv",
   });
 });
@@ -173,6 +189,181 @@ test("source gate failures are soft for post-tool-use and blocking for stop", as
   expect(stop.exitCode).toBe(128);
 });
 
+test("session-start verifies outputs without the source gate or command runner", async () => {
+  let verifierCalls = 0;
+  const current = await runHookEvent("session-start", {
+    commandRunner: async () => {
+      throw new Error("command runner must not be called");
+    },
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    sourceGate: async () => {
+      throw new Error("source gate must not be called");
+    },
+    verifier: async (rootPath) => {
+      verifierCalls += 1;
+      expect(rootPath).toBe("/tmp/repo");
+      return verification(true);
+    },
+  });
+
+  expect(verifierCalls).toBe(1);
+  expect(current).toMatchObject({
+    exitCode: 0,
+    output: "",
+    ranCommands: [],
+    sourceChanged: false,
+    sourceGateOk: true,
+    writes: {
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    },
+  });
+});
+
+test("session-start emits provider-native stale output for Claude and Codex", async () => {
+  for (const provider of ["claude", "codex"] as const) {
+    const stale = await runHookEvent("session-start", {
+      env: { SKILLSET_PROVIDER: provider },
+      rootPath: "/tmp/repo",
+      verifier: async () => verification(false, ["plugins/demo/output.json"]),
+    });
+
+    expect(stale.exitCode).toBe(0);
+    expect(stale.output.endsWith("\n")).toBe(true);
+    expect(JSON.parse(stale.output)).toEqual({
+      hookSpecificOutput: {
+        additionalContext: [
+          "Skillset generated output is stale.",
+          "",
+          "Stale paths:",
+          "- plugins/demo/output.json",
+          "",
+          "Run: npx skillset build",
+          "skillset-help",
+        ].join("\n"),
+        hookEventName: "SessionStart",
+      },
+    });
+  }
+});
+
+test("session-start stays silent for fulfilled blocked verification", async () => {
+  const blocked = verification(false);
+  const result = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    verifier: async () => ({
+      ...blocked,
+      diagnostics: [{
+        code: "unmanaged-output-collision",
+        message: "unmanaged output blocks verification",
+        outputPath: "plugins/demo/output.json",
+        severity: "error",
+      }],
+      outputState: {
+        ...blocked.outputState,
+        blockers: [{ code: "unmanaged-output-collision", path: "plugins/demo/output.json" }],
+        state: "blocked",
+      },
+    }),
+  });
+
+  expect(result).toMatchObject({ exitCode: 0, output: "", ranCommands: [] });
+});
+
+test("session-start lists only error-level generated-output drift paths", async () => {
+  const stale = verification(false, ["plugins/demo/stale.json"]);
+  const result = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "codex" },
+    rootPath: "/tmp/repo",
+    verifier: async () => ({
+      ...stale,
+      diagnostics: [
+        ...stale.diagnostics,
+        {
+          code: "codex-agents-size",
+          message: "AGENTS.md is large",
+          outputPath: "current/AGENTS.md",
+          severity: "warning",
+        },
+      ],
+    }),
+  });
+
+  expect(result.output).toContain("- plugins/demo/stale.json");
+  expect(result.output).not.toContain("current/AGENTS.md");
+});
+
+test("session-start bounds unique stale paths and additional context", async () => {
+  const paths = Array.from(
+    { length: 30 },
+    (_, index) => `plugins/${String(index).padStart(2, "0")}/${"x".repeat(500)}.json`
+  );
+  const stale = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "codex" },
+    rootPath: "/tmp/repo",
+    verifier: async () => verification(false, [paths[0]!, ...paths, paths[0]!]),
+  });
+  const output = JSON.parse(stale.output) as {
+    hookSpecificOutput: { additionalContext: string; hookEventName: string };
+  };
+  const context = output.hookSpecificOutput.additionalContext;
+  const listedPaths = context
+    .split("\n")
+    .filter((line) => line.startsWith("- "));
+
+  expect(listedPaths.length).toBeLessThanOrEqual(20);
+  expect(new Set(listedPaths).size).toBe(listedPaths.length);
+  expect(context).toContain(`... and ${paths.length - listedPaths.length} more.`);
+  expect(context.length).toBeLessThanOrEqual(8_000);
+  expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
+});
+
+test("session-start bounds JSON-escaped hook output", async () => {
+  const paths = Array.from(
+    { length: 20 },
+    (_, index) => `plugins/demo/resources/p${index}/${"\\".repeat(240)}.txt`
+  );
+  const stale = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    verifier: async () => verification(false, paths),
+  });
+  const output = JSON.parse(stale.output) as {
+    hookSpecificOutput: { additionalContext: string; hookEventName: string };
+  };
+  const context = output.hookSpecificOutput.additionalContext;
+  const listedPaths = context.split("\n").filter((line) => line.startsWith("- "));
+
+  expect(stale.output.length).toBeLessThanOrEqual(9_000);
+  expect(listedPaths.length).toBeLessThan(paths.length);
+  expect(context).toContain(`... and ${paths.length - listedPaths.length} more.`);
+  expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
+});
+
+test("session-start exits zero when verification throws and stays silent for unsupported providers", async () => {
+  const failed = await runHookEvent("session-start", {
+    env: { SKILLSET_PROVIDER: "claude" },
+    rootPath: "/tmp/repo",
+    verifier: async () => {
+      throw new Error("verification failed");
+    },
+  });
+  expect(failed).toMatchObject({ exitCode: 0, output: "", ranCommands: [] });
+
+  for (const env of [{ SKILLSET_PROVIDER: "cursor" }, {}]) {
+    const unsupported = await runHookEvent("session-start", {
+      env,
+      rootPath: "/tmp/repo",
+      verifier: async () => verification(false, ["plugins/demo/output.json"]),
+    });
+    expect(unsupported).toMatchObject({ exitCode: 0, output: "", ranCommands: [] });
+  }
+});
+
 function commandRunner(exitCodes: readonly number[] = [0]): {
   readonly calls: Array<{
     readonly args: readonly string[];
@@ -207,6 +398,40 @@ function sourceGate(
   };
 }
 
+function verification(
+  ok: boolean,
+  paths: readonly string[] = []
+): SkillsetVerifyResult {
+  return {
+    data: {
+      checkedFiles: paths.length,
+      failures: paths.map((path) => `stale generated file: ${path}`),
+    },
+    diagnostics: paths.map((path) => ({
+      code: "generated-output-changed",
+      message: `stale generated file: ${path}`,
+      outputPath: path,
+      severity: "error" as const,
+    })),
+    ok,
+    operation: "verify",
+    outputState: {
+      blockers: [],
+      hasBaseline: true,
+      outputChanges: paths,
+      sourceChanges: [],
+      state: ok ? "current" : "output-diverged",
+    },
+    renderResults: [],
+    writes: {
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    },
+  };
+}
+
 async function gitFixture(): Promise<string> {
   const disposableRoot = await createTestGitFixtureRoot(
     "skillset-hooks-run-"
@@ -221,15 +446,36 @@ async function gitFixture(): Promise<string> {
   return root;
 }
 
+const MISSING_SKILLSET_RUNNER =
+  "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND";
+
 async function resolveWithPath(commands: readonly string[]) {
-  const root = await mkdtemp(join(tmpdir(), "skillset-hooks-path-"));
-  const binDir = join(root, "bin");
-  await mkdir(binDir, { recursive: true });
+  const bins = await isolatedBins({ visible: commands });
+  return resolveSkillsetCommand(bins.root, { PATH: bins.visibleBin });
+}
+
+async function isolatedBins(options: {
+  readonly hidden?: readonly string[];
+  readonly visible?: readonly string[];
+}): Promise<{
+  readonly hiddenBin: string;
+  readonly root: string;
+  readonly visibleBin: string;
+}> {
+  const root = await createTestFixtureRoot("skillset-hooks-path-");
+  const hiddenBin = join(root, "hidden-bin");
+  const visibleBin = join(root, "visible-bin");
+  await mkdir(hiddenBin, { recursive: true });
+  await mkdir(visibleBin, { recursive: true });
+  await writeBins(hiddenBin, options.hidden ?? []);
+  await writeBins(visibleBin, options.visible ?? []);
+  return { hiddenBin, root, visibleBin };
+}
+
+async function writeBins(binDir: string, commands: readonly string[]): Promise<void> {
   for (const command of commands) {
     const binPath = join(binDir, command);
     await writeFile(binPath, "#!/bin/sh\nexit 0\n");
     await chmod(binPath, 0o755);
   }
-
-  return resolveSkillsetCommand(root, { PATH: binDir });
 }

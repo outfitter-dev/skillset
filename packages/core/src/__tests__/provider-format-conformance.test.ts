@@ -1,6 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -10,6 +8,7 @@ import {
   formatProviderFormatConformanceReport,
   providerFormatConformanceFiles,
 } from "@skillset/core";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const PROVIDER_FORMAT_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -40,7 +39,7 @@ description: Root instructions.
 
 Keep generated output deterministic.
 `,
-  ".skillset/agents/reviewer.md": `
+  ".skillset/subagents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -61,28 +60,6 @@ skillset:
   repository: https://github.com/example/alpha
   license: MIT
   keywords: [alpha, tools]
-mcp: true
-`,
-  ".skillset/plugins/alpha/.mcp.json": `
-{
-  "mcpServers": {
-    "alpha": { "command": "node" }
-  }
-}
-`,
-  ".skillset/plugins/alpha/hooks/hooks.json": `
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          { "type": "command", "command": "node hooks/pre-tool-use.js" }
-        ]
-      }
-    ]
-  }
-}
 `,
   ".skillset/plugins/alpha/rules/plugin.md": `
 ---
@@ -128,31 +105,28 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/.claude/agents/reviewer.md",
       ".skillset/cache/latest/.claude-plugin/marketplace.json",
       ".skillset/cache/latest/.cursor-plugin/marketplace.json",
-      ".skillset/cache/latest/plugins/alpha/claude/.claude-plugin/plugin.json",
-      ".skillset/cache/latest/plugins/alpha/claude/hooks/hooks.json",
-      ".skillset/cache/latest/plugins/alpha/chatgpt/plugin.json",
-      ".skillset/cache/latest/plugins/alpha/cursor/.cursor-plugin/plugin.json",
-      ".skillset/cache/latest/plugins/alpha/cursor/hooks/hooks.json",
-      ".skillset/cache/latest/plugins/alpha/cursor/skills/plugin-skill/SKILL.md",
+      ".skillset/cache/latest/plugins/alpha/.claude-plugin/plugin.json",
+      ".skillset/cache/latest/plugins/alpha/plugin.json",
+      ".skillset/cache/latest/plugins/alpha/.cursor-plugin/plugin.json",
+      ".skillset/cache/latest/plugins/alpha/skills/plugin-skill/SKILL.md",
       ".skillset/cache/latest/.cursor/agents/reviewer.md",
       ".skillset/cache/latest/.cursor/rules/root.mdc",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
-    expect(flattenedPluginSkill).toMatchObject({ standardProfile: "agent-skills" });
-    expect(new TextDecoder().decode(flattenedPluginSkill?.content)).toContain("license: MIT");
+    expect(flattenedPluginSkill).toBeUndefined();
     expect(
       providerFormatConformanceFiles(build.data, build.renderResults.toReversed()).find(
         (file) =>
           file.path ===
           ".skillset/cache/latest/.agents/skills/plugin-skill/SKILL.md"
       )
-    ).toMatchObject({ standardProfile: "agent-skills" });
+    ).toBeUndefined();
 
     const codexManifest = files.find((file) =>
-      file.path.endsWith("/chatgpt/plugin.json")
+      file.path.endsWith("/plugins/alpha/plugin.json")
     );
     const cursorManifest = files.find((file) =>
-      file.path.endsWith("/cursor/.cursor-plugin/plugin.json")
+      file.path.endsWith("/plugins/alpha/.cursor-plugin/plugin.json")
     );
     expect(JSON.parse(new TextDecoder().decode(codexManifest?.content))).toMatchObject({
       author: {
@@ -171,38 +145,38 @@ describe("provider format conformance", () => {
 
   it("reports schema-backed missing and unknown fields with provider refs", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/alpha/claude/.claude-plugin/plugin.json", {
+      rendered("plugins/alpha/.claude-plugin/plugin.json", {
         description: 123,
         keywords: "not-an-array",
         unexpected: true,
       }),
-      rendered("plugins/alpha/claude/hooks/hooks.json", {
+      rendered("plugins/alpha/hooks/hooks.json", {
         hooks: {},
         stale: true,
-      }),
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      }, { destination: "hooks", target: "claude" }),
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         description: "Cursor plugin.",
         mystery: true,
         name: "alpha",
         tags: "not-an-array",
       }),
-      rendered("plugins/alpha/cursor/hooks/hooks.json", {
+      rendered("plugins/alpha/hooks/hooks.json", {
         hooks: {},
         stale: true,
-      }),
+      }, { destination: "hooks", target: "cursor" }),
     ]);
 
     expect(report.ok).toBe(false);
     expect(report.issues.map((issue) => [issue.providerRef, issue.code, issue.outputPath])).toEqual([
-      ["claude-plugin", "missing-required-field", "plugins/alpha/claude/.claude-plugin/plugin.json"],
-      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/claude/.claude-plugin/plugin.json"],
-      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/claude/.claude-plugin/plugin.json"],
-      ["claude-plugin-manifest-schema", "unknown-destination-field", "plugins/alpha/claude/.claude-plugin/plugin.json"],
-      ["claude-hooks", "unknown-destination-field", "plugins/alpha/claude/hooks/hooks.json"],
-      ["cursor-plugin", "invalid-field-type", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
-      ["cursor-plugin", "unknown-destination-field", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
-      ["cursor-hooks", "invalid-shape", "plugins/alpha/cursor/hooks/hooks.json"],
-      ["cursor-hooks", "unknown-destination-field", "plugins/alpha/cursor/hooks/hooks.json"],
+      ["claude-plugin", "missing-required-field", "plugins/alpha/.claude-plugin/plugin.json"],
+      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/.claude-plugin/plugin.json"],
+      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/.claude-plugin/plugin.json"],
+      ["claude-plugin-manifest-schema", "unknown-destination-field", "plugins/alpha/.claude-plugin/plugin.json"],
+      ["cursor-plugin", "invalid-field-type", "plugins/alpha/.cursor-plugin/plugin.json"],
+      ["cursor-plugin", "unknown-destination-field", "plugins/alpha/.cursor-plugin/plugin.json"],
+      ["claude-hooks", "unknown-destination-field", "plugins/alpha/hooks/hooks.json"],
+      ["cursor-hooks", "invalid-shape", "plugins/alpha/hooks/hooks.json"],
+      ["cursor-hooks", "unknown-destination-field", "plugins/alpha/hooks/hooks.json"],
     ]);
     expect(formatProviderFormatConformanceReport(report)).toContain("claude-plugin-manifest-schema");
   });
@@ -240,7 +214,7 @@ describe("provider format conformance", () => {
 
   it("reports manual-overlay unknown destination fields", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/alpha/chatgpt/plugin.json", {
+      rendered("plugins/alpha/plugin.json", {
         ...chatGptManifest({
           extensions: { "com.openai": { interface: { displayName: "Alpha", mysteryPanel: true } } },
         }),
@@ -301,7 +275,7 @@ describe("provider format conformance", () => {
   it("requires the pinned Agent Plugins schema on ChatGPT root manifests", () => {
     const report = checkProviderFormatConformance([
       rendered(
-        "plugins/alpha/chatgpt/plugin.json",
+        "plugins/alpha/plugin.json",
         chatGptManifest({
           $schema: "https://developers.openai.com/chatgpt/plugins/schema.json",
         })
@@ -321,7 +295,7 @@ describe("provider format conformance", () => {
 
   it("validates Claude's native author object fields", () => {
     const valid = checkProviderFormatConformance([
-      rendered("plugins/alpha/claude/.claude-plugin/plugin.json", {
+      rendered("plugins/alpha/.claude-plugin/plugin.json", {
         author: {
           email: "team@example.com",
           name: "Example Team",
@@ -334,7 +308,7 @@ describe("provider format conformance", () => {
     expect(valid).toEqual({ checkedFiles: 1, issues: [], ok: true });
 
     const invalid = checkProviderFormatConformance([
-      rendered("plugins/alpha/claude/.claude-plugin/plugin.json", {
+      rendered("plugins/alpha/.claude-plugin/plugin.json", {
         author: { contributor: "Example Contributor", email: 1 },
         description: "Alpha plugin.",
         name: "alpha",
@@ -359,10 +333,10 @@ describe("provider format conformance", () => {
 
   it("validates Codex and Cursor provider-native author objects", () => {
     const valid = checkProviderFormatConformance([
-      rendered("plugins/alpha/chatgpt/plugin.json", {
+      rendered("plugins/alpha/plugin.json", {
         ...chatGptManifest({ author: { email: "team@example.com", name: "Team", url: "https://example.com" } }),
       }),
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         author: { email: "team@example.com", name: "Team" },
         description: "Alpha.",
         name: "alpha",
@@ -371,10 +345,10 @@ describe("provider format conformance", () => {
     expect(valid).toEqual({ checkedFiles: 2, issues: [], ok: true });
 
     const invalid = checkProviderFormatConformance([
-      rendered("plugins/alpha/chatgpt/plugin.json", {
+      rendered("plugins/alpha/plugin.json", {
         ...chatGptManifest({ author: "Legacy Author" }),
       }),
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         author: { name: "Team", url: "https://example.com" },
         description: "Alpha.",
         name: "alpha",
@@ -382,25 +356,25 @@ describe("provider format conformance", () => {
     ]);
     expect(invalid.issues.map(({ code, message }) => ({ code, message }))).toEqual([
       {
-        code: "invalid-field-type",
-        message: "destination field author must be an object (The released Codex 0.154.0 Agent Plugins consumer layers the closed extensions.com.openai interface, app, and hook contract over the Agent Plugins 1.0 root manifest and fixed components.)",
-      },
-      {
         code: "unknown-destination-field",
         message: "unknown destination field author.url; allowed fields are email, name",
+      },
+      {
+        code: "invalid-field-type",
+        message: "destination field author must be an object (The released Codex 0.154.0 Agent Plugins consumer layers the closed extensions.com.openai interface, app, and hook contract over the Agent Plugins 1.0 root manifest and fixed components.)",
       },
     ]);
   });
 
   it("keeps authorless manifests with hooks valid for the Codex runtime loader", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/runtime/chatgpt/plugin.json", {
+      rendered("plugins/runtime/plugin.json", {
         ...chatGptManifest({
           extensions: { "com.openai": { hooks: "./hooks/hooks.json", interface: {} } },
           name: "runtime",
         }),
       }),
-      rendered("plugins/runtime/chatgpt/hooks/hooks.json", { hooks: {} }),
+      rendered("plugins/runtime/hooks/hooks.json", { hooks: {} }),
     ]);
 
     expect(report).toEqual({ checkedFiles: 2, issues: [], ok: true });
@@ -447,7 +421,7 @@ describe("provider format conformance", () => {
           },
         ],
       }),
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         minClientVersions: { cursor: "3.13.0" },
         name: "alpha",
       }),
@@ -497,11 +471,11 @@ describe("provider format conformance", () => {
 
   it("rejects Cursor plugin manifest minClientVersions members that break the pinned semver contract", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         minClientVersions: { cursor: 3, other: "not-a-version" },
         name: "alpha",
       }),
-      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/beta/.cursor-plugin/plugin.json", {
         minClientVersions: {},
         name: "beta",
       }),
@@ -525,11 +499,11 @@ describe("provider format conformance", () => {
 
   it("accepts pinned Cursor variables schemas", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         name: "alpha",
         variables: { type: "object" },
       }),
-      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/beta/.cursor-plugin/plugin.json", {
         name: "beta",
         variables: {
           // The pinned `variables` contract leaves additional keys open.
@@ -546,23 +520,23 @@ describe("provider format conformance", () => {
 
   it("rejects Cursor plugin manifest variables that break the pinned contract", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/alpha/.cursor-plugin/plugin.json", {
         name: "alpha",
         variables: { properties: { token: { type: "string" } } },
       }),
-      rendered("plugins/beta/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/beta/.cursor-plugin/plugin.json", {
         name: "beta",
         variables: { type: "string" },
       }),
-      rendered("plugins/gamma/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/gamma/.cursor-plugin/plugin.json", {
         name: "gamma",
         variables: { properties: ["token"], required: "token", type: "object" },
       }),
-      rendered("plugins/delta/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/delta/.cursor-plugin/plugin.json", {
         name: "delta",
         variables: { required: ["token", "token"], type: "object" },
       }),
-      rendered("plugins/epsilon/cursor/.cursor-plugin/plugin.json", {
+      rendered("plugins/epsilon/.cursor-plugin/plugin.json", {
         name: "epsilon",
         variables: "object",
       }),
@@ -1512,7 +1486,7 @@ skillset:
 
   it("classifies skill targets by output path segments instead of substrings", () => {
     const report = checkProviderFormatConformance([
-      textFile("plugins/codex-helper/claude/skills/demo/SKILL.md", [
+      textFile("plugins/codex-helper/skills/demo/SKILL.md", [
         "---",
         "allowed-tools: Read",
         "---",
@@ -1525,17 +1499,14 @@ skillset:
     expect(report).toEqual({ checkedFiles: 1, issues: [], ok: true });
   });
 
-  it("uses render-result metadata to include custom output roots", async () => {
+  it("uses render-result metadata for shared plugin and fixed skill roots", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: provider-format-root
 claude: false
 codex:
-  plugins:
-    path: generated/openai-plugins
-  skills:
-    path: generated/openai-skills
+  plugins: true
 cursor: false
 `,
       ".skillset/plugins/repo-plugin/skillset.yaml": `
@@ -1565,19 +1536,19 @@ Use the repo skill.
 
     const files = providerFormatConformanceFiles(build.data, build.renderResults);
     const customSkill = files.find((file) =>
-      file.path === ".skillset/cache/latest/generated/openai-skills/repo-skill/SKILL.md"
+      file.path === ".skillset/cache/latest/.agents/skills/repo-skill/SKILL.md"
     );
     const customPlugin = files.find((file) =>
-      file.path === ".skillset/cache/latest/generated/openai-plugins/plugins/repo-plugin/plugin.json"
+      file.path === ".skillset/cache/latest/plugins/repo-plugin/plugin.json"
     );
 
     expect(files.map((file) => file.path)).toContain(
-      ".skillset/cache/latest/generated/openai-plugins/plugins/repo-plugin/plugin.json"
+      ".skillset/cache/latest/plugins/repo-plugin/plugin.json"
     );
 
     expect(customSkill).toMatchObject({
       destination: "skill",
-      target: "codex",
+      standardProfile: "agent-skills",
     });
     expect(customPlugin).toMatchObject({
       destination: "plugin-manifest",
@@ -1621,9 +1592,14 @@ Use the repo skill.
   });
 });
 
-function rendered(path: string, value: Record<string, unknown>) {
+function rendered(
+  path: string,
+  value: Record<string, unknown>,
+  metadata: Record<string, unknown> = {}
+) {
   return {
     content: new TextEncoder().encode(`${JSON.stringify(value, null, 2)}\n`),
+    ...metadata,
     path,
   };
 }
@@ -1636,7 +1612,7 @@ function textFile(path: string, content: string) {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-provider-format-conformance-"));
+  const root = await createTestFixtureRoot("skillset-provider-format-conformance-");
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }

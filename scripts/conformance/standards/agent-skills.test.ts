@@ -1,23 +1,15 @@
 /* eslint-disable func-style, no-await-in-loop, no-use-before-define -- Keep fixture setup and command simulation beside their assertions. */
 /* eslint-disable unicorn/import-style -- Node's standard named path import keeps the fixture concise. */
-import { afterEach, describe, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { createTestFixtureRoot } from "../../test-helpers/fixture-root";
 import { runAgentSkillsProbe } from "./agent-skills";
 import type {
   AgentSkillsProbeCommand,
   AgentSkillsProbeCommandRunner,
 } from "./agent-skills";
-
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
-  );
-});
 
 describe("Agent Skills standards probe", () => {
   test("validates and copies every skill from the repository root", async () => {
@@ -25,13 +17,21 @@ describe("Agent Skills standards probe", () => {
     const commands: AgentSkillsProbeCommand[] = [];
     const runner = createRunner(commands);
 
-    const result = await runAgentSkillsProbe({
-      acquireReference: preparedReference,
-      repositoryRoot: fixture.repositoryRoot,
-      runner,
-      skillsRoot: fixture.skillsRoot,
-      tempRoot: fixture.tempRoot,
-    });
+    const previousSecret = process.env.AWS_SECRET_ACCESS_KEY;
+    process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
+    let result: Awaited<ReturnType<typeof runAgentSkillsProbe>>;
+    try {
+      result = await runAgentSkillsProbe({
+        acquireReference: preparedReference,
+        repositoryRoot: fixture.repositoryRoot,
+        runner,
+        skillsRoot: fixture.skillsRoot,
+        tempRoot: fixture.tempRoot,
+      });
+    } finally {
+      if (previousSecret === undefined) delete process.env.AWS_SECRET_ACCESS_KEY;
+      else process.env.AWS_SECRET_ACCESS_KEY = previousSecret;
+    }
 
     expect(result.validator).toMatchObject({
       negativeCanaryRejected: true,
@@ -80,6 +80,11 @@ describe("Agent Skills standards probe", () => {
       )
     ).toBe(true);
     expect(copyCommands[0]?.env.npm_config_globalconfig).toBe("/dev/null");
+    expect(copyCommands[0]?.env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(copyCommands[0]?.env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(copyCommands[0]?.env.CODEX_HOME?.endsWith("/probe/environment/config/codex")).toBe(
+      true
+    );
   });
 
   test("fails when the standards validator accepts the negative canary", async () => {
@@ -138,10 +143,7 @@ async function createFixture(skillNames: readonly string[]): Promise<{
   readonly skillsRoot: string;
   readonly tempRoot: string;
 }> {
-  const parent = await mkdtemp(
-    join(tmpdir(), "skillset-agent-skills-probe-test-")
-  );
-  roots.push(parent);
+  const parent = await createTestFixtureRoot("skillset-agent-skills-probe-test-");
   const repositoryRoot = join(parent, "repository");
   const skillsRoot = join(repositoryRoot, ".agents", "skills");
   const tempRoot = join(parent, "probe");

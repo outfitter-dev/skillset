@@ -24,7 +24,7 @@ Output safety uses `skillset.lock` ownership to protect hand-authored files near
 | Managed file missing | Plan warns and a confirmed build regenerates it |
 | Corrupt lock | Build and output inspection fail before making ownership decisions |
 
-A schema-v1 or nonempty schema-v2 lock is recognizable only for a bounded rebuild diagnostic. It cannot grant current ownership or cleanup authority. Follow the [generated-state rebuild guide](../../guides/generated-state-rebuild.md), preserve canonical source and user edits, and move only owner-reviewed generated paths to a recoverable backup before rebuilding with the current release. A coherent schema-v2 lock with `items: []` grants no cleanup authority and upgrades automatically to schema v3 on the next confirmed build without a manual backup.
+A schema-v1 through schema-v3 lock is recognizable only for a bounded rebuild diagnostic. It cannot grant current ownership or cleanup authority. Follow the [generated-state rebuild guide](../../guides/generated-state-rebuild.md), preserve canonical source and user edits, and move only owner-reviewed generated paths to a recoverable backup before rebuilding with the current release. An old lock with `items: []` also blocks the build rather than upgrading automatically; after confirming no generated output remains under it, back up that lock before previewing a fresh build.
 
 [Workspace](../../glossary.md#workspace)-managed project files, plugin output, standalone skills, and generated changelogs are recorded in the root or nearest generated `skillset.lock`. Skillset never claims an entire directory merely because generated files live there.
 
@@ -61,7 +61,7 @@ skillset restore <backup-id>
 skillset restore <backup-id> --yes
 ```
 
-Backups live under `.skillset/snapshots/<backup-id>/` with a schema-versioned manifest and per-run bare Git object store. List and restore previews are read-only. Confirmed restore verifies the saved Git payload and hash before writing.
+Backups live under `.skillset/snapshots/<backup-id>/` with a schema-versioned manifest and per-run bare Git object store. The manifest is published atomically only after those payloads are stored, so readers see a complete previous snapshot or a complete replacement, never partial JSON. A snapshot directory without that published manifest is incomplete. List and restore previews are read-only. Confirmed restore verifies the saved Git payload and hash before writing.
 
 For an overwrite backup, restore also requires the current target bytes and Unix mode to still match the generated replacement. For a deletion backup, the target must still be absent. A newer edit or recreated path blocks restore instead of being clobbered. Windows preserves byte safety but does not apply physical Unix-mode checks.
 

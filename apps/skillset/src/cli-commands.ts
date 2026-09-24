@@ -1,7 +1,7 @@
 export const CLI_COMMANDS = [
-  "build", "change", "check", "create", "dev", "diff", "distribute",
+  "build", "change", "check", "create", "dev", "diff", "distribute", "draft",
   "eval", "explain", "hooks", "import", "init",
-  "list", "lookup", "marketplace", "new", "release",
+  "list", "lookup", "marketplace", "move", "new", "promote", "release",
   "reconcile", "rename", "report", "resolve", "restore", "status", "test", "update",
 ] as const;
 

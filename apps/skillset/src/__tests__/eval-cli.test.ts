@@ -1,6 +1,6 @@
-import { chmod, mkdir, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 
@@ -134,7 +134,7 @@ test("SET-387: SIGINT cancels an eval provider process tree before the CLI exits
 });
 
 async function fixture(files: Readonly<Record<string, string>>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-eval-cli-"));
+  const root = await createTestFixtureRoot("skillset-eval-cli-");
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });

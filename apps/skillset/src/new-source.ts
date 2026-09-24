@@ -16,7 +16,7 @@ import { formatList } from "@skillset/schema";
 
 import { planNewAdaptiveHook } from "./new-hook";
 
-export type NewSourceKind = "agent" | "hook" | "instruction" | "skill";
+export type NewSourceKind = "agent" | "hook" | "instruction" | "plugin" | "skill";
 export type NewSourceScope = "repo";
 
 export interface NewSourceKindDefinition {
@@ -33,6 +33,12 @@ export const NEW_SOURCE_KINDS: readonly NewSourceKindDefinition[] = [
     enabled: true,
     id: "skill",
     name: "Skill",
+  },
+  {
+    description: "Plugin container with a manifest and empty skills directory",
+    enabled: true,
+    id: "plugin",
+    name: "Plugin",
   },
   {
     description: "Markdown file with repository-level agent instructions",
@@ -61,6 +67,7 @@ export const NEW_SOURCE_KIND_LIST_TEXT = formatList(
 export interface NewSourceOptions {
   readonly container?: string;
   readonly displayName?: string;
+  readonly draft?: boolean;
   readonly hookAttachment?: string;
   readonly hookCommand?: string;
   readonly hookEvents?: readonly string[];
@@ -146,6 +153,9 @@ export async function scaffoldSourceUnit(
     throw new Error("skillset: new currently supports only --scope repo");
   }
   assertHookOptionsMatchKind(options);
+  if (options.draft === true && options.kind !== "skill") {
+    throw new Error(`skillset: new ${options.kind} does not support --draft`);
+  }
   const id = resolveSourceId(options);
   const displayName = resolveDisplayName(options, id);
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
@@ -223,6 +233,8 @@ async function planSourceUnit(
       return planInstruction(rootPath, sourceRoot, id, displayName, options);
     case "skill":
       return planSkill(rootPath, sourceRoot, id, displayName, options);
+    case "plugin":
+      return planPlugin(rootPath, sourceRoot, id, displayName, options);
     case "hook":
       return planNewAdaptiveHook(rootPath, id, displayName, {
         attachment: options.hookAttachment,
@@ -235,6 +247,40 @@ async function planSourceUnit(
         skillsetOptions: options.skillsetOptions ?? {},
       });
   }
+}
+
+async function planPlugin(
+  rootPath: string,
+  sourceRoot: string,
+  id: string,
+  displayName: string,
+  options: NewSourceOptions
+): Promise<readonly NewSourcePlannedFile[]> {
+  if (options.container !== undefined) {
+    throw new Error(
+      "skillset: a plugin container cannot nest inside another; new plugin does not support --in"
+    );
+  }
+  if (options.presets !== undefined && options.presets.length > 0) {
+    throw new Error("skillset: new plugin does not support --preset");
+  }
+  const pluginRoot = join(sourceRoot, "plugins", id);
+  if (await pathExists(resolveInside(rootPath, pluginRoot))) {
+    throw new Error(
+      `skillset: refusing to overwrite existing plugin container ${pluginRoot}`
+    );
+  }
+  return [
+    {
+      content: renderPluginConfig(id, displayName),
+      path: join(pluginRoot, "skillset.yaml"),
+    },
+    { content: "", path: join(pluginRoot, "skills", ".gitkeep") },
+    {
+      content: renderPluginReadme(displayName),
+      path: join(pluginRoot, "README.md"),
+    },
+  ];
 }
 
 export function isNewSourceKind(value: unknown): value is NewSourceKind {
@@ -288,7 +334,11 @@ function resolveSourceId(options: NewSourceOptions): string {
   if (name === undefined || name.trim().length === 0) {
     throw new Error(`skillset: new ${options.kind} requires a name or --id`);
   }
-  return validateSourceId(options.kind, kebabCase(name), `${options.kind} id`);
+  return validateSourceId(
+    options.kind,
+    options.kind === "plugin" ? name.trim() : kebabCase(name),
+    `${options.kind} id`
+  );
 }
 
 function validateSourceId(
@@ -312,7 +362,13 @@ function resolveDisplayName(options: NewSourceOptions, id: string): string {
   if (options.displayName !== undefined && options.displayName.trim().length > 0) {
     return options.displayName.trim();
   }
-  if (options.name !== undefined && options.name.trim().length > 0) return options.name.trim();
+  if (
+    options.kind !== "plugin" &&
+    options.name !== undefined &&
+    options.name.trim().length > 0
+  ) {
+    return options.name.trim();
+  }
   return titleFromId(id);
 }
 
@@ -334,9 +390,12 @@ async function planSkill(
       options.skillsetOptions ?? {}
     );
   }
-  const skillRoot = container === undefined
-    ? join(sourceRoot, "skills", id)
-    : join(sourceRoot, "plugins", container, "skills", id);
+  const skillsRoot = container === undefined
+    ? join(sourceRoot, "skills")
+    : join(sourceRoot, "plugins", container, "skills");
+  const skillRoot = options.draft === true
+    ? join(skillsRoot, "_drafts", id)
+    : join(skillsRoot, id);
   const presets = readSkillPresets(options.presets);
   const files: NewSourcePlannedFile[] = [
     {
@@ -417,7 +476,7 @@ function planAgent(
   return [
     {
       content: renderAgent(id, displayName),
-      path: join(sourceRoot, "agents", `${id}.md`),
+      path: join(sourceRoot, "subagents", `${id}.md`),
     },
   ];
 }
@@ -513,6 +572,14 @@ function renderInstruction(displayName: string): string {
   return `# ${displayName}\n\nAdd repository instructions here.\n`;
 }
 
+function renderPluginConfig(id: string, displayName: string): string {
+  return `skillset:\n  schema: 1\n  name: ${id}\n  description: ${yamlString(`${displayName} plugin container.`)}\n`;
+}
+
+function renderPluginReadme(displayName: string): string {
+  return `# ${displayName}\n\nAdd portable skills and plugin-owned source to this container.\n`;
+}
+
 function kebabCase(value: string): string {
   return value
     .trim()
@@ -536,4 +603,14 @@ function yamlString(value: string): string {
 
 async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
 }

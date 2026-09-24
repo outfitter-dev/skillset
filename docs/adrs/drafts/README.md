@@ -8,21 +8,22 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
 
 ## 2026-06
 
+- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md), [ADR-0033: Workspace Authoring Model](../0033-workspace-authoring-model.md)
 - [First-Class Sets](20260604-first-class-sets.md)
-  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md), [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md)
-- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
-  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [Declarative User-Scope Config](20260604-declarative-user-scope-config.md), [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md)
+- [Moved: Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
 - [Model and Reasoning Alias Profiles](20260604-model-and-reasoning-alias-profiles.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [ADR-0006: Agent / Subagent Source Model](../0006-agent-source-model.md)
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md)
-  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [Declarative User-Scope Config](20260604-declarative-user-scope-config.md)
 
 ## 2026-07
 
 - [Source References Resolve And Rename Together](20260701-path-references-resolve-and-rename-together.md)
   - depends on [ADR-0006: Agent / Subagent Source Model](../0006-agent-source-model.md), [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md), [ADR-0010: Named Partials](../0010-named-partials.md), [First-Class Sets](20260604-first-class-sets.md)
 - [Catalog-Owned Marketplace Refresh Pull Requests](20260710-catalog-owned-marketplace-refresh-pull-requests.md)
-  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Declarative User-Scope Config](20260604-declarative-user-scope-config.md)
 - [Portable Skill Eval Source Contract](20260723-portable-skill-eval-source-contract.md)
 - [Ungraded Cross-Provider Eval Runs](20260723-ungraded-cross-provider-eval-runs.md)
 

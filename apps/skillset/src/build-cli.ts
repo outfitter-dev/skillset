@@ -8,6 +8,7 @@ import {
   type SkillsetRenderResult,
   type SkillsetRepairPlan,
 } from "@skillset/core";
+import { skillsetDiagnostic } from "@skillset/core/internal/operation-result";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 import { serializeDiagnostics } from "./cli-diagnostics";
@@ -344,7 +345,7 @@ function failureDiagnostics(
   outputState: SkillsetOutputStateEvidence
 ): readonly SkillsetDiagnostic[] {
   const message = error instanceof Error ? error.message : String(error);
-  return outputState.blockers.map((blocker) => ({
+  return outputState.blockers.map((blocker) => skillsetDiagnostic({
     code: blocker.code,
     message,
     ...(blocker.path === undefined ? {} : { path: blocker.path }),

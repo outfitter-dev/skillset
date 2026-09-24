@@ -3,8 +3,7 @@ changes:
   minimumRefLength: 6
 claude: true
 codex:
-  plugins:
-    path: generated/codex
+  plugins: true
 compile:
   build: updated
   features:
@@ -31,6 +30,9 @@ dependencies:
 distributions:
   plugins:
     path: dist/plugins
+drafts:
+  - plugin.skillset.skill:experimental
+internal_marker: true
 marketplaces:
   outfitter:
     description: Curated Outfitter provider plugins.
@@ -45,7 +47,7 @@ marketplaces:
             installation: AVAILABLE
             products: []
           source:
-            path: ./plugins/outfitter-core/chatgpt
+            path: ./plugins/outfitter-core
             source: local
         plugin: outfitter-core
       - channel: latest
@@ -87,6 +89,14 @@ marketplaces:
       - codex
       - cursor
     title: Outfitter
+plugins:
+  internal_use:
+    plugins:
+      - skillset
+    skills:
+      skillset:
+        - use-skillset
+        - "!experimental"
 skillset:
   author:
     email: team@example.com

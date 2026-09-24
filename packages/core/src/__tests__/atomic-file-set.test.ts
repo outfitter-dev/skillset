@@ -1,13 +1,13 @@
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
 import { writeAtomicFileSet } from "../atomic-file-set";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 test("marketplace file transactions roll back every installed file after a late failure", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-atomic-file-set-"));
+  const root = await createTestFixtureRoot("skillset-atomic-file-set-");
   const providerPath = join(root, ".claude-plugin", "marketplace.json");
   const lockPath = join(root, "skillset.lock");
   await Bun.write(providerPath, "provider-before\n");

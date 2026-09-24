@@ -36,7 +36,7 @@ A confirmed release:
 - regenerates entity-local `CHANGELOG.md` [projections](../../glossary.md#projection);
 - refreshes generated provider versions, output, and locks.
 
-Release state wins over inline source versions when a release scope exists. Otherwise inline metadata remains the import/read fallback. Pending reasons never appear as a pending section in committed changelogs.
+Release state wins over inline source versions when a release scope exists. Otherwise inline metadata remains the import/read fallback. Pending reasons never appear as a pending section in committed changelogs. Cached `.skillset/changes/state.json` is published atomically so readers observe a complete previous document or a complete replacement.
 
 ## Correct Wording Without Editing Generated Changelogs
 

@@ -1,6 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -14,6 +12,7 @@ import {
   targetNames,
   targetRecord,
 } from "@skillset/core";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("feature registry drift checks", () => {
   it("keeps the shipped registry docs, owners, and evidence refs resolvable", async () => {
@@ -570,9 +569,7 @@ function feature(
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(
-    join(tmpdir(), "skillset-feature-registry-check-")
-  );
+  const root = await createTestFixtureRoot("skillset-feature-registry-check-");
   for (const [path, content] of Object.entries(files)) {
     await Bun.write(join(root, path), content);
   }

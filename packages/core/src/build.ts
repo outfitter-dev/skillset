@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, sep } from "node:path";
 
@@ -54,6 +55,7 @@ import {
 import { renderValidatedJson } from "./structured-output";
 import {
   SkillsetFeatureDiagnosticError,
+  skillsetDiagnostic,
   sourceWarningDiagnostic,
   type SkillsetDiagnostic,
   type SkillsetOperationResult,
@@ -184,6 +186,7 @@ const LOCK_ITEM_KEYS = new Set([
   "plugin",
   "preprocessDependencies",
   "renderInputsHash",
+  "role",
   "skillReferences",
   "skippedSkills",
   "sourceHash",
@@ -208,7 +211,7 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
   for (const file of rendered) {
     if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
     if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
-    diagnostics.push({
+    diagnostics.push(skillsetDiagnostic({
       code: "codex-agents-size",
       featureId: "project-instructions",
       message:
@@ -218,7 +221,7 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
       outputPath: file.path,
       severity: "warning",
       target: "codex",
-    });
+    }));
   }
   return diagnostics;
 }
@@ -291,6 +294,8 @@ export async function buildSkillsetResult(
 export interface SkillsetBuildAuthorityHooks {
   readonly afterBackupPersistence?: () => Promise<void> | void;
   readonly afterBackupPlanning?: () => Promise<void> | void;
+  /** Deterministic test seam for edits racing partial settings rendering. */
+  readonly afterRender?: () => Promise<void> | void;
   readonly beforeFinalWriteInspection?: () => Promise<void> | void;
 }
 
@@ -308,6 +313,9 @@ export async function buildSkillsetResultWithAuthority(
     ...(hooks.afterBackupPlanning === undefined
       ? {}
       : { afterBackupPlanning: hooks.afterBackupPlanning }),
+    ...(hooks.afterRender === undefined
+      ? {}
+      : { afterRender: hooks.afterRender }),
     ...(hooks.beforeFinalWriteInspection === undefined
       ? {}
       : { beforeFinalWriteInspection: hooks.beforeFinalWriteInspection }),
@@ -326,6 +334,7 @@ interface SkillsetBuildInternalOptions extends SkillsetBuildInspectionOptions {
   readonly afterBackupPersistence?: () => Promise<void> | void;
   /** @internal Deterministic race injection after backup planning. */
   readonly afterBackupPlanning?: () => Promise<void> | void;
+  readonly afterRender?: () => Promise<void> | void;
   /** @internal Deterministic race injection immediately before final inspection. */
   readonly beforeFinalWriteInspection?: () => Promise<void> | void;
   readonly managedLockRepairPaths?: readonly string[];
@@ -359,6 +368,7 @@ async function runBuildProjection(
   const outPath = outPathMapper(options);
   const repair = normalizeRepairOptions(options.repair, outPath);
   const allRendered = await renderBuildGraph(graph);
+  await inspectionOptions.afterRender?.();
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
@@ -471,6 +481,22 @@ async function runBuildProjection(
   const writePreimages = new Map(
     backupPlan.preimages.map((preimage) => [preimage.targetPath, preimage])
   );
+  const partialPreimageInvalidations = invalidatedPartialPreimages(writeRendered, writePreimages);
+  if (partialPreimageInvalidations.length > 0) {
+    const partialDiagnostics = partialPreimageInvalidations.map(outputWriteInvalidatedDiagnostic);
+    diagnostics.push(...partialDiagnostics);
+    return blockedBuildResult(
+      rendered,
+      diagnostics,
+      classifyWriteSafety(
+        writeInspection.outputState,
+        partialDiagnostics,
+        writeInspection.managedState.paths.size,
+        inspectionOptions.sourceDrivenOutputPaths ?? []
+      ),
+      renderResultsWithDiagnostics
+    );
+  }
   const planInvalidationDiagnostics = (
     await invalidatedOutputWritePaths(writePreimages, resolveOutputPath)
   ).map(outputWriteInvalidatedDiagnostic);
@@ -599,6 +625,26 @@ async function runBuildProjection(
   return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
+function invalidatedPartialPreimages(
+  rendered: readonly RenderedFile[],
+  preimages: ReadonlyMap<string, OutputWritePreimage>
+): readonly string[] {
+  return rendered
+    .filter((file) => file.partialOwnership === "settings-entry" && file.partialSourceHash !== undefined)
+    .filter((file) => {
+      const preimage = preimages.get(file.path);
+      if (preimage === undefined) return true;
+      const currentHash = preimage.state === "absent" ? "absent" : hashBytes(preimage.content);
+      return currentHash !== file.partialSourceHash;
+    })
+    .map((file) => file.path)
+    .sort(compareStrings);
+}
+
+function hashBytes(bytes: Uint8Array): string {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
 export interface SkillsetDiff {
   readonly added: readonly string[];
   readonly changed: readonly string[];
@@ -634,7 +680,9 @@ async function inspectOutputPlan(args: {
 }): Promise<OutputPlanInspection> {
   const actualPathList = await listGeneratedFiles(args.pathContext, args.outputRoots, args.rendered, args.previousManagedState.paths, args.resolveOutputPath);
   const actualPaths = new Set(actualPathList);
-  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered).filter((path) => actualPaths.has(path));
+  const staleManagedPaths = stalePlannedOutputPaths(args.previousManagedState.paths, args.rendered)
+    .filter((path) => !args.previousManagedState.partialPaths.has(path))
+    .filter((path) => actualPaths.has(path));
   const added: string[] = [];
   const changed: string[] = [];
   const missing: string[] = [];
@@ -845,53 +893,53 @@ async function inspectOutputPlan(args: {
 }
 
 function unmanagedRepairPathDiagnostic(outputPath: string): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "repair-path-unmanaged",
     featureId: "output-repair",
     message:
       "the requested repair path does not resolve to a managed generated output",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedOutputDivergedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-output-diverged",
     featureId: "output-repair",
     message:
       "generated output and its source both changed since the lock; port the output edit into source, rebuild, and rerun",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedLockUntrustedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-untrusted",
     featureId: "output-repair",
     message:
       "the lock records no verdict for this output, so a repair cannot tell a stale output from a hand-edited one; rebuild the lock with skillset build --yes, then rerun the repair",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedOutputEditPreservedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-output-edit-preserved",
     featureId: "output-repair",
     message:
       "generated output was hand-edited and its source was not; carry the edit into the authoring source with skillset explain, or rerun with --discard-edits to overwrite it",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 
@@ -994,7 +1042,9 @@ function classifyLockProvenance(
   }
   if (
     !legacySchemaMigration &&
-    (currentLock.schemaVersion === 2 || currentLock.schemaVersion === 3)
+    (currentLock.schemaVersion === 2 ||
+      currentLock.schemaVersion === 3 ||
+      currentLock.schemaVersion === 4)
   ) {
     return "migration";
   }
@@ -1046,66 +1096,66 @@ function classifyLockProvenance(
 function managedLockProvenanceStaleDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-provenance-stale",
     featureId: "output-safety",
     message:
       "managed lock differs only in recognized generated provenance; an explicit repair may rebuild it",
     outputPath,
     severity: "warning",
-  };
+  });
 }
 
 function managedLockIntegrityMigrationDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-integrity-migration",
     featureId: "output-safety",
     message:
       "managed v2 lock does not include verifiable lock integrity provenance; run skillset build --yes to migrate it, with the previous lock backed up before writing",
     outputPath,
     severity: "warning",
-  };
+  });
 }
 
 function managedLockRepairInvalidatedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-lock-repair-invalidated",
     featureId: "output-safety",
     message:
       "managed lock no longer matches the approved repair evidence; rerun inspection before writing",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function managedOutputWriteInvalidatedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "managed-output-write-invalidated",
     featureId: "output-safety",
     message:
       "managed output changed after write safety approval; rerun inspection before writing",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function outputWriteInvalidatedDiagnostic(
   outputPath: string
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: "output-write-preimage-invalidated",
     featureId: "output-safety",
     message:
       "output changed after final write approval; rerun inspection before writing",
     outputPath,
     severity: "error",
-  };
+  });
 }
 
 function hasUnknownFixedShapeLockFields(lock: JsonRecord): boolean {
@@ -1524,12 +1574,12 @@ function generatedDriftDiagnostic(
   path: string,
   message = generatedDriftMessage(kind, path)
 ): SkillsetDiagnostic {
-  return {
+  return skillsetDiagnostic({
     code: `generated-output-${kind}`,
     message,
     outputPath: path,
     severity: "error",
-  };
+  });
 }
 
 function generatedDriftMessage(
@@ -1561,12 +1611,12 @@ function unsupportedDestinationPolicyDiagnostics(
   if (unsupportedPolicy === "error") return [];
   return renderResults
     .filter(isSoftUnsupportedDestinationOutcome)
-    .map((outcome) => ({
+    .map((outcome) => skillsetDiagnostic({
       code: `unsupported-destination-${unsupportedPolicy}`,
       featureId: outcome.featureId,
       message: unsupportedDestinationPolicyMessage(outcome, unsupportedPolicy),
       ...(outcome.sourcePath === undefined ? {} : { path: outcome.sourcePath }),
-      severity: "warning" as const,
+      severity: "warning",
       sourceUnit: outcome.sourceUnit,
       ...(outcome.target === undefined ? {} : { target: outcome.target }),
     }));
@@ -1850,13 +1900,13 @@ async function diagnoseMissingManagedOutputs(
   for (const file of rendered) {
     if (!previousManagedPaths.has(file.path)) continue;
     if (await exists(resolveOutputPath(file.path))) continue;
-    diagnostics.push({
+    diagnostics.push(skillsetDiagnostic({
       code: "managed-output-missing",
       featureId: "output-safety",
       message: `managed output is missing and will be regenerated: ${file.path}`,
       outputPath: file.path,
       severity: "warning",
-    });
+    }));
   }
   return diagnostics;
 }

@@ -69,7 +69,7 @@ See [Distributions](../reference/features/distributions.md) for configuration, s
 
 ## Publish Individual Agent Skills
 
-When Agent Skills is adopted, Skillset intrinsically renders each eligible standalone or plugin-owned skill under `.agents/skills/<skill>/`. To make those individual skills available from a Git repository, commit the generated skill directories and their nearby `skillset.lock` after a successful build and check:
+When Agent Skills is adopted, Skillset intrinsically renders each eligible standalone skill under `.agents/skills/<skill>/`. To make those standalone skills available from a Git repository, commit the generated skill directories and their nearby `skillset.lock` after a successful build and check:
 
 ```bash
 skillset build
@@ -84,9 +84,9 @@ npx skills add <repository> --skill <skill> --agent codex --copy --yes
 
 Repository-root discovery is the preferred route. The pinned consumer finds the conventional `.agents/skills` tree before a valid manifest-resolved Claude duplicate and selects by the exact skill frontmatter name. Treat a root `SKILL.md` or same-name root `skills/` entry as a conflict: the current consumer checks those locations first, and a root `SKILL.md` stops broader discovery. `--full-depth` broadens discovery into nested paths and should be reserved for repositories that intentionally need that wider scan. When a repository cannot remove a higher-priority conflict, scope discovery explicitly to `<repository>/.agents/skills`.
 
-Not every package skill is independently publishable. Plugin dependencies—including dependencies declared by child skills and hoisted to the containing plugin—and plugin-owned skill-local hook definitions or attachments cannot travel in an Agent Skill. Skillset omits only that individual projection and reports it as unsupported; the skill remains inside applicable Agent Plugins and provider packages. Unrelated plugin-level MCP, hooks, agents, commands, binaries, and other native companions do not disqualify or get copied into an otherwise portable skill. Standalone and plugin-owned sources with the same public skill identity are an output collision; Skillset fails instead of silently renaming or choosing one.
+Plugin-owned skills are published as part of their canonical Agent Plugins package at `plugins/<plugin>/skills/<skill>/`. Skillset does not publish a second standard-owned copy under the repository `.agents/skills/` root. A project-use copy is a separate projection with its own destination ownership; it is not part of individual Agent Skills publication.
 
-Generation and consumer installation are separate actions. `skillset build` does not upload, publish, install, trust, or activate anything, and it does not change user-level configuration. If a repository previously exposed a Claude marketplace bundle as an interim individual-skill source, keep that native catalog correct and publish the generated `.agents/skills` tree alongside it; do not repoint the Claude catalog at a cross-provider path.
+Generation and consumer installation are separate actions. `skillset build` does not upload, publish, install, trust, or activate anything, and it does not change user-level configuration. If a repository previously exposed a Claude marketplace bundle as an interim individual-skill source, keep that native catalog correct and publish only the intended standalone `.agents/skills` tree alongside it; do not repoint the Claude catalog at a cross-provider path.
 
 ## Publish the Compiler Package
 

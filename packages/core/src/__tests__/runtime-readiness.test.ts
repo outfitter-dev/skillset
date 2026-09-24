@@ -1,6 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -28,6 +26,7 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { withLockProvenance } from "../lock-provenance";
 import { loadBuildGraph } from "../resolver";
 import type { BuildGraph, SourcePlugin, TargetName } from "../types";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("SET-390 activation readiness", () => {
   it("derives and merges canonical dependency, MCP, and app subjects", () => {
@@ -299,7 +298,7 @@ compile:
     const renderResults = [
       renderResult({
         featureId: "dependencies",
-        outputs: [{ path: "plugins/tools/chatgpt/plugin.json" }],
+        outputs: [{ path: "plugins/tools/plugin.json" }],
         sourceUnit: "plugin.tools.feature:dependencies",
         status: "rendered",
         target: "codex",
@@ -361,16 +360,17 @@ compile:
               items: [
                 {
                   fileModes: {
-                    "tools/chatgpt/plugin.json": "0644",
+                    "tools/plugin.json": "0644",
                   },
-                  files: ["tools/chatgpt/plugin.json"],
+                  files: ["tools/plugin.json"],
                   outputHash: "sha256:output",
-                  outputPath: "tools/chatgpt/plugin.json",
+                  outputPath: "tools/plugin.json",
+                  role: "bundle",
                   sourceHash: "sha256:source",
                 },
               ],
               outputRoot: "plugins",
-              schemaVersion: 3,
+              schemaVersion: 4,
               standardProfileEvidence: {},
               selectedStandards: [],
               selectedTargets: ["codex"],
@@ -399,7 +399,7 @@ compile:
         renderResults,
         requirementIds: claim.requirementIds,
         untrustedOutputPaths: [
-          "plugins/tools/chatgpt/plugin.json",
+          "plugins/tools/plugin.json",
         ],
       })
     ).toThrow("requires current generated output");
@@ -690,7 +690,7 @@ compile:
         pluginFixture({ id: "shared" }),
       ],
     });
-    const outputPath = "plugins/tools/chatgpt/plugin.json";
+    const outputPath = "plugins/tools/plugin.json";
     const report = planActivationReadiness({
       graph,
       renderResults: [
@@ -1217,7 +1217,7 @@ function requirementFixture(
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-readiness-"));
+  const root = await createTestFixtureRoot("skillset-runtime-readiness-");
   for (const [path, content] of Object.entries(
     normalizeSkillsetFixtureFiles(files)
   )) {

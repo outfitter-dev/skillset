@@ -3,6 +3,7 @@ import { cp, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { basename, dirname, join, posix, relative, sep } from "node:path";
 
 import { getProviderValidationLane } from "../packages/registry/src/provider-validation";
+import { createProviderProbeEnvironment } from "./provider-probe-environment";
 import {
   assertContained,
   assertTreeHasNoSymlinks,
@@ -237,38 +238,10 @@ export async function stageValidationInputs(
   const canonicalRoot = await realpath(root);
   const stage = join(temp, "stage");
   await mkdir(stage, { recursive: true });
-  const environmentRoot = join(temp, "validation-environment");
-  const environment = {
-    CLAUDE_CONFIG_DIR: join(environmentRoot, "config", "claude"),
-    CODEX_HOME: join(environmentRoot, "config", "codex"),
-    CURSOR_CONFIG_DIR: join(environmentRoot, "config", "cursor"),
-    HOME: join(environmentRoot, "home"),
-    npm_config_cache: join(environmentRoot, "cache", "npm"),
-    npm_config_userconfig: join(environmentRoot, "config", "npmrc"),
-    PIP_CACHE_DIR: join(environmentRoot, "cache", "pip"),
-    PIP_CONFIG_FILE: "/dev/null",
-    TMPDIR: join(environmentRoot, "tmp"),
-    UV_CACHE_DIR: join(environmentRoot, "cache", "uv"),
-    UV_NO_CONFIG: "1",
-    XDG_CACHE_HOME: join(environmentRoot, "cache"),
-    XDG_CONFIG_HOME: join(environmentRoot, "config"),
-    XDG_DATA_HOME: join(environmentRoot, "data"),
-    XDG_STATE_HOME: join(environmentRoot, "state"),
-  };
-  await Promise.all(
-    [
-      environment.CLAUDE_CONFIG_DIR,
-      environment.CODEX_HOME,
-      environment.CURSOR_CONFIG_DIR,
-      environment.HOME,
-      environment.npm_config_cache,
-      environment.PIP_CACHE_DIR,
-      environment.TMPDIR,
-      environment.UV_CACHE_DIR,
-      environment.XDG_DATA_HOME,
-      environment.XDG_STATE_HOME,
-    ].map((path) => mkdir(path, { recursive: true }))
-  );
+  const { env: environment } = await createProviderProbeEnvironment({
+    adapters: { npm: true, pip: true, uv: true },
+    root: join(temp, "validation-environment"),
+  });
   const stagedClaudeMarketplaces: string[] = [];
   const stagedClaudePlugins = new Set<string>();
   const representedClaudePlugins = new Set<string>();
@@ -318,18 +291,11 @@ export async function stageValidationInputs(
     stagedClaudePlugins.add(destination);
   }
 
-  const stagedAgentPlugins: string[] = [];
-  for (const [index, plugin] of inventory.agentPlugins.entries()) {
-    const destination = join(stage, "agent-plugins", `plugin-${index}`);
+  const stagedPluginPackages: string[] = [];
+  for (const [index, plugin] of inventory.pluginPackages.entries()) {
+    const destination = join(stage, "plugin-packages", `plugin-${index}`);
     await cp(plugin, destination, { recursive: true });
-    stagedAgentPlugins.push(destination);
-  }
-
-  const stagedChatGptPlugins: string[] = [];
-  for (const [index, plugin] of inventory.chatgptPlugins.entries()) {
-    const destination = join(stage, "chatgpt-plugins", `plugin-${index}`);
-    await cp(plugin, destination, { recursive: true });
-    stagedChatGptPlugins.push(destination);
+    stagedPluginPackages.push(destination);
   }
 
   const stagedCodexPlugins: string[] = [];
@@ -341,7 +307,7 @@ export async function stageValidationInputs(
   const stagedCodexMarketplaces: string[] = [];
   const codexMarketplaceRoots: string[] = [];
   const representedCodexPlugins = new Set<string>();
-  const generatedCodexPlugins = new Set(inventory.chatgptPlugins);
+  const generatedCodexPlugins = new Set(inventory.pluginPackages);
   for (const [
     index,
     marketplacePath,
@@ -532,14 +498,13 @@ export async function stageValidationInputs(
     cursorRoots,
     environment,
     inventory: {
-      agentPlugins: stagedAgentPlugins,
-      chatgptPlugins: stagedChatGptPlugins,
       claudeMarketplaces: stagedClaudeMarketplaces,
       claudePlugins: [...stagedClaudePlugins].toSorted(),
       codexMarketplaces: stagedCodexMarketplaces,
       codexPlugins: stagedCodexPlugins,
       cursorMarketplaces: stagedCursorMarketplaces,
       cursorPlugins: [...stagedCursorPlugins].toSorted(),
+      pluginPackages: stagedPluginPackages,
       skills: stagedSkills,
     },
   };
@@ -622,18 +587,103 @@ function assertCursorSourceDoesNotShadowValidator(
   }
 }
 
-async function downloadVerified(
+const ACQUISITION_FETCH_ATTEMPTS = 3;
+const TRANSIENT_ACQUISITION_NETWORK_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+export type AcquisitionFetch = (url: string) => Promise<Response>;
+
+export interface DownloadVerifiedOptions {
+  readonly fetch?: AcquisitionFetch;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+export function isTransientAcquisitionNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if (
+    "code" in error &&
+    typeof error.code === "string" &&
+    TRANSIENT_ACQUISITION_NETWORK_CODES.has(error.code)
+  ) {
+    return true;
+  }
+  return /socket connection was closed|other side closed|network error|fetch failed/iu.test(
+    error.message
+  );
+}
+
+function isRetryableAcquisitionStatus(status: number): boolean {
+  return status >= 500;
+}
+
+function acquisitionRetryDelayMs(attempt: number): number {
+  return 200 * attempt;
+}
+
+export async function downloadVerified(
   acquisition: { readonly integrity: string; readonly url: string },
-  destination: string
+  destination: string,
+  options: DownloadVerifiedOptions = {}
 ): Promise<void> {
-  const response = await fetch(acquisition.url);
-  if (!response.ok)
-    throw new Error(
-      `skillset: failed to acquire ${acquisition.url}: ${response.status}`
-    );
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readAcquisitionBytes(acquisition, options);
   await writeFile(destination, bytes);
   await verifyBytes(bytes, acquisition.integrity, acquisition.url);
+}
+
+async function readAcquisitionBytes(
+  acquisition: { readonly integrity: string; readonly url: string },
+  options: DownloadVerifiedOptions
+): Promise<Uint8Array> {
+  const fetchAcquisition = options.fetch ?? fetch;
+  const sleep = options.sleep ?? ((ms: number) => Bun.sleep(ms));
+  let lastError: unknown;
+  /* eslint-disable no-await-in-loop -- Bounded acquisition retries are sequential. */
+  for (let attempt = 1; attempt <= ACQUISITION_FETCH_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetchAcquisition(acquisition.url);
+      if (!response.ok) {
+        const error = new Error(
+          `skillset: failed to acquire ${acquisition.url}: ${response.status}`
+        );
+        if (
+          isRetryableAcquisitionStatus(response.status) &&
+          attempt < ACQUISITION_FETCH_ATTEMPTS
+        ) {
+          lastError = error;
+          await sleep(acquisitionRetryDelayMs(attempt));
+          continue;
+        }
+        throw error;
+      }
+      return new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      lastError = error;
+      if (
+        error instanceof Error &&
+        error.message.startsWith("skillset: failed to acquire")
+      ) {
+        throw error;
+      }
+      if (
+        !isTransientAcquisitionNetworkError(error) ||
+        attempt === ACQUISITION_FETCH_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await sleep(acquisitionRetryDelayMs(attempt));
+    }
+  }
+  /* eslint-enable no-await-in-loop -- Re-enable after the sequential retry loop. */
+  throw lastError;
 }
 
 async function verifyFileHash(path: string, integrity: string): Promise<void> {
@@ -658,35 +708,12 @@ async function runRequired(
   argv: readonly [string, ...string[]],
   temp: string
 ): Promise<void> {
-  const environmentRoot = join(temp, "acquisition-environment");
-  const home = join(environmentRoot, "home");
-  const cache = join(environmentRoot, "cache");
-  const config = join(environmentRoot, "config");
-  const data = join(environmentRoot, "data");
-  const state = join(environmentRoot, "state");
-  await Promise.all(
-    [home, cache, config, data, state].map((path) =>
-      mkdir(path, { recursive: true })
-    )
-  );
+  const { env } = await createProviderProbeEnvironment({
+    adapters: { npm: true, pip: true, uv: true },
+    root: join(temp, "acquisition-environment"),
+  });
   const child = Bun.spawn([...argv], {
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: join(config, "claude"),
-      CODEX_HOME: join(config, "codex"),
-      CURSOR_CONFIG_DIR: join(config, "cursor"),
-      HOME: home,
-      npm_config_cache: join(cache, "npm"),
-      npm_config_userconfig: join(config, "npmrc"),
-      PIP_CACHE_DIR: join(cache, "pip"),
-      PIP_CONFIG_FILE: "/dev/null",
-      UV_CACHE_DIR: join(cache, "uv"),
-      UV_NO_CONFIG: "1",
-      XDG_CACHE_HOME: cache,
-      XDG_CONFIG_HOME: config,
-      XDG_DATA_HOME: data,
-      XDG_STATE_HOME: state,
-    },
+    env,
     stderr: "pipe",
     stdout: "pipe",
   });

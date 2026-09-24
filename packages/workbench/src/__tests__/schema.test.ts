@@ -57,7 +57,7 @@ describe("workbench source contract schema checks", () => {
       content:
         "---\ndescription: Review agent.\nskills:\n  - review\ncodex:\n  model: gpt-5.5\n---\nReview the change.\n",
       kind: "agent",
-      path: ".skillset/agents/reviewer.md",
+      path: ".skillset/subagents/reviewer.md",
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
@@ -264,16 +264,16 @@ describe("workbench source contract schema checks", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "---\ndescription: ''\nskills: write-docs\nclaude: nope\ninitialPrompt: 7\ntargets: [claude]\n---\n",
       kind: "agent",
-      path: ".skillset/agents/writer.md",
+      path: ".skillset/subagents/writer.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/agents/writer.md:2: error: schema/agent-frontmatter: description is required and must be a non-empty string",
-      ".skillset/agents/writer.md:3: error: schema/agent-frontmatter: skills must be a string array when present",
-      ".skillset/agents/writer.md:4: error: schema/agent-frontmatter: claude must be true, false, or an object when present",
-      ".skillset/agents/writer.md:5: error: schema/agent-frontmatter: initialPrompt must be a non-empty string",
-      ".skillset/agents/writer.md:6: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
-      ".skillset/agents/writer.md:8: error: schema/agent-body: agent body is required",
+      ".skillset/subagents/writer.md:2: error: schema/agent-frontmatter: description is required and must be a non-empty string",
+      ".skillset/subagents/writer.md:3: error: schema/agent-frontmatter: skills must be a string array when present",
+      ".skillset/subagents/writer.md:4: error: schema/agent-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/subagents/writer.md:5: error: schema/agent-frontmatter: initialPrompt must be a non-empty string",
+      ".skillset/subagents/writer.md:6: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
+      ".skillset/subagents/writer.md:8: error: schema/agent-body: agent body is required",
     ]);
     expect(diagnostics.find((diagnostic) => diagnostic.message.startsWith("description is required"))?.fix).toEqual({
       kind: "suggestion",

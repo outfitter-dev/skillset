@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   createTestGitFixtureRoot,
@@ -144,7 +144,7 @@ describe("SET-312 existing-directory init", () => {
     await expect(interactiveRepositoryDisplay(repository)).resolves.toBe(
       "outfitter-dev/skillset"
     );
-    const directory = await mkdtemp(join(tmpdir(), "skillset-init-label-cwd-"));
+    const directory = await createTestFixtureRoot("skillset-init-label-cwd-");
     await expect(interactiveRepositoryDisplay(directory)).resolves.toBe(directory);
   });
 
@@ -219,7 +219,7 @@ describe("SET-312 existing-directory init", () => {
   });
 
   test("confirmed empty setup writes only after preview", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-init-confirmed-"));
+    const root = await createTestFixtureRoot("skillset-init-confirmed-");
     const { adapter, session } = scriptedSession([
       { kind: "checkbox", value: ["codex"] },
       { kind: "checkbox", value: [] },
