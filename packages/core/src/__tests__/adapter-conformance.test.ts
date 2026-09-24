@@ -89,8 +89,8 @@ compile:
     const report = checkAdapterConformance(result.renderResults, [
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "claude" },
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
-      { featureId: "project-instructions", sourceUnit: "instruction:AGENTS.md", target: "codex" },
-      { featureId: "project-instructions", sourceUnit: "instruction:root", target: "cursor" },
+      { featureId: "project-instructions", sourceUnit: "rule:AGENTS.md", target: "codex" },
+      { featureId: "project-instructions", sourceUnit: "rule:root", target: "cursor" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "codex" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "cursor" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },

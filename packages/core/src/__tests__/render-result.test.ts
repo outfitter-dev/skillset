@@ -28,14 +28,14 @@ describe("render results", () => {
       ],
       policy: "default",
       sourcePath: ".skillset/rules/root.md",
-      sourceUnit: "instructions:root",
+      sourceUnit: "rule:root",
       status: "transformed",
       target: "codex",
     });
 
     expect(serializeRenderResult(outcome)).toBe(`{
   "schema": "${RENDER_RESULT_SCHEMA}",
-  "sourceUnit": "instructions:root",
+  "sourceUnit": "rule:root",
   "sourcePath": ".skillset/rules/root.md",
   "featureId": "project-instructions",
   "target": "codex",
@@ -168,21 +168,21 @@ describe("render results", () => {
       defineRenderResult({
         featureId: "project-instructions",
         schema: "wrong" as typeof RENDER_RESULT_SCHEMA,
-        sourceUnit: "instructions:root",
+        sourceUnit: "rule:root",
         status: "rendered",
       })
     ).toThrow("unsupported render result schema wrong");
     expect(() =>
       defineRenderResult({
         featureId: "project-instructions",
-        sourceUnit: "instructions:root",
+        sourceUnit: "rule:root",
         status: "magical" as SkillsetRenderResult["status"],
       })
     ).toThrow("unknown render result status magical");
     expect(() =>
       defineRenderResult({
         featureId: "",
-        sourceUnit: "instructions:root",
+        sourceUnit: "rule:root",
         status: "rendered",
       })
     ).toThrow("featureId is required");
@@ -205,7 +205,7 @@ describe("render results", () => {
     expect(() =>
       defineRenderResult({
         featureId: "project-instructions",
-        sourceUnit: "instructions:root",
+        sourceUnit: "rule:root",
         status: "unsupported",
       })
     ).toThrow("unsupported status requires a reason");
@@ -213,7 +213,7 @@ describe("render results", () => {
       defineRenderResult({
         evidence: [{ kind: "external-docs", ref: "https://example.com/docs" }],
         featureId: "project-instructions",
-        sourceUnit: "instructions:root",
+        sourceUnit: "rule:root",
         status: "rendered",
       })
     ).toThrow("external docs evidence requires verifiedAt");

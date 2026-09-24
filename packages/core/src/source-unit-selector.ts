@@ -1,3 +1,5 @@
+import { RETIRED_RULE_SELECTOR_PREFIX } from "@skillset/schema";
+
 import { compareStrings } from "./path";
 import { pluginComponentPath } from "./plugin-component-paths";
 import { targetNames } from "./targets";
@@ -17,7 +19,7 @@ export function sourceUnitDisplay(raw: string, mode: SourceUnitDisplayMode = "di
 
   if (selector === "config:root") return "config: root";
   if (selector.startsWith("skill:")) return `skill: ${selector.slice("skill:".length)}`;
-  if (selector.startsWith("instruction:")) return `instruction: ${selector.slice("instruction:".length)}`;
+  if (selector.startsWith("rule:")) return `rule: ${selector.slice("rule:".length)}`;
   if (selector.startsWith("agent:")) return `agent: ${selector.slice("agent:".length)}`;
   if (selector.startsWith("plugin:")) return `plugin: ${selector.slice("plugin:".length)}`;
 
@@ -94,8 +96,24 @@ export function selectorForPluginCompanion(pluginId: string, companionPath: stri
   return `plugin.${pluginId}.companion:${companionPath}`;
 }
 
-export function selectorForInstruction(ruleId: string): string {
-  return `instruction:${ruleId}`;
+export function selectorForRule(ruleId: string): string {
+  return `rule:${ruleId}`;
+}
+
+/**
+ * The current selector for a rule recorded under the selector prefix ADR-0037
+ * retired, or undefined for any other selector. Append-only history readers
+ * translate with this; authored input is rejected via {@link retiredRuleSelectorMessage}.
+ */
+export function historicalRuleSelector(raw: string): string | undefined {
+  if (!raw.startsWith(RETIRED_RULE_SELECTOR_PREFIX)) return undefined;
+  return selectorForRule(raw.slice(RETIRED_RULE_SELECTOR_PREFIX.length));
+}
+
+/** Names the rewrite for authored input that still uses a retired rule selector. */
+export function retiredRuleSelectorMessage(raw: string): string | undefined {
+  const rewrite = historicalRuleSelector(raw);
+  return rewrite === undefined ? undefined : `${raw} uses the retired rule selector; use ${rewrite}`;
 }
 
 export function selectorForProjectAgent(agentName: string): string {

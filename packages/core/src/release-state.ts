@@ -7,7 +7,7 @@ import {
 import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
-import { sourceUnitSelector } from "./source-unit-selector";
+import { historicalRuleSelector, sourceUnitSelector } from "./source-unit-selector";
 import { latestSourceMoveCursor, sourceIdentityMappings, sourceMappingsAfterCursor } from "./source-identity-mapping";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
 import { validateVersionField } from "./versioning";
@@ -81,7 +81,9 @@ async function readCachedReleaseState(statePath: string): Promise<{ readonly cur
       throw new Error(`skillset: release state scope ${scope} sourceHash must be a sha256 digest`);
     }
     const updatedAt = readString(value, "updatedAt");
-    scopes[sourceUnitSelector(scope)] = {
+    // State cached before ADR-0037 keys rules by the retired selector;
+    // translate on read rather than rewriting the recorded file.
+    scopes[historicalRuleSelector(scope) ?? sourceUnitSelector(scope)] = {
       ...(removed === true ? { removed } : {}),
       ...(sourceHash === undefined ? {} : { sourceHash }),
       ...(updatedAt === undefined ? {} : { updatedAt }),

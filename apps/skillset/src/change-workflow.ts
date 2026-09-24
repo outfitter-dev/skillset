@@ -16,6 +16,8 @@ import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings, sourceMappingsAfterCursor } from "@skillset/core/internal/source-identity-mapping";
 import {
+  historicalRuleSelector,
+  retiredRuleSelectorMessage,
   selectorForPluginCompanion,
   selectorForPluginConfig,
   selectorForPluginFeature,
@@ -170,6 +172,10 @@ const MIN_REF_LENGTH = 6;
 export async function addChangeEntry(rootPath: string, options: ChangeAddOptions): Promise<ChangeAddReport> {
   if (options.scopes.length === 0) throw new Error("skillset: change add requires at least one --scope");
   if (options.bump === undefined) throw new Error("skillset: change add requires --bump major, minor, patch, or none");
+  for (const scope of options.scopes) {
+    const retired = retiredRuleSelectorMessage(scope);
+    if (retired !== undefined) throw new Error(`skillset: change scope ${retired}`);
+  }
   const scopes = [...new Set(options.scopes.map(sourceUnitSelector))].sort(compareStrings);
   const reason = await resolveChangeReason(rootPath, options.reason);
   const statusOptions = await detectWorkspaceOptions(rootPath, sourceStatusOptions(options));
@@ -950,7 +956,8 @@ function historicalSourceUnitSelector(raw: string): string {
   if (raw === "root-config") return selectorForRootConfig();
   if (raw.startsWith("standalone-skill:")) return selectorForStandaloneSkill(raw.slice("standalone-skill:".length));
   if (raw.startsWith("project-agent:")) return selectorForProjectAgent(raw.slice("project-agent:".length));
-  if (raw.startsWith("instruction:")) return raw;
+  const rule = historicalRuleSelector(raw);
+  if (rule !== undefined) return rule;
   if (raw.startsWith("plugin-config:")) return selectorForPluginConfig(raw.slice("plugin-config:".length));
   if (raw.startsWith("plugin-skill:")) {
     const [pluginId, skillId] = raw.slice("plugin-skill:".length).split("/");
