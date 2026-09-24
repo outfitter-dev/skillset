@@ -15,6 +15,7 @@ import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { normalizeGeneratedFileMode } from "@skillset/core/internal/generated-file-mode";
 import { gitSafeEnv } from "./git-env";
+import { removeTemporaryRootBestEffort } from "./temporary-root";
 import {
   formatPreprocessDependency,
   preprocessText,
@@ -1155,17 +1156,27 @@ export async function sourceInventoryFromLock(
 
 async function snapshotGitRef(rootPath: string, ref: string): Promise<string> {
   const tempRoot = await mkdtemp(join(tmpdir(), "skillset-ref-"));
-  const tarPath = join(tempRoot, "snapshot.tar");
-  await runCommand(["git", "-C", rootPath, "archive", "--format=tar", "--output", tarPath, ref], rootPath);
-  await runCommand(["tar", "-xf", tarPath, "-C", tempRoot], rootPath);
-  await rm(tarPath, { force: true });
-  return tempRoot;
+  try {
+    const tarPath = join(tempRoot, "snapshot.tar");
+    await runCommand(["git", "-C", rootPath, "archive", "--format=tar", "--output", tarPath, ref], rootPath);
+    await runCommand(["tar", "-xf", tarPath, "-C", tempRoot], rootPath);
+    await rm(tarPath, { force: true });
+    return tempRoot;
+  } catch (error) {
+    await removeTemporaryRootBestEffort(tempRoot);
+    throw error;
+  }
 }
 
 export async function snapshotGitIndex(rootPath: string): Promise<string> {
   const tempRoot = await mkdtemp(join(tmpdir(), "skillset-index-"));
-  await runCommand(["git", "-C", rootPath, "checkout-index", "--all", `--prefix=${tempRoot}/`], rootPath);
-  return tempRoot;
+  try {
+    await runCommand(["git", "-C", rootPath, "checkout-index", "--all", `--prefix=${tempRoot}/`], rootPath);
+    return tempRoot;
+  } catch (error) {
+    await removeTemporaryRootBestEffort(tempRoot);
+    throw error;
+  }
 }
 
 async function defaultMergeBase(rootPath: string): Promise<string> {

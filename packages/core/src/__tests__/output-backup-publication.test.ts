@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readdir, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   inspectOutputBackups,
@@ -12,7 +12,7 @@ import {
 
 describe("output backup manifest publication", () => {
   test("publishes a first snapshot manifest only after payload storage completes", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-backup-manifest-"));
+    const root = await createTestFixtureRoot("skillset-backup-manifest-");
     const afterPayloads = deferred<void>();
     const release = deferred<void>();
 
@@ -53,7 +53,7 @@ describe("output backup manifest publication", () => {
   });
 
   test("treats an interrupted first snapshot as incomplete and removes temporary files", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-backup-incomplete-"));
+    const root = await createTestFixtureRoot("skillset-backup-incomplete-");
 
     await expect(persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n"), {
       afterPayloadStorage: () => {
@@ -75,7 +75,7 @@ describe("output backup manifest publication", () => {
   });
 
   test("leaves the previous destination byte-identical when write, flush, close, or pre-rename fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-backup-replace-"));
+    const root = await createTestFixtureRoot("skillset-backup-replace-");
     const first = await persistOutputBackupPlan(root, backupPlan("AGENTS.md", "first\n"));
     const manifestPath = join(root, first.backup?.manifestPath ?? "");
     const before = await readFile(manifestPath);
@@ -101,7 +101,7 @@ describe("output backup manifest publication", () => {
   test("keeps sibling inspection isolated when a snapshot directory is unreadable", async () => {
     if (process.platform === "win32" || process.getuid?.() === 0) return;
 
-    const root = await mkdtemp(join(tmpdir(), "skillset-backup-isolate-"));
+    const root = await createTestFixtureRoot("skillset-backup-isolate-");
     const first = await persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n"));
     const unreadable = join(root, ".skillset/snapshots", "deadbeef12");
     await mkdir(unreadable, { recursive: true });

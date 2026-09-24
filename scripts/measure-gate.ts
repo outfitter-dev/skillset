@@ -542,7 +542,7 @@ function sameEntries(
  * switching on platform keeps this honest on hosts where `/usr/bin/time` is
  * absent entirely, which is the default on many Linux images.
  */
-async function resolveTimeWrapper(
+export async function resolveTimeWrapper(
   rusagePath: string
 ): Promise<readonly string[]> {
   // A fixed probe name collides when runs share an --out directory: concurrent

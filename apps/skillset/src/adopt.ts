@@ -18,6 +18,7 @@ import {
   SkillsetBuildBlockedError,
 } from "@skillset/core";
 import { gitSafeEnv } from "./git-env";
+import { removeTemporaryRootBestEffort } from "./temporary-root";
 import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { targetNames } from "@skillset/core/internal/config";
@@ -181,7 +182,16 @@ export async function adoptSkillset(
 ): Promise<AdoptReport> {
   const basePath = options.cwd ?? process.cwd();
   const acquired = await acquireAdoptSource(source, basePath);
-  return adoptAcquiredSkillset(acquired, options);
+  let retained = false;
+  try {
+    const report = await adoptAcquiredSkillset(acquired, options);
+    retained = report.rootPath === acquired.rootPath;
+    return report;
+  } finally {
+    if (acquired.kind === "git" && !retained) {
+      await removeTemporaryRootBestEffort(acquired.rootPath);
+    }
+  }
 }
 
 /** Reuses one surveyed acquisition so an interactive plan and write cannot drift. */

@@ -13,6 +13,10 @@ import { dirname, join, relative, resolve } from "node:path";
 
 import packageManifest from "../apps/skillset/package.json";
 import {
+  assertSupportedBunEvidenceVersion,
+  assertSupportedBunRuntimeVersion,
+} from "./bun-runtime-evidence";
+import {
   CLI_COMMANDS,
   CLI_LEAF_SUBCOMMANDS,
 } from "../apps/skillset/src/cli-commands";
@@ -79,7 +83,7 @@ export function parseNativeSizeBaseline(value: unknown): NativeSizeBaseline {
   const baseline = value as Partial<NativeSizeBaseline>;
   if (
     baseline.schemaVersion !== 1 ||
-    baseline.bunVersion !== Bun.version ||
+    typeof baseline.bunVersion !== "string" ||
     typeof baseline.observedVersion !== "string" ||
     baseline.observedVersion.length === 0 ||
     !baseline.policy ||
@@ -90,9 +94,14 @@ export function parseNativeSizeBaseline(value: unknown): NativeSizeBaseline {
     !Array.isArray(baseline.artifacts)
   ) {
     throw new Error(
-      `Native size baseline must use schema 1, pinned Bun ${Bun.version}, and a positive growth policy`
+      "Native size baseline must use schema 1 and a positive growth policy"
     );
   }
+  assertSupportedBunEvidenceVersion(
+    "Native size baseline",
+    baseline.bunVersion,
+    Bun.version
+  );
 
   const knownSuffixes = new Set(NATIVE_TARGETS.map((target) => target.suffix));
   const baselineSuffixes: string[] = [];
@@ -325,6 +334,7 @@ async function buildTarget(
 export async function buildNativeArtifacts(
   options: BuildNativeArtifactsOptions
 ): Promise<NativeArtifactManifest> {
+  assertSupportedBunRuntimeVersion(Bun.version);
   const outputDir = assertSafeOutputDir(options.outputDir ?? defaultOutputDir);
   const targets = [...options.targets].sort((left, right) =>
     left.suffix.localeCompare(right.suffix)
@@ -536,11 +546,11 @@ export async function verifyNativeArtifacts(
       `Native manifest version ${manifest.version} does not match ${packageManifest.version}`
     );
   }
-  if (manifest.bunVersion !== Bun.version) {
-    throw new Error(
-      `Native manifest Bun ${manifest.bunVersion} does not match pinned runtime ${Bun.version}`
-    );
-  }
+  assertSupportedBunEvidenceVersion(
+    "Native manifest",
+    manifest.bunVersion,
+    Bun.version
+  );
   if (manifest.cliContractSha256 !== cliContractSha256()) {
     throw new Error("Native manifest CLI contract digest is stale");
   }

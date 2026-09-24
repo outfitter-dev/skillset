@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+  assertSupportedBunEvidenceVersion,
+  assertSupportedBunRuntimeVersion,
+} from "../bun-runtime-evidence";
 import { parseNativeArgs } from "../native";
 import { createNativeArchive, extractNativeArchive } from "../native-archive";
 import {
@@ -9,6 +13,7 @@ import {
   cliContractSha256,
   nativeManifestName,
   parseNativeSizeBaseline,
+  renderNativeManifest,
   renderNativeChecksums,
   selectNativeTargets,
   verifyNativeArtifacts,
@@ -103,6 +108,25 @@ describe("SET-419 native target and artifact contract", () => {
         schemaVersion: 1,
       }).artifacts
     ).toEqual(requiredArtifacts);
+    expect(
+      parseNativeSizeBaseline({
+        artifacts: requiredArtifacts,
+        bunVersion: "1.4.2",
+        observedVersion: "0.22.1",
+        policy: { minimumAllowanceBytes: 1, percent: 10 },
+        schemaVersion: 1,
+      }).bunVersion
+    ).toBe("1.4.2");
+    const unsupportedBaseline = () =>
+      parseNativeSizeBaseline({
+        artifacts: requiredArtifacts,
+        bunVersion: "1.3.14",
+        observedVersion: "0.22.1",
+        policy: { minimumAllowanceBytes: 1, percent: 10 },
+        schemaVersion: 1,
+      });
+    expect(unsupportedBaseline).toThrow(/supported range >=1\.4\.0.*pin 1\.4\.0/);
+    expect(unsupportedBaseline).toThrow(`observed ${Bun.version}`);
     expect(() =>
       parseNativeSizeBaseline({
         artifacts: requiredArtifacts.map((entry) => ({
@@ -126,6 +150,24 @@ describe("SET-419 native target and artifact contract", () => {
     ).toThrow("positive growth policy");
   });
 
+  test("accepts supported Bun evidence but fails closed outside the range", () => {
+    expect(() => assertSupportedBunRuntimeVersion("1.4.2")).not.toThrow();
+    expect(() =>
+      assertSupportedBunEvidenceVersion("Native manifest", "1.4.2", "1.4.0")
+    ).not.toThrow();
+    expect(() =>
+      assertSupportedBunEvidenceVersion("Native size baseline", "1.4.0", "1.4.2")
+    ).not.toThrow();
+    expect(() => assertSupportedBunRuntimeVersion("1.3.14")).toThrow(
+      /supported range >=1\.4\.0.*pin 1\.4\.0.*observed 1\.3\.14/
+    );
+    expect(() =>
+      assertSupportedBunEvidenceVersion("Native manifest", "1.3.14", "1.4.2")
+    ).toThrow(
+      /Native manifest Bun 1\.3\.14.*supported range >=1\.4\.0.*pin 1\.4\.0.*observed 1\.4\.2/
+    );
+  });
+
   test("requires one explicit target selection mode", () => {
     expect(selectNativeTargets({ required: true })).toEqual(
       REQUIRED_NATIVE_TARGETS
@@ -146,6 +188,7 @@ describe("SET-419 native target and artifact contract", () => {
     });
   });
 
+  // Real compilation varies on shared CI runners; this bounds hangs, not speed.
   test("builds reproducibly, verifies the archive, and runs without Bun in child PATH", async () => {
     const root = await temporaryRoot();
     const target = currentHostTarget();
@@ -167,6 +210,27 @@ describe("SET-419 native target and artifact contract", () => {
       })
     ).toEqual(manifest);
 
+    const manifestPath = join(root, nativeManifestName());
+    const originalManifest = await readFile(manifestPath, "utf8");
+    await writeFile(
+      manifestPath,
+      renderNativeManifest({ ...manifest, bunVersion: "1.3.14" })
+    );
+    await expect(
+      verifyNativeArtifacts({ allowPartial: true, outputDir: root })
+    ).rejects.toThrow(/Native manifest Bun 1\.3\.14.*supported range/);
+    await writeFile(
+      manifestPath,
+      renderNativeManifest({
+        ...manifest,
+        bunVersion: manifest.bunVersion === "1.4.0" ? "1.4.2" : "1.4.0",
+      })
+    );
+    await expect(
+      verifyNativeArtifacts({ allowPartial: true, outputDir: root })
+    ).rejects.toThrow("Native manifest checksum is missing or stale");
+    await writeFile(manifestPath, originalManifest);
+
     const executable = join(root, "bin", target.suffix, target.executable);
     await smokeNativeExecutable(executable, target.suffix);
 
@@ -182,7 +246,7 @@ describe("SET-419 native target and artifact contract", () => {
         outputDir: root,
       })
     ).rejects.toThrow("checksum or size mismatch");
-  }, 30_000);
+  }, 60_000);
 
   test("rejects a partial manifest at the release-shaped verification boundary", async () => {
     const root = await temporaryRoot();

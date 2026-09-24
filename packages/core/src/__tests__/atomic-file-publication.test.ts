@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { publishAtomicFile } from "../atomic-file-publication";
 import { supportsGeneratedFileModes } from "../generated-file-mode";
@@ -42,7 +42,7 @@ describe("atomic file publication", () => {
   });
 
   test("leaves no published destination when the first write fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-atomic-first-")), "state.json");
+    const path = join(await createTestFixtureRoot("skillset-atomic-first-"), "state.json");
 
     for (const [hook, message] of failureHooks()) {
       await expect(publishAtomicFile(path, "lost\n", { testHooks: { [hook]: () => { throw new Error(message); } } }))
@@ -53,7 +53,7 @@ describe("atomic file publication", () => {
   });
 
   test("applies the requested mode on Unix and still publishes bytes on Windows", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-atomic-mode-")), "secret.json");
+    const path = join(await createTestFixtureRoot("skillset-atomic-mode-"), "secret.json");
     await publishAtomicFile(path, '{"ok":true}\n', { mode: 0o600 });
     expect(await readFile(path, "utf8")).toBe('{"ok":true}\n');
     if (supportsGeneratedFileModes()) {
@@ -81,7 +81,7 @@ function failureHooks(): readonly [string, string][] {
 }
 
 async function seededFile(content: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "skillset-atomic-pub-"));
+  const directory = await createTestFixtureRoot("skillset-atomic-pub-");
   const path = join(directory, "state.json");
   await mkdir(directory, { recursive: true });
   await writeFile(path, content);

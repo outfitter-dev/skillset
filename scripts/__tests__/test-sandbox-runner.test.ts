@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, delimiter, dirname, join } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
@@ -19,6 +19,7 @@ import {
   prependExecutablePath,
   publishPinnedBunCache,
 } from "../pinned-bun";
+import { resolveTestRepoIdentity, TEST_SANDBOX_LEASE } from "../test-sandbox-retention";
 
 const runner = join(import.meta.dir, "..", "test-sandbox.ts");
 
@@ -383,8 +384,46 @@ test("SET-388: explicit retention reports the owned sandbox and descriptor", asy
   const descriptorPath = result.stdout.trim();
   expect(result.stderr).toContain("retained test sandbox");
   expect(result.stderr).toContain(`descriptor: ${descriptorPath}`);
-  await expect(access(descriptorPath)).resolves.toBeNull();
-  await rm(dirname(descriptorPath), { recursive: true });
+  const sandboxPath = dirname(descriptorPath);
+  try {
+    await expect(access(descriptorPath)).resolves.toBeNull();
+    const descriptor = JSON.parse(await readFile(descriptorPath, "utf8")) as { invocationId: string };
+    const lease = JSON.parse(await readFile(join(sandboxPath, TEST_SANDBOX_LEASE), "utf8")) as {
+      gitCommonDir: string;
+      invocationId: string;
+      pid: number;
+    };
+    expect(lease.invocationId).toBe(descriptor.invocationId);
+    expect(lease.gitCommonDir).toBe(await resolveTestRepoIdentity(join(import.meta.dir, "..", "..")));
+    expect(Number.isSafeInteger(lease.pid)).toBe(true);
+  } finally {
+    await rm(sandboxPath, { recursive: true });
+  }
+});
+
+test("SET-628: unavailable Git identity does not fail test execution or authorize cleanup", async () => {
+  if (process.platform === "win32") return;
+  const bin = await createTestFixtureRoot("skillset-failing-git-");
+  const fakeGit = join(bin, "git");
+  await writeFile(fakeGit, "#!/bin/sh\nexit 1\n");
+  await chmod(fakeGit, 0o755);
+  const result = await run(
+    ["bun", "-e", "console.log(process.env.SKILLSET_TEST_SANDBOX)"],
+    {
+      PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+      SKILLSET_TEST_SANDBOX: "",
+      SKILLSET_TEST_SANDBOX_RETAIN: "1",
+    }
+  );
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.stderr).toContain("could not record test sandbox lease");
+  expect(result.stderr).toContain("could not scan stale test sandboxes");
+  const sandboxPath = dirname(result.stdout.trim());
+  try {
+    await expect(access(join(sandboxPath, TEST_SANDBOX_LEASE))).rejects.toThrow();
+  } finally {
+    await rm(sandboxPath, { recursive: true });
+  }
 });
 
 test("SET-626: explicit retention keeps fixtures created under the owned sandbox", async () => {

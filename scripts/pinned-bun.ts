@@ -2,11 +2,10 @@
  * Resolve the Bun interpreter the test sandbox must run.
  *
  * `scripts/test-sandbox.ts` isolates XDG directories, git configuration, and
- * the transpiler cache, but it spawns whatever `bun` the ambient PATH resolves.
- * Several checks compare recorded evidence against the *running* interpreter —
- * `scripts/native-artifacts.ts` rejects a size baseline whose `bunVersion` is
- * not `Bun.version` — so the suite only passed for a contributor whose global
- * Bun happened to equal `.bun-version`.
+ * the transpiler cache, then runs tests under this version-scoped interpreter.
+ * Native evidence accepts the repository's supported Bun range and records
+ * its actual builder version, but the corpus still uses one pin for repeatable
+ * outputs and child-process behavior across contributors and CI.
  *
  * This module makes that axis deterministic without touching the contributor's
  * global install: the pinned version is cached under the user cache directory,
@@ -458,7 +457,10 @@ async function installPinnedBun(
   try {
     const install = Bun.spawn({
       cmd: pinnedBunInstallCommand(version),
-      env: { ...process.env, BUN_INSTALL: staging },
+      // The official installer can offer to append PATH setup to a writable
+      // shell profile when Bun is absent from PATH. This cache install must
+      // leave user-level shell configuration alone.
+      env: { ...process.env, BUN_INSTALL: staging, SHELL: "/bin/sh" },
       stderr: "inherit",
       stdout: "ignore",
     });
