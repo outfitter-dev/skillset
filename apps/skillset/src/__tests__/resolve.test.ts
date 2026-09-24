@@ -12,6 +12,8 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 
+import { buildSkillset } from "@skillset/core";
+
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
@@ -956,10 +958,8 @@ async function deleteEditFixture(): Promise<string> {
 }
 
 async function build(root: string): Promise<void> {
-  const result = await runCli("build", "--root", root, "--yes");
-  if (result.exitCode !== 0) {
-    throw new Error(`resolve fixture build failed: ${result.stderr}`);
-  }
+  // Setup needs generated files; the resolve cases still exercise the real CLI.
+  await buildSkillset(root);
 }
 
 async function commitAll(root: string, message: string): Promise<void> {
