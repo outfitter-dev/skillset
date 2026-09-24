@@ -255,7 +255,7 @@ export async function loadBuildGraph(
     metadataLabel
   ));
   const standaloneSkills = discoveredStandaloneSkills.filter((skill) => skill.status !== "draft");
-  const { rules, instructionsDir } = await loadInstructions(
+  const { rules, rulesDir } = await loadRules(
     rootPath,
     sourceDir,
     sourceRootDir,
@@ -343,7 +343,7 @@ export async function loadBuildGraph(
       ...plugins.flatMap((plugin) => plugin.discoveredSkills ?? plugin.skills),
     ],
     hookAttachments,
-    instructionsDir,
+    rulesDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
     pluginPlan,
     plugins,
@@ -722,21 +722,21 @@ function validateProjectAgentCollisions(rootPath: string, agents: readonly Sourc
  * is unchanged: Claude renders to `.claude/rules/`, Codex renders to
  * `AGENTS.md`.
  */
-async function loadInstructions(
+async function loadRules(
   rootPath: string,
   sourceDir: string,
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
   externalInputPaths: Set<string>
-): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
+): Promise<{ readonly rules: readonly SourceRule[]; readonly rulesDir: string }> {
   const sourceRootPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
   const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
   const rootRulesPath = join(sourceRootPath, ROOT_RULES_FILE);
   const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
   if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
-    return { rules: [], instructionsDir: join(sourceRootDir, RULES_DIR) };
+    return { rules: [], rulesDir: join(sourceRootDir, RULES_DIR) };
   }
 
   const ruleFiles = [...rootRulesFiles, ...canonicalFiles];
@@ -764,7 +764,7 @@ async function loadInstructions(
     await validateSupports(frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
     const metadata = readSkillsetMetadata(frontmatter, sourceLabel);
     const sourceOrigin = readSourceOrigin(metadata, sourceLabel);
-    const targets = resolveFeatureTargets(rootTargets, frontmatter, sourceLabel, "instructions");
+    const targets = resolveFeatureTargets(rootTargets, frontmatter, sourceLabel, "rules");
     const dialect = readDialect(frontmatter, sourceLabel);
 
     rules.push({
@@ -783,7 +783,7 @@ async function loadInstructions(
 
   return {
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
-    instructionsDir: join(sourceRootDir, RULES_DIR),
+    rulesDir: join(sourceRootDir, RULES_DIR),
   };
 }
 

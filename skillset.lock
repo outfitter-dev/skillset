@@ -162,7 +162,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:45f91b9286eeba0d174ea7bda40d86a663737a9cb6156d76f6e9dbbfbeb45cf7",
+  "provenanceHash": "sha256:e90b8e48efd367132641e5e038f0717c04eff8b90c0e747da807bb94db0ecb75",
   "renderResults": [
     {
       "destination": "changelog",
@@ -230,7 +230,7 @@
       "target": "codex"
     },
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "external-docs",
@@ -253,7 +253,7 @@
       "status": "transformed"
     },
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "docs",
@@ -285,7 +285,7 @@
       "target": "codex"
     },
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "docs",
@@ -312,7 +312,7 @@
       "target": "cursor"
     },
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "external-docs",
@@ -335,7 +335,7 @@
       "status": "transformed"
     },
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "docs",

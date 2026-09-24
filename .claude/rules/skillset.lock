@@ -23,10 +23,10 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:bad696ae755636c97c447f226980818721c807f8b260fc090d812b57c4dcad94",
+  "provenanceHash": "sha256:90df510a2c8141d4f01c9d79aa9999f6817a10918fb886e66ca9046c6c51821c",
   "renderResults": [
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "docs",

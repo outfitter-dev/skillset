@@ -158,7 +158,7 @@ codex: true
     ".skillset/rules/.gitkeep": "",
   });
 
-  await expect(loadBuildGraph(root)).resolves.toMatchObject({ instructionsDir: "rules" });
+  await expect(loadBuildGraph(root)).resolves.toMatchObject({ rulesDir: "rules" });
 });
 
 test("SET-3: a semver-style skillset.schema is rejected, not confused with version", async () => {
@@ -381,7 +381,7 @@ codex: true
   });
 
   const graph = await loadBuildGraph(root);
-  expect(graph.instructionsDir).toBe("rules");
+  expect(graph.rulesDir).toBe("rules");
   expect(graph.warnings).toEqual([]);
 
   await buildSkillset(root);

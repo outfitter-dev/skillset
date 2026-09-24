@@ -59,7 +59,7 @@ const textDecoder = new TextDecoder();
 
 export type ExplainKind =
   | "source-skill"
-  | "source-instruction"
+  | "source-rule"
   | "source-island"
   | "source-project-agent"
   | "source-plugin"
@@ -869,7 +869,7 @@ function refusedSourceSuggestion(
 
 function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
   if (graph.rules.some((rule) => relative(graph.rootPath, rule.sourcePath) === target)) {
-    return "source-instruction";
+    return "source-rule";
   }
   if (graph.projectIslands.some((island) => relative(graph.rootPath, island.sourcePath) === target)) {
     return "source-island";

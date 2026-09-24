@@ -18,3 +18,6 @@ export const RETIRED_RULE_SELECTOR_PREFIX = "instruction:";
  * would report every unchanged rule as edited against its recorded baseline.
  */
 export const RULE_SOURCE_HASH_DOMAIN = "instruction";
+
+/** Target-defaults surface key retired for `rules`. */
+export const RETIRED_RULE_DEFAULTS_SURFACE = "instructions";
