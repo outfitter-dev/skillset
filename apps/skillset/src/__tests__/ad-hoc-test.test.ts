@@ -8,6 +8,7 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import { expectProcessGone } from "../../../../scripts/test-helpers/process";
+import { reapOwnedProcess, waitForPids } from "../../../../scripts/test-helpers/wait";
 
 import {
   listAdHocTestRuns,
@@ -559,30 +560,26 @@ Use this skill.
     stderr: "pipe",
     stdout: "pipe",
   });
-  const deadline = Date.now() + 2_000;
-  while (!await Bun.file(marker).exists() && Date.now() < deadline) {
-    await Bun.sleep(10);
-  }
-  expect(await Bun.file(marker).exists()).toBe(true);
-  const providerPids = (await readFile(marker, "utf8"))
-    .trim()
-    .split(/\s+/u)
-    .map(Number);
+  try {
+    const providerPids = await waitForPids(marker, 2, "ad hoc provider pid marker");
 
-  process.kill(proc.pid, "SIGTERM");
-  const [exitCode] = await Promise.all([
-    proc.exited,
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
+    process.kill(proc.pid, "SIGTERM");
+    const [exitCode] = await Promise.all([
+      proc.exited,
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
 
-  expect(exitCode).not.toBe(0);
-  expect(await readAdHocTestStatus(root, undefined, { xdg })).toMatchObject({
-    failureClass: "cancelled",
-    state: "failed",
-  });
-  for (const pid of providerPids) {
-    await expectProcessGone(pid);
+    expect(exitCode).not.toBe(0);
+    expect(await readAdHocTestStatus(root, undefined, { xdg })).toMatchObject({
+      failureClass: "cancelled",
+      state: "failed",
+    });
+    for (const pid of providerPids) {
+      await expectProcessGone(pid);
+    }
+  } finally {
+    await reapOwnedProcess(proc);
   }
 });
 

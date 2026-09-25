@@ -5,6 +5,7 @@ import { basename, join } from "node:path";
 import { expect, test } from "bun:test";
 
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { reapOwnedProcess, waitForCondition } from "../../../../scripts/test-helpers/wait";
 import {
   collectDevWatchDirectories,
   createDevWatchJsonlStream,
@@ -562,18 +563,31 @@ test("SET-289: dev --jsonl terminates a real controlled stream without human out
     stderr: "pipe",
     stdout: "pipe",
   });
-  const timer = setTimeout(() => proc.kill("SIGTERM"), 1000);
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  clearTimeout(timer);
-  expect(exitCode).toBe(0);
-  expect(stderr).toBe("");
-  const events = parseCliEventStream(stdout);
-  expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
-  expect(stdout).not.toContain("skillset: dev");
+  const stdout = { text: "" };
+  const stdoutDone = accumulateStream(proc.stdout, stdout);
+  try {
+    await waitForCondition(
+      "dev watch started JSONL event",
+      () => jsonlHasEvent(stdout.text, "started")
+    );
+    await waitForCondition(
+      "dev watch initial operation JSONL event",
+      () => jsonlHasEvent(stdout.text, "operation")
+    );
+    proc.kill("SIGTERM");
+    const [stderr, exitCode] = await Promise.all([
+      new Response(proc.stderr).text(),
+      proc.exited,
+      stdoutDone,
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    const events = parseCliEventStream(stdout.text);
+    expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
+    expect(stdout.text).not.toContain("skillset: dev");
+  } finally {
+    await reapOwnedProcess(proc);
+  }
 });
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{
@@ -592,4 +606,33 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+function jsonlHasEvent(text: string, event: string): boolean {
+  return text.split("\n").some((line) => {
+    if (line.length === 0) return false;
+    try {
+      const record: unknown = JSON.parse(line);
+      return typeof record === "object" && record !== null && "event" in record && record.event === event;
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function accumulateStream(
+  stream: ReadableStream<Uint8Array>,
+  sink: { text: string }
+): Promise<void> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- Stream chunks are observed incrementally until the process closes.
+    const next = await reader.read();
+    if (next.done) {
+      sink.text += decoder.decode();
+      return;
+    }
+    sink.text += decoder.decode(next.value, { stream: true });
+  }
 }

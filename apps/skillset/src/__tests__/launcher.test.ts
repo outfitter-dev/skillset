@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  access,
   chmod,
   mkdir,
   readFile,
@@ -9,6 +8,7 @@ import {
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
+import { reapOwnedProcess, waitForPath } from "../../../../scripts/test-helpers/wait";
 import {
   SkillsetLauncherError,
   detectLinuxLibc,
@@ -302,41 +302,15 @@ describe("SET-420 npm native launcher", () => {
       stderr: "pipe",
       stdout: "pipe",
     });
-    for (let attempt = 0; attempt < 80; attempt += 1) {
-      if (
-        await access(ready).then(
-          () => true,
-          () => false
-        )
-      )
-        break;
-      await Bun.sleep(25);
+    try {
+      await waitForPath(ready, "launcher native process ready marker", { timeoutMs: 2_000 });
+      process.kill(launcher.pid, "SIGINT");
+      await waitForPath(interrupted, "launcher native process interrupted marker", { timeoutMs: 2_000 });
+      process.kill(launcher.pid, "SIGTERM");
+      expect(await launcher.exited).toBe(42);
+      expect(await readFile(terminated, "utf8")).toBe("terminated");
+    } finally {
+      await reapOwnedProcess(launcher);
     }
-    expect(
-      await access(ready).then(
-        () => true,
-        () => false
-      )
-    ).toBe(true);
-    process.kill(launcher.pid, "SIGINT");
-    for (let attempt = 0; attempt < 80; attempt += 1) {
-      if (
-        await access(interrupted).then(
-          () => true,
-          () => false
-        )
-      )
-        break;
-      await Bun.sleep(25);
-    }
-    expect(
-      await access(interrupted).then(
-        () => true,
-        () => false
-      )
-    ).toBe(true);
-    process.kill(launcher.pid, "SIGTERM");
-    expect(await launcher.exited).toBe(42);
-    expect(await readFile(terminated, "utf8")).toBe("terminated");
   }, 10_000);
 });
