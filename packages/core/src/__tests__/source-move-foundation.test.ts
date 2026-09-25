@@ -255,8 +255,8 @@ describe("source move foundations", () => {
     );
     expect(plan.operations).toContainEqual(
       expect.objectContaining({
-        content: expect.stringContaining('"type":"source.moved"'),
-        kind: "update",
+        event: expect.objectContaining({ type: "source.moved" }),
+        kind: "append",
         path: ".skillset/changes/ledger.jsonl",
       })
     );

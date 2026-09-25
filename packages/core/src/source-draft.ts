@@ -4,12 +4,7 @@ import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
-import {
-  readChangeLedger,
-  type ChangeLedgerEvent,
-  type SourceDraftedLedgerPayload,
-  type SourcePromotedLedgerPayload,
-} from "./change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import {
   formatGeneratedFileMode,
   normalizeGeneratedFileMode,
@@ -170,16 +165,6 @@ async function planAuthoredDraft(
 
     const sourceHash = await hashSkillDirectory(shippedPath);
     const draftSelector = `${classification.selector}#draft`;
-    const ledger = await appendLifecycleEvent(
-      rootPath,
-      graph.sourceDir,
-      "source.drafted",
-      {
-        draft: draftSelector,
-        shipped: classification.selector,
-        sourceHash,
-      }
-    );
     const operations: readonly SourceMutationOperation[] = [
       {
         from: display(rootPath, shippedPath),
@@ -187,9 +172,16 @@ async function planAuthoredDraft(
         to: display(rootPath, draftPath),
       },
       {
-        content: ledger.content,
-        kind: "update",
-        path: display(rootPath, ledger.path),
+        event: {
+          payload: {
+            draft: draftSelector,
+            shipped: classification.selector,
+            sourceHash,
+          },
+          type: "source.drafted",
+        },
+        kind: "append",
+        path: ledgerPath(rootPath, graph.sourceDir),
       },
     ];
     return finalizeDraftPlan(
@@ -271,16 +263,6 @@ async function planAuthoredPromotion(
       paired ? classification.shippedPath : undefined,
       draftPath
     );
-    const ledger = await appendLifecycleEvent(
-      rootPath,
-      graph.sourceDir,
-      "source.promoted",
-      {
-        draft: draftSelector,
-        ...(baseline === undefined ? {} : { draftEventId: baseline.id }),
-        shipped: classification.selector,
-      }
-    );
     const operations: readonly SourceMutationOperation[] = [
       {
         from: display(rootPath, draftPath),
@@ -296,9 +278,16 @@ async function planAuthoredPromotion(
           ]
         : []),
       {
-        content: ledger.content,
-        kind: "update",
-        path: display(rootPath, ledger.path),
+        event: {
+          payload: {
+            draft: draftSelector,
+            ...(baseline === undefined ? {} : { draftEventId: baseline.id }),
+            shipped: classification.selector,
+          },
+          type: "source.promoted",
+        },
+        kind: "append",
+        path: ledgerPath(rootPath, graph.sourceDir),
       },
     ];
     return finalizePromotionPlan(
@@ -481,65 +470,8 @@ function findDraftBaseline(
     .at(-1);
 }
 
-async function appendLifecycleEvent(
-  rootPath: string,
-  sourceDir: string,
-  type: "source.drafted",
-  payload: SourceDraftedLedgerPayload
-): Promise<{
-  readonly content: string;
-  readonly id: string;
-  readonly path: string;
-}>;
-async function appendLifecycleEvent(
-  rootPath: string,
-  sourceDir: string,
-  type: "source.promoted",
-  payload: SourcePromotedLedgerPayload
-): Promise<{
-  readonly content: string;
-  readonly id: string;
-  readonly path: string;
-}>;
-async function appendLifecycleEvent(
-  rootPath: string,
-  sourceDir: string,
-  type: "source.drafted" | "source.promoted",
-  payload: SourceDraftedLedgerPayload | SourcePromotedLedgerPayload
-): Promise<{
-  readonly content: string;
-  readonly id: string;
-  readonly path: string;
-}> {
-  const path = join(rootPath, workspaceChangeFile(sourceDir, "ledger.jsonl"));
-  const previous = (await pathExists(path)) ? await readFile(path, "utf8") : "";
-  const events = await readChangeLedger(rootPath, { sourceDir });
-  const last = events.at(-1)?.createdAt;
-  const timestamp = last === undefined ? 0 : Date.parse(last) + 1;
-  if (!Number.isFinite(timestamp)) {
-    throw new Error(
-      `cannot append draft lifecycle history after invalid ledger timestamp ${JSON.stringify(last)}`
-    );
-  }
-  const id = `${type.replace(".", "-")}-${createHash("sha256")
-    .update(previous)
-    .update("\0")
-    .update(type)
-    .update("\0")
-    .update(JSON.stringify(payload))
-    .digest("hex")}`;
-  const line = JSON.stringify({
-    createdAt: new Date(timestamp).toISOString(),
-    id,
-    payload,
-    schemaVersion: 1,
-    type,
-  });
-  return {
-    content: `${previous}${previous.length === 0 || previous.endsWith("\n") ? "" : "\n"}${line}\n`,
-    id,
-    path,
-  };
+function ledgerPath(rootPath: string, sourceDir: string): string {
+  return display(rootPath, join(rootPath, workspaceChangeFile(sourceDir, "ledger.jsonl")));
 }
 
 async function skillDirectoryDiff(

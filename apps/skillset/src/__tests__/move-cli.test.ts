@@ -69,6 +69,7 @@ describe("SET-588 move command", () => {
     let output = "";
     await runMoveCommand({ ...request, yes: true }, {
       core: fake.value,
+      ledgerLock: (_rootPath, operation) => operation(),
       write: (value) => { output += value; },
     });
     expect(fake.calls).toEqual([

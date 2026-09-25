@@ -2,6 +2,7 @@ import * as core from "@skillset/core";
 import type { SkillsetCliChange } from "@skillset/schema";
 
 import { printCliJsonData } from "./cli-output";
+import { defaultLifecycleLedgerLock, type LifecycleLedgerLock } from "./lifecycle-ledger-lock";
 
 export interface MoveCommandRequest {
   readonly from: string;
@@ -13,7 +14,7 @@ export interface MoveCommandRequest {
 
 interface MovePlanOperation {
   readonly from?: string;
-  readonly kind: "move" | "update";
+  readonly kind: "append" | "move" | "update";
   readonly path?: string;
   readonly to?: string;
 }
@@ -55,6 +56,8 @@ export interface MoveCommandCore {
 
 export interface MoveCommandContext {
   readonly core?: MoveCommandCore;
+  /** Serializes the applying plan and transaction with other ledger writers. */
+  readonly ledgerLock?: LifecycleLedgerLock;
   readonly write?: (value: string) => void;
 }
 
@@ -69,7 +72,7 @@ const renderChanges = (
   state: SkillsetCliChange["state"]
 ): readonly SkillsetCliChange[] => [
   ...report.operations.map((operation) => ({
-    action: operation.kind,
+    action: operation.kind === "append" ? ("update" as const) : operation.kind,
     path:
       operation.kind === "move" ? (operation.to ?? "") : (operation.path ?? ""),
     ...(operation.kind === "move" && operation.from !== undefined
@@ -114,7 +117,7 @@ const renderMoveReport = (
     ...report.operations.map((operation) =>
       operation.kind === "move"
         ? `  ${state} move: ${operation.from ?? "?"} -> ${operation.to ?? "?"}`
-        : `  ${state} update: ${operation.path ?? "?"}`
+        : `  ${state} ${operation.kind}: ${operation.path ?? "?"}`
     ),
     ...(report.generatedOperations ?? []).map(
       (operation) =>
@@ -148,13 +151,14 @@ export const runMoveCommand = async (
     rootPath: request.rootPath,
     to: request.to,
   };
-  const preview = await moveCore.planSourceMove(planRequest);
   const report = request.yes
-    ? await moveCore.moveSource({
-        ...planRequest,
-        expectedPlanHash: preview.planHash,
-      })
-    : preview;
+    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async () =>
+        moveCore.moveSource({
+          ...planRequest,
+          expectedPlanHash: (await moveCore.planSourceMove(planRequest)).planHash,
+        })
+      )
+    : await moveCore.planSourceMove(planRequest);
   const writtenPaths = request.yes ? readWrittenPaths(report) : [];
   if (request.jsonOutput) {
     printCliJsonData(

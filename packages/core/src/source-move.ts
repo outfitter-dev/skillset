@@ -5,7 +5,6 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { readChangeLedger } from "./change-ledger";
 import { compareStrings } from "./path";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -30,7 +29,6 @@ import {
   display,
   existingContainedPath,
   futureContainedPath,
-  pathExists,
   pathIsDirectory,
   remapPath,
   sourceMarkdownDocuments,
@@ -197,14 +195,6 @@ async function planAuthoredSourceMove(
       }
     }
 
-    const ledger = await sourceMoveLedgerUpdate(
-      rootPath,
-      graph.sourceDir,
-      fromSelector,
-      toSelector
-    );
-    updates.set(ledger.path, ledger.content);
-
     const moves: SourceRenameMoveOperation[] = [
       {
         from: display(rootPath, fromPath),
@@ -223,6 +213,17 @@ async function planAuthoredSourceMove(
     ];
     const operations: readonly SourceRenameOperation[] = [
       ...moves,
+      {
+        event: {
+          payload: { from: fromSelector, to: toSelector },
+          type: "source.moved",
+        },
+        kind: "append",
+        path: display(
+          rootPath,
+          join(rootPath, workspaceChangeFile(graph.sourceDir, "ledger.jsonl"))
+        ),
+      },
       ...[...updates.entries()]
         .toSorted(([left], [right]) => compareStrings(left, right))
         .map(
@@ -290,44 +291,5 @@ function finalizePlan(
         })
       )
       .digest("hex"),
-  };
-}
-
-async function sourceMoveLedgerUpdate(
-  rootPath: string,
-  sourceDir: string,
-  from: string,
-  to: string
-): Promise<{ readonly content: string; readonly path: string }> {
-  const path = workspaceChangeFile(sourceDir, "ledger.jsonl");
-  const absolutePath = join(rootPath, path);
-  const previous = (await pathExists(absolutePath))
-    ? await readFile(absolutePath, "utf8")
-    : "";
-  const events = await readChangeLedger(rootPath, { sourceDir });
-  const last = events.at(-1)?.createdAt;
-  const timestamp = last === undefined ? 0 : Date.parse(last) + 1;
-  if (!Number.isFinite(timestamp)) {
-    throw new SourceMovePlanError(
-      `cannot append identity history after invalid ledger timestamp ${JSON.stringify(last)}`
-    );
-  }
-  const id = `source-moved-${createHash("sha256")
-    .update(previous)
-    .update("\0")
-    .update(from)
-    .update("\0")
-    .update(to)
-    .digest("hex")}`;
-  const line = JSON.stringify({
-    createdAt: new Date(timestamp).toISOString(),
-    id,
-    payload: { from, to },
-    schemaVersion: 1,
-    type: "source.moved",
-  });
-  return {
-    content: `${previous}${previous.length === 0 || previous.endsWith("\n") ? "" : "\n"}${line}\n`,
-    path: absolutePath,
   };
 }
