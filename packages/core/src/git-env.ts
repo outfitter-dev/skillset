@@ -42,14 +42,25 @@ export function gitRepositoryTargetingKeys(
     .sort();
 }
 
+// Repository-local overrides from `git rev-parse --local-env-vars`, plus
+// `GIT_NAMESPACE`. The `GIT_CONFIG*` entries that command also lists are left
+// alone: test sandboxes inject Git config through them on purpose, and callers
+// that must refuse injected config strip it themselves.
+const GIT_REPOSITORY_TARGETING_KEYS = new Set([
+  "GIT_COMMON_DIR",
+  "GIT_DIR",
+  "GIT_GRAFT_FILE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_NAMESPACE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_PREFIX",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_SHALLOW_FILE",
+  "GIT_WORK_TREE",
+]);
+
 function isGitRepositoryTargetingKey(key: string): boolean {
-  return (
-    key === "GIT_DIR" ||
-    key === "GIT_WORK_TREE" ||
-    key === "GIT_INDEX_FILE" ||
-    key === "GIT_OBJECT_DIRECTORY" ||
-    key === "GIT_COMMON_DIR" ||
-    key === "GIT_NAMESPACE" ||
-    key.startsWith("GIT_ALTERNATE_OBJECT")
-  );
+  return GIT_REPOSITORY_TARGETING_KEYS.has(key) || key.startsWith("GIT_ALTERNATE_OBJECT");
 }
