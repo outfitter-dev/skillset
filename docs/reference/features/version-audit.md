@@ -63,4 +63,4 @@ Each record carries the path, version field, source scope, provider [target](../
 
 ## Evidence
 
-The implementation lives in `packages/core/src/version-audit.ts`; the read-only CLI and stale-version contract are covered by `apps/skillset/src/__tests__/contract.test.ts`.
+The implementation lives in `packages/core/src/version-audit.ts`; the read-only CLI and stale-version contract are covered by `apps/skillset/src/__tests__/contract-release.test.ts`.

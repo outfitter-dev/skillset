@@ -909,7 +909,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/reference/features/releases.md"],
-    evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-38 release apply coverage")],
+    evidence: [test("apps/skillset/src/__tests__/contract-release.test.ts", "SET-38 release apply coverage")],
     id: "releases",
     kind: "change-management",
     renderOwner: "apps/skillset/src/release.ts",
@@ -1077,7 +1077,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/reference/features/version-audit.md"],
-    evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-111 release audit coverage")],
+    evidence: [test("apps/skillset/src/__tests__/contract-release.test.ts", "SET-111 release audit coverage")],
     id: "version-audit",
     kind: "change-management",
     renderOwner: "packages/core/src/version-audit.ts",
