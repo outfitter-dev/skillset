@@ -12,7 +12,9 @@ import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import { pathExists, toPosix, workspaceRoot } from "./source-rename-paths";
 import { SourceRenamePlanError } from "./source-rename-types";
+import { sourceLifecycleLedgerRecord } from "./source-lifecycle-ledger";
 import type {
+  SourceLedgerAppendOperation,
   SourceMutationCopyOperation,
   SourceMutationDeleteOperation,
   SourceMutationOperation,
@@ -59,6 +61,7 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
   const sourceTransaction = sourceTransactionPlan(plan);
   const generatedTransaction = generatedTransactionPlan(plan);
   const fullPlan: WorkspaceTransactionPlan = {
+    ...(sourceTransaction.appends === undefined ? {} : { appends: sourceTransaction.appends }),
     ...(sourceTransaction.copies === undefined ? {} : { copies: sourceTransaction.copies }),
     deletes: [
       ...(sourceTransaction.deletes ?? []),
@@ -176,6 +179,12 @@ function sourceTransactionPlan(
   plan: SourceMutationPlan
 ): WorkspaceTransactionPlan {
   return {
+    appends: plan.operations
+      .filter((operation): operation is SourceLedgerAppendOperation => operation.kind === "append")
+      .map((operation) => ({
+        path: operation.path,
+        records: (current: string) => [sourceLifecycleLedgerRecord(current, operation.event)],
+      })),
     copies: plan.operations
       .filter((operation): operation is SourceMutationCopyOperation => operation.kind === "copy")
       .map((operation) => ({ from: operation.from, to: operation.to })),
@@ -432,6 +441,7 @@ async function assertNoUnmanagedOutputCollisions(
 function transactionPaths(plan: WorkspaceTransactionPlan): readonly string[] {
   return [
     ...new Set([
+      ...(plan.appends ?? []).map((append) => append.path),
       ...(plan.copies ?? []).flatMap((copy) => [copy.from, copy.to]),
       ...(plan.deletes ?? []),
       ...(plan.moves ?? []).flatMap((move) => [move.from, move.to]),

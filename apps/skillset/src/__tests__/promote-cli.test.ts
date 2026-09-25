@@ -104,6 +104,7 @@ describe("SET-587 promote command", () => {
       { ...request, yes: true },
       {
         core: fake.value,
+        ledgerLock: (_rootPath, operation) => operation(),
         write: (value) => {
           output += value;
         },

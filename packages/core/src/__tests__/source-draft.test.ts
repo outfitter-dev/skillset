@@ -56,8 +56,8 @@ describe("SET-587 source draft lifecycle", () => {
     });
     expect(plan.operations).toContainEqual(
       expect.objectContaining({
-        content: expect.stringContaining('"type":"source.drafted"'),
-        kind: "update",
+        event: expect.objectContaining({ type: "source.drafted" }),
+        kind: "append",
         path: ".skillset/changes/ledger.jsonl",
       })
     );
@@ -622,7 +622,7 @@ describe("SET-587 source draft lifecycle", () => {
           testHooks: {
             beforeApply: (operation) => {
               if (
-                operation.kind === "write" &&
+                operation.kind === "append" &&
                 operation.path === ".skillset/changes/ledger.jsonl"
               ) {
                 throw new Error("injected promotion ledger failure");
@@ -657,7 +657,7 @@ describe("SET-587 source draft lifecycle", () => {
           testHooks: {
             beforeApply: (operation) => {
               if (
-                operation.kind === "write" &&
+                operation.kind === "append" &&
                 operation.path === ".skillset/changes/ledger.jsonl"
               ) {
                 throw new Error("injected draft ledger failure");

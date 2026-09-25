@@ -43,16 +43,20 @@ sequence. Global chronological order is not an invariant.
 
 ### Live writers serialize on one owner-fenced mutation
 
-Add, reason, migrate, refresh, ignore, change amend, release apply, and
-release amend take the same owner-fenced ledger lock and hold it across read,
-plan, append, and rollback.
+Add, reason, migrate, refresh, ignore, change amend, release apply, release
+amend, and the applying source lifecycle commands (draft, promote, move) take
+the same owner-fenced ledger lock and hold it across read, plan, append, and
+rollback.
 Only the current token holder can release that lock. An old owner must not
 remove a successor lock.
 
 Rollback removes only the JSONL records that transaction appended. It never
 restores a whole-file snapshot of an append-only stream. Two concurrent
 successful mutations therefore keep both record sets, and a failed release
-cannot erase an unrelated writer's append.
+cannot erase an unrelated writer's append. Source lifecycle transactions plan
+the event, not the ledger bytes: the workspace transaction's append operation
+reads the ledger when it applies, derives the record id and timestamp from
+those bytes, and on rollback removes only its own line.
 
 New writers stamp `max(now, tailTimestamp)`. Equal timestamps are allowed.
 The guard does not compare timestamps, so this is not a merge rule: it keeps
@@ -109,9 +113,7 @@ timeout. The guard needs the trunk ref and history locally (CI checks out with
 full depth) and fails loudly when the merge-base cannot be resolved. It no
 longer catches a timestamp inversion inside a branch's own appended block;
 that block's order is the writer's, and live writers stamp `max(now, tail)`.
-Branches must be updated by restack, not by merging trunk in. Source draft,
-move, and promote still plan a whole-file ledger update inside their own
-source-mutation transaction; this decision does not replace that apply path.
+Branches must be updated by restack, not by merging trunk in.
 
 ### What This Does NOT Decide
 

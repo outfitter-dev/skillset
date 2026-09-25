@@ -1,3 +1,4 @@
+import type { SourceLifecycleLedgerEvent } from "./source-lifecycle-ledger";
 import type { WorkspaceTransactionOptions } from "./workspace-transaction";
 import type { GeneratedFileMode } from "./types";
 
@@ -33,7 +34,19 @@ export interface SourceRenameUpdateOperation {
   readonly path: string;
 }
 
+/**
+ * A lifecycle event appended to the change ledger. The record's id and
+ * timestamp are derived from the ledger bytes read when the transaction
+ * applies, so the plan names only the event.
+ */
+export interface SourceLedgerAppendOperation {
+  readonly event: SourceLifecycleLedgerEvent;
+  readonly kind: "append";
+  readonly path: string;
+}
+
 export type SourceRenameOperation =
+  | SourceLedgerAppendOperation
   | SourceRenameMoveOperation
   | SourceRenameUpdateOperation;
 
