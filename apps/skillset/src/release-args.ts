@@ -9,6 +9,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { ReleaseSubcommand } from "./release";
 import type { ReleaseCommandRequest } from "./release-cli";
 import { readImportKind, readImportProvider } from "./source-arg-values";
@@ -102,7 +103,7 @@ export const parseReleaseCommandRequest = (
       case "--use": {
         const value = reader.readRequiredOptionValue(option);
         if (value !== "source" && value !== "output") {
-          throw new Error("skillset: --use expects source or output");
+          throw new CliUsageError("skillset: --use expects source or output");
         }
         reconcileChoice = value;
         break;
@@ -136,7 +137,7 @@ export const parseReleaseCommandRequest = (
         readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 
@@ -148,36 +149,36 @@ export const parseReleaseCommandRequest = (
     changeRef !== undefined ||
     changeStaged
   ) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: change options are only supported with change commands"
     );
   }
   if (changeSince !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --since is only supported with check --ci or change commands"
     );
   }
   if (scopes !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --scope is not supported with release commands yet"
     );
   }
   if (releaseSubcommand !== "apply" && yes) {
-    throw new Error("skillset: --yes is only supported with release apply");
+    throw new CliUsageError("skillset: --yes is only supported with release apply");
   }
   if (releaseReason !== undefined && releaseSubcommand !== "amend") {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --reason and --reason-file are only supported with release amend"
     );
   }
   if (releaseRef !== undefined && releaseSubcommand !== "amend") {
-    throw new Error("skillset: --ref is only supported with release amend");
+    throw new CliUsageError("skillset: --ref is only supported with release amend");
   }
   if (reconcileChoice !== undefined) {
-    throw new Error("skillset: --use is only supported with reconcile");
+    throw new CliUsageError("skillset: --use is only supported with reconcile");
   }
   if (releaseSubcommand === "amend" && releaseRef === undefined) {
-    throw new Error("skillset: release amend requires @ref");
+    throw new CliUsageError("skillset: release amend requires @ref");
   }
   return {
     jsonOutput,
@@ -204,7 +205,7 @@ const readReleaseSubcommand = (
   value: string | undefined
 ): ReleaseSubcommand => {
   if (isReleaseSubcommand(value)) return value;
-  throw new Error(
+  throw new CliUsageError(
     "skillset: expected release subcommand amend, apply, audit, or plan"
   );
 };

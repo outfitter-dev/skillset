@@ -11,6 +11,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import {
   isNewSourceKind,
   parseSkillPresets,
@@ -43,7 +44,7 @@ export const parseImportCommandRequest = (
   const first = args[index];
   if (first !== undefined && !first.startsWith("--")) {
     if (isImportKind(first)) {
-      throw new Error("skillset: import kind must be passed with --kind");
+      throw new CliUsageError("skillset: import kind must be passed with --kind");
     }
     if (isImportProvider(first)) {
       positionalProvider = first;
@@ -80,7 +81,7 @@ export const parseImportCommandRequest = (
       case "--kind": {
         const next = readImportKind(reader.readRequiredOptionValue(option));
         if (kind !== undefined && kind !== next) {
-          throw new Error(
+          throw new CliUsageError(
             `skillset: conflicting import kinds ${kind} and ${next}`
           );
         }
@@ -109,7 +110,7 @@ export const parseImportCommandRequest = (
         scopes = readBuildScopes(reader.readRequiredOptionValue(option));
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
   const explicit: ImportExplicitOptions = { from, json, kind, name, root };
@@ -242,17 +243,17 @@ export const parseNewCommandRequest = (
         );
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
   if (buildMode !== undefined) {
-    throw new Error("skillset: --updated and --all are not supported with new");
+    throw new CliUsageError("skillset: --updated and --all are not supported with new");
   }
   if (importKind !== undefined) {
-    throw new Error("skillset: --kind is only supported with import");
+    throw new CliUsageError("skillset: --kind is only supported with import");
   }
   if (importProvider !== undefined) {
-    throw new Error("skillset: --from is only supported with import");
+    throw new CliUsageError("skillset: --from is only supported with import");
   }
   const explicit: NewExplicitOptions = {
     container,
@@ -308,5 +309,5 @@ const readNewSourceKind = (
 
 const readNewSourceScope = (value: string): NewSourceScope => {
   if (value === "repo") return value;
-  throw new Error("skillset: new currently supports only --scope repo");
+  throw new CliUsageError("skillset: new currently supports only --scope repo");
 };

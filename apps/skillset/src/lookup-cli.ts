@@ -11,6 +11,7 @@ import {
   runFiniteCommand,
   type FiniteCommandWriter,
 } from "./cli-finite-command";
+import { CliUsageError } from "./cli-output";
 
 export interface LookupCommandOptions {
   readonly aspects: readonly string[];
@@ -64,7 +65,7 @@ export function readLookupSubject(value: string): LookupSubject {
   ) {
     return value;
   }
-  throw new Error("skillset: expected lookup subject activation, locations, skill, agent, instruction, workspace, hooks, plugin, or standards");
+  throw new CliUsageError("skillset: expected lookup subject activation, locations, skill, agent, instruction, workspace, hooks, plugin, or standards");
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {
@@ -84,7 +85,7 @@ export function addLookupView(views: readonly LookupView[], view: LookupView): L
 }
 
 export function setLookupField(current: string | undefined, value: string): string {
-  if (current !== undefined) throw new Error("skillset: pass only one --field value");
+  if (current !== undefined) throw new CliUsageError("skillset: pass only one --field value");
   return value;
 }
 

@@ -8,6 +8,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import { rejectProjectionForeignOption } from "./projection-foreign-args";
 import { readImportKind, readImportProvider } from "./source-arg-values";
 
@@ -120,7 +121,7 @@ const parseProjectionArgs = (
       case "--report": {
         const value = reader.readRequiredOptionValue(option);
         if (option.flag === "--only" && value !== "outputs") {
-          throw new Error("skillset: expected --only outputs");
+          throw new CliUsageError("skillset: expected --only outputs");
         }
         readinessFlag = true;
         break;
@@ -131,7 +132,7 @@ const parseProjectionArgs = (
         break;
       case "--write":
         assertBooleanOption(option);
-        throw new Error(
+        throw new CliUsageError(
           "skillset: --write is only supported with check or dev"
         );
       case "--jsonl":
@@ -140,28 +141,28 @@ const parseProjectionArgs = (
         break;
       default:
         rejectProjectionForeignOption(reader, option);
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 
   if (readinessFlag) {
-    throw new Error("skillset: readiness flags are only supported with check");
+    throw new CliUsageError("skillset: readiness flags are only supported with check");
   }
   if (sinceFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --since is only supported with check --ci or change commands"
     );
   }
   if (jsonlOutput) {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new CliUsageError("skillset: --jsonl is only supported with dev");
   }
   if (!allowRepair && (repair || discardEdits)) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --repair and --discard-edits are only supported with build"
     );
   }
   if (discardEdits && !repair) {
-    throw new Error("skillset: --discard-edits is only supported with --repair");
+    throw new CliUsageError("skillset: --discard-edits is only supported with --repair");
   }
 
   return {

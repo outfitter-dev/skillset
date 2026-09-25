@@ -1,6 +1,7 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { resolveCliRoot } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { DraftCommandRequest } from "./draft-cli";
 
 export const parseDraftCommandRequest = (
@@ -17,7 +18,7 @@ export const parseDraftCommandRequest = (
     const positional = reader.readOptionalPositional();
     if (positional !== undefined) {
       if (shippedPath === undefined) shippedPath = positional;
-      else throw new Error("skillset: draft accepts exactly <shipped-path>");
+      else throw new CliUsageError("skillset: draft accepts exactly <shipped-path>");
       continue;
     }
     const option = reader.readOption();
@@ -38,7 +39,7 @@ export const parseDraftCommandRequest = (
         break;
       }
       default: {
-        throw new Error(
+        throw new CliUsageError(
           `skillset: draft only supports --json, --root, and --yes; received ${option.raw}`
         );
       }
@@ -46,7 +47,7 @@ export const parseDraftCommandRequest = (
   }
 
   if (shippedPath === undefined) {
-    throw new Error("skillset: draft requires <shipped-path>");
+    throw new CliUsageError("skillset: draft requires <shipped-path>");
   }
   return {
     jsonOutput,

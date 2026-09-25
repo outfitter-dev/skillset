@@ -3,7 +3,7 @@ import { parseChangeCommandRequest } from "./change-args";
 import { parseCheckCommandRequest } from "./check-args";
 import type { CliParseContext } from "./cli-arg-values";
 import { isCliCommand, renderExpectedCliCommands } from "./cli-commands";
-import { CliOutputError, CliUsageError, readCliCommand } from "./cli-output";
+import { CliUsageError, readCliCommand } from "./cli-output";
 import type { CliRequest } from "./cli-request";
 import { USAGE } from "./cli-usage";
 import { parseCreateCommandRequest } from "./create-args";
@@ -33,7 +33,7 @@ export const parseCliRequest = (
   try {
     const [command] = args;
     if (!isCliCommand(command)) {
-      throw new Error(
+      throw new CliUsageError(
         `skillset: expected command ${renderExpectedCliCommands()}\n${USAGE}`
       );
     }
@@ -163,10 +163,11 @@ export const parseCliRequest = (
       }
     }
   } catch (error) {
-    if (error instanceof CliOutputError) {
-      throw error;
+    if (error instanceof CliUsageError) {
+      throw error.command === undefined
+        ? new CliUsageError(error.message, readCliCommand(args))
+        : error;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    throw new CliUsageError(message, readCliCommand(args));
+    throw error;
   }
 };
