@@ -1,5 +1,5 @@
 /**
- * Append-only change-stream guard (SET-502).
+ * Append-only change-stream guard (SET-502, SET-661).
  *
  * `.skillset/changes/*.jsonl` are append-only event streams (ADR-0014,
  * ADR-0015). `.gitattributes` declares `merge=union` for them so cross-branch
@@ -9,24 +9,24 @@
  *
  * - every stream ends with a newline, so appends can never join two records
  *   onto one line;
- * - every non-empty line is one JSON object (what the ledger/history readers
- *   require);
+ * - every non-empty line is one JSON object with an id and a parseable event
+ *   timestamp (what the ledger/history readers require);
  * - record ids are unique within a file (`readChangeLedger` throws otherwise);
- * - no NEW timestamp inversion is introduced.
+ * - trunk's stream is an in-order prefix of the working copy: every record at
+ *   the merge-base with the remote trunk (`scripts/git-trunk.sh`) is still
+ *   present, byte for byte, at the same line, and new records only follow it.
  *
- * File order is semantically load-bearing, not cosmetic: `readLedgerReleaseState`
- * and the pending-fact reader in `change-entries.ts` fold events in file order
- * and let later records win. A union merge that lands an older record after a
- * newer one silently changes derived release state.
- *
- * Global chronological order was never an invariant. The committed ledger
- * contains historical inversions, so this guard allows exactly the recorded
- * adjacent pairs and fails on anything new. See
- * INVERSION_ALLOWANCES and the "Updating the allowances" note at the bottom.
+ * File order is the only fold order (ADR-0038): `readLedgerReleaseState` and the
+ * pending-fact reader in `change-entries.ts` fold events top to bottom and let
+ * later records win, so reordering or removing a trunk record silently changes
+ * derived release state. `createdAt`/`appliedAt`/`amendedAt` are event time,
+ * not sequence, so an appended block may be older than trunk's tail — that is
+ * what `merge=union` produces when a branch is restacked — and the guard does
+ * not compare timestamps across records.
  */
 
 import { existsSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
@@ -40,8 +40,7 @@ export type ChangeStreamRule =
   | "missing-trailing-newline"
   | "missing-union-merge-attribute"
   | "not-an-object"
-  | "timestamp-inversion"
-  | "unmatched-inversion-allowance";
+  | "trunk-prefix-divergence";
 
 export type ChangeStreamViolation = {
   readonly file: string;
@@ -51,148 +50,15 @@ export type ChangeStreamViolation = {
   readonly rule: ChangeStreamRule;
 };
 
-/**
- * One recorded pre-existing adjacent inversion: `id` carries a timestamp older
- * than the record immediately above it (`previousId`). Pairs, not a count: a
- * count lets a merge remove one inversion and add another for free, while a
- * pair names the exact records and goes stale the moment history is rewritten.
- */
-export type InversionAllowance = {
-  readonly file: string;
-  readonly id: string;
-  readonly previousId: string;
-  readonly rationale: string;
-};
-
 /** Pathspec for the append-only streams; mirrors the `.gitattributes` pattern. */
 export const CHANGE_STREAM_PATHSPEC = ".skillset/changes/*.jsonl";
 
 /**
- * Adjacent inversions already present in committed history before SET-502.
- * Each is a `reason.created`/`change.covered` record that landed after a
- * chronologically later `change.covered` record during a hand-resolved merge —
- * the exact drift `merge=union` plus this guard now makes visible.
- */
-export const INVERSION_ALLOWANCES: readonly InversionAllowance[] = [
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-e190e6c9e3ff282e",
-    previousId: "evt-f29f6f15ad22219f",
-    rationale: "2026-09-20 restacking appended the preserved SET-553 placement stream after refreshed fixed-root parent evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-550f268687267821",
-    previousId: "evt-5b301a51324ee148",
-    rationale: "2026-09-20 restacking appended the preserved SET-558 branch stream after refreshed SET-553 parent evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-a4c03dcd21bcd159",
-    previousId: "evt-66438657d2379d76",
-    rationale: "2026-09-21 restacking appended the preserved SET-587 branch stream after refreshed SET-588 parent evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-bc6cedb0fd301d06",
-    previousId: "evt-37b7e5d8b80978b9",
-    rationale: "2026-09-21 restacking appended the preserved SET-588 branch stream after refreshed SET-572 evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-d395e6948a4b9b22",
-    previousId: "evt-5afa2531cfc30bfc",
-    rationale: "2026-09-21 restacking appended the preserved SET-572 branch stream after refreshed SET-555 evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-77622f03d33686a0",
-    previousId: "evt-a6dfd6ae03244be2",
-    rationale: "2026-09-21 restacking appended the preserved SET-555 branch stream after refreshed SET-554 evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-34f7e6a29b38779e",
-    previousId: "evt-e35bb835212d8084",
-    rationale: "2026-09-21 restacking appended the preserved SET-554 branch stream after merged SET-558 evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-8852d0f1883a3a5d",
-    previousId: "evt-dce5d5d573d6cc76",
-    rationale: "2026-09-20 restacking appended the preserved SET-552 branch stream after later SET-551 and SET-553 evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-4fefce8aafcf6049",
-    previousId: "evt-45aac3dafe33f5b4",
-    rationale: "2026-09-20 restacking appended the preserved SET-551 branch stream after newer main repair-stack evidence; both append-only blocks retain their original event order.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-48d9b0bbb0b0b696",
-    previousId: "evt-6ad02564c2611f5e",
-    rationale: "2026-08-16 beta-wave restacks appended branch evidence recorded 2026-08-14 after trunk records from 2026-08-15; derived state verified identical either side.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-062dec542ea4a4c3",
-    previousId: "evt-323a018b54c0ec3b",
-    rationale: "2026-08-16 beta-wave restacks appended SET-445 evidence recorded 2026-08-15 after later same-day refresh records; derived state verified identical either side.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-8073be9fc1512de8",
-    previousId: "evt-06820d5376789edc",
-    rationale: "2026-08-16 beta-wave restacks appended branch evidence out of wall-clock order during the linearization pass; derived state verified identical either side.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-b1f779997a881b3a",
-    previousId: "evt-009df2342d2ca1a9",
-    rationale: "2026-07-13 reason.created landed after a 2026-07-14 change.covered record.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-9f369e127683a21e",
-    previousId: "evt-9719de8745c71767",
-    rationale: "2026-07-23T22:14 reason.created landed after a 2026-07-23T23:42 change.covered record.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-44870b11e357a6dd",
-    previousId: "evt-59a32f52e9d7da2b",
-    rationale: "2026-07-23T22:52 reason.created landed after a 2026-07-23T23:43 change.covered record.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-f9e03e49e14caeb8",
-    previousId: "evt-6c7ed57b4e164fd4",
-    rationale: "2026-07-24 reason.created landed after a 2026-07-25 change.covered record.",
-  },
-  {
-    file: ".skillset/changes/ledger.jsonl",
-    id: "evt-2ddc0efa3d2e460a",
-    previousId: "evt-1d875c4df907b1db",
-    rationale: "2026-08-07T14:06 change.covered landed after a 2026-08-07T14:24 change.covered record.",
-  },
-];
-
-/**
  * Timestamp fields, in precedence order. `ledger.jsonl` records `createdAt`;
- * `history.jsonl` and `releases.jsonl` record `appliedAt`.
+ * `history.jsonl` and `releases.jsonl` record `appliedAt`; amendment streams
+ * record `amendedAt`.
  */
-const TIMESTAMP_FIELDS: readonly string[] = ["createdAt", "appliedAt"];
-
-type StreamRecord = {
-  readonly id: string | undefined;
-  readonly line: number;
-  readonly timestamp: number | undefined;
-};
-
-function allowanceKey(file: string, previousId: string, id: string): string {
-  return `${file}\0${previousId}\0${id}`;
-}
+const TIMESTAMP_FIELDS: readonly string[] = ["createdAt", "appliedAt", "amendedAt"];
 
 function readTimestamp(record: Record<string, unknown>): string | undefined {
   for (const field of TIMESTAMP_FIELDS) {
@@ -202,12 +68,7 @@ function readTimestamp(record: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function scanFile(
-  file: string,
-  content: string,
-  matched: Set<string>,
-  allowed: ReadonlySet<string>
-): readonly ChangeStreamViolation[] {
+function scanFile(file: string, content: string): readonly ChangeStreamViolation[] {
   const violations: ChangeStreamViolation[] = [];
   if (content.length > 0 && !content.endsWith("\n")) {
     violations.push({
@@ -218,7 +79,6 @@ function scanFile(
     });
   }
 
-  const records: StreamRecord[] = [];
   const seenIds = new Set<string>();
   for (const [index, text] of content.split("\n").entries()) {
     const line = index + 1;
@@ -238,9 +98,7 @@ function scanFile(
 
     const record = parsed as Record<string, unknown>;
     const rawId = record.id;
-    let id: string | undefined;
     if (typeof rawId === "string" && rawId.length > 0) {
-      id = rawId;
       if (seenIds.has(rawId)) {
         violations.push({ file, line, message: `duplicate record id ${rawId}`, rule: "duplicate-id" });
       }
@@ -250,7 +108,6 @@ function scanFile(
     }
 
     const rawTimestamp = readTimestamp(record);
-    let timestamp: number | undefined;
     if (rawTimestamp === undefined) {
       violations.push({
         file,
@@ -265,67 +122,75 @@ function scanFile(
         message: `timestamp ${rawTimestamp} is not a parseable date`,
         rule: "invalid-timestamp",
       });
-    } else {
-      timestamp = Date.parse(rawTimestamp);
     }
-
-    records.push({ id, line, timestamp });
-  }
-
-  for (const [index, record] of records.entries()) {
-    if (index === 0) continue;
-    const previous = records[index - 1];
-    if (previous === undefined || previous.timestamp === undefined || record.timestamp === undefined) continue;
-    if (record.timestamp >= previous.timestamp) continue;
-
-    const key =
-      previous.id === undefined || record.id === undefined
-        ? undefined
-        : allowanceKey(file, previous.id, record.id);
-    if (key !== undefined && allowed.has(key)) {
-      matched.add(key);
-      continue;
-    }
-    violations.push({
-      file,
-      line: record.line,
-      message: `record ${record.id ?? "<no id>"} is older than the record above it (${previous.id ?? "<no id>"})`,
-      rule: "timestamp-inversion",
-    });
   }
 
   return violations;
 }
 
+/** One stream as the working copy has it, plus its content at the trunk merge-base. */
+export type ChangeStreamInput = {
+  readonly content: string;
+  readonly file: string;
+  /** Content at the trunk merge-base; absent when the stream is new on this branch. */
+  readonly trunkContent?: string;
+};
+
+const TRUNK_PREFIX_HINT =
+  "keep trunk's records in their original order and append new records after them";
+
+function streamLines(content: string): readonly string[] {
+  const lines = content.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  return lines;
+}
+
+function recordLabel(text: string): string {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      const id = (parsed as Record<string, unknown>).id;
+      if (typeof id === "string" && id.length > 0) return id;
+    }
+  } catch {
+    // Fall through: name the record by its line text.
+  }
+  return JSON.stringify(text);
+}
+
 /**
- * Scan every append-only change stream. Pure; used by tests and by `main`.
- * Allowances that match nothing are reported so the list cannot silently rot.
+ * Report the first line where the working copy stops extending trunk's stream.
+ * Only the first divergence is reported: every later line is shifted by it.
  */
-export function scanChangeStreams(
-  files: readonly { readonly content: string; readonly file: string }[],
-  allowances: readonly InversionAllowance[] = INVERSION_ALLOWANCES
-): readonly ChangeStreamViolation[] {
-  const allowed = new Set(allowances.map((entry) => allowanceKey(entry.file, entry.previousId, entry.id)));
-  const matched = new Set<string>();
+function scanTrunkPrefix(file: string, content: string, trunkContent: string): readonly ChangeStreamViolation[] {
+  const lines = streamLines(content);
+  for (const [index, trunkLine] of streamLines(trunkContent).entries()) {
+    const line = index + 1;
+    const current = lines[index];
+    if (current === trunkLine) continue;
+    const trunkRecord = recordLabel(trunkLine);
+    return [{
+      file,
+      line,
+      message:
+        current === undefined
+          ? `trunk record ${trunkRecord} at line ${line} is missing; ${TRUNK_PREFIX_HINT}`
+          : `line ${line} does not match trunk record ${trunkRecord}; ${TRUNK_PREFIX_HINT}`,
+      rule: "trunk-prefix-divergence",
+    }];
+  }
+  return [];
+}
+
+/** Scan every append-only change stream. Pure; used by tests and by `main`. */
+export function scanChangeStreams(files: readonly ChangeStreamInput[]): readonly ChangeStreamViolation[] {
   const violations: ChangeStreamViolation[] = [];
-
-  const scannedFiles = new Set(files.map((entry) => entry.file));
   for (const entry of files) {
-    violations.push(...scanFile(entry.file, entry.content, matched, allowed));
+    violations.push(...scanFile(entry.file, entry.content));
+    if (entry.trunkContent !== undefined) {
+      violations.push(...scanTrunkPrefix(entry.file, entry.content, entry.trunkContent));
+    }
   }
-
-  for (const allowance of allowances) {
-    if (!scannedFiles.has(allowance.file)) continue;
-    const key = allowanceKey(allowance.file, allowance.previousId, allowance.id);
-    if (matched.has(key)) continue;
-    violations.push({
-      file: allowance.file,
-      line: 0,
-      message: `unmatched inversion allowance ${allowance.previousId} -> ${allowance.id}; the pair no longer exists, so remove it`,
-      rule: "unmatched-inversion-allowance",
-    });
-  }
-
   return violations;
 }
 
@@ -343,9 +208,11 @@ export function parseMergeAttributes(output: string): ReadonlyMap<string, string
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
-async function runText(command: readonly string[]): Promise<string> {
+const CHANGE_STREAM_FILE = /^\.skillset\/changes\/[^/]+\.jsonl$/u;
+
+async function runText(cwd: string, command: readonly string[]): Promise<string> {
   const subprocess = Bun.spawn([...command], {
-    cwd: rootDir,
+    cwd,
     env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
@@ -359,29 +226,53 @@ async function runText(command: readonly string[]): Promise<string> {
   return stdout;
 }
 
-async function main(): Promise<void> {
-  const tracked = (await runText(["git", "ls-files", "--", CHANGE_STREAM_PATHSPEC]))
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+function nonEmptyLines(output: string): readonly string[] {
+  return output.split("\n").map((line) => line.trim()).filter(Boolean);
+}
 
-  const files: { readonly content: string; readonly file: string }[] = [];
-  for (const file of tracked) {
-    const path = `${rootDir}/${file}`;
-    if (!existsSync(path)) continue;
-    files.push({ content: await Bun.file(path).text(), file });
+/**
+ * Read every append-only stream in `rootPath`'s working copy, pair it with its
+ * content at `git merge-base HEAD <trunkRef>`, and return all violations. A
+ * stream that exists at the merge-base but not in the working copy is scanned
+ * as empty, so deleting it reports trunk's first record as missing.
+ */
+export async function collectChangeStreamViolations(options: {
+  readonly rootPath: string;
+  readonly trunkRef: string;
+}): Promise<{ readonly scanned: number; readonly violations: readonly ChangeStreamViolation[] }> {
+  const { rootPath, trunkRef } = options;
+  const mergeBase = (await runText(rootPath, ["git", "merge-base", "HEAD", trunkRef])).trim();
+  const trunkFiles = new Set(
+    nonEmptyLines(await runText(rootPath, ["git", "ls-tree", "-r", "--name-only", mergeBase, "--", ".skillset/changes"]))
+      .filter((file) => CHANGE_STREAM_FILE.test(file))
+  );
+  const tracked = nonEmptyLines(await runText(rootPath, ["git", "ls-files", "--", CHANGE_STREAM_PATHSPEC]));
+
+  const files: ChangeStreamInput[] = [];
+  const present: string[] = [];
+  for (const file of [...new Set([...tracked, ...trunkFiles])].sort()) {
+    const path = join(rootPath, file);
+    const exists = existsSync(path);
+    if (!exists && !trunkFiles.has(file)) continue;
+    if (exists) present.push(file);
+    files.push({
+      content: exists ? await Bun.file(path).text() : "",
+      file,
+      ...(trunkFiles.has(file)
+        ? { trunkContent: await runText(rootPath, ["git", "show", `${mergeBase}:${file}`]) }
+        : {}),
+    });
   }
 
   const violations = [...scanChangeStreams(files)];
-
-  if (files.length > 0) {
+  if (present.length > 0) {
     const attributes = parseMergeAttributes(
-      await runText(["git", "check-attr", "merge", "--", ...files.map((entry) => entry.file)])
+      await runText(rootPath, ["git", "check-attr", "merge", "--", ...present])
     );
-    for (const entry of files) {
-      if (attributes.get(entry.file) === "union") continue;
+    for (const file of present) {
+      if (attributes.get(file) === "union") continue;
       violations.push({
-        file: entry.file,
+        file,
         line: 0,
         message: "append-only stream must declare `merge=union` in .gitattributes",
         rule: "missing-union-merge-attribute",
@@ -389,9 +280,16 @@ async function main(): Promise<void> {
     }
   }
 
+  return { scanned: files.length, violations };
+}
+
+async function main(): Promise<void> {
+  const trunkRef = (await runText(rootDir, ["bash", "scripts/git-trunk.sh"])).trim();
+  const { scanned, violations } = await collectChangeStreamViolations({ rootPath: rootDir, trunkRef });
+
   if (violations.length === 0) {
     console.error(
-      `skillset: change stream guard scanned ${files.length} append-only stream(s); union-merge safe`
+      `skillset: change stream guard scanned ${scanned} append-only stream(s) against ${trunkRef}; union-merge safe`
     );
     return;
   }
@@ -403,9 +301,8 @@ async function main(): Promise<void> {
     console.error(`    ${violation.message}`);
   }
   console.error(
-    "skillset: append-only streams may only gain records at the end. Re-resolve the merge by keeping both " +
-      "sides' appended records in timestamp order, or record a deliberate exception in INVERSION_ALLOWANCES " +
-      "in scripts/change-stream-guard.ts."
+    `skillset: append-only streams may only gain records after ${trunkRef}'s. Restore trunk's records ` +
+      "exactly as they are at the merge-base and move this branch's records after them. Never sort a stream."
   );
   process.exit(1);
 }
@@ -416,19 +313,3 @@ if (import.meta.main) {
     process.exit(1);
   });
 }
-
-/*
- * Updating the allowances
- * -----------------------
- * The guard runs in `bun run check`. When `timestamp-inversion` fails:
- *
- * 1. Prefer fixing the stream. A union merge keeps both sides' records but
- *    concatenates ours-then-theirs, so a branch that appended earlier records
- *    can land them after a newer trunk record. Reorder the appended block by
- *    timestamp; never sort the whole file, because the recorded inversions
- *    below prove global order was never an invariant.
- * 2. Only record an allowance for an inversion that is already committed and
- *    cannot be reordered without rewriting shared history. Name both ids and
- *    say why. Unmatched allowances fail the guard, so a stale entry cannot
- *    quietly widen into a blanket exemption.
- */
