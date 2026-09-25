@@ -30,10 +30,8 @@ import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings, isPathInside, logicalDiagnosticPath } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import {
-  resolveProjectUseSkillCopies,
-  resolveWorkspaceDraftSkillCopies,
-  type ProjectUseSkillCopy,
-  type WorkspaceDraftSkillCopy,
+  resolveRenderedSkillCopies,
+  type RenderedSkillCopy,
 } from "./project-use";
 import { withLockProvenance } from "./lock-provenance";
 import { assertCasePortableRenderedPaths, planRenderedFiles } from "./output-plan";
@@ -258,13 +256,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
     }
   }
 
-  for (const copy of resolveWorkspaceDraftSkillCopies(graph)) {
-    for (const target of targetNames()) {
-      rendered.push(...(await renderProjectSkillCopy(graph, copy, target, lockRoots)));
-    }
-  }
-
-  for (const copy of resolveProjectUseSkillCopies(graph)) {
+  for (const copy of resolveRenderedSkillCopies(graph)) {
     for (const target of targetNames()) {
       rendered.push(...(await renderProjectSkillCopy(graph, copy, target, lockRoots)));
     }
@@ -1564,7 +1556,7 @@ async function renderStandaloneSkill(
 
 async function renderProjectSkillCopy(
   graph: BuildGraph,
-  copy: ProjectUseSkillCopy | WorkspaceDraftSkillCopy,
+  copy: RenderedSkillCopy,
   target: TargetName,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {

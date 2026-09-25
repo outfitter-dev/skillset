@@ -34,7 +34,7 @@ import { scopeForPath } from "./output-scope";
 import { compareStrings } from "./path";
 import {
   resolveProjectUseSkillCopies,
-  resolveWorkspaceDraftSkillCopies,
+  resolveRenderedSkillCopies,
 } from "./project-use";
 import {
   claudeMarketplacePath,
@@ -345,10 +345,7 @@ function unsupportedProjectSkillCopyStandardOutcomes(
 ): readonly SkillsetRenderResult[] {
   const target = "codex";
   const outcomes: SkillsetRenderResult[] = [];
-  for (const copy of [
-    ...resolveWorkspaceDraftSkillCopies(graph),
-    ...resolveProjectUseSkillCopies(graph),
-  ]) {
+  for (const copy of resolveRenderedSkillCopies(graph)) {
     const plugin = "plugin" in copy ? copy.plugin : undefined;
     if (
       !copy.skill.targets[target].enabled ||
@@ -842,7 +839,7 @@ function outcomeForLockItem(
   const evidence = evidenceFor(featureId, target, standardProfile);
   const projectUseCopy = item.sourceUnit === undefined
     ? undefined
-    : resolveProjectUseSkillCopies(graph).find(
+    : resolveRenderedSkillCopies(graph).find(
         (copy) =>
           copy.sourceUnit === item.sourceUnit &&
           copy.effectiveName === item.effectiveName
