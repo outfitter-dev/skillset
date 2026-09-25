@@ -544,10 +544,10 @@ async function renderPluginTarget(
   }
   // The standard package owns root support files; Codex coalesces into it.
   // Without it, every target keeps the README, scripts, and src companions,
-  // as with LICENSE above.
+  // as with LICENSE above, and Codex also passes assets through.
   const supportPaths = standardOwner
     ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src"] as const : []
-    : ["README.md", "scripts", "src"] as const;
+    : target === "codex" ? ["README.md", "assets", "scripts", "src"] as const : ["README.md", "scripts", "src"] as const;
   for (const supportPath of supportPaths) {
     const supportFiles = await copyAgentPluginSupportPath(
       graph,
