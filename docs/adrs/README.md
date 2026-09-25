@@ -51,3 +51,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0034](0034-exact-shared-references.md) | Exact Shared References | Accepted |
 | [0035](0035-rule-scope-and-provenanced-instruction-sections.md) | Rule Scope and Provenanced Instruction Sections | Accepted |
 | [0036](0036-plugin-skills-belong-to-the-standard-package.md) | Plugin Skills Belong to the Standard Package | Accepted |
+| [0038](0038-change-ledger-append-order.md) | Change Ledger Append Order Is Authoritative | Accepted |
