@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import type { Stats } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
