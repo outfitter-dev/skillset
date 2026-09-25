@@ -15,9 +15,9 @@ import { workspaceChangeFile } from "@skillset/core";
 import {
   withChangeLedgerLock,
   type ChangeLedgerLockOptions,
-} from "./change-refresh";
+} from "./change-ledger-lock";
 
-export type { ChangeLedgerLockOptions } from "./change-refresh";
+export type { ChangeLedgerLockOptions } from "./change-ledger-lock";
 
 export interface ChangeLedgerEventInput {
   readonly payload: JsonRecord;
@@ -80,8 +80,19 @@ export async function withChangeLedgerMutation<T>(
     try {
       return await operation(mutation);
     } catch (error) {
+      const rollbackFailures: string[] = [];
       for (const [relativePath, lines] of owned) {
-        await rollbackOwnedJsonlRecords(resolveInside(rootPath, relativePath), lines);
+        try {
+          await rollbackOwnedJsonlRecords(resolveInside(rootPath, relativePath), lines);
+        } catch (rollbackError) {
+          rollbackFailures.push(`${relativePath}: ${errorMessage(rollbackError)}`);
+        }
+      }
+      if (rollbackFailures.length > 0) {
+        throw new Error(
+          `skillset: change-ledger mutation failed and rollback failed for ${rollbackFailures.join("; ")}; original error: ${errorMessage(error)}`,
+          { cause: error }
+        );
       }
       throw error;
     }
@@ -96,4 +107,8 @@ function ledgerEventId(type: ChangeLedgerEventType): string {
   hash.update("\0");
   hash.update(randomBytes(16));
   return `evt-${hash.digest("hex").slice(0, 16)}`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

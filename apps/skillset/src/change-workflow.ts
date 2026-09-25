@@ -48,8 +48,8 @@ import {
   type ChangeIgnoreReport,
 } from "./change-ignore";
 
+export type { ChangeLedgerLockOptions } from "./change-ledger-lock";
 export type {
-  ChangeLedgerLockOptions,
   ChangeRefreshEntry,
   ChangeRefreshOptions,
   ChangeRefreshReport,
@@ -301,21 +301,21 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
 
 export async function amendAppliedChange(rootPath: string, options: ChangeAmendOptions): Promise<ChangeAmendReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
-  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
-  const historyEntries = await readHistoryEntries(rootPath, storageOptions);
-  const refs = refIndex(pendingEntries, historyEntries);
-  assertCombinedRefUnambiguous(options.ref, pendingEntries, historyEntries, refs);
-  const pending = tryResolvePending(pendingEntries, options.ref);
-  if (pending !== undefined) {
-    const pendingRef = pending.id === undefined ? options.ref : refs.get(pending.id) ?? `@${pending.id}`;
-    throw new Error(`skillset: ${pendingRef} is pending; use skillset change reason before release`);
-  }
-
-  const entry = resolveHistoryRef(historyEntries, options.ref);
   const reason = await resolveChangeReason(rootPath, options.reason);
   const relativePath = workspaceChangeFile(storageOptions.sourceDir, AMENDMENTS_FILE);
 
   return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
+    const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
+    const historyEntries = await readHistoryEntries(rootPath, storageOptions);
+    const refs = refIndex(pendingEntries, historyEntries);
+    assertCombinedRefUnambiguous(options.ref, pendingEntries, historyEntries, refs);
+    const pending = tryResolvePending(pendingEntries, options.ref);
+    if (pending !== undefined) {
+      const pendingRef = pending.id === undefined ? options.ref : refs.get(pending.id) ?? `@${pending.id}`;
+      throw new Error(`skillset: ${pendingRef} is pending; use skillset change reason before release`);
+    }
+
+    const entry = resolveHistoryRef(historyEntries, options.ref);
     const now = await nextJsonlTimestampForPaths([resolveInside(rootPath, relativePath)]);
     await mutation.appendJsonl(relativePath, [{
       amendedAt: now,
@@ -369,15 +369,21 @@ export async function migratePendingChangeEntries(
   options: ChangeMigrateOptions
 ): Promise<ChangeMigrationReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
-  const entries = await readPendingChangeEntries(rootPath, storageOptions);
-  const frontmatterEntries = entries.filter((entry) => entry.format === "frontmatter");
-  const migrations = await planFrontmatterMigrations(rootPath, storageOptions.sourceDir, frontmatterEntries);
+  const planMigrations = async () => planFrontmatterMigrations(
+    rootPath,
+    storageOptions.sourceDir,
+    (await readPendingChangeEntries(rootPath, storageOptions)).filter((entry) => entry.format === "frontmatter")
+  );
+  let migrations = await planMigrations();
 
   if (options.write && migrations.length > 0) {
-    await withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
-      const snapshots = await snapshotMigrationFiles(rootPath, migrations);
+    // Re-plan under the lock: a concurrent reason edit before acquisition must
+    // be migrated, not overwritten by the preview's stale body.
+    migrations = await withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
+      const locked = await planMigrations();
+      const snapshots = await snapshotMigrationFiles(rootPath, locked);
       try {
-        for (const migration of migrations) {
+        for (const migration of locked) {
           const absoluteToPath = resolveInside(rootPath, migration.toPath);
           await prepareRepositoryMutationPath(rootPath, absoluteToPath);
           await writeFile(
@@ -399,17 +405,19 @@ export async function migratePendingChangeEntries(
             await rm(absoluteFromPath, { force: true });
           }
         }
-        await mutation.appendLedger(migrations.flatMap((migration) => migrationLedgerEvents(migration)));
+        await mutation.appendLedger(locked.flatMap((migration) => migrationLedgerEvents(migration)));
       } catch (error) {
         try {
           await restoreMigrationFiles(rootPath, snapshots);
         } catch (restoreError) {
           throw new Error(
-            `skillset: change migration failed and rollback failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`
+            `skillset: change migration failed and rollback failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
+            { cause: error }
           );
         }
         throw error;
       }
+      return locked;
     });
   }
 
