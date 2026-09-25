@@ -62,7 +62,11 @@ export async function readPin(repoRoot: string): Promise<string> {
 }
 
 /** Root of the host- and version-scoped interpreter cache. Never the global install. */
-export function pinnedBunRoot(version: string): string {
+export function pinnedBunRoot(
+  version: string,
+  platform: NodeJS.Platform = process.platform,
+  arch: NodeJS.Architecture = process.arch
+): string {
   // test-sandbox replaces inherited XDG roots after resolving the interpreter.
   // Using that ambient value here would write the persistent runtime into a
   // caller-controlled directory that the child must otherwise leave untouched.
@@ -71,7 +75,7 @@ export function pinnedBunRoot(version: string): string {
     ".cache",
     "skillset",
     "bun",
-    `${process.platform}-${process.arch}`,
+    `${platform}-${arch}`,
     version
   );
 }

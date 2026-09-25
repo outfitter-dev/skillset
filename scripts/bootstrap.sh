@@ -9,6 +9,12 @@
 
 set -euo pipefail
 
+# Agents may launch this with a constrained PATH, such as their shims plus
+# /bin. Append the standard command directories so `dirname`, `tr`, `uname`,
+# `mktemp`, and `curl` still resolve, without shadowing anything the caller
+# put first.
+export PATH="${PATH:+$PATH:}/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 BUN_VERSION_FILE="$REPO_ROOT/.bun-version"
@@ -86,12 +92,21 @@ if [[ ! "$pinned_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
+# Mirrors pinnedBunRoot() and pinnedBunExecutableName() in
+# scripts/pinned-bun.ts; scripts/__tests__/bootstrap-layout.test.ts holds the
+# two layouts equal. Git Bash, MSYS, and Cygwin report MINGW*/MSYS*/CYGWIN*,
+# where the resolver publishes `win32-<arch>/<version>/bin/bun.exe`.
 cached_pinned_bun() {
-  local platform arch candidate
+  local platform arch executable candidate
   platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
+  executable="bun"
   case "$platform" in
     darwin|linux) ;;
+    mingw*|msys*|cygwin*)
+      platform="win32"
+      executable="bun.exe"
+      ;;
     *) return 1 ;;
   esac
   case "$arch" in
@@ -99,7 +114,7 @@ cached_pinned_bun() {
     x86_64|amd64) arch="x64" ;;
     *) return 1 ;;
   esac
-  candidate="$HOME/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/bun"
+  candidate="$HOME/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/$executable"
   if [[ -x "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
     printf '%s\n' "$candidate"
   else
