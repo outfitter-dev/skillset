@@ -1,10 +1,9 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { createTestFixtureRoot, tempEntriesLeftBy } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
@@ -210,10 +209,13 @@ test("SET-277: local and remote acquisition write the same adoption plan into a 
   const localDestination = join(parent, "local");
   const remoteDestination = join(parent, "remote");
   const before = await walkFiles(source);
-  const beforeRemoteClones = await temporaryRoots("skillset-adopt-remote-");
-
-  const local = await adoptSkillset(source, { destination: localDestination, write: true });
-  const remote = await adoptSkillset(pathToFileURL(source).href, { destination: remoteDestination, write: true });
+  const {
+    result: [local, remote],
+    leftovers: remoteCloneLeftovers,
+  } = await tempEntriesLeftBy("skillset-adopt-remote-", async () => [
+    await adoptSkillset(source, { destination: localDestination, write: true }),
+    await adoptSkillset(pathToFileURL(source).href, { destination: remoteDestination, write: true }),
+  ] as const);
 
   expect(local.ok).toBe(true);
   expect(remote.ok).toBe(true);
@@ -224,7 +226,7 @@ test("SET-277: local and remote acquisition write the same adoption plan into a 
   expect(await readFile(join(remoteDestination, ".git", "config"), "utf8")).not.toContain('[remote "origin"]');
   expect(await exists(join(remoteDestination, ".git", "shallow"))).toBe(false);
   expect(await walkFiles(source)).toEqual(before);
-  expect(await temporaryRoots("skillset-adopt-remote-")).toEqual(beforeRemoteClones);
+  expect(remoteCloneLeftovers).toEqual([]);
 });
 
 test("SET-277: adoption honors an explicit workspace name", async () => {
@@ -1172,10 +1174,6 @@ async function exists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function temporaryRoots(prefix: string): Promise<readonly string[]> {
-  return (await readdir(tmpdir())).filter((name) => name.startsWith(prefix)).toSorted();
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{
