@@ -12,6 +12,7 @@ import {
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 import { assertDistinctSkillCopyNames } from "../project-use";
+import { loadBuildGraph } from "../resolver";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
@@ -694,6 +695,20 @@ describe("SET-659 rendered copy consumers", () => {
       const root = await fixture(files);
       await expect(lintSkillset(root)).rejects.toThrow("codex-claude-dynamic-context");
     }
+  });
+
+  it("registers a skill root that only one of a live and draft pair targets", async () => {
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: paired-roots\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n    drafts:\n      demo: true\n",
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/review/SKILL.md": skill("review", "Live review"),
+      ".skillset/plugins/demo/skills/_drafts/review/SKILL.md":
+        "---\nname: review\ndescription: Codex-off draft\ncodex: false\n---\n\nDraft body.\n",
+    });
+
+    expect((await loadBuildGraph(root)).outputRoots).toContain(".agents/skills");
+    await buildSkillsetResult(root);
+    expect(await Bun.file(join(root, ".agents/skills/review/SKILL.md")).exists()).toBe(true);
   });
 });
 
