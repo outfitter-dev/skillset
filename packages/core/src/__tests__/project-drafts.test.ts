@@ -11,6 +11,8 @@ import {
 } from "@skillset/core/internal/authoring";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 
+import { assertDistinctSkillCopyNames } from "../project-use";
+
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 async function fixture(files: Record<string, string>): Promise<string> {
@@ -594,6 +596,83 @@ plugins:
       expect(diagnostic).toContain(source);
     }
     expect(diagnostic).toContain("emitted as alpha-alpha-draft-shared-2");
+  });
+});
+
+describe("SET-659 rendered skill copy allocation", () => {
+  it("renames a workspace draft whose derived name a live workspace skill holds", async () => {
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: workspace-draft-collision\nclaude: true\ncodex: false\ncursor: false\n",
+      ".skillset/skills/draft-demo/SKILL.md": skill("draft-demo", "Live skill named like a draft"),
+      ".skillset/skills/_drafts/demo/SKILL.md": skill("demo", "Workspace draft"),
+    });
+
+    const result = await buildSkillsetResult(root);
+    const live = parseMarkdown(
+      await readFile(join(root, ".claude/skills/draft-demo/SKILL.md"), "utf8"),
+      "live"
+    );
+    expect(live.frontmatter.description).toBe("Live skill named like a draft");
+    const draft = parseMarkdown(
+      await readFile(join(root, ".claude/skills/draft-demo-2/SKILL.md"), "utf8"),
+      "draft"
+    );
+    expect(draft.frontmatter.name).toBe("draft-demo-2");
+    expect(draft.frontmatter.description).toBe("[SKILLSET DRAFT] Workspace draft");
+    expect(JSON.stringify(result.renderResults)).toContain("emitted as draft-demo-2");
+  });
+
+  it("keeps derived draft names within the Agent Skills 64-character limit", async () => {
+    const id = `long-${"x".repeat(55)}`;
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: long-draft-name\nclaude: false\ncodex: true\ncursor: false\n",
+      [`.skillset/skills/_drafts/${id}/SKILL.md`]: skill(id, "Long draft"),
+    });
+
+    await buildSkillsetResult(root);
+    const names = (await readdir(join(root, ".agents/skills"), { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    expect(names).toEqual([`draft-${id}`.slice(0, 64)]);
+    const draft = parseMarkdown(
+      await readFile(join(root, ".agents/skills", names[0] ?? "", "SKILL.md"), "utf8"),
+      "draft"
+    );
+    expect(draft.frontmatter.name).toBe(names[0]);
+  });
+
+  it("keeps collision-renamed project-use copies within the name limit", async () => {
+    const id = `long-${"y".repeat(55)}`;
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: long-copy-name\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      [`.skillset/skills/${id}/SKILL.md`]: skill(id, "Workspace skill"),
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      [`.skillset/plugins/demo/skills/${id}/SKILL.md`]: skill(id, "Plugin skill"),
+    });
+
+    await buildSkillsetResult(root);
+    const renamed = `demo-${id}`.slice(0, 64);
+    const copy = parseMarkdown(
+      await readFile(join(root, ".agents/skills", renamed, "SKILL.md"), "utf8"),
+      "copy"
+    );
+    expect(copy.frontmatter.name).toBe(renamed);
+  });
+
+  it("fails when two rendered copies claim one project skill directory", () => {
+    expect(() =>
+      assertDistinctSkillCopyNames(["draft-demo"], [
+        { effectiveName: "draft-demo", sourceUnit: "skill:demo" },
+      ])
+    ).toThrow(
+      "rendered skill copies workspace:draft-demo and skill:demo both claim project skill directory draft-demo"
+    );
+    expect(() =>
+      assertDistinctSkillCopyNames([], [
+        { effectiveName: "review", sourceUnit: "plugin.a.skill:review" },
+        { effectiveName: "review", sourceUnit: "plugin.b.skill:review" },
+      ])
+    ).toThrow("plugin.a.skill:review and plugin.b.skill:review both claim");
   });
 });
 

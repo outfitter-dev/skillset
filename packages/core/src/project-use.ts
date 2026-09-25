@@ -24,12 +24,53 @@ export interface ProjectUseSkillCopy {
 }
 
 export interface WorkspaceDraftSkillCopy {
+  readonly collisionSources: readonly string[];
   readonly draftOrigin: NonNullable<SourceSkill["draftOrigin"]>;
   readonly effectiveName: string;
   readonly selectionRule: string;
   readonly shippedSibling?: string;
   readonly skill: SourceSkill;
   readonly sourceUnit: string;
+}
+
+export type RenderedSkillCopy = ProjectUseSkillCopy | WorkspaceDraftSkillCopy;
+
+/** Agent Skills names (and so project skill directories) hold 1-64 characters. */
+const SKILL_NAME_LIMIT = 64;
+
+/**
+ * Every project skill copy the render writes, with names allocated once.
+ * Copies share the provider skill roots with live workspace skills, so a
+ * repeated name here is a repeated output path.
+ */
+export function resolveRenderedSkillCopies(
+  graph: BuildGraph
+): readonly RenderedSkillCopy[] {
+  const copies = [
+    ...resolveWorkspaceDraftSkillCopies(graph),
+    ...resolveProjectUseSkillCopies(graph),
+  ];
+  assertDistinctSkillCopyNames(
+    graph.standaloneSkills.map((skill) => skill.id),
+    copies
+  );
+  return copies;
+}
+
+export function assertDistinctSkillCopyNames(
+  workspaceNames: readonly string[],
+  copies: readonly Pick<RenderedSkillCopy, "effectiveName" | "sourceUnit">[]
+): void {
+  const claims = new Map(workspaceNames.map((name) => [name, `workspace:${name}`]));
+  for (const copy of copies) {
+    const prior = claims.get(copy.effectiveName);
+    if (prior !== undefined) {
+      throw new Error(
+        `skillset: rendered skill copies ${prior} and ${copy.sourceUnit} both claim project skill directory ${copy.effectiveName}`
+      );
+    }
+    claims.set(copy.effectiveName, copy.sourceUnit);
+  }
 }
 
 export interface ProjectUseStatusEntry {
@@ -138,7 +179,7 @@ export function resolveProjectUseSkillCopies(
         collisionSources.length > 1 ? collisionSources : []
       ),
       preferredName: collisionSources.length > 1
-        ? `${candidate.plugin.id}-${desiredName}`
+        ? fitSkillName(`${candidate.plugin.id}-${desiredName}`)
         : desiredName,
     };
   });
@@ -183,14 +224,14 @@ export function resolveProjectUseSkillCopies(
       effectiveNames.set(candidate, candidate.preferredName);
       continue;
     }
-    const baseName = `${candidate.plugin.id}-${candidate.preferredName}`;
+    const baseName = fitSkillName(`${candidate.plugin.id}-${candidate.preferredName}`);
     let effectiveName = baseName;
     let suffix = 2;
     while (usedSources.has(effectiveName)) {
       for (const source of usedSources.get(effectiveName) ?? []) {
         candidate.collisionSources.add(source);
       }
-      effectiveName = `${baseName}-${suffix}`;
+      effectiveName = suffixedSkillName(baseName, suffix);
       suffix += 1;
     }
     usedSources.set(effectiveName, [candidate.collisionIdentity]);
@@ -235,25 +276,59 @@ export function resolveWorkspaceDraftSkillCopies(
   const inventory = (graph.discoveredSkills ?? graph.standaloneSkills).filter(
     (skill) => !pluginPaths.has(skill.sourcePath)
   );
-  return inventory
+  const drafts = inventory
     .filter(
       (skill): skill is SourceSkill & {
         readonly draftOrigin: NonNullable<SourceSkill["draftOrigin"]>;
       } => skill.status === "draft" && skill.draftOrigin !== undefined
     )
-    .map((skill) => ({
+    .sort((left, right) => compareStrings(left.sourcePath, right.sourcePath));
+  // Live workspace skills keep their names; a draft whose derived name is
+  // taken gets the next free numeric suffix.
+  const used = new Map(
+    graph.standaloneSkills.map((skill) => [skill.id, `workspace:${skill.id}`])
+  );
+  return drafts.map((skill) => {
+    const sourceUnit = `skill:${skill.id}`;
+    const baseName = draftEffectiveName(skill.id);
+    const collisionSources = new Set<string>();
+    let effectiveName = baseName;
+    let suffix = 2;
+    while (used.has(effectiveName)) {
+      collisionSources.add(used.get(effectiveName) ?? effectiveName);
+      effectiveName = suffixedSkillName(baseName, suffix);
+      suffix += 1;
+    }
+    if (collisionSources.size > 0) collisionSources.add(`${sourceUnit}#draft`);
+    used.set(effectiveName, `${sourceUnit}#draft`);
+    return {
+      collisionSources: [...collisionSources].sort(compareStrings),
       draftOrigin: skill.draftOrigin,
-      effectiveName: draftEffectiveName(skill.id),
+      effectiveName,
       selectionRule: "workspace drafts: side-by-side",
       ...shippedSiblingFor(inventory, skill),
       skill,
-      sourceUnit: `skill:${skill.id}`,
-    }))
-    .sort((left, right) => compareStrings(left.skill.sourcePath, right.skill.sourcePath));
+      sourceUnit,
+    };
+  });
 }
 
 export function draftEffectiveName(leaf: string): string {
-  return `draft-${leaf}`;
+  return fitSkillName(`draft-${leaf}`);
+}
+
+/** Truncate to the name budget, leaving `reserve` characters for a suffix. */
+function fitSkillName(name: string, reserve = 0): string {
+  const characters = [...name];
+  const limit = SKILL_NAME_LIMIT - reserve;
+  return characters.length <= limit
+    ? name
+    : characters.slice(0, limit).join("").replace(/-+$/u, "");
+}
+
+function suffixedSkillName(baseName: string, suffix: number): string {
+  const tail = `-${suffix}`;
+  return `${fitSkillName(baseName, tail.length)}${tail}`;
 }
 
 function shippedSiblingFor(
