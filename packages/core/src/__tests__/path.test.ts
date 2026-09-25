@@ -60,6 +60,19 @@ describe("isPathInside", () => {
     expect(isRelativePathInside("D:\\x", { path: win32 })).toBe(false);
   });
 
+  test("compares win32 drives and paths case-insensitively", () => {
+    expect(isPathInside("C:\\Repo", "c:\\repo\\x", { path: win32 })).toBe(true);
+  });
+
+  test("keeps UNC paths inside their own share", () => {
+    expect(
+      isPathInside("\\\\srv\\share\\repo", "\\\\srv\\share\\repo\\x", { path: win32 })
+    ).toBe(true);
+    expect(
+      isPathInside("\\\\srv\\share\\repo", "\\\\srv\\other\\repo\\x", { path: win32 })
+    ).toBe(false);
+  });
+
   test("rejects POSIX parent prefixes even when the path API is win32", () => {
     expect(isRelativePathInside("../x", { path: win32 })).toBe(false);
     expect(isRelativePathInside("..", { path: win32 })).toBe(false);
@@ -67,7 +80,7 @@ describe("isPathInside", () => {
   });
 });
 
-describe("plugin-adoption and setup win32 realpaths", () => {
+describe("win32 realpath shapes", () => {
   test("accepts a descendant that a literal slash prefix would reject", () => {
     const realRoot = "C:\\Users\\matt\\repo";
     const realSource = "C:\\Users\\matt\\repo\\plugins\\demo";
