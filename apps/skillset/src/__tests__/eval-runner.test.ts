@@ -177,11 +177,14 @@ test("SET-387: provider infrastructure failures and cancellation stay distinct f
   // A wall-clock timer cannot guarantee a trial has started: under CPU
   // oversubscription the abort landed first, no trial was recorded, and this
   // test failed reproducibly under `bun test --parallel`.
-  const started = join(root, "trial-started");
+  // Shell-significant characters in the marker path must reach the provider
+  // verbatim; interpolating the path into the script would reinterpret them.
+  const started = join(root, 'trial "started" $HOME `x` marker');
   const running = runSkillsetEvals(root, {
     env: {
       ...process.env,
-      SKILLSET_TEST_CODEX_BIN: await sleepingCodexBin(root, started),
+      SKILLSET_TEST_CODEX_BIN: await sleepingCodexBin(root),
+      SKILLSET_TEST_STARTED_MARKER: started,
     },
     signal: controller.signal,
     xdg,
@@ -380,18 +383,19 @@ async function capturingCodexBin(root: string): Promise<string> {
 /**
  * A stand-in provider that announces itself before sleeping.
  *
- * `startedMarker` is created the moment the provider runs, which lets a test
- * observe that a trial is actually in flight instead of guessing with a timer.
+ * It creates `$SKILLSET_TEST_STARTED_MARKER` the moment it runs, which lets a
+ * test observe that a trial is actually in flight instead of guessing with a
+ * timer. The path arrives through the environment, never interpolated into the
+ * script, so shell-significant characters in it stay literal.
  */
-async function sleepingCodexBin(
-  root: string,
-  startedMarker?: string
-): Promise<string> {
-  const announce =
-    startedMarker === undefined ? "" : `: > "${startedMarker}"\n`;
+async function sleepingCodexBin(root: string): Promise<string> {
   // Sleep well beyond the marker poll so the abort cannot arrive after the
   // trial has already finished on a fast, idle host.
-  return executable(root, "sleeping-codex", `#!/bin/sh\n${announce}sleep 10\n`);
+  return executable(
+    root,
+    "sleeping-codex",
+    "#!/bin/sh\n: > \"$SKILLSET_TEST_STARTED_MARKER\"\nsleep 10\n"
+  );
 }
 
 async function interleavedCodexBin(root: string): Promise<string> {
