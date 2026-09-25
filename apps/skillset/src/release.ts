@@ -190,6 +190,7 @@ export async function applyRelease(
     const absolutePath = resolveInside(rootPath, entry.path);
     await prepareRepositoryMutationPath(rootPath, absolutePath, {
       createParents: false,
+      replacesLeaf: true,
     });
     await rm(absolutePath, { force: true });
     files.add(entry.path);
@@ -520,6 +521,7 @@ async function restoreSnapshots(rootPath: string, snapshots: readonly FileSnapsh
     if (snapshot.content === undefined) {
       await prepareRepositoryMutationPath(rootPath, absolutePath, {
         createParents: false,
+        replacesLeaf: true,
       });
       await rm(absolutePath, { force: true });
       continue;

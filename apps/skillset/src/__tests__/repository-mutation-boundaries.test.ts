@@ -158,6 +158,34 @@ describe("SET-637 repository mutation boundaries", () => {
     });
   });
 
+  test("change add refuses a symlinked ledger leaf before appending outside", async () => {
+    await withBoundary(async (root, outside) => {
+      await initWorkspace(root);
+      await scaffoldSourceUnit(root, { kind: "skill", name: "demo", write: true });
+      await commitWorkspace(root);
+      const ledger = join(root, ".skillset/changes/ledger.jsonl");
+      const redirected = join(outside, "ledger.jsonl");
+      await writeFile(redirected, await readFile(ledger).catch(() => ""));
+      const before = await readFile(redirected, "utf8");
+      await rm(ledger, { force: true });
+      await symlink(redirected, ledger);
+      await expect(
+        addChangeEntry(root, {
+          bump: "patch",
+          reason: {
+            kind: "inline",
+            value: "Document a source change whose ledger must stay inside the workspace.",
+          },
+          scopes: ["skill:demo"],
+        })
+      ).rejects.toThrow(
+        "refusing to write through symbolic link: .skillset/changes/ledger.jsonl"
+      );
+      expect(await readFile(redirected, "utf8")).toBe(before);
+      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
+    });
+  });
+
   test("release restore refuses a swapped changes parent and keeps the outside sentinel", async () => {
     await withBoundary(async (root, outside) => {
       await initWorkspace(root);
