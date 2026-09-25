@@ -2,6 +2,7 @@ import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { publishAtomicFile } from "@skillset/core/internal/atomic-file-publication";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
@@ -41,8 +42,10 @@ import { isJsonRecord } from "@skillset/core/internal/yaml";
 
 import {
   makeRetainedRunId,
+  publishRetainedJson,
   retainedRunPaths,
   writeRetainedRunLatest,
+  type AtomicFilePublicationTestHooks,
   type RetainedRunPaths,
 } from "./retained-runs";
 import {
@@ -270,13 +273,18 @@ async function runLoadedSkillsetTest(
       workspacePath: logicalWorkspacePath,
     };
 
-    await writeFile(
+    await writeDeterministicTestReport(
       reportPath,
-      renderValidatedJson(report, join(logicalRunPath, "report.json")),
-      "utf8"
+      join(logicalRunPath, "report.json"),
+      reportMarkdownPath,
+      report
     );
-    await writeFile(reportMarkdownPath, renderMarkdownReport(report), "utf8");
-    await refreshLatest(paths, latestPath, logicalLatestPath, report);
+    await refreshDeterministicTestLatest(
+      paths,
+      latestPath,
+      logicalLatestPath,
+      report
+    );
 
     return {
       ...(logicalActivationPath === undefined
@@ -543,18 +551,35 @@ function renderActivationProbeMarkdown(record: JsonRecord): string {
   ].join("\n");
 }
 
-async function refreshLatest(
+export async function writeDeterministicTestReport(
+  reportPath: string,
+  logicalReportPath: string,
+  reportMarkdownPath: string,
+  report: JsonRecord,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<void> {
+  await publishRetainedJson(reportPath, logicalReportPath, report, testHooks);
+  await publishAtomicFile(reportMarkdownPath, renderMarkdownReport(report));
+}
+
+export interface DeterministicTestLatestRefreshTestHooks {
+  readonly afterLatestRemoved?: () => Promise<void> | void;
+}
+
+export async function refreshDeterministicTestLatest(
   paths: RetainedRunPaths,
   latestPath: string,
   logicalLatestPath: string,
-  report: JsonRecord
+  report: JsonRecord,
+  testHooks: DeterministicTestLatestRefreshTestHooks = {}
 ): Promise<void> {
   await rm(latestPath, { force: true, recursive: true });
+  await testHooks.afterLatestRemoved?.();
   await cp(paths.absolute.runPath, latestPath, { recursive: true });
   const latest = {
     name: report.name,
     ok: report.ok,
-    reportPath: join(logicalLatestPath, "report.json").replaceAll("\\", "/"),
+    reportPath: join(paths.logical.runPath, "report.json").replaceAll("\\", "/"),
     runId: report.runId,
     runPath: paths.logical.runPath,
     schemaVersion: TEST_SCHEMA,

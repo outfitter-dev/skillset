@@ -18,11 +18,13 @@ import { compareStrings } from "@skillset/core/internal/path";
 import {
   appendRetainedRunEvent,
   makeRetainedRunId,
+  publishRetainedJson,
   readRetainedRunLatest,
   resolveRetainedRunPath,
   retainedRunRootPaths,
   retainedRunPaths,
   writeRetainedRunLatest,
+  type AtomicFilePublicationTestHooks,
   type RetainedRunPaths,
 } from "./retained-runs";
 import { isTargetName } from "@skillset/core/internal/config";
@@ -192,6 +194,9 @@ export async function startAdHocTestRun(
     target: options.target,
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   };
+  // Write-once setup: execute/list do not treat a run as launched until this
+  // write finishes and status.json exists. Incomplete directories without a
+  // readable status are ignored, so config.json stays out of atomic publication.
   await writeFile(
     join(paths.absolute.runPath, "config.json"),
     renderValidatedJson(config as unknown as JsonRecord, join(paths.logical.runPath, "config.json")),
@@ -324,7 +329,7 @@ export async function executeAdHocTestRun(
     timedOut: result.timedOut,
     ...(failureClass === undefined ? {} : { failureClass }),
   };
-  await writeFile(paths.absolute.reportPath, renderValidatedJson(report, paths.logical.reportPath), "utf8");
+  await writeAdHocReportAt(paths, report);
   const nextState: AdHocTestState = report.ok === true ? "passed" : "failed";
   await writeStatus(paths, {
     ...status,
@@ -619,7 +624,7 @@ async function failRun(
     state: "failed",
     target: status.target,
   };
-  await writeFile(paths.absolute.reportPath, renderValidatedJson(report, paths.logical.reportPath), "utf8");
+  await writeAdHocReportAt(paths, report);
   await writeStatus(paths, {
     ...status,
     endedAt,
@@ -653,9 +658,30 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
+export async function writeAdHocStatus(
+  absolutePath: string,
+  logicalPath: string,
+  status: AdHocTestStatus,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<void> {
+  await publishRetainedJson(absolutePath, logicalPath, status as unknown as JsonRecord, testHooks);
+}
+
+export async function writeAdHocReport(
+  absolutePath: string,
+  logicalPath: string,
+  report: JsonRecord,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<void> {
+  await publishRetainedJson(absolutePath, logicalPath, report, testHooks);
+}
+
 async function writeStatus(paths: AdHocTestRunPaths, status: AdHocTestStatus): Promise<void> {
-  await mkdir(paths.absolute.runPath, { recursive: true });
-  await writeFile(paths.absolute.statusPath, renderValidatedJson(status as unknown as JsonRecord, paths.logical.statusPath), "utf8");
+  await writeAdHocStatus(paths.absolute.statusPath, paths.logical.statusPath, status);
+}
+
+async function writeAdHocReportAt(paths: AdHocTestRunPaths, report: JsonRecord): Promise<void> {
+  await writeAdHocReport(paths.absolute.reportPath, paths.logical.reportPath, report);
 }
 
 async function writeLatest(paths: AdHocTestRunPaths, runId: string): Promise<void> {

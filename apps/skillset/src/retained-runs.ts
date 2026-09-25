@@ -1,13 +1,19 @@
 import { createHash, randomBytes } from "node:crypto";
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
+import {
+  type AtomicFilePublicationTestHooks,
+  publishAtomicFile,
+} from "@skillset/core/internal/atomic-file-publication";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions } from "@skillset/core/internal/types";
 
 import { createCliEvent, renderCliEvent } from "./cli-output";
+
+export type { AtomicFilePublicationTestHooks };
 
 export interface RetainedRunIdOptions {
   readonly fallbackName?: string;
@@ -128,12 +134,31 @@ export function resolveRetainedRunPath(
   return resolveOperationalPath(context, logicalPath);
 }
 
+/**
+ * Publish one retained-run JSON document through Core's same-directory
+ * temp-plus-rename writer. Readers observe the complete previous document or
+ * a complete replacement, never staged partial bytes.
+ */
+export async function publishRetainedJson(
+  absolutePath: string,
+  logicalPath: string,
+  record: JsonRecord,
+  testHooks: AtomicFilePublicationTestHooks = {}
+): Promise<void> {
+  await publishAtomicFile(absolutePath, renderValidatedJson(record, logicalPath), { testHooks });
+}
+
 export async function writeRetainedRunLatest(
   paths: RetainedRunRootPaths,
-  record: JsonRecord
+  record: JsonRecord,
+  testHooks: AtomicFilePublicationTestHooks = {}
 ): Promise<void> {
-  await mkdir(paths.absolute.rootPath, { recursive: true });
-  await writeFile(paths.absolute.latestJsonPath, renderValidatedJson(record, paths.logical.latestJsonPath), "utf8");
+  await publishRetainedJson(
+    paths.absolute.latestJsonPath,
+    paths.logical.latestJsonPath,
+    record,
+    testHooks
+  );
 }
 
 /** Serializes JSONL appends so concurrent provider streams retain one event order. */

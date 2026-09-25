@@ -2,14 +2,23 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import {
   readSkillsetEvalStatus,
   runSkillsetEvals,
   tailSkillsetEvalRun,
+  writeEvalReport,
+  writeEvalStatus,
+  type SkillsetEvalRunStatus,
 } from "../eval-runner";
+import {
+  deferred,
+  publicationArtifacts,
+  publicationFailureHooks,
+  seedPublishedFile,
+} from "./publication-test-helpers";
 
 test("SET-387: eval run resolves standalone and flattened grouped plugin skills before runtime probes", async () => {
   const root = await fixture({
@@ -110,6 +119,18 @@ test("SET-387: eval run resolves standalone and flattened grouped plugin skills 
   expect(retainedReport).toContain("deliberately ungraded expectation");
   expect(JSON.parse(retainedReport)).not.toHaveProperty("ok");
   expect(JSON.parse(retainedReport)).not.toHaveProperty("proofReceipts");
+  expect(
+    JSON.parse(
+      await readFile(
+        cachePath(root, xdg, ".skillset/cache/evals/latest.json"),
+        "utf8"
+      )
+    )
+  ).toMatchObject({
+    reportPath: report.reportPath,
+    runId: report.runId,
+    statusPath: report.statusPath,
+  });
 });
 
 test("SET-387: nested trial artifacts keep hyphen-colliding plugin owners distinct", async () => {
@@ -421,4 +442,92 @@ async function executable(root: string, name: string, content: string): Promise<
 
 function cachePath(root: string, xdg: { readonly env: { readonly XDG_CACHE_HOME: string } }, logicalPath: string): string {
   return resolveOperationalPath(createOperationalPathContext(root, { env: xdg.env }), logicalPath);
+}
+
+describe("eval status and report publication", () => {
+  test("keeps the prior status.json readable until a flushed replacement is published", async () => {
+    const path = join(await createTestFixtureRoot("skillset-eval-status-"), "status.json");
+    await writeEvalStatus(path, ".skillset/cache/evals/runs/prior/status.json", evalStatus("building"));
+    const before = await readFile(path);
+    const beforePublish = deferred<void>();
+    const release = deferred<void>();
+
+    const published = writeEvalStatus(path, ".skillset/cache/evals/runs/prior/status.json", evalStatus("running"), {
+      beforePublish: async () => {
+        beforePublish.resolve();
+        await release.promise;
+      },
+    });
+    await beforePublish.promise;
+    expect(await readFile(path)).toEqual(before);
+    release.resolve();
+    await published;
+    expect(JSON.parse(await readFile(path, "utf8"))).toMatchObject({ state: "running" });
+    expect(await publicationArtifacts(path)).toEqual([]);
+  });
+
+  test("leaves the previous status byte-identical when write, flush, close, or pre-rename fails", async () => {
+    const path = join(await createTestFixtureRoot("skillset-eval-status-keep-"), "status.json");
+    await writeEvalStatus(path, ".skillset/cache/evals/runs/prior/status.json", evalStatus("building"));
+    const before = await readFile(path);
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeEvalStatus(
+        path,
+        ".skillset/cache/evals/runs/prior/status.json",
+        evalStatus("failed"),
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await readFile(path)).toEqual(before);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+
+  test("leaves no published report.json when the first completion marker write fails", async () => {
+    const path = join(await createTestFixtureRoot("skillset-eval-report-first-"), "report.json");
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeEvalReport(
+        path,
+        ".skillset/cache/evals/runs/lost/report.json",
+        { kind: "eval", schemaVersion: 1, state: "failed" },
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await Bun.file(path).exists()).toBe(false);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+
+  test("leaves the previous report byte-identical when a replacement fails", async () => {
+    const path = join(await createTestFixtureRoot("skillset-eval-report-keep-"), "report.json");
+    await seedPublishedFile(path, `${JSON.stringify({ kind: "eval", schemaVersion: 1, state: "completed" })}\n`);
+    const before = await readFile(path);
+
+    for (const [hook, message] of publicationFailureHooks()) {
+      await expect(writeEvalReport(
+        path,
+        ".skillset/cache/evals/runs/prior/report.json",
+        { kind: "eval", schemaVersion: 1, state: "failed" },
+        { [hook]: () => { throw new Error(message); } }
+      )).rejects.toThrow(message);
+      expect(await readFile(path)).toEqual(before);
+      expect(await publicationArtifacts(path)).toEqual([]);
+    }
+  });
+});
+
+function evalStatus(state: SkillsetEvalRunStatus["state"]): SkillsetEvalRunStatus {
+  return {
+    kind: "eval",
+    latestRoot: ".skillset/cache/evals/latest",
+    reportPath: ".skillset/cache/evals/runs/prior/report.json",
+    runId: "prior",
+    runPath: ".skillset/cache/evals/runs/prior",
+    schemaVersion: 1,
+    startedAt: "2026-09-22T00:00:00.000Z",
+    state,
+    tailPath: ".skillset/cache/evals/runs/prior/output.jsonl",
+    updatedAt: "2026-09-22T00:00:00.000Z",
+    workspacePath: ".skillset/cache/evals/runs/prior/workspace",
+  };
 }
