@@ -2,6 +2,8 @@ import { readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 
+import { DISTRIBUTION_SOURCE_SELECTOR_PATTERN } from "@skillset/schema";
+
 import { classifyDestinationOwnership, type DestinationOwnershipClassification } from "./destination-ownership";
 import { compareStrings } from "./path";
 import {
@@ -168,6 +170,9 @@ function selectDistributionFiles(
   }
 
   const selector = config.from.selector;
+  if (!new RegExp(DISTRIBUTION_SOURCE_SELECTOR_PATTERN, "u").test(selector)) {
+    throw new Error(`skillset: distribution from.selector ${JSON.stringify(selector)} must be plugins, plugin:<id>, or skill:<id> with a lowercase id`);
+  }
   const destinationPrefix = normalizeRelativePath(config.to.subdirectory ?? "", "distribution subdirectory");
   if (selector === "plugins") {
     return {
@@ -208,7 +213,7 @@ function selectDistributionFiles(
     };
   }
 
-  throw new Error("skillset: distribution from.selector must be plugins, plugin:<id>, or skill:<id>");
+  throw new Error(`skillset: distribution from.selector ${selector} has no resolver`);
 }
 
 function destinationPlan(config: DistributionConfig): DistributionDestinationPlan {
@@ -308,11 +313,7 @@ function assertStandaloneSkillExists(skills: readonly StandaloneSkill[], id: str
 function parsePrefixedSelector(selector: string, prefix: "plugin" | "skill"): string | undefined {
   const expected = `${prefix}:`;
   if (!selector.startsWith(expected)) return undefined;
-  const value = selector.slice(expected.length);
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(value)) {
-    throw new Error(`skillset: expected distribution selector ${selector} to use a lowercase ${prefix} id`);
-  }
-  return value;
+  return selector.slice(expected.length);
 }
 
 function stripRequiredPrefix(path: string, prefix: string): string {

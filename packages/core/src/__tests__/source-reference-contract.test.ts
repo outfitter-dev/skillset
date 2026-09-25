@@ -5,6 +5,7 @@ import { skillsetSourceReferenceDescriptors } from "@skillset/schema";
 import {
   assertRewrittenSourceReference,
   assertSourceReferenceContract,
+  sourceReferenceAcceptsSelector,
   sourceReferenceHandler,
 } from "../source-reference-contract";
 
@@ -27,5 +28,15 @@ describe("schema-owned source reference contract", () => {
     expect(() =>
       assertRewrittenSourceReference("skill-resource-destination")
     ).toThrow("must use rewrite policy");
+  });
+
+  test("checks rewritten selectors against the schema pattern for each contract", () => {
+    expect(sourceReferenceAcceptsSelector("configured-draft-selector", "workspace-config", "plugin.tools.skill:demo")).toBe(true);
+    expect(sourceReferenceAcceptsSelector("configured-draft-selector", "plugin-config", "plugin.tools.skill:demo")).toBe(false);
+    expect(sourceReferenceAcceptsSelector("distribution-source-selector", "workspace-config", "skill:demo")).toBe(true);
+    expect(sourceReferenceAcceptsSelector("distribution-source-selector", "workspace-config", "plugin.tools.skill:demo")).toBe(false);
+    expect(() =>
+      sourceReferenceAcceptsSelector("pending-change-scope", "change-entry", "skill:demo")
+    ).toThrow("declares no selector pattern for change-entry");
   });
 });

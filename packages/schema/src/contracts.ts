@@ -64,6 +64,8 @@ export const ROOT_DRAFT_SELECTOR_PATTERN =
   "^(?:skill:[a-z0-9][a-z0-9._-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.skill:[a-z0-9][a-z0-9._-]*)$";
 export const PLUGIN_DRAFT_SELECTOR_PATTERN =
   "^skill:[a-z0-9][a-z0-9._-]*$";
+export const DISTRIBUTION_SOURCE_SELECTOR_PATTERN =
+  "^(?:plugins|(?:plugin|skill):[a-z0-9][a-z0-9-]*)$";
 export const CODEX_MARKETPLACE_SOURCE_KINDS = [
   "git-subdir",
   "local",
