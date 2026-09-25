@@ -312,7 +312,7 @@ export async function pinnedBunRootState(
   const binDir = join(root, "bin");
   const binPath = join(binDir, executableName);
   if (!(await isExecutable(binPath))) return "invalid";
-  if ((await lstat(binPath)).isSymbolicLink()) return "invalid";
+  if (!(await isOwnedEntry(binPath))) return "invalid";
   if (
     !(await isPinnedBunx(
       binDir,
@@ -327,6 +327,16 @@ export async function pinnedBunRootState(
   if (probe.kind === "unavailable") return "unknown";
   if (probe.kind === "unusable") return "invalid";
   return probe.version === version ? "valid" : "invalid";
+}
+
+/**
+ * Whether `path` exists and is not a symlink. A path that vanished between
+ * checks — a concurrent contender quarantined the root — reads as not owned,
+ * so the caller reports `invalid` instead of throwing mid-publication.
+ */
+async function isOwnedEntry(path: string): Promise<boolean> {
+  const info = await lstat(path).catch(() => undefined);
+  return info !== undefined && !info.isSymbolicLink();
 }
 
 async function isPinnedBunRoot(
