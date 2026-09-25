@@ -2,7 +2,9 @@
 # it has been reliably green; the monthly Native workflow stays the full canary.
 # Only test files known or reasoned to pass on Windows are listed. POSIX-only
 # suites (bootstrap.test.ts shell fixtures, runtime-hooks.test.ts extensionless
-# fake commands) stay out until they are made Windows-aware.
+# fake commands) stay out until they are made Windows-aware. The list grows
+# with the Windows fixes: #554 adds packages/core/src/__tests__/path.test.ts
+# (path containment) and #550 adds its Windows-runnable runtime-hooks coverage.
 name: Windows scripts
 
 on:
