@@ -209,7 +209,7 @@ describe("source move foundations", () => {
       fromSelector: "plugin.tools.skill:demo",
       internalUsePluginId: "tools",
       leaf: "demo",
-      rootDocument: true,
+      rootContract: "workspace-config",
       sourcePluginDocument: false,
       toSelector: "skill:demo",
     });

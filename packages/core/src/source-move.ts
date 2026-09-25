@@ -2,7 +2,7 @@
 /* eslint-disable unicorn/import-style -- Named path helpers keep source-plan construction concise. */
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { readChangeLedger } from "./change-ledger";
@@ -12,7 +12,10 @@ import {
   classifySkillCollectionMove,
   movedDraftDestination,
 } from "./source-move-paths";
-import { rewriteSourceMoveConfig } from "./source-move-rewrite";
+import {
+  rewritePendingChangeScopes,
+  rewriteSourceMoveConfig,
+} from "./source-move-rewrite";
 import { SourceMovePlanError } from "./source-move-types";
 import type {
   SourceMoveApplyRequest,
@@ -50,7 +53,7 @@ import type {
 } from "./source-rename-types";
 import { SourceRenamePlanError } from "./source-rename-types";
 import { sourceUnitSelector } from "./source-unit-selector";
-import { workspaceChangeFile } from "./workspace-state";
+import { workspaceChangeFile, workspaceChangesDir } from "./workspace-state";
 
 export { SourceMovePlanError } from "./source-move-types";
 export type {
@@ -179,9 +182,11 @@ async function planAuthoredSourceMove(
             : { internalUsePluginId: classification.fromPlugin.id }),
           leaf: classification.skill.id,
           movePluginDraftToWorkspace: pluginDraftDeclared,
-          rootDocument:
-            documentPath === graph.rootConfigPath ||
-            documentPath === graph.rootManifestPath,
+          ...(documentPath === graph.rootConfigPath
+            ? { rootContract: "workspace-config" as const }
+            : documentPath === graph.rootManifestPath
+              ? { rootContract: "root-source-manifest" as const }
+              : {}),
           sourcePluginDocument:
             documentPath === classification.fromPlugin?.configPath,
           toSelector,
@@ -194,6 +199,28 @@ async function planAuthoredSourceMove(
       }
       if (rewritten.content !== source) {
         updates.set(renamedPath(documentPath), rewritten.content);
+      }
+    }
+
+    for (const documentPath of await pendingChangeDocuments(
+      rootPath,
+      graph.sourceDir
+    )) {
+      const source =
+        updates.get(documentPath) ?? (await readFile(documentPath, "utf8"));
+      let rewritten: string;
+      try {
+        rewritten = rewritePendingChangeScopes(source, documentPath, {
+          fromSelector,
+          toSelector,
+        });
+      } catch (error) {
+        throw new SourceMovePlanError(
+          `cannot rewrite pending change entry ${display(rootPath, documentPath)}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+      if (rewritten !== source) {
+        updates.set(documentPath, rewritten);
       }
     }
 
@@ -291,6 +318,27 @@ function finalizePlan(
       )
       .digest("hex"),
   };
+}
+
+/** Pending change entries are mutable authored source; JSONL streams are not. */
+async function pendingChangeDocuments(
+  rootPath: string,
+  sourceDir: string
+): Promise<readonly string[]> {
+  const changesPath = join(rootPath, workspaceChangesDir(sourceDir));
+  if (!(await pathExists(changesPath))) {
+    return [];
+  }
+  const entries = await readdir(changesPath, { withFileTypes: true });
+  return entries
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.endsWith(".md") &&
+        !entry.name.startsWith(".")
+    )
+    .map((entry) => join(changesPath, entry.name))
+    .toSorted(compareStrings);
 }
 
 async function sourceMoveLedgerUpdate(

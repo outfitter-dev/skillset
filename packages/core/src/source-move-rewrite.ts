@@ -1,18 +1,28 @@
 /* eslint-disable func-style, no-loop-func, no-use-before-define -- Small structural rewrite helpers mirror the authored config grammar. */
 /* eslint-disable typescript/no-dynamic-delete -- Config keys are authored plugin ids and selector groups. */
 
-import { updateYamlSourceDocument } from "./source-document";
-import { assertRewrittenSourceReference } from "./source-reference-contract";
+import type { SkillsetSourceReferenceDescriptorId } from "@skillset/schema";
+
+import {
+  updateMarkdownSourceDocument,
+  updateYamlSourceDocument,
+} from "./source-document";
+import { SourceMovePlanError } from "./source-move-types";
+import {
+  assertRewrittenSourceReference,
+  sourceReferenceAcceptsSelector,
+} from "./source-reference-contract";
 import { writableRecord } from "./source-rename-structured";
 import type { JsonRecord } from "./types";
-import { isJsonRecord } from "./yaml";
+import { isJsonRecord, parseMarkdown } from "./yaml";
 
 export interface SourceMoveConfigRewrite {
   readonly fromSelector: string;
   readonly internalUsePluginId?: string;
   readonly leaf: string;
   readonly movePluginDraftToWorkspace?: boolean;
-  readonly rootDocument: boolean;
+  /** The root config or manifest contract, when this document is one of them. */
+  readonly rootContract?: "root-source-manifest" | "workspace-config";
   readonly sourcePluginDocument: boolean;
   readonly toSelector: string;
 }
@@ -33,8 +43,8 @@ export function rewriteSourceMoveConfig(
   let removedInternalUse = false;
   const content = updateYamlSourceDocument(source, path, (current) => {
     let updated = current;
-    if (rewrite.rootDocument) {
-      updated = rewriteRootSelectors(updated, rewrite);
+    if (rewrite.rootContract !== undefined) {
+      updated = rewriteRootSelectors(updated, rewrite, rewrite.rootContract);
       const internalUse = removeInternalUseSelection(updated, rewrite);
       updated = internalUse.config;
       removedInternalUse = internalUse.removed;
@@ -49,12 +59,15 @@ export function rewriteSourceMoveConfig(
 
 function rewriteRootSelectors(
   config: JsonRecord,
-  rewrite: SourceMoveConfigRewrite
+  rewrite: SourceMoveConfigRewrite,
+  contract: "root-source-manifest" | "workspace-config"
 ): JsonRecord {
   const updated = writableRecord(config);
   if (Array.isArray(config.drafts)) {
     const drafts = config.drafts.map((item) =>
-      item === rewrite.fromSelector ? rewrite.toSelector : item
+      item === rewrite.fromSelector
+        ? acceptedSelector("configured-draft-selector", contract, "drafts", rewrite)
+        : item
     );
     if (
       rewrite.movePluginDraftToWorkspace &&
@@ -78,7 +91,15 @@ function rewriteRootSelectors(
           value.from.selector === rewrite.fromSelector
             ? {
                 ...value,
-                from: { ...value.from, selector: rewrite.toSelector },
+                from: {
+                  ...value.from,
+                  selector: acceptedSelector(
+                    "distribution-source-selector",
+                    contract,
+                    `distributions.${id}.from.selector`,
+                    rewrite
+                  ),
+                },
               }
             : value,
         ];
@@ -86,6 +107,60 @@ function rewriteRootSelectors(
     );
   }
   return updated;
+}
+
+/**
+ * Rewrites `Scope:`/`Scopes:` directives in a reason-only pending change entry,
+ * or `scope`/`scopes` frontmatter in a frontmatter entry.
+ */
+export function rewritePendingChangeScopes(
+  source: string,
+  path: string,
+  rewrite: Pick<SourceMoveConfigRewrite, "fromSelector" | "toSelector">
+): string {
+  assertRewrittenSourceReference("pending-change-scope");
+  const scope = (value: string): string =>
+    value === rewrite.fromSelector ? rewrite.toSelector : value;
+  // Classify like the pending-change reader: only non-empty frontmatter makes a frontmatter entry.
+  if (Object.keys(parseMarkdown(source, path).frontmatter).length === 0) {
+    return source.replaceAll(
+      /^(Scopes?:[ \t]*)(.*)$/gimu,
+      (line, key: string, value: string) => {
+        const items = value.split(",").map((item) => item.trim());
+        return items.includes(rewrite.fromSelector)
+          ? `${key}${items.map(scope).join(", ")}`
+          : line;
+      }
+    );
+  }
+  return updateMarkdownSourceDocument(source, path, (current) => {
+    const frontmatter = writableRecord(current.frontmatter);
+    for (const key of ["scope", "scopes"] as const) {
+      const value = frontmatter[key];
+      if (typeof value === "string") {
+        frontmatter[key] = scope(value);
+      } else if (Array.isArray(value)) {
+        frontmatter[key] = value.map((item) =>
+          typeof item === "string" ? scope(item) : item
+        );
+      }
+    }
+    return { body: current.body, frontmatter };
+  });
+}
+
+function acceptedSelector(
+  id: SkillsetSourceReferenceDescriptorId,
+  contract: "root-source-manifest" | "workspace-config",
+  field: string,
+  rewrite: Pick<SourceMoveConfigRewrite, "fromSelector" | "toSelector">
+): string {
+  if (!sourceReferenceAcceptsSelector(id, contract, rewrite.toSelector)) {
+    throw new SourceMovePlanError(
+      `cannot rewrite ${field} from ${rewrite.fromSelector} to ${rewrite.toSelector}; ${contract} does not accept that selector there. Update or remove that reference before moving`
+    );
+  }
+  return rewrite.toSelector;
 }
 
 function removePluginDraftDeclaration(
