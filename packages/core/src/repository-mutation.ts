@@ -10,7 +10,7 @@ import {
   sep,
 } from "node:path";
 
-import { isPathInside } from "./path";
+import { isPathInside, logicalDiagnosticPath } from "./path";
 
 /**
  * Repository mutation ancestry.
@@ -154,7 +154,7 @@ export async function prepareRepositoryMutationPath(
   let current = resolvedRoot;
   for (const segment of parentRelative.split(sep).filter((part) => part !== "" && part !== ".")) {
     current = join(current, segment);
-    const logicalPath = relative(resolvedRoot, current);
+    const logicalPath = logicalDiagnosticPath(resolvedRoot, current);
     try {
       await options.testHooks?.beforeInspectComponent?.(logicalPath, current);
     } catch (error) {
@@ -193,7 +193,7 @@ export async function prepareRepositoryMutationPath(
   }
 
   if (options.replacesLeaf !== true) {
-    const logicalPath = relative(resolvedRoot, absolutePath);
+    const logicalPath = logicalDiagnosticPath(resolvedRoot, absolutePath);
     const leaf = await inspectComponent(absolutePath, logicalPath);
     if (leaf?.isSymbolicLink() === true) {
       throw new RepositoryMutationError(
@@ -218,8 +218,9 @@ function repositoryRelativePath(
   if (isPathInside(resolvedRoot, absolute, { allowEqual: true })) {
     return relative(resolvedRoot, absolute);
   }
-  throw new RepositoryMutationError(`path escapes workspace root: ${path}`, {
-    logicalPath: path,
+  const logicalPath = logicalDiagnosticPath(unresolvedRoot, absolute);
+  throw new RepositoryMutationError(`path escapes workspace root: ${logicalPath}`, {
+    logicalPath,
   });
 }
 
