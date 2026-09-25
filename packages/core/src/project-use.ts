@@ -35,6 +35,9 @@ export interface WorkspaceDraftSkillCopy {
 
 export type RenderedSkillCopy = ProjectUseSkillCopy | WorkspaceDraftSkillCopy;
 
+/** Agent Skills names (and so project skill directories) hold 1-64 characters. */
+const SKILL_NAME_LIMIT = 64;
+
 /**
  * Every project skill copy the render writes, with names allocated once.
  * Copies share the provider skill roots with live workspace skills, so a
@@ -176,7 +179,7 @@ export function resolveProjectUseSkillCopies(
         collisionSources.length > 1 ? collisionSources : []
       ),
       preferredName: collisionSources.length > 1
-        ? `${candidate.plugin.id}-${desiredName}`
+        ? fitSkillName(`${candidate.plugin.id}-${desiredName}`)
         : desiredName,
     };
   });
@@ -221,7 +224,7 @@ export function resolveProjectUseSkillCopies(
       effectiveNames.set(candidate, candidate.preferredName);
       continue;
     }
-    const baseName = `${candidate.plugin.id}-${candidate.preferredName}`;
+    const baseName = fitSkillName(`${candidate.plugin.id}-${candidate.preferredName}`);
     let effectiveName = baseName;
     let suffix = 2;
     while (usedSources.has(effectiveName)) {
@@ -311,11 +314,21 @@ export function resolveWorkspaceDraftSkillCopies(
 }
 
 export function draftEffectiveName(leaf: string): string {
-  return `draft-${leaf}`;
+  return fitSkillName(`draft-${leaf}`);
+}
+
+/** Truncate to the name budget, leaving `reserve` characters for a suffix. */
+function fitSkillName(name: string, reserve = 0): string {
+  const characters = [...name];
+  const limit = SKILL_NAME_LIMIT - reserve;
+  return characters.length <= limit
+    ? name
+    : characters.slice(0, limit).join("").replace(/-+$/u, "");
 }
 
 function suffixedSkillName(baseName: string, suffix: number): string {
-  return `${baseName}-${suffix}`;
+  const tail = `-${suffix}`;
+  return `${fitSkillName(baseName, tail.length)}${tail}`;
 }
 
 function shippedSiblingFor(
