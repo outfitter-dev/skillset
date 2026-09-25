@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, symlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
@@ -48,12 +48,15 @@ const resolverPath = (home: string, host: HostCase): string =>
  * interpreter only at the resolver's path, and a PATH holding nothing but the
  * fake `uname`. The fake interpreter echoes the path it was exec'd from.
  */
-const runAsHost = async (host: HostCase) => {
+const runAsHost = async (host: HostCase, { linked = false } = {}) => {
   const root = await createTestFixtureRoot("skillset-bootstrap-layout-");
   const home = join(root, "home");
   const fakeBin = join(root, "fake-bin");
   const cached = resolverPath(home, host);
+  // `linked` puts the interpreter elsewhere and links the cached path to it.
+  const interpreter = linked ? join(root, "elsewhere", "bun") : cached;
   await Promise.all([
+    mkdir(dirname(interpreter), { recursive: true }),
     mkdir(join(root, "scripts"), { recursive: true }),
     mkdir(join(home, ".bun"), { recursive: true }),
     mkdir(fakeBin, { recursive: true }),
@@ -70,11 +73,15 @@ const runAsHost = async (host: HostCase) => {
       `#!/bin/sh\ncase "$1" in -s) echo '${host.unameS}' ;; -m) echo '${host.unameM}' ;; esac\n`
     ),
     writeFile(
-      cached,
+      interpreter,
       `#!/bin/sh\nif [ "$1" = --version ]; then echo ${pin}; else printf '%s\\n' "$0"; fi\n`
     ),
   ]);
-  await Promise.all([chmod(join(fakeBin, "uname"), 0o755), chmod(cached, 0o755)]);
+  await Promise.all([
+    chmod(join(fakeBin, "uname"), 0o755),
+    chmod(interpreter, 0o755),
+  ]);
+  if (linked) await symlink(interpreter, cached);
   const result = Bun.spawnSync({
     cmd: ["/bin/bash", join(root, "scripts", "bootstrap.sh"), "doctor"],
     cwd: root,
@@ -103,4 +110,12 @@ describe.skipIf(process.platform === "win32")("bootstrap.sh cache layout", () =>
       expect(result.stdout.toString().trim()).toBe(cached);
     });
   }
+
+  test("a symlinked cached interpreter is never exec'd", async () => {
+    const [host] = hosts;
+    if (host === undefined) throw new Error("no host cases");
+    const { cached, result } = await runAsHost(host, { linked: true });
+    expect(result.stdout.toString()).not.toContain(cached);
+    expect(result.stdout.toString()).not.toContain("elsewhere");
+  });
 });
