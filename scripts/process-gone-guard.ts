@@ -115,8 +115,9 @@ function containsProcessKillZero(node: ts.Node): boolean {
     node.expression.expression.text === "process" &&
     node.expression.name.text === "kill" &&
     node.arguments.length === 2 &&
-    node.arguments[1]?.kind === ts.SyntaxKind.NumericLiteral &&
-    (node.arguments[1] as ts.NumericLiteral).text === "0"
+    node.arguments[1] !== undefined &&
+    ts.isNumericLiteral(node.arguments[1]) &&
+    node.arguments[1].text === "0"
   ) {
     return true;
   }

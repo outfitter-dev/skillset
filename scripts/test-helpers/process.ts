@@ -12,6 +12,11 @@ export async function expectProcessGone(
   // masking a genuine survivor. A 500-iteration Linux probe reproduced the
   // immediate-observation race (47 transient running states, all dead within
   // 5 ms); see SET-633 / outfitter-dev/skillset#468.
+  // `process.kill(0, 0)` signals the caller's own process group and negative
+  // pids address groups; either would let a survivor check pass vacuously.
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    throw new Error(`expectProcessGone requires a positive integer pid, got ${pid}`);
+  }
   const withinMs = opts?.withinMs ?? DEFAULT_PROCESS_GONE_WITHIN_MS;
   const deadline = performance.now() + withinMs;
   while (await processIsRunning(pid)) {
