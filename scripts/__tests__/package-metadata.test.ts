@@ -162,6 +162,19 @@ describe("package metadata checks", () => {
       `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
     );
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    for (const malformed of ["garbage", "*", ">=abc"]) {
+      await writeFile(
+        join(root, "package.json"),
+        `${JSON.stringify({ engines: { bun: malformed } })}\n`
+      );
+      await writeFile(
+        join(root, "apps/cli/package.json"),
+        `${JSON.stringify({ engines: { bun: malformed } })}\n`
+      );
+      expect(await bunRuntimeDiagnostics(root)).toEqual([
+        `package.json engines.bun ${JSON.stringify(malformed)} is not a bounded semver range; Bun.semver treats it as matching every version`,
+      ]);
+    }
     await writeFile(join(root, "package.json"), '{"engines":{}}\n');
     expect(await bunRuntimeDiagnostics(root)).toEqual([
       "package.json must declare a supported Bun range in engines.bun",

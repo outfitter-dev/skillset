@@ -16,10 +16,10 @@ import { join } from "node:path";
 import {
   isBunVersionAllowed,
   isCompatibleBunVersion,
-  isVersionAtLeast,
-  minimumFromEngineRange,
   readPackageManagerBunVersion,
   readPinnedBunVersion,
+  satisfiesSupportedBunRange,
+  supportedBunRangeProblem,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
 import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
@@ -333,17 +333,19 @@ describe("bootstrap repo policy", () => {
   });
 
   test("Bun pin stays aligned across repo metadata", () => {
+    const range = packageJson.engines?.bun;
     expect(readPinnedBunVersion(repoRoot)).toBe("1.4.0");
     expect(readPackageManagerBunVersion(repoRoot)).toBe("1.4.0");
-    expect(minimumFromEngineRange(packageJson.engines?.bun)).toBe("1.4.0");
+    expect(supportedBunRangeProblem(range)).toBeUndefined();
+    expect(satisfiesSupportedBunRange("1.4.0", range ?? "")).toBe(true);
   });
 
-  test("Bun checks distinguish package floors from repo pins", () => {
-    expect(minimumFromEngineRange(">=1.4.0")).toBe("1.4.0");
-    expect(isVersionAtLeast("1.4.0", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.4.1", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.5.0", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.3.14", "1.4.0")).toBe(false);
+  test("Bun checks distinguish package ranges from repo pins", () => {
+    expect(satisfiesSupportedBunRange("1.4.0", ">=1.4.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.4.1", ">=1.4.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.5.0", ">=1.4.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.3.14", ">=1.4.0")).toBe(false);
+    expect(satisfiesSupportedBunRange("1.5.0", ">=1.4.0 <1.5.0")).toBe(false);
     expect(isCompatibleBunVersion("1.4.1", "1.4.0")).toBe(true);
     expect(isCompatibleBunVersion("1.5.0", "1.4.0")).toBe(false);
     expect(isBunVersionAllowed("1.4.0", "1.4.0", "strict")).toBe(true);
@@ -351,14 +353,34 @@ describe("bootstrap repo policy", () => {
   });
 
   test("Bun checks tolerate prerelease builds like the shell gate does", () => {
-    expect(isVersionAtLeast("1.4.1-canary.20+abc123", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.3.14-canary.2", "1.4.0")).toBe(false);
+    expect(satisfiesSupportedBunRange("1.4.1-canary.20+abc123", ">=1.4.0")).toBe(
+      true
+    );
+    expect(satisfiesSupportedBunRange("1.3.14-canary.2", ">=1.4.0")).toBe(
+      false
+    );
     expect(isCompatibleBunVersion("1.4.1-canary.20+abc123", "1.4.0")).toBe(
       true
     );
     expect(isCompatibleBunVersion("1.5.0-canary.1", "1.4.0")).toBe(false);
     expect(isBunVersionAllowed("1.4.0-canary.1", "1.4.0", "strict")).toBe(
       false
+    );
+  });
+
+  test("supported Bun ranges must be bounded semver ranges", () => {
+    // Bun.semver.satisfies treats an unparseable range as matching every
+    // version, so a malformed range would silently accept any runtime.
+    expect(Bun.semver.satisfies("0.1.0", "garbage")).toBe(true);
+    expect(supportedBunRangeProblem(">=1.4.0")).toBeUndefined();
+    expect(supportedBunRangeProblem(">=1.4.0 <1.5.0")).toBeUndefined();
+    for (const malformed of ["garbage", "*", "x", ">=abc", "  "]) {
+      expect(supportedBunRangeProblem(malformed)).toContain(
+        "is not a bounded semver range"
+      );
+    }
+    expect(supportedBunRangeProblem(undefined)).toBe(
+      "must declare a supported Bun range"
     );
   });
 
