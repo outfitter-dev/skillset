@@ -486,6 +486,41 @@ Use me.
     );
   });
 
+  it("routes a Codex copy that fails Agent Skills classification through destination policy", async () => {
+    const files = (policy: string) => ({
+      "skillset.yaml": `skillset:\n  name: incompatible-copy\ncompile:\n  unsupportedDestination: ${policy}\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    drafts:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/_drafts/review/SKILL.md": `---
+name: review
+description: Draft with non-string metadata
+metadata:
+  priority: 3
+---
+
+Review body.
+`,
+    });
+
+    const warnRoot = await fixture(files("warn"));
+    const result = await buildSkillsetResult(warnRoot);
+    expect(await Bun.file(join(warnRoot, ".agents/skills/draft-review/SKILL.md")).exists()).toBe(false);
+    expect(result.renderResults.filter((outcome) =>
+      outcome.sourceUnit === "plugin.demo.skill:review" && outcome.status === "unsupported"
+    )).toEqual([
+      expect.objectContaining({
+        diagnostics: [expect.objectContaining({ code: "agent-skills-metadata-string" })],
+        featureId: "plugin-skills",
+        target: "codex",
+      }),
+    ]);
+
+    const errorRoot = await fixture(files("error"));
+    await expect(buildSkillsetResult(errorRoot)).rejects.toThrow(
+      "codex plugin-skills unsupported (plugin.demo.skill:review)"
+    );
+    expect(await Bun.file(join(errorRoot, ".agents/skills/draft-review/SKILL.md")).exists()).toBe(false);
+  });
+
   it("does not report a skill hook excluded from the target by its definition", async () => {
     const root = await fixture({
       "skillset.yaml": `skillset:\n  name: filtered-skill-hook\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
