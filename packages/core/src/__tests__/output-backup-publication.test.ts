@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, readdir, readFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rename, symlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   inspectOutputBackups,
   persistOutputBackupPlan,
+  restoreOutputBackup,
   type OutputBackupPlan,
 } from "../output-safety";
 
@@ -96,6 +97,57 @@ describe("output backup manifest publication", () => {
     expect(incomplete.length).toBeGreaterThan(0);
     expect(incomplete.every((run) => run.state === "corrupt-or-unavailable")).toBe(true);
     expect(await publicationArtifacts(manifestPath)).toEqual([]);
+  });
+
+  test("refuses to publish the manifest through a snapshot run directory replaced by a symlink", async () => {
+    if (process.platform === "win32") return;
+
+    const root = await createTestFixtureRoot("skillset-backup-symlink-parent-");
+    const outside = await createTestFixtureRoot("skillset-backup-symlink-outside-");
+    const redirected = join(outside, "run");
+
+    await expect(persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n"), {
+      afterPayloadStorage: async () => {
+        const runId = (await snapshotRunIds(root))[0];
+        if (runId === undefined) throw new Error("expected a snapshot run directory");
+        const runDirectory = join(root, ".skillset/snapshots", runId);
+        await rename(runDirectory, redirected);
+        await symlink(redirected, runDirectory, "dir");
+      },
+    })).rejects.toThrow("refusing to traverse symbolic link");
+
+    expect(await Bun.file(join(redirected, "manifest.json")).exists()).toBe(false);
+    expect(await publicationArtifacts(join(redirected, "manifest.json"))).toEqual([]);
+  });
+
+  test("refuses to store backup payloads through a pre-existing symlinked snapshot root", async () => {
+    if (process.platform === "win32") return;
+
+    const root = await createTestFixtureRoot("skillset-backup-symlink-snapshots-");
+    const outside = await createTestFixtureRoot("skillset-backup-symlink-snapshots-outside-");
+    await mkdir(join(root, ".skillset"));
+    await symlink(outside, join(root, ".skillset/snapshots"), "dir");
+
+    await expect(persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n")))
+      .rejects.toThrow("refusing to traverse symbolic link: .skillset/snapshots");
+
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  test("refuses to restore a backup through a symlinked target parent", async () => {
+    if (process.platform === "win32") return;
+
+    const root = await createTestFixtureRoot("skillset-backup-restore-symlink-");
+    const outside = await createTestFixtureRoot("skillset-backup-restore-symlink-outside-");
+    const persisted = await persistOutputBackupPlan(root, backupPlan("nested/AGENTS.md", "authored\n"));
+    const runId = persisted.backup?.runId;
+    if (runId === undefined) throw new Error("expected a persisted backup");
+    await symlink(outside, join(root, "nested"), "dir");
+
+    await expect(restoreOutputBackup(root, runId, { write: true }))
+      .rejects.toThrow("refusing to traverse symbolic link: nested");
+
+    expect(await readdir(outside)).toEqual([]);
   });
 
   test("keeps sibling inspection isolated when a snapshot directory is unreadable", async () => {

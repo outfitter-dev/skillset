@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, posix, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 
 import {
   type AtomicFilePublicationTestHooks,
@@ -20,6 +20,7 @@ import {
 } from "./generated-lock-read";
 import { hasValidLockProvenance } from "./lock-provenance";
 import { compareStrings, resolveInside } from "./path";
+import { prepareRepositoryMutationPath } from "./repository-mutation";
 import {
   formatGeneratedFileMode,
   supportsGeneratedFileModes,
@@ -465,8 +466,10 @@ export async function persistOutputBackupPlan(
   };
   // The manifest is the snapshot completion marker. Publish it only after
   // backup payloads are stored so an interrupted run cannot look restorable.
+  const manifestAbsolutePath = resolveInside(rootPath, manifestPath);
+  await prepareRepositoryMutationPath(rootPath, manifestAbsolutePath, { replacesLeaf: true });
   await publishAtomicFile(
-    resolveInside(rootPath, manifestPath),
+    manifestAbsolutePath,
     renderValidatedJson(manifest as unknown as JsonRecord, manifestPath),
     { testHooks }
   );
@@ -553,7 +556,7 @@ export async function restoreOutputBackup(
   if (options.write === true) {
     for (const record of manifest.records) {
       const targetPath = resolveInside(rootPath, record.targetPath);
-      await mkdir(dirname(targetPath), { recursive: true });
+      await prepareRepositoryMutationPath(rootPath, targetPath);
       await writeFile(targetPath, backupContents.get(record.targetPath) ?? (await readBackupContent(rootPath, manifest, record)));
       if (record.originalMode !== undefined && supportsGeneratedFileModes()) {
         await chmod(targetPath, Number.parseInt(record.originalMode, 8));
@@ -1211,7 +1214,7 @@ async function writeGitBackupStorage(
   const indexPath = join(indexRoot, "index");
   const finalized: OutputBackupRecord[] = [];
 
-  await mkdir(dirname(absoluteGitDir), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absoluteGitDir);
   await runGit(["init", "--bare", "-q", absoluteGitDir], { cwd: rootPath });
 
   try {

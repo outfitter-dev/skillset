@@ -1,6 +1,3 @@
-import { mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
-
 import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
 import {
   startDefaultDirectoryLockHeartbeat,
@@ -8,6 +5,7 @@ import {
   type DirectoryLockHeartbeatScheduler,
 } from "@skillset/core/internal/directory-lock";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import {
   pluginScopeFromSourceUnit,
   sourceUnitDisplay,
@@ -202,7 +200,7 @@ export async function withChangeLedgerLock<T>(
 ): Promise<T> {
   const ledgerPath = workspaceChangeFile(sourceDir, "ledger.jsonl");
   const lockPath = resolveInside(rootPath, `${ledgerPath}.lock`);
-  await mkdir(dirname(lockPath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, lockPath);
   const settings = changeLedgerLockSettings(input);
   return withOwnedDirectoryLock({
     lockPath,
