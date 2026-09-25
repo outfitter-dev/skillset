@@ -820,6 +820,54 @@ marketplaces:
     await expect(readdir(marketplace)).resolves.toEqual(before);
   });
 
+  test("reports an unsupported cache filesystem with the actionable portable reason", async () => {
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-unsupported-cache-"
+    );
+    const external = await fixture({
+      "skillset.yaml": "skillset:\n  name: trails\n",
+      ".skillset/plugins/trails-tools/skillset.yaml": "skillset:\n  name: trails-tools\n",
+    }, parent);
+    await buildSkillsetResult(external);
+    const gitRoot = await mkdtemp(join(parent, "git-"));
+    const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
+      repository: "https://git.example/acme/trails.git",
+      rootPath: gitRoot,
+    });
+    const marketplace = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - plugin: trails-tools
+        repo: ${remote.repository}
+        ref: main
+`,
+    }, parent);
+    const cache = resolveRemoteRepositoryCache(remote.repository, { kind: "ref", ref: "main" }, remote.xdg);
+
+    const report = await checkMarketplaces(marketplace, {
+      remoteCacheTestHooks: {
+        renameDirectory: () => ({
+          kind: "unsupported",
+          reason: "probe filesystem lacks renameat2",
+        }),
+      },
+      xdg: remote.xdg,
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.entries[0]?.reason).toBe(
+      "failed to inspect source: skillset: cannot atomically publish the remote cache (directory installs require atomic no-replace rename support; move the cache to a supported local filesystem)"
+    );
+    expect(JSON.stringify(report)).not.toContain(cache.cacheKey);
+    expect(JSON.stringify(report)).not.toContain("probe filesystem lacks renameat2");
+  });
+
   test("SET-268: resolves two revisions from the same repository independently", async () => {
     const parent = await createTestGitFixtureRoot(
       "skillset-marketplace-revisions-"
