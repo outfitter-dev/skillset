@@ -1,5 +1,6 @@
-import { appendFile, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, readFile, rm, stat } from "node:fs/promises";
 
+import { publishAtomicFile } from "./atomic-file-publication";
 import { readString } from "./config";
 import type { JsonRecord } from "./types";
 import { isJsonRecord } from "./yaml";
@@ -26,13 +27,17 @@ export async function appendOwnedJsonlRecords(
 
 /**
  * Remove only the exact JSONL records this transaction appended. Foreign lines,
- * including concurrent appends after the owned block, stay in file order.
+ * including concurrent appends after the owned block, stay in file order. The
+ * remainder is published atomically with the stream's current mode, so an
+ * interrupted rollback leaves either the previous stream or the complete
+ * remainder, never a truncated one. A stream left with no records is removed.
  */
 export async function rollbackOwnedJsonlRecords(
   absolutePath: string,
   ownedLines: ReadonlySet<string>
 ): Promise<void> {
   if (ownedLines.size === 0 || !(await pathExists(absolutePath))) return;
+  const { mode } = await stat(absolutePath);
 
   const remaining: string[] = [];
   const pending = new Set(ownedLines);
@@ -49,13 +54,13 @@ export async function rollbackOwnedJsonlRecords(
     await rm(absolutePath, { force: true });
     return;
   }
-  await writeFile(absolutePath, `${remaining.join("\n")}\n`, "utf8");
+  await publishAtomicFile(absolutePath, `${remaining.join("\n")}\n`, { mode: mode & 0o777 });
 }
 
 /**
- * Choose the next event timestamp so a new append cannot invert the current
- * tail. File order remains authoritative; this only keeps `createdAt`/`appliedAt`
- * from introducing a new guard-visible inversion on a live write.
+ * Choose the next event timestamp as `max(now, tail)`. File order is the fold
+ * order (ADR-0038); this keeps event time non-decreasing in file order for
+ * readers of live appends. A future-dated tail pins later stamps forward.
  */
 export function nextJsonlTimestamp(
   previousTimestamp: string | undefined,
@@ -71,8 +76,8 @@ export function nextJsonlTimestamp(
 
 /**
  * Choose one timestamp that does not invert any of the named JSONL tails.
- * Release writes history, releases, and ledger in one transaction and needs a
- * shared event time that stays guard-clean on every stream.
+ * Release writes history, releases, and ledger in one transaction and needs one
+ * shared event time that is non-decreasing on every stream it appends to.
  */
 export async function nextJsonlTimestampForPaths(
   absolutePaths: readonly string[],
