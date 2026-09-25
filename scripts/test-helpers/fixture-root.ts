@@ -1,4 +1,5 @@
 import { mkdtemp, readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
 import { validateTestSandbox } from "../../apps/skillset/src/verification-sandbox";
@@ -18,6 +19,11 @@ const TEMP_DIRECTORY_VARIABLES = ["TMPDIR", "TEMP", "TMP"] as const;
  * production code cleans up its temporary roots use this instead of scanning the
  * shared OS temp directory, which races with concurrent test runs creating and
  * removing their own roots.
+ *
+ * Inside `action`, the test sandbox's own temp checks see the redirect: do not
+ * call `validateTestSandbox` or `createTestFixtureRoot` there, and create
+ * fixtures before calling this. An action that outlives the test timeout leaves
+ * the redirect in place for the rest of the file.
  */
 export async function tempEntriesLeftBy<T>(
   prefix: string,
@@ -28,6 +34,9 @@ export async function tempEntriesLeftBy<T>(
   for (const name of TEMP_DIRECTORY_VARIABLES) process.env[name] = ownedTemp;
   let result: T;
   try {
+    if (tmpdir() !== ownedTemp) {
+      throw new Error(`os.tmpdir() ignored the redirect to ${ownedTemp}`);
+    }
     result = await action();
   } finally {
     for (const [name, value] of previous) {
