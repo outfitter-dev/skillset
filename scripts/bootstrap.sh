@@ -122,7 +122,7 @@ cached_pinned_bun() {
     *) return 1 ;;
   esac
   candidate="$home/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/$executable"
-  if [[ -x "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
+  if [[ -x "$candidate" ]] && [[ ! -L "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
     printf '%s\n' "$candidate"
   else
     return 1
