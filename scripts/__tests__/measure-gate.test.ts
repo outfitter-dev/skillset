@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
@@ -229,8 +229,9 @@ describe("measure-gate report", () => {
     }
     // Identity commands still succeed; status cannot read the index. An
     // empty `.git/index.lock` is not enough on current Git, which treats a
-    // stale lock as ignorable.
-    await chmod(join(lockedRepo, ".git", "index"), 0o000);
+    // stale lock as ignorable, and a mode-000 index is still readable as root.
+    // A corrupt index fails the same way for every user.
+    await writeFile(join(lockedRepo, ".git", "index"), "not an index\n");
 
     const child = Bun.spawn({
       cmd: [
