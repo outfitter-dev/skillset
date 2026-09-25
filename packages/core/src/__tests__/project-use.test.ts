@@ -454,6 +454,38 @@ Use me.
     );
   });
 
+  it("gates project-use component diagnostics on the copy's repo scope", async () => {
+    const files = {
+      "skillset.yaml": `skillset:\n  name: scoped-hook-copy\nclaude: true\ncodex: false\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Use me
+hooks:
+  PreToolUse:
+    - local-shell
+---
+
+Use me.
+`,
+      ".skillset/plugins/demo/skills/use-me/hooks/local-shell.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "node ./local.js" },
+      }),
+    };
+    const repoRoot = await fixture(files);
+    await expect(buildSkillsetResult(repoRoot, { scopes: ["repo"] })).rejects.toThrow(
+      "claude internal-use-components unsupported (plugin.demo.skill:use-me)"
+    );
+    expect(await Bun.file(join(repoRoot, ".claude/skills/use-me/SKILL.md")).exists()).toBe(false);
+
+    const projectRoot = await fixture(files);
+    const projectResult = await buildSkillsetResult(projectRoot, { scopes: ["project"] });
+    expect(projectResult.renderResults).not.toContainEqual(
+      expect.objectContaining({ featureId: "internal-use-components" })
+    );
+  });
+
   it("does not report a skill hook excluded from the target by its definition", async () => {
     const root = await fixture({
       "skillset.yaml": `skillset:\n  name: filtered-skill-hook\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,

@@ -1,5 +1,5 @@
 import { lstatSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 
 import {
   getStandardProfile,
@@ -30,6 +30,7 @@ import {
   type SkillsetRenderResultStatus,
   type SkillsetRenderResultPolicy,
 } from "./render-result";
+import { scopeForPath } from "./output-scope";
 import { compareStrings } from "./path";
 import { resolveProjectUseSkillCopies } from "./project-use";
 import {
@@ -248,7 +249,6 @@ function unsupportedProjectUseComponentOutcomes(
   graph: BuildGraph,
   scopes: readonly BuildScope[] | undefined
 ): readonly SkillsetRenderResult[] {
-  if (scopes !== undefined && !scopes.includes("project")) return [];
   const outcomes: SkillsetRenderResult[] = [];
   for (const copy of resolveProjectUseSkillCopies(graph)) {
     // Plugin-level content is requested only by whole-plugin selection; an
@@ -269,7 +269,12 @@ function unsupportedProjectUseComponentOutcomes(
     for (const target of TARGETS) {
       if (
         !copy.skill.targets[target].enabled ||
-        !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id)
+        !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id) ||
+        // Gate on the scope that writes the copy, not a fixed scope name.
+        (scopes !== undefined && !scopes.includes(scopeForPath(
+          graph,
+          posix.join(graph.root.outputs.skills[target], copy.effectiveName)
+        )))
       ) continue;
       const targetHooks = resolveAdaptiveHookAttachmentsForTarget(
         graph.adaptiveHooks, graph.hookAttachments, target

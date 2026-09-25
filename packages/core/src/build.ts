@@ -12,11 +12,8 @@ import {
   supportsGeneratedFileModes,
 } from "./generated-file-mode";
 import { parseGeneratedLock } from "./generated-lock";
-import {
-  isPluginManifestOutputPath,
-  pluginTargetForOutputPath,
-} from "./plugin-output";
-import { targetNames } from "./targets";
+import { isInsideOutputRoot, scopeForPath } from "./output-scope";
+import { isPluginManifestOutputPath } from "./plugin-output";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
@@ -50,7 +47,6 @@ import {
 import {
   standardProjectionKnownManagedOutputRoots,
   standardProjectionManagedRootScope,
-  standardProjectionTopology,
 } from "./standard-projections";
 import { renderValidatedJson } from "./structured-output";
 import {
@@ -2290,35 +2286,6 @@ function isPathInScopes(
   scopes: readonly BuildScope[]
 ): boolean {
   return scopes.includes(scopeForPath(graph, path));
-}
-
-function scopeForPath(graph: BuildGraph, path: string): BuildScope {
-  const standardDestination = standardProjectionTopology(
-    graph.standardProjections,
-    graph.plugins.map((plugin) => plugin.id)
-  ).find((destination) =>
-    isInsideOutputRoot(path, destination.path) ||
-    (destination.lockRoot !== "." && isInsideOutputRoot(path, destination.lockRoot))
-  );
-  if (standardDestination !== undefined) return standardDestination.scope;
-  if (
-    pluginTargetForOutputPath(graph, path) !== undefined ||
-    targetNames().some((target) => isInsideOutputRoot(path, graph.root.outputs.plugins[target]))
-  ) {
-    return "plugins";
-  }
-  if (
-    targetNames().some((target) => isInsideOutputRoot(path, graph.root.outputs.skills[target]))
-  ) {
-    return "repo";
-  }
-  const historicalStandardScope = standardProjectionManagedRootScope(path);
-  if (historicalStandardScope !== undefined) return historicalStandardScope;
-  return "project";
-}
-
-function isInsideOutputRoot(path: string, outputRoot: string): boolean {
-  return path === outputRoot || path.startsWith(`${outputRoot}/`);
 }
 
 export function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolean {
