@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import {
   CHANGE_STREAM_PATHSPEC,
-  INVERSION_ALLOWANCES,
-  type InversionAllowance,
+  collectChangeStreamViolations,
   parseMergeAttributes,
   scanChangeStreams,
 } from "../change-stream-guard";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../test-helpers/git-remote";
 
 const FILE = ".skillset/changes/ledger.jsonl";
 
@@ -18,8 +24,8 @@ function stream(...lines: readonly string[]): string {
   return `${lines.join("\n")}\n`;
 }
 
-function scan(content: string, allowances: readonly InversionAllowance[] = []) {
-  return scanChangeStreams([{ content, file: FILE }], allowances);
+function scan(content: string, trunkContent?: string) {
+  return scanChangeStreams([{ content, file: FILE, ...(trunkContent === undefined ? {} : { trunkContent }) }]);
 }
 
 describe("change stream guard", () => {
@@ -42,61 +48,6 @@ describe("change stream guard", () => {
 
     expect(scan(content)).toEqual([
       { file: FILE, line: 2, message: "duplicate record id evt-base-1", rule: "duplicate-id" },
-    ]);
-  });
-
-  test("flags a newly introduced timestamp inversion", () => {
-    const content = stream(
-      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
-      event("evt-theirs-1", "2026-08-04T00:00:00.000Z"),
-      event("evt-ours-1", "2026-08-03T00:00:00.000Z")
-    );
-
-    expect(scan(content)).toEqual([
-      {
-        file: FILE,
-        line: 3,
-        message: "record evt-ours-1 is older than the record above it (evt-theirs-1)",
-        rule: "timestamp-inversion",
-      },
-    ]);
-  });
-
-  test("accepts a recorded pre-existing inversion and still flags a new one", () => {
-    const allowances: readonly InversionAllowance[] = [
-      { file: FILE, id: "evt-old", previousId: "evt-new", rationale: "committed before the guard existed." },
-    ];
-    const content = stream(
-      event("evt-new", "2026-08-04T00:00:00.000Z"),
-      event("evt-old", "2026-08-03T00:00:00.000Z"),
-      event("evt-later", "2026-08-06T00:00:00.000Z"),
-      event("evt-regression", "2026-08-05T00:00:00.000Z")
-    );
-
-    expect(scan(content, allowances)).toEqual([
-      {
-        file: FILE,
-        line: 4,
-        message: "record evt-regression is older than the record above it (evt-later)",
-        rule: "timestamp-inversion",
-      },
-    ]);
-  });
-
-  test("flags an allowance that no longer matches any pair", () => {
-    const allowances: readonly InversionAllowance[] = [
-      { file: FILE, id: "evt-gone", previousId: "evt-missing", rationale: "stale." },
-    ];
-    const content = stream(event("evt-base-1", "2026-08-01T00:00:00.000Z"));
-
-    expect(scan(content, allowances)).toEqual([
-      {
-        file: FILE,
-        line: 0,
-        message:
-          "unmatched inversion allowance evt-missing -> evt-gone; the pair no longer exists, so remove it",
-        rule: "unmatched-inversion-allowance",
-      },
     ]);
   });
 
@@ -128,34 +79,178 @@ describe("change stream guard", () => {
 
     expect(scan(content)).toEqual([
       { file: FILE, line: 1, message: "record requires a non-empty string id", rule: "missing-id" },
-      { file: FILE, line: 1, message: "record requires one of createdAt, appliedAt", rule: "missing-timestamp" },
+      { file: FILE, line: 1, message: "record requires one of createdAt, appliedAt, amendedAt", rule: "missing-timestamp" },
       { file: FILE, line: 2, message: "timestamp nope is not a parseable date", rule: "invalid-timestamp" },
     ]);
   });
 
-  test("reads appliedAt for history and release streams", () => {
-    const historyFile = ".skillset/changes/history.jsonl";
+  test("accepts appliedAt and amendedAt as the record timestamp", () => {
     const content = stream(
       JSON.stringify({ appliedAt: "2026-08-02T00:00:00.000Z", id: "rec-2" }),
-      JSON.stringify({ appliedAt: "2026-08-01T00:00:00.000Z", id: "rec-1" })
+      JSON.stringify({ amendedAt: "2026-08-01T00:00:00.000Z", id: "chg-1" })
     );
 
-    expect(scanChangeStreams([{ content, file: historyFile }], [])).toEqual([
+    expect(scan(content)).toEqual([]);
+  });
+
+  test("accepts a branch that only appends after trunk's records", () => {
+    const trunk = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-02T00:00:00.000Z")
+    );
+
+    expect(scan(`${trunk}${stream(event("evt-ours-1", "2026-08-03T00:00:00.000Z"))}`, trunk)).toEqual([]);
+  });
+
+  test("accepts an appended block older than trunk's tail", () => {
+    const trunk = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-trunk-newer", "2026-08-05T00:00:00.000Z")
+    );
+    const branch = `${trunk}${stream(
+      event("evt-ours-1", "2026-08-02T00:00:00.000Z"),
+      event("evt-ours-2", "2026-08-03T00:00:00.000Z")
+    )}`;
+
+    expect(scan(branch, trunk)).toEqual([]);
+  });
+
+  test("flags a branch that reorders trunk's records at the first divergent line", () => {
+    const trunk = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-02T00:00:00.000Z"),
+      event("evt-base-3", "2026-08-03T00:00:00.000Z")
+    );
+    const branch = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-3", "2026-08-03T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-02T00:00:00.000Z")
+    );
+
+    expect(scan(branch, trunk)).toEqual([
       {
-        file: historyFile,
+        file: FILE,
         line: 2,
-        message: "record rec-1 is older than the record above it (rec-2)",
-        rule: "timestamp-inversion",
+        message:
+          "line 2 does not match trunk record evt-base-2; keep trunk's records in their original order and append new records after them",
+        rule: "trunk-prefix-divergence",
       },
     ]);
   });
 
-  test("ignores allowances recorded for files that were not scanned", () => {
-    const allowances: readonly InversionAllowance[] = [
-      { file: ".skillset/changes/releases.jsonl", id: "a", previousId: "b", rationale: "other file." },
-    ];
+  test("flags a branch that deletes a trunk record", () => {
+    const trunk = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-02T00:00:00.000Z")
+    );
+    const branch = stream(event("evt-base-1", "2026-08-01T00:00:00.000Z"));
 
-    expect(scan(stream(event("evt-base-1", "2026-08-01T00:00:00.000Z")), allowances)).toEqual([]);
+    expect(scan(branch, trunk)).toEqual([
+      {
+        file: FILE,
+        line: 2,
+        message:
+          "trunk record evt-base-2 at line 2 is missing; keep trunk's records in their original order and append new records after them",
+        rule: "trunk-prefix-divergence",
+      },
+    ]);
+  });
+
+  test("checks the trunk prefix against a real merge-base", async () => {
+    const disposableRoot = await createTestGitFixtureRoot("skillset-change-stream-guard-");
+    const root = join(disposableRoot, "repo");
+    const ledger = join(root, FILE);
+    const trunk = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-05T00:00:00.000Z")
+    );
+    await mkdir(join(root, ".skillset/changes"), { recursive: true });
+    await writeFile(join(root, ".gitattributes"), ".skillset/changes/*.jsonl merge=union\n", "utf8");
+    await writeFile(ledger, trunk, "utf8");
+    await initializeTestGitRepository(root, { disposableRoot });
+    await runTestGit(root, "switch", "--quiet", "-c", "feature");
+
+    await writeFile(ledger, `${trunk}${stream(event("evt-ours-1", "2026-08-02T00:00:00.000Z"))}`, "utf8");
+    expect(await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).toEqual({
+      scanned: 1,
+      violations: [],
+    });
+
+    await writeFile(
+      ledger,
+      stream(
+        event("evt-base-2", "2026-08-05T00:00:00.000Z"),
+        event("evt-base-1", "2026-08-01T00:00:00.000Z")
+      ),
+      "utf8"
+    );
+    expect(await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).toEqual({
+      scanned: 1,
+      violations: [{
+        file: FILE,
+        line: 1,
+        message:
+          "line 1 does not match trunk record evt-base-1; keep trunk's records in their original order and append new records after them",
+        rule: "trunk-prefix-divergence",
+      }],
+    });
+  });
+
+  test("passes a real union restack whose appended block is older than trunk's tail", async () => {
+    const { ledger, root } = await gitStreamFixture(stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-02T00:00:00.000Z")
+    ));
+    await runTestGit(root, "switch", "--quiet", "-c", "feature");
+    await appendFile(ledger, stream(event("evt-branch-1", "2026-08-03T00:00:00.000Z")), "utf8");
+    await runTestGit(root, "commit", "--quiet", "--all", "-m", "branch append");
+    await runTestGit(root, "switch", "--quiet", "main");
+    await appendFile(ledger, stream(event("evt-trunk-3", "2026-08-09T00:00:00.000Z")), "utf8");
+    await runTestGit(root, "commit", "--quiet", "--all", "-m", "trunk append");
+    await runTestGit(root, "switch", "--quiet", "feature");
+    await runTestGit(root, "rebase", "--quiet", "main");
+
+    expect((await readFile(ledger, "utf8")).split("\n").filter(Boolean).map((line) => (JSON.parse(line) as { id: string }).id))
+      .toEqual(["evt-base-1", "evt-base-2", "evt-trunk-3", "evt-branch-1"]);
+    expect(await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).toEqual({
+      scanned: 1,
+      violations: [],
+    });
+  });
+
+  test("flags a trunk stream deleted from the working copy", async () => {
+    const { ledger, root } = await gitStreamFixture(stream(event("evt-base-1", "2026-08-01T00:00:00.000Z")));
+    await runTestGit(root, "switch", "--quiet", "-c", "feature");
+    await rm(ledger);
+
+    expect(await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).toEqual({
+      scanned: 1,
+      violations: [{
+        file: FILE,
+        line: 1,
+        message:
+          "trunk record evt-base-1 at line 1 is missing; keep trunk's records in their original order and append new records after them",
+        rule: "trunk-prefix-divergence",
+      }],
+    });
+  });
+
+  test("fails loudly with a reason when the trunk merge-base cannot be resolved", async () => {
+    const { root } = await gitStreamFixture(stream(event("evt-base-1", "2026-08-01T00:00:00.000Z")));
+    await runTestGit(root, "switch", "--quiet", "--orphan", "unrelated");
+    await runTestGit(root, "commit", "--quiet", "--allow-empty", "-m", "unrelated history");
+    await runTestGit(root, "switch", "--quiet", "main");
+
+    const failure = await collectChangeStreamViolations({ rootPath: root, trunkRef: "unrelated" }).then(
+      () => undefined,
+      (error: unknown) => (error instanceof Error ? error.message : String(error))
+    );
+    expect(failure).toContain("cannot find a merge-base between HEAD and unrelated");
+    expect(failure).toContain("fetch the trunk with full history");
+  });
+
+  test("names the pathspec that mirrors .gitattributes", () => {
+    expect(CHANGE_STREAM_PATHSPEC).toBe(".skillset/changes/*.jsonl");
   });
 
   test("parses git check-attr merge output", () => {
@@ -166,13 +261,15 @@ describe("change stream guard", () => {
     expect(attributes.get(".skillset/changes/ledger.jsonl")).toBe("union");
     expect(attributes.get(".skillset/changes/state.json")).toBe("unspecified");
   });
-
-  test("records every pre-existing inversion against a committed stream path", () => {
-    expect(CHANGE_STREAM_PATHSPEC).toBe(".skillset/changes/*.jsonl");
-    expect(INVERSION_ALLOWANCES.length).toBeGreaterThan(0);
-    for (const allowance of INVERSION_ALLOWANCES) {
-      expect(allowance.file.startsWith(".skillset/changes/")).toBe(true);
-      expect(allowance.rationale.length).toBeGreaterThan(0);
-    }
-  });
 });
+
+async function gitStreamFixture(trunk: string): Promise<{ readonly ledger: string; readonly root: string }> {
+  const disposableRoot = await createTestGitFixtureRoot("skillset-change-stream-guard-");
+  const root = join(disposableRoot, "repo");
+  const ledger = join(root, FILE);
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(join(root, ".gitattributes"), ".skillset/changes/*.jsonl merge=union\n", "utf8");
+  await writeFile(ledger, trunk, "utf8");
+  await initializeTestGitRepository(root, { disposableRoot });
+  return { ledger, root };
+}
