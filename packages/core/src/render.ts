@@ -302,9 +302,13 @@ export async function renderBuildGraph(
         const handback = projectHooks.find((hook) => !hook.managed && hook.file.path === item.outputPath);
         if (handback !== undefined) {
           // After off, the island owns the file; retain accepted foreign bytes as its baseline.
+          // The live mode is preserved on disk (and hashed), but island items record only
+          // the portable generated modes.
           workspaceLock.items[index] = {
             ...item,
-            fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [handback.file]),
+            fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, [
+              { ...handback.file, mode: normalizeGeneratedFileMode(handback.file.mode) },
+            ]),
             outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [handback.file]),
             ...(handback.renderInputsHash === undefined ? {} : { renderInputsHash: handback.renderInputsHash }),
           };
