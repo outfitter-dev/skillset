@@ -127,8 +127,13 @@ export async function resolveWorkspaceMutationRoot(
 /**
  * Resolve `path` inside the workspace and ensure every existing parent
  * component is a real directory. Missing parents are created one component at
- * a time when `createParents` is true, then rechecked so a concurrent symlink
- * or non-directory replacement fails closed.
+ * a time when `createParents` is true, and each is rechecked right after
+ * creation, so a replacement at that instant fails closed.
+ *
+ * This guards against pre-existing (for example committed) symlinks, not a
+ * concurrent local attacker: the returned path is not held open, so a
+ * component swapped after this call returns is not detected by the caller's
+ * later write.
  */
 export async function prepareRepositoryMutationPath(
   workspaceRoot: string,
