@@ -114,6 +114,24 @@ describe("SET-660 lifecycle ledger appends", () => {
   });
 });
 
+describe("SET-660 lifecycle write reports", () => {
+  test("a draft reports only the paths it wrote, not the shipped source it read", async () => {
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const request = { rootPath: root, shippedPath: ".skillset/skills/demo" };
+    const plan = await planSourceDraft(request);
+
+    const report = await draftSource({ ...request, expectedPlanHash: plan.planHash });
+
+    expect(report.writtenPaths).not.toContain(".skillset/skills/demo");
+    expect(report.writtenPaths).toContain(".skillset/skills/_drafts/demo");
+    expect(report.writtenPaths).toContain(LEDGER);
+  });
+});
+
 describe("SET-660 workspace transaction appends", () => {
   test("builds records from the bytes read at apply time", async () => {
     const root = await fixture({ "stream.jsonl": '{"id":"a"}\n' });
