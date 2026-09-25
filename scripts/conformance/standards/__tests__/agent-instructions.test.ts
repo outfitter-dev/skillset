@@ -1,8 +1,7 @@
 /* eslint-disable func-style, no-use-before-define, unicorn/import-style -- Test scenarios precede their disposable fixture helpers. */
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { chmod, readdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -10,35 +9,36 @@ import {
   isProviderProbePassthroughVariable,
   PROVIDER_PROBE_ISOLATION_VARIABLES,
 } from "../../../provider-probe-environment";
-import { createTestFixtureRoot } from "../../../test-helpers/fixture-root";
+import { createTestFixtureRoot, tempEntriesLeftBy } from "../../../test-helpers/fixture-root";
 import { runAgentInstructionsProbe } from "../agent-instructions";
 
 const ROOT_SENTINEL = "SKILLSET_ROOT_INSTRUCTIONS_7BFC7A";
 const NESTED_SENTINEL = "SKILLSET_NESTED_INSTRUCTIONS_D02DD1";
 const FIXTURE_VERSION = "codex-cli 0.154.0-test-fixture";
+const PROBE_PREFIX = "skillset-agent-instructions-";
 
 describe("SET-411 Agent Instructions external probe", () => {
   test("verifies pinned Codex and observes distinct root and nested AGENTS.md", async () => {
     const fixture = await fakeCodex();
-    const before = await probeDirectories();
     const rootInstructions = `# Root instructions\n\n${ROOT_SENTINEL}\n`;
     const nestedInstructions = `# Nested instructions\n\n${NESTED_SENTINEL}\n`;
 
-    const previousSecret = process.env.AWS_SECRET_ACCESS_KEY;
-    process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
-    let evidence: Awaited<ReturnType<typeof runAgentInstructionsProbe>>;
-    try {
-      evidence = await runAgentInstructionsProbe({
-        codex: fixture,
-        nestedInstructions,
-        nestedSentinel: NESTED_SENTINEL,
-        rootInstructions,
-        rootSentinel: ROOT_SENTINEL,
-      });
-    } finally {
-      if (previousSecret === undefined) delete process.env.AWS_SECRET_ACCESS_KEY;
-      else process.env.AWS_SECRET_ACCESS_KEY = previousSecret;
-    }
+    const { result: evidence, leftovers } = await tempEntriesLeftBy(PROBE_PREFIX, async () => {
+      const previousSecret = process.env.AWS_SECRET_ACCESS_KEY;
+      process.env.AWS_SECRET_ACCESS_KEY = "aws-should-not-leak";
+      try {
+        return await runAgentInstructionsProbe({
+          codex: fixture,
+          nestedInstructions,
+          nestedSentinel: NESTED_SENTINEL,
+          rootInstructions,
+          rootSentinel: ROOT_SENTINEL,
+        });
+      } finally {
+        if (previousSecret === undefined) delete process.env.AWS_SECRET_ACCESS_KEY;
+        else process.env.AWS_SECRET_ACCESS_KEY = previousSecret;
+      }
+    });
 
     expect(evidence.consumer).toEqual({
       binarySha256: fixture.binarySha256,
@@ -97,23 +97,24 @@ describe("SET-411 Agent Instructions external probe", () => {
         scope: "nested",
       },
     ]);
-    expect(await probeDirectories()).toEqual(before);
+    expect(leftovers).toEqual([]);
   });
 
   test("fails closed when the binary does not match its pinned integrity", async () => {
     const fixture = await fakeCodex();
-    const before = await probeDirectories();
 
-    await expect(
-      runAgentInstructionsProbe({
-        codex: { ...fixture, binarySha256: "0".repeat(64) },
-        nestedInstructions: NESTED_SENTINEL,
-        nestedSentinel: NESTED_SENTINEL,
-        rootInstructions: ROOT_SENTINEL,
-        rootSentinel: ROOT_SENTINEL,
-      })
-    ).rejects.toThrow("pinned Codex integrity mismatch");
-    expect(await probeDirectories()).toEqual(before);
+    const { leftovers } = await tempEntriesLeftBy(PROBE_PREFIX, async () => {
+      await expect(
+        runAgentInstructionsProbe({
+          codex: { ...fixture, binarySha256: "0".repeat(64) },
+          nestedInstructions: NESTED_SENTINEL,
+          nestedSentinel: NESTED_SENTINEL,
+          rootInstructions: ROOT_SENTINEL,
+          rootSentinel: ROOT_SENTINEL,
+        })
+      ).rejects.toThrow("pinned Codex integrity mismatch");
+    });
+    expect(leftovers).toEqual([]);
   });
 
   test("rejects ambiguous scope sentinels before running Codex", async () => {
@@ -168,13 +169,6 @@ fi
     binarySha256: sha256(await Bun.file(binaryPath).text()),
     version: FIXTURE_VERSION,
   };
-}
-
-async function probeDirectories(): Promise<readonly string[]> {
-  const entries = await readdir(tmpdir());
-  return entries
-    .filter((name) => name.startsWith("skillset-agent-instructions-"))
-    .toSorted();
 }
 
 function sha256(value: string): string {

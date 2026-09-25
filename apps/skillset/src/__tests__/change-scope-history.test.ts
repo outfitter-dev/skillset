@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -11,6 +10,7 @@ import {
   initializeTestGitRepository,
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
+import { tempEntriesLeftBy } from "../../../../scripts/test-helpers/fixture-root";
 
 const GHOST_SCOPE = "skill:not-a-real-source-unit";
 
@@ -66,23 +66,21 @@ test("SET-503 check --ci and check --ci --fix pass on the post-merge-main shape"
 
 test("failed Git-ref snapshots remove their temporary root", async () => {
   const root = await removedUnitFixture();
-  const before = await snapshotRootNames("skillset-ref-");
 
-  await expect(changeStatus(root, { since: "missing-ref" })).rejects.toThrow("missing-ref");
-  expect(await snapshotRootNames("skillset-ref-")).toEqual(before);
+  const { leftovers } = await tempEntriesLeftBy("skillset-ref-", async () => {
+    await expect(changeStatus(root, { since: "missing-ref" })).rejects.toThrow("missing-ref");
+  });
+  expect(leftovers).toEqual([]);
 });
 
 test("failed Git-index snapshots remove their temporary root", async () => {
   const root = await createTestGitFixtureRoot("skillset-change-index-failure-");
-  const before = await snapshotRootNames("skillset-index-");
 
-  await expect(snapshotGitIndex(root)).rejects.toThrow("not a git repository");
-  expect(await snapshotRootNames("skillset-index-")).toEqual(before);
+  const { leftovers } = await tempEntriesLeftBy("skillset-index-", async () => {
+    await expect(snapshotGitIndex(root)).rejects.toThrow("not a git repository");
+  });
+  expect(leftovers).toEqual([]);
 });
-
-async function snapshotRootNames(prefix: string): Promise<readonly string[]> {
-  return (await readdir(tmpdir())).filter((name) => name.startsWith(prefix)).toSorted();
-}
 
 /**
  * Builds a worktree whose committed source unit `skill:doomed` was removed on the

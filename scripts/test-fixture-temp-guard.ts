@@ -27,14 +27,12 @@ export interface TempGuardResult {
   readonly mismatches: readonly { observation: TempObservation; observed: number }[];
 }
 
-// These read the real OS temp directory to prove production cleanup. They do
-// not allocate test fixtures there. Exact owner/count/usage matching prevents a new
-// fixture allocation from quietly inheriting an observation exception.
-export const TEMP_OBSERVATIONS: readonly TempObservation[] = [
-  { file: "apps/skillset/src/__tests__/adopt.test.ts", owner: "temporaryRoots", count: 1, reason: "Observe remote clone cleanup.", usage: "readdir" },
-  { file: "apps/skillset/src/__tests__/change-scope-history.test.ts", owner: "snapshotRootNames", count: 1, reason: "Observe snapshot cleanup.", usage: "readdir" },
-  { file: "scripts/conformance/standards/__tests__/agent-instructions.test.ts", owner: "probeDirectories", count: 1, reason: "Observe operational probe cleanup.", usage: "readdir" },
-] as const;
+// Tests that read the real OS temp directory to prove production cleanup. Prefer
+// `tempEntriesLeftBy` (scripts/test-helpers/fixture-root.ts), which observes an
+// owned temp root instead; scanning the shared directory races with concurrent
+// runs. Exact owner/count/usage matching prevents a new fixture allocation from
+// quietly inheriting an observation exception.
+export const TEMP_OBSERVATIONS: readonly TempObservation[] = [];
 
 export function isTestSourcePath(path: string): boolean {
   if (!/^(?:apps|packages|scripts)\//u.test(path)) return false;
