@@ -274,6 +274,40 @@ describe("preprocess reference grammar", () => {
     await expect(preprocessText(content, preprocessContext(rootPath))).resolves.toBe(content);
   });
 
+  test("preserves links inside code spans that cross line breaks", async () => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+    const content = "`before\n@{{shared:references/a.md}}\nafter`";
+
+    await expect(preprocessText(content, context)).resolves.toBe(content);
+    expect(rendered).toEqual([]);
+  });
+
+  test.each([
+    ["an unmatched backtick", "a ` b\n@{{shared:references/a.md}}", "a ` b\n@shared:references/a.md"],
+    [
+      "a backtick run of a different length",
+      "``x ` @{{shared:references/a.md}} ` y``\n``done`` @{{shared:references/a.md}}",
+      "``x ` @{{shared:references/a.md}} ` y``\n``done`` @shared:references/a.md",
+    ],
+    [
+      "a blank line before the closing run",
+      "`open\n\n@{{shared:references/a.md}}\nclose`",
+      "`open\n\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "a fenced block before the closing run",
+      "`open\n```\n`\n```\n@{{shared:references/a.md}}",
+      "`open\n```\n`\n```\n@shared:references/a.md",
+    ],
+  ])("scopes multiline code spans past %s", async (_case, content, expected) => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+
+    await expect(preprocessText(content, context)).resolves.toBe(expected);
+    expect(rendered).toEqual(["shared:references/a.md"]);
+  });
+
   test("preserves triple-brace escapes and unrelated brace expressions", async () => {
     const content = [
       "{{{> intro}}}",
@@ -356,6 +390,23 @@ function preprocessContext(rootPath: string, plugin = false): PreprocessContext 
       plugin ? ".skillset/plugins/demo/skills/example/SKILL.md" : ".skillset/skills/example/SKILL.md"
     ),
     sourceRoot: ".skillset",
+  };
+}
+
+function recordingContext(rootPath: string): {
+  readonly context: PreprocessContext;
+  readonly rendered: string[];
+} {
+  const rendered: string[] = [];
+  return {
+    context: {
+      ...preprocessContext(rootPath),
+      renderPathReference: ({ specifier }) => {
+        rendered.push(specifier);
+        return specifier;
+      },
+    },
+    rendered,
   };
 }
 
