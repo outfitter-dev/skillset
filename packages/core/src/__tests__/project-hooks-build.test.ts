@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildSkillsetResult, diffSkillsetResult } from "../build";
+import { supportsGeneratedFileModes } from "../generated-file-mode";
 import { resolveRepoOperationalCachePath } from "../operational-cache";
 import { renderProjectSessionStartHooks, SESSION_START_COMMAND } from "../render-project-hooks";
 import { loadBuildGraph } from "../resolver";
@@ -103,6 +104,29 @@ describe("project SessionStart hooks the graph no longer renders", () => {
     expect(abandoned?.managed).toBe(false);
     expect(new TextDecoder().decode(abandoned?.file.content)).not.toContain(SESSION_START_COMMAND);
     expect(rendered.find((hook) => hook.file.path === ".claude-moved/settings.json")?.managed).toBe(true);
+  });
+});
+
+describe("settings island handback", () => {
+  it.skipIf(!supportsGeneratedFileModes())("records a lock-legal file mode when the live settings file is private", async () => {
+    const root = await createTestFixtureRoot("skillset-project-hooks-handback-mode-");
+    await Bun.write(join(root, "skillset.yaml"), CONFIG);
+    await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), SKILL);
+    await Bun.write(join(root, ".skillset/_claude/settings.json"), '{"foreign":"keep"}\n');
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const settingsPath = join(root, ".claude/settings.json");
+    await chmod(settingsPath, 0o600);
+
+    await writeFile(join(root, "skillset.yaml"), CONFIG.replace("session_start_hook: on", "session_start_hook: off"));
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+      readonly items: ReadonlyArray<{ readonly fileModes?: Record<string, string>; readonly kind: string; readonly outputPath: string }>;
+    };
+    const island = lock.items.find((item) => item.kind === "island" && item.outputPath === ".claude/settings.json");
+    expect(island?.fileModes).toEqual({ ".claude/settings.json": "0644" });
+    expect((await diffSkillsetResult(root)).data.changed).toEqual([]);
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);
   });
 });
 
