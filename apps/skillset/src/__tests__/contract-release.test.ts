@@ -318,11 +318,11 @@ Body.
   expect(await readFile(manifestPath, "utf8")).toContain(`"version": "9.9.9"`);
 
   const yesFlag = await runSkillsetCli("release", "audit", "--yes", "--root", root);
-  expect(yesFlag.exitCode).toBe(1);
+  expect(yesFlag.exitCode).toBe(2);
   expect(yesFlag.stderr).toContain("--yes is only supported with release apply");
 
   const dryRun = await runSkillsetCli("release", "audit", "--dry-run", "--root", root);
-  expect(dryRun.exitCode).toBe(1);
+  expect(dryRun.exitCode).toBe(2);
   expect(dryRun.stderr).toContain("unknown option --dry-run");
 });
 
@@ -615,7 +615,7 @@ Body.
   });
 
   const scoped = await runSkillsetCli("release", "apply", "--yes", "--scope", "plugins", "--root", root);
-  expect(scoped.exitCode).toBe(1);
+  expect(scoped.exitCode).toBe(2);
   expect(scoped.stderr).toContain("--scope is not supported with release commands yet");
 });
 

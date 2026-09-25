@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 
 import { parseCliRequest } from "../../apps/skillset/src/cli-args";
-import { CliOutputError } from "../../apps/skillset/src/cli-output";
+import { CliUsageError } from "../../apps/skillset/src/cli-output";
 import { USAGE } from "../../apps/skillset/src/cli-usage";
 import {
   CLI_ROUTE_FLAGS,
@@ -57,7 +57,7 @@ describe("SET-305 CLI contract parity", () => {
         parseCliRequest(args);
         throw new Error(`expected ${args.join(" ")} to fail parsing`);
       } catch (error) {
-        expect(error).toBeInstanceOf(CliOutputError);
+        expect(error).toBeInstanceOf(CliUsageError);
         expect(error).toMatchObject({ exitCode: 2 });
       }
     }

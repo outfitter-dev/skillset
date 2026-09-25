@@ -162,17 +162,23 @@ describe("SET-453 report CLI", () => {
     await mkdir(inaccessible, { mode: 0o700 });
     await chmod(inaccessible, 0o000);
     try {
-      const result = await runCli(
-        join(inaccessible, "state"),
-        root,
-        "report",
-        "show",
-        REPORT_ID,
-        "--json"
-      );
-      expect(result.exitCode).toBe(3);
-      expect(result.stderr).toBe("");
-      expect(JSON.parse(result.stdout)).toMatchObject({
+      const [human, json] = await Promise.all([
+        runCli(join(inaccessible, "state"), root, "report", "show", REPORT_ID),
+        runCli(
+          join(inaccessible, "state"),
+          root,
+          "report",
+          "show",
+          REPORT_ID,
+          "--json"
+        ),
+      ]);
+      expect(human.exitCode).toBe(3);
+      expect(human.stdout).toBe("");
+      expect(human.stderr).toContain("could not read report bundle");
+      expect(json.exitCode).toBe(3);
+      expect(json.stderr).toBe("");
+      expect(JSON.parse(json.stdout)).toMatchObject({
         command: "report.show",
         diagnostics: [{ code: "report.read_failed", severity: "error" }],
         exitCode: 3,

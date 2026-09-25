@@ -105,7 +105,7 @@ export async function smokeNativeExecutable(
 
     const invalid = await run(executable, ["__native-invalid__"], isolatedPath);
     if (
-      invalid.exitCode !== 1 ||
+      invalid.exitCode !== 2 ||
       !invalid.stderr.includes("skillset: expected command") ||
       !invalid.stderr.includes("usage: skillset")
     ) {

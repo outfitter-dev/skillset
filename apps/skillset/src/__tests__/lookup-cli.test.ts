@@ -544,7 +544,7 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
 
   expect(cursorTarget.exitCode).toBe(0);
   expect((readResultData(cursorTarget.stdout) as { readonly targets: readonly string[] }).targets).toEqual(["cursor"]);
-  expect(invalidTarget.exitCode).toBe(1);
+  expect(invalidTarget.exitCode).toBe(2);
   expect(invalidTarget.stderr).toContain("unknown lookup compatibility target unknown");
 });
 

@@ -198,7 +198,7 @@ test("SET-445: adoption writes a receipt while plans and usage failures do not",
   expect(await addedReportIds(fixture)).toEqual([]);
 
   const usageFailure = await runCli(fixture, "import", "skill");
-  expect(usageFailure.exitCode).toBe(1);
+  expect(usageFailure.exitCode).toBe(2);
   expect(await addedReportIds(fixture)).toEqual([]);
 
   const adopted = await runCli(

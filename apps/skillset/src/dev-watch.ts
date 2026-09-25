@@ -19,7 +19,7 @@ import type { SchemaJsonRecord } from "@skillset/schema";
 
 import { isPathInside } from "@skillset/core/internal/path";
 
-import { classifyCliFailure, createCliEventStream } from "./cli-output";
+import { cliExitCode, createCliEventStream } from "./cli-output";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
@@ -338,7 +338,7 @@ export async function runDevWatch(
   const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
   const recordStreamFailure = (error: unknown, stage: string): void => {
     stream?.failed(error instanceof Error ? error.message : String(error), stage);
-    const exitCode = classifyCliFailure(error);
+    const exitCode = cliExitCode(error);
     if (runtime.setExitCode !== undefined) runtime.setExitCode(exitCode);
     else if (output === process.stdout) process.exitCode = exitCode;
   };

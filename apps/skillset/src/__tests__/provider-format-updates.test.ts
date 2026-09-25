@@ -1037,7 +1037,7 @@ test("SET-278: check --fix requires CI mode and does not replace update", async 
 
   const blocked = await runSkillsetCli("check", "--fix", "--root", root);
 
-  expect(blocked.exitCode).toBe(1);
+  expect(blocked.exitCode).toBe(2);
   expect(blocked.stderr).toContain("check --fix requires --ci");
   expect(await readFile(agentPath, "utf8")).not.toBe(original);
 });
@@ -1047,7 +1047,7 @@ test("SET-194: update rejects scoped writes before safety planning", async () =>
 
   const scoped = await runSkillsetCli("update", "--yes", "--scope", "plugins", "--root", root);
 
-  expect(scoped.exitCode).toBe(1);
+  expect(scoped.exitCode).toBe(2);
   expect(scoped.stderr).toContain("update does not support --scope");
 });
 

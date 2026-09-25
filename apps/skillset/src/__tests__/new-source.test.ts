@@ -742,11 +742,11 @@ test("SET-165: new rejects import-only flags", async () => {
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
 
   const kind = await runSkillsetCli("new", "skill", "Flag Probe", "--kind", "plugin", "--root", root);
-  expect(kind.exitCode).toBe(1);
+  expect(kind.exitCode).toBe(2);
   expect(kind.stderr).toContain("--kind is only supported with import");
 
   const from = await runSkillsetCli("new", "skill", "Flag Probe", "--from", "codex", "--root", root);
-  expect(from.exitCode).toBe(1);
+  expect(from.exitCode).toBe(2);
   expect(from.stderr).toContain("--from is only supported with import");
 });
 
