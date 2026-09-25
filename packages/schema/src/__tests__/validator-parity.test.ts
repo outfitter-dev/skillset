@@ -2,15 +2,23 @@ import { describe, expect, it } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 
 import {
+  agentFrontmatterContract,
+  instructionFrontmatterContract,
   pluginConfigContract,
   ROOT_DRAFT_SELECTOR_PATTERN,
   SOURCE_UNIT_SELECTOR_PATTERN,
+  skillFrontmatterContract,
   skillsetSchemaExamples,
   sourceMetadataContract,
   TARGET_NAMES,
+  validateAgentFrontmatter,
+  validateInstructionFrontmatter,
   validatePluginConfig,
+  validateRootSourceManifest,
   validateSingleFileRootConfig,
+  validateSkillFrontmatter,
   validateSourceMetadata,
+  validateSplitWorkspaceConfig,
   validateWorkspaceConfig,
   workspaceConfigContract,
 } from "../index";
@@ -68,7 +76,46 @@ const configFixtures = {
   ],
 };
 
+const sourceMetadataFixtures = {
+  invalid: [...legacyOutputRoots, { outputs: { skills: "generated/skills" } }],
+  valid: [
+    { outputs: { plugins: { codex: "generated/codex/plugins" } } },
+    { outputs: { skills: {} } },
+  ],
+};
+const withSkillset = (base: SchemaJsonRecord) => ({
+  invalid: sourceMetadataFixtures.invalid.map((skillset) => ({ ...base, skillset })),
+  valid: sourceMetadataFixtures.valid.map((skillset) => ({ ...base, skillset })),
+});
+// Documents whose `skillset` block routes through the shared source-metadata check.
+const skillsetBlockCase = (
+  contract: SkillsetSchemaContract,
+  validator: (value: unknown) => SkillsetSchemaValidationResult,
+  base: SchemaJsonRecord
+): ParityCase => ({ contract, ...withSkillset(base), validators: [validator] });
+const skillsetBlockCases: Record<string, ParityCase> = {
+  "agent frontmatter": skillsetBlockCase(agentFrontmatterContract, validateAgentFrontmatter, {
+    description: "Reviews code.",
+  }),
+  "instruction frontmatter": skillsetBlockCase(
+    instructionFrontmatterContract,
+    validateInstructionFrontmatter,
+    { description: "Review rules." }
+  ),
+  "skill frontmatter": skillsetBlockCase(skillFrontmatterContract, validateSkillFrontmatter, {
+    description: "Reviews code.",
+    name: "review",
+  }),
+  // The split root manifest is the `skillset`/`dependencies`/`supports` subset of the root config schema.
+  "split root source manifest": skillsetBlockCase(
+    workspaceConfigContract,
+    validateRootSourceManifest,
+    {}
+  ),
+};
+
 const cases: Record<string, ParityCase> = {
+  ...skillsetBlockCases,
   "plugin config": {
     contract: pluginConfigContract,
     invalid: configFixtures.invalid,
@@ -92,13 +139,16 @@ const cases: Record<string, ParityCase> = {
   },
   "source metadata": {
     contract: sourceMetadataContract,
-    invalid: [...legacyOutputRoots, { outputs: { skills: "generated/skills" } }],
-    valid: [
-      example("source-metadata"),
-      { outputs: { plugins: { codex: "generated/codex/plugins" } } },
-      { outputs: { skills: {} } },
-    ],
+    invalid: sourceMetadataFixtures.invalid,
+    valid: [example("source-metadata"), ...sourceMetadataFixtures.valid],
     validators: [validateSourceMetadata],
+  },
+  // Split `.skillset/config.yaml` keys are a subset of the root config schema.
+  "split workspace config": {
+    contract: workspaceConfigContract,
+    invalid: targetSkillFixtures(invalidSkillSelections),
+    valid: targetSkillFixtures(validSkillSelections),
+    validators: [validateSplitWorkspaceConfig],
   },
 };
 
