@@ -182,7 +182,8 @@ added a host-native atomic no-replace primitive for workspace directory
 installs. This report store does not adopt that primitive.
 
 The completed name is a random UUIDv4 under a private, user-owned `0700`
-report root. Writers never reuse IDs, and a 122-bit random child of that
+report root. A fresh report draws a new random ID; importing a child report
+keeps the ID that report already carries. A 122-bit random child of that
 root is not a shared install target. An outside or competing claimant cannot
 feasibly occupy a given UUID path.
 
