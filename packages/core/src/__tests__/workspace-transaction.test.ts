@@ -1038,6 +1038,45 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("keeps the mutation error cause and logical path when a write parent is swapped for a symlink", async () => {
+    await withWorkspace(async (root) => {
+      const outside = await createTestFixtureRoot("skillset-workspace-transaction-outside-");
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          { writes: [{ content: "nope\n", path: "nested/escaped.txt" }] },
+          {
+            testHooks: {
+              beforeApply: async () => {
+                await symlink(outside, nodePath.join(root, "nested"));
+              },
+            },
+          }
+        )
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ logicalPath: "nested" }),
+        logicalPath: "nested",
+        message: "skillset: workspace transaction refusing to traverse symbolic link: nested",
+        name: "RepositoryMutationError",
+      });
+      await expect(access(nodePath.join(outside, "escaped.txt"))).rejects.toThrow();
+    });
+  });
+
+  test("keeps the mutation error code when the workspace root is missing", async () => {
+    await withWorkspace(async (root) => {
+      await expect(
+        applyWorkspaceTransaction(nodePath.join(root, "missing"), {
+          writes: [{ content: "nope\n", path: "file.txt" }],
+        })
+      ).rejects.toMatchObject({
+        code: "ENOENT",
+        message: expect.stringContaining("skillset: workspace transaction workspace root does not exist"),
+        name: "RepositoryMutationError",
+      });
+    });
+  });
+
   test("rolls back every applied change after an injected late failure", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "delete.txt"), "delete before\n");
