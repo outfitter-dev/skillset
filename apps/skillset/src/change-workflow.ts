@@ -366,6 +366,7 @@ export async function migratePendingChangeEntries(
           const absoluteFromPath = resolveInside(rootPath, migration.fromPath);
           await prepareRepositoryMutationPath(rootPath, absoluteFromPath, {
             createParents: false,
+            replacesLeaf: true,
           });
           await rm(absoluteFromPath, { force: true });
         }
@@ -558,6 +559,7 @@ async function restoreMigrationFiles(rootPath: string, snapshots: readonly Migra
     if (snapshot.content === undefined) {
       await prepareRepositoryMutationPath(rootPath, absolutePath, {
         createParents: false,
+        replacesLeaf: true,
       });
       await rm(absolutePath, { force: true });
       continue;

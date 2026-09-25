@@ -105,6 +105,39 @@ describe("repository mutation ancestry", () => {
     });
   });
 
+  test("refuses a symlinked leaf so append and write cannot follow it", async () => {
+    await withRoots(async (root, outside) => {
+      await mkdir(join(root, ".skillset/changes"), { recursive: true });
+      await symlink(join(outside, "sentinel.txt"), join(root, ".skillset/changes/ledger.jsonl"));
+      await symlink(join(outside, "absent.txt"), join(root, "dangling.txt"));
+      await expect(
+        prepareRepositoryMutationPath(root, join(root, ".skillset/changes/ledger.jsonl"))
+      ).rejects.toThrow("refusing to write through symbolic link: .skillset/changes/ledger.jsonl");
+      await expect(
+        prepareRepositoryMutationPath(root, join(root, "dangling.txt"))
+      ).rejects.toThrow("refusing to write through symbolic link: dangling.txt");
+      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
+      await expect(lstat(join(outside, "absent.txt"))).rejects.toHaveProperty(
+        "code",
+        "ENOENT"
+      );
+    });
+  });
+
+  test("allows a symlinked leaf when the caller replaces or removes the leaf itself", async () => {
+    await withRoots(async (root, outside) => {
+      await mkdir(join(root, ".skillset/changes"), { recursive: true });
+      const leaf = join(root, ".skillset/changes/state.json");
+      await symlink(join(outside, "sentinel.txt"), leaf);
+      const prepared = await prepareRepositoryMutationPath(root, leaf, {
+        replacesLeaf: true,
+      });
+      expect(prepared.path).toBe(join(await realpath(root), ".skillset/changes/state.json"));
+      await rm(prepared.path, { force: true });
+      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
+    });
+  });
+
   test("refuses a non-directory parent", async () => {
     await withRoots(async (root) => {
       await writeFile(join(root, ".skillset"), "not a directory\n");

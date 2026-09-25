@@ -156,7 +156,7 @@ export async function writeReleaseState(
       version: value.version,
     };
   }
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
+  await prepareRepositoryMutationPath(rootPath, absolutePath, { replacesLeaf: true });
   const cursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, options)));
   await publishAtomicFile(
     absolutePath,

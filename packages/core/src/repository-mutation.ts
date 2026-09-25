@@ -24,7 +24,9 @@ import { isPathInside } from "./path";
  * A workspace root may itself be a symlink. After `realpath`, that resolved
  * directory is the mutation root. Intermediate parent components must be real
  * directories — never symlinks or non-directories. There is no supported
- * contract for an intermediate source-root symlink.
+ * contract for an intermediate source-root symlink. An existing leaf must not
+ * be a symlink either, unless the caller replaces the leaf itself
+ * (`replacesLeaf`) instead of writing through it.
  */
 export class RepositoryMutationError extends Error {
   readonly code?: string;
@@ -69,6 +71,14 @@ export interface PrepareRepositoryMutationPathOptions {
    * closed.
    */
   readonly createParents?: boolean;
+  /**
+   * The caller removes, renames over, or exclusively creates the leaf (`rm`,
+   * `rename`, atomic publication, `link`/`wx` install) and so never writes
+   * through it. Defaults to `false`: an existing symbolic-link leaf is
+   * refused, because `writeFile` and `appendFile` would follow it out of the
+   * workspace.
+   */
+  readonly replacesLeaf?: boolean;
   readonly testHooks?: RepositoryMutationTestHooks;
 }
 
@@ -131,17 +141,18 @@ export async function prepareRepositoryMutationPath(
   const absolutePath =
     relativePath === "" ? resolvedRoot : resolve(resolvedRoot, relativePath);
   const parentRelative = relativePath === "" ? "" : dirname(relativePath);
-  if (parentRelative === "" || parentRelative === ".") {
-    return {
-      createdDirectories: [],
-      path: absolutePath,
-      workspaceRoot: resolvedRoot,
-    };
+  const prepared = {
+    createdDirectories: [] as string[],
+    path: absolutePath,
+    workspaceRoot: resolvedRoot,
+  };
+  if (relativePath === "") {
+    return prepared;
   }
 
-  const createdDirectories: string[] = [];
+  const { createdDirectories } = prepared;
   let current = resolvedRoot;
-  for (const segment of parentRelative.split(sep).filter(Boolean)) {
+  for (const segment of parentRelative.split(sep).filter((part) => part !== "" && part !== ".")) {
     current = join(current, segment);
     const logicalPath = relative(resolvedRoot, current);
     try {
@@ -155,11 +166,7 @@ export async function prepareRepositoryMutationPath(
       continue;
     }
     if (!createParents) {
-      return {
-        createdDirectories,
-        path: absolutePath,
-        workspaceRoot: resolvedRoot,
-      };
+      return prepared;
     }
 
     let created = false;
@@ -185,11 +192,17 @@ export async function prepareRepositoryMutationPath(
     }
   }
 
-  return {
-    createdDirectories,
-    path: absolutePath,
-    workspaceRoot: resolvedRoot,
-  };
+  if (options.replacesLeaf !== true) {
+    const logicalPath = relative(resolvedRoot, absolutePath);
+    const leaf = await inspectComponent(absolutePath, logicalPath);
+    if (leaf?.isSymbolicLink() === true) {
+      throw new RepositoryMutationError(
+        `refusing to write through symbolic link: ${logicalPath}`,
+        { logicalPath }
+      );
+    }
+  }
+  return prepared;
 }
 
 function repositoryRelativePath(

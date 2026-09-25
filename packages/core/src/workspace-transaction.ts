@@ -1258,9 +1258,11 @@ async function ensureSafeParent(
   path: NormalizedPath
 ): Promise<void> {
   try {
+    // Installs use link/`wx`/rename and never write through the leaf.
     const prepared = await prepareRepositoryMutationPath(
       state.workspaceRoot,
-      path.absolute
+      path.absolute,
+      { replacesLeaf: true }
     );
     state.createdDirectories.push(...prepared.createdDirectories);
   } catch (error) {
