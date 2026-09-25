@@ -95,6 +95,29 @@ Bun.spawn(["git", "status"], { env });
     expect(violations).toHaveLength(1);
   });
 
+  test("SET-632: any intervening binding shadows an outer sanitized alias", () => {
+    const shadowingForms = {
+      arrowParameter: `const run = (env) => Bun.spawn(["git", "status"], { env });`,
+      blockFunction: `{ function env() {} Bun.spawn(["git", "status"], { env }); }`,
+      catchBinding: `try {} catch (env) { Bun.spawn(["git", "status"], { env }); }`,
+      destructuredParameter: `function run({ env }) { Bun.spawn(["git", "status"], { env }); }`,
+      destructuring: `function run(o) { const { env } = o; Bun.spawn(["git", "status"], { env }); }`,
+      forIn: `for (const env in envs) Bun.spawn(["git", "status"], { env });`,
+      forOf: `for (const env of envs) { Bun.spawn(["git", "status"], { env }); }`,
+      functionParameter: `function run(env) { Bun.spawn(["git", "status"], { env }); }`,
+      laterDeclaration: `function run() { const go = () => Bun.spawn(["git", "status"], { env }); const env = process.env; go(); }`,
+      switchCase: `switch (mode) { case 1: const env = process.env; Bun.spawn(["git", "status"], { env }); }`,
+    };
+
+    for (const [form, body] of Object.entries(shadowingForms)) {
+      const violations = scanGitEnvSource(
+        "packages/core/src/example.ts",
+        `const env = gitSafeEnv();\n${body}\n`
+      );
+      expect({ form, violations: violations.length }).toEqual({ form, violations: 1 });
+    }
+  });
+
   test("SET-632: sanitizer mentions outside an environment spread do not satisfy the guard", () => {
     const violations = scanGitEnvSource(
       "packages/core/src/example.ts",

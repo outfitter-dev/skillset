@@ -230,25 +230,83 @@ function expressionIsAmbientProcessEnv(
   return false;
 }
 
+/**
+ * Resolves `id` to the initializer of the plain `const`/`let`/`var` declaration
+ * it lexically refers to. Any other binding of the same name met on the way out
+ * (parameters, destructuring, loop and catch bindings, function or class
+ * declarations, or a declaration after the use) shadows outer declarations and
+ * leaves the alias unresolved, so the guard treats it as unsanitized.
+ */
 function localInitializer(id: ts.Identifier): ts.Expression | undefined {
   const source = id.getSourceFile();
   const usePosition = id.getStart(source);
   for (let current: ts.Node | undefined = id.parent; current !== undefined; current = current.parent) {
-    if (!ts.isBlock(current) && !ts.isSourceFile(current)) continue;
-    const declaration = current.statements
-      .toReversed()
+    if (scopeHeaderBinds(current, id.text)) return undefined;
+    const statements = scopeStatements(current);
+    if (statements === undefined) continue;
+    if (
+      statements.some(
+        (statement) =>
+          (ts.isFunctionDeclaration(statement) ||
+            ts.isClassDeclaration(statement) ||
+            ts.isEnumDeclaration(statement)) &&
+          statement.name?.text === id.text
+      )
+    ) {
+      return undefined;
+    }
+    const declarations = statements
       .flatMap((statement) =>
         ts.isVariableStatement(statement) ? [...statement.declarationList.declarations] : []
       )
-      .find(
-        (candidate) =>
-          candidate.getStart(source) < usePosition &&
-          ts.isIdentifier(candidate.name) &&
-          candidate.name.text === id.text
-      );
-    if (declaration !== undefined) return declaration.initializer;
+      .filter((candidate) => bindingNames(candidate.name).includes(id.text));
+    if (declarations.length === 0) continue;
+    const declaration = declarations.findLast(
+      (candidate) => candidate.getStart(source) < usePosition
+    );
+    if (declaration === undefined || !ts.isIdentifier(declaration.name)) return undefined;
+    return declaration.initializer;
   }
   return undefined;
+}
+
+function scopeStatements(node: ts.Node): readonly ts.Statement[] | undefined {
+  if (ts.isBlock(node) || ts.isSourceFile(node) || ts.isModuleBlock(node)) {
+    return node.statements;
+  }
+  if (ts.isCaseBlock(node)) return node.clauses.flatMap((clause) => [...clause.statements]);
+  return undefined;
+}
+
+function scopeHeaderBinds(node: ts.Node, name: string): boolean {
+  if (ts.isFunctionLike(node)) {
+    if (ts.isFunctionExpression(node) && node.name?.text === name) return true;
+    return node.parameters.some((parameter) => bindingNames(parameter.name).includes(name));
+  }
+  if (ts.isCatchClause(node)) {
+    return (
+      node.variableDeclaration !== undefined &&
+      bindingNames(node.variableDeclaration.name).includes(name)
+    );
+  }
+  if (ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node)) {
+    const initializer = node.initializer;
+    return (
+      initializer !== undefined &&
+      ts.isVariableDeclarationList(initializer) &&
+      initializer.declarations.some((declaration) =>
+        bindingNames(declaration.name).includes(name)
+      )
+    );
+  }
+  return false;
+}
+
+function bindingNames(name: ts.BindingName): readonly string[] {
+  if (ts.isIdentifier(name)) return [name.text];
+  return name.elements.flatMap((element) =>
+    ts.isOmittedExpression(element) ? [] : bindingNames(element.name)
+  );
 }
 
 function unwrapExpression(node: ts.Expression): ts.Expression {
