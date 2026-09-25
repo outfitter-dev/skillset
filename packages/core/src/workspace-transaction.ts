@@ -19,6 +19,10 @@ import {
 } from "node:fs/promises";
 import nodePath from "node:path";
 
+import {
+  appendOwnedJsonlRecords,
+  rollbackOwnedJsonlRecords,
+} from "./change-ledger-write";
 import { renameDirectoryNoReplace } from "./directory-rename-no-replace";
 import { supportsGeneratedFileModes } from "./generated-file-mode";
 import { compareStrings, isPathInside } from "./path";
@@ -37,6 +41,16 @@ export interface WorkspaceTransactionWrite {
   readonly expectedAbsent?: boolean;
   readonly mode?: GeneratedFileMode;
   readonly path: string;
+}
+
+/**
+ * Records appended to an append-only JSONL stream. The records are built from
+ * the stream's bytes read when the append applies, never from a planning-time
+ * snapshot, and rollback removes only the lines this transaction appended.
+ */
+export interface WorkspaceTransactionAppend {
+  readonly path: string;
+  readonly records: (current: string) => readonly object[];
 }
 
 /** A filesystem entry moved as part of a bounded workspace transaction. */
@@ -62,6 +76,7 @@ export interface WorkspaceTransactionExpectedSourceTree {
  * absolute, but every path must resolve inside `workspaceRoot`.
  */
 export interface WorkspaceTransactionPlan {
+  readonly appends?: readonly WorkspaceTransactionAppend[];
   readonly copies?: readonly WorkspaceTransactionCopy[];
   readonly deletes?: readonly string[];
   readonly expectedSourceTrees?: readonly WorkspaceTransactionExpectedSourceTree[];
@@ -72,6 +87,7 @@ export interface WorkspaceTransactionPlan {
 
 /** A deterministic, content-free description of one planned operation. */
 export type WorkspaceTransactionOperation =
+  | { readonly kind: "append"; readonly path: string }
   | { readonly from: string; readonly kind: "copy"; readonly to: string }
   | { readonly kind: "delete"; readonly path: string }
   | { readonly from: string; readonly kind: "move"; readonly to: string }
@@ -92,6 +108,7 @@ export interface WorkspaceTransactionReport {
 /** A rollback action exposed only to deterministic test hooks. */
 export interface WorkspaceTransactionRollbackAction {
   readonly kind:
+    | "remove-appended-records"
     | "remove-created-directory"
     | "restore-copy"
     | "restore-move"
@@ -200,6 +217,15 @@ interface NormalizedWrite {
   readonly path: NormalizedPath;
 }
 
+interface NormalizedAppend {
+  readonly operation: Extract<
+    WorkspaceTransactionOperation,
+    { readonly kind: "append" }
+  >;
+  readonly path: NormalizedPath;
+  readonly records: WorkspaceTransactionAppend["records"];
+}
+
 interface NormalizedDelete {
   readonly operation: Extract<
     WorkspaceTransactionOperation,
@@ -214,6 +240,7 @@ interface NormalizedExpectedSourceTree {
 }
 
 interface PreparedPlan {
+  readonly appends: readonly NormalizedAppend[];
   readonly copies: readonly NormalizedCopy[];
   readonly deletes: readonly NormalizedDelete[];
   readonly expectedSourceTrees: readonly NormalizedExpectedSourceTree[];
@@ -247,7 +274,13 @@ interface AppliedWrite {
   readonly write: NormalizedWrite;
 }
 
+interface AppliedAppend {
+  readonly lines: readonly string[];
+  readonly path: NormalizedPath;
+}
+
 interface TransactionState {
+  readonly appliedAppends: AppliedAppend[];
   readonly appliedCopies: AppliedCopy[];
   readonly appliedMoves: AppliedMove[];
   readonly appliedWrites: AppliedWrite[];
@@ -289,6 +322,7 @@ export async function applyWorkspaceTransaction(
   await assertMoveTargetCollisions(prepared, initialEntries);
 
   const state: TransactionState = {
+    appliedAppends: [],
     appliedCopies: [],
     appliedMoves: [],
     appliedWrites: [],
@@ -324,6 +358,7 @@ export async function applyWorkspaceTransaction(
       prepared.operations
     );
     await applyWrites(state, prepared, options.testHooks);
+    await applyAppends(state, prepared, options.testHooks);
     const supersededDeletePaths = await applyDeletes(
       resolvedWorkspaceRoot,
       prepared,
@@ -431,6 +466,14 @@ function preparePlan(
     .toSorted((left, right) =>
       compareStrings(left.path.relative, right.path.relative)
     );
+  const appends = (plan.appends ?? []).map((append) => {
+    const path = normalizePath(workspaceRoot, append.path);
+    return {
+      operation: { kind: "append" as const, path: path.relative },
+      path,
+      records: append.records,
+    };
+  });
   const expectedSourceTrees = (plan.expectedSourceTrees ?? [])
     .map((expected) => ({
       identity: expected.identity,
@@ -441,8 +484,10 @@ function preparePlan(
     );
 
   assertPlanPaths(copies, writes, moves, deletes);
+  assertAppendPaths(appends, copies, writes, moves, deletes);
   assertExpectedSourceTreePaths(expectedSourceTrees, copies, moves, deletes);
   return {
+    appends,
     copies,
     deletes,
     expectedSourceTrees,
@@ -451,11 +496,43 @@ function preparePlan(
       ...copies.map((copy) => copy.operation),
       ...moves.map((move) => move.operation),
       ...writes.map((write) => write.operation),
+      ...appends.map((append) => append.operation),
       ...deletes.map((entry) => entry.operation),
     ],
     removeEmptyParents: plan.removeEmptyParents === true,
     writes,
   };
+}
+
+function assertAppendPaths(
+  appends: readonly NormalizedAppend[],
+  copies: readonly NormalizedCopy[],
+  writes: readonly NormalizedWrite[],
+  moves: readonly NormalizedMove[],
+  deletes: readonly NormalizedDelete[]
+): void {
+  const appendPaths = new Set<string>();
+  for (const append of appends) {
+    assertUnique(appendPaths, append.path.relative, "append path");
+  }
+  const otherPaths = [
+    ...copies.flatMap((copy) => [copy.from.relative, copy.to.relative]),
+    ...writes.map((write) => write.path.relative),
+    ...moves.flatMap((move) => [move.from.relative, move.to.relative]),
+    ...deletes.map((entry) => entry.path.relative),
+  ];
+  for (const path of otherPaths) {
+    if (
+      [...appendPaths].some(
+        (appendPath) =>
+          appendPath === path ||
+          isAncestorPath(path, appendPath) ||
+          isAncestorPath(appendPath, path)
+      )
+    ) {
+      throw transactionError(`conflicting planned operations for ${path}`);
+    }
+  }
 }
 
 function assertExpectedSourceTreePaths(
@@ -981,6 +1058,35 @@ async function assertMoveSourceStayedVacant(
   );
 }
 
+async function applyAppends(
+  state: TransactionState,
+  prepared: PreparedPlan,
+  hooks: WorkspaceTransactionTestHooks | undefined
+): Promise<void> {
+  for (const append of prepared.appends) {
+    await invokeApplyHook(hooks, prepared.operations, append.operation);
+    await ensureSafeParent(state, append.path, "written-through");
+    const entry = await inspectPath(state.workspaceRoot, append.path);
+    if (entry !== undefined && !entry.isFile()) {
+      throw transactionError(
+        `append target is not a regular file: ${append.path.relative}`
+      );
+    }
+    const current =
+      entry === undefined ? "" : await readFile(append.path.absolute, "utf8");
+    if (current.length > 0 && !current.endsWith("\n")) {
+      throw transactionError(
+        `append target does not end with a newline: ${append.path.relative}`
+      );
+    }
+    const lines = await appendOwnedJsonlRecords(
+      append.path.absolute,
+      append.records(current)
+    );
+    state.appliedAppends.push({ lines, path: append.path });
+  }
+}
+
 async function applyWrites(
   state: TransactionState,
   prepared: PreparedPlan,
@@ -1255,14 +1361,15 @@ async function invokeApplyHook(
 
 async function ensureSafeParent(
   state: TransactionState,
-  path: NormalizedPath
+  path: NormalizedPath,
+  // Installs use link/`wx`/rename and never write through the leaf; appends do.
+  leaf: "replaced" | "written-through" = "replaced"
 ): Promise<void> {
   try {
-    // Installs use link/`wx`/rename and never write through the leaf.
     const prepared = await prepareRepositoryMutationPath(
       state.workspaceRoot,
       path.absolute,
-      { replacesLeaf: true }
+      { replacesLeaf: leaf === "replaced" }
     );
     state.createdDirectories.push(...prepared.createdDirectories);
   } catch (error) {
@@ -1338,6 +1445,17 @@ async function rollbackTransaction(
     }
   };
 
+  for (const append of [...state.appliedAppends].toReversed()) {
+    await run(
+      { kind: "remove-appended-records", path: append.path.relative },
+      async () => {
+        await rollbackOwnedJsonlRecords(
+          append.path.absolute,
+          new Set(append.lines)
+        );
+      }
+    );
+  }
   for (const write of [...state.appliedWrites].toReversed()) {
     if (write.currentPath === write.stagingPath) {
       continue;

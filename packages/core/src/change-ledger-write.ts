@@ -92,7 +92,12 @@ export async function nextJsonlTimestampForPaths(
 
 export async function readJsonlTailTimestamp(absolutePath: string): Promise<string | undefined> {
   if (!(await pathExists(absolutePath))) return undefined;
-  const lines = (await readFile(absolutePath, "utf8")).split("\n");
+  return jsonlTailTimestamp(await readFile(absolutePath, "utf8"));
+}
+
+/** The event timestamp of the last non-empty record in JSONL `content`, if any. */
+export function jsonlTailTimestamp(content: string): string | undefined {
+  const lines = content.split("\n");
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index];
     if (line === undefined || line.trim().length === 0) continue;

@@ -2,6 +2,7 @@ import * as core from "@skillset/core";
 import type { SkillsetCliChange } from "@skillset/schema";
 
 import { printCliJsonData } from "./cli-output";
+import { defaultLifecycleLedgerLock, type LifecycleLedgerLock } from "./lifecycle-ledger-lock";
 import { publicGeneratedOperation } from "./source-mutation-cli";
 
 export interface DraftCommandRequest {
@@ -13,7 +14,7 @@ export interface DraftCommandRequest {
 
 interface DraftOperation {
   readonly from?: string;
-  readonly kind: "copy" | "update";
+  readonly kind: "append" | "copy" | "update";
   readonly path?: string;
   readonly to?: string;
 }
@@ -52,6 +53,8 @@ export interface DraftCommandCore {
 
 export interface DraftCommandContext {
   readonly core?: DraftCommandCore;
+  /** Serializes the applying plan and transaction with other ledger writers. */
+  readonly ledgerLock?: LifecycleLedgerLock;
   readonly write?: (value: string) => void;
 }
 
@@ -98,7 +101,7 @@ const renderDraft = (
     ...report.operations.map((operation) =>
       operation.kind === "copy"
         ? `  ${state} copy: ${operation.from ?? "?"} -> ${operation.to ?? "?"}`
-        : `  ${state} update: ${operation.path ?? "?"}`
+        : `  ${state} ${operation.kind}: ${operation.path ?? "?"}`
     ),
     ...report.generatedOperations.map(
       (operation) => `  ${state} ${operation.kind} generated: ${operation.path}`
@@ -124,13 +127,14 @@ export const runDraftCommand = async (
     rootPath: request.rootPath,
     shippedPath: request.shippedPath,
   };
-  const preview = await draftCore.planSourceDraft(planRequest);
   const report = request.yes
-    ? await draftCore.draftSource({
-        ...planRequest,
-        expectedPlanHash: preview.planHash,
-      })
-    : preview;
+    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async () =>
+        draftCore.draftSource({
+          ...planRequest,
+          expectedPlanHash: (await draftCore.planSourceDraft(planRequest)).planHash,
+        })
+      )
+    : await draftCore.planSourceDraft(planRequest);
   const paths = request.yes ? writtenPaths(report) : [];
   if (request.jsonOutput) {
     printCliJsonData(
