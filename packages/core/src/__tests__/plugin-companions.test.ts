@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 
-import { buildSkillsetResult } from "../build";
+import { buildSkillsetResult, diffSkillsetResult } from "../build";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 // Valid as a Skillset plugin slug, but past the Agent Plugins 1.0 name limit.
@@ -19,6 +19,23 @@ describe("plugin companions", () => {
       }
     });
   }
+
+  it("attributes a shared baseline companion to the standard profile that owns it", async () => {
+    const root = await fixture("claude", "demo");
+
+    const { renderResults } = await diffSkillsetResult(root);
+    const iconResults = renderResults.filter((result) =>
+      result.outputs?.some((output) => output.path === "plugins/demo/assets/icon.svg")
+    );
+    expect(iconResults).toEqual([
+      expect.objectContaining({
+        featureId: "plugin-assets",
+        sourceUnit: "plugin.demo.feature:assets",
+        standardProfile: "agent-plugins-1.0",
+        status: "target_native",
+      }),
+    ]);
+  });
 });
 
 async function fixture(target: "claude" | "cursor", pluginId: string): Promise<string> {
