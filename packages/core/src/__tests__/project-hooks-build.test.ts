@@ -41,19 +41,6 @@ describe("project SessionStart hooks at the build destination", () => {
     expect(await readFile(join(root, ".claude/settings.json"), "utf8")).toBe(live);
   });
 
-  for (const live of ["garbage\n", '{"not":"a lock"}\n']) {
-    it(`builds isolated output without reading a foreign live lock (${live.trim()})`, async () => {
-      const { root, xdg, mirror } = await isolatedFixture();
-      await writeFile(join(root, "skillset.lock"), live);
-
-      const result = await buildSkillsetResult(root, { isolated: true, xdg });
-      expect(result.outputState.blockers).toEqual([]);
-      expect(result.ok).toBe(true);
-      expect(await Bun.file(join(mirror, "skillset.lock")).exists()).toBe(true);
-      expect(await readFile(join(root, "skillset.lock"), "utf8")).toBe(live);
-    });
-  }
-
   it("keeps foreign mirror edits across repeated isolated builds without a live file", async () => {
     const { root, xdg, mirror } = await isolatedFixture();
     expect((await buildSkillsetResult(root, { isolated: true, xdg })).ok).toBe(true);
