@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import nodePath from "node:path";
 
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   assertRealPathInside,
   isPathInside,
@@ -118,45 +118,28 @@ describe("resolveInside", () => {
 
 describe("assertRealPathInside", () => {
   test("accepts a real descendant and refuses a path outside the root", async () => {
-    const root = await mkdtemp(nodePath.join(tmpdir(), "skillset-path-inside-"));
-    try {
-      const child = nodePath.join(root, "nested", "file.txt");
-      await mkdir(nodePath.dirname(child), { recursive: true });
-      await writeFile(child, "ok\n");
-      await expect(assertRealPathInside(root, child)).resolves.toBe(
-        await realpath(child)
-      );
-      await expect(assertRealPathInside(root, root)).resolves.toBeDefined();
+    const root = await createTestFixtureRoot("skillset-path-inside-");
+    const child = nodePath.join(root, "nested", "file.txt");
+    await mkdir(nodePath.dirname(child), { recursive: true });
+    await writeFile(child, "ok\n");
+    await expect(assertRealPathInside(root, child)).resolves.toBe(
+      await realpath(child)
+    );
+    await expect(assertRealPathInside(root, root)).resolves.toBeDefined();
 
-      const outside = await mkdtemp(
-        nodePath.join(tmpdir(), "skillset-path-outside-")
-      );
-      try {
-        await expect(assertRealPathInside(root, outside)).rejects.toThrow(
-          "refusing to operate outside repo root"
-        );
-      } finally {
-        await rm(outside, { force: true, recursive: true });
-      }
-    } finally {
-      await rm(root, { force: true, recursive: true });
-    }
+    const outside = await createTestFixtureRoot("skillset-path-outside-");
+    await expect(assertRealPathInside(root, outside)).rejects.toThrow(
+      "refusing to operate outside repo root"
+    );
   });
 
   test("treats a symlink that escapes the root as outside", async () => {
-    const root = await mkdtemp(nodePath.join(tmpdir(), "skillset-path-link-"));
-    const outside = await mkdtemp(
-      nodePath.join(tmpdir(), "skillset-path-link-out-")
+    const root = await createTestFixtureRoot("skillset-path-link-");
+    const outside = await createTestFixtureRoot("skillset-path-link-out-");
+    const escape = nodePath.join(root, "escape");
+    await symlink(outside, escape);
+    await expect(assertRealPathInside(root, escape)).rejects.toThrow(
+      "refusing to operate outside repo root"
     );
-    try {
-      const escape = nodePath.join(root, "escape");
-      await symlink(outside, escape);
-      await expect(assertRealPathInside(root, escape)).rejects.toThrow(
-        "refusing to operate outside repo root"
-      );
-    } finally {
-      await rm(root, { force: true, recursive: true });
-      await rm(outside, { force: true, recursive: true });
-    }
   });
 });
