@@ -55,6 +55,56 @@ describe("path containment guard", () => {
     ]);
   });
 
+  test("sees relative() through a local normalizer (pre-fix render-agent-skills and reconcile)", () => {
+    const labels = (file: string, lines: readonly string[]): readonly string[] =>
+      scanPathContainmentContent(file, lines.join("\n")).map((violation) => violation.label);
+
+    expect(
+      labels("packages/core/src/render-agent-skills.ts", [
+        "const relativeFile = normalizePath(path.relative(targetSkillDir, file.path));",
+        'if (relativeFile.length === 0 || relativeFile.startsWith("../")) throw new Error("x");',
+      ])
+    ).toEqual(["relative(...).startsWith('..') belongs in path.ts"]);
+    expect(
+      labels("apps/skillset/src/reconcile.ts", [
+        "const normalized = normalizeReconcilePath(relative(resolve(rootPath), resolve(rootPath, path)));",
+        'if (normalized === "" || normalized.startsWith("../") || isAbsolute(normalized)) throw new Error("x");',
+      ])
+    ).toEqual(["relative(...).startsWith('..') belongs in path.ts"]);
+  });
+
+  test("flags an exact '..' comparison on a relative() result", () => {
+    const violations = scanPathContainmentContent(
+      "apps/skillset/src/example.ts",
+      [
+        "const rel = toPosix(relative(root, path));",
+        'if (rel === ".." || ".." === rel) return false;',
+        'if (relative(root, path) !== "..") return true;',
+      ].join("\n")
+    );
+
+    expect(violations.map((violation) => [violation.line, violation.label])).toEqual([
+      [2, "relative(...) === '..' belongs in path.ts"],
+      [3, "relative(...) === '..' belongs in path.ts"],
+    ]);
+  });
+
+  test("flags a resolve-derived slash-prefix comparison", () => {
+    const violations = scanPathContainmentContent(
+      "apps/skillset/src/example.ts",
+      [
+        "const target = resolve(root, candidate);",
+        "if (!target.startsWith(`${root}/`)) throw new Error(\"x\");",
+        "if (!resolve(root, other).startsWith(`${root}/`)) throw new Error(\"x\");",
+      ].join("\n")
+    );
+
+    expect(violations.map((violation) => [violation.line, violation.label])).toEqual([
+      [2, "resolve slash-prefix comparison belongs in path.ts"],
+      [3, "resolve slash-prefix comparison belongs in path.ts"],
+    ]);
+  });
+
   test("allows POSIX logical prefix checks that are not OS-path relative() results", () => {
     expect(
       scanPathContainmentContent(

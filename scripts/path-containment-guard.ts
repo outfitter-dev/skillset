@@ -3,7 +3,9 @@
  *
  * OS-path writes must go through `packages/core/src/path.ts`. This rejects
  * new `isAbsolute(relative…)` checks, `relative(…).startsWith("..")` tests,
- * and realpath slash-prefix comparisons outside that helper.
+ * `relative(…) === ".."` comparisons, and realpath/resolve slash-prefix
+ * comparisons outside that helper. A `relative()` result stays tracked through
+ * `replace`/`replaceAll` and any single-argument normalizer call.
  */
 
 import { existsSync } from "node:fs";
@@ -59,27 +61,41 @@ export function scanPathContainmentContent(
 
   const relativeNames = new Set<string>();
   const realPathNames = new Set<string>();
+  const resolveNames = new Set<string>();
+  const isRelativeDerived = (node: ts.Expression): boolean =>
+    isDerivedFrom(node, "relative", relativeNames, true);
 
   const visit = (node: ts.Node): void => {
     if (ts.isVariableDeclaration(node) && node.initializer !== undefined && ts.isIdentifier(node.name)) {
+      if (isRelativeDerived(node.initializer)) relativeNames.add(node.name.text);
       const initializer = unwrapExpression(node.initializer);
-      if (isNamedCall(initializer, "relative")) relativeNames.add(node.name.text);
       if (isNamedCall(initializer, "realpath")) realPathNames.add(node.name.text);
+      if (isNamedCall(initializer, "resolve")) resolveNames.add(node.name.text);
     }
 
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
       if (node.expression.name.text === "startsWith" && node.arguments[0] !== undefined) {
-        const receiver = unwrapExpression(node.expression.expression);
+        const receiver = node.expression.expression;
         const argument = node.arguments[0];
-        if (isNamedCall(receiver, "relative") && isParentPrefixLiteral(argument)) {
+        if (isRelativeDerived(receiver) && isParentPrefixLiteral(argument)) {
           report(node, "relative(...).startsWith('..') belongs in path.ts");
         }
-        if (ts.isIdentifier(receiver) && relativeNames.has(receiver.text) && isParentPrefixLiteral(argument)) {
-          report(node, "relative(...).startsWith('..') belongs in path.ts");
-        }
-        if (ts.isIdentifier(receiver) && realPathNames.has(receiver.text) && isSlashPrefixTemplate(argument)) {
+        if (isDerivedFrom(receiver, "realpath", realPathNames, false) && isSlashPrefixTemplate(argument)) {
           report(node, "realpath slash-prefix comparison belongs in path.ts");
         }
+        if (isDerivedFrom(receiver, "resolve", resolveNames, false) && isSlashPrefixTemplate(argument)) {
+          report(node, "resolve slash-prefix comparison belongs in path.ts");
+        }
+      }
+    }
+
+    if (ts.isBinaryExpression(node) && isEqualityOperator(node.operatorToken.kind)) {
+      const { left, right } = node;
+      if (
+        (isParentLiteral(right) && isRelativeDerived(left)) ||
+        (isParentLiteral(left) && isRelativeDerived(right))
+      ) {
+        report(node, "relative(...) === '..' belongs in path.ts");
       }
     }
 
@@ -110,6 +126,35 @@ function unwrapExpression(node: ts.Expression): ts.Expression {
     }
     return current;
   }
+}
+
+/**
+ * True when `node` is a `name(...)` call or a tracked name, seen through
+ * `unwrapExpression`. With `throughWrappers`, a single-argument call such as
+ * `normalizePath(relative(...))` keeps the argument's derivation.
+ */
+function isDerivedFrom(
+  node: ts.Expression,
+  name: string,
+  names: ReadonlySet<string>,
+  throughWrappers: boolean
+): boolean {
+  const current = unwrapExpression(node);
+  if (isNamedCall(current, name)) return true;
+  if (ts.isIdentifier(current)) return names.has(current.text);
+  if (throughWrappers && ts.isCallExpression(current) && current.arguments.length === 1) {
+    const argument = current.arguments[0];
+    return argument !== undefined && isDerivedFrom(argument, name, names, true);
+  }
+  return false;
+}
+
+function isEqualityOperator(kind: ts.SyntaxKind): boolean {
+  return kind === ts.SyntaxKind.EqualsEqualsEqualsToken || kind === ts.SyntaxKind.ExclamationEqualsEqualsToken;
+}
+
+function isParentLiteral(node: ts.Expression): boolean {
+  return (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && node.text === "..";
 }
 
 function isNamedCall(node: ts.Expression, name: string): boolean {
