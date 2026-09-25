@@ -26,6 +26,7 @@ permissions:
 
 jobs:
   scripts:
+    name: Windows scripts
     runs-on: windows-2025
     timeout-minutes: 20
     steps:
