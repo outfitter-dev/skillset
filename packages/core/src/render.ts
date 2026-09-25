@@ -207,7 +207,7 @@ export async function renderBuildGraph(
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
-  rendered.push(...(await renderClaudeMarketplace(graph, destination)));
+  rendered.push(...(await renderClaudeMarketplace(graph)));
   const chatGptMarketplace = await renderChatGptMarketplace(graph);
   rendered.push(...chatGptMarketplace);
   const chatGptMarketplaceFile = chatGptMarketplace[0];
@@ -325,7 +325,7 @@ export async function renderBuildGraph(
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
   }
   assertPluginPackagePathCompatibility(graph, rendered);
-  rendered.push(...(await renderLockFiles(graph, lockRoots, destination)));
+  rendered.push(...(await renderLockFiles(graph, lockRoots)));
   return [...planRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
     .map((file) => validateRenderedFile(file));
@@ -2334,11 +2334,10 @@ function pluginFeatureTargetPath(feature: SourcePluginFeature, target: TargetNam
 
 async function renderLockFiles(
   graph: BuildGraph,
-  lockRoots: ReadonlyMap<string, LockRoot>,
-  destination: RenderDestination
+  lockRoots: ReadonlyMap<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
-  const existingMarketplaceState = await readExistingMarketplaceState(destination);
+  const existingMarketplaceState = await readExistingMarketplaceState(graph.rootPath);
 
   for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const value: JsonRecord = {

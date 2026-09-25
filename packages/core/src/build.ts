@@ -372,12 +372,11 @@ async function runBuildProjection(
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
   const repair = normalizeRepairOptions(options.repair, outPath);
-  const destination = renderDestination(outPath, resolveOutputPath);
-  const allRendered = await renderBuildGraph(graph, destination);
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
   await inspectionOptions.afterRender?.();
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
-    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph, destination),
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
@@ -1368,11 +1367,10 @@ export async function diffSkillsetResult(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
-  const destination = renderDestination(outPath, resolveOutputPath);
-  const allRendered = await renderBuildGraph(graph, destination);
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
-    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph, destination),
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
@@ -1466,11 +1464,10 @@ export async function verifySkillsetResult(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
-  const destination = renderDestination(outPath, resolveOutputPath);
-  const allRendered = await renderBuildGraph(graph, destination);
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
-    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph, destination),
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,

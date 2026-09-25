@@ -22,6 +22,7 @@ import {
   updateMarketplaces,
 } from "../marketplace-update";
 import { writeKnownSkillsetsIndex } from "../known-skillsets";
+import { resolveRepoOperationalCachePath } from "../operational-cache";
 import { resolveRemoteRepositoryCache } from "../remote-repository-cache";
 import type { JsonRecord } from "../types";
 
@@ -171,6 +172,61 @@ codex: false
       requestedTarget: "codex",
       states: ["declared", "resolved", "locked", "not-ready"],
     }));
+  });
+
+  test("isolated builds keep externally locked marketplace plugins from the live lock", async () => {
+    const root = await createTestGitFixtureRoot("skillset-marketplace-isolated-");
+    const external = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: trails
+`,
+      ".skillset/plugins/trails-tools/skillset.yaml": `
+skillset:
+  name: trails-tools
+`,
+    }, root);
+    await buildSkillsetResult(external);
+    const remote = await createTestGitRemote(external, {
+      disposableRoot: root,
+      repository: "https://github.com/outfitter-dev/trails.git",
+      rootPath: await mkdtemp(join(root, "git-")),
+    });
+    await runTestGit(external, "remote", "add", "origin", remote.repository);
+    const marketplace = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - id: trails
+        plugin: trails-tools
+        repo: github:outfitter-dev/trails
+        sha: ${remote.sha}
+`,
+    }, root);
+    await writeKnownSkillsetsIndex({
+      schemaVersion: 1,
+      skillsets: [{
+        cacheKey: "trails",
+        identities: ["github:outfitter-dev/trails"],
+        path: external,
+        repository: remote.repository,
+      }],
+    }, remote.xdg);
+    expect((await updateMarketplaces(marketplace, { name: "outfitter", write: true, xdg: remote.xdg })).ok).toBe(true);
+    expect((await buildSkillsetResult(marketplace, { xdg: remote.xdg })).ok).toBe(true);
+
+    // `marketplace update` writes provider entries only into the live lock, so
+    // the isolated projection must render from it, not from the mirror lock.
+    expect((await buildSkillsetResult(marketplace, { isolated: true, xdg: remote.xdg })).ok).toBe(true);
+    const marketplacePath = ".claude-plugin/marketplace.json";
+    const live = await readFile(join(marketplace, marketplacePath), "utf8");
+    const mirror = join(resolveRepoOperationalCachePath(marketplace, remote.xdg), "latest", marketplacePath);
+    expect(live).toContain("trails-tools");
+    expect(await readFile(mirror, "utf8")).toBe(live);
   });
 
   test("resolves external plugin refs from the managed known-Skillsets index", async () => {
