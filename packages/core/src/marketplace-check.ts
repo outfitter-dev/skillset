@@ -273,6 +273,10 @@ function portableRemoteInspectionError(error: unknown): string {
     // Drop the cache key and the host-specific native reason; keep the remedy.
     return "skillset: cannot atomically publish the remote cache (directory installs require atomic no-replace rename support; move the cache to a supported local filesystem)";
   }
+  if (message.startsWith("skillset: cannot publish remote cache")) {
+    // Drop the cache key and native paths; the local error keeps them as cause.
+    return "skillset: cannot publish the remote cache (the cache filesystem rejected the atomic rename; check the cache directory's permissions and health)";
+  }
   const portablePrefixes = [
     "skillset: remote ",
     "skillset: resolved remote commit changed",

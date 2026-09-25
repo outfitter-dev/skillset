@@ -346,6 +346,38 @@ describe("remote repository cache", () => {
     expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
   });
 
+  test("wraps an operational no-replace rename failure as a cache publication error", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    const nativeError = eaccesRenameError();
+
+    const rejection = await acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "sha", sha: fixture.firstSha },
+      testHooks: {
+        renameDirectory: () => {
+          throw nativeError;
+        },
+      },
+      xdg: fixture.xdg,
+    }).then(
+      () => undefined,
+      (error: unknown) => error
+    );
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect(rejection).toMatchObject({
+      cause: nativeError,
+      message: `skillset: cannot publish remote cache ${location.cacheKey}: ${nativeError.message}`,
+    });
+    await expect(lstat(location.path)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
   test("rejects a pre-existing empty cache directory without replacing it", async () => {
     const fixture = await gitRemoteFixture();
     const location = resolveRemoteRepositoryCache(
@@ -641,4 +673,11 @@ function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value
     resolvePromise = resolve;
   });
   return { promise, resolve: resolvePromise };
+}
+
+function eaccesRenameError(): Error {
+  return Object.assign(
+    new Error("skillset: macOS atomic directory rename failed with native code 13: /cache/.acquire-x -> /cache/entry"),
+    { code: "EACCES" }
+  );
 }

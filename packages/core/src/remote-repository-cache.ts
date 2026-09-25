@@ -140,9 +140,11 @@ async function acquireRemoteRepositoryUnlocked(
       cachePath: location.path,
       temporaryPath: temporary,
     });
-    const result = (
-      options.testHooks?.renameDirectory ?? renameDirectoryNoReplace
-    )(temporary, location.path);
+    const result = publishDirectory(
+      options.testHooks?.renameDirectory ?? renameDirectoryNoReplace,
+      temporary,
+      location
+    );
     if (result.kind === "installed") {
       return checkout(location, parsed.canonical, resolved, false);
     }
@@ -158,6 +160,22 @@ async function acquireRemoteRepositoryUnlocked(
   } catch (error) {
     await rm(temporary, { force: true, recursive: true });
     throw error;
+  }
+}
+
+// An operational rename failure (EACCES, EIO, ...) is neither occupancy nor a
+// missing capability. Name it as a cache publication failure so callers can
+// map it portably, and keep the native error as the cause for local debugging.
+function publishDirectory(
+  rename: (sourcePath: string, destinationPath: string) => DirectoryRenameNoReplaceResult,
+  temporary: string,
+  location: RemoteRepositoryCacheLocation
+): DirectoryRenameNoReplaceResult {
+  try {
+    return rename(temporary, location.path);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`skillset: cannot publish remote cache ${location.cacheKey}: ${detail}`, { cause: error });
   }
 }
 

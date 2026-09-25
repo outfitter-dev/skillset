@@ -125,6 +125,7 @@ A cooperative lock serializes Skillset processes, but the cache key is determini
 | Pinned SHA differs | Entry is `not-ready`; no fallback is substituted | Correct the pin or provide matching evidence |
 | Cache origin, integrity, or boundary check fails | Entry is `not-ready`; Skillset does not touch another cache/source repo | Remove only the identified disposable cache entry and retry |
 | Cache filesystem lacks atomic no-replace rename | Entry is `not-ready`; no checkout is published | Move the XDG cache to a supported local filesystem |
+| Cache filesystem rejects the atomic rename (permissions, I/O) | Entry is `not-ready`; no checkout is published | Check the XDG cache directory's permissions and health |
 | Input changes between preview and apply | Update refuses the stale transaction | Rerun preview and review the new plan |
 
 Marketplace commands never publish a repository, mutate an external plugin repo, install or trust a plugin, or write user-level runtime settings.
