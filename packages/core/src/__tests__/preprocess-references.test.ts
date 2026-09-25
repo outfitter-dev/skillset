@@ -300,6 +300,46 @@ describe("preprocess reference grammar", () => {
       "`open\n```\n`\n```\n@{{shared:references/a.md}}",
       "`open\n```\n`\n```\n@shared:references/a.md",
     ],
+    [
+      "a tilde fence before the closing run",
+      "`open\n~~~\n`\n~~~\n@{{shared:references/a.md}}",
+      "`open\n~~~\n`\n~~~\n@shared:references/a.md",
+    ],
+    [
+      "a whitespace-only line before the closing run",
+      "`open\n \t\n@{{shared:references/a.md}}\nclose`",
+      "`open\n \t\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "an ATX heading",
+      "# Heading ` x\npara @{{shared:references/a.md}} and ` y",
+      "# Heading ` x\npara @shared:references/a.md and ` y",
+    ],
+    [
+      "list item starts",
+      "- a ` b\n- @{{shared:references/a.md}}\n- c ` d",
+      "- a ` b\n- @shared:references/a.md\n- c ` d",
+    ],
+    [
+      "table rows",
+      "| a ` | b |\n| @{{shared:references/a.md}} | c ` |",
+      "| a ` | b |\n| @shared:references/a.md | c ` |",
+    ],
+    [
+      "indented code lines",
+      "    ```\n@{{shared:references/a.md}}\n    ```",
+      "    ```\n@shared:references/a.md\n    ```",
+    ],
+    [
+      "a backslash-escaped backtick",
+      "\\`not code\n@{{shared:references/a.md}} ` end",
+      "\\`not code\n@shared:references/a.md ` end",
+    ],
+    [
+      "an escaped backtick that closes a span",
+      "`code\\`\n@{{shared:references/a.md}} ` end",
+      "`code\\`\n@shared:references/a.md ` end",
+    ],
   ])("scopes multiline code spans past %s", async (_case, content, expected) => {
     await files(rootPath, { ".skillset/shared/references/a.md": "A" });
     const { context, rendered } = recordingContext(rootPath);

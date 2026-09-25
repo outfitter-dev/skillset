@@ -832,9 +832,13 @@ function isMarkdownSource(path: string): boolean {
 type CodeRange = readonly [start: number, end: number];
 
 interface BacktickRun {
+  readonly escaped: boolean;
   readonly length: number;
   readonly start: number;
 }
+
+/** How a non-fence line affects pending code-span delimiters. */
+type MarkdownLineBlock = "blank" | "continuation" | "single" | "start";
 
 interface MarkdownFence {
   readonly char: string;
@@ -848,50 +852,92 @@ function isInsideMarkdownCode(ranges: readonly CodeRange[], index: number): bool
 /**
  * Fenced blocks and inline code spans, computed once per document. A span opens
  * at a backtick run and closes at the next run of exactly the same length in the
- * same paragraph, so spans may cross line breaks but never a blank line or a
- * fenced block; unmatched runs stay literal.
+ * same block, so spans may cross line breaks within a paragraph or list item but
+ * never a blank line, fence, heading, list-item start, table row, thematic break,
+ * or indented-code line; unmatched runs stay literal.
  */
 function markdownCodeRanges(content: string): CodeRange[] {
   const ranges: CodeRange[] = [];
   let runs: BacktickRun[] = [];
+  const flush = (): void => {
+    pushCodeSpans(runs, ranges);
+    runs = [];
+  };
   let fence: MarkdownFence | undefined;
   let fenceStart = 0;
+  let inParagraph = false;
   let lineStart = 0;
   for (const line of content.split("\n")) {
     const lineEnd = lineStart + line.length + 1;
     const next = nextFence(line, fence);
     if (fence === undefined && next !== undefined) {
-      pushCodeSpans(runs, ranges);
-      runs = [];
+      flush();
       fenceStart = lineStart;
     } else if (fence !== undefined && next === undefined) {
       ranges.push([fenceStart, lineEnd]);
-    } else if (fence === undefined && /^[ \t]*$/.test(line)) {
-      pushCodeSpans(runs, ranges);
-      runs = [];
-    } else if (fence === undefined) {
-      for (const run of line.matchAll(/`+/g)) {
-        runs.push({ length: run[0].length, start: lineStart + run.index });
-      }
+    }
+    if (fence !== undefined || next !== undefined) {
+      inParagraph = false;
+    } else {
+      const block = markdownLineBlock(line, inParagraph);
+      if (block !== "continuation") flush();
+      if (block !== "blank") runs.push(...backtickRuns(line, lineStart));
+      if (block === "single") flush();
+      inParagraph = block === "continuation" || block === "start";
     }
     fence = next;
     lineStart = lineEnd;
   }
   if (fence !== undefined) ranges.push([fenceStart, content.length]);
-  pushCodeSpans(runs, ranges);
+  flush();
   return ranges;
 }
 
+/**
+ * Single-line blocks (ATX headings, thematic breaks, table rows, and indented
+ * code outside a paragraph) keep spans on their own line; list items start a
+ * new block that later lines may continue.
+ */
+function markdownLineBlock(line: string, inParagraph: boolean): MarkdownLineBlock {
+  if (/^[ \t]*$/.test(line)) return "blank";
+  if (
+    /^ {0,3}(?:#{1,6}(?:[ \t]|$)|\||([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(line) ||
+    (!inParagraph && /^(?: {4}|\t)/.test(line))
+  ) {
+    return "single";
+  }
+  if (/^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/.test(line)) return "start";
+  return "continuation";
+}
+
+function backtickRuns(line: string, lineStart: number): BacktickRun[] {
+  return Array.from(line.matchAll(/`+/g), (run) => {
+    let backslashes = 0;
+    while (line[run.index - backslashes - 1] === "\\") backslashes += 1;
+    return {
+      escaped: backslashes % 2 === 1,
+      length: run[0].length,
+      start: lineStart + run.index,
+    };
+  });
+}
+
+/**
+ * Pairs runs into spans. A backslash escapes only the first backtick of an
+ * opening run; closing runs match at full length because backslashes are
+ * literal inside a code span.
+ */
 function pushCodeSpans(runs: readonly BacktickRun[], ranges: CodeRange[]): void {
   let resumeAt = 0;
-  for (const [index, opener] of runs.entries()) {
+  for (const [index, run] of runs.entries()) {
     if (index < resumeAt) continue;
-    const close = runs.findIndex(
-      (run, candidate) => candidate > index && run.length === opener.length
-    );
+    const openLength = run.escaped ? run.length - 1 : run.length;
+    if (openLength === 0) continue;
+    let close = index + 1;
+    while (close < runs.length && runs[close]?.length !== openLength) close += 1;
     const closer = runs[close];
     if (closer === undefined) continue;
-    ranges.push([opener.start, closer.start + closer.length]);
+    ranges.push([run.start + run.length - openLength, closer.start + closer.length]);
     resumeAt = close + 1;
   }
 }
