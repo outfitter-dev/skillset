@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -196,6 +196,59 @@ describe("change stream guard", () => {
     });
   });
 
+  test("passes a real union restack whose appended block is older than trunk's tail", async () => {
+    const { ledger, root } = await gitStreamFixture(stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-base-2", "2026-08-02T00:00:00.000Z")
+    ));
+    await runTestGit(root, "switch", "--quiet", "-c", "feature");
+    await appendFile(ledger, stream(event("evt-branch-1", "2026-08-03T00:00:00.000Z")), "utf8");
+    await runTestGit(root, "commit", "--quiet", "--all", "-m", "branch append");
+    await runTestGit(root, "switch", "--quiet", "main");
+    await appendFile(ledger, stream(event("evt-trunk-3", "2026-08-09T00:00:00.000Z")), "utf8");
+    await runTestGit(root, "commit", "--quiet", "--all", "-m", "trunk append");
+    await runTestGit(root, "switch", "--quiet", "feature");
+    await runTestGit(root, "rebase", "--quiet", "main");
+
+    expect((await readFile(ledger, "utf8")).split("\n").filter(Boolean).map((line) => (JSON.parse(line) as { id: string }).id))
+      .toEqual(["evt-base-1", "evt-base-2", "evt-trunk-3", "evt-branch-1"]);
+    expect(await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).toEqual({
+      scanned: 1,
+      violations: [],
+    });
+  });
+
+  test("flags a trunk stream deleted from the working copy", async () => {
+    const { ledger, root } = await gitStreamFixture(stream(event("evt-base-1", "2026-08-01T00:00:00.000Z")));
+    await runTestGit(root, "switch", "--quiet", "-c", "feature");
+    await rm(ledger);
+
+    expect(await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).toEqual({
+      scanned: 1,
+      violations: [{
+        file: FILE,
+        line: 1,
+        message:
+          "trunk record evt-base-1 at line 1 is missing; keep trunk's records in their original order and append new records after them",
+        rule: "trunk-prefix-divergence",
+      }],
+    });
+  });
+
+  test("fails loudly with a reason when the trunk merge-base cannot be resolved", async () => {
+    const { root } = await gitStreamFixture(stream(event("evt-base-1", "2026-08-01T00:00:00.000Z")));
+    await runTestGit(root, "switch", "--quiet", "--orphan", "unrelated");
+    await runTestGit(root, "commit", "--quiet", "--allow-empty", "-m", "unrelated history");
+    await runTestGit(root, "switch", "--quiet", "main");
+
+    const failure = await collectChangeStreamViolations({ rootPath: root, trunkRef: "unrelated" }).then(
+      () => undefined,
+      (error: unknown) => (error instanceof Error ? error.message : String(error))
+    );
+    expect(failure).toContain("cannot find a merge-base between HEAD and unrelated");
+    expect(failure).toContain("fetch the trunk with full history");
+  });
+
   test("names the pathspec that mirrors .gitattributes", () => {
     expect(CHANGE_STREAM_PATHSPEC).toBe(".skillset/changes/*.jsonl");
   });
@@ -209,3 +262,14 @@ describe("change stream guard", () => {
     expect(attributes.get(".skillset/changes/state.json")).toBe("unspecified");
   });
 });
+
+async function gitStreamFixture(trunk: string): Promise<{ readonly ledger: string; readonly root: string }> {
+  const disposableRoot = await createTestGitFixtureRoot("skillset-change-stream-guard-");
+  const root = join(disposableRoot, "repo");
+  const ledger = join(root, FILE);
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(join(root, ".gitattributes"), ".skillset/changes/*.jsonl merge=union\n", "utf8");
+  await writeFile(ledger, trunk, "utf8");
+  await initializeTestGitRepository(root, { disposableRoot });
+  return { ledger, root };
+}
