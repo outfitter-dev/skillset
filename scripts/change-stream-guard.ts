@@ -230,6 +230,21 @@ function nonEmptyLines(output: string): readonly string[] {
   return output.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
+async function resolveMergeBase(rootPath: string, trunkRef: string): Promise<string> {
+  let output: string;
+  try {
+    output = await runText(rootPath, ["git", "merge-base", "HEAD", trunkRef]);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `skillset: change stream guard cannot find a merge-base between HEAD and ${trunkRef} (${detail.trim()}); ` +
+        "fetch the trunk with full history (for example `git fetch --unshallow origin`, or `fetch-depth: 0` in CI) and retry",
+      { cause: error }
+    );
+  }
+  return output.trim();
+}
+
 /**
  * Read every append-only stream in `rootPath`'s working copy, pair it with its
  * content at `git merge-base HEAD <trunkRef>`, and return all violations. A
@@ -241,7 +256,7 @@ export async function collectChangeStreamViolations(options: {
   readonly trunkRef: string;
 }): Promise<{ readonly scanned: number; readonly violations: readonly ChangeStreamViolation[] }> {
   const { rootPath, trunkRef } = options;
-  const mergeBase = (await runText(rootPath, ["git", "merge-base", "HEAD", trunkRef])).trim();
+  const mergeBase = await resolveMergeBase(rootPath, trunkRef);
   const trunkFiles = new Set(
     nonEmptyLines(await runText(rootPath, ["git", "ls-tree", "-r", "--name-only", mergeBase, "--", ".skillset/changes"]))
       .filter((file) => CHANGE_STREAM_FILE.test(file))
