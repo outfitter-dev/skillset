@@ -108,7 +108,7 @@ describe("project SessionStart hooks the graph no longer renders", () => {
 });
 
 describe("settings island handback", () => {
-  it.skipIf(!supportsGeneratedFileModes())("records a lock-legal file mode when the live settings file is private", async () => {
+  it.skipIf(!supportsGeneratedFileModes())("records the live file mode it hashed when the live settings file is private", async () => {
     const root = await createTestFixtureRoot("skillset-project-hooks-handback-mode-");
     await Bun.write(join(root, "skillset.yaml"), CONFIG);
     await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), SKILL);
@@ -123,7 +123,7 @@ describe("settings island handback", () => {
       readonly items: ReadonlyArray<{ readonly fileModes?: Record<string, string>; readonly kind: string; readonly outputPath: string }>;
     };
     const island = lock.items.find((item) => item.kind === "island" && item.outputPath === ".claude/settings.json");
-    expect(island?.fileModes).toEqual({ ".claude/settings.json": "0644" });
+    expect(island?.fileModes).toEqual({ ".claude/settings.json": "0600" });
     expect((await diffSkillsetResult(root)).data.changed).toEqual([]);
     expect((await buildSkillsetResult(root)).ok).toBe(true);
     expect((await stat(settingsPath)).mode & 0o777).toBe(0o600);

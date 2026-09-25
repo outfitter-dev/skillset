@@ -275,7 +275,8 @@ function parseGeneratedLockItem(
     files,
     schemaVersion,
     label,
-    kind === "settings-entry"
+    // Settings files keep their live mode, and it is what their output hash covers.
+    kind === "settings-entry" || kind === "island"
   );
   const outputHash = optionalString(value.outputHash, label, "outputHash");
   const name = optionalString(value.name, label, "name");
