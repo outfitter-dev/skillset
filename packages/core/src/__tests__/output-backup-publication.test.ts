@@ -7,6 +7,7 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 import {
   inspectOutputBackups,
   persistOutputBackupPlan,
+  restoreOutputBackup,
   type OutputBackupPlan,
 } from "../output-safety";
 
@@ -117,6 +118,36 @@ describe("output backup manifest publication", () => {
 
     expect(await Bun.file(join(redirected, "manifest.json")).exists()).toBe(false);
     expect(await publicationArtifacts(join(redirected, "manifest.json"))).toEqual([]);
+  });
+
+  test("refuses to store backup payloads through a pre-existing symlinked snapshot root", async () => {
+    if (process.platform === "win32") return;
+
+    const root = await createTestFixtureRoot("skillset-backup-symlink-snapshots-");
+    const outside = await createTestFixtureRoot("skillset-backup-symlink-snapshots-outside-");
+    await mkdir(join(root, ".skillset"));
+    await symlink(outside, join(root, ".skillset/snapshots"), "dir");
+
+    await expect(persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n")))
+      .rejects.toThrow("refusing to traverse symbolic link: .skillset/snapshots");
+
+    expect(await readdir(outside)).toEqual([]);
+  });
+
+  test("refuses to restore a backup through a symlinked target parent", async () => {
+    if (process.platform === "win32") return;
+
+    const root = await createTestFixtureRoot("skillset-backup-restore-symlink-");
+    const outside = await createTestFixtureRoot("skillset-backup-restore-symlink-outside-");
+    const persisted = await persistOutputBackupPlan(root, backupPlan("nested/AGENTS.md", "authored\n"));
+    const runId = persisted.backup?.runId;
+    if (runId === undefined) throw new Error("expected a persisted backup");
+    await symlink(outside, join(root, "nested"), "dir");
+
+    await expect(restoreOutputBackup(root, runId, { write: true }))
+      .rejects.toThrow("refusing to traverse symbolic link: nested");
+
+    expect(await readdir(outside)).toEqual([]);
   });
 
   test("keeps sibling inspection isolated when a snapshot directory is unreadable", async () => {
