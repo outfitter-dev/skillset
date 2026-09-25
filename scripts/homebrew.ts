@@ -327,7 +327,7 @@ export const updateHomebrewTapReadme = (contents: string): string => {
   }
   for (const legacy of LEGACY_HOMEBREW_README_SECTIONS) {
     if (normalized.includes(legacy)) {
-      return normalized.replace(legacy, HOMEBREW_README_SECTION);
+      return normalized.replace(legacy, () => HOMEBREW_README_SECTION);
     }
   }
   if (/^## Skillset$/mu.test(normalized)) {
