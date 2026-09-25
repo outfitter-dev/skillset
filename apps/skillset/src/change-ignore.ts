@@ -1,14 +1,10 @@
-import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
 import { compareStrings } from "@skillset/core/internal/path";
 import type { JsonRecord } from "@skillset/core/internal/types";
 import { workspaceChangeFile } from "@skillset/core";
 
 import { changeCheck, hasRecordedChangeIgnore, resolvePendingChangeRef } from "./change-entries";
+import { withChangeLedgerMutation, type ChangeLedgerLockOptions } from "./change-ledger-mutation";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions } from "./change-status";
-import {
-  withChangeLedgerLock,
-  type ChangeLedgerLockOptions,
-} from "./change-refresh";
 
 export interface ChangeIgnoreOptions extends ChangeStatusOptions {
   /** @internal Test seam for a source or reason edit between stable plans. */
@@ -33,17 +29,6 @@ export interface ChangeIgnoreReport {
   readonly written: boolean;
 }
 
-type LedgerEvent = {
-  readonly payload: JsonRecord;
-  readonly type: ChangeLedgerEventType;
-};
-
-type AppendLedgerEvents = (
-  rootPath: string,
-  sourceDir: string | undefined,
-  events: readonly LedgerEvent[]
-) => Promise<void>;
-
 interface PlannedChangeIgnore {
   readonly key: string;
   readonly report: ChangeIgnoreReport;
@@ -51,15 +36,14 @@ interface PlannedChangeIgnore {
 
 export async function ignorePendingChangeWithAppend(
   rootPath: string,
-  options: ChangeIgnoreOptions,
-  appendLedgerEvents: AppendLedgerEvents
+  options: ChangeIgnoreOptions
 ): Promise<ChangeIgnoreReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
   if (!options.write) {
     return (await planChangeIgnore(rootPath, storageOptions, options.ref)).report;
   }
 
-  return withChangeLedgerLock(rootPath, storageOptions.sourceDir, options.lock, async (lock) => {
+  return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const planned = await planChangeIgnore(rootPath, storageOptions, options.ref);
       if (planned.report.alreadyIgnored) return planned.report;
@@ -67,13 +51,13 @@ export async function ignorePendingChangeWithAppend(
       const confirmed = await planChangeIgnore(rootPath, storageOptions, options.ref);
       if (confirmed.report.alreadyIgnored) return confirmed.report;
       if (planned.key !== confirmed.key) continue;
-      await lock.assertOwned();
+      await mutation.assertOwned();
       await options.beforeOwnershipVerification?.();
       const fresh = await planChangeIgnore(rootPath, storageOptions, options.ref);
       if (fresh.report.alreadyIgnored) return fresh.report;
       if (confirmed.key !== fresh.key) continue;
-      await lock.assertOwned();
-      await appendLedgerEvents(rootPath, storageOptions.sourceDir, [
+      await mutation.assertOwned();
+      await mutation.appendLedger([
         {
           payload: {
             reasonId: fresh.report.entry.ref.slice(1),

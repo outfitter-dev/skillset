@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { appendFile, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
 import {
@@ -11,6 +11,7 @@ import {
   type PendingChangeEntry,
 } from "./change-entries";
 import { readChangeLedger, type ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
+import { nextJsonlTimestampForPaths } from "@skillset/core/internal/change-ledger-write";
 import { changeStatus, detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
@@ -33,6 +34,10 @@ import { workspaceChangeFile, workspaceChangesDir } from "@skillset/core";
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 import {
+  withChangeLedgerMutation,
+  type ChangeLedgerLockOptions,
+} from "./change-ledger-mutation";
+import {
   refreshChangeEvidenceWithAppend,
   type ChangeRefreshOptions,
   type ChangeRefreshReport,
@@ -43,8 +48,8 @@ import {
   type ChangeIgnoreReport,
 } from "./change-ignore";
 
+export type { ChangeLedgerLockOptions } from "./change-ledger-lock";
 export type {
-  ChangeLedgerLockOptions,
   ChangeRefreshEntry,
   ChangeRefreshOptions,
   ChangeRefreshReport,
@@ -62,17 +67,20 @@ export type ChangeReasonInput =
 export interface ChangeAddOptions extends Omit<ChangeCheckOptions, "scopes"> {
   readonly bump?: ChangeBump;
   readonly group?: string;
+  readonly lock?: ChangeLedgerLockOptions;
   readonly reason: ChangeReasonInput;
   readonly scopes: readonly string[];
 }
 
 export interface ChangeReasonOptions extends ChangeStatusOptions {
   readonly append: boolean;
+  readonly lock?: ChangeLedgerLockOptions;
   readonly reason: ChangeReasonInput;
   readonly ref: string;
 }
 
 export interface ChangeAmendOptions extends ChangeStatusOptions {
+  readonly lock?: ChangeLedgerLockOptions;
   readonly reason: ChangeReasonInput;
   readonly ref: string;
 }
@@ -90,6 +98,7 @@ export interface ChangeHistoryOptions extends ChangeStatusOptions {
 }
 
 export interface ChangeMigrateOptions extends ChangeStatusOptions {
+  readonly lock?: ChangeLedgerLockOptions;
   readonly write: boolean;
 }
 
@@ -170,138 +179,156 @@ const MIN_REF_LENGTH = 6;
 
 export async function addChangeEntry(rootPath: string, options: ChangeAddOptions): Promise<ChangeAddReport> {
   if (options.scopes.length === 0) throw new Error("skillset: change add requires at least one --scope");
-  if (options.bump === undefined) throw new Error("skillset: change add requires --bump major, minor, patch, or none");
+  const bump = options.bump;
+  if (bump === undefined) throw new Error("skillset: change add requires --bump major, minor, patch, or none");
   const scopes = [...new Set(options.scopes.map(sourceUnitSelector))].sort(compareStrings);
   const reason = await resolveChangeReason(rootPath, options.reason);
   const statusOptions = await detectWorkspaceOptions(rootPath, sourceStatusOptions(options));
-  const status = await changeStatus(rootPath, statusOptions);
-  const existing = await readAllChangeEntries(rootPath, statusOptions);
-  const id = await generateChangeId(
-    rootPath,
-    { ...options, scopes, ...(statusOptions.sourceDir === undefined ? {} : { sourceDir: statusOptions.sourceDir }) },
-    existing.map((entry) => entry.id)
-  );
-  const sourceHashes = new Map<string, readonly string[]>();
-  for (const scope of scopes) {
-    const hash = sourceHashForScope(scope, status.sourceUnits, status.sourceChanges);
-    if (hash === undefined) throw new Error(`skillset: unknown change scope ${scope}`);
-    sourceHashes.set(scope, [hash]);
-  }
 
-  const relativePath = join(workspaceChangesDir(statusOptions.sourceDir), `${id}.md`).replaceAll("\\", "/");
-  const absolutePath = resolveInside(rootPath, relativePath);
-  const group = options.group === undefined ? undefined : parseGroupArgument(options.group);
-  const sourceUnits = ledgerSourceUnits(sourceHashes);
-  const groupReference = group === undefined ? undefined : groupRef(group);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  await writeFile(absolutePath, reasonOnlyMarkdown(reason, { bump: options.bump, ...(group === undefined ? {} : { group }), scopes }), "utf8");
-  await appendLedgerEvents(rootPath, statusOptions.sourceDir, [
-    {
-      payload: {
-        bump: options.bump,
-        ...(groupReference === undefined ? {} : { group: groupReference, refs: [groupReference] }),
-        path: relativePath,
-        reason,
-        reasonId: id,
-        sourceUnits,
-      },
-      type: "reason.created",
-    },
-    {
-      payload: {
-        reasonId: id,
-        sourceUnits,
-      },
-      type: "change.covered",
-    },
-  ]);
+  return withChangeLedgerMutation(rootPath, statusOptions.sourceDir, options.lock, async (mutation) => {
+    const status = await changeStatus(rootPath, statusOptions);
+    const existing = await readAllChangeEntries(rootPath, statusOptions);
+    const id = await generateChangeId(
+      rootPath,
+      { ...options, scopes, ...(statusOptions.sourceDir === undefined ? {} : { sourceDir: statusOptions.sourceDir }) },
+      existing.map((entry) => entry.id)
+    );
+    const sourceHashes = new Map<string, readonly string[]>();
+    for (const scope of scopes) {
+      const hash = sourceHashForScope(scope, status.sourceUnits, status.sourceChanges);
+      if (hash === undefined) throw new Error(`skillset: unknown change scope ${scope}`);
+      sourceHashes.set(scope, [hash]);
+    }
 
-  const [entry] = await readPendingChangeEntries(rootPath, statusOptions).then((entries) => entries.filter((item) => item.id === id));
-  if (entry === undefined) throw new Error(`skillset: failed to read created change entry ${id}`);
-  const refs = refIndex([entry], await readHistoryEntries(rootPath, statusOptions));
-  return {
-    entry: pendingView(entry, refs),
-    ledgerPath: workspaceChangeFile(statusOptions.sourceDir, "ledger.jsonl"),
-  };
+    const relativePath = join(workspaceChangesDir(statusOptions.sourceDir), `${id}.md`).replaceAll("\\", "/");
+    const absolutePath = resolveInside(rootPath, relativePath);
+    const group = options.group === undefined ? undefined : parseGroupArgument(options.group);
+    const sourceUnits = ledgerSourceUnits(sourceHashes);
+    const groupReference = group === undefined ? undefined : groupRef(group);
+    await prepareRepositoryMutationPath(rootPath, absolutePath);
+    await writeFile(absolutePath, reasonOnlyMarkdown(reason, { bump, ...(group === undefined ? {} : { group }), scopes }), "utf8");
+    try {
+      await mutation.appendLedger([
+        {
+          payload: {
+            bump,
+            ...(groupReference === undefined ? {} : { group: groupReference, refs: [groupReference] }),
+            path: relativePath,
+            reason,
+            reasonId: id,
+            sourceUnits,
+          },
+          type: "reason.created",
+        },
+        {
+          payload: {
+            reasonId: id,
+            sourceUnits,
+          },
+          type: "change.covered",
+        },
+      ]);
+
+      const [entry] = await readPendingChangeEntries(rootPath, statusOptions).then((entries) => entries.filter((item) => item.id === id));
+      if (entry === undefined) throw new Error(`skillset: failed to read created change entry ${id}`);
+      const refs = refIndex([entry], await readHistoryEntries(rootPath, statusOptions));
+      return {
+        entry: pendingView(entry, refs),
+        ledgerPath: workspaceChangeFile(statusOptions.sourceDir, "ledger.jsonl"),
+      };
+    } catch (error) {
+      await rm(absolutePath, { force: true });
+      throw error;
+    }
+  });
 }
 
 export async function updateChangeReason(rootPath: string, options: ChangeReasonOptions): Promise<ChangeReasonReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
-  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
-  const entry = resolvePendingChangeRef(pendingEntries, options.ref);
   const newReason = await resolveChangeReason(rootPath, options.reason);
-  const absolutePath = resolveInside(rootPath, entry.path);
-  if (entry.format === "reason") {
-    const body = options.append ? `${entry.reason.trimEnd()}\n\n${newReason}` : newReason;
-    await writeFile(
-      absolutePath,
-      reasonOnlyMarkdown(body, {
-        ...(entry.bump === undefined ? {} : { bump: entry.bump }),
-        ...(entry.group === undefined ? {} : { group: entry.group }),
-        ignored: entry.ignored,
-        scopes: entry.scopes,
-      }),
-      "utf8"
-    );
-    await appendLedgerEvents(rootPath, storageOptions.sourceDir, [
-      {
-        payload: {
-          append: options.append,
-          reason: newReason,
-          reasonId: entry.id ?? options.ref.replace(/^@/, ""),
-        },
-        type: "reason.updated",
-      },
-    ]);
-  } else {
-    const source = await readFile(absolutePath, "utf8");
-    const parts = parseMarkdown(source, absolutePath);
-    const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
-    await writeFile(
-      absolutePath,
-      updateMarkdownSourceDocument(source, absolutePath, (current) => ({ ...current, body })),
-      "utf8"
-    );
-  }
-  const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
-  const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
-  return {
-    entry: pendingView(updated, refs),
-    ...(entry.format === "reason"
-      ? { ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl") }
-      : {}),
-  };
+
+  return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
+    const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
+    const entry = resolvePendingChangeRef(pendingEntries, options.ref);
+    const absolutePath = resolveInside(rootPath, entry.path);
+    const previous = await readFile(absolutePath, "utf8");
+    try {
+      if (entry.format === "reason") {
+        const body = options.append ? `${entry.reason.trimEnd()}\n\n${newReason}` : newReason;
+        await writeFile(
+          absolutePath,
+          reasonOnlyMarkdown(body, {
+            ...(entry.bump === undefined ? {} : { bump: entry.bump }),
+            ...(entry.group === undefined ? {} : { group: entry.group }),
+            ignored: entry.ignored,
+            scopes: entry.scopes,
+          }),
+          "utf8"
+        );
+        await mutation.appendLedger([
+          {
+            payload: {
+              append: options.append,
+              reason: newReason,
+              reasonId: entry.id ?? options.ref.replace(/^@/, ""),
+            },
+            type: "reason.updated",
+          },
+        ]);
+      } else {
+        const parts = parseMarkdown(previous, absolutePath);
+        const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
+        await writeFile(
+          absolutePath,
+          updateMarkdownSourceDocument(previous, absolutePath, (current) => ({ ...current, body })),
+          "utf8"
+        );
+      }
+      const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
+      const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
+      return {
+        entry: pendingView(updated, refs),
+        ...(entry.format === "reason"
+          ? { ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl") }
+          : {}),
+      };
+    } catch (error) {
+      await writeFile(absolutePath, previous, "utf8");
+      throw error;
+    }
+  });
 }
 
 export async function amendAppliedChange(rootPath: string, options: ChangeAmendOptions): Promise<ChangeAmendReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
-  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
-  const historyEntries = await readHistoryEntries(rootPath, storageOptions);
-  const refs = refIndex(pendingEntries, historyEntries);
-  assertCombinedRefUnambiguous(options.ref, pendingEntries, historyEntries, refs);
-  const pending = tryResolvePending(pendingEntries, options.ref);
-  if (pending !== undefined) {
-    const pendingRef = pending.id === undefined ? options.ref : refs.get(pending.id) ?? `@${pending.id}`;
-    throw new Error(`skillset: ${pendingRef} is pending; use skillset change reason before release`);
-  }
-
-  const entry = resolveHistoryRef(historyEntries, options.ref);
   const reason = await resolveChangeReason(rootPath, options.reason);
-  const now = new Date().toISOString();
   const relativePath = workspaceChangeFile(storageOptions.sourceDir, AMENDMENTS_FILE);
-  const absolutePath = resolveInside(rootPath, relativePath);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  await appendFile(absolutePath, `${JSON.stringify({
-    amendedAt: now,
-    id: entry.id,
-    previousReason: entry.reason,
-    reason,
-    source: entry.path,
-  })}\n`, "utf8");
 
-  const updatedHistory = await readHistoryEntries(rootPath, storageOptions);
-  const updatedRefs = refIndex(pendingEntries, updatedHistory);
-  return { entry: historyView(resolveHistoryRef(updatedHistory, entry.id), updatedRefs), path: relativePath };
+  return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
+    const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
+    const historyEntries = await readHistoryEntries(rootPath, storageOptions);
+    const refs = refIndex(pendingEntries, historyEntries);
+    assertCombinedRefUnambiguous(options.ref, pendingEntries, historyEntries, refs);
+    const pending = tryResolvePending(pendingEntries, options.ref);
+    if (pending !== undefined) {
+      const pendingRef = pending.id === undefined ? options.ref : refs.get(pending.id) ?? `@${pending.id}`;
+      throw new Error(`skillset: ${pendingRef} is pending; use skillset change reason before release`);
+    }
+
+    const entry = resolveHistoryRef(historyEntries, options.ref);
+    const now = await nextJsonlTimestampForPaths([resolveInside(rootPath, relativePath)]);
+    await mutation.appendJsonl(relativePath, [{
+      amendedAt: now,
+      id: entry.id,
+      previousReason: entry.reason,
+      reason,
+      source: entry.path,
+    }]);
+
+    const updatedHistory = await readHistoryEntries(rootPath, storageOptions);
+    const updatedRefs = refIndex(pendingEntries, updatedHistory);
+    return { entry: historyView(resolveHistoryRef(updatedHistory, entry.id), updatedRefs), path: relativePath };
+  });
 }
 
 export async function listChangeEntries(rootPath: string, options: ChangeListOptions = {}): Promise<ChangeListReport> {
@@ -342,46 +369,56 @@ export async function migratePendingChangeEntries(
   options: ChangeMigrateOptions
 ): Promise<ChangeMigrationReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
-  const entries = await readPendingChangeEntries(rootPath, storageOptions);
-  const frontmatterEntries = entries.filter((entry) => entry.format === "frontmatter");
-  const migrations = await planFrontmatterMigrations(rootPath, storageOptions.sourceDir, frontmatterEntries);
+  const planMigrations = async () => planFrontmatterMigrations(
+    rootPath,
+    storageOptions.sourceDir,
+    (await readPendingChangeEntries(rootPath, storageOptions)).filter((entry) => entry.format === "frontmatter")
+  );
+  let migrations = await planMigrations();
 
   if (options.write && migrations.length > 0) {
-    const snapshots = await snapshotMigrationFiles(rootPath, storageOptions.sourceDir, migrations);
-    try {
-      for (const migration of migrations) {
-        const absoluteToPath = resolveInside(rootPath, migration.toPath);
-        await prepareRepositoryMutationPath(rootPath, absoluteToPath);
-        await writeFile(
-          absoluteToPath,
-          reasonOnlyMarkdown(migration.reason, {
-            bump: migration.bump,
-            ...(migration.group === undefined ? {} : { group: migration.group }),
-            ignored: migration.ignored,
-            scopes: migration.scopes,
-          }),
-          "utf8"
-        );
-        if (migration.fromPath !== migration.toPath) {
-          const absoluteFromPath = resolveInside(rootPath, migration.fromPath);
-          await prepareRepositoryMutationPath(rootPath, absoluteFromPath, {
-            createParents: false,
-            replacesLeaf: true,
-          });
-          await rm(absoluteFromPath, { force: true });
-        }
-      }
-      await appendLedgerEvents(rootPath, storageOptions.sourceDir, migrations.flatMap((migration) => migrationLedgerEvents(migration)));
-    } catch (error) {
+    // Re-plan under the lock: a concurrent reason edit before acquisition must
+    // be migrated, not overwritten by the preview's stale body.
+    migrations = await withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
+      const locked = await planMigrations();
+      const snapshots = await snapshotMigrationFiles(rootPath, locked);
       try {
-        await restoreMigrationFiles(rootPath, snapshots);
-      } catch (restoreError) {
-        throw new Error(
-          `skillset: change migration failed and rollback failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`
-        );
+        for (const migration of locked) {
+          const absoluteToPath = resolveInside(rootPath, migration.toPath);
+          await prepareRepositoryMutationPath(rootPath, absoluteToPath);
+          await writeFile(
+            absoluteToPath,
+            reasonOnlyMarkdown(migration.reason, {
+              bump: migration.bump,
+              ...(migration.group === undefined ? {} : { group: migration.group }),
+              ignored: migration.ignored,
+              scopes: migration.scopes,
+            }),
+            "utf8"
+          );
+          if (migration.fromPath !== migration.toPath) {
+            const absoluteFromPath = resolveInside(rootPath, migration.fromPath);
+            await prepareRepositoryMutationPath(rootPath, absoluteFromPath, {
+              createParents: false,
+              replacesLeaf: true,
+            });
+            await rm(absoluteFromPath, { force: true });
+          }
+        }
+        await mutation.appendLedger(locked.flatMap((migration) => migrationLedgerEvents(migration)));
+      } catch (error) {
+        try {
+          await restoreMigrationFiles(rootPath, snapshots);
+        } catch (restoreError) {
+          throw new Error(
+            `skillset: change migration failed and rollback failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
+            { cause: error }
+          );
+        }
+        throw error;
       }
-      throw error;
-    }
+      return locked;
+    });
   }
 
   return {
@@ -395,14 +432,14 @@ export async function refreshChangeEvidence(
   rootPath: string,
   options: ChangeRefreshOptions
 ): Promise<ChangeRefreshReport> {
-  return refreshChangeEvidenceWithAppend(rootPath, options, appendLedgerEvents);
+  return refreshChangeEvidenceWithAppend(rootPath, options);
 }
 
 export async function ignorePendingChange(
   rootPath: string,
   options: ChangeIgnoreOptions
 ): Promise<ChangeIgnoreReport> {
-  return ignorePendingChangeWithAppend(rootPath, options, appendLedgerEvents);
+  return ignorePendingChangeWithAppend(rootPath, options);
 }
 
 export async function readAppliedChangeRecords(
@@ -532,10 +569,9 @@ interface MigrationFileSnapshot {
 
 async function snapshotMigrationFiles(
   rootPath: string,
-  sourceDir: string | undefined,
   migrations: readonly ChangeMigrationEntry[]
 ): Promise<readonly MigrationFileSnapshot[]> {
-  const paths = new Set<string>([workspaceChangeFile(sourceDir, "ledger.jsonl")]);
+  const paths = new Set<string>();
   for (const migration of migrations) {
     paths.add(migration.fromPath);
     paths.add(migration.toPath);
@@ -573,45 +609,6 @@ function ledgerSourceUnits(sourceHashes: ReadonlyMap<string, readonly string[]>)
   return [...sourceHashes]
     .flatMap(([selector, hashes]) => hashes.map((sourceHash) => ({ hashSchema: SOURCE_HASH_SCHEMA, selector, sourceHash })))
     .sort((left, right) => compareStrings(`${left.selector}\0${left.sourceHash}`, `${right.selector}\0${right.sourceHash}`));
-}
-
-async function appendLedgerEvents(
-  rootPath: string,
-  sourceDir: string | undefined,
-  events: readonly {
-    readonly payload: JsonRecord;
-    readonly type: ChangeLedgerEventType;
-  }[]
-): Promise<void> {
-  const path = workspaceChangeFile(sourceDir, "ledger.jsonl");
-  const absolutePath = resolveInside(rootPath, path);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  const now = new Date().toISOString();
-  await appendFile(
-    absolutePath,
-    events
-      .map((event) =>
-        JSON.stringify({
-          createdAt: now,
-          id: ledgerEventId(event.type),
-          payload: event.payload,
-          schemaVersion: 1,
-          type: event.type,
-        })
-      )
-      .join("\n") + "\n",
-    "utf8"
-  );
-}
-
-function ledgerEventId(type: ChangeLedgerEventType): string {
-  const hash = createHash("sha256");
-  hash.update(type);
-  hash.update("\0");
-  hash.update(String(Date.now()));
-  hash.update("\0");
-  hash.update(randomBytes(16));
-  return `evt-${hash.digest("hex").slice(0, 16)}`;
 }
 
 function errorMessage(error: unknown): string {
