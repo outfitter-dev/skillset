@@ -11,6 +11,7 @@ import {
   isScriptTargetPath,
 } from "./resources";
 import { logicalDiagnosticPath, toLogicalDiagnosticPath } from "./path";
+import { resolveRenderedSkillCopies } from "./project-use";
 import { loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
@@ -105,17 +106,8 @@ async function inspectBuildGraph(graph: BuildGraph): Promise<LintResult> {
  */
 async function lintSkillRules(graph: BuildGraph): Promise<readonly LintIssue[]> {
   const subjects: Array<{ readonly featureId: SkillFeatureId; readonly subject: LintSubject }> = [];
-  for (const skill of graph.plugins.flatMap((plugin) => plugin.skills)) {
-    subjects.push({
-      featureId: "plugin-skills",
-      subject: await lintSubjectForSkill(graph, skill),
-    });
-  }
-  for (const skill of graph.standaloneSkills) {
-    subjects.push({
-      featureId: "standalone-skills",
-      subject: await lintSubjectForSkill(graph, skill),
-    });
+  for (const { featureId, skill } of lintedSkills(graph)) {
+    subjects.push({ featureId, subject: await lintSubjectForSkill(graph, skill) });
   }
 
   return subjects.flatMap(({ featureId, subject }) =>
@@ -219,10 +211,7 @@ async function lintHookFile(
  */
 async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[]> {
   const issues: LintIssue[] = [];
-  const skills = [
-    ...graph.plugins.flatMap((plugin) => plugin.skills),
-    ...graph.standaloneSkills,
-  ];
+  const skills = lintedSkills(graph).map(({ skill }) => skill);
 
   for (const skill of skills) {
     const path = logicalDiagnosticPath(graph.rootPath, skill.sourcePath);
@@ -295,19 +284,37 @@ export function lintBuildGraph(graph: BuildGraph): LintResult {
   const issues: LintIssue[] = [];
   let checkedSkills = 0;
 
-  for (const plugin of graph.plugins) {
-    for (const skill of plugin.skills) {
-      checkedSkills += 1;
-      issues.push(...lintSkill(graph, skill, "plugin-skills"));
-    }
-  }
-
-  for (const skill of graph.standaloneSkills) {
+  for (const { featureId, skill } of lintedSkills(graph)) {
     checkedSkills += 1;
-    issues.push(...lintSkill(graph, skill, "standalone-skills"));
+    issues.push(...lintSkill(graph, skill, featureId));
   }
 
   return { checkedSkills, issues };
+}
+
+/**
+ * Every source skill whose content reaches an output: plugin and standalone
+ * projections plus the draft copies rendered into project skill roots.
+ */
+function lintedSkills(
+  graph: BuildGraph
+): readonly { readonly featureId: SkillFeatureId; readonly skill: SourceSkill }[] {
+  const entries: { readonly featureId: SkillFeatureId; readonly skill: SourceSkill }[] = [
+    ...graph.plugins.flatMap((plugin) =>
+      plugin.skills.map((skill) => ({ featureId: "plugin-skills" as const, skill }))
+    ),
+    ...graph.standaloneSkills.map((skill) => ({ featureId: "standalone-skills" as const, skill })),
+  ];
+  const seen = new Set(entries.map(({ skill }) => skill.sourcePath));
+  for (const copy of resolveRenderedSkillCopies(graph)) {
+    if (seen.has(copy.skill.sourcePath)) continue;
+    seen.add(copy.skill.sourcePath);
+    entries.push({
+      featureId: "plugin" in copy ? "plugin-skills" : "standalone-skills",
+      skill: copy.skill,
+    });
+  }
+  return entries;
 }
 
 function lintSkill(

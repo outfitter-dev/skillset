@@ -476,6 +476,9 @@ function printStatusReport(
   );
   if (report.pluginPlan !== undefined) {
     const selected = [
+      ...report.pluginPlan.internalUse.pluginIds.map((pluginId) =>
+        `${pluginId} (plugin)`
+      ),
       ...report.pluginPlan.internalUse.skills.map((skill) =>
         `${skill.pluginId}/${skill.skillId}`
       ),

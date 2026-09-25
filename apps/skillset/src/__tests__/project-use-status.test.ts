@@ -201,6 +201,31 @@ Draft this skill.
   }
 });
 
+test("SET-659 status reports a whole-plugin selection with no live skills", async () => {
+  const root = await fixture({
+    "skillset.yaml": `skillset:
+  name: whole-plugin-status
+claude: false
+codex: true
+cursor: false
+plugins:
+  internal_use:
+    plugins: [demo]
+`,
+    ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+    ".skillset/plugins/demo/skills/_drafts/later/SKILL.md": `---
+name: later
+description: Not yet shipped.
+---
+
+Later.
+`,
+  });
+
+  const humanResult = await runStatus(root);
+  expect(humanResult.stdout).toContain("plugin internal use: demo (plugin)");
+});
+
 function statusEntry(target: "claude" | "codex" | "cursor") {
   return {
     effectiveName: "use-me",
