@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings, isPathInside, resolveInside } from "./path";
 import {
   isPluginManifestOutputPath,
   pluginPathPartsForOutput,
@@ -325,7 +325,7 @@ function isVersionIssue(status: VersionDriftStatus): boolean {
 }
 
 function isInside(path: string, root: string): boolean {
-  return path === root || path.startsWith(`${root}/`);
+  return isPathInside(root, path, { allowEqual: true });
 }
 
 function isNotFound(error: unknown): boolean {

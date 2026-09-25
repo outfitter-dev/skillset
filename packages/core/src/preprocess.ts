@@ -7,11 +7,10 @@ import {
   join,
   relative,
   resolve,
-  sep,
 } from "node:path";
 
 import { isMissingPathError, MISSING_PATH_ENOENT } from "./fs-existence";
-import { resolveInside } from "./path";
+import { isPathInside, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 
 export interface PreprocessContext {
@@ -890,12 +889,7 @@ function resolveInsideScoped(
 ): string {
   const resolvedRoot = resolve(root);
   const resolved = resolve(resolvedRoot, candidate);
-  const relativePath = relative(resolvedRoot, resolved);
-  if (
-    relativePath === "" ||
-    relativePath.startsWith("..") ||
-    relativePath.includes(`..${sep}`)
-  ) {
+  if (!isPathInside(resolvedRoot, resolved)) {
     throw new Error(
       `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} must stay inside its partial root`
     );

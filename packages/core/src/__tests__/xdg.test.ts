@@ -160,6 +160,23 @@ describe("operational cache paths", () => {
     expect(physicalPath).toBe("/xdg/cache/skillset/acme--docs-cli/latest/AGENTS.md");
     expect(logicalOperationalPath(context, physicalPath)).toBe(".skillset/cache/latest/AGENTS.md");
   });
+
+  test("refuses absolute operational paths that escape the repo and cache roots", () => {
+    const context = createOperationalPathContext("/work/docs-cli", {
+      env: { XDG_CACHE_HOME: "/xdg/cache" },
+      homeDir: "/home/matt",
+      workspaceCacheKey: "acme--docs-cli",
+    });
+    expect(resolveOperationalPath(context, "/work/docs-cli/skillset.yaml")).toBe(
+      "/work/docs-cli/skillset.yaml"
+    );
+    expect(
+      resolveOperationalPath(context, "/xdg/cache/skillset/acme--docs-cli/latest/AGENTS.md")
+    ).toBe("/xdg/cache/skillset/acme--docs-cli/latest/AGENTS.md");
+    expect(() => resolveOperationalPath(context, "/tmp/evil")).toThrow(
+      "refusing to operate outside repo root: /tmp/evil"
+    );
+  });
 });
 
 describe("workspace cache key config", () => {

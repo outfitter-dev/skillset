@@ -1,5 +1,5 @@
 import { readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, posix, relative, resolve, sep } from "node:path";
+import { posix, resolve } from "node:path";
 
 import {
   getProviderMcpEvidence,
@@ -7,7 +7,7 @@ import {
 } from "@skillset/registry";
 import type { ProviderMcpEvidence } from "@skillset/registry";
 
-import { compareStrings } from "./path";
+import { compareStrings, isPathInside } from "./path";
 import { targetNames } from "./targets";
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
@@ -636,13 +636,7 @@ async function assertRealPathInside(
   label: string
 ): Promise<void> {
   const actual = await realpath(source);
-  const fromRoot = relative(pluginRealRoot, actual);
-  if (
-    fromRoot === "" ||
-    (!fromRoot.startsWith(`..${sep}`) &&
-      fromRoot !== ".." &&
-      !isAbsolute(fromRoot))
-  ) {
+  if (isPathInside(pluginRealRoot, actual, { allowEqual: true })) {
     return;
   }
   throw new Error(

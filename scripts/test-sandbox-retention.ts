@@ -1,5 +1,7 @@
 import { lstat, readFile, readdir, realpath, rm } from "node:fs/promises";
-import { basename, isAbsolute, join, relative } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
+
+import { isPathInside } from "@skillset/core/internal/path";
 
 import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { parseDescriptor } from "../apps/skillset/src/verification-sandbox";
@@ -133,12 +135,10 @@ function isProcessAlive(pid: number): boolean {
 
 export async function removeOwnedSandbox(sandboxPath: string, tempRoot: string): Promise<void> {
   const canonical = await realpath(sandboxPath).catch(() => undefined);
-  const relativePath = canonical === undefined ? undefined : relative(tempRoot, canonical);
   if (
     canonical !== sandboxPath ||
-    !relativePath ||
-    relativePath.startsWith("..") ||
-    isAbsolute(relativePath) ||
+    canonical === undefined ||
+    !isPathInside(tempRoot, canonical) ||
     !basename(canonical).startsWith("skillset-test-")
   ) {
     throw new Error(`refusing to clean unowned test sandbox: ${sandboxPath}`);

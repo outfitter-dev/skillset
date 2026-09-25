@@ -1,6 +1,26 @@
 import { describe, expect, it } from "bun:test";
 
-import { renderReconcileReport, type ReconcileReport } from "../reconcile";
+import {
+  normalizeManagedPath,
+  renderReconcileReport,
+  type ReconcileReport,
+} from "../reconcile";
+
+describe("reconcile managed path containment", () => {
+  it("returns a / relative path for a descendant", () => {
+    expect(normalizeManagedPath("/repo", ".agents/skills/a/SKILL.md")).toBe(
+      ".agents/skills/a/SKILL.md"
+    );
+  });
+
+  it("refuses the root, its parent, and parent-relative escapes", () => {
+    for (const path of [".", "..", "../x", "/elsewhere"]) {
+      expect(() => normalizeManagedPath("/repo", path)).toThrow(
+        `skillset: reconcile path escapes root: ${path}`
+      );
+    }
+  });
+});
 
 describe("SET-406 reconcile projection identity", () => {
   it("explains shared baseline consumers and ownership", () => {

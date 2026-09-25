@@ -31,6 +31,7 @@ import {
   serializeSkillsetReport,
   validateAndNormalizeSkillsetReport,
 } from "./report";
+import { isPathInside } from "./path";
 import { resolveSkillsetXdgPaths, type SkillsetXdgOptions } from "./xdg";
 
 const REPORT_JSON = "report.json";
@@ -1002,11 +1003,7 @@ function assertNoSensitiveContent(
 }
 
 function isContainedPath(root: string, candidate: string): boolean {
-  const path = relative(root, candidate);
-  return (
-    path === "" ||
-    (!path.startsWith(`..${sep}`) && path !== ".." && !isAbsolute(path))
-  );
+  return isPathInside(root, candidate, { allowEqual: true });
 }
 
 async function pathExists(path: string): Promise<boolean> {

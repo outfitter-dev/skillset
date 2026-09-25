@@ -3,7 +3,7 @@ import { readdir, readFile, realpath } from "node:fs/promises";
 import { basename, join, relative, resolve } from "node:path";
 
 import { targetNames } from "@skillset/core/internal/config";
-import { compareStrings } from "@skillset/core/internal/path";
+import { assertRealPathInside, compareStrings, isPathInside } from "@skillset/core/internal/path";
 import type { JsonRecord, TargetName } from "@skillset/core/internal/types";
 
 import {
@@ -157,10 +157,11 @@ async function inspectDistinctSources(
   const distinct: { readonly path: string; readonly realSource: string }[] = [];
   for (const path of [...paths].sort(compareStrings)) {
     const absolutePath = resolve(normalizedRoot, path);
-    const realSource = await realpath(absolutePath);
-    if (realSource !== normalizedRoot && !realSource.startsWith(`${normalizedRoot}/`)) {
-      throw new Error(`skillset: plugin adoption candidate escapes the repo: ${path}`);
-    }
+    const realSource = await assertRealPathInside(
+      normalizedRoot,
+      absolutePath,
+      `skillset: plugin adoption candidate escapes the repo: ${path}`
+    );
     if (seen.has(realSource)) continue;
     seen.add(realSource);
     distinct.push({ path, realSource });
@@ -173,7 +174,7 @@ async function inspectDistinctSources(
         new Set(
           distinct
             .map((candidate) => candidate.realSource)
-            .filter((candidate) => candidate !== realSource && candidate.startsWith(`${realSource}/`))
+            .filter((candidate) => isPathInside(realSource, candidate))
         )
       )
     )

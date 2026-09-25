@@ -1,11 +1,13 @@
 import { lstat, realpath } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   importReportBundle,
   resolveReportStoreRoot,
   type StoredReportBundle,
 } from "@skillset/core/internal/report-store";
+
+import { isPathInside } from "@skillset/core/internal/path";
 
 import { validateTestSandbox } from "./verification-sandbox";
 
@@ -131,9 +133,5 @@ function pathsOverlap(left: string, right: string): boolean {
 }
 
 function contains(parent: string, child: string): boolean {
-  const path = relative(parent, child);
-  return (
-    path === "" ||
-    (!path.startsWith(`..${sep}`) && path !== ".." && !isAbsolute(path))
-  );
+  return isPathInside(parent, child, { allowEqual: true });
 }

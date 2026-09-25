@@ -6,6 +6,7 @@ import type { StandardProfileId } from "@skillset/registry";
 import { isOutputSelected } from "./config";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import type { LogicalRenderedFile, OutputConsumer } from "./output-plan";
+import { isPathInside } from "./path";
 import {
   agentSkillSourceUnit,
   agentSkillStandardDirectory,
@@ -408,19 +409,20 @@ async function renderCodexAgentSkillAuxiliaryFiles(
   };
 }
 
-function pushSkillRenderedFile(
+/** @internal Exported so focused tests can prove the containment refusal. */
+export function pushSkillRenderedFile(
   rendered: LogicalRenderedFile[],
   file: LogicalRenderedFile,
   targetSkillDir: string,
   renderedRelativeFiles: Set<string>,
   label: string
 ): void {
-  const relativeFile = normalizePath(path.relative(targetSkillDir, file.path));
-  if (relativeFile.length === 0 || relativeFile.startsWith("../")) {
+  if (!isPathInside(targetSkillDir, file.path)) {
     throw new Error(
       `skillset: ${label} would write outside generated skill directory`
     );
   }
+  const relativeFile = normalizePath(path.relative(targetSkillDir, file.path));
   if (renderedRelativeFiles.has(relativeFile)) {
     throw new Error(
       `skillset: ${label} would overwrite generated skill file ${relativeFile}`

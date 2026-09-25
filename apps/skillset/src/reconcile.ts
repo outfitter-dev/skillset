@@ -1,5 +1,5 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import {
   buildSkillsetResult,
@@ -13,6 +13,7 @@ import {
   suggestSource,
   type SourceSuggestionReport,
 } from "@skillset/core/internal/authoring";
+import { isPathInside } from "@skillset/core/internal/path";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { GeneratedEntry } from "@skillset/core/internal/types";
 
@@ -303,12 +304,14 @@ function lockCandidates(outputPath: string): readonly string[] {
   return candidates;
 }
 
-function normalizeManagedPath(rootPath: string, path: string): string {
-  const normalized = normalizeReconcilePath(relative(resolve(rootPath), resolve(rootPath, path)));
-  if (normalized === "" || normalized.startsWith("../") || isAbsolute(normalized)) {
+/** @internal Exported so focused tests can prove the containment refusal. */
+export function normalizeManagedPath(rootPath: string, path: string): string {
+  const resolvedRoot = resolve(rootPath);
+  const resolvedPath = resolve(resolvedRoot, path);
+  if (!isPathInside(resolvedRoot, resolvedPath)) {
     throw new Error(`skillset: reconcile path escapes root: ${path}`);
   }
-  return normalized;
+  return normalizeReconcilePath(relative(resolvedRoot, resolvedPath));
 }
 
 async function listLockedSiblingPaths(

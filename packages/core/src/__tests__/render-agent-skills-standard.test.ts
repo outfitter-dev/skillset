@@ -9,16 +9,42 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { explainPath } from "../authoring";
 import { readContainedLicenseFile } from "../licenses";
 import { renderBuildGraph } from "../render";
+import { pushSkillRenderedFile } from "../render-agent-skills";
 import {
   agentSkillStandardProjectionIssues,
+  asAgentSkillStandardFile,
   classifyAgentSkillStandard,
 } from "../render-agent-skills-standard";
 import { collectRenderResults } from "../render-result-collector";
+import { textFile } from "../render-support";
 import { loadBuildGraph } from "../resolver";
 import type { BuildGraph, RenderedFile, SourceSkill } from "../types";
 import { parseMarkdown } from "../yaml";
 
 const decoder = new TextDecoder();
+
+describe("pushSkillRenderedFile containment", () => {
+  const push = (targetSkillDir: string, filePath: string): void =>
+    pushSkillRenderedFile(
+      [],
+      asAgentSkillStandardFile(textFile(filePath, "x"), "skill:demo"),
+      targetSkillDir,
+      new Set(),
+      "demo"
+    );
+
+  test("accepts a file inside the generated skill directory", () => {
+    expect(() => push("/out/skills/demo", "/out/skills/demo/SKILL.md")).not.toThrow();
+  });
+
+  test("refuses the directory itself, its parent, and a parent-relative escape", () => {
+    for (const filePath of ["/out/skills/demo", "/out/skills", "/out/skills/other/x"]) {
+      expect(() => push("/out/skills/demo", filePath)).toThrow(
+        "demo would write outside generated skill directory"
+      );
+    }
+  });
+});
 
 describe("Agent Skills standard rendering", () => {
   test("copies implied resources into the Agent Plugins skill package", async () => {

@@ -1,6 +1,6 @@
 import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import {
@@ -29,7 +29,7 @@ import {
   readString,
   targetNames,
 } from "@skillset/core/internal/config";
-import { compareStrings, resolveInside, validateSlug } from "@skillset/core/internal/path";
+import { compareStrings, isPathInside, resolveInside, validateSlug } from "@skillset/core/internal/path";
 import {
   normalizeGeneratedFileMode,
   supportsGeneratedFileModes,
@@ -1367,13 +1367,7 @@ function relativeImportPath(sourceRoot: string, file: string, kind: SingularImpo
 function resolveImportDestination(targetPath: string, relativePath: string): string {
   const resolvedTarget = resolve(targetPath);
   const destination = resolve(resolvedTarget, relativePath);
-  const relativeDestination = relative(resolvedTarget, destination);
-  if (
-    relativeDestination === "" ||
-    relativeDestination === ".." ||
-    relativeDestination.startsWith(`..${sep}`) ||
-    isAbsolute(relativeDestination)
-  ) {
+  if (!isPathInside(resolvedTarget, destination)) {
     throw new Error(
       `skillset: import source path resolves outside staging root: ${relativePath}`
     );

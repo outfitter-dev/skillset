@@ -11,7 +11,7 @@ import {
 } from "./agent-plugin-manifest";
 import { pluginDependencySummaries } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
-import { compareStrings } from "./path";
+import { compareStrings, isPathInside } from "./path";
 import { renderAgentPluginsMcp } from "./portable-mcp";
 import type { PortableMcpModel } from "./portable-mcp";
 import {
@@ -510,13 +510,7 @@ function assertContained(
   candidate: string,
   sourcePath: string
 ): void {
-  const relativePath = path.relative(root, candidate);
-  if (
-    relativePath === "" ||
-    (!relativePath.startsWith(`..${path.sep}`) &&
-      relativePath !== ".." &&
-      !path.isAbsolute(relativePath))
-  ) {
+  if (isPathInside(root, candidate, { allowEqual: true })) {
     return;
   }
   throw new Error(

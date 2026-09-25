@@ -5,10 +5,10 @@ import {
   basename,
   dirname,
   isAbsolute,
-  relative,
   resolve,
-  sep,
 } from "node:path";
+
+import { isPathInside } from "@skillset/core/internal/path";
 
 export const TEST_SANDBOX_ENV = "SKILLSET_TEST_SANDBOX";
 export const TEST_SANDBOX_RETAIN_ENV = "SKILLSET_TEST_SANDBOX_RETAIN";
@@ -297,13 +297,7 @@ async function validateGitConfig(
 }
 
 function isInside(parent: string, child: string): boolean {
-  const path = relative(parent, child);
-  return (
-    path.length > 0 &&
-    path !== ".." &&
-    !path.startsWith(`..${sep}`) &&
-    !isAbsolute(path)
-  );
+  return isPathInside(parent, child);
 }
 
 async function hasGitAncestor(

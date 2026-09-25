@@ -1,6 +1,6 @@
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import { resolveInside } from "./path";
+import { isPathInside, resolveInside } from "./path";
 import { resolveRepoCachePath, type SkillsetXdgOptions } from "./xdg";
 
 export const REPO_OPERATIONAL_CACHE_ROOT = ".skillset/cache";
@@ -44,7 +44,16 @@ export function resolveOperationalPath(
     const suffix = operationalCacheSuffix(candidate);
     return suffix.length === 0 ? context.cacheRootPath : join(context.cacheRootPath, suffix);
   }
-  if (isAbsolute(candidate)) return candidate;
+  if (isAbsolute(candidate)) {
+    const resolved = resolve(candidate);
+    if (
+      isPathInside(resolve(context.rootPath), resolved, { allowEqual: true }) ||
+      isPathInside(resolve(context.cacheRootPath), resolved, { allowEqual: true })
+    ) {
+      return resolved;
+    }
+    throw new Error(`skillset: refusing to operate outside repo root: ${candidate}`);
+  }
   return resolveInside(context.rootPath, candidate);
 }
 
@@ -52,12 +61,10 @@ export function logicalOperationalPath(
   context: OperationalPathContext,
   absolutePath: string
 ): string {
-  const relativePath = relative(resolve(context.cacheRootPath), resolve(absolutePath));
-  if (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") && !relativePath.startsWith("../") && relativePath !== "..")
-  ) {
-    return join(REPO_OPERATIONAL_CACHE_ROOT, relativePath).replaceAll("\\", "/");
+  const cacheRoot = resolve(context.cacheRootPath);
+  const resolved = resolve(absolutePath);
+  if (isPathInside(cacheRoot, resolved, { allowEqual: true })) {
+    return join(REPO_OPERATIONAL_CACHE_ROOT, relative(cacheRoot, resolved)).replaceAll("\\", "/");
   }
   return relative(context.rootPath, absolutePath).replaceAll("\\", "/");
 }

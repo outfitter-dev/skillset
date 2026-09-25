@@ -58,6 +58,7 @@ bun run test
 bun run check
 bun run package-ownership:guard
 bun run terminology:guard
+bun run path-containment:guard
 bun run public-closure:guard
 bun run target-topology:guard
 bun run change-stream:guard
@@ -68,6 +69,8 @@ bun run git-env:guard
 `bun run package-ownership:guard` blocks app-level package facade files from returning under `apps/skillset/src/`. Prefer importing an owned package root API or a documented private workspace internal directly instead of adding `export * from "@skillset/<package>/internal/*"` shims in the CLI app.
 
 `bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
+
+`bun run path-containment:guard` keeps OS-path containment on `isPathInside` / `resolveInside` / `assertRealPathInside` in `packages/core/src/path.ts`. It rejects new `isAbsolute(relative…)` copies, `relative(…).startsWith("..")` tests, `relative(…) === ".."` comparisons, and realpath or resolve slash-prefix comparisons in `apps/` and `packages/` outside that helper. A `relative()` result stays tracked through `replace`/`replaceAll` and any single-argument normalizer such as `normalizePath(relative(…))`.
 
 `bun run public-closure:guard` scans only generated public artifacts under `plugins/skillset/**` and rejects routes or references into contributor-only `skillset-dev*` material, development docs, fixtures, package internals, and repository scripts. Contributor and self-hosted `.agents/`, `.claude/`, `.cursor/`, and `.skillset/` trees are deliberately outside this public-closure scan.
 

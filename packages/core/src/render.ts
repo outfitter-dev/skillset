@@ -27,7 +27,7 @@ import {
   renderCodexDependencyNotice,
 } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
-import { compareStrings, logicalDiagnosticPath } from "./path";
+import { compareStrings, isPathInside, logicalDiagnosticPath } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import {
   resolveProjectUseSkillCopies,
@@ -1808,10 +1808,10 @@ function pushSkillRenderedFile(
   renderedRelativeFiles: Set<string>,
   label: string
 ): void {
-  const relativeFile = normalizeRenderedRelativePath(relative(targetSkillDir, file.path));
-  if (relativeFile.length === 0 || relativeFile.startsWith("../")) {
+  if (!isPathInside(targetSkillDir, file.path)) {
     throw new Error(`skillset: ${label} would write outside generated skill directory`);
   }
+  const relativeFile = normalizeRenderedRelativePath(relative(targetSkillDir, file.path));
   if (renderedRelativeFiles.has(relativeFile)) {
     throw new Error(
       `skillset: ${label} would overwrite generated skill file ${relativeFile}`

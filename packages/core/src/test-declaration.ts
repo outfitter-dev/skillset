@@ -1,5 +1,5 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
-import { extname, isAbsolute, join, relative, sep } from "node:path";
+import { extname, join, relative } from "node:path";
 
 import {
   isActivationCapability,
@@ -17,7 +17,7 @@ import {
   MISSING_PATH_ENOENT,
   pathExists as pathExistsOnDisk,
 } from "./fs-existence";
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings, isPathInside, resolveInside } from "./path";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
 import {
   resolveActivationProofClaims,
@@ -964,13 +964,7 @@ async function readSourcePromptFile(
     realpath(sourceRootPath),
     realpath(promptPath),
   ]);
-  const relativePromptPath = relative(sourceRootRealPath, promptRealPath);
-  if (
-    relativePromptPath === "" ||
-    relativePromptPath.startsWith(`..${sep}`) ||
-    relativePromptPath === ".." ||
-    isAbsolute(relativePromptPath)
-  ) {
+  if (!isPathInside(sourceRootRealPath, promptRealPath)) {
     throw new Error(
       `skillset: ${label}.promptFile resolves outside the source root`
     );

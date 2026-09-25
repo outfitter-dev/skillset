@@ -1,4 +1,5 @@
-import { relative, resolve, sep } from "node:path";
+import { realpath } from "node:fs/promises";
+import nodePath from "node:path";
 
 /**
  * Normalize a repository-relative or logical diagnostic path to POSIX `/`.
@@ -12,7 +13,10 @@ import { relative, resolve, sep } from "node:path";
  * character, so only replace separators for paths known to use Windows
  * syntax.
  */
-export function toLogicalDiagnosticPath(path: string, sourceSeparator: "/" | "\\" = sep): string {
+export function toLogicalDiagnosticPath(
+  path: string,
+  sourceSeparator: "/" | "\\" = nodePath.sep
+): string {
   return sourceSeparator === "\\" ? path.replaceAll("\\", "/") : path;
 }
 
@@ -24,23 +28,95 @@ export function toLogicalDiagnosticPath(path: string, sourceSeparator: "/" | "\\
  * the portable diagnostic identity.
  */
 export function logicalDiagnosticPath(rootPath: string, absolutePath: string): string {
-  return toLogicalDiagnosticPath(relative(rootPath, absolutePath));
+  return toLogicalDiagnosticPath(nodePath.relative(rootPath, absolutePath));
 }
 
-export function resolveInside(root: string, candidate: string): string {
-  const resolvedRoot = resolve(root);
-  const resolved = resolve(resolvedRoot, candidate);
-  const relativePath = relative(resolvedRoot, resolved);
+/**
+ * Path primitives used by containment checks. Tests inject `path.win32` so
+ * drive-letter and separator behavior can be proven on a POSIX host.
+ */
+export interface PathContainmentApi {
+  readonly isAbsolute: (path: string) => boolean;
+  readonly relative: (from: string, to: string) => string;
+  readonly resolve: (...paths: string[]) => string;
+  readonly sep: string;
+}
 
-  if (
-    relativePath === "" ||
-    relativePath.startsWith("..") ||
-    relativePath.includes(`..${sep}`)
-  ) {
+export interface PathContainmentOptions {
+  /**
+   * When true, `parent` itself counts as inside. `resolveInside` leaves this
+   * false so a computed write target cannot be the root directory.
+   */
+  readonly allowEqual?: boolean;
+  readonly path?: PathContainmentApi;
+}
+
+const PARENT_SEGMENT = "..";
+
+/**
+ * True when `relativePath` is a contained descendant (or, with
+ * `allowEqual`, the parent itself). Rejects `..`, `..`+separator prefixes,
+ * and absolute results such as a Windows other-drive `relative()`. Accepts
+ * names that merely begin with `..` (`..foo`).
+ */
+export function isRelativePathInside(
+  relativePath: string,
+  opts: PathContainmentOptions = {}
+): boolean {
+  if (relativePath === "") return opts.allowEqual === true;
+  const api = opts.path ?? nodePath;
+  if (api.isAbsolute(relativePath)) return false;
+  return !isParentRelativePrefix(relativePath, api.sep);
+}
+
+/**
+ * Lexical containment: `child` must stay under `parent` after `relative()`.
+ * This is the OS-path write-safety check. It does not follow symlinks;
+ * use {@link assertRealPathInside} when comparing realpaths.
+ */
+export function isPathInside(
+  parent: string,
+  child: string,
+  opts: PathContainmentOptions = {}
+): boolean {
+  const api = opts.path ?? nodePath;
+  return isRelativePathInside(api.relative(parent, child), opts);
+}
+
+/**
+ * Resolve `candidate` against `root` and refuse anything that is not a
+ * strict descendant. The root itself is refused; pass `isPathInside` with
+ * `allowEqual` when a caller needs the directory as a valid target.
+ */
+export function resolveInside(
+  root: string,
+  candidate: string,
+  opts: Pick<PathContainmentOptions, "path"> = {}
+): string {
+  const api = opts.path ?? nodePath;
+  const resolvedRoot = api.resolve(root);
+  const resolved = api.resolve(resolvedRoot, candidate);
+  if (!isPathInside(resolvedRoot, resolved, opts)) {
     throw new Error(`skillset: refusing to operate outside repo root: ${candidate}`);
   }
-
   return resolved;
+}
+
+/**
+ * Realpath `path` and require it to stay inside the realpath of `root`,
+ * including the root itself. Returns the resolved child path.
+ */
+export async function assertRealPathInside(
+  root: string,
+  path: string,
+  message?: string
+): Promise<string> {
+  const realRoot = await realpath(root);
+  const realPath = await realpath(path);
+  if (!isPathInside(realRoot, realPath, { allowEqual: true })) {
+    throw new Error(message ?? `skillset: refusing to operate outside repo root: ${path}`);
+  }
+  return realPath;
 }
 
 /**
@@ -64,4 +140,11 @@ export function validateSlug(value: string, label: string): string {
   }
 
   return value;
+}
+
+function isParentRelativePrefix(relativePath: string, sep: string): boolean {
+  if (relativePath === PARENT_SEGMENT) return true;
+  if (relativePath.startsWith(`${PARENT_SEGMENT}${sep}`)) return true;
+  // Logical POSIX relatives still appear on win32 after `\` → `/` normalization.
+  return sep !== "/" && relativePath.startsWith(`${PARENT_SEGMENT}/`);
 }

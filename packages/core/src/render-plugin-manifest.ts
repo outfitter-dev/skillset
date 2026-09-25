@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import {
   mergeRecords,
@@ -9,7 +9,7 @@ import {
 } from "./config";
 import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
-import { validateSlug } from "./path";
+import { isPathInside, validateSlug } from "./path";
 import {
   pluginComponentPath,
   pluginComponents,
@@ -566,14 +566,7 @@ function validateOpenAiAssetPath(
 }
 
 function isPathContainedBy(root: string, candidate: string): boolean {
-  const contained = relative(root, candidate);
-  return (
-    contained !== "" &&
-    contained !== ".." &&
-    !contained.startsWith(`..${"/"}`) &&
-    !contained.startsWith(`..${"\\"}`) &&
-    !isAbsolute(contained)
-  );
+  return isPathInside(root, candidate);
 }
 
 function copyOptionalStrings(

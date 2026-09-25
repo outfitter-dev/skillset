@@ -1,10 +1,11 @@
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { join, relative } from "node:path";
 
 import { SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE } from "@skillset/schema";
 
 import { readString } from "./config";
+import { isPathInside } from "./path";
 import type { BuildGraph, JsonRecord } from "./types";
 
 export interface ResolvedLicense {
@@ -205,13 +206,7 @@ export async function readContainedLicenseFile(
 }
 
 function isContainedPath(parent: string, candidate: string): boolean {
-  const relativePath = relative(parent, candidate);
-  return (
-    relativePath === "" ||
-    (relativePath !== ".." &&
-      !relativePath.startsWith(`..${sep}`) &&
-      !isAbsolute(relativePath))
-  );
+  return isPathInside(parent, candidate, { allowEqual: true });
 }
 
 function renderLicenseNotice(id: string, label: string): string {

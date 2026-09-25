@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
   buildSkillsetResult,
@@ -13,6 +13,7 @@ import {
 } from "@skillset/core";
 import { listGeneratedEntries } from "@skillset/core/internal/authoring";
 import { supportsGeneratedFileModes } from "@skillset/core/internal/generated-file-mode";
+import { resolveInside } from "@skillset/core/internal/path";
 import {
   getProviderDestinationFormatSnapshot,
   listProviderFormatMigrations,
@@ -501,16 +502,6 @@ function lockCandidates(outputPath: string): readonly string[] {
 function joinOutputRoot(outputRoot: string, path: string): string {
   if (outputRoot === ".") return normalizePath(path);
   return normalizePath(join(outputRoot, path));
-}
-
-function resolveInside(rootPath: string, path: string): string {
-  const resolvedRootPath = resolve(rootPath);
-  const resolvedPath = resolve(resolvedRootPath, path);
-  const relativePath = relative(resolvedRootPath, resolvedPath);
-  if (relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))) {
-    return resolvedPath;
-  }
-  throw new Error(`skillset: path escapes root ${path}`);
 }
 
 function normalizePath(path: string): string {
