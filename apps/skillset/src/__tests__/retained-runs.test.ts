@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   writeRetainedRunLatest,
@@ -52,7 +52,7 @@ describe("retained-run pointer publication", () => {
   });
 
   test("leaves no published latest.json when the first pointer write fails", async () => {
-    const paths = latestPaths(await mkdtemp(join(tmpdir(), "skillset-retained-first-")));
+    const paths = latestPaths(await createTestFixtureRoot("skillset-retained-first-"));
 
     for (const [hook, message] of publicationFailureHooks()) {
       await expect(writeRetainedRunLatest(paths, { runId: "lost-run", schemaVersion: 1 }, {
@@ -64,7 +64,7 @@ describe("retained-run pointer publication", () => {
   });
 
   test("latest-run selection still reads the published pointer", async () => {
-    const paths = latestPaths(await mkdtemp(join(tmpdir(), "skillset-retained-read-")));
+    const paths = latestPaths(await createTestFixtureRoot("skillset-retained-read-"));
     await writeRetainedRunLatest(paths, {
       reportPath: ".skillset/cache/tests/latest/report.json",
       runId: "selected-run",
@@ -80,7 +80,7 @@ describe("retained-run pointer publication", () => {
 });
 
 async function seededLatest(record: { readonly runId: string; readonly schemaVersion: number }): Promise<RetainedRunRootPaths> {
-  const paths = latestPaths(await mkdtemp(join(tmpdir(), "skillset-retained-seed-")));
+  const paths = latestPaths(await createTestFixtureRoot("skillset-retained-seed-"));
   await seedPublishedFile(paths.absolute.latestJsonPath, `${JSON.stringify(record)}\n`);
   return paths;
 }

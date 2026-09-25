@@ -1643,7 +1643,7 @@ async function runSkillsetCli(
 
 describe("ad-hoc status and report publication", () => {
   test("keeps the prior status.json readable until a flushed replacement is published", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-status-")), "status.json");
+    const path = join(await createTestFixtureRoot("skillset-adhoc-status-"), "status.json");
     await writeAdHocStatus(path, ".skillset/cache/tests/ad-hoc/runs/prior/status.json", adHocStatus("queued"));
     const before = await readFile(path);
     const beforePublish = deferred<void>();
@@ -1664,7 +1664,7 @@ describe("ad-hoc status and report publication", () => {
   });
 
   test("leaves the previous status byte-identical when write, flush, close, or pre-rename fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-status-keep-")), "status.json");
+    const path = join(await createTestFixtureRoot("skillset-adhoc-status-keep-"), "status.json");
     await writeAdHocStatus(path, ".skillset/cache/tests/ad-hoc/runs/prior/status.json", adHocStatus("building"));
     const before = await readFile(path);
 
@@ -1681,7 +1681,7 @@ describe("ad-hoc status and report publication", () => {
   });
 
   test("list ignores incomplete run directories that never published status.json", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-status-first-")), "status.json");
+    const path = join(await createTestFixtureRoot("skillset-adhoc-status-first-"), "status.json");
 
     for (const [hook, message] of publicationFailureHooks()) {
       await expect(writeAdHocStatus(
@@ -1696,7 +1696,7 @@ describe("ad-hoc status and report publication", () => {
   });
 
   test("leaves no published report.json when the first completion marker write fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-report-first-")), "report.json");
+    const path = join(await createTestFixtureRoot("skillset-adhoc-report-first-"), "report.json");
 
     for (const [hook, message] of publicationFailureHooks()) {
       await expect(writeAdHocReport(
@@ -1711,7 +1711,7 @@ describe("ad-hoc status and report publication", () => {
   });
 
   test("leaves the previous report byte-identical when a replacement fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-adhoc-report-keep-")), "report.json");
+    const path = join(await createTestFixtureRoot("skillset-adhoc-report-keep-"), "report.json");
     await seedPublishedFile(path, `${JSON.stringify({ ok: true, schemaVersion: 1, state: "passed" })}\n`);
     const before = await readFile(path);
 

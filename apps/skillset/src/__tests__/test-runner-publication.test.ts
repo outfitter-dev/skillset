@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import type { RetainedRunPaths } from "../retained-runs";
 import {
@@ -17,7 +17,7 @@ import {
 
 describe("deterministic test-runner report publication", () => {
   test("keeps an old latest pointer readable while the latest snapshot refreshes", async () => {
-    const repository = await mkdtemp(join(tmpdir(), "skillset-test-latest-"));
+    const repository = await createTestFixtureRoot("skillset-test-latest-");
     const previous = retainedRunPaths(repository, "previous");
     const next = retainedRunPaths(repository, "next");
     const latestPath = join(previous.absolute.rootPath, "latest");
@@ -73,7 +73,7 @@ describe("deterministic test-runner report publication", () => {
   });
 
   test("keeps the prior report.json readable until a flushed replacement is published", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-test-report-"));
+    const root = await createTestFixtureRoot("skillset-test-report-");
     const reportPath = join(root, "report.json");
     const markdownPath = join(root, "report.md");
     await writeDeterministicTestReport(reportPath, logicalReport(root), markdownPath, testReport(true));
@@ -103,7 +103,7 @@ describe("deterministic test-runner report publication", () => {
   });
 
   test("leaves the previous report byte-identical when write, flush, close, or pre-rename fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-test-report-keep-"));
+    const root = await createTestFixtureRoot("skillset-test-report-keep-");
     const reportPath = join(root, "report.json");
     const markdownPath = join(root, "report.md");
     await seedPublishedFile(reportPath, `${JSON.stringify(testReport(true))}\n`);
@@ -126,7 +126,7 @@ describe("deterministic test-runner report publication", () => {
   });
 
   test("leaves no published completion marker when the first report write fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-test-report-first-"));
+    const root = await createTestFixtureRoot("skillset-test-report-first-");
     const reportPath = join(root, "report.json");
     const markdownPath = join(root, "report.md");
 

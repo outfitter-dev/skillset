@@ -446,7 +446,7 @@ function cachePath(root: string, xdg: { readonly env: { readonly XDG_CACHE_HOME:
 
 describe("eval status and report publication", () => {
   test("keeps the prior status.json readable until a flushed replacement is published", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-eval-status-")), "status.json");
+    const path = join(await createTestFixtureRoot("skillset-eval-status-"), "status.json");
     await writeEvalStatus(path, ".skillset/cache/evals/runs/prior/status.json", evalStatus("building"));
     const before = await readFile(path);
     const beforePublish = deferred<void>();
@@ -467,7 +467,7 @@ describe("eval status and report publication", () => {
   });
 
   test("leaves the previous status byte-identical when write, flush, close, or pre-rename fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-eval-status-keep-")), "status.json");
+    const path = join(await createTestFixtureRoot("skillset-eval-status-keep-"), "status.json");
     await writeEvalStatus(path, ".skillset/cache/evals/runs/prior/status.json", evalStatus("building"));
     const before = await readFile(path);
 
@@ -484,7 +484,7 @@ describe("eval status and report publication", () => {
   });
 
   test("leaves no published report.json when the first completion marker write fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-eval-report-first-")), "report.json");
+    const path = join(await createTestFixtureRoot("skillset-eval-report-first-"), "report.json");
 
     for (const [hook, message] of publicationFailureHooks()) {
       await expect(writeEvalReport(
@@ -499,7 +499,7 @@ describe("eval status and report publication", () => {
   });
 
   test("leaves the previous report byte-identical when a replacement fails", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "skillset-eval-report-keep-")), "report.json");
+    const path = join(await createTestFixtureRoot("skillset-eval-report-keep-"), "report.json");
     await seedPublishedFile(path, `${JSON.stringify({ kind: "eval", schemaVersion: 1, state: "completed" })}\n`);
     const before = await readFile(path);
 
