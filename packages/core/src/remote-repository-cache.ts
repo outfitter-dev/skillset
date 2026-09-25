@@ -122,9 +122,7 @@ async function acquireRemoteRepositoryUnlocked(
   parsed: ParsedRemoteRepositoryReference,
   location: RemoteRepositoryCacheLocation
 ): Promise<RemoteRepositoryCheckout> {
-  const existing = await pathKind(location.path);
-  if (existing === "other") throw new Error(`skillset: corrupt remote cache ${location.cacheKey}`);
-  if (existing === "directory") {
+  if (await pathKind(location.path) !== "missing") {
     return acquireExisting(location, parsed, options.revision, options.xdg);
   }
 
@@ -149,6 +147,8 @@ async function acquireRemoteRepositoryUnlocked(
       return checkout(location, parsed.canonical, resolved, false);
     }
     if (result.kind === "occupied") {
+      // The occupant arrived after the absence check, so its kind is unknown:
+      // acquireExisting re-checks it before Git or realpath can follow a link.
       await rm(temporary, { force: true, recursive: true });
       return acquireExisting(location, parsed, options.revision, options.xdg);
     }
@@ -201,7 +201,12 @@ async function acquireExisting(
   revision: RemoteRepositoryRevision,
   xdg: SkillsetXdgOptions | undefined
 ): Promise<RemoteRepositoryCheckout> {
-  if (!(await isGitRepository(location.path, xdg))) {
+  // Only a real directory may be adopted: a symlink would let realpath and Git
+  // treat its target as the cache entry and force-checkout and clean it.
+  if (
+    (await pathKind(location.path)) !== "directory" ||
+    !(await isGitRepository(location.path, xdg))
+  ) {
     throw new Error(`skillset: corrupt remote cache ${location.cacheKey}`);
   }
   const origin = await runGit(

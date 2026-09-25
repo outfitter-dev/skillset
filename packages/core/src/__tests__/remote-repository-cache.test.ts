@@ -288,6 +288,37 @@ describe("remote repository cache", () => {
     expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
   });
 
+  test("refuses a late symlink claimant without following it into a same-origin clone", async () => {
+    const fixture = await gitRemoteFixture();
+    const sameOrigin = await acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "ref", ref: "main" },
+      xdg: fixture.xdg,
+    });
+    await writeFile(join(sameOrigin.rootPath, "untracked.txt"), "keep\n");
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        testHooks: {
+          beforePublish: async ({ cachePath }) => {
+            await symlink(sameOrigin.rootPath, cachePath);
+          },
+        },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(`corrupt remote cache ${location.cacheKey}`);
+    expect((await lstat(location.path)).isSymbolicLink()).toBe(true);
+    await expect(readFile(join(sameOrigin.rootPath, "untracked.txt"), "utf8")).resolves.toBe("keep\n");
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
   test("fails closed when atomic no-replace rename is unsupported", async () => {
     const fixture = await gitRemoteFixture();
     const location = resolveRemoteRepositoryCache(
