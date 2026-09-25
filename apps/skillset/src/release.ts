@@ -1,13 +1,19 @@
-import { appendFile, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { createHash, randomBytes } from "node:crypto";
-import { join } from "node:path";
 
 import { buildSkillsetResult, SkillsetBuildBlockedError } from "@skillset/core";
+import { nextJsonlTimestampForPaths } from "@skillset/core/internal/change-ledger-write";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
+import {
+  withChangeLedgerMutation,
+  type ChangeLedgerLockOptions,
+  type ChangeLedgerMutation,
+} from "./change-ledger-mutation";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
+import { publishAtomicFile } from "@skillset/core/internal/atomic-file-publication";
 import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
 import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
@@ -57,7 +63,18 @@ export interface ReleaseApplyReport {
   readonly renderedFiles: number;
 }
 
+export interface ReleaseApplyOptions extends SkillsetOptions {
+  /** @internal Test seam after owned JSONL records are appended. */
+  readonly afterAppend?: () => Promise<void>;
+  /** @internal Test seam immediately before generated-output build. */
+  readonly beforeBuild?: () => Promise<void>;
+  /** @internal Test seam before each applied pending file is removed. */
+  readonly beforePendingRemoval?: (path: string) => Promise<void>;
+  readonly lock?: ChangeLedgerLockOptions;
+}
+
 export interface ReleaseAmendOptions extends SkillsetOptions {
+  readonly lock?: ChangeLedgerLockOptions;
   readonly reason: ChangeReasonInput;
   readonly ref: string;
 }
@@ -148,55 +165,84 @@ export async function planRelease(
 
 export async function applyRelease(
   rootPath: string,
-  options: SkillsetOptions = {}
+  options: ReleaseApplyOptions = {}
 ): Promise<ReleaseApplyReport> {
   const releaseOptions = await detectWorkspaceOptions(rootPath, options);
-  const plan = await planRelease(rootPath, releaseOptions);
-  if (plan.entries.length === 0) {
-    return { files: [], plan, renderedFiles: 0 };
-  }
-
-  const now = new Date().toISOString();
-  const files = new Set<string>();
-  const pending = (await changeCheck(rootPath, releaseOptions)).entries;
-  const snapshots = await snapshotReleaseFiles(rootPath, releaseOptions.sourceDir, pending, plan.baselineScopes.length > 0);
-  let renderedFiles = 0;
-  try {
-    await appendHistory(rootPath, releaseOptions.sourceDir, pending, now, files);
-
-    if (plan.baselineScopes.length > 0) {
-      const state = await readReleaseState(rootPath, releaseOptions);
-      const statePath = await writeReleaseState(rootPath, nextReleaseState(state, plan.baselineScopes, now), releaseOptions);
-      files.add(statePath);
-      await appendReleaseAppliedLedgerEvent(rootPath, releaseOptions.sourceDir, plan, now, files);
-    }
-    if (plan.scopes.length > 0) {
-      await appendReleaseRecord(rootPath, releaseOptions.sourceDir, plan, now, files);
+  return withChangeLedgerMutation(rootPath, releaseOptions.sourceDir, options.lock, async (mutation) => {
+    const plan = await planRelease(rootPath, releaseOptions);
+    if (plan.entries.length === 0) {
+      return { files: [], plan, renderedFiles: 0 };
     }
 
-    const build = await buildSkillsetResult(rootPath, releaseOptions);
-    if (!build.ok) throw new SkillsetBuildBlockedError(build);
-    renderedFiles = build.data.length;
-    for (const path of build.writes.paths) files.add(path);
-    if (build.writes.backupManifestPath !== undefined) {
-      files.add(build.writes.backupManifestPath);
+    const now = await nextJsonlTimestampForPaths([
+      resolveInside(rootPath, workspaceChangeFile(releaseOptions.sourceDir, LEDGER_FILE)),
+      resolveInside(rootPath, workspaceChangeFile(releaseOptions.sourceDir, HISTORY_FILE)),
+      resolveInside(rootPath, workspaceChangeFile(releaseOptions.sourceDir, RELEASES_FILE)),
+    ]);
+    const files = new Set<string>();
+    const pending = (await changeCheck(rootPath, releaseOptions)).entries;
+    const statePath = workspaceChangeFile(releaseOptions.sourceDir, STATE_FILE);
+    const ownedFiles = [
+      ...(plan.baselineScopes.length > 0 ? [await snapshotFile(rootPath, statePath)] : []),
+      ...await Promise.all(pending.map((entry) => snapshotFile(rootPath, entry.path))),
+    ];
+    let renderedFiles = 0;
+    try {
+      await appendHistory(rootPath, releaseOptions.sourceDir, pending, now, files, mutation);
+
+      if (plan.baselineScopes.length > 0) {
+        const state = await readReleaseState(rootPath, releaseOptions);
+        files.add(await writeReleaseState(rootPath, nextReleaseState(state, plan.baselineScopes, now), releaseOptions));
+        await appendReleaseAppliedLedgerEvent(rootPath, releaseOptions.sourceDir, plan, now, files, mutation);
+      }
+      if (plan.scopes.length > 0) {
+        await appendReleaseRecord(rootPath, releaseOptions.sourceDir, plan, now, files, mutation);
+      }
+
+      await mutation.assertOwned();
+      await options.afterAppend?.();
+      await mutation.assertOwned();
+      await options.beforeBuild?.();
+      const build = await buildSkillsetResult(rootPath, releaseOptions);
+      if (!build.ok) throw new SkillsetBuildBlockedError(build);
+      renderedFiles = build.data.length;
+      for (const path of build.writes.paths) files.add(path);
+      if (build.writes.backupManifestPath !== undefined) {
+        files.add(build.writes.backupManifestPath);
+      }
+
+      // Pending removal is part of the release: a failure here restores
+      // state.json and the pending files and rolls back the owned records.
+      for (const entry of pending) {
+        await options.beforePendingRemoval?.(entry.path);
+        const absolutePath = resolveInside(rootPath, entry.path);
+        await prepareRepositoryMutationPath(rootPath, absolutePath, {
+          createParents: false,
+          replacesLeaf: true,
+        });
+        await rm(absolutePath, { force: true });
+        files.add(entry.path);
+      }
+    } catch (error) {
+      const restoreFailures: string[] = [];
+      for (const snapshot of ownedFiles) {
+        try {
+          await restoreFile(rootPath, snapshot);
+        } catch (restoreError) {
+          restoreFailures.push(`${snapshot.path}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+        }
+      }
+      if (restoreFailures.length > 0) {
+        throw new Error(
+          `skillset: release apply failed and restore failed for ${restoreFailures.join("; ")}; original error: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error }
+        );
+      }
+      throw error;
     }
-  } catch (error) {
-    await restoreSnapshots(rootPath, snapshots);
-    throw error;
-  }
 
-  for (const entry of pending) {
-    const absolutePath = resolveInside(rootPath, entry.path);
-    await prepareRepositoryMutationPath(rootPath, absolutePath, {
-      createParents: false,
-      replacesLeaf: true,
-    });
-    await rm(absolutePath, { force: true });
-    files.add(entry.path);
-  }
-
-  return { files: [...files].sort(compareStrings), plan, renderedFiles };
+    return { files: [...files].sort(compareStrings), plan, renderedFiles };
+  });
 }
 
 export async function amendReleaseRecord(
@@ -204,26 +250,26 @@ export async function amendReleaseRecord(
   options: ReleaseAmendOptions
 ): Promise<ReleaseAmendReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
-  const records = await readReleaseRecords(rootPath, storageOptions);
-  const amendments = await readReleaseAmendments(rootPath, storageOptions);
-  const release = releaseView(resolveReleaseRef(records, options.ref), releaseRefIndex(records), amendments);
-  const notes = await resolveChangeReason(rootPath, options.reason);
-  const now = new Date().toISOString();
-  const amendmentPath = workspaceChangeFile(storageOptions.sourceDir, RELEASE_AMENDMENTS_FILE);
-  const absolutePath = resolveInside(rootPath, amendmentPath);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  await appendFile(absolutePath, `${JSON.stringify({
-    amendedAt: now,
-    id: release.id,
-    notes,
-    ...(release.notes === undefined ? {} : { previousNotes: release.notes }),
-    source: release.path,
-  })}\n`, "utf8");
-  const updatedAmendments = await readReleaseAmendments(rootPath, storageOptions);
-  return {
-    amendmentPath,
-    release: releaseView(resolveReleaseRef(records, release.id), releaseRefIndex(records), updatedAmendments),
-  };
+  return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
+    const records = await readReleaseRecords(rootPath, storageOptions);
+    const amendments = await readReleaseAmendments(rootPath, storageOptions);
+    const release = releaseView(resolveReleaseRef(records, options.ref), releaseRefIndex(records), amendments);
+    const notes = await resolveChangeReason(rootPath, options.reason);
+    const amendmentPath = workspaceChangeFile(storageOptions.sourceDir, RELEASE_AMENDMENTS_FILE);
+    const now = await nextJsonlTimestampForPaths([resolveInside(rootPath, amendmentPath)]);
+    await mutation.appendJsonl(amendmentPath, [{
+      amendedAt: now,
+      id: release.id,
+      notes,
+      ...(release.notes === undefined ? {} : { previousNotes: release.notes }),
+      source: release.path,
+    }]);
+    const updatedAmendments = await readReleaseAmendments(rootPath, storageOptions);
+    return {
+      amendmentPath,
+      release: releaseView(resolveReleaseRef(records, release.id), releaseRefIndex(records), updatedAmendments),
+    };
+  });
 }
 
 function releaseEntryPlan(entry: PendingChangeEntry): readonly ReleaseEntryPlan[] {
@@ -376,28 +422,25 @@ async function appendHistory(
   sourceDir: string | undefined,
   entries: readonly PendingChangeEntry[],
   appliedAt: string,
-  files: Set<string>
+  files: Set<string>,
+  mutation: ChangeLedgerMutation
 ): Promise<void> {
   if (entries.length === 0) return;
   const relativePath = workspaceChangeFile(sourceDir, HISTORY_FILE);
-  const absolutePath = resolveInside(rootPath, relativePath);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
   const sourceMoveCursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, sourceDir === undefined ? {} : { sourceDir })));
-  const lines = entries.flatMap((entry) => entry.id === undefined || entry.bump === undefined ? [] : [
-    JSON.stringify({
-      appliedAt,
-      sourceMoveCursor,
-      bump: entry.bump,
-      ...(entry.group === undefined ? {} : { group: groupJson(entry.group) }),
-      id: entry.id,
-      ...(entry.ignored ? { ignored: true } : {}),
-      reason: entry.reason,
-      scopes: [...entry.scopes],
-      evidence: historyEvidence(entry),
-    }),
-  ]);
-  if (lines.length === 0) return;
-  await appendFile(absolutePath, `${lines.join("\n")}\n`, "utf8");
+  const records = entries.flatMap((entry) => entry.id === undefined || entry.bump === undefined ? [] : [{
+    appliedAt,
+    sourceMoveCursor,
+    bump: entry.bump,
+    ...(entry.group === undefined ? {} : { group: groupJson(entry.group) }),
+    id: entry.id,
+    ...(entry.ignored ? { ignored: true } : {}),
+    reason: entry.reason,
+    scopes: [...entry.scopes],
+    evidence: historyEvidence(entry),
+  }]);
+  if (records.length === 0) return;
+  await mutation.appendJsonl(relativePath, records);
   files.add(relativePath);
 }
 
@@ -406,13 +449,12 @@ async function appendReleaseRecord(
   sourceDir: string | undefined,
   plan: ReleasePlanReport,
   appliedAt: string,
-  files: Set<string>
+  files: Set<string>,
+  mutation: ChangeLedgerMutation
 ): Promise<void> {
   if (plan.scopes.length === 0) return;
   const relativePath = workspaceChangeFile(sourceDir, RELEASES_FILE);
-  const absolutePath = resolveInside(rootPath, relativePath);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  await appendFile(absolutePath, `${JSON.stringify({
+  await mutation.appendJsonl(relativePath, [{
     appliedAt,
     baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-hashes" },
     entries: plan.entries.filter((entry) => !entry.ignored).map((entry) => entry.id).sort(compareStrings),
@@ -425,7 +467,7 @@ async function appendReleaseRecord(
       scope: scope.scope,
       ...(scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
     })),
-  })}\n`, "utf8");
+  }]);
   files.add(relativePath);
 }
 
@@ -434,13 +476,12 @@ async function appendReleaseAppliedLedgerEvent(
   sourceDir: string | undefined,
   plan: ReleasePlanReport,
   appliedAt: string,
-  files: Set<string>
+  files: Set<string>,
+  mutation: ChangeLedgerMutation
 ): Promise<void> {
   const relativePath = workspaceChangeFile(sourceDir, LEDGER_FILE);
-  const absolutePath = resolveInside(rootPath, relativePath);
   const releaseId = plan.releaseId ?? releaseIdFor(plan.baselineScopes);
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  await appendFile(absolutePath, `${JSON.stringify({
+  await mutation.appendJsonl(relativePath, [{
     createdAt: appliedAt,
     id: ledgerEventId("release.applied", releaseId),
     payload: {
@@ -451,7 +492,7 @@ async function appendReleaseAppliedLedgerEvent(
     },
     schemaVersion: 1,
     type: "release.applied",
-  })}\n`, "utf8");
+  }]);
   files.add(relativePath);
 }
 
@@ -488,47 +529,26 @@ function ledgerEventId(type: string, releaseId: string): string {
   return `evt-${hash.digest("hex").slice(0, 16)}`;
 }
 
-async function snapshotReleaseFiles(
-  rootPath: string,
-  sourceDir: string | undefined,
-  entries: readonly PendingChangeEntry[],
-  includeReleaseState: boolean
-): Promise<readonly FileSnapshot[]> {
-  const paths = new Set<string>([
-    workspaceChangeFile(sourceDir, LEDGER_FILE),
-    workspaceChangeFile(sourceDir, HISTORY_FILE),
-    ...entries.map((entry) => entry.path),
-  ]);
-  if (includeReleaseState) {
-    paths.add(workspaceChangeFile(sourceDir, STATE_FILE));
-    paths.add(workspaceChangeFile(sourceDir, RELEASES_FILE));
-  }
-
-  const snapshots: FileSnapshot[] = [];
-  for (const path of [...paths].sort(compareStrings)) {
-    const absolutePath = resolveInside(rootPath, path);
-    snapshots.push({
-      ...(await exists(absolutePath) ? { content: await readFile(absolutePath) } : {}),
-      path,
-    });
-  }
-  return snapshots;
+async function snapshotFile(rootPath: string, path: string): Promise<FileSnapshot> {
+  const absolutePath = resolveInside(rootPath, path);
+  return {
+    ...(await exists(absolutePath) ? { content: await readFile(absolutePath) } : {}),
+    path,
+  };
 }
 
-async function restoreSnapshots(rootPath: string, snapshots: readonly FileSnapshot[]): Promise<void> {
-  for (const snapshot of snapshots) {
-    const absolutePath = resolveInside(rootPath, snapshot.path);
-    if (snapshot.content === undefined) {
-      await prepareRepositoryMutationPath(rootPath, absolutePath, {
-        createParents: false,
-        replacesLeaf: true,
-      });
-      await rm(absolutePath, { force: true });
-      continue;
-    }
-    await prepareRepositoryMutationPath(rootPath, absolutePath);
-    await writeFile(absolutePath, snapshot.content);
+async function restoreFile(rootPath: string, snapshot: FileSnapshot): Promise<void> {
+  const absolutePath = resolveInside(rootPath, snapshot.path);
+  if (snapshot.content === undefined) {
+    await prepareRepositoryMutationPath(rootPath, absolutePath, {
+      createParents: false,
+      replacesLeaf: true,
+    });
+    await rm(absolutePath, { force: true });
+    return;
   }
+  await prepareRepositoryMutationPath(rootPath, absolutePath, { replacesLeaf: true });
+  await publishAtomicFile(absolutePath, snapshot.content);
 }
 
 async function exists(path: string): Promise<boolean> {
