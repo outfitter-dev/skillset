@@ -157,15 +157,9 @@ async function validateChangeCheck(
   }
 
   if (options.ref === undefined) {
-    const covered = new Set<string>();
-    for (const entry of validEntries) {
-      for (const scope of entry.scopes) {
-        covered.add(scope);
-        for (const impliedScope of impliedCoveredScopes(scope)) covered.add(impliedScope);
-      }
-    }
-    for (const change of status.sourceChanges) {
-      if (covered.has(change.id)) continue;
+    const events = await readChangeLedger(rootPath, options);
+    const scopes = [...validEntries].flatMap((entry) => entry.scopes);
+    for (const change of uncoveredSourceChanges(status.sourceChanges, scopes, events)) {
       issues.push({
         code: "change-uncovered",
         message: `source change ${sourceUnitDisplay(change.id)} is missing a pending change entry`,
@@ -188,9 +182,49 @@ async function validateChangeCheck(
   };
 }
 
-function impliedCoveredScopes(scope: string): readonly string[] {
-  const pluginScope = pluginScopeFromSourceUnit(scope);
-  return pluginScope === undefined || pluginScope === sourceUnitSelector(scope) ? [] : [pluginScope];
+/**
+ * Source changes no scope covers. A scope also covers its owning plugin and
+ * any removed selector the ledger records as moved to it: a move reports the
+ * old selector removed and the new one added, and the pending reason follows.
+ */
+export function uncoveredSourceChanges(
+  changes: readonly SourceUnitChange[],
+  scopes: readonly string[],
+  events: readonly ChangeLedgerEvent[]
+): readonly SourceUnitChange[] {
+  const covered = new Set(movedAwaySourceChanges(changes, scopes, events).map((change) => change.id));
+  for (const scope of scopes) {
+    covered.add(scope);
+    const pluginScope = pluginScopeFromSourceUnit(scope);
+    if (pluginScope !== undefined) covered.add(pluginScope);
+  }
+  return changes.filter((change) => !covered.has(change.id));
+}
+
+/**
+ * Removed source changes that a ledger move turned into one of `scopes`.
+ *
+ * Only moves after the last applied release count; that release already
+ * retired the selectors of earlier moves. The chain starts at the latest move
+ * of the removed selector, so a reused name follows its own move, and must end
+ * at a newly added unit, the other half of the same move.
+ */
+export function movedAwaySourceChanges<Change extends { readonly id: string; readonly status: string }>(
+  changes: readonly Change[],
+  scopes: readonly string[],
+  events: readonly ChangeLedgerEvent[]
+): readonly Change[] {
+  const lastRelease = events.findLastIndex((event) => event.type === "release.applied");
+  const moves = sourceMappingsAfterEvent(sourceIdentityMappings(events), lastRelease);
+  const added = new Set(changes.filter((change) => change.status === "added").map((change) => change.id));
+  const targets = new Set(scopes);
+  return changes.filter((change) => {
+    if (change.status !== "removed") return false;
+    const latest = moves.findLast((mapping) => mapping.from === change.id);
+    if (latest === undefined) return false;
+    const current = currentSourceIdentity(latest.to, sourceMappingsAfterEvent(moves, latest.eventIndex));
+    return added.has(current) && targets.has(current);
+  });
 }
 
 export async function readPendingChangeEntries(

@@ -1,10 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { buildSkillset, moveSource, planSourceMove } from "@skillset/core";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { initializeTestGitRepository } from "../../../../scripts/test-helpers/git-remote";
 
-import { readPendingChangeEntries } from "../change-entries";
-import { readAppliedChangeRecords } from "../change-workflow";
+import type { ChangeLedgerEvent } from "@skillset/core/internal/change-ledger";
+
+import { changeCheck, movedAwaySourceChanges, readPendingChangeEntries } from "../change-entries";
+import { planRelease } from "../release";
+import { addChangeEntry, readAppliedChangeRecords, refreshChangeEvidence } from "../change-workflow";
 
 describe("source move identity epochs", () => {
   test("keeps new evidence at a reused selector separate from pre-move evidence", async () => {
@@ -51,5 +56,111 @@ describe("source move identity epochs", () => {
       [oldId, ["plugin.tools.skill:demo"], [["plugin.tools.skill:demo", [oldHash]]]],
       [newId, ["skill:demo"], [["skill:demo", [newHash]]]],
     ]);
+  });
+
+  test("rewrites an authored pending change scope when its skill moves into a plugin", async () => {
+    const skill = (body: string): string => `---\nname: demo\ndescription: Demo skill.\n---\n\n${body}\n`;
+    const disposableRoot = await createTestFixtureRoot("skillset-move-pending-scope-");
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    for (const [path, content] of Object.entries({
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    })) {
+      const target = join(root, path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, content, "utf8");
+    }
+    await buildSkillset(root);
+    await initializeTestGitRepository(root, { disposableRoot });
+    await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Demo changed before the move."), "utf8");
+    await buildSkillset(root);
+    const added = await addChangeEntry(root, {
+      bump: "patch",
+      reason: { kind: "inline", value: "Describe the demo skill change with enough detail for validation." },
+      scopes: ["skill:demo"],
+    });
+    expect(await readFile(join(root, added.entry.path), "utf8")).toContain("Scope: skill:demo");
+
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    const plan = await planSourceMove(request);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+
+    expect(await readFile(join(root, added.entry.path), "utf8")).toContain("Scope: plugin.tools.skill:demo");
+    // Source hashes bind the unit's id and paths, so moved evidence needs the ordinary refresh.
+    await refreshChangeEvidence(root, { ref: added.entry.id, write: true });
+    const report = await changeCheck(root);
+    expect(report.entries.map((entry) => entry.scopes)).toEqual([["plugin.tools.skill:demo"]]);
+    expect(report.issues.filter((issue) => issue.severity === "error")).toEqual([]);
+    expect(report.ok).toBe(true);
+    // Releasing the reason retires the moved-away selector too, so it does not resurface as removed.
+    const release = await planRelease(root);
+    expect(release.scopes.map((scope) => [scope.scope, scope.removed])).toEqual([
+      ["plugin.tools.skill:demo", false],
+      ["plugin:tools", false],
+      ["skill:demo", true],
+    ]);
+  });
+
+  describe("moved-away coverage for a reused selector", () => {
+    let line = 0;
+    const move = (from: string, to: string): ChangeLedgerEvent => ({
+      createdAt: "2026-09-17T00:00:00.000Z",
+      id: `move-${++line}`,
+      line,
+      path: ".skillset/changes/ledger.jsonl",
+      payload: { from, to },
+      schemaVersion: 1,
+      sourceUnits: [],
+      type: "source.moved",
+    });
+    const release = (): ChangeLedgerEvent => ({
+      createdAt: "2026-09-17T00:00:00.000Z",
+      id: `release-${++line}`,
+      line,
+      path: ".skillset/changes/ledger.jsonl",
+      payload: { changeIds: [], releaseId: `release-${line}`, scopes: [], sourceUnits: [] },
+      schemaVersion: 1,
+      sourceUnits: [],
+      type: "release.applied",
+    });
+
+    test("follows the latest move of the removed selector", () => {
+      const events = [move("skill:demo", "plugin.a.skill:demo"), move("skill:demo", "plugin.b.skill:demo")];
+      const changes = [
+        { id: "plugin.b.skill:demo", status: "added" },
+        { id: "skill:demo", status: "removed" },
+      ];
+      expect(movedAwaySourceChanges(changes, ["plugin.b.skill:demo"], events)).toEqual([{ id: "skill:demo", status: "removed" }]);
+      expect(movedAwaySourceChanges(changes, ["plugin.a.skill:demo"], events)).toEqual([]);
+    });
+
+    test("does not let a released move cover the removal of a unit that reused its name", () => {
+      const events = [move("skill:demo", "plugin.a.skill:demo"), release()];
+      const changes = [
+        { id: "plugin.a.skill:demo", status: "changed" },
+        { id: "skill:demo", status: "removed" },
+      ];
+      expect(movedAwaySourceChanges(changes, ["plugin.a.skill:demo"], events)).toEqual([]);
+    });
+
+    test("does not cover a removal when the move target is not newly added", () => {
+      const events = [move("skill:demo", "plugin.a.skill:demo")];
+      const changes = [
+        { id: "plugin.a.skill:demo", status: "changed" },
+        { id: "skill:demo", status: "removed" },
+      ];
+      expect(movedAwaySourceChanges(changes, ["plugin.a.skill:demo"], events)).toEqual([]);
+    });
+
+    test("follows a chain of moves inside the window", () => {
+      const events = [move("skill:demo", "plugin.a.skill:demo"), move("plugin.a.skill:demo", "plugin.b.skill:demo")];
+      const changes = [
+        { id: "plugin.b.skill:demo", status: "added" },
+        { id: "skill:demo", status: "removed" },
+      ];
+      expect(movedAwaySourceChanges(changes, ["plugin.b.skill:demo"], events)).toEqual([{ id: "skill:demo", status: "removed" }]);
+      expect(movedAwaySourceChanges(changes, ["plugin.a.skill:demo"], events)).toEqual([]);
+    });
   });
 });
