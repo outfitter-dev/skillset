@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { link, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
@@ -34,6 +34,21 @@ describe("change ledger JSONL write", () => {
     expect(await readFile(path, "utf8")).toBe(
       `${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n${JSON.stringify({ createdAt: "2026-09-22T00:00:03.000Z", id: "foreign" })}\n`
     );
+  });
+
+  test("publishes the rollback remainder as a new file instead of rewriting in place", async () => {
+    const path = await streamPath("atomic-rollback");
+    await writeFile(path, `${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n`, "utf8");
+    const owned = await appendOwnedJsonlRecords(path, [{ createdAt: "2026-09-22T00:00:01.000Z", id: "owned" }]);
+    const before = await readFile(path, "utf8");
+    const previousInode = join(dirname(path), "previous-inode.jsonl");
+    await link(path, previousInode);
+
+    await rollbackOwnedJsonlRecords(path, new Set(owned));
+
+    expect(await readFile(previousInode, "utf8")).toBe(before);
+    expect(await readFile(path, "utf8")).toBe(`${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n`);
+    expect((await readdir(dirname(path))).filter((name) => name.includes(".tmp-"))).toEqual([]);
   });
 
   test("deletes a stream that only contained owned records", async () => {
@@ -84,7 +99,7 @@ describe("change ledger JSONL write", () => {
     );
   });
 
-  test("reads the last parseable timestamp from the stream tail", async () => {
+  test("reads the last record's timestamp, skipping trailing blank lines", async () => {
     const path = await streamPath("tail-timestamp");
     await writeFile(
       path,
