@@ -18,7 +18,7 @@ For repository documentation, follow [docs/development/documentation-system.md](
 ## Responsibilities
 
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
-- Emit target-native plugin bundles under `plugins/<plugin>/<provider>/` by default, with shared generated provenance in `plugins/skillset.lock`.
+- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` ([ADR-0037](docs/adrs/0037-one-shared-plugin-package-per-plugin.md)).
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
 - Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
