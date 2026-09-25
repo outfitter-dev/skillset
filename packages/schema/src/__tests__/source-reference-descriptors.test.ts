@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  DISTRIBUTION_SOURCE_SELECTOR_PATTERN,
+  PLUGIN_DRAFT_SELECTOR_PATTERN,
+  ROOT_DRAFT_SELECTOR_PATTERN,
   skillsetSourceReferenceDescriptors,
   skillsetSourceReferenceExclusions,
 } from "../index";
@@ -12,6 +15,7 @@ describe("source reference descriptors", () => {
       "configured-draft-selector",
       "distribution-source-selector",
       "internal-plugin-selection",
+      "pending-change-scope",
       "skill-resource-source",
       "skill-resource-destination",
       "hook-attachment",
@@ -30,12 +34,27 @@ describe("source reference descriptors", () => {
         pathPatterns: ["skills[*]", "claude.skills[*]", "codex.skills[*]", "cursor.skills[*]"],
       }),
       expect.objectContaining({
+        acceptedSelectorPatterns: {
+          "plugin-config": PLUGIN_DRAFT_SELECTOR_PATTERN,
+          "root-source-manifest": ROOT_DRAFT_SELECTOR_PATTERN,
+          "workspace-config": ROOT_DRAFT_SELECTOR_PATTERN,
+        },
         id: "configured-draft-selector",
         pathPatterns: ["drafts[*]"],
       }),
       expect.objectContaining({
+        acceptedSelectorPatterns: {
+          "root-source-manifest": DISTRIBUTION_SOURCE_SELECTOR_PATTERN,
+          "workspace-config": DISTRIBUTION_SOURCE_SELECTOR_PATTERN,
+        },
         id: "distribution-source-selector",
         pathPatterns: ["distributions.<id>.from.selector"],
+      }),
+      expect.objectContaining({
+        contracts: ["change-entry"],
+        id: "pending-change-scope",
+        mutationPolicy: "rewrite",
+        pathPatterns: ["scope", "scope[*]", "scopes", "scopes[*]"],
       }),
       expect.objectContaining({
         id: "internal-plugin-selection",

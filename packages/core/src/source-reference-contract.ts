@@ -4,7 +4,10 @@ import {
   getSkillsetSourceReferenceDescriptor,
   skillsetSourceReferenceDescriptors,
 } from "@skillset/schema";
-import type { SkillsetSourceReferenceDescriptorId } from "@skillset/schema";
+import type {
+  SkillsetSourceReferenceContract,
+  SkillsetSourceReferenceDescriptorId,
+} from "@skillset/schema";
 
 type CoreReferenceHandler =
   | "agent-skills"
@@ -14,6 +17,7 @@ type CoreReferenceHandler =
   | "hook-script"
   | "internal-plugin-dependency"
   | "internal-plugin-selection"
+  | "pending-change-scope"
   | "resource-destination"
   | "resource-source"
   | "skill-eval-file"
@@ -27,6 +31,7 @@ const coreReferenceHandlers = {
   "hook-attachment": "hook-attachments",
   "internal-plugin-dependency": "internal-plugin-dependency",
   "internal-plugin-selection": "internal-plugin-selection",
+  "pending-change-scope": "pending-change-scope",
   "skill-eval-file": "skill-eval-file",
   "skill-eval-skill-name": "skill-eval-name",
   "skill-resource-destination": "resource-destination",
@@ -65,4 +70,25 @@ export function assertRewrittenSourceReference(
       `skillset: source reference descriptor ${id} must use rewrite policy`
     );
   }
+}
+
+/**
+ * Whether a rewritten selector matches the schema pattern the descriptor
+ * declares for this contract. A descriptor without one is a programmer error.
+ */
+export function sourceReferenceAcceptsSelector(
+  id: SkillsetSourceReferenceDescriptorId,
+  contract: SkillsetSourceReferenceContract,
+  selector: string
+): boolean {
+  const pattern =
+    getSkillsetSourceReferenceDescriptor(id).acceptedSelectorPatterns?.[
+      contract
+    ];
+  if (pattern === undefined) {
+    throw new Error(
+      `skillset: source reference descriptor ${id} declares no selector pattern for ${contract}`
+    );
+  }
+  return new RegExp(pattern, "u").test(selector);
 }
