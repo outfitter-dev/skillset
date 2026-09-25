@@ -1,12 +1,14 @@
-import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { describe, expect, test } from "bun:test";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
-import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
 
+import {
+  createTestGitFixtureRoot,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 import {
   renderProjectSessionStartHooks,
   projectSessionStartEntry,
@@ -49,27 +51,39 @@ describe("project SessionStart hook rendering", () => {
     expect(handler?.additionalContextLimit).toBe(configuredLimit?.value);
   });
   test("auto follows every enabled skill root, not the hook files", async () => {
-    const root = await createTestFixtureRoot("skillset-project-hooks-auto-");
+    const root = await createTestGitFixtureRoot("skillset-project-hooks-auto-");
     await writeFile(join(root, "skillset.yaml"), "{}\n");
-    execFileSync("git", ["init", "-q", root]);
+    await runTestGit(root, "init", "-q");
     await writeFile(
       join(root, ".gitignore"),
       ".claude/settings.json\n.codex/hooks.json\n"
     );
-    expect(await renderProjectSessionStartHooks(graph(root, "auto"))).toEqual([]);
+    // A hook-exported GIT_DIR pointing at a bare decoy makes an unsanitized
+    // check-ignore fail (no work tree), so the ignored-roots case below only
+    // passes when the probe strips repository-targeting variables.
+    const decoy = await createTestGitFixtureRoot("skillset-project-hooks-decoy-");
+    await runTestGit(decoy, "init", "--bare", "-q");
+    const previousGitDir = process.env.GIT_DIR;
+    process.env.GIT_DIR = decoy;
+    try {
+      expect(await renderProjectSessionStartHooks(graph(root, "auto"))).toEqual([]);
 
-    await writeFile(
-      join(root, ".gitignore"),
-      ".claude/skills/\n.agents/skills/\n.cursor/skills/\n"
-    );
-    expect(await renderProjectSessionStartHooks(graph(root, "auto"))).toHaveLength(2);
+      await writeFile(
+        join(root, ".gitignore"),
+        ".claude/skills/\n.agents/skills/\n.cursor/skills/\n"
+      );
+      expect(await renderProjectSessionStartHooks(graph(root, "auto"))).toHaveLength(2);
 
-    const withCursor = graph(root, "auto") as {
-      root: { targets: Record<string, { enabled: boolean; options: object }> };
-    };
-    withCursor.root.targets.cursor = { enabled: true, options: {} };
-    await writeFile(join(root, ".gitignore"), ".claude/skills/\n.agents/skills/\n.claude/settings.json\n.codex/hooks.json\n");
-    expect(await renderProjectSessionStartHooks(withCursor as never)).toEqual([]);
+      const withCursor = graph(root, "auto") as {
+        root: { targets: Record<string, { enabled: boolean; options: object }> };
+      };
+      withCursor.root.targets.cursor = { enabled: true, options: {} };
+      await writeFile(join(root, ".gitignore"), ".claude/skills/\n.agents/skills/\n.claude/settings.json\n.codex/hooks.json\n");
+      expect(await renderProjectSessionStartHooks(withCursor as never)).toEqual([]);
+    } finally {
+      if (previousGitDir === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = previousGitDir;
+    }
   });
 
   test("preserves foreign entries while composing Claude and Codex shapes", async () => {

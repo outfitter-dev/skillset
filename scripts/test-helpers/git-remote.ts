@@ -1,7 +1,7 @@
 import { lstat, mkdtemp, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
-import { gitSafeEnv } from "../../apps/skillset/src/git-env";
+import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { validateTestSandbox } from "../../apps/skillset/src/verification-sandbox";
 import { createTestFixtureRoot } from "./fixture-root";
 

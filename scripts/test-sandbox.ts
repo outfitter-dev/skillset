@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { gitSafeEnv } from "../apps/skillset/src/git-env";
+import { gitSafeEnv } from "@skillset/core/internal/git-env";
+
 import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,

@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
+
 export interface PackageOwnershipViolation {
   readonly file: string;
   readonly line: number;
@@ -30,7 +32,12 @@ export function scanPackageOwnershipContent(file: string, content: string): read
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function runText(command: readonly string[]): Promise<string> {
-  const subprocess = Bun.spawn([...command], { cwd: rootDir, stderr: "pipe", stdout: "pipe" });
+  const subprocess = Bun.spawn([...command], {
+    cwd: rootDir,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
   const [exitCode, stdout, stderr] = await Promise.all([
     subprocess.exited,
     new Response(subprocess.stdout).text(),

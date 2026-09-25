@@ -9,6 +9,7 @@
     "./runtime": "./src/runtime.ts"
   },
   "dependencies": {
+    "@skillset/core": "workspace:*",
     "@skillset/schema": "workspace:*"
   }
 }

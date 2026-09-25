@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
+import { gitReadOnlyEnv, gitSafeEnv } from "./git-env";
 import { isOutputSelected } from "./config";
 import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { storedClaudeMarketplaceProviderEntry } from "./claude-marketplace";
@@ -308,7 +309,7 @@ async function assertKnownRepositoryIdentity(path: string, repo: string): Promis
     "--porcelain=v1",
     "--untracked-files=all",
   ], {
-    env: { ...gitCommandEnv(), GIT_OPTIONAL_LOCKS: "0" },
+    env: gitReadOnlyEnv(),
     timeout: 5000,
   });
   if (String(status.stdout).trim().length > 0) {
@@ -818,7 +819,7 @@ async function gitIdentity(path: string): Promise<{ readonly ref?: string; reado
 async function runGit(path: string, args: readonly string[]): Promise<string | undefined> {
   try {
     const result = await execFileAsync("git", ["-C", path, ...args], {
-      env: gitCommandEnv(),
+      env: gitSafeEnv(),
       timeout: 5000,
     });
     const stdout = String(result.stdout).trim();
@@ -826,27 +827,6 @@ async function runGit(path: string, args: readonly string[]): Promise<string | u
   } catch {
     return undefined;
   }
-}
-
-function gitCommandEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value === undefined || isGitRepositoryEnv(key)) continue;
-    env[key] = value;
-  }
-  return env;
-}
-
-function isGitRepositoryEnv(key: string): boolean {
-  return (
-    key === "GIT_DIR" ||
-    key === "GIT_WORK_TREE" ||
-    key === "GIT_INDEX_FILE" ||
-    key === "GIT_OBJECT_DIRECTORY" ||
-    key === "GIT_COMMON_DIR" ||
-    key === "GIT_NAMESPACE" ||
-    key.startsWith("GIT_ALTERNATE_OBJECT")
-  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

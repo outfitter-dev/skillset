@@ -5,6 +5,7 @@ import { isDeepStrictEqual, promisify } from "node:util";
 import { join, relative } from "node:path";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
+import { gitSafeEnv } from "./git-env";
 import { readString } from "./config";
 import type { ParsedGeneratedLockItem } from "./generated-lock";
 import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
@@ -285,7 +286,10 @@ async function assertNoLegacyClaudeSessionStart(rootPath: string, projectRoot: s
 
 async function outputRootIsIgnored(graph: BuildGraph, path: string): Promise<boolean> {
   try {
-    await execFile("git", ["check-ignore", "-q", "--no-index", "--", `${path.replace(/\/$/, "")}/`], { cwd: graph.rootPath });
+    await execFile("git", ["check-ignore", "-q", "--no-index", "--", `${path.replace(/\/$/, "")}/`], {
+      cwd: graph.rootPath,
+      env: gitSafeEnv(),
+    });
     return true;
   } catch {
     return false;

@@ -38,6 +38,7 @@ import {
 } from "./operational-cache";
 import type { GeneratedFileMode, JsonRecord, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
+import { gitSafeEnv } from "./git-env";
 import { readSkillsetWorkspaceConfig } from "./xdg";
 
 export const WORKSPACE_LOCK_FILE = "skillset.lock";
@@ -1697,7 +1698,7 @@ async function runGit(
   const proc = Bun.spawn({
     cmd: ["git", ...args],
     cwd: options.cwd,
-    env: gitCommandEnv(options.env),
+    env: { ...gitSafeEnv(), ...options.env },
     stderr: "pipe",
     stdin: options.input === undefined ? "ignore" : new Response(options.input),
     stdout: "pipe",
@@ -1718,15 +1719,6 @@ async function runGit(
   };
 }
 
-function gitCommandEnv(overrides: Record<string, string> = {}): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value === undefined || isGitRepositoryEnv(key)) continue;
-    env[key] = value;
-  }
-  return { ...env, ...overrides };
-}
-
 function gitIdentityEnv(): Record<string, string> {
   return {
     GIT_AUTHOR_EMAIL: "skillset@example.invalid",
@@ -1734,18 +1726,6 @@ function gitIdentityEnv(): Record<string, string> {
     GIT_COMMITTER_EMAIL: "skillset@example.invalid",
     GIT_COMMITTER_NAME: "Skillset",
   };
-}
-
-function isGitRepositoryEnv(key: string): boolean {
-  return (
-    key === "GIT_DIR" ||
-    key === "GIT_WORK_TREE" ||
-    key === "GIT_INDEX_FILE" ||
-    key === "GIT_OBJECT_DIRECTORY" ||
-    key === "GIT_COMMON_DIR" ||
-    key === "GIT_NAMESPACE" ||
-    key.startsWith("GIT_ALTERNATE_OBJECT")
-  );
 }
 
 function contentHash(content: Uint8Array): string {

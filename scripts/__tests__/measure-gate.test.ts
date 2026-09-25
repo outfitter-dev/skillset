@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { chmod, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import {
   classifyResourceAccounting,
   collectAttributabilityIssues,
@@ -121,7 +122,7 @@ describe("measure-gate report", () => {
         cmd: ["git", ...args],
         cwd: dirtyRepo,
         env: {
-          ...process.env,
+          ...gitSafeEnv(),
           GIT_AUTHOR_EMAIL: "t@example.com",
           GIT_AUTHOR_NAME: "t",
           GIT_COMMITTER_EMAIL: "t@example.com",
@@ -175,6 +176,7 @@ describe("measure-gate report", () => {
     const init = Bun.spawn({
       cmd: ["git", "init", "--quiet"],
       cwd: unbornRepo,
+      env: gitSafeEnv(),
       stderr: "ignore",
       stdout: "ignore",
     });
@@ -214,7 +216,7 @@ describe("measure-gate report", () => {
         cmd: ["git", ...args],
         cwd: lockedRepo,
         env: {
-          ...process.env,
+          ...gitSafeEnv(),
           GIT_AUTHOR_EMAIL: "t@example.com",
           GIT_AUTHOR_NAME: "t",
           GIT_COMMITTER_EMAIL: "t@example.com",

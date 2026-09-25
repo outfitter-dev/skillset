@@ -7,6 +7,7 @@ import type { NativeArtifactManifest } from "../native-artifacts";
 import {
   NPM_BOOTSTRAP_PACKAGE_SPECS,
   NPM_BOOTSTRAP_VERSION,
+  npmBootstrapCaptureEnvironment,
   npmBootstrapEnvironment,
   npmBootstrapFilename,
   npmBootstrapLoginCommand,
@@ -171,6 +172,27 @@ describe("one-time npm package bootstrap", () => {
         PATH: "/bin",
       })
     ).toEqual({ HOME: "/tmp/home", PATH: "/bin" });
+  });
+
+  test("keeps ambient npm credentials out of captured checks that supply an environment", () => {
+    const ambient = {
+      GIT_DIR: "/hook/.git",
+      HOME: "/tmp/home",
+      NODE_AUTH_TOKEN: "ambient-node-token",
+      NPM_CONFIG_USERCONFIG: "/ambient/.npmrc",
+      NPM_TOKEN: "ambient-npm-token",
+      PATH: "/bin",
+    };
+    expect(
+      npmBootstrapCaptureEnvironment(npmBootstrapEnvironment(ambient), ambient)
+    ).toEqual({ HOME: "/tmp/home", PATH: "/bin" });
+    expect(npmBootstrapCaptureEnvironment(undefined, ambient)).toEqual({
+      HOME: "/tmp/home",
+      NODE_AUTH_TOKEN: "ambient-node-token",
+      NPM_CONFIG_USERCONFIG: "/ambient/.npmrc",
+      NPM_TOKEN: "ambient-npm-token",
+      PATH: "/bin",
+    });
   });
 
   test("plans an empty bootstrap and exact canonical-prefix recovery", () => {

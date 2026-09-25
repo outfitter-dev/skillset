@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import {
   nativeManifestName,
   parseNativeManifest,
@@ -115,6 +116,21 @@ export function npmBootstrapEnvironment(
         !/^(?:NPM|NODE)_.*(?:AUTH|TOKEN)/iu.test(key)
     )
   ) as Record<string, string>;
+}
+
+/**
+ * Environment for a captured bootstrap subprocess.
+ *
+ * A supplied environment replaces the ambient one: the npm identity and 2FA
+ * checks pass {@link npmBootstrapEnvironment} output, and merging the ambient
+ * environment back underneath would restore the npm token/config keys that
+ * filter removed. Repository-targeting git keys are always stripped.
+ */
+export function npmBootstrapCaptureEnvironment(
+  supplied: Readonly<Record<string, string>> | undefined,
+  ambient: Readonly<Record<string, string | undefined>>
+): Record<string, string> {
+  return gitSafeEnv(supplied ?? ambient);
 }
 
 export function npmBootstrapFilename(spec: ReleasePackageSpec): string {
@@ -486,7 +502,7 @@ async function capture(
 ): Promise<string> {
   const subprocess = Bun.spawn([...command], {
     cwd: options.cwd ?? rootDir,
-    ...(options.env ? { env: { ...options.env } } : {}),
+    env: npmBootstrapCaptureEnvironment(options.env, process.env),
     stderr: "pipe",
     stdout: "pipe",
   });

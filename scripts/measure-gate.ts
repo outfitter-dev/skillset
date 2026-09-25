@@ -36,6 +36,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { arch, cpus, loadavg, platform, release, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import {
   type PinnedBunSource,
   prependExecutablePath,
@@ -632,6 +633,7 @@ async function git(args: readonly string[], cwd: string): Promise<string> {
   const child = Bun.spawn({
     cmd: ["git", ...args],
     cwd,
+    env: gitSafeEnv(),
     stderr: "ignore",
     stdout: "pipe",
   });

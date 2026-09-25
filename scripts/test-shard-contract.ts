@@ -165,7 +165,13 @@ export async function assertRepoIdentity(
 export function safeGitEnv(
   sourceEnv: Record<string, string | undefined> = process.env
 ): Record<string, string> {
-  const env = gitSafeEnv(sourceEnv);
+  return gitSafeEnv(withoutGitConfigInjection(sourceEnv));
+}
+
+function withoutGitConfigInjection(
+  sourceEnv: Record<string, string | undefined>
+): Record<string, string | undefined> {
+  const env = { ...sourceEnv };
   for (const key of Object.keys(env)) {
     if (
       key === "GIT_CONFIG_PARAMETERS" ||
@@ -185,7 +191,8 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   const child = Bun.spawnSync({
     cmd: ["git", ...args],
     cwd,
-    env: safeGitEnv(),
+    // Same as safeGitEnv(), spelled at the spawn site so git-env:guard sees it.
+    env: gitSafeEnv(withoutGitConfigInjection(process.env)),
     stderr: "pipe",
     stdout: "pipe",
   });

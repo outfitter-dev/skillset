@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, delimiter, dirname, join } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
@@ -165,18 +165,36 @@ test("SET-388: fresh runner isolates XDG, preserves HOME, and cleans its sandbox
     readonly xdg: readonly string[];
   };
   expect(observed.home).toBe(decoy.home);
-  expect(
-    observed.xdg.every((path) => path.includes("skillset-test-"))
-  ).toBeTrue();
-  expect(
-    observed.git.every((path) => path.includes("skillset-test-"))
-  ).toBeTrue();
+  // The decoys also live under a `skillset-test-*` sandbox (the parent run's),
+  // so a name match cannot tell replaced roots from inherited ones: require
+  // containment in this runner's own sandbox and inequality with the decoy.
+  const sandboxRoot = dirname(observed.marker);
+  const expectedReplacements: readonly (readonly [string, string])[] = [
+    [observed.xdg[0]!, decoy.env.XDG_CONFIG_HOME],
+    [observed.xdg[1]!, decoy.env.XDG_CACHE_HOME],
+    [observed.xdg[2]!, decoy.env.XDG_DATA_HOME],
+    [observed.xdg[3]!, decoy.env.XDG_STATE_HOME],
+    [observed.git[0]!, decoy.env.GIT_CONFIG_GLOBAL],
+    [observed.git[1]!, decoy.env.GIT_CONFIG_SYSTEM],
+  ];
+  for (const [path, decoyValue] of expectedReplacements) {
+    expect(isStrictlyInside(sandboxRoot, path), `${path} in ${sandboxRoot}`).toBeTrue();
+    expect(path).not.toBe(decoyValue);
+  }
   expect(observed.gitSizes).toEqual([0, 0]);
   expect(observed.noSystem).toBe("1");
   expect(observed.prompt).toBe("0");
   expect(observed.count).toBeUndefined();
   await expect(access(observed.marker)).rejects.toThrow();
   expect(await decoySnapshot(decoy.files)).toEqual(before);
+});
+
+test("SET-388: sandbox containment rejects prefix siblings", () => {
+  const root = join(sep, "tmp", "skillset-test-abc");
+  expect(isStrictlyInside(root, join(root, "xdg", "config"))).toBeTrue();
+  expect(isStrictlyInside(root, `${root}d${sep}xdg`)).toBeFalse();
+  expect(isStrictlyInside(root, root)).toBeFalse();
+  expect(isStrictlyInside(root, dirname(root))).toBeFalse();
 });
 
 test("SET-388: fresh runner strips inherited Git repository targeting", async () => {
@@ -296,6 +314,24 @@ test("SET-388: nested runners reuse the validated descriptor", async () => {
   ]);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.stdout.trim().split("\n")).toHaveLength(1);
+});
+
+test("SET-632: nested runners reject repository targeting added inside the sandbox", async () => {
+  const result = await run([
+    "bun",
+    "-e",
+    `const proc=Bun.spawn({cmd:["bun",${JSON.stringify(runner)},"--","bun","-e","console.log('unexpected')"],env:{...process.env,GIT_DIR:"/ambient/.git"},stderr:"pipe",stdout:"pipe"});const [exitCode,stderr]=await Promise.all([proc.exited,new Response(proc.stderr).text()]);console.log(JSON.stringify({exitCode,stderr}));`,
+  ]);
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  const nested = JSON.parse(result.stdout.trim()) as {
+    readonly exitCode: number;
+    readonly stderr: string;
+  };
+  expect(nested.exitCode).toBe(1);
+  expect(nested.stderr).toContain(
+    "GIT_DIR must not survive into the owned test sandbox"
+  );
 });
 
 test("SET-388: child commands use a portable umask under restrictive callers", async () => {
@@ -517,6 +553,11 @@ async function runVersion(binPath: string): Promise<string> {
   ]);
   expect(exitCode).toBe(0);
   return stdout.trim();
+}
+
+function isStrictlyInside(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 async function decoyEnvironment() {

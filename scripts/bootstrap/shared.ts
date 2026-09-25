@@ -25,7 +25,7 @@ export const run = (cmd: readonly string[], cwd: string): ExecResult => {
     cmd: [...cmd],
     cwd,
     // Bootstrap runs inside agent/git hooks; repository-targeting GIT_* vars
-    // must not leak into spawned commands (see apps/skillset/src/git-env.ts).
+    // must not leak into spawned commands (see @skillset/core gitSafeEnv).
     env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",

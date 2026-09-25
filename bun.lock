@@ -112,6 +112,7 @@
       "name": "@skillset/toolkit",
       "version": "0.0.0",
       "dependencies": {
+        "@skillset/core": "workspace:*",
         "@skillset/schema": "workspace:*",
       },
     },

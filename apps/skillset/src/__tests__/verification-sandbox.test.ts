@@ -103,6 +103,13 @@ test("SET-389: nested validation requires empty owned Git config and disabled pr
       GIT_TERMINAL_PROMPT: "1",
     })
   ).rejects.toThrow("GIT_TERMINAL_PROMPT");
+
+  await expect(
+    validateTestSandbox({
+      ...fixtureEnv(fixture),
+      GIT_DIR: join(process.cwd(), ".git"),
+    })
+  ).rejects.toThrow("GIT_DIR must not survive into the owned test sandbox");
 });
 
 test("SET-388: descriptors reject foreign ownership and symlink escapes", async () => {

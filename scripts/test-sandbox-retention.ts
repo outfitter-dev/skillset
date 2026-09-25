@@ -1,7 +1,7 @@
 import { lstat, readFile, readdir, realpath, rm } from "node:fs/promises";
 import { basename, isAbsolute, join, relative } from "node:path";
 
-import { gitSafeEnv } from "../apps/skillset/src/git-env";
+import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { parseDescriptor } from "../apps/skillset/src/verification-sandbox";
 
 const RETAIN_AGE_MS = 7 * 24 * 60 * 60 * 1000;

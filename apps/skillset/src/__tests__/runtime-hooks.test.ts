@@ -20,6 +20,22 @@ import {
   type RunSkillsetCommandOptions,
 } from "../runtime-hooks";
 
+test("SET-632: source gate inspects the given root under inherited GIT_DIR", async () => {
+  const root = await gitFixture();
+  const decoy = await createTestGitFixtureRoot("skillset-hooks-decoy-");
+  await runTestGit(decoy, "init", "--bare", "-q");
+  const previousGitDir = process.env.GIT_DIR;
+  process.env.GIT_DIR = decoy;
+  try {
+    expect(await hasHookRelevantSourceChanges(root)).toBe(false);
+    await writeFile(join(root, "skillset.yaml"), "skillset:\n  schema: 1\nname: changed\n");
+    expect(await hasHookRelevantSourceChanges(root)).toBe(true);
+  } finally {
+    if (previousGitDir === undefined) delete process.env.GIT_DIR;
+    else process.env.GIT_DIR = previousGitDir;
+  }
+});
+
 test("runtime hook source gate ignores unrelated edits", async () => {
   const root = await gitFixture();
 
