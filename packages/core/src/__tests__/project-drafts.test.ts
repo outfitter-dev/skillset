@@ -622,6 +622,43 @@ describe("SET-659 rendered skill copy allocation", () => {
     expect(JSON.stringify(result.renderResults)).toContain("emitted as draft-demo-2");
   });
 
+  it("keeps derived draft names within the Agent Skills 64-character limit", async () => {
+    const id = `long-${"x".repeat(55)}`;
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: long-draft-name\nclaude: false\ncodex: true\ncursor: false\n",
+      [`.skillset/skills/_drafts/${id}/SKILL.md`]: skill(id, "Long draft"),
+    });
+
+    await buildSkillsetResult(root);
+    const names = (await readdir(join(root, ".agents/skills"), { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    expect(names).toEqual([`draft-${id}`.slice(0, 64)]);
+    const draft = parseMarkdown(
+      await readFile(join(root, ".agents/skills", names[0] ?? "", "SKILL.md"), "utf8"),
+      "draft"
+    );
+    expect(draft.frontmatter.name).toBe(names[0]);
+  });
+
+  it("keeps collision-renamed project-use copies within the name limit", async () => {
+    const id = `long-${"y".repeat(55)}`;
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: long-copy-name\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
+      [`.skillset/skills/${id}/SKILL.md`]: skill(id, "Workspace skill"),
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      [`.skillset/plugins/demo/skills/${id}/SKILL.md`]: skill(id, "Plugin skill"),
+    });
+
+    await buildSkillsetResult(root);
+    const renamed = `demo-${id}`.slice(0, 64);
+    const copy = parseMarkdown(
+      await readFile(join(root, ".agents/skills", renamed, "SKILL.md"), "utf8"),
+      "copy"
+    );
+    expect(copy.frontmatter.name).toBe(renamed);
+  });
+
   it("fails when two rendered copies claim one project skill directory", () => {
     expect(() =>
       assertDistinctSkillCopyNames(["draft-demo"], [
