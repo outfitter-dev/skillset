@@ -131,7 +131,8 @@ export interface MeasurementReport {
   /** Re-read after the timed region; absent when it could not be read. */
   readonly revisionAfter: RevisionSnapshot | null;
   readonly toolchainBefore: ToolchainSnapshot;
-  readonly toolchainAfter: ToolchainSnapshot;
+  /** Re-sampled after the timed region; absent when it could not be read. */
+  readonly toolchainAfter: ToolchainSnapshot | null;
   readonly hostBefore: HostSnapshot;
   readonly hostAfter: HostSnapshot;
   readonly resources: ResourceUsage;
@@ -248,7 +249,16 @@ async function main(argv: readonly string[]): Promise<number> {
   const endedAt = new Date();
 
   const hostAfter = readHost();
-  const toolchainAfter = await readToolchain(options.repoRoot);
+  // The command can remove or rewrite the pin. The run already happened, so
+  // record it as unattributable rather than lose the report.
+  let toolchainAfter: ToolchainSnapshot | undefined;
+  try {
+    toolchainAfter = await readToolchain(options.repoRoot);
+  } catch (error) {
+    console.error(
+      `measure-gate: could not re-sample the toolchain after the run: ${message(error)}`
+    );
+  }
   // The Evidence Contract requires hashing tracked inputs on both sides: a
   // command that writes bun.lock or generated output would otherwise keep the
   // pre-run hash and still claim the revision it started from.
@@ -297,7 +307,7 @@ async function main(argv: readonly string[]): Promise<number> {
     schemaVersion: 3,
     signal,
     startedAt: startedAt.toISOString(),
-    toolchainAfter,
+    toolchainAfter: toolchainAfter ?? null,
     toolchainBefore,
     wallMs,
   };
@@ -454,10 +464,15 @@ function readHost(): HostSnapshot {
 export function collectAttributabilityIssues(
   revision: RevisionSnapshot,
   before: ToolchainSnapshot,
-  after: ToolchainSnapshot,
+  after: ToolchainSnapshot | undefined,
   revisionAfter?: RevisionSnapshot
 ): string[] {
   const reasons: string[] = [];
+  if (after === undefined) {
+    reasons.push(
+      "the toolchain after the run could not be read, so the sample cannot claim the interpreter it names"
+    );
+  }
   if (revisionAfter === undefined) {
     reasons.push(
       "the repository state after the run could not be read, so the sample cannot claim the tree it names"
@@ -491,22 +506,22 @@ export function collectAttributabilityIssues(
   // not control, so a mid-run replacement still means the sample was taken in
   // an environment that no longer exists. That is refused rather than reasoned
   // about: it is the event that invalidated test-warm-2.
-  if (before.ambientBunVersion !== after.ambientBunVersion) {
+  if (after && before.ambientBunVersion !== after.ambientBunVersion) {
     reasons.push(
       `ambient interpreter version changed during the sample: ${before.ambientBunVersion} -> ${after.ambientBunVersion}`
     );
   }
-  if (before.ambientBunPath !== after.ambientBunPath) {
+  if (after && before.ambientBunPath !== after.ambientBunPath) {
     reasons.push(
       `ambient interpreter path changed during the sample: ${before.ambientBunPath} -> ${after.ambientBunPath}`
     );
   }
-  if (before.resolvedBunVersion !== after.resolvedBunVersion) {
+  if (after && before.resolvedBunVersion !== after.resolvedBunVersion) {
     reasons.push(
       `interpreter version changed during the sample: ${before.resolvedBunVersion} -> ${after.resolvedBunVersion}`
     );
   }
-  if (before.resolvedBunPath !== after.resolvedBunPath) {
+  if (after && before.resolvedBunPath !== after.resolvedBunPath) {
     reasons.push(
       `interpreter path changed during the sample: ${before.resolvedBunPath} -> ${after.resolvedBunPath}`
     );

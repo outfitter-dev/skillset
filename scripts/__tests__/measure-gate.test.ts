@@ -255,7 +255,87 @@ describe("measure-gate report", () => {
       false
     );
   });
+
+  test("keeps the report when the measured command removes the pin", async () => {
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
+    const pinnedRepo = await createPinnedRepo("skillset-measure-unpinned-");
+
+    const child = runMeasureGate(pinnedRepo, outDir, [
+      "sh",
+      "-c",
+      "rm .bun-version",
+    ]);
+    expect(await child.exited).toBe(0);
+
+    const report = await readOnlyReport(outDir);
+    expect(report.commandSucceeded).toBe(true);
+    expect(report.toolchainAfter).toBeNull();
+    expect(report.attributable).toBe(false);
+    expect(report.attributabilityIssues.join(" ")).toContain(
+      "toolchain after the run could not be read"
+    );
+  });
 });
+
+async function createPinnedRepo(prefix: string): Promise<string> {
+  const repo = await createTestFixtureRoot(prefix);
+  await Bun.write(join(repo, ".bun-version"), `${Bun.version}\n`);
+  for (const args of [
+    ["init", "--quiet"],
+    ["add", ".bun-version"],
+    ["commit", "-m", "base", "--quiet"],
+  ]) {
+    const git = Bun.spawn({
+      cmd: ["git", ...args],
+      cwd: repo,
+      env: {
+        ...gitSafeEnv(),
+        GIT_AUTHOR_EMAIL: "t@example.com",
+        GIT_AUTHOR_NAME: "t",
+        GIT_COMMITTER_EMAIL: "t@example.com",
+        GIT_COMMITTER_NAME: "t",
+      },
+      stderr: "ignore",
+      stdout: "ignore",
+    });
+    expect(await git.exited).toBe(0);
+  }
+  return repo;
+}
+
+function runMeasureGate(
+  repo: string,
+  outDir: string,
+  command: readonly string[],
+  flags: readonly string[] = []
+): Bun.Subprocess {
+  return Bun.spawn({
+    cmd: [
+      process.execPath,
+      join(repoRoot, "scripts", "measure-gate.ts"),
+      "--label",
+      "fixture",
+      "--repo",
+      repo,
+      "--out",
+      outDir,
+      ...flags,
+      "--",
+      ...command,
+    ],
+    cwd: repoRoot,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+}
+
+async function readOnlyReport(outDir: string) {
+  const reports = (await readdir(outDir)).filter((name) =>
+    name.endsWith(".json")
+  );
+  expect(reports).toHaveLength(1);
+  return JSON.parse(await readFile(join(outDir, reports[0] ?? ""), "utf8"));
+}
 
 const TOOLCHAIN = {
   ambientBunPath: "/Users/x/.bun/bin/bun",
