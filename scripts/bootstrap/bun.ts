@@ -38,7 +38,7 @@ export const supportedBunRangeProblem = (
     return "must declare a supported Bun range";
   }
   return Bun.semver.satisfies("0.0.0", range)
-    ? `${JSON.stringify(range)} is not a bounded semver range; Bun.semver treats it as matching every version`
+    ? `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0, and Bun.semver matches an unparseable range against every version`
     : undefined;
 };
 

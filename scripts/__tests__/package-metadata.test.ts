@@ -172,7 +172,7 @@ describe("package metadata checks", () => {
         `${JSON.stringify({ engines: { bun: malformed } })}\n`
       );
       expect(await bunRuntimeDiagnostics(root)).toEqual([
-        `package.json engines.bun ${JSON.stringify(malformed)} is not a bounded semver range; Bun.semver treats it as matching every version`,
+        `package.json engines.bun ${JSON.stringify(malformed)} must set a lower bound: it admits 0.0.0, and Bun.semver matches an unparseable range against every version`,
       ]);
     }
     await writeFile(join(root, "package.json"), '{"engines":{}}\n');
