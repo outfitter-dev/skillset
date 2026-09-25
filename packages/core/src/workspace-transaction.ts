@@ -1499,7 +1499,14 @@ async function resolveWorkspaceRoot(workspaceRoot: string): Promise<string> {
 
 function asTransactionError(error: unknown): Error {
   if (error instanceof RepositoryMutationError) {
-    return transactionError(error.message.replace(/^skillset: /u, ""));
+    return new RepositoryMutationError(
+      `workspace transaction ${error.message.replace(/^skillset: /u, "")}`,
+      {
+        cause: error,
+        logicalPath: error.logicalPath,
+        ...(error.code === undefined ? {} : { code: error.code }),
+      }
+    );
   }
   return error instanceof Error ? error : transactionError(String(error));
 }
