@@ -820,6 +820,50 @@ marketplaces:
     await expect(readdir(marketplace)).resolves.toEqual(before);
   });
 
+  test("reports an unsupported cache filesystem with the actionable portable reason", async () => {
+    const { cache, marketplace, remote } = await remoteCacheMarketplace("skillset-marketplace-unsupported-cache-");
+
+    const report = await checkMarketplaces(marketplace, {
+      remoteCacheTestHooks: {
+        renameDirectory: () => ({
+          kind: "unsupported",
+          reason: "probe filesystem lacks renameat2",
+        }),
+      },
+      xdg: remote.xdg,
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.entries[0]?.reason).toBe(
+      "failed to inspect source: skillset: cannot atomically publish the remote cache (directory installs require atomic no-replace rename support; move the cache to a supported local filesystem)"
+    );
+    expect(JSON.stringify(report)).not.toContain(cache.cacheKey);
+    expect(JSON.stringify(report)).not.toContain("probe filesystem lacks renameat2");
+  });
+
+  test("reports an operational cache publication failure with a portable reason", async () => {
+    const { cache, marketplace, remote } = await remoteCacheMarketplace("skillset-marketplace-publish-failure-");
+
+    const report = await checkMarketplaces(marketplace, {
+      remoteCacheTestHooks: {
+        renameDirectory: () => {
+          throw Object.assign(
+            new Error("skillset: macOS atomic directory rename failed with native code 13: /cache/.acquire-x -> /cache/entry"),
+            { code: "EACCES" }
+          );
+        },
+      },
+      xdg: remote.xdg,
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.entries[0]?.reason).toBe(
+      "failed to inspect source: skillset: cannot publish the remote cache (the cache filesystem rejected the atomic rename; check the cache directory's permissions and health)"
+    );
+    expect(JSON.stringify(report)).not.toContain(cache.cacheKey);
+    expect(JSON.stringify(report)).not.toContain("native code 13");
+  });
+
   test("SET-268: resolves two revisions from the same repository independently", async () => {
     const parent = await createTestGitFixtureRoot(
       "skillset-marketplace-revisions-"
@@ -1003,6 +1047,36 @@ marketplaces:
     );
   });
 });
+
+async function remoteCacheMarketplace(prefix: string) {
+  const parent = await createTestGitFixtureRoot(prefix);
+  const external = await fixture({
+    "skillset.yaml": "skillset:\n  name: trails\n",
+    ".skillset/plugins/trails-tools/skillset.yaml": "skillset:\n  name: trails-tools\n",
+  }, parent);
+  await buildSkillsetResult(external);
+  const gitRoot = await mkdtemp(join(parent, "git-"));
+  const remote = await createTestGitRemote(external, {
+    disposableRoot: parent,
+    repository: "https://git.example/acme/trails.git",
+    rootPath: gitRoot,
+  });
+  const marketplace = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - plugin: trails-tools
+        repo: ${remote.repository}
+        ref: main
+`,
+  }, parent);
+  const cache = resolveRemoteRepositoryCache(remote.repository, { kind: "ref", ref: "main" }, remote.xdg);
+  return { cache, marketplace, remote };
+}
 
 function localMarketplaceFiles(): Record<string, string> {
   return {

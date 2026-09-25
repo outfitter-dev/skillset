@@ -112,6 +112,8 @@ Resolution tries the current repository, then a matching managed known checkout,
 
 Remote-cache entries are keyed by canonical repository and revision policy. Origin, boundary, Git-directory, and exact-commit checks prevent one corrupt, symlinked, or mismatched entry from being treated as another repository. Marketplace lookup never mutates an external checkout. Successful ordinary workspace commands may maintain the known-checkout index, but a read-only marketplace lookup does not repair that index.
 
+A cooperative lock serializes Skillset processes, but the cache key is deterministic, so an outside claimant can still occupy that namespace. Checkout publication therefore uses the host atomic no-replace directory rename: an occupied empty directory, file, or symlink survives unchanged, and hosts that cannot provide the primitive fail closed instead of replacing the destination.
+
 ## Errors and Recovery
 
 | Problem | Result | Recovery |
@@ -122,6 +124,8 @@ Remote-cache entries are keyed by canonical repository and revision policy. Orig
 | Requested target is missing | Entry is not renderable | Enable/build a supported target or narrow entry targets |
 | Pinned SHA differs | Entry is `not-ready`; no fallback is substituted | Correct the pin or provide matching evidence |
 | Cache origin, integrity, or boundary check fails | Entry is `not-ready`; Skillset does not touch another cache/source repo | Remove only the identified disposable cache entry and retry |
+| Cache filesystem lacks atomic no-replace rename | Entry is `not-ready`; no checkout is published | Move the XDG cache to a supported local filesystem |
+| Cache filesystem rejects the atomic rename (permissions, I/O) | Entry is `not-ready`; no checkout is published | Check the XDG cache directory's permissions and health |
 | Input changes between preview and apply | Update refuses the stale transaction | Rerun preview and review the new plan |
 
 Marketplace commands never publish a repository, mutate an external plugin repo, install or trust a plugin, or write user-level runtime settings.

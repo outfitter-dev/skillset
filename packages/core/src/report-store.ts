@@ -180,6 +180,11 @@ export async function createReportBundle(
       "staged report bundle",
       options.testHooks
     );
+    // Publication keeps ordinary same-filesystem rename. The completed name
+    // is a random UUIDv4 under a private 0700 report root, so an outside
+    // claimant cannot feasibly occupy that namespace. Adopting the host
+    // no-replace primitive would fail report creation on filesystems that
+    // cannot provide it; operational receipts must remain creatable there.
     try {
       await rename(stagingPath, finalPath);
       completed = true;

@@ -1,8 +1,10 @@
 import {
   access,
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rename,
   rm,
@@ -260,6 +262,141 @@ describe("remote repository cache", () => {
     })).rejects.toThrow(`corrupt remote cache ${corrupt.cacheKey}`);
   });
 
+  test("refuses a late empty-directory claimant without replacing it", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    await mkdir(dirname(location.path), { recursive: true });
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        testHooks: {
+          beforePublish: async ({ cachePath }) => {
+            await mkdir(cachePath);
+          },
+        },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(`corrupt remote cache ${location.cacheKey}`);
+    expect((await lstat(location.path)).isDirectory()).toBe(true);
+    expect(await readdir(location.path)).toEqual([]);
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
+  test("refuses a late symlink claimant without following it into a same-origin clone", async () => {
+    const fixture = await gitRemoteFixture();
+    const sameOrigin = await acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "ref", ref: "main" },
+      xdg: fixture.xdg,
+    });
+    await writeFile(join(sameOrigin.rootPath, "untracked.txt"), "keep\n");
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        testHooks: {
+          beforePublish: async ({ cachePath }) => {
+            await symlink(sameOrigin.rootPath, cachePath);
+          },
+        },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(`corrupt remote cache ${location.cacheKey}`);
+    expect((await lstat(location.path)).isSymbolicLink()).toBe(true);
+    await expect(readFile(join(sameOrigin.rootPath, "untracked.txt"), "utf8")).resolves.toBe("keep\n");
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
+  test("fails closed when atomic no-replace rename is unsupported", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        testHooks: {
+          renameDirectory: () => ({
+            kind: "unsupported",
+            reason: "probe filesystem lacks renameat2",
+          }),
+        },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(
+      /cannot atomically publish remote cache .*probe filesystem lacks renameat2.*supported local filesystem/u
+    );
+    await expect(lstat(location.path)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
+  test("wraps an operational no-replace rename failure as a cache publication error", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    const nativeError = eaccesRenameError();
+
+    const rejection = await acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "sha", sha: fixture.firstSha },
+      testHooks: {
+        renameDirectory: () => {
+          throw nativeError;
+        },
+      },
+      xdg: fixture.xdg,
+    }).then(
+      () => undefined,
+      (error: unknown) => error
+    );
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect(rejection).toMatchObject({
+      cause: nativeError,
+      message: `skillset: cannot publish remote cache ${location.cacheKey}: ${nativeError.message}`,
+    });
+    await expect(lstat(location.path)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await leftoverAcquireDirectories(dirname(location.path))).toEqual([]);
+  });
+
+  test("rejects a pre-existing empty cache directory without replacing it", async () => {
+    const fixture = await gitRemoteFixture();
+    const location = resolveRemoteRepositoryCache(
+      fixture.repository,
+      { kind: "sha", sha: fixture.firstSha },
+      fixture.xdg
+    );
+    await mkdir(location.path, { recursive: true });
+
+    await expect(
+      acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        xdg: fixture.xdg,
+      })
+    ).rejects.toThrow(`corrupt remote cache ${location.cacheKey}`);
+    expect(await readdir(location.path)).toEqual([]);
+  });
+
   test("rejects symlinked cache entries and Git directories before checkout cleanup", async () => {
     const fixture = await gitRemoteFixture();
     const pinned = await acquireRemoteRepository({
@@ -491,6 +628,22 @@ interface GitRemoteFixture {
   };
 }
 
+async function leftoverAcquireDirectories(parent: string): Promise<string[]> {
+  try {
+    return (await readdir(parent)).filter((entry) => entry.startsWith(".acquire-"));
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return [];
+    }
+    throw error;
+  }
+}
+
 async function gitRemoteFixture(): Promise<GitRemoteFixture> {
   const root = await createTestGitFixtureRoot("skillset-remote-cache-");
   const work = await mkdtemp(join(root, "work-"));
@@ -520,4 +673,11 @@ function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value
     resolvePromise = resolve;
   });
   return { promise, resolve: resolvePromise };
+}
+
+function eaccesRenameError(): Error {
+  return Object.assign(
+    new Error("skillset: macOS atomic directory rename failed with native code 13: /cache/.acquire-x -> /cache/entry"),
+    { code: "EACCES" }
+  );
 }

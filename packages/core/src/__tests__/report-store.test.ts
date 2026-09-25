@@ -13,7 +13,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import type { SkillsetOperationReport } from "@skillset/schema";
@@ -37,6 +37,8 @@ const ID = "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5";
 const OTHER_ID = "8f9a7c10-18c5-4f42-a614-8826fb848a14";
 const THIRD_ID = "0de8fb2e-ece3-4ac2-9a54-a858476583e8";
 const CREATED_AT = "2026-08-14T21:30:00.000Z";
+const UUID_V4_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 afterEach(async () => {
   await Promise.all(
@@ -385,6 +387,41 @@ describe("global immutable report store", () => {
       ).rejects.toMatchObject({ code: "read_failed" });
     } finally {
       await chmod(inaccessible, 0o700);
+    }
+  });
+
+  it("refuses a pre-existing empty UUID directory without replacing it", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "reports");
+    const finalPath = join(reportRoot, ID);
+    await mkdir(reportRoot, { mode: 0o700 });
+    await mkdir(finalPath, { mode: 0o700 });
+
+    await expect(
+      createReportBundle(fixtureReport(), {
+        boundary: storeBoundary(reportRoot, root),
+      })
+    ).rejects.toMatchObject({
+      code: "invalid_bundle",
+      message: expect.stringContaining(`report ${ID} already exists`),
+    });
+    expect(await readdir(finalPath)).toEqual([]);
+    expect(await visibleReportRootEntries(reportRoot)).toEqual([ID]);
+  });
+
+  it("publishes UUIDv4 bundles under a private report root without requiring no-replace", async () => {
+    const root = await temporaryRoot();
+    const reportRoot = join(root, "reports");
+    const stored = await createReportBundle(fixtureReport(), {
+      boundary: storeBoundary(reportRoot, root),
+    });
+
+    expect(stored.report.id).toMatch(UUID_V4_PATTERN);
+    expect(basename(stored.resolvedPath)).toBe(stored.report.id);
+    expect(await visibleReportRootEntries(reportRoot)).toEqual([ID]);
+    if (process.platform !== "win32") {
+      expect((await stat(reportRoot)).mode & 0o777).toBe(0o700);
+      expect((await stat(stored.resolvedPath)).mode & 0o777).toBe(0o700);
     }
   });
 

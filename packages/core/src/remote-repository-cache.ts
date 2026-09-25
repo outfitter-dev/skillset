@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, mkdir, mkdtemp, realpath, rename, rm } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -9,15 +9,19 @@ import {
   withOwnedDirectoryLock,
   type DirectoryLockHeartbeatScheduler,
 } from "./directory-lock";
+import {
+  renameDirectoryNoReplace,
+  type DirectoryRenameNoReplaceResult,
+} from "./directory-rename-no-replace";
 import { gitSafeEnv } from "./git-env";
 import { isPathInside, isRelativePathInside } from "./path";
-import { resolveSkillsetXdgPaths, type SkillsetXdgOptions } from "./xdg";
 import {
   parseRemoteRepositoryReference,
   validateRemoteRepositoryRevision,
   type ParsedRemoteRepositoryReference,
   type RemoteRepositoryRevision,
 } from "./remote-repository-reference";
+import { resolveSkillsetXdgPaths, type SkillsetXdgOptions } from "./xdg";
 
 export {
   parseRemoteRepositoryReference,
@@ -53,11 +57,24 @@ export interface RemoteRepositoryCacheLockOptions {
   readonly timeoutMs?: number;
 }
 
+/** Test-only hooks that observe or substitute remote-cache directory publication. */
+export interface RemoteRepositoryCacheTestHooks {
+  readonly beforePublish?: (context: {
+    readonly cachePath: string;
+    readonly temporaryPath: string;
+  }) => Promise<void> | void;
+  readonly renameDirectory?: (
+    sourcePath: string,
+    destinationPath: string
+  ) => DirectoryRenameNoReplaceResult;
+}
+
 export interface AcquireRemoteRepositoryOptions {
   /** @internal Test seams for owner-fenced cache lock regressions. */
   readonly lock?: RemoteRepositoryCacheLockOptions;
   readonly repository: string;
   readonly revision: RemoteRepositoryRevision;
+  readonly testHooks?: RemoteRepositoryCacheTestHooks;
   readonly xdg?: SkillsetXdgOptions;
 }
 
@@ -105,9 +122,7 @@ async function acquireRemoteRepositoryUnlocked(
   parsed: ParsedRemoteRepositoryReference,
   location: RemoteRepositoryCacheLocation
 ): Promise<RemoteRepositoryCheckout> {
-  const existing = await pathKind(location.path);
-  if (existing === "other") throw new Error(`skillset: corrupt remote cache ${location.cacheKey}`);
-  if (existing === "directory") {
+  if (await pathKind(location.path) !== "missing") {
     return acquireExisting(location, parsed, options.revision, options.xdg);
   }
 
@@ -116,17 +131,51 @@ async function acquireRemoteRepositoryUnlocked(
     await runGit(temporary, ["init", "--quiet"], options.xdg, "initialize");
     await runGit(temporary, ["remote", "add", "origin", parsed.fetchUrl], options.xdg, "configure origin");
     const resolved = await synchronizeRevision(temporary, parsed.canonical, options.revision, options.xdg);
-    try {
-      await rename(temporary, location.path);
-    } catch (error) {
-      if (!isAlreadyExistsError(error)) throw error;
+    // The cache key is deterministic and the mkdir lock is cooperative, so an
+    // outside claimant can occupy the namespace between the absence check and
+    // publication. Ordinary POSIX rename would replace an empty directory;
+    // the host no-replace primitive refuses that occupant and fails closed
+    // when the capability is missing.
+    await options.testHooks?.beforePublish?.({
+      cachePath: location.path,
+      temporaryPath: temporary,
+    });
+    const result = publishDirectory(
+      options.testHooks?.renameDirectory ?? renameDirectoryNoReplace,
+      temporary,
+      location
+    );
+    if (result.kind === "installed") {
+      return checkout(location, parsed.canonical, resolved, false);
+    }
+    if (result.kind === "occupied") {
+      // The occupant arrived after the absence check, so its kind is unknown:
+      // acquireExisting re-checks it before Git or realpath can follow a link.
       await rm(temporary, { force: true, recursive: true });
       return acquireExisting(location, parsed, options.revision, options.xdg);
     }
-    return checkout(location, parsed.canonical, resolved, false);
+    throw new Error(
+      `skillset: cannot atomically publish remote cache ${location.cacheKey}: ${result.reason} (directory installs require atomic no-replace rename support; move the cache to a supported local filesystem)`
+    );
   } catch (error) {
     await rm(temporary, { force: true, recursive: true });
     throw error;
+  }
+}
+
+// An operational rename failure (EACCES, EIO, ...) is neither occupancy nor a
+// missing capability. Name it as a cache publication failure so callers can
+// map it portably, and keep the native error as the cause for local debugging.
+function publishDirectory(
+  rename: (sourcePath: string, destinationPath: string) => DirectoryRenameNoReplaceResult,
+  temporary: string,
+  location: RemoteRepositoryCacheLocation
+): DirectoryRenameNoReplaceResult {
+  try {
+    return rename(temporary, location.path);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`skillset: cannot publish remote cache ${location.cacheKey}: ${detail}`, { cause: error });
   }
 }
 
@@ -170,7 +219,12 @@ async function acquireExisting(
   revision: RemoteRepositoryRevision,
   xdg: SkillsetXdgOptions | undefined
 ): Promise<RemoteRepositoryCheckout> {
-  if (!(await isGitRepository(location.path, xdg))) {
+  // Only a real directory may be adopted: a symlink would let realpath and Git
+  // treat its target as the cache entry and force-checkout and clean it.
+  if (
+    (await pathKind(location.path)) !== "directory" ||
+    !(await isGitRepository(location.path, xdg))
+  ) {
     throw new Error(`skillset: corrupt remote cache ${location.cacheKey}`);
   }
   const origin = await runGit(

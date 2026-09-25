@@ -4,7 +4,7 @@ slug: skillset-workspace-layout
 title: Skillset Workspace Layout
 status: accepted
 created: 2026-06-27
-updated: 2026-07-20
+updated: 2026-09-22
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 1, 2, 8]
 ---
@@ -98,6 +98,15 @@ Migration helpers may normalize old source state for branch-local baselines,
 tests, or one-time conversion, but the compiler should not document or preserve
 the old shapes as authoring choices.
 
+Git-ref baseline normalization applies those helpers only inside a disposable
+snapshot created for that comparison (`skillset-ref-*` / `skillset-index-*`).
+The snapshot is not a shared namespace: no outside or competing Skillset
+process publishes into it. Directory moves therefore keep ordinary
+replacement-capable rename and the merge-into-existing-directory walk. They
+do not adopt SET-497's atomic no-replace primitive. A file occupying a
+canonical destination still fails closed. The live workspace is never the
+rename target.
+
 ## Plugin Boundaries
 
 Plugin source stays isolated. A plugin may use its own local source, shared
@@ -163,3 +172,5 @@ resolver/XDG/setup code, and workspace-layout contract tests.
 - [Unified Source Layout](0008-unified-source-layout.md) - earlier
   intermediate layout design that this draft supersedes for current authoring.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - committed change ledger model.
+- [SET-497](https://linear.app/outfitter/issue/SET-497) - native no-replace directory primitive that snapshot normalization does not adopt.
+- [SET-642](https://linear.app/outfitter/issue/SET-642) - remaining staged-directory publication dispositions, including this snapshot-owned exception.

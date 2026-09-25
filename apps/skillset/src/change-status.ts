@@ -1024,7 +1024,16 @@ async function stripRetiredTestsKey(configPath: string): Promise<void> {
   await writeFile(configPath, stringifyYaml(rest), "utf8");
 }
 
-async function moveLegacyBaselinePath(from: string, to: string): Promise<void> {
+/**
+ * Moves one legacy baseline path onto its canonical snapshot location.
+ *
+ * Git-ref normalization owns a disposable snapshot, not a shared namespace,
+ * so this walk keeps ordinary rename and merges into an existing destination
+ * directory. It does not adopt the host no-replace primitive: no outside or
+ * competing Skillset process publishes into the snapshot, and a file already
+ * occupying the canonical path still fails closed.
+ */
+export async function moveLegacyBaselinePath(from: string, to: string): Promise<void> {
   if (!(await exists(from))) return;
   if (await exists(to)) {
     const [fromStat, toStat] = await Promise.all([stat(from), stat(to)]);

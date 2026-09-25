@@ -20,6 +20,7 @@ import {
 import {
   acquireRemoteRepository,
   parseRemoteRepositoryReference,
+  type RemoteRepositoryCacheTestHooks,
   type RemoteRepositoryRevision,
 } from "./remote-repository-cache";
 import { pluginIdForSelector } from "./source-unit-selector";
@@ -127,6 +128,8 @@ export interface MarketplaceResolvedLockState {
 interface MarketplaceCheckOptions extends SkillsetOptions {
   readonly lockMode?: "check" | "refresh";
   readonly name?: string;
+  /** @internal Test seams for remote-cache directory publication. */
+  readonly remoteCacheTestHooks?: RemoteRepositoryCacheTestHooks;
 }
 
 interface SourceInspection {
@@ -225,7 +228,7 @@ function selectedCatalogs(
 async function resolveExternalInspection(
   repo: string,
   requested: MarketplaceRequestedRefPolicy,
-  options: SkillsetOptions,
+  options: MarketplaceCheckOptions,
   inspections: Map<string, Promise<SourceInspection | undefined>>
 ): Promise<SourceInspection | undefined> {
   const key = `${repo}\0${JSON.stringify(requested)}`;
@@ -265,6 +268,14 @@ function portableRemoteInspectionError(error: unknown): string {
   }
   if (message.startsWith("skillset: timed out waiting for the remote cache lock")) {
     return "skillset: timed out waiting for the remote cache lock";
+  }
+  if (message.startsWith("skillset: cannot atomically publish remote cache")) {
+    // Drop the cache key and the host-specific native reason; keep the remedy.
+    return "skillset: cannot atomically publish the remote cache (directory installs require atomic no-replace rename support; move the cache to a supported local filesystem)";
+  }
+  if (message.startsWith("skillset: cannot publish remote cache")) {
+    // Drop the cache key and native paths; the local error keeps them as cause.
+    return "skillset: cannot publish the remote cache (the cache filesystem rejected the atomic rename; check the cache directory's permissions and health)";
   }
   const portablePrefixes = [
     "skillset: remote ",
@@ -320,11 +331,12 @@ async function assertKnownRepositoryIdentity(path: string, repo: string): Promis
 async function inspectRemoteSource(
   repo: string,
   requested: MarketplaceRequestedRefPolicy,
-  options: SkillsetOptions
+  options: MarketplaceCheckOptions
 ): Promise<SourceInspection> {
   const acquired = await acquireRemoteRepository({
     repository: repo,
     revision: remoteRevision(requested),
+    ...(options.remoteCacheTestHooks === undefined ? {} : { testHooks: options.remoteCacheTestHooks }),
     ...(options.xdg === undefined ? {} : { xdg: options.xdg }),
   });
   return inspectSource(acquired.rootPath, "remote-cache", options, {
