@@ -77,17 +77,42 @@ export interface ProjectSettingsIsland {
   readonly sourceHash: string;
 }
 
+/**
+ * Where a render lands. Partial settings files are composed from, and hashed
+ * against, the destination preimage, so an isolated build reads its mirror
+ * rather than the live repository.
+ */
+export interface RenderDestination {
+  /** Maps a logical output path to the path the build writes. */
+  readonly mapPath: (path: string) => string;
+  /** Resolves a mapped output path to an absolute file path. */
+  readonly resolvePath: (path: string) => string;
+}
+
+export function liveRenderDestination(rootPath: string): RenderDestination {
+  return { mapPath: (path) => path, resolvePath: (path) => join(rootPath, path) };
+}
+
+type PreviousLockItems = readonly ParsedGeneratedLockItem[];
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 export async function renderProjectSessionStartHooks(
   graph: BuildGraph,
-  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map()
+  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map(),
+  destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly RenderedProjectHook[]> {
   const targets = PROJECT_SESSION_START_TARGETS.filter(
     (target) => graph.root.targets[target].enabled
   );
-  if (graph.root.compile.sessionStartHook === "off") return renderExistingOff(graph, targets, sourceIslands);
+  if (targets.length === 0) return [];
+  const context: ProjectHookContext = {
+    destination,
+    previousLock: await readPreviousLockItems(destination),
+    sourceIslands,
+  };
+  if (graph.root.compile.sessionStartHook === "off") return renderExistingOff(graph, targets, context);
   if (graph.root.compile.sessionStartHook === "auto") {
     const skillRoots = targetNames()
       .filter((target) => graph.root.targets[target].enabled)
@@ -95,20 +120,26 @@ export async function renderProjectSessionStartHooks(
     const enabled = await Promise.all(
       skillRoots.map((path) => outputRootIsIgnored(graph, path))
     );
-    if (enabled.some((ignored) => !ignored)) return renderExistingOff(graph, targets, sourceIslands);
+    if (enabled.some((ignored) => !ignored)) return renderExistingOff(graph, targets, context);
   }
-  const results = await Promise.all(targets.map((target) => renderProjectHook(graph, target, false, sourceIslands)));
+  const results = await Promise.all(targets.map((target) => renderProjectHook(graph, target, false, context)));
   return results.filter((result): result is RenderedProjectHook => result !== undefined);
+}
+
+interface ProjectHookContext {
+  readonly destination: RenderDestination;
+  readonly previousLock: PreviousLockItems;
+  readonly sourceIslands: ReadonlyMap<string, ProjectSettingsIsland>;
 }
 
 async function renderExistingOff(
   graph: BuildGraph,
   targets: readonly ProjectSessionStartTarget[],
-  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland>
+  context: ProjectHookContext
 ): Promise<readonly RenderedProjectHook[]> {
   const rendered: RenderedProjectHook[] = [];
   for (const target of targets) {
-    const result = await renderProjectHook(graph, target, true, sourceIslands);
+    const result = await renderProjectHook(graph, target, true, context);
     if (result !== undefined) rendered.push(result);
   }
   return rendered;
@@ -117,14 +148,14 @@ async function renderExistingOff(
 async function renderProjectHook(
   graph: BuildGraph,
   target: ProjectSessionStartTarget,
-  removeOnly = false,
-  sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map()
+  removeOnly: boolean,
+  context: ProjectHookContext
 ): Promise<RenderedProjectHook | undefined> {
   const projectRoot = readString(graph.root.targets[target].options, "projectRoot") ?? `.${target}`;
   const outputPath = projectSessionStartPath(target, projectRoot);
   if (target === "claude") await assertNoLegacyClaudeSessionStart(graph.rootPath, projectRoot);
-  const absolutePath = join(graph.rootPath, outputPath);
-  const island = sourceIslands.get(outputPath);
+  const absolutePath = context.destination.resolvePath(context.destination.mapPath(outputPath));
+  const island = context.sourceIslands.get(outputPath);
   const commandHash = hashCommand(SESSION_START_COMMAND);
   const sourceHash = hashBytes(textEncoder.encode(`${relative(graph.rootPath, graph.rootConfigPath)}\0${target}\0${commandHash}${island === undefined ? "" : `\0${hashBytes(island.file.content)}`}`));
   let existing: JsonRecord = {};
@@ -150,15 +181,15 @@ async function renderProjectHook(
     }
   }
 
-  const previousOwnership = await previousSettingsOwnership(graph.rootPath, outputPath);
-  const previous = previousOwnership?.settings;
-  const previousIsland = previousOwnership?.island;
+  const previousOwnership = previousSettingsOwnership(context.previousLock, outputPath);
+  const previous = previousOwnership.settings;
+  const previousIsland = previousOwnership.island;
   const islandText = island === undefined ? undefined : textDecoder.decode(island.file.content);
   const existingStat = await stat(absolutePath).catch((error: unknown) => {
     if (isNotFound(error)) return undefined;
     throw error;
   });
-  if (!removeOnly && island !== undefined && partialSourceHash !== "absent" && previous === undefined && previousOwnership?.island === undefined) {
+  if (!removeOnly && island !== undefined && partialSourceHash !== "absent" && previous === undefined && previousOwnership.island === undefined) {
     throw new Error(`skillset: ${outputPath} authored settings island conflicts with an unmanaged live file; reconcile before build`);
   }
   if (previousIsland !== undefined && island !== undefined && liveBytes !== undefined && existingStat !== undefined) {
@@ -237,25 +268,29 @@ async function renderProjectHook(
   };
 }
 
-async function previousSettingsOwnership(rootPath: string, outputPath: string): Promise<{
-  readonly settings: ParsedGeneratedLockItem | undefined;
-  readonly island: ParsedGeneratedLockItem | undefined;
-}> {
-  const read = await readCurrentGeneratedLockFromDisk(join(rootPath, "skillset.lock"), {
-    logicalPath: "skillset.lock",
+/** Reads the destination's workspace lock once; only trusted items grant previous ownership. */
+async function readPreviousLockItems(destination: RenderDestination): Promise<PreviousLockItems> {
+  const lockPath = destination.mapPath("skillset.lock");
+  const read = await readCurrentGeneratedLockFromDisk(destination.resolvePath(lockPath), {
+    logicalPath: lockPath,
     missing: "absent",
     provenance: "inspect",
   });
-  if (read.kind === "absent") return { settings: undefined, island: undefined };
+  if (read.kind === "absent") return [];
   // Untrusted provenance cannot grant previous ownership, but it is not
   // absence of the lock file. Corrupt JSON, shape, and unreadability already
   // failed closed in the disk reader.
-  if (!isJsonRecord(read.raw) || !hasValidLockProvenance(read.raw)) {
-    return { settings: undefined, island: undefined };
-  }
+  if (!isJsonRecord(read.raw) || !hasValidLockProvenance(read.raw)) return [];
+  return read.lock.items;
+}
+
+function previousSettingsOwnership(previousLock: PreviousLockItems, outputPath: string): {
+  readonly settings: ParsedGeneratedLockItem | undefined;
+  readonly island: ParsedGeneratedLockItem | undefined;
+} {
   return {
-    settings: read.lock.items.find((item) => item.kind === "settings-entry" && item.outputPath === outputPath),
-    island: read.lock.items.find((item) => item.kind === "island" && item.outputPath === outputPath),
+    settings: previousLock.find((item) => item.kind === "settings-entry" && item.outputPath === outputPath),
+    island: previousLock.find((item) => item.kind === "island" && item.outputPath === outputPath),
   };
 }
 
