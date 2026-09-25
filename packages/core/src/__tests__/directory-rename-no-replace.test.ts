@@ -49,7 +49,9 @@ if (import.meta.main && workerIndex !== -1) {
     throw new Error("directory rename test worker is missing an argument");
   }
   await writeFile(readyPath, "ready\n");
-  await waitForPath(gatePath, "directory-rename race gate");
+  // Poll every 1 ms so both workers leave the gate within ~1 ms of each other
+  // and their renames genuinely race.
+  await waitForPath(gatePath, "directory-rename race gate", { intervalMs: 1 });
   process.stdout.write(
     JSON.stringify(renameDirectoryNoReplace(sourcePath, destinationPath))
   );
@@ -319,9 +321,7 @@ if (import.meta.main && workerIndex !== -1) {
               )
             ).toBe(`${loser}\n`);
           } finally {
-            for (const process of processes) {
-              reapOwnedProcess(process);
-            }
+            await Promise.all(processes.map((child) => reapOwnedProcess(child)));
           }
         });
       }

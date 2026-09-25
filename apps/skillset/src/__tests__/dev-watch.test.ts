@@ -586,7 +586,7 @@ test("SET-289: dev --jsonl terminates a real controlled stream without human out
     expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
     expect(stdout.text).not.toContain("skillset: dev");
   } finally {
-    reapOwnedProcess(proc);
+    await reapOwnedProcess(proc);
   }
 });
 
@@ -612,7 +612,8 @@ function jsonlHasEvent(text: string, event: string): boolean {
   return text.split("\n").some((line) => {
     if (line.length === 0) return false;
     try {
-      return (JSON.parse(line) as { event?: string }).event === event;
+      const record: unknown = JSON.parse(line);
+      return typeof record === "object" && record !== null && "event" in record && record.event === event;
     } catch {
       return false;
     }

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, test } from "bun:test";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
-import { waitForCondition, waitForPath } from "../test-helpers/wait";
+import { reapOwnedProcess, waitForCondition, waitForPath, waitForPids } from "../test-helpers/wait";
 
 test("waitForCondition resolves once the predicate becomes true", async () => {
   let ready = false;
@@ -73,4 +73,61 @@ test("waitForCondition rejects an empty description", async () => {
   await expect(waitForCondition("  ", () => true)).rejects.toThrow(
     "waitForCondition requires a description"
   );
+});
+
+test("reapOwnedProcess terminates a running process and waits for it to exit", async () => {
+  const proc = Bun.spawn([process.execPath, "-e", "await Bun.sleep(30_000)"], {
+    stderr: "ignore",
+    stdout: "ignore",
+  });
+  await reapOwnedProcess(proc);
+  expect(proc.exitCode !== null || proc.signalCode !== null).toBe(true);
+});
+
+test("reapOwnedProcess escalates to SIGKILL when SIGTERM is ignored", async () => {
+  const proc = Bun.spawn(
+    [
+      process.execPath,
+      "-e",
+      "process.on('SIGTERM', () => {}); console.log('ready'); await Bun.sleep(30_000);",
+    ],
+    { stderr: "ignore", stdout: "pipe" }
+  );
+  const reader = proc.stdout.getReader();
+  await reader.read();
+  reader.releaseLock();
+  await reapOwnedProcess(proc, { graceMs: 100 });
+  expect(proc.signalCode).toBe("SIGKILL");
+});
+
+test("reapOwnedProcess leaves an already-exited process alone", async () => {
+  const proc = Bun.spawn([process.execPath, "-e", "process.exit(3)"], {
+    stderr: "ignore",
+    stdout: "ignore",
+  });
+  await proc.exited;
+  await reapOwnedProcess(proc);
+  expect(proc.exitCode).toBe(3);
+  expect(proc.signalCode).toBeNull();
+});
+
+test("waitForPids waits for a complete line of positive pids, not an existing file", async () => {
+  const root = await createTestFixtureRoot("skillset-wait-pids-");
+  const path = join(root, "pids");
+  // A truncated-but-unwritten marker and a partial write both parse to
+  // nonsense pids (Number("") is 0), so neither may satisfy the wait.
+  await writeFile(path, "");
+  await expect(
+    waitForPids(path, 2, "empty pid marker", { intervalMs: 5, timeoutMs: 30 })
+  ).rejects.toThrow("timed out after 30ms waiting for empty pid marker");
+  await writeFile(path, "123 45");
+  await expect(
+    waitForPids(path, 2, "partial pid marker", { intervalMs: 5, timeoutMs: 30 })
+  ).rejects.toThrow("timed out after 30ms waiting for partial pid marker");
+  await writeFile(path, "0 45\n");
+  await expect(
+    waitForPids(path, 2, "zero pid marker", { intervalMs: 5, timeoutMs: 30 })
+  ).rejects.toThrow("timed out after 30ms waiting for zero pid marker");
+  await writeFile(path, "123 45\n");
+  expect(await waitForPids(path, 2, "complete pid marker", { intervalMs: 5 })).toEqual([123, 45]);
 });

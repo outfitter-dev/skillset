@@ -303,14 +303,14 @@ describe("SET-420 npm native launcher", () => {
       stdout: "pipe",
     });
     try {
-      await waitForPath(ready, "launcher native process ready marker");
+      await waitForPath(ready, "launcher native process ready marker", { timeoutMs: 2_000 });
       process.kill(launcher.pid, "SIGINT");
-      await waitForPath(interrupted, "launcher native process interrupted marker");
+      await waitForPath(interrupted, "launcher native process interrupted marker", { timeoutMs: 2_000 });
       process.kill(launcher.pid, "SIGTERM");
       expect(await launcher.exited).toBe(42);
       expect(await readFile(terminated, "utf8")).toBe("terminated");
     } finally {
-      reapOwnedProcess(launcher);
+      await reapOwnedProcess(launcher);
     }
   }, 10_000);
 });
