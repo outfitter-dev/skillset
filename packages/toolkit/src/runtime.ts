@@ -1,8 +1,6 @@
 import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { TARGET_NAMES } from "@skillset/schema";
 
-export { gitReadOnlyEnv, gitRepositoryTargetingKeys, gitSafeEnv } from "@skillset/core/internal/git-env";
-
 type RuntimeTarget = (typeof TARGET_NAMES)[number];
 
 export type RuntimeProvider = RuntimeTarget | "unknown";
