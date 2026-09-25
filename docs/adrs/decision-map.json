@@ -765,6 +765,11 @@
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
         {
+          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) -",
+          "from": "0038",
+          "fromPath": "docs/adrs/0038-change-ledger-append-order.md"
+        },
+        {
           "context": "- [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) defines the provenance guardrail.",
           "from": "hook-guardrails",
           "fromPath": "docs/development/features/hook-guardrails.md"
@@ -800,7 +805,7 @@
       "updated": "2026-07-21"
     },
     {
-      "amended_by": ["25"],
+      "amended_by": ["25", "38"],
       "amends": ["14"],
       "created": "2026-06-30",
       "depends_on": ["0", "14"],
@@ -809,6 +814,11 @@
           "context": "- [ADR-0015: Reason-Only Change Ledger and Derived State](0015-reason-only-change-ledger-derived-state.md) - append-only event vocabulary and derived-state boundary.",
           "from": "0025",
           "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
+        },
+        {
+          "context": "- [ADR-0015: Reason-Only Change Ledger and Derived State](0015-reason-only-change-ledger-derived-state.md) -",
+          "from": "0038",
+          "fromPath": "docs/adrs/0038-change-ledger-append-order.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reason-Only Change Ledger and Derived State](../../adrs/0015-reason-only-change-ledger",
@@ -1573,6 +1583,27 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "One Shared Plugin Package per Plugin",
+      "updated": "2026-09-25"
+    },
+    {
+      "amended_by": [],
+      "amends": ["15"],
+      "created": "2026-09-22",
+      "depends_on": ["0", "14", "15"],
+      "inbound": [
+        {
+          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order: d",
+          "from": "changes",
+          "fromPath": "docs/reference/features/changes.md"
+        }
+      ],
+      "number": "0038",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0038-change-ledger-append-order.md",
+      "slug": "change-ledger-append-order",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Change Ledger Append Order Is Authoritative",
       "updated": "2026-09-25"
     }
   ],
