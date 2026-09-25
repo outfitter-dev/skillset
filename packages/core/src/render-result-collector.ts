@@ -38,6 +38,7 @@ import {
   isPluginManifestOutputPath,
   pluginBundleRoot,
   pluginManifestPath,
+  pluginPackagePathParts,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
@@ -147,6 +148,7 @@ export function collectRenderResults(
   const outcomes: SkillsetRenderResult[] = [];
   const lockOutcomes: SkillsetRenderResult[] = [];
   const assignedOutputPaths = new Set<string>();
+  const subjectsByOutputPath = new Map<string, RenderResultSubject[]>();
   const renderedOutputPaths = rendered
     .filter(
       (file) =>
@@ -165,7 +167,11 @@ export function collectRenderResults(
         outputPaths
       );
       for (const path of primaryOutputPaths) assignedOutputPaths.add(path);
-      for (const subject of resultSubjectsForLockItem(graph, lock, item, outputPaths)) {
+      const subjects = resultSubjectsForLockItem(graph, lock, item, outputPaths);
+      for (const path of outputPaths) {
+        subjectsByOutputPath.set(path, [...(subjectsByOutputPath.get(path) ?? []), ...subjects]);
+      }
+      for (const subject of subjects) {
         appendEquivalentLockOutcome(
           lockOutcomes,
           outcomeForLockItem(
@@ -207,8 +213,13 @@ export function collectRenderResults(
     if (assignedOutputPaths.has(file.path) || file.path.endsWith(`/${LOCK_FILE}`) || file.path === LOCK_FILE) {
       continue;
     }
-    const outcome = outcomeForCompanionFile(graph, file, options.includedPaths.has(file.path), mapOutputPath);
-    if (outcome !== undefined) outcomes.push(outcome);
+    outcomes.push(...outcomesForCompanionFile(
+      graph,
+      file,
+      subjectsByOutputPath.get(file.path) ?? [],
+      options.includedPaths.has(file.path),
+      mapOutputPath
+    ));
   }
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
@@ -1232,30 +1243,39 @@ function authorOmissionStatus(
     : "lossy";
 }
 
-function outcomeForCompanionFile(
+/** One outcome per lock-item consumer of a shared companion file, not per enabled target. */
+function outcomesForCompanionFile(
   graph: BuildGraph,
   file: RenderedFile,
+  subjects: readonly RenderResultSubject[],
   isIncluded: boolean,
   mapOutputPath: OutputPathMapper
-): SkillsetRenderResult | undefined {
-  const companion = companionForPath(graph, file.path);
-  if (companion === undefined) return undefined;
-  const plugin = graph.plugins.find((candidate) => candidate.id === companion.pluginId);
-  const sourcePath = plugin === undefined
-    ? undefined
-    : normalizePath(relative(graph.rootPath, join(plugin.path, companion.sourceRelativePath)));
-  const evidence = evidenceFor(companion.featureId, companion.target);
-  return defineRenderResult({
-    destination: companion.featureKey,
-    ...(evidence === undefined ? {} : { evidence }),
-    featureId: companion.featureId,
-    ...(isIncluded ? { outputs: [{ kind: "companion", path: mapOutputPath(file.path) }] } : {}),
-    ...(isIncluded ? {} : { policy: "scope:excluded" as const, reason: "excluded by build scope" }),
-    ...(sourcePath === undefined ? {} : { sourcePath }),
-    sourceUnit: selectorForPluginFeature(companion.pluginId, companion.featureKey),
-    status: isIncluded ? "target_native" : "intentionally_skipped",
-    target: companion.target,
-  });
+): readonly SkillsetRenderResult[] {
+  const outcomes = new Map<string, SkillsetRenderResult>();
+  for (const subject of subjects) {
+    const companion = companionForPath(graph, file.path, subject);
+    if (companion === undefined) continue;
+    const key = subject.standardProfile ?? subject.target ?? "";
+    if (outcomes.has(key)) continue;
+    const plugin = graph.plugins.find((candidate) => candidate.id === companion.pluginId);
+    const sourcePath = plugin === undefined
+      ? undefined
+      : normalizePath(relative(graph.rootPath, join(plugin.path, companion.sourceRelativePath)));
+    const evidence = evidenceFor(companion.featureId, subject.target, subject.standardProfile);
+    outcomes.set(key, defineRenderResult({
+      destination: companion.featureKey,
+      ...(evidence === undefined ? {} : { evidence }),
+      featureId: companion.featureId,
+      ...(isIncluded ? { outputs: [{ kind: "companion", path: mapOutputPath(file.path) }] } : {}),
+      ...(isIncluded ? {} : { policy: "scope:excluded" as const, reason: "excluded by build scope" }),
+      ...(sourcePath === undefined ? {} : { sourcePath }),
+      ...(subject.standardProfile === undefined ? {} : { standardProfile: subject.standardProfile }),
+      sourceUnit: selectorForPluginFeature(companion.pluginId, companion.featureKey),
+      status: isIncluded ? "target_native" : "intentionally_skipped",
+      ...(subject.target === undefined ? {} : { target: subject.target }),
+    }));
+  }
+  return [...outcomes.values()];
 }
 
 function featureOutcomesForLockItem(
@@ -2234,60 +2254,65 @@ function targetForOutputPath(graph: BuildGraph, path: string): TargetName | unde
 
 function companionForPath(
   graph: BuildGraph,
-  path: string
+  path: string,
+  subject: RenderResultSubject
 ):
   | {
       readonly featureId: string;
       readonly featureKey: string;
       readonly pluginId: string;
       readonly sourceRelativePath: string;
-      readonly target: TargetName;
     }
   | undefined {
-  for (const target of TARGETS) {
-    const outputRoot = graph.root.outputs.plugins[target];
-    const parts = pluginPathPartsForOutput(graph, outputRoot, target, path);
-    if (parts === undefined) continue;
-    const { pluginId, pluginPath } = parts;
-    if (!pluginTargetSelected(graph, pluginId, target)) continue;
-    if (pluginPath === "README.md") {
-      return { featureId: "plugin-readme", featureKey: "readme", pluginId, sourceRelativePath: "README.md", target };
-    }
-    if (pluginPath === ".app.json") {
-      return { featureId: "plugin-apps", featureKey: "app", pluginId, sourceRelativePath: ".app.json", target };
-    }
-    if (target === "claude" && pluginPath === ".lsp.json") {
-      return { featureId: "plugin-lsp-servers", featureKey: "lsp-servers", pluginId, sourceRelativePath: ".lsp.json", target };
-    }
-    if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "commands")) {
-      return { featureId: "plugin-commands", featureKey: "commands", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (pluginPath === "hooks/hooks.json" || pluginPath.startsWith("hooks/")) {
-      return { featureId: "plugin-hooks", featureKey: "hooks", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "agents")) {
-      return { featureId: "plugin-agents", featureKey: "agents", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (target === "cursor" && isCompanionPath(pluginPath, "rules")) {
-      return { featureId: "plugin-rules", featureKey: "rules", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (target === "claude" && isCompanionPath(pluginPath, "output-styles")) {
-      return { featureId: "plugin-output-styles", featureKey: "output-styles", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (target === "claude" && isCompanionPath(pluginPath, "themes")) {
-      return { featureId: "plugin-themes", featureKey: "themes", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (target === "claude" && isCompanionPath(pluginPath, "monitors")) {
-      return { featureId: "plugin-monitors", featureKey: "monitors", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (isCompanionPath(pluginPath, "assets")) {
-      return { featureId: "plugin-assets", featureKey: "assets", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (isCompanionPath(pluginPath, "scripts")) {
-      return { featureId: "plugin-scripts", featureKey: "scripts", pluginId, sourceRelativePath: pluginPath, target };
-    }
-    if (isCompanionPath(pluginPath, "src")) {
-      return { featureId: "plugin-src", featureKey: "src", pluginId, sourceRelativePath: pluginPath, target };
+  const parts = pluginPackagePathParts(path);
+  if (parts === undefined) return undefined;
+  const { pluginId, pluginPath } = parts;
+  const { target } = subject;
+  if (target === undefined) {
+    // A standard package carries only the portable support companions.
+    return subject.standardProfile === undefined ? undefined : portableCompanion(pluginId, pluginPath);
+  }
+  if (!pluginTargetSelected(graph, pluginId, target)) return undefined;
+  if (pluginPath === ".app.json") {
+    return { featureId: "plugin-apps", featureKey: "app", pluginId, sourceRelativePath: ".app.json" };
+  }
+  if (target === "claude" && pluginPath === ".lsp.json") {
+    return { featureId: "plugin-lsp-servers", featureKey: "lsp-servers", pluginId, sourceRelativePath: ".lsp.json" };
+  }
+  if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "commands")) {
+    return { featureId: "plugin-commands", featureKey: "commands", pluginId, sourceRelativePath: pluginPath };
+  }
+  if (pluginPath === "hooks/hooks.json" || pluginPath.startsWith("hooks/")) {
+    return { featureId: "plugin-hooks", featureKey: "hooks", pluginId, sourceRelativePath: pluginPath };
+  }
+  if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "agents")) {
+    return { featureId: "plugin-agents", featureKey: "agents", pluginId, sourceRelativePath: pluginPath };
+  }
+  if (target === "cursor" && isCompanionPath(pluginPath, "rules")) {
+    return { featureId: "plugin-rules", featureKey: "rules", pluginId, sourceRelativePath: pluginPath };
+  }
+  if (target === "claude" && isCompanionPath(pluginPath, "output-styles")) {
+    return { featureId: "plugin-output-styles", featureKey: "output-styles", pluginId, sourceRelativePath: pluginPath };
+  }
+  if (target === "claude" && isCompanionPath(pluginPath, "themes")) {
+    return { featureId: "plugin-themes", featureKey: "themes", pluginId, sourceRelativePath: pluginPath };
+  }
+  if (target === "claude" && isCompanionPath(pluginPath, "monitors")) {
+    return { featureId: "plugin-monitors", featureKey: "monitors", pluginId, sourceRelativePath: pluginPath };
+  }
+  return portableCompanion(pluginId, pluginPath);
+}
+
+function portableCompanion(
+  pluginId: string,
+  pluginPath: string
+): { readonly featureId: string; readonly featureKey: string; readonly pluginId: string; readonly sourceRelativePath: string } | undefined {
+  if (pluginPath === "README.md") {
+    return { featureId: "plugin-readme", featureKey: "readme", pluginId, sourceRelativePath: "README.md" };
+  }
+  for (const featureKey of ["assets", "scripts", "src"] as const) {
+    if (isCompanionPath(pluginPath, featureKey)) {
+      return { featureId: `plugin-${featureKey}`, featureKey, pluginId, sourceRelativePath: pluginPath };
     }
   }
   return undefined;

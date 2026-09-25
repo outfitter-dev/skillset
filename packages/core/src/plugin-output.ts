@@ -129,6 +129,13 @@ export function pluginPathPartsForOutput(
   _target: TargetName,
   path: string
 ): { readonly pluginId: string; readonly pluginPath: string } | undefined {
+  return pluginPackagePathParts(path);
+}
+
+/** Splits a path inside the one shared plugin package root into plugin id and package-relative path. */
+export function pluginPackagePathParts(
+  path: string
+): { readonly pluginId: string; readonly pluginPath: string } | undefined {
   const prefix = `${DEFAULT_PLUGIN_OUTPUT_ROOT}/`;
   if (!path.startsWith(prefix)) return undefined;
   const rest = path.slice(prefix.length);
