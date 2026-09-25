@@ -1,5 +1,4 @@
 /** Opt-in, exact-manifest experiment for Bun's duration-balanced test shards. */
-import { type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   mkdtemp,
@@ -23,7 +22,7 @@ import {
   type ShardInputOptions,
 } from "./test-shard-contract";
 import { parseJunitEvidence, verifyShardUnion } from "./test-shard-evidence";
-import { killActive, runProcess, runRequired } from "./test-shard-process";
+import { runAllOrAbort, runProcess, runRequired } from "./test-shard-process";
 import {
   prepareShardOutput,
   prepareShardWorkspace,
@@ -60,19 +59,23 @@ async function main(argv: readonly string[]): Promise<number> {
   const invocationId = randomUUID();
   let runRoot: string | undefined;
   let safeOut: string | undefined;
-  const active = new Set<ChildProcess>();
+  // One controller cancels every launched process: an interrupt or the first
+  // failed shard aborts the rest, and each run awaits its group's exit.
+  const controller = new AbortController();
   let interrupted: NodeJS.Signals | undefined;
   const interrupt = (signal: NodeJS.Signals) => {
     interrupted ??= signal;
-    killActive(active, signal);
+    controller.abort(signal);
   };
   const onInterrupt = () => interrupt("SIGINT");
   const onTerminate = () => interrupt("SIGTERM");
   const assertRunning = () => {
     if (interrupted) throw new Error(`interrupted by ${interrupted}`);
   };
-  process.once("SIGINT", onInterrupt);
-  process.once("SIGTERM", onTerminate);
+  // Keep handling repeat signals until every group has exited, so a second
+  // interrupt cannot kill the orchestrator and orphan detached shards.
+  process.on("SIGINT", onInterrupt);
+  process.on("SIGTERM", onTerminate);
 
   try {
     const contract = await loadShardContract(options);
@@ -112,7 +115,7 @@ async function main(argv: readonly string[]): Promise<number> {
         shard.env,
         shard.setupLog,
         SETUP_TIMEOUT_MS,
-        active
+        controller.signal
       );
       assertRunning();
       await runRequired(
@@ -122,7 +125,7 @@ async function main(argv: readonly string[]): Promise<number> {
         shard.env,
         shard.setupLog,
         SETUP_TIMEOUT_MS,
-        active,
+        controller.signal,
         true
       );
       assertRunning();
@@ -133,7 +136,7 @@ async function main(argv: readonly string[]): Promise<number> {
         shard.env,
         shard.setupLog,
         SETUP_TIMEOUT_MS,
-        active,
+        controller.signal,
         true
       );
       assertRunning();
@@ -151,8 +154,9 @@ async function main(argv: readonly string[]): Promise<number> {
       shards.map((shard) => resolveTimeWrapper(shard.rusage))
     );
     assertRunning();
-    const results = await Promise.all(
-      shards.map(async (shard) => {
+    const results = await runAllOrAbort(
+      controller,
+      shards.map((shard) => async () => {
         assertRunning();
         const wrapper = wrappers[shard.index - 1] ?? [];
         const result = await runProcess(
@@ -179,10 +183,10 @@ async function main(argv: readonly string[]): Promise<number> {
           shard.env,
           shard.log,
           TEST_TIMEOUT_MS,
-          active
+          controller.signal
         );
         if (result.exitCode !== 0 || result.timedOut || result.signal)
-          killActive(active, "SIGTERM");
+          controller.abort("SIGTERM");
         return result;
       })
     );

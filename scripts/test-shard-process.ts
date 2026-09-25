@@ -18,7 +18,7 @@ export async function runRequired(
   env: NodeJS.ProcessEnv,
   log: string,
   timeoutMs: number,
-  active: Set<ChildProcess>,
+  signal: AbortSignal,
   append = false
 ): Promise<void> {
   const result = await runProcess(
@@ -28,7 +28,7 @@ export async function runRequired(
     env,
     log,
     timeoutMs,
-    active,
+    signal,
     append
   );
   if (result.exitCode !== 0 || result.timedOut || result.signal) {
@@ -45,9 +45,11 @@ export async function runProcess(
   env: NodeJS.ProcessEnv,
   log: string,
   timeoutMs: number,
-  active: Set<ChildProcess>,
+  signal: AbortSignal,
   append = false
 ): Promise<ProcessResult> {
+  if (signal.aborted)
+    throw new Error(`${basename(command)} canceled before launch`);
   const fd = openSync(log, append ? "a" : "w");
   const start = performance.now();
   const child = spawn(command, [...args], {
@@ -57,8 +59,10 @@ export async function runProcess(
     stdio: ["ignore", fd, fd],
   });
   closeSync(fd);
-  active.add(child);
+  const onAbort = () => killProcess(child, abortSignalName(signal));
+  signal.addEventListener("abort", onAbort, { once: true });
   let timedOut = false;
+  let closed = false;
   const timer = setTimeout(() => {
     timedOut = true;
     killProcess(child, "SIGTERM");
@@ -66,29 +70,62 @@ export async function runProcess(
   try {
     const result = await new Promise<ProcessResult>((resolveResult, reject) => {
       child.once("error", reject);
-      child.once("close", (exitCode, signal) =>
+      child.once("close", (exitCode, exitSignal) => {
+        closed = true;
         resolveResult({
           exitCode,
-          signal,
+          signal: exitSignal,
           timedOut,
           wallMs: performance.now() - start,
-        })
-      );
+        });
+      });
     });
     const terminationError = await terminationTasks.get(child);
     if (terminationError) throw terminationError;
     return result;
   } finally {
     clearTimeout(timer);
-    active.delete(child);
+    signal.removeEventListener("abort", onAbort);
+    // A rejected wait must not leave the group running behind the caller.
+    if (!closed) {
+      killProcess(child, "SIGTERM");
+      await terminationTasks.get(child);
+    }
   }
 }
 
-export function killActive(
-  active: ReadonlySet<ChildProcess>,
-  signal: NodeJS.Signals
-): void {
-  for (const child of active) killProcess(child, signal);
+/**
+ * Runs tasks together under one controller. The first rejection aborts the
+ * rest, and nothing returns or throws until every task has settled.
+ *
+ * Each task must pass `controller.signal` to the processes it starts (as
+ * `runProcess` does): a task that ignores the signal holds the whole call
+ * until its own timeout.
+ */
+export async function runAllOrAbort<T>(
+  controller: AbortController,
+  tasks: readonly (() => Promise<T>)[]
+): Promise<T[]> {
+  const settled = await Promise.allSettled(
+    tasks.map(async (task) => {
+      try {
+        return await task();
+      } catch (error) {
+        controller.abort("SIGTERM");
+        throw error;
+      }
+    })
+  );
+  const values: T[] = [];
+  for (const outcome of settled) {
+    if (outcome.status === "rejected") throw outcome.reason;
+    values.push(outcome.value);
+  }
+  return values;
+}
+
+function abortSignalName(signal: AbortSignal): NodeJS.Signals {
+  return signal.reason === "SIGINT" ? "SIGINT" : "SIGTERM";
 }
 
 function killProcess(child: ChildProcess, signal: NodeJS.Signals): void {

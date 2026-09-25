@@ -3,13 +3,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
-import { killActive, runProcess } from "../test-shard-process";
+import { runAllOrAbort, runProcess } from "../test-shard-process";
 
 test("SET-608: a timed-out shard and its descendant cannot remain active", async () => {
   if (process.platform === "win32") return;
   const root = await createTestFixtureRoot("skillset-shard-timeout-");
   const log = join(root, "timeout.log");
-  const active = new Set<import("node:child_process").ChildProcess>();
   const result = await runProcess(
     process.execPath,
     [
@@ -20,11 +19,10 @@ test("SET-608: a timed-out shard and its descendant cannot remain active", async
     process.env,
     log,
     300,
-    active
+    new AbortController().signal
   );
   expect(result.timedOut).toBeTrue();
   expect(result.exitCode).not.toBe(0);
-  expect(active.size).toBe(0);
   const pid = Number((await readFile(log, "utf8")).trim());
   expect(Number.isSafeInteger(pid)).toBeTrue();
   await expectGone(pid);
@@ -34,7 +32,7 @@ test("SET-608: cancellation terminates a running shard process group", async () 
   if (process.platform === "win32") return;
   const root = await createTestFixtureRoot("skillset-shard-cancel-");
   const log = join(root, "cancel.log");
-  const active = new Set<import("node:child_process").ChildProcess>();
+  const controller = new AbortController();
   const running = runProcess(
     process.execPath,
     [
@@ -45,13 +43,12 @@ test("SET-608: cancellation terminates a running shard process group", async () 
     process.env,
     log,
     30_000,
-    active
+    controller.signal
   );
   const pid = await waitForPid(log);
-  killActive(active, "SIGTERM");
+  controller.abort("SIGTERM");
   const result = await running;
   expect(result.signal).toBe("SIGTERM");
-  expect(active.size).toBe(0);
   await expectGone(pid);
 });
 
@@ -60,7 +57,6 @@ test("SET-608: leader exit does not spare a descendant ignoring SIGTERM", async 
   const root = await createTestFixtureRoot("skillset-shard-stubborn-");
   const log = join(root, "stubborn.log");
   const ready = join(root, "descendant-ready");
-  const active = new Set<import("node:child_process").ChildProcess>();
   const started = performance.now();
   const result = await runProcess(
     process.execPath,
@@ -72,13 +68,53 @@ test("SET-608: leader exit does not spare a descendant ignoring SIGTERM", async 
     process.env,
     log,
     300,
-    active
+    new AbortController().signal
   );
   expect(result.timedOut).toBeTrue();
   expect(performance.now() - started).toBeGreaterThanOrEqual(2000);
   const pid = Number((await readFile(log, "utf8")).trim());
   expect(Number.isSafeInteger(pid)).toBeTrue();
   await expectGone(pid);
+});
+
+test("SET-667: a rejected shard launch terminates its running siblings first", async () => {
+  if (process.platform === "win32") return;
+  const root = await createTestFixtureRoot("skillset-shard-reject-");
+  const log = join(root, "sibling.log");
+  const controller = new AbortController();
+  const run = runAllOrAbort(controller, [
+    () =>
+      runProcess(
+        process.execPath,
+        [
+          "-e",
+          // Ignoring SIGTERM forces the SIGKILL escalation, so the group only
+          // dies ~2s after the abort: an unawaited abort would return first.
+          "process.on('SIGTERM',()=>{});console.log(process.pid);await Bun.sleep(30000)",
+        ],
+        root,
+        process.env,
+        log,
+        30_000,
+        controller.signal
+      ),
+    async () => {
+      await waitForPid(log);
+      return runProcess(
+        join(root, "missing-shard-binary"),
+        [],
+        root,
+        process.env,
+        join(root, "missing.log"),
+        30_000,
+        controller.signal
+      );
+    },
+  ]);
+  await expect(run).rejects.toThrow();
+  const pid = await waitForPid(log);
+  expectGroupGone(pid);
+  expect(controller.signal.aborted).toBeTrue();
 });
 
 async function waitForPid(path: string): Promise<number> {
@@ -101,4 +137,15 @@ async function expectGone(pid: number): Promise<void> {
     await Bun.sleep(10);
   }
   throw new Error(`descendant ${pid} survived shard termination`);
+}
+
+/** No grace period: the group must already be gone when the run settles. */
+function expectGroupGone(pgid: number): void {
+  try {
+    process.kill(-pgid, 0);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
+    throw error;
+  }
+  throw new Error(`process group ${pgid} outlived the rejected shard run`);
 }
