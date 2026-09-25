@@ -282,7 +282,7 @@ export const renderHomebrewFormulaFromAssets = async (options: {
   );
 };
 
-const homebrewReadmeSection = (landing: string): string => `## Skillset
+export const HOMEBREW_README_SECTION = `## Skillset
 
 Skillset is available as a native CLI for Apple Silicon and Intel macOS.
 
@@ -292,17 +292,27 @@ brew install outfitter-dev/tap/skillset
 
 Upgrade or uninstall it with \`brew upgrade skillset\` or \`brew uninstall skillset\`.
 
-${landing}
+Formula updates arrive through a tested pull request and are landed by \`brew pr-pull\` only after tap CI passes.
 `;
 
-export const HOMEBREW_README_SECTION = homebrewReadmeSection(
-  "Formula updates arrive through a tested pull request and are landed by `brew pr-pull` only after tap CI passes."
-);
-
+/**
+ * Skillset sections previously published to the tap README, frozen as the
+ * exact bytes that shipped so later edits to the current section cannot
+ * rewrite them.
+ */
 export const LEGACY_HOMEBREW_README_SECTIONS = [
-  homebrewReadmeSection(
-    "Formula updates arrive through a tested pull request and are merged only after tap CI passes."
-  ),
+  `## Skillset
+
+Skillset is available as a native CLI for Apple Silicon and Intel macOS.
+
+\`\`\`sh
+brew install outfitter-dev/tap/skillset
+\`\`\`
+
+Upgrade or uninstall it with \`brew upgrade skillset\` or \`brew uninstall skillset\`.
+
+Formula updates arrive through a tested pull request and are merged only after tap CI passes.
+`,
 ] as const;
 
 const LEGACY_TAP_INTRO =
