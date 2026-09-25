@@ -118,6 +118,21 @@ export function npmBootstrapEnvironment(
   ) as Record<string, string>;
 }
 
+/**
+ * Environment for a captured bootstrap subprocess.
+ *
+ * A supplied environment replaces the ambient one: the npm identity and 2FA
+ * checks pass {@link npmBootstrapEnvironment} output, and merging the ambient
+ * environment back underneath would restore the npm token/config keys that
+ * filter removed. Repository-targeting git keys are always stripped.
+ */
+export function npmBootstrapCaptureEnvironment(
+  supplied: Readonly<Record<string, string>> | undefined,
+  ambient: Readonly<Record<string, string | undefined>>
+): Record<string, string> {
+  return gitSafeEnv(supplied ?? ambient);
+}
+
 export function npmBootstrapFilename(spec: ReleasePackageSpec): string {
   return `${spec.name.slice(1).replace("/", "-")}-${NPM_BOOTSTRAP_VERSION}.tgz`;
 }
@@ -487,7 +502,7 @@ async function capture(
 ): Promise<string> {
   const subprocess = Bun.spawn([...command], {
     cwd: options.cwd ?? rootDir,
-    env: gitSafeEnv({ ...process.env, ...options.env }),
+    env: npmBootstrapCaptureEnvironment(options.env, process.env),
     stderr: "pipe",
     stdout: "pipe",
   });
