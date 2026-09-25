@@ -75,51 +75,18 @@ export async function loadShardContract(
   )
     throw new Error("timing map does not cover the exact tracked manifest");
 
-  const report = JSON.parse(baselineReportBytes.toString("utf8")) as {
-    attributable?: boolean;
-    commandSucceeded?: boolean;
-    command?: readonly string[];
-    revision?: {
-      repoRoot?: string;
-      head?: string;
-      headTree?: string;
-      lockfileSha256?: string;
-      dirty?: boolean;
-    };
-    revisionAfter?: {
-      head?: string;
-      headTree?: string;
-      lockfileSha256?: string;
-      dirty?: boolean;
-    };
-    toolchainBefore?: { resolvedBunVersion?: string };
-    toolchainAfter?: { resolvedBunVersion?: string };
-  };
   const lockSha256 = sha256(lock);
-  if (
-    !report.attributable ||
-    !report.commandSucceeded ||
-    report.revision?.head !== head ||
-    report.revision.headTree !== tree ||
-    report.revision.lockfileSha256 !== lockSha256 ||
-    report.revision.dirty ||
-    !report.revision.repoRoot ||
-    report.revisionAfter?.head !== head ||
-    report.revisionAfter.headTree !== tree ||
-    report.revisionAfter.lockfileSha256 !== lockSha256 ||
-    report.revisionAfter.dirty ||
-    report.toolchainBefore?.resolvedBunVersion !== pinned.version ||
-    report.toolchainAfter?.resolvedBunVersion !== pinned.version ||
-    !report.command?.includes(
-      `--reporter-outfile=${resolve(options.baselineJunit)}`
-    )
-  )
-    throw new Error(
-      "baseline report does not prove this revision, toolchain, and JUnit output"
-    );
+  const measuredRoot = await verifyBaselineReport(baselineReportBytes, {
+    baselineBytes,
+    baselineJunit: options.baselineJunit,
+    bunVersion: pinned.version,
+    head,
+    lockSha256,
+    tree,
+  });
   const baseline = parseJunitEvidence(
     baselineBytes.toString("utf8"),
-    await realpath(report.revision.repoRoot)
+    measuredRoot
   );
   if (baseline.failures !== 0 || !sameItems(baseline.files, manifest)) {
     throw new Error(
@@ -138,6 +105,101 @@ export async function loadShardContract(
     baselineReportBytes,
     baseline,
   };
+}
+
+export interface BaselineExpectation {
+  readonly head: string;
+  readonly tree: string;
+  readonly lockSha256: string;
+  readonly bunVersion: string;
+  readonly baselineJunit: string;
+  readonly baselineBytes: Uint8Array;
+}
+
+/**
+ * Prove a measure-gate report describes a clean, attributable baseline run of
+ * this revision and toolchain that produced the JUnit bytes being compared.
+ * Returns the canonical root the measured command ran in.
+ */
+export async function verifyBaselineReport(
+  reportBytes: Uint8Array,
+  expected: BaselineExpectation
+): Promise<string> {
+  const report = JSON.parse(new TextDecoder().decode(reportBytes)) as {
+    attributable?: boolean;
+    commandSucceeded?: boolean;
+    command?: readonly string[];
+    revision?: {
+      repoRoot?: string;
+      head?: string;
+      headTree?: string;
+      lockfileSha256?: string;
+      dirty?: boolean;
+    };
+    revisionAfter?: {
+      head?: string;
+      headTree?: string;
+      lockfileSha256?: string;
+      dirty?: boolean;
+    };
+    toolchainBefore?: { resolvedBunVersion?: string };
+    toolchainAfter?: { resolvedBunVersion?: string } | null;
+    outputs?: readonly { path?: string; sha256?: string | null }[];
+  };
+  const { head, tree, lockSha256 } = expected;
+  const measuredRoot = report.revision?.repoRoot;
+  // measure-gate keeps argv as typed, relative to the measured checkout, so
+  // compare canonical files rather than spellings of a path.
+  const junit = await realpath(expected.baselineJunit);
+  const outfiles = measuredRoot
+    ? await Promise.all(
+        (report.command ?? [])
+          .filter((arg) => arg.startsWith(REPORTER_OUTFILE))
+          .map((arg) =>
+            canonicalPath(
+              resolve(measuredRoot, arg.slice(REPORTER_OUTFILE.length))
+            )
+          )
+      )
+    : [];
+  // The digest binds the compared bytes to the measured run: an outfile
+  // rewritten after the run keeps its name but not its hash.
+  const digest = sha256(expected.baselineBytes);
+  const measuredOutputs = await Promise.all(
+    (report.outputs ?? []).map(async (output) => ({
+      path: output.path ? await canonicalPath(output.path) : undefined,
+      sha256: output.sha256,
+    }))
+  );
+  if (
+    !report.attributable ||
+    !report.commandSucceeded ||
+    report.revision?.head !== head ||
+    report.revision.headTree !== tree ||
+    report.revision.lockfileSha256 !== lockSha256 ||
+    report.revision.dirty ||
+    !report.revision.repoRoot ||
+    report.revisionAfter?.head !== head ||
+    report.revisionAfter.headTree !== tree ||
+    report.revisionAfter.lockfileSha256 !== lockSha256 ||
+    report.revisionAfter.dirty ||
+    report.toolchainBefore?.resolvedBunVersion !== expected.bunVersion ||
+    report.toolchainAfter?.resolvedBunVersion !== expected.bunVersion ||
+    !outfiles.includes(junit) ||
+    !measuredOutputs.some(
+      (output) => output.path === junit && output.sha256 === digest
+    )
+  )
+    throw new Error(
+      "baseline report does not prove this revision, toolchain, and JUnit output (measure it with --output <junit>)"
+    );
+  return realpath(report.revision.repoRoot);
+}
+
+const REPORTER_OUTFILE = "--reporter-outfile=";
+
+async function canonicalPath(path: string): Promise<string> {
+  return realpath(path).catch(() => path);
 }
 
 export async function assertRepoIdentity(
