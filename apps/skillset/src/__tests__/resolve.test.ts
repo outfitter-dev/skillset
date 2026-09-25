@@ -10,7 +10,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import nodePath, { join } from "node:path";
 
 import { buildSkillset } from "@skillset/core";
 
@@ -24,6 +24,7 @@ import {
   readManagedPathsFromLocks,
   restoreWorktreePaths,
   snapshotWorktreePaths,
+  workspaceSourceRoot,
 } from "../resolve-conflicts";
 
 const GENERATED_ALPHA = ".agents/skills/alpha/SKILL.md";
@@ -31,6 +32,24 @@ const HAND_EDITED = ".claude/skills/alpha/SKILL.md";
 const PLUGIN_SOURCE = ".skillset/plugins/demo/skills/alpha/SKILL.md";
 const PLUGIN_HAND_EDITED = "plugins/demo/skills/alpha/SKILL.md";
 const AUTHORED_ALPHA = ".skillset/skills/alpha/SKILL.md";
+
+describe("workspaceSourceRoot", () => {
+  const win32 = nodePath.win32;
+
+  it("returns the source root with / separators, including the workspace itself", () => {
+    expect(workspaceSourceRoot("C:\\repo", "src\\skills", win32)).toBe("src/skills");
+    expect(workspaceSourceRoot("C:\\repo", ".", win32)).toBe("");
+  });
+
+  it("refuses a win32 source root on another drive or above the workspace", () => {
+    expect(() => workspaceSourceRoot("C:\\repo", "D:\\src", win32)).toThrow(
+      "resolve source root must be inside the workspace"
+    );
+    expect(() => workspaceSourceRoot("C:\\repo", "..\\src", win32)).toThrow(
+      "resolve source root must be inside the workspace"
+    );
+  });
+});
 
 describe("skillset resolve", () => {
   it("reports nothing to resolve outside a conflict", async () => {

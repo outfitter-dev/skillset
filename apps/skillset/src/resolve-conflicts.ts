@@ -17,7 +17,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, posix, relative, resolve, sep } from "node:path";
+import nodePath, { dirname, join, posix, relative, resolve, sep } from "node:path";
 
 import {
   lockDisagreementPaths,
@@ -29,7 +29,12 @@ import {
   normalizeGeneratedFileMode,
   supportsGeneratedFileModes,
 } from "@skillset/core/internal/generated-file-mode";
-import { compareStrings, isPathInside, isRelativePathInside } from "@skillset/core/internal/path";
+import {
+  compareStrings,
+  isPathInside,
+  isRelativePathInside,
+  type PathContainmentApi,
+} from "@skillset/core/internal/path";
 
 import { gitSafeEnv } from "./git-env";
 
@@ -153,6 +158,27 @@ export async function readConflictedPaths(
 }
 
 /**
+ * Workspace-relative `/` spelling of `sourceRoot`. Containment is checked on
+ * the native path before `\` becomes `/`, so a win32 source root on another
+ * drive (`D:\src`, which would read as `D:/src`) is refused.
+ *
+ * @internal `pathApi` lets tests inject `path.win32`.
+ */
+export function workspaceSourceRoot(
+  rootPath: string,
+  sourceRoot: string,
+  pathApi: PathContainmentApi = nodePath
+): string {
+  const resolvedSourceRoot = pathApi.resolve(rootPath, sourceRoot);
+  if (!isPathInside(rootPath, resolvedSourceRoot, { allowEqual: true, path: pathApi })) {
+    throw new Error(
+      "skillset: resolve source root must be inside the workspace"
+    );
+  }
+  return pathApi.relative(rootPath, resolvedSourceRoot).replaceAll("\\", "/");
+}
+
+/**
  * Unstaged or untracked compiler inputs below the Skillset root, excluding
  * known conflicts. A resolve build may consume staged conflict resolutions,
  * but it must not fold worktree-only source into generated output it stages.
@@ -176,15 +202,7 @@ export async function readUnstagedProjectionPaths(
     throw new Error("skillset: resolve could not inspect worktree-only paths");
   }
   const topLevel = top.stdout.trim();
-  const normalizedSourceRoot = relative(
-    rootPath,
-    resolve(rootPath, sourceRoot)
-  ).replaceAll("\\", "/");
-  if (!isRelativePathInside(normalizedSourceRoot, { allowEqual: true, path: posix })) {
-    throw new Error(
-      "skillset: resolve source root must be inside the workspace"
-    );
-  }
+  const normalizedSourceRoot = workspaceSourceRoot(rootPath, sourceRoot);
   const externalRoots = externalInputPaths.map((path) =>
     relative(rootPath, resolve(path)).replaceAll("\\", "/")
   );
