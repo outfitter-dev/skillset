@@ -638,7 +638,7 @@
           "fromPath": "docs/adrs/0019-deterministic-projection-and-adapter-conformance.md"
         },
         {
-          "context": "`skillset test` owns committed declarations and ad hoc runtime evidence. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tes",
+          "context": "`skillset test` owns deterministic declarations and ad hoc runtime assertions. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](0012-fixtur",
           "from": "0022",
           "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
         },
@@ -1130,7 +1130,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Workflow-Oriented CLI With A Flat Loop And Explicit Domains",
-      "updated": "2026-07-20"
+      "updated": "2026-09-20"
     },
     {
       "amended_by": [],
@@ -1481,7 +1481,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Exact Shared References",
-      "updated": "2026-09-16"
+      "updated": "2026-09-17"
     },
     {
       "amended_by": [],
