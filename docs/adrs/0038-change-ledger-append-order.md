@@ -20,8 +20,8 @@ It did not say how event time, append order, and Git's `merge=union` contract
 interact when two writers or two branches both append.
 
 That gap showed up as concrete damage. Refresh and ignore already took the
-change-ledger directory lock, but add, reason, migrate, and release wrote the
-same streams without it. A failed release restored a whole-file snapshot; a
+change-ledger directory lock, but add, reason, migrate, amend, and release
+wrote the same streams without it. A failed release restored a whole-file snapshot; a
 successful concurrent append after that snapshot could disappear. The
 change-stream guard then had to record seventeen exact historical timestamp
 inversions, while repository guidance still said five, and every restacked
@@ -38,13 +38,14 @@ File order is the only fold order for change and release JSONL streams.
 
 `readChangeLedger`, pending-fact readers, and `readLedgerReleaseState` walk
 records top to bottom and let later records win. A record's position is the
-sequence. `createdAt` and `appliedAt` are event time, not sequence. Global
-chronological order is not an invariant.
+sequence. `createdAt`, `appliedAt`, and `amendedAt` are event time, not
+sequence. Global chronological order is not an invariant.
 
 ### Live writers serialize on one owner-fenced mutation
 
-Add, reason, migrate, refresh, ignore, and release take the same
-owner-fenced ledger lock and hold it across read, plan, append, and rollback.
+Add, reason, migrate, refresh, ignore, change amend, release apply, and
+release amend take the same owner-fenced ledger lock and hold it across read,
+plan, append, and rollback.
 Only the current token holder can release that lock. An old owner must not
 remove a successor lock.
 
@@ -53,9 +54,13 @@ restores a whole-file snapshot of an append-only stream. Two concurrent
 successful mutations therefore keep both record sets, and a failed release
 cannot erase an unrelated writer's append.
 
-New writers choose a timestamp that does not invert the current tail:
-`max(now, tailTimestamp)`. Equal timestamps are allowed. This keeps live
-appends guard-clean without pretending wall-clock order is the ledger.
+New writers stamp `max(now, tailTimestamp)`. Equal timestamps are allowed.
+The guard does not compare timestamps, so this is not a merge rule: it keeps
+event time non-decreasing in file order for readers of live appends — history
+and release views, audits, and tools that list records chronologically —
+without pretending wall-clock order is the ledger. The cost is pinning: one
+future-dated tail (a skewed clock or a hand edit) holds every later stamp on
+that stream at that time until the wall clock passes it.
 
 ### Union merge concatenates; it does not sort
 
@@ -81,6 +86,12 @@ passes without an allowance. There is no allowlist. Never sort a stream to
 clear a guard failure; restore trunk's records exactly and move this branch's
 records after them.
 
+Restacking (rebasing onto trunk) is the supported way to update a branch:
+union replays the branch's appended block after trunk's records, so trunk stays
+a prefix. Merging trunk into a branch (`git merge main`, GitHub's "Update
+branch") puts trunk's new records after the branch's block; the guard rejects
+that result by design, because it reorders what the branch's readers folded.
+
 ## Consequences
 
 ### Positive
@@ -98,9 +109,9 @@ timeout. The guard needs the trunk ref and history locally (CI checks out with
 full depth) and fails loudly when the merge-base cannot be resolved. It no
 longer catches a timestamp inversion inside a branch's own appended block;
 that block's order is the writer's, and live writers stamp `max(now, tail)`.
-Source draft, move, and
-promote still plan a whole-file ledger update inside their own source-mutation
-transaction; this decision does not replace that apply path.
+Branches must be updated by restack, not by merging trunk in. Source draft,
+move, and promote still plan a whole-file ledger update inside their own
+source-mutation transaction; this decision does not replace that apply path.
 
 ### What This Does NOT Decide
 
