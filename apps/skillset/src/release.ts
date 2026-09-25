@@ -3,11 +3,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 
 import { buildSkillsetResult, SkillsetBuildBlockedError } from "@skillset/core";
-import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
+import { changeCheck, movedAwaySourceChanges, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
-import { readChangeLedger } from "@skillset/core/internal/change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent } from "@skillset/core/internal/change-ledger";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
 import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
@@ -128,12 +128,13 @@ export async function planRelease(
 
   const sourceUnits = new Map(check.status.sourceUnits.map((unit) => [unit.id, unit]));
   const sourceChanges = new Map(check.status.sourceChanges.map((change) => [change.id, change]));
+  const events = await readChangeLedger(rootPath, releaseOptions);
   const entries = check.entries.flatMap((entry) => releaseEntryPlan(entry));
   const activeEntries = entries.filter((entry) => !entry.ignored);
   const ignoredEntries = entries.filter((entry) => entry.ignored);
-  const scopes = releaseScopePlans(graph, sourceUnits, sourceChanges, activeEntries, { bumpEntries: true });
+  const scopes = releaseScopePlans(graph, sourceUnits, sourceChanges, activeEntries, { bumpEntries: true, events });
   const baselineScopes = mergeScopePlans(
-    releaseScopePlans(graph, sourceUnits, sourceChanges, ignoredEntries, { bumpEntries: false }),
+    releaseScopePlans(graph, sourceUnits, sourceChanges, ignoredEntries, { bumpEntries: false, events }),
     scopes
   );
   return {
@@ -236,13 +237,15 @@ function releaseEntryPlan(entry: PendingChangeEntry): readonly ReleaseEntryPlan[
 function releaseScopePlans(
   graph: BuildGraph,
   sourceUnits: ReadonlyMap<string, { readonly hash: string }>,
-  sourceChanges: ReadonlyMap<string, { readonly baselineHash?: string; readonly currentHash?: string; readonly status: string }>,
+  sourceChanges: ReadonlyMap<string, { readonly baselineHash?: string; readonly currentHash?: string; readonly id: string; readonly status: string }>,
   entries: readonly ReleaseEntryPlan[],
-  options: { readonly bumpEntries: boolean }
+  options: { readonly bumpEntries: boolean; readonly events: readonly ChangeLedgerEvent[] }
 ): readonly ReleaseScopePlan[] {
   const accumulators = new Map<string, ReleaseScopeAccumulator>();
   for (const entry of entries) {
-    for (const scope of entry.scopes) {
+    // A reason that follows a move also retires the moved-away selector.
+    const movedAway = movedAwaySourceChanges([...sourceChanges.values()], entry.scopes, options.events);
+    for (const scope of [...entry.scopes, ...movedAway.map((change) => change.id)]) {
       addScope(accumulators, scope, entry, options);
       const aggregate = aggregateScope(scope);
       if (aggregate !== undefined && aggregate !== scope) addScope(accumulators, aggregate, entry, options);

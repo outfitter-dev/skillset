@@ -41,6 +41,8 @@ skillset change check --since origin/main
 
 `status` reports changed source units and [generated-output](../../glossary.md#generated-output) [drift](../../glossary.md#drift) separately. `check` validates the reason body, scopes, ids, current source-hash evidence, and coverage. Both are read-only.
 
+After `skillset move`, status reports the old selector removed and the new one added. A reason whose scope names the new selector also covers the old selector's removal when the ledger records that move, and releasing it retires the old selector. The moved unit's source hash changes with its identity, so refresh the reason's evidence after a move.
+
 The baseline is selected in this order: an explicit `--since`; ledger-derived release state; compatibility `state.json`; source-inventory locks; then the Git merge base. If a failed check used `--since`, use the same baseline when refreshing evidence:
 
 ```bash
