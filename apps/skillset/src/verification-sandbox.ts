@@ -1,4 +1,4 @@
-import { gitRepositoryTargetingKeys } from "@skillset/core";
+import { gitRepositoryTargetingKeys } from "@skillset/core/internal/git-env";
 import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import {
