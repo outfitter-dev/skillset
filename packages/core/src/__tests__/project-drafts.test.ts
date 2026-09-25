@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { buildSkillsetResult } from "@skillset/core";
+import { buildSkillsetResult, lintSkillset } from "@skillset/core";
 import {
   doctorSkillset,
   explainPath,
@@ -673,6 +673,27 @@ describe("SET-659 rendered skill copy allocation", () => {
         { effectiveName: "review", sourceUnit: "plugin.b.skill:review" },
       ])
     ).toThrow("plugin.a.skill:review and plugin.b.skill:review both claim");
+  });
+});
+
+describe("SET-659 rendered copy consumers", () => {
+  it("lints workspace and selected plugin drafts before rendering them", async () => {
+    const dynamic = (name: string) =>
+      `---\nname: ${name}\ndescription: Uses Claude arguments\n---\n\nUse $ARGUMENTS here.\n`;
+    for (const files of [
+      {
+        "skillset.yaml": "skillset:\n  name: lint-workspace-draft\nclaude: false\ncodex: true\ncursor: false\n",
+        ".skillset/skills/_drafts/dynamic/SKILL.md": dynamic("dynamic"),
+      },
+      {
+        "skillset.yaml": "skillset:\n  name: lint-plugin-draft\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    drafts:\n      demo: true\n",
+        ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+        ".skillset/plugins/demo/skills/_drafts/dynamic/SKILL.md": dynamic("dynamic"),
+      },
+    ]) {
+      const root = await fixture(files);
+      await expect(lintSkillset(root)).rejects.toThrow("codex-claude-dynamic-context");
+    }
   });
 });
 
