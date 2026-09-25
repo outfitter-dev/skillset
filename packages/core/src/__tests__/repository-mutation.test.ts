@@ -3,15 +3,14 @@ import {
   chmod,
   lstat,
   mkdir,
-  mkdtemp,
   readFile,
   realpath,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   prepareRepositoryMutationPath,
@@ -22,7 +21,7 @@ import {
 const withRoots = async (
   operation: (root: string, outside: string) => Promise<void>
 ): Promise<void> => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-repository-mutation-"));
+  const parent = await createTestFixtureRoot("skillset-repository-mutation-");
   const root = join(parent, "repo");
   const outside = join(parent, "outside");
   await mkdir(root);
