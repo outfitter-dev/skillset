@@ -1,4 +1,4 @@
-import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { createHash, randomBytes } from "node:crypto";
 
 import { buildSkillsetResult, SkillsetBuildBlockedError } from "@skillset/core";
@@ -13,6 +13,7 @@ import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
+import { publishAtomicFile } from "@skillset/core/internal/atomic-file-publication";
 import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
 import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
@@ -67,6 +68,8 @@ export interface ReleaseApplyOptions extends SkillsetOptions {
   readonly afterAppend?: () => Promise<void>;
   /** @internal Test seam immediately before generated-output build. */
   readonly beforeBuild?: () => Promise<void>;
+  /** @internal Test seam before each applied pending file is removed. */
+  readonly beforePendingRemoval?: (path: string) => Promise<void>;
   readonly lock?: ChangeLedgerLockOptions;
 }
 
@@ -207,19 +210,35 @@ export async function applyRelease(
       if (build.writes.backupManifestPath !== undefined) {
         files.add(build.writes.backupManifestPath);
       }
-    } catch (error) {
-      for (const snapshot of ownedFiles) await restoreFile(rootPath, snapshot);
-      throw error;
-    }
 
-    for (const entry of pending) {
-      const absolutePath = resolveInside(rootPath, entry.path);
-      await prepareRepositoryMutationPath(rootPath, absolutePath, {
-        createParents: false,
-        replacesLeaf: true,
-      });
-      await rm(absolutePath, { force: true });
-      files.add(entry.path);
+      // Pending removal is part of the release: a failure here restores
+      // state.json and the pending files and rolls back the owned records.
+      for (const entry of pending) {
+        await options.beforePendingRemoval?.(entry.path);
+        const absolutePath = resolveInside(rootPath, entry.path);
+        await prepareRepositoryMutationPath(rootPath, absolutePath, {
+          createParents: false,
+          replacesLeaf: true,
+        });
+        await rm(absolutePath, { force: true });
+        files.add(entry.path);
+      }
+    } catch (error) {
+      const restoreFailures: string[] = [];
+      for (const snapshot of ownedFiles) {
+        try {
+          await restoreFile(rootPath, snapshot);
+        } catch (restoreError) {
+          restoreFailures.push(`${snapshot.path}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+        }
+      }
+      if (restoreFailures.length > 0) {
+        throw new Error(
+          `skillset: release apply failed and restore failed for ${restoreFailures.join("; ")}; original error: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error }
+        );
+      }
+      throw error;
     }
 
     return { files: [...files].sort(compareStrings), plan, renderedFiles };
@@ -528,8 +547,8 @@ async function restoreFile(rootPath: string, snapshot: FileSnapshot): Promise<vo
     await rm(absolutePath, { force: true });
     return;
   }
-  await prepareRepositoryMutationPath(rootPath, absolutePath);
-  await writeFile(absolutePath, snapshot.content);
+  await prepareRepositoryMutationPath(rootPath, absolutePath, { replacesLeaf: true });
+  await publishAtomicFile(absolutePath, snapshot.content);
 }
 
 async function exists(path: string): Promise<boolean> {
