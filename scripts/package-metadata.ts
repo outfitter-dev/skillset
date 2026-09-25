@@ -3,6 +3,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
+import { supportedBunRangeProblem } from "./bootstrap/bun";
 import { nativePackageManifestDiagnostics } from "./native-packages";
 
 type PackageManifest = {
@@ -225,6 +226,10 @@ export async function bunRuntimeDiagnostics(rootPath: string) {
     : undefined;
   if (typeof supportedRange !== "string" || supportedRange.length === 0) {
     return ["package.json must declare a supported Bun range in engines.bun"];
+  }
+  const rangeProblem = supportedBunRangeProblem(supportedRange);
+  if (rangeProblem !== undefined) {
+    return [`package.json engines.bun ${rangeProblem}`];
   }
   const { engines } = await readManifest(
     join(rootPath, "apps", "cli", "package.json")

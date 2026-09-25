@@ -98,6 +98,9 @@ export function parseNativeSizeBaseline(value: unknown): NativeSizeBaseline {
       "Native size baseline must use schema 1 and a positive growth policy"
     );
   }
+  // The baseline stays valid while its recorded Bun and the building Bun are
+  // both inside package.json engines.bun, so moving .bun-version within that
+  // range keeps it; see docs/development/package-releases.md.
   assertSupportedBunEvidenceVersion(
     "Native size baseline",
     baseline.bunVersion,
