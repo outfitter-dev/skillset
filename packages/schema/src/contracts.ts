@@ -58,10 +58,11 @@ export const INSTRUCTION_FRONT_PAGE_DESTINATIONS = [
 ] as const;
 export const PACKAGE_OUTPUT_PATH_PATTERN =
   "^(?:\\.|(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\{\\{)(?!.*\\$PROJECT_ROOT)(?!.*\\[name\\].*\\[name\\])[^/]+(?:/[^/]+)*/?)$";
+/** Plugin segments admit only Core's slug plugin ids (`^[a-z0-9][a-z0-9-]*$`), so a `.` always ends the segment. */
 export const SOURCE_UNIT_SELECTOR_PATTERN =
-  "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9._-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$";
+  "^(?:config:root|skill:[a-z0-9][a-z0-9._-]*|plugin:[a-z0-9][a-z0-9-]*|(?:instruction|agent):[A-Za-z0-9][A-Za-z0-9._/-]*|plugin\\.[a-z0-9][a-z0-9-]*\\.(?:config:root|(?:skill|feature|companion):[A-Za-z0-9][A-Za-z0-9._/-]*))$";
 export const ROOT_DRAFT_SELECTOR_PATTERN =
-  "^(?:skill:[a-z0-9][a-z0-9._-]*|plugin\\.[a-z0-9][a-z0-9._-]*\\.skill:[a-z0-9][a-z0-9._-]*)$";
+  "^(?:skill:[a-z0-9][a-z0-9._-]*|plugin\\.[a-z0-9][a-z0-9-]*\\.skill:[a-z0-9][a-z0-9._-]*)$";
 export const PLUGIN_DRAFT_SELECTOR_PATTERN =
   "^skill:[a-z0-9][a-z0-9._-]*$";
 export const CODEX_MARKETPLACE_SOURCE_KINDS = [

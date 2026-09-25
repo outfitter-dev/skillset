@@ -572,6 +572,12 @@ function validateConfigContext(
     diagnostics
   );
   checkTargetBundleDestinations(value, path, context, diagnostics);
+  checkFixedSkillOutputSelections(
+    value,
+    path,
+    `schema/${context.code}/skills`,
+    diagnostics
+  );
   if (context.supportsCompile)
     checkCompile(
       value.compile,
@@ -3443,12 +3449,7 @@ function checkSourceMetadata(
     `${path}.owner`,
     diagnostics
   );
-  checkOptionalObject(
-    value.outputs,
-    `${path}.outputs`,
-    "schema/source-metadata/outputs",
-    diagnostics
-  );
+  checkSourceOutputs(value.outputs, `${path}.outputs`, diagnostics);
   checkOptionalObject(
     value.presentation,
     `${path}.presentation`,
@@ -3503,6 +3504,31 @@ function checkSourceMetadata(
     "schema/source-metadata/keywords",
     diagnostics
   );
+}
+
+function checkSourceOutputs(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  const code = "schema/source-metadata/outputs";
+  checkOptionalObject(value, path, code, diagnostics);
+  if (!isSchemaRecord(value) || value.skills === undefined) return;
+  const skillsPath = `${path}.skills`;
+  if (!isSchemaRecord(value.skills)) {
+    diagnostics.push(diagnostic(skillsPath, code, `${skillsPath} must be an object`));
+    return;
+  }
+  for (const target of TARGET_NAMES) {
+    if (Object.hasOwn(value.skills, target))
+      diagnostics.push(
+        diagnostic(
+          `${skillsPath}.${target}`,
+          code,
+          `unsupported ${skillsPath}.${target}; provider skill roots are fixed`
+        )
+      );
+  }
 }
 
 /**
@@ -4144,6 +4170,46 @@ function checkTargetBundleDestinations(
         )
       );
     }
+  }
+}
+
+/** Mirrors the JSON Schema `fixedSkillOutputSelection`: provider skill roots are fixed. */
+function checkFixedSkillOutputSelections(
+  value: SchemaJsonRecord,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  for (const target of TARGET_NAMES) {
+    const block = value[target];
+    if (!isSchemaRecord(block) || block.skills === undefined) continue;
+    const skills = block.skills;
+    const skillsPath = `${path}.${target}.skills`;
+    if (typeof skills === "boolean") continue;
+    if (Array.isArray(skills)) {
+      checkOptionalStringArray(skills, skillsPath, code, diagnostics);
+      continue;
+    }
+    if (!isSchemaRecord(skills)) {
+      diagnostics.push(
+        diagnostic(
+          skillsPath,
+          code,
+          `${skillsPath} must be true, false, a string array, or an object`
+        )
+      );
+      continue;
+    }
+    if (Object.hasOwn(skills, "path"))
+      diagnostics.push(
+        diagnostic(
+          `${skillsPath}.path`,
+          code,
+          `unsupported ${skillsPath}.path; provider skill roots are fixed`
+        )
+      );
+    checkOptionalBoolean(skills.enabled, `${skillsPath}.enabled`, code, diagnostics);
+    checkOptionalStringArray(skills.include, `${skillsPath}.include`, code, diagnostics);
   }
 }
 
