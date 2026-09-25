@@ -409,9 +409,6 @@ function rewritePathSpecifier(
     return undefined;
   }
   const path = toPosix(relative(root, next));
-  if (path.startsWith("../")) {
-    return undefined;
-  }
   return scheme === undefined ? path : `${scheme}:${path}`;
 }
 
