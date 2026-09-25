@@ -32,7 +32,10 @@ import {
 } from "./render-result";
 import { scopeForPath } from "./output-scope";
 import { compareStrings } from "./path";
-import { resolveProjectUseSkillCopies } from "./project-use";
+import {
+  resolveProjectUseSkillCopies,
+  resolveWorkspaceDraftSkillCopies,
+} from "./project-use";
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
@@ -51,6 +54,7 @@ import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import {
   agentSkillSourceUnit,
   agentSkillStandardProjectionIssues,
+  classifyAgentSkillStandard,
   draftSkillDescriptionWasTruncated,
 } from "./render-agent-skills-standard";
 import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
@@ -219,6 +223,7 @@ export function collectRenderResults(
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentPluginStandardOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedProjectUseComponentOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedProjectSkillCopyStandardOutcomes(graph, options.scopes));
   outcomes.push(
     ...claudeMarketplaceAuthorOutcomes(
       graph,
@@ -325,6 +330,60 @@ function unsupportedProjectUseComponentOutcomes(
         }));
       }
     }
+  }
+  return outcomes;
+}
+
+/**
+ * Codex project copies render through the Agent Skills standard. A copy that
+ * fails classification is omitted by render and reported here, so
+ * compile.unsupportedDestination decides whether the build fails.
+ */
+function unsupportedProjectSkillCopyStandardOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  const target = "codex";
+  const outcomes: SkillsetRenderResult[] = [];
+  for (const copy of [
+    ...resolveWorkspaceDraftSkillCopies(graph),
+    ...resolveProjectUseSkillCopies(graph),
+  ]) {
+    const plugin = "plugin" in copy ? copy.plugin : undefined;
+    if (
+      !copy.skill.targets[target].enabled ||
+      !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id) ||
+      (scopes !== undefined && !scopes.includes(scopeForPath(
+        graph,
+        posix.join(graph.root.outputs.skills[target], copy.effectiveName)
+      )))
+    ) continue;
+    const classification = classifyAgentSkillStandard(
+      graph,
+      plugin,
+      copy.skill,
+      copy.effectiveName,
+      undefined,
+      { draft: copy.draftOrigin !== undefined, effectiveName: copy.effectiveName }
+    );
+    if (classification.status === "supported") continue;
+    const featureId = plugin === undefined ? "standalone-skills" : "plugin-skills";
+    outcomes.push(defineRenderResult({
+      destination: "skill",
+      diagnostics: [{
+        code: classification.issue.code,
+        message: classification.issue.message,
+        path: classification.issue.path,
+      }],
+      evidence: evidenceFor(featureId, target) ?? [],
+      featureId,
+      policy: "unsupported:error",
+      reason: `project copy ${copy.effectiveName}: ${classification.issue.message}`,
+      sourcePath: normalizeSourcePath(graph, copy.skill.sourcePath),
+      sourceUnit: copy.sourceUnit,
+      status: "unsupported",
+      target,
+    }));
   }
   return outcomes;
 }
