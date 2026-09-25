@@ -138,6 +138,17 @@ describe("repository mutation ancestry", () => {
     });
   });
 
+  test("reports an escaping path as a logical repository-relative path", async () => {
+    await withRoots(async (root, outside) => {
+      await expect(
+        prepareRepositoryMutationPath(root, join(outside, "escaped.txt"))
+      ).rejects.toMatchObject({
+        logicalPath: "../outside/escaped.txt",
+        message: "skillset: path escapes workspace root: ../outside/escaped.txt",
+      });
+    });
+  });
+
   test("refuses a non-directory parent", async () => {
     await withRoots(async (root) => {
       await writeFile(join(root, ".skillset"), "not a directory\n");
