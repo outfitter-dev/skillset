@@ -1,5 +1,6 @@
 import { join, relative } from "node:path";
 
+import { liveRenderDestination, type RenderDestination } from "./build-destination";
 import { storedClaudeMarketplaceProviderEntry } from "./claude-marketplace";
 import {
   isOutputSelected,
@@ -158,9 +159,10 @@ function defaultChatGptSourcePlugins(
 }
 
 export async function renderClaudeMarketplace(
-  graph: BuildGraph
+  graph: BuildGraph,
+  destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly RenderedFile[]> {
-  const projection = await projectClaudeMarketplace(graph);
+  const projection = await projectClaudeMarketplace(graph, destination);
   return projection === undefined
     ? []
     : [
@@ -192,9 +194,10 @@ export interface ClaudeMarketplacePluginProjection {
  * instead of reading it back out of the generated provider-native entry names.
  */
 export async function claudeMarketplaceSourcePlugins(
-  graph: BuildGraph
+  graph: BuildGraph,
+  destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly ClaudeMarketplacePluginProjection[]> {
-  return (await projectClaudeMarketplace(graph))?.sourcePlugins ?? [];
+  return (await projectClaudeMarketplace(graph, destination))?.sourcePlugins ?? [];
 }
 
 interface ClaudeMarketplaceProjection {
@@ -210,9 +213,10 @@ interface ClaudeMarketplaceProjection {
  * plugins the override removed.
  */
 async function projectClaudeMarketplace(
-  graph: BuildGraph
+  graph: BuildGraph,
+  destination: RenderDestination
 ): Promise<ClaudeMarketplaceProjection | undefined> {
-  const existingState = await readExistingMarketplaceState(graph.rootPath);
+  const existingState = await readExistingMarketplaceState(destination);
   const declaredCatalog = selectClaudeMarketplaceCatalog(graph, existingState);
   const rootLicense = await resolveRootLicense(graph);
   if (declaredCatalog !== undefined) {
@@ -707,12 +711,14 @@ const EMPTY_MARKETPLACE_STATE: ExistingMarketplaceState = {
   entries: [],
 };
 
+/** Reads marketplace selection from the destination's workspace lock; an empty v2 lock stays readable. */
 export async function readExistingMarketplaceState(
-  rootPath: string
+  destination: RenderDestination
 ): Promise<ExistingMarketplaceState> {
+  const logicalPath = destination.mapPath("skillset.lock");
   const json = await readGeneratedLockJsonFromDisk(
-    join(rootPath, "skillset.lock"),
-    { logicalPath: "skillset.lock", missing: "absent" }
+    destination.resolvePath(logicalPath),
+    { logicalPath, missing: "absent" }
   );
   if (json.kind === "absent") return EMPTY_MARKETPLACE_STATE;
   const parsed = json.value;
@@ -720,12 +726,12 @@ export async function readExistingMarketplaceState(
     // An empty v2 lock carries no ownership or cleanup authority, so it can
     // safely preserve marketplace selection while the build migrates it.
     parseLegacyLockOrCorrupt(parsed, {
-      logicalPath: "skillset.lock",
+      logicalPath,
       provenance: "inspect",
     });
   } else {
     parseCurrentLockOrCorrupt(parsed, {
-      logicalPath: "skillset.lock",
+      logicalPath,
       provenance: "inspect",
     });
     // Marketplace extras are not ownership authority. Invalid provenance keeps

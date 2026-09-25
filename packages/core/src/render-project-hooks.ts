@@ -5,6 +5,7 @@ import { isDeepStrictEqual, promisify } from "node:util";
 import { join, relative } from "node:path";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
+import { liveRenderDestination, type RenderDestination } from "./build-destination";
 import { gitSafeEnv } from "./git-env";
 import { readString } from "./config";
 import type { ParsedGeneratedLockItem } from "./generated-lock";
@@ -75,22 +76,6 @@ export interface RenderedProjectHook {
 export interface ProjectSettingsIsland {
   readonly file: RenderedFile;
   readonly sourceHash: string;
-}
-
-/**
- * Where a render lands. Partial settings files are composed from, and hashed
- * against, the destination preimage, so an isolated build reads its mirror
- * rather than the live repository.
- */
-export interface RenderDestination {
-  /** Maps a logical output path to the path the build writes. */
-  readonly mapPath: (path: string) => string;
-  /** Resolves a mapped output path to an absolute file path. */
-  readonly resolvePath: (path: string) => string;
-}
-
-export function liveRenderDestination(rootPath: string): RenderDestination {
-  return { mapPath: (path) => path, resolvePath: (path) => join(rootPath, path) };
 }
 
 type PreviousLockItems = readonly ParsedGeneratedLockItem[];
