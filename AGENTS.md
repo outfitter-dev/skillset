@@ -46,7 +46,7 @@ bun run schema:check
 bun run schema:generate
 bun run hooks:install
 bun run hooks:pre-push
-bun run measure:gate -- --label <label> [--repo <dir>] [--lead-in <s>] -- <command>
+bun run measure:gate -- --label <label> [--repo <dir>] [--lead-in <s>] [--out <dir>] [--note <text>] [--output <path>]... -- <command>
 bun run build:native -- --target <suffix>
 bun run build:native-packages -- --required --pack-dir <path>
 bun run native:check -- --allow-partial
@@ -86,7 +86,7 @@ bun run git-env:guard
 
 Package releases are GitHub Actions-owned. Use Changesets for package-facing changes, and use `bun run publish:check` as a local dry-run preflight. Do not run `bun run publish:packages` locally unless the maintainer explicitly chooses a release recovery path.
 
-`bun run measure:gate` records one gate invocation as attributable evidence rather than a bare number: the revision and tree SHA with any dirty entries, the pinned and ambient Bun sampled on both sides of the timed region, the lockfile hash, host capacity and load average, and resource usage where the host can report it. A sample whose ambient interpreter moved mid-run, or whose tree cannot back the revision it names, is written with `attributable: false` and its reasons. Resource usage carries its own confidence: nested `bun run` wrappers lose descendant accounting, so totals that cannot be true of the elapsed wall time are marked `suspect` and must not be quoted. The harness does not establish a cold or warm cache condition. `--repo` measures a different checkout, which is how a baseline is taken without the harness contaminating the tree it measures. Reports and raw logs land under `.skillset/cache/measure/`, which is ignored.
+`bun run measure:gate` records one gate invocation as attributable evidence rather than a bare number: the revision and tree SHA with any dirty entries, the pinned and ambient Bun sampled on both sides of the timed region, the lockfile hash, host capacity and load average, and resource usage where the host can report it. A sample whose ambient interpreter moved mid-run, or whose tree cannot back the revision it names, is written with `attributable: false` and its reasons. Resource usage carries its own confidence: nested `bun run` wrappers lose descendant accounting, so totals that cannot be true of the elapsed wall time are marked `suspect` and must not be quoted. The harness does not establish a cold or warm cache condition. `--repo` measures a different checkout, which is how a baseline is taken without the harness contaminating the tree it measures. `--output` (repeatable, relative to the measured checkout) records the sha256 of a file the command produced in the report's `outputs`; the sharded test runner accepts a baseline JUnit only when its report lists that file with a matching digest. Reports and raw logs land under `.skillset/cache/measure/`, which is ignored.
 
 `lefthook.yml` is the single source of truth for the local gates. `bun run hooks:install` installs them as git hooks; `bun run hooks:pre-push` runs the full pre-push gate anywhere (push-range whitespace, workflow lint when `actionlint` is available, `bun run check`, and the self-hosted `skillset check --ci` report scoped to the remote trunk). Push-range gates resolve the trunk via `scripts/git-trunk.sh` (`origin/HEAD`, typically `origin/main`).
 

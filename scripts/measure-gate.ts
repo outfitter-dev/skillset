@@ -22,13 +22,18 @@
  *
  * Usage:
  *   bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>]
- *     [--out <dir>] [--note <text>] [--repo <dir>]
+ *     [--out <dir>] [--note <text>] [--repo <dir>] [--output <path>]...
  *     -- <command> [args...]
  *
  * `--repo` measures a checkout other than this one. The baseline for a goal
  * must come from a clean tree at the revision it claims, and the harness
  * itself is an uncommitted or added file in the working checkout, so the
  * honest baseline runs against a disposable clone at that exact revision.
+ *
+ * `--output` names a file the command produces; a relative path resolves
+ * against the measured checkout, where the command runs. The file's sha256 is
+ * recorded after the run, so a consumer can prove the bytes it compares are
+ * the ones present when this run ended.
  */
 import { createHash, randomUUID } from "node:crypto";
 import { openSync, closeSync } from "node:fs";
@@ -104,9 +109,16 @@ export interface HostSnapshot {
  */
 export type ResourceAccounting = "complete" | "suspect" | "unavailable";
 
+/** A declared output of the measured command, hashed after the run. */
+export interface OutputDigest {
+  readonly path: string;
+  /** Null when the command did not leave the file behind. */
+  readonly sha256: string | null;
+}
+
 /** One measured gate invocation. */
 export interface MeasurementReport {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
   readonly label: string;
   readonly note: string | null;
   // No cold/warm field: the harness does not establish a cache condition.
@@ -131,10 +143,12 @@ export interface MeasurementReport {
   /** Re-read after the timed region; absent when it could not be read. */
   readonly revisionAfter: RevisionSnapshot | null;
   readonly toolchainBefore: ToolchainSnapshot;
-  readonly toolchainAfter: ToolchainSnapshot;
+  /** Re-sampled after the timed region; absent when it could not be read. */
+  readonly toolchainAfter: ToolchainSnapshot | null;
   readonly hostBefore: HostSnapshot;
   readonly hostAfter: HostSnapshot;
   readonly resources: ResourceUsage;
+  readonly outputs: readonly OutputDigest[];
   readonly logPath: string;
   readonly rusagePath: string;
 }
@@ -145,6 +159,7 @@ interface Options {
   readonly note: string | null;
   readonly leadInSeconds: number;
   readonly outDir: string;
+  readonly outputs: readonly string[];
   readonly command: readonly string[];
 }
 
@@ -162,7 +177,7 @@ async function main(argv: readonly string[]): Promise<number> {
   } catch (error) {
     console.error(`measure-gate: ${message(error)}`);
     console.error(
-      "usage: bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>] [--out <dir>] [--note <text>] -- <command> [args...]"
+      "usage: bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>] [--out <dir>] [--note <text>] [--output <path>]... -- <command> [args...]"
     );
     return 2;
   }
@@ -248,7 +263,16 @@ async function main(argv: readonly string[]): Promise<number> {
   const endedAt = new Date();
 
   const hostAfter = readHost();
-  const toolchainAfter = await readToolchain(options.repoRoot);
+  // The command can remove or rewrite the pin. The run already happened, so
+  // record it as unattributable rather than lose the report.
+  let toolchainAfter: ToolchainSnapshot | undefined;
+  try {
+    toolchainAfter = await readToolchain(options.repoRoot);
+  } catch (error) {
+    console.error(
+      `measure-gate: could not re-sample the toolchain after the run: ${message(error)}`
+    );
+  }
   // The Evidence Contract requires hashing tracked inputs on both sides: a
   // command that writes bun.lock or generated output would otherwise keep the
   // pre-run hash and still claim the revision it started from.
@@ -269,6 +293,7 @@ async function main(argv: readonly string[]): Promise<number> {
     resources,
     wallMs
   );
+  const outputs = await Promise.all(options.outputs.map(digestOutput));
 
   const attributabilityIssues = collectAttributabilityIssues(
     revision,
@@ -289,15 +314,16 @@ async function main(argv: readonly string[]): Promise<number> {
     leadInSeconds: options.leadInSeconds,
     logPath,
     note: options.note,
+    outputs,
     resourceAccounting,
     resources,
     revision,
     revisionAfter: revisionAfter ?? null,
     rusagePath,
-    schemaVersion: 3,
+    schemaVersion: 4,
     signal,
     startedAt: startedAt.toISOString(),
-    toolchainAfter,
+    toolchainAfter: toolchainAfter ?? null,
     toolchainBefore,
     wallMs,
   };
@@ -327,6 +353,7 @@ function parseOptions(argv: readonly string[]): Options {
   let leadInSeconds = 0;
   let measuredRepoRoot = scriptRepoRoot;
   let outDir = join(scriptRepoRoot, ".skillset", "cache", "measure");
+  const outputs: string[] = [];
   const command: string[] = [];
   let index = 0;
   for (; index < argv.length; index += 1) {
@@ -347,6 +374,10 @@ function parseOptions(argv: readonly string[]): Options {
         break;
       case "--out":
         outDir = resolve(requireValue(flag, value));
+        index += 1;
+        break;
+      case "--output":
+        outputs.push(requireValue(flag, value));
         index += 1;
         break;
       case "--repo":
@@ -377,6 +408,9 @@ function parseOptions(argv: readonly string[]): Options {
     leadInSeconds,
     note,
     outDir,
+    // The command runs in the measured checkout, so its relative output paths
+    // name files there, not in the harness's working directory.
+    outputs: outputs.map((output) => resolve(measuredRepoRoot, output)),
     repoRoot: measuredRepoRoot,
   };
 }
@@ -438,6 +472,17 @@ async function readToolchain(repoRoot: string): Promise<ToolchainSnapshot> {
   };
 }
 
+async function digestOutput(path: string): Promise<OutputDigest> {
+  const bytes = await readFile(path).catch(() => undefined);
+  return {
+    path,
+    sha256:
+      bytes === undefined
+        ? null
+        : createHash("sha256").update(bytes).digest("hex"),
+  };
+}
+
 function readHost(): HostSnapshot {
   const cpuList = cpus();
   return {
@@ -454,10 +499,15 @@ function readHost(): HostSnapshot {
 export function collectAttributabilityIssues(
   revision: RevisionSnapshot,
   before: ToolchainSnapshot,
-  after: ToolchainSnapshot,
+  after: ToolchainSnapshot | undefined,
   revisionAfter?: RevisionSnapshot
 ): string[] {
   const reasons: string[] = [];
+  if (after === undefined) {
+    reasons.push(
+      "the toolchain after the run could not be read, so the sample cannot claim the interpreter it names"
+    );
+  }
   if (revisionAfter === undefined) {
     reasons.push(
       "the repository state after the run could not be read, so the sample cannot claim the tree it names"
@@ -491,22 +541,22 @@ export function collectAttributabilityIssues(
   // not control, so a mid-run replacement still means the sample was taken in
   // an environment that no longer exists. That is refused rather than reasoned
   // about: it is the event that invalidated test-warm-2.
-  if (before.ambientBunVersion !== after.ambientBunVersion) {
+  if (after && before.ambientBunVersion !== after.ambientBunVersion) {
     reasons.push(
       `ambient interpreter version changed during the sample: ${before.ambientBunVersion} -> ${after.ambientBunVersion}`
     );
   }
-  if (before.ambientBunPath !== after.ambientBunPath) {
+  if (after && before.ambientBunPath !== after.ambientBunPath) {
     reasons.push(
       `ambient interpreter path changed during the sample: ${before.ambientBunPath} -> ${after.ambientBunPath}`
     );
   }
-  if (before.resolvedBunVersion !== after.resolvedBunVersion) {
+  if (after && before.resolvedBunVersion !== after.resolvedBunVersion) {
     reasons.push(
       `interpreter version changed during the sample: ${before.resolvedBunVersion} -> ${after.resolvedBunVersion}`
     );
   }
-  if (before.resolvedBunPath !== after.resolvedBunPath) {
+  if (after && before.resolvedBunPath !== after.resolvedBunPath) {
     reasons.push(
       `interpreter path changed during the sample: ${before.resolvedBunPath} -> ${after.resolvedBunPath}`
     );
