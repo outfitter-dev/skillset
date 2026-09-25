@@ -9,10 +9,12 @@ on:
   pull_request:
     paths:
       - .github/workflows/windows-scripts.yml
+      - .bun-version
       - scripts/bootstrap.sh
       - scripts/bootstrap/**
       - scripts/pinned-bun.ts
       - scripts/__tests__/pinned-bun.test.ts
+      - scripts/test-sandbox.ts
       - scripts/test-shard-workspace.ts
       - scripts/__tests__/test-shard-workspace.test.ts
       - packages/core/src/path.ts
