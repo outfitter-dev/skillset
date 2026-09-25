@@ -20,6 +20,7 @@ import {
 } from "./generated-lock-read";
 import { hasValidLockProvenance } from "./lock-provenance";
 import { compareStrings, resolveInside } from "./path";
+import { prepareRepositoryMutationPath } from "./repository-mutation";
 import {
   formatGeneratedFileMode,
   supportsGeneratedFileModes,
@@ -465,8 +466,10 @@ export async function persistOutputBackupPlan(
   };
   // The manifest is the snapshot completion marker. Publish it only after
   // backup payloads are stored so an interrupted run cannot look restorable.
+  const manifestAbsolutePath = resolveInside(rootPath, manifestPath);
+  await prepareRepositoryMutationPath(rootPath, manifestAbsolutePath);
   await publishAtomicFile(
-    resolveInside(rootPath, manifestPath),
+    manifestAbsolutePath,
     renderValidatedJson(manifest as unknown as JsonRecord, manifestPath),
     { testHooks }
   );
