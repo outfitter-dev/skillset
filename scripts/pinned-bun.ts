@@ -292,11 +292,11 @@ async function pathExists(path: string): Promise<boolean> {
 /**
  * Whether a cache root holds the requested interpreter.
  *
- * Valid means the root's content is ours: `bin/<bun>` is a regular file, not a
- * link into a mutable install such as `~/.bun/bin/bun`, it reports `version`,
- * and the owned `bunx` shim sits beside it. Every branch that accepts a root
- * gates on this, so none can hand back a root whose `bunx` falls through to
- * the ambient PATH.
+ * Valid means the root's content is ours: the root, `bin/`, and `bin/<bun>`
+ * are real entries, not links into a mutable install such as `~/.bun/bin`,
+ * the interpreter reports `version`, and the owned `bunx` shim sits beside
+ * it. Every branch that accepts a root gates on this, so none can hand back
+ * a root whose `bunx` falls through to the ambient PATH.
  *
  * `unknown` means the question could not be answered right now — the file is
  * there but could not be executed. Callers that destroy state must treat it as
@@ -312,7 +312,7 @@ export async function pinnedBunRootState(
   const binDir = join(root, "bin");
   const binPath = join(binDir, executableName);
   if (!(await isExecutable(binPath))) return "invalid";
-  if (!(await isOwnedEntry(binPath))) return "invalid";
+  if (!(await isOwnedLayout(root, executableName))) return "invalid";
   if (
     !(await isPinnedBunx(
       binDir,
@@ -337,6 +337,22 @@ export async function pinnedBunRootState(
 async function isOwnedEntry(path: string): Promise<boolean> {
   const info = await lstat(path).catch(() => undefined);
   return info !== undefined && !info.isSymbolicLink();
+}
+
+/**
+ * Whether the cache root, its `bin/`, and the interpreter are all real
+ * entries. `lstat` follows intermediate links, so each component is checked;
+ * ancestors above the root (a linked `~/.cache`) stay allowed.
+ */
+async function isOwnedLayout(
+  root: string,
+  executableName: string
+): Promise<boolean> {
+  const binDir = join(root, "bin");
+  for (const path of [root, binDir, join(binDir, executableName)]) {
+    if (!(await isOwnedEntry(path))) return false;
+  }
+  return true;
 }
 
 async function isPinnedBunRoot(
@@ -543,7 +559,11 @@ export async function resolvePinnedBun(repoRoot: string): Promise<PinnedBun> {
   // Repair them in place first; replacing the root would quarantine an
   // interpreter another process may be running. Validity still requires the
   // shim, so a failed repair cannot let `bunx` fall through to ambient PATH.
-  await ensurePinnedBunx(binDir).catch(() => {});
+  // Never repair through a linked root or bin/: that would rewrite the
+  // bunx of whatever install the link points at.
+  if (await isOwnedLayout(root, pinnedBunExecutableName())) {
+    await ensurePinnedBunx(binDir).catch(() => {});
+  }
   if (await isPinnedBunRoot(root, version, pinnedBunExecutableName())) {
     return { binDir, binPath, source: "cached", version };
   }

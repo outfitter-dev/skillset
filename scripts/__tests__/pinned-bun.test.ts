@@ -281,6 +281,25 @@ describe.skipIf(!posix)("pinnedBunRootState", () => {
     expect(await pinnedBunRootState(targetRoot, version, "bun")).toBe("invalid");
   });
 
+  test("reports a symlinked root or bin directory as invalid", async () => {
+    // Either link would route the interpreter, and any bunx repair, through
+    // a directory this cache does not own, such as ~/.bun.
+    const version = "9.9.9";
+    const cache = await temporaryDir("cache");
+    const realRoot = join(cache, "real");
+    await adoptPinnedBun(version, realRoot, await fakeInterpreter(version));
+    expect(await pinnedBunRootState(realRoot, version, "bun")).toBe("valid");
+
+    const linkedRoot = join(cache, "linked-root");
+    await symlink(realRoot, linkedRoot);
+    expect(await pinnedBunRootState(linkedRoot, version, "bun")).toBe("invalid");
+
+    const linkedBin = join(cache, "linked-bin");
+    await mkdir(linkedBin);
+    await symlink(join(realRoot, "bin"), join(linkedBin, "bin"));
+    expect(await pinnedBunRootState(linkedBin, version, "bun")).toBe("invalid");
+  });
+
   test("reports a root without the pinned bunx as invalid", async () => {
     // A same-version root published by a checkout that predates the shim
     // holds only `bun`; accepting it would leave `bunx` to the ambient PATH.
