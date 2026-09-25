@@ -368,15 +368,15 @@ describe("bootstrap repo policy", () => {
     );
   });
 
-  test("supported Bun ranges must be bounded semver ranges", () => {
+  test("supported Bun ranges must set a lower bound", () => {
     // Bun.semver.satisfies treats an unparseable range as matching every
     // version, so a malformed range would silently accept any runtime.
     expect(Bun.semver.satisfies("0.1.0", "garbage")).toBe(true);
     expect(supportedBunRangeProblem(">=1.4.0")).toBeUndefined();
     expect(supportedBunRangeProblem(">=1.4.0 <1.5.0")).toBeUndefined();
-    for (const malformed of ["garbage", "*", "x", ">=abc", "  "]) {
+    for (const malformed of ["garbage", "*", "x", ">=abc", "  ", "<1.5.0"]) {
       expect(supportedBunRangeProblem(malformed)).toContain(
-        "is not a bounded semver range"
+        "must set a lower bound"
       );
     }
     expect(supportedBunRangeProblem(undefined)).toBe(
