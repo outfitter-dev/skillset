@@ -542,23 +542,21 @@ async function renderPluginTarget(
     rendered.push(licenseFile);
     pluginRootFiles.push(licenseFile);
   }
-  if (standardOwner && target === "codex") {
-    for (const supportPath of [
-      "README.md",
-      "CHANGELOG.md",
-      "assets",
-      "scripts",
-      "src",
-    ] as const) {
-      const supportFiles = await copyAgentPluginSupportPath(
-        graph,
-        plugin,
-        basePath,
-        supportPath
-      );
-      rendered.push(...supportFiles);
-      pluginRootFiles.push(...supportFiles);
-    }
+  // The standard package owns root support files; Codex coalesces into it.
+  // Without it, every target keeps the README, scripts, and src companions,
+  // as with LICENSE above, and Codex also passes assets through.
+  const supportPaths = standardOwner
+    ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src"] as const : []
+    : target === "codex" ? ["README.md", "assets", "scripts", "src"] as const : ["README.md", "scripts", "src"] as const;
+  for (const supportPath of supportPaths) {
+    const supportFiles = await copyAgentPluginSupportPath(
+      graph,
+      plugin,
+      basePath,
+      supportPath
+    );
+    rendered.push(...supportFiles);
+    pluginRootFiles.push(...supportFiles);
   }
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
   const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);

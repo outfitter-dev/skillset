@@ -150,7 +150,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:5e0e033eb0daea94c2e7d8fd93ec659db2d176df2eca01a0012f6cdd63d7a4c7",
+  "provenanceHash": "sha256:a9e47c93c6b02d6cdacef76ce1c6acbc30e90b5ad0335a2e2c53de8343d95516",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -303,6 +303,41 @@
       "destination": "readme",
       "evidence": [
         {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 specification",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-readme",
+      "outputs": [
+        {
+          "kind": "companion",
+          "path": "plugins/skillset/README.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/README.md",
+      "sourceUnit": "plugin.skillset.feature:readme",
+      "standardProfile": "agent-plugins-1.0",
+      "status": "target_native"
+    },
+    {
+      "destination": "readme",
+      "evidence": [
+        {
           "kind": "docs",
           "ref": "docs/reference/features/plugins.md"
         }
@@ -318,7 +353,7 @@
       "sourcePath": ".skillset/plugins/skillset/README.md",
       "sourceUnit": "plugin.skillset.feature:readme",
       "status": "target_native",
-      "target": "claude"
+      "target": "codex"
     },
     {
       "destination": "skill",
