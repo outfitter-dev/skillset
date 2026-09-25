@@ -11,6 +11,7 @@ import {
   readLegacyGeneratedLockFromDisk,
 } from "../generated-lock-read";
 import { readManagedOutputState } from "../output-safety";
+import { liveRenderDestination } from "../build-destination";
 import { readExistingMarketplaceState } from "../render-marketplaces";
 
 function errno(code: string): Error & { code: string } {
@@ -308,7 +309,7 @@ test("legacy inspection remains explicit for pre-v4 locks", async () => {
 
 test("marketplace state keeps empty-v2 inspection explicit and fails closed on corrupt JSON", async () => {
   const root = await createTestGitFixtureRoot("skillset-lock-read-marketplace-");
-  await expect(readExistingMarketplaceState(root)).resolves.toEqual({
+  await expect(readExistingMarketplaceState(liveRenderDestination(root))).resolves.toEqual({
     activeCatalogs: {},
     entries: [],
   });
@@ -324,13 +325,13 @@ test("marketplace state keeps empty-v2 inspection explicit and fails closed on c
     "utf8"
   );
 
-  await expect(readExistingMarketplaceState(root)).resolves.toEqual({
+  await expect(readExistingMarketplaceState(liveRenderDestination(root))).resolves.toEqual({
     activeCatalogs: { claude: "outfitter" },
     entries: [],
   });
 
   await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
-  await expect(readExistingMarketplaceState(root)).rejects.toThrow(
+  await expect(readExistingMarketplaceState(liveRenderDestination(root))).rejects.toThrow(
     "workspace lock skillset.lock cannot guard generated state because it is not valid JSON"
   );
 });
