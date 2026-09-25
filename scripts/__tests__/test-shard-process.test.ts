@@ -86,7 +86,12 @@ test("SET-667: a rejected shard launch terminates its running siblings first", a
     () =>
       runProcess(
         process.execPath,
-        ["-e", "console.log(process.pid);await Bun.sleep(30000)"],
+        [
+          "-e",
+          // Ignoring SIGTERM forces the SIGKILL escalation, so the group only
+          // dies ~2s after the abort: an unawaited abort would return first.
+          "process.on('SIGTERM',()=>{});console.log(process.pid);await Bun.sleep(30000)",
+        ],
         root,
         process.env,
         log,
@@ -108,7 +113,7 @@ test("SET-667: a rejected shard launch terminates its running siblings first", a
   ]);
   await expect(run).rejects.toThrow();
   const pid = await waitForPid(log);
-  await expectGroupGone(pid, 1000);
+  expectGroupGone(pid);
   expect(controller.signal.aborted).toBeTrue();
 });
 
@@ -134,16 +139,13 @@ async function expectGone(pid: number): Promise<void> {
   throw new Error(`descendant ${pid} survived shard termination`);
 }
 
-async function expectGroupGone(pgid: number, timeoutMs: number): Promise<void> {
-  const deadline = performance.now() + timeoutMs;
-  do {
-    try {
-      process.kill(-pgid, 0);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
-      throw error;
-    }
-    await Bun.sleep(10);
-  } while (performance.now() < deadline);
+/** No grace period: the group must already be gone when the run settles. */
+function expectGroupGone(pgid: number): void {
+  try {
+    process.kill(-pgid, 0);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
+    throw error;
+  }
   throw new Error(`process group ${pgid} outlived the rejected shard run`);
 }

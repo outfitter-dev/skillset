@@ -97,6 +97,10 @@ export async function runProcess(
 /**
  * Runs tasks together under one controller. The first rejection aborts the
  * rest, and nothing returns or throws until every task has settled.
+ *
+ * Each task must pass `controller.signal` to the processes it starts (as
+ * `runProcess` does): a task that ignores the signal holds the whole call
+ * until its own timeout.
  */
 export async function runAllOrAbort<T>(
   controller: AbortController,
