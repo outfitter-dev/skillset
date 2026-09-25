@@ -1,14 +1,13 @@
-import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
+import { readChangeLedger, type ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
 import { compareStrings } from "@skillset/core/internal/path";
 import {
-  pluginScopeFromSourceUnit,
   sourceUnitDisplay,
   sourceUnitSelector,
 } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord } from "@skillset/core/internal/types";
 import { workspaceChangeFile } from "@skillset/core";
 
-import { changeCheck, resolvePendingChangeRef } from "./change-entries";
+import { changeCheck, resolvePendingChangeRef, uncoveredSourceChanges } from "./change-entries";
 import type { ChangeLedgerLockOptions } from "./change-ledger-lock";
 import { withChangeLedgerMutation } from "./change-ledger-mutation";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions } from "./change-status";
@@ -96,17 +95,11 @@ async function planChangeEvidenceRefresh(
     });
   }
   if (ref === undefined) {
-    const covered = new Set<string>();
-    for (const entry of selected) {
-      if (blocking.some((issue) => issue.path === entry.path)) continue;
-      for (const scope of entry.scopes) {
-        covered.add(scope);
-        const pluginScope = pluginScopeFromSourceUnit(scope);
-        if (pluginScope !== undefined) covered.add(pluginScope);
-      }
-    }
-    for (const change of report.status.sourceChanges) {
-      if (covered.has(change.id)) continue;
+    const scopes = selected
+      .filter((entry) => !blocking.some((issue) => issue.path === entry.path))
+      .flatMap((entry) => entry.scopes);
+    const events = await readChangeLedger(rootPath, storageOptions);
+    for (const change of uncoveredSourceChanges(report.status.sourceChanges, scopes, events)) {
       blocking.push({
         code: "change-uncovered",
         message: `source change ${sourceUnitDisplay(change.id)} is missing an otherwise-valid pending change entry`,
