@@ -143,7 +143,9 @@ import {
   skillScope,
 } from "./render-hooks";
 import {
+  liveRenderDestination,
   renderProjectSessionStartHooks,
+  type RenderDestination,
   type RenderedProjectHook,
 } from "./render-project-hooks";
 import { hashOwnedSettingsEntries } from "./settings-entry";
@@ -199,7 +201,10 @@ interface RenderedProjectAgentFile {
   readonly target: TargetName;
 }
 
-export async function renderBuildGraph(graph: BuildGraph): Promise<readonly RenderedFile[]> {
+export async function renderBuildGraph(
+  graph: BuildGraph,
+  destination: RenderDestination = liveRenderDestination(graph.rootPath)
+): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
@@ -283,7 +288,8 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
       const item = projectIslandItems.get(file.path);
       if (item === undefined) throw new Error(`skillset: missing island lock item for ${file.path}`);
       return [file.path, { file, sourceHash: item.sourceHash }];
-    }))
+    })),
+    destination
   );
   const composedSettingsPaths = new Set(projectHooks.map((hook) => hook.file.path));
   const managedSettingsPaths = new Set(projectHooks.filter((hook) => hook.managed).map((hook) => hook.file.path));
