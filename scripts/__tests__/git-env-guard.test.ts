@@ -67,6 +67,34 @@ Bun.spawn({ cmd: [...args], env: gitSafeEnv() });
     );
   });
 
+  test("SET-632: rejects copied ambient env restored after sanitizing", () => {
+    const violations = scanGitEnvSource(
+      "packages/core/src/example.ts",
+      `
+const inherited = { ...process.env };
+Bun.spawn(["git", "status"], { env: { ...gitSafeEnv(), ...inherited } });
+`
+    );
+
+    expect(violations).toHaveLength(1);
+  });
+
+  test("SET-632: resolves aliases from their lexical scope", () => {
+    const violations = scanGitEnvSource(
+      "packages/core/src/example.ts",
+      `
+const env = process.env;
+{
+  const env = gitSafeEnv();
+  void env;
+}
+Bun.spawn(["git", "status"], { env });
+`
+    );
+
+    expect(violations).toHaveLength(1);
+  });
+
   test("SET-632: sanitizer mentions outside an environment spread do not satisfy the guard", () => {
     const violations = scanGitEnvSource(
       "packages/core/src/example.ts",

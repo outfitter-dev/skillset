@@ -151,21 +151,6 @@ function identifierIsSanitized(id: ts.Identifier): boolean {
   return initializer !== undefined && expressionIsSanitized(initializer);
 }
 
-function enclosingFunction(node: ts.Node): ts.Node | undefined {
-  for (let current: ts.Node | undefined = node.parent; current !== undefined; current = current.parent) {
-    if (
-      ts.isFunctionDeclaration(current) ||
-      ts.isFunctionExpression(current) ||
-      ts.isArrowFunction(current) ||
-      ts.isMethodDeclaration(current) ||
-      ts.isConstructorDeclaration(current)
-    ) {
-      return current;
-    }
-  }
-  return undefined;
-}
-
 function calleeName(node: ts.CallExpression): string | undefined {
   const expr = node.expression;
   if (ts.isIdentifier(expr)) return expr.text;
@@ -235,29 +220,35 @@ function expressionIsAmbientProcessEnv(
     const initializer = localInitializer(expression);
     return initializer !== undefined && expressionIsAmbientProcessEnv(initializer, nextSeen);
   }
+  if (ts.isObjectLiteralExpression(expression)) {
+    return expression.properties.some(
+      (property) =>
+        ts.isSpreadAssignment(property) &&
+        expressionIsAmbientProcessEnv(property.expression, nextSeen)
+    );
+  }
   return false;
 }
 
 function localInitializer(id: ts.Identifier): ts.Expression | undefined {
-  let match: ts.VariableDeclaration | undefined;
   const source = id.getSourceFile();
-  const owner = enclosingFunction(id) ?? source;
   const usePosition = id.getStart(source);
-  const visit = (node: ts.Node): void => {
-    if (node.getStart(source) >= usePosition) return;
-    if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.name.text === id.text &&
-      node.initializer !== undefined &&
-      (match === undefined || node.getStart(source) > match.getStart(source))
-    ) {
-      match = node;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(owner);
-  return match?.initializer;
+  for (let current: ts.Node | undefined = id.parent; current !== undefined; current = current.parent) {
+    if (!ts.isBlock(current) && !ts.isSourceFile(current)) continue;
+    const declaration = current.statements
+      .toReversed()
+      .flatMap((statement) =>
+        ts.isVariableStatement(statement) ? [...statement.declarationList.declarations] : []
+      )
+      .find(
+        (candidate) =>
+          candidate.getStart(source) < usePosition &&
+          ts.isIdentifier(candidate.name) &&
+          candidate.name.text === id.text
+      );
+    if (declaration !== undefined) return declaration.initializer;
+  }
+  return undefined;
 }
 
 function unwrapExpression(node: ts.Expression): ts.Expression {
