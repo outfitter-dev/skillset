@@ -58,8 +58,13 @@ describe("project SessionStart hook rendering", () => {
       join(root, ".gitignore"),
       ".claude/settings.json\n.codex/hooks.json\n"
     );
+    // A hook-exported GIT_DIR pointing at a bare decoy makes an unsanitized
+    // check-ignore fail (no work tree), so the ignored-roots case below only
+    // passes when the probe strips repository-targeting variables.
+    const decoy = await createTestGitFixtureRoot("skillset-project-hooks-decoy-");
+    await runTestGit(decoy, "init", "--bare", "-q");
     const previousGitDir = process.env.GIT_DIR;
-    process.env.GIT_DIR = join(process.cwd(), ".git");
+    process.env.GIT_DIR = decoy;
     try {
       expect(await renderProjectSessionStartHooks(graph(root, "auto"))).toEqual([]);
 
