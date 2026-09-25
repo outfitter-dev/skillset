@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -96,7 +97,7 @@ describe("measure-gate report", () => {
     expect(report.command).toEqual(["true"]);
     expect(report).not.toHaveProperty("thermalCondition");
     expect(report.commandSucceeded).toBe(true);
-    expect(report.schemaVersion).toBe(3);
+    expect(report.schemaVersion).toBe(4);
     expect(report.revision.head).toMatch(/^[0-9a-f]{40}$/u);
     expect(report.revision.lockfileSha256).toMatch(/^[0-9a-f]{64}$/u);
     expect(report.toolchainBefore.resolvedBunVersion).toBe(Bun.version);
@@ -274,6 +275,29 @@ describe("measure-gate report", () => {
     expect(report.attributabilityIssues.join(" ")).toContain(
       "toolchain after the run could not be read"
     );
+  });
+
+  test("records the digest of each declared output", async () => {
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
+    const pinnedRepo = await createPinnedRepo("skillset-measure-output-");
+    const output = join(pinnedRepo, "junit.xml");
+
+    const child = runMeasureGate(
+      pinnedRepo,
+      outDir,
+      ["sh", "-c", "printf measured > junit.xml"],
+      ["--output", output]
+    );
+    expect(await child.exited).toBe(0);
+
+    const report = await readOnlyReport(outDir);
+    expect(report.schemaVersion).toBe(4);
+    expect(report.outputs).toEqual([
+      {
+        path: output,
+        sha256: createHash("sha256").update("measured").digest("hex"),
+      },
+    ]);
   });
 });
 

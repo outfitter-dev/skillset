@@ -22,13 +22,16 @@
  *
  * Usage:
  *   bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>]
- *     [--out <dir>] [--note <text>] [--repo <dir>]
+ *     [--out <dir>] [--note <text>] [--repo <dir>] [--output <path>]...
  *     -- <command> [args...]
  *
  * `--repo` measures a checkout other than this one. The baseline for a goal
  * must come from a clean tree at the revision it claims, and the harness
  * itself is an uncommitted or added file in the working checkout, so the
  * honest baseline runs against a disposable clone at that exact revision.
+ *
+ * `--output` names a file the command produces. Its sha256 is recorded after
+ * the run, so a consumer can prove the bytes it compares came from this run.
  */
 import { createHash, randomUUID } from "node:crypto";
 import { openSync, closeSync } from "node:fs";
@@ -104,9 +107,16 @@ export interface HostSnapshot {
  */
 export type ResourceAccounting = "complete" | "suspect" | "unavailable";
 
+/** A declared output of the measured command, hashed after the run. */
+export interface OutputDigest {
+  readonly path: string;
+  /** Null when the command did not leave the file behind. */
+  readonly sha256: string | null;
+}
+
 /** One measured gate invocation. */
 export interface MeasurementReport {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
   readonly label: string;
   readonly note: string | null;
   // No cold/warm field: the harness does not establish a cache condition.
@@ -136,6 +146,7 @@ export interface MeasurementReport {
   readonly hostBefore: HostSnapshot;
   readonly hostAfter: HostSnapshot;
   readonly resources: ResourceUsage;
+  readonly outputs: readonly OutputDigest[];
   readonly logPath: string;
   readonly rusagePath: string;
 }
@@ -146,6 +157,7 @@ interface Options {
   readonly note: string | null;
   readonly leadInSeconds: number;
   readonly outDir: string;
+  readonly outputs: readonly string[];
   readonly command: readonly string[];
 }
 
@@ -163,7 +175,7 @@ async function main(argv: readonly string[]): Promise<number> {
   } catch (error) {
     console.error(`measure-gate: ${message(error)}`);
     console.error(
-      "usage: bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>] [--out <dir>] [--note <text>] -- <command> [args...]"
+      "usage: bun scripts/measure-gate.ts --label <label> [--lead-in <seconds>] [--out <dir>] [--note <text>] [--output <path>]... -- <command> [args...]"
     );
     return 2;
   }
@@ -279,6 +291,7 @@ async function main(argv: readonly string[]): Promise<number> {
     resources,
     wallMs
   );
+  const outputs = await Promise.all(options.outputs.map(digestOutput));
 
   const attributabilityIssues = collectAttributabilityIssues(
     revision,
@@ -299,12 +312,13 @@ async function main(argv: readonly string[]): Promise<number> {
     leadInSeconds: options.leadInSeconds,
     logPath,
     note: options.note,
+    outputs,
     resourceAccounting,
     resources,
     revision,
     revisionAfter: revisionAfter ?? null,
     rusagePath,
-    schemaVersion: 3,
+    schemaVersion: 4,
     signal,
     startedAt: startedAt.toISOString(),
     toolchainAfter: toolchainAfter ?? null,
@@ -337,6 +351,7 @@ function parseOptions(argv: readonly string[]): Options {
   let leadInSeconds = 0;
   let measuredRepoRoot = scriptRepoRoot;
   let outDir = join(scriptRepoRoot, ".skillset", "cache", "measure");
+  const outputs: string[] = [];
   const command: string[] = [];
   let index = 0;
   for (; index < argv.length; index += 1) {
@@ -357,6 +372,10 @@ function parseOptions(argv: readonly string[]): Options {
         break;
       case "--out":
         outDir = resolve(requireValue(flag, value));
+        index += 1;
+        break;
+      case "--output":
+        outputs.push(resolve(requireValue(flag, value)));
         index += 1;
         break;
       case "--repo":
@@ -387,6 +406,7 @@ function parseOptions(argv: readonly string[]): Options {
     leadInSeconds,
     note,
     outDir,
+    outputs,
     repoRoot: measuredRepoRoot,
   };
 }
@@ -445,6 +465,17 @@ async function readToolchain(repoRoot: string): Promise<ToolchainSnapshot> {
     resolvedBunPath: pinned.binPath,
     resolvedBunSource: pinned.source,
     resolvedBunVersion,
+  };
+}
+
+async function digestOutput(path: string): Promise<OutputDigest> {
+  const bytes = await readFile(path).catch(() => undefined);
+  return {
+    path,
+    sha256:
+      bytes === undefined
+        ? null
+        : createHash("sha256").update(bytes).digest("hex"),
   };
 }
 
