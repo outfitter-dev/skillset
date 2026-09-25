@@ -299,6 +299,28 @@ describe("measure-gate report", () => {
       },
     ]);
   });
+
+  test("resolves a relative output against the measured checkout", async () => {
+    const outDir = await createTestFixtureRoot("skillset-measure-gate-");
+    const pinnedRepo = await createPinnedRepo("skillset-measure-relative-");
+
+    // The harness runs from this repository; the command runs in --repo.
+    const child = runMeasureGate(
+      pinnedRepo,
+      outDir,
+      ["sh", "-c", "mkdir out && printf measured > out/junit.xml"],
+      ["--output", "out/junit.xml"]
+    );
+    expect(await child.exited).toBe(0);
+
+    const report = await readOnlyReport(outDir);
+    expect(report.outputs).toEqual([
+      {
+        path: join(pinnedRepo, "out", "junit.xml"),
+        sha256: createHash("sha256").update("measured").digest("hex"),
+      },
+    ]);
+  });
 });
 
 async function createPinnedRepo(prefix: string): Promise<string> {

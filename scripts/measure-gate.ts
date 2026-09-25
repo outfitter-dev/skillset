@@ -30,8 +30,10 @@
  * itself is an uncommitted or added file in the working checkout, so the
  * honest baseline runs against a disposable clone at that exact revision.
  *
- * `--output` names a file the command produces. Its sha256 is recorded after
- * the run, so a consumer can prove the bytes it compares came from this run.
+ * `--output` names a file the command produces; a relative path resolves
+ * against the measured checkout, where the command runs. The file's sha256 is
+ * recorded after the run, so a consumer can prove the bytes it compares are
+ * the ones present when this run ended.
  */
 import { createHash, randomUUID } from "node:crypto";
 import { openSync, closeSync } from "node:fs";
@@ -375,7 +377,7 @@ function parseOptions(argv: readonly string[]): Options {
         index += 1;
         break;
       case "--output":
-        outputs.push(resolve(requireValue(flag, value)));
+        outputs.push(requireValue(flag, value));
         index += 1;
         break;
       case "--repo":
@@ -406,7 +408,9 @@ function parseOptions(argv: readonly string[]): Options {
     leadInSeconds,
     note,
     outDir,
-    outputs,
+    // The command runs in the measured checkout, so its relative output paths
+    // name files there, not in the harness's working directory.
+    outputs: outputs.map((output) => resolve(measuredRepoRoot, output)),
     repoRoot: measuredRepoRoot,
   };
 }
