@@ -10,11 +10,11 @@ Tests build fake repos at three tiers. Pick the lighter one unless a case earns 
 
 ### In-test temp fixtures (default)
 
-Most coverage builds a small `.skillset/` tree inline and writes it to a temp directory per test. Each test file defines a tiny builder that takes a `Record<path, content>` map:
+Most coverage builds a small `.skillset/` tree inline and writes it to a temp directory per test. A tiny builder takes a `Record<path, content>` map:
 
-- `fixture(...)` — `src/__tests__/skillset.test.ts`
-- `contractFixture(...)` — `src/__tests__/contract.test.ts`
-- `fixture(...)` — `src/__tests__/audit-hardening.test.ts`
+- `fixture(...)` — defined locally in `src/__tests__/skillset.test.ts`
+- `contractFixture(...)` — shared by the CLI contract suites (`contract.test.ts`, `contract-release.test.ts`, `contract-reconcile.test.ts`) and exported from `src/__tests__/contract-test-helpers.ts` with the suites' other Git, change-stream, and CLI helpers
+- `fixture(...)` — defined locally in `src/__tests__/audit-hardening.test.ts`
 
 Use this for focused positive cases, negative/diagnostic cases, and change/release lifecycle scenarios. The fixture content lives next to the assertion that depends on it, so the test reads top to bottom. This is the common case by a wide margin and should stay inline — the maps are small and each is semantically distinct, so centralizing them would not meaningfully reduce volume.
 

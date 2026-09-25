@@ -162,7 +162,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:98585c4d4cac441f3cc72562e96ecd093bcb6833c99071d5890fbd80a9a01e52",
+  "provenanceHash": "sha256:a5e30c1d83fa1b1666b685c2e071d6d8439bc7c7632cdf0a5a0d7558375c8965",
   "renderResults": [
     {
       "destination": "changelog",
@@ -170,7 +170,7 @@
         {
           "kind": "test",
           "note": "SET-38 release apply coverage",
-          "ref": "apps/skillset/src/__tests__/contract.test.ts"
+          "ref": "apps/skillset/src/__tests__/contract-release.test.ts"
         }
       ],
       "featureId": "releases",
