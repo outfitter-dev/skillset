@@ -14,6 +14,8 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
+
 export interface PathContainmentViolation {
   readonly file: string;
   readonly label: string;
@@ -179,7 +181,12 @@ function isSlashPrefixTemplate(node: ts.Expression): boolean {
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function runText(command: readonly string[]): Promise<string> {
-  const subprocess = Bun.spawn([...command], { cwd: rootDir, stderr: "pipe", stdout: "pipe" });
+  const subprocess = Bun.spawn([...command], {
+    cwd: rootDir,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
   const [exitCode, stdout, stderr] = await Promise.all([
     subprocess.exited,
     new Response(subprocess.stdout).text(),
