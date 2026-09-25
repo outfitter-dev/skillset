@@ -3,8 +3,7 @@
 # Only test files known or reasoned to pass on Windows are listed. POSIX-only
 # suites (bootstrap.test.ts shell fixtures, runtime-hooks.test.ts extensionless
 # fake commands) stay out until they are made Windows-aware. The list grows
-# with the Windows fixes: #554 adds packages/core/src/__tests__/path.test.ts
-# (path containment) and #550 adds its Windows-runnable runtime-hooks coverage.
+# with the Windows fixes: #550 adds its Windows-runnable runtime-hooks coverage.
 name: Windows scripts
 
 on:
@@ -20,6 +19,7 @@ on:
       - scripts/test-shard-workspace.ts
       - scripts/__tests__/test-shard-workspace.test.ts
       - packages/core/src/path.ts
+      - packages/core/src/__tests__/path.test.ts
       - packages/core/src/__tests__/diagnostic-path.test.ts
       - apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
 
@@ -47,6 +47,7 @@ jobs:
           bun run test:focused --
           scripts/__tests__/pinned-bun.test.ts
           scripts/__tests__/test-shard-workspace.test.ts
+          packages/core/src/__tests__/path.test.ts
           packages/core/src/__tests__/diagnostic-path.test.ts
           apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
       - name: Bootstrap doctor finds the cached pin under Git Bash without a global Bun
