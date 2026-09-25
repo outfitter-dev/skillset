@@ -6,15 +6,15 @@ status: accepted
 created: 2026-09-25
 updated: 2026-09-25
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [2, 28, 30, 32, 33, 36]
-amends: [2, 28, 30, 32, 33]
+depends_on: [2, 23, 28, 30, 32, 33, 36]
+amends: [2, 23, 28, 30, 32, 33]
 ---
 
 # ADR-0037: One Shared Plugin Package per Plugin
 
 ## Context
 
-Plugin output used to be plugin-first and then provider-first:
+Plugin output used to add a provider segment under each plugin:
 `plugins/<plugin>/claude/`, `plugins/<plugin>/chatgpt/`,
 `plugins/<plugin>/cursor/`, and the Agent Plugins standard bundle at
 `plugins/<plugin>/agents/`. Every enabled provider received a complete copy of
@@ -100,6 +100,10 @@ them as current instruction:
   `plugins/<plugin>/cursor/` with `.cursor-plugin/plugin.json`.” Cursor's
   manifest renders at `plugins/<plugin>/.cursor-plugin/plugin.json` inside the
   shared package.
+- `docs/adrs/0023-versioned-structured-output-for-cli-automation.md`: the
+  example diagnostic path “`plugins/example/codex/skillset.lock`”. Generated
+  plugin provenance lives in the shared `plugins/skillset.lock`; the envelope
+  contract the example illustrates is unchanged.
 - `docs/adrs/0028-open-standards-are-the-portability-floor.md`: “Agent Plugins
   | each `.skillset/plugins/<plugin>/` | `plugins/<plugin>/agents/`”, the
   following paragraph that names `agents` as “a sibling of the existing
@@ -107,7 +111,8 @@ them as current instruction:
   are rendered through the same baseline renderer under
   `plugins/<plugin>/agents/skills/<skill>/`.” The Agent Plugins baseline is the
   root of `plugins/<plugin>/`, and its skills render at
-  `plugins/<plugin>/skills/<skill>/`.
+  `plugins/<plugin>/skills/<skill>/`. The implementation-plan row expecting “an
+  independent `plugins/<plugin>/agents` package” is superseded the same way.
 - `docs/adrs/0030-chatgpt-product-bundles-and-standards-only-builds.md`: “the
   modern plugin bundle at `plugins/<plugin>/chatgpt/`” and “The pure Agent
   Plugins projection remains `plugins/<plugin>/agents/`. The ChatGPT product
@@ -163,6 +168,7 @@ shipping.
 
 - [Tenets](../project/tenets.md) - target-native truth and early drift visibility.
 - [ADR-0002: Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor bundle path amended here.
+- [ADR-0023: Versioned Structured Output For CLI Automation](0023-versioned-structured-output-for-cli-automation.md) - example lock path amended here.
 - [ADR-0028: Open Standards Are the Default Portability Floor](0028-open-standards-are-the-portability-floor.md) - Agent Plugins bundle path amended here.
 - [ADR-0030: ChatGPT Product Bundles and Standards-Only Builds](0030-chatgpt-product-bundles-and-standards-only-builds.md) - ChatGPT and Agent Plugins bundle paths amended here.
 - [ADR-0032: Standards Compilation Is Inherent](0032-standards-compilation-is-inherent.md) - standard package path amended here.

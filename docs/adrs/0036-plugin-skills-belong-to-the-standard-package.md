@@ -4,7 +4,7 @@ slug: plugin-skills-belong-to-the-standard-package
 title: Plugin Skills Belong to the Standard Package
 status: accepted
 created: 2026-09-16
-updated: 2026-09-16
+updated: 2026-09-25
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [28, 30, 32, 33]
 amends: [28, 30, 32]
