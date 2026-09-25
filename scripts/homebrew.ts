@@ -292,8 +292,28 @@ brew install outfitter-dev/tap/skillset
 
 Upgrade or uninstall it with \`brew upgrade skillset\` or \`brew uninstall skillset\`.
 
-Formula updates arrive through a tested pull request and are merged only after tap CI passes.
+Formula updates arrive through a tested pull request and are landed by \`brew pr-pull\` only after tap CI passes.
 `;
+
+/**
+ * Skillset sections previously published to the tap README, frozen as the
+ * exact bytes that shipped so later edits to the current section cannot
+ * rewrite them.
+ */
+export const LEGACY_HOMEBREW_README_SECTIONS = [
+  `## Skillset
+
+Skillset is available as a native CLI for Apple Silicon and Intel macOS.
+
+\`\`\`sh
+brew install outfitter-dev/tap/skillset
+\`\`\`
+
+Upgrade or uninstall it with \`brew upgrade skillset\` or \`brew uninstall skillset\`.
+
+Formula updates arrive through a tested pull request and are merged only after tap CI passes.
+`,
+] as const;
 
 const LEGACY_TAP_INTRO =
   "This tap distributes [Blaze](https://github.com/outfitter-dev/blz) as the [`blz`](Formula/blz.rb) formula.";
@@ -304,6 +324,11 @@ export const updateHomebrewTapReadme = (contents: string): string => {
   const normalized = contents.replace(LEGACY_TAP_INTRO, TAP_INTRO);
   if (normalized.includes(HOMEBREW_README_SECTION)) {
     return normalized;
+  }
+  for (const legacy of LEGACY_HOMEBREW_README_SECTIONS) {
+    if (normalized.includes(legacy)) {
+      return normalized.replace(legacy, () => HOMEBREW_README_SECTION);
+    }
   }
   if (/^## Skillset$/mu.test(normalized)) {
     throw new Error("Homebrew tap README has an unmanaged Skillset section");

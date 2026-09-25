@@ -194,11 +194,23 @@ describe("SET-422 release workflow contract", () => {
     expect(tapStep.with?.repository).toBe("outfitter-dev/homebrew-tap");
     expect(tapStep.with?.token).toBe(homebrewTapToken);
     const pullRequestStep = pullRequest as Step;
+    const pullRequestBody = String(pullRequestStep.with?.body ?? "");
     expect(pullRequestStep.with?.token).toBe(homebrewTapToken);
     expect(pullRequestStep.with?.branch).toBe("release/skillset");
+    expect(pullRequestStep.with?.draft).toBe("always-true");
     expect(pullRequestStep.with?.["add-paths"]).toContain("README.md");
     expect(pullRequestStep.uses).toMatch(
       /^peter-evans\/create-pull-request@[a-f0-9]{40}$/u
+    );
+    expect(pullRequestBody).toContain("Keep this pull request in draft");
+    expect(pullRequestBody).toContain(
+      "Do not mark it ready or merge it through GitHub"
+    );
+    expect(pullRequestBody).toContain(
+      "dispatch the tap `brew pr-pull` workflow from `main`"
+    );
+    expect(pullRequestBody).toContain(
+      "owns both landing the formula and publishing its bottles"
     );
     expect(JSON.stringify(workflow)).not.toContain("gh pr merge");
   });

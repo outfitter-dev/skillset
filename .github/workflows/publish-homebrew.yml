@@ -105,10 +105,18 @@ jobs:
           delete-branch: true
           commit-message: "chore(skillset): update formula to ${{ steps.release.outputs.tag }}"
           title: "chore(skillset): update formula to ${{ steps.release.outputs.tag }}"
+          draft: always-true
           body: |
             Updates `Formula/skillset.rb` from the published [Skillset ${{ steps.release.outputs.tag }}](https://github.com/outfitter-dev/skillset/releases/tag/${{ steps.release.outputs.tag }}) release assets.
 
-            Checksums agree with the attested release manifest and `SHA256SUMS`. This workflow does not merge the pull request.
+            Checksums agree with the attested release manifest and `SHA256SUMS`.
+
+            > [!WARNING]
+            > Keep this pull request in draft. Do not mark it ready or merge it through GitHub.
+            >
+            > After every `brew test-bot` job passes, dispatch the tap `brew pr-pull` workflow from `main` with this pull request number and its exact tested head SHA.
+
+            The `brew pr-pull` workflow owns both landing the formula and publishing its bottles.
           add-paths: |
             Formula/skillset.rb
             README.md
