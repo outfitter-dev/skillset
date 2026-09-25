@@ -45,7 +45,7 @@ test("SET-636 two concurrent successful adds preserve both ledger record sets", 
   expect(events.filter((event) => event.type === "change.covered")).toHaveLength(2);
 });
 
-test("SET-636 a failed release keeps a concurrent add that waited on the lock", async () => {
+test("SET-636 a failed release hands the lock to a waiting add, which then commits", async () => {
   const root = await mutationFixture();
   await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Changed before a racing release."), "utf8");
   await commitFixture(root);
@@ -172,6 +172,34 @@ test("SET-636 failed release rollback removes only transaction-owned JSONL recor
   expect(ledgerEvents(ledger).some((event) => event.type === "release.applied")).toBe(false);
   expect(await Bun.file(join(root, added.entry.path)).exists()).toBe(true);
   expect(await Bun.file(join(root, ".skillset/changes/history.jsonl")).exists()).toBe(false);
+});
+
+test("SET-636 a failure while removing pending files rolls the whole release back", async () => {
+  const root = await mutationFixture();
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Changed before a release whose cleanup fails."), "utf8");
+  await commitFixture(root);
+  const added = await addChangeEntry(root, {
+    bump: "patch",
+    reason: {
+      kind: "inline",
+      value: "Pending change whose release fails while removing applied pending files.",
+    },
+    scopes: ["skill:demo"],
+  });
+  const statePath = join(root, ".skillset/changes/state.json");
+  const stateBefore = await Bun.file(statePath).exists() ? await readFile(statePath, "utf8") : undefined;
+  const ledgerBefore = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+
+  await expect(applyRelease(root, {
+    beforePendingRemoval: async () => {
+      throw new Error("test: pending removal failed after the build");
+    },
+  })).rejects.toThrow("test: pending removal failed after the build");
+
+  expect(await Bun.file(statePath).exists() ? await readFile(statePath, "utf8") : undefined).toBe(stateBefore);
+  expect(await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8")).toBe(ledgerBefore);
+  expect(await Bun.file(join(root, ".skillset/changes/history.jsonl")).exists()).toBe(false);
+  expect(await Bun.file(join(root, added.entry.path)).exists()).toBe(true);
 });
 
 function spawnAdd(
