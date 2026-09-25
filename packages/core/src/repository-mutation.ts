@@ -10,6 +10,8 @@ import {
   sep,
 } from "node:path";
 
+import { isPathInside } from "./path";
+
 /**
  * Repository mutation ancestry.
  *
@@ -197,25 +199,15 @@ function repositoryRelativePath(
 ): string {
   const unresolvedRoot = resolve(workspaceRoot);
   const absolute = isAbsolute(path) ? resolve(path) : resolve(unresolvedRoot, path);
-  const fromUnresolved = relative(unresolvedRoot, absolute);
-  if (isContainedRelativePath(fromUnresolved)) {
-    return fromUnresolved;
+  if (isPathInside(unresolvedRoot, absolute, { allowEqual: true })) {
+    return relative(unresolvedRoot, absolute);
   }
-  const fromResolved = relative(resolvedRoot, absolute);
-  if (isContainedRelativePath(fromResolved)) {
-    return fromResolved;
+  if (isPathInside(resolvedRoot, absolute, { allowEqual: true })) {
+    return relative(resolvedRoot, absolute);
   }
   throw new RepositoryMutationError(`path escapes workspace root: ${path}`, {
     logicalPath: path,
   });
-}
-
-function isContainedRelativePath(relativePath: string): boolean {
-  return (
-    relativePath !== ".." &&
-    !relativePath.startsWith(`..${sep}`) &&
-    !isAbsolute(relativePath)
-  );
 }
 
 async function inspectComponent(path: string, logicalPath: string) {
