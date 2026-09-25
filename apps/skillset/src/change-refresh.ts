@@ -15,6 +15,7 @@ import type { JsonRecord } from "@skillset/core/internal/types";
 import { workspaceChangeFile } from "@skillset/core";
 
 import { changeCheck, resolvePendingChangeRef } from "./change-entries";
+import { withChangeLedgerMutation } from "./change-ledger-mutation";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions } from "./change-status";
 
 export interface ChangeRefreshOptions extends ChangeStatusOptions {
@@ -29,10 +30,14 @@ export interface ChangeRefreshOptions extends ChangeStatusOptions {
 }
 
 export interface ChangeLedgerLockOptions {
+  /** @internal Test seam after this owner creates the lock directory. */
+  readonly afterLockAcquired?: () => Promise<void>;
   readonly heartbeatMs?: number;
   readonly isProcessAlive?: (pid: number) => boolean;
   readonly leaseMs?: number;
   readonly now?: () => number;
+  /** @internal Test seam when another owner already holds the lock. */
+  readonly onLockContention?: () => Promise<void>;
   readonly pid?: number;
   readonly pollMs?: number;
   /** @internal Test seam for deterministically advancing an owned heartbeat. */
@@ -58,17 +63,6 @@ export interface ChangeRefreshReport {
   readonly written: boolean;
 }
 
-type LedgerEvent = {
-  readonly payload: JsonRecord;
-  readonly type: ChangeLedgerEventType;
-};
-
-type AppendLedgerEvents = (
-  rootPath: string,
-  sourceDir: string | undefined,
-  events: readonly LedgerEvent[]
-) => Promise<void>;
-
 const REFRESHABLE_EVIDENCE_CODES = new Set(["change-evidence-missing", "change-evidence-stale"]);
 const CHANGE_LEDGER_LOCK_HEARTBEAT_MS = 10_000;
 const CHANGE_LEDGER_LOCK_LEASE_MS = 60_000;
@@ -76,13 +70,12 @@ const CHANGE_LEDGER_LOCK_TIMEOUT_MS = 10_000;
 
 export async function refreshChangeEvidenceWithAppend(
   rootPath: string,
-  options: ChangeRefreshOptions,
-  appendLedgerEvents: AppendLedgerEvents
+  options: ChangeRefreshOptions
 ): Promise<ChangeRefreshReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
   if (!options.write) return planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
 
-  return withChangeLedgerLock(rootPath, storageOptions.sourceDir, options.lock, async (lock) => {
+  return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
     let beforeFinalComparison = options.beforeFinalComparison;
     let beforeOwnershipVerification = options.beforeOwnershipVerification;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -92,13 +85,13 @@ export async function refreshChangeEvidenceWithAppend(
       beforeFinalComparison = undefined;
       const confirmed = await planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
       if (refreshPlanKey(planned) !== refreshPlanKey(confirmed)) continue;
-      await lock.assertOwned();
+      await mutation.assertOwned();
       await beforeOwnershipVerification?.();
       beforeOwnershipVerification = undefined;
       const fresh = await planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
       if (refreshPlanKey(confirmed) !== refreshPlanKey(fresh)) continue;
-      await lock.assertOwned();
-      await appendLedgerEvents(rootPath, storageOptions.sourceDir, refreshLedgerEvents(fresh.entries));
+      await mutation.assertOwned();
+      await mutation.appendLedger(refreshLedgerEvents(fresh.entries));
       return { ...fresh, written: true };
     }
     throw new Error("skillset: source or pending change evidence kept changing while change refresh was applying; retry the command");
@@ -174,7 +167,10 @@ async function planChangeEvidenceRefresh(
   };
 }
 
-function refreshLedgerEvents(entries: readonly ChangeRefreshEntry[]): readonly LedgerEvent[] {
+function refreshLedgerEvents(entries: readonly ChangeRefreshEntry[]): readonly {
+  readonly payload: JsonRecord;
+  readonly type: ChangeLedgerEventType;
+}[] {
   return entries.map((entry) => ({
     payload: {
       reasonId: entry.ref.slice(1),
@@ -203,9 +199,11 @@ export async function withChangeLedgerLock<T>(
   await prepareRepositoryMutationPath(rootPath, lockPath);
   const settings = changeLedgerLockSettings(input);
   return withOwnedDirectoryLock({
+    afterAcquired: input?.afterLockAcquired,
     lockPath,
     lostOwnershipError: () =>
       new Error(`skillset: lost ownership of change ledger lock ${ledgerPath}.lock before append`),
+    onContention: input?.onLockContention,
     ownerPid: settings.pid,
     staleOwner: {
       isProcessAlive: settings.isProcessAlive,
