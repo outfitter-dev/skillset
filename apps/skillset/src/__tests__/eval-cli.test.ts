@@ -1,11 +1,11 @@
-import { chmod, mkdir, readFile } from "node:fs/promises";
+import { chmod, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 
 import { expectProcessGone } from "../../../../scripts/test-helpers/process";
-import { reapOwnedProcess, waitForPath } from "../../../../scripts/test-helpers/wait";
+import { reapOwnedProcess, waitForPids } from "../../../../scripts/test-helpers/wait";
 
 test("SET-386: eval list reports the resolved portable case-target matrix in text and JSON", async () => {
   const root = await fixture({
@@ -114,11 +114,7 @@ test("SET-387: SIGINT cancels an eval provider process tree before the CLI exits
     stdout: "pipe",
   });
   try {
-    await waitForPath(marker, "eval CLI provider pid marker");
-    const providerPids = (await readFile(marker, "utf8"))
-      .trim()
-      .split(/\s+/u)
-      .map(Number);
+    const providerPids = await waitForPids(marker, 2, "eval CLI provider pid marker");
 
     process.kill(proc.pid, "SIGINT");
     const [exitCode] = await Promise.all([
@@ -132,7 +128,7 @@ test("SET-387: SIGINT cancels an eval provider process tree before the CLI exits
       await expectProcessGone(pid);
     }
   } finally {
-    reapOwnedProcess(proc);
+    await reapOwnedProcess(proc);
   }
 });
 

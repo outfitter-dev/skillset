@@ -8,7 +8,7 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import { expectProcessGone } from "../../../../scripts/test-helpers/process";
-import { reapOwnedProcess, waitForPath } from "../../../../scripts/test-helpers/wait";
+import { reapOwnedProcess, waitForPids } from "../../../../scripts/test-helpers/wait";
 
 import {
   listAdHocTestRuns,
@@ -561,11 +561,7 @@ Use this skill.
     stdout: "pipe",
   });
   try {
-    await waitForPath(marker, "ad hoc provider pid marker");
-    const providerPids = (await readFile(marker, "utf8"))
-      .trim()
-      .split(/\s+/u)
-      .map(Number);
+    const providerPids = await waitForPids(marker, 2, "ad hoc provider pid marker");
 
     process.kill(proc.pid, "SIGTERM");
     const [exitCode] = await Promise.all([
@@ -583,7 +579,7 @@ Use this skill.
       await expectProcessGone(pid);
     }
   } finally {
-    reapOwnedProcess(proc);
+    await reapOwnedProcess(proc);
   }
 });
 

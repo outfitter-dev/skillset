@@ -189,13 +189,18 @@ test("SET-387: provider infrastructure failures and cancellation stay distinct f
     signal: controller.signal,
     xdg,
   });
-  await waitForPath(started, "eval provider trial start marker");
-  controller.abort();
-  const cancelled = await running;
-  expect(cancelled.trials[0]).toMatchObject({
-    classification: "infrastructure_failure",
-    failureClass: "cancelled",
-  });
+  try {
+    await waitForPath(started, "eval provider trial start marker");
+    controller.abort();
+    const cancelled = await running;
+    expect(cancelled.trials[0]).toMatchObject({
+      classification: "infrastructure_failure",
+      failureClass: "cancelled",
+    });
+  } finally {
+    // A marker timeout must not leave the run and its sleeping provider going.
+    controller.abort();
+  }
 });
 
 test("SET-387: concurrent eval stdout and stderr retain unique monotonic event sequences", async () => {
@@ -245,18 +250,14 @@ test("SET-387: cancellation between trials preserves completed evidence and fail
   try {
     await waitForPath(firstComplete, "eval trial 1 completion marker");
     await waitForPath(secondStarted, "eval trial 2 start marker");
-    controller.abort();
   } finally {
+    // Abort once trial 2 is in flight, or on a marker timeout.
     controller.abort();
   }
   const report = await run;
   expect(report).toMatchObject({ state: "failed" });
   expect(report.trials[0]).toMatchObject({ classification: "completed", evalId: 1 });
-  if (report.trials[1] !== undefined) {
-    expect(report.trials[1]).toMatchObject({ classification: "infrastructure_failure", failureClass: "cancelled" });
-  } else {
-    expect(await readFile(cachePath(root, { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } }, report.reportPath), "utf8")).toContain('"failureClass":"cancelled"');
-  }
+  expect(report.trials[1]).toMatchObject({ classification: "infrastructure_failure", failureClass: "cancelled" });
 });
 
 test("SET-387: an empty eval matrix fails instead of completing vacuously", async () => {
