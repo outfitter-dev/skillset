@@ -20,6 +20,16 @@ describe("plugin companions", () => {
     });
   }
 
+  it("keeps codex assets when the Agent Plugins baseline is unsupported", async () => {
+    const root = await fixture("codex", LONG_PLUGIN_ID);
+
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    for (const path of ["README.md", "assets/icon.svg", "scripts/setup.sh", "src/index.js"]) {
+      expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, path)).exists()).toBe(true);
+    }
+  });
+
   it("attributes a shared baseline companion to the standard profile that owns it", async () => {
     const root = await fixture("claude", "demo");
 
@@ -38,10 +48,10 @@ describe("plugin companions", () => {
   });
 });
 
-async function fixture(target: "claude" | "cursor", pluginId: string): Promise<string> {
+async function fixture(target: "claude" | "codex" | "cursor", pluginId: string): Promise<string> {
   const root = await createTestFixtureRoot("skillset-plugin-companions-");
   const files: Record<string, string> = {
-    "skillset.yaml": `skillset:\n  name: companions\ncompile:\n  unsupportedDestination: warn\nclaude: ${target === "claude"}\ncodex: false\ncursor: ${target === "cursor"}\n`,
+    "skillset.yaml": `skillset:\n  name: companions\ncompile:\n  unsupportedDestination: warn\nclaude: ${target === "claude"}\ncodex: ${target === "codex"}\ncursor: ${target === "cursor"}\n`,
     [`.skillset/plugins/${pluginId}/skillset.yaml`]: `skillset:\n  name: ${pluginId}\n  description: Companion plugin.\n`,
     [`.skillset/plugins/${pluginId}/README.md`]: "# Companion plugin\n",
     [`.skillset/plugins/${pluginId}/assets/icon.svg`]: "<svg/>\n",
