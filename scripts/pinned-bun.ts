@@ -292,6 +292,12 @@ async function pathExists(path: string): Promise<boolean> {
 /**
  * Whether a cache root holds the requested interpreter.
  *
+ * Valid means the root's content is ours: `bin/<bun>` is a regular file, not a
+ * link into a mutable install such as `~/.bun/bin/bun`, it reports `version`,
+ * and the owned `bunx` shim sits beside it. Every branch that accepts a root
+ * gates on this, so none can hand back a root whose `bunx` falls through to
+ * the ambient PATH.
+ *
  * `unknown` means the question could not be answered right now — the file is
  * there but could not be executed. Callers that destroy state must treat it as
  * "leave alone", never as "wrong".
@@ -303,8 +309,20 @@ export async function pinnedBunRootState(
   version: string,
   executableName: string
 ): Promise<CacheRootState> {
-  const binPath = join(root, "bin", executableName);
+  const binDir = join(root, "bin");
+  const binPath = join(binDir, executableName);
   if (!(await isExecutable(binPath))) return "invalid";
+  if ((await lstat(binPath)).isSymbolicLink()) return "invalid";
+  if (
+    !(await isPinnedBunx(
+      binDir,
+      executableName,
+      pinnedBunxExecutableName(),
+      process.platform
+    ))
+  ) {
+    return "invalid";
+  }
   const probe = await probeVersion(binPath);
   if (probe.kind === "unavailable") return "unknown";
   if (probe.kind === "unusable") return "invalid";
@@ -511,10 +529,12 @@ export async function resolvePinnedBun(repoRoot: string): Promise<PinnedBun> {
   const binDir = join(root, "bin");
   const binPath = join(binDir, pinnedBunExecutableName());
 
+  // Roots published before the shim existed hold only the interpreter.
+  // Repair them in place first; replacing the root would quarantine an
+  // interpreter another process may be running. Validity still requires the
+  // shim, so a failed repair cannot let `bunx` fall through to ambient PATH.
+  await ensurePinnedBunx(binDir).catch(() => {});
   if (await isPinnedBunRoot(root, version, pinnedBunExecutableName())) {
-    // Roots published before the shim existed hold only the interpreter.
-    // A failed repair must not let `bunx` fall through to the ambient PATH.
-    await ensurePinnedBunx(binDir);
     return { binDir, binPath, source: "cached", version };
   }
 

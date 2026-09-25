@@ -268,6 +268,31 @@ describe.skipIf(!posix)("pinnedBunRootState", () => {
     expect(await pinnedBunRootState(targetRoot, "9.9.9", "bun")).toBe("invalid");
   });
 
+  test("reports a symlinked interpreter as invalid, even at the right version", async () => {
+    // A link into a mutable install such as ~/.bun/bin/bun would let a later
+    // rewrite of its target change the interpreter a running gate uses.
+    const version = "9.9.9";
+    const targetRoot = join(await temporaryDir("cache"), version);
+    const binDir = join(targetRoot, "bin");
+    await mkdir(binDir, { recursive: true });
+    await symlink(await fakeInterpreter(version), join(binDir, "bun"));
+    await symlink("bun", join(binDir, "bunx"));
+
+    expect(await pinnedBunRootState(targetRoot, version, "bun")).toBe("invalid");
+  });
+
+  test("reports a root without the pinned bunx as invalid", async () => {
+    // A same-version root published by a checkout that predates the shim
+    // holds only `bun`; accepting it would leave `bunx` to the ambient PATH.
+    const version = "9.9.9";
+    const targetRoot = join(await temporaryDir("cache"), version);
+    const binDir = join(targetRoot, "bin");
+    await mkdir(binDir, { recursive: true });
+    await copyFile(await fakeInterpreter(version), join(binDir, "bun"));
+
+    expect(await pinnedBunRootState(targetRoot, version, "bun")).toBe("invalid");
+  });
+
   test("reports a corrupt interpreter as invalid, so it is replaced", async () => {
     // An interrupted install leaves a file that cannot be executed. That is a
     // real answer about the file and SET-604 requires publication to replace
