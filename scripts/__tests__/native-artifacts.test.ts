@@ -168,6 +168,22 @@ describe("SET-419 native target and artifact contract", () => {
     );
   });
 
+  test("compares prerelease Bun builds on their numeric base version", () => {
+    expect(() =>
+      assertSupportedBunRuntimeVersion("1.4.1-canary.20+abc123")
+    ).not.toThrow();
+    expect(() =>
+      assertSupportedBunEvidenceVersion(
+        "Native manifest",
+        "1.4.1-canary.20",
+        "1.4.2"
+      )
+    ).not.toThrow();
+    expect(() => assertSupportedBunRuntimeVersion("1.3.14-canary.2")).toThrow(
+      /Bun runtime 1\.3\.14-canary\.2 is outside/
+    );
+  });
+
   test("requires one explicit target selection mode", () => {
     expect(selectNativeTargets({ required: true })).toEqual(
       REQUIRED_NATIVE_TARGETS

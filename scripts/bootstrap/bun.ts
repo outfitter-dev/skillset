@@ -14,14 +14,7 @@ export interface BunCheck {
 
 interface PackageJson {
   readonly packageManager?: string;
-  readonly engines?: {
-    readonly bun?: string;
-  };
 }
-
-export const minimumFromEngineRange = (
-  range: string | undefined
-): string | undefined => range?.match(/(\d+\.\d+\.\d+)/)?.[1];
 
 // Bun canary and other prerelease builds report versions like
 // `1.4.1-canary.20`, and semver ranges never match prereleases. Compare on
@@ -30,8 +23,30 @@ export const minimumFromEngineRange = (
 export const baseVersion = (version: string): string =>
   version.match(/^\d+\.\d+\.\d+/)?.[0] ?? version;
 
-export const isVersionAtLeast = (actual: string, minimum: string): boolean =>
-  Bun.semver.satisfies(baseVersion(actual), `>=${minimum}`);
+/**
+ * Why `range` cannot serve as the supported Bun range (`engines.bun`), or
+ * `undefined` when it can.
+ *
+ * `Bun.semver.satisfies` has no parse error: an unparseable range such as
+ * `garbage` matches every version. A range that admits `0.0.0` is therefore
+ * either malformed or sets no floor, and both would accept any runtime.
+ */
+export const supportedBunRangeProblem = (
+  range: unknown
+): string | undefined => {
+  if (typeof range !== "string" || range.length === 0) {
+    return "must declare a supported Bun range";
+  }
+  return Bun.semver.satisfies("0.0.0", range)
+    ? `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0, and Bun.semver matches an unparseable range against every version`
+    : undefined;
+};
+
+/** Whether a Bun version, compared on its numeric base, is in `range`. */
+export const satisfiesSupportedBunRange = (
+  version: string,
+  range: string
+): boolean => Bun.semver.satisfies(baseVersion(version), range);
 
 export const isCompatibleBunVersion = (
   actual: string,
@@ -62,13 +77,6 @@ export const readPackageManagerBunVersion = (
 ): string | undefined => {
   const packageManager = readPackageJson(repoRoot).packageManager;
   return packageManager?.match(/^bun@(.+)$/)?.[1];
-};
-
-export const readMinimumBunVersion = (repoRoot: string): string | undefined => {
-  const packageJson = JSON.parse(
-    readFileSync(repoFile(repoRoot, "package.json"), "utf8")
-  ) as PackageJson;
-  return minimumFromEngineRange(packageJson.engines?.bun);
 };
 
 export const checkBunVersion = (
