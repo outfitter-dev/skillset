@@ -1,5 +1,44 @@
 # skillset
 
+## 0.28.0
+
+### Minor Changes
+
+- acfa236: Add `skillset build --repair`, which consults filesystem reality instead of trusting the lock and classifies every managed output with a three-way verdict against the lock's recorded `outputHash` and a fresh render. It restores a deleted generated file byte-identically, reports a hand-edited one as `output-edited` and preserves it unless `--discard-edits` confirms the overwrite, and refuses a `diverged` path where the output and its source both moved. Verdicts print one per line and are available under `--json`.
+- 1f4b4f2: Add plan-first `skillset draft` and `skillset promote` commands with fork-baseline provenance, changed-shipped warnings, atomic paired replacement, unpaired promotion, and rollback-safe generated lifecycle cleanup.
+- 40dd770: Add plugin project-use draft `only` and `override` modes with selection-first pairing, deterministic effective names, lifecycle-safe cleanup, and inspectable lock, explain, and status provenance.
+- 92b2370: Place plugin-owned Agent Skills baselines only inside their canonical Agent Plugins package, add explicit projection roles to current generated locks, and require a one-time rebuild for older generated state.
+- 24232c6: Copy plugin skills selected by `plugins.internal_use` into fixed project skill roots with deterministic collision names, boolean internal markers, owned cleanup, and inspectable provenance.
+- 47511f4: Recognize skill groups and drafts during discovery, reject duplicate skill leaves, classify reserved rule path segments, and report the new metadata through `list` and `explain` without flattening rendered paths.
+- c5bfb94: Expose root plugin selection and planned package paths through build-graph inspection, reject retired provider skill-root overrides, and refuse placement behavior that later package-output features have not implemented.
+- 47511f4: Add `skillset new plugin <name>` to preview or create a validated empty plugin container that can immediately receive plugin-owned skills.
+- cabd7d2: Render and verify Skillset-owned project SessionStart hooks with explicit compile-time activation policy and field-level settings ownership.
+- 89b9140: Add exact partials and marked shared-resource links with implied skill-local copies.
+- 0694930: Render workspace and selected plugin drafts beside live project skills with draft-specific names, descriptions, internal markers, lifecycle cleanup, and inspectable provenance, and add plan-first `skillset new skill --draft` scaffolding.
+- 8b1c1c1: Generate each plugin as one shared package with one immediate-child skill tree across enabled providers.
+- 26d4317: Add plan-first `skillset move` for atomic same-workspace skill moves between workspace and plugin collections, preserving paired drafts, current references, generated provenance, and append-only history.
+- 548a2ff: Add `skillset resolve`, which clears generated-output conflicts during a rebase or merge. It partitions the conflicted set using the lock inventory, materializes each conflicted generated path from its conflict stage so the three-way verdict sees whole files rather than markers, regenerates what is safe, and stages only paths confirmed generated. Authored conflicts block the repair and are named for a human, because regenerating from source that still carries conflict markers would render those markers into generated output. Works inside a linked git worktree.
+- 47511f4: Adopt the current authoring source layout with root `RULES.md`, `subagents/`, and `shared/partials/`, and reject retired locations.
+
+### Patch Changes
+
+- 299e2ee: Publish retained-run pointers, mutable statuses, and final reports through the shared atomic single-file writer so pollers never observe partial JSON. `latest.json` now points its report and status paths at the immutable `runs/<id>/` directory instead of the `latest/` copy, which is rewritten on every refresh.
+- c453fc4: Load CLI command implementations only when dispatched so help and version commands start without evaluating the compiler.
+- cf199ab: Share the test-sandbox descriptor parser with cleanup of stale retained test sandboxes. New sandboxes carry repository and runner-process leases so cleanup fails closed for unverified roots and only collects old sandboxes after the lease owner has exited.
+- 06a1b03: Remove temporary Git snapshots when preparation fails and collect remote acquisition clones after they are copied into an explicit adoption destination. Preserve completed adoption results and original errors if temporary cleanup itself fails.
+- 36c1ed4: Pin Cursor authoring evidence and add a checked-in parity fixture with owned gaps for later renderer work.
+- 415fceb: Fail closed when change status, reconcile, or provider-format updates read a corrupt or unreadable on-disk `skillset.lock`.
+- 0b50e8a: Install imported source directories with the host atomic no-replace rename so a concurrent occupant is refused instead of replaced.
+- 421e423: Derive plugin component paths from provider registry metadata when resolving source features, rendering manifests, and checking provider conformance.
+- a3f1293: Publish remote-repository cache checkouts with the host atomic no-replace rename so an outside occupant is refused instead of replaced, and a late symlink occupant is refused instead of followed. Marketplace checks on a cache filesystem without that primitive now report the move-the-cache remedy instead of an invalid-workspace reason, and a host rename failure such as a permission error reports a cache-publication reason.
+- 6e8a30e: Discover runtime-hook CLI runners with `Bun.which` against the hook PATH instead of spawning a login shell.
+- 274e57e: Sanitize hook-exported Git repository variables for every compiler, toolkit, and test-sandbox git subprocess so `GIT_DIR` cannot retarget `git -C` or cwd discovery.
+- f39b47a: Reject provider skill root overrides and non-slug plugin selectors during shared schema validation, so `skillset build` and `skillset check` fail on input the JSON Schema already rejected. Root `skillset.yaml`, split `.skillset/config.yaml`, and plugin `skillset.yaml` now reject `<target>.skills.path` and malformed `<target>.skills` selections. `skillset.outputs.skills.<target>` (and a non-object `skillset.outputs.skills`) is now rejected in root and plugin config, the split-layout `.skillset/skillset.yaml` root manifest, and skill, agent, and instruction frontmatter. Root `drafts` selectors accept only slug plugin ids (`plugin.<slug>.skill:<name>`), matching the plugin ids Core loads. Validation-tightening.
+- 4852fdb: Apply aggregate CI package Changeset enforcement only to workspaces that opt into Changesets with `.changeset/config.json`, so downstream authoring repositories can commit README updates without dummy npm release entries.
+- 2f3f0f9: Report stale generated output through the read-only SessionStart hook runner without blocking agent sessions.
+- a7dd43b: Report verified project runtime-hook destinations for Claude and Codex, including the Codex `.codex/hooks.json` path.
+- 5c9a8fc: Make OS path containment go through one Windows-safe helper so computed writes cannot escape their root.
+
 ## 0.27.0
 
 ### Minor Changes
