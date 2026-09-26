@@ -229,18 +229,20 @@ test("runtime hook spawn uses argv, POSIX sh, or Windows ComSpec by contract", (
 
 test("runtime hook command runner executes argv overrides without a shell", async () => {
   const root = await gitFixture();
-  const marker = join(root, "invoked");
+  // The marker reaches the fake runner through its environment, so quotes and
+  // expansions in the path stay literal instead of being parsed as script.
+  const marker = join(root, "invoked 'marker' $HOME");
   const bin = join(root, process.platform === "win32" ? "hook-skillset.cmd" : "hook-skillset");
   if (process.platform === "win32") {
-    await writeFile(bin, `@echo off\r\n>"${marker}" echo %*\r\nexit /b 0\r\n`);
+    await writeFile(bin, '@echo off\r\n>"%SKILLSET_TEST_HOOK_MARKER%" echo %*\r\nexit /b 0\r\n');
   } else {
-    await writeFile(bin, `#!/bin/sh\nprintf '%s\\n' "$@" > '${marker}'\nexit 0\n`);
+    await writeFile(bin, '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$SKILLSET_TEST_HOOK_MARKER"\nexit 0\n');
     await chmod(bin, 0o755);
   }
 
   await expect(runSkillsetCommand(["change", "status", "--root", "."], {
     allowFailure: false,
-    env: { SKILLSET_HOOK_COMMAND: bin },
+    env: { SKILLSET_HOOK_COMMAND: bin, SKILLSET_TEST_HOOK_MARKER: marker },
     rootPath: root,
   })).resolves.toBe(0);
   expect(await readFile(marker, "utf8")).toContain("change");

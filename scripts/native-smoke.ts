@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 
 import packageManifest from "../apps/skillset/package.json";
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { getNativeTarget } from "./native-targets";
 
 interface ProcessResult {
@@ -121,15 +122,18 @@ export async function smokeNativeExecutable(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
+
+    await smokeNativeRuntimeHooks(executable, join(smokeRoot, "runtime-hooks"));
   } finally {
     await rm(smokeRoot, { force: true, recursive: true });
   }
-
-  await smokeNativeRuntimeHooks(executable);
 }
 
-async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
-  const smokeRoot = await mkdtemp(join(tmpdir(), "skillset-native-hook-smoke-"));
+/**
+ * Runs inside `smokeRoot`, a directory owned and removed by the caller, so the
+ * hook smoke creates no temp root of its own.
+ */
+async function smokeNativeRuntimeHooks(executable: string, smokeRoot: string): Promise<void> {
   const repo = join(smokeRoot, "repo");
   const tools = join(smokeRoot, "tools with spaces");
   const gitBin = join(smokeRoot, "git-bin");
@@ -143,56 +147,52 @@ async function smokeNativeRuntimeHooks(executable: string): Promise<void> {
   await writeFile(join(repo, "skillset.yaml"), "skillset:\n  schema: 1\n");
   await runGit(repo, ["init"]);
 
-  try {
-    const discoveredRunner = await writeFakeSkillset(tools, discoveredMarker);
-    const discovered = await run(
-      executable,
-      ["hooks", "run", "post-tool-use", "--root", repo],
-      hookPath
-    );
-    assertSuccess(discovered, "runtime-hook discovery");
-    await assertHookArgs(discoveredMarker, `PATH runner ${discoveredRunner}`);
+  const discoveredRunner = await writeFakeSkillset(tools, discoveredMarker);
+  const discovered = await run(
+    executable,
+    ["hooks", "run", "post-tool-use", "--root", repo],
+    hookPath
+  );
+  assertSuccess(discovered, "runtime-hook discovery");
+  await assertHookArgs(discoveredMarker, `PATH runner ${discoveredRunner}`);
 
-    const missing = await run(
-      executable,
-      ["hooks", "run", "post-tool-use", "--root", repo],
-      missingRunnerPath
+  const missing = await run(
+    executable,
+    ["hooks", "run", "post-tool-use", "--root", repo],
+    missingRunnerPath
+  );
+  if (
+    missing.exitCode === 0 ||
+    !missing.stderr.includes(
+      "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND"
+    )
+  ) {
+    throw new Error(
+      `Native runtime-hook missing runner diagnostic failed: exit=${missing.exitCode} stderr=${JSON.stringify(missing.stderr)}`
     );
-    if (
-      missing.exitCode === 0 ||
-      !missing.stderr.includes(
-        "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND"
-      )
-    ) {
-      throw new Error(
-        `Native runtime-hook missing runner diagnostic failed: exit=${missing.exitCode} stderr=${JSON.stringify(missing.stderr)}`
-      );
-    }
-
-    const overrideRunner = await writeFakeSkillset(tools, overrideMarker);
-    const override = await run(
-      executable,
-      ["hooks", "run", "post-tool-use", "--root", repo],
-      missingRunnerPath,
-      { SKILLSET_HOOK_COMMAND: quoteHookExecutable(overrideRunner) }
-    );
-    assertSuccess(override, "runtime-hook argv override");
-    await assertHookArgs(overrideMarker, "argv override");
-
-    const shellOverride = process.platform === "win32"
-      ? `echo invoked>${shellMarker}&rem`
-      : `:; printf invoked > '${shellMarker}'`;
-    const shell = await run(
-      executable,
-      ["hooks", "run", "post-tool-use", "--root", repo],
-      missingRunnerPath,
-      { SKILLSET_HOOK_COMMAND: shellOverride }
-    );
-    assertSuccess(shell, "runtime-hook shell override");
-    await readMarker(shellMarker);
-  } finally {
-    await rm(smokeRoot, { force: true, recursive: true });
   }
+
+  const overrideRunner = await writeFakeSkillset(tools, overrideMarker);
+  const override = await run(
+    executable,
+    ["hooks", "run", "post-tool-use", "--root", repo],
+    missingRunnerPath,
+    { SKILLSET_HOOK_COMMAND: quoteHookExecutable(overrideRunner) }
+  );
+  assertSuccess(override, "runtime-hook argv override");
+  await assertHookArgs(overrideMarker, "argv override");
+
+  const shellOverride = process.platform === "win32"
+    ? `echo invoked>${shellMarker}&rem`
+    : `:; printf invoked > '${shellMarker}'`;
+  const shell = await run(
+    executable,
+    ["hooks", "run", "post-tool-use", "--root", repo],
+    missingRunnerPath,
+    { SKILLSET_HOOK_COMMAND: shellOverride }
+  );
+  assertSuccess(shell, "runtime-hook shell override");
+  await readMarker(shellMarker);
 }
 
 async function isolatedHookPath(binDir: string, tools: string): Promise<string> {
@@ -240,7 +240,7 @@ async function writeFakeSkillset(binDir: string, marker: string): Promise<string
 async function runGit(cwd: string, args: readonly string[]): Promise<void> {
   const child = Bun.spawn(["git", ...args], {
     cwd,
-    env: process.env,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });
