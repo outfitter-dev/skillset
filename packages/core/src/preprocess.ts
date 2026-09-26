@@ -838,11 +838,28 @@ interface BacktickRun {
 }
 
 /** How a non-fence line affects pending code-span delimiters. */
-type MarkdownLineBlock = "blank" | "continuation" | "single" | "start";
+type MarkdownLineBlock = "blank" | "continuation" | "row" | "single" | "start";
+
+/** Block context carried from one line to the next while pairing code spans. */
+interface MarkdownBlockState {
+  inParagraph: boolean;
+  inTable: boolean;
+  /** Content columns of the open list items, innermost last. */
+  readonly listIndents: number[];
+}
 
 interface MarkdownFence {
   readonly char: string;
   readonly length: number;
+}
+
+interface ListItemStart {
+  /** Column of the item's content. */
+  readonly contentIndent: number;
+  /** Column of the list marker. */
+  readonly indent: number;
+  /** Whether the item may interrupt a paragraph: it has content and is a bullet or starts at 1. */
+  readonly canInterruptParagraph: boolean;
 }
 
 function isInsideMarkdownCode(ranges: readonly CodeRange[], index: number): boolean {
@@ -853,10 +870,10 @@ function isInsideMarkdownCode(ranges: readonly CodeRange[], index: number): bool
  * Fenced blocks and inline code spans, computed once per document. A span opens
  * at a backtick run and closes at the next run of exactly the same length in the
  * same block, so spans may cross line breaks within a paragraph or list item but
- * never a blank line, fence, heading, list-item start, table row, thematic break,
- * or indented-code line; unmatched runs stay literal.
+ * never a blank line, fence, heading, setext underline, list-item start, GFM table
+ * row, thematic break, or indented-code line; unmatched runs stay literal.
  */
-function markdownCodeRanges(content: string): CodeRange[] {
+export function markdownCodeRanges(content: string): CodeRange[] {
   const ranges: CodeRange[] = [];
   let runs: BacktickRun[] = [];
   const flush = (): void => {
@@ -865,10 +882,11 @@ function markdownCodeRanges(content: string): CodeRange[] {
   };
   let fence: MarkdownFence | undefined;
   let fenceStart = 0;
-  let inParagraph = false;
+  const state: MarkdownBlockState = { inParagraph: false, inTable: false, listIndents: [] };
+  const lines = content.split("\n");
   let lineStart = 0;
-  for (const line of content.split("\n")) {
-    const lineEnd = lineStart + line.length + 1;
+  for (const [index, line] of lines.entries()) {
+    const lineEnd = lineStart + line.length;
     const next = nextFence(line, fence);
     if (fence === undefined && next !== undefined) {
       flush();
@@ -877,16 +895,19 @@ function markdownCodeRanges(content: string): CodeRange[] {
       ranges.push([fenceStart, lineEnd]);
     }
     if (fence !== undefined || next !== undefined) {
-      inParagraph = false;
+      state.inParagraph = false;
+      state.inTable = false;
     } else {
-      const block = markdownLineBlock(line, inParagraph);
+      const block = markdownLineBlock(line, lines[index + 1], state);
       if (block !== "continuation") flush();
       if (block !== "blank") runs.push(...backtickRuns(line, lineStart));
-      if (block === "single") flush();
-      inParagraph = block === "continuation" || block === "start";
+      if (block === "row" || block === "single") flush();
+      trackListItems(line, block, state);
+      state.inParagraph = block === "continuation" || block === "start";
+      state.inTable = block === "row";
     }
     fence = next;
-    lineStart = lineEnd;
+    lineStart = lineEnd + 1;
   }
   if (fence !== undefined) ranges.push([fenceStart, content.length]);
   flush();
@@ -894,20 +915,89 @@ function markdownCodeRanges(content: string): CodeRange[] {
 }
 
 /**
- * Single-line blocks (ATX headings, thematic breaks, table rows, and indented
- * code outside a paragraph) keep spans on their own line; list items start a
- * new block that later lines may continue.
+ * Single-line blocks (ATX headings, setext underlines, thematic breaks, and
+ * indented code outside a paragraph) keep spans on their own line, as do GFM
+ * table rows. List items start a new block that later lines may continue.
  */
-function markdownLineBlock(line: string, inParagraph: boolean): MarkdownLineBlock {
+function markdownLineBlock(
+  line: string,
+  nextLine: string | undefined,
+  state: MarkdownBlockState
+): MarkdownLineBlock {
   if (/^[ \t]*$/.test(line)) return "blank";
   if (
-    /^ {0,3}(?:#{1,6}(?:[ \t]|$)|\||([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(line) ||
-    (!inParagraph && /^(?: {4}|\t)/.test(line))
+    (state.inParagraph && /^ {0,3}(?:=+|-+)[ \t]*$/.test(line)) ||
+    /^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(line)
   ) {
     return "single";
   }
-  if (/^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/.test(line)) return "start";
+  const item = listItemStart(line);
+  if (item !== undefined && (item.canInterruptParagraph || !continuesParagraph(item, state))) {
+    return "start";
+  }
+  if (state.inTable) return "row";
+  if (!state.inParagraph && /^(?: {4}|\t)/.test(line)) return "single";
+  if (isTableHeader(line, nextLine)) return "row";
   return "continuation";
+}
+
+/**
+ * A list marker that CommonMark does not let interrupt a paragraph (an empty
+ * item, or an ordered item not starting at 1) is paragraph text when the open
+ * paragraph is its innermost container. A marker left of the open item's
+ * content closes that item instead, so it starts a sibling or a new list.
+ */
+function continuesParagraph(item: ListItemStart, state: MarkdownBlockState): boolean {
+  return state.inParagraph && item.indent >= (state.listIndents.at(-1) ?? 0);
+}
+
+/**
+ * Keeps the content columns of open list items: a non-blank line that is not
+ * paragraph continuation closes every item whose content sits right of it, and
+ * a list-item start opens a new item.
+ */
+function trackListItems(line: string, block: MarkdownLineBlock, state: MarkdownBlockState): void {
+  if (block === "blank" || (block === "continuation" && state.inParagraph)) return;
+  const indent = line.length - line.trimStart().length;
+  while ((state.listIndents.at(-1) ?? 0) > indent) state.listIndents.pop();
+  const item = block === "start" ? listItemStart(line) : undefined;
+  if (item !== undefined) state.listIndents.push(item.contentIndent);
+}
+
+/** Parses a bullet or ordered list marker; tabs count as one column. */
+function listItemStart(line: string): ListItemStart | undefined {
+  const match = line.match(/^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]*)(.*)$/);
+  if (match === null) return undefined;
+  const [, indent = "", marker = "", start, spacing = "", text = ""] = match;
+  if (spacing === "" && text !== "") return undefined;
+  const markerEnd = indent.length + marker.length;
+  return {
+    contentIndent: markerEnd + (text !== "" && spacing.length <= 4 ? spacing.length : 1),
+    indent: indent.length,
+    canInterruptParagraph:
+      text !== "" && (start === undefined || Number.parseInt(start, 10) === 1),
+  };
+}
+
+/**
+ * A GFM table starts at a header row followed by a delimiter row with the same
+ * number of cells; a leading pipe alone does not make a line a table row.
+ */
+function isTableHeader(line: string, nextLine: string | undefined): boolean {
+  return (
+    nextLine !== undefined &&
+    nextLine.includes("|") &&
+    /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/.test(nextLine) &&
+    tableCellCount(line) === tableCellCount(nextLine)
+  );
+}
+
+function tableCellCount(row: string): number {
+  return row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/(?<!\\)\|$/, "")
+    .split(/(?<!\\)\|/).length;
 }
 
 function backtickRuns(line: string, lineStart: number): BacktickRun[] {
