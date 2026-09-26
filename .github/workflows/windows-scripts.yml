@@ -16,6 +16,7 @@ on:
       - scripts/pinned-bun.ts
       - scripts/__tests__/pinned-bun.test.ts
       - scripts/test-sandbox.ts
+      - scripts/test-sandbox-retention.ts
       - scripts/test-shard-workspace.ts
       - scripts/__tests__/test-shard-workspace.test.ts
       - packages/core/src/path.ts
