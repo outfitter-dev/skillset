@@ -274,6 +274,90 @@ describe("preprocess reference grammar", () => {
     await expect(preprocessText(content, preprocessContext(rootPath))).resolves.toBe(content);
   });
 
+  test("preserves links inside code spans that cross line breaks", async () => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+    const content = "`before\n@{{shared:references/a.md}}\nafter`";
+
+    await expect(preprocessText(content, context)).resolves.toBe(content);
+    expect(rendered).toEqual([]);
+  });
+
+  test.each([
+    ["an unmatched backtick", "a ` b\n@{{shared:references/a.md}}", "a ` b\n@shared:references/a.md"],
+    [
+      "a backtick run of a different length",
+      "``x ` @{{shared:references/a.md}} ` y``\n``done`` @{{shared:references/a.md}}",
+      "``x ` @{{shared:references/a.md}} ` y``\n``done`` @shared:references/a.md",
+    ],
+    [
+      "a blank line before the closing run",
+      "`open\n\n@{{shared:references/a.md}}\nclose`",
+      "`open\n\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "a fenced block before the closing run",
+      "`open\n```\n`\n```\n@{{shared:references/a.md}}",
+      "`open\n```\n`\n```\n@shared:references/a.md",
+    ],
+    [
+      "a tilde fence before the closing run",
+      "`open\n~~~\n`\n~~~\n@{{shared:references/a.md}}",
+      "`open\n~~~\n`\n~~~\n@shared:references/a.md",
+    ],
+    [
+      "a whitespace-only line before the closing run",
+      "`open\n \t\n@{{shared:references/a.md}}\nclose`",
+      "`open\n \t\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "an ATX heading",
+      "# Heading ` x\npara @{{shared:references/a.md}} and ` y",
+      "# Heading ` x\npara @shared:references/a.md and ` y",
+    ],
+    [
+      "a setext heading underline",
+      "Heading ` x\n=======\npara @{{shared:references/a.md}} and ` y",
+      "Heading ` x\n=======\npara @shared:references/a.md and ` y",
+    ],
+    [
+      "a two-dash setext underline",
+      "Heading ` x\n--\npara @{{shared:references/a.md}} and ` y",
+      "Heading ` x\n--\npara @shared:references/a.md and ` y",
+    ],
+    [
+      "list item starts",
+      "- a ` b\n- @{{shared:references/a.md}}\n- c ` d",
+      "- a ` b\n- @shared:references/a.md\n- c ` d",
+    ],
+    [
+      "table rows",
+      "| a ` | b |\n| @{{shared:references/a.md}} | c ` |",
+      "| a ` | b |\n| @shared:references/a.md | c ` |",
+    ],
+    [
+      "indented code lines",
+      "    ```\n@{{shared:references/a.md}}\n    ```",
+      "    ```\n@shared:references/a.md\n    ```",
+    ],
+    [
+      "a backslash-escaped backtick",
+      "\\`not code\n@{{shared:references/a.md}} ` end",
+      "\\`not code\n@shared:references/a.md ` end",
+    ],
+    [
+      "an escaped backtick that closes a span",
+      "`code\\`\n@{{shared:references/a.md}} ` end",
+      "`code\\`\n@shared:references/a.md ` end",
+    ],
+  ])("scopes multiline code spans past %s", async (_case, content, expected) => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+
+    await expect(preprocessText(content, context)).resolves.toBe(expected);
+    expect(rendered).toEqual(["shared:references/a.md"]);
+  });
+
   test("preserves triple-brace escapes and unrelated brace expressions", async () => {
     const content = [
       "{{{> intro}}}",
@@ -356,6 +440,23 @@ function preprocessContext(rootPath: string, plugin = false): PreprocessContext 
       plugin ? ".skillset/plugins/demo/skills/example/SKILL.md" : ".skillset/skills/example/SKILL.md"
     ),
     sourceRoot: ".skillset",
+  };
+}
+
+function recordingContext(rootPath: string): {
+  readonly context: PreprocessContext;
+  readonly rendered: string[];
+} {
+  const rendered: string[] = [];
+  return {
+    context: {
+      ...preprocessContext(rootPath),
+      renderPathReference: ({ specifier }) => {
+        rendered.push(specifier);
+        return specifier;
+      },
+    },
+    rendered,
   };
 }
 
