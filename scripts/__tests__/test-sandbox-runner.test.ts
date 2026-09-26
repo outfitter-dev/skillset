@@ -2,10 +2,13 @@ import { expect, test } from "bun:test";
 import {
   access,
   chmod,
+  lstat,
   mkdir,
   readFile,
+  readlink,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -70,6 +73,8 @@ for (const staleKind of [
   "non-executable",
   "spawn-invalid",
   "partial",
+  "missing-bunx",
+  "symlinked",
 ] as const) {
   test(`SET-604: pinned runtime publication replaces a ${staleKind} cache`, async () => {
     if (process.platform === "win32") return;
@@ -86,6 +91,14 @@ for (const staleKind of [
       await mkdir(dirname(binPath), { recursive: true });
       await writeFile(binPath, "not an executable\n");
       await chmod(binPath, 0o755);
+    } else if (staleKind === "missing-bunx") {
+      // A concurrent legacy publisher: the right version, but no shim.
+      await writeFakeBun(target, "1.4.0", 0o755, { bunx: false });
+    } else if (staleKind === "symlinked") {
+      await writeFakeBun(join(root, "ambient"), "1.4.0");
+      await mkdir(join(target, "bin"), { recursive: true });
+      await symlink(join(root, "ambient", "bin", "bun"), join(target, "bin", "bun"));
+      await symlink("bun", join(target, "bin", "bunx"));
     } else {
       await writeFakeBun(
         target,
@@ -97,6 +110,8 @@ for (const staleKind of [
     await publishPinnedBunCache("1.4.0", staging, target);
 
     expect(await runVersion(join(target, "bin", "bun"))).toBe("1.4.0");
+    expect((await lstat(join(target, "bin", "bun"))).isSymbolicLink()).toBe(false);
+    expect(await readlink(join(target, "bin", "bunx"))).toBe("bun");
     await expect(access(staging)).rejects.toThrow();
     expect(
       await Array.fromAsync(new Bun.Glob("target.invalid-*").scan(root))
@@ -531,10 +546,12 @@ for (const [signal, expectedExit] of [
   });
 }
 
+/** A cache root as publication leaves it: the interpreter plus its `bunx` link. */
 async function writeFakeBun(
   root: string,
   version: string,
-  mode = 0o755
+  mode = 0o755,
+  { bunx = true }: { readonly bunx?: boolean } = {}
 ): Promise<void> {
   const binPath = join(root, "bin", "bun");
   await mkdir(dirname(binPath), { recursive: true });
@@ -543,6 +560,7 @@ async function writeFakeBun(
     `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(version)}\n`
   );
   await chmod(binPath, mode);
+  if (bunx) await symlink("bun", join(root, "bin", "bunx"));
 }
 
 async function runVersion(binPath: string): Promise<string> {
