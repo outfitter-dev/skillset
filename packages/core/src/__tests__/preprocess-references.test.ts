@@ -316,6 +316,16 @@ describe("preprocess reference grammar", () => {
       "# Heading ` x\npara @shared:references/a.md and ` y",
     ],
     [
+      "a setext heading underline",
+      "Heading ` x\n=======\npara @{{shared:references/a.md}} and ` y",
+      "Heading ` x\n=======\npara @shared:references/a.md and ` y",
+    ],
+    [
+      "a two-dash setext underline",
+      "Heading ` x\n--\npara @{{shared:references/a.md}} and ` y",
+      "Heading ` x\n--\npara @shared:references/a.md and ` y",
+    ],
+    [
       "list item starts",
       "- a ` b\n- @{{shared:references/a.md}}\n- c ` d",
       "- a ` b\n- @shared:references/a.md\n- c ` d",

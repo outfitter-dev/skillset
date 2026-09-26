@@ -894,15 +894,16 @@ function markdownCodeRanges(content: string): CodeRange[] {
 }
 
 /**
- * Single-line blocks (ATX headings, thematic breaks, table rows, and indented
- * code outside a paragraph) keep spans on their own line; list items start a
- * new block that later lines may continue.
+ * Single-line blocks (ATX headings, setext underlines, thematic breaks, table
+ * rows, and indented code outside a paragraph) keep spans on their own line;
+ * list items start a new block that later lines may continue.
  */
 function markdownLineBlock(line: string, inParagraph: boolean): MarkdownLineBlock {
   if (/^[ \t]*$/.test(line)) return "blank";
   if (
     /^ {0,3}(?:#{1,6}(?:[ \t]|$)|\||([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(line) ||
-    (!inParagraph && /^(?: {4}|\t)/.test(line))
+    (!inParagraph && /^(?: {4}|\t)/.test(line)) ||
+    (inParagraph && /^ {0,3}(?:=+|-+)[ \t]*$/.test(line))
   ) {
     return "single";
   }
