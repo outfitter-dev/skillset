@@ -3,7 +3,6 @@ import {
   lstat,
   mkdir,
   readdir,
-  readFile,
   realpath,
   rm,
   writeFile,
@@ -15,6 +14,8 @@ import { type PinnedBun, prependExecutablePath } from "./pinned-bun";
 import { safeGitEnv, sha256 } from "./test-shard-contract";
 
 const MARKER = "owner.json";
+// The marker holds an invocation id and two paths; anything larger is not ours.
+const MAX_MARKER_BYTES = 64 * 1024;
 
 export interface ShardWorkspace {
   readonly index: number;
@@ -111,6 +112,9 @@ export async function prepareShardWorkspace(
     GIT_CONFIG_SYSTEM: gitSystem,
     GIT_TERMINAL_PROMPT: "0",
     PATH: prependExecutablePath(pinned.binDir, process.env.PATH),
+    // POSIX resolves os.tmpdir() from TMPDIR, Windows from TEMP/TMP.
+    TEMP: temp,
+    TMP: temp,
     TMPDIR: temp,
     XDG_CACHE_HOME: join(xdg, "cache"),
     XDG_CONFIG_HOME: join(xdg, "config"),
@@ -138,9 +142,7 @@ export async function removeOwnedRunRoot(
   const tempRoot = await realpath(tmpdir());
   const stat = await lstat(root);
   const canonical = await realpath(root);
-  const marker = JSON.parse(await readFile(join(root, MARKER), "utf8")) as {
-    invocationId?: string;
-  };
+  const marker = await readRunRootMarker(join(root, MARKER));
   if (
     !stat.isDirectory() ||
     stat.isSymbolicLink() ||
@@ -151,6 +153,21 @@ export async function removeOwnedRunRoot(
   )
     throw new Error(`refusing to remove unowned shard root ${root}`);
   await rm(root, { recursive: true });
+}
+
+async function readRunRootMarker(
+  path: string
+): Promise<{ readonly invocationId?: unknown }> {
+  const entry = await lstat(path);
+  if (!entry.isFile() || entry.isSymbolicLink())
+    throw new Error(`shard run root owner marker is not a regular file: ${path}`);
+  if (entry.size > MAX_MARKER_BYTES)
+    throw new Error(`shard run root owner marker is too large: ${path}`);
+  const bytes = await Bun.file(path).slice(0, MAX_MARKER_BYTES + 1).bytes();
+  if (bytes.byteLength > MAX_MARKER_BYTES)
+    throw new Error(`shard run root owner marker is too large: ${path}`);
+  const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+  return typeof value === "object" && value !== null ? value : {};
 }
 
 export async function writeFailedShardReceipt(

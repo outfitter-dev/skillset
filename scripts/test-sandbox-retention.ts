@@ -1,4 +1,4 @@
-import { lstat, readFile, readdir, realpath, rm } from "node:fs/promises";
+import { lstat, readdir, realpath, rm } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 
 import { isPathInside } from "@skillset/core/internal/path";
@@ -7,6 +7,9 @@ import { gitSafeEnv } from "@skillset/core/internal/git-env";
 import { parseDescriptor } from "../apps/skillset/src/verification-sandbox";
 
 const RETAIN_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Descriptors and leases are a few hundred bytes. Any local process can plant
+// a skillset-test-* directory in a shared OS temp root, so never load more.
+const MAX_METADATA_BYTES = 64 * 1024;
 export const TEST_SANDBOX_LEASE = "lease.json";
 
 export interface RetentionResult {
@@ -100,8 +103,14 @@ async function readOwnedJson<T>(path: string, parse: (value: unknown) => T): Pro
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
     throw error;
   });
-  if (!entry || !entry.isFile() || entry.isSymbolicLink()) return undefined;
-  const raw = await readFile(path, "utf8");
+  if (!entry || !entry.isFile() || entry.isSymbolicLink() || entry.size > MAX_METADATA_BYTES) {
+    return undefined;
+  }
+  // Read at most one byte past the bound so a file that grows after lstat
+  // still cannot force an unbounded load.
+  const bytes = await Bun.file(path).slice(0, MAX_METADATA_BYTES + 1).bytes();
+  if (bytes.byteLength > MAX_METADATA_BYTES) return undefined;
+  const raw = new TextDecoder().decode(bytes);
   try {
     return parse(JSON.parse(raw) as unknown);
   } catch {

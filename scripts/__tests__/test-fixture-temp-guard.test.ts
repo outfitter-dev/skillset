@@ -67,3 +67,27 @@ describe("test fixture temp guard", () => {
     expect(auditTempCalls([fakeReaddir], [observation]).violations).toHaveLength(1);
   });
 });
+
+test("SET-668: check:repo runs every read-only guard before build and tests execute", async () => {
+  const pkg: unknown = await Bun.file(new URL("../../package.json", import.meta.url)).json();
+  const scripts =
+    typeof pkg === "object" && pkg !== null && "scripts" in pkg ? pkg.scripts : undefined;
+  const checkRepo =
+    typeof scripts === "object" && scripts !== null && "check:repo" in scripts
+      ? scripts["check:repo"]
+      : undefined;
+  if (typeof checkRepo !== "string") throw new Error("package.json has no check:repo script");
+  const steps = checkRepo.split(" && ");
+  const guards = steps.filter((step) => /^bun run [\w-]+:guard$/u.test(step));
+  // An unsafe test (say a raw tmpdir() fixture) must be rejected before
+  // `bun run test` executes it.
+  expect(guards).toContain("bun run test-fixture-temp:guard");
+  const firstExecution = Math.min(steps.indexOf("bun run build"), steps.indexOf("bun run test"));
+  expect(firstExecution).toBeGreaterThan(-1);
+  for (const guard of guards) {
+    expect({ guard, before: steps.indexOf(guard) < firstExecution }).toEqual({
+      guard,
+      before: true,
+    });
+  }
+});
