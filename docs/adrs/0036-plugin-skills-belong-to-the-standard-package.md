@@ -4,7 +4,7 @@ slug: plugin-skills-belong-to-the-standard-package
 title: Plugin Skills Belong to the Standard Package
 status: accepted
 created: 2026-09-16
-updated: 2026-09-16
+updated: 2026-09-25
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [28, 30, 32, 33]
 amends: [28, 30, 32]
@@ -89,9 +89,11 @@ standalone, and project-use roles without duplicating source identity.
 counting plugin-owned skills as repository standalone projections. SET-553 owns
 that implementation and its receipt/golden coverage.
 
-Output placement is a separate decision. ADR-0037 will define
-`plugins.output`, the `[name]` token, and repository-root placement with SET-561
-and SET-581; this ADR neither reserves syntax nor chooses destinations.
+Output placement is a separate decision.
+[ADR-0037](0037-one-shared-plugin-package-per-plugin.md) records one shared
+package per plugin at `plugins/<plugin>/`; `plugins.output`, the `[name]`
+token, and repository-root placement remain with SET-561 and SET-581. This ADR
+neither reserves syntax nor chooses destinations.
 
 ## References
 
@@ -100,7 +102,8 @@ and SET-581; this ADR neither reserves syntax nor chooses destinations.
 - [ADR-0030: ChatGPT Product Bundles and Standards-Only Builds](0030-chatgpt-product-bundles-and-standards-only-builds.md) - package and repository ownership amended here.
 - [ADR-0032: Standards Compilation Is Inherent](0032-standards-compilation-is-inherent.md) - inherent projection principle retained with a corrected canonical placement.
 - [ADR-0033: Workspace Authoring Model](0033-workspace-authoring-model.md) - internal hard-cutover policy and plugin source boundary.
+- [ADR-0037: One Shared Plugin Package per Plugin](0037-one-shared-plugin-package-per-plugin.md) - the deferred output placement decision.
 - [SET-553](https://linear.app/outfitter/issue/SET-553/standards-placement-for-plugin-vs-standalone-skills) - renderer and provenance implementation owner.
-- [SET-561](https://linear.app/outfitter/issue/SET-561/root-destination-and-output-paths-pluginsoutput) - future ADR-0037 destination-resolution owner.
-- [SET-581](https://linear.app/outfitter/issue/SET-581/publish-one-output-package-at-the-repository-root) - future ADR-0037 root-package writer owner.
+- [SET-561](https://linear.app/outfitter/issue/SET-561/root-destination-and-output-paths-pluginsoutput) - destination-resolution owner.
+- [SET-581](https://linear.app/outfitter/issue/SET-581/publish-one-output-package-at-the-repository-root) - root-package writer owner.
 - [Internal authoring-model cutover playbook](https://linear.app/outfitter/document/internal-authoring-model-cutover-playbook-08c333c9dde4) - one-time transition procedure.
