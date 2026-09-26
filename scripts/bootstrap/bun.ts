@@ -23,13 +23,45 @@ interface PackageJson {
 export const baseVersion = (version: string): string =>
   version.match(/^\d+\.\d+\.\d+/)?.[0] ?? version;
 
+const numeric = String.raw`0|[1-9]\d*`;
+const wildcard = String.raw`[xX*]`;
+const identifiers = String.raw`[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*`;
+/** `MAJOR[.MINOR[.PATCH]]`, wildcards allowed, plus prerelease and build. */
+const partialVersion = String.raw`(?:${numeric}|${wildcard})(?:\.(?:${numeric}|${wildcard})){0,2}(?:-${identifiers})?(?:\+${identifiers})?`;
+const comparatorPattern = new RegExp(
+  String.raw`^(?:<=|>=|<|>|=|\^|~)?${partialVersion}$`,
+  "u"
+);
+const hyphenRangePattern = new RegExp(
+  String.raw`^${partialVersion}\s+-\s+${partialVersion}$`,
+  "u"
+);
+
+/**
+ * The first token of `range` outside the strict semver range grammar: `||`
+ * separates comparator sets, each a hyphen range `A - B` or whitespace-
+ * separated comparators. `""` names an empty comparator set; `undefined`
+ * means the whole range is valid.
+ */
+const invalidRangeToken = (range: string): string | undefined => {
+  for (const set of range.split("||").map((part) => part.trim())) {
+    if (set.length === 0) return "";
+    if (hyphenRangePattern.test(set)) continue;
+    const bad = set.split(/\s+/u).find((token) => !comparatorPattern.test(token));
+    if (bad !== undefined) return bad;
+  }
+  return undefined;
+};
+
 /**
  * Why `range` cannot serve as the supported Bun range (`engines.bun`), or
  * `undefined` when it can.
  *
- * `Bun.semver.satisfies` has no parse error: an unparseable range such as
- * `garbage` matches every version. A range that admits `0.0.0` is therefore
- * either malformed or sets no floor, and both would accept any runtime.
+ * `Bun.semver.satisfies` has no parse error: it skips what it cannot read, so
+ * `garbage` matches every version and `>=1.4.0 || garbage >0.0.0` admits
+ * 1.2.0. Every token must therefore match the strict range grammar, and the
+ * range must not admit `0.0.0`, since a range without a floor would accept
+ * any runtime.
  */
 export const supportedBunRangeProblem = (
   range: unknown
@@ -37,8 +69,12 @@ export const supportedBunRangeProblem = (
   if (typeof range !== "string" || range.length === 0) {
     return "must declare a supported Bun range";
   }
+  const token = invalidRangeToken(range);
+  if (token !== undefined) {
+    return `${JSON.stringify(range)} is not a valid semver range: unexpected ${token.length === 0 ? "empty comparator set" : `token ${JSON.stringify(token)}`}`;
+  }
   return Bun.semver.satisfies("0.0.0", range)
-    ? `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0, and Bun.semver matches an unparseable range against every version`
+    ? `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0`
     : undefined;
 };
 

@@ -372,16 +372,49 @@ describe("bootstrap repo policy", () => {
     // Bun.semver.satisfies treats an unparseable range as matching every
     // version, so a malformed range would silently accept any runtime.
     expect(Bun.semver.satisfies("0.1.0", "garbage")).toBe(true);
-    expect(supportedBunRangeProblem(">=1.4.0")).toBeUndefined();
-    expect(supportedBunRangeProblem(">=1.4.0 <1.5.0")).toBeUndefined();
-    for (const malformed of ["garbage", "*", "x", ">=abc", "  ", "<1.5.0"]) {
-      expect(supportedBunRangeProblem(malformed)).toContain(
+    for (const floorless of ["*", "x", "<1.5.0", ">=0.0.0"]) {
+      expect(supportedBunRangeProblem(floorless)).toContain(
         "must set a lower bound"
       );
     }
     expect(supportedBunRangeProblem(undefined)).toBe(
       "must declare a supported Bun range"
     );
+  });
+
+  test("supported Bun ranges must be valid semver syntax throughout", () => {
+    // Bun's parser ignores junk it cannot read, so a junk token can widen a
+    // range that still sets a floor: `>=1.4.0 || garbage >0.0.0` admits 1.2.0.
+    expect(Bun.semver.satisfies("1.2.0", ">=1.4.0 || garbage >0.0.0")).toBe(
+      true
+    );
+    for (const [range, token] of [
+      [">=1.4.0 || garbage >0.0.0", "garbage"],
+      [">=1.4.0abc", ">=1.4.0abc"],
+      [">=1.4.0 garbage", "garbage"],
+      [">=abc", ">=abc"],
+      ["garbage", "garbage"],
+      [">= 1.4.0", ">="],
+      [">=1.4.0 ||", ""],
+      ["  ", ""],
+    ] as const) {
+      expect(supportedBunRangeProblem(range)).toBe(
+        `${JSON.stringify(range)} is not a valid semver range: unexpected ${token.length === 0 ? "empty comparator set" : `token ${JSON.stringify(token)}`}`
+      );
+    }
+    for (const valid of [
+      ">=1.4.0",
+      ">=1.4.0 <1.5.0",
+      "^1.4.0",
+      "~1.4.0",
+      "1.4.x",
+      "1.4.*",
+      "1.4.0 - 1.5.0",
+      ">=1.4.0 || >=2.0.0",
+      ">=1.4.0-canary.1+build.5",
+    ]) {
+      expect(supportedBunRangeProblem(valid)).toBeUndefined();
+    }
   });
 
   test("repo root detection accepts current and migration workspace markers", async () => {

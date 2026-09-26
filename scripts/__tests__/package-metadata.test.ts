@@ -162,7 +162,16 @@ describe("package metadata checks", () => {
       `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
     );
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
-    for (const malformed of ["garbage", "*", ">=abc"]) {
+    for (const [malformed, problem] of [
+      [
+        "*",
+        '"*" must set a lower bound: it admits 0.0.0',
+      ],
+      [
+        ">=1.4.0 || garbage >0.0.0",
+        '">=1.4.0 || garbage >0.0.0" is not a valid semver range: unexpected token "garbage"',
+      ],
+    ] as const) {
       await writeFile(
         join(root, "package.json"),
         `${JSON.stringify({ engines: { bun: malformed } })}\n`
@@ -172,7 +181,7 @@ describe("package metadata checks", () => {
         `${JSON.stringify({ engines: { bun: malformed } })}\n`
       );
       expect(await bunRuntimeDiagnostics(root)).toEqual([
-        `package.json engines.bun ${JSON.stringify(malformed)} must set a lower bound: it admits 0.0.0, and Bun.semver matches an unparseable range against every version`,
+        `package.json engines.bun ${problem}`,
       ]);
     }
     await writeFile(join(root, "package.json"), '{"engines":{}}\n');
