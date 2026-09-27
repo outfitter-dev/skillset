@@ -1063,6 +1063,43 @@ describe("workspace transactions", () => {
     });
   });
 
+  test("removes parents created before a later parent-component failure", async () => {
+    await withWorkspace(async (root) => {
+      await expect(
+        applyWorkspaceTransaction(
+          root,
+          { writes: [{ content: "nope\n", path: "created/nested/file.txt" }] },
+          {
+            testHooks: {
+              repositoryMutation: {
+                beforeInspectComponent: (logicalPath) => {
+                  if (logicalPath !== "created/nested") {
+                    return;
+                  }
+                  const error = new Error(
+                    "input/output error"
+                  ) as NodeJS.ErrnoException;
+                  error.code = "EIO";
+                  throw error;
+                },
+              },
+            },
+          }
+        )
+      ).rejects.toMatchObject({
+        code: "EIO",
+        logicalPath: "created/nested",
+        name: "RepositoryMutationError",
+      });
+
+      await expect(access(nodePath.join(root, "created"))).rejects.toThrow();
+      const rootEntries = await readdir(root);
+      expect(
+        rootEntries.filter((entry) => entry.startsWith(".skillset-workspace-"))
+      ).toEqual([]);
+    });
+  });
+
   test("keeps the mutation error code when the workspace root is missing", async () => {
     await withWorkspace(async (root) => {
       await expect(

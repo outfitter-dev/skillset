@@ -26,6 +26,7 @@ import {
   prepareRepositoryMutationPath,
   RepositoryMutationError,
   resolveWorkspaceMutationRoot,
+  type RepositoryMutationTestHooks,
 } from "./repository-mutation";
 import { hashSkillDirectory } from "./source-tree-identity";
 import type { GeneratedFileMode } from "./types";
@@ -131,6 +132,8 @@ export interface WorkspaceTransactionTestHooks {
     action: WorkspaceTransactionRollbackAction,
     index: number
   ) => Promise<void> | void;
+  /** Forwards parent-creation seams into repository mutation. */
+  readonly repositoryMutation?: RepositoryMutationTestHooks;
 }
 
 export interface WorkspaceTransactionOptions {
@@ -811,7 +814,7 @@ async function applyCopies(
 ): Promise<void> {
   for (const copy of copies) {
     await invokeApplyHook(hooks, operations, copy.operation);
-    await ensureSafeParent(state, copy.to);
+    await ensureSafeParent(state, copy.to, hooks);
     const applied = state.appliedCopies.find(
       (candidate) => candidate.copy === copy
     );
@@ -914,7 +917,7 @@ async function applyMoves(
   for (const move of moves) {
     await invokeApplyHook(hooks, operations, move.operation);
     await assertMoveSourceStayedVacant(state, move);
-    await ensureSafeParent(state, move.to);
+    await ensureSafeParent(state, move.to, hooks);
     const preimage = state.preimages.get(move.from.relative);
     if (preimage === undefined) {
       throw transactionError(`missing move preimage: ${move.from.relative}`);
@@ -988,7 +991,7 @@ async function applyWrites(
 ): Promise<void> {
   for (const [index, write] of prepared.writes.entries()) {
     await invokeApplyHook(hooks, prepared.operations, write.operation);
-    await ensureSafeParent(state, write.path);
+    await ensureSafeParent(state, write.path, hooks);
     const currentEntry = await inspectPath(state.workspaceRoot, write.path);
     const stagedPreimage = state.preimages.has(write.path.relative);
     if (stagedPreimage && currentEntry !== undefined) {
@@ -1255,16 +1258,22 @@ async function invokeApplyHook(
 
 async function ensureSafeParent(
   state: TransactionState,
-  path: NormalizedPath
+  path: NormalizedPath,
+  hooks?: WorkspaceTransactionTestHooks
 ): Promise<void> {
   try {
     // Installs use link/`wx`/rename and never write through the leaf.
-    const prepared = await prepareRepositoryMutationPath(
-      state.workspaceRoot,
-      path.absolute,
-      { replacesLeaf: true }
-    );
-    state.createdDirectories.push(...prepared.createdDirectories);
+    // Record each confirmed parent immediately so a later component failure
+    // still lets rollback remove what this transaction created.
+    await prepareRepositoryMutationPath(state.workspaceRoot, path.absolute, {
+      onCreatedDirectory: (directory) => {
+        state.createdDirectories.push(directory);
+      },
+      replacesLeaf: true,
+      ...(hooks?.repositoryMutation === undefined
+        ? {}
+        : { testHooks: hooks.repositoryMutation }),
+    });
   } catch (error) {
     throw asTransactionError(error);
   }

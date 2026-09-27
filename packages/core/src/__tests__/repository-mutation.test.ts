@@ -175,6 +175,37 @@ describe("repository mutation ancestry", () => {
     });
   });
 
+  test("reports created parents before a later component fails", async () => {
+    await withRoots(async (root) => {
+      const createdDirectories: string[] = [];
+      await expect(
+        prepareRepositoryMutationPath(
+          root,
+          join(root, ".skillset/changes/state.json"),
+          {
+            onCreatedDirectory: (absolutePath) => {
+              createdDirectories.push(absolutePath);
+            },
+            testHooks: {
+              beforeInspectComponent: (logicalPath) => {
+                if (logicalPath !== ".skillset/changes") {
+                  return;
+                }
+                const error = new Error("input/output error") as NodeJS.ErrnoException;
+                error.code = "EIO";
+                throw error;
+              },
+            },
+          }
+        )
+      ).rejects.toMatchObject({
+        code: "EIO",
+        logicalPath: ".skillset/changes",
+      });
+      expect(createdDirectories).toEqual([join(root, ".skillset")]);
+    });
+  });
+
   test("fails closed when a created parent is swapped for a file", async () => {
     await withRoots(async (root) => {
       await expect(

@@ -72,6 +72,13 @@ export interface PrepareRepositoryMutationPathOptions {
    */
   readonly createParents?: boolean;
   /**
+   * Called after a missing parent is created and rechecked as a real
+   * directory. Callers that roll back partial materialization should record
+   * the path here; a later component failure does not return
+   * {@link PreparedRepositoryMutationPath.createdDirectories}.
+   */
+  readonly onCreatedDirectory?: (absolutePath: string) => void;
+  /**
    * The caller removes, renames over, or exclusively creates the leaf (`rm`,
    * `rename`, atomic publication, `link`/`wx` install) and so never writes
    * through it. Defaults to `false`: an existing symbolic-link leaf is
@@ -194,6 +201,7 @@ export async function prepareRepositoryMutationPath(
     assertPlainDirectory(recheck, logicalPath);
     if (created) {
       createdDirectories.push(current);
+      options.onCreatedDirectory?.(current);
     }
   }
 
