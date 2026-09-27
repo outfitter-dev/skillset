@@ -231,6 +231,9 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
   const entry = resolvePendingChangeRef(pendingEntries, options.ref);
   const newReason = await resolveChangeReason(rootPath, options.reason);
   const absolutePath = resolveInside(rootPath, entry.path);
+  // The entry was read through the filesystem; refuse a symlinked parent or
+  // leaf before either rewrite below writes through it.
+  await prepareRepositoryMutationPath(rootPath, absolutePath, { createParents: false });
   if (entry.format === "reason") {
     const body = options.append ? `${entry.reason.trimEnd()}\n\n${newReason}` : newReason;
     await writeFile(

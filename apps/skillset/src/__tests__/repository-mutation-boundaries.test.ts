@@ -17,7 +17,7 @@ import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
 } from "../../../../scripts/test-helpers/git-remote";
-import { addChangeEntry } from "../change-workflow";
+import { addChangeEntry, updateChangeReason } from "../change-workflow";
 import { importSource } from "../import";
 import { scaffoldSourceUnit } from "../new-source";
 import { applyRelease } from "../release";
@@ -182,6 +182,47 @@ describe("SET-637 repository mutation boundaries", () => {
         "refusing to write through symbolic link: .skillset/changes/ledger.jsonl"
       );
       expect(await readFile(redirected, "utf8")).toBe(before);
+      expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
+    });
+  });
+
+  test("change reason refuses to rewrite a pending entry reached through a symlinked changes parent", async () => {
+    await withBoundary(async (root, outside) => {
+      await initWorkspace(root);
+      await scaffoldSourceUnit(root, { kind: "skill", name: "demo", write: true });
+      await commitWorkspace(root);
+      const added = await addChangeEntry(root, {
+        bump: "patch",
+        reason: {
+          kind: "inline",
+          value: "Pending reason that will be moved outside the workspace before an edit.",
+        },
+        scopes: ["skill:demo"],
+      });
+      await writeFile(
+        join(root, ".skillset/changes/legacy.md"),
+        "---\nid: abcdef123456\nbump: patch\nscope: skill:demo\n---\n\nLegacy frontmatter reason that must stay outside untouched.\n"
+      );
+      const preserved = await replaceWithSymlink(join(root, ".skillset/changes"), outside);
+      const reasonFile = join(preserved, added.entry.path.split("/").at(-1) ?? "");
+      const legacyFile = join(preserved, "legacy.md");
+      const reasonBefore = await readFile(reasonFile, "utf8");
+      const legacyBefore = await readFile(legacyFile, "utf8");
+
+      for (const ref of [`@${added.entry.id}`, "@abcdef123456"]) {
+        await expect(
+          updateChangeReason(root, {
+            append: false,
+            reason: {
+              kind: "inline",
+              value: "Rewritten reason that must never land in the outside directory.",
+            },
+            ref,
+          })
+        ).rejects.toThrow("refusing to traverse symbolic link: .skillset/changes");
+      }
+      expect(await readFile(reasonFile, "utf8")).toBe(reasonBefore);
+      expect(await readFile(legacyFile, "utf8")).toBe(legacyBefore);
       expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
     });
   });
