@@ -18,7 +18,7 @@ import {
   resolveSkillsetCommand,
   runHookEvent,
   runSkillsetCommand,
-  skillsetHookSpawnArgv,
+  skillsetHookSpawn,
   type HookSourceGateResult,
   type RunSkillsetCommandOptions,
 } from "../runtime-hooks";
@@ -133,98 +133,122 @@ test("runtime hook command resolver probes only the supplied PATH", async () => 
 });
 
 test("runtime hook override parser treats argv and shell syntax distinctly", () => {
-  expect(parseSkillsetHookCommand("npx --yes skillset")).toEqual({
+  expect(parseSkillsetHookCommand("npx --yes skillset", "linux")).toEqual({
     argv: ["npx", "--yes", "skillset"],
     kind: "argv",
   });
-  expect(parseSkillsetHookCommand("C:\\Program Files\\skillset.exe")).toEqual({
+  expect(parseSkillsetHookCommand("C:\\Program Files\\skillset.exe", "win32")).toEqual({
     argv: ["C:\\Program", "Files\\skillset.exe"],
     kind: "argv",
   });
-  expect(parseSkillsetHookCommand('"C:\\Program Files\\skillset.exe"')).toEqual({
+  expect(parseSkillsetHookCommand('"C:\\Program Files\\skillset.exe"', "win32")).toEqual({
     argv: ["C:\\Program Files\\skillset.exe"],
     kind: "argv",
   });
-  expect(parseSkillsetHookCommand('test -z "$GIT_DIR"')).toEqual({
-    argv: ['test -z "$GIT_DIR"'],
-    kind: "shell",
-  });
-  expect(parseSkillsetHookCommand('echo "%PATH%"')).toEqual({
-    argv: ['echo "%PATH%"'],
-    kind: "shell",
-  });
-  expect(parseSkillsetHookCommand("echo invoked>marker&rem")).toEqual({
-    argv: ["echo invoked>marker&rem"],
-    kind: "shell",
+  for (const shell of [
+    'test -z "$GIT_DIR"',
+    'echo "%PATH%"',
+    "echo invoked>marker&rem",
+  ]) {
+    expect(parseSkillsetHookCommand(shell, "linux")).toEqual({ argv: [shell], kind: "shell" });
+  }
+});
+
+test("runtime hook overrides that need shell expansion keep running through the shell", () => {
+  // These worked through `sh -lc` before overrides could run as argv; running
+  // them literally would spawn a path such as `~/bin/sk` that does not exist.
+  for (const override of [
+    "~/bin/sk",
+    "bun ~/src/skillset/apps/skillset/src/cli.ts",
+    "FOO=1 sk",
+    "sk --config *.yaml",
+    "sk file?.txt",
+    "sk [ab].yaml",
+    "sk {a,b}",
+    "sk # trailing comment",
+    "sk\\ with\\ escapes",
+    '"sk" "a\\"b"',
+  ]) {
+    expect(parseSkillsetHookCommand(override, "linux")).toEqual({
+      argv: [override],
+      kind: "shell",
+    });
+  }
+  // A mid-token `=` is an ordinary argument, not an assignment prefix.
+  expect(parseSkillsetHookCommand("sk --root=.", "linux")).toEqual({
+    argv: ["sk", "--root=."],
+    kind: "argv",
   });
 });
 
 test("runtime hook spawn uses argv, POSIX sh, or Windows ComSpec by contract", () => {
+  // Paths that exist on no host keep the expectations independent of what is
+  // installed on the runner (Bun.which resolves every argv command).
   const posix = {
-    cwd: "/tmp/repo",
-    env: { PATH: "/tmp/bin" },
+    cwd: "/absent-skillset-test/repo",
+    env: { PATH: "/absent-skillset-test/bin" },
     platform: "linux" as const,
   };
-  expect(skillsetHookSpawnArgv(
+  expect(skillsetHookSpawn(
     { argv: ["skillset"], kind: "argv" },
     ["change", "status", "--root", "."],
     posix
-  )).toEqual(["skillset", "change", "status", "--root", "."]);
-  expect(skillsetHookSpawnArgv(
+  )).toEqual({
+    cmd: ["skillset", "change", "status", "--root", "."],
+    windowsVerbatimArguments: false,
+  });
+  expect(skillsetHookSpawn(
     { argv: ['test -z "$GIT_DIR"'], kind: "shell" },
     [],
     posix
-  )).toEqual(["/bin/sh", "-lc", 'test -z "$GIT_DIR"']);
+  )).toEqual({
+    cmd: ["/bin/sh", "-lc", 'test -z "$GIT_DIR"'],
+    windowsVerbatimArguments: false,
+  });
 
+  // cmd.exe gets one verbatim command line wrapped in outer quotes, which
+  // `/s` strips; letting the runtime re-quote it would turn inner quotes into
+  // `\"`, which cmd.exe does not understand.
   const windows = {
-    cwd: "C:\\repo",
-    env: { ComSpec: "C:\\Windows\\System32\\cmd.exe", PATH: "C:\\tools" },
+    cwd: "C:\\absent-skillset-test\\repo",
+    env: {
+      ComSpec: "C:\\Windows\\System32\\cmd.exe",
+      PATH: "C:\\absent-skillset-test\\bin",
+    },
     platform: "win32" as const,
   };
-  expect(skillsetHookSpawnArgv(
+  const comSpec = (line: string) => ({
+    cmd: ["C:\\Windows\\System32\\cmd.exe", "/d", "/s", "/c", `"${line}"`],
+    windowsVerbatimArguments: true,
+  });
+  expect(skillsetHookSpawn(
     { argv: ["npx.cmd", "--yes", "skillset"], kind: "argv" },
     ["change", "status"],
     windows
-  )).toEqual([
-    "C:\\Windows\\System32\\cmd.exe",
-    "/d",
-    "/s",
-    "/c",
-    "npx.cmd --yes skillset change status",
-  ]);
-  expect(skillsetHookSpawnArgv(
-    { argv: ["C:\\Program Files\\nodejs\\npx.cmd"], kind: "argv" },
+  )).toEqual(comSpec("npx.cmd --yes skillset change status"));
+  expect(skillsetHookSpawn(
+    { argv: ["C:\\Absent Tools\\nodejs\\npx.cmd"], kind: "argv" },
     ["--yes", "skillset"],
     windows
-  )).toEqual([
-    "C:\\Windows\\System32\\cmd.exe",
-    "/d",
-    "/s",
-    "/c",
-    '"C:\\Program Files\\nodejs\\npx.cmd" --yes skillset',
-  ]);
-  expect(skillsetHookSpawnArgv(
-    { argv: ["C:\\Program Files\\skillset\\skillset.BAT"], kind: "argv" },
+  )).toEqual(comSpec('"C:\\Absent Tools\\nodejs\\npx.cmd" --yes skillset'));
+  expect(skillsetHookSpawn(
+    { argv: ["C:\\Absent Tools\\skillset\\skillset.BAT"], kind: "argv" },
     ["change", "status"],
     windows
-  )).toEqual([
-    "C:\\Windows\\System32\\cmd.exe",
-    "/d",
-    "/s",
-    "/c",
-    '"C:\\Program Files\\skillset\\skillset.BAT" change status',
-  ]);
-  expect(skillsetHookSpawnArgv(
+  )).toEqual(comSpec('"C:\\Absent Tools\\skillset\\skillset.BAT" change status'));
+  expect(skillsetHookSpawn(
     { argv: ["echo invoked>marker&rem"], kind: "shell" },
     ["change", "status", "--root", "."],
     windows
-  )).toEqual([
-    "C:\\Windows\\System32\\cmd.exe",
-    "/d",
-    "/s",
-    "/c",
-    "echo invoked>marker&rem change status --root .",
-  ]);
+  )).toEqual(comSpec("echo invoked>marker&rem change status --root ."));
+  expect(skillsetHookSpawn(
+    { argv: ["C:\\Absent Tools\\skillset.exe"], kind: "argv" },
+    ["change"],
+    windows
+  )).toEqual({
+    cmd: ["C:\\Absent Tools\\skillset.exe", "change"],
+    windowsVerbatimArguments: false,
+  });
 });
 
 test("runtime hook command runner executes argv overrides without a shell", async () => {
@@ -232,7 +256,11 @@ test("runtime hook command runner executes argv overrides without a shell", asyn
   // The marker reaches the fake runner through its environment, so quotes and
   // expansions in the path stay literal instead of being parsed as script.
   const marker = join(root, "invoked 'marker' $HOME");
-  const bin = join(root, process.platform === "win32" ? "hook-skillset.cmd" : "hook-skillset");
+  // A space in the runner's directory must survive quoting on every platform,
+  // including the Windows cmd.exe command line for `.cmd` shims.
+  const binDir = join(root, "tools with spaces");
+  await mkdir(binDir);
+  const bin = join(binDir, process.platform === "win32" ? "hook-skillset.cmd" : "hook-skillset");
   if (process.platform === "win32") {
     await writeFile(bin, '@echo off\r\n>"%SKILLSET_TEST_HOOK_MARKER%" echo %*\r\nexit /b 0\r\n');
   } else {
@@ -242,11 +270,26 @@ test("runtime hook command runner executes argv overrides without a shell", asyn
 
   await expect(runSkillsetCommand(["change", "status", "--root", "."], {
     allowFailure: false,
-    env: { SKILLSET_HOOK_COMMAND: bin, SKILLSET_TEST_HOOK_MARKER: marker },
+    env: { SKILLSET_HOOK_COMMAND: `"${bin}"`, SKILLSET_TEST_HOOK_MARKER: marker },
     rootPath: root,
   })).resolves.toBe(0);
   expect(await readFile(marker, "utf8")).toContain("change");
   expect(await readFile(marker, "utf8")).toContain("status");
+});
+
+test("runtime hook command runner reports a missing override executable as exit 127", async () => {
+  const root = await gitFixture();
+  const missing = join(root, "absent", process.platform === "win32" ? "skillset.exe" : "skillset");
+  const run = (allowFailure: boolean) =>
+    runSkillsetCommand(["change", "status"], {
+      allowFailure,
+      env: { SKILLSET_HOOK_COMMAND: `"${missing}"` },
+      rootPath: root,
+    });
+  // Blocking callers see the shell's "command not found" code; advisory
+  // callers stay advisory instead of rejecting.
+  await expect(run(false)).resolves.toBe(127);
+  await expect(run(true)).resolves.toBe(0);
 });
 
 test("runtime hook command runner strips inherited Git repository environment", async () => {

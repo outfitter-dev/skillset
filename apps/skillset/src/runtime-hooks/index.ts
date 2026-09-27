@@ -3,10 +3,11 @@ export {
   parseSkillsetHookCommand,
   resolveSkillsetCommand,
   runSkillsetCommand,
-  skillsetHookSpawnArgv,
+  skillsetHookSpawn,
   type ResolvedSkillsetCommand,
   type RunSkillsetCommand,
   type RunSkillsetCommandOptions,
+  type SkillsetHookSpawn,
   type SkillsetHookSpawnOptions,
 } from "./commands";
 export {
