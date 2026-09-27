@@ -134,6 +134,49 @@ describe("SET-637 repository mutation boundaries", () => {
     });
   });
 
+  test("a target-native skill merge refuses a symlinked SKILL.md leaf", async () => {
+    await withBoundary(async (root, outside) => {
+      const { outsideSkill, source } = await mergeFixture(root, outside);
+      const before = await readFile(outsideSkill, "utf8");
+      await expect(
+        importSource({
+          kind: "skill",
+          mergeTargetNativeSkill: true,
+          rootPath: root,
+          sourcePath: source,
+        })
+      ).rejects.toThrow("refusing to write through symbolic link: .skillset/skills/demo/SKILL.md");
+      expect(await readFile(outsideSkill, "utf8")).toBe(before);
+    });
+  });
+
+  test("a failed merge baseline refuses to restore SKILL.md through a symlinked leaf", async () => {
+    await withBoundary(async (root, outside) => {
+      const { outsideSkill, source } = await mergeFixture(root, outside);
+      const targetSkill = join(root, ".skillset/skills/demo/SKILL.md");
+      await rm(targetSkill);
+      await writeFile(targetSkill, await readFile(outsideSkill, "utf8"));
+      await writeFile(outsideSkill, "outside bytes a restore must not replace\n");
+      const before = await readFile(outsideSkill, "utf8");
+      await expect(
+        importSource({
+          kind: "skill",
+          mergeTargetNativeSkill: true,
+          rootPath: root,
+          sourcePath: source,
+          testHooks: {
+            beforeBaselineSeed: async () => {
+              await rm(targetSkill);
+              await symlink(outsideSkill, targetSkill);
+              throw new Error("test: baseline seeding failed after the merge");
+            },
+          },
+        })
+      ).rejects.toThrow("refusing to write through symbolic link: .skillset/skills/demo/SKILL.md");
+      expect(await readFile(outsideSkill, "utf8")).toBe(before);
+    });
+  });
+
   test("change add and release-state writes refuse a symlinked changes parent", async () => {
     await withBoundary(async (root, outside) => {
       await initWorkspace(root);
@@ -269,6 +312,22 @@ describe("SET-637 repository mutation boundaries", () => {
     });
   });
 });
+
+async function mergeFixture(
+  root: string,
+  outside: string
+): Promise<{ readonly outsideSkill: string; readonly source: string }> {
+  await initWorkspace(root);
+  const skill = "---\nname: demo\ndescription: Demo skill for merge ancestry.\n---\n\nDemo body.\n";
+  const outsideSkill = join(outside, "SKILL.md");
+  await writeFile(outsideSkill, skill);
+  await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
+  await symlink(outsideSkill, join(root, ".skillset/skills/demo/SKILL.md"));
+  const source = join(outside, "provider/demo");
+  await mkdir(source, { recursive: true });
+  await writeFile(join(source, "SKILL.md"), skill);
+  return { outsideSkill, source };
+}
 
 async function replaceWithSymlink(path: string, outside: string): Promise<string> {
   const preserved = join(outside, "preserved");
