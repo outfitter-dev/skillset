@@ -856,8 +856,6 @@ interface MarkdownFence {
 interface ListItemStart {
   /** Column of the item's content. */
   readonly contentIndent: number;
-  /** Column of the list marker. */
-  readonly indent: number;
   /** Whether the item may interrupt a paragraph: it has content and is a bullet or starts at 1. */
   readonly canInterruptParagraph: boolean;
 }
@@ -918,6 +916,8 @@ export function markdownCodeRanges(content: string): CodeRange[] {
  * Single-line blocks (ATX headings, setext underlines, thematic breaks, and
  * indented code outside a paragraph) keep spans on their own line, as do GFM
  * table rows. List items start a new block that later lines may continue.
+ * Block syntax is read from the line's container column, so inside a list item
+ * the usual up-to-three-space indent is counted from the item's content.
  */
 function markdownLineBlock(
   line: string,
@@ -925,30 +925,35 @@ function markdownLineBlock(
   state: MarkdownBlockState
 ): MarkdownLineBlock {
   if (/^[ \t]*$/.test(line)) return "blank";
+  const column = containerColumn(line, state);
+  const inner = line.slice(column);
+  // A line left of the open paragraph's item is lazy continuation at most, so
+  // it can neither underline that paragraph nor be refused as an interruption.
+  const inParagraphContainer =
+    state.inParagraph && column === (state.listIndents.at(-1) ?? 0);
   if (
-    (state.inParagraph && /^ {0,3}(?:=+|-+)[ \t]*$/.test(line)) ||
-    /^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(line)
+    (inParagraphContainer && /^ {0,3}(?:=+|-+)[ \t]*$/.test(inner)) ||
+    /^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(inner)
   ) {
     return "single";
   }
-  const item = listItemStart(line);
-  if (item !== undefined && (item.canInterruptParagraph || !continuesParagraph(item, state))) {
+  const item = listItemStart(inner, column);
+  if (item !== undefined && (item.canInterruptParagraph || !inParagraphContainer)) {
     return "start";
   }
   if (state.inTable) return "row";
-  if (!state.inParagraph && /^(?: {4}|\t)/.test(line)) return "single";
+  if (!state.inParagraph && /^(?: {4}|\t)/.test(inner)) return "single";
   if (isTableHeader(line, nextLine)) return "row";
   return "continuation";
 }
 
 /**
- * A list marker that CommonMark does not let interrupt a paragraph (an empty
- * item, or an ordered item not starting at 1) is paragraph text when the open
- * paragraph is its innermost container. A marker left of the open item's
- * content closes that item instead, so it starts a sibling or a new list.
+ * Content column of the innermost open list item that still contains the line,
+ * or 0 outside lists.
  */
-function continuesParagraph(item: ListItemStart, state: MarkdownBlockState): boolean {
-  return state.inParagraph && item.indent >= (state.listIndents.at(-1) ?? 0);
+function containerColumn(line: string, state: MarkdownBlockState): number {
+  const indent = line.match(/^[ \t]*/)?.[0].length ?? 0;
+  return state.listIndents.findLast((column) => column <= indent) ?? 0;
 }
 
 /**
@@ -958,22 +963,24 @@ function continuesParagraph(item: ListItemStart, state: MarkdownBlockState): boo
  */
 function trackListItems(line: string, block: MarkdownLineBlock, state: MarkdownBlockState): void {
   if (block === "blank" || (block === "continuation" && state.inParagraph)) return;
-  const indent = line.length - line.trimStart().length;
-  while ((state.listIndents.at(-1) ?? 0) > indent) state.listIndents.pop();
-  const item = block === "start" ? listItemStart(line) : undefined;
+  const column = containerColumn(line, state);
+  while ((state.listIndents.at(-1) ?? 0) > column) state.listIndents.pop();
+  const item = block === "start" ? listItemStart(line.slice(column), column) : undefined;
   if (item !== undefined) state.listIndents.push(item.contentIndent);
 }
 
-/** Parses a bullet or ordered list marker; tabs count as one column. */
-function listItemStart(line: string): ListItemStart | undefined {
-  const match = line.match(/^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]*)(.*)$/);
+/**
+ * Parses a bullet or ordered list marker in `inner`, the part of a line after
+ * its container column; tabs count as one column.
+ */
+function listItemStart(inner: string, column: number): ListItemStart | undefined {
+  const match = inner.match(/^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]*)(.*)$/);
   if (match === null) return undefined;
   const [, indent = "", marker = "", start, spacing = "", text = ""] = match;
   if (spacing === "" && text !== "") return undefined;
-  const markerEnd = indent.length + marker.length;
+  const markerEnd = column + indent.length + marker.length;
   return {
     contentIndent: markerEnd + (text !== "" && spacing.length <= 4 ? spacing.length : 1),
-    indent: indent.length,
     canInterruptParagraph:
       text !== "" && (start === undefined || Number.parseInt(start, 10) === 1),
   };
@@ -981,13 +988,14 @@ function listItemStart(line: string): ListItemStart | undefined {
 
 /**
  * A GFM table starts at a header row followed by a delimiter row with the same
- * number of cells; a leading pipe alone does not make a line a table row.
+ * number of cells; a leading pipe alone does not make a line a table row. The
+ * delimiter pattern gives each whitespace run one owner so it stays linear.
  */
 function isTableHeader(line: string, nextLine: string | undefined): boolean {
   return (
     nextLine !== undefined &&
     nextLine.includes("|") &&
-    /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/.test(nextLine) &&
+    /^ {0,3}\|?[ \t]*:?-+:?(?:[ \t]*\|[ \t]*:?-+:?)*[ \t]*(?:\|[ \t]*)?$/.test(nextLine) &&
     tableCellCount(line) === tableCellCount(nextLine)
   );
 }

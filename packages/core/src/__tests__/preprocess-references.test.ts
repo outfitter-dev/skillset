@@ -337,6 +337,21 @@ describe("preprocess reference grammar", () => {
       "1. a\n\n   more ` b\n2. @shared:references/a.md ` c",
     ],
     [
+      "third-level list siblings",
+      "- a\n  - b\n    - c ` x\n    - @{{shared:references/a.md}}\n    - d ` y",
+      "- a\n  - b\n    - c ` x\n    - @shared:references/a.md\n    - d ` y",
+    ],
+    [
+      "an ATX heading inside a nested list item",
+      "- a\n  - b ` x\n    # h\n    @{{shared:references/a.md}} ` y",
+      "- a\n  - b ` x\n    # h\n    @shared:references/a.md ` y",
+    ],
+    [
+      "a setext underline inside a nested list item",
+      "- a\n  - b ` x\n    ===\n    @{{shared:references/a.md}} ` y",
+      "- a\n  - b ` x\n    ===\n    @shared:references/a.md ` y",
+    ],
+    [
       "a setext heading underline",
       "`open\n===\n@{{shared:references/a.md}}\nclose`",
       "`open\n===\n@shared:references/a.md\nclose`",
@@ -373,6 +388,11 @@ describe("preprocess reference grammar", () => {
     ["a pipe line that is not a table row", "`open\n| ordinary text\n@{{shared:references/a.md}}\nclose`"],
     ["an ordered item that does not start at 1", "`open\n2. ordinary text\n@{{shared:references/a.md}}\nclose`"],
     ["an empty list item", "`open\n*\n@{{shared:references/a.md}}\nclose`"],
+    [
+      "a marker four columns past the item content",
+      "- a ` x\n      - @{{shared:references/a.md}}\n  y `",
+    ],
+    ["a lazy setext-like line in a list item", "- a ` x\n===\n@{{shared:references/a.md}} ` y"],
   ])("keeps multiline code spans open across %s", async (_case, content) => {
     await files(rootPath, { ".skillset/shared/references/a.md": "A" });
     const { context, rendered } = recordingContext(rootPath);
