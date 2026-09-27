@@ -29,6 +29,11 @@ const classifierCases = [
   },
   {
     expected: 1,
+    error: new CliOutputError("skillset: structured output failed"),
+    name: "CliOutputError without an explicit code",
+  },
+  {
+    expected: 1,
     error: new Error(
       "skillset: expected backup id to be a lowercase hex ref, received \"NOT-A-HEX\""
     ),
@@ -63,7 +68,7 @@ const spawnedCases = [
     expected: 2,
     human: ["report", "show", "../outside"],
     json: ["report", "show", "../outside", "--json"],
-    name: "explicit command-specific report failure",
+    name: "report invalid reference",
   },
   {
     expected: 1,

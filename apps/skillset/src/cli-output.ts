@@ -21,7 +21,7 @@ export class CliOutputError extends Error {
   readonly command?: string;
   readonly exitCode: number;
 
-  constructor(message: string, exitCode = 2, command?: string) {
+  constructor(message: string, exitCode = 1, command?: string) {
     super(message);
     this.name = "CliOutputError";
     this.exitCode = exitCode;
