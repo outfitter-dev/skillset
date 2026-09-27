@@ -101,6 +101,8 @@ export function pinnedBunxExecutableName(
  * Windows gets a copy because symlinks there need privileges we should not
  * require. Only an owned shim is left alone; stale links and copies are
  * replaced atomically so a cached root cannot fall through to ambient bunx.
+ * On Windows the replace retries transient contention on the target; see
+ * `replaceWindowsBunx`.
  * The platform argument lets the copy path be exercised on non-Windows CI.
  */
 export async function ensurePinnedBunx(
@@ -125,13 +127,62 @@ export async function ensurePinnedBunx(
       // point at the staging path and dangle the moment it is published.
       await symlink(executableName, stagedPath);
     }
-    await rename(stagedPath, bunxPath);
+    if (platform === "win32") {
+      await replaceWindowsBunx(stagedPath, bunxPath, () =>
+        isPinnedBunx(binDir, executableName, bunxName, platform)
+      );
+    } else {
+      await rename(stagedPath, bunxPath);
+    }
   } finally {
     await rm(stagedPath, { force: true }).catch(() => {});
   }
   if (!(await isPinnedBunx(binDir, executableName, bunxName, platform))) {
     throw new Error(`pinned bunx could not be repaired at ${bunxPath}`);
   }
+}
+
+/** Errors Windows returns when another handle blocks replacing a file. */
+const WINDOWS_REPLACE_CONTENTION = new Set(["EACCES", "EBUSY", "EPERM"]);
+const WINDOWS_REPLACE_ATTEMPTS = 10;
+
+/**
+ * Replace a Windows `bunx.exe` with a staged copy.
+ *
+ * Windows rename over an existing file fails with EPERM while any other
+ * handle has the target open, such as a concurrent repair hashing it or a
+ * scanner inspecting a new `.exe`, and also when the target is read-only.
+ * POSIX rename has neither failure. Retry that contention a bounded number
+ * of times, clearing the read-only bit, and stop as soon as `isPublished`
+ * reports that a concurrent repair has already put the pinned copy in place.
+ * `renameFile` is injectable so the Windows branch can be tested on POSIX.
+ */
+export async function replaceWindowsBunx(
+  stagedPath: string,
+  bunxPath: string,
+  isPublished: () => Promise<boolean>,
+  renameFile: (from: string, to: string) => Promise<void> = rename
+): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await renameFile(stagedPath, bunxPath);
+      return;
+    } catch (error) {
+      if (!isWindowsReplaceContention(error)) throw error;
+      if (await isPublished()) return;
+      if (attempt >= WINDOWS_REPLACE_ATTEMPTS) throw error;
+      await chmod(bunxPath, 0o755).catch(() => {});
+      await Bun.sleep(50 * attempt);
+    }
+  }
+}
+
+function isWindowsReplaceContention(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+  const { code } = error;
+  return typeof code === "string" && WINDOWS_REPLACE_CONTENTION.has(code);
 }
 
 async function isPinnedBunx(
