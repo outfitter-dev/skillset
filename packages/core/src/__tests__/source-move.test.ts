@@ -166,22 +166,19 @@ describe("SET-588 source collection move", () => {
     });
     const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
     const label = ".skillset/changes/eeeeeeeeeeee.md";
-    await expect(planSourceMove(request)).rejects.toBeInstanceOf(SourceMovePlanError);
-    try {
-      await planSourceMove(request);
-    } catch (error) {
-      expect(error).toBeInstanceOf(SourceMovePlanError);
-      const { cause, message } = error as Error;
-      expect(message).toContain(`cannot rewrite pending change entry ${label}`);
-      expect(message).toContain("is not valid YAML");
-      expect(message).not.toContain(root);
-      expect(message.split(label).length - 1).toBe(1);
-      expect(cause).toBeInstanceOf(Error);
-      expect((cause as Error).message).toContain(`${label} is not valid YAML`);
-      expect((cause as Error).cause).toBeInstanceOf(Error);
-      return;
-    }
-    throw new Error("expected planSourceMove to fail");
+    const error = await planSourceMove(request).then(
+      () => undefined,
+      (rejection: unknown) => rejection
+    );
+    if (!(error instanceof SourceMovePlanError)) throw new Error("expected planSourceMove to fail with SourceMovePlanError");
+    expect(error.message).toContain(`cannot rewrite pending change entry ${label}`);
+    expect(error.message).toContain("is not valid YAML");
+    expect(error.message).not.toContain(root);
+    expect(error.message.split(label).length - 1).toBe(1);
+    const { cause } = error;
+    if (!(cause instanceof Error)) throw new Error("expected the YAML error as cause");
+    expect(cause.message).toContain(`${label} is not valid YAML`);
+    expect(cause.cause).toBeInstanceOf(Error);
   });
 
   test("removes plugin internal-use selection with a visible notice", async () => {
