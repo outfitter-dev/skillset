@@ -165,8 +165,23 @@ describe("SET-588 source collection move", () => {
       "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
     });
     const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    const label = ".skillset/changes/eeeeeeeeeeee.md";
     await expect(planSourceMove(request)).rejects.toBeInstanceOf(SourceMovePlanError);
-    await expect(planSourceMove(request)).rejects.toThrow("cannot rewrite pending change entry .skillset/changes/eeeeeeeeeeee.md");
+    try {
+      await planSourceMove(request);
+    } catch (error) {
+      expect(error).toBeInstanceOf(SourceMovePlanError);
+      const { cause, message } = error as Error;
+      expect(message).toContain(`cannot rewrite pending change entry ${label}`);
+      expect(message).toContain("is not valid YAML");
+      expect(message).not.toContain(root);
+      expect(message.split(label).length - 1).toBe(1);
+      expect(cause).toBeInstanceOf(Error);
+      expect((cause as Error).message).toContain(`${label} is not valid YAML`);
+      expect((cause as Error).cause).toBeInstanceOf(Error);
+      return;
+    }
+    throw new Error("expected planSourceMove to fail");
   });
 
   test("removes plugin internal-use selection with a visible notice", async () => {

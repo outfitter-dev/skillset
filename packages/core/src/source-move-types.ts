@@ -35,8 +35,8 @@ export interface SourceMoveReport extends SourceMovePlan {
 }
 
 export class SourceMovePlanError extends Error {
-  public constructor(message: string) {
-    super(`skillset: source move ${message}`);
+  public constructor(message: string, options?: ErrorOptions) {
+    super(`skillset: source move ${message}`, options);
     this.name = "SourceMovePlanError";
   }
 }

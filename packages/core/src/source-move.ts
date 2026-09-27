@@ -210,13 +210,22 @@ async function planAuthoredSourceMove(
         updates.get(documentPath) ?? (await readFile(documentPath, "utf8"));
       let rewritten: string;
       try {
-        rewritten = rewritePendingChangeScopes(source, documentPath, {
-          fromSelector,
-          toSelector,
-        });
+        rewritten = rewritePendingChangeScopes(
+          source,
+          display(rootPath, documentPath),
+          {
+            fromSelector,
+            toSelector,
+          }
+        );
       } catch (error) {
         throw new SourceMovePlanError(
-          `cannot rewrite pending change entry ${display(rootPath, documentPath)}: ${error instanceof Error ? error.message : String(error)}`
+          `cannot rewrite pending change entry ${
+            error instanceof Error
+              ? error.message.replace(/^skillset: /u, "")
+              : String(error)
+          }`,
+          { cause: error }
         );
       }
       if (rewritten !== source) {
