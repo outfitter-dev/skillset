@@ -37,6 +37,7 @@ import {
 } from "@skillset/core/internal/yaml";
 import { validateAdaptiveHookUnitSource } from "@skillset/schema";
 
+import { CliUsageError } from "./cli-output";
 import type { NewSourcePlannedFile } from "./new-source";
 
 export interface NewAdaptiveHookOptions {
@@ -75,13 +76,13 @@ export async function planNewAdaptiveHook(
   options: NewAdaptiveHookOptions
 ): Promise<readonly NewSourcePlannedFile[]> {
   if (options.attachment === undefined) {
-    throw new Error("skillset: new hook requires --attach <source-unit>");
+    throw new CliUsageError("skillset: new hook requires --attach <source-unit>");
   }
   if (options.container !== undefined) {
-    throw new Error("skillset: new hook uses --attach for placement; --in is not supported");
+    throw new CliUsageError("skillset: new hook uses --attach for placement; --in is not supported");
   }
   if (options.presets !== undefined && options.presets.length > 0) {
-    throw new Error("skillset: new hook does not support --preset");
+    throw new CliUsageError("skillset: new hook does not support --preset");
   }
   const events = uniqueRequired(options.events, "--event");
   const action = hookAction(options);
@@ -238,11 +239,11 @@ function uniqueRequired(
   flag: string
 ): readonly string[] {
   if (values === undefined || values.length === 0) {
-    throw new Error(`skillset: new hook requires ${flag}`);
+    throw new CliUsageError(`skillset: new hook requires ${flag}`);
   }
   const unique = [...new Set(values.map((value) => value.trim()))];
   if (unique.some((value) => value.length === 0)) {
-    throw new Error(`skillset: ${flag} values must be non-empty`);
+    throw new CliUsageError(`skillset: ${flag} values must be non-empty`);
   }
   return unique;
 }
@@ -251,7 +252,7 @@ function hookAction(options: NewAdaptiveHookOptions): JsonRecord {
   const command = options.command?.trim();
   const script = options.script?.trim();
   if ((command === undefined || command.length === 0) === (script === undefined || script.length === 0)) {
-    throw new Error("skillset: new hook requires exactly one of --command or --script");
+    throw new CliUsageError("skillset: new hook requires exactly one of --command or --script");
   }
   return command === undefined || command.length === 0
     ? { script: script ?? "" }

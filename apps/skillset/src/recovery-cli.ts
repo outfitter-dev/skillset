@@ -2,7 +2,7 @@ import { inspectOutputBackups, restoreOutputBackup } from "@skillset/core";
 import type { OutputBackupRestoreReport } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
-import { printCliJsonData } from "./cli-output";
+import { CliUsageError, printCliJsonData } from "./cli-output";
 import {
   confirmProceed,
   createInteractiveSession,
@@ -140,7 +140,7 @@ async function runExplicitReconcile(
   context: ReconcileCommandContext
 ): Promise<void> {
   if (managedPath === undefined) {
-    throw new Error("skillset: expected a managed path to reconcile");
+    throw new CliUsageError("skillset: expected a managed path to reconcile");
   }
   const report = await (context.reconcile ?? reconcileManagedPath)(
     rootPath,

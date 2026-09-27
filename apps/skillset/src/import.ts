@@ -71,6 +71,7 @@ import {
   PORTABLE_PLUGIN_METADATA_FIELDS,
   unreadableNativeAuthorProviders,
 } from "./plugin-manifest-authority";
+import { CliUsageError } from "./cli-output";
 import type { ImportKind, ImportProvider } from "./source-arg-values";
 import { quoteShellArgument } from "./recovery-guidance";
 import {
@@ -1478,7 +1479,7 @@ interface ImportPlanItem {
 function resolveImportSourcePath(options: ImportSourcesOptions): string {
   if (options.sourcePath !== undefined) return resolve(options.sourcePath);
   if (options.provider !== undefined) return defaultProviderSkillRoot(options.provider);
-  throw new Error("skillset: expected import path");
+  throw new CliUsageError("skillset: expected import path");
 }
 
 function defaultProviderSkillRoot(provider: ImportProvider): string {

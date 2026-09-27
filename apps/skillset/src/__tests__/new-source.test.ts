@@ -114,7 +114,7 @@ test("SET-584: new plugin rejects invalid identity, nesting, and collisions", as
     root,
     "--yes"
   );
-  expect(nested.exitCode).toBe(1);
+  expect(nested.exitCode).toBe(2);
   expect(nested.stderr).toContain("a plugin container cannot nest inside another");
 
   await mkdir(join(root, ".skillset/plugins/review-tools"), { recursive: true });
@@ -222,7 +222,7 @@ test("SET-555: new skill --draft is plan-first and supports plugin containers", 
     "--root",
     root
   );
-  expect(invalid.exitCode).toBe(1);
+  expect(invalid.exitCode).toBe(2);
   expect(invalid.stderr).toContain(
     "new instruction does not support --draft"
   );
@@ -477,7 +477,7 @@ test("SET-309: new instruction supports plugin placement and collision safety", 
     "--root",
     root
   );
-  expect(preset.exitCode).toBe(1);
+  expect(preset.exitCode).toBe(2);
   expect(preset.stderr).toContain(
     "new instruction does not support --preset"
   );
@@ -598,7 +598,7 @@ test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisi
     "new", "hook", "Missing Action", "--event", "PreToolUse",
     "--attach", "plugin:guard", "--root", root, "--yes"
   );
-  expect(incomplete.exitCode).toBe(1);
+  expect(incomplete.exitCode).toBe(2);
   expect(incomplete.stderr).toContain("requires exactly one of --command or --script");
 
   const invalid = await runSkillsetCli(
@@ -683,7 +683,7 @@ test("SET-310: non-hook source kinds reject hook-only flags", async () => {
     "--yes"
   );
 
-  expect(result.exitCode).toBe(1);
+  expect(result.exitCode).toBe(2);
   expect(result.stderr).toContain(
     "new skill does not support hook options: --attach, --command, --event, --provider, --script"
   );
@@ -733,7 +733,7 @@ test("SET-165/310: new supports project agents and requires complete hook intent
   expect(source).toContain('description: "Use this agent for Release Reviewer work."');
 
   const hook = await runSkillsetCli("new", "hook", "source-change-guard", "--root", root);
-  expect(hook.exitCode).toBe(1);
+  expect(hook.exitCode).toBe(2);
   expect(hook.stderr).toContain("new hook requires --attach <source-unit>");
 });
 

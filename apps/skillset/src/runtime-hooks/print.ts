@@ -2,6 +2,8 @@ import type { TargetName } from "@skillset/core/internal/types";
 import { isProjectSessionStartTarget, projectSessionStartEntry, projectSessionStartPath } from "@skillset/core/internal/render-project-hooks";
 import { getProviderRuntimeHookDestination } from "@skillset/registry";
 
+import { CliUsageError } from "../cli-output";
+
 export type HookRunner = "git" | "husky" | "lefthook" | "pre-commit";
 
 export interface HookPrintOptions {
@@ -20,7 +22,7 @@ const RUNTIME_STOP_COMMAND = "skillset hooks run stop";
 export function renderHookPrint(options: HookPrintOptions): string {
   validateHookPrintOptions(options);
   if (options.agentRuntime) return renderAgentRuntimeSnippet(options.target);
-  if (options.runner === undefined) throw new Error("skillset: hooks print requires --runner or --agent-runtime");
+  if (options.runner === undefined) throw new CliUsageError("skillset: hooks print requires --runner or --agent-runtime");
   const preCommit = options.preCommit || (!options.preCommit && !options.prePush);
   const prePush = options.prePush || (!options.preCommit && !options.prePush);
   return `${renderRunnerSnippet(options.runner, { preCommit, prePush }).trimEnd()}\n`;
@@ -28,18 +30,18 @@ export function renderHookPrint(options: HookPrintOptions): string {
 
 function validateHookPrintOptions(options: HookPrintOptions): void {
   if (options.agentRuntime && options.runner !== undefined) {
-    throw new Error("skillset: hooks print --agent-runtime cannot be combined with --runner");
+    throw new CliUsageError("skillset: hooks print --agent-runtime cannot be combined with --runner");
   }
   if (options.agentRuntime) {
-    if (options.target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
+    if (options.target === undefined) throw new CliUsageError("skillset: hooks print --agent-runtime requires --target");
     requireRuntimeHookDestination(options.target);
     if (options.preCommit || options.prePush) {
-      throw new Error("skillset: hooks print --agent-runtime cannot be combined with --pre-commit or --pre-push");
+      throw new CliUsageError("skillset: hooks print --agent-runtime cannot be combined with --pre-commit or --pre-push");
     }
     return;
   }
   if (options.target !== undefined) {
-    throw new Error("skillset: hooks print --target is only supported with --agent-runtime");
+    throw new CliUsageError("skillset: hooks print --target is only supported with --agent-runtime");
   }
   if (options.runner === undefined) return;
 }
@@ -149,7 +151,7 @@ function renderGitSnippet(options: { readonly preCommit: boolean; readonly prePu
 }
 
 function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
-  if (target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
+  if (target === undefined) throw new CliUsageError("skillset: hooks print --agent-runtime requires --target");
   const path = requireRuntimeHookDestination(target).replace(/^<project>\//u, "");
   const note =
     "Generated suggestion only. Review before adding to project-local runtime config; Skillset does not install or trust hooks.";

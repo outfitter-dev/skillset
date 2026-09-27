@@ -8,6 +8,7 @@ import {
   createCliEventStream,
 } from "../cli-output";
 import { PromptCancelledError } from "../prompt-cancelled-error";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const cli = join(import.meta.dir, "..", "cli.ts");
 
@@ -136,6 +137,13 @@ describe("SET-635 shared CLI exit classes", () => {
       ["lookup", "hooks", "--field", "one", "--field", "two"],
       ["hooks", "context", "--event", "Stop", "--format", "yaml"],
       ["hooks", "context", "--event", "Stop", "--context-fields", "not-a-field"],
+      ["test", "--prompt", "hi"],
+      ["test", "--target", "claude"],
+      ["test", "--target", "claude", "--prompt", "a", "--prompt-file", "b"],
+      ["test", "--target", "claude", "--prompt", "a", "--yes"],
+      ["test", "list", "--target", "claude"],
+      ["test", "status", "--lines", "3"],
+      ["new", "skill", "demo", "--preset", "bogus"],
     ] as const;
     for (const args of cases) {
       const [human, json] = await Promise.all([
@@ -148,6 +156,52 @@ describe("SET-635 shared CLI exit classes", () => {
         json: 2,
       });
     }
+  });
+
+  test("execution-time invocation checks use the usage class", async () => {
+    const root = await createTestFixtureRoot("skillset-exit-usage-");
+    const cases = [
+      {
+        args: ["reconcile", "--root", root],
+        message: "expected a managed path to reconcile",
+      },
+      { args: ["import", "--root", root], message: "expected import path" },
+      {
+        args: ["change", "show", "@zz", "--root", root],
+        message: "expected change ref to look like @<hex-prefix>",
+      },
+      {
+        args: ["change", "show", "@ab", "--root", root],
+        message: "expected change ref @ab to use at least 6 hex characters",
+      },
+      {
+        args: ["new", "skill", "--root", root],
+        message: "new skill requires a name or --id",
+      },
+      {
+        args: ["hooks", "print"],
+        message: "hooks print requires --runner or --agent-runtime",
+      },
+    ] as const;
+    for (const { args, message } of cases) {
+      const [human, json] = await Promise.all([
+        runCliResult(args),
+        runCliResult([...args, "--json"]),
+      ]);
+      expect({
+        args,
+        human: human.exitCode,
+        json: json.exitCode,
+        message: human.stderr.includes(message),
+      }).toEqual({ args, human: 2, json: 2, message: true });
+    }
+  });
+
+  test("execution-time data failures keep the failure class", async () => {
+    const root = await createTestFixtureRoot("skillset-exit-failure-");
+    const result = await runCliResult(["change", "show", "@abcdef", "--root", root]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("@abcdef");
   });
 
   test("structured diagnostics match the selected exit class", async () => {
