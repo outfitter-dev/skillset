@@ -164,12 +164,12 @@ describe("package metadata checks", () => {
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
     for (const [malformed, problem] of [
       [
-        "*",
-        '"*" must set a lower bound: it admits 0.0.0',
+        ">=0.0.0",
+        '">=0.0.0" must set a lower bound: it admits 0.0.0',
       ],
       [
-        ">=1.4.0 || garbage >0.0.0",
-        '">=1.4.0 || garbage >0.0.0" is not a valid semver range: unexpected token "garbage"',
+        ">=2.0.0 || >=1.4.0-01",
+        '">=2.0.0 || >=1.4.0-01" must have the form >=X.Y.Z [<X.Y.Z]: unexpected token "||"',
       ],
     ] as const) {
       await writeFile(

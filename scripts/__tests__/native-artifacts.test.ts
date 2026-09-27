@@ -184,6 +184,16 @@ describe("SET-419 native target and artifact contract", () => {
     );
   });
 
+  test("rejects malformed Bun evidence instead of truncating it", () => {
+    // #608: 1.4.0garbage used to be read as 1.4.0 and accepted.
+    expect(() =>
+      assertSupportedBunEvidenceVersion("Native manifest", "1.4.0garbage", "1.4.2")
+    ).toThrow('Native manifest Bun "1.4.0garbage" is not a MAJOR.MINOR.PATCH[-prerelease] version');
+    expect(() => assertSupportedBunRuntimeVersion("1.4.2garbage")).toThrow(
+      'Bun runtime "1.4.2garbage" is not a MAJOR.MINOR.PATCH[-prerelease] version'
+    );
+  });
+
   test("requires one explicit target selection mode", () => {
     expect(selectNativeTargets({ required: true })).toEqual(
       REQUIRED_NATIVE_TARGETS

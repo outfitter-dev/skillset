@@ -23,66 +23,125 @@ interface PackageJson {
 export const baseVersion = (version: string): string =>
   version.match(/^\d+\.\d+\.\d+/)?.[0] ?? version;
 
-const numeric = String.raw`0|[1-9]\d*`;
-const wildcard = String.raw`[xX*]`;
-const identifiers = String.raw`[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*`;
-/** `MAJOR[.MINOR[.PATCH]]`, wildcards allowed, plus prerelease and build. */
-const partialVersion = String.raw`(?:${numeric}|${wildcard})(?:\.(?:${numeric}|${wildcard})){0,2}(?:-${identifiers})?(?:\+${identifiers})?`;
-const comparatorPattern = new RegExp(
-  String.raw`^(?:<=|>=|<|>|=|\^|~)?${partialVersion}$`,
+type Release = readonly [number, number, number];
+
+const releasePattern = String.raw`(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`;
+const prereleaseIdentifier = String.raw`(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)`;
+const buildIdentifier = String.raw`[0-9A-Za-z-]+`;
+/** A whole SemVer version: release, strict prerelease, optional build. */
+const versionPattern = new RegExp(
+  String.raw`^${releasePattern}(-${prereleaseIdentifier}(?:\.${prereleaseIdentifier})*)?(?:\+${buildIdentifier}(?:\.${buildIdentifier})*)?$`,
   "u"
 );
-const hyphenRangePattern = new RegExp(
-  String.raw`^${partialVersion}\s+-\s+${partialVersion}$`,
-  "u"
-);
+const lowerBoundPattern = new RegExp(String.raw`^>=${releasePattern}$`, "u");
+const upperBoundPattern = new RegExp(String.raw`^<${releasePattern}$`, "u");
+
+const release = (match: RegExpMatchArray): Release => [
+  Number(match[1]),
+  Number(match[2]),
+  Number(match[3]),
+];
+
+const compareReleases = (left: Release, right: Release): number =>
+  left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
+
+/** Whether `version` is a whole strict SemVer version, never a prefix. */
+export const isStrictBunVersion = (version: string): boolean =>
+  versionPattern.test(version);
+
+/** The only `engines.bun` shape this repo supports. */
+const SUPPORTED_RANGE_FORM = ">=X.Y.Z [<X.Y.Z]";
+
+interface SupportedBunRange {
+  readonly lower: Release;
+  readonly upper?: Release;
+}
+
+type ParsedRange =
+  | { readonly range: SupportedBunRange }
+  | { readonly problem: string };
 
 /**
- * The first token of `range` outside the strict semver range grammar: `||`
- * separates comparator sets, each a hyphen range `A - B` or whitespace-
- * separated comparators. `""` names an empty comparator set; `undefined`
- * means the whole range is valid.
+ * Parse `>=X.Y.Z [<X.Y.Z]`.
+ *
+ * `Bun.semver` has no parse error: it skips tokens it cannot read and widens
+ * ones it half-reads (`1.x.2` as `1.x`, `>=1.4.0-01` as `>=1.4.0`), so any
+ * wider grammar lets a range admit versions below its intended floor. This
+ * repo needs one floor and at most one exclusive ceiling, so everything else
+ * is rejected, naming the first token outside that shape.
  */
-const invalidRangeToken = (range: string): string | undefined => {
-  for (const set of range.split("||").map((part) => part.trim())) {
-    if (set.length === 0) return "";
-    if (hyphenRangePattern.test(set)) continue;
-    const bad = set.split(/\s+/u).find((token) => !comparatorPattern.test(token));
-    if (bad !== undefined) return bad;
+const parseSupportedBunRange = (range: unknown): ParsedRange => {
+  if (typeof range !== "string" || range.trim().length === 0) {
+    return { problem: "must declare a supported Bun range" };
   }
-  return undefined;
+  const [first = "", second, ...rest] = range.trim().split(/\s+/u);
+  const lower = first.match(lowerBoundPattern);
+  const upper = second === undefined ? null : second.match(upperBoundPattern);
+  const offender =
+    lower === null
+      ? first
+      : second !== undefined && upper === null
+        ? second
+        : rest[0];
+  if (lower === null || offender !== undefined) {
+    return {
+      problem: `${JSON.stringify(range)} must have the form ${SUPPORTED_RANGE_FORM}: unexpected token ${JSON.stringify(offender)}`,
+    };
+  }
+  const bounds: SupportedBunRange =
+    upper === null
+      ? { lower: release(lower) }
+      : { lower: release(lower), upper: release(upper) };
+  if (compareReleases(bounds.lower, [0, 0, 0]) === 0) {
+    return {
+      problem: `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0`,
+    };
+  }
+  if (
+    bounds.upper !== undefined &&
+    compareReleases(bounds.upper, bounds.lower) <= 0
+  ) {
+    return {
+      problem: `${JSON.stringify(range)} admits no version: the upper bound must exceed the lower bound`,
+    };
+  }
+  return { range: bounds };
 };
 
 /**
  * Why `range` cannot serve as the supported Bun range (`engines.bun`), or
- * `undefined` when it can.
- *
- * `Bun.semver.satisfies` has no parse error: it skips what it cannot read, so
- * `garbage` matches every version and `>=1.4.0 || garbage >0.0.0` admits
- * 1.2.0. Every token must therefore match the strict range grammar, and the
- * range must not admit `0.0.0`, since a range without a floor would accept
- * any runtime.
+ * `undefined` when it can. See `parseSupportedBunRange` for the shape.
  */
 export const supportedBunRangeProblem = (
   range: unknown
 ): string | undefined => {
-  if (typeof range !== "string" || range.length === 0) {
-    return "must declare a supported Bun range";
-  }
-  const token = invalidRangeToken(range);
-  if (token !== undefined) {
-    return `${JSON.stringify(range)} is not a valid semver range: unexpected ${token.length === 0 ? "empty comparator set" : `token ${JSON.stringify(token)}`}`;
-  }
-  return Bun.semver.satisfies("0.0.0", range)
-    ? `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0`
-    : undefined;
+  const parsed = parseSupportedBunRange(range);
+  return "problem" in parsed ? parsed.problem : undefined;
 };
 
-/** Whether a Bun version, compared on its numeric base, is in `range`. */
+/**
+ * Whether a Bun version is in `range`. The version must be a whole strict
+ * SemVer version. A prerelease is admitted only when the release it previews
+ * is in range and it does not precede the floor: `1.4.1-canary.20` passes
+ * `>=1.4.0`, while `1.4.0-canary.1` (before 1.4.0) and `1.5.0-canary.1`
+ * against `<1.5.0` do not. An invalid range admits nothing.
+ */
 export const satisfiesSupportedBunRange = (
   version: string,
   range: string
-): boolean => Bun.semver.satisfies(baseVersion(version), range);
+): boolean => {
+  const parsed = parseSupportedBunRange(range);
+  const match = version.match(versionPattern);
+  if ("problem" in parsed || match === null) return false;
+  const candidate = release(match);
+  const isPrerelease = match[4] !== undefined;
+  const floor = compareReleases(candidate, parsed.range.lower);
+  if (floor < 0 || (floor === 0 && isPrerelease)) return false;
+  return (
+    parsed.range.upper === undefined ||
+    compareReleases(candidate, parsed.range.upper) < 0
+  );
+};
 
 export const isCompatibleBunVersion = (
   actual: string,
