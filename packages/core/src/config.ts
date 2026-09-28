@@ -7,6 +7,7 @@ import {
   CODEX_MARKETPLACE_SOURCE_KINDS,
   COMPILE_BUILD_MODES as SCHEMA_COMPILE_BUILD_MODES,
   PLUGIN_CONFIG_KEYS as SCHEMA_PLUGIN_CONFIG_KEYS,
+  RETIRED_RULE_DEFAULTS_SURFACE,
   ROOT_SOURCE_MANIFEST_KEYS as SCHEMA_ROOT_SOURCE_MANIFEST_KEYS,
   SINGLE_FILE_ROOT_CONFIG_KEYS as SCHEMA_SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS as SCHEMA_SPLIT_WORKSPACE_CONFIG_KEYS,
@@ -70,9 +71,9 @@ export {
   targetRecord,
 } from "./targets";
 
-export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
+export type FeatureSurface = "agents" | "plugins" | "rules" | "skills";
 
-const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
+const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "plugins", "rules", "skills"]);
 const BASE_CONFIG_TOP_LEVEL_KEYS = new Set<string>(
   SCHEMA_PLUGIN_CONFIG_KEYS.filter((key) => key !== "bin" && key !== "hooks" && key !== "mcp")
 );
@@ -1682,9 +1683,12 @@ function readShorthandTargetDefaults(
 
 function validateDefaultSurfaces(defaults: JsonRecord, label: string): void {
   for (const key of Object.keys(defaults)) {
+    if (key === RETIRED_RULE_DEFAULTS_SURFACE) {
+      throw new Error(`skillset: ${label}.${key} is retired; use ${label}.rules`);
+    }
     if (!DEFAULT_SURFACES.has(key as FeatureSurface)) {
       throw new Error(
-        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected agents, instructions, plugins, or skills`
+        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected agents, plugins, rules, or skills`
       );
     }
   }

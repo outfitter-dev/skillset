@@ -449,7 +449,7 @@ export interface BuildGraph {
   readonly discoveredSkills?: readonly SourceSkill[];
   readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
-  readonly instructionsDir: string;
+  readonly rulesDir: string;
   readonly outputRoots: readonly string[];
   readonly pluginPlan?: WorkspacePluginPlan;
   readonly plugins: readonly SourcePlugin[];

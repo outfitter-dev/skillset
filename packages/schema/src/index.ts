@@ -101,6 +101,7 @@ export {
 } from "./contracts";
 export { skillsetSchemaExamples } from "./examples";
 export { isSkillsetReport, validateSkillsetReport } from "./report";
+export { RETIRED_RULE_DEFAULTS_SURFACE } from "./retired-vocabulary";
 export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {
   readSourceAuthorName,
