@@ -1658,12 +1658,18 @@ async function renderProjectSkillCopy(
       )
     : undefined;
   if (standard !== undefined && "code" in standard) {
-    throw new Error(`skillset: ${standard.path}: ${standard.message}`);
+    // The collector reports this copy through compile.unsupportedDestination
+    // and routes that result here, so the root's lock must exist to carry it.
+    lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target));
+    return [];
   }
   const skillMarkdown = standard === undefined
     ? await renderSkillMarkdown(graph, plugin, skill, target, {
         effectiveName: copy.effectiveName,
-        ...(plugin === undefined ? {} : { includeAdaptiveHooks: false }),
+        // A project copy's own eligible hooks are rejected above; hydrating
+        // here would resolve the shared skill scope and pick up a same-id
+        // live sibling's hooks.
+        includeAdaptiveHooks: false,
         internal: copy.draftOrigin !== undefined
           ? true
           : graph.root.internalMarker,

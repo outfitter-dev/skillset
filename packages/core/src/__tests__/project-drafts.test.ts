@@ -302,6 +302,39 @@ Review body.
     );
   });
 
+  it("does not copy a live sibling's hooks into a workspace draft", async () => {
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: draft-sibling-hooks\nclaude: true\ncodex: false\ncursor: false\n",
+      ".skillset/skills/review/SKILL.md": `---
+name: review
+description: Live skill with an attached hook
+hooks:
+  PreToolUse:
+    - local-shell
+---
+
+Review body.
+`,
+      ".skillset/skills/review/hooks/local-shell.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "node ./local.js" },
+      }),
+      ".skillset/skills/_drafts/review/SKILL.md": skill("review", "Draft without hooks"),
+    });
+
+    await buildSkillsetResult(root);
+    const live = parseMarkdown(
+      await readFile(join(root, ".claude/skills/review/SKILL.md"), "utf8"),
+      "live"
+    );
+    expect(live.frontmatter).toHaveProperty("hooks");
+    const draft = parseMarkdown(
+      await readFile(join(root, ".claude/skills/draft-review/SKILL.md"), "utf8"),
+      "draft"
+    );
+    expect(draft.frontmatter).not.toHaveProperty("hooks");
+  });
+
   it("rejects unresolved draft hooks instead of silently omitting them", async () => {
     const root = await fixture({
       "skillset.yaml": "skillset:\n  name: draft-hooks-missing\nclaude: true\ncodex: false\ncursor: false\n",

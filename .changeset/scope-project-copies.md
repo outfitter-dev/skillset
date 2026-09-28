@@ -1,0 +1,10 @@
+---
+"skillset": patch
+---
+
+Scope project skill copies to their own source and route their diagnostics:
+
+- Workspace draft copies no longer inherit a same-id live sibling's adaptive hooks.
+- Project-use component diagnostics are gated on the scope that writes the copy, so `build --scope repo` reports (and by default blocks) omitted hooks or plugin components, and `--scope project` no longer reports copies it excludes.
+- A Codex project copy that fails Agent Skills classification is omitted and reported as an unsupported result, so `compile.unsupportedDestination` decides whether the build fails instead of a raw render error. The softened result names its skill root as `outputRoot`, so that root's `skillset.lock` records the omission even under `build --scope repo`, and that lock is written even when the omitted copy was its only output.
+- A plugin draft copy's component diagnostics resolve the draft's own hooks, so a same-id live sibling's hook no longer blocks `build --scope repo`.
