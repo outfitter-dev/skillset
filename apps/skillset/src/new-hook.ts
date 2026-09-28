@@ -93,7 +93,7 @@ export async function planNewAdaptiveHook(
   );
   const invalidEvents = events.filter((event) => !eventCatalog.has(event));
   if (invalidEvents.length > 0) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: unknown adaptive hook event ${invalidEvents.join(", ")}; use skillset lookup hooks --events`
     );
   }

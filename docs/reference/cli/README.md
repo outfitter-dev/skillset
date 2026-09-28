@@ -65,7 +65,14 @@ result. The shared classifier never infers a code from a message prefix.
 | --- | ---: | --- |
 | success | `0` | The command completed as requested. |
 | failure | `1` | Validation, data, or unexpected failure. |
-| usage | `2` | The invocation itself is invalid: unknown option, missing required argument, or conflicting flags. |
+| usage | `2` | The invocation itself is invalid: unknown option, missing required argument, conflicting flags, or a malformed argument value. |
+
+A malformed argument value is a usage error (`2`); a well-formed value that
+does not resolve is a failure (`1`). For example, `change show @zz` exits `2`
+because `@zz` is not a hex ref, while a well-formed ref that matches no entry
+exits `1`. Values that core validates are current exceptions and exit `1`:
+`restore` backup ids and the slug names that core checks for `import --name`
+and `create`. Aligning them is tracked as a follow-up.
 
 Codes `3` and `4` are command-specific and appear only when a command sets them
 explicitly in its result or through `CliOutputError`. The report command uses

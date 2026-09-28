@@ -253,7 +253,7 @@ codex: false
     "--reason",
     "Attempted release metadata correction with a ref that is intentionally too short."
   );
-  expect(amended.exitCode).toBe(1);
+  expect(amended.exitCode).toBe(2);
   expect(amended.stderr).toContain("must include at least 6 characters");
 });
 

@@ -6,7 +6,7 @@ import type {
 } from "@skillset/core/internal/types";
 
 import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
-import { printCliJsonData } from "./cli-output";
+import { CliUsageError, printCliJsonData } from "./cli-output";
 import {
   formatInteractiveCreatePlan,
   normalizeCreateName,
@@ -65,7 +65,7 @@ export async function runCreateCommand(
   }
 
   if (request.name === undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: create requires a name outside an interactive terminal"
     );
   }

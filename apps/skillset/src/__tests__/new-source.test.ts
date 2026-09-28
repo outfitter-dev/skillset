@@ -99,7 +99,7 @@ test("SET-584: new plugin rejects invalid identity, nesting, and collisions", as
     root,
     "--yes"
   );
-  expect(invalid.exitCode).toBe(1);
+  expect(invalid.exitCode).toBe(2);
   expect(invalid.stderr).toContain(
     'expected plugin id to be a lowercase slug, received "Review Tools"'
   );
@@ -246,7 +246,7 @@ test("SET-408: new skill rejects ids outside the Agent Skills naming contract", 
       root,
       "--yes"
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
       "satisfy Agent Skills naming (1-64 lowercase letters, digits, and single hyphens)"
     );
@@ -605,7 +605,7 @@ test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisi
     "new", "hook", "Bad Event", "--event", "NotAnEvent", "--command", "true",
     "--attach", "plugin:guard", "--root", root, "--yes"
   );
-  expect(invalid.exitCode).toBe(1);
+  expect(invalid.exitCode).toBe(2);
   expect(invalid.stderr).toContain("unknown adaptive hook event NotAnEvent");
 
   const missingScript = await runSkillsetCli(
@@ -702,6 +702,10 @@ test("SET-165: new refuses collisions and missing plugin containers", async () =
   const collision = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root, "--yes");
   expect(collision.exitCode).toBe(1);
   expect(collision.stderr).toContain("refusing to overwrite existing source file");
+
+  const malformedContainer = await runSkillsetCli("new", "skill", "Other Skill", "--in", "Bad_In", "--root", root);
+  expect(malformedContainer.exitCode).toBe(2);
+  expect(malformedContainer.stderr).toContain('expected new --in container to be a lowercase slug, received "Bad_In"');
 
   const missingContainer = await runSkillsetCli("new", "skill", "Other Skill", "--in", "missing", "--root", root);
   expect(missingContainer.exitCode).toBe(1);

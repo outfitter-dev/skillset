@@ -178,9 +178,18 @@ describe("SET-635 shared CLI exit classes", () => {
         args: ["new", "skill", "--root", root],
         message: "new skill requires a name or --id",
       },
+      { args: ["new", "--root", root], message: "expected new kind" },
       {
-        args: ["hooks", "print"],
-        message: "hooks print requires --runner or --agent-runtime",
+        args: ["create", "--root", root],
+        message: "create requires a name outside an interactive terminal",
+      },
+      {
+        args: ["new", "skill", "--id", "Bad_Id", "--root", root],
+        message: 'expected skill id to be a lowercase slug, received "Bad_Id"',
+      },
+      {
+        args: ["release", "amend", "@ab", "--root", root],
+        message: "release ref @ab must include at least 6 characters",
       },
     ] as const;
     for (const { args, message } of cases) {
@@ -195,6 +204,12 @@ describe("SET-635 shared CLI exit classes", () => {
         message: human.stderr.includes(message),
       }).toEqual({ args, human: 2, json: 2, message: true });
     }
+  });
+
+  test("hooks print invocation checks use the usage class (human only; no --json route)", async () => {
+    const result = await runCliResult(["hooks", "print"]);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("hooks print requires --runner or --agent-runtime");
   });
 
   test("execution-time data failures keep the failure class", async () => {

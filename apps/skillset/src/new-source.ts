@@ -348,16 +348,29 @@ function validateSourceId(
   value: string,
   label: string
 ): string {
-  const id = validateSlug(value, label);
+  const id = validateSlugArgument(value, label);
   if (
     kind === "skill" &&
     (id.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id))
   ) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: expected ${label} to satisfy Agent Skills naming (1-64 lowercase letters, digits, and single hyphens), received ${JSON.stringify(value)}`
     );
   }
   return id;
+}
+
+/**
+ * Classify a malformed CLI-supplied slug as a usage error. `validateSlug` is a
+ * pure shape check in core, which must not throw CLI classes, so the CLI
+ * boundary rebinds its failure here.
+ */
+function validateSlugArgument(value: string, label: string): string {
+  try {
+    return validateSlug(value, label);
+  } catch (error) {
+    throw new CliUsageError(error instanceof Error ? error.message : String(error));
+  }
 }
 
 function resolveDisplayName(options: NewSourceOptions, id: string): string {
@@ -383,7 +396,7 @@ async function planSkill(
 ): Promise<readonly NewSourcePlannedFile[]> {
   const container = options.container === undefined
     ? undefined
-    : validateSlug(options.container, "new --in container");
+    : validateSlugArgument(options.container, "new --in container");
   if (container !== undefined) {
     await assertPluginContainer(
       rootPath,
@@ -443,7 +456,7 @@ async function planInstruction(
   }
   const container = options.container === undefined
     ? undefined
-    : validateSlug(options.container, "new --in container");
+    : validateSlugArgument(options.container, "new --in container");
   if (container !== undefined) {
     await assertPluginContainer(
       rootPath,
