@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -11,11 +11,14 @@ import {
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
 import {
+  MISSING_SKILLSET_RUNNER,
   hasHookRelevantSourceChanges,
   hookRelevantSourcePaths,
+  parseSkillsetHookCommand,
   resolveSkillsetCommand,
   runHookEvent,
   runSkillsetCommand,
+  skillsetHookSpawn,
   type HookSourceGateResult,
   type RunSkillsetCommandOptions,
 } from "../runtime-hooks";
@@ -69,7 +72,19 @@ test("runtime hook command resolver honors overrides and local compiler checkout
   const root = await gitFixture();
 
   expect(await resolveSkillsetCommand(root, { SKILLSET_HOOK_COMMAND: "custom skillset" })).toEqual({
-    argv: ["custom skillset"],
+    argv: ["custom", "skillset"],
+    kind: "argv",
+  });
+  expect(await resolveSkillsetCommand(root, {
+    SKILLSET_HOOK_COMMAND: '"/tmp/custom skillset"',
+  })).toEqual({
+    argv: ["/tmp/custom skillset"],
+    kind: "argv",
+  });
+  expect(await resolveSkillsetCommand(root, {
+    SKILLSET_HOOK_COMMAND: "custom && skillset",
+  })).toEqual({
+    argv: ["custom && skillset"],
     kind: "shell",
   });
 
@@ -117,6 +132,332 @@ test("runtime hook command resolver probes only the supplied PATH", async () => 
   });
 });
 
+test("runtime hook override parser treats argv and shell syntax distinctly", () => {
+  expect(parseSkillsetHookCommand("npx --yes skillset", "linux")).toEqual({
+    argv: ["npx", "--yes", "skillset"],
+    kind: "argv",
+  });
+  expect(parseSkillsetHookCommand("C:\\Program Files\\skillset.exe", "win32")).toEqual({
+    argv: ["C:\\Program", "Files\\skillset.exe"],
+    kind: "argv",
+  });
+  expect(parseSkillsetHookCommand('"C:\\Program Files\\skillset.exe"', "win32")).toEqual({
+    argv: ["C:\\Program Files\\skillset.exe"],
+    kind: "argv",
+  });
+  for (const shell of [
+    'test -z "$GIT_DIR"',
+    'echo "%PATH%"',
+    "echo invoked>marker&rem",
+  ]) {
+    expect(parseSkillsetHookCommand(shell, "linux")).toEqual({ argv: [shell], kind: "shell" });
+  }
+});
+
+test("runtime hook overrides that need shell expansion keep running through the shell", () => {
+  // These worked through `sh -lc` before overrides could run as argv; running
+  // them literally would spawn a path such as `~/bin/sk` that does not exist.
+  for (const override of [
+    "~/bin/sk",
+    "bun ~/src/skillset/apps/skillset/src/cli.ts",
+    "FOO=1 sk",
+    "sk --config *.yaml",
+    "sk file?.txt",
+    "sk [ab].yaml",
+    "sk {a,b}",
+    "sk # trailing comment",
+    "sk\\ with\\ escapes",
+    '"sk" "a\\"b"',
+  ]) {
+    expect(parseSkillsetHookCommand(override, "linux")).toEqual({
+      argv: [override],
+      kind: "shell",
+    });
+  }
+  // A mid-token `=` is an ordinary argument, not an assignment prefix.
+  expect(parseSkillsetHookCommand("sk --root=.", "linux")).toEqual({
+    argv: ["sk", "--root=."],
+    kind: "argv",
+  });
+});
+
+test("runtime hook overrides led by a POSIX shell built-in or reserved word run through the shell", () => {
+  // Only sh knows these words; spawned as argv they would look for an
+  // executable named `exec` or `if` and exit 127.
+  for (const word of [
+    // Reserved words.
+    "!",
+    "case",
+    "for",
+    "if",
+    "until",
+    "while",
+    // Every POSIX special built-in.
+    ":",
+    ".",
+    "break",
+    "continue",
+    "eval",
+    "exec",
+    "exit",
+    "export",
+    "readonly",
+    "return",
+    "set",
+    "shift",
+    "times",
+    "trap",
+    "unset",
+    // Built-ins that act on shell state.
+    "alias",
+    "builtin",
+    "cd",
+    "command",
+    "getopts",
+    "hash",
+    "local",
+    "read",
+    "source",
+    "type",
+    "ulimit",
+    "umask",
+    "unalias",
+    "wait",
+  ]) {
+    const override = `${word} skillset`;
+    expect(parseSkillsetHookCommand(override, "linux")).toEqual({
+      argv: [override],
+      kind: "shell",
+    });
+  }
+  // `{` already reaches the shell through its brace-expansion character.
+  expect(parseSkillsetHookCommand("{ skillset", "linux").kind).toBe("shell");
+  // The appended hook arguments follow the override on the sh command line.
+  expect(skillsetHookSpawn(
+    parseSkillsetHookCommand("exec skillset", "linux"),
+    ["change", "status"],
+    { cwd: "/absent-skillset-test/repo", env: { PATH: "/absent-skillset-test/bin" }, platform: "linux" }
+  )).toEqual({
+    cmd: ["/bin/sh", "-lc", "exec skillset 'change' 'status'"],
+    windowsVerbatimArguments: false,
+  });
+  // A word that merely starts with a built-in name is an ordinary command.
+  expect(parseSkillsetHookCommand("execsnoop skillset", "linux")).toEqual({
+    argv: ["execsnoop", "skillset"],
+    kind: "argv",
+  });
+});
+
+test("runtime hook override parser keeps explicitly empty quoted tokens", () => {
+  for (const platform of ["linux", "win32"] as const) {
+    expect(parseSkillsetHookCommand('node -e ""', platform)).toEqual({
+      argv: ["node", "-e", ""],
+      kind: "argv",
+    });
+    expect(parseSkillsetHookCommand("sk '' --root .", platform)).toEqual({
+      argv: ["sk", "", "--root", "."],
+      kind: "argv",
+    });
+    expect(parseSkillsetHookCommand('sk ""x""', platform)).toEqual({
+      argv: ["sk", "x"],
+      kind: "argv",
+    });
+  }
+});
+
+test("runtime hook spawn uses argv, POSIX sh, or Windows ComSpec by contract", () => {
+  // Paths that exist on no host keep the expectations independent of what is
+  // installed on the runner (Bun.which resolves every argv command).
+  const posix = {
+    cwd: "/absent-skillset-test/repo",
+    env: { PATH: "/absent-skillset-test/bin" },
+    platform: "linux" as const,
+  };
+  expect(skillsetHookSpawn(
+    { argv: ["skillset"], kind: "argv" },
+    ["change", "status", "--root", "."],
+    posix
+  )).toEqual({
+    cmd: ["skillset", "change", "status", "--root", "."],
+    windowsVerbatimArguments: false,
+  });
+  expect(skillsetHookSpawn(
+    { argv: ['test -z "$GIT_DIR"'], kind: "shell" },
+    [],
+    posix
+  )).toEqual({
+    cmd: ["/bin/sh", "-lc", 'test -z "$GIT_DIR"'],
+    windowsVerbatimArguments: false,
+  });
+
+  // cmd.exe gets one verbatim command line wrapped in outer quotes, which
+  // `/s` strips; letting the runtime re-quote it would turn inner quotes into
+  // `\"`, which cmd.exe does not understand.
+  const windows = {
+    cwd: "C:\\absent-skillset-test\\repo",
+    env: {
+      ComSpec: "C:\\Windows\\System32\\cmd.exe",
+      PATH: "C:\\absent-skillset-test\\bin",
+    },
+    platform: "win32" as const,
+  };
+  const comSpec = (line: string) => ({
+    cmd: ["C:\\Windows\\System32\\cmd.exe", "/d", "/s", "/c", `"${line}"`],
+    windowsVerbatimArguments: true,
+  });
+  expect(skillsetHookSpawn(
+    { argv: ["npx.cmd", "--yes", "skillset"], kind: "argv" },
+    ["change", "status"],
+    windows
+  )).toEqual(comSpec("npx.cmd --yes skillset change status"));
+  expect(skillsetHookSpawn(
+    { argv: ["C:\\Absent Tools\\nodejs\\npx.cmd"], kind: "argv" },
+    ["--yes", "skillset"],
+    windows
+  )).toEqual(comSpec('"C:\\Absent Tools\\nodejs\\npx.cmd" --yes skillset'));
+  expect(skillsetHookSpawn(
+    { argv: ["C:\\Absent Tools\\skillset\\skillset.BAT"], kind: "argv" },
+    ["change", "status"],
+    windows
+  )).toEqual(comSpec('"C:\\Absent Tools\\skillset\\skillset.BAT" change status'));
+  expect(skillsetHookSpawn(
+    { argv: ["echo invoked>marker&rem"], kind: "shell" },
+    ["change", "status", "--root", "."],
+    windows
+  )).toEqual(comSpec("echo invoked>marker&rem change status --root ."));
+  expect(skillsetHookSpawn(
+    { argv: ["C:\\Absent Tools\\skillset.exe"], kind: "argv" },
+    ["change"],
+    windows
+  )).toEqual({
+    cmd: ["C:\\Absent Tools\\skillset.exe", "change"],
+    windowsVerbatimArguments: false,
+  });
+});
+
+test("runtime hook command runner executes argv overrides without a shell", async () => {
+  const root = await gitFixture();
+  // The marker reaches the fake runner through its environment, so quotes and
+  // expansions in the path stay literal instead of being parsed as script.
+  const marker = join(root, "invoked 'marker' $HOME");
+  // A space in the runner's directory must survive quoting on every platform,
+  // including the Windows cmd.exe command line for `.cmd` shims.
+  const binDir = join(root, "tools with spaces");
+  await mkdir(binDir);
+  const bin = join(binDir, process.platform === "win32" ? "hook-skillset.cmd" : "hook-skillset");
+  if (process.platform === "win32") {
+    await writeFile(bin, '@echo off\r\n>"%SKILLSET_TEST_HOOK_MARKER%" echo %*\r\nexit /b 0\r\n');
+  } else {
+    await writeFile(bin, '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$SKILLSET_TEST_HOOK_MARKER"\nexit 0\n');
+    await chmod(bin, 0o755);
+  }
+
+  await expect(runSkillsetCommand(["change", "status", "--root", "."], {
+    allowFailure: false,
+    env: { SKILLSET_HOOK_COMMAND: `"${bin}"`, SKILLSET_TEST_HOOK_MARKER: marker },
+    rootPath: root,
+  })).resolves.toBe(0);
+  expect(await readFile(marker, "utf8")).toContain("change");
+  expect(await readFile(marker, "utf8")).toContain("status");
+});
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner forwards hook args through shell built-in overrides",
+  async () => {
+    const root = await gitFixture();
+    const binDir = join(root, "tools with spaces");
+    await mkdir(binDir);
+    const bin = join(binDir, "hook-skillset");
+    await writeFile(bin, '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$SKILLSET_TEST_HOOK_MARKER"\nexit 0\n');
+    await chmod(bin, 0o755);
+    for (const word of ["exec", "command"]) {
+      const marker = join(root, `${word}-marker`);
+      await expect(runSkillsetCommand(["change", "status", "--root", "."], {
+        allowFailure: false,
+        env: { SKILLSET_HOOK_COMMAND: `${word} "${bin}"`, SKILLSET_TEST_HOOK_MARKER: marker },
+        rootPath: root,
+      })).resolves.toBe(0);
+      expect(await readFile(marker, "utf8")).toBe("change\nstatus\n--root\n.\n");
+    }
+  }
+);
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner keeps an empty quoted override token in place",
+  async () => {
+    const root = await gitFixture();
+    const marker = join(root, "empty-marker");
+    const bin = join(root, "hook-skillset");
+    await writeFile(bin, '#!/bin/sh\nprintf \'[%s]\\n\' "$@" > "$SKILLSET_TEST_HOOK_MARKER"\nexit 0\n');
+    await chmod(bin, 0o755);
+    await expect(runSkillsetCommand(["change", "status"], {
+      allowFailure: false,
+      env: { SKILLSET_HOOK_COMMAND: `"${bin}" ""`, SKILLSET_TEST_HOOK_MARKER: marker },
+      rootPath: root,
+    })).resolves.toBe(0);
+    expect(await readFile(marker, "utf8")).toBe("[]\n[change]\n[status]\n");
+  }
+);
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner runs shell-only built-in overrides such as exit",
+  async () => {
+    const root = await gitFixture();
+    const run = (override: string) =>
+      runSkillsetCommand([], {
+        allowFailure: false,
+        env: { SKILLSET_HOOK_COMMAND: override },
+        rootPath: root,
+      });
+    await expect(run("exit 0")).resolves.toBe(0);
+    await expect(run("exit 3")).resolves.toBe(3);
+  }
+);
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner reports an override that cannot execute as exit 126",
+  async () => {
+    const root = await gitFixture();
+    const notExecutable = join(root, "not-executable");
+    await writeFile(notExecutable, "#!/bin/sh\nexit 0\n");
+    await chmod(notExecutable, 0o644);
+    const notAProgram = join(root, "not-a-program");
+    await writeFile(notAProgram, "\u0000\u0001not a program");
+    await chmod(notAProgram, 0o755);
+    for (const override of [notExecutable, notAProgram]) {
+      const env = { SKILLSET_HOOK_COMMAND: `"${override}"` };
+      const run = (allowFailure: boolean) =>
+        runSkillsetCommand(["change", "status"], { allowFailure, env, rootPath: root });
+      // Blocking callers see the shell's "cannot execute" code; advisory
+      // callers stay advisory instead of rejecting.
+      await expect(run(false)).resolves.toBe(126);
+      await expect(run(true)).resolves.toBe(0);
+      const advisory = await runHookEvent("post-tool-use", {
+        env,
+        rootPath: root,
+        sourceGate: async () => sourceGate(true),
+      });
+      expect(advisory.exitCode).toBe(0);
+      expect(advisory.ranCommands).toEqual(["change status --root ."]);
+    }
+  }
+);
+
+test("runtime hook command runner reports a missing override executable as exit 127", async () => {
+  const root = await gitFixture();
+  const missing = join(root, "absent", process.platform === "win32" ? "skillset.exe" : "skillset");
+  const run = (allowFailure: boolean) =>
+    runSkillsetCommand(["change", "status"], {
+      allowFailure,
+      env: { SKILLSET_HOOK_COMMAND: `"${missing}"` },
+      rootPath: root,
+    });
+  // Blocking callers see the shell's "command not found" code; advisory
+  // callers stay advisory instead of rejecting.
+  await expect(run(false)).resolves.toBe(127);
+  await expect(run(true)).resolves.toBe(0);
+});
+
 test("runtime hook command runner strips inherited Git repository environment", async () => {
   const root = await gitFixture();
   const previousGitDir = process.env.GIT_DIR;
@@ -124,7 +465,11 @@ test("runtime hook command runner strips inherited Git repository environment", 
   try {
     await expect(runSkillsetCommand([], {
       allowFailure: false,
-      env: { SKILLSET_HOOK_COMMAND: 'test -z "$GIT_DIR"' },
+      env: {
+        SKILLSET_HOOK_COMMAND: process.platform === "win32"
+          ? "if not defined GIT_DIR (exit 0) else (exit 1)"
+          : 'test -z "$GIT_DIR"',
+      },
       rootPath: root,
     })).resolves.toBe(0);
   } finally {
@@ -462,9 +807,6 @@ async function gitFixture(): Promise<string> {
   return root;
 }
 
-const MISSING_SKILLSET_RUNNER =
-  "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND";
-
 async function resolveWithPath(commands: readonly string[]) {
   const bins = await isolatedBins({ visible: commands });
   return resolveSkillsetCommand(bins.root, { PATH: bins.visibleBin });
@@ -490,6 +832,10 @@ async function isolatedBins(options: {
 
 async function writeBins(binDir: string, commands: readonly string[]): Promise<void> {
   for (const command of commands) {
+    if (process.platform === "win32") {
+      await writeFile(join(binDir, `${command}.cmd`), "@echo off\r\nexit /b 0\r\n");
+      continue;
+    }
     const binPath = join(binDir, command);
     await writeFile(binPath, "#!/bin/sh\nexit 0\n");
     await chmod(binPath, 0o755);

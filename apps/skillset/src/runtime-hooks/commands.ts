@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { gitSafeEnv } from "../git-env";
 import { SUPPRESS_WORKSPACE_REGISTRATION_ENV } from "../verification-sandbox";
 
+export const MISSING_SKILLSET_RUNNER =
+  "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND";
+
 export interface ResolvedSkillsetCommand {
   readonly argv: readonly string[];
   readonly kind: "argv" | "shell";
@@ -16,17 +19,110 @@ export interface RunSkillsetCommandOptions {
   readonly suppressWorkspaceRegistration?: true;
 }
 
+export interface SkillsetHookSpawn {
+  readonly cmd: readonly string[];
+  /** Pass the command line to cmd.exe as written; see `windowsComSpecSpawn`. */
+  readonly windowsVerbatimArguments: boolean;
+}
+
+export interface SkillsetHookSpawnOptions {
+  readonly cwd: string;
+  readonly env: Record<string, string>;
+  readonly platform?: NodeJS.Platform;
+}
+
 export type RunSkillsetCommand = (
   args: readonly string[],
   options: RunSkillsetCommandOptions
 ) => Promise<number>;
+
+const WINDOWS_CMD_SUFFIXES = [".cmd", ".bat"] as const;
+const UNQUOTED_SHELL_METACHARACTERS = new Set([
+  "|",
+  "&",
+  ";",
+  "<",
+  ">",
+  "$",
+  "`",
+  "\n",
+  "(",
+  ")",
+  "%",
+  "^",
+]);
+// POSIX sh also expands or reinterprets these outside quotes (tilde, globs,
+// brace lists, comments, escapes). Overrides using them keep running through
+// the shell, as every override did before argv overrides existed.
+const POSIX_ONLY_SHELL_CHARACTERS = new Set(["~", "*", "?", "[", "]", "{", "}", "#", "\\"]);
+const LEADING_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
+// A leading word that only sh understands. Spawned as argv, `exec skillset`
+// or `exit 0` would look for an executable of that name and exit 127, while
+// `sh -lc` (how every override ran before argv overrides existed) runs it.
+// The set is the POSIX reserved words that can open a command, every POSIX
+// special built-in, and the regular built-ins that act on shell state
+// (`builtin`, `local`, and `source` are common extensions). Words with a
+// useful standalone executable, such as `test` or `echo`, stay argv.
+const POSIX_SHELL_LEADING_WORDS = new Set([
+  // Reserved words.
+  "!",
+  "{",
+  "case",
+  "for",
+  "if",
+  "until",
+  "while",
+  // Special built-ins.
+  ":",
+  ".",
+  "break",
+  "continue",
+  "eval",
+  "exec",
+  "exit",
+  "export",
+  "readonly",
+  "return",
+  "set",
+  "shift",
+  "times",
+  "trap",
+  "unset",
+  // Built-ins that act on shell state.
+  "alias",
+  "builtin",
+  "cd",
+  "command",
+  "getopts",
+  "hash",
+  "local",
+  "read",
+  "source",
+  "type",
+  "ulimit",
+  "umask",
+  "unalias",
+  "wait",
+]);
+// The codes sh reports for a command it cannot find (127) and for one it
+// found but cannot execute (126).
+const COMMAND_NOT_FOUND_EXIT_CODE = 127;
+const COMMAND_NOT_EXECUTABLE_EXIT_CODE = 126;
+const SPAWN_FAILURE_EXIT_CODES: Readonly<Record<string, number>> = {
+  EACCES: COMMAND_NOT_EXECUTABLE_EXIT_CODE,
+  ENOENT: COMMAND_NOT_FOUND_EXIT_CODE,
+  ENOEXEC: COMMAND_NOT_EXECUTABLE_EXIT_CODE,
+  EPERM: COMMAND_NOT_EXECUTABLE_EXIT_CODE,
+};
 
 export async function resolveSkillsetCommand(
   rootPath = process.cwd(),
   env: Record<string, string | undefined> = process.env
 ): Promise<ResolvedSkillsetCommand> {
   const override = env.SKILLSET_HOOK_COMMAND?.trim();
-  if (override !== undefined && override.length > 0) return { argv: [override], kind: "shell" };
+  if (override !== undefined && override.length > 0) {
+    return parseSkillsetHookCommand(override);
+  }
 
   if (await isLocalSkillsetCheckout(rootPath)) {
     return { argv: ["bun", "./apps/skillset/src/cli.ts"], kind: "argv" };
@@ -37,9 +133,31 @@ export async function resolveSkillsetCommand(
   if (commandExists("bun", rootPath, env)) return { argv: ["bun", "x", "skillset"], kind: "argv" };
   if (commandExists("npx", rootPath, env)) return { argv: ["npx", "--yes", "skillset"], kind: "argv" };
 
-  throw new Error(
-    "skillset: could not find a Skillset CLI runner; install skillset or set SKILLSET_HOOK_COMMAND"
-  );
+  throw new Error(MISSING_SKILLSET_RUNNER);
+}
+
+export function parseSkillsetHookCommand(
+  override: string,
+  platform: NodeJS.Platform = process.platform
+): ResolvedSkillsetCommand {
+  const tokens = tokenizeHookArgv(override, platform);
+  if (tokens === undefined || tokens.length === 0) return { argv: [override], kind: "shell" };
+  if (platform !== "win32" && POSIX_SHELL_LEADING_WORDS.has(tokens[0] ?? "")) {
+    return { argv: [override], kind: "shell" };
+  }
+  return { argv: tokens, kind: "argv" };
+}
+
+export function skillsetHookSpawn(
+  command: ResolvedSkillsetCommand,
+  args: readonly string[],
+  options: SkillsetHookSpawnOptions
+): SkillsetHookSpawn {
+  const platform = options.platform ?? process.platform;
+  if (command.kind === "shell") {
+    return shellSpawn(command.argv[0] ?? "", args, platform, options.env);
+  }
+  return argvSpawn([...command.argv, ...args], platform, options);
 }
 
 export async function runSkillsetCommand(
@@ -54,40 +172,91 @@ export async function runSkillsetCommand(
       ? { [SUPPRESS_WORKSPACE_REGISTRATION_ENV]: "1" }
       : {}),
   });
-  const exitCode = command.kind === "shell"
-    ? await runShell(command.argv[0] ?? "", args, { cwd: options.rootPath, env })
-    : await runArgv([...command.argv, ...args], { cwd: options.rootPath, env });
+  const spawn = skillsetHookSpawn(command, args, { cwd: options.rootPath, env });
+  const exitCode = await spawnHookCommand(spawn, options.rootPath, env);
 
   if (exitCode !== 0 && !options.allowFailure) return exitCode;
   return 0;
 }
 
-async function runArgv(argv: readonly string[], options: {
-  readonly cwd: string;
-  readonly env: Record<string, string>;
-}): Promise<number> {
-  const proc = Bun.spawn({
-    cmd: [...argv],
-    cwd: options.cwd,
-    env: options.env,
-    stderr: "inherit",
-    stdout: "inherit",
-  });
+async function spawnHookCommand(
+  spawn: SkillsetHookSpawn,
+  cwd: string,
+  env: Record<string, string>
+): Promise<number> {
+  let proc: ReturnType<typeof Bun.spawn>;
+  try {
+    proc = Bun.spawn({
+      cmd: [...spawn.cmd],
+      cwd,
+      env,
+      stderr: "inherit",
+      stdout: "inherit",
+      windowsVerbatimArguments: spawn.windowsVerbatimArguments,
+    });
+  } catch (error) {
+    // Bun.spawn throws when the executable is missing or cannot run; report
+    // it the way a shell would, so an advisory hook stays advisory instead of
+    // rejecting.
+    const exitCode = spawnFailureExitCode(error);
+    if (exitCode === undefined) throw error;
+    const reason = exitCode === COMMAND_NOT_FOUND_EXIT_CODE ? "not found" : "cannot execute";
+    process.stderr.write(`skillset: hook command ${reason}: ${error instanceof Error ? error.message : String(error)}\n`);
+    return exitCode;
+  }
   return proc.exited;
 }
 
-async function runShell(command: string, args: readonly string[], options: {
-  readonly cwd: string;
-  readonly env: Record<string, string>;
-}): Promise<number> {
-  const proc = Bun.spawn({
-    cmd: ["sh", "-lc", `${command} ${args.map(shellQuote).join(" ")}`.trim()],
-    cwd: options.cwd,
-    env: options.env,
-    stderr: "inherit",
-    stdout: "inherit",
-  });
-  return proc.exited;
+function spawnFailureExitCode(error: unknown): number | undefined {
+  if (!(error instanceof Error) || !("code" in error) || typeof error.code !== "string") {
+    return undefined;
+  }
+  return SPAWN_FAILURE_EXIT_CODES[error.code];
+}
+
+function argvSpawn(
+  argv: readonly string[],
+  platform: NodeJS.Platform,
+  options: SkillsetHookSpawnOptions
+): SkillsetHookSpawn {
+  const command = argv[0] ?? "";
+  const resolved = resolveOnPath(command, options.cwd, options.env);
+  const executable = resolved ?? command;
+  if (platform === "win32" && isWindowsCmdShim(command, executable)) {
+    return windowsComSpecSpawn(options.env, windowsCommandLine([executable, ...argv.slice(1)]));
+  }
+  return {
+    cmd: resolved === null ? [...argv] : [resolved, ...argv.slice(1)],
+    windowsVerbatimArguments: false,
+  };
+}
+
+function shellSpawn(
+  command: string,
+  args: readonly string[],
+  platform: NodeJS.Platform,
+  env: Record<string, string>
+): SkillsetHookSpawn {
+  if (platform === "win32") {
+    return windowsComSpecSpawn(env, `${command} ${args.map(windowsCmdQuote).join(" ")}`.trim());
+  }
+  return {
+    cmd: ["/bin/sh", "-lc", `${command} ${args.map(posixShellQuote).join(" ")}`.trim()],
+    windowsVerbatimArguments: false,
+  };
+}
+
+/**
+ * `cmd /d /s /c "<line>"`, passed verbatim. With `/s`, cmd.exe strips exactly
+ * the outer quotes and runs the rest, so quoted paths inside `line` survive.
+ * Without verbatim arguments the runtime would re-quote the line and escape
+ * its inner quotes as `\"`, which cmd.exe does not understand.
+ */
+function windowsComSpecSpawn(env: Record<string, string>, line: string): SkillsetHookSpawn {
+  return {
+    cmd: [windowsCmdQuote(windowsComSpec(env)), "/d", "/s", "/c", `"${line}"`],
+    windowsVerbatimArguments: true,
+  };
 }
 
 function commandExists(
@@ -95,10 +264,92 @@ function commandExists(
   cwd: string,
   env: Record<string, string | undefined>
 ): boolean {
-  return Bun.which(
-    command,
-    env.PATH === undefined ? { cwd } : { PATH: env.PATH, cwd }
-  ) !== null;
+  return resolveOnPath(command, cwd, env) !== null;
+}
+
+function resolveOnPath(
+  command: string,
+  cwd: string,
+  env: Record<string, string | undefined>
+): string | null {
+  if (command.length === 0) return null;
+  // A Windows environment copied from process.env spells the key `Path`.
+  const path = env.PATH ?? (process.platform === "win32" ? env.Path : undefined);
+  return Bun.which(command, path === undefined ? { cwd } : { PATH: path, cwd });
+}
+
+function isWindowsCmdShim(...candidates: readonly string[]): boolean {
+  return candidates.some((candidate) => {
+    const lower = candidate.toLowerCase();
+    return WINDOWS_CMD_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+  });
+}
+
+function windowsComSpec(env: Record<string, string>): string {
+  return env.ComSpec ?? env.COMSPEC ?? "cmd.exe";
+}
+
+function windowsCommandLine(argv: readonly string[]): string {
+  return argv.map(windowsCmdQuote).join(" ");
+}
+
+function windowsCmdQuote(value: string): string {
+  if (value.length === 0) return '""';
+  if (!/[\s"&|<>^%()]/.test(value)) return value;
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function tokenizeHookArgv(
+  value: string,
+  platform: NodeJS.Platform
+): readonly string[] | undefined {
+  // A leading `NAME=value` is an environment assignment only a shell applies.
+  if (LEADING_ASSIGNMENT.test(value)) return undefined;
+  const posix = platform !== "win32";
+  const tokens: string[] = [];
+  let current = "";
+  // Whether a token has started, so an explicitly empty `""` is still emitted.
+  let opened = false;
+  let quote: "'" | '"' | undefined;
+
+  for (const character of value) {
+    if (quote === "'") {
+      if (character === "'") quote = undefined;
+      else current += character;
+      continue;
+    }
+    if (quote === '"') {
+      if (character === '"') {
+        quote = undefined;
+        continue;
+      }
+      if (character === "$" || character === "`" || character === "%") return undefined;
+      if (posix && character === "\\") return undefined;
+      current += character;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      opened = true;
+      continue;
+    }
+    if (/\s/.test(character)) {
+      if (opened) {
+        tokens.push(current);
+        current = "";
+        opened = false;
+      }
+      continue;
+    }
+    if (UNQUOTED_SHELL_METACHARACTERS.has(character)) return undefined;
+    if (posix && POSIX_ONLY_SHELL_CHARACTERS.has(character)) return undefined;
+    current += character;
+    opened = true;
+  }
+
+  if (quote !== undefined) return undefined;
+  if (opened) tokens.push(current);
+  return tokens;
 }
 
 async function isLocalSkillsetCheckout(rootPath: string): Promise<boolean> {
@@ -123,6 +374,6 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-function shellQuote(value: string): string {
+function posixShellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
