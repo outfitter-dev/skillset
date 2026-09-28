@@ -9,6 +9,12 @@
 
 set -euo pipefail
 
+# Agents may launch this with a constrained PATH, such as their shims plus
+# /bin. Append the standard command directories so `dirname`, `tr`, `uname`,
+# `mktemp`, and `curl` still resolve, without shadowing anything the caller
+# put first.
+export PATH="${PATH:+$PATH:}/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 BUN_VERSION_FILE="$REPO_ROOT/.bun-version"
@@ -86,12 +92,28 @@ if [[ ! "$pinned_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
+# Mirrors pinnedBunRoot() and pinnedBunExecutableName() in
+# scripts/pinned-bun.ts; scripts/__tests__/bootstrap-layout.test.ts holds the
+# two layouts equal. Git Bash, MSYS, and Cygwin report MINGW*/MSYS*/CYGWIN*,
+# where the resolver publishes `win32-<arch>/<version>/bin/bun.exe` under
+# os.homedir(). On win32 that is USERPROFILE, not the shell's $HOME, which
+# Cygwin sets to /home/<user>; map USERPROFILE with cygpath when both exist.
 cached_pinned_bun() {
-  local platform arch candidate
+  local platform arch executable home candidate
   platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
+  executable="bun"
+  home="$HOME"
   case "$platform" in
     darwin|linux) ;;
+    mingw*|msys*|cygwin*)
+      platform="win32"
+      executable="bun.exe"
+      if [[ -n "${USERPROFILE:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+        home="$(cygpath -u "$USERPROFILE" 2>/dev/null || true)"
+        [[ -n "$home" ]] || home="$HOME"
+      fi
+      ;;
     *) return 1 ;;
   esac
   case "$arch" in
@@ -99,7 +121,7 @@ cached_pinned_bun() {
     x86_64|amd64) arch="x64" ;;
     *) return 1 ;;
   esac
-  candidate="$HOME/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/bun"
+  candidate="$home/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/$executable"
   if [[ -x "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
     printf '%s\n' "$candidate"
   else

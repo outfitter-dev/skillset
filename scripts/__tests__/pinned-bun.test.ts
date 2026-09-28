@@ -20,6 +20,7 @@ import {
   pinnedBunxExecutableName,
   pinnedBunRoot,
   pinnedBunRootState,
+  replaceWindowsBunx,
   resolvePinnedBun,
 } from "../pinned-bun";
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
@@ -134,6 +135,54 @@ test("ensurePinnedBunx repairs a stale Windows-style copy", async () => {
   );
 
   expect(await readFile(bunx, "utf8")).toBe("pinned runtime");
+});
+
+describe("replaceWindowsBunx", () => {
+  // Windows refuses to rename over a file another handle holds open (a
+  // concurrent repair hashing it, or a scanner) with EPERM. POSIX rename never
+  // does, so the contention is injected to exercise the Windows branch here.
+  const contended = (code: string) =>
+    Object.assign(new Error(`${code}: rename`), { code });
+
+  test("retries a contended replace until it lands", async () => {
+    let calls = 0;
+    await replaceWindowsBunx("staged", "target", async () => false, async () => {
+      calls += 1;
+      if (calls < 3) throw contended(calls === 1 ? "EPERM" : "EBUSY");
+    });
+    expect(calls).toBe(3);
+  });
+
+  test("stops once a concurrent repair has published the pinned copy", async () => {
+    let calls = 0;
+    await replaceWindowsBunx("staged", "target", async () => true, async () => {
+      calls += 1;
+      throw contended("EPERM");
+    });
+    expect(calls).toBe(1);
+  });
+
+  test("gives up after bounded attempts and rethrows the contention", async () => {
+    let calls = 0;
+    await expect(
+      replaceWindowsBunx("staged", "target", async () => false, async () => {
+        calls += 1;
+        throw contended("EPERM");
+      })
+    ).rejects.toThrow("EPERM");
+    expect(calls).toBe(10);
+  });
+
+  test("does not retry an unrelated failure", async () => {
+    let calls = 0;
+    await expect(
+      replaceWindowsBunx("staged", "target", async () => false, async () => {
+        calls += 1;
+        throw contended("ENOENT");
+      })
+    ).rejects.toThrow("ENOENT");
+    expect(calls).toBe(1);
+  });
 });
 
 describe.skipIf(!posix)("adoptPinnedBun", () => {
