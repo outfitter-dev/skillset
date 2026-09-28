@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { buildSkillsetResult } from "@skillset/core";
+import { buildSkillsetResult, lintSkillset } from "@skillset/core";
 import {
   doctorSkillset,
   explainPath,
@@ -12,6 +12,7 @@ import {
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 import { assertDistinctSkillCopyNames } from "../project-use";
+import { loadBuildGraph } from "../resolver";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
@@ -673,6 +674,41 @@ describe("SET-659 rendered skill copy allocation", () => {
         { effectiveName: "review", sourceUnit: "plugin.b.skill:review" },
       ])
     ).toThrow("plugin.a.skill:review and plugin.b.skill:review both claim");
+  });
+});
+
+describe("SET-659 rendered copy consumers", () => {
+  it("lints workspace and selected plugin drafts before rendering them", async () => {
+    const dynamic = (name: string) =>
+      `---\nname: ${name}\ndescription: Uses Claude arguments\n---\n\nUse $ARGUMENTS here.\n`;
+    for (const files of [
+      {
+        "skillset.yaml": "skillset:\n  name: lint-workspace-draft\nclaude: false\ncodex: true\ncursor: false\n",
+        ".skillset/skills/_drafts/dynamic/SKILL.md": dynamic("dynamic"),
+      },
+      {
+        "skillset.yaml": "skillset:\n  name: lint-plugin-draft\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    drafts:\n      demo: true\n",
+        ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+        ".skillset/plugins/demo/skills/_drafts/dynamic/SKILL.md": dynamic("dynamic"),
+      },
+    ]) {
+      const root = await fixture(files);
+      await expect(lintSkillset(root)).rejects.toThrow("codex-claude-dynamic-context");
+    }
+  });
+
+  it("registers a skill root that only one of a live and draft pair targets", async () => {
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: paired-roots\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n    drafts:\n      demo: true\n",
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/review/SKILL.md": skill("review", "Live review"),
+      ".skillset/plugins/demo/skills/_drafts/review/SKILL.md":
+        "---\nname: review\ndescription: Codex-off draft\ncodex: false\n---\n\nDraft body.\n",
+    });
+
+    expect((await loadBuildGraph(root)).outputRoots).toContain(".agents/skills");
+    await buildSkillsetResult(root);
+    expect(await Bun.file(join(root, ".agents/skills/review/SKILL.md")).exists()).toBe(true);
   });
 });
 

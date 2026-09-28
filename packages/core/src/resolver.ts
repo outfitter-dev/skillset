@@ -321,8 +321,8 @@ export async function loadBuildGraph(
     rules,
     standardProjections,
     [
-      ...pluginPlan.internalUse.skills,
-      ...pluginPlan.internalUse.drafts,
+      ...pluginPlan.internalUse.skills.map((item) => ({ ...item, status: "live" as const })),
+      ...pluginPlan.internalUse.drafts.map((item) => ({ ...item, status: "draft" as const })),
     ]
   );
   const protectedRoots = [
@@ -1844,7 +1844,7 @@ async function outputRootsFor(
   standaloneSkills: readonly StandaloneSkill[],
   rules: readonly SourceRule[],
   standardProjections: BuildGraph["standardProjections"],
-  projectUseSkills: readonly { readonly pluginId: string; readonly skillId: string }[]
+  projectUseSkills: readonly ProjectUseSkillSelection[]
 ): Promise<readonly ActiveOutputRoot[]> {
   const activeRoots = activeOutputRoots(
     outputs,
@@ -1959,13 +1959,19 @@ function pluginBundleOutputRoots(
   );
 }
 
+interface ProjectUseSkillSelection {
+  readonly pluginId: string;
+  readonly skillId: string;
+  readonly status: "draft" | "live";
+}
+
 function activeOutputRoots(
   outputs: BuildGraph["root"]["outputs"],
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[],
   rules: readonly SourceRule[],
   standardProjections: BuildGraph["standardProjections"],
-  projectUseSkills: readonly { readonly pluginId: string; readonly skillId: string }[]
+  projectUseSkills: readonly ProjectUseSkillSelection[]
 ): readonly ActiveOutputRoot[] {
   const roots: ActiveOutputRoot[] = standardProjectionManagedOutputRoots(standardProjections)
     .map((path) => ({
@@ -1991,10 +1997,11 @@ function activeOutputRoots(
       roots.push(...pluginBundleOutputRoots(enabledPlugins));
     }
     if (
-      projectUseSkills.some(({ pluginId, skillId }) => {
+      projectUseSkills.some(({ pluginId, skillId, status }) => {
         const plugin = plugins.find((candidate) => candidate.id === pluginId);
+        // A live skill and its draft share an id and may enable different targets.
         const skill = (plugin?.discoveredSkills ?? plugin?.skills ?? []).find(
-          (candidate) => candidate.id === skillId
+          (candidate) => candidate.id === skillId && (candidate.status ?? "live") === status
         );
         return skill !== undefined && skill.targets[target].enabled &&
           outputIncludes(outputs.targetOutputs[target].skills, skill.id);
