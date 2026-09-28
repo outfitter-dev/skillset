@@ -347,6 +347,13 @@ describe("bootstrap repo policy", () => {
     expect(satisfiesSupportedBunRange("1.5.0", ">=1.4.0")).toBe(true);
     expect(satisfiesSupportedBunRange("1.3.14", ">=1.4.0")).toBe(false);
     expect(satisfiesSupportedBunRange("1.5.0", ">=1.4.0 <1.5.0")).toBe(false);
+    // Components past Number.MAX_SAFE_INTEGER must not round into each other.
+    expect(
+      satisfiesSupportedBunRange("9007199254740992.0.0", ">=9007199254740993.0.0")
+    ).toBe(false);
+    expect(
+      satisfiesSupportedBunRange("1.9007199254740992.0", ">=1.4.0 <1.9007199254740993.0")
+    ).toBe(true);
     expect(isCompatibleBunVersion("1.4.1", "1.4.0")).toBe(true);
     expect(isCompatibleBunVersion("1.5.0", "1.4.0")).toBe(false);
     expect(isBunVersionAllowed("1.4.0", "1.4.0", "strict")).toBe(true);

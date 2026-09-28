@@ -23,7 +23,9 @@ interface PackageJson {
 export const baseVersion = (version: string): string =>
   version.match(/^\d+\.\d+\.\d+/)?.[0] ?? version;
 
-type Release = readonly [number, number, number];
+// BigInt keeps components exact: Number would round anything past
+// MAX_SAFE_INTEGER, letting distinct versions compare equal.
+type Release = readonly [bigint, bigint, bigint];
 
 const releasePattern = String.raw`(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`;
 const prereleaseIdentifier = String.raw`(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)`;
@@ -37,13 +39,18 @@ const lowerBoundPattern = new RegExp(String.raw`^>=${releasePattern}$`, "u");
 const upperBoundPattern = new RegExp(String.raw`^<${releasePattern}$`, "u");
 
 const release = (match: RegExpMatchArray): Release => [
-  Number(match[1]),
-  Number(match[2]),
-  Number(match[3]),
+  BigInt(match[1] ?? "0"),
+  BigInt(match[2] ?? "0"),
+  BigInt(match[3] ?? "0"),
 ];
 
+const compareComponent = (left: bigint, right: bigint): number =>
+  left < right ? -1 : left > right ? 1 : 0;
+
 const compareReleases = (left: Release, right: Release): number =>
-  left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
+  compareComponent(left[0], right[0]) ||
+  compareComponent(left[1], right[1]) ||
+  compareComponent(left[2], right[2]);
 
 /** Whether `version` is a whole strict SemVer version, never a prefix. */
 export const isStrictBunVersion = (version: string): boolean =>
@@ -92,7 +99,7 @@ const parseSupportedBunRange = (range: unknown): ParsedRange => {
     upper === null
       ? { lower: release(lower) }
       : { lower: release(lower), upper: release(upper) };
-  if (compareReleases(bounds.lower, [0, 0, 0]) === 0) {
+  if (compareReleases(bounds.lower, [0n, 0n, 0n]) === 0) {
     return {
       problem: `${JSON.stringify(range)} must set a lower bound: it admits 0.0.0`,
     };
