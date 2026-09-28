@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, symlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
@@ -53,6 +53,10 @@ interface HostEnvironment {
   readonly userProfile?: boolean;
   /** Provide `cygpath`, which maps USERPROFILE to the profile directory. */
   readonly cygpath?: boolean;
+  /** Put the interpreter elsewhere and link the cached path to it. */
+  readonly linked?: boolean;
+  /** Put the interpreter elsewhere and link a cache directory above it. */
+  readonly linkedDirectory?: "bin" | "root";
 }
 
 /**
@@ -69,6 +73,8 @@ const runAsHost = async (
     cacheUnder = "home",
     userProfile = false,
     cygpath = false,
+    linked = false,
+    linkedDirectory,
   }: HostEnvironment = {}
 ) => {
   const root = await createTestFixtureRoot("skillset-bootstrap-layout-");
@@ -76,12 +82,26 @@ const runAsHost = async (
   const profile = join(root, "profile");
   const fakeBin = join(root, "fake-bin");
   const cached = resolverPath(cacheUnder === "home" ? home : profile, host);
+  // The cache component that becomes a link, and the directory it points at.
+  const linkedPath =
+    linkedDirectory === "bin"
+      ? dirname(cached)
+      : linkedDirectory === "root"
+        ? dirname(dirname(cached))
+        : undefined;
+  const linkTarget = join(root, "elsewhere-dir");
+  const interpreter = linked
+    ? join(root, "elsewhere", "bun")
+    : linkedPath === undefined
+      ? cached
+      : join(linkTarget, relative(linkedPath, cached));
   await Promise.all([
+    mkdir(dirname(interpreter), { recursive: true }),
     mkdir(join(root, "scripts"), { recursive: true }),
     mkdir(join(home, ".bun"), { recursive: true }),
     mkdir(profile, { recursive: true }),
     mkdir(fakeBin, { recursive: true }),
-    mkdir(dirname(cached), { recursive: true }),
+    mkdir(dirname(linkedPath ?? cached), { recursive: true }),
   ]);
   await Promise.all([
     copyFile(
@@ -94,7 +114,7 @@ const runAsHost = async (
       `#!/bin/sh\ncase "$1" in -s) echo '${host.unameS}' ;; -m) echo '${host.unameM}' ;; esac\n`
     ),
     writeFile(
-      cached,
+      interpreter,
       `#!/bin/sh\nif [ "$1" = --version ]; then echo ${pin}; else printf '%s\\n' "$0"; fi\n`
     ),
     ...(cygpath
@@ -108,9 +128,11 @@ const runAsHost = async (
   ]);
   await Promise.all([
     chmod(join(fakeBin, "uname"), 0o755),
-    chmod(cached, 0o755),
+    chmod(interpreter, 0o755),
     ...(cygpath ? [chmod(join(fakeBin, "cygpath"), 0o755)] : []),
   ]);
+  if (linked) await symlink(interpreter, cached);
+  if (linkedPath !== undefined) await symlink(linkTarget, linkedPath);
   const result = Bun.spawnSync({
     cmd: ["/bin/bash", join(root, "scripts", "bootstrap.sh"), "doctor"],
     cwd: root,
@@ -172,4 +194,24 @@ describe.skipIf(process.platform === "win32")("bootstrap.sh cache layout", () =>
     if (linux === undefined) throw new Error("no Linux host case");
     expectExecd(await runAsHost(linux, { cygpath: true, userProfile: true }));
   });
+
+  test("a symlinked cached interpreter is never exec'd", async () => {
+    const [host] = hosts;
+    if (host === undefined) throw new Error("no host cases");
+    const { cached, result } = await runAsHost(host, { linked: true });
+    expect(result.stdout.toString()).not.toContain(cached);
+    expect(result.stdout.toString()).not.toContain("elsewhere");
+  });
+
+  // pinnedBunRootState rejects a symlinked root or bin directory; the shell
+  // must not exec through one either, even when the final file is regular.
+  for (const linkedDirectory of ["bin", "root"] as const) {
+    test(`a symlinked cache ${linkedDirectory} directory is never exec'd through`, async () => {
+      const [host] = hosts;
+      if (host === undefined) throw new Error("no host cases");
+      const { cached, result } = await runAsHost(host, { linkedDirectory });
+      expect(result.stdout.toString()).not.toContain(cached);
+      expect(result.stdout.toString()).not.toContain("elsewhere");
+    });
+  }
 });
