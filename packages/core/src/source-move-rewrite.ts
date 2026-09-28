@@ -119,8 +119,9 @@ export function rewritePendingChangeScopes(
   rewrite: Pick<SourceMoveConfigRewrite, "fromSelector" | "toSelector">
 ): string {
   assertRewrittenSourceReference("pending-change-scope");
+  // Match what the pending-change reader sees (it trims); write the moved value normalized.
   const scope = (value: string): string =>
-    value === rewrite.fromSelector ? rewrite.toSelector : value;
+    value.trim() === rewrite.fromSelector ? rewrite.toSelector : value;
   // Classify like the pending-change reader: only non-empty frontmatter makes a frontmatter entry.
   if (Object.keys(parseMarkdown(source, path).frontmatter).length === 0) {
     return source.replaceAll(
@@ -174,10 +175,8 @@ function rewriteEvidenceSelectors(
   if (!isJsonRecord(evidence)) {
     return evidence;
   }
-  if (
-    Object.hasOwn(evidence, rewrite.fromSelector) &&
-    Object.hasOwn(evidence, rewrite.toSelector)
-  ) {
+  const keys = Object.keys(evidence).map((key) => key.trim());
+  if (keys.includes(rewrite.fromSelector) && keys.includes(rewrite.toSelector)) {
     throw new Error(
       `${path}: evidence already names ${rewrite.toSelector}; merge its ${rewrite.fromSelector} evidence by hand before moving`
     );

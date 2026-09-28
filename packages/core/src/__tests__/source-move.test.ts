@@ -157,6 +157,26 @@ describe("SET-588 source collection move", () => {
     expect(await readFile(join(changes, "history.jsonl"), "utf8")).toBe(history);
   });
 
+  test("rewrites frontmatter scopes the reader trims, normalizing the moved value", async () => {
+    const root = await fixture({
+      ".skillset/changes/aaaaaaaaaaaa.md": '---\nid: aaaaaaaaaaaa\nbump: patch\nscope: " skill:demo "\n---\n\nPadded scope.\n',
+      ".skillset/changes/bbbbbbbbbbbb.md": '---\nid: bbbbbbbbbbbb\nbump: patch\nscopes:\n  - " skill:keep"\n  - "skill:demo "\n---\n\nPadded scopes.\n',
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    const plan = await planSourceMove(request);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+    const changes = join(root, ".skillset/changes");
+    expect(await readFile(join(changes, "aaaaaaaaaaaa.md"), "utf8")).toMatch(/\nscope: "?plugin\.tools\.skill:demo"?\n/u);
+    const scopes = await readFile(join(changes, "bbbbbbbbbbbb.md"), "utf8");
+    expect(scopes).toContain('  - " skill:keep"\n');
+    expect(scopes).toMatch(/\n {2}- "?plugin\.tools\.skill:demo"?\n/u);
+  });
+
   test("rewrites frontmatter evidence selectors with the moved scope in every evidence shape", async () => {
     const arrayEntry = "---\nid: ffffffffffff\nbump: patch\nscopes:\n  - skill:demo\n  - skill:keep\nevidence:\n  - scope: skill:demo\n    sourceHash: sha256:demo\n  - scope: skill:keep\n    sourceHash: sha256:keep\n---\n\nArray evidence.\n";
     const mapEntry = "---\nid: gggggggggggg\nbump: patch\nscopes:\n  - skill:keep\n  - skill:demo\n  - skill:demo-notes\nevidence:\n  skill:keep: sha256:keep\n  skill:demo:\n    scope: skill:demo\n    hash: sha256:demo\n  skill:demo-notes: sha256:notes\n---\n\nMap evidence.\n";
