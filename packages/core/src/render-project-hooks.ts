@@ -2,7 +2,7 @@ import { execFile as execFileCallback } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual, promisify } from "node:util";
-import { join, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
 import { liveRenderDestination, type RenderDestination } from "./build-destination";
@@ -38,10 +38,11 @@ export function isProjectSessionStartTarget(target: TargetName): target is Proje
   return PROJECT_SESSION_START_TARGET_SET.has(target);
 }
 
+/** Portable (`/`) like lock output paths, so previous-lock matches hold on every platform. */
 export function projectSessionStartPath(target: ProjectSessionStartTarget, projectRoot = `.${target}`): string {
   return target === "claude"
-    ? join(projectRoot, "settings.json")
-    : join(projectRoot, relative(".codex", CODEX_PROJECT_HOOKS_PATH));
+    ? posix.join(projectRoot, "settings.json")
+    : posix.join(projectRoot, posix.relative(".codex", CODEX_PROJECT_HOOKS_PATH));
 }
 
 export function projectSessionStartEntry(target: ProjectSessionStartTarget): JsonRecord {
@@ -88,27 +89,29 @@ export async function renderProjectSessionStartHooks(
   sourceIslands: ReadonlyMap<string, ProjectSettingsIsland> = new Map(),
   destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly RenderedProjectHook[]> {
-  const targets = PROJECT_SESSION_START_TARGETS.filter(
+  const placements = PROJECT_SESSION_START_TARGETS.filter(
     (target) => graph.root.targets[target].enabled
-  );
-  if (targets.length === 0) return [];
+  ).map((target): HookPlacement => {
+    const projectRoot = readString(graph.root.targets[target].options, "projectRoot") ?? `.${target}`;
+    return { outputPath: projectSessionStartPath(target, projectRoot), projectRoot, target };
+  });
   const context: ProjectHookContext = {
     destination,
     previousLock: await readPreviousLockItems(destination),
     sourceIslands,
   };
-  if (graph.root.compile.sessionStartHook === "off") return renderExistingOff(graph, targets, context);
-  if (graph.root.compile.sessionStartHook === "auto") {
-    const skillRoots = targetNames()
-      .filter((target) => graph.root.targets[target].enabled)
-      .map((target) => graph.root.outputs.skills[target]);
-    const enabled = await Promise.all(
-      skillRoots.map((path) => outputRootIsIgnored(graph, path))
-    );
-    if (enabled.some((ignored) => !ignored)) return renderExistingOff(graph, targets, context);
-  }
-  const results = await Promise.all(targets.map((target) => renderProjectHook(graph, target, false, context)));
-  return results.filter((result): result is RenderedProjectHook => result !== undefined);
+  const current = await renderCurrentHooks(graph, placements, context);
+  // A previously owned entry the graph no longer places (target disabled or
+  // projectRoot moved) still has to leave its settings file.
+  const abandoned = await renderRemoveOnly(graph, abandonedPlacements(context.previousLock, placements), context);
+  return [...current, ...abandoned];
+}
+
+interface HookPlacement {
+  readonly outputPath: string;
+  /** Present only for placements the current graph declares. */
+  readonly projectRoot?: string;
+  readonly target: ProjectSessionStartTarget;
 }
 
 interface ProjectHookContext {
@@ -117,14 +120,49 @@ interface ProjectHookContext {
   readonly sourceIslands: ReadonlyMap<string, ProjectSettingsIsland>;
 }
 
-async function renderExistingOff(
+async function renderCurrentHooks(
   graph: BuildGraph,
-  targets: readonly ProjectSessionStartTarget[],
+  placements: readonly HookPlacement[],
+  context: ProjectHookContext
+): Promise<readonly RenderedProjectHook[]> {
+  if (placements.length === 0) return [];
+  if (graph.root.compile.sessionStartHook === "off") return renderRemoveOnly(graph, placements, context);
+  if (graph.root.compile.sessionStartHook === "auto") {
+    const skillRoots = targetNames()
+      .filter((target) => graph.root.targets[target].enabled)
+      .map((target) => graph.root.outputs.skills[target]);
+    const enabled = await Promise.all(
+      skillRoots.map((path) => outputRootIsIgnored(graph, path))
+    );
+    if (enabled.some((ignored) => !ignored)) return renderRemoveOnly(graph, placements, context);
+  }
+  const results = await Promise.all(placements.map((placement) => renderProjectHook(graph, placement, false, context)));
+  return results.filter((result): result is RenderedProjectHook => result !== undefined);
+}
+
+function abandonedPlacements(
+  previousLock: PreviousLockItems,
+  placements: readonly HookPlacement[]
+): readonly HookPlacement[] {
+  const placed = new Set(placements.map((placement) => placement.outputPath));
+  const abandoned: HookPlacement[] = [];
+  for (const item of previousLock) {
+    const { kind, outputPath, owner } = item;
+    if (kind !== "settings-entry" || outputPath === undefined || placed.has(outputPath)) continue;
+    if (owner === undefined || !("target" in owner) || !isProjectSessionStartTarget(owner.target)) continue;
+    abandoned.push({ outputPath, target: owner.target });
+  }
+  return abandoned;
+}
+
+async function renderRemoveOnly(
+  graph: BuildGraph,
+  placements: readonly HookPlacement[],
   context: ProjectHookContext
 ): Promise<readonly RenderedProjectHook[]> {
   const rendered: RenderedProjectHook[] = [];
-  for (const target of targets) {
-    const result = await renderProjectHook(graph, target, true, context);
+  for (const placement of placements) {
+    const result = await renderProjectHook(graph, placement, true, context);
     if (result !== undefined) rendered.push(result);
   }
   return rendered;
@@ -132,13 +170,12 @@ async function renderExistingOff(
 
 async function renderProjectHook(
   graph: BuildGraph,
-  target: ProjectSessionStartTarget,
+  placement: HookPlacement,
   removeOnly: boolean,
   context: ProjectHookContext
 ): Promise<RenderedProjectHook | undefined> {
-  const projectRoot = readString(graph.root.targets[target].options, "projectRoot") ?? `.${target}`;
-  const outputPath = projectSessionStartPath(target, projectRoot);
-  if (target === "claude") await assertNoLegacyClaudeSessionStart(graph.rootPath, projectRoot);
+  const { outputPath, projectRoot, target } = placement;
+  if (target === "claude" && projectRoot !== undefined) await assertNoLegacyClaudeSessionStart(graph.rootPath, projectRoot);
   const absolutePath = context.destination.resolvePath(context.destination.mapPath(outputPath));
   const island = context.sourceIslands.get(outputPath);
   const commandHash = hashCommand(SESSION_START_COMMAND);
