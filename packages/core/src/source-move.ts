@@ -3,16 +3,18 @@
 
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
-import { readChangeLedger } from "./change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { compareStrings } from "./path";
 import { loadBuildGraph } from "./resolver";
 import {
   classifySkillCollectionMove,
   movedDraftDestination,
 } from "./source-move-paths";
+import { ledgerReasonsNaming } from "./source-identity-mapping";
 import {
+  hasScopeDirective,
   isFrontmatterChangeEntry,
   rewritePendingChangeScopes,
   rewriteSourceMoveConfig,
@@ -203,6 +205,12 @@ async function planAuthoredSourceMove(
       }
     }
 
+    const ledgerEvents = await readChangeLedger(rootPath, {
+      sourceDir: graph.sourceDir,
+    });
+    const ledgerReasons = ledgerReasonsNaming(ledgerEvents, fromSelector);
+    // Source hashes bind the unit's kind and selector, so the move cannot carry current evidence.
+    const refreshNotice = `pending change entries named ${fromSelector}; source hashes bind a unit's identity, so run \`skillset change refresh --yes\` after the move to re-record their evidence for ${toSelector}, or \`skillset change refresh --ref <id> --yes\` for one entry when unrelated uncovered changes block the workspace-wide refresh`;
     for (const documentPath of await pendingChangeDocuments(
       rootPath,
       graph.sourceDir
@@ -229,23 +237,29 @@ async function planAuthoredSourceMove(
           { cause: error }
         );
       }
+      const label = display(rootPath, documentPath);
       if (rewritten !== source) {
         updates.set(documentPath, rewritten);
-        // Source hashes bind the unit's kind and selector, so the move cannot carry current evidence.
-        notices.add(
-          `pending change entries name ${fromSelector}; source hashes bind a unit's identity, so run skillset change refresh --yes after the move to re-record their evidence for ${toSelector}`
-        );
-        if (isFrontmatterChangeEntry(source, display(rootPath, documentPath))) {
+        notices.add(refreshNotice);
+        if (isFrontmatterChangeEntry(source, label)) {
           notices.add(
-            "migrate frontmatter pending change entries with skillset change migrate --yes before change refresh re-records their evidence"
+            "migrate frontmatter pending change entries with `skillset change migrate --yes` before `skillset change refresh` re-records their evidence"
           );
         }
+      } else if (
+        // A reason-only entry without Scope: directives takes its scopes from the ledger, which the move remaps.
+        !isFrontmatterChangeEntry(source, label) &&
+        !hasScopeDirective(source) &&
+        ledgerReasons.has(basename(documentPath, ".md"))
+      ) {
+        notices.add(refreshNotice);
       }
     }
 
     const ledger = await sourceMoveLedgerUpdate(
       rootPath,
       graph.sourceDir,
+      ledgerEvents,
       fromSelector,
       toSelector
     );
@@ -363,6 +377,7 @@ async function pendingChangeDocuments(
 async function sourceMoveLedgerUpdate(
   rootPath: string,
   sourceDir: string,
+  events: readonly ChangeLedgerEvent[],
   from: string,
   to: string
 ): Promise<{ readonly content: string; readonly path: string }> {
@@ -371,7 +386,6 @@ async function sourceMoveLedgerUpdate(
   const previous = (await pathExists(absolutePath))
     ? await readFile(absolutePath, "utf8")
     : "";
-  const events = await readChangeLedger(rootPath, { sourceDir });
   const last = events.at(-1)?.createdAt;
   const timestamp = last === undefined ? 0 : Date.parse(last) + 1;
   if (!Number.isFinite(timestamp)) {

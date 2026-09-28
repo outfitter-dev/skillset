@@ -118,8 +118,8 @@ describe("source move identity epochs", () => {
     const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
     const plan = await planSourceMove(request);
     expect(plan.notices).toEqual([
-      "migrate frontmatter pending change entries with skillset change migrate --yes before change refresh re-records their evidence",
-      "pending change entries name skill:demo; source hashes bind a unit's identity, so run skillset change refresh --yes after the move to re-record their evidence for plugin.tools.skill:demo",
+      "migrate frontmatter pending change entries with `skillset change migrate --yes` before `skillset change refresh` re-records their evidence",
+      "pending change entries named skill:demo; source hashes bind a unit's identity, so run `skillset change refresh --yes` after the move to re-record their evidence for plugin.tools.skill:demo, or `skillset change refresh --ref <id> --yes` for one entry when unrelated uncovered changes block the workspace-wide refresh",
     ]);
     await moveSource({ ...request, expectedPlanHash: plan.planHash });
 

@@ -157,6 +157,13 @@ export function rewritePendingChangeScopes(
   });
 }
 
+/** Whether a reason-only entry names its scopes itself, which the reader prefers over ledger facts. */
+export function hasScopeDirective(source: string): boolean {
+  return [...source.matchAll(/^Scopes?:(.*)$/gimu)].some(([, value = ""]) =>
+    value.split(",").some((item) => item.trim().length > 0)
+  );
+}
+
 /** Classifies like the pending-change reader: only non-empty frontmatter makes a frontmatter entry. */
 export function isFrontmatterChangeEntry(source: string, path: string): boolean {
   return Object.keys(parseMarkdown(source, path).frontmatter).length > 0;
@@ -179,18 +186,18 @@ function rewriteEvidenceSelectors(
   if (!isJsonRecord(evidence)) {
     return evidence;
   }
-  // Distinct keys can trim to the same selector; refuse rather than let one silently replace another.
-  const movedKeys = Object.keys(evidence).filter(
-    (key) => scope(key).trim() === rewrite.toSelector
-  );
-  if (movedKeys.length > 1) {
+  // The reader indexes map keys verbatim, so only the exact key moves.
+  if (
+    Object.hasOwn(evidence, rewrite.fromSelector) &&
+    Object.hasOwn(evidence, rewrite.toSelector)
+  ) {
     throw new Error(
       `${path}: evidence would have more than one ${rewrite.toSelector} key; merge its ${rewrite.fromSelector} evidence by hand before moving`
     );
   }
   return Object.fromEntries(
     Object.entries(evidence).map(([key, value]) => [
-      scope(key),
+      key === rewrite.fromSelector ? rewrite.toSelector : key,
       value === undefined ? value : entry(value),
     ])
   );

@@ -236,8 +236,9 @@ describe("SET-588 source collection move", () => {
     await expect(access(join(root, request.to))).rejects.toThrow();
   });
 
-  test("refuses evidence keys that trim to the moved selector more than once, without writes", async () => {
-    const entry = '---\nid: llllllllllll\nbump: patch\nscopes: [skill:demo]\nevidence:\n  skill:demo: sha256:bare\n  " skill:demo": sha256:padded\n---\n\nPadded evidence keys.\n';
+  test("rewrites only the exact evidence map key the reader indexes", async () => {
+    // The reader trims scopes and evidence item scopes but indexes evidence map keys verbatim.
+    const entry = '---\nid: llllllllllll\nbump: patch\nscopes:\n  - skill:demo\nevidence:\n  " skill:demo": sha256:padded\n  skill:demo: sha256:bare\n---\n\nPadded evidence keys.\n';
     const root = await fixture({
       ".skillset/changes/llllllllllll.md": entry,
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
@@ -246,17 +247,15 @@ describe("SET-588 source collection move", () => {
     });
     await buildSkillset(root);
     const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
-    const reason = "source move cannot rewrite pending change entry .skillset/changes/llllllllllll.md: evidence would have more than one plugin.tools.skill:demo key; merge its skill:demo evidence by hand before moving";
-    await expect(planSourceMove(request)).rejects.toBeInstanceOf(SourceMovePlanError);
-    await expect(planSourceMove(request)).rejects.toThrow(reason);
-    await expect(moveSource({ ...request, expectedPlanHash: "any" })).rejects.toThrow(reason);
-    expect(await readFile(join(root, ".skillset/changes/llllllllllll.md"), "utf8")).toBe(entry);
-    await expect(access(join(root, request.to))).rejects.toThrow();
+    await moveSource({ ...request, expectedPlanHash: (await planSourceMove(request)).planHash });
+    expect(await readFile(join(root, ".skillset/changes/llllllllllll.md"), "utf8")).toBe(
+      entry.replace("  - skill:demo", "  - plugin.tools.skill:demo").replace("  skill:demo: sha256:bare", "  plugin.tools.skill:demo: sha256:bare")
+    );
   });
 
   test("tells the author to refresh evidence that the move rebinds, migrating frontmatter entries first", async () => {
-    const refresh = "pending change entries name skill:demo; source hashes bind a unit's identity, so run skillset change refresh --yes after the move to re-record their evidence for plugin.tools.skill:demo";
-    const migrate = "migrate frontmatter pending change entries with skillset change migrate --yes before change refresh re-records their evidence";
+    const refresh = "pending change entries named skill:demo; source hashes bind a unit's identity, so run `skillset change refresh --yes` after the move to re-record their evidence for plugin.tools.skill:demo, or `skillset change refresh --ref <id> --yes` for one entry when unrelated uncovered changes block the workspace-wide refresh";
+    const migrate = "migrate frontmatter pending change entries with `skillset change migrate --yes` before `skillset change refresh` re-records their evidence";
     const files = {
       ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
       ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
@@ -277,6 +276,41 @@ describe("SET-588 source collection move", () => {
       ".skillset/changes/bbbbbbbbbbbb.md": "---\nid: bbbbbbbbbbbb\nbump: patch\nscope: skill:demo\nevidence:\n  skill:demo: sha256:demo\n---\n\nLegacy demo change.\n",
     });
     expect((await planSourceMove(request(frontmatter))).notices).toEqual([migrate, refresh]);
+  });
+
+  test("tells the author to refresh ledger-backed pending evidence that the move rebinds", async () => {
+    const refresh = "pending change entries named skill:demo; source hashes bind a unit's identity, so run `skillset change refresh --yes` after the move to re-record their evidence for plugin.tools.skill:demo, or `skillset change refresh --ref <id> --yes` for one entry when unrelated uncovered changes block the workspace-wide refresh";
+    const reason = (reasonId: string, selector: string) => JSON.stringify({
+      createdAt: "2026-09-17T00:00:00.000Z",
+      id: `reason-${reasonId}`,
+      payload: { bump: "patch", reasonId, sourceUnits: [{ selector, sourceHash: `sha256:${"a".repeat(64)}` }] },
+      schemaVersion: 1,
+      type: "reason.created",
+    });
+    const files = (ledger: readonly string[], changes: Readonly<Record<string, string>>) => ({
+      ...changes,
+      ".skillset/changes/ledger.jsonl": `${ledger.join("\n")}\n`,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    const notices = async (ledger: readonly string[], changes: Readonly<Record<string, string>>) => {
+      const root = await fixture(files(ledger, changes));
+      const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+      const plan = await planSourceMove(request);
+      // A ledger-backed entry keeps its Markdown; only the ledger remaps its scope.
+      const updated = plan.operations.flatMap((operation) => (operation.kind === "update" ? [operation.path] : []));
+      expect(updated.filter((path) => path in changes)).toEqual([]);
+      return plan.notices;
+    };
+
+    const pending = { ".skillset/changes/aaaaaaaaaaaa.md": "Demo change recorded in the ledger.\n" };
+    expect(await notices([reason("aaaaaaaaaaaa", "skill:demo")], pending)).toEqual([refresh]);
+    // Unrelated ledger scope, a released reason without a pending file, and a directive that overrides the ledger scope.
+    expect(await notices([reason("aaaaaaaaaaaa", "skill:keep")], pending)).toEqual([]);
+    expect(await notices([reason("bbbbbbbbbbbb", "skill:demo")], pending)).toEqual([]);
+    expect(await notices([reason("aaaaaaaaaaaa", "skill:demo")], { ".skillset/changes/aaaaaaaaaaaa.md": "Keep change.\n\nScope: skill:keep\n" })).toEqual([]);
   });
 
   test("names a malformed pending change entry as a move plan error", async () => {
