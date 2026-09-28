@@ -99,7 +99,7 @@ fi
 # os.homedir(). On win32 that is USERPROFILE, not the shell's $HOME, which
 # Cygwin sets to /home/<user>; map USERPROFILE with cygpath when both exist.
 cached_pinned_bun() {
-  local platform arch executable home candidate
+  local platform arch executable home version_root candidate
   platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
   executable="bun"
@@ -121,8 +121,13 @@ cached_pinned_bun() {
     x86_64|amd64) arch="x64" ;;
     *) return 1 ;;
   esac
-  candidate="$home/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/$executable"
-  if [[ -x "$candidate" ]] && [[ ! -L "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
+  version_root="$home/.cache/skillset/bun/$platform-$arch/$pinned_version"
+  candidate="$version_root/bin/$executable"
+  # Like pinnedBunRootState(): a symlinked version root, bin/, or interpreter
+  # is not the owned cache, so never exec through it.
+  if [[ ! -L "$version_root" ]] && [[ ! -L "$version_root/bin" ]] &&
+    [[ -x "$candidate" ]] && [[ ! -L "$candidate" ]] &&
+    [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
     printf '%s\n' "$candidate"
   else
     return 1

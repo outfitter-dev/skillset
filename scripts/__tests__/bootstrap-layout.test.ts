@@ -55,6 +55,8 @@ interface HostEnvironment {
   readonly cygpath?: boolean;
   /** Put the interpreter elsewhere and link the cached path to it. */
   readonly linked?: boolean;
+  /** Put the interpreter elsewhere and link a cache directory above it. */
+  readonly linkedDirectory?: "bin" | "root";
 }
 
 /**
@@ -72,6 +74,7 @@ const runAsHost = async (
     userProfile = false,
     cygpath = false,
     linked = false,
+    linkedDirectory,
   }: HostEnvironment = {}
 ) => {
   const root = await createTestFixtureRoot("skillset-bootstrap-layout-");
@@ -79,14 +82,26 @@ const runAsHost = async (
   const profile = join(root, "profile");
   const fakeBin = join(root, "fake-bin");
   const cached = resolverPath(cacheUnder === "home" ? home : profile, host);
-  const interpreter = linked ? join(root, "elsewhere", "bun") : cached;
+  // The cache component that becomes a link, and the directory it points at.
+  const linkedPath =
+    linkedDirectory === "bin"
+      ? dirname(cached)
+      : linkedDirectory === "root"
+        ? dirname(dirname(cached))
+        : undefined;
+  const linkTarget = join(root, "elsewhere-dir");
+  const interpreter = linked
+    ? join(root, "elsewhere", "bun")
+    : linkedPath === undefined
+      ? cached
+      : join(linkTarget, relative(linkedPath, cached));
   await Promise.all([
     mkdir(dirname(interpreter), { recursive: true }),
     mkdir(join(root, "scripts"), { recursive: true }),
     mkdir(join(home, ".bun"), { recursive: true }),
     mkdir(profile, { recursive: true }),
     mkdir(fakeBin, { recursive: true }),
-    mkdir(dirname(cached), { recursive: true }),
+    mkdir(dirname(linkedPath ?? cached), { recursive: true }),
   ]);
   await Promise.all([
     copyFile(
@@ -117,6 +132,7 @@ const runAsHost = async (
     ...(cygpath ? [chmod(join(fakeBin, "cygpath"), 0o755)] : []),
   ]);
   if (linked) await symlink(interpreter, cached);
+  if (linkedPath !== undefined) await symlink(linkTarget, linkedPath);
   const result = Bun.spawnSync({
     cmd: ["/bin/bash", join(root, "scripts", "bootstrap.sh"), "doctor"],
     cwd: root,
@@ -186,4 +202,16 @@ describe.skipIf(process.platform === "win32")("bootstrap.sh cache layout", () =>
     expect(result.stdout.toString()).not.toContain(cached);
     expect(result.stdout.toString()).not.toContain("elsewhere");
   });
+
+  // pinnedBunRootState rejects a symlinked root or bin directory; the shell
+  // must not exec through one either, even when the final file is regular.
+  for (const linkedDirectory of ["bin", "root"] as const) {
+    test(`a symlinked cache ${linkedDirectory} directory is never exec'd through`, async () => {
+      const [host] = hosts;
+      if (host === undefined) throw new Error("no host cases");
+      const { cached, result } = await runAsHost(host, { linkedDirectory });
+      expect(result.stdout.toString()).not.toContain(cached);
+      expect(result.stdout.toString()).not.toContain("elsewhere");
+    });
+  }
 });
