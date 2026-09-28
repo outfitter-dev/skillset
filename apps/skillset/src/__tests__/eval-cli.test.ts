@@ -4,6 +4,8 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 
 import { expect, test } from "bun:test";
 
+import { expectProcessGone } from "../../../../scripts/test-helpers/process";
+
 test("SET-386: eval list reports the resolved portable case-target matrix in text and JSON", async () => {
   const root = await fixture({
     "skillset.yaml": "skillset:\n  name: eval-cli\ncompile:\n  targets: [claude, codex]\n",
@@ -129,7 +131,7 @@ test("SET-387: SIGINT cancels an eval provider process tree before the CLI exits
 
   expect(exitCode).not.toBe(0);
   for (const pid of providerPids) {
-    expect(() => process.kill(pid, 0)).toThrow();
+    await expectProcessGone(pid);
   }
 });
 

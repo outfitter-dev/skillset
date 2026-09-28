@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { expectProcessGone } from "../../../../scripts/test-helpers/process";
 
 import {
   isProviderCommandMissingBinary,
@@ -123,8 +124,8 @@ test("provider command abort and timeout terminate a detached descendant tree", 
 
   expect(pid).toBeDefined();
   expect(childPid).toBeDefined();
-  expect(await processRemainsRunning(pid!, 1_000)).toBe(false);
-  expect(await processRemainsRunning(childPid!, 1_000)).toBe(false);
+  await expectProcessGone(pid!);
+  await expectProcessGone(childPid!);
 
   const timeoutBin = await processTreeBin(root, "timeout-tree");
   let timeoutChildPid: number | undefined;
@@ -140,7 +141,7 @@ test("provider command abort and timeout terminate a detached descendant tree", 
   );
   expect(timeout.timedOut).toBe(true);
   expect(timeoutChildPid).toBeDefined();
-  expect(await processRemainsRunning(timeoutChildPid!, 1_000)).toBe(false);
+  await expectProcessGone(timeoutChildPid!);
 });
 
 test("provider command classifies missing binaries without exposing spawn details", async () => {
@@ -208,44 +209,4 @@ async function processTreeBin(root: string, name: string): Promise<string> {
   // produces output; absorb it before the timed run.
   Bun.spawnSync({ cmd: [bin, "warmup"] });
   return bin;
-}
-
-async function processRemainsRunning(
-  pid: number,
-  timeoutMs: number
-): Promise<boolean> {
-  // Linux may report a descendant as running briefly after group SIGKILL and
-  // the direct parent's exit; wait for observation, without masking survivors.
-  const deadline = Date.now() + timeoutMs;
-  while (await processIsRunning(pid)) {
-    if (Date.now() >= deadline) return true;
-    await Bun.sleep(5);
-  }
-  return false;
-}
-
-async function processIsRunning(pid: number): Promise<boolean> {
-  try {
-    process.kill(pid, 0);
-  } catch (error) {
-    return !(
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "ESRCH"
-    );
-  }
-  if (process.platform !== "linux") return true;
-  try {
-    const stat = await readFile(`/proc/${pid}/stat`, "utf8");
-    return stat.slice(stat.lastIndexOf(") ") + 2, stat.lastIndexOf(") ") + 3) !== "Z";
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      (error.code === "ENOENT" || error.code === "ESRCH")
-    ) {
-      return false;
-    }
-    throw error;
-  }
 }
