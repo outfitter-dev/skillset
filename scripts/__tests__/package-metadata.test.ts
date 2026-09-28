@@ -162,6 +162,28 @@ describe("package metadata checks", () => {
       `${JSON.stringify({ engines: { bun: ">=1.4.0 <1.5.0" } })}\n`
     );
     expect(await bunRuntimeDiagnostics(root)).toEqual([]);
+    for (const [malformed, problem] of [
+      [
+        ">=0.0.0",
+        '">=0.0.0" must set a lower bound: it admits 0.0.0',
+      ],
+      [
+        ">=2.0.0 || >=1.4.0-01",
+        '">=2.0.0 || >=1.4.0-01" must have the form >=X.Y.Z [<X.Y.Z]: unexpected token "||"',
+      ],
+    ] as const) {
+      await writeFile(
+        join(root, "package.json"),
+        `${JSON.stringify({ engines: { bun: malformed } })}\n`
+      );
+      await writeFile(
+        join(root, "apps/cli/package.json"),
+        `${JSON.stringify({ engines: { bun: malformed } })}\n`
+      );
+      expect(await bunRuntimeDiagnostics(root)).toEqual([
+        `package.json engines.bun ${problem}`,
+      ]);
+    }
     await writeFile(join(root, "package.json"), '{"engines":{}}\n');
     expect(await bunRuntimeDiagnostics(root)).toEqual([
       "package.json must declare a supported Bun range in engines.bun",

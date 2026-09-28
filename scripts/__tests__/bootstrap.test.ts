@@ -16,10 +16,11 @@ import { join } from "node:path";
 import {
   isBunVersionAllowed,
   isCompatibleBunVersion,
-  isVersionAtLeast,
-  minimumFromEngineRange,
+  isStrictBunVersion,
   readPackageManagerBunVersion,
   readPinnedBunVersion,
+  satisfiesSupportedBunRange,
+  supportedBunRangeProblem,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
 import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
@@ -333,17 +334,26 @@ describe("bootstrap repo policy", () => {
   });
 
   test("Bun pin stays aligned across repo metadata", () => {
+    const range = packageJson.engines?.bun;
     expect(readPinnedBunVersion(repoRoot)).toBe("1.4.0");
     expect(readPackageManagerBunVersion(repoRoot)).toBe("1.4.0");
-    expect(minimumFromEngineRange(packageJson.engines?.bun)).toBe("1.4.0");
+    expect(supportedBunRangeProblem(range)).toBeUndefined();
+    expect(satisfiesSupportedBunRange("1.4.0", range ?? "")).toBe(true);
   });
 
-  test("Bun checks distinguish package floors from repo pins", () => {
-    expect(minimumFromEngineRange(">=1.4.0")).toBe("1.4.0");
-    expect(isVersionAtLeast("1.4.0", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.4.1", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.5.0", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.3.14", "1.4.0")).toBe(false);
+  test("Bun checks distinguish package ranges from repo pins", () => {
+    expect(satisfiesSupportedBunRange("1.4.0", ">=1.4.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.4.1", ">=1.4.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.5.0", ">=1.4.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.3.14", ">=1.4.0")).toBe(false);
+    expect(satisfiesSupportedBunRange("1.5.0", ">=1.4.0 <1.5.0")).toBe(false);
+    // Components past Number.MAX_SAFE_INTEGER must not round into each other.
+    expect(
+      satisfiesSupportedBunRange("9007199254740992.0.0", ">=9007199254740993.0.0")
+    ).toBe(false);
+    expect(
+      satisfiesSupportedBunRange("1.9007199254740992.0", ">=1.4.0 <1.9007199254740993.0")
+    ).toBe(true);
     expect(isCompatibleBunVersion("1.4.1", "1.4.0")).toBe(true);
     expect(isCompatibleBunVersion("1.5.0", "1.4.0")).toBe(false);
     expect(isBunVersionAllowed("1.4.0", "1.4.0", "strict")).toBe(true);
@@ -351,8 +361,12 @@ describe("bootstrap repo policy", () => {
   });
 
   test("Bun checks tolerate prerelease builds like the shell gate does", () => {
-    expect(isVersionAtLeast("1.4.1-canary.20+abc123", "1.4.0")).toBe(true);
-    expect(isVersionAtLeast("1.3.14-canary.2", "1.4.0")).toBe(false);
+    expect(satisfiesSupportedBunRange("1.4.1-canary.20+abc123", ">=1.4.0")).toBe(
+      true
+    );
+    expect(satisfiesSupportedBunRange("1.3.14-canary.2", ">=1.4.0")).toBe(
+      false
+    );
     expect(isCompatibleBunVersion("1.4.1-canary.20+abc123", "1.4.0")).toBe(
       true
     );
@@ -360,6 +374,95 @@ describe("bootstrap repo policy", () => {
     expect(isBunVersionAllowed("1.4.0-canary.1", "1.4.0", "strict")).toBe(
       false
     );
+  });
+
+  test("a prerelease is admitted only when its release is in range and does not precede the floor", () => {
+    // #608: a 1.5.0 canary previews 1.5.0, which an exclusive <1.5.0 excludes.
+    expect(satisfiesSupportedBunRange("1.5.0-canary.1", ">=1.4.0 <1.5.0")).toBe(
+      false
+    );
+    expect(satisfiesSupportedBunRange("1.4.9-canary.1", ">=1.4.0 <1.5.0")).toBe(
+      true
+    );
+    // A 1.4.0 prerelease precedes 1.4.0 itself, so it is below >=1.4.0.
+    expect(satisfiesSupportedBunRange("1.4.0-canary.1", ">=1.4.0")).toBe(false);
+    expect(satisfiesSupportedBunRange("1.4.0", ">=1.4.0 <1.5.0")).toBe(true);
+    expect(satisfiesSupportedBunRange("1.4.99", ">=1.4.0 <1.5.0")).toBe(true);
+  });
+
+  test("candidate Bun versions must be whole strict versions, never truncated", () => {
+    // #608: a prefix match used to read 1.4.0garbage as 1.4.0.
+    for (const malformed of [
+      "1.4.0garbage",
+      "1.4.0.1",
+      "01.4.0",
+      "1.4",
+      "1.4.0-01",
+      "1.4.0-",
+      "v1.4.0",
+      " 1.4.0",
+    ]) {
+      expect(isStrictBunVersion(malformed)).toBe(false);
+      expect(satisfiesSupportedBunRange(malformed, ">=1.4.0")).toBe(false);
+    }
+    for (const valid of ["1.4.0", "1.4.1-canary.20", "1.4.1-canary.20+abc123", "1.4.0-0"]) {
+      expect(isStrictBunVersion(valid)).toBe(true);
+    }
+  });
+
+  test("supported Bun ranges must set a lower bound", () => {
+    expect(supportedBunRangeProblem(">=0.0.0")).toBe(
+      '">=0.0.0" must set a lower bound: it admits 0.0.0'
+    );
+    expect(supportedBunRangeProblem(">=1.5.0 <1.5.0")).toBe(
+      '">=1.5.0 <1.5.0" admits no version: the upper bound must exceed the lower bound'
+    );
+    for (const missing of [undefined, "", "   "]) {
+      expect(supportedBunRangeProblem(missing)).toBe(
+        "must declare a supported Bun range"
+      );
+    }
+  });
+
+  test("supported Bun ranges accept only >=X.Y.Z [<X.Y.Z]", () => {
+    // Bun's parser skips what it cannot read and widens what it half-reads,
+    // so anything beyond this one shape could admit versions below the floor.
+    expect(Bun.semver.satisfies("1.2.0", ">=1.4.0 || garbage >0.0.0")).toBe(
+      true
+    );
+    expect(Bun.semver.satisfies("1.4.0", ">=2.0.0 || >=1.4.0-01")).toBe(true);
+    for (const [range, token] of [
+      // #608 threads and earlier review examples.
+      [">=2.0.0 || >=1.4.0-01", "||"],
+      [">=1.4.0 || garbage >0.0.0", "||"],
+      [">=1.x.2", ">=1.x.2"],
+      ["1.x.2", "1.x.2"],
+      [">=1.4.0-canary.1", ">=1.4.0-canary.1"],
+      [">=1.4.0 <1.5.0-canary.1", "<1.5.0-canary.1"],
+      [">=1.4.0abc", ">=1.4.0abc"],
+      [">=1.4.0 garbage", "garbage"],
+      // Forms general semver allows but this repo does not use.
+      ["^1.4.0", "^1.4.0"],
+      ["~1.4.0", "~1.4.0"],
+      ["1.4.x", "1.4.x"],
+      ["*", "*"],
+      ["1.4.0 - 1.5.0", "1.4.0"],
+      [">=1.4", ">=1.4"],
+      [">=01.4.0", ">=01.4.0"],
+      [">=1.4.0+build", ">=1.4.0+build"],
+      [">= 1.4.0", ">="],
+      ["<1.5.0", "<1.5.0"],
+      [">=1.4.0 <=1.5.0", "<=1.5.0"],
+      [">=1.4.0 >=1.3.0", ">=1.3.0"],
+      [">=1.4.0 <1.5.0 <1.6.0", "<1.6.0"],
+    ] as const) {
+      expect(supportedBunRangeProblem(range)).toBe(
+        `${JSON.stringify(range)} must have the form >=X.Y.Z [<X.Y.Z]: unexpected token ${JSON.stringify(token)}`
+      );
+    }
+    for (const valid of [">=1.4.0", ">=1.4.0 <1.5.0", ">=1.4.0 <2.0.0", ">=0.0.1"]) {
+      expect(supportedBunRangeProblem(valid)).toBeUndefined();
+    }
   });
 
   test("repo root detection accepts current and migration workspace markers", async () => {
