@@ -595,6 +595,34 @@ Review body.
     }));
   });
 
+  it("does not attribute a live sibling's hook to a selected plugin draft copy", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: draft-copy-sibling-hook\nclaude: true\ncodex: false\ncursor: false\nplugins:\n  internal_use:\n    drafts:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/use-me/SKILL.md": `---
+name: use-me
+description: Live skill with a hook
+hooks:
+  PreToolUse:
+    - local-shell
+---
+
+Use me.
+`,
+      ".skillset/plugins/demo/skills/use-me/hooks/local-shell.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "node ./local.js" },
+      }),
+      ".skillset/plugins/demo/skills/_drafts/use-me/SKILL.md": skill("use-me", "Draft without hooks"),
+    });
+
+    const result = await buildSkillsetResult(root, { scopes: ["repo"] });
+    expect(await Bun.file(join(root, ".claude/skills/draft-use-me/SKILL.md")).exists()).toBe(true);
+    expect(result.renderResults).not.toContainEqual(
+      expect.objectContaining({ featureId: "internal-use-components" })
+    );
+  });
+
   it("does not report a skill hook excluded from the target by its definition", async () => {
     const root = await fixture({
       "skillset.yaml": `skillset:\n  name: filtered-skill-hook\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,

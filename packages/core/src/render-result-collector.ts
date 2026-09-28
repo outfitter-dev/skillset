@@ -295,7 +295,16 @@ function unsupportedProjectUseComponentOutcomes(
       const targetHooks = resolveAdaptiveHookAttachmentsForTarget(
         graph.adaptiveHooks, graph.hookAttachments, target
       ).resolved;
-      const skillHook = targetHooks.find((item) =>
+      // A draft copy resolves its own definitions, as render does; the shared
+      // skill scope would attribute a same-id live sibling's hooks to it.
+      const skillHooks = copy.draftOrigin === undefined
+        ? targetHooks
+        : resolveAdaptiveHookAttachmentsForTarget(
+          [...graph.adaptiveHooks.filter((hook) => hook.scope.kind !== "skill"), ...copy.skill.adaptiveHooks],
+          copy.skill.hookAttachments,
+          target
+        ).resolved;
+      const skillHook = skillHooks.find((item) =>
         item.attachment.scope.kind === "skill" &&
         item.attachment.scope.pluginId === copy.plugin.id &&
         item.attachment.scope.skillId === copy.skill.id &&
