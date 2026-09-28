@@ -13,7 +13,7 @@ import {
   sourceReferenceAcceptsSelector,
 } from "./source-reference-contract";
 import { writableRecord } from "./source-rename-structured";
-import type { JsonRecord } from "./types";
+import type { JsonRecord, JsonValue } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 export interface SourceMoveConfigRewrite {
@@ -111,7 +111,7 @@ function rewriteRootSelectors(
 
 /**
  * Rewrites `Scope:`/`Scopes:` directives in a reason-only pending change entry,
- * or `scope`/`scopes` frontmatter in a frontmatter entry.
+ * or `scope`/`scopes` and evidence selectors in a frontmatter entry.
  */
 export function rewritePendingChangeScopes(
   source: string,
@@ -145,8 +145,49 @@ export function rewritePendingChangeScopes(
         );
       }
     }
+    if (frontmatter.evidence !== undefined) {
+      frontmatter.evidence = rewriteEvidenceSelectors(
+        frontmatter.evidence,
+        path,
+        rewrite,
+        scope
+      );
+    }
     return { body: current.body, frontmatter };
   });
+}
+
+/** Rewrites `evidence[*].scope`, `evidence.<selector>` keys, and `evidence.<selector>.scope`. */
+function rewriteEvidenceSelectors(
+  evidence: JsonValue,
+  path: string,
+  rewrite: Pick<SourceMoveConfigRewrite, "fromSelector" | "toSelector">,
+  scope: (value: string) => string
+): JsonValue {
+  const entry = (item: JsonValue): JsonValue =>
+    isJsonRecord(item) && typeof item.scope === "string"
+      ? { ...item, scope: scope(item.scope) }
+      : item;
+  if (Array.isArray(evidence)) {
+    return evidence.map(entry);
+  }
+  if (!isJsonRecord(evidence)) {
+    return evidence;
+  }
+  if (
+    Object.hasOwn(evidence, rewrite.fromSelector) &&
+    Object.hasOwn(evidence, rewrite.toSelector)
+  ) {
+    throw new Error(
+      `${path}: evidence already names ${rewrite.toSelector}; merge its ${rewrite.fromSelector} evidence by hand before moving`
+    );
+  }
+  return Object.fromEntries(
+    Object.entries(evidence).map(([key, value]) => [
+      scope(key),
+      value === undefined ? value : entry(value),
+    ])
+  );
 }
 
 function acceptedSelector(

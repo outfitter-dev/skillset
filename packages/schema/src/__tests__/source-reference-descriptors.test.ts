@@ -54,7 +54,15 @@ describe("source reference descriptors", () => {
         contracts: ["change-entry"],
         id: "pending-change-scope",
         mutationPolicy: "rewrite",
-        pathPatterns: ["scope", "scope[*]", "scopes", "scopes[*]"],
+        pathPatterns: [
+          "scope",
+          "scope[*]",
+          "scopes",
+          "scopes[*]",
+          "evidence[*].scope",
+          "evidence.<selector>",
+          "evidence.<selector>.scope",
+        ],
       }),
       expect.objectContaining({
         id: "internal-plugin-selection",

@@ -110,8 +110,17 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
       "Pending change entries are mutable; only ledger JSONL streams and releases are append-only history.",
       "Reason-only entries carry the same selectors in Scope: and Scopes: body directives.",
       "Any non-empty selector is structurally valid; change check validates it against known source units.",
+      "Evidence selectors follow the scope in the same rewrite; a move is refused when the evidence map already has a key for the new selector.",
     ],
-    pathPatterns: ["scope", "scope[*]", "scopes", "scopes[*]"],
+    pathPatterns: [
+      "scope",
+      "scope[*]",
+      "scopes",
+      "scopes[*]",
+      "evidence[*].scope",
+      "evidence.<selector>",
+      "evidence.<selector>.scope",
+    ],
     scope: "pending-change-entry",
   }),
   freezeDescriptor({

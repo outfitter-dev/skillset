@@ -157,6 +157,65 @@ describe("SET-588 source collection move", () => {
     expect(await readFile(join(changes, "history.jsonl"), "utf8")).toBe(history);
   });
 
+  test("rewrites frontmatter evidence selectors with the moved scope in every evidence shape", async () => {
+    const arrayEntry = "---\nid: ffffffffffff\nbump: patch\nscopes:\n  - skill:demo\n  - skill:keep\nevidence:\n  - scope: skill:demo\n    sourceHash: sha256:demo\n  - scope: skill:keep\n    sourceHash: sha256:keep\n---\n\nArray evidence.\n";
+    const mapEntry = "---\nid: gggggggggggg\nbump: patch\nscopes:\n  - skill:keep\n  - skill:demo\n  - skill:demo-notes\nevidence:\n  skill:keep: sha256:keep\n  skill:demo:\n    scope: skill:demo\n    hash: sha256:demo\n  skill:demo-notes: sha256:notes\n---\n\nMap evidence.\n";
+    const stringEntry = "---\nid: hhhhhhhhhhhh\nbump: patch\nscope: skill:demo\nevidence:\n  skill:demo: sha256:demo\n---\n\nString map evidence.\n";
+    const directEntry = "---\nid: iiiiiiiiiiii\nbump: patch\nscope: skill:demo\nevidence:\n  hash: sha256:demo\n---\n\nDirect hash evidence.\n";
+    const unrelatedEntry = "---\nid: kkkkkkkkkkkk\nbump: patch\nscopes: [skill:keep]\nevidence:\n  - scope: skill:keep\n    sourceHash: sha256:keep\n---\n\nUnrelated evidence.\n";
+    const root = await fixture({
+      ".skillset/changes/ffffffffffff.md": arrayEntry,
+      ".skillset/changes/gggggggggggg.md": mapEntry,
+      ".skillset/changes/hhhhhhhhhhhh.md": stringEntry,
+      ".skillset/changes/iiiiiiiiiiii.md": directEntry,
+      ".skillset/changes/kkkkkkkkkkkk.md": unrelatedEntry,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const plan = await planSourceMove(request);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+    const changes = join(root, ".skillset/changes");
+    const moved = "plugin.tools.skill:demo";
+    expect(await readFile(join(changes, "ffffffffffff.md"), "utf8")).toBe(arrayEntry.replaceAll("skill:demo\n", `${moved}\n`));
+    // The renamed key and its nested record scope follow the scope rule; the prefix-sharing selector stays, and the
+    // AST reconciler writes the renamed key after the untouched ones.
+    expect(await readFile(join(changes, "gggggggggggg.md"), "utf8")).toBe(`---\nid: gggggggggggg\nbump: patch\nscopes:\n  - skill:keep\n  - ${moved}\n  - skill:demo-notes\nevidence:\n  skill:keep: sha256:keep\n  skill:demo-notes: sha256:notes\n  ${moved}:\n    scope: ${moved}\n    hash: sha256:demo\n---\n\nMap evidence.\n`);
+    expect(await readFile(join(changes, "hhhhhhhhhhhh.md"), "utf8")).toBe(stringEntry.replaceAll("skill:demo", moved));
+    expect(await readFile(join(changes, "iiiiiiiiiiii.md"), "utf8")).toBe(directEntry.replace("skill:demo", moved));
+    expect(await readFile(join(changes, "kkkkkkkkkkkk.md"), "utf8")).toBe(unrelatedEntry);
+  });
+
+  test("refuses to merge evidence when the moved selector already has an evidence key, without writes", async () => {
+    const entry = "---\nid: jjjjjjjjjjjj\nbump: patch\nscopes: [skill:demo]\nevidence:\n  skill:demo: sha256:old\n  plugin.tools.skill:demo: sha256:new\n---\n\nColliding evidence.\n";
+    const root = await fixture({
+      ".skillset/changes/jjjjjjjjjjjj.md": entry,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const reason = "source move cannot rewrite pending change entry .skillset/changes/jjjjjjjjjjjj.md: evidence already names plugin.tools.skill:demo; merge its skill:demo evidence by hand before moving";
+    await expect(planSourceMove(request)).rejects.toBeInstanceOf(SourceMovePlanError);
+    await expect(planSourceMove(request)).rejects.toThrow(reason);
+    await expect(moveSource({ ...request, expectedPlanHash: "any" })).rejects.toThrow(reason);
+    expect(await readFile(join(root, ".skillset/changes/jjjjjjjjjjjj.md"), "utf8")).toBe(entry);
+    expect(await readFile(join(root, request.from, "SKILL.md"), "utf8")).toContain("name: demo");
+    await expect(access(join(root, request.to))).rejects.toThrow();
+  });
+
   test("names a malformed pending change entry as a move plan error", async () => {
     const root = await fixture({
       ".skillset/changes/eeeeeeeeeeee.md": "---\nscopes: [skill:demo\n---\n\nBroken.\n",
