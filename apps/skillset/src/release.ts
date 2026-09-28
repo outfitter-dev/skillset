@@ -253,11 +253,12 @@ export async function amendReleaseRecord(
   options: ReleaseAmendOptions
 ): Promise<ReleaseAmendReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  // Read the reason (possibly from stdin) before taking the writer lock.
+  const notes = await resolveChangeReason(rootPath, options.reason);
   return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
     const records = await readReleaseRecords(rootPath, storageOptions);
     const amendments = await readReleaseAmendments(rootPath, storageOptions);
     const release = releaseView(resolveReleaseRef(records, options.ref), releaseRefIndex(records), amendments);
-    const notes = await resolveChangeReason(rootPath, options.reason);
     const amendmentPath = workspaceChangeFile(storageOptions.sourceDir, RELEASE_AMENDMENTS_FILE);
     const now = await nextJsonlTimestampForPaths([resolveInside(rootPath, amendmentPath)]);
     await mutation.appendJsonl(amendmentPath, [{
