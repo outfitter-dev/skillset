@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { chmod, mkdir, readdir, readFile, rename, symlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { createTestFixtureRoot, tempEntriesLeftBy } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
   inspectOutputBackups,
@@ -128,9 +128,15 @@ describe("output backup manifest publication", () => {
     await mkdir(join(root, ".skillset"));
     await symlink(outside, join(root, ".skillset/snapshots"), "dir");
 
-    await expect(persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n")))
-      .rejects.toThrow("refusing to traverse symbolic link: .skillset/snapshots");
+    const { result, leftovers } = await tempEntriesLeftBy("skillset-output-backup-index-", () =>
+      persistOutputBackupPlan(root, backupPlan("AGENTS.md", "authored\n")).then(
+        () => undefined,
+        (error: unknown) => error
+      ));
 
+    if (!(result instanceof Error)) throw new Error("expected the backup to be refused");
+    expect(result.message).toContain("refusing to traverse symbolic link: .skillset/snapshots");
+    expect(leftovers).toEqual([]);
     expect(await readdir(outside)).toEqual([]);
   });
 

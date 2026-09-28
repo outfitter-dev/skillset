@@ -1210,12 +1210,14 @@ async function writeGitBackupStorage(
   const gitDir = join(OUTPUT_BACKUP_ROOT, runId, "git");
   const absoluteGitDir = resolveInside(rootPath, gitDir);
   const ref = `refs/skillset/backups/${runId}`;
+  // Validate and initialize before creating the index root, so a refused path
+  // leaves nothing behind in the system temp directory.
+  await prepareRepositoryMutationPath(rootPath, absoluteGitDir);
+  await runGit(["init", "--bare", "-q", absoluteGitDir], { cwd: rootPath });
+
   const indexRoot = await mkdtemp(join(tmpdir(), "skillset-output-backup-index-"));
   const indexPath = join(indexRoot, "index");
   const finalized: OutputBackupRecord[] = [];
-
-  await prepareRepositoryMutationPath(rootPath, absoluteGitDir);
-  await runGit(["init", "--bare", "-q", absoluteGitDir], { cwd: rootPath });
 
   try {
     for (const record of [...records].sort((left, right) => compareStrings(left.targetPath, right.targetPath))) {
