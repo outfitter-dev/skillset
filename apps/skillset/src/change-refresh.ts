@@ -1,11 +1,5 @@
 import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
-import {
-  startDefaultDirectoryLockHeartbeat,
-  withOwnedDirectoryLock,
-  type DirectoryLockHeartbeatScheduler,
-} from "@skillset/core/internal/directory-lock";
-import { compareStrings, resolveInside } from "@skillset/core/internal/path";
-import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
+import { compareStrings } from "@skillset/core/internal/path";
 import {
   pluginScopeFromSourceUnit,
   sourceUnitDisplay,
@@ -15,6 +9,8 @@ import type { JsonRecord } from "@skillset/core/internal/types";
 import { workspaceChangeFile } from "@skillset/core";
 
 import { changeCheck, resolvePendingChangeRef } from "./change-entries";
+import type { ChangeLedgerLockOptions } from "./change-ledger-lock";
+import { withChangeLedgerMutation } from "./change-ledger-mutation";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions } from "./change-status";
 
 export interface ChangeRefreshOptions extends ChangeStatusOptions {
@@ -26,18 +22,6 @@ export interface ChangeRefreshOptions extends ChangeStatusOptions {
   readonly lock?: ChangeLedgerLockOptions;
   readonly ref?: string;
   readonly write: boolean;
-}
-
-export interface ChangeLedgerLockOptions {
-  readonly heartbeatMs?: number;
-  readonly isProcessAlive?: (pid: number) => boolean;
-  readonly leaseMs?: number;
-  readonly now?: () => number;
-  readonly pid?: number;
-  readonly pollMs?: number;
-  /** @internal Test seam for deterministically advancing an owned heartbeat. */
-  readonly startHeartbeat?: DirectoryLockHeartbeatScheduler;
-  readonly timeoutMs?: number;
 }
 
 export interface ChangeRefreshScope {
@@ -58,31 +42,16 @@ export interface ChangeRefreshReport {
   readonly written: boolean;
 }
 
-type LedgerEvent = {
-  readonly payload: JsonRecord;
-  readonly type: ChangeLedgerEventType;
-};
-
-type AppendLedgerEvents = (
-  rootPath: string,
-  sourceDir: string | undefined,
-  events: readonly LedgerEvent[]
-) => Promise<void>;
-
 const REFRESHABLE_EVIDENCE_CODES = new Set(["change-evidence-missing", "change-evidence-stale"]);
-const CHANGE_LEDGER_LOCK_HEARTBEAT_MS = 10_000;
-const CHANGE_LEDGER_LOCK_LEASE_MS = 60_000;
-const CHANGE_LEDGER_LOCK_TIMEOUT_MS = 10_000;
 
 export async function refreshChangeEvidenceWithAppend(
   rootPath: string,
-  options: ChangeRefreshOptions,
-  appendLedgerEvents: AppendLedgerEvents
+  options: ChangeRefreshOptions
 ): Promise<ChangeRefreshReport> {
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
   if (!options.write) return planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
 
-  return withChangeLedgerLock(rootPath, storageOptions.sourceDir, options.lock, async (lock) => {
+  return withChangeLedgerMutation(rootPath, storageOptions.sourceDir, options.lock, async (mutation) => {
     let beforeFinalComparison = options.beforeFinalComparison;
     let beforeOwnershipVerification = options.beforeOwnershipVerification;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -92,13 +61,13 @@ export async function refreshChangeEvidenceWithAppend(
       beforeFinalComparison = undefined;
       const confirmed = await planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
       if (refreshPlanKey(planned) !== refreshPlanKey(confirmed)) continue;
-      await lock.assertOwned();
+      await mutation.assertOwned();
       await beforeOwnershipVerification?.();
       beforeOwnershipVerification = undefined;
       const fresh = await planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
       if (refreshPlanKey(confirmed) !== refreshPlanKey(fresh)) continue;
-      await lock.assertOwned();
-      await appendLedgerEvents(rootPath, storageOptions.sourceDir, refreshLedgerEvents(fresh.entries));
+      await mutation.assertOwned();
+      await mutation.appendLedger(refreshLedgerEvents(fresh.entries));
       return { ...fresh, written: true };
     }
     throw new Error("skillset: source or pending change evidence kept changing while change refresh was applying; retry the command");
@@ -174,7 +143,10 @@ async function planChangeEvidenceRefresh(
   };
 }
 
-function refreshLedgerEvents(entries: readonly ChangeRefreshEntry[]): readonly LedgerEvent[] {
+function refreshLedgerEvents(entries: readonly ChangeRefreshEntry[]): readonly {
+  readonly payload: JsonRecord;
+  readonly type: ChangeLedgerEventType;
+}[] {
   return entries.map((entry) => ({
     payload: {
       reasonId: entry.ref.slice(1),
@@ -190,69 +162,4 @@ function refreshLedgerEvents(entries: readonly ChangeRefreshEntry[]): readonly L
 
 function refreshPlanKey(report: ChangeRefreshReport): string {
   return JSON.stringify(report.entries);
-}
-
-export async function withChangeLedgerLock<T>(
-  rootPath: string,
-  sourceDir: string | undefined,
-  input: ChangeLedgerLockOptions | undefined,
-  operation: (lock: { readonly assertOwned: () => Promise<void> }) => Promise<T>
-): Promise<T> {
-  const ledgerPath = workspaceChangeFile(sourceDir, "ledger.jsonl");
-  const lockPath = resolveInside(rootPath, `${ledgerPath}.lock`);
-  await prepareRepositoryMutationPath(rootPath, lockPath);
-  const settings = changeLedgerLockSettings(input);
-  return withOwnedDirectoryLock({
-    lockPath,
-    lostOwnershipError: () =>
-      new Error(`skillset: lost ownership of change ledger lock ${ledgerPath}.lock before append`),
-    ownerPid: settings.pid,
-    staleOwner: {
-      isProcessAlive: settings.isProcessAlive,
-      kind: "lease-and-dead-process",
-    },
-    startHeartbeat: settings.startHeartbeat,
-    timeoutError: () =>
-      new Error(`skillset: timed out waiting for change ledger lock ${ledgerPath}.lock`),
-    timing: {
-      heartbeatMs: settings.heartbeatMs,
-      leaseMs: settings.leaseMs,
-      now: settings.now,
-      pollMs: settings.pollMs,
-      timeoutMs: settings.timeoutMs,
-    },
-  }, async (lock) => operation({ assertOwned: lock.assertOwned }));
-}
-
-interface ChangeLedgerLockSettings {
-  readonly heartbeatMs: number;
-  readonly isProcessAlive: (pid: number) => boolean;
-  readonly leaseMs: number;
-  readonly now: () => number;
-  readonly pid: number;
-  readonly pollMs: number;
-  readonly startHeartbeat: DirectoryLockHeartbeatScheduler;
-  readonly timeoutMs: number;
-}
-
-function changeLedgerLockSettings(input: ChangeLedgerLockOptions | undefined): ChangeLedgerLockSettings {
-  return {
-    heartbeatMs: input?.heartbeatMs ?? CHANGE_LEDGER_LOCK_HEARTBEAT_MS,
-    isProcessAlive: input?.isProcessAlive ?? isProcessAlive,
-    leaseMs: input?.leaseMs ?? CHANGE_LEDGER_LOCK_LEASE_MS,
-    now: input?.now ?? Date.now,
-    pid: input?.pid ?? process.pid,
-    pollMs: input?.pollMs ?? 20,
-    startHeartbeat: input?.startHeartbeat ?? startDefaultDirectoryLockHeartbeat,
-    timeoutMs: input?.timeoutMs ?? CHANGE_LEDGER_LOCK_TIMEOUT_MS,
-  };
-}
-
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return !(typeof error === "object" && error !== null && "code" in error && error.code === "ESRCH");
-  }
 }
