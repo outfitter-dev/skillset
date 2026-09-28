@@ -10,6 +10,7 @@ import { validateConfigDocument, validateWorkspaceConfigDocument } from "@skills
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { gitSafeEnv } from "./git-env";
 import { isPathInside, validateSlug } from "@skillset/core/internal/path";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { selectorForTargetNativeIsland } from "@skillset/core/internal/source-unit-selector";
 import { isTargetName, targetNames } from "@skillset/core/internal/config";
@@ -217,11 +218,14 @@ async function applySetupPlan(
   }
 
   if (options.write === true) {
+    if (kind === "create" && !(await pathExists(rootPath))) {
+      await mkdir(rootPath, { recursive: true });
+    }
     for (const file of plannedFiles) {
       const absolutePath = join(rootPath, file.path);
       const existing = await readExistingFile(absolutePath);
       if (existing !== undefined) continue;
-      await mkdir(dirname(absolutePath), { recursive: true });
+      await prepareRepositoryMutationPath(rootPath, absolutePath);
       await writeFile(absolutePath, file.content);
     }
     if (git?.status === "create") await initializeGit(rootPath);

@@ -1,5 +1,5 @@
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import {
   detectWorkspaceSourceDir,
@@ -10,6 +10,7 @@ import {
   resolveInside,
   validateSlug,
 } from "@skillset/core/internal/path";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { TargetName } from "@skillset/core/internal/types";
 import { formatList } from "@skillset/schema";
@@ -184,7 +185,7 @@ export async function scaffoldSourceUnit(
   if (options.write === true) {
     for (const plan of plans) {
       const absolutePath = resolveInside(rootPath, plan.path);
-      await mkdir(dirname(absolutePath), { recursive: true });
+      await prepareRepositoryMutationPath(rootPath, absolutePath);
       await writeFile(absolutePath, plan.content);
     }
   }

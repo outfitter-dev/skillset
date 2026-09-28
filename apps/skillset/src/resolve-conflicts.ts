@@ -8,7 +8,6 @@
 import {
   chmod,
   lstat,
-  mkdir,
   readFile,
   readlink,
   realpath,
@@ -25,6 +24,7 @@ import {
   WORKSPACE_LOCK_FILE,
   type GeneratedFileSnapshot,
 } from "@skillset/core";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import {
   normalizeGeneratedFileMode,
   supportsGeneratedFileModes,
@@ -281,7 +281,7 @@ export async function materializeConflictedPaths(
     // Never follow a worktree symlink while materializing a Git blob. The
     // generated path itself is replaced; its target is outside this operation.
     await rm(absolute, { force: true, recursive: true });
-    await mkdir(dirname(absolute), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, absolute);
     await writeFile(absolute, snapshot.content);
     if (supportsGeneratedFileModes()) await chmod(absolute, snapshot.mode);
     restored.push(path);
@@ -340,7 +340,7 @@ export async function restoreWorktreePaths(
       }
       continue;
     }
-    await mkdir(dirname(absolute), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, absolute);
     if (snapshot.kind === "symlink") {
       await symlink(snapshot.target, absolute);
       continue;

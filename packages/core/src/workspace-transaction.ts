@@ -22,6 +22,12 @@ import nodePath from "node:path";
 import { renameDirectoryNoReplace } from "./directory-rename-no-replace";
 import { supportsGeneratedFileModes } from "./generated-file-mode";
 import { compareStrings, isPathInside } from "./path";
+import {
+  prepareRepositoryMutationPath,
+  RepositoryMutationError,
+  resolveWorkspaceMutationRoot,
+  type RepositoryMutationTestHooks,
+} from "./repository-mutation";
 import { hashSkillDirectory } from "./source-tree-identity";
 import type { GeneratedFileMode } from "./types";
 
@@ -126,6 +132,8 @@ export interface WorkspaceTransactionTestHooks {
     action: WorkspaceTransactionRollbackAction,
     index: number
   ) => Promise<void> | void;
+  /** Forwards parent-creation seams into repository mutation. */
+  readonly repositoryMutation?: RepositoryMutationTestHooks;
 }
 
 export interface WorkspaceTransactionOptions {
@@ -806,7 +814,7 @@ async function applyCopies(
 ): Promise<void> {
   for (const copy of copies) {
     await invokeApplyHook(hooks, operations, copy.operation);
-    await ensureSafeParent(state, copy.to);
+    await ensureSafeParent(state, copy.to, hooks);
     const applied = state.appliedCopies.find(
       (candidate) => candidate.copy === copy
     );
@@ -909,7 +917,7 @@ async function applyMoves(
   for (const move of moves) {
     await invokeApplyHook(hooks, operations, move.operation);
     await assertMoveSourceStayedVacant(state, move);
-    await ensureSafeParent(state, move.to);
+    await ensureSafeParent(state, move.to, hooks);
     const preimage = state.preimages.get(move.from.relative);
     if (preimage === undefined) {
       throw transactionError(`missing move preimage: ${move.from.relative}`);
@@ -983,7 +991,7 @@ async function applyWrites(
 ): Promise<void> {
   for (const [index, write] of prepared.writes.entries()) {
     await invokeApplyHook(hooks, prepared.operations, write.operation);
-    await ensureSafeParent(state, write.path);
+    await ensureSafeParent(state, write.path, hooks);
     const currentEntry = await inspectPath(state.workspaceRoot, write.path);
     const stagedPreimage = state.preimages.has(write.path.relative);
     if (stagedPreimage && currentEntry !== undefined) {
@@ -1250,34 +1258,24 @@ async function invokeApplyHook(
 
 async function ensureSafeParent(
   state: TransactionState,
-  path: NormalizedPath
+  path: NormalizedPath,
+  hooks?: WorkspaceTransactionTestHooks
 ): Promise<void> {
-  const parentRelative = nodePath.relative(
-    state.workspaceRoot,
-    nodePath.dirname(path.absolute)
-  );
-  if (parentRelative === "") {
-    return;
-  }
-  let current = state.workspaceRoot;
-  for (const segment of parentRelative.split(nodePath.sep)) {
-    current = nodePath.join(current, segment);
-    const entry = await lstat(current).catch((error: unknown) => {
-      if (isMissing(error)) {
-        return;
-      }
-      throw error;
+  try {
+    // Installs use link/`wx`/rename and never write through the leaf.
+    // Record each confirmed parent immediately so a later component failure
+    // still lets rollback remove what this transaction created.
+    await prepareRepositoryMutationPath(state.workspaceRoot, path.absolute, {
+      onCreatedDirectory: (directory) => {
+        state.createdDirectories.push(directory);
+      },
+      replacesLeaf: true,
+      ...(hooks?.repositoryMutation === undefined
+        ? {}
+        : { testHooks: hooks.repositoryMutation }),
     });
-    if (entry === undefined) {
-      await mkdir(current);
-      state.createdDirectories.push(current);
-      continue;
-    }
-    if (entry.isSymbolicLink() || !entry.isDirectory()) {
-      throw transactionError(
-        `refusing to traverse non-directory parent: ${nodePath.relative(state.workspaceRoot, current)}`
-      );
-    }
+  } catch (error) {
+    throw asTransactionError(error);
   }
 }
 
@@ -1501,14 +1499,25 @@ async function removeEmptyDirectory(path: string): Promise<void> {
 }
 
 async function resolveWorkspaceRoot(workspaceRoot: string): Promise<string> {
-  const resolved = await realpath(workspaceRoot);
-  const entry = await lstat(resolved);
-  if (entry.isSymbolicLink() || !entry.isDirectory()) {
-    throw transactionError(
-      `workspace root is not a directory: ${workspaceRoot}`
+  try {
+    return await resolveWorkspaceMutationRoot(workspaceRoot);
+  } catch (error) {
+    throw asTransactionError(error);
+  }
+}
+
+function asTransactionError(error: unknown): Error {
+  if (error instanceof RepositoryMutationError) {
+    return new RepositoryMutationError(
+      `workspace transaction ${error.message.replace(/^skillset: /u, "")}`,
+      {
+        cause: error,
+        logicalPath: error.logicalPath,
+        ...(error.code === undefined ? {} : { code: error.code }),
+      }
     );
   }
-  return resolved;
+  return error instanceof Error ? error : transactionError(String(error));
 }
 
 function normalizePath(

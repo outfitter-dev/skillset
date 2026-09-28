@@ -1,12 +1,13 @@
-import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createHash, randomBytes } from "node:crypto";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { buildSkillsetResult, SkillsetBuildBlockedError } from "@skillset/core";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
 import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
@@ -186,7 +187,12 @@ export async function applyRelease(
   }
 
   for (const entry of pending) {
-    await rm(resolveInside(rootPath, entry.path), { force: true });
+    const absolutePath = resolveInside(rootPath, entry.path);
+    await prepareRepositoryMutationPath(rootPath, absolutePath, {
+      createParents: false,
+      replacesLeaf: true,
+    });
+    await rm(absolutePath, { force: true });
     files.add(entry.path);
   }
 
@@ -205,7 +211,7 @@ export async function amendReleaseRecord(
   const now = new Date().toISOString();
   const amendmentPath = workspaceChangeFile(storageOptions.sourceDir, RELEASE_AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, amendmentPath);
-  await mkdir(dirname(absolutePath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   await appendFile(absolutePath, `${JSON.stringify({
     amendedAt: now,
     id: release.id,
@@ -375,7 +381,7 @@ async function appendHistory(
   if (entries.length === 0) return;
   const relativePath = workspaceChangeFile(sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
-  await mkdir(dirname(absolutePath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   const sourceMoveCursor = latestSourceMoveCursor(sourceIdentityMappings(await readChangeLedger(rootPath, sourceDir === undefined ? {} : { sourceDir })));
   const lines = entries.flatMap((entry) => entry.id === undefined || entry.bump === undefined ? [] : [
     JSON.stringify({
@@ -405,7 +411,7 @@ async function appendReleaseRecord(
   if (plan.scopes.length === 0) return;
   const relativePath = workspaceChangeFile(sourceDir, RELEASES_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
-  await mkdir(dirname(absolutePath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   await appendFile(absolutePath, `${JSON.stringify({
     appliedAt,
     baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-hashes" },
@@ -433,7 +439,7 @@ async function appendReleaseAppliedLedgerEvent(
   const relativePath = workspaceChangeFile(sourceDir, LEDGER_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
   const releaseId = plan.releaseId ?? releaseIdFor(plan.baselineScopes);
-  await mkdir(dirname(absolutePath), { recursive: true });
+  await prepareRepositoryMutationPath(rootPath, absolutePath);
   await appendFile(absolutePath, `${JSON.stringify({
     createdAt: appliedAt,
     id: ledgerEventId("release.applied", releaseId),
@@ -513,10 +519,14 @@ async function restoreSnapshots(rootPath: string, snapshots: readonly FileSnapsh
   for (const snapshot of snapshots) {
     const absolutePath = resolveInside(rootPath, snapshot.path);
     if (snapshot.content === undefined) {
+      await prepareRepositoryMutationPath(rootPath, absolutePath, {
+        createParents: false,
+        replacesLeaf: true,
+      });
       await rm(absolutePath, { force: true });
       continue;
     }
-    await mkdir(dirname(absolutePath), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, absolutePath);
     await writeFile(absolutePath, snapshot.content);
   }
 }

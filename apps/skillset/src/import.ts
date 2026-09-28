@@ -1,4 +1,4 @@
-import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -30,6 +30,7 @@ import {
   targetNames,
 } from "@skillset/core/internal/config";
 import { compareStrings, isPathInside, resolveInside, validateSlug } from "@skillset/core/internal/path";
+import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import {
   normalizeGeneratedFileMode,
   supportsGeneratedFileModes,
@@ -135,6 +136,8 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
 
 /** Test-only hooks that observe or substitute the import directory claim. */
 export interface ImportTestHooks {
+  /** Fires after the import commits, before release baselines are seeded. */
+  readonly beforeBaselineSeed?: () => Promise<void>;
   readonly beforeClaim?: () => Promise<void>;
   readonly renameDirectory?: (
     sourcePath: string,
@@ -284,7 +287,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   }
 
   const targetParent = dirname(targetPath);
-  await mkdir(targetParent, { recursive: true });
+  await prepareRepositoryMutationPath(options.rootPath, targetPath);
   const stagingPath = await mkdtemp(join(targetParent, `.${basename(targetPath)}.tmp-`));
   let committed = false;
   let mergedOriginal: string | undefined;
@@ -328,7 +331,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     );
 
     if (mayMergeTargetNativeSkill && (await exists(targetPath))) {
-      mergedOriginal = await mergeImportedProviderSkill(targetPath, stagingPath);
+      mergedOriginal = await mergeImportedProviderSkill(options.rootPath, targetPath, stagingPath);
       await rm(stagingPath, { force: true, recursive: true });
     } else {
       await options.testHooks?.beforeClaim?.();
@@ -337,6 +340,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     committed = true;
     let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
+      await options.testHooks?.beforeBaselineSeed?.();
       baselineReport = await seedImportedBaselines(options.rootPath, {
         ...(copied.baselineVersion === undefined
           ? {}
@@ -353,7 +357,16 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
           { cause: error }
         );
       } else {
-        await writeFile(join(targetPath, "SKILL.md"), mergedOriginal);
+        const targetSkillPath = join(targetPath, "SKILL.md");
+        try {
+          await prepareRepositoryMutationPath(options.rootPath, targetSkillPath);
+          await writeFile(targetSkillPath, mergedOriginal);
+        } catch (restoreError) {
+          throw new Error(
+            `skillset: import baseline failed and restoring ${targetSkillPath} failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
+            { cause: error }
+          );
+        }
       }
       throw error;
     }
@@ -833,6 +846,7 @@ async function scopeSkillInvocationFrontmatter(
 }
 
 async function mergeImportedProviderSkill(
+  rootPath: string,
   targetPath: string,
   stagingPath: string
 ): Promise<string> {
@@ -862,6 +876,8 @@ async function mergeImportedProviderSkill(
     }
     return [[target, staged] as const];
   });
+  // The skill directory was prepared by the caller; its SKILL.md leaf was not.
+  await prepareRepositoryMutationPath(rootPath, targetSkillPath);
   await writeFile(
     targetSkillPath,
     updateMarkdownSourceDocument(targetSource, targetSkillPath, (parts) => ({
@@ -1075,7 +1091,7 @@ async function copyImportSource(options: {
   for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
     const destination = resolveImportDestination(targetPath, relativePath);
-    await mkdir(dirname(destination), { recursive: true });
+    await prepareRepositoryMutationPath(rootPath, destination);
     await writeFile(destination, await readFile(file));
     if (supportsGeneratedFileModes()) {
       await chmod(destination, normalizeGeneratedFileMode((await stat(file)).mode));
