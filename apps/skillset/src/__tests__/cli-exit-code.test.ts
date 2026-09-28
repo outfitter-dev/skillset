@@ -188,7 +188,15 @@ describe("SET-635 shared CLI exit classes", () => {
         message: 'expected skill id to be a lowercase slug, received "Bad_Id"',
       },
       {
-        args: ["release", "amend", "@ab", "--root", root],
+        args: [
+          "release",
+          "amend",
+          "@ab",
+          "--reason",
+          "Probe a release ref that is too short.",
+          "--root",
+          root,
+        ],
         message: "release ref @ab must include at least 6 characters",
       },
     ] as const;
