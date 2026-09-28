@@ -29,6 +29,7 @@ import {
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings, isPathInside, logicalDiagnosticPath } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
+import { getSkillsetFeature } from "./feature-registry";
 import {
   resolveProjectUseSkillCopies,
   resolveWorkspaceDraftSkillCopies,
@@ -542,24 +543,23 @@ async function renderPluginTarget(
     rendered.push(licenseFile);
     pluginRootFiles.push(licenseFile);
   }
-  if (standardOwner && target === "codex") {
-    for (const supportPath of [
-      "README.md",
-      "CHANGELOG.md",
-      "assets",
-      "scripts",
-      "src",
-    ] as const) {
-      const supportFiles = await copyAgentPluginSupportPath(
-        graph,
-        plugin,
-        basePath,
-        supportPath
-      );
-      rendered.push(...supportFiles);
-      pluginRootFiles.push(...supportFiles);
-    }
+  // The standard package owns root support files; Codex coalesces into it.
+  // Without it, each target keeps only the companions its registry support
+  // proves, as with LICENSE above.
+  const supportPaths = standardOwner
+    ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src"] as const : []
+    : fallbackSupportPaths(target);
+  const supportFiles: RenderedFile[] = [];
+  for (const supportPath of supportPaths) {
+    supportFiles.push(...(await copyAgentPluginSupportPath(
+      graph,
+      plugin,
+      basePath,
+      supportPath
+    )));
   }
+  rendered.push(...supportFiles);
+  pluginRootFiles.push(...supportFiles);
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
   const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
   const companionFiles = await copyPluginCompanionFiles(
@@ -580,7 +580,9 @@ async function renderPluginTarget(
       license: pluginLicense,
       outputRoot,
       plugin,
-      sourceFiles: companionFiles,
+      // Fallback support copies are this item's own output, so their source
+      // must move its sourceHash; the standard package hashes them otherwise.
+      sourceFiles: standardOwner ? companionFiles : [...supportFiles, ...companionFiles],
       target,
     });
   lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
@@ -601,6 +603,21 @@ async function renderPluginTarget(
         }
   );
   return rendered;
+}
+
+const FALLBACK_SUPPORT_FEATURES = [
+  { featureId: "plugin-readme", path: "README.md" },
+  { featureId: "plugin-assets", path: "assets" },
+  { featureId: "plugin-scripts", path: "scripts" },
+  { featureId: "plugin-src", path: "src" },
+] as const;
+
+/** Support paths a target copies without the standard package: only registry-proven pass-through or native support. */
+function fallbackSupportPaths(target: TargetName): readonly string[] {
+  return FALLBACK_SUPPORT_FEATURES.filter(({ featureId }) => {
+    const status = getSkillsetFeature(featureId)?.targetSupport[target].status;
+    return status === "pass_through" || status === "native";
+  }).map(({ path }) => path);
 }
 
 function assertPluginPackagePathCompatibility(

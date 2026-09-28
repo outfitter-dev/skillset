@@ -740,25 +740,25 @@ compile:
         featureId: "plugin-readme",
         path: "plugins/alpha/README.md",
         sourceUnit: "plugin.alpha.feature:readme",
-        target: "claude",
+        standardProfile: "agent-plugins-1.0",
       },
       {
         featureId: "plugin-assets",
         path: "plugins/alpha/assets/icon.txt",
         sourceUnit: "plugin.alpha.feature:assets",
-        target: "claude",
+        standardProfile: "agent-plugins-1.0",
       },
       {
         featureId: "plugin-scripts",
         path: "plugins/alpha/scripts/setup.sh",
         sourceUnit: "plugin.alpha.feature:scripts",
-        target: "claude",
+        standardProfile: "agent-plugins-1.0",
       },
       {
         featureId: "plugin-src",
         path: "plugins/alpha/src/index.js",
         sourceUnit: "plugin.alpha.feature:src",
-        target: "claude",
+        standardProfile: "agent-plugins-1.0",
       },
       {
         featureId: "plugin-commands",
@@ -797,8 +797,9 @@ compile:
           featureId: expected.featureId,
           outputs: expect.arrayContaining([expect.objectContaining({ path: expected.path })]),
           sourceUnit: expected.sourceUnit,
-          status: "target_native",
-          target: expected.target,
+          ...("standardProfile" in expected
+            ? { standardProfile: expected.standardProfile, status: "rendered" }
+            : { status: "target_native", target: expected.target }),
         })
       );
     }
