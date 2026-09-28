@@ -200,6 +200,21 @@ export async function applyRelease(
         await appendReleaseRecord(rootPath, releaseOptions.sourceDir, plan, now, files, mutation);
       }
 
+      // Every fallible source-side step runs before the build: the build
+      // publishes generated output and must be the last step that can fail,
+      // so a failure anywhere earlier restores state.json, the pending files,
+      // and the owned records while generated output is still untouched.
+      for (const entry of pending) {
+        await options.beforePendingRemoval?.(entry.path);
+        const absolutePath = resolveInside(rootPath, entry.path);
+        await prepareRepositoryMutationPath(rootPath, absolutePath, {
+          createParents: false,
+          replacesLeaf: true,
+        });
+        await rm(absolutePath, { force: true });
+        files.add(entry.path);
+      }
+
       await mutation.assertOwned();
       await options.afterAppend?.();
       await mutation.assertOwned();
@@ -210,19 +225,6 @@ export async function applyRelease(
       for (const path of build.writes.paths) files.add(path);
       if (build.writes.backupManifestPath !== undefined) {
         files.add(build.writes.backupManifestPath);
-      }
-
-      // Pending removal is part of the release: a failure here restores
-      // state.json and the pending files and rolls back the owned records.
-      for (const entry of pending) {
-        await options.beforePendingRemoval?.(entry.path);
-        const absolutePath = resolveInside(rootPath, entry.path);
-        await prepareRepositoryMutationPath(rootPath, absolutePath, {
-          createParents: false,
-          replacesLeaf: true,
-        });
-        await rm(absolutePath, { force: true });
-        files.add(entry.path);
       }
     } catch (error) {
       const restoreFailures: string[] = [];

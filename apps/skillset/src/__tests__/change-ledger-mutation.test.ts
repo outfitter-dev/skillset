@@ -1,7 +1,9 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { join, relative } from "node:path";
 
 import { expect, test } from "bun:test";
+
+import { buildSkillset } from "@skillset/core";
 
 import { addChangeEntry } from "../change-workflow";
 import { applyRelease } from "../release";
@@ -174,10 +176,12 @@ test("SET-636 failed release rollback removes only transaction-owned JSONL recor
   expect(await Bun.file(join(root, ".skillset/changes/history.jsonl")).exists()).toBe(false);
 });
 
-test("SET-636 a failure while removing pending files rolls the whole release back", async () => {
+test("SET-636 a failure while removing pending files leaves the whole worktree as it was", async () => {
   const root = await mutationFixture();
-  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Changed before a release whose cleanup fails."), "utf8");
   await commitFixture(root);
+  await buildSkillset(root);
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Changed before a release whose cleanup fails."), "utf8");
+  await buildSkillset(root);
   const added = await addChangeEntry(root, {
     bump: "patch",
     reason: {
@@ -186,19 +190,16 @@ test("SET-636 a failure while removing pending files rolls the whole release bac
     },
     scopes: ["skill:demo"],
   });
-  const statePath = join(root, ".skillset/changes/state.json");
-  const stateBefore = await Bun.file(statePath).exists() ? await readFile(statePath, "utf8") : undefined;
-  const ledgerBefore = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const before = await worktreeBytes(root);
+  expect(Object.keys(before).some((path) => path.startsWith(".claude/skills/demo/"))).toBe(true);
 
   await expect(applyRelease(root, {
     beforePendingRemoval: async () => {
-      throw new Error("test: pending removal failed after the build");
+      throw new Error("test: pending removal failed");
     },
-  })).rejects.toThrow("test: pending removal failed after the build");
+  })).rejects.toThrow("test: pending removal failed");
 
-  expect(await Bun.file(statePath).exists() ? await readFile(statePath, "utf8") : undefined).toBe(stateBefore);
-  expect(await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8")).toBe(ledgerBefore);
-  expect(await Bun.file(join(root, ".skillset/changes/history.jsonl")).exists()).toBe(false);
+  expect(await worktreeBytes(root)).toEqual(before);
   expect(await Bun.file(join(root, added.entry.path)).exists()).toBe(true);
 });
 
@@ -335,4 +336,18 @@ async function waitForFile(path: string): Promise<void> {
 
 function skill(body: string, name = "demo"): string {
   return `---\nname: ${name}\ndescription: Demo.\n---\n\n${body}\n`;
+}
+
+async function worktreeBytes(root: string): Promise<Readonly<Record<string, string>>> {
+  const files: Record<string, string> = {};
+  const visit = async (path: string): Promise<void> => {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      if (entry.name === ".git") continue;
+      const child = join(path, entry.name);
+      if (entry.isDirectory()) await visit(child);
+      else files[relative(root, child).replaceAll("\\", "/")] = (await readFile(child)).toString("base64");
+    }
+  };
+  await visit(root);
+  return files;
 }
