@@ -43,19 +43,43 @@ const resolverPath = (home: string, host: HostCase): string =>
     pinnedBunExecutableName(host.platform)
   );
 
+/** The Windows-form profile a native win32 process reports as USERPROFILE. */
+const windowsProfile = String.raw`C:\Users\skillset`;
+
+interface HostEnvironment {
+  /** Where the cached interpreter lives: `$HOME`, or the native profile. */
+  readonly cacheUnder?: "home" | "profile";
+  /** Export USERPROFILE, as Windows does for every process. */
+  readonly userProfile?: boolean;
+  /** Provide `cygpath`, which maps USERPROFILE to the profile directory. */
+  readonly cygpath?: boolean;
+}
+
 /**
  * Run `bootstrap.sh doctor` as `host` would, with a fake `uname`, a cached
  * interpreter only at the resolver's path, and a PATH holding nothing but the
- * fake `uname`. The fake interpreter echoes the path it was exec'd from.
+ * fake `uname` (and `cygpath` when asked). The fake interpreter echoes the
+ * path it was exec'd from. Under Cygwin, `$HOME` is `/home/<user>` while the
+ * native resolver publishes under the Windows profile, so the profile is a
+ * directory distinct from the fixture `$HOME`.
  */
-const runAsHost = async (host: HostCase) => {
+const runAsHost = async (
+  host: HostCase,
+  {
+    cacheUnder = "home",
+    userProfile = false,
+    cygpath = false,
+  }: HostEnvironment = {}
+) => {
   const root = await createTestFixtureRoot("skillset-bootstrap-layout-");
   const home = join(root, "home");
+  const profile = join(root, "profile");
   const fakeBin = join(root, "fake-bin");
-  const cached = resolverPath(home, host);
+  const cached = resolverPath(cacheUnder === "home" ? home : profile, host);
   await Promise.all([
     mkdir(join(root, "scripts"), { recursive: true }),
     mkdir(join(home, ".bun"), { recursive: true }),
+    mkdir(profile, { recursive: true }),
     mkdir(fakeBin, { recursive: true }),
     mkdir(dirname(cached), { recursive: true }),
   ]);
@@ -73,8 +97,20 @@ const runAsHost = async (host: HostCase) => {
       cached,
       `#!/bin/sh\nif [ "$1" = --version ]; then echo ${pin}; else printf '%s\\n' "$0"; fi\n`
     ),
+    ...(cygpath
+      ? [
+          writeFile(
+            join(fakeBin, "cygpath"),
+            `#!/bin/sh\n[ "$1" = -u ] && [ "$2" = '${windowsProfile}' ] && printf '%s\\n' '${profile}'\n`
+          ),
+        ]
+      : []),
   ]);
-  await Promise.all([chmod(join(fakeBin, "uname"), 0o755), chmod(cached, 0o755)]);
+  await Promise.all([
+    chmod(join(fakeBin, "uname"), 0o755),
+    chmod(cached, 0o755),
+    ...(cygpath ? [chmod(join(fakeBin, "cygpath"), 0o755)] : []),
+  ]);
   const result = Bun.spawnSync({
     cmd: ["/bin/bash", join(root, "scripts", "bootstrap.sh"), "doctor"],
     cwd: root,
@@ -85,6 +121,7 @@ const runAsHost = async (host: HostCase) => {
       // `tr`, `dirname`, and friends resolve only if bootstrap restores the
       // standard command directories.
       PATH: fakeBin,
+      ...(userProfile ? { USERPROFILE: windowsProfile } : {}),
     },
     stderr: "pipe",
     stdout: "pipe",
@@ -92,15 +129,47 @@ const runAsHost = async (host: HostCase) => {
   return { cached, result };
 };
 
+const expectExecd = (
+  { cached, result }: Awaited<ReturnType<typeof runAsHost>>
+): void => {
+  expect(result.stderr.toString()).toBe("");
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString().trim()).toBe(cached);
+};
+
 // The fake `uname` and interpreter are POSIX shell scripts, so this proof of
 // the win32 mapping runs on POSIX hosts only.
 describe.skipIf(process.platform === "win32")("bootstrap.sh cache layout", () => {
   for (const host of hosts) {
     test(`${host.unameS} ${host.unameM} uses the resolver's ${host.platform}-${host.arch} cache`, async () => {
-      const { cached, result } = await runAsHost(host);
-      expect(result.stderr.toString()).toBe("");
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout.toString().trim()).toBe(cached);
+      expectExecd(await runAsHost(host));
     });
   }
+
+  // os.homedir() on win32 reads USERPROFILE before anything else, so a native
+  // Bun publishes under the Windows profile even when the shell's $HOME is
+  // elsewhere (Cygwin's /home/<user>).
+  for (const host of hosts.filter(({ platform }) => platform === "win32")) {
+    test(`${host.unameS} finds the cache under USERPROFILE when $HOME differs`, async () => {
+      expectExecd(
+        await runAsHost(host, {
+          cacheUnder: "profile",
+          cygpath: true,
+          userProfile: true,
+        })
+      );
+    });
+  }
+
+  test("a Windows shell without cygpath falls back to $HOME", async () => {
+    const cygwin = hosts.find(({ unameS }) => unameS.startsWith("CYGWIN"));
+    if (cygwin === undefined) throw new Error("no Cygwin host case");
+    expectExecd(await runAsHost(cygwin, { userProfile: true }));
+  });
+
+  test("POSIX hosts ignore USERPROFILE and cygpath", async () => {
+    const [linux] = hosts.filter(({ platform }) => platform === "linux");
+    if (linux === undefined) throw new Error("no Linux host case");
+    expectExecd(await runAsHost(linux, { cygpath: true, userProfile: true }));
+  });
 });

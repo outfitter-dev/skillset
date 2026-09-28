@@ -95,17 +95,24 @@ fi
 # Mirrors pinnedBunRoot() and pinnedBunExecutableName() in
 # scripts/pinned-bun.ts; scripts/__tests__/bootstrap-layout.test.ts holds the
 # two layouts equal. Git Bash, MSYS, and Cygwin report MINGW*/MSYS*/CYGWIN*,
-# where the resolver publishes `win32-<arch>/<version>/bin/bun.exe`.
+# where the resolver publishes `win32-<arch>/<version>/bin/bun.exe` under
+# os.homedir(). On win32 that is USERPROFILE, not the shell's $HOME, which
+# Cygwin sets to /home/<user>; map USERPROFILE with cygpath when both exist.
 cached_pinned_bun() {
-  local platform arch executable candidate
+  local platform arch executable home candidate
   platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
   executable="bun"
+  home="$HOME"
   case "$platform" in
     darwin|linux) ;;
     mingw*|msys*|cygwin*)
       platform="win32"
       executable="bun.exe"
+      if [[ -n "${USERPROFILE:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+        home="$(cygpath -u "$USERPROFILE" 2>/dev/null || true)"
+        [[ -n "$home" ]] || home="$HOME"
+      fi
       ;;
     *) return 1 ;;
   esac
@@ -114,7 +121,7 @@ cached_pinned_bun() {
     x86_64|amd64) arch="x64" ;;
     *) return 1 ;;
   esac
-  candidate="$HOME/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/$executable"
+  candidate="$home/.cache/skillset/bun/$platform-$arch/$pinned_version/bin/$executable"
   if [[ -x "$candidate" ]] && [[ "$("$candidate" --version 2>/dev/null || true)" == "$pinned_version" ]]; then
     printf '%s\n' "$candidate"
   else
