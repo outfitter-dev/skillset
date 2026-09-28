@@ -156,7 +156,10 @@ describe("SET-307 CLI presentation", () => {
       expect(stdout, args.join(" ")).toBe(
         args[0] === "--version"
           ? `${cliVersion}\n`
-          : `${renderCliHelp(args, { color: false })}\n`
+          : // The piped child has no terminal width and falls back to 80
+            // columns; render the expectation at that width, not this
+            // process's terminal width.
+            `${renderCliHelp(args, { color: false, width: 80 })}\n`
       );
     }
   });

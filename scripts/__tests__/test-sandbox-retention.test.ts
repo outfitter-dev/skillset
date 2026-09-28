@@ -131,3 +131,25 @@ test("SET-628: path ownership still rejects non-sandbox directories", async () =
   await expect(removeOwnedSandbox(decoy, root)).rejects.toThrow("refusing to clean unowned test sandbox");
   await expect(access(decoy)).resolves.toBeNull();
 });
+
+test("SET-668: oversized sandbox metadata is skipped without being read", async () => {
+  const root = await createTestFixtureRoot("skillset-retention-");
+  const descriptorPadded = await makeSandbox(root, 8);
+  const leasePadded = await makeSandbox(root, 8);
+  // Valid JSON padded past the bound: an unbounded read would load, parse,
+  // and then collect these sandboxes.
+  for (const [sandbox, file] of [
+    [descriptorPadded, "descriptor.json"],
+    [leasePadded, TEST_SANDBOX_LEASE],
+  ] as const) {
+    const path = join(sandbox.sandboxPath, file);
+    await writeFile(path, `${" ".repeat(70 * 1024)}${await Bun.file(path).text()}`);
+    const old = new Date(Date.now() - 8 * DAY_MS);
+    await utimes(sandbox.sandboxPath, old, old);
+  }
+  const result = await collectStaleTestSandboxes(root, repoRoot, { isAlive: () => false });
+
+  expect(result).toEqual({ collected: 0, retained: 0, skipped: 2, failures: [] });
+  await expect(access(descriptorPadded.sandboxPath)).resolves.toBeNull();
+  await expect(access(leasePadded.sandboxPath)).resolves.toBeNull();
+});

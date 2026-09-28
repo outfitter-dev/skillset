@@ -41,6 +41,8 @@ test("SET-608: every shard owns distinct Git, XDG, temp and dependency state", a
   const second = await prepareShardWorkspace(runRoot, out, 2, pinned);
   for (const key of [
     "TMPDIR",
+    "TEMP",
+    "TMP",
     "XDG_CACHE_HOME",
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",
@@ -51,6 +53,15 @@ test("SET-608: every shard owns distinct Git, XDG, temp and dependency state", a
     expect(first.env[key]).toBeDefined();
     expect(second.env[key]).toBeDefined();
     expect(first.env[key]).not.toBe(second.env[key]);
+  }
+  // Windows resolves os.tmpdir() from TEMP/TMP, POSIX from TMPDIR: all three
+  // must name the shard's own temp directory.
+  for (const shard of [first, second]) {
+    expect([shard.env.TMPDIR, shard.env.TEMP, shard.env.TMP]).toEqual([
+      shard.temp,
+      shard.temp,
+      shard.temp,
+    ]);
   }
   expect(first.env.HOME).toBe(process.env.HOME);
   expect(second.env.SKILLSET_TEST_SANDBOX).toBeUndefined();
@@ -102,4 +113,17 @@ test("SET-608: canceled runs publish failure and refuse unowned cleanup", async 
   expect(await readFile(join(out, "aggregate.json"), "utf8")).toContain(
     "interrupted by SIGTERM"
   );
+});
+
+test("SET-668: an oversized run-root owner marker is refused before it is read", async () => {
+  const root = await createTestFixtureRoot("skillset-shard-marker-");
+  // Valid JSON padded past the bound: an unbounded read would load and parse it.
+  await writeFile(
+    join(root, "owner.json"),
+    `${" ".repeat(70 * 1024)}${JSON.stringify({ invocationId: "owner" })}`
+  );
+  await expect(removeOwnedRunRoot(root, "owner")).rejects.toThrow(
+    "shard run root owner marker is too large"
+  );
+  expect(await readdir(root)).toEqual(["owner.json"]);
 });
