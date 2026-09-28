@@ -30,7 +30,7 @@ describe("plugin companions", () => {
     }
   });
 
-  it("attributes a shared baseline companion to the standard profile that owns it", async () => {
+  it("reports a standard-owned baseline companion as rendered for its standard profile", async () => {
     const root = await fixture("claude", "demo");
 
     const { renderResults } = await diffSkillsetResult(root);
@@ -42,8 +42,21 @@ describe("plugin companions", () => {
         featureId: "plugin-assets",
         sourceUnit: "plugin.demo.feature:assets",
         standardProfile: "agent-plugins-1.0",
-        status: "target_native",
+        status: "rendered",
       }),
+    ]);
+    expect(iconResults[0]?.target).toBeUndefined();
+  });
+
+  it("keeps provider-owned fallback companions target native", async () => {
+    const root = await fixture("codex", LONG_PLUGIN_ID);
+
+    const { renderResults } = await diffSkillsetResult(root);
+    const iconResults = renderResults.filter((result) =>
+      result.outputs?.some((output) => output.path === `plugins/${LONG_PLUGIN_ID}/assets/icon.svg`)
+    );
+    expect(iconResults).toEqual([
+      expect.objectContaining({ featureId: "plugin-assets", status: "target_native", target: "codex" }),
     ]);
   });
 });

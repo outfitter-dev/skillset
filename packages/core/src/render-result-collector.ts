@@ -1271,7 +1271,9 @@ function outcomesForCompanionFile(
       ...(sourcePath === undefined ? {} : { sourcePath }),
       ...(subject.standardProfile === undefined ? {} : { standardProfile: subject.standardProfile }),
       sourceUnit: selectorForPluginFeature(companion.pluginId, companion.featureKey),
-      status: isIncluded ? "target_native" : "intentionally_skipped",
+      // A standard package renders the companion faithfully; only a provider
+      // target receives it as target-native pass-through.
+      status: isIncluded ? (subject.target === undefined ? "rendered" : "target_native") : "intentionally_skipped",
       ...(subject.target === undefined ? {} : { target: subject.target }),
     }));
   }

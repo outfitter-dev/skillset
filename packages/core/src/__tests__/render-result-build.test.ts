@@ -797,10 +797,9 @@ compile:
           featureId: expected.featureId,
           outputs: expect.arrayContaining([expect.objectContaining({ path: expected.path })]),
           sourceUnit: expected.sourceUnit,
-          status: "target_native",
           ...("standardProfile" in expected
-            ? { standardProfile: expected.standardProfile }
-            : { target: expected.target }),
+            ? { standardProfile: expected.standardProfile, status: "rendered" }
+            : { status: "target_native", target: expected.target }),
         })
       );
     }
