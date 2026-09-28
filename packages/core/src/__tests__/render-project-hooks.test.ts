@@ -44,6 +44,9 @@ describe("project SessionStart hook rendering", () => {
     expect(destination.status).toBe("verified");
     if (destination.status !== "verified") return;
     expect(projectSessionStartPath("codex")).toBe(destination.path.replace("<project>/", ""));
+    // Lock output paths are portable; placements must compare equal to them on Windows too.
+    expect(projectSessionStartPath("claude", "nested/.claude")).toBe("nested/.claude/settings.json");
+    expect(projectSessionStartPath("codex", "nested/.codex")).toBe(`nested/${destination.path.replace("<project>/", "")}`);
     const configuredLimit = getProviderHookEvidence("codex").outputLimits.find((limit) => limit.kind === "configured-example" && limit.field === "additionalContext");
     expect(configuredLimit).toBeDefined();
     const entry = projectSessionStartEntry("codex");

@@ -2,7 +2,7 @@ import { execFile as execFileCallback } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual, promisify } from "node:util";
-import { join, relative } from "node:path";
+import { join, posix, relative } from "node:path";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
 import { liveRenderDestination, type RenderDestination } from "./build-destination";
@@ -38,10 +38,11 @@ export function isProjectSessionStartTarget(target: TargetName): target is Proje
   return PROJECT_SESSION_START_TARGET_SET.has(target);
 }
 
+/** Portable (`/`) like lock output paths, so previous-lock matches hold on every platform. */
 export function projectSessionStartPath(target: ProjectSessionStartTarget, projectRoot = `.${target}`): string {
   return target === "claude"
-    ? join(projectRoot, "settings.json")
-    : join(projectRoot, relative(".codex", CODEX_PROJECT_HOOKS_PATH));
+    ? posix.join(projectRoot, "settings.json")
+    : posix.join(projectRoot, posix.relative(".codex", CODEX_PROJECT_HOOKS_PATH));
 }
 
 export function projectSessionStartEntry(target: ProjectSessionStartTarget): JsonRecord {
