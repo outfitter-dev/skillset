@@ -53,3 +53,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0036](0036-plugin-skills-belong-to-the-standard-package.md) | Plugin Skills Belong to the Standard Package | Accepted |
 | [0037](0037-one-shared-plugin-package-per-plugin.md) | One Shared Plugin Package per Plugin | Accepted |
 | [0038](0038-change-ledger-append-order.md) | Change Ledger Append Order Is Authoritative | Accepted |
+| [0039](0039-rules-name-authored-guidance-source.md) | Rules Name Authored Guidance Source | Accepted |
