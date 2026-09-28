@@ -181,6 +181,65 @@ test("runtime hook overrides that need shell expansion keep running through the 
   });
 });
 
+test("runtime hook overrides led by a POSIX shell built-in or reserved word run through the shell", () => {
+  // Only sh knows these words; spawned as argv they would look for an
+  // executable named `exec` or `if` and exit 127.
+  for (const word of [
+    "!",
+    ".",
+    "builtin",
+    "case",
+    "cd",
+    "command",
+    "eval",
+    "exec",
+    "export",
+    "for",
+    "if",
+    "source",
+    "while",
+  ]) {
+    const override = `${word} skillset`;
+    expect(parseSkillsetHookCommand(override, "linux")).toEqual({
+      argv: [override],
+      kind: "shell",
+    });
+  }
+  // `{` already reaches the shell through its brace-expansion character.
+  expect(parseSkillsetHookCommand("{ skillset", "linux").kind).toBe("shell");
+  // The appended hook arguments follow the override on the sh command line.
+  expect(skillsetHookSpawn(
+    parseSkillsetHookCommand("exec skillset", "linux"),
+    ["change", "status"],
+    { cwd: "/absent-skillset-test/repo", env: { PATH: "/absent-skillset-test/bin" }, platform: "linux" }
+  )).toEqual({
+    cmd: ["/bin/sh", "-lc", "exec skillset 'change' 'status'"],
+    windowsVerbatimArguments: false,
+  });
+  // A word that merely starts with a built-in name is an ordinary command.
+  expect(parseSkillsetHookCommand("execsnoop skillset", "linux")).toEqual({
+    argv: ["execsnoop", "skillset"],
+    kind: "argv",
+  });
+});
+
+test("runtime hook override parser keeps explicitly empty quoted tokens", () => {
+  for (const platform of ["linux", "win32"] as const) {
+    expect(parseSkillsetHookCommand('node -e ""', platform)).toEqual({
+      argv: ["node", "-e", ""],
+      kind: "argv",
+    });
+    expect(parseSkillsetHookCommand("sk '' --root .", platform)).toEqual({
+      argv: ["sk", "", "--root", "."],
+      kind: "argv",
+    });
+    expect(parseSkillsetHookCommand('sk ""x""', platform)).toEqual({
+      argv: ["sk", "x"],
+      kind: "argv",
+    });
+  }
+});
+
 test("runtime hook spawn uses argv, POSIX sh, or Windows ComSpec by contract", () => {
   // Paths that exist on no host keep the expectations independent of what is
   // installed on the runner (Bun.which resolves every argv command).
@@ -276,6 +335,44 @@ test("runtime hook command runner executes argv overrides without a shell", asyn
   expect(await readFile(marker, "utf8")).toContain("change");
   expect(await readFile(marker, "utf8")).toContain("status");
 });
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner forwards hook args through shell built-in overrides",
+  async () => {
+    const root = await gitFixture();
+    const binDir = join(root, "tools with spaces");
+    await mkdir(binDir);
+    const bin = join(binDir, "hook-skillset");
+    await writeFile(bin, '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$SKILLSET_TEST_HOOK_MARKER"\nexit 0\n');
+    await chmod(bin, 0o755);
+    for (const word of ["exec", "command"]) {
+      const marker = join(root, `${word}-marker`);
+      await expect(runSkillsetCommand(["change", "status", "--root", "."], {
+        allowFailure: false,
+        env: { SKILLSET_HOOK_COMMAND: `${word} "${bin}"`, SKILLSET_TEST_HOOK_MARKER: marker },
+        rootPath: root,
+      })).resolves.toBe(0);
+      expect(await readFile(marker, "utf8")).toBe("change\nstatus\n--root\n.\n");
+    }
+  }
+);
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner keeps an empty quoted override token in place",
+  async () => {
+    const root = await gitFixture();
+    const marker = join(root, "empty-marker");
+    const bin = join(root, "hook-skillset");
+    await writeFile(bin, '#!/bin/sh\nprintf \'[%s]\\n\' "$@" > "$SKILLSET_TEST_HOOK_MARKER"\nexit 0\n');
+    await chmod(bin, 0o755);
+    await expect(runSkillsetCommand(["change", "status"], {
+      allowFailure: false,
+      env: { SKILLSET_HOOK_COMMAND: `"${bin}" ""`, SKILLSET_TEST_HOOK_MARKER: marker },
+      rootPath: root,
+    })).resolves.toBe(0);
+    expect(await readFile(marker, "utf8")).toBe("[]\n[change]\n[status]\n");
+  }
+);
 
 test("runtime hook command runner reports a missing override executable as exit 127", async () => {
   const root = await gitFixture();

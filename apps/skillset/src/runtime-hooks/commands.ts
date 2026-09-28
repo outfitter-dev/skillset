@@ -56,6 +56,33 @@ const UNQUOTED_SHELL_METACHARACTERS = new Set([
 // the shell, as every override did before argv overrides existed.
 const POSIX_ONLY_SHELL_CHARACTERS = new Set(["~", "*", "?", "[", "]", "{", "}", "#", "\\"]);
 const LEADING_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
+// A leading word that only sh understands: the POSIX reserved words that can
+// open a command, plus built-ins that act on the shell itself and have no
+// useful standalone executable (`builtin` and `source` are common extensions).
+// Spawned as argv, `exec skillset` would look for an executable named `exec`.
+// The list is deliberately small; anything else stays argv.
+const POSIX_SHELL_LEADING_WORDS = new Set([
+  "!",
+  "{",
+  "case",
+  "for",
+  "if",
+  "until",
+  "while",
+  ".",
+  "builtin",
+  "cd",
+  "command",
+  "eval",
+  "exec",
+  "export",
+  "readonly",
+  "set",
+  "source",
+  "ulimit",
+  "umask",
+  "unset",
+]);
 // The code sh reports for a command it cannot find.
 const COMMAND_NOT_FOUND_EXIT_CODE = 127;
 
@@ -86,6 +113,9 @@ export function parseSkillsetHookCommand(
 ): ResolvedSkillsetCommand {
   const tokens = tokenizeHookArgv(override, platform);
   if (tokens === undefined || tokens.length === 0) return { argv: [override], kind: "shell" };
+  if (platform !== "win32" && POSIX_SHELL_LEADING_WORDS.has(tokens[0] ?? "")) {
+    return { argv: [override], kind: "shell" };
+  }
   return { argv: tokens, kind: "argv" };
 }
 
@@ -241,6 +271,8 @@ function tokenizeHookArgv(
   const posix = platform !== "win32";
   const tokens: string[] = [];
   let current = "";
+  // Whether a token has started, so an explicitly empty `""` is still emitted.
+  let opened = false;
   let quote: "'" | '"' | undefined;
 
   for (const character of value) {
@@ -261,22 +293,25 @@ function tokenizeHookArgv(
     }
     if (character === "'" || character === '"') {
       quote = character;
+      opened = true;
       continue;
     }
     if (/\s/.test(character)) {
-      if (current.length > 0) {
+      if (opened) {
         tokens.push(current);
         current = "";
+        opened = false;
       }
       continue;
     }
     if (UNQUOTED_SHELL_METACHARACTERS.has(character)) return undefined;
     if (posix && POSIX_ONLY_SHELL_CHARACTERS.has(character)) return undefined;
     current += character;
+    opened = true;
   }
 
   if (quote !== undefined) return undefined;
-  if (current.length > 0) tokens.push(current);
+  if (opened) tokens.push(current);
   return tokens;
 }
 
