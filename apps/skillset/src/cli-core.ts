@@ -1,6 +1,6 @@
 import { renderCliHelp } from "./cli-help";
+import { cliExitCode } from "./cli-output";
 import { cliVersion } from "./cli-version";
-import { PromptCancelledError } from "./prompt-cancelled-error";
 
 export async function runCli(
   rawArgs: readonly string[] = process.argv.slice(2)
@@ -100,9 +100,5 @@ function writeFastPath(text: string): Promise<void> {
 export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
-  process.exitCode = cliErrorExitCode(error);
-}
-
-export function cliErrorExitCode(error: unknown): number {
-  return error instanceof PromptCancelledError ? error.exitCode : 1;
+  process.exitCode = cliExitCode(error);
 }

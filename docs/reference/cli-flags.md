@@ -15,6 +15,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 - `--scope` narrows source units or generated destination groups; it never redirects workspace roots.
 - `--json` selects one finite versioned result document. `--jsonl` selects a versioned event stream. Protocol commands may retain route-specific `--format` when the value changes protocol encoding.
 - Removed flags fail as unknown; compatibility aliases are not retained.
+- Human and machine modes share the [CLI exit classes](cli/README.md#exit-classes). Unknown or misplaced flags are usage failures.
 
 ## Contract-owned flag vocabulary
 

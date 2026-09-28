@@ -59,7 +59,7 @@ Original source body.
   expect(source).not.toContain("metadata:");
 
   const removed = await runSkillsetCli("suggest-source", generatedPath, "--root", root);
-  expect(removed.exitCode).toBe(1);
+  expect(removed.exitCode).toBe(2);
   expect(removed.stderr).toContain("expected command");
 });
 
@@ -874,7 +874,7 @@ test("SET-282: --write is rejected outside check", async () => {
     ["reconcile", "missing", "--write", "--root", root],
   ]) {
     const result = await runSkillsetCli(...args);
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("--write is only supported with check");
   }
 });
@@ -882,7 +882,7 @@ test("SET-282: --write is rejected outside check", async () => {
 test("SET-282: reconcile rejects retired source and output root options", async () => {
   for (const flag of ["--source", "--dist"]) {
     const result = await runSkillsetCli("reconcile", "missing", flag, "alternate");
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(`unknown option ${flag}`);
   }
 });

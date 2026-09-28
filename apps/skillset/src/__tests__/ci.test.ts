@@ -1035,19 +1035,19 @@ test("ci CLI exits nonzero on drift and writes the markdown report", async () =>
 
 test("ci CLI rejects misplaced and unsupported flags", async () => {
   const fixOutsideCi = await runSkillsetCli("build", "--fix");
-  expect(fixOutsideCi.exitCode).toBe(1);
+  expect(fixOutsideCi.exitCode).toBe(2);
   expect(fixOutsideCi.stderr).toContain("readiness flags are only supported with check");
 
   const reportOutsideCi = await runSkillsetCli("check", "--report", "out.md");
-  expect(reportOutsideCi.exitCode).toBe(1);
+  expect(reportOutsideCi.exitCode).toBe(2);
   expect(reportOutsideCi.stderr).toContain("--report and --since require check --ci");
 
   const yesWithCi = await runSkillsetCli("check", "--ci", "--yes");
-  expect(yesWithCi.exitCode).toBe(1);
+  expect(yesWithCi.exitCode).toBe(2);
   expect(yesWithCi.stderr).toContain("check does not take mutation confirmation flags");
 
   const sinceWithBuild = await runSkillsetCli("build", "--since", "HEAD");
-  expect(sinceWithBuild.exitCode).toBe(1);
+  expect(sinceWithBuild.exitCode).toBe(2);
   expect(sinceWithBuild.stderr).toContain("--since is only supported with check --ci or change commands");
 });
 
@@ -1092,19 +1092,19 @@ test("init --include rejects unknown values and non-setup commands", async () =>
   const root = await fixture({});
 
   const unknown = await runSkillsetCli("init", "--root", root, "--include", "bogus");
-  expect(unknown.exitCode).toBe(1);
+  expect(unknown.exitCode).toBe(2);
   expect(unknown.stderr).toContain("expected --include ci");
 
   const retiredAgents = await runSkillsetCli("init", "--root", root, "--include", "agents");
-  expect(retiredAgents.exitCode).toBe(1);
+  expect(retiredAgents.exitCode).toBe(2);
   expect(retiredAgents.stderr).toContain("expected --include ci");
 
   const retiredAgentsList = await runSkillsetCli("init", "--root", root, "--include", "agents,ci");
-  expect(retiredAgentsList.exitCode).toBe(1);
+  expect(retiredAgentsList.exitCode).toBe(2);
   expect(retiredAgentsList.stderr).toContain("expected --include ci");
 
   const wrongCommand = await runSkillsetCli("build", "--include", "ci");
-  expect(wrongCommand.exitCode).toBe(1);
+  expect(wrongCommand.exitCode).toBe(2);
   expect(wrongCommand.stderr).toContain("setup options are only supported with init");
 });
 

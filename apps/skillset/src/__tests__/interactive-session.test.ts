@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { cliErrorExitCode } from "../cli-core";
+import { cliExitCode } from "../cli-output";
 import { runInitCommand } from "../init-cli";
 import {
   confirmProceed,
@@ -429,7 +429,7 @@ describe("SET-291 prompt adapters", () => {
 
   test("the CLI reports controlled cancellation with exit 130", () => {
     const error = new PromptCancelledError();
-    expect(cliErrorExitCode(error)).toBe(130);
+    expect(cliExitCode(error)).toBe(130);
     expect(error.message).toBe("skillset: interactive prompt cancelled");
   });
 
