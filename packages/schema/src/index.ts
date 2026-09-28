@@ -105,6 +105,8 @@ export {
   RETIRED_RULE_DEFAULTS_SURFACE,
   RETIRED_RULE_IMPORT_KIND,
   RETIRED_RULE_KIND,
+  RETIRED_RULE_SELECTOR_PREFIX,
+  RULE_SOURCE_HASH_DOMAIN,
 } from "./retired-vocabulary";
 export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {

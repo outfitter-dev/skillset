@@ -5,7 +5,7 @@ Group: workspace-layout-cutover
 Scope: claude.settingsjson:settings.json
 Scope: codex.hooks:hooks/hooks.json
 Scope: config:root
-Scope: instruction:fixtures
+Scope: rule:fixtures
 Scope: plugin.skillset.companion:README.md
 Scope: plugin.skillset.skill:use-skillset
 Scope: plugin:skillset

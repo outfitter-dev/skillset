@@ -62,6 +62,13 @@ describe("terminology guard", () => {
     expect(labelsFor("a.md", "Instruction frontmatter can carry paths.")).toContain(
       "instruction frontmatter -> rule frontmatter"
     );
+    expect(labelsFor("a.ts", "selectorForInstruction(rule.id)")).toContain("selectorForInstruction -> selectorForRule");
+    expect(labelsFor("a.json", '"sourceUnit": "instruction:fixtures"')).toContain("instruction:<id> -> rule:<id>");
+    expect(labelsFor("a.ts", "const selector = `instruction:${id}`;")).toContain("instruction:<id> -> rule:<id>");
+    expect(labelsFor("a.ts", 'kind: "instruction",')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.ts", 'if (kind === "instruction") return;')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.ts", 'type Kind = "agent" | "instruction";')).toContain('"instruction" kind -> "rule"');
+    expect(labelsFor("a.ts", '    "instruction",')).toContain('"instruction" kind -> "rule"');
     expect(labelsFor("a.md", "Run `skillset new instruction Review`.")).toContain(
       "new/lookup instruction -> new/lookup rule"
     );

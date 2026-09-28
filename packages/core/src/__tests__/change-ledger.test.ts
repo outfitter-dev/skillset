@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
+import { RETIRED_RULE_SELECTOR_PREFIX } from "@skillset/schema";
+
 import { readChangeLedger } from "../change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -126,6 +128,7 @@ describe("readChangeLedger", () => {
         evidence: [
           { hashSchemaId: "skillset-source-unit-v1", scope: "standalone-skill:demo", sourceHash: hash("1") },
           { hashSchema: "skillset-source-unit-v2", selector: "plugin-skill:tools/search", sourceHash: hash("2") },
+          { hashSchema: "skillset-source-unit-v3", selector: `${RETIRED_RULE_SELECTOR_PREFIX}fixtures`, sourceHash: hash("4") },
           "target-native-island:codex:plugin:tools:hooks/hooks.json",
         ],
       }),
@@ -136,8 +139,29 @@ describe("readChangeLedger", () => {
     expect(record?.sourceUnits).toEqual([
       { selector: "plugin.tools.codex.hooks:hooks/hooks.json" },
       { hashSchema: "skillset-source-unit-v2", selector: "plugin.tools.skill:search", sourceHash: hash("2") },
+      { hashSchema: "skillset-source-unit-v3", selector: "rule:fixtures", sourceHash: hash("4") },
       { hashSchema: "skillset-source-unit-v1", selector: "skill:demo", sourceHash: hash("1") },
     ]);
+  });
+
+  test("translates retired rule selectors in reason and lifecycle event payloads", async () => {
+    const retired = `${RETIRED_RULE_SELECTOR_PREFIX}fixtures`;
+    const root = await ledgerFixture([
+      event("evt-001", "change.covered", {
+        reasonId: "change-1",
+        sourceUnits: [{ hashSchema: "skillset-source-unit-v3", selector: retired, sourceHash: hash("1") }],
+      }),
+      event("evt-002", "source.moved", { from: retired, to: `${RETIRED_RULE_SELECTOR_PREFIX}moved` }),
+      event("evt-003", "source.drafted", { draft: `${retired}#draft`, shipped: retired, sourceHash: hash("2") }),
+    ]);
+
+    const [covered, moved, drafted] = await readChangeLedger(root);
+
+    expect(covered?.sourceUnits).toEqual([
+      { hashSchema: "skillset-source-unit-v3", selector: "rule:fixtures", sourceHash: hash("1") },
+    ]);
+    expect(moved?.payload).toEqual({ from: "rule:fixtures", to: "rule:moved" });
+    expect(drafted?.payload).toMatchObject({ draft: "rule:fixtures#draft", shipped: "rule:fixtures" });
   });
 
   test("returns an empty ledger when the file is absent", async () => {

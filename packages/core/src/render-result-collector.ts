@@ -81,12 +81,12 @@ import {
   type ToolsRealizationPlan,
 } from "./tools-realization";
 import {
-  selectorForInstruction,
   selectorForPluginConfig,
   selectorForPluginFeature,
   selectorForPluginSkill,
   selectorForProjectAgent,
   selectorForRootConfig,
+  selectorForRule,
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
 } from "./source-unit-selector";
@@ -427,7 +427,7 @@ function unsupportedCursorRootRulesOutcomes(
       reason:
         "Cursor project-root AGENTS.md placement remains unsupported pending renderer contract evidence",
       sourcePath: normalizePath(relative(graph.rootPath, rootRule.sourcePath)),
-      sourceUnit: selectorForInstruction(rootRule.id),
+      sourceUnit: selectorForRule(rootRule.id),
       status: "unsupported",
       target: "cursor",
     }),
@@ -2225,7 +2225,7 @@ function sourceUnitForLockItem(item: RenderedLockItem, target: TargetName | unde
   if (item.kind === "plugin-feature" && item.plugin !== undefined && item.feature !== undefined) {
     return selectorForPluginFeature(item.plugin, item.feature);
   }
-  if (item.kind === "rule") return selectorForInstruction(item.name);
+  if (item.kind === "rule") return selectorForRule(item.name);
   if (item.kind === "project-agent") return selectorForProjectAgent(item.name);
   if (item.kind === "island") return sourceUnitForIsland(item, target);
   return item.sourcePath;

@@ -3,10 +3,21 @@
  *
  * Authored guidance under `.skillset/RULES.md` and `.skillset/rules/` was
  * called an "instruction" before ADR-0039 renamed it a "rule". Parsers read
- * these spellings only to reject retired input with its exact rewrite.
- * `bun run terminology:guard` allowlists this module as the one home for the
- * retired spellings, so every other surface uses the rule vocabulary.
+ * these spellings only to reject retired input with its exact rewrite, and
+ * change-history readers use the selector prefix to translate append-only
+ * records. `bun run terminology:guard` allowlists this module as the one home
+ * for the retired spellings, so every other surface uses the rule vocabulary.
  */
+
+/** Source-unit selector prefix recorded in change history before ADR-0039. */
+export const RETIRED_RULE_SELECTOR_PREFIX = "instruction:";
+
+/**
+ * Source-hash domain for rule units. It keeps the pre-ADR-0039 spelling on
+ * purpose: the domain is hashed into every rule's source hash, so renaming it
+ * would report every unchanged rule as edited against its recorded baseline.
+ */
+export const RULE_SOURCE_HASH_DOMAIN = "instruction";
 
 /** Target-defaults surface key retired for `rules`. */
 export const RETIRED_RULE_DEFAULTS_SURFACE = "instructions";

@@ -910,7 +910,7 @@ describe("@skillset/schema contracts", () => {
     for (const selector of [
       "config:root",
       "plugin:demo",
-      "instruction:rules/review",
+      "rule:rules/review",
       "plugin.demo.feature:commands/review",
     ]) {
       expect(

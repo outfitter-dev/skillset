@@ -20,6 +20,7 @@ import { readReleaseState, writeReleaseState } from "@skillset/core/internal/rel
 import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
+  historicalRuleSelector,
   pluginIdForSelector,
   pluginScopeFromSourceUnit,
   sourceUnitSelector,
@@ -708,7 +709,9 @@ function readReleaseScopeArray(record: JsonRecord, location: string): readonly R
   return record.scopes.map((item, index): ReleaseRecordScope => {
     const scopeLocation = `${location}.scopes[${index}]`;
     if (!isRecord(item)) throw new Error(`skillset: release record ${scopeLocation} must be an object`);
-    const scope = readStringField(item, "scope", scopeLocation);
+    const recordedScope = readStringField(item, "scope", scopeLocation);
+    // Release records are append-only; rule scopes recorded before ADR-0039 are translated on read.
+    const scope = historicalRuleSelector(recordedScope) ?? recordedScope;
     return {
       ...(isChangeBump(item.bump) ? { bump: item.bump } : {}),
       entries: Array.isArray(item.entries) ? item.entries.filter((entry): entry is string => typeof entry === "string") : [],

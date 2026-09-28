@@ -11,7 +11,7 @@
  * adopter-facing language should prefer provider/destination.
  *
  * It also blocks the retired rule spellings from ADR-0039 (`instruction-frontmatter`,
- * `skillset new instruction`, `defaults.instructions`, and
+ * `instruction:<id>`, `skillset new instruction`, `defaults.instructions`, and
  * friends) while leaving Agent Instructions and provider "instruction" words alone.
  *
  * Allowlists are deliberately small and explicit; see ALLOWLIST_PATHS and
@@ -69,6 +69,9 @@ export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
   { label: "instruction-frontmatter -> rule-frontmatter", pattern: /instruction-frontmatter/ },
   { label: "InstructionFrontmatter -> RuleFrontmatter", pattern: /[Ii]nstructionFrontmatter|INSTRUCTION_FRONTMATTER/ },
   { label: "instruction frontmatter -> rule frontmatter", pattern: /\binstruction frontmatter\b/i },
+  { label: "selectorForInstruction -> selectorForRule", pattern: /selectorForInstruction/ },
+  { label: "instruction:<id> -> rule:<id>", pattern: /\binstruction:(?=[A-Za-z0-9._[(/$-])/ },
+  { label: "\"instruction\" kind -> \"rule\"", pattern: /(?:^|[=:|(,[])\s*["']instruction["']/ },
   { label: "new/lookup instruction -> new/lookup rule", pattern: /\b(?:new|lookup) instruction\b/ },
   { label: "source-instruction -> source-rule", pattern: /\bsource-instruction\b/ },
   { label: "defaults.instructions -> defaults.rules", pattern: /\bdefaults\.instructions\b/ },

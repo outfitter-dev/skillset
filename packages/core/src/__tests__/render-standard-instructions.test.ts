@@ -33,22 +33,22 @@ compile:
     });
     expect(instructionResults(graph, rendered)).toEqual([
       expect.objectContaining({
-        sourceUnit: "instruction:AGENTS.md",
+        sourceUnit: "rule:AGENTS.md",
         standardProfile: "agent-instructions",
         status: "transformed",
       }),
       expect.objectContaining({
-        sourceUnit: "instruction:AGENTS.md",
+        sourceUnit: "rule:AGENTS.md",
         status: "transformed",
         target: "codex",
       }),
       expect.objectContaining({
-        sourceUnit: "instruction:docs/AGENTS.md",
+        sourceUnit: "rule:docs/AGENTS.md",
         standardProfile: "agent-instructions",
         status: "transformed",
       }),
       expect.objectContaining({
-        sourceUnit: "instruction:docs/AGENTS.md",
+        sourceUnit: "rule:docs/AGENTS.md",
         status: "transformed",
         target: "codex",
       }),
@@ -86,19 +86,19 @@ compile:
     expect(results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          sourceUnit: "instruction:AGENTS.md",
+          sourceUnit: "rule:AGENTS.md",
           standardProfile: "agent-instructions",
         }),
         expect.objectContaining({
-          sourceUnit: "instruction:AGENTS.md",
+          sourceUnit: "rule:AGENTS.md",
           target: "codex",
         }),
         expect.objectContaining({
-          sourceUnit: "instruction:docs/AGENTS.md",
+          sourceUnit: "rule:docs/AGENTS.md",
           standardProfile: "agent-instructions",
         }),
         expect.objectContaining({
-          sourceUnit: "instruction:docs/AGENTS.md",
+          sourceUnit: "rule:docs/AGENTS.md",
           target: "codex",
         }),
       ])
@@ -148,11 +148,11 @@ compile:
     }
     expect(instructionResults(graph, rendered)).toEqual([
       expect.objectContaining({
-        sourceUnit: "instruction:AGENTS.md",
+        sourceUnit: "rule:AGENTS.md",
         standardProfile: "agent-instructions",
       }),
       expect.objectContaining({
-        sourceUnit: "instruction:docs/AGENTS.md",
+        sourceUnit: "rule:docs/AGENTS.md",
         standardProfile: "agent-instructions",
       }),
     ]);
