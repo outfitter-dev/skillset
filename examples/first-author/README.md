@@ -7,7 +7,7 @@ first author loop with real source files and generated Claude/Codex output.
 It contains:
 
 - one standalone skill source at `.skillset/skills/review-notes/SKILL.md`;
-- one portable instruction rule at `.skillset/rules/team-guidance.md`;
+- one portable rule at `.skillset/rules/team-guidance.md`;
 - a root `skillset.yaml` manifest that targets Claude and Codex;
 - checked-in generated Claude and Codex output so `check` passes
   immediately after cloning.

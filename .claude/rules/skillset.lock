@@ -23,14 +23,14 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:385b766ba46f6052752331643dfcb70980b7cecbc162b84e2b299cc0cd577a34",
+  "provenanceHash": "sha256:5292369cefce28796fe0b7eb609e2afe0aa4a35592496315dafd2fe17fddb96e",
   "renderResults": [
     {
       "destination": "rule",
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/reference/features/instructions.md"
+          "ref": "docs/reference/features/rules.md"
         }
       ],
       "featureId": "project-instructions",

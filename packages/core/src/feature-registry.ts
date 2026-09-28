@@ -463,15 +463,15 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     title: "Plugin Commands",
   }),
   pluginCompanionFeature({
-    docs: ["docs/reference/features/instructions.md", "docs/reference/features/plugins.md"],
+    docs: ["docs/reference/features/rules.md", "docs/reference/features/plugins.md"],
     id: "plugin-rules",
     sourceShape: "plugin rules/",
     summary: "Passes Cursor plugin rule companions through to Cursor plugin outputs.",
     targetSupport: {
-      claude: { evidence: [docs("docs/reference/features/instructions.md")], status: "not_applicable" },
-      codex: { evidence: [docs("docs/reference/features/instructions.md")], status: "not_applicable" },
+      claude: { evidence: [docs("docs/reference/features/rules.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/reference/features/rules.md")], status: "not_applicable" },
       cursor: {
-        evidence: [docs("docs/reference/features/instructions.md"), providerSnapshot("cursor-plugin"), providerSnapshot("cursor-rules")],
+        evidence: [docs("docs/reference/features/rules.md"), providerSnapshot("cursor-plugin"), providerSnapshot("cursor-rules")],
         provider: { destinationFormat: "cursor-plugin" },
         status: "pass_through",
       },
@@ -721,7 +721,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({
-    docs: ["docs/reference/features/instructions.md"],
+    docs: ["docs/reference/features/rules.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-5 instruction rendering coverage")],
     id: "project-instructions",
     kind: "source",
@@ -730,14 +730,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.",
     targetSupport: {
-      claude: { evidence: [docs("docs/reference/features/instructions.md")], status: "transformed" },
+      claude: { evidence: [docs("docs/reference/features/rules.md")], status: "transformed" },
       codex: {
-        evidence: [docs("docs/reference/features/instructions.md"), providerSnapshot("codex-agents-md")],
+        evidence: [docs("docs/reference/features/rules.md"), providerSnapshot("codex-agents-md")],
         provider: { destinationFormat: "codex-agents-md", manualOverlays: ["codex-agents-md-overlay"] },
         status: "transformed",
       },
       cursor: {
-        evidence: [docs("docs/reference/features/instructions.md"), providerSnapshot("cursor-rules")],
+        evidence: [docs("docs/reference/features/rules.md"), providerSnapshot("cursor-rules")],
         provider: { destinationFormat: "cursor-rules" },
         status: "transformed",
       },
