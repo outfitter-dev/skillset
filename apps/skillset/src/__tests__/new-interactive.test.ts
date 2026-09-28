@@ -67,14 +67,14 @@ describe("SET-293 derived new-source choices", () => {
       ["skill", true],
       ["plugin", true],
       ["agent", true],
-      ["instruction", true],
+      ["rule", true],
       ["hook", true],
     ]);
     expect(NEW_SOURCE_KINDS.map((kind) => kind.description)).toEqual([
       "Skill directory, SKILL.md, and optional supporting files",
       "Plugin container with a manifest and empty skills directory",
       "Markdown file with repository-level agent instructions",
-      "Instruction file under the canonical rules source directory",
+      "Rule file under the canonical rules source directory",
       "Adaptive runtime hook",
     ]);
     expect(SKILL_PRESETS.map((preset) => preset.id)).toEqual([
@@ -246,7 +246,7 @@ describe("SET-293 derived new-source choices", () => {
       "skillset:\n  name: acme\n"
     );
     const { adapter, session } = scriptedSession([
-      { kind: "select", value: "instruction" },
+      { kind: "select", value: "rule" },
       { kind: "input", value: "Review Guidance" },
       { kind: "select", value: "__workspace__" },
       { kind: "confirm", value: true },
@@ -283,7 +283,7 @@ describe("SET-293 derived new-source choices", () => {
       request(root, {
         newContainer: "acme",
         newId: "review-guidance",
-        newKind: "instruction",
+        newKind: "rule",
         newName: "Review Guidance",
       }),
       { interactiveSession: session }

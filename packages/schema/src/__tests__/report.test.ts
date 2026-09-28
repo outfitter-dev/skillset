@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   REPORT_SCHEMA_VERSION,
+  RETIRED_RULE_IMPORT_KIND,
   WORKSPACE_ID_MAX_LENGTH,
   isWorkspaceId,
   isSkillsetReport,
@@ -201,8 +202,8 @@ describe("skillset.report@1", () => {
       "file:Users/private/path",
       "http:github.com/example/private",
       "https:github.com/example/private",
-      "instructions:../AGENTS.md",
-      "instructions:file:AGENTS.md",
+      "rules:../AGENTS.md",
+      "rules:file:AGENTS.md",
       "plugins:./private",
       "plugins:/private",
       "root:/private",
@@ -230,7 +231,8 @@ describe("skillset.report@1", () => {
     for (const candidateId of [
       "plugin:.",
       "plugin:plugins/review",
-      "instructions:AGENTS.md",
+      "rules:AGENTS.md",
+      `${RETIRED_RULE_IMPORT_KIND}:AGENTS.md`,
       "plugins:.claude/plugins",
       "skills:.agents/skills",
       "skill:review",

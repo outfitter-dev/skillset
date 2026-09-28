@@ -25,7 +25,7 @@ paths:
 
 Top-level `paths` scopes an instruction to matching repository paths. Instruction frontmatter can also carry shared metadata, explicit provider blocks, and provider toggles. For example, set `codex: false` when an instruction is intentionally unavailable to Codex. [Target](../../glossary.md#target)-specific fields override shared intent only for that target; they do not create a second portable meaning.
 
-Use `skillset new instruction <name>` to preview a normalized source file under `.skillset/rules/`. `--in <plugin>` selects an existing plugin container, and `--yes` confirms the write. The command refuses collisions and does not run a [build](../../glossary.md#build). See the generated [`new` command reference](../cli/new.md) for the complete CLI contract.
+Use `skillset new rule <name>` to preview a normalized source file under `.skillset/rules/`. `--in <plugin>` selects an existing plugin container, and `--yes` confirms the write. The command refuses collisions and does not run a [build](../../glossary.md#build). See the generated [`new` command reference](../cli/new.md) for the complete CLI contract.
 
 Instruction bodies support [preprocessing](preprocessing.md). Set `skillset.preprocess: false` when recognized Skillset expressions must remain literal.
 
