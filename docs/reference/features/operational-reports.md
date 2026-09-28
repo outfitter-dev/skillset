@@ -62,11 +62,14 @@ bag. See the generated
 [`report` example](../examples/report.json) for the exhaustive shape.
 
 Logical identity fields accept colon-free relative paths plus the explicit
-`instructions:<relative-path>`, `plugin:.` or `plugin:<relative-path>`,
+`plugin:.` or `plugin:<relative-path>`, `rules:<relative-path>`,
 `plugins:<relative-path>`, `skills:<relative-path>`, and
-`skill:<source-id>` forms. No other colon-bearing form is valid, so
-drive-relative paths and URI-like values cannot be mistaken for retained
-logical identities.
+`skill:<source-id>` forms. Receipts recorded before
+[ADR-0039](../../adrs/0039-rules-name-authored-guidance-source.md) may also
+carry the legacy `instructions:<relative-path>` form for rule candidates;
+readers accept it and Skillset no longer writes it. No other colon-bearing
+form is valid, so drive-relative paths and URI-like values cannot be mistaken
+for retained logical identities.
 
 `external-fixture` receipts use the envelope workspace as the Skillset checkout
 and therefore require its sanitized repository identity, exact commit, and dirty

@@ -1,4 +1,5 @@
 import { sortSchemaRecord } from "./json";
+import { RETIRED_RULE_IMPORT_KIND } from "./retired-vocabulary";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 import {
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
@@ -41,8 +42,9 @@ export const REPORT_EXTERNAL_FIXTURE_PHASES = [
   "purity",
   "compare",
 ] as const;
+// Receipts recorded before ADR-0039 name rule candidates with the retired import kind.
 export const REPORT_RELATIVE_ID_PATTERN =
-  "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$";
+  `^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:${RETIRED_RULE_IMPORT_KIND}|plugin|plugins|rules|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$`;
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const SESSION_START_HOOK_MODES = ["auto", "off", "on"] as const;

@@ -77,7 +77,7 @@ export interface AdoptImportedUnit {
 export interface AdoptImportResult {
   readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
-  /** Instructions destination relative to the root (e.g. `.skillset/rules/agents.md`). */
+  /** Rule destination relative to the root (e.g. `.skillset/rules/agents.md`). */
   readonly destination?: string;
   readonly detail: string;
   readonly renderResults: readonly SkillsetRenderResult[];
@@ -147,7 +147,7 @@ export interface AdoptReport {
   readonly writtenPaths: readonly string[];
 }
 
-const INSTRUCTIONS_DIR = ".skillset/rules";
+const RULES_DIR = ".skillset/rules";
 
 export function adoptCandidateId(candidate: { readonly kind: string; readonly path: string }): string {
   return `${candidate.kind}:${candidate.path}`;
@@ -531,8 +531,8 @@ async function importCandidate(
   cutover: string[],
   previewSources: string[]
 ): Promise<AdoptImportResult> {
-  if (candidate.kind === "instructions") {
-    const expectedDestination = instructionDestination(candidate.path);
+  if (candidate.kind === "rules") {
+    const expectedDestination = ruleDestination(candidate.path);
     const destinationExisted = await exists(join(rootPath, expectedDestination));
     try {
       const destination = await importInstructionFile(rootPath, candidate.path);
@@ -624,8 +624,8 @@ async function importCandidateSources(
   candidate: SetupImportCandidate,
   allCandidates: readonly SetupImportCandidate[]
 ) {
-  if (candidate.kind === "instructions") {
-    throw new Error("skillset: instruction candidates use the dedicated instruction importer");
+  if (candidate.kind === "rules") {
+    throw new Error("skillset: rule candidates use the dedicated instruction-file importer");
   }
   const providers = await providersForAdoptCandidate(rootPath, candidate);
   const prepared = await preparePluginAdoptionSource(
@@ -706,18 +706,18 @@ async function providersForAdoptCandidate(
 }
 
 /**
- * Minimal instructions import: copy the root instruction body into
+ * Minimal rule import: copy a root instruction file body into
  * `.skillset/rules/` under its lowercased name (`AGENTS.md` ->
  * `agents.md`), adding source-only provenance metadata. The ADR's
  * transform-on-adopt is a later slice; adopt never overwrites an existing
  * destination.
  */
 async function importInstructionFile(rootPath: string, sourceName: string): Promise<string> {
-  const destinationRelative = instructionDestination(sourceName);
+  const destinationRelative = ruleDestination(sourceName);
   const destination = join(rootPath, destinationRelative);
   if (await exists(destination)) {
     throw new Error(
-      `skillset: instructions import target already exists: ${destinationRelative}. ` +
+      `skillset: rule import target already exists: ${destinationRelative}. ` +
         "Adopt never overwrites; remove the existing file or merge by hand."
     );
   }
@@ -727,8 +727,8 @@ async function importInstructionFile(rootPath: string, sourceName: string): Prom
   return destinationRelative;
 }
 
-function instructionDestination(sourceName: string): string {
-  return `${INSTRUCTIONS_DIR}/${sourceName.toLowerCase()}`;
+function ruleDestination(sourceName: string): string {
+  return `${RULES_DIR}/${sourceName.toLowerCase()}`;
 }
 
 function sourceOriginFor(acquisition: AdoptAcquisition, path: string): SourceOrigin {

@@ -10,3 +10,12 @@
 
 /** Target-defaults surface key retired for `rules`. */
 export const RETIRED_RULE_DEFAULTS_SURFACE = "instructions";
+
+/** `skillset new` kind and `skillset lookup` subject retired for `rule`. */
+export const RETIRED_RULE_KIND = "instruction";
+
+/**
+ * Adoption import kind retired for `rules`. Report schema v1 still accepts it as
+ * a candidate-ID prefix so receipts recorded before ADR-0039 stay readable.
+ */
+export const RETIRED_RULE_IMPORT_KIND = "instructions";

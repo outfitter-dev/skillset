@@ -5,6 +5,7 @@ import {
   type LookupView,
 } from "@skillset/core";
 import type { TargetName } from "@skillset/core/internal/types";
+import { RETIRED_RULE_KIND } from "@skillset/schema";
 
 import { readLookupTarget } from "./cli-arg-values";
 import {
@@ -52,20 +53,23 @@ function lookupFailed(report: LookupReport): boolean {
 }
 
 export function readLookupSubject(value: string): LookupSubject {
+  if (value === RETIRED_RULE_KIND) {
+    throw new CliUsageError(`skillset: lookup subject ${RETIRED_RULE_KIND} is retired; use skillset lookup rule`);
+  }
   if (
     value === "activation" ||
     value === "agent" ||
     value === "hooks" ||
-    value === "instruction" ||
     value === "locations" ||
     value === "plugin" ||
+    value === "rule" ||
     value === "skill" ||
     value === "standards" ||
     value === "workspace"
   ) {
     return value;
   }
-  throw new CliUsageError("skillset: expected lookup subject activation, locations, skill, agent, instruction, workspace, hooks, plugin, or standards");
+  throw new CliUsageError("skillset: expected lookup subject activation, locations, skill, agent, rule, workspace, hooks, plugin, or standards");
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {

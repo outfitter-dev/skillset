@@ -7085,8 +7085,8 @@ test("SET-62: init surfaces handwritten root instruction files as candidates", a
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
 
   expect(report.importCandidates).toEqual([
-    { kind: "instructions", path: "AGENTS.md" },
-    { kind: "instructions", path: "CLAUDE.md" },
+    { kind: "rules", path: "AGENTS.md" },
+    { kind: "rules", path: "CLAUDE.md" },
   ]);
 });
 
@@ -7099,7 +7099,7 @@ test("SET-62: init never suggests importing skillset-generated instruction files
 
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
 
-  expect(report.importCandidates).toEqual([{ kind: "instructions", path: "CLAUDE.md" }]);
+  expect(report.importCandidates).toEqual([{ kind: "rules", path: "CLAUDE.md" }]);
 });
 
 test("SET-62: already-adopted repos suppress instruction candidates", async () => {

@@ -47,7 +47,7 @@ function scriptedSession(
 describe("SET-312 existing-directory init", () => {
   test("describes detected entries concretely and imports everything", async () => {
     const candidates = [
-      { kind: "instructions" as const, path: "AGENTS.md" },
+      { kind: "rules" as const, path: "AGENTS.md" },
       { kind: "skills" as const, path: ".agents/skills" },
     ];
     const { adapter, readTranscript, session } = scriptedSession([
@@ -56,7 +56,7 @@ describe("SET-312 existing-directory init", () => {
 
     await expect(
       promptForInteractiveCandidates(candidates, session)
-    ).resolves.toEqual(["instructions:AGENTS.md", "skills:.agents/skills"]);
+    ).resolves.toEqual(["rules:AGENTS.md", "skills:.agents/skills"]);
     adapter.assertComplete();
     expect(adapter.prompts[0]).toEqual({
       kind: "select",
@@ -84,11 +84,11 @@ describe("SET-312 existing-directory init", () => {
         },
       },
       { kind: "skills" as const, path: ".agents/skills" },
-      { kind: "instructions" as const, path: "CLAUDE.md" },
+      { kind: "rules" as const, path: "CLAUDE.md" },
     ];
     const selected = [
       "plugin:plugins/outfitter/claude",
-      "instructions:CLAUDE.md",
+      "rules:CLAUDE.md",
     ];
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "choose" },
@@ -121,7 +121,7 @@ describe("SET-312 existing-directory init", () => {
     ]);
     await expect(
       promptForInteractiveCandidates(
-        [{ kind: "instructions", path: "AGENTS.md" }],
+        [{ kind: "rules", path: "AGENTS.md" }],
         session
       )
     ).resolves.toEqual([]);
