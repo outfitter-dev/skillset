@@ -1,10 +1,11 @@
-import { chmod, mkdir, readFile } from "node:fs/promises";
+import { chmod, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { expect, test } from "bun:test";
 
 import { expectProcessGone } from "../../../../scripts/test-helpers/process";
+import { reapOwnedProcess, waitForPids } from "../../../../scripts/test-helpers/wait";
 
 test("SET-386: eval list reports the resolved portable case-target matrix in text and JSON", async () => {
   const root = await fixture({
@@ -112,26 +113,22 @@ test("SET-387: SIGINT cancels an eval provider process tree before the CLI exits
     stderr: "pipe",
     stdout: "pipe",
   });
-  const deadline = Date.now() + 2_000;
-  while (!await Bun.file(marker).exists() && Date.now() < deadline) {
-    await Bun.sleep(10);
-  }
-  expect(await Bun.file(marker).exists()).toBe(true);
-  const providerPids = (await readFile(marker, "utf8"))
-    .trim()
-    .split(/\s+/u)
-    .map(Number);
+  try {
+    const providerPids = await waitForPids(marker, 2, "eval CLI provider pid marker");
 
-  process.kill(proc.pid, "SIGINT");
-  const [exitCode] = await Promise.all([
-    proc.exited,
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
+    process.kill(proc.pid, "SIGINT");
+    const [exitCode] = await Promise.all([
+      proc.exited,
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
 
-  expect(exitCode).not.toBe(0);
-  for (const pid of providerPids) {
-    await expectProcessGone(pid);
+    expect(exitCode).not.toBe(0);
+    for (const pid of providerPids) {
+      await expectProcessGone(pid);
+    }
+  } finally {
+    await reapOwnedProcess(proc);
   }
 });
 
