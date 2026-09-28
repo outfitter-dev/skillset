@@ -8,26 +8,16 @@ name: Windows scripts
 
 on:
   pull_request:
+    # The job's tests load the sandbox harness, core, and the CLI, whose
+    # import closure spans these trees; docs-only changes skip it.
     paths:
       - .github/workflows/windows-scripts.yml
       - .bun-version
-      - scripts/bootstrap.sh
-      - scripts/bootstrap/**
-      - scripts/pinned-bun.ts
-      - scripts/__tests__/pinned-bun.test.ts
       - package.json
       - bun.lock
-      - scripts/test-sandbox.ts
-      - scripts/test-sandbox-retention.ts
-      - scripts/test-helpers/**
-      - apps/skillset/src/verification-sandbox.ts
-      - packages/core/src/git-env.ts
-      - scripts/test-shard-workspace.ts
-      - scripts/__tests__/test-shard-workspace.test.ts
-      - packages/core/src/path.ts
-      - packages/core/src/__tests__/path.test.ts
-      - packages/core/src/__tests__/diagnostic-path.test.ts
-      - apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
+      - scripts/**
+      - packages/**
+      - apps/skillset/src/**
 
 permissions:
   contents: read
