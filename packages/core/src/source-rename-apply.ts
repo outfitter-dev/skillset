@@ -442,7 +442,8 @@ function transactionPaths(plan: WorkspaceTransactionPlan): readonly string[] {
   return [
     ...new Set([
       ...(plan.appends ?? []).map((append) => append.path),
-      ...(plan.copies ?? []).flatMap((copy) => [copy.from, copy.to]),
+      // A copy only reads its source; the report names written paths.
+      ...(plan.copies ?? []).map((copy) => copy.to),
       ...(plan.deletes ?? []),
       ...(plan.moves ?? []).flatMap((move) => [move.from, move.to]),
       ...(plan.writes ?? []).map((write) => write.path),
