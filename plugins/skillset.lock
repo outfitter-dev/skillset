@@ -150,7 +150,7 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:a9e47c93c6b02d6cdacef76ce1c6acbc30e90b5ad0335a2e2c53de8343d95516",
+  "provenanceHash": "sha256:00546ab42416d33a22f45f3b7876e3ebdda8c205d99d506499de9f77a6115de9",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -332,7 +332,7 @@
       "sourcePath": ".skillset/plugins/skillset/README.md",
       "sourceUnit": "plugin.skillset.feature:readme",
       "standardProfile": "agent-plugins-1.0",
-      "status": "target_native"
+      "status": "rendered"
     },
     {
       "destination": "readme",
