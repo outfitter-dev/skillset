@@ -1,11 +1,17 @@
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import * as fs from "node:fs/promises";
 import { join } from "node:path";
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import { withChangeLedgerMutation } from "../change-ledger-mutation";
 import { changeStatus } from "../change-status";
-import { amendAppliedChange, migratePendingChangeEntries } from "../change-workflow";
+import {
+  addChangeEntry,
+  amendAppliedChange,
+  migratePendingChangeEntries,
+  updateChangeReason,
+} from "../change-workflow";
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
@@ -77,6 +83,85 @@ describe("SET-636 change-ledger mutation rollback", () => {
     expect(failure instanceof Error ? failure.message : "").toContain("original error: injected writer failure");
     expect(failure instanceof Error ? failure.cause : undefined).toBe(original);
     expect(await Bun.file(join(root, LEDGER)).exists()).toBe(false);
+  });
+
+  test("add rollback failure keeps the original error", async () => {
+    const root = await changedFixture();
+    const originalWriteFile = fs.writeFile.bind(fs);
+    const originalRm = fs.rm.bind(fs);
+    const writeSpy = spyOn(fs, "writeFile").mockImplementation(async (path, data, options) => {
+      const result = await originalWriteFile(path, data, options);
+      if (isChangeMarkdown(path)) {
+        await originalRm(join(root, LEDGER), { force: true });
+        await mkdir(join(root, LEDGER));
+      }
+      return result;
+    });
+    const rmSpy = spyOn(fs, "rm").mockImplementation((path, options) => {
+      if (isChangeMarkdown(path)) return Promise.reject(new Error("injected markdown rollback failure"));
+      return originalRm(path, options);
+    });
+
+    const failure = await addChangeEntry(root, {
+      bump: "patch",
+      reason: { kind: "inline", value: "Reason whose markdown rollback must keep the original error." },
+      scopes: ["skill:demo"],
+    }).then(
+      () => undefined,
+      (error: unknown) => error
+    );
+    writeSpy.mockRestore();
+    rmSpy.mockRestore();
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure instanceof Error ? failure.message : "").toContain("change add failed and rollback failed");
+    expect(failure instanceof Error ? failure.message : "").toContain("injected markdown rollback failure");
+    expect(failure instanceof Error ? failure.message : "").toContain("original error:");
+    const addCause = failure instanceof Error ? failure.cause : undefined;
+    expect(addCause).toBeInstanceOf(Error);
+    expect(addCause instanceof Error ? addCause.message : "").not.toContain("injected markdown rollback failure");
+  });
+
+  test("reason restore failure keeps the original error", async () => {
+    const root = await changedFixture();
+    const added = await addChangeEntry(root, {
+      bump: "patch",
+      reason: { kind: "inline", value: "Pending reason that will fail while rewriting." },
+      scopes: ["skill:demo"],
+    });
+    const pendingPath = join(root, added.entry.path);
+    const originalWriteFile = fs.writeFile.bind(fs);
+    const originalRm = fs.rm.bind(fs);
+    let pendingWrites = 0;
+    const writeSpy = spyOn(fs, "writeFile").mockImplementation(async (path, data, options) => {
+      if (String(path) === pendingPath) {
+        pendingWrites += 1;
+        if (pendingWrites >= 2) throw new Error("injected markdown restore failure");
+        const result = await originalWriteFile(path, data, options);
+        await originalRm(join(root, LEDGER), { force: true });
+        await mkdir(join(root, LEDGER));
+        return result;
+      }
+      return originalWriteFile(path, data, options);
+    });
+
+    const failure = await updateChangeReason(root, {
+      append: false,
+      reason: { kind: "inline", value: "Rewritten reason whose restore must keep the original error." },
+      ref: added.entry.ref,
+    }).then(
+      () => undefined,
+      (error: unknown) => error
+    );
+    writeSpy.mockRestore();
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure instanceof Error ? failure.message : "").toContain("change reason failed and rollback failed");
+    expect(failure instanceof Error ? failure.message : "").toContain("injected markdown restore failure");
+    expect(failure instanceof Error ? failure.message : "").toContain("original error:");
+    const reasonCause = failure instanceof Error ? failure.cause : undefined;
+    expect(reasonCause).toBeInstanceOf(Error);
+    expect(reasonCause instanceof Error ? reasonCause.message : "").not.toContain("injected markdown restore failure");
   });
 
   test("migrate plans the migration inside the ledger lock", async () => {
@@ -171,6 +256,18 @@ async function fixture(): Promise<string> {
   await writeFile(join(root, "skillset.yaml"), "skillset:\n  name: ledger-rollback\nclaude: true\ncodex: false\n", "utf8");
   await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Baseline body."), "utf8");
   return root;
+}
+
+async function changedFixture(): Promise<string> {
+  const root = await fixture();
+  await commitFixture(root);
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Changed body."), "utf8");
+  return root;
+}
+
+function isChangeMarkdown(path: unknown): boolean {
+  const value = String(path).replaceAll("\\", "/");
+  return value.includes("/.skillset/changes/") && value.endsWith(".md");
 }
 
 async function commitFixture(root: string): Promise<void> {
