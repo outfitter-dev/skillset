@@ -13,6 +13,7 @@ import {
   type SourceUnit,
   type SourceUnitChange,
 } from "./change-status";
+import { CliUsageError } from "./cli-output";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { readReleaseState } from "@skillset/core/internal/release-state";
@@ -458,10 +459,10 @@ export function resolvePendingChangeRef(
 ): PendingChangeEntry {
   const prefix = rawRef.startsWith("@") ? rawRef.slice(1) : rawRef;
   if (!/^[0-9a-f]+$/.test(prefix)) {
-    throw new Error(`skillset: expected change ref to look like @<hex-prefix>, received ${JSON.stringify(rawRef)}`);
+    throw new CliUsageError(`skillset: expected change ref to look like @<hex-prefix>, received ${JSON.stringify(rawRef)}`);
   }
   if (prefix.length < CHANGE_REF_MIN_LENGTH) {
-    throw new Error(`skillset: expected change ref @${prefix} to use at least ${CHANGE_REF_MIN_LENGTH} hex characters`);
+    throw new CliUsageError(`skillset: expected change ref @${prefix} to use at least ${CHANGE_REF_MIN_LENGTH} hex characters`);
   }
   const candidates = entries.filter((entry) => entry.id?.startsWith(prefix));
   if (candidates.length === 0) {

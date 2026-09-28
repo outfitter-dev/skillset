@@ -18,7 +18,7 @@ import {
 } from "./ad-hoc-test";
 import type { SchemaJsonRecord } from "@skillset/schema";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
-import { renderCliDataResult } from "./cli-output";
+import { CliUsageError, renderCliDataResult } from "./cli-output";
 import { withProcessSignalAbort } from "./process-signals";
 
 export interface AdHocTestCommandOptions {
@@ -134,25 +134,25 @@ export function validateAdHocTestFlags(
     runtime.target !== undefined ||
     runtime.timeoutMs !== undefined;
   if (hasRuntimeFlag && command !== "test") {
-    throw new Error("skillset: ad hoc test options are only supported with test");
+    throw new CliUsageError("skillset: ad hoc test options are only supported with test");
   }
   if (command !== "test") return;
   if (!hasRuntimeFlag && subcommand === undefined) return;
   if (runtime.buildMode !== undefined || runtime.distDir !== undefined || runtime.scopes !== undefined || runtime.yes) {
-    throw new Error("skillset: build/write options are not supported with ad hoc test runs; test uses logical .skillset/cache/tests/ad-hoc");
+    throw new CliUsageError("skillset: build/write options are not supported with ad hoc test runs; test uses logical .skillset/cache/tests/ad-hoc");
   }
   if (subcommand === undefined) {
-    if (runtime.target === undefined) throw new Error(`skillset: ad hoc test requires --target ${TARGET_LIST_TEXT}`);
+    if (runtime.target === undefined) throw new CliUsageError(`skillset: ad hoc test requires --target ${TARGET_LIST_TEXT}`);
     if ((runtime.prompt === undefined && runtime.promptFile === undefined) || (runtime.prompt !== undefined && runtime.promptFile !== undefined)) {
-      throw new Error("skillset: ad hoc test requires exactly one of --prompt or --prompt-file");
+      throw new CliUsageError("skillset: ad hoc test requires exactly one of --prompt or --prompt-file");
     }
     return;
   }
   if (runtime.background || runtime.claudeSettingSources !== undefined || runtime.name !== undefined || runtime.plugins.length > 0 || runtime.prompt !== undefined || runtime.promptFile !== undefined || runtime.target !== undefined || runtime.timeoutMs !== undefined) {
-    throw new Error(`skillset: test execution options are not supported with ${subcommand}`);
+    throw new CliUsageError(`skillset: test execution options are not supported with ${subcommand}`);
   }
   if (runtime.lines !== undefined && subcommand !== "tail") {
-    throw new Error("skillset: --lines is only supported with test tail");
+    throw new CliUsageError("skillset: --lines is only supported with test tail");
   }
 }
 

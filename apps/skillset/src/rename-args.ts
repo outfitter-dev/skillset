@@ -1,6 +1,7 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { resolveCliRoot } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { RenameCommandRequest } from "./rename-cli";
 
 export const parseRenameCommandRequest = (
@@ -22,7 +23,7 @@ export const parseRenameCommandRequest = (
       } else if (to === undefined) {
         to = positional;
       } else {
-        throw new Error("skillset: rename accepts exactly <from> and <to>");
+        throw new CliUsageError("skillset: rename accepts exactly <from> and <to>");
       }
       continue;
     }
@@ -46,7 +47,7 @@ export const parseRenameCommandRequest = (
         break;
       }
       default: {
-        throw new Error(
+        throw new CliUsageError(
           `skillset: rename only supports --json, --root, and --yes; received ${option.raw}`
         );
       }
@@ -54,7 +55,7 @@ export const parseRenameCommandRequest = (
   }
 
   if (from === undefined || to === undefined) {
-    throw new Error("skillset: rename requires <from> and <to>");
+    throw new CliUsageError("skillset: rename requires <from> and <to>");
   }
 
   return {

@@ -7,6 +7,7 @@ import type { ChangeReasonInput, ChangeSubcommand } from "./change-workflow";
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { mergeBuildMode, resolveCliRoot, tokenizeCsv } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseChangeCommandRequest = (
@@ -80,7 +81,7 @@ export const parseChangeCommandRequest = (
       case "--use": {
         const value = reader.readRequiredOptionValue(option);
         if (value !== "source" && value !== "output") {
-          throw new Error("skillset: --use expects source or output");
+          throw new CliUsageError("skillset: --use expects source or output");
         }
         reconcileChoice = value;
         break;
@@ -119,7 +120,7 @@ export const parseChangeCommandRequest = (
         readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 
@@ -136,7 +137,7 @@ export const parseChangeCommandRequest = (
     yes,
   });
   if (reconcileChoice !== undefined) {
-    throw new Error("skillset: --use is only supported with reconcile");
+    throw new CliUsageError("skillset: --use is only supported with reconcile");
   }
   validateRequiredChangeInputs(changeSubcommand, {
     bump: changeBump,
@@ -181,7 +182,7 @@ export const isChangeSubcommand = (
 export const readChangeScopes = (value: string): readonly string[] => {
   const scopes = tokenizeCsv(value);
   if (scopes.length === 0) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --scope requires at least one source unit scope"
     );
   }
@@ -197,7 +198,7 @@ export const readChangeBump = (value: string): ChangeBump => {
   ) {
     return value;
   }
-  throw new Error("skillset: expected --bump major, minor, patch, or none");
+  throw new CliUsageError("skillset: expected --bump major, minor, patch, or none");
 };
 
 export const setChangeReason = (
@@ -205,14 +206,14 @@ export const setChangeReason = (
   next: ChangeReasonInput
 ): ChangeReasonInput => {
   if (current !== undefined) {
-    throw new Error("skillset: pass only one of --reason or --reason-file");
+    throw new CliUsageError("skillset: pass only one of --reason or --reason-file");
   }
   return next;
 };
 
 const readChangeSubcommand = (value: string | undefined): ChangeSubcommand => {
   if (isChangeSubcommand(value)) return value;
-  throw new Error(
+  throw new CliUsageError(
     "skillset: expected change subcommand add, amend, check, history, ignore, list, migrate, reason, refresh, show, or status"
   );
 };
@@ -238,11 +239,11 @@ const readChangeScopesForSubcommand = (
     return [...(current ?? []), ...readChangeScopes(value)];
   }
   if (subcommand === "status" || subcommand === "check") {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: change ${subcommand} is a whole-source command; --scope is not supported`
     );
   }
-  throw new Error(
+  throw new CliUsageError(
     "skillset: --scope is only supported with change add source-unit entries"
   );
 };
@@ -263,26 +264,26 @@ const validateChangeOptions = (
   }
 ): void => {
   if (subcommand === "refresh" && change.buildMode !== undefined) {
-    throw new Error("skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root");
+    throw new CliUsageError("skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root");
   }
   if (subcommand === "ignore" && (change.buildMode !== undefined || change.since !== undefined)) {
-    throw new Error("skillset: change ignore only supports @ref, --ref, --yes, --json, and --root");
+    throw new CliUsageError("skillset: change ignore only supports @ref, --ref, --yes, --json, and --root");
   }
   if (change.yes && subcommand !== "ignore" && subcommand !== "migrate" && subcommand !== "refresh") {
-    throw new Error("skillset: --yes is only supported with change ignore, change migrate, or change refresh");
+    throw new CliUsageError("skillset: --yes is only supported with change ignore, change migrate, or change refresh");
   }
   if (change.append && subcommand !== "reason") {
-    throw new Error("skillset: --append is only supported with change reason");
+    throw new CliUsageError("skillset: --append is only supported with change reason");
   }
   if (change.bump !== undefined && subcommand !== "add") {
-    throw new Error("skillset: --bump is only supported with change add");
+    throw new CliUsageError("skillset: --bump is only supported with change add");
   }
   if (
     change.group !== undefined &&
     subcommand !== "add" &&
     subcommand !== "list"
   ) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --group is only supported with change add or change list"
     );
   }
@@ -292,22 +293,22 @@ const validateChangeOptions = (
     subcommand !== "amend" &&
     subcommand !== "reason"
   ) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --reason and --reason-file are only supported with change add, change amend, or change reason"
     );
   }
   if (change.ref !== undefined && !supportsPositionalRef(subcommand)) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --ref is only supported with change amend, change check, change history, change ignore, change reason, change refresh, or change show"
     );
   }
   if (change.scopes !== undefined && subcommand !== "add") {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: source-unit --scope is only supported with change add"
     );
   }
   if (change.staged && subcommand !== "check" && subcommand !== "status") {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --staged is only supported with change status or change check"
     );
   }
@@ -322,10 +323,10 @@ const validateRequiredChangeInputs = (
   }
 ): void => {
   if (subcommand === "add" && change.scopes === undefined) {
-    throw new Error("skillset: change add requires at least one --scope");
+    throw new CliUsageError("skillset: change add requires at least one --scope");
   }
   if (subcommand === "add" && change.bump === undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: change add requires --bump major, minor, patch, or none"
     );
   }
@@ -336,6 +337,6 @@ const validateRequiredChangeInputs = (
       subcommand === "show") &&
     change.ref === undefined
   ) {
-    throw new Error(`skillset: change ${subcommand} requires @ref`);
+    throw new CliUsageError(`skillset: change ${subcommand} requires @ref`);
   }
 };

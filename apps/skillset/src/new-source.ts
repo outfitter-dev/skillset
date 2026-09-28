@@ -15,6 +15,7 @@ import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { TargetName } from "@skillset/core/internal/types";
 import { formatList } from "@skillset/schema";
 
+import { CliUsageError } from "./cli-output";
 import { planNewAdaptiveHook } from "./new-hook";
 
 export type NewSourceKind = "agent" | "hook" | "instruction" | "plugin" | "skill";
@@ -151,11 +152,11 @@ export async function scaffoldSourceUnit(
   options: NewSourceOptions
 ): Promise<NewSourceReport> {
   if (options.scope !== undefined && options.scope !== "repo") {
-    throw new Error("skillset: new currently supports only --scope repo");
+    throw new CliUsageError("skillset: new currently supports only --scope repo");
   }
   assertHookOptionsMatchKind(options);
   if (options.draft === true && options.kind !== "skill") {
-    throw new Error(`skillset: new ${options.kind} does not support --draft`);
+    throw new CliUsageError(`skillset: new ${options.kind} does not support --draft`);
   }
   const id = resolveSourceId(options);
   const displayName = resolveDisplayName(options, id);
@@ -214,7 +215,7 @@ function assertHookOptionsMatchKind(options: NewSourceOptions): void {
     ["--script", options.hookScript],
   ].flatMap(([flag, value]) => (value === undefined ? [] : [flag]));
   if (flags.length > 0) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: new ${options.kind} does not support hook options: ${flags.join(", ")}`
     );
   }
@@ -258,12 +259,12 @@ async function planPlugin(
   options: NewSourceOptions
 ): Promise<readonly NewSourcePlannedFile[]> {
   if (options.container !== undefined) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: a plugin container cannot nest inside another; new plugin does not support --in"
     );
   }
   if (options.presets !== undefined && options.presets.length > 0) {
-    throw new Error("skillset: new plugin does not support --preset");
+    throw new CliUsageError("skillset: new plugin does not support --preset");
   }
   const pluginRoot = join(sourceRoot, "plugins", id);
   if (await pathExists(resolveInside(rootPath, pluginRoot))) {
@@ -333,7 +334,7 @@ function resolveSourceId(options: NewSourceOptions): string {
   }
   const name = options.name ?? options.displayName;
   if (name === undefined || name.trim().length === 0) {
-    throw new Error(`skillset: new ${options.kind} requires a name or --id`);
+    throw new CliUsageError(`skillset: new ${options.kind} requires a name or --id`);
   }
   return validateSourceId(
     options.kind,
@@ -347,16 +348,29 @@ function validateSourceId(
   value: string,
   label: string
 ): string {
-  const id = validateSlug(value, label);
+  const id = validateSlugArgument(value, label);
   if (
     kind === "skill" &&
     (id.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id))
   ) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: expected ${label} to satisfy Agent Skills naming (1-64 lowercase letters, digits, and single hyphens), received ${JSON.stringify(value)}`
     );
   }
   return id;
+}
+
+/**
+ * Classify a malformed CLI-supplied slug as a usage error. `validateSlug` is a
+ * pure shape check in core, which must not throw CLI classes, so the CLI
+ * boundary rebinds its failure here.
+ */
+function validateSlugArgument(value: string, label: string): string {
+  try {
+    return validateSlug(value, label);
+  } catch (error) {
+    throw new CliUsageError(error instanceof Error ? error.message : String(error));
+  }
 }
 
 function resolveDisplayName(options: NewSourceOptions, id: string): string {
@@ -382,7 +396,7 @@ async function planSkill(
 ): Promise<readonly NewSourcePlannedFile[]> {
   const container = options.container === undefined
     ? undefined
-    : validateSlug(options.container, "new --in container");
+    : validateSlugArgument(options.container, "new --in container");
   if (container !== undefined) {
     await assertPluginContainer(
       rootPath,
@@ -438,11 +452,11 @@ async function planInstruction(
   options: NewSourceOptions
 ): Promise<readonly NewSourcePlannedFile[]> {
   if (options.presets !== undefined && options.presets.length > 0) {
-    throw new Error("skillset: new instruction does not support --preset");
+    throw new CliUsageError("skillset: new instruction does not support --preset");
   }
   const container = options.container === undefined
     ? undefined
-    : validateSlug(options.container, "new --in container");
+    : validateSlugArgument(options.container, "new --in container");
   if (container !== undefined) {
     await assertPluginContainer(
       rootPath,
@@ -469,10 +483,10 @@ function planAgent(
   options: NewSourceOptions
 ): readonly NewSourcePlannedFile[] {
   if (options.container !== undefined) {
-    throw new Error("skillset: new agent does not support --in; project agents live at the repo source root");
+    throw new CliUsageError("skillset: new agent does not support --in; project agents live at the repo source root");
   }
   if (options.presets !== undefined && options.presets.length > 0) {
-    throw new Error("skillset: new agent does not support --preset");
+    throw new CliUsageError("skillset: new agent does not support --preset");
   }
   return [
     {
@@ -530,7 +544,7 @@ export function parseSkillPresets(
   const seen = new Set<string>();
   for (const value of raw) {
     if (!SKILL_PRESET_IDS.has(value as SkillPreset)) {
-      throw new Error(
+      throw new CliUsageError(
         `skillset: expected --preset ${formatList(SKILL_PRESETS.map((preset) => preset.id))}`
       );
     }

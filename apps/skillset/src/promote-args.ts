@@ -1,6 +1,7 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { resolveCliRoot } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { PromoteCommandRequest } from "./promote-cli";
 
 export const parsePromoteCommandRequest = (
@@ -17,7 +18,7 @@ export const parsePromoteCommandRequest = (
     const positional = reader.readOptionalPositional();
     if (positional !== undefined) {
       if (draftPath === undefined) draftPath = positional;
-      else throw new Error("skillset: promote accepts exactly <draft-path>");
+      else throw new CliUsageError("skillset: promote accepts exactly <draft-path>");
       continue;
     }
     const option = reader.readOption();
@@ -38,7 +39,7 @@ export const parsePromoteCommandRequest = (
         break;
       }
       default: {
-        throw new Error(
+        throw new CliUsageError(
           `skillset: promote only supports --json, --root, and --yes; received ${option.raw}`
         );
       }
@@ -46,7 +47,7 @@ export const parsePromoteCommandRequest = (
   }
 
   if (draftPath === undefined) {
-    throw new Error("skillset: promote requires <draft-path>");
+    throw new CliUsageError("skillset: promote requires <draft-path>");
   }
   return {
     draftPath,

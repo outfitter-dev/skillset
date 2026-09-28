@@ -11,6 +11,7 @@ import {
 } from "./change-ledger-mutation";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
+import { CliUsageError } from "./cli-output";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { publishAtomicFile } from "@skillset/core/internal/atomic-file-publication";
@@ -667,7 +668,7 @@ async function readReleaseAmendments(
 function resolveReleaseRef(records: readonly ReleaseRecord[], ref: string): ReleaseRecord {
   const normalized = ref.startsWith("@") ? ref.slice(1) : ref;
   if (normalized.length < MIN_REF_LENGTH) {
-    throw new Error(`skillset: release ref ${ref} must include at least ${MIN_REF_LENGTH} characters`);
+    throw new CliUsageError(`skillset: release ref ${ref} must include at least ${MIN_REF_LENGTH} characters`);
   }
   const matches = records.filter((record) => record.id === normalized || record.id.startsWith(normalized));
   if (matches.length === 0) throw new Error(`skillset: unknown release ref ${ref}`);

@@ -1,3 +1,5 @@
+import { CliUsageError } from "./cli-output";
+
 export interface CliOptionToken {
   readonly flag: string;
   readonly inlineValue?: string;
@@ -65,7 +67,7 @@ export class CliArgReader {
     }
     const value = this.peek();
     if (value === undefined || value.startsWith("--")) {
-      throw new Error(`skillset: expected value after ${option.flag}`);
+      throw new CliUsageError(`skillset: expected value after ${option.flag}`);
     }
     this.#index += 1;
     return value;
@@ -88,6 +90,6 @@ export class CliArgReader {
 
 export const assertBooleanOption = (option: CliOptionToken): void => {
   if (option.inlineValue !== undefined) {
-    throw new Error(`skillset: ${option.flag} does not take a value`);
+    throw new CliUsageError(`skillset: ${option.flag} does not take a value`);
   }
 };

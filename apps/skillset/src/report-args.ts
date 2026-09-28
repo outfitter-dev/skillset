@@ -1,6 +1,6 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import type { CliParseContext } from "./cli-arg-values";
-import { CliOutputError } from "./cli-output";
+import { CliUsageError } from "./cli-output";
 import type { ReportCommandRequest } from "./report-cli";
 
 export const parseReportCommandRequest = (
@@ -18,12 +18,12 @@ export const parseReportCommandRequest = (
 
   try {
     if (args[1] !== "show") {
-      throw new Error("skillset: expected report subcommand show");
+      throw new CliUsageError("skillset: expected report subcommand show");
     }
     const reader = new CliArgReader(args, 2);
     const reference = reader.readOptionalPositional();
     if (reference === undefined) {
-      throw new Error("skillset: report show requires <id-or-path>");
+      throw new CliUsageError("skillset: report show requires <id-or-path>");
     }
 
     let jsonOutput = false;
@@ -33,7 +33,7 @@ export const parseReportCommandRequest = (
         break;
       }
       if (option.flag !== "--json") {
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
       }
       assertBooleanOption(option);
       jsonOutput = true;
@@ -46,10 +46,11 @@ export const parseReportCommandRequest = (
       reportSubcommand: "show",
     };
   } catch (error) {
-    if (error instanceof CliOutputError) {
-      throw error;
+    if (error instanceof CliUsageError) {
+      throw error.command === undefined
+        ? new CliUsageError(error.message, "report.show")
+        : error;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    throw new CliOutputError(message, 2, "report.show");
+    throw error;
   }
 };

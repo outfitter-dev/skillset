@@ -16,6 +16,7 @@ import {
   readTargetNames,
   tokenizeCsv,
 } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type {
   LookupFeaturesCommandRequest,
   LookupRouteRequest,
@@ -148,7 +149,7 @@ export const parseLookupCommandRequest = (
         break;
       }
       default: {
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
       }
     }
   }
@@ -166,14 +167,14 @@ export const parseLookupCommandRequest = (
       foreign.reconcile ||
       rootExplicit
     ) {
-      throw new Error(
+      throw new CliUsageError(
         "skillset: expected lookup features to use only an optional feature id and --json"
       );
     }
     return { kind: "features", value: { featureId, jsonOutput } };
   }
   if (rootExplicit) {
-    throw new Error("skillset: --root is not supported with lookup");
+    throw new CliUsageError("skillset: --root is not supported with lookup");
   }
   validateLookupLateFlags(foreign);
   return {
@@ -251,7 +252,7 @@ const readLookupForeignOption = (
     case "--context-fields": {
       const fields = tokenizeCsv(reader.readRequiredOptionValue(option));
       if (fields.length === 0) {
-        throw new Error(
+        throw new CliUsageError(
           "skillset: --context-fields requires at least one field"
         );
       }
@@ -322,10 +323,10 @@ const readLookupForeignOption = (
     case "--include": {
       const includes = tokenizeCsv(reader.readRequiredOptionValue(option));
       if (includes.length === 0) {
-        throw new Error("skillset: --include requires at least one value");
+        throw new CliUsageError("skillset: --include requires at least one value");
       }
       if (includes.some((include) => include !== "ci")) {
-        throw new Error("skillset: expected --include ci");
+        throw new CliUsageError("skillset: expected --include ci");
       }
       flags.setup = true;
       return true;
@@ -342,7 +343,7 @@ const readLookupForeignOption = (
     case "--only": {
       const value = reader.readRequiredOptionValue(option);
       if (value !== "outputs") {
-        throw new Error("skillset: expected --only outputs");
+        throw new CliUsageError("skillset: expected --only outputs");
       }
       flags.readiness = true;
       return true;
@@ -357,7 +358,7 @@ const readLookupForeignOption = (
       return true;
     case "--write":
       assertBooleanOption(option);
-      throw new Error("skillset: --write is only supported with check or dev");
+      throw new CliUsageError("skillset: --write is only supported with check or dev");
     case "--isolated":
       assertBooleanOption(option);
       flags.isolated = true;
@@ -365,7 +366,7 @@ const readLookupForeignOption = (
     case "--use": {
       const value = reader.readRequiredOptionValue(option);
       if (value !== "source" && value !== "output") {
-        throw new Error("skillset: --use expects source or output");
+        throw new CliUsageError("skillset: --use expects source or output");
       }
       flags.reconcile = true;
       return true;
@@ -383,55 +384,55 @@ const readLookupForeignOption = (
 
 const validateLookupForeignFlags = (flags: LookupForeignFlags): void => {
   if (flags.change) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: change options are only supported with change commands"
     );
   }
   if (flags.hookPrint) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: hook options are only supported with hooks print"
     );
   }
   if (flags.hookContext) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: hook context options are only supported with hooks context"
     );
   }
   if (flags.setup) {
-    throw new Error("skillset: setup options are only supported with init");
+    throw new CliUsageError("skillset: setup options are only supported with init");
   }
   if (flags.adopt) {
-    throw new Error("skillset: --adopt is only supported with init");
+    throw new CliUsageError("skillset: --adopt is only supported with init");
   }
   if (flags.readiness) {
-    throw new Error("skillset: readiness flags are only supported with check");
+    throw new CliUsageError("skillset: readiness flags are only supported with check");
   }
   if (flags.since) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --since is only supported with check --ci or change commands"
     );
   }
   if (flags.test) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: ad hoc test options are only supported with test"
     );
   }
   if (flags.jsonl) {
-    throw new Error("skillset: unknown option --jsonl");
+    throw new CliUsageError("skillset: unknown option --jsonl");
   }
 };
 
 const validateLookupLateFlags = (flags: LookupForeignFlags): void => {
   if (flags.isolated) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --isolated is only supported with build, check --only outputs, or diff"
     );
   }
   if (flags.reconcile) {
-    throw new Error("skillset: --use is only supported with reconcile");
+    throw new CliUsageError("skillset: --use is only supported with reconcile");
   }
   if (flags.newSource) {
-    throw new Error("skillset: new options are only supported with new");
+    throw new CliUsageError("skillset: new options are only supported with new");
   }
 };
 
@@ -442,7 +443,7 @@ const readHookRunner = (value: string): void => {
     value !== "lefthook" &&
     value !== "pre-commit"
   ) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: expected --runner lefthook, husky, pre-commit, or git"
     );
   }

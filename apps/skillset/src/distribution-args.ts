@@ -5,6 +5,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type {
   DistributionCommandRequest,
   MarketplaceCommandRequest,
@@ -29,7 +30,7 @@ export const parseDistributionCommandRequest = (
   const parsed = parseDistributionOptions(args, index, context);
   validateLowercaseId(name, "distribution");
   if (parsed.hasBuildOptions || parsed.yes) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: build/write options are not supported with distribute plan; it is always read-only"
     );
   }
@@ -57,12 +58,12 @@ export const parseMarketplaceCommandRequest = (
   const parsed = parseDistributionOptions(args, index, context);
   validateLowercaseId(name, "marketplace");
   if (subcommand === "check" && parsed.yes) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: build/write options are not supported with marketplace check; it is always read-only"
     );
   }
   if (parsed.hasBuildOptions) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: build scope options are not supported with marketplace ${subcommand}`
     );
   }
@@ -130,7 +131,7 @@ const parseDistributionOptions = (
         readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
   return {
@@ -145,14 +146,14 @@ const readDistributionSubcommand = (
   value: string | undefined
 ): DistributionSubcommand => {
   if (value === "plan") return value;
-  throw new Error("skillset: expected distribute subcommand plan");
+  throw new CliUsageError("skillset: expected distribute subcommand plan");
 };
 
 const readMarketplaceSubcommand = (
   value: string | undefined
 ): MarketplaceSubcommand => {
   if (value === "check" || value === "update") return value;
-  throw new Error("skillset: expected marketplace subcommand check or update");
+  throw new CliUsageError("skillset: expected marketplace subcommand check or update");
 };
 
 const validateLowercaseId = (
@@ -160,6 +161,6 @@ const validateLowercaseId = (
   kind: "distribution" | "marketplace"
 ): void => {
   if (value !== undefined && !/^[a-z0-9][a-z0-9._-]*$/.test(value)) {
-    throw new Error(`skillset: expected ${kind} name to be a lowercase id`);
+    throw new CliUsageError(`skillset: expected ${kind} name to be a lowercase id`);
   }
 };

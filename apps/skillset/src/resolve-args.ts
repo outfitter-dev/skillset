@@ -1,6 +1,7 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { resolveCliRoot } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { ResolveCommandRequest } from "./resolve-cli";
 
 export const parseResolveCommandRequest = (
@@ -28,7 +29,7 @@ export const parseResolveCommandRequest = (
         yes = true;
         break;
       default:
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 

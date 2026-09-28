@@ -5,6 +5,7 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { CliUsageError } from "./cli-output";
 import type { DevCommandRequest } from "./dev-cli";
 import { rejectProjectionForeignOption } from "./projection-foreign-args";
 import { readImportKind, readImportProvider } from "./source-arg-values";
@@ -79,7 +80,7 @@ export const parseDevCommandRequest = (
       case "--report": {
         const value = reader.readRequiredOptionValue(option);
         if (option.flag === "--only" && value !== "outputs") {
-          throw new Error("skillset: expected --only outputs");
+          throw new CliUsageError("skillset: expected --only outputs");
         }
         readinessFlag = true;
         break;
@@ -94,34 +95,34 @@ export const parseDevCommandRequest = (
         break;
       default:
         rejectProjectionForeignOption(reader, option);
-        throw new Error(`skillset: unknown option ${option.raw}`);
+        throw new CliUsageError(`skillset: unknown option ${option.raw}`);
     }
   }
 
   if (readinessFlag) {
-    throw new Error("skillset: readiness flags are only supported with check");
+    throw new CliUsageError("skillset: readiness flags are only supported with check");
   }
   if (sinceFlag) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --since is only supported with check --ci or change commands"
     );
   }
   if (buildMode !== undefined) {
-    throw new Error("skillset: dev does not support --updated or --all");
+    throw new CliUsageError("skillset: dev does not support --updated or --all");
   }
   if (scopes !== undefined) {
-    throw new Error("skillset: dev does not support --scope yet");
+    throw new CliUsageError("skillset: dev does not support --scope yet");
   }
   if (yes) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: dev uses preview mode by default or write mode with --write; it does not support --yes"
     );
   }
   if (jsonOutput) {
-    throw new Error("skillset: --json is not supported for this command route");
+    throw new CliUsageError("skillset: --json is not supported for this command route");
   }
   if (isolated) {
-    throw new Error(
+    throw new CliUsageError(
       "skillset: --isolated is only supported with build, check --only outputs, or diff"
     );
   }

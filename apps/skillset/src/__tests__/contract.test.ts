@@ -2492,11 +2492,11 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(cursor.stderr).toContain("Current primary evidence does not establish a project runtime hook destination for Cursor.");
 
   const cursorWithoutRuntime = await runSkillsetCli("hooks", "print", "--target", "cursor");
-  expect(cursorWithoutRuntime.exitCode).toBe(1);
+  expect(cursorWithoutRuntime.exitCode).toBe(2);
   expect(cursorWithoutRuntime.stderr).toContain("--target is only supported with --agent-runtime");
 
   const invalid = await runSkillsetCli("hooks", "print", "--runner", "git", "--agent-runtime");
-  expect(invalid.exitCode).toBe(1);
+  expect(invalid.exitCode).toBe(2);
   expect(invalid.stderr).toContain("cannot be combined");
 
   const invalidRun = await runSkillsetCliWithInput("", "hooks", "run", "bogus");
@@ -5229,7 +5229,7 @@ This pending entry exists only to exercise ambiguous short ref resolution in the
   expect(checked.stderr).toContain("@abcdef222222");
 
   const tooShort = await runSkillsetCli("change", "check", "@abcde", "--root", root, "--since", "HEAD");
-  expect(tooShort.exitCode).toBe(1);
+  expect(tooShort.exitCode).toBe(2);
   expect(tooShort.stderr).toContain("at least 6 hex characters");
 });
 

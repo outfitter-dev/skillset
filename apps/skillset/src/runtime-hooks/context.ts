@@ -11,9 +11,23 @@ import {
   type RuntimeProvider,
 } from "@skillset/toolkit/runtime";
 
+import { CliUsageError } from "../cli-output";
+
 export const readHookRuntimeContext = readRuntimeContext;
-export const readHookRuntimeContextField = readRuntimeContextField;
-export const readHookRuntimeContextFormat = readRuntimeContextFormat;
+export const readHookRuntimeContextField = (value: string): RuntimeContextField => {
+  try {
+    return readRuntimeContextField(value);
+  } catch (error) {
+    throw new CliUsageError(error instanceof Error ? error.message : String(error));
+  }
+};
+export const readHookRuntimeContextFormat = (value: string): RuntimeContextFormat => {
+  try {
+    return readRuntimeContextFormat(value);
+  } catch (error) {
+    throw new CliUsageError(error instanceof Error ? error.message : String(error));
+  }
+};
 export const renderHookRuntimeContext = renderRuntimeContext;
 export type HookRuntimeContext = RuntimeContext;
 export type HookRuntimeContextField = RuntimeContextField;

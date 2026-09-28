@@ -6,7 +6,7 @@ import type {
   TargetName,
 } from "@skillset/core/internal/types";
 
-import { printCliJsonData } from "./cli-output";
+import { CliUsageError, printCliJsonData } from "./cli-output";
 import { ImportBatchError, importSources } from "./import";
 import type { ImportReport } from "./import";
 import {
@@ -225,7 +225,7 @@ export async function runNewCommand(
     return;
   }
   if (newKind === undefined) {
-    throw new Error(
+    throw new CliUsageError(
       `skillset: expected new kind ${NEW_SOURCE_KIND_LIST_TEXT}`
     );
   }
