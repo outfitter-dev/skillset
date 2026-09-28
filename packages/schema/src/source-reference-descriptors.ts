@@ -1,4 +1,9 @@
-import { TARGET_NAMES } from "./contracts";
+import {
+  DISTRIBUTION_SOURCE_SELECTOR_PATTERN,
+  PLUGIN_DRAFT_SELECTOR_PATTERN,
+  ROOT_DRAFT_SELECTOR_PATTERN,
+  TARGET_NAMES,
+} from "./contracts";
 import type {
   SkillsetSourceReferenceDescriptor,
   SkillsetSourceReferenceExclusion,
@@ -12,6 +17,9 @@ function freezeDescriptor(
 ): SkillsetSourceReferenceDescriptor {
   return Object.freeze({
     ...descriptor,
+    ...(descriptor.acceptedSelectorPatterns === undefined
+      ? {}
+      : { acceptedSelectorPatterns: Object.freeze({ ...descriptor.acceptedSelectorPatterns }) }),
     contracts: Object.freeze([...descriptor.contracts]),
     notes: Object.freeze([...descriptor.notes]),
     pathPatterns: Object.freeze([...descriptor.pathPatterns]),
@@ -46,6 +54,11 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
     scope: "agent-visible-skills",
   }),
   freezeDescriptor({
+    acceptedSelectorPatterns: {
+      "plugin-config": PLUGIN_DRAFT_SELECTOR_PATTERN,
+      "root-source-manifest": ROOT_DRAFT_SELECTOR_PATTERN,
+      "workspace-config": ROOT_DRAFT_SELECTOR_PATTERN,
+    },
     contracts: ["workspace-config", "root-source-manifest", "plugin-config"],
     id: "configured-draft-selector",
     kind: "source-unit-identity",
@@ -58,12 +71,17 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
     scope: "workspace-or-plugin-config",
   }),
   freezeDescriptor({
+    acceptedSelectorPatterns: {
+      "root-source-manifest": DISTRIBUTION_SOURCE_SELECTOR_PATTERN,
+      "workspace-config": DISTRIBUTION_SOURCE_SELECTOR_PATTERN,
+    },
     contracts: ["workspace-config", "root-source-manifest"],
     id: "distribution-source-selector",
     kind: "source-unit-identity",
     mutationPolicy: "rewrite",
     notes: [
       "Distribution sources remain attached to the moved skill identity.",
+      "A move whose rewritten selector this field does not accept is rejected rather than written.",
     ],
     pathPatterns: ["distributions.<id>.from.selector"],
     scope: "workspace-or-plugin-config",
@@ -82,6 +100,29 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
       "plugins.internal_use.drafts.<plugin>[*]",
     ],
     scope: "workspace-or-plugin-config",
+  }),
+  freezeDescriptor({
+    contracts: ["change-entry"],
+    id: "pending-change-scope",
+    kind: "source-unit-identity",
+    mutationPolicy: "rewrite",
+    notes: [
+      "Pending change entries are mutable; only ledger JSONL streams and releases are append-only history.",
+      "Reason-only entries carry the same selectors in Scope: and Scopes: body directives.",
+      "Any non-empty selector is structurally valid; change check validates it against known source units.",
+      "Evidence selectors follow the scope in the same rewrite; map keys match exactly, as the reader indexes them, and a move is refused when the map already has the new key.",
+      "Evidence hashes stay as recorded because source hashes bind a unit's identity; the move notice asks for change refresh.",
+    ],
+    pathPatterns: [
+      "scope",
+      "scope[*]",
+      "scopes",
+      "scopes[*]",
+      "evidence[*].scope",
+      "evidence.<selector>",
+      "evidence.<selector>.scope",
+    ],
+    scope: "pending-change-entry",
   }),
   freezeDescriptor({
     contracts: ["skill-frontmatter"],
@@ -206,7 +247,7 @@ export const skillsetSourceReferenceExclusions = Object.freeze([
   }),
   freezeExclusion({
     id: "append-only-history",
-    reason: "Change, release, and ledger history preserve provenance rather than acting as mutable source aliases.",
+    reason: "Change JSONL streams and releases preserve provenance rather than acting as mutable source aliases; pending change entries are covered by pending-change-scope.",
   }),
   freezeExclusion({
     id: "workspace-test-declarations",

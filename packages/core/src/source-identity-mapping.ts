@@ -84,4 +84,38 @@ export function currentSourceHashEvidence(
       .toSorted(([left], [right]) => compareStrings(left, right))
   );
 }
+
+/** The pending reason a ledger event records evidence for, as the pending-change reader keys it. */
+export function ledgerReasonId(event: ChangeLedgerEvent): string | undefined {
+  if ("reasonId" in event.payload) return event.payload.reasonId;
+  if (event.type === "change.amended") return event.payload.changeId;
+  return undefined;
+}
+
+/**
+ * Reasons whose ledger-recorded evidence currently names `selector`, following
+ * later moves the way the pending-change reader folds ledger facts.
+ */
+export function ledgerReasonsNaming(
+  events: readonly ChangeLedgerEvent[],
+  selector: string
+): ReadonlySet<string> {
+  const mappings = sourceIdentityMappings(events);
+  const reasons = new Set<string>();
+  for (const [index, event] of events.entries()) {
+    const reasonId = ledgerReasonId(event);
+    if (reasonId === undefined) continue;
+    const laterMoves = sourceMappingsAfterEvent(mappings, index);
+    if (
+      event.sourceUnits.some(
+        (unit) =>
+          unit.sourceHash !== undefined &&
+          currentSourceIdentity(unit.selector, laterMoves) === selector
+      )
+    ) {
+      reasons.add(reasonId);
+    }
+  }
+  return reasons;
+}
 /* eslint-disable func-style -- Exported identity fold helpers are named for callers. */

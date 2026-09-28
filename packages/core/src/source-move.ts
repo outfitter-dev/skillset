@@ -2,17 +2,23 @@
 /* eslint-disable unicorn/import-style -- Named path helpers keep source-plan construction concise. */
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 
-import { readChangeLedger } from "./change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { compareStrings } from "./path";
 import { loadBuildGraph } from "./resolver";
 import {
   classifySkillCollectionMove,
   movedDraftDestination,
 } from "./source-move-paths";
-import { rewriteSourceMoveConfig } from "./source-move-rewrite";
+import { ledgerReasonsNaming } from "./source-identity-mapping";
+import {
+  hasScopeDirective,
+  isFrontmatterChangeEntry,
+  rewritePendingChangeScopes,
+  rewriteSourceMoveConfig,
+} from "./source-move-rewrite";
 import { SourceMovePlanError } from "./source-move-types";
 import type {
   SourceMoveApplyRequest,
@@ -50,7 +56,7 @@ import type {
 } from "./source-rename-types";
 import { SourceRenamePlanError } from "./source-rename-types";
 import { sourceUnitSelector } from "./source-unit-selector";
-import { workspaceChangeFile } from "./workspace-state";
+import { workspaceChangeFile, workspaceChangesDir } from "./workspace-state";
 
 export { SourceMovePlanError } from "./source-move-types";
 export type {
@@ -179,9 +185,11 @@ async function planAuthoredSourceMove(
             : { internalUsePluginId: classification.fromPlugin.id }),
           leaf: classification.skill.id,
           movePluginDraftToWorkspace: pluginDraftDeclared,
-          rootDocument:
-            documentPath === graph.rootConfigPath ||
-            documentPath === graph.rootManifestPath,
+          ...(documentPath === graph.rootConfigPath
+            ? { rootContract: "workspace-config" as const }
+            : documentPath === graph.rootManifestPath
+              ? { rootContract: "root-source-manifest" as const }
+              : {}),
           sourcePluginDocument:
             documentPath === classification.fromPlugin?.configPath,
           toSelector,
@@ -197,9 +205,61 @@ async function planAuthoredSourceMove(
       }
     }
 
+    const ledgerEvents = await readChangeLedger(rootPath, {
+      sourceDir: graph.sourceDir,
+    });
+    const ledgerReasons = ledgerReasonsNaming(ledgerEvents, fromSelector);
+    // Source hashes bind the unit's kind and selector, so the move cannot carry current evidence.
+    const refreshNotice = `pending change entries named ${fromSelector}; source hashes bind a unit's identity, so run \`skillset change refresh --yes\` after the move to re-record their evidence for ${toSelector}, or \`skillset change refresh --ref <id> --yes\` for one entry when unrelated uncovered changes block the workspace-wide refresh`;
+    for (const documentPath of await pendingChangeDocuments(
+      rootPath,
+      graph.sourceDir
+    )) {
+      const source =
+        updates.get(documentPath) ?? (await readFile(documentPath, "utf8"));
+      let rewritten: string;
+      try {
+        rewritten = rewritePendingChangeScopes(
+          source,
+          display(rootPath, documentPath),
+          {
+            fromSelector,
+            toSelector,
+          }
+        );
+      } catch (error) {
+        throw new SourceMovePlanError(
+          `cannot rewrite pending change entry ${
+            error instanceof Error
+              ? error.message.replace(/^skillset: /u, "")
+              : String(error)
+          }`,
+          { cause: error }
+        );
+      }
+      const label = display(rootPath, documentPath);
+      if (rewritten !== source) {
+        updates.set(documentPath, rewritten);
+        notices.add(refreshNotice);
+        if (isFrontmatterChangeEntry(source, label)) {
+          notices.add(
+            "migrate frontmatter pending change entries with `skillset change migrate --yes` before `skillset change refresh` re-records their evidence"
+          );
+        }
+      } else if (
+        // A reason-only entry without Scope: directives takes its scopes from the ledger, which the move remaps.
+        !isFrontmatterChangeEntry(source, label) &&
+        !hasScopeDirective(source) &&
+        ledgerReasons.has(basename(documentPath, ".md"))
+      ) {
+        notices.add(refreshNotice);
+      }
+    }
+
     const ledger = await sourceMoveLedgerUpdate(
       rootPath,
       graph.sourceDir,
+      ledgerEvents,
       fromSelector,
       toSelector
     );
@@ -293,9 +353,31 @@ function finalizePlan(
   };
 }
 
+/** Pending change entries are mutable authored source; JSONL streams are not. */
+async function pendingChangeDocuments(
+  rootPath: string,
+  sourceDir: string
+): Promise<readonly string[]> {
+  const changesPath = join(rootPath, workspaceChangesDir(sourceDir));
+  if (!(await pathExists(changesPath))) {
+    return [];
+  }
+  const entries = await readdir(changesPath, { withFileTypes: true });
+  return entries
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.endsWith(".md") &&
+        !entry.name.startsWith(".")
+    )
+    .map((entry) => join(changesPath, entry.name))
+    .toSorted(compareStrings);
+}
+
 async function sourceMoveLedgerUpdate(
   rootPath: string,
   sourceDir: string,
+  events: readonly ChangeLedgerEvent[],
   from: string,
   to: string
 ): Promise<{ readonly content: string; readonly path: string }> {
@@ -304,7 +386,6 @@ async function sourceMoveLedgerUpdate(
   const previous = (await pathExists(absolutePath))
     ? await readFile(absolutePath, "utf8")
     : "";
-  const events = await readChangeLedger(rootPath, { sourceDir });
   const last = events.at(-1)?.createdAt;
   const timestamp = last === undefined ? 0 : Date.parse(last) + 1;
   if (!Number.isFinite(timestamp)) {

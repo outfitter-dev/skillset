@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { explainPath } from "../authoring";
 import { buildSkillset } from "../build";
 import { readAppliedChangeRecords } from "../change-history";
+import { planDistributions } from "../distribution";
 import { moveSource, planSourceMove, SourceMovePlanError } from "../source-move";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -26,7 +27,7 @@ describe("SET-588 source collection move", () => {
   });
 
   test("moves workspace to plugin and back with draft, references, outputs, and history intact", async () => {
-    const rootConfig = `skillset:\n  name: move-fixture\ncompile:\n  targets: [ claude ]\ndistributions:\n  docs:\n    from:\n      selector: skill:demo\n      target: claude\n    to:\n      kind: local\n      path: dist/demo.md\n`;
+    const rootConfig = `skillset:\n  name: move-fixture\ncompile:\n  targets: [ claude ]\n`;
     const agent = `---\ndescription: Reviewer\nskills:\n  - demo\n---\n\nReview.\n`;
     const pluginConfig = `skillset:\n  name: tools\n`;
     const root = await fixture({
@@ -62,7 +63,6 @@ describe("SET-588 source collection move", () => {
     await expect(access(join(root, ".skillset/skills/_drafts/demo"))).rejects.toThrow();
     expect(await readFile(join(root, ".skillset/plugins/tools/skills/_drafts/demo/SKILL.md"), "utf8")).toContain("Draft demo");
     expect(await readFile(join(root, ".skillset/subagents/reviewer.md"), "utf8")).toContain("plugin.tools.skill:demo");
-    expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("selector: plugin.tools.skill:demo");
     expect((await readAppliedChangeRecords(root))[0]?.scopes).toEqual(["plugin.tools.skill:demo"]);
     await expect(access(join(root, ".claude/skills/demo/SKILL.md"))).rejects.toThrow();
     expect(await readFile(join(root, "plugins/tools/skills/demo/SKILL.md"), "utf8")).toContain("name: demo");
@@ -100,6 +100,241 @@ describe("SET-588 source collection move", () => {
     expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"))).toEqual(baseline.generated);
     expect(await readFile(join(root, ".claude/skills/skillset.lock"))).toEqual(baseline.lock);
     await expect(access(join(root, "plugins/tools/skills/demo/SKILL.md"))).rejects.toThrow();
+  });
+
+  test("refuses a move whose rewritten distribution selector the field does not accept, without writes", async () => {
+    const config = `skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\ndistributions:\n  docs:\n    from:\n      selector: skill:demo\n      target: claude\n    to:\n      kind: local\n      path: dist/demo.md\n`;
+    const root = await fixture({
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      "skillset.yaml": config,
+    });
+    await buildSkillset(root);
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const reason = "cannot rewrite distributions.docs.from.selector from skill:demo to plugin.tools.skill:demo; workspace-config does not accept that selector there";
+    await expect(planSourceMove(request)).rejects.toBeInstanceOf(SourceMovePlanError);
+    await expect(planSourceMove(request)).rejects.toThrow(reason);
+    await expect(moveSource({ ...request, expectedPlanHash: "any" })).rejects.toThrow(reason);
+    expect(await readFile(join(root, "skillset.yaml"), "utf8")).toBe(config);
+    expect(await readFile(join(root, request.from, "SKILL.md"), "utf8")).toContain("name: demo");
+    await expect(access(join(root, request.to))).rejects.toThrow();
+    await expect(access(join(root, ".skillset/changes/ledger.jsonl"))).rejects.toThrow();
+    // The distribution acceptor refuses the selector the move would have written, by name.
+    await writeFile(join(root, "skillset.yaml"), config.replace("skill:demo", "plugin.tools.skill:demo"), "utf8");
+    await expect(planDistributions(root)).rejects.toThrow('from.selector "plugin.tools.skill:demo" must be plugins, plugin:<id>, or skill:<id>');
+  });
+
+  test("rewrites pending change scopes in both entry formats and leaves history streams alone", async () => {
+    const history = `${JSON.stringify({ id: "old-demo", reason: "Existing history", scope: "skill:demo" })}\n`;
+    const root = await fixture({
+      ".skillset/changes/aaaaaaaaaaaa.md": "Reason-only demo change.\n\nBump: patch\nScopes: skill:keep, skill:demo\n",
+      ".skillset/changes/bbbbbbbbbbbb.md": "---\nid: bbbbbbbbbbbb\nbump: patch\nscopes:\n  - skill:demo\n---\n\nScope: skill:demo stays prose in a frontmatter entry.\n",
+      ".skillset/changes/cccccccccccc.md": "Unrelated change.\n\nScope: skill:keep\n",
+      ".skillset/changes/dddddddddddd.md": "---\n---\nEmpty frontmatter reads as reason-only.\n\nScope: skill:demo\n",
+      ".skillset/changes/history.jsonl": history,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const plan = await planSourceMove(request);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+    const changes = join(root, ".skillset/changes");
+    expect(await readFile(join(changes, "aaaaaaaaaaaa.md"), "utf8")).toBe("Reason-only demo change.\n\nBump: patch\nScopes: skill:keep, plugin.tools.skill:demo\n");
+    expect(await readFile(join(changes, "bbbbbbbbbbbb.md"), "utf8")).toBe("---\nid: bbbbbbbbbbbb\nbump: patch\nscopes:\n  - plugin.tools.skill:demo\n---\n\nScope: skill:demo stays prose in a frontmatter entry.\n");
+    expect(await readFile(join(changes, "cccccccccccc.md"), "utf8")).toBe("Unrelated change.\n\nScope: skill:keep\n");
+    expect(await readFile(join(changes, "dddddddddddd.md"), "utf8")).toBe("---\n---\nEmpty frontmatter reads as reason-only.\n\nScope: plugin.tools.skill:demo\n");
+    expect(await readFile(join(changes, "history.jsonl"), "utf8")).toBe(history);
+  });
+
+  test("rewrites frontmatter scopes the reader trims, normalizing the moved value", async () => {
+    const root = await fixture({
+      ".skillset/changes/aaaaaaaaaaaa.md": '---\nid: aaaaaaaaaaaa\nbump: patch\nscope: " skill:demo "\n---\n\nPadded scope.\n',
+      ".skillset/changes/bbbbbbbbbbbb.md": '---\nid: bbbbbbbbbbbb\nbump: patch\nscopes:\n  - " skill:keep"\n  - "skill:demo "\n---\n\nPadded scopes.\n',
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    const plan = await planSourceMove(request);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+    const changes = join(root, ".skillset/changes");
+    expect(await readFile(join(changes, "aaaaaaaaaaaa.md"), "utf8")).toMatch(/\nscope: "?plugin\.tools\.skill:demo"?\n/u);
+    const scopes = await readFile(join(changes, "bbbbbbbbbbbb.md"), "utf8");
+    expect(scopes).toContain('  - " skill:keep"\n');
+    expect(scopes).toMatch(/\n {2}- "?plugin\.tools\.skill:demo"?\n/u);
+  });
+
+  test("rewrites frontmatter evidence selectors with the moved scope in every evidence shape", async () => {
+    const arrayEntry = "---\nid: ffffffffffff\nbump: patch\nscopes:\n  - skill:demo\n  - skill:keep\nevidence:\n  - scope: skill:demo\n    sourceHash: sha256:demo\n  - scope: skill:keep\n    sourceHash: sha256:keep\n---\n\nArray evidence.\n";
+    const mapEntry = "---\nid: gggggggggggg\nbump: patch\nscopes:\n  - skill:keep\n  - skill:demo\n  - skill:demo-notes\nevidence:\n  skill:keep: sha256:keep\n  skill:demo:\n    scope: skill:demo\n    hash: sha256:demo\n  skill:demo-notes: sha256:notes\n---\n\nMap evidence.\n";
+    const stringEntry = "---\nid: hhhhhhhhhhhh\nbump: patch\nscope: skill:demo\nevidence:\n  skill:demo: sha256:demo\n---\n\nString map evidence.\n";
+    const directEntry = "---\nid: iiiiiiiiiiii\nbump: patch\nscope: skill:demo\nevidence:\n  hash: sha256:demo\n---\n\nDirect hash evidence.\n";
+    const unrelatedEntry = "---\nid: kkkkkkkkkkkk\nbump: patch\nscopes: [skill:keep]\nevidence:\n  - scope: skill:keep\n    sourceHash: sha256:keep\n---\n\nUnrelated evidence.\n";
+    const root = await fixture({
+      ".skillset/changes/ffffffffffff.md": arrayEntry,
+      ".skillset/changes/gggggggggggg.md": mapEntry,
+      ".skillset/changes/hhhhhhhhhhhh.md": stringEntry,
+      ".skillset/changes/iiiiiiiiiiii.md": directEntry,
+      ".skillset/changes/kkkkkkkkkkkk.md": unrelatedEntry,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const plan = await planSourceMove(request);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+    const changes = join(root, ".skillset/changes");
+    const moved = "plugin.tools.skill:demo";
+    expect(await readFile(join(changes, "ffffffffffff.md"), "utf8")).toBe(arrayEntry.replaceAll("skill:demo\n", `${moved}\n`));
+    // The renamed key and its nested record scope follow the scope rule; the prefix-sharing selector stays, and the
+    // AST reconciler writes the renamed key after the untouched ones.
+    expect(await readFile(join(changes, "gggggggggggg.md"), "utf8")).toBe(`---\nid: gggggggggggg\nbump: patch\nscopes:\n  - skill:keep\n  - ${moved}\n  - skill:demo-notes\nevidence:\n  skill:keep: sha256:keep\n  skill:demo-notes: sha256:notes\n  ${moved}:\n    scope: ${moved}\n    hash: sha256:demo\n---\n\nMap evidence.\n`);
+    expect(await readFile(join(changes, "hhhhhhhhhhhh.md"), "utf8")).toBe(stringEntry.replaceAll("skill:demo", moved));
+    expect(await readFile(join(changes, "iiiiiiiiiiii.md"), "utf8")).toBe(directEntry.replace("skill:demo", moved));
+    expect(await readFile(join(changes, "kkkkkkkkkkkk.md"), "utf8")).toBe(unrelatedEntry);
+  });
+
+  test("refuses to merge evidence when the moved selector already has an evidence key, without writes", async () => {
+    const entry = "---\nid: jjjjjjjjjjjj\nbump: patch\nscopes: [skill:demo]\nevidence:\n  skill:demo: sha256:old\n  plugin.tools.skill:demo: sha256:new\n---\n\nColliding evidence.\n";
+    const root = await fixture({
+      ".skillset/changes/jjjjjjjjjjjj.md": entry,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = {
+      from: ".skillset/skills/demo",
+      rootPath: root,
+      to: ".skillset/plugins/tools/skills/demo",
+    };
+    const reason = "source move cannot rewrite pending change entry .skillset/changes/jjjjjjjjjjjj.md: evidence would have more than one plugin.tools.skill:demo key; merge its skill:demo evidence by hand before moving";
+    await expect(planSourceMove(request)).rejects.toBeInstanceOf(SourceMovePlanError);
+    await expect(planSourceMove(request)).rejects.toThrow(reason);
+    await expect(moveSource({ ...request, expectedPlanHash: "any" })).rejects.toThrow(reason);
+    expect(await readFile(join(root, ".skillset/changes/jjjjjjjjjjjj.md"), "utf8")).toBe(entry);
+    expect(await readFile(join(root, request.from, "SKILL.md"), "utf8")).toContain("name: demo");
+    await expect(access(join(root, request.to))).rejects.toThrow();
+  });
+
+  test("rewrites only the exact evidence map key the reader indexes", async () => {
+    // The reader trims scopes and evidence item scopes but indexes evidence map keys verbatim.
+    const entry = '---\nid: llllllllllll\nbump: patch\nscopes:\n  - skill:demo\nevidence:\n  " skill:demo": sha256:padded\n  skill:demo: sha256:bare\n---\n\nPadded evidence keys.\n';
+    const root = await fixture({
+      ".skillset/changes/llllllllllll.md": entry,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    await buildSkillset(root);
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    await moveSource({ ...request, expectedPlanHash: (await planSourceMove(request)).planHash });
+    expect(await readFile(join(root, ".skillset/changes/llllllllllll.md"), "utf8")).toBe(
+      entry.replace("  - skill:demo", "  - plugin.tools.skill:demo").replace("  skill:demo: sha256:bare", "  plugin.tools.skill:demo: sha256:bare")
+    );
+  });
+
+  test("tells the author to refresh evidence that the move rebinds, migrating frontmatter entries first", async () => {
+    const refresh = "pending change entries named skill:demo; source hashes bind a unit's identity, so run `skillset change refresh --yes` after the move to re-record their evidence for plugin.tools.skill:demo, or `skillset change refresh --ref <id> --yes` for one entry when unrelated uncovered changes block the workspace-wide refresh";
+    const migrate = "migrate frontmatter pending change entries with `skillset change migrate --yes` before `skillset change refresh` re-records their evidence";
+    const files = {
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    };
+    const request = (root: string) => ({ from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" });
+
+    const unrelated = await fixture({ ...files, ".skillset/changes/aaaaaaaaaaaa.md": "Keep change.\n\nScope: skill:keep\n" });
+    expect((await planSourceMove(request(unrelated))).notices).toEqual([]);
+
+    const reasonOnly = await fixture({ ...files, ".skillset/changes/aaaaaaaaaaaa.md": "Demo change.\n\nScope: skill:demo\n" });
+    expect((await planSourceMove(request(reasonOnly))).notices).toEqual([refresh]);
+
+    const frontmatter = await fixture({
+      ...files,
+      ".skillset/changes/aaaaaaaaaaaa.md": "Demo change.\n\nScope: skill:demo\n",
+      ".skillset/changes/bbbbbbbbbbbb.md": "---\nid: bbbbbbbbbbbb\nbump: patch\nscope: skill:demo\nevidence:\n  skill:demo: sha256:demo\n---\n\nLegacy demo change.\n",
+    });
+    expect((await planSourceMove(request(frontmatter))).notices).toEqual([migrate, refresh]);
+  });
+
+  test("tells the author to refresh ledger-backed pending evidence that the move rebinds", async () => {
+    const refresh = "pending change entries named skill:demo; source hashes bind a unit's identity, so run `skillset change refresh --yes` after the move to re-record their evidence for plugin.tools.skill:demo, or `skillset change refresh --ref <id> --yes` for one entry when unrelated uncovered changes block the workspace-wide refresh";
+    const reason = (reasonId: string, selector: string) => JSON.stringify({
+      createdAt: "2026-09-17T00:00:00.000Z",
+      id: `reason-${reasonId}`,
+      payload: { bump: "patch", reasonId, sourceUnits: [{ selector, sourceHash: `sha256:${"a".repeat(64)}` }] },
+      schemaVersion: 1,
+      type: "reason.created",
+    });
+    const files = (ledger: readonly string[], changes: Readonly<Record<string, string>>) => ({
+      ...changes,
+      ".skillset/changes/ledger.jsonl": `${ledger.join("\n")}\n`,
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Keep."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    const notices = async (ledger: readonly string[], changes: Readonly<Record<string, string>>) => {
+      const root = await fixture(files(ledger, changes));
+      const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+      const plan = await planSourceMove(request);
+      // A ledger-backed entry keeps its Markdown; only the ledger remaps its scope.
+      const updated = plan.operations.flatMap((operation) => (operation.kind === "update" ? [operation.path] : []));
+      expect(updated.filter((path) => path in changes)).toEqual([]);
+      return plan.notices;
+    };
+
+    const pending = { ".skillset/changes/aaaaaaaaaaaa.md": "Demo change recorded in the ledger.\n" };
+    expect(await notices([reason("aaaaaaaaaaaa", "skill:demo")], pending)).toEqual([refresh]);
+    // Unrelated ledger scope, a released reason without a pending file, and a directive that overrides the ledger scope.
+    expect(await notices([reason("aaaaaaaaaaaa", "skill:keep")], pending)).toEqual([]);
+    expect(await notices([reason("bbbbbbbbbbbb", "skill:demo")], pending)).toEqual([]);
+    expect(await notices([reason("aaaaaaaaaaaa", "skill:demo")], { ".skillset/changes/aaaaaaaaaaaa.md": "Keep change.\n\nScope: skill:keep\n" })).toEqual([]);
+  });
+
+  test("names a malformed pending change entry as a move plan error", async () => {
+    const root = await fixture({
+      ".skillset/changes/eeeeeeeeeeee.md": "---\nscopes: [skill:demo\n---\n\nBroken.\n",
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    });
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    const label = ".skillset/changes/eeeeeeeeeeee.md";
+    const error = await planSourceMove(request).then(
+      () => undefined,
+      (rejection: unknown) => rejection
+    );
+    if (!(error instanceof SourceMovePlanError)) throw new Error("expected planSourceMove to fail with SourceMovePlanError");
+    expect(error.message).toContain(`cannot rewrite pending change entry ${label}`);
+    expect(error.message).toContain("is not valid YAML");
+    expect(error.message).not.toContain(root);
+    expect(error.message.split(label).length - 1).toBe(1);
+    const { cause } = error;
+    if (!(cause instanceof Error)) throw new Error("expected the YAML error as cause");
+    expect(cause.message).toContain(`${label} is not valid YAML`);
+    expect(cause.cause).toBeInstanceOf(Error);
   });
 
   test("removes plugin internal-use selection with a visible notice", async () => {

@@ -325,6 +325,7 @@ export type SkillsetSourceReferenceMutationPolicy =
 export type SkillsetSourceReferenceContract =
   | "adaptive-hook"
   | "agent-frontmatter"
+  | "change-entry"
   | "plugin-config"
   | "root-source-manifest"
   | "skill-eval"
@@ -336,6 +337,7 @@ export type SkillsetSourceReferenceScope =
   | "adaptive-hook-runtime"
   | "agent-visible-skills"
   | "owner-visible-hooks"
+  | "pending-change-entry"
   | "skill-local-eval"
   | "skill-resource"
   | "workspace-or-plugin-config";
@@ -345,6 +347,13 @@ export type SkillsetSourceReferenceScope =
  * Path patterns describe source syntax, not resolved filesystem locations.
  */
 export interface SkillsetSourceReferenceDescriptor {
+  /**
+   * Schema selector pattern each contract applies to this field. Present only
+   * on selector-valued fields whose contract restricts the selector grammar.
+   */
+  readonly acceptedSelectorPatterns?: Readonly<
+    Partial<Record<SkillsetSourceReferenceContract, string>>
+  >;
   readonly contracts: readonly SkillsetSourceReferenceContract[];
   readonly id:
     | "adaptive-hook-run-script"
@@ -354,6 +363,7 @@ export interface SkillsetSourceReferenceDescriptor {
     | "hook-attachment"
     | "internal-plugin-dependency"
     | "internal-plugin-selection"
+    | "pending-change-scope"
     | "skill-eval-file"
     | "skill-eval-skill-name"
     | "skill-resource-destination"

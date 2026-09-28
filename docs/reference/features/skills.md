@@ -130,8 +130,19 @@ Use [`skillset move`](../cli/move.md) to move a shipped skill between the
 workspace collection and one plugin collection in the same workspace. The
 destination must keep the same leaf name. A same-container `_drafts/<leaf>`
 sibling moves in the same atomic plan, current agent/configuration references
-follow the new `skill:<leaf>` or `plugin.<plugin>.skill:<leaf>` identity, and
-generated files and locks move to their newly owned destinations. Moving a
+and pending change entry scopes and evidence selectors follow the new
+`skill:<leaf>` or `plugin.<plugin>.skill:<leaf>` identity, and generated files
+and locks move to their newly owned destinations. A move that would write a
+selector its field does not accept is refused without writes; for example, a
+distribution `from.selector` accepts only `plugins`, `plugin:<id>`, or
+`skill:<id>`, so a workspace skill that is a distribution source cannot move
+into a plugin until that distribution changes. A move is also refused when a
+pending entry's evidence map already has a key for the new selector. Source
+hashes bind a unit's identity, so recorded evidence, in entry files or in the
+change ledger, stays as written and turns stale under the new selector. When a
+pending entry named the moved skill, the move prints a notice asking you to run
+`skillset change refresh --yes` afterward (or `--ref <id>` for one entry),
+after `skillset change migrate --yes` for frontmatter entries. Moving a
 plugin skill into the workspace removes direct
 `plugins.internal_use.skills` and `plugins.internal_use.drafts` selections for
 that plugin leaf and reports the removal; it does not turn them into implicit

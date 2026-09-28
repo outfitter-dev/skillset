@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
 
-import { readChangeLedger, type ChangeLedgerEvent, type ChangeLedgerSourceUnit } from "@skillset/core/internal/change-ledger";
+import { readChangeLedger, type ChangeLedgerSourceUnit } from "@skillset/core/internal/change-ledger";
 import {
   changeStatus,
   detectWorkspaceOptions,
@@ -16,7 +16,7 @@ import {
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { readReleaseState } from "@skillset/core/internal/release-state";
-import { currentSourceHashEvidence, currentSourceIdentity, sourceIdentityMappings, sourceMappingsAfterEvent } from "@skillset/core/internal/source-identity-mapping";
+import { currentSourceHashEvidence, currentSourceIdentity, ledgerReasonId, sourceIdentityMappings, sourceMappingsAfterEvent } from "@skillset/core/internal/source-identity-mapping";
 import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, JsonValue } from "@skillset/core/internal/types";
 import { workspaceChangesDir } from "@skillset/core";
@@ -358,12 +358,6 @@ async function readPendingLedgerFacts(
     });
   }
   return readonlyFacts;
-}
-
-function ledgerReasonId(event: ChangeLedgerEvent): string | undefined {
-  if ("reasonId" in event.payload) return event.payload.reasonId;
-  if (event.type === "change.amended") return event.payload.changeId;
-  return undefined;
 }
 
 function idFromReasonFilename(file: string): string | undefined {
