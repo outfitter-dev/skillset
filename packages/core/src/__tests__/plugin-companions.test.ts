@@ -8,17 +8,42 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 const LONG_PLUGIN_ID = `long-${"x".repeat(65)}`;
 
 describe("plugin companions", () => {
-  for (const target of ["claude", "cursor"] as const) {
-    it(`keeps ${target} companions when the Agent Plugins baseline is unsupported`, async () => {
-      const root = await fixture(target, LONG_PLUGIN_ID);
+  it("keeps claude companions when the Agent Plugins baseline is unsupported", async () => {
+    const root = await fixture("claude", LONG_PLUGIN_ID);
 
-      const result = await buildSkillsetResult(root);
-      expect(result.ok).toBe(true);
-      for (const path of ["README.md", "scripts/setup.sh", "src/index.js"]) {
-        expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, path)).exists()).toBe(true);
-      }
-    });
-  }
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    for (const path of ["README.md", "scripts/setup.sh", "src/index.js"]) {
+      expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, path)).exists()).toBe(true);
+    }
+  });
+
+  it("does not copy companions whose cursor registry support is still planned", async () => {
+    const root = await fixture("cursor", LONG_PLUGIN_ID);
+
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    for (const path of ["README.md", "assets/icon.svg", "scripts/setup.sh", "src/index.js"]) {
+      expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, path)).exists()).toBe(false);
+    }
+    const { renderResults } = await diffSkillsetResult(root);
+    expect(
+      renderResults.filter((outcome) =>
+        ["plugin-assets", "plugin-readme", "plugin-scripts", "plugin-src"].includes(outcome.featureId)
+      )
+    ).toEqual([]);
+  });
+
+  it("changes the fallback plugin source hash when a copied README changes", async () => {
+    const root = await fixture("claude", LONG_PLUGIN_ID);
+
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const before = await pluginSourceHash(root, LONG_PLUGIN_ID);
+    await Bun.write(join(root, ".skillset/plugins", LONG_PLUGIN_ID, "README.md"), "# Companion plugin, revised\n");
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+
+    expect(await pluginSourceHash(root, LONG_PLUGIN_ID)).not.toBe(before);
+  });
 
   it("keeps codex assets when the Agent Plugins baseline is unsupported", async () => {
     const root = await fixture("codex", LONG_PLUGIN_ID);
@@ -60,6 +85,18 @@ describe("plugin companions", () => {
     ]);
   });
 });
+
+async function pluginSourceHash(root: string, pluginId: string): Promise<string | undefined> {
+  const lock: unknown = await Bun.file(join(root, "plugins/skillset.lock")).json();
+  if (typeof lock !== "object" || lock === null || !("items" in lock) || !Array.isArray(lock.items)) return undefined;
+  for (const item of lock.items) {
+    if (typeof item !== "object" || item === null) continue;
+    if ("kind" in item && item.kind === "plugin" && "name" in item && item.name === pluginId && "sourceHash" in item) {
+      return typeof item.sourceHash === "string" ? item.sourceHash : undefined;
+    }
+  }
+  return undefined;
+}
 
 async function fixture(target: "claude" | "codex" | "cursor", pluginId: string): Promise<string> {
   const root = await createTestFixtureRoot("skillset-plugin-companions-");
