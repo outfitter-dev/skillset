@@ -167,16 +167,16 @@ async function transformPreprocessReferences(
 ): Promise<string> {
   const partialPattern =
     /@\{\{\s*([^}\s]+)\s*\}\}|\{\{\s*>\s*([^}\s]+)\s*\}\}|\{\{\s*([^}\s]+)\s*\}\}/g;
+  const codeRanges = isMarkdownSource(context.sourcePath)
+    ? markdownCodeRanges(content)
+    : [];
   let expanded = "";
   let cursor = 0;
 
   for (const match of content.matchAll(partialPattern)) {
     const [token, linkSpecifier, inlineSpecifier, bareSpecifier] = match;
     expanded += content.slice(cursor, match.index);
-    if (
-      isMarkdownSource(context.sourcePath) &&
-      isInsideMarkdownCode(content, match.index)
-    ) {
+    if (isInsideMarkdownCode(codeRanges, match.index)) {
       expanded += token;
     } else if (linkSpecifier !== undefined) {
       assertCurrentLinkSpecifier(token, linkSpecifier, context);
@@ -829,54 +829,234 @@ function isMarkdownSource(path: string): boolean {
   return path.endsWith(".md");
 }
 
-function isInsideMarkdownCode(content: string, index: number): boolean {
+type CodeRange = readonly [start: number, end: number];
+
+interface BacktickRun {
+  readonly escaped: boolean;
+  readonly length: number;
+  readonly start: number;
+}
+
+/** How a non-fence line affects pending code-span delimiters. */
+type MarkdownLineBlock = "blank" | "continuation" | "row" | "single" | "start";
+
+/** Block context carried from one line to the next while pairing code spans. */
+interface MarkdownBlockState {
+  inParagraph: boolean;
+  inTable: boolean;
+  /** Content columns of the open list items, innermost last. */
+  readonly listIndents: number[];
+}
+
+interface MarkdownFence {
+  readonly char: string;
+  readonly length: number;
+}
+
+interface ListItemStart {
+  /** Column of the item's content. */
+  readonly contentIndent: number;
+  /** Whether the item may interrupt a paragraph: it has content and is a bullet or starts at 1. */
+  readonly canInterruptParagraph: boolean;
+}
+
+function isInsideMarkdownCode(ranges: readonly CodeRange[], index: number): boolean {
+  return ranges.some(([start, end]) => index >= start && index < end);
+}
+
+/**
+ * Fenced blocks and inline code spans, computed once per document. A span opens
+ * at a backtick run and closes at the next run of exactly the same length in the
+ * same block, so spans may cross line breaks within a paragraph or list item but
+ * never a blank line, fence, heading, setext underline, list-item start, GFM table
+ * row, thematic break, or indented-code line; unmatched runs stay literal.
+ */
+export function markdownCodeRanges(content: string): CodeRange[] {
+  const ranges: CodeRange[] = [];
+  let runs: BacktickRun[] = [];
+  const flush = (): void => {
+    pushCodeSpans(runs, ranges);
+    runs = [];
+  };
+  let fence: MarkdownFence | undefined;
+  let fenceStart = 0;
+  const state: MarkdownBlockState = { inParagraph: false, inTable: false, listIndents: [] };
+  const lines = content.split("\n");
+  let lineStart = 0;
+  for (const [index, line] of lines.entries()) {
+    const lineEnd = lineStart + line.length;
+    const next = nextFence(line, fence);
+    if (fence === undefined && next !== undefined) {
+      flush();
+      fenceStart = lineStart;
+    } else if (fence !== undefined && next === undefined) {
+      ranges.push([fenceStart, lineEnd]);
+    }
+    if (fence !== undefined || next !== undefined) {
+      state.inParagraph = false;
+      state.inTable = false;
+    } else {
+      const block = markdownLineBlock(line, lines[index + 1], state);
+      if (block !== "continuation") flush();
+      if (block !== "blank") runs.push(...backtickRuns(line, lineStart));
+      if (block === "row" || block === "single") flush();
+      trackListItems(line, block, state);
+      state.inParagraph = block === "continuation" || block === "start";
+      state.inTable = block === "row";
+    }
+    fence = next;
+    lineStart = lineEnd + 1;
+  }
+  if (fence !== undefined) ranges.push([fenceStart, content.length]);
+  flush();
+  return ranges;
+}
+
+/**
+ * Single-line blocks (ATX headings, setext underlines, thematic breaks, and
+ * indented code outside a paragraph) keep spans on their own line, as do GFM
+ * table rows. List items start a new block that later lines may continue.
+ * Block syntax is read from the line's container column, so inside a list item
+ * the usual up-to-three-space indent is counted from the item's content.
+ */
+function markdownLineBlock(
+  line: string,
+  nextLine: string | undefined,
+  state: MarkdownBlockState
+): MarkdownLineBlock {
+  if (/^[ \t]*$/.test(line)) return "blank";
+  const column = containerColumn(line, state);
+  const inner = line.slice(column);
+  // A line left of the open paragraph's item is lazy continuation at most, so
+  // it can neither underline that paragraph nor be refused as an interruption.
+  const inParagraphContainer =
+    state.inParagraph && column === (state.listIndents.at(-1) ?? 0);
+  if (
+    (inParagraphContainer && /^ {0,3}(?:=+|-+)[ \t]*$/.test(inner)) ||
+    /^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/.test(inner)
+  ) {
+    return "single";
+  }
+  const item = listItemStart(inner, column);
+  if (item !== undefined && (item.canInterruptParagraph || !inParagraphContainer)) {
+    return "start";
+  }
+  if (state.inTable) return "row";
+  if (!state.inParagraph && /^(?: {4}|\t)/.test(inner)) return "single";
+  if (isTableHeader(line, nextLine)) return "row";
+  return "continuation";
+}
+
+/**
+ * Content column of the innermost open list item that still contains the line,
+ * or 0 outside lists.
+ */
+function containerColumn(line: string, state: MarkdownBlockState): number {
+  const indent = line.match(/^[ \t]*/)?.[0].length ?? 0;
+  return state.listIndents.findLast((column) => column <= indent) ?? 0;
+}
+
+/**
+ * Keeps the content columns of open list items: a non-blank line that is not
+ * paragraph continuation closes every item whose content sits right of it, and
+ * a list-item start opens a new item.
+ */
+function trackListItems(line: string, block: MarkdownLineBlock, state: MarkdownBlockState): void {
+  if (block === "blank" || (block === "continuation" && state.inParagraph)) return;
+  const column = containerColumn(line, state);
+  while ((state.listIndents.at(-1) ?? 0) > column) state.listIndents.pop();
+  const item = block === "start" ? listItemStart(line.slice(column), column) : undefined;
+  if (item !== undefined) state.listIndents.push(item.contentIndent);
+}
+
+/**
+ * Parses a bullet or ordered list marker in `inner`, the part of a line after
+ * its container column; tabs count as one column.
+ */
+function listItemStart(inner: string, column: number): ListItemStart | undefined {
+  const match = inner.match(/^( {0,3})([-+*]|(\d{1,9})[.)])([ \t]*)(.*)$/);
+  if (match === null) return undefined;
+  const [, indent = "", marker = "", start, spacing = "", text = ""] = match;
+  if (spacing === "" && text !== "") return undefined;
+  const markerEnd = column + indent.length + marker.length;
+  return {
+    contentIndent: markerEnd + (text !== "" && spacing.length <= 4 ? spacing.length : 1),
+    canInterruptParagraph:
+      text !== "" && (start === undefined || Number.parseInt(start, 10) === 1),
+  };
+}
+
+/**
+ * A GFM table starts at a header row followed by a delimiter row with the same
+ * number of cells; a leading pipe alone does not make a line a table row. The
+ * delimiter pattern gives each whitespace run one owner so it stays linear.
+ */
+function isTableHeader(line: string, nextLine: string | undefined): boolean {
   return (
-    isInsideFencedCodeBlock(content, index) ||
-    isInsideInlineCodeSpan(content, index)
+    nextLine !== undefined &&
+    nextLine.includes("|") &&
+    /^ {0,3}\|?[ \t]*:?-+:?(?:[ \t]*\|[ \t]*:?-+:?)*[ \t]*(?:\|[ \t]*)?$/.test(nextLine) &&
+    tableCellCount(line) === tableCellCount(nextLine)
   );
 }
 
-function isInsideInlineCodeSpan(content: string, index: number): boolean {
-  const lineStart = content.lastIndexOf("\n", index - 1) + 1;
-  const nextLineBreak = content.indexOf("\n", index);
-  const lineEnd = nextLineBreak === -1 ? content.length : nextLineBreak;
-  const line = content.slice(lineStart, lineEnd);
-  const relativeIndex = index - lineStart;
-  let openingLength: number | undefined;
+function tableCellCount(row: string): number {
+  return row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/(?<!\\)\|$/, "")
+    .split(/(?<!\\)\|/).length;
+}
 
-  for (const match of line.matchAll(/`+/g)) {
-    const matchIndex = match.index;
-    const marker = match[0];
-    if (matchIndex === undefined || marker === undefined) continue;
-    if (openingLength === undefined) {
-      if (matchIndex >= relativeIndex) return false;
-      openingLength = marker.length;
-      continue;
-    }
-    if (marker.length !== openingLength) continue;
-    if (matchIndex >= relativeIndex) return true;
-    openingLength = undefined;
+function backtickRuns(line: string, lineStart: number): BacktickRun[] {
+  return Array.from(line.matchAll(/`+/g), (run) => {
+    let backslashes = 0;
+    while (line[run.index - backslashes - 1] === "\\") backslashes += 1;
+    return {
+      escaped: backslashes % 2 === 1,
+      length: run[0].length,
+      start: lineStart + run.index,
+    };
+  });
+}
+
+/**
+ * Pairs runs into spans. A backslash escapes only the first backtick of an
+ * opening run; closing runs match at full length because backslashes are
+ * literal inside a code span.
+ */
+function pushCodeSpans(runs: readonly BacktickRun[], ranges: CodeRange[]): void {
+  let resumeAt = 0;
+  for (const [index, run] of runs.entries()) {
+    if (index < resumeAt) continue;
+    const openLength = run.escaped ? run.length - 1 : run.length;
+    if (openLength === 0) continue;
+    let close = index + 1;
+    while (close < runs.length && runs[close]?.length !== openLength) close += 1;
+    const closer = runs[close];
+    if (closer === undefined) continue;
+    ranges.push([run.start + run.length - openLength, closer.start + closer.length]);
+    resumeAt = close + 1;
   }
+}
 
-  return false;
+/** Returns the fence state after `line`: opened, closed, or unchanged. */
+function nextFence(line: string, fence: MarkdownFence | undefined): MarkdownFence | undefined {
+  const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+  const marker = match?.[1];
+  if (marker === undefined) return fence;
+  if (fence === undefined) return { char: marker.charAt(0), length: marker.length };
+  const closes =
+    marker.charAt(0) === fence.char &&
+    marker.length >= fence.length &&
+    /^[ \t]*$/.test(match?.[2] ?? "");
+  return closes ? undefined : fence;
 }
 
 function isInsideFencedCodeBlock(content: string, index: number): boolean {
-  const before = content.slice(0, index);
-  let fence: { readonly char: "`" | "~"; readonly length: number } | undefined;
-  for (const line of before.split("\n")) {
-    const match = line.match(/^( {0,3})(`{3,}|~{3,})(.*)$/);
-    if (match === null) continue;
-    const marker = match[2];
-    if (marker === undefined) continue;
-    const char = marker[0] as "`" | "~";
-    const length = marker.length;
-    if (fence === undefined) {
-      fence = { char, length };
-      continue;
-    }
-    const trailing = match[3] ?? "";
-    if (char === fence.char && length >= fence.length && /^[ \t]*$/.test(trailing)) fence = undefined;
+  let fence: MarkdownFence | undefined;
+  for (const line of content.slice(0, index).split("\n")) {
+    fence = nextFence(line, fence);
   }
   return fence !== undefined;
 }

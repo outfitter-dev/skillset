@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
+  markdownCodeRanges,
   type PreprocessContext,
   preprocessText,
   resolveMarkedPathReferences,
@@ -274,6 +275,138 @@ describe("preprocess reference grammar", () => {
     await expect(preprocessText(content, preprocessContext(rootPath))).resolves.toBe(content);
   });
 
+  test("preserves links inside code spans that cross line breaks", async () => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+    const content = "`before\n@{{shared:references/a.md}}\nafter`";
+
+    await expect(preprocessText(content, context)).resolves.toBe(content);
+    expect(rendered).toEqual([]);
+  });
+
+  test.each([
+    ["an unmatched backtick", "a ` b\n@{{shared:references/a.md}}", "a ` b\n@shared:references/a.md"],
+    [
+      "a backtick run of a different length",
+      "``x ` @{{shared:references/a.md}} ` y``\n``done`` @{{shared:references/a.md}}",
+      "``x ` @{{shared:references/a.md}} ` y``\n``done`` @shared:references/a.md",
+    ],
+    [
+      "a blank line before the closing run",
+      "`open\n\n@{{shared:references/a.md}}\nclose`",
+      "`open\n\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "a fenced block before the closing run",
+      "`open\n```\n`\n```\n@{{shared:references/a.md}}",
+      "`open\n```\n`\n```\n@shared:references/a.md",
+    ],
+    [
+      "a tilde fence before the closing run",
+      "`open\n~~~\n`\n~~~\n@{{shared:references/a.md}}",
+      "`open\n~~~\n`\n~~~\n@shared:references/a.md",
+    ],
+    [
+      "a whitespace-only line before the closing run",
+      "`open\n \t\n@{{shared:references/a.md}}\nclose`",
+      "`open\n \t\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "an ATX heading",
+      "# Heading ` x\npara @{{shared:references/a.md}} and ` y",
+      "# Heading ` x\npara @shared:references/a.md and ` y",
+    ],
+    [
+      "list item starts",
+      "- a ` b\n- @{{shared:references/a.md}}\n- c ` d",
+      "- a ` b\n- @shared:references/a.md\n- c ` d",
+    ],
+    [
+      "table rows",
+      "| a ` | b |\n| --- | --- |\n| @{{shared:references/a.md}} | c ` |",
+      "| a ` | b |\n| --- | --- |\n| @shared:references/a.md | c ` |",
+    ],
+    [
+      "ordered list siblings",
+      "1. a ` b\n2. @{{shared:references/a.md}}\n3. c ` d",
+      "1. a ` b\n2. @shared:references/a.md\n3. c ` d",
+    ],
+    [
+      "the next item of a loose list",
+      "1. a\n\n   more ` b\n2. @{{shared:references/a.md}} ` c",
+      "1. a\n\n   more ` b\n2. @shared:references/a.md ` c",
+    ],
+    [
+      "third-level list siblings",
+      "- a\n  - b\n    - c ` x\n    - @{{shared:references/a.md}}\n    - d ` y",
+      "- a\n  - b\n    - c ` x\n    - @shared:references/a.md\n    - d ` y",
+    ],
+    [
+      "an ATX heading inside a nested list item",
+      "- a\n  - b ` x\n    # h\n    @{{shared:references/a.md}} ` y",
+      "- a\n  - b ` x\n    # h\n    @shared:references/a.md ` y",
+    ],
+    [
+      "a setext underline inside a nested list item",
+      "- a\n  - b ` x\n    ===\n    @{{shared:references/a.md}} ` y",
+      "- a\n  - b ` x\n    ===\n    @shared:references/a.md ` y",
+    ],
+    [
+      "a setext heading underline",
+      "`open\n===\n@{{shared:references/a.md}}\nclose`",
+      "`open\n===\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "a short dash setext heading underline",
+      "`open\n--\n@{{shared:references/a.md}}\nclose`",
+      "`open\n--\n@shared:references/a.md\nclose`",
+    ],
+    [
+      "indented code lines",
+      "    ```\n@{{shared:references/a.md}}\n    ```",
+      "    ```\n@shared:references/a.md\n    ```",
+    ],
+    [
+      "a backslash-escaped backtick",
+      "\\`not code\n@{{shared:references/a.md}} ` end",
+      "\\`not code\n@shared:references/a.md ` end",
+    ],
+    [
+      "an escaped backtick that closes a span",
+      "`code\\`\n@{{shared:references/a.md}} ` end",
+      "`code\\`\n@shared:references/a.md ` end",
+    ],
+  ])("scopes multiline code spans past %s", async (_case, content, expected) => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+
+    await expect(preprocessText(content, context)).resolves.toBe(expected);
+    expect(rendered).toEqual(["shared:references/a.md"]);
+  });
+
+  test.each([
+    ["a pipe line that is not a table row", "`open\n| ordinary text\n@{{shared:references/a.md}}\nclose`"],
+    ["an ordered item that does not start at 1", "`open\n2. ordinary text\n@{{shared:references/a.md}}\nclose`"],
+    ["an empty list item", "`open\n*\n@{{shared:references/a.md}}\nclose`"],
+    [
+      "a marker four columns past the item content",
+      "- a ` x\n      - @{{shared:references/a.md}}\n  y `",
+    ],
+    ["a lazy setext-like line in a list item", "- a ` x\n===\n@{{shared:references/a.md}} ` y"],
+  ])("keeps multiline code spans open across %s", async (_case, content) => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+
+    await expect(preprocessText(content, context)).resolves.toBe(content);
+    expect(rendered).toEqual([]);
+  });
+
+  test("ends a fence that closes on the last line at the end of content", () => {
+    const content = "```\n@{{shared:references/a.md}}\n```";
+
+    expect(markdownCodeRanges(content)).toEqual([[0, content.length]]);
+  });
+
   test("preserves triple-brace escapes and unrelated brace expressions", async () => {
     const content = [
       "{{{> intro}}}",
@@ -356,6 +489,23 @@ function preprocessContext(rootPath: string, plugin = false): PreprocessContext 
       plugin ? ".skillset/plugins/demo/skills/example/SKILL.md" : ".skillset/skills/example/SKILL.md"
     ),
     sourceRoot: ".skillset",
+  };
+}
+
+function recordingContext(rootPath: string): {
+  readonly context: PreprocessContext;
+  readonly rendered: string[];
+} {
+  const rendered: string[] = [];
+  return {
+    context: {
+      ...preprocessContext(rootPath),
+      renderPathReference: ({ specifier }) => {
+        rendered.push(specifier);
+        return specifier;
+      },
+    },
+    rendered,
   };
 }
 
