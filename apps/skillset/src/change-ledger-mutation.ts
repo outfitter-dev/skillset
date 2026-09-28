@@ -47,7 +47,7 @@ export async function withChangeLedgerMutation<T>(
   operation: (mutation: ChangeLedgerMutation) => Promise<T>
 ): Promise<T> {
   return withChangeLedgerLock(rootPath, sourceDir, input, async (lock) => {
-    const owned = new Map<string, Set<string>>();
+    const owned = new Map<string, string[]>();
     const mutation: ChangeLedgerMutation = {
       assertOwned: lock.assertOwned,
       appendJsonl: async (relativePath, records) => {
@@ -55,9 +55,9 @@ export async function withChangeLedgerMutation<T>(
         const absolutePath = resolveInside(rootPath, relativePath);
         await prepareRepositoryMutationPath(rootPath, absolutePath);
         const lines = await appendOwnedJsonlRecords(absolutePath, records);
-        const current = owned.get(relativePath) ?? new Set<string>();
-        for (const line of lines) current.add(line);
-        owned.set(relativePath, current);
+        // Keep every appended line, duplicates included: rollback removes one
+        // occurrence per owned line.
+        owned.set(relativePath, [...(owned.get(relativePath) ?? []), ...lines]);
         return lines;
       },
       appendLedger: async (events) => {

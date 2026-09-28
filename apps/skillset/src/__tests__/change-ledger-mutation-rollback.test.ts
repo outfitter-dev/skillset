@@ -38,6 +38,21 @@ describe("SET-636 change-ledger mutation rollback", () => {
     expect(await Bun.file(join(root, AMENDMENTS)).exists()).toBe(false);
   });
 
+  test("a failing mutation removes every duplicate record it appended", async () => {
+    const root = await fixture();
+    const amendment = { amendedAt: "2026-09-21T00:00:00.000Z", id: "same-amendment", reason: "Owned twice." };
+
+    await expect(
+      withChangeLedgerMutation(root, undefined, undefined, async (mutation) => {
+        await mutation.appendJsonl(AMENDMENTS, [amendment]);
+        await mutation.appendJsonl(AMENDMENTS, [amendment]);
+        throw new Error("injected writer failure");
+      })
+    ).rejects.toThrow("injected writer failure");
+
+    expect(await Bun.file(join(root, AMENDMENTS)).exists()).toBe(false);
+  });
+
   test("a rollback failure keeps the original error and still rolls back other streams", async () => {
     const root = await fixture();
     const original = new Error("injected writer failure");
