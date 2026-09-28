@@ -1,5 +1,5 @@
 ---
-description: Choose and validate metadata for Skillset skills, agents, and instructions.
+description: Choose and validate metadata for Skillset skills, agents, and rules.
 ---
 
 # Frontmatter
@@ -10,7 +10,7 @@ Markdown [source units](../glossary.md#source-unit) use YAML frontmatter for met
 | --- | --- | --- | --- |
 | Skill | `.skillset/skills/<skill>/SKILL.md` | [Schema and example](../reference/schemas/README.md) | [Skills](../reference/features/skills.md) |
 | Project agent | `.skillset/subagents/<agent>.md` | [Schema and example](../reference/schemas/README.md) | [Agents](../reference/features/agents.md) |
-| Instruction | `.skillset/rules/**/*.md` | [Schema and example](../reference/schemas/README.md) | [Instructions](../reference/source/instructions.md) |
+| Rule | `.skillset/rules/**/*.md` | [Schema and example](../reference/schemas/README.md) | [Rules](../reference/source/rules.md) |
 
 ## Start with Shared Metadata
 
@@ -26,7 +26,7 @@ tools: readonly
 
 Use top-level fields for the source type's portable meaning. The nested `skillset` block carries Skillset source metadata such as schema, preprocessing, origin, version baselines, and licensing. Compatibility requirements belong under `supports`.
 
-The field sets differ by source type. For example, skills can declare resources and tool intent, agents can declare skills and an initial prompt, and instructions can declare path scoping and a dialect. Use the generated [frontmatter schemas and examples](../reference/schemas/README.md) rather than copying a field list from prose.
+The field sets differ by source type. For example, skills can declare resources and tool intent, agents can declare skills and an initial prompt, and rules can declare path scoping and a dialect. Use the generated [frontmatter schemas and examples](../reference/schemas/README.md) rather than copying a field list from prose.
 
 ## Let Paths Supply Identity
 

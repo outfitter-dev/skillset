@@ -20,7 +20,7 @@ For repository documentation, follow [docs/development/documentation-system.md](
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
 - Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` ([ADR-0037](docs/adrs/0037-one-shared-plugin-package-per-plugin.md)).
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
-- Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
+- Emit source rules from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
 - Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata["skillset.schema"]` fields.
 - Write deterministic `skillset.lock` files near generated outputs.
@@ -69,7 +69,7 @@ bun run process-gone:guard
 
 `bun run package-ownership:guard` blocks app-level package facade files from returning under `apps/skillset/src/`. Prefer importing an owned package root API or a documented private workspace internal directly instead of adding `export * from "@skillset/<package>/internal/*"` shims in the CLI app.
 
-`bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
+`bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover, and the pre-ADR-0039 "instruction" spellings of rule source) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. Agent Instructions and provider "instruction" words are not retired. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
 
 `bun run path-containment:guard` keeps OS-path containment on `isPathInside` / `resolveInside` / `assertRealPathInside` in `packages/core/src/path.ts`. It rejects new `isAbsolute(relative…)` copies, `relative(…).startsWith("..")` tests, `relative(…) === ".."` comparisons, and realpath or resolve slash-prefix comparisons in `apps/` and `packages/` outside that helper. A `relative()` result stays tracked through `replace`/`replaceAll` and any single-argument normalizer such as `normalizePath(relative(…))`.
 

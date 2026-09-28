@@ -14,9 +14,9 @@ Portable listing metadata renders to `extensions.com.openai.interface`. The Chat
 
 An ordinary build also owns `.agents/plugins/marketplace.json`. With no declared catalog targeting `codex`, Skillset derives one from enabled local ChatGPT bundles; otherwise it renders the one declared Codex-targeted catalog in entry order. Local `./` source paths resolve from the repository catalog root. The file makes packages discoverable to compatible local clients, but does not install, trust, enable, activate, register, sync, upload, or publish them. Repository discovery is distinct from explicit `codex plugin marketplace add` runtime registration, and `skillset marketplace update` remains a Claude-only writer.
 
-Adaptive project agents render as TOML under `.codex/agents/`. Adaptive instruction source renders to directory-local `AGENTS.md` files. Codex `.rules` files are command-execution policy, not prose guidance, and remain a provider-native surface rather than an alternative rendering of instructions. Tool policy that has no skill-local Codex enforcement surface remains visible metadata rather than a false [activation](../../glossary.md#activation) claim.
+Adaptive project agents render as TOML under `.codex/agents/`. Adaptive rule source renders to directory-local `AGENTS.md` files. Codex `.rules` files are command-execution policy, not prose guidance, and remain a provider-native surface rather than an alternative rendering of rules. Tool policy that has no skill-local Codex enforcement surface remains visible metadata rather than a false [activation](../../glossary.md#activation) claim.
 
-For exact source and destination behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [instructions](../features/instructions.md), [hooks](../features/hooks.md), [apps](../features/apps.md), and [tools policy](../features/tools-policy.md).
+For exact source and destination behavior, use the feature pages for [plugins](../features/plugins.md), [agents](../features/agents.md), [rules](../features/rules.md), [hooks](../features/hooks.md), [apps](../features/apps.md), and [tools policy](../features/tools-policy.md).
 
 With `compile.session_start_hook: on` (or eligible `auto`), Skillset composes one advisory project SessionStart command into `.codex/hooks.json`. The path is drawn from the checked-in provider-location evidence and shared with `hooks print --agent-runtime --target codex`; plugin hooks remain a separate output surface. The command reports stale output but does not rebuild or grant runtime trust.
 
@@ -47,13 +47,13 @@ With `compile.session_start_hook: on` (or eligible `auto`), Skillset composes on
 | Plugin Monitors | `implemented` | `not_applicable` | — | [1](../features/monitors.md), [2](../features/plugins.md) |
 | Plugin Output Styles | `implemented` | `not_applicable` | — | [1](../features/output-styles.md), [2](../features/plugins.md) |
 | Plugin README | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
-| Plugin Rules | `implemented` | `not_applicable` | — | [1](../features/instructions.md), [2](../features/plugins.md) |
+| Plugin Rules | `implemented` | `not_applicable` | — | [1](../features/rules.md), [2](../features/plugins.md) |
 | Plugin Scripts | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Skills | `implemented` | `native` | — | [1](../features/plugins.md), [2](../features/skills.md) |
 | Plugin Source | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Themes | `implemented` | `not_applicable` | — | [1](../features/themes.md), [2](../features/plugins.md) |
 | Project Agents | `implemented` | `transformed` | — | [1](../features/agents.md) |
-| Project Instructions | `implemented` | `transformed` | — | [1](../features/instructions.md) |
+| Project Instructions | `implemented` | `transformed` | — | [1](../features/rules.md) |
 | Releases | `implemented` | `metadata_only` | — | [1](../features/releases.md) |
 | Render Results | `implemented` | `not_applicable` | — | [1](../../development/features/render-results.md) |
 | Resources | `implemented` | `native` | — | [1](../features/resources.md) |

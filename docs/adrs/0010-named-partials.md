@@ -123,4 +123,4 @@ language or cross-plugin import system.
 - [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.
 - [Preprocessing](../reference/source/preprocessing.md) - current preprocessing and partial-resolution contract.
 - [Skills](../reference/features/skills.md) - skill body preprocessing behavior.
-- [Instructions](../reference/features/instructions.md) - rule body preprocessing behavior.
+- [Instructions](../reference/features/rules.md) - rule body preprocessing behavior.

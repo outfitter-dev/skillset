@@ -6,7 +6,7 @@ description: Defines Skillset Markdown preprocessing variables, prompt arguments
 
 Skillset preprocesses Markdown [source](../../glossary.md#canonical-source) before [target](../../glossary.md#target) serialization. The language substitutes known document and path context, expands exact partials, and resolves marked links without becoming a general template engine.
 
-Preprocessing applies to supported Markdown source, including skills and [instructions](instructions.md). Invalid reserved expressions fail with the source path and relevant name. Unrelated double-brace text, such as JSX object literals, remains unchanged.
+Preprocessing applies to supported Markdown source, including skills and [rules](rules.md). Invalid reserved expressions fail with the source path and relevant name. Unrelated double-brace text, such as JSX object literals, remains unchanged.
 
 ## Document values
 
@@ -34,7 +34,7 @@ All preprocessed files can use:
 | `{{parent.tree}}` | Deterministic tree for the owning source scope. |
 | `{{parent.tree depth:<depth>}}` | The same tree limited to a depth from `0` through `8`. |
 
-Instructions additionally support `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`. They resolve for each concrete [destination](../../glossary.md#destination), so one instruction can produce different correct paths for Claude, Codex, and Cursor.
+Rules additionally support `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`. They resolve for each concrete [destination](../../glossary.md#destination), so one rule can produce different correct paths for Claude, Codex, and Cursor.
 
 ## Prompt arguments
 
@@ -71,7 +71,7 @@ Use @{{plugin:templates/checklist.md}}.
 
 The accepted scopes are `shared:` and `plugin:`. `plugin:` is available only to plugin-bound source. For a skill body, the first path segment must be exactly `references`, `scripts`, `assets`, or `templates`. The linked file becomes an effective skill resource, defaults to the same `<group>/<rest>` destination beside `SKILL.md`, and the rendered text keeps the leading `@`, such as `@references/common.md`. An explicit `resources` exact-file or directory `to:` mapping wins and changes the rendered target.
 
-For instructions and project agents, marked links resolve to the appropriate committed source path; they do not create a skill resource. Code spans and fenced code blocks preserve marked-link text literally and imply no copy. Copied Markdown resources are opaque files and are not recursively preprocessed.
+For rules and project agents, marked links resolve to the appropriate committed source path; they do not create a skill resource. Code spans and fenced code blocks preserve marked-link text literally and imply no copy. Copied Markdown resources are opaque files and are not recursively preprocessed.
 
 Missing files, invalid groups, unsafe traversal, symlink escapes, and destination collisions fail before output writes. Marked links accept files only; use explicit [`resources`](../features/resources.md) for directories, unlinked files, and destination remaps.
 

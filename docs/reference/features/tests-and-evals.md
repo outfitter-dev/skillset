@@ -31,7 +31,7 @@ Use `skillset check` and `check --only outputs` for ordinary source and [generat
 
 Core owns declaration loading, source selection, caller-supplied workspace materialization, deterministic checks, rendered activation facts, and literal runtime assertions through an injected runtime probe. The CLI app owns temporary and retained-run lifecycle, report/Markdown rendering, runtime process execution and evidence, JSON/JSONL/terminal behavior, and status/tail/worker policy. This preserves one compiler-owned evaluation contract without giving Core a cache, process, or CLI policy surface.
 
-The implemented declaration shape is selector-driven and source-root owned. Workspaces use `.skillset/tests.yaml` or `.skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or instructions.
+The implemented declaration shape is selector-driven and source-root owned. Workspaces use `.skillset/tests.yaml` or `.skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or rules.
 
 ```yaml
 self-hosted:

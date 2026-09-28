@@ -58,8 +58,8 @@ Use the [project configuration guide](../../configuration/project-configuration.
 | Source path | Purpose |
 | --- | --- |
 | `.skillset/skills/<skill>/` | Standalone skills and their skill-local support files. |
-| `.skillset/RULES.md` | Unscoped instruction front page for root `AGENTS.md`. |
-| `.skillset/rules/**/*.md` | Durable portable project instructions. |
+| `.skillset/RULES.md` | Unscoped rule front page for root `AGENTS.md`. |
+| `.skillset/rules/**/*.md` | Durable portable project rules. |
 | `.skillset/subagents/*.md` | Portable project-agent definitions. |
 | `.skillset/hooks/` | Adaptive project hook definitions. |
 | `.skillset/plugins/<plugin>/` | Plugin-scoped source, including skills and native companion material. |
@@ -76,11 +76,11 @@ Directories named `_claude`, `_codex`, and `_cursor` are explicit [target-native
 
 These directories preserve provider-shaped files when there is no adaptive representation. They do not make a provider active and they do not turn provider capabilities into portable support. Consult the [support matrix](../support-matrix.md) and owning feature page before choosing an island.
 
-Codex command-policy files are one important distinction: `.skillset/_codex/rules/**/*.rules` can mirror to `.codex/rules/**/*.rules`, while portable instruction prose under `.skillset/rules/` renders through discovered `AGENTS.md` files. See [Instructions](instructions.md).
+Codex command-policy files are one important distinction: `.skillset/_codex/rules/**/*.rules` can mirror to `.codex/rules/**/*.rules`, while portable rule prose under `.skillset/rules/` renders through discovered `AGENTS.md` files. See [Rules](rules.md).
 
 ## Generated destinations and provenance
 
-An enabled [target](../../glossary.md#target) receives files in its native repository layout. Standalone skills normally render below `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`; plugin-owned skills render once inside `plugins/<plugin>/skills/`; project instructions render to Claude and Cursor rule roots or Codex `AGENTS.md` files; provider manifests and supported components share the same `plugins/<plugin>/` package. Custom package placement remains unsupported until SET-561. A plugin-owned skill appears in a repository skill root only through a separately owned project-use projection.
+An enabled [target](../../glossary.md#target) receives files in its native repository layout. Standalone skills normally render below `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`; plugin-owned skills render once inside `plugins/<plugin>/skills/`; project rules render to Claude and Cursor rule roots or Codex `AGENTS.md` files; provider manifests and supported components share the same `plugins/<plugin>/` package. Custom package placement remains unsupported until SET-561. A plugin-owned skill appears in a repository skill root only through a separately owned project-use projection.
 
 Nearby `skillset.lock` files record source paths, destination ownership, projection role, hashes, and render evidence. Current locks distinguish `standard`, `project-use`, and provider `bundle` roles. Generated paths are reviewable and may be committed, but edit `.skillset/` when the intent is portable. Use `skillset explain <path>` to trace one source or destination and its role, and `skillset check --only outputs` to detect [drift](../../glossary.md#drift). Exact flags belong to the generated [CLI reference](../cli/README.md).
 

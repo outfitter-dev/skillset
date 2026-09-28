@@ -162,7 +162,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:1593ab79ff47c9c47f36d1883d37b76d0b5b3f2c6440bf68a568c41d16d714e6",
+  "provenanceHash": "sha256:6bb02ee521d95562f8e520abf5a3d1ea98d633bb58a190b474914217b4d8eede",
   "renderResults": [
     {
       "destination": "changelog",
@@ -257,7 +257,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/reference/features/instructions.md"
+          "ref": "docs/reference/features/rules.md"
         },
         {
           "kind": "provider-overlay",
@@ -289,7 +289,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/reference/features/instructions.md"
+          "ref": "docs/reference/features/rules.md"
         },
         {
           "kind": "provider-snapshot",
@@ -339,7 +339,7 @@
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/reference/features/instructions.md"
+          "ref": "docs/reference/features/rules.md"
         },
         {
           "kind": "provider-overlay",

@@ -10,7 +10,7 @@ Cursor is a first-class Skillset [target](../../glossary.md#target), not a Claud
 
 ## Provider Shape
 
-Skillset [renders](../../glossary.md#render) project skills under `.cursor/skills/`, [adaptive instructions](../features/instructions.md) as `.cursor/rules/**/*.mdc`, project agents under `.cursor/agents/`, and plugin bundles with a native `.cursor-plugin/plugin.json` manifest as [generated output](../../glossary.md#generated-output). Cursor plugin output can include rules, skills, agents, commands, hooks, and MCP configuration. Marketplace source can render a Cursor-owned `.cursor-plugin/marketplace.json` index after explicit readiness checks and update confirmation.
+Skillset [renders](../../glossary.md#render) project skills under `.cursor/skills/`, [adaptive rules](../features/rules.md) as `.cursor/rules/**/*.mdc`, project agents under `.cursor/agents/`, and plugin bundles with a native `.cursor-plugin/plugin.json` manifest as [generated output](../../glossary.md#generated-output). Cursor plugin output can include rules, skills, agents, commands, hooks, and MCP configuration. Marketplace source can render a Cursor-owned `.cursor-plugin/marketplace.json` index after explicit readiness checks and update confirmation.
 
 Cursor has no verified project SessionStart hook destination, so Skillset does not invent one. When Cursor is enabled, `compile.session_start_hook: auto` still checks whether its project skill output root is gitignored before enabling the Claude and Codex advisory entries. This does not change Cursor's separate plugin-hook support.
 
@@ -18,7 +18,7 @@ Cursor-native source remains available under explicit `_cursor/` paths. Skillset
 
 The dated [Cursor parity fixture evidence](../../development/evidence/2026-09-16-cursor-parity-fixtures.md) records the official pages and hashes behind current path claims, along with the named gaps later authoring-model work must close.
 
-For exact source and [destination](../../glossary.md#destination) behavior, use the feature pages for [skills](../features/skills.md), [instructions](../features/instructions.md), [agents](../features/agents.md), [plugins](../features/plugins.md), [hooks](../features/hooks.md), [MCP servers](../features/mcp-servers.md), and [marketplaces](../features/marketplaces.md).
+For exact source and [destination](../../glossary.md#destination) behavior, use the feature pages for [skills](../features/skills.md), [rules](../features/rules.md), [agents](../features/agents.md), [plugins](../features/plugins.md), [hooks](../features/hooks.md), [MCP servers](../features/mcp-servers.md), and [marketplaces](../features/marketplaces.md).
 
 ## Feature Support
 
@@ -47,13 +47,13 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 | Plugin Monitors | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/monitors.md), [2](../features/plugins.md) |
 | Plugin Output Styles | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/output-styles.md), [2](../features/plugins.md) |
 | Plugin README | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
-| Plugin Rules | `implemented` | `pass_through` | — | [1](../features/instructions.md), [2](../features/plugins.md) |
+| Plugin Rules | `implemented` | `pass_through` | — | [1](../features/rules.md), [2](../features/plugins.md) |
 | Plugin Scripts | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
 | Plugin Skills | `implemented` | `native` | — | [1](../features/plugins.md), [2](../features/skills.md) |
 | Plugin Source | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
 | Plugin Themes | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/themes.md), [2](../features/plugins.md) |
 | Project Agents | `implemented` | `native` | — | [1](../features/agents.md) |
-| Project Instructions | `implemented` | `transformed` | — | [1](../features/instructions.md) |
+| Project Instructions | `implemented` | `transformed` | — | [1](../features/rules.md) |
 | Releases | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/releases.md) |
 | Render Results | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../../development/features/render-results.md) |
 | Resources | `implemented` | `native` | — | [1](../features/resources.md) |
