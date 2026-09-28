@@ -1799,10 +1799,10 @@ export function renderResultsForLock(
       if (target !== undefined && target !== "workspace" && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
       if (outputPaths.length === 0) {
-        return (
-          logicalOutputRoot === "." ||
-          noOutputOutcomeBelongsToLock(outcome, logicalOutputRoot, lock)
-        );
+        if (logicalOutputRoot === ".") return true;
+        return outcome.outputRoot === undefined
+          ? noOutputOutcomeBelongsToLock(outcome, logicalOutputRoot, lock)
+          : outcome.outputRoot === logicalOutputRoot;
       }
       return outputPaths.some((path) => lockOutputs.has(path));
     })

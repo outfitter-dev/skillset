@@ -71,6 +71,13 @@ export interface SkillsetRenderResult {
   readonly evidence?: readonly SkillsetFeatureEvidence[];
   readonly featureId: string;
   readonly outputs?: readonly SkillsetRenderResultOutput[];
+  /**
+   * Logical output root whose generated lock carries this result when it
+   * names no {@link outputs}, such as the skill root an omitted project copy
+   * would have been written to. Set only where source-unit ownership cannot
+   * identify that lock.
+   */
+  readonly outputRoot?: string;
   readonly policy?: SkillsetRenderResultPolicy;
   readonly reason?: string;
   readonly schema: typeof RENDER_RESULT_SCHEMA;
@@ -171,6 +178,9 @@ export function normalizeRenderResult(
     ...(outcome.outputs === undefined
       ? {}
       : { outputs: normalizeOutputs(outcome.outputs) }),
+    ...(outcome.outputRoot === undefined
+      ? {}
+      : { outputRoot: outcome.outputRoot }),
     ...(outcome.diagnostics === undefined
       ? {}
       : { diagnostics: normalizeDiagnostics(outcome.diagnostics) }),
@@ -279,6 +289,15 @@ export function assertRenderResult(
   }
   if (outcome.outputs !== undefined && !Array.isArray(outcome.outputs)) {
     throw new Error("skillset: render result outputs must be an array");
+  }
+  if (
+    outcome.outputRoot !== undefined &&
+    (typeof outcome.outputRoot !== "string" ||
+      outcome.outputRoot.trim().length === 0)
+  ) {
+    throw new Error(
+      "skillset: render result outputRoot must be non-empty when present"
+    );
   }
   for (const output of outcome.outputs ?? []) {
     if (

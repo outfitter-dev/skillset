@@ -211,6 +211,14 @@ describe("render results", () => {
     ).toThrow("unsupported status requires a reason");
     expect(() =>
       defineRenderResult({
+        featureId: "plugin-skills",
+        outputRoot: " ",
+        sourceUnit: "plugin.demo.skill:review",
+        status: "rendered",
+      })
+    ).toThrow("outputRoot must be non-empty when present");
+    expect(() =>
+      defineRenderResult({
         evidence: [{ kind: "external-docs", ref: "https://example.com/docs" }],
         featureId: "project-instructions",
         sourceUnit: "instructions:root",

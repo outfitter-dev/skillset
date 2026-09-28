@@ -388,6 +388,8 @@ function unsupportedProjectSkillCopyStandardOutcomes(
       }],
       evidence: evidenceFor(featureId, target) ?? [],
       featureId,
+      // The omitted copy leaves no lock item for plugin ownership to match.
+      outputRoot: graph.root.outputs.skills[target],
       policy: "unsupported:error",
       reason: `project copy ${copy.effectiveName}: ${classification.issue.message}`,
       sourcePath: normalizeSourcePath(graph, copy.skill.sourcePath),

@@ -521,6 +521,49 @@ Review body.
     expect(await Bun.file(join(errorRoot, ".agents/skills/draft-review/SKILL.md")).exists()).toBe(false);
   });
 
+  it("persists an omitted project copy in its skill-root lock under a repo-scoped build", async () => {
+    const files = {
+      "skillset.yaml": `skillset:\n  name: omitted-copy-lock\ncompile:\n  unsupportedDestination: warn\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    drafts:\n      demo: true\n`,
+      ".skillset/skills/keep/SKILL.md": skill("keep", "Repository skill"),
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/_drafts/review/SKILL.md": `---
+name: review
+description: Draft with non-string metadata
+metadata:
+  priority: 3
+---
+
+Review body.
+`,
+    };
+    const lockResults = async (root: string, path: string) =>
+      (JSON.parse(await readFile(join(root, path), "utf8")) as {
+        readonly renderResults?: readonly unknown[];
+      }).renderResults ?? [];
+    const omission = expect.objectContaining({
+      diagnostics: [expect.objectContaining({ code: "agent-skills-metadata-string" })],
+      featureId: "plugin-skills",
+      outputRoot: ".agents/skills",
+      policy: "unsupported:warn",
+      sourceUnit: "plugin.demo.skill:review",
+      status: "unsupported",
+      target: "codex",
+    });
+
+    const repoRoot = await fixture(files);
+    const result = await buildSkillsetResult(repoRoot, { scopes: ["repo"] });
+    expect(await Bun.file(join(repoRoot, ".agents/skills/keep/SKILL.md")).exists()).toBe(true);
+    expect(await Bun.file(join(repoRoot, ".agents/skills/draft-review/SKILL.md")).exists()).toBe(false);
+    expect(result.renderResults).toContainEqual(omission);
+    expect(await lockResults(repoRoot, ".agents/skills/skillset.lock")).toContainEqual(omission);
+
+    // Unscoped, the omission stays with the skill root, not the plugin lock.
+    const fullRoot = await fixture(files);
+    await buildSkillsetResult(fullRoot);
+    expect(await lockResults(fullRoot, ".agents/skills/skillset.lock")).toContainEqual(omission);
+    expect(await lockResults(fullRoot, "plugins/skillset.lock")).not.toContainEqual(omission);
+  });
+
   it("does not report a skill hook excluded from the target by its definition", async () => {
     const root = await fixture({
       "skillset.yaml": `skillset:\n  name: filtered-skill-hook\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,

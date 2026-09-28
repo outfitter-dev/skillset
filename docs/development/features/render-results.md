@@ -33,6 +33,7 @@ The schema fields are:
 | `reason` | Required for `degraded`, `lossy`, `unsupported`, and `failed`. |
 | `policy` | Default, scope/target exclusion, or unsupported-destination decision. |
 | `outputs` | Sorted generated paths and optional output kinds. |
+| `outputRoot` | Optional logical output root whose `skillset.lock` carries an output-less result that source-unit ownership cannot place, such as the skill root of an omitted project copy. |
 | `diagnostics` | Sorted structured diagnostic references. |
 | `evidence` | Sorted registry evidence supporting the classification. |
 
