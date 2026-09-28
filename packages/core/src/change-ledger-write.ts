@@ -1,60 +1,133 @@
-import { appendFile, readFile, rm, stat } from "node:fs/promises";
+import { appendFile, open, rm, stat } from "node:fs/promises";
 
 import { publishAtomicFile } from "./atomic-file-publication";
 import { readString } from "./config";
+import { MISSING_PATH_ENOENT, pathExists, readOptionalText } from "./fs-existence";
 import type { JsonRecord } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const TIMESTAMP_FIELDS = ["createdAt", "appliedAt", "amendedAt"] as const;
+const ROLLBACK_ATTEMPTS = 5;
+
+/**
+ * Writer-lock contract for append-only JSONL streams (ADR-0038).
+ *
+ * Every appender and every rollback of one stream must run while holding the
+ * same writer lock; in production that is the change-ledger lock, which the
+ * change, release, and lifecycle commands take for their whole mutation. These
+ * primitives do not take the lock themselves. Rollback additionally re-reads
+ * the stream immediately before it publishes and starts over if the bytes
+ * changed, so an append that bypasses the lock is not silently dropped in the
+ * read-to-publish window.
+ */
 
 /**
  * Append serialized JSON objects to an append-only JSONL stream and return the
- * exact lines that this writer owns. Rollback uses those lines, never a
- * whole-file snapshot, so a later foreign append cannot be erased.
+ * exact lines that this writer owns, in append order. Rollback uses those lines,
+ * never a whole-file snapshot, so a later foreign append cannot be erased.
  *
- * The caller prepares the parent directory (see `prepareRepositoryMutationPath`)
- * so a symlinked ancestor fails closed; this helper never creates directories.
+ * A non-empty stream without a trailing newline is refused: appending would
+ * join the new record onto the last line. The caller prepares the parent
+ * directory (see `prepareRepositoryMutationPath`) so a symlinked ancestor fails
+ * closed; this helper never creates directories.
  */
 export async function appendOwnedJsonlRecords(
   absolutePath: string,
   records: readonly object[]
 ): Promise<readonly string[]> {
   if (records.length === 0) return [];
+  await assertEndsWithNewline(absolutePath);
   const lines = records.map((record) => JSON.stringify(record));
   await appendFile(absolutePath, `${lines.join("\n")}\n`, "utf8");
   return lines;
 }
 
+export interface RollbackOwnedJsonlOptions {
+  /** @internal Test seam after each read of the stream, before publication. */
+  readonly testHooks?: { readonly afterRead?: () => Promise<void> | void };
+}
+
 /**
- * Remove only the exact JSONL records this transaction appended. Foreign lines,
- * including concurrent appends after the owned block, stay in file order. The
- * remainder is published atomically with the stream's current mode, so an
- * interrupted rollback leaves either the previous stream or the complete
- * remainder, never a truncated one. A stream left with no records is removed.
+ * Remove exactly the JSONL records this transaction appended, one occurrence
+ * per owned line, scanning from the end so an earlier identical line (for
+ * example a trunk record) is kept. Foreign lines stay in file order. The
+ * remainder is published atomically with the stream's current mode; a stream
+ * left with no records is removed. Callers hold the stream's writer lock (see
+ * the contract above).
  */
 export async function rollbackOwnedJsonlRecords(
   absolutePath: string,
-  ownedLines: ReadonlySet<string>
+  ownedLines: readonly string[],
+  options: RollbackOwnedJsonlOptions = {}
 ): Promise<void> {
-  if (ownedLines.size === 0 || !(await pathExists(absolutePath))) return;
-  const { mode } = await stat(absolutePath);
+  if (ownedLines.length === 0) return;
+  for (let attempt = 0; attempt < ROLLBACK_ATTEMPTS; attempt += 1) {
+    const current = await readOptionalText(absolutePath, { missing: MISSING_PATH_ENOENT });
+    if (current === undefined) return;
+    const { mode } = await stat(absolutePath);
+    const remaining = withoutOwnedLines(current, ownedLines);
+    await options.testHooks?.afterRead?.();
+    const unchanged = async (): Promise<boolean> =>
+      (await readOptionalText(absolutePath, { missing: MISSING_PATH_ENOENT })) === current;
 
-  const remaining: string[] = [];
-  const pending = new Set(ownedLines);
-  for (const line of (await readFile(absolutePath, "utf8")).split("\n")) {
-    if (line.length === 0) continue;
-    if (pending.has(line)) {
-      pending.delete(line);
+    if (remaining.length === 0) {
+      if (!(await unchanged())) continue;
+      await rm(absolutePath, { force: true });
+      return;
+    }
+    try {
+      await publishAtomicFile(absolutePath, `${remaining.join("\n")}\n`, {
+        beforeRename: async () => {
+          if (!(await unchanged())) throw new StreamChangedDuringRollback();
+        },
+        mode: mode & 0o777,
+      });
+      return;
+    } catch (error) {
+      if (error instanceof StreamChangedDuringRollback) continue;
+      throw error;
+    }
+  }
+  throw new Error(
+    `skillset: ${absolutePath} kept changing during rollback; rerun while no other Skillset command is writing it`
+  );
+}
+
+class StreamChangedDuringRollback extends Error {}
+
+function withoutOwnedLines(content: string, ownedLines: readonly string[]): readonly string[] {
+  const owed = new Map<string, number>();
+  for (const line of ownedLines) owed.set(line, (owed.get(line) ?? 0) + 1);
+  const kept: string[] = [];
+  const lines = content.split("\n").filter((line) => line.length > 0);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index] ?? "";
+    const count = owed.get(line) ?? 0;
+    if (count > 0) {
+      owed.set(line, count - 1);
       continue;
     }
-    remaining.push(line);
+    kept.push(line);
   }
+  return kept.toReversed();
+}
 
-  if (remaining.length === 0) {
-    await rm(absolutePath, { force: true });
-    return;
+async function assertEndsWithNewline(absolutePath: string): Promise<void> {
+  if (!(await pathExists(absolutePath, { missing: MISSING_PATH_ENOENT, probe: "stat" }))) return;
+  const file = await open(absolutePath, "r");
+  try {
+    const { size } = await file.stat();
+    if (size === 0) return;
+    const last = Buffer.alloc(1);
+    await file.read(last, 0, 1, size - 1);
+    if (last[0] !== 0x0a) {
+      throw new Error(
+        `skillset: cannot append to ${absolutePath}: the stream does not end with a newline, so a new record would join its last line; add the missing newline (bun run change-stream:guard reports it) and retry`
+      );
+    }
+  } finally {
+    await file.close();
   }
-  await publishAtomicFile(absolutePath, `${remaining.join("\n")}\n`, { mode: mode & 0o777 });
 }
 
 /**
@@ -91,8 +164,9 @@ export async function nextJsonlTimestampForPaths(
 }
 
 export async function readJsonlTailTimestamp(absolutePath: string): Promise<string | undefined> {
-  if (!(await pathExists(absolutePath))) return undefined;
-  const lines = (await readFile(absolutePath, "utf8")).split("\n");
+  const content = await readOptionalText(absolutePath, { missing: MISSING_PATH_ENOENT });
+  if (content === undefined) return undefined;
+  const lines = content.split("\n");
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index];
     if (line === undefined || line.trim().length === 0) continue;
@@ -114,16 +188,4 @@ export function readJsonlTimestamp(record: JsonRecord): string | undefined {
     if (value !== undefined) return value;
   }
   return undefined;
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
 }

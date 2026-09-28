@@ -1,4 +1,4 @@
-import { link, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, link, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -29,7 +29,7 @@ describe("change ledger JSONL write", () => {
       { createdAt: "2026-09-22T00:00:03.000Z", id: "foreign" },
     ]);
 
-    await rollbackOwnedJsonlRecords(path, new Set(owned));
+    await rollbackOwnedJsonlRecords(path, owned);
 
     expect(await readFile(path, "utf8")).toBe(
       `${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n${JSON.stringify({ createdAt: "2026-09-22T00:00:03.000Z", id: "foreign" })}\n`
@@ -44,11 +44,74 @@ describe("change ledger JSONL write", () => {
     const previousInode = join(dirname(path), "previous-inode.jsonl");
     await link(path, previousInode);
 
-    await rollbackOwnedJsonlRecords(path, new Set(owned));
+    await rollbackOwnedJsonlRecords(path, owned);
 
     expect(await readFile(previousInode, "utf8")).toBe(before);
     expect(await readFile(path, "utf8")).toBe(`${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n`);
     expect((await readdir(dirname(path))).filter((name) => name.includes(".tmp-"))).toEqual([]);
+  });
+
+  test("rolls back every owned occurrence of a duplicated record and keeps an earlier identical line", async () => {
+    const path = await streamPath("duplicate-owned");
+    const record = { createdAt: "2026-09-22T00:00:01.000Z", id: "same" };
+    await writeFile(path, `${JSON.stringify(record)}\n`, "utf8");
+    const owned = await appendOwnedJsonlRecords(path, [record, record]);
+
+    await rollbackOwnedJsonlRecords(path, owned);
+
+    expect(await readFile(path, "utf8")).toBe(`${JSON.stringify(record)}\n`);
+  });
+
+  test("keeps a foreign append that lands between the rollback read and its publication", async () => {
+    const path = await streamPath("rollback-race");
+    await writeFile(path, `${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n`, "utf8");
+    const owned = await appendOwnedJsonlRecords(path, [{ createdAt: "2026-09-22T00:00:01.000Z", id: "owned" }]);
+    const foreign = JSON.stringify({ createdAt: "2026-09-22T00:00:02.000Z", id: "foreign" });
+    let raced = false;
+
+    await rollbackOwnedJsonlRecords(path, owned, {
+      testHooks: {
+        afterRead: async () => {
+          if (raced) return;
+          raced = true;
+          await appendFile(path, `${foreign}\n`, "utf8");
+        },
+      },
+    });
+
+    expect(await readFile(path, "utf8")).toBe(
+      `${JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" })}\n${foreign}\n`
+    );
+  });
+
+  test("does not delete a stream when a foreign append lands after an owned-only read", async () => {
+    const path = await streamPath("rollback-race-empty");
+    const owned = await appendOwnedJsonlRecords(path, [{ createdAt: "2026-09-22T00:00:01.000Z", id: "owned" }]);
+    const foreign = JSON.stringify({ createdAt: "2026-09-22T00:00:02.000Z", id: "foreign" });
+    let raced = false;
+
+    await rollbackOwnedJsonlRecords(path, owned, {
+      testHooks: {
+        afterRead: async () => {
+          if (raced) return;
+          raced = true;
+          await appendFile(path, `${foreign}\n`, "utf8");
+        },
+      },
+    });
+
+    expect(await readFile(path, "utf8")).toBe(`${foreign}\n`);
+  });
+
+  test("refuses to append to a stream that does not end with a newline", async () => {
+    const path = await streamPath("no-trailing-newline");
+    const existing = JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" });
+    await writeFile(path, existing, "utf8");
+
+    await expect(
+      appendOwnedJsonlRecords(path, [{ createdAt: "2026-09-22T00:00:01.000Z", id: "owned" }])
+    ).rejects.toThrow("does not end with a newline");
+    expect(await readFile(path, "utf8")).toBe(existing);
   });
 
   test("deletes a stream that only contained owned records", async () => {
@@ -57,7 +120,7 @@ describe("change ledger JSONL write", () => {
       { createdAt: "2026-09-22T00:00:01.000Z", id: "owned" },
     ]);
 
-    await rollbackOwnedJsonlRecords(path, new Set(owned));
+    await rollbackOwnedJsonlRecords(path, owned);
 
     expect(await Bun.file(path).exists()).toBe(false);
   });
@@ -71,7 +134,7 @@ describe("change ledger JSONL write", () => {
       { createdAt: "2026-09-22T00:00:02.000Z", id: "second" },
     ]);
 
-    await rollbackOwnedJsonlRecords(path, new Set(first));
+    await rollbackOwnedJsonlRecords(path, first);
 
     expect(await readFile(path, "utf8")).toBe(`${second[0]}\n`);
   });
