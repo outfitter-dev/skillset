@@ -11,6 +11,7 @@ import {
   workspaceChangeFile,
   type SkillsetDiff,
 } from "@skillset/core";
+import { RETIRED_RULE_KIND, RULE_SOURCE_HASH_DOMAIN } from "@skillset/schema";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { normalizeGeneratedFileMode } from "@skillset/core/internal/generated-file-mode";
@@ -24,14 +25,15 @@ import {
 import { readReleaseState } from "@skillset/core/internal/release-state";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
+  historicalRuleSelector,
   isPluginOwnedSelector,
-  selectorForInstruction,
   selectorForPluginCompanion,
   selectorForPluginConfig,
   selectorForPluginFeature,
   selectorForPluginSkill,
   selectorForProjectAgent,
   selectorForRootConfig,
+  selectorForRule,
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
   sourceUnitSelector,
@@ -54,7 +56,6 @@ export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v3";
 const SOURCE_HASH_DOMAIN = "skillset-source-unit-v2";
 
 export type SourceUnitKind =
-  | "instruction"
   | "plugin"
   | "plugin-companion"
   | "plugin-config"
@@ -62,6 +63,7 @@ export type SourceUnitKind =
   | "plugin-skill"
   | "project-agent"
   | "root-config"
+  | "rule"
   | "standalone-skill"
   | "target-native-island";
 
@@ -343,7 +345,7 @@ async function skillUnit(
 
 async function ruleUnit(graph: BuildGraph, rule: SourceRule): Promise<SourceUnit> {
   const preprocessDependencies = await rulePreprocessDependencies(graph, rule);
-  const hash = createSourceHash("instruction");
+  const hash = createSourceHash("rule");
   hash.update("id\0");
   hash.update(rule.id);
   hash.update("\0frontmatter\0");
@@ -356,8 +358,8 @@ async function ruleUnit(graph: BuildGraph, rule: SourceRule): Promise<SourceUnit
   return {
     hash: digest(hash),
     hashSchema: SOURCE_HASH_SCHEMA,
-    id: selectorForInstruction(rule.id),
-    kind: "instruction",
+    id: selectorForRule(rule.id),
+    kind: "rule",
     regions: regionsForRecord(rule.frontmatter),
     sourcePath,
     sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies]),
@@ -769,7 +771,8 @@ function createSourceHash(kind: SourceUnitKind): ReturnType<typeof createHash> {
   // new domain marker below and therefore cannot remain invisible.
   hash.update(SOURCE_HASH_DOMAIN);
   hash.update("\0");
-  hash.update(kind);
+  // Rules keep their pre-ADR-0039 domain so recorded baselines stay valid.
+  hash.update(kind === "rule" ? RULE_SOURCE_HASH_DOMAIN : kind);
   hash.update("\0");
   return hash;
 }
@@ -1107,7 +1110,7 @@ function inferredReleaseUnit(id: string, hash: string): SourceUnit {
 function kindForSourceUnitId(id: string): SourceUnitKind {
   const selector = sourceUnitSelector(id);
   if (selector === "config:root") return "root-config";
-  if (selector.startsWith("instruction:")) return "instruction";
+  if (selector.startsWith("rule:")) return "rule";
   if (selector.startsWith("plugin:")) return "plugin";
   if (selector.startsWith("agent:")) return "project-agent";
   if (selector.startsWith("skill:")) return "standalone-skill";
@@ -1136,12 +1139,14 @@ export async function sourceInventoryFromLock(
 
   const units: SourceUnit[] = [];
   for (const rawUnit of sourceInventory.units) {
-    if (!isSourceUnitKind(rawUnit.kind)) {
+    // Locks written before ADR-0039 record rule units under the retired kind and selector.
+    const kind = rawUnit.kind === RETIRED_RULE_KIND ? "rule" : rawUnit.kind;
+    if (!isSourceUnitKind(kind)) {
       throw new Error(
         `skillset: workspace lock skillset.lock sourceInventory unit ${rawUnit.id} has invalid kind ${rawUnit.kind}`
       );
     }
-    const selector = sourceUnitSelector(rawUnit.id);
+    const selector = historicalRuleSelector(rawUnit.id) ?? sourceUnitSelector(rawUnit.id);
     units.push({
       hash: rawUnit.hash,
       hashSchema: sourceInventory.hashSchema,
@@ -1277,7 +1282,6 @@ function companionRegions(path: string): readonly SourceUnitRegion[] {
 
 function isSourceUnitKind(value: string | undefined): value is SourceUnitKind {
   return (
-    value === "instruction" ||
     value === "plugin" ||
     value === "plugin-companion" ||
     value === "plugin-config" ||
@@ -1285,6 +1289,7 @@ function isSourceUnitKind(value: string | undefined): value is SourceUnitKind {
     value === "plugin-skill" ||
     value === "project-agent" ||
     value === "root-config" ||
+    value === "rule" ||
     value === "standalone-skill" ||
     value === "target-native-island"
   );

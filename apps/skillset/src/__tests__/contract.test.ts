@@ -4775,9 +4775,9 @@ description: Demo.
 
   const report = await changeStatus(root, { since: "HEAD" });
   const changedIds = report.sourceChanges.map((change) => change.id);
-  expect(changedIds).toContain("instruction:root");
+  expect(changedIds).toContain("rule:root");
   expect(changedIds).toContain("skill:demo");
-  const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
+  const instruction = report.sourceUnits.find((unit) => unit.id === "rule:root");
   expect(instruction?.sourcePaths).toContain(".skillset/shared/partials/common.md");
   expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");

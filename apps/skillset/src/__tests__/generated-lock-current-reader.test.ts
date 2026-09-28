@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
+import { RETIRED_RULE_KIND, RETIRED_RULE_SELECTOR_PREFIX } from "@skillset/schema";
 import { createTestGitFixtureRoot } from "../../../../scripts/test-helpers/git-remote";
 
 import { sourceInventoryFromLock } from "../change-status";
@@ -48,6 +49,43 @@ test("change status reads a provenance-valid v4 source inventory", async () => {
           sourcePath: ".skillset/skills/demo/SKILL.md",
         },
       ],
+    },
+  });
+});
+
+test("change status translates rule units recorded before ADR-0039", async () => {
+  const root = await createTestGitFixtureRoot("skillset-current-lock-reader-");
+  await writeFile(
+    join(root, "skillset.lock"),
+    JSON.stringify(
+      withLockProvenance({
+        generatedBy: "skillset@0.1.0",
+        items: [],
+        outputRoot: ".",
+        schemaVersion: 4,
+        standardProfileEvidence: {},
+        selectedStandards: [],
+        selectedTargets: [],
+        sourceInventory: {
+          hashSchema: "skillset-source-unit-v3",
+          units: [
+            {
+              hash: "sha256:source",
+              id: `${RETIRED_RULE_SELECTOR_PREFIX}root`,
+              kind: RETIRED_RULE_KIND,
+              sourcePath: ".skillset/RULES.md",
+            },
+          ],
+        },
+        target: "workspace",
+      })
+    ),
+    "utf8"
+  );
+
+  await expect(sourceInventoryFromLock(root, {})).resolves.toMatchObject({
+    inventory: {
+      units: [{ hash: "sha256:source", id: "rule:root", kind: "rule", sourcePath: ".skillset/RULES.md" }],
     },
   });
 });

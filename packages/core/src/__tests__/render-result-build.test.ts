@@ -606,7 +606,7 @@ compile:
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "project-instructions",
-        sourceUnit: "instruction:AGENTS.md",
+        sourceUnit: "rule:AGENTS.md",
         status: "transformed",
         target: "codex",
       })

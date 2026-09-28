@@ -1,6 +1,6 @@
 import type { LogicalOutputProjection, OutputConsumer } from "./output-plan";
 import { compareStrings } from "./path";
-import { selectorForInstruction } from "./source-unit-selector";
+import { selectorForRule } from "./source-unit-selector";
 import type { BuildGraph, SourceRule } from "./types";
 
 export interface AgentInstructionProjection {
@@ -88,7 +88,7 @@ function projection(
     outputProjection: {
       consumer,
       ownership: "managed",
-      sourceUnit: selectorForInstruction(destination),
+      sourceUnit: selectorForRule(destination),
     },
     rules,
   };

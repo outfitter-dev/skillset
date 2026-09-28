@@ -61,4 +61,4 @@ Use [`skillset new rule`](../cli/new.md) to scaffold source and [`skillset expla
 
 ## Provenance
 
-The root `skillset.lock` records rule source paths, destination paths, standard owner, provider consumers, hashes, deterministic aggregation, and preprocessing dependencies.
+The root `skillset.lock` records rule source paths, destination paths, standard owner, provider consumers, hashes, deterministic aggregation, and preprocessing dependencies. Rule source units use `rule:<id>` selectors.

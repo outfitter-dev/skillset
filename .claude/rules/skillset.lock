@@ -23,7 +23,7 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:5292369cefce28796fe0b7eb609e2afe0aa4a35592496315dafd2fe17fddb96e",
+  "provenanceHash": "sha256:dc96f95096aa160ce2c92aadd75fe5878f5712f2513a6347ac9726d709c6cc6f",
   "renderResults": [
     {
       "destination": "rule",
@@ -42,7 +42,7 @@
       ],
       "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules/fixtures.md",
-      "sourceUnit": "instruction:fixtures",
+      "sourceUnit": "rule:fixtures",
       "status": "transformed",
       "target": "claude"
     }

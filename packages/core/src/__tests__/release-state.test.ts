@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { RETIRED_RULE_SELECTOR_PREFIX } from "@skillset/schema";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { readReleaseState, writeReleaseState } from "../release-state";
@@ -69,6 +70,19 @@ describe("release state publication", () => {
       expect(await Bun.file(statePath(root)).exists()).toBe(false);
       expect(await publicationArtifacts(root)).toEqual([]);
     }
+  });
+});
+
+describe("release state history", () => {
+  test("translates rule scopes recorded under the retired selector", async () => {
+    const root = await createTestFixtureRoot("skillset-release-state-retired-");
+    await mkdir(dirname(statePath(root)), { recursive: true });
+    await writeFile(statePath(root), `${JSON.stringify({
+      schemaVersion: 1,
+      scopes: { [`${RETIRED_RULE_SELECTOR_PREFIX}fixtures`]: { version: "0.1.2" } },
+    })}\n`, "utf8");
+
+    expect(await readReleaseState(root)).toEqual({ scopes: { "rule:fixtures": { version: "0.1.2" } } });
   });
 });
 
