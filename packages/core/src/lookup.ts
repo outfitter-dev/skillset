@@ -17,7 +17,7 @@ import {
   adaptiveHookContract,
   agentFrontmatterContract,
   hookContract,
-  instructionFrontmatterContract,
+  ruleFrontmatterContract,
   skillFrontmatterContract,
   skillsetSchemaExamples,
   workspaceConfigContract,
@@ -229,7 +229,7 @@ const SUBJECTS = [
 const CONTRACTS_BY_SUBJECT: Partial<Record<LookupSubject, SkillsetSchemaContract>> = {
   agent: agentFrontmatterContract,
   hooks: hookContract,
-  instruction: instructionFrontmatterContract,
+  instruction: ruleFrontmatterContract,
   skill: skillFrontmatterContract,
   workspace: workspaceConfigContract,
 };

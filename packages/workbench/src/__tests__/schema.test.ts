@@ -62,7 +62,7 @@ describe("workbench source contract schema checks", () => {
 
     expect(checkWorkbenchSourceContract({
       content: "---\nname: root\ndialect: claude\nclaude:\n  paths:\n    - src/**\n---\nFollow the repo.\n",
-      kind: "instruction",
+      kind: "rule",
       path: ".skillset/rules/root.md",
     })).toEqual([]);
 
@@ -281,29 +281,29 @@ describe("workbench source contract schema checks", () => {
     });
   });
 
-  test("reports instruction frontmatter contract diagnostics", () => {
+  test("reports rule frontmatter contract diagnostics", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "---\ndialect: codex\nclaude: nope\nsupports:\n  tools: []\n---\nFollow the repo.\n",
-      kind: "instruction",
+      kind: "rule",
       path: ".skillset/rules/root.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/rules/root.md:2: error: schema/instruction-frontmatter: dialect must be claude when present",
-      ".skillset/rules/root.md:3: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
-      ".skillset/rules/root.md:5: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
+      ".skillset/rules/root.md:2: error: schema/rule-frontmatter: dialect must be claude when present",
+      ".skillset/rules/root.md:3: error: schema/rule-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/rules/root.md:5: error: schema/rule-frontmatter: unsupported supports key tools; v1 supports packages",
     ]);
   });
 
-  test("rejects unsupported Codex instruction symlink mode", () => {
+  test("rejects unsupported Codex rule symlink mode", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "---\ncodex:\n  mode: symlink\n---\nFollow the repo.\n",
-      kind: "instruction",
+      kind: "rule",
       path: ".skillset/rules/root.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/rules/root.md:3: error: schema/instruction-frontmatter: Codex instruction mode symlink is unsupported; use codex: true or codex: false",
+      ".skillset/rules/root.md:3: error: schema/rule-frontmatter: Codex rule mode symlink is unsupported; use codex: true or codex: false",
     ]);
   });
 

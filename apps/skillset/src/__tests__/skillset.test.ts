@@ -3981,7 +3981,7 @@ codex:
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "frontmatter failed schema validation: Codex instruction mode symlink is unsupported"
+    "frontmatter failed schema validation: Codex rule mode symlink is unsupported"
   );
 });
 

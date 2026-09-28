@@ -9,7 +9,7 @@ import {
   changeEntryContract,
   deriveSkillsetExampleArtifacts,
   deriveSkillsetJsonSchemaArtifacts,
-  instructionFrontmatterContract,
+  ruleFrontmatterContract,
   PLUGIN_CONFIG_KEYS,
   pluginConfigContract,
   RENDERED_METADATA_SCHEMA_KEY,
@@ -28,7 +28,7 @@ import {
   validateChangeEntryFrontmatter,
   validateHookDefinitionSource,
   validateHookAttachmentsSource,
-  validateInstructionFrontmatter,
+  validateRuleFrontmatter,
   validatePluginConfig,
   validateRootSourceManifest,
   validateSkillFrontmatter,
@@ -115,7 +115,7 @@ describe("@skillset/schema contracts", () => {
       "source-metadata",
       "skill-frontmatter",
       "agent-frontmatter",
-      "instruction-frontmatter",
+      "rule-frontmatter",
       "hook",
       "adaptive-hook",
       "change-entry",
@@ -142,7 +142,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/source-metadata.schema.json",
       "docs/reference/schemas/0.1.0/skill-frontmatter.schema.json",
       "docs/reference/schemas/0.1.0/agent-frontmatter.schema.json",
-      "docs/reference/schemas/0.1.0/instruction-frontmatter.schema.json",
+      "docs/reference/schemas/0.1.0/rule-frontmatter.schema.json",
       "docs/reference/schemas/0.1.0/hook.schema.json",
       "docs/reference/schemas/0.1.0/adaptive-hook.schema.json",
       "docs/reference/schemas/0.1.0/change-entry.schema.json",
@@ -166,7 +166,7 @@ describe("@skillset/schema contracts", () => {
       { $ref: "#/$defs/source-metadata" },
       { $ref: "#/$defs/skill-frontmatter" },
       { $ref: "#/$defs/agent-frontmatter" },
-      { $ref: "#/$defs/instruction-frontmatter" },
+      { $ref: "#/$defs/rule-frontmatter" },
       { $ref: "#/$defs/skill-eval" },
       { $ref: "#/$defs/hook" },
       { $ref: "#/$defs/adaptive-hook" },
@@ -182,8 +182,8 @@ describe("@skillset/schema contracts", () => {
       "agent-frontmatter",
       "change-entry",
       "hook",
-      "instruction-frontmatter",
       "plugin-config",
+      "rule-frontmatter",
       "skill-eval",
       "skill-frontmatter",
       "source-metadata",
@@ -203,7 +203,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/examples/source-metadata.yaml",
       "docs/reference/examples/skill-frontmatter.yaml",
       "docs/reference/examples/agent-frontmatter.yaml",
-      "docs/reference/examples/instruction-frontmatter.yaml",
+      "docs/reference/examples/rule-frontmatter.yaml",
       "docs/reference/examples/hook.yaml",
       "docs/reference/examples/adaptive-hook.yaml",
       "docs/reference/examples/change-entry.yaml",
@@ -228,7 +228,7 @@ describe("@skillset/schema contracts", () => {
       validateAgentFrontmatter(byId["agent-frontmatter"]).diagnostics
     ).toEqual([]);
     expect(
-      validateInstructionFrontmatter(byId["instruction-frontmatter"])
+      validateRuleFrontmatter(byId["rule-frontmatter"])
         .diagnostics
     ).toEqual([]);
     expect(validateHookDefinitionSource(byId.hook).diagnostics).toEqual([]);
@@ -534,7 +534,7 @@ describe("@skillset/schema contracts", () => {
       "additionalProperties",
       false
     );
-    expect(instructionFrontmatterContract.schema).toHaveProperty(
+    expect(ruleFrontmatterContract.schema).toHaveProperty(
       "additionalProperties",
       true
     );
@@ -1787,7 +1787,7 @@ describe("@skillset/schema contracts", () => {
     ).toBe(true);
 
     expect(
-      validateInstructionFrontmatter({
+      validateRuleFrontmatter({
         dialect: "claude",
         name: "root",
         skillset: { origin: { path: "CLAUDE.md" } },
@@ -1987,11 +1987,11 @@ describe("@skillset/schema contracts", () => {
       path: "$.metadata",
     });
     expect(
-      validateInstructionFrontmatter({
+      validateRuleFrontmatter({
         metadata: "owner",
       }).diagnostics
     ).toContainEqual({
-      code: "schema/instruction-frontmatter/metadata",
+      code: "schema/rule-frontmatter/metadata",
       message: "$.metadata must be an object",
       path: "$.metadata",
     });
@@ -2000,25 +2000,25 @@ describe("@skillset/schema contracts", () => {
         .diagnostics
     ).toEqual([]);
     expect(
-      validateInstructionFrontmatter({ dialect: "codex" }).diagnostics
+      validateRuleFrontmatter({ dialect: "codex" }).diagnostics
     ).toContainEqual({
-      code: "schema/instruction-frontmatter/dialect",
+      code: "schema/rule-frontmatter/dialect",
       message: "$.dialect must be claude when present",
       path: "$.dialect",
     });
     expect(
-      validateInstructionFrontmatter({ paths: [1] }).diagnostics
+      validateRuleFrontmatter({ paths: [1] }).diagnostics
     ).toContainEqual({
-      code: "schema/instruction-frontmatter/paths",
+      code: "schema/rule-frontmatter/paths",
       message: "$.paths entries must be strings",
       path: "$.paths[0]",
     });
     expect(
-      validateInstructionFrontmatter({ codex: { mode: "symlink" } }).diagnostics
+      validateRuleFrontmatter({ codex: { mode: "symlink" } }).diagnostics
     ).toContainEqual({
-      code: "schema/instruction-frontmatter/codex-mode",
+      code: "schema/rule-frontmatter/codex-mode",
       message:
-        "Codex instruction mode symlink is unsupported; use codex: true or codex: false",
+        "Codex rule mode symlink is unsupported; use codex: true or codex: false",
       path: "$.codex.mode",
     });
     expect(
