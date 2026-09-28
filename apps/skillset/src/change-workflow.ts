@@ -237,7 +237,14 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
         ledgerPath: workspaceChangeFile(statusOptions.sourceDir, "ledger.jsonl"),
       };
     } catch (error) {
-      await rm(absolutePath, { force: true });
+      try {
+        await rm(absolutePath, { force: true });
+      } catch (rollbackError) {
+        throw new Error(
+          `skillset: change add failed and rollback failed: ${errorMessage(rollbackError)}; original error: ${errorMessage(error)}`,
+          { cause: error }
+        );
+      }
       throw error;
     }
   });
@@ -296,7 +303,14 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
           : {}),
       };
     } catch (error) {
-      await writeFile(absolutePath, previous, "utf8");
+      try {
+        await writeFile(absolutePath, previous, "utf8");
+      } catch (rollbackError) {
+        throw new Error(
+          `skillset: change reason failed and rollback failed: ${errorMessage(rollbackError)}; original error: ${errorMessage(error)}`,
+          { cause: error }
+        );
+      }
       throw error;
     }
   });
