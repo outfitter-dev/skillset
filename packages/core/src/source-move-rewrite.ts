@@ -122,8 +122,7 @@ export function rewritePendingChangeScopes(
   // Match what the pending-change reader sees (it trims); write the moved value normalized.
   const scope = (value: string): string =>
     value.trim() === rewrite.fromSelector ? rewrite.toSelector : value;
-  // Classify like the pending-change reader: only non-empty frontmatter makes a frontmatter entry.
-  if (Object.keys(parseMarkdown(source, path).frontmatter).length === 0) {
+  if (!isFrontmatterChangeEntry(source, path)) {
     return source.replaceAll(
       /^(Scopes?:[ \t]*)(.*)$/gimu,
       (line, key: string, value: string) => {
@@ -158,6 +157,11 @@ export function rewritePendingChangeScopes(
   });
 }
 
+/** Classifies like the pending-change reader: only non-empty frontmatter makes a frontmatter entry. */
+export function isFrontmatterChangeEntry(source: string, path: string): boolean {
+  return Object.keys(parseMarkdown(source, path).frontmatter).length > 0;
+}
+
 /** Rewrites `evidence[*].scope`, `evidence.<selector>` keys, and `evidence.<selector>.scope`. */
 function rewriteEvidenceSelectors(
   evidence: JsonValue,
@@ -175,10 +179,13 @@ function rewriteEvidenceSelectors(
   if (!isJsonRecord(evidence)) {
     return evidence;
   }
-  const keys = Object.keys(evidence).map((key) => key.trim());
-  if (keys.includes(rewrite.fromSelector) && keys.includes(rewrite.toSelector)) {
+  // Distinct keys can trim to the same selector; refuse rather than let one silently replace another.
+  const movedKeys = Object.keys(evidence).filter(
+    (key) => scope(key).trim() === rewrite.toSelector
+  );
+  if (movedKeys.length > 1) {
     throw new Error(
-      `${path}: evidence already names ${rewrite.toSelector}; merge its ${rewrite.fromSelector} evidence by hand before moving`
+      `${path}: evidence would have more than one ${rewrite.toSelector} key; merge its ${rewrite.fromSelector} evidence by hand before moving`
     );
   }
   return Object.fromEntries(

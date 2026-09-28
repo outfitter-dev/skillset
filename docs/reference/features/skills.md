@@ -136,8 +136,12 @@ and locks move to their newly owned destinations. A move that would write a
 selector its field does not accept is refused without writes; for example, a
 distribution `from.selector` accepts only `plugins`, `plugin:<id>`, or
 `skill:<id>`, so a workspace skill that is a distribution source cannot move
-into a plugin until that distribution changes. A move is also refused when a
-pending entry's evidence map already has a key for the new selector. Moving a
+into a plugin until that distribution changes. A move is also refused when
+more than one of a pending entry's evidence keys would name the new selector.
+Source hashes bind a unit's identity, so recorded evidence stays as written and
+turns stale under the new selector; the move prints a notice asking you to run
+`skillset change refresh --yes` afterward, after `skillset change migrate --yes`
+for frontmatter entries. Moving a
 plugin skill into the workspace removes direct
 `plugins.internal_use.skills` and `plugins.internal_use.drafts` selections for
 that plugin leaf and reports the removal; it does not turn them into implicit

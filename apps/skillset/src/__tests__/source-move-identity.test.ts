@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { buildSkillset, moveSource, planSourceMove } from "@skillset/core";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { initializeTestGitRepository } from "../../../../scripts/test-helpers/git-remote";
 
-import { readPendingChangeEntries } from "../change-entries";
-import { readAppliedChangeRecords } from "../change-workflow";
+import { changeCheck, readPendingChangeEntries } from "../change-entries";
+import { migratePendingChangeEntries, readAppliedChangeRecords, refreshChangeEvidence } from "../change-workflow";
 
 describe("source move identity epochs", () => {
   test("keeps new evidence at a reused selector separate from pre-move evidence", async () => {
@@ -79,5 +80,56 @@ describe("source move identity epochs", () => {
       ["bbbbbbbbbbbb", ["plugin.tools.skill:demo"], [["plugin.tools.skill:demo", ["sha256:record"]]]],
       ["cccccccccccc", ["plugin.tools.skill:demo"], [["plugin.tools.skill:demo", ["sha256:string"]]]],
     ]);
+  });
+
+  test("leaves moved frontmatter evidence for migrate and refresh to re-record under the new identity", async () => {
+    const disposableRoot = await createTestFixtureRoot("skillset-move-evidence-refresh-");
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    const skill = (body: string): string => `---\nname: demo\ndescription: Demo skill.\n---\n\n${body}\n`;
+    for (const [path, content] of Object.entries({
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\ncompile:\n  targets: [claude]\n",
+    })) {
+      const target = join(root, path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, content, "utf8");
+    }
+    await buildSkillset(root);
+    await initializeTestGitRepository(root, { disposableRoot });
+    await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Demo changed before the move."), "utf8");
+    await buildSkillset(root);
+    const id = "dddddddddddd";
+    const path = `.skillset/changes/${id}.md`;
+    const entryErrors = async (): Promise<readonly string[]> =>
+      (await changeCheck(root)).issues
+        .filter((issue) => issue.path === path && issue.severity === "error")
+        .map((issue) => `${issue.code}: ${issue.message}`);
+    const premoveHash = (await changeCheck(root)).status.sourceUnits.find((unit) => unit.id === "skill:demo")?.hash;
+    if (premoveHash === undefined) throw new Error("expected a pre-move source unit for skill:demo");
+    await mkdir(join(root, ".skillset/changes"), { recursive: true });
+    await writeFile(
+      join(root, path),
+      `---\nid: ${id}\nbump: patch\nscopes: [skill:demo]\nevidence:\n  - scope: skill:demo\n    sourceHash: ${premoveHash}\n---\n\nDescribe the demo skill change with enough detail for validation.\n`,
+      "utf8"
+    );
+    expect(await entryErrors()).toEqual([]);
+
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    const plan = await planSourceMove(request);
+    expect(plan.notices).toEqual([
+      "migrate frontmatter pending change entries with skillset change migrate --yes before change refresh re-records their evidence",
+      "pending change entries name skill:demo; source hashes bind a unit's identity, so run skillset change refresh --yes after the move to re-record their evidence for plugin.tools.skill:demo",
+    ]);
+    await moveSource({ ...request, expectedPlanHash: plan.planHash });
+
+    // The pre-move hash stays as the attested evidence; the new identity makes it stale, which refresh repairs.
+    expect(await entryErrors()).toEqual(["change-evidence-stale: scope skill(plugin:tools): demo source hash evidence is stale"]);
+    await migratePendingChangeEntries(root, { write: true });
+    await refreshChangeEvidence(root, { ref: id, write: true });
+    expect(await entryErrors()).toEqual([]);
+    const [entry] = await readPendingChangeEntries(root);
+    expect(entry?.sourceHashes.get("plugin.tools.skill:demo")?.includes(premoveHash)).toBe(true);
+    expect(entry?.sourceHashes.get("plugin.tools.skill:demo")?.length).toBe(2);
   });
 });

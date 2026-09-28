@@ -13,6 +13,7 @@ import {
   movedDraftDestination,
 } from "./source-move-paths";
 import {
+  isFrontmatterChangeEntry,
   rewritePendingChangeScopes,
   rewriteSourceMoveConfig,
 } from "./source-move-rewrite";
@@ -230,6 +231,15 @@ async function planAuthoredSourceMove(
       }
       if (rewritten !== source) {
         updates.set(documentPath, rewritten);
+        // Source hashes bind the unit's kind and selector, so the move cannot carry current evidence.
+        notices.add(
+          `pending change entries name ${fromSelector}; source hashes bind a unit's identity, so run skillset change refresh --yes after the move to re-record their evidence for ${toSelector}`
+        );
+        if (isFrontmatterChangeEntry(source, display(rootPath, documentPath))) {
+          notices.add(
+            "migrate frontmatter pending change entries with skillset change migrate --yes before change refresh re-records their evidence"
+          );
+        }
       }
     }
 
