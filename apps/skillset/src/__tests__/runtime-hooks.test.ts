@@ -185,19 +185,44 @@ test("runtime hook overrides led by a POSIX shell built-in or reserved word run 
   // Only sh knows these words; spawned as argv they would look for an
   // executable named `exec` or `if` and exit 127.
   for (const word of [
+    // Reserved words.
     "!",
-    ".",
-    "builtin",
     "case",
-    "cd",
-    "command",
-    "eval",
-    "exec",
-    "export",
     "for",
     "if",
-    "source",
+    "until",
     "while",
+    // Every POSIX special built-in.
+    ":",
+    ".",
+    "break",
+    "continue",
+    "eval",
+    "exec",
+    "exit",
+    "export",
+    "readonly",
+    "return",
+    "set",
+    "shift",
+    "times",
+    "trap",
+    "unset",
+    // Built-ins that act on shell state.
+    "alias",
+    "builtin",
+    "cd",
+    "command",
+    "getopts",
+    "hash",
+    "local",
+    "read",
+    "source",
+    "type",
+    "ulimit",
+    "umask",
+    "unalias",
+    "wait",
   ]) {
     const override = `${word} skillset`;
     expect(parseSkillsetHookCommand(override, "linux")).toEqual({
@@ -371,6 +396,50 @@ test.skipIf(process.platform === "win32")(
       rootPath: root,
     })).resolves.toBe(0);
     expect(await readFile(marker, "utf8")).toBe("[]\n[change]\n[status]\n");
+  }
+);
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner runs shell-only built-in overrides such as exit",
+  async () => {
+    const root = await gitFixture();
+    const run = (override: string) =>
+      runSkillsetCommand([], {
+        allowFailure: false,
+        env: { SKILLSET_HOOK_COMMAND: override },
+        rootPath: root,
+      });
+    await expect(run("exit 0")).resolves.toBe(0);
+    await expect(run("exit 3")).resolves.toBe(3);
+  }
+);
+
+test.skipIf(process.platform === "win32")(
+  "runtime hook command runner reports an override that cannot execute as exit 126",
+  async () => {
+    const root = await gitFixture();
+    const notExecutable = join(root, "not-executable");
+    await writeFile(notExecutable, "#!/bin/sh\nexit 0\n");
+    await chmod(notExecutable, 0o644);
+    const notAProgram = join(root, "not-a-program");
+    await writeFile(notAProgram, "\u0000\u0001not a program");
+    await chmod(notAProgram, 0o755);
+    for (const override of [notExecutable, notAProgram]) {
+      const env = { SKILLSET_HOOK_COMMAND: `"${override}"` };
+      const run = (allowFailure: boolean) =>
+        runSkillsetCommand(["change", "status"], { allowFailure, env, rootPath: root });
+      // Blocking callers see the shell's "cannot execute" code; advisory
+      // callers stay advisory instead of rejecting.
+      await expect(run(false)).resolves.toBe(126);
+      await expect(run(true)).resolves.toBe(0);
+      const advisory = await runHookEvent("post-tool-use", {
+        env,
+        rootPath: root,
+        sourceGate: async () => sourceGate(true),
+      });
+      expect(advisory.exitCode).toBe(0);
+      expect(advisory.ranCommands).toEqual(["change status --root ."]);
+    }
   }
 );
 

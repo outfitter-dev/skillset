@@ -56,12 +56,15 @@ const UNQUOTED_SHELL_METACHARACTERS = new Set([
 // the shell, as every override did before argv overrides existed.
 const POSIX_ONLY_SHELL_CHARACTERS = new Set(["~", "*", "?", "[", "]", "{", "}", "#", "\\"]);
 const LEADING_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
-// A leading word that only sh understands: the POSIX reserved words that can
-// open a command, plus built-ins that act on the shell itself and have no
-// useful standalone executable (`builtin` and `source` are common extensions).
-// Spawned as argv, `exec skillset` would look for an executable named `exec`.
-// The list is deliberately small; anything else stays argv.
+// A leading word that only sh understands. Spawned as argv, `exec skillset`
+// or `exit 0` would look for an executable of that name and exit 127, while
+// `sh -lc` (how every override ran before argv overrides existed) runs it.
+// The set is the POSIX reserved words that can open a command, every POSIX
+// special built-in, and the regular built-ins that act on shell state
+// (`builtin`, `local`, and `source` are common extensions). Words with a
+// useful standalone executable, such as `test` or `echo`, stay argv.
 const POSIX_SHELL_LEADING_WORDS = new Set([
+  // Reserved words.
   "!",
   "{",
   "case",
@@ -69,22 +72,48 @@ const POSIX_SHELL_LEADING_WORDS = new Set([
   "if",
   "until",
   "while",
+  // Special built-ins.
+  ":",
   ".",
+  "break",
+  "continue",
+  "eval",
+  "exec",
+  "exit",
+  "export",
+  "readonly",
+  "return",
+  "set",
+  "shift",
+  "times",
+  "trap",
+  "unset",
+  // Built-ins that act on shell state.
+  "alias",
   "builtin",
   "cd",
   "command",
-  "eval",
-  "exec",
-  "export",
-  "readonly",
-  "set",
+  "getopts",
+  "hash",
+  "local",
+  "read",
   "source",
+  "type",
   "ulimit",
   "umask",
-  "unset",
+  "unalias",
+  "wait",
 ]);
-// The code sh reports for a command it cannot find.
+// The codes sh reports for a command it cannot find (127) and for one it
+// found but cannot execute (126).
 const COMMAND_NOT_FOUND_EXIT_CODE = 127;
+const COMMAND_NOT_EXECUTABLE_EXIT_CODE = 126;
+const SPAWN_FAILURE_EXIT_CODES: Readonly<Record<string, number>> = {
+  EACCES: COMMAND_NOT_EXECUTABLE_EXIT_CODE,
+  ENOENT: COMMAND_NOT_FOUND_EXIT_CODE,
+  ENOEXEC: COMMAND_NOT_EXECUTABLE_EXIT_CODE,
+  EPERM: COMMAND_NOT_EXECUTABLE_EXIT_CODE,
+};
 
 export async function resolveSkillsetCommand(
   rootPath = process.cwd(),
@@ -166,15 +195,23 @@ async function spawnHookCommand(
       windowsVerbatimArguments: spawn.windowsVerbatimArguments,
     });
   } catch (error) {
-    // Bun.spawn throws when the executable is missing; report it the way a
-    // shell would, so an advisory hook stays advisory instead of rejecting.
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      process.stderr.write(`skillset: hook command not found: ${error.message}\n`);
-      return COMMAND_NOT_FOUND_EXIT_CODE;
-    }
-    throw error;
+    // Bun.spawn throws when the executable is missing or cannot run; report
+    // it the way a shell would, so an advisory hook stays advisory instead of
+    // rejecting.
+    const exitCode = spawnFailureExitCode(error);
+    if (exitCode === undefined) throw error;
+    const reason = exitCode === COMMAND_NOT_FOUND_EXIT_CODE ? "not found" : "cannot execute";
+    process.stderr.write(`skillset: hook command ${reason}: ${error instanceof Error ? error.message : String(error)}\n`);
+    return exitCode;
   }
   return proc.exited;
+}
+
+function spawnFailureExitCode(error: unknown): number | undefined {
+  if (!(error instanceof Error) || !("code" in error) || typeof error.code !== "string") {
+    return undefined;
+  }
+  return SPAWN_FAILURE_EXIT_CODES[error.code];
 }
 
 function argvSpawn(
