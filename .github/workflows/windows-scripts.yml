@@ -1,9 +1,9 @@
 # Pull-request coverage for scripts that branch on Windows. Non-required until
 # it has been reliably green; the monthly Native workflow stays the full canary.
 # Only test files known or reasoned to pass on Windows are listed. POSIX-only
-# suites (bootstrap.test.ts shell fixtures, runtime-hooks.test.ts extensionless
-# fake commands) stay out until they are made Windows-aware. The list grows
-# with the Windows fixes: #550 adds its Windows-runnable runtime-hooks coverage.
+# suites (bootstrap.test.ts shell fixtures) stay out until they are made
+# Windows-aware. The list grows with the Windows fixes; runtime-hooks.test.ts
+# joined once its fake commands became Windows-runnable .cmd shims.
 name: Windows scripts
 
 on:
@@ -46,6 +46,7 @@ jobs:
           packages/core/src/__tests__/path.test.ts
           packages/core/src/__tests__/diagnostic-path.test.ts
           apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
+          apps/skillset/src/__tests__/runtime-hooks.test.ts
       - name: Bootstrap doctor finds the cached pin under Git Bash without a global Bun
         shell: bash
         run: |
