@@ -1657,8 +1657,12 @@ async function renderProjectSkillCopy(
         }
       )
     : undefined;
-  // The collector reports this copy through compile.unsupportedDestination.
-  if (standard !== undefined && "code" in standard) return [];
+  if (standard !== undefined && "code" in standard) {
+    // The collector reports this copy through compile.unsupportedDestination
+    // and routes that result here, so the root's lock must exist to carry it.
+    lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target));
+    return [];
+  }
   const skillMarkdown = standard === undefined
     ? await renderSkillMarkdown(graph, plugin, skill, target, {
         effectiveName: copy.effectiveName,

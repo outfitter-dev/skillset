@@ -564,6 +564,37 @@ Review body.
     expect(await lockResults(fullRoot, "plugins/skillset.lock")).not.toContainEqual(omission);
   });
 
+  it("writes the Codex skill-root lock for an omitted copy when no other Codex output lands there", async () => {
+    const root = await fixture({
+      "skillset.yaml": `skillset:\n  name: omitted-copy-only\ncompile:\n  unsupportedDestination: warn\nclaude: true\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    drafts:\n      demo: true\n`,
+      ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+      ".skillset/plugins/demo/skills/_drafts/review/SKILL.md": `---
+name: review
+description: Draft with non-string metadata
+metadata:
+  priority: 3
+---
+
+Review body.
+`,
+    });
+
+    await buildSkillsetResult(root, { scopes: ["repo"] });
+    expect(await Bun.file(join(root, ".claude/skills/draft-review/SKILL.md")).exists()).toBe(true);
+    expect(await Bun.file(join(root, ".agents/skills/draft-review/SKILL.md")).exists()).toBe(false);
+    const lock = JSON.parse(
+      await readFile(join(root, ".agents/skills/skillset.lock"), "utf8")
+    ) as { readonly items: readonly unknown[]; readonly renderResults?: readonly unknown[] };
+    expect(lock.items).toEqual([]);
+    expect(lock.renderResults).toContainEqual(expect.objectContaining({
+      outputRoot: ".agents/skills",
+      policy: "unsupported:warn",
+      sourceUnit: "plugin.demo.skill:review",
+      status: "unsupported",
+      target: "codex",
+    }));
+  });
+
   it("does not report a skill hook excluded from the target by its definition", async () => {
     const root = await fixture({
       "skillset.yaml": `skillset:\n  name: filtered-skill-hook\nclaude: false\ncodex: true\ncursor: false\nplugins:\n  internal_use:\n    skills:\n      demo: true\n`,
