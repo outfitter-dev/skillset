@@ -707,6 +707,12 @@ const EMPTY_MARKETPLACE_STATE: ExistingMarketplaceState = {
   entries: [],
 };
 
+/**
+ * Marketplace selection and external provider entries are live-lock-owned
+ * data: `marketplace update` writes them only into the live workspace lock.
+ * Isolated builds read them here too, never from the mirror lock, which
+ * never receives them.
+ */
 export async function readExistingMarketplaceState(
   rootPath: string
 ): Promise<ExistingMarketplaceState> {
