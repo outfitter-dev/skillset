@@ -165,7 +165,11 @@ export async function nextJsonlTimestampForPaths(
 
 export async function readJsonlTailTimestamp(absolutePath: string): Promise<string | undefined> {
   const content = await readOptionalText(absolutePath, { missing: MISSING_PATH_ENOENT });
-  if (content === undefined) return undefined;
+  return content === undefined ? undefined : jsonlTailTimestamp(content);
+}
+
+/** The event timestamp of the last non-empty record in JSONL `content`, if any. */
+export function jsonlTailTimestamp(content: string): string | undefined {
   const lines = content.split("\n");
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index];

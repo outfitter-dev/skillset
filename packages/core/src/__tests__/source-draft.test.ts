@@ -56,8 +56,8 @@ describe("SET-587 source draft lifecycle", () => {
     });
     expect(plan.operations).toContainEqual(
       expect.objectContaining({
-        content: expect.stringContaining('"type":"source.drafted"'),
-        kind: "update",
+        event: expect.objectContaining({ type: "source.drafted" }),
+        kind: "append",
         path: ".skillset/changes/ledger.jsonl",
       })
     );
@@ -130,6 +130,52 @@ describe("SET-587 source draft lifecycle", () => {
     ).toBe(draft);
     expect(
       await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
+    ).toBe(false);
+  });
+
+  test("refuses to draft against a ledger readers cannot parse, without writes", async () => {
+    const event = JSON.stringify({ createdAt: "2026-09-20T00:00:00.000Z", id: "evt-dup", payload: { reason: "r", reasonId: "r" }, schemaVersion: 1, type: "reason.created" });
+    const malformed = `${event}\n${event}\n`;
+    const root = await fixture({
+      ".skillset/changes/ledger.jsonl": malformed,
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+
+    await expect(
+      planSourceDraft({
+        rootPath: root,
+        shippedPath: ".skillset/skills/demo",
+      })
+    ).rejects.toThrow(".skillset/changes/ledger.jsonl");
+    expect(
+      await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8")
+    ).toBe(malformed);
+    expect(
+      await Bun.file(join(root, ".skillset/skills/_drafts/demo/SKILL.md")).exists()
+    ).toBe(false);
+  });
+
+  test("refuses to apply a draft once the ledger became unreadable after planning, without writes", async () => {
+    const root = await fixture({
+      ".skillset/skills/demo/SKILL.md": skill("demo", "Shipped demo."),
+      "skillset.yaml": config(),
+    });
+    await buildSkillset(root);
+    const request = { rootPath: root, shippedPath: ".skillset/skills/demo" };
+    const plan = await planSourceDraft(request);
+    const malformed = '{"id":"broken"\n';
+    await mkdir(join(root, ".skillset/changes"), { recursive: true });
+    await writeFile(join(root, ".skillset/changes/ledger.jsonl"), malformed, "utf8");
+
+    await expect(
+      draftSource({ ...request, expectedPlanHash: plan.planHash })
+    ).rejects.toThrow(".skillset/changes/ledger.jsonl");
+    expect(
+      await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8")
+    ).toBe(malformed);
+    expect(
+      await Bun.file(join(root, ".skillset/skills/_drafts/demo/SKILL.md")).exists()
     ).toBe(false);
   });
 
@@ -622,7 +668,7 @@ describe("SET-587 source draft lifecycle", () => {
           testHooks: {
             beforeApply: (operation) => {
               if (
-                operation.kind === "write" &&
+                operation.kind === "append" &&
                 operation.path === ".skillset/changes/ledger.jsonl"
               ) {
                 throw new Error("injected promotion ledger failure");
@@ -657,7 +703,7 @@ describe("SET-587 source draft lifecycle", () => {
           testHooks: {
             beforeApply: (operation) => {
               if (
-                operation.kind === "write" &&
+                operation.kind === "append" &&
                 operation.path === ".skillset/changes/ledger.jsonl"
               ) {
                 throw new Error("injected draft ledger failure");

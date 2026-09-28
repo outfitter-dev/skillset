@@ -2,6 +2,7 @@ import * as core from "@skillset/core";
 import type { SkillsetCliChange } from "@skillset/schema";
 
 import { printCliJsonData } from "./cli-output";
+import { defaultLifecycleLedgerLock, type LifecycleLedgerLock } from "./lifecycle-ledger-lock";
 import { publicGeneratedOperation } from "./source-mutation-cli";
 
 export interface PromoteCommandRequest {
@@ -13,7 +14,7 @@ export interface PromoteCommandRequest {
 
 interface PromoteOperation {
   readonly from?: string;
-  readonly kind: "delete" | "move" | "update";
+  readonly kind: "append" | "delete" | "move" | "update";
   readonly path?: string;
   readonly to?: string;
 }
@@ -57,6 +58,8 @@ export interface PromoteCommandCore {
 
 export interface PromoteCommandContext {
   readonly core?: PromoteCommandCore;
+  /** Serializes the applying plan and transaction with other ledger writers. */
+  readonly ledgerLock?: LifecycleLedgerLock;
   readonly write?: (value: string) => void;
 }
 
@@ -75,7 +78,7 @@ const changes = (
   state: SkillsetCliChange["state"]
 ): readonly SkillsetCliChange[] => [
   ...report.operations.map((operation) => ({
-    action: operation.kind,
+    action: operation.kind === "append" ? ("update" as const) : operation.kind,
     path:
       operation.kind === "move" ? (operation.to ?? "") : (operation.path ?? ""),
     ...(operation.kind === "move" && operation.from !== undefined
@@ -134,13 +137,14 @@ export const runPromoteCommand = async (
     draftPath: request.draftPath,
     rootPath: request.rootPath,
   };
-  const preview = await promoteCore.planSourcePromotion(planRequest);
   const report = request.yes
-    ? await promoteCore.promoteSource({
-        ...planRequest,
-        expectedPlanHash: preview.planHash,
-      })
-    : preview;
+    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async () =>
+        promoteCore.promoteSource({
+          ...planRequest,
+          expectedPlanHash: (await promoteCore.planSourcePromotion(planRequest)).planHash,
+        })
+      )
+    : await promoteCore.planSourcePromotion(planRequest);
   const paths = request.yes ? writtenPaths(report) : [];
   if (request.jsonOutput) {
     printCliJsonData(
