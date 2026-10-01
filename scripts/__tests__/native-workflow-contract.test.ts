@@ -17,6 +17,7 @@ type Workflow = {
       "runs-on"?: string;
       steps?: Array<{
         env?: Record<string, string>;
+        if?: string;
         name?: string;
         run?: string;
         uses?: string;
@@ -73,11 +74,17 @@ describe("SET-419 native workflow contract", () => {
       )?.run
     ).toContain("workspace-transaction.test.ts");
     for (const step of smoke?.steps ?? []) {
-      if (!step.run?.includes("scripts/test-sandbox.ts")) continue;
-      expect(step.env).toMatchObject({
-        TEMP: "${{ runner.temp }}",
-        TMP: "${{ runner.temp }}",
-      });
+      if (
+        !step.run?.includes("scripts/test-sandbox.ts") &&
+        !step.run?.includes("test:focused")
+      ) {
+        continue;
+      }
+      const tempRoot =
+        step.if === "runner.os == 'Windows'"
+          ? "${{ runner.temp }}"
+          : "${{ runner.os == 'Windows' && runner.temp || '/tmp' }}";
+      expect(step.env).toMatchObject({ TEMP: tempRoot, TMP: tempRoot });
       expect(step.env).not.toHaveProperty("HOME");
     }
     expect(
