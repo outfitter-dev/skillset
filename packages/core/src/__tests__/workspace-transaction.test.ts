@@ -658,6 +658,93 @@ describe("workspace transactions", () => {
     });
   });
 
+  for (const fallback of [false, true]) {
+    for (const replacement of [
+      "directory",
+      "file",
+      "edit",
+      "unchanged",
+    ] as const) {
+      test(`fresh-write rollback preserves ${replacement} with ${fallback ? "exclusive create" : "hard links"}`, async () => {
+        await withWorkspace(async (root) => {
+          const target = nodePath.join(root, "draft/SKILL.md");
+          await writeFile(nodePath.join(root, "unrelated.txt"), "unrelated\n");
+          await expect(
+            applyWorkspaceTransaction(
+              root,
+              {
+                writes: [
+                  {
+                    path: "draft/SKILL.md",
+                    content: "owned\n",
+                    expectedAbsent: true,
+                  },
+                ],
+                appends: [
+                  { path: "ledger.jsonl", records: () => [{ id: "owned" }] },
+                ],
+              },
+              {
+                testHooks: {
+                  ...(fallback
+                    ? {
+                        failHardLink: () =>
+                          Object.assign(new Error("unsupported"), {
+                            code: "EPERM",
+                          }),
+                      }
+                    : {}),
+                  beforeApply: async (operation) => {
+                    if (operation.kind !== "append") return;
+                    if (replacement === "directory" || replacement === "file") {
+                      await rm(target);
+                      if (replacement === "directory") {
+                        await mkdir(target);
+                        await writeFile(
+                          nodePath.join(target, "foreign.txt"),
+                          "foreign\n"
+                        );
+                      } else {
+                        await writeFile(target, "foreign\n");
+                      }
+                    } else if (replacement === "edit") {
+                      await writeFile(target, "edited\n");
+                    }
+                    throw new Error("later append failed");
+                  },
+                },
+              }
+            )
+          ).rejects.toThrow("later append failed");
+          if (replacement === "unchanged") {
+            await expect(access(target)).rejects.toThrow();
+            await expect(access(nodePath.dirname(target))).rejects.toThrow();
+          } else {
+            expect(
+              await readFile(
+                replacement === "directory"
+                  ? nodePath.join(target, "foreign.txt")
+                  : target,
+                "utf-8"
+              )
+            ).toBe(replacement === "edit" ? "edited\n" : "foreign\n");
+          }
+          expect(
+            await readFile(nodePath.join(root, "unrelated.txt"), "utf-8")
+          ).toBe("unrelated\n");
+          await expect(
+            access(nodePath.join(root, "ledger.jsonl"))
+          ).rejects.toThrow();
+          expect(
+            (await readdir(root)).filter((entry) =>
+              entry.startsWith(".skillset-workspace-")
+            )
+          ).toEqual([]);
+        });
+      });
+    }
+  }
+
   test("rewrites a moved file at its destination and restores it on rollback", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "old.txt"), "before\n");

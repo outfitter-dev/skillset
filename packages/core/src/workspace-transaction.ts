@@ -1,6 +1,7 @@
 /* eslint-disable func-style, no-use-before-define -- Hoisted helpers keep the transaction phases readable from plan through rollback. */
 /* eslint-disable no-await-in-loop -- Workspace mutations and rollback must run in a strict, observable sequence. */
 
+import type { Stats } from "node:fs";
 import {
   chmod,
   cp,
@@ -273,6 +274,7 @@ interface AppliedCopy {
 
 interface AppliedWrite {
   currentPath: string;
+  installedIdentity?: Stats;
   readonly stagingPath: string;
   readonly write: NormalizedWrite;
 }
@@ -1140,7 +1142,12 @@ async function applyWrites(
     const outcome = await installWithoutReplacing(
       hooks,
       applied.currentPath,
-      write.path
+      write.path,
+      write.expectedAbsent === true
+        ? (identity) => {
+            applied.installedIdentity = identity;
+          }
+        : undefined
     );
     if (outcome === "occupied") {
       preserveCreatedDirectoryAncestors(state, write.path.absolute);
@@ -1163,7 +1170,8 @@ async function applyWrites(
 async function installWithoutReplacing(
   hooks: WorkspaceTransactionTestHooks | undefined,
   sourcePath: string,
-  target: NormalizedPath
+  target: NormalizedPath,
+  onInstalledFile?: (identity: Stats) => void
 ): Promise<"installed" | "occupied"> {
   const source = await lstat(sourcePath);
   if (source.isFile()) {
@@ -1173,6 +1181,7 @@ async function installWithoutReplacing(
         throw injectedFailure;
       }
       await link(sourcePath, target.absolute);
+      onInstalledFile?.(await lstat(sourcePath));
     } catch (error) {
       if (isAlreadyExists(error)) {
         return "occupied";
@@ -1187,7 +1196,8 @@ async function installWithoutReplacing(
       const outcome = await installFileByExclusiveCreate(
         hooks,
         sourcePath,
-        target
+        target,
+        onInstalledFile
       );
       if (outcome === "occupied") {
         return "occupied";
@@ -1219,7 +1229,8 @@ function isHardLinkUnsupported(error: unknown): boolean {
 async function installFileByExclusiveCreate(
   hooks: WorkspaceTransactionTestHooks | undefined,
   sourcePath: string,
-  target: NormalizedPath
+  target: NormalizedPath,
+  onInstalledFile?: (identity: Stats) => void
 ): Promise<"installed" | "occupied"> {
   const content = await readFile(sourcePath);
   let handle: Awaited<ReturnType<typeof open>>;
@@ -1247,6 +1258,7 @@ async function installFileByExclusiveCreate(
       // fchmod through our handle cannot follow a concurrently swapped path.
       await handle.chmod(staged.mode & 0o777);
     }
+    onInstalledFile?.(await handle.stat());
     await handle.close();
   } catch (error) {
     await handle.close().catch(() => undefined);
@@ -1472,6 +1484,13 @@ async function rollbackTransaction(
     await run(
       { kind: "restore-write", path: write.write.path.relative },
       async () => {
+        if (
+          write.write.expectedAbsent === true &&
+          !(await expectedAbsentWriteIsOwned(state, write))
+        ) {
+          preserveCreatedDirectoryAncestors(state, write.currentPath);
+          return;
+        }
         await rename(write.currentPath, write.stagingPath);
         write.currentPath = write.stagingPath;
       }
@@ -1564,6 +1583,34 @@ async function rollbackTransaction(
     }
   );
   return failures;
+}
+
+/** Fresh creations have no preimage to restore over another writer's work. */
+async function expectedAbsentWriteIsOwned(
+  state: TransactionState,
+  write: AppliedWrite
+): Promise<boolean> {
+  const installed = write.installedIdentity;
+  const current = await inspectPath(state.workspaceRoot, write.write.path);
+  if (installed === undefined || current?.isFile() !== true) return false;
+  const sameObject =
+    installed.dev === current.dev &&
+    (installed.ino !== 0
+      ? installed.ino === current.ino
+      : current.ino === 0 &&
+        installed.birthtimeMs !== 0 &&
+        Number.isFinite(installed.birthtimeMs) &&
+        installed.birthtimeMs === current.birthtimeMs);
+  if (
+    !sameObject ||
+    installed.mode !== current.mode ||
+    installed.size !== current.size ||
+    installed.mtimeMs !== current.mtimeMs
+  ) {
+    return false;
+  }
+  const content = await readFile(write.currentPath);
+  return content.equals(Buffer.from(write.write.content));
 }
 
 async function restorePreimageWithoutOverwrite(

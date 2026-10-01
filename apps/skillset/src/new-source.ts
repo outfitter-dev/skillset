@@ -1,5 +1,5 @@
-import { readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { workspaceChangeFile } from "@skillset/core";
 import {
@@ -198,6 +198,10 @@ async function scaffoldSourceUnitUnlocked(
   const discardEvent = options.draft === true && options.kind === "skill"
     ? await freshDraftDiscardEvent(rootPath, sourceDir, id, options.container)
     : undefined;
+  const draftRoot = discardEvent === undefined ? undefined : dirname(plans[0]!.path);
+  if (draftRoot !== undefined) {
+    await assertFreshDraftContents(rootPath, draftRoot, []);
+  }
   if (options.write === true && options.draft === true && options.kind === "skill") {
     const event = discardEvent;
     const hooks = options.transactionOptions?.testHooks;
@@ -213,6 +217,9 @@ async function scaffoldSourceUnitUnlocked(
         beforeApply: async (operation, index) => {
           await assertOwned?.();
           await hooks?.beforeApply?.(operation, index);
+          if (draftRoot !== undefined && operation.kind === "append") {
+            await assertFreshDraftContents(rootPath, draftRoot, plans.map((plan) => plan.path));
+          }
         },
       },
     });
@@ -242,6 +249,39 @@ async function scaffoldSourceUnitUnlocked(
     sourceRoot,
     write: options.write === true,
   };
+}
+
+/** Do not retire fork provenance while retaining authored content from that fork. */
+async function assertFreshDraftContents(
+  rootPath: string,
+  draftRoot: string,
+  allowedFiles: readonly string[]
+): Promise<void> {
+  const files = new Set(allowedFiles);
+  const directories = new Set<string>();
+  for (const file of allowedFiles) {
+    for (let parent = dirname(file); parent !== draftRoot; parent = dirname(parent)) {
+      directories.add(parent);
+    }
+  }
+  const reject = () => new CliUsageError(
+    `skillset: refusing to discard the fork baseline while draft content remains in ${draftRoot}; restore SKILL.md to continue the fork, or remove the entire draft directory before creating a fresh draft`
+  );
+  const entry = await lstat(resolveInside(rootPath, draftRoot)).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  });
+  if (entry === undefined) return;
+  if (!entry.isDirectory() || entry.isSymbolicLink()) throw reject();
+  const inspect = async (directory: string): Promise<void> => {
+    for (const child of await readdir(resolveInside(rootPath, directory), { withFileTypes: true })) {
+      const path = join(directory, child.name);
+      if (child.isSymbolicLink()) throw reject();
+      if (child.isDirectory() && directories.has(path)) await inspect(path);
+      else if (!child.isFile() || !files.has(path)) throw reject();
+    }
+  };
+  await inspect(draftRoot);
 }
 
 export async function scaffoldSourceUnit(

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { buildSkillset } from "@skillset/core";
@@ -56,6 +56,79 @@ test("SET-671: failed fresh draft append rolls back created files and preserves 
   expect(await readFile(ledger, "utf8")).toBe(before);
 });
 
+test("SET-671: resource-only fork refuses preview and creation without losing provenance", async () => {
+  const { root, draft, fork } = await forkFixture(undefined, true);
+  await rm(join(root, draft, "SKILL.md"));
+  const ledger = join(root, ".skillset/changes/ledger.jsonl");
+  const before = await readFile(ledger, "utf8");
+  for (const write of [false, true]) {
+    await expect(scaffoldSourceUnit(root, {
+      kind: "skill", id: "demo", draft: true, write,
+    })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
+    expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
+    expect(await readFile(join(root, draft, "references/api.md"), "utf8")).toBe("Authored resource.\n");
+    expect(await readFile(ledger, "utf8")).toBe(before);
+  }
+  await writeFile(join(root, draft, "SKILL.md"), skill("Restored fork."));
+  await buildSkillset(root);
+  expect((await planSourcePromotion({ rootPath: root, draftPath: draft })).baselineSourceHash).toBe(fork.sourceHash);
+});
+
+test("SET-671: resource inserted before append prevents fork closure and survives rollback", async () => {
+  const { root, draft } = await forkFixture();
+  await rm(join(root, draft), { recursive: true });
+  await mkdir(join(root, draft));
+  const ledger = join(root, ".skillset/changes/ledger.jsonl");
+  const before = await readFile(ledger, "utf8");
+  await expect(scaffoldSourceUnit(root, {
+    kind: "skill", id: "demo", draft: true, write: true,
+    transactionOptions: { testHooks: { beforeApply: async (operation) => {
+      if (operation.kind === "append") await writeFile(join(root, draft, "retained.md"), "Late authored resource.\n");
+    } } },
+  })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
+  expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
+  expect(await readFile(join(root, draft, "retained.md"), "utf8")).toBe("Late authored resource.\n");
+  expect(await readFile(ledger, "utf8")).toBe(before);
+});
+
+test("SET-671: directory inserted at a planned file before install survives refusal", async () => {
+  const { root, draft } = await forkFixture();
+  await rm(join(root, draft), { recursive: true });
+  await mkdir(join(root, draft));
+  const ledger = join(root, ".skillset/changes/ledger.jsonl");
+  const before = await readFile(ledger, "utf8");
+  await expect(scaffoldSourceUnit(root, {
+    kind: "skill", id: "demo", draft: true, write: true,
+    transactionOptions: { testHooks: { beforeApply: async (operation) => {
+      if (operation.kind === "write") await mkdir(join(root, draft, "SKILL.md"));
+    } } },
+  })).rejects.toThrow();
+  expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
+  expect(await readFile(ledger, "utf8")).toBe(before);
+  // It never became a transaction-owned write, so the foreign directory stays.
+  expect((await stat(join(root, draft, "SKILL.md"))).isDirectory()).toBe(true);
+});
+
+test("SET-671: foreign directory replacing installed draft survives refused fork closure", async () => {
+  const { root, draft } = await forkFixture();
+  await rm(join(root, draft), { recursive: true });
+  const ledger = join(root, ".skillset/changes/ledger.jsonl");
+  const before = await readFile(ledger, "utf8");
+  const replacement = join(root, draft, "SKILL.md");
+  await expect(scaffoldSourceUnit(root, {
+    kind: "skill", id: "demo", draft: true, write: true,
+    transactionOptions: { testHooks: { beforeApply: async (operation) => {
+      if (operation.kind !== "append") return;
+      await rm(replacement);
+      await mkdir(replacement);
+      await writeFile(join(replacement, "authored.md"), "Concurrent authored content.\n");
+    } } },
+  })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
+  expect((await stat(replacement)).isDirectory()).toBe(true);
+  expect(await readFile(join(replacement, "authored.md"), "utf8")).toBe("Concurrent authored content.\n");
+  expect(await readFile(ledger, "utf8")).toBe(before);
+});
+
 test("SET-671: closing a moved fork does not close an unrelated reused selector", async () => {
   const { root, draft, fork } = await forkFixture();
   await scaffoldSourceUnit(root, { kind: "plugin", id: "tools", write: true });
@@ -101,7 +174,7 @@ function skill(description: string): string {
   return `---\nname: demo\ndescription: ${description}\n---\n\n${description}\n`;
 }
 
-async function forkFixture(plugin?: string) {
+async function forkFixture(plugin?: string, resource = false) {
   const root = await createTestFixtureRoot("skillset-new-fork-");
   const skills = plugin === undefined ? ".skillset/skills" : `.skillset/plugins/${plugin}/skills`;
   const shipped = `${skills}/demo`;
@@ -109,6 +182,7 @@ async function forkFixture(plugin?: string) {
   const files: Record<string, string> = {
     "skillset.yaml": "skillset:\n  name: draft-reset\ncompile:\n  targets: [codex]\n",
     [`${shipped}/SKILL.md`]: skill("Shipped demo."),
+    ...(resource ? { [`${shipped}/references/api.md`]: "Authored resource.\n" } : {}),
     ...(plugin === undefined ? {} : { [`.skillset/plugins/${plugin}/skillset.yaml`]: `skillset:\n  name: ${plugin}\n` }),
   };
   for (const [path, content] of Object.entries(files)) {
