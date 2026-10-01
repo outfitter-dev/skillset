@@ -16,6 +16,7 @@ type Workflow = {
       needs?: string;
       "runs-on"?: string;
       steps?: Array<{
+        env?: Record<string, string>;
         name?: string;
         run?: string;
         uses?: string;
@@ -71,6 +72,14 @@ describe("SET-419 native workflow contract", () => {
         (step) => step.name === "Prove workspace transaction directory race"
       )?.run
     ).toContain("workspace-transaction.test.ts");
+    for (const step of smoke?.steps ?? []) {
+      if (!step.run?.includes("scripts/test-sandbox.ts")) continue;
+      expect(step.env).toMatchObject({
+        TEMP: "${{ runner.temp }}",
+        TMP: "${{ runner.temp }}",
+      });
+      expect(step.env).not.toHaveProperty("HOME");
+    }
     expect(
       smoke?.steps?.find(
         (step) => step.name === "Prove packaged atomic no-replace directory rename"
