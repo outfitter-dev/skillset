@@ -3,6 +3,7 @@ import {
   access,
   chmod,
   mkdir,
+  lstat,
   readFile,
   readdir,
   realpath,
@@ -777,6 +778,38 @@ describe("workspace transactions", () => {
           } else {
             expect(await readFile(target, "utf8")).toBe(mutation === "edit" ? "alien\n" : "owned\n");
           }
+          expect((await readdir(root)).filter((entry) => entry.startsWith(".skillset-workspace-"))).toEqual([]);
+        });
+      });
+    }
+  }
+
+  for (const fallback of [false, true]) {
+    for (const replacement of ["leaf", "parent"] as const) {
+      test(`fresh-write rollback preserves foreign ${replacement} symlink with ${fallback ? "exclusive create" : "hard links"}`, async () => {
+        await withWorkspace(async (root) => {
+          const outside = await createTestFixtureRoot("skillset-rollback-foreign-");
+          const outsideFile = nodePath.join(outside, "SKILL.md");
+          await writeFile(outsideFile, "foreign outside\n");
+          const target = nodePath.join(root, "draft/SKILL.md");
+          const replacementPath = replacement === "leaf" ? target : nodePath.dirname(target);
+          await expect(applyWorkspaceTransaction(root, {
+            writes: [{ content: "owned\n", expectedAbsent: true, path: "draft/SKILL.md" }],
+            appends: [{ path: "ledger.jsonl", records: () => [{ id: "owned" }] }],
+          }, {
+            testHooks: {
+              ...(fallback ? { failHardLink: () => Object.assign(new Error("unsupported"), { code: "EPERM" }) } : {}),
+              beforeApply: async (operation) => {
+                if (operation.kind !== "append") return;
+                await rm(replacementPath, { recursive: true });
+                await symlink(replacement === "leaf" ? outsideFile : outside,
+                  replacementPath, replacement === "leaf" ? "file" : process.platform === "win32" ? "junction" : "dir");
+              },
+            },
+          })).rejects.toThrow("expected-absent write changed after installation");
+          expect((await lstat(replacementPath)).isSymbolicLink()).toBe(true);
+          expect(await readFile(outsideFile, "utf8")).toBe("foreign outside\n");
+          await expect(access(nodePath.join(root, "ledger.jsonl"))).rejects.toThrow();
           expect((await readdir(root)).filter((entry) => entry.startsWith(".skillset-workspace-"))).toEqual([]);
         });
       });

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readlink, readdir, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { buildSkillset } from "@skillset/core";
@@ -160,6 +160,28 @@ for (const replacementKind of ["restored", "edited", "identical replacement"] as
     expect(await readFile(ledger, "utf8")).toBe(before);
   });
 }
+
+test.skipIf(process.platform === "win32")("SET-671: foreign symlink survives refused fork closure without a recovery journal", async () => {
+  const { root, draft } = await forkFixture();
+  await rm(join(root, draft), { recursive: true });
+  const ledger = join(root, ".skillset/changes/ledger.jsonl");
+  const before = await readFile(ledger, "utf8");
+  const entrypoint = join(root, draft, "SKILL.md");
+  const authored = join(root, "authored.md");
+  await writeFile(authored, "Concurrent authored content.\n");
+  await expect(scaffoldSourceUnit(root, {
+    kind: "skill", id: "demo", draft: true, write: true,
+    transactionOptions: { testHooks: { beforeApply: async (operation) => {
+      if (operation.kind !== "append") return;
+      await rm(entrypoint);
+      await symlink(authored, entrypoint);
+    } } },
+  })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
+  expect(await readlink(entrypoint)).toBe(authored);
+  expect(await readFile(authored, "utf8")).toBe("Concurrent authored content.\n");
+  expect(await readFile(ledger, "utf8")).toBe(before);
+  expect((await readdir(root)).filter((name) => name.startsWith(".skillset-workspace-transaction-"))).toEqual([]);
+});
 
 test("SET-671: closing a moved fork does not close an unrelated reused selector", async () => {
   const { root, draft, fork } = await forkFixture();

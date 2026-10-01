@@ -1604,9 +1604,9 @@ async function expectedAbsentWriteOwnership(
   write: AppliedWrite
 ): Promise<"owned" | "missing" | "foreign"> {
   const installed = write.installedIdentity;
-  const current = await inspectPath(state.workspaceRoot, write.write.path);
+  const current = await inspectWriteOwnershipEntry(state.workspaceRoot, write.write.path);
   if (current === undefined) return "missing";
-  if (installed === undefined || !current.isFile()) return "foreign";
+  if (current === "foreign" || installed === undefined || !current.isFile()) return "foreign";
   const sameObject =
     installed.dev === current.dev &&
     (installed.ino !== 0
@@ -1625,6 +1625,28 @@ async function expectedAbsentWriteOwnership(
   }
   const content = await readFile(write.currentPath);
   return content.equals(Buffer.from(write.write.content)) ? "owned" : "foreign";
+}
+
+/** Ownership probes stop at foreign ancestors instead of traversing them. */
+async function inspectWriteOwnershipEntry(
+  workspaceRoot: string,
+  path: NormalizedPath
+): Promise<Stats | "foreign" | undefined> {
+  let current = workspaceRoot;
+  for (const segment of path.relative.split(nodePath.sep)) {
+    current = nodePath.join(current, segment);
+    const entry = await lstat(current).catch((error: unknown) => {
+      if (isMissing(error)) return undefined;
+      if (error instanceof Error && "code" in error && error.code === "ENOTDIR") {
+        return "foreign" as const;
+      }
+      throw error;
+    });
+    if (entry === undefined || entry === "foreign") return entry;
+    if (entry.isSymbolicLink() ||
+        (current !== path.absolute && !entry.isDirectory())) return "foreign";
+    if (current === path.absolute) return entry;
+  }
 }
 
 async function restorePreimageWithoutOverwrite(
