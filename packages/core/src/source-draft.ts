@@ -4,7 +4,8 @@ import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
-import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
+import { readChangeLedger } from "./change-ledger";
+import type { ChangeLedgerEvent, SourceDraftDiscardedLedgerPayload } from "./change-ledger";
 import {
   formatGeneratedFileMode,
   normalizeGeneratedFileMode,
@@ -434,24 +435,42 @@ function classifyDraftSkill(
   );
 }
 
+/** Close only the active fork when scaffolding an unrelated draft at its selector. */
+export async function freshDraftDiscardEvent(
+  rootPath: string,
+  sourceDir: string,
+  id: string,
+  pluginId?: string
+): Promise<{ readonly type: "source.draft-discarded"; readonly payload: SourceDraftDiscardedLedgerPayload } | undefined> {
+  const shipped = pluginId === undefined
+    ? selectorForStandaloneSkill(id)
+    : selectorForPluginSkill(pluginId, id);
+  const draft = `${shipped}#draft`;
+  const baseline = findDraftBaseline(await readChangeLedger(rootPath, { sourceDir }), draft, shipped);
+  return baseline === undefined ? undefined : {
+    payload: { draft, draftEventId: baseline.id, shipped },
+    type: "source.draft-discarded",
+  };
+}
+
 function findDraftBaseline(
   events: readonly ChangeLedgerEvent[],
   draft: string,
   shipped: string
 ): Extract<ChangeLedgerEvent, { readonly type: "source.drafted" }> | undefined {
-  const promoted = new Set(
+  const closed = new Set(
     events.flatMap((event) =>
-      event.type === "source.promoted" &&
+      (event.type === "source.promoted" || event.type === "source.draft-discarded") &&
       event.payload.draftEventId !== undefined
         ? [event.payload.draftEventId]
         : []
     )
   );
   const mappings = sourceIdentityMappings(events);
-  return events
+  const latest = events
     .flatMap(
       (event, eventIndex) => {
-        if (event.type !== "source.drafted" || promoted.has(event.id)) {
+        if (event.type !== "source.drafted") {
           return [];
         }
         // A move carries the paired draft, but older fork evidence stays append-only.
@@ -468,6 +487,8 @@ function findDraftBaseline(
       }
     )
     .at(-1);
+  // Retiring the latest generation must not resurrect an older abandoned fork.
+  return latest === undefined || closed.has(latest.id) ? undefined : latest;
 }
 
 function ledgerPath(rootPath: string, sourceDir: string): string {

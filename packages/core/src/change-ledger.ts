@@ -27,6 +27,7 @@ export type ChangeLedgerEventType =
   | "reason.updated"
   | "release.amended"
   | "release.applied"
+  | "source.draft-discarded"
   | "source.drafted"
   | "source.moved"
   | "source.promoted";
@@ -40,6 +41,7 @@ export type ChangeLedgerEvent =
   | ReasonUpdatedLedgerEvent
   | ReleaseAmendedLedgerEvent
   | ReleaseAppliedLedgerEvent
+  | SourceDraftDiscardedLedgerEvent
   | SourceDraftedLedgerEvent
   | SourceMovedLedgerEvent
   | SourcePromotedLedgerEvent;
@@ -72,6 +74,7 @@ export type ChangeLedgerPayload =
   | ReasonUpdatedLedgerPayload
   | ReleaseAmendedLedgerPayload
   | ReleaseAppliedLedgerPayload
+  | SourceDraftDiscardedLedgerPayload
   | SourceDraftedLedgerPayload
   | SourceMovedLedgerPayload
   | SourcePromotedLedgerPayload;
@@ -141,6 +144,12 @@ export interface SourceMovedLedgerPayload {
   readonly to: string;
 }
 
+export interface SourceDraftDiscardedLedgerPayload {
+  readonly draft: string;
+  readonly draftEventId: string;
+  readonly shipped: string;
+}
+
 export interface SourceDraftedLedgerPayload {
   readonly draft: string;
   readonly shipped: string;
@@ -161,6 +170,7 @@ export type ReleaseAppliedLedgerEvent = ChangeLedgerEventBase<"release.applied",
 export type ChangeAmendedLedgerEvent = ChangeLedgerEventBase<"change.amended", ChangeAmendedLedgerPayload>;
 export type ReleaseAmendedLedgerEvent = ChangeLedgerEventBase<"release.amended", ReleaseAmendedLedgerPayload>;
 export type BaselineRecordedLedgerEvent = ChangeLedgerEventBase<"baseline.recorded", BaselineRecordedLedgerPayload>;
+export type SourceDraftDiscardedLedgerEvent = ChangeLedgerEventBase<"source.draft-discarded", SourceDraftDiscardedLedgerPayload>;
 export type SourceDraftedLedgerEvent = ChangeLedgerEventBase<"source.drafted", SourceDraftedLedgerPayload>;
 export type SourceMovedLedgerEvent = ChangeLedgerEventBase<"source.moved", SourceMovedLedgerPayload>;
 export type SourcePromotedLedgerEvent = ChangeLedgerEventBase<"source.promoted", SourcePromotedLedgerPayload>;
@@ -180,6 +190,7 @@ const EVENT_TYPES = new Set<ChangeLedgerEventType>([
   "reason.updated",
   "release.amended",
   "release.applied",
+  "source.draft-discarded",
   "source.drafted",
   "source.moved",
   "source.promoted",
@@ -269,6 +280,11 @@ function readEventPayload(
       return readReleaseAmendedPayload(payload, path, lineNumber);
     case "baseline.recorded":
       return readBaselineRecordedPayload(payload, path, lineNumber);
+    case "source.draft-discarded":
+      return {
+        ...readSourcePromotedPayload(payload, path, lineNumber),
+        draftEventId: readRequiredString(payload, "draftEventId", path, lineNumber),
+      };
     case "source.drafted":
       return readSourceDraftedPayload(payload, path, lineNumber);
     case "source.moved":
