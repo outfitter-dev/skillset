@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { buildSkillset } from "@skillset/core";
@@ -128,6 +128,38 @@ test("SET-671: foreign directory replacing installed draft survives refused fork
   expect(await readFile(join(replacement, "authored.md"), "utf8")).toBe("Concurrent authored content.\n");
   expect(await readFile(ledger, "utf8")).toBe(before);
 });
+
+for (const replacementKind of ["restored", "edited", "identical replacement"] as const) {
+  test(`SET-671: ${replacementKind} entrypoint survives refusal without closing its fork`, async () => {
+    const { root, draft } = await forkFixture();
+    const entrypoint = join(root, draft, "SKILL.md");
+    const forkContent = await readFile(entrypoint, "utf8");
+    await rm(join(root, draft), { recursive: true });
+    const ledger = join(root, ".skillset/changes/ledger.jsonl");
+    const before = await readFile(ledger, "utf8");
+    let replacement = "";
+    await expect(scaffoldSourceUnit(root, {
+      kind: "skill", id: "demo", draft: true, write: true,
+      transactionOptions: { testHooks: { beforeApply: async (operation) => {
+        if (operation.kind !== "append") return;
+        const scaffold = await readFile(entrypoint, "utf8");
+        replacement = replacementKind === "restored" ? forkContent
+          : replacementKind === "edited" ? `${scaffold}\nConcurrent authored edit.\n`
+          : scaffold;
+        if (replacementKind === "edited") {
+          await writeFile(entrypoint, replacement);
+        } else {
+          const incoming = join(root, "replacement-SKILL.md");
+          await writeFile(incoming, replacement);
+          await rename(entrypoint, join(root, "saved-scaffold-SKILL.md"));
+          await rename(incoming, entrypoint);
+        }
+      } } },
+    })).rejects.toThrow("expected-absent write changed after installation");
+    expect(await readFile(entrypoint, "utf8")).toBe(replacement);
+    expect(await readFile(ledger, "utf8")).toBe(before);
+  });
+}
 
 test("SET-671: closing a moved fork does not close an unrelated reused selector", async () => {
   const { root, draft, fork } = await forkFixture();

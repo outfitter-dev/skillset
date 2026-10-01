@@ -1070,6 +1070,17 @@ async function applyAppends(
 ): Promise<void> {
   for (const append of prepared.appends) {
     await invokeApplyHook(hooks, prepared.operations, append.operation);
+    // Ledger events may only describe fresh files this transaction still owns.
+    for (const write of state.appliedWrites) {
+      if (
+        write.write.expectedAbsent === true &&
+        (await expectedAbsentWriteOwnership(state, write)) !== "owned"
+      ) {
+        throw transactionError(
+          `expected-absent write changed after installation: ${write.write.path.relative}`
+        );
+      }
+    }
     await ensureSafeParent(state, append.path, hooks, "written-through");
     const entry = await inspectPath(state.workspaceRoot, append.path);
     if (entry !== undefined && !entry.isFile()) {
@@ -1484,12 +1495,14 @@ async function rollbackTransaction(
     await run(
       { kind: "restore-write", path: write.write.path.relative },
       async () => {
-        if (
-          write.write.expectedAbsent === true &&
-          !(await expectedAbsentWriteIsOwned(state, write))
-        ) {
-          preserveCreatedDirectoryAncestors(state, write.currentPath);
-          return;
+        if (write.write.expectedAbsent === true) {
+          const ownership = await expectedAbsentWriteOwnership(state, write);
+          if (ownership !== "owned") {
+            if (ownership === "foreign") {
+              preserveCreatedDirectoryAncestors(state, write.currentPath);
+            }
+            return;
+          }
         }
         await rename(write.currentPath, write.stagingPath);
         write.currentPath = write.stagingPath;
@@ -1586,13 +1599,14 @@ async function rollbackTransaction(
 }
 
 /** Fresh creations have no preimage to restore over another writer's work. */
-async function expectedAbsentWriteIsOwned(
+async function expectedAbsentWriteOwnership(
   state: TransactionState,
   write: AppliedWrite
-): Promise<boolean> {
+): Promise<"owned" | "missing" | "foreign"> {
   const installed = write.installedIdentity;
   const current = await inspectPath(state.workspaceRoot, write.write.path);
-  if (installed === undefined || current?.isFile() !== true) return false;
+  if (current === undefined) return "missing";
+  if (installed === undefined || !current.isFile()) return "foreign";
   const sameObject =
     installed.dev === current.dev &&
     (installed.ino !== 0
@@ -1607,10 +1621,10 @@ async function expectedAbsentWriteIsOwned(
     installed.size !== current.size ||
     installed.mtimeMs !== current.mtimeMs
   ) {
-    return false;
+    return "foreign";
   }
   const content = await readFile(write.currentPath);
-  return content.equals(Buffer.from(write.write.content));
+  return content.equals(Buffer.from(write.write.content)) ? "owned" : "foreign";
 }
 
 async function restorePreimageWithoutOverwrite(
