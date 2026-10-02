@@ -1192,7 +1192,10 @@ async function installWithoutReplacing(
         throw injectedFailure;
       }
       await link(sourcePath, target.absolute);
-      onInstalledFile?.(await lstat(sourcePath));
+      // Same inode as the destination. A post-link lstat must not sit in this
+      // try: EPERM there would look like an unsupported `link` and exclusive
+      // create would then report `occupied` against a path we already installed.
+      onInstalledFile?.(source);
     } catch (error) {
       if (isAlreadyExists(error)) {
         return "occupied";
