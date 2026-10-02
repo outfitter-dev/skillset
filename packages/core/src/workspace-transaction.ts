@@ -284,13 +284,18 @@ interface AppliedAppend {
   readonly path: NormalizedPath;
 }
 
+interface CreatedDirectory {
+  readonly path: string;
+  readonly identity: Stats;
+}
+
 interface TransactionState {
   readonly appliedAppends: AppliedAppend[];
   readonly appliedCopies: AppliedCopy[];
   readonly appliedMoves: AppliedMove[];
   readonly appliedWrites: AppliedWrite[];
   readonly caseStagingDirectories: string[];
-  readonly createdDirectories: string[];
+  readonly createdDirectories: CreatedDirectory[];
   readonly journalPath: string;
   readonly latePreimages: Preimage[];
   readonly preimages: Map<string, Preimage>;
@@ -1396,8 +1401,8 @@ async function ensureSafeParent(
     // Record each confirmed parent immediately so a later component failure
     // still lets rollback remove what this transaction created.
     await prepareRepositoryMutationPath(state.workspaceRoot, path.absolute, {
-      onCreatedDirectory: (directory) => {
-        state.createdDirectories.push(directory);
+      onCreatedDirectory: (directory, identity) => {
+        state.createdDirectories.push({ path: directory, identity });
       },
       replacesLeaf: leaf === "replaced",
       ...(hooks?.repositoryMutation === undefined
@@ -1567,13 +1572,14 @@ async function rollbackTransaction(
     );
   }
   for (const directory of [...state.createdDirectories].toReversed()) {
+    if (!state.createdDirectories.includes(directory)) continue;
     await run(
       {
         kind: "remove-created-directory",
-        path: nodePath.relative(state.workspaceRoot, directory),
+        path: nodePath.relative(state.workspaceRoot, directory.path),
       },
       async () => {
-        await removeEmptyDirectory(directory);
+        await removeOwnedCreatedDirectory(state, directory);
       }
     );
   }
@@ -1681,10 +1687,42 @@ function preserveCreatedDirectoryAncestors(
     const directory = state.createdDirectories[index];
     if (
       directory !== undefined &&
-      targetPath.startsWith(`${directory}${nodePath.sep}`)
+      targetPath.startsWith(`${directory.path}${nodePath.sep}`)
     ) {
       state.createdDirectories.splice(index, 1);
     }
+  }
+}
+
+async function removeOwnedCreatedDirectory(
+  state: TransactionState,
+  directory: CreatedDirectory
+): Promise<void> {
+  const current = await inspectWriteOwnershipEntry(state.workspaceRoot, {
+    absolute: directory.path,
+    relative: nodePath.relative(state.workspaceRoot, directory.path),
+  });
+  if (current === undefined) return;
+  const before = directory.identity;
+  const sameObject = current !== "foreign" && current.isDirectory() &&
+    before.dev === current.dev &&
+    (before.ino !== 0 ? before.ino === current.ino :
+      current.ino === 0 && before.birthtimeMs !== 0 &&
+      Number.isFinite(before.birthtimeMs) && before.birthtimeMs === current.birthtimeMs);
+  if (!sameObject || before.mode !== current.mode) {
+    preserveCreatedDirectoryAncestors(state, directory.path);
+    return;
+  }
+  try {
+    await rmdir(directory.path);
+  } catch (error) {
+    if (isMissing(error)) return;
+    if (error instanceof Error && "code" in error &&
+        (error.code === "ENOTEMPTY" || error.code === "EEXIST")) {
+      preserveCreatedDirectoryAncestors(state, directory.path);
+      return;
+    }
+    throw error;
   }
 }
 
@@ -1876,19 +1914,15 @@ async function removeCreatedDirectoriesWithin(
   state: TransactionState,
   targetPath: string
 ): Promise<void> {
-  for (
-    let index = state.createdDirectories.length - 1;
-    index >= 0;
-    index -= 1
-  ) {
-    const directory = state.createdDirectories[index];
-    if (directory === undefined) continue;
+  for (const directory of [...state.createdDirectories].toReversed()) {
+    if (!state.createdDirectories.includes(directory)) continue;
     if (
-      directory === targetPath ||
-      directory.startsWith(`${targetPath}${nodePath.sep}`)
+      directory.path === targetPath ||
+      directory.path.startsWith(`${targetPath}${nodePath.sep}`)
     ) {
-      await removeEmptyDirectory(directory);
-      state.createdDirectories.splice(index, 1);
+      await removeOwnedCreatedDirectory(state, directory);
+      const index = state.createdDirectories.indexOf(directory);
+      if (index !== -1) state.createdDirectories.splice(index, 1);
     }
   }
 }

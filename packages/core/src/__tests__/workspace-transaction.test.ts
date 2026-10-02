@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Stats } from "node:fs";
 import {
   access,
   chmod,
@@ -815,6 +816,98 @@ describe("workspace transactions", () => {
       });
     }
   }
+
+  for (const fallback of [false, true]) {
+    for (const populated of [false, true]) {
+      test(`fresh-write rollback preserves foreign ${populated ? "populated" : "empty"} parent with ${fallback ? "exclusive create" : "hard links"}`, async () => {
+        await withWorkspace(async (root) => {
+          const parent = nodePath.join(root, "new/draft");
+          let foreignIdentity: Stats | undefined;
+          await expect(applyWorkspaceTransaction(root, {
+            writes: [{ content: "owned\n", expectedAbsent: true, path: "new/draft/SKILL.md" }],
+            appends: [{ path: "ledger.jsonl", records: () => [{ id: "owned" }] }],
+          }, {
+            testHooks: {
+              ...(fallback ? { failHardLink: () => Object.assign(new Error("unsupported"), { code: "EPERM" }) } : {}),
+              beforeApply: async (operation) => {
+                if (operation.kind !== "append") return;
+                await rename(parent, nodePath.join(root, "saved-parent"));
+                await mkdir(parent, { mode: 0o700 });
+                if (populated) await writeFile(nodePath.join(parent, "authored.md"), "foreign\n");
+                foreignIdentity = await lstat(parent);
+                throw new Error("later append failed");
+              },
+            },
+          })).rejects.toThrow("later append failed");
+          if (foreignIdentity === undefined) throw new Error("foreign parent was not created");
+          const after = await lstat(parent);
+          expect(after.ino).toBe(foreignIdentity.ino);
+          expect(after.dev).toBe(foreignIdentity.dev);
+          expect(after.mode).toBe(foreignIdentity.mode);
+          expect(await readdir(parent)).toEqual(populated ? ["authored.md"] : []);
+          if (populated) expect(await readFile(nodePath.join(parent, "authored.md"), "utf8")).toBe("foreign\n");
+          expect(await readFile(nodePath.join(root, "saved-parent/SKILL.md"), "utf8")).toBe("owned\n");
+          await expect(access(nodePath.join(root, "ledger.jsonl"))).rejects.toThrow();
+          expect((await readdir(root)).filter((entry) => entry.startsWith(".skillset-workspace-"))).toEqual([]);
+        });
+      });
+    }
+  }
+
+  for (const fallback of [false, true]) {
+    test.skipIf(process.platform === "win32")(`fresh-write rollback preserves edited parent permissions with ${fallback ? "exclusive create" : "hard links"}`, async () => {
+      await withWorkspace(async (root) => {
+        const parent = nodePath.join(root, "draft");
+        let changedMode = 0;
+        await expect(applyWorkspaceTransaction(root, {
+          writes: [{ content: "owned\n", expectedAbsent: true, path: "draft/SKILL.md" }],
+          appends: [{ path: "ledger.jsonl", records: () => [{ id: "owned" }] }],
+        }, {
+          testHooks: {
+            ...(fallback ? { failHardLink: () => Object.assign(new Error("unsupported"), { code: "EPERM" }) } : {}),
+            beforeApply: async (operation) => {
+              if (operation.kind !== "append") return;
+              await rm(nodePath.join(parent, "SKILL.md"));
+              changedMode = ((await lstat(parent)).mode & 0o777) === 0o700 ? 0o750 : 0o700;
+              await chmod(parent, changedMode);
+              throw new Error("later append failed");
+            },
+          },
+        })).rejects.toThrow("later append failed");
+        expect((await lstat(parent)).mode & 0o777).toBe(changedMode);
+        expect(await readdir(parent)).toEqual([]);
+        expect((await readdir(root)).filter((entry) => entry.startsWith(".skillset-workspace-"))).toEqual([]);
+      });
+    });
+  }
+
+  test("preserving a foreign child during preimage recovery still cleans unrelated owned parents", async () => {
+    await withWorkspace(async (root) => {
+      await writeFile(nodePath.join(root, "target"), "preimage\n");
+      await expect(applyWorkspaceTransaction(root, {
+        deletes: ["target"],
+        writes: [
+          { content: "owned\n", expectedAbsent: true, path: "target/child/SKILL.md" },
+          { content: "owned\n", expectedAbsent: true, path: "unrelated/file.txt" },
+        ],
+        appends: [{ path: "ledger.jsonl", records: () => [{ id: "owned" }] }],
+      }, {
+        testHooks: {
+          beforeApply: async (operation) => {
+            if (operation.kind !== "append") return;
+            await rename(nodePath.join(root, "target/child"), nodePath.join(root, "saved-child"));
+            await mkdir(nodePath.join(root, "target/child"));
+            throw new Error("later append failed");
+          },
+        },
+      })).rejects.toBeInstanceOf(WorkspaceTransactionRollbackError);
+      expect(await readdir(nodePath.join(root, "target/child"))).toEqual([]);
+      await expect(access(nodePath.join(root, "unrelated"))).rejects.toThrow();
+      expect(await readFile(nodePath.join(root, "saved-child/SKILL.md"), "utf8")).toBe("owned\n");
+      // The blocked target preimage legitimately remains in its recovery journal.
+      expect((await readdir(root)).filter((entry) => entry.startsWith(".skillset-workspace-"))).toHaveLength(1);
+    });
+  });
 
   test("rewrites a moved file at its destination and restores it on rollback", async () => {
     await withWorkspace(async (root) => {

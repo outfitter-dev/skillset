@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { Stats } from "node:fs";
 import { mkdir, readFile, readlink, readdir, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -182,6 +183,38 @@ test.skipIf(process.platform === "win32")("SET-671: foreign symlink survives ref
   expect(await readFile(ledger, "utf8")).toBe(before);
   expect((await readdir(root)).filter((name) => name.startsWith(".skillset-workspace-transaction-"))).toEqual([]);
 });
+
+for (const populated of [false, true]) {
+  test(`SET-671: foreign ${populated ? "populated" : "empty"} draft directory survives failed closure`, async () => {
+    const { root, draft } = await forkFixture();
+    const draftPath = join(root, draft);
+    await rm(draftPath, { recursive: true });
+    const ledger = join(root, ".skillset/changes/ledger.jsonl");
+    const before = await readFile(ledger, "utf8");
+    let replacementIdentity: Stats | undefined;
+    await expect(scaffoldSourceUnit(root, {
+      kind: "skill", id: "demo", draft: true, write: true,
+      transactionOptions: { testHooks: { beforeApply: async (operation) => {
+        if (operation.kind !== "append") return;
+        await rename(draftPath, join(root, "saved-scaffold-draft"));
+        await mkdir(draftPath, { mode: 0o700 });
+        replacementIdentity = await stat(draftPath);
+        if (populated) await writeFile(join(draftPath, "authored.md"), "Concurrent authored resource.\n");
+      } } },
+    })).rejects.toThrow(populated
+      ? "refusing to discard the fork baseline while draft content remains"
+      : "expected-absent write changed after installation");
+    const retained = await stat(draftPath);
+    expect(retained.isDirectory()).toBe(true);
+    expect(retained.dev).toBe(replacementIdentity!.dev);
+    expect(retained.ino).toBe(replacementIdentity!.ino);
+    expect(retained.mode).toBe(replacementIdentity!.mode);
+    if (populated) expect(await readFile(join(draftPath, "authored.md"), "utf8")).toBe("Concurrent authored resource.\n");
+    else expect(await readdir(draftPath)).toEqual([]);
+    expect(await readFile(ledger, "utf8")).toBe(before);
+    expect((await readdir(root)).filter((name) => name.startsWith(".skillset-workspace-transaction-"))).toEqual([]);
+  });
+}
 
 test("SET-671: closing a moved fork does not close an unrelated reused selector", async () => {
   const { root, draft, fork } = await forkFixture();

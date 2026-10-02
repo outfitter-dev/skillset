@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import type { Stats } from "node:fs";
 import {
   chmod,
   lstat,
   mkdir,
   readFile,
   realpath,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -53,6 +55,33 @@ describe("repository mutation ancestry", () => {
       expect(await readFile(join(root, ".skillset/changes/state.json"), "utf8")).toBe(
         "{}\n"
       );
+    });
+  });
+
+  test("reports the mkdir-owned identity before a later plain-directory replacement", async () => {
+    await withRoots(async (root) => {
+      const directory = join(root, "created");
+      const original = join(root, "saved-original");
+      let captured: Stats | undefined;
+      await prepareRepositoryMutationPath(root, join(directory, "file.txt"), {
+        onCreatedDirectory: (path, identity) => {
+          expect(path).toBe(directory);
+          captured = identity;
+        },
+        testHooks: {
+          afterCreateComponent: async (_logical, path) => {
+            await rename(path, original);
+            await mkdir(path);
+          },
+        },
+      });
+      if (captured === undefined) throw new Error("created identity was not reported");
+      const owned = await lstat(original);
+      const foreign = await lstat(directory);
+      expect(captured.ino).toBe(owned.ino);
+      expect(captured.dev).toBe(owned.dev);
+      expect(captured.birthtimeMs).toBe(owned.birthtimeMs);
+      if (captured.ino !== 0) expect(captured.ino).not.toBe(foreign.ino);
     });
   });
 
