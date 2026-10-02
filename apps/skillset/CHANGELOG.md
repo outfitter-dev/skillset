@@ -1,5 +1,96 @@
 # skillset
 
+## 0.28.0
+
+### Minor Changes
+
+- acfa236: Add `skillset build --repair`, which consults filesystem reality instead of trusting the lock and classifies every managed output with a three-way verdict against the lock's recorded `outputHash` and a fresh render. It restores a deleted generated file byte-identically, reports a hand-edited one as `output-edited` and preserves it unless `--discard-edits` confirms the overwrite, and refuses a `diverged` path where the output and its source both moved. Verdicts print one per line and are available under `--json`.
+- c50e3c5: Classify invocation errors found by argument validators and at execution time as usage errors. They now exit 2 in human, `--json`, and `--jsonl` modes:
+
+  - argument validators called by the parsers: ad hoc `test` flag combinations and `--preset` values;
+  - missing required arguments: the `reconcile` and `import` path, the `new` kind, the `create` name, `new` names, `new hook --attach`, `--event`, and `--command` or `--script`, and `hooks print --runner`;
+  - conflicting or unsupported flags on `new`, `new hook`, and `hooks print`;
+  - malformed argument values: change refs that are not hex or are too short, release refs that are too short, non-slug `new --id` and `--in` values, and unknown `new hook --event` names.
+
+  In human mode these move from 1 to 2. In JSON mode they exit 2 rather than the 1 that dropping message-prefix inference would otherwise give. Well-formed values that do not resolve, such as unmatched or ambiguous refs and missing containers, and other data failures still exit 1.
+
+- 1f4b4f2: Add plan-first `skillset draft` and `skillset promote` commands with fork-baseline provenance, changed-shipped warnings, atomic paired replacement, unpaired promotion, and rollback-safe generated lifecycle cleanup.
+- 40dd770: Add plugin project-use draft `only` and `override` modes with selection-first pairing, deterministic effective names, lifecycle-safe cleanup, and inspectable lock, explain, and status provenance.
+- 92b2370: Place plugin-owned Agent Skills baselines only inside their canonical Agent Plugins package, add explicit projection roles to current generated locks, and require a one-time rebuild for older generated state.
+- 24232c6: Copy plugin skills selected by `plugins.internal_use` into fixed project skill roots with deterministic collision names, boolean internal markers, owned cleanup, and inspectable provenance.
+- 47511f4: Recognize skill groups and drafts during discovery, reject duplicate skill leaves, classify reserved rule path segments, and report the new metadata through `list` and `explain` without flattening rendered paths.
+- c5bfb94: Expose root plugin selection and planned package paths through build-graph inspection, reject retired provider skill-root overrides, and refuse placement behavior that later package-output features have not implemented.
+- b8d3b4c: Rename the rule CLI vocabulary (ADR-0039). `skillset new rule <name>` scaffolds `.skillset/rules/` source and `skillset lookup rule` shows rule frontmatter and compatibility facts; the retired `skillset new instruction` and `skillset lookup instruction` fail with an error naming the rewrite. `init`/`adopt` report root `AGENTS.md` and `CLAUDE.md` import candidates with kind `rules` and ids `rules:<path>`, and new reports write `rules:<relative-path>` identities. The `skillset.report@1` schema still accepts the legacy `instructions:<relative-path>` form, so receipts recorded before this release stay valid.
+- 489d5bb: Rename the remaining rule output and config vocabulary (ADR-0039). Render results and generated locks report `destination: "rule"` instead of `"instruction"`, and `skillset explain` reports rule source paths with the `source-rule` role instead of `source-instruction`. Target defaults accept `<target>.defaults.rules`; the retired `<target>.defaults.instructions` fails validation with an error naming the `rules` rewrite. The `project-instructions` feature ID is unchanged until SET-658.
+- ecf239b: Rename the rule frontmatter schema contract from `instruction-frontmatter` to `rule-frontmatter` (ADR-0039). The published schema moves from `docs/reference/schemas/0.1.0/instruction-frontmatter.schema.json` to `docs/reference/schemas/0.1.0/rule-frontmatter.schema.json`, with no alias left at the old path, and diagnostics report `schema/rule-frontmatter/*` codes. `@skillset/schema` exports `ruleFrontmatterContract`, `validateRuleFrontmatter`, and `skillsetRuleFrontmatterJsonSchema`, and Workbench source-contract checks take `kind: "rule"`.
+- 0c65419: Rename the rule source-unit kind and selector from `instruction` / `instruction:<id>` to `rule` / `rule:<id>` (ADR-0039). `skillset change status`, `change check`, `explain`, and generated locks report `rule:<id>`. Rule source hashes are unchanged, so existing baselines stay valid and no rule appears edited. Change history recorded with `instruction:<id>` is translated when read. A pending change entry or `skillset change add --scope` that still names `instruction:<id>` fails with an error naming the `rule:<id>` rewrite.
+- 47511f4: Add `skillset new plugin <name>` to preview or create a validated empty plugin container that can immediately receive plugin-owned skills.
+- cabd7d2: Render and verify Skillset-owned project SessionStart hooks with explicit compile-time activation policy and field-level settings ownership.
+- 89b9140: Add exact partials and marked shared-resource links with implied skill-local copies.
+- 76899f4: Give human and JSON CLI modes one exit-code classifier. Shared classes are 0 success, 1 failure, and 2 usage. Codes 3 and 4 stay command-specific and explicit.
+
+  Visible exit-code changes: human-mode usage errors now exit 2 instead of 1; `--json` and `--jsonl` general failures now exit 1 instead of 3; and JSON-mode errors that were promoted to 2 only because their message looked like a usage error now exit 1.
+
+- 0694930: Render workspace and selected plugin drafts beside live project skills with draft-specific names, descriptions, internal markers, lifecycle cleanup, and inspectable provenance, and add plan-first `skillset new skill --draft` scaffolding.
+- 8b1c1c1: Generate each plugin as one shared package with one immediate-child skill tree across enabled providers.
+- 26d4317: Add plan-first `skillset move` for atomic same-workspace skill moves between workspace and plugin collections, preserving paired drafts, current references, generated provenance, and append-only history.
+- 548a2ff: Add `skillset resolve`, which clears generated-output conflicts during a rebase or merge. It partitions the conflicted set using the lock inventory, materializes each conflicted generated path from its conflict stage so the three-way verdict sees whole files rather than markers, regenerates what is safe, and stages only paths confirmed generated. Authored conflicts block the repair and are named for a human, because regenerating from source that still carries conflict markers would render those markers into generated output. Works inside a linked git worktree.
+- 47511f4: Adopt the current authoring source layout with root `RULES.md`, `subagents/`, and `shared/partials/`, and reject retired locations.
+
+### Patch Changes
+
+- bf67376: Allocate project skill copy names once across workspace drafts and project-use copies:
+
+  - A workspace draft whose derived `draft-<name>` is held by a live workspace skill renders under the next free suffix and reports the conflict, instead of failing with an output collision. Any two copies that still claim one project skill directory fail the render loudly.
+  - Derived copy names (`draft-` prefixes, plugin-prefixed collision renames, and numeric suffixes) stay within the Agent Skills 64-character name limit, so long skill ids no longer fail Codex classification.
+
+- 299e2ee: Publish retained-run pointers, mutable statuses, and final reports through the shared atomic single-file writer so pollers never observe partial JSON. `latest.json` now points its report and status paths at the immutable `runs/<id>/` directory instead of the `latest/` copy, which is rewritten on every refresh.
+- 6dd3799: Add an owned JSONL append primitive whose rollback removes only the records the writer appended, so a later concurrent append survives a failed change-ledger mutation.
+- fa94b44: Serialize `change add`, `reason`, `migrate`, `refresh`, `ignore`, and `amend` on one owner-fenced change-ledger mutation, and roll back only the JSONL records each command appended so a concurrent writer's append survives a failure.
+- c453fc4: Load CLI command implementations only when dispatched so help and version commands start without evaluating the compiler.
+- cf199ab: Share the test-sandbox descriptor parser with cleanup of stale retained test sandboxes. New sandboxes carry repository and runner-process leases so cleanup fails closed for unverified roots and only collects old sandboxes after the lease owner has exited.
+- 06a1b03: Remove temporary Git snapshots when preparation fails and collect remote acquisition clones after they are copied into an explicit adoption destination. Preserve completed adoption results and original errors if temporary cleanup itself fails.
+- 36c1ed4: Pin Cursor authoring evidence and add a checked-in parity fixture with owned gaps for later renderer work.
+- d2e2fcc: `skillset draft --yes` no longer reports the shipped skill it copied from as a written path; the write count and JSON `writes` list only the draft, the ledger, and generated output.
+- 415fceb: Fail closed when change status, reconcile, or provider-format updates read a corrupt or unreadable on-disk `skillset.lock`.
+- 702a83f: Prevent a freshly scaffolded draft from borrowing an abandoned fork baseline. Confirmed `new skill --draft` atomically records `source.draft-discarded` with the new files, preserving edited and moved draft provenance and append-only fork history. Older Skillset readers must be upgraded before reading this new ledger event.
+- 0b50e8a: Install imported source directories with the host atomic no-replace rename so a concurrent occupant is refused instead of replaced.
+- a9c65ca: Append `draft`, `promote`, and `move` lifecycle events to the change ledger instead of replacing it: the record is built from the ledger read when the transaction applies, a failed transaction removes only its own line, and the applying commands serialize with other ledger writers on the change-ledger lock.
+- 633df0d: `skillset move` now rewrites the moved skill's selector in pending change entry scopes and evidence, refuses when an entry's evidence map already has a key for the new selector, tells you to run `skillset change refresh --yes` (after `skillset change migrate --yes` for frontmatter entries) whenever a pending entry or its ledger evidence named the moved skill, because moved evidence hashes turn stale under the new identity, and refuses without writing when a rewritten selector does not match the schema pattern for its field, such as a distribution `from.selector` naming a workspace skill that moves into a plugin.
+- 76b52ce: `change check`, `change refresh`, and release planning treat a removed selector as covered by a reason that names the unit it was moved to since the last release, and release retires the old selector with that reason, so a move keeps the check green after the usual evidence refresh.
+- 537cd37: Keep shared references literal inside Markdown code spans that cross line breaks, so `skillset build` no longer rewrites or copies a reference written inside a multiline backtick span.
+- 02424d3: Report shared plugin package companions (`README.md`, `assets/`, `scripts/`, `src/`) under the consumers that actually own them, such as the Agent Plugins standard profile, instead of attributing them to the first enabled provider target. Standard-profile companions report `rendered`; provider-owned copies keep `target_native`.
+- 02424d3: Keep a plugin's root `README.md`, `scripts/`, and `src/` in its Claude and Codex output, and its `assets/` in Codex output, when the Agent Plugins baseline does not own the package, for example when the plugin id exceeds the Agent Plugins name limit and `unsupportedDestination: warn` lets the provider projection continue. Each copy follows the feature registry's proven support, so Cursor, whose support for these companions is still planned, receives none of them. Editing a copied companion now changes the plugin's `sourceHash`.
+- 05a26cd: Remove the project SessionStart entry Skillset previously wrote when its target is disabled or its `projectRoot` moves, instead of leaving the command active and unmanaged.
+- 951e5ff: Compose project SessionStart settings for `build --isolated` from the mirror under `.skillset/cache/latest/` and its lock, so an existing live settings file no longer blocks the isolated build and repeated isolated builds keep their own preimage.
+- 421e423: Derive plugin component paths from provider registry metadata when resolving source features, rendering manifests, and checking provider conformance.
+- e097159: Run `release apply` inside the change-ledger mutation so a failed release rolls back only its own history, release, and ledger records instead of restoring whole-file snapshots over a concurrent writer's append.
+- a3f1293: Publish remote-repository cache checkouts with the host atomic no-replace rename so an outside occupant is refused instead of replaced, and a late symlink occupant is refused instead of followed. Marketplace checks on a cache filesystem without that primitive now report the move-the-cache remedy instead of an invalid-workspace reason, and a host rename failure such as a permission error reports a cache-publication reason.
+- 5e4c2c6: Read project skill copies from the rendered-copy inventory in lint, output-root registration, and status:
+
+  - `skillset check` and lint now examine workspace drafts and selected plugin drafts that the build renders into project skill roots.
+  - Output-root registration matches project-use selections by status, so a live skill and its draft that enable different targets both register the provider skill root they write.
+  - `skillset status` reports whole-plugin internal-use selections, so a selected plugin with no live skills no longer prints `plugin internal use: none`.
+
+- 608b60c: Refuse repository create, write, restore, and delete operations that would traverse a symlinked parent directory or write through a symlinked file, while still allowing a symlink supplied as the workspace root itself.
+- 76cbd21: Move the rule reference pages to `docs/reference/features/rules.md` and `docs/reference/source/rules.md` (ADR-0039). Feature lookups and lock evidence now point at the new pages, and the documentation describes authored guidance as rules.
+- 6e8a30e: Discover runtime-hook CLI runners with `Bun.which` against the hook PATH instead of spawning a login shell.
+- 7a5b6b6: Run discovered runtime-hook CLI runners and `SKILLSET_HOOK_COMMAND` overrides as argv, or through `/bin/sh` / `%ComSpec%`, including Windows `.cmd` and `.bat` shims in paths with spaces. Overrides that rely on shell expansion (`~`, globs, `NAME=value` prefixes) or start with a POSIX reserved word or shell built-in (`exec`, `exit`, `command`, `.`, `if`) still run through the shell, explicitly empty quoted arguments are kept, and a missing override executable exits 127 and one that cannot execute exits 126 instead of failing the hook.
+- 274e57e: Sanitize hook-exported Git repository variables for every compiler, toolkit, and test-sandbox git subprocess so `GIT_DIR` cannot retarget `git -C` or cwd discovery.
+- f39b47a: Reject provider skill root overrides and non-slug plugin selectors during shared schema validation, so `skillset build` and `skillset check` fail on input the JSON Schema already rejected. Root `skillset.yaml`, split `.skillset/config.yaml`, and plugin `skillset.yaml` now reject `<target>.skills.path` and malformed `<target>.skills` selections. `skillset.outputs.skills.<target>` (and a non-object `skillset.outputs.skills`) is now rejected in root and plugin config, the split-layout `.skillset/skillset.yaml` root manifest, and skill, agent, and instruction frontmatter. Root `drafts` selectors accept only slug plugin ids (`plugin.<slug>.skill:<name>`), matching the plugin ids Core loads. Validation-tightening.
+- 4852fdb: Apply aggregate CI package Changeset enforcement only to workspaces that opt into Changesets with `.changeset/config.json`, so downstream authoring repositories can commit README updates without dummy npm release entries.
+- 4e52e58: Scope project skill copies to their own source and route their diagnostics:
+
+  - Workspace draft copies no longer inherit a same-id live sibling's adaptive hooks.
+  - Project-use component diagnostics are gated on the scope that writes the copy, so `build --scope repo` reports (and by default blocks) omitted hooks or plugin components, and `--scope project` no longer reports copies it excludes.
+  - A Codex project copy that fails Agent Skills classification is omitted and reported as an unsupported result, so `compile.unsupportedDestination` decides whether the build fails instead of a raw render error. The softened result names its skill root as `outputRoot`, so that root's `skillset.lock` records the omission even under `build --scope repo`, and that lock is written even when the omitted copy was its only output.
+  - A plugin draft copy's component diagnostics resolve the draft's own hooks, so a same-id live sibling's hook no longer blocks `build --scope repo`.
+
+- 2f3f0f9: Report stale generated output through the read-only SessionStart hook runner without blocking agent sessions.
+- 05a26cd: Keep the live file mode on a settings island handed back after the project SessionStart hook is turned off. Island lock items now accept the preserved four-digit mode their output hash covers, as settings entries do, so a private (`0600`) live settings file no longer produces a lock that the next build and check reject.
+- a7dd43b: Report verified project runtime-hook destinations for Claude and Codex, including the Codex `.codex/hooks.json` path.
+- 5c9a8fc: Make OS path containment go through one Windows-safe helper so computed writes cannot escape their root.
+
 ## 0.27.0
 
 ### Minor Changes
