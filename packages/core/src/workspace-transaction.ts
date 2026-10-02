@@ -1,6 +1,7 @@
 /* eslint-disable func-style, no-use-before-define -- Hoisted helpers keep the transaction phases readable from plan through rollback. */
 /* eslint-disable no-await-in-loop -- Workspace mutations and rollback must run in a strict, observable sequence. */
 
+import type { Stats } from "node:fs";
 import {
   chmod,
   cp,
@@ -273,6 +274,7 @@ interface AppliedCopy {
 
 interface AppliedWrite {
   currentPath: string;
+  installedIdentity?: Stats;
   readonly stagingPath: string;
   readonly write: NormalizedWrite;
 }
@@ -282,13 +284,18 @@ interface AppliedAppend {
   readonly path: NormalizedPath;
 }
 
+interface CreatedDirectory {
+  readonly path: string;
+  readonly identity: Stats;
+}
+
 interface TransactionState {
   readonly appliedAppends: AppliedAppend[];
   readonly appliedCopies: AppliedCopy[];
   readonly appliedMoves: AppliedMove[];
   readonly appliedWrites: AppliedWrite[];
   readonly caseStagingDirectories: string[];
-  readonly createdDirectories: string[];
+  readonly createdDirectories: CreatedDirectory[];
   readonly journalPath: string;
   readonly latePreimages: Preimage[];
   readonly preimages: Map<string, Preimage>;
@@ -1068,6 +1075,17 @@ async function applyAppends(
 ): Promise<void> {
   for (const append of prepared.appends) {
     await invokeApplyHook(hooks, prepared.operations, append.operation);
+    // Ledger events may only describe fresh files this transaction still owns.
+    for (const write of state.appliedWrites) {
+      if (
+        write.write.expectedAbsent === true &&
+        (await expectedAbsentWriteOwnership(state, write)) !== "owned"
+      ) {
+        throw transactionError(
+          `expected-absent write changed after installation: ${write.write.path.relative}`
+        );
+      }
+    }
     await ensureSafeParent(state, append.path, hooks, "written-through");
     const entry = await inspectPath(state.workspaceRoot, append.path);
     if (entry !== undefined && !entry.isFile()) {
@@ -1140,7 +1158,12 @@ async function applyWrites(
     const outcome = await installWithoutReplacing(
       hooks,
       applied.currentPath,
-      write.path
+      write.path,
+      write.expectedAbsent === true
+        ? (identity) => {
+            applied.installedIdentity = identity;
+          }
+        : undefined
     );
     if (outcome === "occupied") {
       preserveCreatedDirectoryAncestors(state, write.path.absolute);
@@ -1163,7 +1186,8 @@ async function applyWrites(
 async function installWithoutReplacing(
   hooks: WorkspaceTransactionTestHooks | undefined,
   sourcePath: string,
-  target: NormalizedPath
+  target: NormalizedPath,
+  onInstalledFile?: (identity: Stats) => void
 ): Promise<"installed" | "occupied"> {
   const source = await lstat(sourcePath);
   if (source.isFile()) {
@@ -1173,6 +1197,10 @@ async function installWithoutReplacing(
         throw injectedFailure;
       }
       await link(sourcePath, target.absolute);
+      // Same inode as the destination. A post-link lstat must not sit in this
+      // try: EPERM there would look like an unsupported `link` and exclusive
+      // create would then report `occupied` against a path we already installed.
+      onInstalledFile?.(source);
     } catch (error) {
       if (isAlreadyExists(error)) {
         return "occupied";
@@ -1187,7 +1215,8 @@ async function installWithoutReplacing(
       const outcome = await installFileByExclusiveCreate(
         hooks,
         sourcePath,
-        target
+        target,
+        onInstalledFile
       );
       if (outcome === "occupied") {
         return "occupied";
@@ -1219,7 +1248,8 @@ function isHardLinkUnsupported(error: unknown): boolean {
 async function installFileByExclusiveCreate(
   hooks: WorkspaceTransactionTestHooks | undefined,
   sourcePath: string,
-  target: NormalizedPath
+  target: NormalizedPath,
+  onInstalledFile?: (identity: Stats) => void
 ): Promise<"installed" | "occupied"> {
   const content = await readFile(sourcePath);
   let handle: Awaited<ReturnType<typeof open>>;
@@ -1247,6 +1277,7 @@ async function installFileByExclusiveCreate(
       // fchmod through our handle cannot follow a concurrently swapped path.
       await handle.chmod(staged.mode & 0o777);
     }
+    onInstalledFile?.(await handle.stat());
     await handle.close();
   } catch (error) {
     await handle.close().catch(() => undefined);
@@ -1373,8 +1404,8 @@ async function ensureSafeParent(
     // Record each confirmed parent immediately so a later component failure
     // still lets rollback remove what this transaction created.
     await prepareRepositoryMutationPath(state.workspaceRoot, path.absolute, {
-      onCreatedDirectory: (directory) => {
-        state.createdDirectories.push(directory);
+      onCreatedDirectory: (directory, identity) => {
+        state.createdDirectories.push({ path: directory, identity });
       },
       replacesLeaf: leaf === "replaced",
       ...(hooks?.repositoryMutation === undefined
@@ -1472,6 +1503,15 @@ async function rollbackTransaction(
     await run(
       { kind: "restore-write", path: write.write.path.relative },
       async () => {
+        if (write.write.expectedAbsent === true) {
+          const ownership = await expectedAbsentWriteOwnership(state, write);
+          if (ownership !== "owned") {
+            if (ownership === "foreign") {
+              preserveCreatedDirectoryAncestors(state, write.currentPath);
+            }
+            return;
+          }
+        }
         await rename(write.currentPath, write.stagingPath);
         write.currentPath = write.stagingPath;
       }
@@ -1535,13 +1575,14 @@ async function rollbackTransaction(
     );
   }
   for (const directory of [...state.createdDirectories].toReversed()) {
+    if (!state.createdDirectories.includes(directory)) continue;
     await run(
       {
         kind: "remove-created-directory",
-        path: nodePath.relative(state.workspaceRoot, directory),
+        path: nodePath.relative(state.workspaceRoot, directory.path),
       },
       async () => {
-        await removeEmptyDirectory(directory);
+        await removeOwnedCreatedDirectory(state, directory);
       }
     );
   }
@@ -1564,6 +1605,57 @@ async function rollbackTransaction(
     }
   );
   return failures;
+}
+
+/** Fresh creations have no preimage to restore over another writer's work. */
+async function expectedAbsentWriteOwnership(
+  state: TransactionState,
+  write: AppliedWrite
+): Promise<"owned" | "missing" | "foreign"> {
+  const installed = write.installedIdentity;
+  const current = await inspectWriteOwnershipEntry(state.workspaceRoot, write.write.path);
+  if (current === undefined) return "missing";
+  if (current === "foreign" || installed === undefined || !current.isFile()) return "foreign";
+  const sameObject =
+    installed.dev === current.dev &&
+    (installed.ino !== 0
+      ? installed.ino === current.ino
+      : current.ino === 0 &&
+        installed.birthtimeMs !== 0 &&
+        Number.isFinite(installed.birthtimeMs) &&
+        installed.birthtimeMs === current.birthtimeMs);
+  if (
+    !sameObject ||
+    installed.mode !== current.mode ||
+    installed.size !== current.size ||
+    installed.mtimeMs !== current.mtimeMs
+  ) {
+    return "foreign";
+  }
+  const content = await readFile(write.currentPath);
+  return content.equals(Buffer.from(write.write.content)) ? "owned" : "foreign";
+}
+
+/** Ownership probes stop at foreign ancestors instead of traversing them. */
+async function inspectWriteOwnershipEntry(
+  workspaceRoot: string,
+  path: NormalizedPath
+): Promise<Stats | "foreign" | undefined> {
+  let current = workspaceRoot;
+  for (const segment of path.relative.split(nodePath.sep)) {
+    current = nodePath.join(current, segment);
+    const entry = await lstat(current).catch((error: unknown) => {
+      if (isMissing(error)) return undefined;
+      if (error instanceof Error && "code" in error && error.code === "ENOTDIR") {
+        return "foreign" as const;
+      }
+      throw error;
+    });
+    if (entry === undefined || entry === "foreign") return entry;
+    if (entry.isSymbolicLink() ||
+        (current !== path.absolute && !entry.isDirectory())) return "foreign";
+    if (current === path.absolute) return entry;
+  }
 }
 
 async function restorePreimageWithoutOverwrite(
@@ -1598,10 +1690,42 @@ function preserveCreatedDirectoryAncestors(
     const directory = state.createdDirectories[index];
     if (
       directory !== undefined &&
-      targetPath.startsWith(`${directory}${nodePath.sep}`)
+      targetPath.startsWith(`${directory.path}${nodePath.sep}`)
     ) {
       state.createdDirectories.splice(index, 1);
     }
+  }
+}
+
+async function removeOwnedCreatedDirectory(
+  state: TransactionState,
+  directory: CreatedDirectory
+): Promise<void> {
+  const current = await inspectWriteOwnershipEntry(state.workspaceRoot, {
+    absolute: directory.path,
+    relative: nodePath.relative(state.workspaceRoot, directory.path),
+  });
+  if (current === undefined) return;
+  const before = directory.identity;
+  const sameObject = current !== "foreign" && current.isDirectory() &&
+    before.dev === current.dev &&
+    (before.ino !== 0 ? before.ino === current.ino :
+      current.ino === 0 && before.birthtimeMs !== 0 &&
+      Number.isFinite(before.birthtimeMs) && before.birthtimeMs === current.birthtimeMs);
+  if (!sameObject || before.mode !== current.mode) {
+    preserveCreatedDirectoryAncestors(state, directory.path);
+    return;
+  }
+  try {
+    await rmdir(directory.path);
+  } catch (error) {
+    if (isMissing(error)) return;
+    if (error instanceof Error && "code" in error &&
+        (error.code === "ENOTEMPTY" || error.code === "EEXIST")) {
+      preserveCreatedDirectoryAncestors(state, directory.path);
+      return;
+    }
+    throw error;
   }
 }
 
@@ -1793,19 +1917,15 @@ async function removeCreatedDirectoriesWithin(
   state: TransactionState,
   targetPath: string
 ): Promise<void> {
-  for (
-    let index = state.createdDirectories.length - 1;
-    index >= 0;
-    index -= 1
-  ) {
-    const directory = state.createdDirectories[index];
-    if (directory === undefined) continue;
+  for (const directory of [...state.createdDirectories].toReversed()) {
+    if (!state.createdDirectories.includes(directory)) continue;
     if (
-      directory === targetPath ||
-      directory.startsWith(`${targetPath}${nodePath.sep}`)
+      directory.path === targetPath ||
+      directory.path.startsWith(`${targetPath}${nodePath.sep}`)
     ) {
-      await removeEmptyDirectory(directory);
-      state.createdDirectories.splice(index, 1);
+      await removeOwnedCreatedDirectory(state, directory);
+      const index = state.createdDirectories.indexOf(directory);
+      if (index !== -1) state.createdDirectories.splice(index, 1);
     }
   }
 }

@@ -1,5 +1,6 @@
 /* eslint-disable no-await-in-loop -- Parent components must be inspected and created in ancestry order. */
 
+import type { Stats } from "node:fs";
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import {
   dirname,
@@ -74,10 +75,10 @@ export interface PrepareRepositoryMutationPathOptions {
   /**
    * Called after a missing parent is created and rechecked as a real
    * directory. Callers that roll back partial materialization should record
-   * the path here; a later component failure does not return
+   * the path and creation-time identity here; a later component failure does not return
    * {@link PreparedRepositoryMutationPath.createdDirectories}.
    */
-  readonly onCreatedDirectory?: (absolutePath: string) => void;
+  readonly onCreatedDirectory?: (absolutePath: string, identity: Stats) => void;
   /**
    * The caller removes, renames over, or exclusively creates the leaf (`rm`,
    * `rename`, atomic publication, `link`/`wx` install) and so never writes
@@ -181,10 +182,12 @@ export async function prepareRepositoryMutationPath(
       return prepared;
     }
 
-    let created = false;
+    let createdIdentity: Stats | undefined;
     try {
       await mkdir(current);
-      created = true;
+      // Capture our created entry before exposing the test seam to another writer.
+      createdIdentity = await lstat(current);
+      assertPlainDirectory(createdIdentity, logicalPath);
     } catch (error) {
       if (!isErrno(error, "EEXIST")) {
         throw wrapInspectError(error, logicalPath);
@@ -199,9 +202,9 @@ export async function prepareRepositoryMutationPath(
       );
     }
     assertPlainDirectory(recheck, logicalPath);
-    if (created) {
+    if (createdIdentity !== undefined) {
       createdDirectories.push(current);
-      options.onCreatedDirectory?.(current);
+      options.onCreatedDirectory?.(current, createdIdentity);
     }
   }
 

@@ -1,6 +1,7 @@
-import { readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
+import { workspaceChangeFile } from "@skillset/core";
 import {
   detectWorkspaceSourceDir,
   loadBuildGraph,
@@ -11,10 +12,15 @@ import {
   validateSlug,
 } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
+import { freshDraftDiscardEvent } from "@skillset/core/internal/source-draft";
+import { sourceLifecycleLedgerRecord } from "@skillset/core/internal/source-lifecycle-ledger";
+import { applyWorkspaceTransaction } from "@skillset/core/internal/workspace-transaction";
+import type { WorkspaceTransactionOptions } from "@skillset/core/internal/workspace-transaction";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { TargetName } from "@skillset/core/internal/types";
 import { formatList } from "@skillset/schema";
 
+import { withChangeLedgerMutation } from "./change-ledger-mutation";
 import { CliUsageError } from "./cli-output";
 import { planNewAdaptiveHook } from "./new-hook";
 
@@ -82,6 +88,11 @@ export interface NewSourceOptions {
   readonly scope?: NewSourceScope;
   readonly skillsetOptions?: SkillsetOptions;
   readonly write?: boolean;
+  /**
+   * Fault injection for atomic fresh-draft creation.
+   * @internal
+   */
+  readonly transactionOptions?: WorkspaceTransactionOptions;
 }
 
 export interface NewSourceFile {
@@ -147,9 +158,10 @@ export const SKILL_PRESETS: readonly SkillPresetDefinition[] = [
 
 const SKILL_PRESET_IDS = new Set(SKILL_PRESETS.map((preset) => preset.id));
 
-export async function scaffoldSourceUnit(
+async function scaffoldSourceUnitUnlocked(
   rootPath: string,
-  options: NewSourceOptions
+  options: NewSourceOptions,
+  assertOwned?: () => Promise<void>
 ): Promise<NewSourceReport> {
   if (options.scope !== undefined && options.scope !== "repo") {
     throw new CliUsageError("skillset: new currently supports only --scope repo");
@@ -183,7 +195,35 @@ export async function scaffoldSourceUnit(
     }
   }
 
-  if (options.write === true) {
+  const discardEvent = options.draft === true && options.kind === "skill"
+    ? await freshDraftDiscardEvent(rootPath, sourceDir, id, options.container)
+    : undefined;
+  const draftRoot = discardEvent === undefined ? undefined : dirname(plans[0]!.path);
+  if (draftRoot !== undefined) {
+    await assertFreshDraftContents(rootPath, draftRoot, []);
+  }
+  if (options.write === true && options.draft === true && options.kind === "skill") {
+    const event = discardEvent;
+    const hooks = options.transactionOptions?.testHooks;
+    await applyWorkspaceTransaction(rootPath, {
+      writes: plans.map((plan) => ({ content: plan.content, expectedAbsent: true, path: plan.path })),
+      ...(event === undefined ? {} : { appends: [{
+        path: workspaceChangeFile(sourceDir, "ledger.jsonl"),
+        records: (current: string) => [sourceLifecycleLedgerRecord(current, event)],
+      }] }),
+    }, {
+      testHooks: {
+        ...hooks,
+        beforeApply: async (operation, index) => {
+          await assertOwned?.();
+          await hooks?.beforeApply?.(operation, index);
+          if (draftRoot !== undefined && operation.kind === "append") {
+            await assertFreshDraftContents(rootPath, draftRoot, plans.map((plan) => plan.path));
+          }
+        },
+      },
+    });
+  } else if (options.write === true) {
     for (const plan of plans) {
       const absolutePath = resolveInside(rootPath, plan.path);
       await prepareRepositoryMutationPath(rootPath, absolutePath);
@@ -193,16 +233,69 @@ export async function scaffoldSourceUnit(
 
   return {
     displayName,
-    files: plans.map((plan) => ({
-      operation: plan.operation ?? "create",
-      path: plan.path,
-    })),
+    files: [
+      ...plans.map((plan) => ({
+        operation: plan.operation ?? ("create" as const),
+        path: plan.path,
+      })),
+      ...(discardEvent === undefined ? [] : [{
+        operation: "update" as const,
+        path: workspaceChangeFile(sourceDir, "ledger.jsonl"),
+      }]),
+    ],
     id,
     kind: options.kind,
     rootPath,
     sourceRoot,
     write: options.write === true,
   };
+}
+
+/** Do not retire fork provenance while retaining authored content from that fork. */
+async function assertFreshDraftContents(
+  rootPath: string,
+  draftRoot: string,
+  allowedFiles: readonly string[]
+): Promise<void> {
+  const files = new Set(allowedFiles);
+  const directories = new Set<string>();
+  for (const file of allowedFiles) {
+    for (let parent = dirname(file); parent !== draftRoot; parent = dirname(parent)) {
+      directories.add(parent);
+    }
+  }
+  const reject = () => new CliUsageError(
+    `skillset: refusing to discard the fork baseline while draft content remains in ${draftRoot}; restore SKILL.md to continue the fork, or remove the entire draft directory before creating a fresh draft`
+  );
+  const entry = await lstat(resolveInside(rootPath, draftRoot)).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  });
+  if (entry === undefined) return;
+  if (!entry.isDirectory() || entry.isSymbolicLink()) throw reject();
+  const inspect = async (directory: string): Promise<void> => {
+    for (const child of await readdir(resolveInside(rootPath, directory), { withFileTypes: true })) {
+      const path = join(directory, child.name);
+      if (child.isSymbolicLink()) throw reject();
+      if (child.isDirectory() && directories.has(path)) await inspect(path);
+      else if (!child.isFile() || !files.has(path)) throw reject();
+    }
+  };
+  await inspect(draftRoot);
+}
+
+export async function scaffoldSourceUnit(
+  rootPath: string,
+  options: NewSourceOptions
+): Promise<NewSourceReport> {
+  if (options.write === true && options.draft === true && options.kind === "skill") {
+    const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
+    await assertWorkspaceInitialized(rootPath, sourceDir);
+    return withChangeLedgerMutation(rootPath, sourceDir, undefined, (mutation) =>
+      scaffoldSourceUnitUnlocked(rootPath, options, mutation.assertOwned)
+    );
+  }
+  return scaffoldSourceUnitUnlocked(rootPath, options);
 }
 
 function assertHookOptionsMatchKind(options: NewSourceOptions): void {

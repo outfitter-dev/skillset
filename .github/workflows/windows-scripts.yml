@@ -46,6 +46,14 @@ jobs:
           packages/core/src/__tests__/path.test.ts
           packages/core/src/__tests__/diagnostic-path.test.ts
           apps/skillset/src/__tests__/cli-diagnostic-paths.test.ts
+      - name: Preserve fresh-write rollback ownership on Windows
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+        run: >-
+          bun scripts/test-sandbox.ts bun test
+          packages/core/src/__tests__/workspace-transaction.test.ts
+          --test-name-pattern "fresh-write rollback"
       - name: Bootstrap doctor finds the cached pin under Git Bash without a global Bun
         shell: bash
         run: |

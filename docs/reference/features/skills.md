@@ -110,6 +110,18 @@ ordinary sibling in place, then edit the draft normally. The fork event stores
 the shipped source hash in append-only history; the private baseline never
 enters skill frontmatter.
 
+Deleting a fork and then confirming `skillset new skill <id> --draft` creates
+a fresh draft without the abandoned fork baseline. Skillset atomically appends
+a `source.draft-discarded` event that references the latest fork while creating
+the draft files; preview only reports these effects. Editing an existing draft
+keeps its baseline, and a move carries that baseline to the new container.
+If fork resources remain after deleting `SKILL.md`, fresh scaffolding refuses
+to discard the baseline. Restore `SKILL.md` to continue that fork, or remove
+the entire draft directory before creating a fresh draft.
+The old fork records remain unchanged. Repositories with this new ledger event
+require a Skillset version that recognizes it; older readers reject the event
+rather than silently reuse stale provenance.
+
 Use [`skillset promote <draft-path>`](../cli/promote.md) to preview the authored
 diff and move the draft to its ordinary sibling. A paired promotion replaces
 the same-container shipped skill in one transaction. An unpaired promotion

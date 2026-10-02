@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type {
+  SourceDraftDiscardedLedgerPayload,
   SourceDraftedLedgerPayload,
   SourceMovedLedgerPayload,
   SourcePromotedLedgerPayload,
@@ -9,6 +10,7 @@ import { jsonlTailTimestamp, nextJsonlTimestamp } from "./change-ledger-write";
 
 /** A source lifecycle event planned before its ledger record exists. */
 export type SourceLifecycleLedgerEvent =
+  | { readonly payload: SourceDraftDiscardedLedgerPayload; readonly type: "source.draft-discarded" }
   | { readonly payload: SourceDraftedLedgerPayload; readonly type: "source.drafted" }
   | { readonly payload: SourceMovedLedgerPayload; readonly type: "source.moved" }
   | { readonly payload: SourcePromotedLedgerPayload; readonly type: "source.promoted" };
@@ -32,7 +34,9 @@ export function sourceLifecycleLedgerRecord(
     .digest("hex")}`;
   return {
     createdAt: nextJsonlTimestamp(jsonlTailTimestamp(current), nowMs),
-    id,
+    // A fresh creation is an invocation, not a deterministic projection.
+    // Distinct branches closing the same fork must not emit the same id.
+    id: event.type === "source.draft-discarded" ? `source-draft-discarded-${randomUUID()}` : id,
     payload: event.payload,
     schemaVersion: 1,
     type: event.type,
