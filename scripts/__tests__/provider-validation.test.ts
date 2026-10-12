@@ -335,7 +335,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
           stderr: "",
           stdout: "",
         };
-      });
+      }, "2026-09-12T00:02:00.000Z");
       throw new Error("expected validation failure");
     } catch (error) {
       expect(error).toBeInstanceOf(ProviderValidationFailure);
