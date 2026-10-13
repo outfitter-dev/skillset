@@ -40,6 +40,7 @@ import {
 import { renderBuildGraph } from "./render";
 import type { RenderDestination } from "./build-destination";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
+import { CLAUDE_PROJECT_INSTRUCTION_PATHS } from "./render-rules";
 import { loadBuildGraph } from "./resolver";
 import {
   standardProfileStatuses,
@@ -401,6 +402,7 @@ async function runBuildProjection(
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
+  diagnostics.push(...await diagnoseDuplicateClaudeInstructions(rendered, previousManagedState.paths, outPath, resolveOutputPath));
   diagnostics.push(...await diagnoseMissingManagedOutputs(rendered, previousManagedState.paths, resolveOutputPath));
   const inspectionArgs = {
     diagnostics,
@@ -1397,6 +1399,7 @@ export async function diffSkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
+  diagnostics.push(...await diagnoseDuplicateClaudeInstructions(rendered, previousManagedState.paths, outPath, resolveOutputPath));
   const inspectionResult = await inspectOutputPlan({
     diagnostics,
     expected,
@@ -1492,6 +1495,7 @@ export async function verifySkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext), managedRoots.strictRoots, managedOutputProvenancePolicy(rendered));
+  diagnostics.push(...await diagnoseDuplicateClaudeInstructions(rendered, previousManagedState.paths, outPath, resolveOutputPath));
   const inspection = await inspectOutputPlan({
     diagnostics,
     expected,
@@ -1890,6 +1894,43 @@ function outputRootForLockPath(lockPath: string): string {
 
 function isLockFilePath(path: string): boolean {
   return path === "skillset.lock" || path.endsWith("/skillset.lock");
+}
+
+/**
+ * Claude loads both project instruction placements and concatenates them, so
+ * an unmanaged file at the placement Skillset did not render doubles the
+ * generated guidance. Warn rather than fail: the unmanaged file is the
+ * author's, and the build leaves it untouched.
+ */
+async function diagnoseDuplicateClaudeInstructions(
+  rendered: readonly RenderedFile[],
+  previousManagedPaths: ReadonlySet<string>,
+  outPath: OutPath,
+  resolveOutputPath: OutputPathResolver
+): Promise<readonly SkillsetDiagnostic[]> {
+  const renderedPaths = new Set(rendered.map((file) => file.path));
+  const placements = Object.values(CLAUDE_PROJECT_INSTRUCTION_PATHS);
+  const generated = placements.find((path) => renderedPaths.has(outPath(path)));
+  if (generated === undefined) return [];
+  const diagnostics: SkillsetDiagnostic[] = [];
+  for (const other of placements) {
+    const otherPath = outPath(other);
+    if (other === generated || renderedPaths.has(otherPath)) continue;
+    if (previousManagedPaths.has(otherPath)) continue;
+    if (!(await exists(resolveOutputPath(otherPath)))) continue;
+    diagnostics.push(skillsetDiagnostic({
+      code: "claude-instructions-duplicate-root",
+      featureId: "project-instructions",
+      message:
+        `unmanaged ${other} sits beside generated ${generated}; Claude loads both and ` +
+        `concatenates them, so the guidance is doubled. Remove ${other} or fold its content ` +
+        "into the RULES.md front page.",
+      outputPath: otherPath,
+      severity: "warning",
+      target: "claude",
+    }));
+  }
+  return diagnostics;
 }
 
 async function diagnoseMissingManagedOutputs(

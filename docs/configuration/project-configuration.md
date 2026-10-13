@@ -47,9 +47,10 @@ Failed [render results](../glossary.md#render-result) block every policy. Check 
 `compile.features.promptArguments` also defaults to `true`. Set it to `false` to reject Skillset-owned `{{$ARGUMENTS...}}` expressions. See the [preprocessing reference](../reference/source/preprocessing.md) for expression and target behavior.
 
 `compile.instruction_front_page` accepts `claude-dir` (the default) or
-`repo-root`. The setting is validated now so the instruction front-page
-renderer can consume one stable spelling; current builds do not move a file in
-response to it yet.
+`repo-root`. It selects where the `.skillset/RULES.md` front page renders for
+Claude: `.claude/CLAUDE.md` or the repository-root `CLAUDE.md`. Skillset renders
+exactly one of the two, because Claude loads and concatenates both, and warns
+when an unmanaged file sits at the other placement.
 
 `compile.session_start_hook` accepts `auto`, `on`, or `off` and defaults to
 `auto`. `on` composes the Skillset SessionStart command into the project-local

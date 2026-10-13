@@ -42,18 +42,18 @@ When Agent Instructions is adopted, every applicable rule inherently contributes
 
 | Source | Claude | Codex | Cursor |
 | --- | --- | --- | --- |
-| `.skillset/RULES.md` | no output | bare first section of root `AGENTS.md` | unsupported (`cursor-agents-md-root`) |
+| `.skillset/RULES.md` | `.claude/CLAUDE.md`, or root `CLAUDE.md` with `compile.instruction_front_page: repo-root` | bare first section of root `AGENTS.md` | unsupported (`cursor-agents-md-root`) |
 | `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | root or scoped `AGENTS.md` | `.cursor/rules/**/*.mdc` |
 | `.skillset/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a |
 | Plugin `rules/` | n/a | n/a | plugin `rules/` |
 
-Claude preserves path scope. Cursor translates it to Cursor rule frontmatter. Codex strips source frontmatter and combines contributing rules in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped rules contribute to the repository root. When Codex and Agent Instructions both consume a compatible `AGENTS.md`, the standard owns one physical file and Codex is recorded as a logical delta consumer.
+Claude receives the `RULES.md` front page as its project instruction file in its authored dialect, with a generated-by header and a source-boundary comment. Skillset renders exactly one of `.claude/CLAUDE.md` and root `CLAUDE.md` because Claude loads both and concatenates them; only the front page feeds that file, since unscoped rules already reach Claude's launch context through `.claude/rules/`. Plugin packages never receive a `CLAUDE.md`. Claude preserves path scope. Cursor translates it to Cursor rule frontmatter. Codex strips source frontmatter and combines contributing rules in deterministic source-path order. Patterns with a static directory base produce a scoped `AGENTS.md`; unscoped rules contribute to the repository root. When Codex and Agent Instructions both consume a compatible `AGENTS.md`, the standard owns one physical file and Codex is recorded as a logical delta consumer.
 
 Codex `.rules` files are [provider-native](../../glossary.md#provider-native) command-execution policy, not rule prose. Plugin `rules/` are Cursor-native companions. Neither path is another portable rule [source root](../../glossary.md#source-root).
 
 ## Errors and Caveats
 
-Skillset rejects invalid frontmatter, unsupported preprocessing expressions, unsafe partial paths, output collisions, unsupported symlink mode, and attempts to render Markdown rule prose as Codex `.rules`. A generated `AGENTS.md` that exceeds Codex's default project-document byte limit emits a warning; narrower path scopes avoid silent provider truncation.
+Skillset rejects invalid frontmatter, unsupported preprocessing expressions, unsafe partial paths, output collisions, unsupported symlink mode, and attempts to render Markdown rule prose as Codex `.rules`. A generated `AGENTS.md` that exceeds Codex's default project-document byte limit emits a warning; narrower path scopes avoid silent provider truncation. An unmanaged `CLAUDE.md` at whichever placement Skillset did not render emits a `claude-instructions-duplicate-root` warning; the build leaves that file untouched.
 
 Provider toggles can make one rule unavailable to a [target](../../glossary.md#target). They do not change the rule's shared meaning or suppress its applicable adopted Agent Instructions projection.
 
