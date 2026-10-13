@@ -171,7 +171,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
       async () => {
         throw new Error("no validator command expected");
       },
-      "2026-09-12T00:02:00.000Z",
+      "2026-10-13T14:31:35.000Z",
       [],
       receipts
     );
@@ -335,7 +335,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
           stderr: "",
           stdout: "",
         };
-      }, "2026-09-12T00:02:00.000Z");
+      }, "2026-10-13T14:31:35.000Z");
       throw new Error("expected validation failure");
     } catch (error) {
       expect(error).toBeInstanceOf(ProviderValidationFailure);
@@ -426,7 +426,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
       async () => {
         throw new Error("no external command expected");
       },
-      "2026-09-12T00:02:00.000Z",
+      "2026-10-13T14:31:35.000Z",
       checks
     );
     const markdown = renderProviderValidationReport(report);
@@ -450,7 +450,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         async () => {
           throw new Error("no external command expected");
         },
-        "2026-09-12T00:02:00.000Z",
+        "2026-10-13T14:31:35.000Z",
         failedChecks
       )
     ).rejects.toMatchObject({
@@ -875,7 +875,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
   test("normalizes the deepest temporary path before RUNNER_TEMP", () => {
     const report = normalizeProviderValidationReport(
       {
-        checkedAt: "2026-09-12T00:02:00.000Z",
+        checkedAt: "2026-10-13T14:31:35.000Z",
         codexMarketplaceConsumers: [],
         failures: [
           {
@@ -918,7 +918,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-09-12T00:02:00.000Z"
+          "2026-10-13T14:31:35.000Z"
         )
       ).rejects.toThrow();
       const report = await readFile(reportPath, "utf8");
@@ -944,7 +944,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-10-13T00:01:37.001Z"
+          "2026-11-13T14:31:12.001Z"
         )
       ).rejects.toThrow("provider validation evidence is stale");
       const report = await readFile(reportPath, "utf8");
@@ -970,7 +970,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-10-13T00:01:37.001Z",
+          "2026-11-13T14:31:12.001Z",
           { refresh: true }
         )
       ).rejects.toThrow();
@@ -1003,7 +1003,7 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
         runHostedProviderValidation(
           root,
           reportPath,
-          "2026-09-12T00:02:00.000Z"
+          "2026-10-13T14:31:35.000Z"
         )
       ).rejects.toThrow("rejects symlink report target");
       expect(await readFile(outside, "utf8")).toBe("unchanged");
