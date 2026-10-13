@@ -164,6 +164,10 @@ test("an explicit output write rebuilds stale paths and rediffs", async () => {
 });
 
 test("a failed rebuild rolls back writes completed before the failure", async () => {
+  // A read-only directory is the injected write failure; root ignores the
+  // mode bits (as in root-run containers such as cloud agent sandboxes), so
+  // the fixture cannot fail there.
+  if (process.getuid?.() === 0) return;
   const root = await fixture();
   const blockedDirectory = join(root, ".claude/skills/zeta");
   try {

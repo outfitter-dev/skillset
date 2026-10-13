@@ -100,6 +100,10 @@ const makeShellBootstrapFixture = async (): Promise<{
       join(repoRoot, "scripts", "bootstrap", "resolve-runtime.ts"),
       join(root, "scripts", "bootstrap", "resolve-runtime.ts")
     ),
+    copyFile(
+      join(repoRoot, "scripts", "bootstrap", "bun-npm-package.sh"),
+      join(root, "scripts", "bootstrap", "bun-npm-package.sh")
+    ),
     writeFile(join(root, ".bun-version"), `${Bun.version}\n`),
     writeFile(
       join(root, "scripts", "bootstrap", "main.ts"),
@@ -251,6 +255,168 @@ describe("bootstrap dispatcher", () => {
       expect(diagnosticReport.args).toEqual([command]);
       expect(diagnosticReport.which).toBe(report.path);
     }
+  });
+
+  test("cold session bootstrap falls back to the npm registry package when the installer is unreachable", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const npmLog = join(fixture.root, "npm.log");
+    // An egress policy that denies bun.sh surfaces as curl -f exiting 22.
+    await writeFile(join(fixture.fakeBin, "curl"), "#!/bin/sh\nexit 22\n");
+    // `npm pack <spec>` writes the registry tarball into cwd and prints its name.
+    await writeFile(
+      join(fixture.fakeBin, "npm"),
+      [
+        "#!/bin/sh",
+        'printf "%s\\n" "$*" >> "$SKILLSET_TEST_NPM_LOG"',
+        'staging="$(mktemp -d)"',
+        'mkdir -p "$staging/package/bin"',
+        // A launcher keeps the tarball small; adoption copies the real
+        // interpreter it execs into the cache.
+        `printf '#!/bin/sh\\nexec "%s" "$@"\\n' "$SKILLSET_TEST_BUN_SOURCE" > "$staging/package/bin/bun"`,
+        'tar -czf oven-bun.tgz -C "$staging" package',
+        'rm -rf "$staging"',
+        "echo oven-bun.tgz",
+        "",
+      ].join("\n")
+    );
+    await chmod(join(fixture.fakeBin, "npm"), 0o755);
+
+    const result = Bun.spawnSync({
+      cmd: ["bash", join(fixture.root, "scripts", "bootstrap.sh"), "claude"],
+      cwd: fixture.root,
+      env: {
+        ...process.env,
+        BUN_INSTALL: join(fixture.home, ".bun"),
+        HOME: fixture.home,
+        PATH: `${fixture.fakeBin}:/usr/bin:/bin`,
+        SHELL: "/bin/zsh",
+        SKILLSET_TEST_BUN_SOURCE: process.execPath,
+        SKILLSET_TEST_NPM_LOG: npmLog,
+        TMPDIR: join(fixture.root, "tmp"),
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr.toString()).toContain(
+      "Bun installer unreachable; trying the npm registry package instead"
+    );
+    const report = JSON.parse(result.stdout.toString()) as {
+      version: string;
+      path: string;
+    };
+    expect(report.version).toBe(Bun.version);
+    expect(report.path).toBe(
+      join(
+        fixture.home,
+        ".cache",
+        "skillset",
+        "bun",
+        `${process.platform}-${process.arch}`,
+        Bun.version,
+        "bin",
+        "bun"
+      )
+    );
+    expect(await readFile(npmLog, "utf-8")).toMatch(
+      new RegExp(
+        `^pack --silent @oven/bun-${process.platform}-${process.arch === "arm64" ? "aarch64" : "x64"}(-musl)?(-baseline)?@${Bun.version.replaceAll(".", "\\.")}\\n$`,
+        "u"
+      )
+    );
+    expect(
+      await Bun.file(join(fixture.home, ".bun", "bin", "bun")).exists()
+    ).toBe(false);
+  });
+
+  test("npm fallback selects the Bun package Bun's installer would pick for the host", async () => {
+    const root = await createTestFixtureRoot("skillset-bun-npm-package-");
+    const fakeBin = join(root, "bin");
+    await mkdir(fakeBin, { recursive: true });
+    const fake = async (name: string, body: string) => {
+      await writeFile(join(fakeBin, name), `#!/bin/sh\n${body}\n`);
+      await chmod(join(fakeBin, name), 0o755);
+    };
+    const select = async (host: {
+      readonly os: string;
+      readonly machine: string;
+      readonly ldd?: string;
+      readonly cpuinfo?: string;
+      readonly sysctl?: Readonly<Record<string, string>>;
+    }) => {
+      await fake(
+        "uname",
+        `case "$1" in -s) echo ${host.os};; -m) echo ${host.machine};; esac`
+      );
+      // musl's loader prints its banner for --version and exits 1.
+      await fake("ldd", host.ldd ?? 'echo "ldd (GNU libc) 2.39"');
+      const sysctl = Object.entries(host.sysctl ?? {})
+        .map(([key, value]) => `${key}) echo "${value}";;`)
+        .join(" ");
+      await fake("sysctl", `case "$2" in ${sysctl} *) exit 1;; esac`);
+      const cpuinfo = join(root, "cpuinfo");
+      await writeFile(cpuinfo, host.cpuinfo ?? "flags : sse4_2 avx avx2\n");
+      const proc = Bun.spawnSync({
+        cmd: [
+          "bash",
+          join(repoRoot, "scripts", "bootstrap", "bun-npm-package.sh"),
+        ],
+        env: {
+          PATH: `${fakeBin}:/usr/bin:/bin`,
+          SKILLSET_BOOTSTRAP_CPUINFO: cpuinfo,
+        },
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+      expect(proc.exitCode).toBe(0);
+      return proc.stdout.toString().trim();
+    };
+
+    expect(await select({ machine: "x86_64", os: "Linux" })).toBe(
+      "@oven/bun-linux-x64"
+    );
+    expect(
+      await select({ cpuinfo: "flags : sse4_2\n", machine: "x86_64", os: "Linux" })
+    ).toBe("@oven/bun-linux-x64-baseline");
+    expect(
+      await select({
+        ldd: 'echo "musl libc (x86_64)" >&2; exit 1',
+        machine: "x86_64",
+        os: "Linux",
+      })
+    ).toBe("@oven/bun-linux-x64-musl");
+    expect(
+      await select({
+        ldd: 'echo "musl libc (aarch64)" >&2; exit 1',
+        machine: "aarch64",
+        os: "Linux",
+      })
+    ).toBe("@oven/bun-linux-aarch64-musl");
+    expect(await select({ machine: "arm64", os: "Darwin" })).toBe(
+      "@oven/bun-darwin-aarch64"
+    );
+    expect(
+      await select({
+        machine: "x86_64",
+        os: "Darwin",
+        sysctl: { "machdep.cpu.leaf7_features": "SMEP BMI1 AVX2 BMI2" },
+      })
+    ).toBe("@oven/bun-darwin-x64");
+    expect(
+      await select({
+        machine: "x86_64",
+        os: "Darwin",
+        sysctl: { "machdep.cpu.leaf7_features": "SMEP" },
+      })
+    ).toBe("@oven/bun-darwin-x64-baseline");
+    expect(
+      await select({
+        machine: "x86_64",
+        os: "Darwin",
+        sysctl: { "sysctl.proc_translated": "1" },
+      })
+    ).toBe("@oven/bun-darwin-aarch64");
   });
 
   test("session bootstrap leaves a different global Bun's bytes and inode time untouched", async () => {
