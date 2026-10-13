@@ -35,6 +35,7 @@ Each enabled target writes a concrete [destination](../../glossary.md#destinatio
 
 | Authored source | Destination | Behavior |
 | --- | --- | --- |
+| `.skillset/RULES.md` | `.claude/CLAUDE.md` (default) or root `CLAUDE.md` | Renders the front page in its authored dialect with a generated-by header and source-boundary comment. `compile.instruction_front_page` selects `claude-dir` or `repo-root`. |
 | `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | Preserves the relative hierarchy and `paths` frontmatter. Unscoped rules render without frontmatter. |
 | `.skillset/rules/**/*.md` | `.cursor/rules/**/*.mdc` | Preserves the relative hierarchy and translates path scope into Cursor rule frontmatter. |
 | `.skillset/rules/**/*.md` | `AGENTS.md` at the repository root or a derived scoped directory | Strips source-only frontmatter and combines contributing rules deterministically. |
@@ -48,6 +49,8 @@ Codex may silently truncate an `AGENTS.md` beyond its configured project-documen
 ## Ownership and collisions
 
 Generated rule files are recorded in the root `skillset.lock`. If a confirmed build must replace an unmanaged `AGENTS.md`, Skillset first creates recovery evidence and reports the restore identifier. Move hand-written guidance into `.skillset/rules/` only when you intend Skillset to own that destination; otherwise change the source scope or target selection.
+
+Claude loads both `CLAUDE.md` and `.claude/CLAUDE.md` and concatenates them, so Skillset renders only the placement `compile.instruction_front_page` names. When an unmanaged file sits at the other placement, build and output checks emit a `claude-instructions-duplicate-root` warning naming both paths and leave the unmanaged file untouched. Fold its content into `.skillset/RULES.md` or delete it.
 
 `codex: symlink` is not supported. A symlink to a Claude rule would expose Claude-specific frontmatter as Codex guidance and would bypass normal generated ownership.
 
