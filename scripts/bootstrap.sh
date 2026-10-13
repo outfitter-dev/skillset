@@ -137,26 +137,9 @@ cached_pinned_bun() {
 # Fallback seed source for hosts that cannot reach the official installer.
 # Writes `<seed>/bin/bun` from the npm package matching this host.
 seed_bun_from_npm() {
-  local seed="$1" platform arch package pack_dir tarball
+  local seed="$1" package pack_dir tarball
   command -v npm >/dev/null 2>&1 || return 1
-  platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
-  arch="$(uname -m)"
-  case "$platform" in
-    darwin|linux) ;;
-    *) return 1 ;;
-  esac
-  case "$arch" in
-    arm64|aarch64) arch="aarch64" ;;
-    x86_64|amd64) arch="x64" ;;
-    *) return 1 ;;
-  esac
-  package="@oven/bun-$platform-$arch"
-  if [[ "$platform" == "linux" ]] && ldd --version 2>&1 | grep -qi musl; then
-    package="$package-musl"
-  fi
-  if [[ "$platform-$arch" == "linux-x64" ]] && ! grep -qw avx2 /proc/cpuinfo 2>/dev/null; then
-    package="$package-baseline"
-  fi
+  package="$(bash "$SCRIPT_DIR/bootstrap/bun-npm-package.sh")" || return 1
   pack_dir="$seed/npm-pack"
   mkdir -p "$pack_dir" "$seed/bin"
   tarball="$(cd "$pack_dir" && npm pack --silent "$package@$pinned_version" 2>/dev/null | tail -n 1)" || return 1
