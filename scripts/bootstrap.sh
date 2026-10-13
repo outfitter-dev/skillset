@@ -134,6 +134,39 @@ cached_pinned_bun() {
   fi
 }
 
+# Fallback seed source for hosts that cannot reach the official installer.
+# Writes `<seed>/bin/bun` from the npm package matching this host.
+seed_bun_from_npm() {
+  local seed="$1" platform arch package pack_dir tarball
+  command -v npm >/dev/null 2>&1 || return 1
+  platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "$platform" in
+    darwin|linux) ;;
+    *) return 1 ;;
+  esac
+  case "$arch" in
+    arm64|aarch64) arch="aarch64" ;;
+    x86_64|amd64) arch="x64" ;;
+    *) return 1 ;;
+  esac
+  package="@oven/bun-$platform-$arch"
+  if [[ "$platform" == "linux" ]] && ldd --version 2>&1 | grep -qi musl; then
+    package="$package-musl"
+  fi
+  if [[ "$platform-$arch" == "linux-x64" ]] && ! grep -qw avx2 /proc/cpuinfo 2>/dev/null; then
+    package="$package-baseline"
+  fi
+  pack_dir="$seed/npm-pack"
+  mkdir -p "$pack_dir" "$seed/bin"
+  tarball="$(cd "$pack_dir" && npm pack --silent "$package@$pinned_version" 2>/dev/null | tail -n 1)" || return 1
+  [[ -n "$tarball" && -f "$pack_dir/$tarball" ]] || return 1
+  tar -xzf "$pack_dir/$tarball" -C "$pack_dir" package/bin/bun || return 1
+  mv "$pack_dir/package/bin/bun" "$seed/bin/bun"
+  chmod 0755 "$seed/bin/bun"
+  rm -rf -- "$pack_dir"
+}
+
 bootstrap_bun="$(cached_pinned_bun || command -v bun || true)"
 bootstrap_version=""
 if [[ -n "$bootstrap_bun" ]]; then
@@ -163,7 +196,17 @@ if [[ "$bootstrap_version" != "$pinned_version" ]]; then
   # With no Bun on PATH, the upstream installer otherwise offers to append
   # PATH setup to a writable shell profile. This bootstrap owns neither it
   # nor the contributor's global install.
-  curl -fsSL https://bun.sh/install | BUN_INSTALL="$bootstrap_seed" SHELL=/bin/sh bash -s -- "bun-v$pinned_version"
+  if ! curl -fsSL https://bun.sh/install | BUN_INSTALL="$bootstrap_seed" SHELL=/bin/sh bash -s -- "bun-v$pinned_version"; then
+    # Egress-restricted hosts, such as Claude Code cloud sandboxes, can deny
+    # bun.sh and GitHub release downloads while still allowing the npm
+    # registry. Bun publishes the same native interpreter there as
+    # @oven/bun-<os>-<arch>, and `npm pack` verifies the registry integrity.
+    echo "Bun installer unreachable; trying the npm registry package instead..." >&2
+    if ! seed_bun_from_npm "$bootstrap_seed"; then
+      echo "Error: could not download Bun $pinned_version from bun.sh or the npm registry" >&2
+      exit 1
+    fi
+  fi
   bootstrap_bun="$bootstrap_seed/bin/bun"
   if [[ ! -x "$bootstrap_bun" ]]; then
     echo "Error: Bun installer produced no usable bootstrap interpreter" >&2

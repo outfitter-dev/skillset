@@ -2,7 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { gitSafeEnv } from "../../apps/skillset/src/git-env";
+// Relative source import: bootstrap runs before `bun install` links the
+// @skillset/* workspace packages, so it must not resolve them by name.
+import { gitSafeEnv } from "../../packages/core/src/git-env";
 
 export const BOOTSTRAP_DIR = dirname(fileURLToPath(import.meta.url));
 export const SCRIPTS_DIR = resolve(BOOTSTRAP_DIR, "..");

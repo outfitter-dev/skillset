@@ -253,6 +253,79 @@ describe("bootstrap dispatcher", () => {
     }
   });
 
+  test("cold session bootstrap falls back to the npm registry package when the installer is unreachable", async () => {
+    const fixture = await makeShellBootstrapFixture();
+    const npmLog = join(fixture.root, "npm.log");
+    // An egress policy that denies bun.sh surfaces as curl -f exiting 22.
+    await writeFile(join(fixture.fakeBin, "curl"), "#!/bin/sh\nexit 22\n");
+    // `npm pack <spec>` writes the registry tarball into cwd and prints its name.
+    await writeFile(
+      join(fixture.fakeBin, "npm"),
+      [
+        "#!/bin/sh",
+        'printf "%s\\n" "$*" >> "$SKILLSET_TEST_NPM_LOG"',
+        'staging="$(mktemp -d)"',
+        'mkdir -p "$staging/package/bin"',
+        // A launcher keeps the tarball small; adoption copies the real
+        // interpreter it execs into the cache.
+        `printf '#!/bin/sh\\nexec "%s" "$@"\\n' "$SKILLSET_TEST_BUN_SOURCE" > "$staging/package/bin/bun"`,
+        'tar -czf oven-bun.tgz -C "$staging" package',
+        'rm -rf "$staging"',
+        "echo oven-bun.tgz",
+        "",
+      ].join("\n")
+    );
+    await chmod(join(fixture.fakeBin, "npm"), 0o755);
+
+    const result = Bun.spawnSync({
+      cmd: ["bash", join(fixture.root, "scripts", "bootstrap.sh"), "claude"],
+      cwd: fixture.root,
+      env: {
+        ...process.env,
+        BUN_INSTALL: join(fixture.home, ".bun"),
+        HOME: fixture.home,
+        PATH: `${fixture.fakeBin}:/usr/bin:/bin`,
+        SHELL: "/bin/zsh",
+        SKILLSET_TEST_BUN_SOURCE: process.execPath,
+        SKILLSET_TEST_NPM_LOG: npmLog,
+        TMPDIR: join(fixture.root, "tmp"),
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr.toString()).toContain(
+      "Bun installer unreachable; trying the npm registry package instead"
+    );
+    const report = JSON.parse(result.stdout.toString()) as {
+      version: string;
+      path: string;
+    };
+    expect(report.version).toBe(Bun.version);
+    expect(report.path).toBe(
+      join(
+        fixture.home,
+        ".cache",
+        "skillset",
+        "bun",
+        `${process.platform}-${process.arch}`,
+        Bun.version,
+        "bin",
+        "bun"
+      )
+    );
+    expect(await readFile(npmLog, "utf-8")).toMatch(
+      new RegExp(
+        `^pack --silent @oven/bun-${process.platform}-[a-z0-9-]+@${Bun.version.replaceAll(".", "\\.")}\\n$`,
+        "u"
+      )
+    );
+    expect(
+      await Bun.file(join(fixture.home, ".bun", "bin", "bun")).exists()
+    ).toBe(false);
+  });
+
   test("session bootstrap leaves a different global Bun's bytes and inode time untouched", async () => {
     const fixture = await makeShellBootstrapFixture();
     const globalBin = join(fixture.home, ".bun", "bin");
