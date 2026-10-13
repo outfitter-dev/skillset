@@ -14,6 +14,10 @@ on:
         description: Exact source commit used for release evidence
         required: false
         type: string
+      next-version:
+        description: Uncommitted x.y.z-next.n version applied to the release manifests before building
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,6 +34,12 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      - name: Apply next prerelease version
+        if: inputs.next-version
+        shell: bash
+        env:
+          NEXT_VERSION: ${{ inputs.next-version }}
+        run: bun scripts/next-release.ts apply --version "$NEXT_VERSION"
       - name: Build reproducible required artifacts
         run: bun run build:native -- --required --reproducible --out-dir "$RUNNER_TEMP/native"
       - name: Verify release-shaped artifact contract
@@ -66,6 +76,12 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      - name: Apply next prerelease version
+        if: inputs.next-version
+        shell: bash
+        env:
+          NEXT_VERSION: ${{ inputs.next-version }}
+        run: bun scripts/next-release.ts apply --version "$NEXT_VERSION"
       - name: Prove atomic no-replace directory rename
         env:
           TEMP: ${{ runner.os == 'Windows' && runner.temp || '/tmp' }}

@@ -74,9 +74,34 @@ After the registry set is complete, the workflow verifies every GitHub attestati
 
 The publish wrapper derives the npm dist-tag from the version: stable versions publish to `latest`, and prerelease versions publish to their prerelease label such as `beta`.
 
+## Next Prerelease Channel
+
+The `next` channel lets merged work be installed and tested before a stable release. Merging to `main` is the approval: nobody approves a `next` publish by hand. Stable releases keep the version PR and the protected route above.
+
+When a push to `main` leaves public Changesets pending, the `next-dispatch` job starts a separate `Release` run with `channel=next`. That run uses its own concurrency group (`…-next`), so a long `next` build never holds the stable group and cannot cause a queued stable publish to be cancelled as a superseded pending run. The `next` run skips the version PR and every stable job.
+
+`bun scripts/next-release.ts plan` decides whether to publish and which version to use:
+
+1. It reads the pending stable version for `skillset` from `changeset status`. With no pending public release, it stops.
+2. It finds the nearest `v*-next.*` tag reachable from `HEAD` and publishes only if a [package-facing path](#flow) changed since that tag. Docs, workflow, and other repo-only merges do not produce a new prerelease. A manual dispatch with `channel=next` and `force=true` skips this filter.
+3. It waits for the same exact-SHA CI checks the stable policy reads, and fails closed when CI is red or still pending at the deadline.
+4. It picks `<pending version>-next.<n>`, where `n` is one more than the highest `next` number for that base on any of the seven packages. Counting every package means an abandoned partial prerelease is skipped instead of recovered with different bytes.
+
+The version is applied to the seven release manifests inside each job by `bun scripts/next-release.ts apply --version <version>` and is never committed. The native build, five-host smoke, asset attestation, `publish:release-check` preflight, and staged publisher are the same ones the stable route uses. The `Native` workflow takes the version through its `next-version` input. A guard step refuses to publish unless the version resolves to the `next` dist-tag, so this lane cannot move `latest`.
+
+Publication runs in the `npm-next` GitHub environment. After the registry set is complete, the run tags the source commit `v<version>` so each prerelease maps to an exact commit. It does not create a GitHub release or touch the Homebrew tap. Install a prerelease with `npm install --global skillset@next`.
+
+When the version PR later publishes the stable version to `latest`, the `next` dist-tag stays on the last prerelease until the next `next` publish.
+
+### Repository settings for `next`
+
+- Create the `npm-next` environment with **no required reviewers**, deployment branches limited to `main`, and no secrets. GitHub creates a referenced environment on first use without any rules, so create it before the first `next` run.
+- npm needs no change. The trusted publisher for each package names `release.yml` and leaves the environment blank, which already covers `npm-next`.
+- Keep `npm` protected with required reviewers. The `next` lane never uses it.
+
 ## Approval and Concurrency Waits
 
-Release retains its workflow-level concurrency group and protected `npm` / `npm-auto` environments. An unapproved gate can therefore keep a later run queued without jobs. The independent **Release Wait Diagnostic** workflow makes this visible without approving, cancelling, or blocking publication. Its job name is separate from the exact-SHA CI gates used by release policy; do not make the diagnostic a required release check.
+Release retains its workflow-level concurrency group and protected `npm` / `npm-auto` environments; only the `next` lane runs in its separate `-next` group. An unapproved gate can therefore keep a later run queued without jobs. The independent **Release Wait Diagnostic** workflow makes this visible without approving, cancelling, or blocking publication. Its job name is separate from the exact-SHA CI gates used by release policy; do not make the diagnostic a required release check.
 
 The diagnostic runs every 15 minutes at offset minutes 7, 22, 37, and 52, on Release requested/in-progress/completed events, and on manual dispatch. Automatic triggers become active after the workflow reaches the default branch. GitHub can delay or drop scheduled runs; event triggers improve responsiveness but do not replace periodic observation, and the requested event does not cover reruns. See [GitHub workflow events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
 
@@ -162,7 +187,7 @@ The release PR supports these mutually exclusive label families:
 | Family | Labels | Behavior |
 | --- | --- | --- |
 | Publish | `publish:auto`, `publish:manual`, `publish:none`, `publish:block` | Chooses automatic publish, protected manual publish, intentional no-publish state, or hard block. Missing `publish:*` defaults to manual. |
-| Channel | `channel:stable`, `channel:preview`, `channel:canary` | Declares the intended release channel. Automatic publishing currently requires `channel:stable`, which maps to npm `latest`. |
+| Channel | `channel:stable`, `channel:preview`, `channel:canary` | Declares the intended release channel. Automatic publishing currently requires `channel:stable`, which maps to npm `latest`. The [`next` channel](#next-prerelease-channel) does not use the version PR, so it takes no label. |
 | Release | `release:patch`, `release:minor`, `release:major` | Declares release-size intent. When present, the policy compares it against the actual package version delta. |
 
 Conflicting labels within a family, unknown labels under these prefixes, registry drift, or `publish:block` block the workflow with diagnostics. `publish:none` requires an audit reason in the release PR body or comments because it intentionally leaves package-version state unpublished. Any generated release PR that touches workflow files, release scripts, package publish metadata, lockfiles, source files, or other unexpected paths falls back to the manual environment rather than the automatic environment.
@@ -238,7 +263,7 @@ The workflow uses npm Trusted Publishing with `permissions.id-token: write`, SHA
 | Environment          | Leave blank                                   |
 | Allowed action       | `npm publish`                                 |
 
-npm allows one trusted publisher connection per package, so do not create separate entries for `npm` and `npm-auto`. Leaving the npm Environment field blank binds each package to this repository and workflow without pinning one GitHub environment. The workflow still uses GitHub environments for routing: `npm` remains the protected manual and recovery path, while `npm-auto` should not require manual reviewers because the release policy and exact-set preflight are the gates that make that path reachable.
+npm allows one trusted publisher connection per package, so do not create separate entries for `npm` and `npm-auto`. Leaving the npm Environment field blank binds each package to this repository and workflow without pinning one GitHub environment. The workflow still uses GitHub environments for routing: `npm` remains the protected manual and recovery path, while `npm-auto` and `npm-next` should not require manual reviewers because the release policy, the `next` plan, and exact-set preflight are the gates that make those paths reachable.
 
 The repository intentionally does not commit an npm auth token in `.npmrc` and the release workflow does not pass `NPM_TOKEN`.
 

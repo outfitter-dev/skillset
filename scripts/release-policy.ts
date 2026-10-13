@@ -909,7 +909,7 @@ async function readCommitChangedFiles(commitSha: string) {
   });
 }
 
-async function readCiPassed(repository: string, sha: string) {
+export async function readCiPassed(repository: string, sha: string) {
   if (process.env.SKILLSET_RELEASE_POLICY_ASSUME_CI_PASSED === "1") return true;
 
   const maxAttempts = Number.parseInt(process.env.SKILLSET_RELEASE_POLICY_CI_ATTEMPTS ?? "1", 10);
