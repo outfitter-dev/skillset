@@ -404,10 +404,21 @@ export function renderProviderValidationReport(
   ].join("\n");
 }
 
+export interface HostedProviderValidationOptions {
+  /**
+   * Validate even when the recorded receipt is past its freshness window.
+   * Only the maintainer-dispatched refresh run sets this: it is the run whose
+   * passing URL and completion time renew `lastSuccessfulValidation`, so it
+   * cannot itself be gated on that receipt being fresh.
+   */
+  readonly refresh?: boolean;
+}
+
 export async function runHostedProviderValidation(
   root: string,
   reportPath: string,
-  checkedAt = new Date().toISOString()
+  checkedAt = new Date().toISOString(),
+  options: HostedProviderValidationOptions = {}
 ): Promise<ProviderValidationReport> {
   if (process.env.GITHUB_ACTIONS !== "true") {
     throw new Error(
@@ -428,7 +439,7 @@ export async function runHostedProviderValidation(
   let stage: ProviderValidationReport["failures"][number]["stage"] =
     "freshness";
   try {
-    assertProviderValidationFreshness(checkedAt);
+    if (options.refresh !== true) assertProviderValidationFreshness(checkedAt);
     stage = "inventory";
     temp = await mkdtemp(
       join(canonicalRunnerTemp, "skillset-provider-validation-")
@@ -686,14 +697,21 @@ function isMissing(error: unknown): boolean {
 }
 
 async function main(args: readonly string[]): Promise<void> {
-  if (args.length !== 3 || args[0] !== "run" || args[1] !== "--report") {
+  const refresh = args.length === 4 && args[3] === "--refresh";
+  if (
+    (args.length !== 3 && !refresh) ||
+    args[0] !== "run" ||
+    args[1] !== "--report"
+  ) {
     throw new Error(
-      "skillset: expected provider-validation run --report <path>"
+      "skillset: expected provider-validation run --report <path> [--refresh]"
     );
   }
   const report = await runHostedProviderValidation(
     process.cwd(),
-    resolve(args[2]!)
+    resolve(args[2]!),
+    undefined,
+    { refresh }
   );
   process.stdout.write(renderProviderValidationReport(report));
 }

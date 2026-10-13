@@ -2,7 +2,12 @@ name: Provider Validation
 
 on:
   pull_request:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Validate past an expired receipt to record a fresh lastSuccessfulValidation
+        type: boolean
+        default: false
   push:
     branches: [main]
 
@@ -34,7 +39,10 @@ jobs:
       - name: Install repository dependencies
         run: bun install --frozen-lockfile
       - name: Acquire exact validators and validate generated outputs
-        run: bun run providers:validate:hosted -- --report "$RUNNER_TEMP/provider-validation.md"
+        env:
+          REFRESH: ${{ github.event_name == 'workflow_dispatch' && inputs.refresh && '--refresh' || '' }}
+        # REFRESH is deliberately unquoted so an empty value adds no argument.
+        run: bun run providers:validate:hosted -- --report "$RUNNER_TEMP/provider-validation.md" $REFRESH
       - name: Add provider evidence to the job summary
         if: always()
         run: |

@@ -6,7 +6,7 @@ import {
 } from "../provider-validation-maintenance";
 import type { ProviderValidationUpstreamFetch } from "../provider-validation-maintenance";
 
-const CHECKED_AT = "2026-09-12T00:02:00.000Z";
+const CHECKED_AT = "2026-10-13T14:31:35.000Z";
 
 describe("SET-500 provider validation upstream maintenance", () => {
   test("resolves all four authoritative upstream identities", async () => {
