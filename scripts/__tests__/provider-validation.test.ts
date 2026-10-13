@@ -957,6 +957,33 @@ console.log(JSON.stringify({ available: [{ pluginId: plugin.name + "@" + catalog
     }
   });
 
+  test("refresh mode validates past a stale receipt instead of failing freshness", async () => {
+    const runnerTemp = await createTestFixtureRoot("skillset-provider-report-");
+    const root = await createTestFixtureRoot("skillset-provider-refresh-");
+    const reportPath = join(runnerTemp, "provider-validation.md");
+    const previousActions = process.env.GITHUB_ACTIONS;
+    const previousTemp = process.env.RUNNER_TEMP;
+    process.env.GITHUB_ACTIONS = "true";
+    process.env.RUNNER_TEMP = runnerTemp;
+    try {
+      await expect(
+        runHostedProviderValidation(
+          root,
+          reportPath,
+          "2026-10-13T00:01:37.001Z",
+          { refresh: true }
+        )
+      ).rejects.toThrow();
+      const report = await readFile(reportPath, "utf8");
+      expect(report).not.toContain("**freshness / all:**");
+      expect(report).toContain("**inventory / all:**");
+      expect(report).toContain("| stale-verification |");
+    } finally {
+      restoreEnvironment("GITHUB_ACTIONS", previousActions);
+      restoreEnvironment("RUNNER_TEMP", previousTemp);
+    }
+  });
+
   test("rejects an existing symlink report target", async () => {
     const runnerTemp = await createTestFixtureRoot("skillset-provider-report-");
     const root = await createTestFixtureRoot("skillset-provider-invalid-");
