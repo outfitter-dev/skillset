@@ -33,6 +33,31 @@
       "validation": "structured"
     },
     {
+      "consumers": [
+        {
+          "phase": "delta",
+          "target": "claude"
+        }
+      ],
+      "fileModes": {
+        ".claude/CLAUDE.md": "0644"
+      },
+      "files": [
+        ".claude/CLAUDE.md"
+      ],
+      "kind": "rule",
+      "name": "RULES",
+      "outputHash": "sha256:d4b2b68fc7cdbef8602b5c713b2c0e5650df5f17cd7a021c50a70fffe2f981ad",
+      "outputPath": ".claude/CLAUDE.md",
+      "owner": {
+        "target": "claude"
+      },
+      "role": "bundle",
+      "sourceHash": "sha256:c3116a1ab8d8beb1a1b8c40e4d512526a3df2ba5e77ddc448e65f406470ce9a6",
+      "sourcePath": ".skillset/RULES.md",
+      "version": "0.1.1"
+    },
+    {
       "fileModes": {
         ".claude/settings.json": "0644"
       },
@@ -114,6 +139,35 @@
         }
       ],
       "fileModes": {
+        "AGENTS.md": "0644"
+      },
+      "files": [
+        "AGENTS.md"
+      ],
+      "kind": "rule",
+      "name": "AGENTS.md",
+      "outputHash": "sha256:3421971c9a338ab92e3cd5482196a8828d44a57ed13ce3a44fc8ef1541b47c75",
+      "outputPath": "AGENTS.md",
+      "owner": {
+        "standardProfile": "agent-instructions"
+      },
+      "role": "standard",
+      "sourceHash": "sha256:c3116a1ab8d8beb1a1b8c40e4d512526a3df2ba5e77ddc448e65f406470ce9a6",
+      "sourcePath": ".skillset/RULES.md",
+      "version": "0.1.1"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-instructions"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
+      "fileModes": {
         "apps/skillset/src/__tests__/AGENTS.md": "0644"
       },
       "files": [
@@ -162,7 +216,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:51e46d31b1003c8959e4a1f451d3e9d09a42b2f44a5d5be21101d5e7593b30e2",
+  "provenanceHash": "sha256:61eceb655c0d6b3affaeebbf3f8faa4f082371c12a816b2fac1f5d3aa0656933",
   "renderResults": [
     {
       "destination": "changelog",
@@ -228,6 +282,82 @@
       "sourceUnit": "codex.hooks:hooks/hooks.json",
       "status": "target_native",
       "target": "codex"
+    },
+    {
+      "destination": "rule",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Instructions unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/RULES.md",
+      "sourceUnit": "rule:AGENTS.md",
+      "standardProfile": "agent-instructions",
+      "status": "transformed"
+    },
+    {
+      "destination": "rule",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/rules.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Codex AGENTS.md discovery and merge behavior is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "codex-agents-md-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:3f6a53f45530261b0b2fafa705b1b01b8cc2b7c817eae3263226f2fd89fbae17",
+          "ref": "codex-agents-md",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/RULES.md",
+      "sourceUnit": "rule:AGENTS.md",
+      "status": "transformed",
+      "target": "codex"
+    },
+    {
+      "destination": "rule",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/rules.md"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": ".claude/CLAUDE.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/RULES.md",
+      "sourceUnit": "rule:RULES",
+      "status": "transformed",
+      "target": "claude"
     },
     {
       "destination": "rule",

@@ -40,6 +40,7 @@
 # `plugins/README.md` beside them; the guard caught that one too.
 **/.agents/plugins/** -merge
 **/.agents/skills/** -merge
+**/.claude/CLAUDE.md -merge
 **/.claude/rules/** -merge
 **/.claude/settings.json -merge
 **/.claude/skills/** -merge
@@ -50,8 +51,8 @@
 **/skillset.lock -merge
 .skillset/plugins/*/CHANGELOG.md -merge
 
-# Directory-local AGENTS.md files are generated from <source-root>/rules/**.
-# The repository's own root AGENTS.md is authored, so it merges normally.
+# AGENTS.md files are generated: the root one from <source-root>/RULES.md and
+# directory-local ones from <source-root>/rules/**.
 #
 # `core.ignorecase` is true on a case-insensitive filesystem such as APFS, and
 # git matches attributes case-insensitively when it is. So `**/AGENTS.md` also
@@ -61,5 +62,4 @@
 # there. Excluding it is safe because the guard checks the other direction too:
 # a lock-claimed file under docs/ would fail as a generated path that merges.
 **/AGENTS.md -merge
-/AGENTS.md !merge
 /docs/** !merge

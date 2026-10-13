@@ -113,5 +113,5 @@ bun ./apps/skillset/src/cli.ts status --root .
 - Do not publish this package or add a remote unless the maintainer explicitly asks.
 - Do not mutate user-level Claude or Codex config.
 - Do not install, trust, or symlink generated plugins or skills into global runtime locations.
-- Do not hand-edit `.claude/skills`, `.agents/skills`, or `plugins/` as source truth; in this repo, edit `.skillset/` for source or `skillset.yaml` for workspace config, then rebuild.
+- Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins/`, the root `AGENTS.md`, or `.claude/CLAUDE.md` as source truth; this file is generated from `.skillset/RULES.md`; in this repo, edit `.skillset/` for source or `skillset.yaml` for workspace config, then rebuild.
 - Keep this package focused on compilation, validation, import, and checks.
