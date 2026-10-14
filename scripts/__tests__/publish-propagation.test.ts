@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  PROPAGATION_WINDOW_MS,
   isImmutableVersionConflict,
   publishAndVerify,
   readReleaseRegistryState,
@@ -125,9 +126,11 @@ describe("npm propagation and immutable retry", () => {
     ]) {
       const probe = harness([null, document]);
       await expect(publishAndVerify(publication, probe.io)).rejects.toThrow(
-        "within 300s; the version may already be published"
+        `within ${PROPAGATION_WINDOW_MS / 1000}s; the version may already be published`
       );
-      expect(probe.sleeps.reduce((sum, ms) => sum + ms, 0)).toBe(300_000);
+      expect(probe.sleeps.reduce((sum, ms) => sum + ms, 0)).toBe(
+        PROPAGATION_WINDOW_MS
+      );
       expect(probe.publishes()).toBe(1);
     }
   });
@@ -151,9 +154,9 @@ describe("npm propagation and immutable retry", () => {
       },
     };
     await expect(publishAndVerify(publication, io)).rejects.toThrow(
-      "within 300s"
+      `within ${PROPAGATION_WINDOW_MS / 1000}s`
     );
-    expect(reads).toBe(4);
+    expect(reads).toBe(9);
     expect(probe.publishes()).toBe(1);
   });
   test("preflight waits for occupied-version metadata before strict release planning", async () => {
@@ -184,7 +187,7 @@ describe("npm propagation and immutable retry", () => {
     const incomplete = harness([{ versions: { [publication.version]: {} } }]);
     await expect(
       readReleaseRegistryState(publication, incomplete.io)
-    ).rejects.toThrow("within 300s");
+    ).rejects.toThrow(`within ${PROPAGATION_WINDOW_MS / 1000}s`);
     expect(incomplete.publishes()).toBe(0);
   });
 

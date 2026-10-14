@@ -34,8 +34,10 @@ export interface PublicationIO {
   readonly log: (message: string) => void;
 }
 
-// A successful publish can precede registry visibility by several minutes.
-const propagationWindowMs = 300_000;
+// A successful publish can precede registry visibility by several minutes;
+// 0.28.0 exceeded a five-minute window on its first native package.
+export const PROPAGATION_WINDOW_MS = 900_000;
+const propagationWindowSeconds = PROPAGATION_WINDOW_MS / 1000;
 
 export function isImmutableVersionConflict(
   stderr: string,
@@ -67,7 +69,7 @@ async function waitForPublication(
   const started = io.now();
   let delay = 3000;
   while (true) {
-    const remaining = propagationWindowMs - (io.now() - started);
+    const remaining = PROPAGATION_WINDOW_MS - (io.now() - started);
     if (remaining <= 0) break;
     const signal = AbortSignal.timeout(Math.ceil(remaining));
     let document: RegistryDocument | null;
@@ -98,28 +100,52 @@ async function waitForPublication(
     )
       return document!;
     const elapsed = io.now() - started;
-    if (elapsed >= propagationWindowMs) break;
-    const wait = Math.min(delay, propagationWindowMs - elapsed);
+    if (elapsed >= PROPAGATION_WINDOW_MS) break;
+    const wait = Math.min(delay, PROPAGATION_WINDOW_MS - elapsed);
     io.log(
-      `skillset: waiting for ${name}@${version} registry integrity, provenance, and ${tag} propagation (${elapsed / 1000}/300s; next check in ${wait / 1000}s)`
+      `skillset: waiting for ${name}@${version} registry integrity, provenance, and ${tag} propagation (${elapsed / 1000}/${propagationWindowSeconds}s; next check in ${wait / 1000}s)`
     );
     await io.sleep(wait);
     delay = Math.min(delay * 2, 30_000);
   }
   throw new Error(
-    `${name}@${version} did not become visible with required integrity, npm provenance, and dist-tag ${tag} within 300s; the version may already be published. Retry the protected release after checking registry state; do not republish manually.`
+    `${name}@${version} did not become visible with required integrity, npm provenance, and dist-tag ${tag} within ${propagationWindowSeconds}s; the version may already be published. Retry the protected release after checking registry state; do not republish manually.`
   );
 }
 
-/** Publish at most once; an occupied version is successful only after verification. */
-export async function publishAndVerify(
+function assertMatchingIntegrity(
+  publication: Publication,
+  document: RegistryDocument
+): void {
+  const registered = document.versions?.[publication.version]?.dist?.integrity;
+  // Immutable mismatches cannot heal through propagation; never recover over them.
+  if (registered !== undefined && registered !== publication.integrity) {
+    throw new Error(
+      `${publication.name}@${publication.version} registry integrity does not match the staged tarball`
+    );
+  }
+}
+
+export interface PendingPublication {
+  readonly publication: Publication;
+  /** True when this attempt's npm publish succeeded. */
+  readonly published: boolean;
+  /** The pre-publish registry document when the version was already occupied. */
+  readonly document?: RegistryDocument;
+}
+
+/**
+ * Publish at most once without waiting for registry visibility. An occupied
+ * version is not success until `verifyPublication` proves it.
+ */
+export async function publishOnce(
   publication: Publication,
   io: PublicationIO
-): Promise<boolean> {
+): Promise<PendingPublication> {
   const document = await io.read(publication.name);
   if (document?.versions?.[publication.version]) {
-    await waitForPublication(publication, io, document);
-    return false;
+    assertMatchingIntegrity(publication, document);
+    return { publication, published: false, document };
   }
   const result = await io.publish();
   if (
@@ -132,11 +158,55 @@ export async function publishAndVerify(
   }
   if (result.exitCode !== 0) {
     io.log(
-      `skillset: ${publication.name}@${publication.version} is occupied; verifying the staged artifact before continuing`
+      `skillset: ${publication.name}@${publication.version} is occupied; it must still verify against the staged artifact`
     );
   }
-  await waitForPublication(publication, io);
-  return result.exitCode === 0;
+  return { publication, published: result.exitCode === 0 };
+}
+
+export async function verifyPublication(
+  pending: PendingPublication,
+  io: Omit<PublicationIO, "publish">
+): Promise<void> {
+  await waitForPublication(pending.publication, io, pending.document);
+}
+
+/**
+ * Wait for every pending publication concurrently so one slow package does not
+ * spend the others' windows, then report every package that never appeared.
+ */
+export async function verifyPublications(
+  pending: readonly PendingPublication[],
+  io: Omit<PublicationIO, "publish">
+): Promise<void> {
+  const results = await Promise.allSettled(
+    pending.map((entry) => verifyPublication(entry, io))
+  );
+  const failures = results.flatMap((result) =>
+    result.status === "rejected"
+      ? [
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+        ]
+      : []
+  );
+  if (failures.length === 1) throw new Error(failures[0]);
+  if (failures.length > 1) {
+    throw new Error(
+      `${failures.length} packages did not verify:\n- ${failures.join("\n- ")}`
+    );
+  }
+}
+
+/** Publish at most once; an occupied version is successful only after verification. */
+export async function publishAndVerify(
+  publication: Publication,
+  io: PublicationIO
+): Promise<boolean> {
+  const pending = await publishOnce(publication, io);
+  await verifyPublication(pending, io);
+  return pending.published;
 }
 
 /** Planning waits for metadata on occupied versions, but never waits for absent packages. */
