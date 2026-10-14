@@ -158,7 +158,7 @@ export async function publishOnce(
   }
   if (result.exitCode !== 0) {
     io.log(
-      `skillset: ${publication.name}@${publication.version} is occupied; verifying the staged artifact before continuing`
+      `skillset: ${publication.name}@${publication.version} is occupied; it must still verify against the staged artifact`
     );
   }
   return { publication, published: result.exitCode === 0 };
