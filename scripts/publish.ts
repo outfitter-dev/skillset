@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   publishAndVerify,
+  publishOnce,
   readReleaseRegistryStates,
+  verifyPublications,
+  type PendingPublication,
   type PublicationIO,
   type RegistryDocument,
 } from "./publish-propagation";
@@ -253,40 +256,55 @@ export async function publishReleasePackages(
   }
 ): Promise<boolean> {
   const stagedIntegrity = expectedIntegrity(packages);
-  let publishedAny = false;
-  for (const spec of RELEASE_PACKAGE_SPECS) {
-    if (!initialPlan.missing.includes(spec.name)) continue;
+  const publication = (spec: ReleasePackageSpec) => {
     const tarball = packages.find((entry) => entry.name === spec.name)!;
-
-    if (spec.role === "launcher") {
-      const beforeLauncher = await io.states();
-      const launcherPlan = planCoordinatedRelease(
-        beforeLauncher.states,
-        beforeLauncher.version,
-        beforeLauncher.tag,
-        stagedIntegrity
-      );
-      if (
-        launcherPlan.mode !== "complete" &&
-        (launcherPlan.missing.length !== 1 ||
-          launcherPlan.missing[0] !== "skillset")
-      ) {
-        throw new Error(
-          `Refusing to publish skillset@${initial.version} before every prerequisite package is visible`
-        );
-      }
-    }
-
-    const published = await publishAndVerify(
-      {
+    return {
+      publication: {
         name: spec.name,
         version: initial.version,
         tag: initial.tag,
         integrity: tarball.integrity,
       },
-      { ...io, publish: () => io.publish(spec, tarball.path) }
+      io: { ...io, publish: () => io.publish(spec, tarball.path) },
+    };
+  };
+  const missing = RELEASE_PACKAGE_SPECS.filter((spec) =>
+    initialPlan.missing.includes(spec.name)
+  );
+
+  // Prerequisites do not depend on each other's visibility, so publish them
+  // back to back and wait for all of them together. Only the launcher must
+  // wait until every prerequisite is visible.
+  const pending: PendingPublication[] = [];
+  for (const spec of missing) {
+    if (spec.role === "launcher") continue;
+    const entry = publication(spec);
+    pending.push(await publishOnce(entry.publication, entry.io));
+  }
+  await verifyPublications(pending, io);
+  const publishedPrerequisite = pending.some((entry) => entry.published);
+
+  let publishedLauncher = false;
+  const launcher = missing.find((spec) => spec.role === "launcher");
+  if (launcher) {
+    const beforeLauncher = await io.states();
+    const launcherPlan = planCoordinatedRelease(
+      beforeLauncher.states,
+      beforeLauncher.version,
+      beforeLauncher.tag,
+      stagedIntegrity
     );
-    publishedAny ||= published;
+    if (
+      launcherPlan.mode !== "complete" &&
+      (launcherPlan.missing.length !== 1 ||
+        launcherPlan.missing[0] !== "skillset")
+    ) {
+      throw new Error(
+        `Refusing to publish skillset@${initial.version} before every prerequisite package is visible`
+      );
+    }
+    const entry = publication(launcher);
+    publishedLauncher = await publishAndVerify(entry.publication, entry.io);
   }
 
   const final = await io.states();
@@ -301,7 +319,7 @@ export async function publishReleasePackages(
       `Coordinated registry set did not complete; missing ${finalPlan.missing.join(", ")}`
     );
   }
-  return publishedAny;
+  return publishedPrerequisite || publishedLauncher;
 }
 
 async function commandPublish(nativeOutputDir?: string, stageDir?: string) {
