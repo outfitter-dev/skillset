@@ -78,12 +78,12 @@ The publish wrapper derives the npm dist-tag from the version: stable versions p
 
 The `next` channel lets merged work be installed and tested before a stable release. Merging to `main` is the approval: nobody approves a `next` publish by hand. Stable releases keep the version PR and the protected route above.
 
-When a push to `main` leaves public Changesets pending, the `next-dispatch` job starts a separate `Release` run with `channel=next`. That run uses its own concurrency group (`…-next`), so a long `next` build never holds the stable group and cannot cause a queued stable publish to be cancelled as a superseded pending run. The `next` run skips the version PR and every stable job.
+Every push to `main` runs the small **Release Next Dispatch** workflow, which starts a separate `Release` run with `channel=next`. It lives outside `release.yml` because a stable run waiting on `npm` approval holds that workflow's concurrency group, and a dispatcher inside it would queue behind the gate. That run uses its own concurrency group (`…-next`), so a long `next` build never holds the stable group and cannot cause a queued stable publish to be cancelled as a superseded pending run. The `next` run skips the version PR and every stable job.
 
 `bun scripts/next-release.ts plan` decides whether to publish and which version to use:
 
 1. It reads the pending stable version for `skillset` from `changeset status`. With no pending public release, it stops.
-2. It finds the nearest `v*-next.*` tag reachable from `HEAD` and publishes only if a [package-facing path](#flow) changed since that tag. Docs, workflow, and other repo-only merges do not produce a new prerelease. A manual dispatch with `channel=next` and `force=true` skips this filter.
+2. It finds the nearest `v*-next.*` tag reachable from `HEAD` and publishes only if a [package-facing path](#flow) changed since that tag. The diff disables rename detection, so moving a package-facing file elsewhere still counts. Docs, workflow, and other repo-only merges do not produce a new prerelease. A manual dispatch with `channel=next` and `force=true` skips this filter.
 3. It waits for the same exact-SHA CI checks the stable policy reads, and fails closed when CI is red or still pending at the deadline.
 4. It picks `<pending version>-next.<n>`, where `n` is one more than the highest `next` number for that base on any of the seven packages. Counting every package means an abandoned partial prerelease is skipped instead of recovered with different bytes.
 

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   type ChangedFile,
   isPackageAffectingPath,
-  readChangedFilesFromGit,
+  parseChangedFileLine,
 } from "../apps/skillset/src/changeset-awareness";
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { fetchRegistryDocument, writeGitHubOutput } from "./publish";
@@ -210,6 +210,29 @@ async function readPreviousNextTag(): Promise<string | undefined> {
   return exitCode === 0 && tag.length > 0 ? tag : undefined;
 }
 
+/**
+ * Diffs without rename detection so a package-facing file moved out of the
+ * package paths still counts through its deletion side.
+ */
+async function readChangedFilesSince(tag: string): Promise<ChangedFile[]> {
+  const subprocess = Bun.spawn(
+    ["git", "diff", "--name-status", "--no-renames", `${tag}...HEAD`],
+    { cwd: rootDir, env: gitSafeEnv(), stderr: "pipe", stdout: "pipe" }
+  );
+  const [exitCode, stdout, stderr] = await Promise.all([
+    subprocess.exited,
+    new Response(subprocess.stdout).text(),
+    new Response(subprocess.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`git diff ${tag}...HEAD failed: ${stderr.trim()}`);
+  }
+  return stdout
+    .split("\n")
+    .map(parseChangedFileLine)
+    .filter((file): file is ChangedFile => Boolean(file));
+}
+
 async function readRegistryVersions(): Promise<string[]> {
   const versions: string[] = [];
   for (const spec of RELEASE_PACKAGE_SPECS) {
@@ -228,7 +251,7 @@ async function commandPlan() {
   const pendingVersion = await readPendingStableVersion();
   const previousTag = await readPreviousNextTag();
   const changedFiles = previousTag
-    ? await readChangedFilesFromGit(rootDir, previousTag)
+    ? await readChangedFilesSince(previousTag)
     : undefined;
   const decision = decideNextPublish({
     changedFiles,

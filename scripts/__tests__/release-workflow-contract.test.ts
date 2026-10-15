@@ -209,12 +209,12 @@ describe("generated release PR workflow contract", () => {
       "${{ github.workflow }}-${{ github.ref }}${{ inputs.channel == 'next' && '-next' || '' }}"
     );
     expect(jobs.version?.if).toContain("inputs.channel != 'next'");
-    expect(jobs["next-dispatch"]?.permissions).toEqual({ actions: "write" });
-    expect(jobs["next-dispatch"]?.if).toContain("github.event_name == 'push'");
-    expect(jobs["next-dispatch"]?.if).toContain(
-      "needs.version.outputs.has_changesets == 'true'"
-    );
-    expect(jobs["next-dispatch"]?.steps?.[0]?.run).toBe(
+    expect(jobs["next-dispatch"]).toBeUndefined();
+    const dispatcher = await readWorkflow("release-next-dispatch.yml");
+    const dispatch = dispatcher.jobs?.dispatch;
+    expect(dispatcher.concurrency).toBeUndefined();
+    expect(dispatch?.permissions).toEqual({ actions: "write" });
+    expect(dispatch?.steps?.[0]?.run).toBe(
       "gh workflow run release.yml --ref main -f channel=next"
     );
     expect(jobs["next-plan"]?.if).toContain("refs/heads/main");

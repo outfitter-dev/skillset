@@ -27,9 +27,11 @@ on:
         default: false
 
 # The next prerelease lane runs as its own dispatched run in a separate group,
-# so a long native build for `next` never holds the stable group. A newer
-# pending stable run cancels an older pending one in the same group; keeping
-# next out of it keeps a queued stable publish from being dropped behind it.
+# started by release-next-dispatch.yml, so a long native build for `next`
+# never holds the stable group and a stable run waiting on `npm` approval never
+# holds `next` back. A newer pending stable run cancels an older pending one in
+# the same group; keeping next out of it keeps a queued stable publish from
+# being dropped behind it.
 concurrency: ${{ github.workflow }}-${{ github.ref }}${{ inputs.channel == 'next' && '-next' || '' }}
 
 jobs:
@@ -412,20 +414,6 @@ jobs:
       tag: ${{ needs.github-release.outputs.tag }}
     secrets:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
-  next-dispatch:
-    name: Dispatch next prerelease lane
-    needs: version
-    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.version.outputs.has_changesets == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Start the next lane in its own concurrency group
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: gh workflow run release.yml --ref main -f channel=next
 
   next-plan:
     name: Next Prerelease Plan

@@ -114,6 +114,15 @@ describe("next prerelease channel", () => {
     expect(
       decideNextPublish({
         ...base,
+        changedFiles: [
+          { path: "packages/core/src/moved.ts", status: "D" },
+          { path: "docs/moved.ts", status: "A" },
+        ],
+      }).publish
+    ).toBe(true);
+    expect(
+      decideNextPublish({
+        ...base,
         previousTag: undefined,
         changedFiles: undefined,
       }).publish
