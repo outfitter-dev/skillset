@@ -41,8 +41,12 @@ jobs:
       - name: Acquire exact validators and validate generated outputs
         env:
           REFRESH: ${{ github.event_name == 'workflow_dispatch' && inputs.refresh && '--refresh' || '' }}
-        # REFRESH is deliberately unquoted so an empty value adds no argument.
-        run: bun run providers:validate:hosted -- --report "$RUNNER_TEMP/provider-validation.md" $REFRESH
+        run: |
+          args=()
+          if [[ -n "$REFRESH" ]]; then
+            args+=( "$REFRESH" )
+          fi
+          bun run providers:validate:hosted -- --report "$RUNNER_TEMP/provider-validation.md" "${args[@]}"
       - name: Add provider evidence to the job summary
         if: always()
         run: |
