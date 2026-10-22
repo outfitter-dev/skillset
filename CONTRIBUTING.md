@@ -26,7 +26,22 @@ under a restrictive shell umask.
 - Add focused tests for new behavior.
 - Edit `.skillset/` or `skillset.yaml` when changing self-hosted source; run `bun run skillset:build` and inspect the generated diff.
 - Do not hand-edit generated skills, plugins, or provider output as source truth.
-- Add a Changeset for published-package behavior or payload changes. Repository-only documentation and tooling changes do not need one unless they alter the published package.
+- Record the change (below) before you push.
+
+### Record the change
+
+Skillset keeps two independent release records, and CI checks both:
+
+- **Change entry** (`.skillset/changes/`, [Changes reference](docs/reference/features/changes.md)): needed when you change a source unit under `.skillset/`, such as a skill, a plugin, or `.skillset/RULES.md`. Run `bun ./apps/skillset/src/cli.ts check --ci --root .` to see which scopes are uncovered, then record each one:
+
+  ```bash
+  bun ./apps/skillset/src/cli.ts change add --scope skill:skillset-dev --bump none --reason "Describe the reader-visible change." --root .
+  ```
+
+  If a pending entry for that scope already exists, refresh its evidence instead of adding another: `bun ./apps/skillset/src/cli.ts change refresh @<id> --yes --root .`. The `check` output prints the exact `change add` or `change refresh` command to run.
+- **Changeset** (`.changeset/*.md`, `bun run changeset`): needed when you change published-package behavior or payload. `bun run changeset:check` says whether a branch needs one. Repository-only documentation and tooling changes do not.
+
+A change that touches both a `.skillset/` source unit and a published package needs both records; one never stands in for the other.
 
 Run the narrowest relevant checks while working, then run the aggregate gate before opening a pull request:
 

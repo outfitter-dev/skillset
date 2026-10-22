@@ -34,6 +34,15 @@ For ADR lifecycle work, use `skillset-adrs`, then follow `docs/adrs/README.md` a
 - Edit `.skillset/` and `skillset.yaml` as canonical self-hosted source. Rebuild generated `.agents/`, `.claude/`, `.cursor/`, and `plugins/` output; never hand-edit it as source truth.
 - Build does not authorize installation, activation, trust, publication, or user-level provider configuration changes.
 
+## Record The Change
+
+CI checks two independent release records, so record both kinds of change before pushing:
+
+- **Change entry** for any edit to a `.skillset/` source unit (a skill, a plugin, or `RULES.md`). Run `bun ./apps/skillset/src/cli.ts check --ci --root .`; it names each uncovered scope and prints the exact `skillset change add --scope <unit> --bump <bump> --reason "<reason>"` command, or `skillset change refresh @<id> --yes` when a pending entry for that scope already exists with stale evidence.
+- **Changeset** (`.changeset/*.md`) for published-package behavior or payload. `bun run changeset:check` says whether the branch needs one.
+
+A change that touches both needs both. Neither record stands in for the other.
+
 ## Finish The Loop
 
-Implement the smallest complete change, verify it through the owning specialist, rebuild self-hosted output when source changes, inspect the generated diff, and run the repository aggregate gate before handoff.
+Implement the smallest complete change, verify it through the owning specialist, rebuild self-hosted output when source changes, record the change, inspect the generated diff, and run the repository aggregate gate before handoff.

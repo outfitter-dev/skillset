@@ -110,10 +110,10 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-dev",
-      "outputHash": "sha256:6f14891db95c130d4c60d3aa828e0f372b4cc31a2239d9a28325737bb0063296",
+      "outputHash": "sha256:16ad000f538ceb3bfc658606d0b2850dd134cf8665b313c14be84c776be0d92e",
       "outputPath": "skillset-dev/SKILL.md",
       "role": "bundle",
-      "sourceHash": "sha256:7fb6df764de2875ceeae0e75133124b945fe041e297c91a4c4d37c0d61413ac6",
+      "sourceHash": "sha256:f9812bbc98d1820cf5d55901a31a00a53acce24108a9fce4079e7481dccaaf29",
       "sourcePath": ".skillset/skills/skillset-dev/SKILL.md",
       "version": "0.1.0"
     },
@@ -135,7 +135,7 @@
     }
   ],
   "outputRoot": ".cursor/skills",
-  "provenanceHash": "sha256:6848fc234e7aeea4b5dcc2beb9f47c5c509a77609c51c1ed38757a5a04c9b7a4",
+  "provenanceHash": "sha256:16375c09830ab13dc176b91be06c88fdbd0ee44bd96aaf51ad7c789d5d3b479a",
   "renderResults": [
     {
       "destination": "skill",
