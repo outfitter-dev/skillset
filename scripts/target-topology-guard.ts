@@ -63,9 +63,8 @@ export interface TargetTopologyDuplicateAllowlist {
 export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] = [
   allow("packages/schema/src/contracts.ts", "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
   allow("packages/schema/src/examples.ts", "skillsetSchemaExamples", "R1", '["claude", "codex"]', "Schema examples document intentionally provider-scoped sets: the report fixture, two hooks, and a skill-eval case matrix.", 4),
+  allow("packages/registry/src/schema-snapshots.ts", "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Generated from schema TARGET_NAMES by provider maintenance; pinned equal in registry tests."),
   allow("packages/schema/src/examples.ts", "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema examples demonstrate the complete targets, marketplace targets, and activation targets fields.", 3),
-  allow("packages/registry/src/index.ts", "PROVIDER_DESTINATION_FORMAT_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native format registry declaration."),
-  allow("packages/registry/src/schema-snapshots.ts", "PROVIDER_SCHEMA_TARGETS", "R1", '["claude", "codex", "cursor"]', "Provider-native schema registry declaration."),
   allow("scripts/source-layout-migration.ts", "readLegacyOutputGroup", "R1", '["claude", "codex"]', "Historical migration reads the two targets supported by that legacy shape."),
   allow("packages/core/src/render-project-hooks.ts", "PROJECT_SESSION_START_TARGETS", "R1", '["claude", "codex"]', "Project SessionStart rendering and manual guidance share the two providers with verified project-hook destinations."),
   allow("scripts/bootstrap/main.ts", "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex" || command === "cursor"', "Bootstrap exposes provider-specific setup commands for the supported agent runtimes."),

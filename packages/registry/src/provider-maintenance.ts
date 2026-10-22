@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { TARGET_NAMES } from "@skillset/schema";
+
 import {
   listProviderDestinationFormatSnapshots,
   type ProviderDestinationFormatSnapshot,
@@ -521,7 +523,8 @@ export function renderProviderSchemaSnapshotsSource(
 
 export const PROVIDER_SCHEMA_SNAPSHOT_SCHEMA = "skillset-provider-schema@1";
 
-export const PROVIDER_SCHEMA_TARGETS = ["claude", "codex", "cursor"] as const;
+/** Generated from the canonical schema \`TARGET_NAMES\`; never edit by hand. */
+export const PROVIDER_SCHEMA_TARGETS = [${TARGET_NAMES.map((target) => JSON.stringify(target)).join(", ")}] as const;
 
 export type ProviderSchemaTarget = (typeof PROVIDER_SCHEMA_TARGETS)[number];
 

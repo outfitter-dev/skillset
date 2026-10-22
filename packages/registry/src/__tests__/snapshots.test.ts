@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
+import { TARGET_NAMES } from "@skillset/schema";
+
 import {
   PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA,
   PROVIDER_SCHEMA_SNAPSHOT_SCHEMA,
+  PROVIDER_SCHEMA_TARGETS,
   assertProviderSchemaSnapshots,
   cursorParityClaims,
   cursorParitySources,
@@ -56,6 +59,16 @@ describe("@skillset/registry snapshots", () => {
       "skills",
       "variables",
     ]);
+  });
+
+  it("SET-539: pins format and schema snapshots for every canonical target", () => {
+    const formatTargets = new Set(listProviderDestinationFormatSnapshots().map((snapshot) => snapshot.target));
+    const schemaTargets = new Set(listProviderSchemaSnapshots().map((snapshot) => snapshot.target));
+    expect(PROVIDER_SCHEMA_TARGETS).toEqual(TARGET_NAMES);
+    for (const target of TARGET_NAMES) {
+      expect(formatTargets.has(target)).toBe(true);
+      expect(schemaTargets.has(target)).toBe(true);
+    }
   });
 
   it("exports deterministic adopted provider destination formats", () => {

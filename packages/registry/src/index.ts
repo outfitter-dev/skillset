@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { TARGET_NAMES } from "@skillset/schema";
+
 export * from "./migrations";
 export * from "./hook-evidence";
 export * from "./cursor-parity-evidence";
@@ -15,9 +17,10 @@ export * from "./standard-profiles";
 
 export const PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA = "skillset-provider-destination-format@1";
 
-export const PROVIDER_DESTINATION_FORMAT_TARGETS = ["claude", "codex", "cursor"] as const;
+export type ProviderDestinationFormatTarget = (typeof TARGET_NAMES)[number];
 
-export type ProviderDestinationFormatTarget = (typeof PROVIDER_DESTINATION_FORMAT_TARGETS)[number];
+/** The conventional plugin hook file every provider format snapshot pins. */
+const DEFAULT_PLUGIN_HOOKS_PATH = "hooks/hooks.json";
 
 export type ProviderDestinationFormatSnapshotId =
   | "claude-hooks"
@@ -74,7 +77,7 @@ const snapshots = [
         { defaultPath: "skills/", kind: "skills", manifestField: "skills", status: "native" },
         { defaultPath: "commands/", kind: "commands", manifestField: "commands", status: "native" },
         { defaultPath: "agents/", kind: "agents", manifestField: "agents", status: "native" },
-        { defaultPath: "hooks/hooks.json", kind: "hooks", manifestField: "hooks", status: "native" },
+        { defaultPath: DEFAULT_PLUGIN_HOOKS_PATH, kind: "hooks", manifestField: "hooks", status: "native" },
         { defaultPath: ".mcp.json", kind: "mcp", manifestField: "mcpServers", status: "native" },
         { defaultPath: ".lsp.json", kind: "lsp", manifestField: "lspServers", status: "native" },
         { defaultPath: "monitors/monitors.json", kind: "monitors", manifestField: "experimental.monitors", status: "native" },
@@ -189,7 +192,7 @@ const snapshots = [
   snapshot({
     destination: "hooks",
     format: {
-      filePattern: "hooks/hooks.json",
+      filePattern: DEFAULT_PLUGIN_HOOKS_PATH,
       handlerFields: ["type", "command", "prompt", "agent", "timeout", "async", "args"],
       rootFields: ["description", "hooks"],
       shape: "event-map",
@@ -211,7 +214,7 @@ const snapshots = [
         { defaultPath: "skills/", kind: "skills", manifestField: "skills", status: "native" },
         { defaultPath: ".app.json", kind: "apps", manifestField: "apps", status: "native" },
         { defaultPath: ".mcp.json", kind: "mcp", manifestField: "mcpServers", status: "native" },
-        { defaultPath: "hooks/hooks.json", kind: "hooks", manifestField: "hooks", status: "native" },
+        { defaultPath: DEFAULT_PLUGIN_HOOKS_PATH, kind: "hooks", manifestField: "hooks", status: "native" },
         { defaultPath: "assets/", kind: "assets", manifestField: null, status: "native" },
         { defaultPath: "agents/", kind: "agents", manifestField: null, status: "unsupported" },
         { defaultPath: "bin/", kind: "bin", manifestField: null, status: "unsupported" },
@@ -357,7 +360,7 @@ const snapshots = [
         { defaultPath: "rules/", kind: "rules", manifestField: "rules", status: "native" },
         { defaultPath: "agents/", kind: "agents", manifestField: "agents", status: "native" },
         { defaultPath: "commands/", kind: "commands", manifestField: "commands", status: "native" },
-        { defaultPath: "hooks/hooks.json", kind: "hooks", manifestField: "hooks", status: "native" },
+        { defaultPath: DEFAULT_PLUGIN_HOOKS_PATH, kind: "hooks", manifestField: "hooks", status: "native" },
         { defaultPath: "mcp.json", kind: "mcp", manifestField: "mcpServers", status: "native" },
         { defaultPath: "assets/", kind: "assets", manifestField: null, status: "native" },
         { defaultPath: "scripts/", kind: "scripts", manifestField: null, status: "native" },
@@ -489,7 +492,7 @@ const snapshots = [
     format: {
       canonicalEventNames: "skillset-pascal-case",
       nativeEventNames: "cursor-lower-camel",
-      filePattern: "hooks/hooks.json",
+      filePattern: DEFAULT_PLUGIN_HOOKS_PATH,
       handlerFields: ["type", "command", "prompt", "timeout", "loop_limit", "failClosed", "matcher", "model"],
       rootFields: ["version", "hooks"],
       shape: "versioned-flat-event-map",
@@ -600,7 +603,7 @@ export function assertProviderDestinationFormatSnapshots(
     if (entry.schema !== PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA) {
       throw new Error(`skillset: unsupported provider destination format snapshot schema ${entry.schema}`);
     }
-    if (!PROVIDER_DESTINATION_FORMAT_TARGETS.includes(entry.target)) {
+    if (!TARGET_NAMES.includes(entry.target)) {
       throw new Error(`skillset: unsupported provider destination format target ${entry.target}`);
     }
     if (entry.provenance.sources.length === 0) {
