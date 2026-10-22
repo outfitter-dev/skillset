@@ -85,6 +85,7 @@
     "test:focused": "bun run test:sandbox -- bun test --timeout 15000",
     "test:sharded": "bun scripts/test-shards.ts",
     "typecheck": "tsc --noEmit",
+    "verify": "bun scripts/verify.ts",
     "ultracite:check": "ultracite check",
     "ultracite:doctor": "ultracite doctor",
     "ultracite:fix": "ultracite fix",
