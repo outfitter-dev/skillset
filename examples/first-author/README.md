@@ -28,9 +28,10 @@ bun ./apps/skillset/src/cli.ts dev --root examples/first-author
 copy so the canonical example stays unchanged:
 
 ```bash
-cp -R examples/first-author /tmp/first-author
-bun ./apps/skillset/src/cli.ts build --root /tmp/first-author --yes
-bun ./apps/skillset/src/cli.ts check --only outputs --root /tmp/first-author
+work="$(mktemp -d)/first-author"
+cp -R examples/first-author "$work"
+bun ./apps/skillset/src/cli.ts build --root "$work" --yes
+bun ./apps/skillset/src/cli.ts check --only outputs --root "$work"
 ```
 
 From a standalone copy after installing Skillset, use the package command:
