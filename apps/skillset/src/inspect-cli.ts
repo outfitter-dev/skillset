@@ -303,7 +303,12 @@ function printExplainResult(
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
     }
-    if (entry.targetState !== undefined) {
+    if (entry.outputPath !== result.path && result.kind === "generated") {
+      writeLine(writer, `    bundle file: ${result.path}`);
+    }
+    if (result.unwrittenOutputs.includes(entry.outputPath)) {
+      writeLine(writer, "    target state: planned (not written)");
+    } else if (entry.targetState !== undefined) {
       writeLine(writer, `    target state: ${entry.targetState}`);
     }
     if (entry.validation !== undefined) {
@@ -360,7 +365,7 @@ function printExplainResult(
   }
   for (const feature of result.features) {
     writeLine(writer, `  feature ${feature.id}: ${feature.title}`);
-    for (const target of targetNames()) {
+    for (const target of result.targets) {
       writeLine(
         writer,
         `    ${target}: ${feature.targetSupport[target].status}`
@@ -369,6 +374,12 @@ function printExplainResult(
   }
   for (const outcome of result.renderResults) {
     printRenderResult(outcome, writer);
+  }
+  if (result.blockingRenderResults.length > 0) {
+    writeLine(writer, "  blocked by:");
+    for (const outcome of result.blockingRenderResults) {
+      printRenderResult(outcome, writer);
+    }
   }
   for (const realization of result.toolsRealization) {
     if (realization.entries.length === 0) {
