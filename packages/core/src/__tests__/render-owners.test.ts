@@ -98,7 +98,14 @@ const OWNED_FUNCTIONS = {
     "pluginManifestDisplayName",
     "withOptionalSurfacePaths",
   ],
-  "render-rules": ["readRulePaths", "renderRules", "ruleScopeRenderResults"],
+  "render-rules": [
+    "readRulePaths",
+    "renderRules",
+    "ruleAgentsDestination",
+    "ruleAppliesTo",
+    "ruleScopeRenderResults",
+    "ruleSectionTagName",
+  ],
   "render-standard-instructions": ["planAgentInstructionProjections"],
   "render-support": [
     "copyFileFromSource",
