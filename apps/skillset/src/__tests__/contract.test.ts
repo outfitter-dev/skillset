@@ -7783,6 +7783,9 @@ Body.
 
   const scaffoldOnly = await runSkillsetCli("init", "--root", root, "--yes");
   expect(scaffoldOnly.exitCode).toBe(0);
+  // SET-690: the scaffold RULES.md must not hide the adopt hint behind a build.
+  expect(scaffoldOnly.stdout).toContain("next: skillset init --adopt all --yes");
+  expect(scaffoldOnly.stdout).not.toContain("next: skillset build");
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/skills/demo/SKILL.md"))).toBe(false);
 });

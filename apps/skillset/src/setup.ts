@@ -267,6 +267,14 @@ async function setupNextSteps(
   inspectActiveSource: boolean
 ): Promise<readonly string[]> {
   const commandRoot = await setupCommandRoot(rootPath);
+  // Unadopted guidance comes first: the scaffold's own RULES.md already counts
+  // as active source, and building before adopting collides with that guidance.
+  if (importCandidates.length > 0) {
+    return setupCommandsAtRoot(
+      ["skillset init --adopt all --yes", "skillset import <path>"],
+      commandRoot
+    );
+  }
   if (inspectActiveSource) {
     try {
       const graph = await loadBuildGraph(rootPath);
@@ -286,12 +294,6 @@ async function setupNextSteps(
     } catch (error) {
       if (!isEmptySourceGraphError(error)) throw error;
     }
-  }
-  if (importCandidates.length > 0) {
-    return setupCommandsAtRoot(
-      ["skillset init --adopt all --yes", "skillset import <path>"],
-      commandRoot
-    );
   }
   return setupCommandsAtRoot(
     ["skillset new skill <name>", "skillset import <path>"],
