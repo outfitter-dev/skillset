@@ -112,6 +112,11 @@
           "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.",
+          "from": "0043",
+          "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
+        },
+        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - authored source remains the product.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
@@ -135,11 +140,6 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.",
           "from": "20260710",
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.",
-          "from": "20260814",
-          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
         }
       ],
       "number": "0000",
@@ -357,8 +357,8 @@
         },
         {
           "context": "- [ADR-0004: Core Library and CLI Boundary](../0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.",
-          "from": "20260814",
-          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+          "from": "0043",
+          "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         }
       ],
       "number": "0004",
@@ -483,6 +483,11 @@
           "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
+          "context": "- [ADR-0006: Agent / Subagent Source Model](../0006-agent-source-model.md) - establishes the project agent",
+          "from": "0040",
+          "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
+        },
+        {
           "context": "- [Agent / Subagent Source Model](../0006-agent-source-model.md) - project agents as the first close-match surface.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
@@ -571,6 +576,11 @@
           "fromPath": "docs/adrs/0034-exact-shared-references.md"
         },
         {
+          "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md) - defines the `.skillset/`",
+          "from": "0040",
+          "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
+        },
+        {
           "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md) - repository workspace topology is not reused as hidden user state.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
@@ -622,7 +632,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["41", "42"],
       "amends": [],
       "created": "2026-06-09",
       "depends_on": ["0", "5", "11"],
@@ -659,18 +669,18 @@
         },
         {
           "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.",
-          "from": "20260723",
-          "fromPath": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md"
+          "from": "0041",
+          "fromPath": "docs/adrs/0041-portable-skill-eval-source-contract.md"
         },
         {
           "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.",
-          "from": "20260723",
-          "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
+          "from": "0042",
+          "fromPath": "docs/adrs/0042-ungraded-cross-provider-eval-runs.md"
         },
         {
           "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - current retained test/eval evidence boundaries remain producer-owned until explicit migration.",
-          "from": "20260814",
-          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+          "from": "0043",
+          "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-ad",
@@ -984,7 +994,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["43"],
       "amends": [],
       "created": "2026-06-13",
       "depends_on": ["0", "4", "5", "12", "18"],
@@ -1031,8 +1041,8 @@
         },
         {
           "context": "- [ADR-0019](../0019-deterministic-projection-and-adapter-conformance.md#projection-comparison)",
-          "from": "20260814",
-          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+          "from": "0043",
+          "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
         {
           "context": "- [Deterministic Projection and Adapter Conformance](../../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines the registry-to-output evidence loop.",
@@ -1112,7 +1122,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["41", "42", "43"],
       "amends": [],
       "created": "2026-07-12",
       "depends_on": ["0", "5", "12", "19"],
@@ -1134,18 +1144,18 @@
         },
         {
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outsi",
-          "from": "20260723",
-          "fromPath": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md"
+          "from": "0041",
+          "fromPath": "docs/adrs/0041-portable-skill-eval-source-contract.md"
         },
         {
           "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.",
-          "from": "20260723",
-          "fromPath": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md"
+          "from": "0042",
+          "fromPath": "docs/adrs/0042-ungraded-cross-provider-eval-runs.md"
         },
         {
           "context": "- [ADR-0022](../0022-workflow-oriented-cli.md#final-command-roster)",
-          "from": "20260814",
-          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+          "from": "0043",
+          "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         }
       ],
       "number": "0022",
@@ -1180,8 +1190,8 @@
         },
         {
           "context": "- [ADR-0023](../0023-versioned-structured-output-for-cli-automation.md#json-is-one-finite-result-envelope)",
-          "from": "20260814",
-          "fromPath": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md"
+          "from": "0043",
+          "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
         {
           "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
@@ -1538,7 +1548,13 @@
       "amends": [],
       "created": "2026-09-16",
       "depends_on": ["9", "33"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [ADR-0034: Exact Shared References](../0034-exact-shared-references.md) -",
+          "from": "0040",
+          "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
+        }
+      ],
       "number": "0034",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0034-exact-shared-references.md",
@@ -1642,7 +1658,18 @@
       "amends": ["18", "28", "33"],
       "created": "2026-09-24",
       "depends_on": ["15", "18", "28", "33", "35"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "[ADR-0039](../../adrs/0039-rules-name-authored-guidance-source.md) may also",
+          "from": "operational-reports",
+          "fromPath": "docs/reference/features/operational-reports.md"
+        },
+        {
+          "context": "Rule frontmatter is published as [`rule-frontmatter.schema.json`](./0.1.0/rule-frontmatter.schema.json) with no alias at its previous file name. Editor associations that still point at the file retire",
+          "from": "README",
+          "fromPath": "docs/reference/schemas/README.md"
+        }
+      ],
       "number": "0039",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0039-rules-name-authored-guidance-source.md",
@@ -1651,6 +1678,78 @@
       "superseded_by": null,
       "title": "Rules Name Authored Guidance Source",
       "updated": "2026-09-28"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-01",
+      "depends_on": ["34", "9", "first-class-sets", "6"],
+      "inbound": [],
+      "number": "0040",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0040-path-references-resolve-and-rename-together.md",
+      "slug": "path-references-resolve-and-rename-together",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Source References Resolve And Rename Together",
+      "updated": "2026-10-22"
+    },
+    {
+      "amended_by": [],
+      "amends": ["12", "22"],
+      "created": "2026-07-23",
+      "depends_on": [],
+      "inbound": [],
+      "number": "0041",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0041-portable-skill-eval-source-contract.md",
+      "slug": "portable-skill-eval-source-contract",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Portable Skill Eval Source Contract",
+      "updated": "2026-10-22"
+    },
+    {
+      "amended_by": [],
+      "amends": ["12", "22"],
+      "created": "2026-07-23",
+      "depends_on": [],
+      "inbound": [
+        {
+          "context": "- [Ungraded Cross-Provider Eval Runs](0042-ungraded-cross-provider-eval-runs.md) - current provider runtime evidence.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        }
+      ],
+      "number": "0042",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0042-ungraded-cross-provider-eval-runs.md",
+      "slug": "ungraded-cross-provider-eval-runs",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Ungraded Cross-Provider Eval Runs",
+      "updated": "2026-10-22"
+    },
+    {
+      "amended_by": [],
+      "amends": ["19", "22"],
+      "created": "2026-08-14",
+      "depends_on": ["0", "4", "19", "22", "23"],
+      "inbound": [
+        {
+          "context": "[Global Immutable Operational Reports ADR](../../adrs/0043-global-immutable-operational-reports.md).",
+          "from": "operational-reports",
+          "fromPath": "docs/reference/features/operational-reports.md"
+        }
+      ],
+      "number": "0043",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0043-global-immutable-operational-reports.md",
+      "slug": "global-immutable-operational-reports",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Global Immutable Operational Reports",
+      "updated": "2026-10-22"
     }
   ],
   "version": 1

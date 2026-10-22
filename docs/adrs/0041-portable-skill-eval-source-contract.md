@@ -1,14 +1,17 @@
 ---
+id: 41
 slug: portable-skill-eval-source-contract
 title: Portable Skill Eval Source Contract
-status: draft
+status: accepted
 created: 2026-07-23
-updated: 2026-07-23
+updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
 amends: [12, 22]
 ---
 
-# ADR: Portable Skill Eval Source Contract
+# ADR-0041: Portable Skill Eval Source Contract
+
+> Accepted 2026-10-22 as written. Shipped in [#377](https://github.com/outfitter-dev/skillset/pull/377) (portable eval declarations).
 
 ## Context
 
@@ -77,8 +80,8 @@ deterministic `skillset test`, ordinary checks, or build output.
 
 ## References
 
-- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.
-- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outside `test`.
+- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.
+- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outside `test`.
 - [Anthropic skill-creator schema reference](https://github.com/anthropics/skills/blob/1f630fdf9259cec4a14913127dfd7c3b69ef72eb/skills/skill-creator/references/schemas.md) - pinned primary source for the compatible base declaration fields and list semantics.
-- [Skillset Design Tenets](../../project/tenets.md) - source-first, one-meaning, and provider-truth guidance.
-- [Tests and Evals](../../reference/features/tests-and-evals.md) - current product reference and portable/machine-local boundary.
+- [Skillset Design Tenets](../project/tenets.md) - source-first, one-meaning, and provider-truth guidance.
+- [Tests and Evals](../reference/features/tests-and-evals.md) - current product reference and portable/machine-local boundary.
