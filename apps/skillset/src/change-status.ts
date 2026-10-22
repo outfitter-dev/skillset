@@ -23,6 +23,7 @@ import {
   readPreprocessDependencySync,
 } from "@skillset/core/internal/preprocess";
 import { readReleaseState } from "@skillset/core/internal/release-state";
+import { isEmptySourceGraphError } from "@skillset/core/internal/empty-source-graph";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   historicalRuleSelector,
@@ -921,8 +922,7 @@ function withoutSourceDir<T extends SkillsetOptions>(options: T): T {
 
 function canRetryBaselineWithDetectedLayout(error: unknown): boolean {
   if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return message.startsWith("skillset: no source plugins, skills, rules, project agents, or provider source found");
+  return isEmptySourceGraphError(error);
 }
 
 async function normalizeLegacyBaselineSnapshot(

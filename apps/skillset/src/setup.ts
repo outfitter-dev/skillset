@@ -7,6 +7,7 @@ import { schemaUri } from "@skillset/schema";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument, validateWorkspaceConfigDocument } from "@skillset/core/internal/config";
+import { isEmptySourceGraphError } from "@skillset/core/internal/empty-source-graph";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { gitSafeEnv } from "./git-env";
 import { isPathInside, validateSlug } from "@skillset/core/internal/path";
@@ -321,13 +322,6 @@ async function setupCommandRoot(rootPath: string): Promise<string | undefined> {
     // A create preview may target a child that does not exist yet.
   }
   return rootPath;
-}
-
-function isEmptySourceGraphError(error: unknown): boolean {
-  return error instanceof Error &&
-    error.message.startsWith(
-      "skillset: no source plugins, skills, rules, project agents, or provider source found under "
-    );
 }
 
 async function resolveSetupLayout(

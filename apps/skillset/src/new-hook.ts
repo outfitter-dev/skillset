@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
+import { isEmptySourceGraphError } from "@skillset/core/internal/empty-source-graph";
 
 import {
   adaptiveHookEventDefinitions,
@@ -195,12 +196,7 @@ export async function listNewAdaptiveHookAttachmentTargets(
   try {
     graph = await loadBuildGraph(rootPath, skillsetOptions);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes(
-        "no source plugins, skills, rules, project agents, or provider source found"
-      )
-    ) {
+    if (isEmptySourceGraphError(error)) {
       return [];
     }
     throw error;
