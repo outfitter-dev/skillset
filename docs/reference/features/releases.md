@@ -7,7 +7,7 @@ description: Skillset releases plan and apply workspace versions, changelogs, re
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `releases` | `implemented` | `metadata_only` | `metadata_only` | `planned` |
+| `releases` | `implemented` | `metadata_only` | `metadata_only` | `metadata_only` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

@@ -11,16 +11,16 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 
 | Feature | Feature status | claude | codex | cursor | Docs |
 | --- | --- | --- | --- | --- | --- |
-| Activation Probes | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/tests-and-evals.md) |
+| Activation Probes | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/tests-and-evals.md) |
 | Adaptive Hooks | `implemented` | `transformed` | `degraded` | `degraded` | [1](./features/hooks.md) |
-| Changes | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/changes.md) |
+| Changes | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/changes.md) |
 | Dependencies | `implemented` | `native` | `degraded` | `planned` | [1](./features/dependencies.md) |
-| Dev Watch | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/dev-watch.md) |
-| Distributions | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/distributions.md) |
-| Feature Registry | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/feature-registry.md) |
+| Dev Watch | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/dev-watch.md) |
+| Distributions | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/distributions.md) |
+| Feature Registry | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](../development/features/feature-registry.md) |
 | Future Companion Source Pointers | `planned` | `planned` | `planned` | `planned` | [1](./features/apps.md), [2](./features/hooks.md), [3](./features/commands.md), [4](./features/settings.md) |
 | Marketplaces | `implemented` | `native` | `native` | `native` | [1](./features/marketplaces.md) |
-| Output Safety | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/output-safety.md) |
+| Output Safety | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/output-safety.md) |
 | Plugin Agents | `implemented` | `pass_through` | `unsupported` | `pass_through` | [1](./features/agents.md) |
 | Codex Plugin Apps | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](./features/apps.md) |
 | Plugin Assets | `implemented` | `not_applicable` | `pass_through` | `planned` | [1](./features/plugins.md) |
@@ -40,15 +40,15 @@ Statuses are emitted verbatim from the registry. Open a feature's linked page fo
 | Plugin Themes | `implemented` | `pass_through` | `not_applicable` | `planned` | [1](./features/themes.md), [2](./features/plugins.md) |
 | Project Agents | `implemented` | `native` | `transformed` | `native` | [1](./features/agents.md) |
 | Project Instructions | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/rules.md) |
-| Releases | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](./features/releases.md) |
-| Render Results | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/render-results.md) |
+| Releases | `implemented` | `metadata_only` | `metadata_only` | `metadata_only` | [1](./features/releases.md) |
+| Render Results | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](../development/features/render-results.md) |
 | Resources | `implemented` | `native` | `native` | `native` | [1](./features/resources.md) |
-| Runtime Adapters | `planned` | `not_applicable` | `not_applicable` | `planned` | [1](../development/features/runtime-adapters.md) |
+| Runtime Adapters | `planned` | `not_applicable` | `not_applicable` | `not_applicable` | [1](../development/features/runtime-adapters.md) |
 | Runtime Context | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/hooks.md), [2](../development/features/hook-guardrails.md) |
 | Skill Invocation Policy | `implemented` | `transformed` | `transformed` | `transformed` | [1](./features/skills.md) |
 | Standalone Skills | `implemented` | `native` | `native` | `native` | [1](./features/skills.md) |
-| Supports | `implemented` | `metadata_only` | `metadata_only` | `planned` | [1](./features/supports.md) |
+| Supports | `implemented` | `metadata_only` | `metadata_only` | `metadata_only` | [1](./features/supports.md) |
 | Provider Source | `implemented` | `pass_through` | `pass_through` | `pass_through` | [1](./features/target-native-islands.md) |
 | Tools Policy | `implemented` | `transformed` | `metadata_only` | `metadata_only` | [1](./features/tools-policy.md) |
-| Version Audit | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/version-audit.md) |
-| Workflows | `implemented` | `not_applicable` | `not_applicable` | `planned` | [1](./features/ci.md), [2](./features/build-scopes.md), [3](../development/features/workbench.md) |
+| Version Audit | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/version-audit.md) |
+| Workflows | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` | [1](./features/ci.md), [2](./features/build-scopes.md), [3](../development/features/workbench.md) |

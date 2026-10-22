@@ -7,7 +7,7 @@ description: The feature registry defines how maintainers add, validate, documen
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Related vocabulary: [Support Vocabulary](../../reference/features/README.md#support-vocabulary)

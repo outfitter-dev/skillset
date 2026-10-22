@@ -7,7 +7,7 @@ description: The Workbench contract defines how maintainers add, select, format,
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)

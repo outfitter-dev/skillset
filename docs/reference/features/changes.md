@@ -7,7 +7,7 @@ description: Skillset change records capture source-change reasons, verify cover
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `changes` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `changes` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
