@@ -24,7 +24,7 @@ Project provider source uses one provider-scoped directory beneath the `.skillse
 .skillset/_cursor/** -> .cursor/**
 ```
 
-Plugin provider source uses the same `_claude/`, `_codex/`, or `_cursor/` directory inside `.skillset/plugins/<plugin>/` and mirrors into only that plugin's matching provider bundle. Provider-native feature owners such as plugin `hooks/hooks.json`, `.mcp.json`, `.app.json`, or Claude plugin `agents/` use their documented component paths instead.
+Plugin provider source uses the same `_claude/`, `_codex/`, or `_cursor/` directory inside `.skillset/plugins/<plugin>/` and mirrors into only that plugin's matching provider bundle. Provider-native feature owners such as plugin `hooks/hooks.json`, `.mcp.json`, `.app.json`, or plugin `subagents/` (rendered to bundle `agents/`) use their documented component paths instead.
 
 A provider-source file may carry source frontmatter for preprocessing, but it may not declare `claude`, `codex`, `cursor`, or `targets` overrides because its path already selects the target. [Workspace layout](../source/workspace-layout.md) owns placement, and [source preprocessing](../source/preprocessing.md) owns expressions and dependencies.
 

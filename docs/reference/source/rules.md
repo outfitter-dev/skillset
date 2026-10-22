@@ -36,6 +36,8 @@ Each enabled target writes a concrete [destination](../../glossary.md#destinatio
 | Authored source | Destination | Behavior |
 | --- | --- | --- |
 | `.skillset/RULES.md` | `.claude/CLAUDE.md` (default) or root `CLAUDE.md` | Renders the front page in its authored dialect with a generated-by header and source-boundary comment. `compile.instruction_front_page` selects `claude-dir` or `repo-root`. |
+| `.skillset/RULES.md` | root `AGENTS.md` | Becomes the bare first section of the root `AGENTS.md`, ahead of unscoped rules. |
+| `.skillset/RULES.md` | none for Cursor | Unsupported for Cursor (`cursor-agents-md-root`); Cursor receives only `.skillset/rules/**`. |
 | `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | Preserves the relative hierarchy and `paths` frontmatter. Unscoped rules render without frontmatter. |
 | `.skillset/rules/**/*.md` | `.cursor/rules/**/*.mdc` | Preserves the relative hierarchy and translates path scope into Cursor rule frontmatter. |
 | `.skillset/rules/**/*.md` | `AGENTS.md` at the repository root or a derived scoped directory | Strips source-only frontmatter and combines contributing rules deterministically. |
