@@ -9,6 +9,7 @@ import {
 } from "./config";
 import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
+import { CHATGPT_INTERFACE_FIELDS } from "./manifest-field-contracts";
 import { isPathInside, validateSlug } from "./path";
 import {
   pluginComponentPath,
@@ -492,12 +493,7 @@ function validateOpenAiExtension(plugin: SourcePlugin, value: JsonRecord): void 
   if (!isJsonRecord(interfaceValue)) {
     throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface must be an object`);
   }
-  const interfaceKeys = new Set([
-    "displayName", "shortDescription", "longDescription", "developerName",
-    "category", "capabilities", "websiteUrl", "privacyPolicyUrl",
-    "termsOfServiceUrl", "defaultPrompt", "brandColor", "composerIcon",
-    "logo", "logoDark", "screenshots",
-  ]);
+  const interfaceKeys = new Set(CHATGPT_INTERFACE_FIELDS);
   for (const [key, field] of Object.entries(interfaceValue)) {
     if (!interfaceKeys.has(key)) {
       throw new Error(`skillset: plugin ${pluginId} extensions.com.openai.interface.${key} is unknown`);

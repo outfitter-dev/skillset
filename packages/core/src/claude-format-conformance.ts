@@ -1,4 +1,5 @@
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
+import { CLAUDE_PLUGIN_FIELD_TYPES } from "./manifest-field-contracts";
 import {
   checkFieldTypes,
   checkRequiredFields,
@@ -398,38 +399,7 @@ const CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES = {
   Record<keyof typeof CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, Readonly<Record<string, FieldType>>>
 >;
 
-const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = {
-  $schema: "string",
-  agents: "string-or-string-array",
-  author: "object",
-  category: "string",
-  channels: "array",
-  commands: "string-object-or-array",
-  defaultEnabled: "boolean",
-  dependencies: "array",
-  description: "string",
-  displayName: "string",
-  experimental: "object",
-  homepage: "string",
-  hooks: "string-object-or-array",
-  keywords: "string-array",
-  license: "string",
-  lspServers: "string-object-or-array",
-  mcpServers: "string-object-or-array",
-  metadata: "object",
-  monitors: "string-or-array",
-  outputStyles: "string-or-string-array",
-  relevance: "object",
-  repository: "string",
-  settings: "object",
-  skills: "string-or-string-array",
-  strict: "boolean",
-  tags: "string-array",
-  themes: "string-or-string-array",
-  userConfig: "object",
-  version: "string",
-  workflows: "string-or-string-array",
-} as const satisfies Readonly<Record<string, FieldType>>;
+const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = CLAUDE_PLUGIN_FIELD_TYPES;
 
 const CLAUDE_MARKETPLACE_PLUGIN_FIELDS = [
   ...Object.keys(CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES),
