@@ -3,7 +3,8 @@
 # bootstrap.sh - cold-start helper for Skillset repo lifecycle commands.
 #
 # Usage:
-#   ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown] [--force] [--update]
+#   ./scripts/bootstrap.sh [repo|agent|codex|claude|cursor|doctor|teardown] [--force] [--update]
+#   ./scripts/bootstrap.sh sweep     # legacy alias for teardown
 #   ./scripts/bootstrap.sh --force   # legacy alias for repo --force
 #   ./scripts/bootstrap.sh --update  # legacy alias for repo --update
 
