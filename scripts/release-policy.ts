@@ -716,7 +716,7 @@ async function readPackageInfo() {
 }
 
 async function readRegistryState(name: string, version: string, tag: string) {
-  const response = await fetch(`${registryUrl}/${encodeURIComponent(name)}`, {
+  const response = await fetchWithRetry(`${registryUrl}/${encodeURIComponent(name)}`, {
     headers: { accept: "application/json" },
   });
 
@@ -956,7 +956,7 @@ async function githubJson<T>(repository: string, path: string): Promise<T> {
   };
   if (token) headers.authorization = `Bearer ${token}`;
 
-  const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
+  const response = await fetchWithRetry(`https://api.github.com/repos/${repository}${path}`, {
     headers,
   });
 
@@ -965,6 +965,53 @@ async function githubJson<T>(repository: string, path: string): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export type FetchWithRetryOptions = {
+  attempts?: number;
+  delayMs?: number;
+  fetchImpl?: (url: string, init: RequestInit) => Promise<Response>;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+/**
+ * Retries the transient failures a single release run should ride out:
+ * network errors (including a body cut off after the headers), 429, and 5xx.
+ * Other statuses return at once so callers keep their own 404 and error
+ * handling. A GitHub API 500 on one `/commits/{sha}/pulls` read failed a
+ * whole Release run on 2026-10-22.
+ */
+export async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  { attempts = 4, delayMs = 2000, fetchImpl = fetch, sleep = Bun.sleep }: FetchWithRetryOptions = {}
+): Promise<Response> {
+  for (let attempt = 1; ; attempt += 1) {
+    let failure: string;
+    try {
+      const response = await fetchImpl(url, init);
+      if (response.status !== 429 && response.status < 500) {
+        // Buffer the body here so a connection dropped mid-body is retried too.
+        const body = await response.text();
+        return new Response(body, {
+          headers: response.headers,
+          status: response.status,
+          statusText: response.statusText,
+        });
+      }
+      if (attempt >= attempts) return response;
+      failure = `${response.status} ${response.statusText}`;
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      failure = error instanceof Error ? error.message : String(error);
+    }
+
+    const wait = delayMs * 2 ** (attempt - 1);
+    console.error(
+      `skillset: retrying ${new URL(url).pathname} after ${failure} (${attempt}/${attempts}; next in ${wait / 1000}s)`
+    );
+    await sleep(wait);
+  }
 }
 
 async function runText(command: readonly string[], options: { allowFailure?: boolean } = {}) {
