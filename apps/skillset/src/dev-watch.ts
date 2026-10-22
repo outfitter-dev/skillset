@@ -8,7 +8,7 @@ import {
   type SkillsetWriteSummary,
 } from "@skillset/core";
 
-import { lintSkillset } from "@skillset/core";
+import { lintSkillset, WORKSPACE_LOCK_FILE } from "@skillset/core";
 import {
   directoryExists,
   MISSING_PATH_ENOENT,
@@ -20,6 +20,7 @@ import type { SchemaJsonRecord } from "@skillset/schema";
 import { isPathInside } from "@skillset/core/internal/path";
 
 import { cliExitCode, createCliEventStream } from "./cli-output";
+import { codexAgentsMdFormat } from "@skillset/registry";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
@@ -149,7 +150,7 @@ export function isIgnoredDevWatchPath(plan: DevWatchPlan, eventPath: string): bo
   const normalized = normalizeRelativePath(eventPath);
   if (normalized === "." || normalized === "") return false;
   const name = basename(normalized);
-  if (name === "AGENTS.md" || name === "skillset.lock") return true;
+  if (name === codexAgentsMdFormat().fileName || name === WORKSPACE_LOCK_FILE) return true;
   return plan.ignoredRoots.some((root) => isSameOrInside(normalized, root));
 }
 

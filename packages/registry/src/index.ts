@@ -564,6 +564,19 @@ export function isCodexAgentsMdPath(path: string): boolean {
   return path === fileName || path.endsWith(`/${fileName}`);
 }
 
+/** The repo-relative skills directory a target discovers, from its pinned skill format. */
+export function providerSkillsDirectory(target: ProviderDestinationFormatTarget): string {
+  const snapshot = providerDestinationFormatSnapshots.find(
+    (candidate) => candidate.target === target && candidate.destination === "skill"
+  );
+  const pattern = isFormatRecord(snapshot?.format) ? snapshot.format.directoryPattern : undefined;
+  const suffix = "/<skill-name>/";
+  if (typeof pattern !== "string" || !pattern.endsWith(suffix)) {
+    throw new Error(`skillset: pinned ${target} skill format has no skills directory pattern`);
+  }
+  return pattern.slice(0, -suffix.length);
+}
+
 /** Manifest paths the compiler derives from a provider plugin's component layout. */
 export function listProviderPluginComponentManifestFields(
   target: ProviderDestinationFormatTarget

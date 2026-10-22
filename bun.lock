@@ -74,11 +74,11 @@
         "skillset": "dist/cli.js",
       },
       "optionalDependencies": {
-        "@skillset/native-darwin-arm64": "0.28.0",
-        "@skillset/native-darwin-x64": "0.28.0",
-        "@skillset/native-linux-arm64-glibc": "0.28.0",
-        "@skillset/native-linux-x64-glibc": "0.28.0",
-        "@skillset/native-win32-x64": "0.28.0",
+        "@skillset/native-darwin-arm64": "0.29.0",
+        "@skillset/native-darwin-x64": "0.29.0",
+        "@skillset/native-linux-arm64-glibc": "0.29.0",
+        "@skillset/native-linux-x64-glibc": "0.29.0",
+        "@skillset/native-win32-x64": "0.29.0",
       },
     },
     "packages/core": {
@@ -122,6 +122,9 @@
     "packages/transforms": {
       "name": "@skillset/transforms",
       "version": "0.0.0",
+      "dependencies": {
+        "@skillset/registry": "workspace:*",
+      },
     },
     "packages/workbench": {
       "name": "@skillset/workbench",

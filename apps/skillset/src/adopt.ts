@@ -42,6 +42,7 @@ import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName }
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 import type { ImportProvider } from "./source-arg-values";
+import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory } from "@skillset/registry";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly candidates?: readonly string[];
@@ -686,15 +687,8 @@ async function providersForAdoptCandidate(
   candidate: SetupImportCandidate
 ): Promise<readonly ImportProvider[]> {
   if (candidate.kind === "skills") {
-    if (candidate.path === ".claude/skills") return ["claude"];
-    if (
-      candidate.path === ".codex/skills" ||
-      candidate.path === ".agents/skills"
-    ) {
-      return ["codex"];
-    }
-    if (candidate.path === ".cursor/skills") return ["cursor"];
-    return [];
+    if (candidate.path === LEGACY_CODEX_SKILLS_DIRECTORY) return ["codex"];
+    return targetNames().filter((target) => candidate.path === providerSkillsDirectory(target));
   }
   if (candidate.kind !== "plugin") return [];
 
