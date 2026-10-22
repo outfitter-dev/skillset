@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 export const PROVIDER_SCHEMA_SNAPSHOT_SCHEMA = "skillset-provider-schema@1";
 
+/** Generated from the canonical schema `TARGET_NAMES`; never edit by hand. */
 export const PROVIDER_SCHEMA_TARGETS = ["claude", "codex", "cursor"] as const;
 
 export type ProviderSchemaTarget = (typeof PROVIDER_SCHEMA_TARGETS)[number];
