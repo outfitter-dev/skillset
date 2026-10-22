@@ -14,6 +14,12 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request supersedes its older runs, so cancel them.
+# Other events group by commit, so queued main runs never displace each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
