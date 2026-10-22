@@ -33,7 +33,7 @@ The report separates source lint, [workspace](../../glossary.md#workspace) chang
 
 Without `--fix`, the check is read-only except for the explicitly requested report file. With `--fix`, Skillset rebuilds only when source-driven output drift is the sole blocking condition and managed files still match their recorded hashes.
 
-`--fix` refuses to overwrite target-side edits, repair lint or change-entry failures, resolve a missing Git baseline, create a package Changeset, or apply a provider-format migration. Use [`update`](../cli/update.md) for provider-format migrations and [reconciliation](source-suggestions.md) when a managed output edit should become source.
+`--fix` refuses to overwrite target-side edits, repair lint or change-entry failures, resolve a missing Git baseline, create a package Changeset, or apply a provider-format migration. Use [`update`](../cli/update.md) for provider-format migrations and [reconciliation](reconcile.md) when a managed output edit should become source.
 
 Generated changelog edits also remain source-side decisions. Use `change reason` before release, `change amend` for applied source-change wording, or `release amend` for release-event notes.
 

@@ -48,7 +48,7 @@ If a managed target file contains an intentional edit, preview bounded reconcili
 skillset reconcile <generated-path> --use output
 ```
 
-Confirm only a clean, understandable mapping with `--yes`. Use `--use source` when canonical source should win. Skillset may refuse [provider-native](../glossary.md#provider-native), metadata-owned, multi-source, unmanaged, or unsafe reverse mappings; the [source-suggestions reference](../reference/features/source-suggestions.md) explains the boundary.
+Confirm only a clean, understandable mapping with `--yes`. Use `--use source` when canonical source should win. Skillset may refuse [provider-native](../glossary.md#provider-native), metadata-owned, multi-source, unmanaged, or unsafe reverse mappings; the [reconcile reference](../reference/features/reconcile.md) explains the boundary.
 
 Provider-format migrations belong to `skillset update`, not ordinary build or reconciliation. Recoverable collision and target-edit backups belong to `skillset restore`; list and preview a restore before confirming it. See [Output Safety](../reference/features/output-safety.md).
 

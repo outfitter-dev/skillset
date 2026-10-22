@@ -86,7 +86,7 @@ Do not confirm it yet. Run `skillset diff`, `skillset status`, and `skillset exp
 
 Ordinary build treats source as authority and may back up the target-side edit. If the edit was intentional, preview `skillset reconcile <path> --use output`; confirm only when the proposed source change is correct. Use `--use source` when the generated edit should be discarded.
 
-Reconciliation is deliberately bounded and may refuse unsafe reverse mappings. See [Source Suggestions](reference/features/source-suggestions.md).
+Reconciliation is deliberately bounded and may refuse unsafe reverse mappings. See [Reconcile Generated Edits](reference/features/reconcile.md).
 
 ## Skillset reports a provider-format update
 

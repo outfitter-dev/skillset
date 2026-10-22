@@ -51,7 +51,7 @@ An unconfirmed build writes nothing. A confirmed build prepares recovery snapsho
 | Lock is corrupt | Stop; repair or regenerate ownership evidence from trusted source |
 | Generated changelog wording is wrong | Use `change reason`, `change amend`, or `release amend`, not reverse patching |
 
-[Reconciliation](source-suggestions.md) owns source/output conflict direction. [Troubleshooting](../../troubleshooting.md) routes from the observed symptom.
+[Reconciliation](reconcile.md) owns source/output conflict direction. [Troubleshooting](../../troubleshooting.md) routes from the observed symptom.
 
 ## Restore a Backup
 

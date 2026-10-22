@@ -34,13 +34,13 @@ Use these pages alongside the authored [provider reference](../providers/README.
 - [Output Safety](output-safety.md): managed output ownership, unmanaged neighbor handling, reversible backups, and restore.
 - [Output Styles](output-styles.md): Claude output style directory pass-through and manifest wiring.
 - [Plugins](plugins.md): plugin source identity, manifest rendering, companion paths, and plugin boundaries.
+- [Reconcile Generated Edits](reconcile.md): `skillset reconcile` for a managed generated file that was edited, choosing source or output authority with a preview, and refusing unsafe reverse mappings; CI source writeback remains future work.
 - [Releases And Changelogs](releases.md): release state, generated changelog renderings, version planning, and package-tool interop.
 - [Resources](resources.md): shared resource declarations, link rewriting, executable-script linting, and lock hashing.
 - [Rules](rules.md): [source-root](../../glossary.md#source-root) `rules/` rendering to Claude rules, Codex `AGENTS.md`, and Cursor `.mdc` rules, with preprocessing and collision safety.
 - [Runtime Activation Readiness](runtime-activation-readiness.md): registry-backed activation requirements, deterministic summary semantics, and the boundary between rendering, observation, and proof.
 - [Settings](settings.md): the one project-local SessionStart entry Skillset composes, and why build never touches user-level provider settings.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
-- [Source Suggestions](source-suggestions.md): implemented local managed-output reconciliation with source-side recovery suggestions, distinct from settings suggestions; CI writeback remains future work.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
 - [Provider Source](target-native-islands.md): explicit provider-native source islands, Codex `.rules` pass-through, and leakage rules.
 - [Tests and Evals](tests-and-evals.md): deterministic `skillset test`, runtime probes, skill evals, and generated run-output boundaries.
@@ -96,7 +96,7 @@ Render-result statuses are build-result facts, not registry capability statuses.
 
 ## Registry Linkage
 
-The typed registry lives in `packages/core/src/feature-registry.ts`. Generated blocks are the canonical feature-ID and support surface; one page may explain several related registry entries. Cross-command references such as [Interactive CLI](interactive-cli.md), [Runtime Activation Readiness](runtime-activation-readiness.md), and [Source Suggestions](source-suggestions.md) are reader references without invented registry IDs.
+The typed registry lives in `packages/core/src/feature-registry.ts`. Generated blocks are the canonical feature-ID and support surface; one page may explain several related registry entries. Cross-command references such as [Interactive CLI](interactive-cli.md), [Runtime Activation Readiness](runtime-activation-readiness.md), and [Reconcile Generated Edits](reconcile.md) are reader references without invented registry IDs.
 
 The registry owns feature status, target support, documentation links, render owners, validation owners, and evidence references. The authored page explains how to use and interpret those facts without reproducing the exhaustive inventory.
 
