@@ -24,6 +24,7 @@ import {
   readManagedPathsFromLocks,
   restoreWorktreePaths,
   snapshotWorktreePaths,
+  trackedLockPaths,
   workspaceSourceRoot,
 } from "../resolve-conflicts";
 
@@ -48,6 +49,23 @@ describe("workspaceSourceRoot", () => {
     expect(() => workspaceSourceRoot("C:\\repo", "..\\src", win32)).toThrow(
       "resolve source root must be inside the workspace"
     );
+  });
+});
+
+describe("trackedLockPaths", () => {
+  // SET-654: git may quote or split a path with a newline unless it is read NUL-delimited.
+  it("lists a tracked lock whose path contains a newline as one exact path", async () => {
+    if (process.platform === "win32") return;
+    const disposableRoot = await createTestGitFixtureRoot("skillset-nul-locks-");
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    const paths = ["skillset.lock", "out/skillset.lock", "odd\nout/skillset.lock"];
+    for (const path of paths) {
+      await mkdir(nodePath.dirname(join(root, path)), { recursive: true });
+      await writeFile(join(root, path), "{}\n");
+    }
+    await initializeTestGitRepository(root, { disposableRoot });
+
+    expect(await trackedLockPaths(root)).toEqual(["odd\nout/skillset.lock", "out/skillset.lock", "skillset.lock"]);
   });
 });
 
