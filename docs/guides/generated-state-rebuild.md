@@ -4,7 +4,7 @@ description: Rebuilds pre-v4 generated state for current projection roles withou
 
 # Rebuild Generated State for Inherent Standards
 
-Skillset 0.27.0 makes every adopted, applicable Agent standard an inherent projection. Existing provider targets remain provider choices, but valid rule, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/` package output without a standards selector.
+Skillset 0.27.0 made every adopted, applicable Agent standard an inherent projection. Skillset 0.28.0 added explicit `standard`/`project-use`/`bundle` projection roles, placed plugin-owned skills only inside their Agent Plugins package, and moved generated locks to schema v4. Rebuild with 0.28.0 or later; use the current release. Pick one exact released version, such as `0.29.0`, and use it for every command below in place of `<version>`, so the preview, the confirmed build, and the receipt all come from the same compiler. Existing provider targets remain provider choices, but valid rule, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/` package output without a standards selector.
 
 This is a one-time generated-state rebuild, not a source migration. Preserve `skillset.yaml`, `.skillset/`, provider-native source, user edits, and unmanaged neighbors. Do not add `compile.agents` or another opt-out. Plugin-owned skills now have one standard placement inside their Agent Plugins package; `.agents/skills/` contains standalone standard skills unless a separately owned project-use projection is present. Pre-v4 locks can explain why a rebuild is required, but they cannot prove ownership or authorize deletion.
 
@@ -27,9 +27,9 @@ Before the rebuild, record:
 ```bash
 git -C /absolute/path/to/repository rev-parse HEAD
 git -C /absolute/path/to/repository status --short
-bunx @skillset/cli@0.27.0 --version
-bunx @skillset/cli@0.27.0 status --json --root /absolute/path/to/repository
-bunx @skillset/cli@0.27.0 check --only outputs --root /absolute/path/to/repository
+bunx @skillset/cli@<version> --version
+bunx @skillset/cli@<version> status --json --root /absolute/path/to/repository
+bunx @skillset/cli@<version> check --only outputs --root /absolute/path/to/repository
 ```
 
 For schema-v1 through schema-v3 state, the last two commands should report that the lock is rebuild-only and cannot authorize cleanup. Save the complete diagnostic. An old lock with `items: []` still blocks the build; an empty inventory does not make its provenance trustworthy or trigger an automatic upgrade. If the owner confirms that no generated output remains under that lock, move the lock itself to a recoverable backup outside every configured output root before previewing a fresh build. Otherwise classify and back up each generated path as described below. Record each configured root, each path the owner classifies as generated, the backup location, and the repository owner accepting that classification.
@@ -37,17 +37,17 @@ For schema-v1 through schema-v3 state, the last two commands should report that 
 After moving only those reviewed paths, rebuild from canonical source and verify the new ownership model:
 
 ```bash
-bunx @skillset/cli@0.27.0 build --root /absolute/path/to/repository
-bunx @skillset/cli@0.27.0 build --yes --root /absolute/path/to/repository
-bunx @skillset/cli@0.27.0 check --only outputs --root /absolute/path/to/repository
-bunx @skillset/cli@0.27.0 status --json --root /absolute/path/to/repository
-bunx @skillset/cli@0.27.0 diff --root /absolute/path/to/repository
+bunx @skillset/cli@<version> build --root /absolute/path/to/repository
+bunx @skillset/cli@<version> build --yes --root /absolute/path/to/repository
+bunx @skillset/cli@<version> check --only outputs --root /absolute/path/to/repository
+bunx @skillset/cli@<version> status --json --root /absolute/path/to/repository
+bunx @skillset/cli@<version> diff --root /absolute/path/to/repository
 git -C /absolute/path/to/repository status --short
 ```
 
 Save and inspect the unconfirmed build plan before running the `--yes` command. The receipt must identify the repository and source commit, Skillset version, pre-rebuild diagnostic, backup, preview, generated diff, v4 locks, physical owners and `standard`/`project-use`/`bundle` roles, relevant disposable consumer proof, owner acceptance, date, and limitations. Retain the backup until the owner accepts the rebuilt result.
 
-Package publication and active CLI upgrades are separate release operations. Do not run these commands against an unreleased `0.27.0`, and do not treat a source checkout or development binary as proof of released-version migration.
+Package publication and active CLI upgrades are separate release operations. Record the version that `--version` reports; it must be the one exact release you chose, 0.28.0 or later. Do not treat a source checkout or development binary as proof of released-version migration.
 
 ## Owner-Approved Backup and Rebuild
 
