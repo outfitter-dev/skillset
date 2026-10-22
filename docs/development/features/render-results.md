@@ -16,13 +16,13 @@ A render result records what one operation did with one [source unit](../../glos
 
 ## Ownership and Inputs
 
-`packages/core/src/render-result.ts` owns schema `skillset-render-result@1`, normalization, serialization, and structural validation. `render-result-collector.ts` derives build records from the resolved [build](../../glossary.md#build) graph, generated lock items, companion files, and unsupported features. `apps/skillset/src/import.ts` creates import-specific records, while `apps/skillset/src/adopt.ts` aggregates survey, import, and build results. `render-result-policy.ts` enforces unsupported-destination policy. Build, import, adoption, status, and explain presentation consume the normalized record instead of inventing parallel outcome vocabularies.
+`packages/core/src/render-result.ts` owns schema `skillset-render-result@2`, normalization, serialization, and structural validation. `render-result-collector.ts` derives build records from the resolved [build](../../glossary.md#build) graph, generated lock items, companion files, and unsupported features. `apps/skillset/src/import.ts` creates import-specific records, while `apps/skillset/src/adopt.ts` aggregates survey, import, and build results. `render-result-policy.ts` enforces unsupported-destination policy. Build, import, adoption, status, and explain presentation consume the normalized record instead of inventing parallel outcome vocabularies.
 
 The schema fields are:
 
 | Field | Contract |
 | --- | --- |
-| `schema` | Exact `skillset-render-result@1` stamp. |
+| `schema` | Exact `skillset-render-result@2` stamp. Readers still accept persisted `skillset-render-result@1` records, which cannot carry `standardProfile`, and advance them to `@2` after validation; writers emit only `@2`. |
 | `sourceUnit` | Required stable source selector. |
 | `sourcePath` | Optional review and diagnostic path. |
 | `featureId` | Required feature-registry id or event id. |
