@@ -14,10 +14,30 @@ import {
 } from "../source-identity-mapping";
 import { readReleaseState, writeReleaseState } from "../release-state";
 import { planSourceMove } from "../source-move";
-import { rewriteSourceMoveConfig } from "../source-move-rewrite";
+import { rewritePendingChangeScopes, rewriteSourceMoveConfig } from "../source-move-rewrite";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("source move foundations", () => {
+  test("rewrites a pending entry's scopes without dropping YAML comments or flow style", () => {
+    const source = [
+      "---",
+      "id: abcdef123456",
+      "bump: patch # keep the bump comment",
+      "scopes: [skill:demo, skill:other] # flow list",
+      "---",
+      "",
+      "Reason.",
+      "",
+    ].join("\n");
+
+    expect(
+      rewritePendingChangeScopes(source, "entry.md", {
+        fromSelector: "skill:demo",
+        toSelector: "plugin.tools.skill:demo",
+      })
+    ).toBe(source.replace("[skill:demo,", "[plugin.tools.skill:demo,"));
+  });
+
   test("folds append-only identity mappings through history scopes and evidence", () => {
     const mappings = sourceIdentityMappings([
       moved("skill:demo", "plugin.tools.skill:demo"),

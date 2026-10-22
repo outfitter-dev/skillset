@@ -185,16 +185,19 @@ async function validateChangeCheck(
 
 /**
  * Source changes no scope covers. A scope also covers its owning plugin and
- * any removed selector the ledger records as moved to it: a move reports the
- * old selector removed and the new one added, and the pending reason follows.
+ * any removed selector the ledger records as moved to it, plus that removed
+ * selector's owning plugin: a move reports the old selector removed and the new
+ * one added, and the pending reason follows.
  */
-export function uncoveredSourceChanges(
-  changes: readonly SourceUnitChange[],
+export function uncoveredSourceChanges<Change extends { readonly id: string; readonly status: string }>(
+  changes: readonly Change[],
   scopes: readonly string[],
   events: readonly ChangeLedgerEvent[]
-): readonly SourceUnitChange[] {
-  const covered = new Set(movedAwaySourceChanges(changes, scopes, events).map((change) => change.id));
-  for (const scope of scopes) {
+): readonly Change[] {
+  const movedAway = movedAwaySourceChanges(changes, scopes, events).map((change) => change.id);
+  const covered = new Set<string>();
+  // A moved-away plugin skill also leaves its source plugin's aggregate changed.
+  for (const scope of [...scopes, ...movedAway]) {
     covered.add(scope);
     const pluginScope = pluginScopeFromSourceUnit(scope);
     if (pluginScope !== undefined) covered.add(pluginScope);
@@ -208,23 +211,39 @@ export function uncoveredSourceChanges(
  * Only moves after the last applied release count; that release already
  * retired the selectors of earlier moves. The chain starts at the latest move
  * of the removed selector, so a reused name follows its own move, and must end
- * at a newly added unit, the other half of the same move.
+ * at a newly added unit, the other half of the same move, or at a selector an
+ * earlier move in the window vacated.
  */
 export function movedAwaySourceChanges<Change extends { readonly id: string; readonly status: string }>(
   changes: readonly Change[],
   scopes: readonly string[],
   events: readonly ChangeLedgerEvent[]
 ): readonly Change[] {
+  return movedAwaySourceMoves(changes, scopes, events).map((move) => move.change);
+}
+
+/**
+ * {@link movedAwaySourceChanges}, paired with the scope each removed selector
+ * now lives at, so a release can read the moved unit's version from it.
+ */
+export function movedAwaySourceMoves<Change extends { readonly id: string; readonly status: string }>(
+  changes: readonly Change[],
+  scopes: readonly string[],
+  events: readonly ChangeLedgerEvent[]
+): readonly { readonly change: Change; readonly to: string }[] {
   const lastRelease = events.findLastIndex((event) => event.type === "release.applied");
   const moves = sourceMappingsAfterEvent(sourceIdentityMappings(events), lastRelease);
   const added = new Set(changes.filter((change) => change.status === "added").map((change) => change.id));
   const targets = new Set(scopes);
-  return changes.filter((change) => {
-    if (change.status !== "removed") return false;
+  return changes.flatMap((change) => {
+    if (change.status !== "removed") return [];
     const latest = moves.findLast((mapping) => mapping.from === change.id);
-    if (latest === undefined) return false;
+    if (latest === undefined) return [];
     const current = currentSourceIdentity(latest.to, sourceMappingsAfterEvent(moves, latest.eventIndex));
-    return added.has(current) && targets.has(current);
+    // The destination is new, or reuses a selector a move in this window
+    // vacated, which then reports as changed rather than added.
+    const arrived = added.has(current) || moves.some((mapping) => mapping.from === current);
+    return arrived && targets.has(current) ? [{ change, to: current }] : [];
   });
 }
 
