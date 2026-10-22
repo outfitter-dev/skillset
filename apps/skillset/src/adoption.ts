@@ -3,6 +3,7 @@ import { collectSourceInventory } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings } from "@skillset/core/internal/path";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
+import { isEmptySourceGraphError } from "@skillset/core/internal/empty-source-graph";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   pluginIdForSelector,
@@ -47,7 +48,6 @@ export interface SeedReleaseBaselinesOptions {
   readonly write?: boolean;
 }
 
-const NO_SOURCE_MESSAGE = "skillset: no source plugins, skills, rules, project agents, or provider source found";
 
 export async function seedReleaseBaselines(
   rootPath: string,
@@ -66,8 +66,7 @@ export async function seedReleaseBaselines(
         write: seedOptions.write === true,
       };
     }
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.startsWith(NO_SOURCE_MESSAGE)) {
+    if (isEmptySourceGraphError(error)) {
       return {
         conflicts: [],
         entries: [],

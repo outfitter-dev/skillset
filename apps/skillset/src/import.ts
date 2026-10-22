@@ -442,7 +442,7 @@ async function resolveImportSourceDir(rootPath: string, explicitSourceDir: strin
 function isMissingWorkspace(error: unknown): boolean {
   if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return true;
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("skillset workspace not found") || message.includes("no source plugins, skills, rules");
+  return message.includes("skillset workspace not found");
 }
 
 async function seedImportedBaselines(
