@@ -47,7 +47,7 @@ import {
 import { renderBuildGraph } from "./render";
 import type { RenderDestination } from "./build-destination";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
-import { CLAUDE_PROJECT_INSTRUCTION_PATHS, readRulePaths } from "./render-rules";
+import { CLAUDE_PROJECT_INSTRUCTION_PATHS, readRulePaths, ruleAgentsDestination } from "./render-rules";
 import { loadBuildGraph } from "./resolver";
 import {
   standardProfileStatuses,
@@ -253,6 +253,28 @@ function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]
         `unmanaged ${override} shadows generated ${file.path}; Codex reads only the first instruction file ` +
         "in a directory, so the generated guidance is ignored. Fold the override into .skillset/rules/ or delete it.",
       outputPath: file.path,
+      severity: "warning",
+      target: "codex",
+    }));
+  }
+  const reviewRulesByDestination = new Map<string, string[]>();
+  for (const rule of graph.rules) {
+    const destination = ruleAgentsDestination(rule);
+    if (destination === undefined || !/^## Code Review Rules[ \t]*$/mu.test(rule.body)) continue;
+    const sources = reviewRulesByDestination.get(destination) ?? [];
+    sources.push(posix.normalize(relative(graph.rootPath, rule.sourcePath).replaceAll("\\", "/")));
+    reviewRulesByDestination.set(destination, sources);
+  }
+  for (const [destination, sources] of reviewRulesByDestination) {
+    if (sources.length < 2) continue;
+    diagnostics.push(skillsetDiagnostic({
+      code: "codex-code-review-rules-duplicate",
+      featureId: "project-instructions",
+      message:
+        `${destination} gets a ## Code Review Rules section from each of ${sources.join(" and ")}; ` +
+        "Codex looks for one such section, and Skillset keeps them separate so each stays traceable to its source. " +
+        "Move the review rules into one of these files.",
+      outputPath: destination,
       severity: "warning",
       target: "codex",
     }));

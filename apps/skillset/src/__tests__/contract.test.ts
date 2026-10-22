@@ -8520,9 +8520,10 @@ paths:
 
   await buildSkillset(root);
   const agents = await readFile(join(root, "AGENTS.md"), "utf8");
-  // Both sources are bounded by a comment naming their path.
-  expect(agents).toContain("<!-- source: .skillset/rules/alpha.md -->");
-  expect(agents).toContain("<!-- source: .skillset/rules/beta.md -->");
+  // Both sources are wrapped in XML sections whose source attribute names their path.
+  expect(agents).toContain('source=".skillset/rules/alpha.md"');
+  expect(agents).toContain('source=".skillset/rules/beta.md"');
+  expect(agents).not.toContain("<!-- source:");
   // Deterministic order: alpha before beta.
   expect(agents.indexOf("alpha.md")).toBeLessThan(agents.indexOf("beta.md"));
   // Source-only frontmatter (paths) never leaks into the generated AGENTS.md.

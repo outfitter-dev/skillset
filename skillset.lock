@@ -74,13 +74,13 @@
       ],
       "kind": "rule",
       "name": "RULES",
-      "outputHash": "sha256:6ededd42ffb8607b1c9f73a3886474bf7dfc5f26734eea80e5168593a2c84ce4",
+      "outputHash": "sha256:d24152ddb88bd0118c4c9362f603fe896b072e0c38207ba7a67166bf8a439cde",
       "outputPath": ".claude/CLAUDE.md",
       "owner": {
         "target": "claude"
       },
       "role": "bundle",
-      "sourceHash": "sha256:8f92172b02e25fcd4d6c8a8463883558bb693c0fcad3ac778e30ea92dd48a2c3",
+      "sourceHash": "sha256:a423c42fe51870d8d55c44fcaf272c4c3dbc7d071e8db17128d2b7ebef708570",
       "sourcePath": ".skillset/RULES.md",
       "version": "0.1.1"
     },
@@ -216,13 +216,13 @@
       ],
       "kind": "rule",
       "name": "AGENTS.md",
-      "outputHash": "sha256:ce18d21a746ee20424a98c2c1e01dd03f5a71887d7cc604f3ac9e456c96e3d06",
+      "outputHash": "sha256:183a7d44311bebc7dbf4b098a574a4664d72e68ccdc8a76d1bbd6bc8d82d732f",
       "outputPath": "AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
       },
       "role": "standard",
-      "sourceHash": "sha256:8f92172b02e25fcd4d6c8a8463883558bb693c0fcad3ac778e30ea92dd48a2c3",
+      "sourceHash": "sha256:a423c42fe51870d8d55c44fcaf272c4c3dbc7d071e8db17128d2b7ebef708570",
       "sourcePath": ".skillset/RULES.md",
       "version": "0.1.1"
     },
@@ -245,7 +245,7 @@
       ],
       "kind": "rule",
       "name": "apps/skillset/src/__tests__/AGENTS.md",
-      "outputHash": "sha256:3c29ef61047def03795f2278c49443959fed6b261f71b7d88f6e06269070b0d4",
+      "outputHash": "sha256:e306f3830caa2eacb5744b4a3197af10aa6482c20804d03e1a8a3b225bd4c882",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
@@ -274,7 +274,7 @@
       ],
       "kind": "rule",
       "name": "fixtures/AGENTS.md",
-      "outputHash": "sha256:d22e84bfa657e7338a2574b292b19775d7b0fa6697c9bd9e13bbf0e16c46506a",
+      "outputHash": "sha256:7a74a62b90634a810a6b6ca1527b7de95dfff028e738cc36223c5b525be1f5e9",
       "outputPath": "fixtures/AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
@@ -286,7 +286,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:4440b580ee4a3db1a92f82990350ee0cad00a42b922b4255e8b364dc84ea9494",
+  "provenanceHash": "sha256:a71a55d7fd4978b167474c6269b1528395c36430b41fe7754bc9b2996667fe59",
   "renderResults": [
     {
       "destination": "changelog",
