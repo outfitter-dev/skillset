@@ -57,7 +57,7 @@ skillset build --repair
 skillset build --repair --yes
 ```
 
-Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
+Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. If both the generated file and its source changed since the last build, repair refuses that path even with `--discard-edits`; settle the source change first, then repair again. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
 
 ## A rebase or merge conflicts in generated output
 
@@ -68,7 +68,7 @@ skillset resolve
 skillset resolve --yes
 ```
 
-`resolve` regenerates conflicted generated paths and stages the result: conflicted paths the lock confirms as generated, plus any output the merged source newly generates. It names authored conflicts for you to fix by hand and refuses to render source that still carries conflict markers. It works inside a linked Git worktree.
+`resolve` regenerates the whole projection from the merged source and stages every generated path that repair writes or removes: the conflicted generated paths, and any other output the merged source creates, changes, or deletes. While Git still reports authored files as unmerged, it names them for you to fix by hand and does not render. It does not scan file contents for conflict markers, so never stage an authored file that still contains them. It works inside a linked Git worktree.
 
 If either side of a conflicted generated file no longer matches its own lock, someone edited it after it was generated. `resolve` then blocks without regenerating or staging anything, because regenerating would silently discard that edit. `resolve` names those paths. Carry any edit worth keeping into canonical source, settle those files by hand, and then run `resolve` again for the rest. See the [`resolve` reference](reference/cli/resolve.md).
 
