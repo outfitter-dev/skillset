@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, posix, relative } from "node:path";
 
+import { EmptySourceGraphError } from "./empty-source-graph";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 
 import {
@@ -294,7 +295,7 @@ export async function loadBuildGraph(
   });
 
   if (plugins.length === 0 && discoveredStandaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
-    throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
+    throw new EmptySourceGraphError(sourceRoot);
   }
 
   const pluginPlan = {
