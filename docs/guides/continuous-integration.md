@@ -36,7 +36,7 @@ The scaffold uses the complete `@skillset/cli` Bun distribution because its Java
 bunx @skillset/cli check --ci --report "$RUNNER_TEMP/skillset-ci-report.md"
 ```
 
-Same-repository pull requests add `--fix`. The scaffold passes no `--since`: without it, the check compares against the merge base with `origin/main`, falling back to a local `main`. Pass `--since <ref>` when your trunk has another name.
+Same-repository pull requests add `--fix`. The scaffold passes no `--since`, so the check selects its baselines automatically: source-change coverage starts from the committed `skillset.lock` and release state when they exist and otherwise falls back to the merge base with `origin/main`, then `main`; package Changesets compare against the merge base with `origin/HEAD`, then `origin/main`, then `main`. Pass `--since <ref>` to name the baseline explicitly.
 
 This route requires Bun 1.4.0 or newer at command runtime. It exposes the same command surface as the native distribution; it is not a reduced CI product.
 
@@ -79,7 +79,7 @@ Use [troubleshooting](../troubleshooting.md) for recovery by symptom. The exhaus
 
 ## Understand the Scaffolded Job
 
-The GitHub Actions scaffold checks out full history so the default `origin/main` baseline can be resolved. On a same-repository pull request it may run `--fix`, commit a mechanical rebuild, push it to the pull-request branch, and update a report comment. On a fork pull request it remains read-only and writes the report only to the job summary because the default token cannot push to or comment on the fork.
+The GitHub Actions scaffold checks out full history so its default baselines can be resolved. On a same-repository pull request it may run `--fix`, commit a mechanical rebuild, push it to the pull-request branch, and update a report comment. On a fork pull request it remains read-only and writes the report only to the job summary because the default token cannot push to or comment on the fork.
 
 A fix pushed with `GITHUB_TOKEN` does not retrigger workflows automatically. If branch protection requires checks on that new commit, choose and review an authentication policy appropriate for the repository rather than adding credentials to Skillset source.
 
