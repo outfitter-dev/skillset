@@ -6,6 +6,16 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-instructions"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        }
+      ],
       "fileModes": {
         "AGENTS.md": "0644"
       },
@@ -16,20 +26,47 @@
       "name": "AGENTS.md",
       "outputHash": "sha256:17164764efd397cf4debd20c34bf60f31ca278bdc757c107b06d7653dd27ac2a",
       "outputPath": "AGENTS.md",
+      "owner": {
+        "standardProfile": "agent-instructions"
+      },
+      "role": "standard",
       "sourceHash": "sha256:799395d3e21c9c0360d17cb9b0d5432a7d11e0d3164f9648e8c03b146ad51df0",
       "sourcePath": ".skillset/rules",
       "version": "0.1.0"
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:2ed2350bd1a8b36018a4855f57a50c2d597c6466a727643c86a0bda1f7df2f84",
+  "provenanceHash": "sha256:1940174c452f5e5fe6d41468c0b7bb6e31df33c16da230b9d43262f67d658a2b",
   "renderResults": [
     {
-      "destination": "instruction",
+      "destination": "rule",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Instructions unversioned specification",
+          "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/rules",
+      "sourceUnit": "rule:AGENTS.md",
+      "standardProfile": "agent-instructions",
+      "status": "transformed"
+    },
+    {
+      "destination": "rule",
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/reference/features/instructions.md"
+          "ref": "docs/reference/features/rules.md"
         },
         {
           "kind": "provider-overlay",
@@ -50,19 +87,27 @@
           "path": "AGENTS.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules",
-      "sourceUnit": "instruction:AGENTS.md",
+      "sourceUnit": "rule:AGENTS.md",
       "status": "transformed",
       "target": "codex"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 4,
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex"
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
+    "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
+  },
   "target": "workspace"
 }

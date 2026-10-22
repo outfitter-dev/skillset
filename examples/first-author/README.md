@@ -14,17 +14,26 @@ It contains:
 
 ## Try It
 
-From the Skillset repo root:
+From the Skillset repo root, these commands only read the example, so they
+are safe to run in place:
 
 ```bash
 bun ./apps/skillset/src/cli.ts check --root examples/first-author
-bun ./apps/skillset/src/cli.ts build --root examples/first-author
-bun ./apps/skillset/src/cli.ts build --root examples/first-author --yes
 bun ./apps/skillset/src/cli.ts check --only outputs --root examples/first-author
+bun ./apps/skillset/src/cli.ts build --root examples/first-author
 bun ./apps/skillset/src/cli.ts dev --root examples/first-author
 ```
 
-From a standalone clone after installing Skillset, use the package command:
+`build` without `--yes` only previews. To write output, work in a disposable
+copy so the canonical example stays unchanged:
+
+```bash
+cp -R examples/first-author /tmp/first-author
+bun ./apps/skillset/src/cli.ts build --root /tmp/first-author --yes
+bun ./apps/skillset/src/cli.ts check --only outputs --root /tmp/first-author
+```
+
+From a standalone copy after installing Skillset, use the package command:
 
 ```bash
 skillset check
@@ -53,7 +62,7 @@ Skillset renders files. It does not install, trust, activate, symlink, or mutate
 
 ## Edit The Source
 
-Change the skill body or rule guidance. The first check below is expected to report generated-output drift and exit non-zero; then preview and write the regeneration:
+Make edits in your copy, not in the Skillset checkout. Change the skill body or rule guidance. The first check below is expected to report generated-output drift and exit non-zero; then preview and write the regeneration:
 
 ```bash
 skillset check

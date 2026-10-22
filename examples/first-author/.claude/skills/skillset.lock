@@ -16,13 +16,14 @@
       "name": "review-notes",
       "outputHash": "sha256:e39a241c9b7f5da52ae39e16971d054ea167bbf05860513aca7c8a0ff4a14d12",
       "outputPath": "review-notes/SKILL.md",
+      "role": "bundle",
       "sourceHash": "sha256:9b21f33653bd6e43148fb5f7eb1f59d9d0812b18d4dfaf88ab0757d2a45c35cf",
       "sourcePath": ".skillset/skills/review-notes/SKILL.md",
       "version": "0.1.0"
     }
   ],
   "outputRoot": ".claude/skills",
-  "provenanceHash": "sha256:de2ce011a8433ef4c8ba9aeca59e0e175c78bfbee844543167ae233877758216",
+  "provenanceHash": "sha256:2df68837e6abe01621950061d691c5ef471c59d26bff3287fa6d9f8200d00e85",
   "renderResults": [
     {
       "destination": "skill",
@@ -50,19 +51,27 @@
           "path": ".claude/skills/review-notes/SKILL.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/skills/review-notes/SKILL.md",
       "sourceUnit": "skill:review-notes",
       "status": "rendered",
       "target": "claude"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 4,
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex"
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
+    "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
+  },
   "target": "workspace"
 }
