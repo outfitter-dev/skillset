@@ -1,6 +1,5 @@
 ---
 "skillset": minor
-"@skillset/core": minor
 ---
 
 A rule's directory under `.skillset/rules/` is now its scope: `rules/<dir>/<topic>.md` renders `<dir>/AGENTS.md`, `rules/<topic>.md` is unscoped, and `paths:` narrows files within the scope relative to it. Claude and Cursor globs are derived from the scope, with the literal scope escaped for Claude. Destinations no longer depend on which files exist in the working tree.
