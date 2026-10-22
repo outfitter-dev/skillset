@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
 import { buildSkillset, checkSkillsetSourceReadiness, classifySkillsetOutputState, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
-import { initSkillset } from "../setup";
+import { createSkillset, initSkillset } from "../setup";
 import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
@@ -1080,6 +1080,21 @@ test("init --include ci scaffolds a valid workflow and keeps user edits", async 
   const replanned = rerun.files.find((file) => file.path === CI_WORKFLOW_PATH);
   expect(replanned?.status).toBe("exists");
   expect(await readFile(workflowPath, "utf8")).toBe(customized);
+});
+
+test("SET-692: init --include ci adds the workflow to an existing workspace with edited setup files", async () => {
+  const parent = await fixture({});
+  const created = await createSkillset({ cwd: parent, name: "content", useGitRoot: false, write: true });
+  const root = created.rootPath;
+  const rulesPath = join(root, ".skillset/RULES.md");
+  const editedRules = `${await readFile(rulesPath, "utf8")}\nKeep this edit.\n`;
+  await writeFile(rulesPath, editedRules);
+
+  const report = await initSkillset({ cwd: root, include: ["ci"], useGitRoot: false, write: true });
+  expect(report.files.find((file) => file.path === CI_WORKFLOW_PATH)?.status).toBe("create");
+  expect(report.files.find((file) => file.path === ".skillset/RULES.md")?.status).toBe("exists");
+  expect(await readFile(rulesPath, "utf8")).toBe(editedRules);
+  expect(await readFile(join(root, CI_WORKFLOW_PATH), "utf8")).toBe(renderCiWorkflow());
 });
 
 test("init without --include ci does not plan a workflow", async () => {
