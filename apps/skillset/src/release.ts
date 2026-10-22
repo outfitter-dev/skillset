@@ -112,6 +112,8 @@ interface ReleaseScopeAccumulator {
 
 interface FileSnapshot {
   readonly content?: Uint8Array;
+  /** Permission bits at snapshot time, so a restore does not reset them. */
+  readonly mode?: number;
   readonly path: string;
 }
 
@@ -539,10 +541,9 @@ function ledgerEventId(type: string, releaseId: string): string {
 
 async function snapshotFile(rootPath: string, path: string): Promise<FileSnapshot> {
   const absolutePath = resolveInside(rootPath, path);
-  return {
-    ...(await exists(absolutePath) ? { content: await readFile(absolutePath) } : {}),
-    path,
-  };
+  if (!(await exists(absolutePath))) return { path };
+  const { mode } = await stat(absolutePath);
+  return { content: await readFile(absolutePath), mode: mode & 0o777, path };
 }
 
 async function restoreFile(rootPath: string, snapshot: FileSnapshot): Promise<void> {
@@ -556,7 +557,9 @@ async function restoreFile(rootPath: string, snapshot: FileSnapshot): Promise<vo
     return;
   }
   await prepareRepositoryMutationPath(rootPath, absolutePath, { replacesLeaf: true });
-  await publishAtomicFile(absolutePath, snapshot.content);
+  await publishAtomicFile(absolutePath, snapshot.content, {
+    ...(snapshot.mode === undefined ? {} : { mode: snapshot.mode }),
+  });
 }
 
 async function exists(path: string): Promise<boolean> {

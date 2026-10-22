@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -174,6 +174,31 @@ test("SET-636 failed release rollback removes only transaction-owned JSONL recor
   expect(ledgerEvents(ledger).some((event) => event.type === "release.applied")).toBe(false);
   expect(await Bun.file(join(root, added.entry.path)).exists()).toBe(true);
   expect(await Bun.file(join(root, ".skillset/changes/history.jsonl")).exists()).toBe(false);
+});
+
+test("SET-677 failed release rollback restores a pending file with its original mode", async () => {
+  if (process.platform === "win32") return;
+  const root = await mutationFixture();
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Changed before a release that restores modes."), "utf8");
+  await commitFixture(root);
+  const added = await addChangeEntry(root, {
+    bump: "patch",
+    reason: {
+      kind: "inline",
+      value: "Pending change whose file mode must survive a failed release.",
+    },
+    scopes: ["skill:demo"],
+  });
+  const pendingPath = join(root, added.entry.path);
+  await chmod(pendingPath, 0o600);
+
+  await expect(applyRelease(root, {
+    beforeBuild: async () => {
+      throw new Error("test: release failed after removing pending files");
+    },
+  })).rejects.toThrow("test: release failed after removing pending files");
+
+  expect((await stat(pendingPath)).mode & 0o777).toBe(0o600);
 });
 
 test("SET-636 a failure while removing pending files leaves the whole worktree as it was", async () => {
