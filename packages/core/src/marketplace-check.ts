@@ -668,7 +668,7 @@ function compareMarketplaceLock(
     return {
       path: "skillset.lock",
       policy: current.requested.kind,
-      reason: `${current.requested.kind} marketplace entry is not locked; run skillset marketplace update after resolution support lands`,
+      reason: `${current.requested.kind} marketplace entry is not locked; run skillset marketplace update to resolve and lock it`,
       ...(expectedSha === undefined ? {} : { expectedSha }),
       ...(resolvedSha === undefined ? {} : { resolvedSha }),
       state: "absent",
