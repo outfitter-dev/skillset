@@ -79,7 +79,7 @@ skillset build --yes
 skillset check
 ```
 
-Bare `skillset build` only previews; nothing is written until the `--yes` run.
+Bare `skillset build` only previews; no generated output is written until the `--yes` run.
 
 A downstream consumer can then select one skill from the repository root. For example, the pinned Skills consumer used by this repository accepts:
 
