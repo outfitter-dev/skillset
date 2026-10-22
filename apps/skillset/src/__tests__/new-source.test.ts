@@ -417,7 +417,7 @@ test("SET-309: new rule previews and writes canonical workspace source", async (
   expect(result.data.writes).toEqual([".skillset/rules/review-guidance.md"]);
   expect(
     await readFile(join(root, ".skillset/rules/review-guidance.md"), "utf8")
-  ).toBe("# Review Guidance\n\nAdd repository instructions here.\n");
+  ).toBe('---\n# Uncomment paths to scope this rule to matching files.\n# paths:\n#   - "src/**"\n---\n\n# Review Guidance\n\nAdd rules here.\n');
 
   await expect(
     runSkillsetCli("build", "--root", root, "--yes")

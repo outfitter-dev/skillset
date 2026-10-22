@@ -997,7 +997,7 @@ function setupFiles(
       content:
         options.kind === "create" && options.global !== true
           ? createRulesGuide(options.name)
-          : `---\ncursor: false\n---\n\n# ${options.name}\n\nAdd repository instructions here.\n`,
+          : `---\ncursor: false\n---\n\n# ${options.name}\n\nAdd rules here.\n`,
     },
     ...SETUP_SOURCE_PLACEHOLDERS.map((directory) => ({
       path: `${sourceRoot}/${directory}/.gitkeep`,
