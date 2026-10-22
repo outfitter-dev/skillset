@@ -353,25 +353,61 @@ function documentLocation(
 }
 
 function fallbackSyntaxLocation(lines: readonly string[]): ParserErrorLocation {
-  const danglingAssignment = lines.findIndex((line) =>
-    /(?:^|\s)(?:"[^"]+"|[A-Za-z0-9_-]+)\s*[:=]\s*$/u.test(line)
+  // Bun's TOML errors carry no document position, so these heuristics scan
+  // the source. A line that starts inside a `"""` or `'''` string is string
+  // content, never a header or an assignment, so it is never blamed.
+  const insideString = multilineStringContentLines(lines);
+  const findLine = (pattern: RegExp) =>
+    lines.findIndex((line, index) => !insideString.has(index) && pattern.test(line));
+
+  const danglingAssignment = findLine(
+    /(?:^|\s)(?:"[^"]+"|[A-Za-z0-9_-]+)\s*[:=]\s*$/u
   );
   if (danglingAssignment !== -1) return { line: danglingAssignment + 1 };
 
-  const danglingCollection = lines.findIndex((line) =>
-    /(?:^|\s)(?:"[^"]+"|[A-Za-z0-9_-]+)\s*[:=]\s*[[{]\s*$/u.test(line)
+  const danglingCollection = findLine(
+    /(?:^|\s)(?:"[^"]+"|[A-Za-z0-9_-]+)\s*[:=]\s*[[{]\s*$/u
   );
   if (danglingCollection !== -1) return { line: danglingCollection + 1 };
 
-  const unclosedTableHeader = lines.findIndex((line) =>
-    /^\s*\[{1,2}[^\]]*$/u.test(line)
-  );
+  const unclosedTableHeader = findLine(/^\s*\[{1,2}[^\]]*$/u);
   if (unclosedTableHeader !== -1) return { line: unclosedTableHeader + 1 };
 
   const firstNonEmptyLine = lines.findIndex((line) => line.trim() !== "");
   if (firstNonEmptyLine !== -1) return { line: firstNonEmptyLine + 1 };
 
   return { line: 1 };
+}
+
+/**
+ * Indexes of lines that begin inside a TOML multiline string, found by
+ * tracking `"""` / `'''` delimiter parity. Escaped quotes in basic strings are
+ * not modeled; this only steers a diagnostic location, never parsing.
+ */
+function multilineStringContentLines(lines: readonly string[]): ReadonlySet<number> {
+  const inside = new Set<number>();
+  let open: '"""' | "'''" | undefined;
+  lines.forEach((line, index) => {
+    if (open !== undefined) inside.add(index);
+    let offset = 0;
+    while (offset < line.length) {
+      if (open === undefined) {
+        const basic = line.indexOf('"""', offset);
+        const literal = line.indexOf("'''", offset);
+        const next = [basic, literal].filter((position) => position !== -1);
+        if (next.length === 0) break;
+        const start = Math.min(...next);
+        open = start === basic ? '"""' : "'''";
+        offset = start + 3;
+      } else {
+        const end = line.indexOf(open, offset);
+        if (end === -1) break;
+        open = undefined;
+        offset = end + 3;
+      }
+    }
+  });
+  return inside;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

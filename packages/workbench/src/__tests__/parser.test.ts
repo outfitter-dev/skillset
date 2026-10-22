@@ -73,6 +73,19 @@ describe("workbench parser", () => {
     );
   });
 
+  test("SET-512: a header-shaped line inside a TOML multiline string is not blamed for an unclosed header", () => {
+    for (const quote of ['"""', "'''"]) {
+      const content = `name = "demo"\nnote = ${quote}\n[not a header, just prose\n${quote}\n\n[tools.example\nkey = 1\n`;
+      expect(checkWorkbenchSyntax({ content, path: "demo.toml" })).toContainEqual(
+        expect.objectContaining({
+          location: expect.objectContaining({ line: 6, path: "demo.toml" }),
+          ruleId: "syntax/toml",
+          severity: "error",
+        })
+      );
+    }
+  });
+
   test("parses Markdown frontmatter, body, and headings with source line facts", () => {
     const parsed = parseWorkbenchDocument({
       content: `---\nname: demo\ndescription: Demo skill.\n---\n\n# Title\n\nText.\n\n\`\`\`\n# Ignored\n\`\`\`\n\n## Next\n`,
