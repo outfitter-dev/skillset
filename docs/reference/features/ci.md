@@ -55,9 +55,11 @@ skillset init --include ci
 skillset init --include ci --yes
 ```
 
+A new workspace can include the same scaffold with `skillset create <name> --include ci --yes`.
+
 The plan previews `.github/workflows/skillset-ci.yml`; `--yes` writes it once. The workflow is user-owned afterward and is never overwritten by a later init.
 
-The scaffold uses `--fix` for same-repository pull requests, stays read-only for forks and pushes to `main`, writes the report to the job summary, and can commit a safe mechanical rebuild back to a same-repository PR branch. Forks cannot receive default-token pushes or comments, so they receive the failing check and job summary only. It checks out full history so the baseline is resolvable.
+The scaffold uses `--fix` for same-repository pull requests, stays read-only for forks and pushes to `main`, writes the report to the job summary, and can commit a safe mechanical rebuild back to a same-repository PR branch. Forks cannot receive default-token pushes or comments, so they receive the failing check and job summary only. It checks out full history so the baseline is resolvable. The scaffolded step passes no `--since`, so the check uses its default baseline: the merge base with `origin/main`, falling back to a local `main`.
 
 ## Errors and Recovery
 
