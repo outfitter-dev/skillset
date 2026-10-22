@@ -1,5 +1,7 @@
 # Goal Prompt
 
+> **Disposition: completed and archived, 2026-10-22.** The output-safety stack merged; its loss-ledger vocabulary was later replaced by Render Results (ADR-0018). Commands and doc paths below are historical.
+
 ```text
 Work in /Users/mg/Developer/outfitter/skillset. Execute the stack described in .agents/plans/2026-06-13-output-safety-loss-ledger-stack/PLAN.md. Objective: deliver SET-19 output safety plus the SET-70 lowering outcomes/loss ledger continuation, SET-69 registry diagnostics/inspection where feasible, and bounded tail issues SET-55/54/105/106/107/108 if they fit safely.
 

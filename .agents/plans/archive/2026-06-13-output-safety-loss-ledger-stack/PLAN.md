@@ -1,5 +1,7 @@
 # Output Safety and Loss Ledger Stack Plan
 
+> **Disposition: completed and archived, 2026-10-22.** The output-safety stack merged; its loss-ledger vocabulary was later replaced by Render Results (ADR-0018). Commands and doc paths below are historical.
+
 ## Objective
 
 Deliver a stacked Skillset hardening push that makes generated-output writes safer, makes lowering outcomes persistent and explainable, connects registry evidence to diagnostics where useful, and folds in tactical follow-up issues when they fit without compromising the core stack.

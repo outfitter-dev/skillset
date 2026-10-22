@@ -1,5 +1,7 @@
 # Goal Prompt: Workbench Check And Authoring Correctness
 
+> **Disposition: superseded and archived, 2026-10-22. Do not resume.** The direction was reversed: public `skillset check` does not import `@skillset/workbench`, and `verify` is a retired command (see `docs/development/features/workbench.md`). The "In progress" status below is historical.
+
 Paste this into the goal runtime:
 
 ````markdown

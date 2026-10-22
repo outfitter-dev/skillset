@@ -1,4 +1,4 @@
-> **Disposition: completed.** Skillset reached the stable npm channel with GitHub Actions-owned releases, Changesets coverage, and local package preflight in place. Remaining first-author and documentation-structure work moved into the active documentation-overhaul plan; the substantive plan below is frozen apart from mechanical link repair.
+> **Disposition: completed.** Skillset reached the stable npm channel with GitHub Actions-owned releases, Changesets coverage, and local package preflight in place. Remaining first-author and documentation-structure work moved into the documentation-overhaul plan (since completed and archived); the substantive plan below is frozen apart from mechanical link repair.
 
 # Skillset 0.x `latest` Release Plan
 

@@ -1,5 +1,7 @@
 # Skillset Audit Hardening Plan
 
+> **Disposition: completed and archived, 2026-10-22.** The hardening slice was executed (see `RETRO.md`). Commands and doc paths below are historical: `docs/tenets.md` is now `docs/project/tenets.md`, and `lint`, `verify`, and `ci` are retired CLI commands.
+
 ## Objective
 
 Implement the first hardening slice after the Claude audit of `skillset` and
