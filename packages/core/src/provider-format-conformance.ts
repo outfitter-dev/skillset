@@ -8,6 +8,13 @@ import {
 
 import { AGENT_PLUGIN_MANIFEST_SCHEMA } from "./agent-plugin-manifest";
 import {
+  agentPluginManifestFields,
+  CHATGPT_INTERFACE_FIELD_TYPES,
+  CHATGPT_INTERFACE_FIELDS,
+  CHATGPT_MARKETPLACE_POLICY,
+  CLAUDE_PLUGIN_FIELD_TYPES,
+} from "./manifest-field-contracts";
+import {
   checkClaudeAuthorObject,
   checkClaudeMarketplace,
   isClaudeMarketplacePath,
@@ -422,13 +429,13 @@ function checkChatGptMarketplacePolicy(
     }, `${prefix}.policy`),
     ...checkUnknownFields(file, policy, "codex", providerRef, ["authentication", "installation", "products"], `${prefix}.policy`),
   ];
-  if (typeof policy.installation === "string" && !["AVAILABLE", "INSTALLED_BY_DEFAULT", "NOT_AVAILABLE"].includes(policy.installation)) {
+  if (typeof policy.installation === "string" && !includesString(CHATGPT_MARKETPLACE_POLICY.installation, policy.installation)) {
     issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.policy.installation has an unsupported value`));
   }
-  if (typeof policy.authentication === "string" && !["ON_INSTALL", "ON_USE"].includes(policy.authentication)) {
+  if (typeof policy.authentication === "string" && !includesString(CHATGPT_MARKETPLACE_POLICY.authentication, policy.authentication)) {
     issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.policy.authentication has an unsupported value`));
   }
-  if (Array.isArray(policy.products) && policy.products.some((product) => !["ATLAS", "CHATGPT", "CODEX"].includes(String(product)))) {
+  if (Array.isArray(policy.products) && policy.products.some((product) => !includesString(CHATGPT_MARKETPLACE_POLICY.products, String(product)))) {
     issues.push(issue(file, "codex", providerRef, "invalid-shape", `${prefix}.policy.products contains an unsupported product`));
   }
   return issues;
@@ -440,21 +447,9 @@ function checkChatGptMarketplaceInterface(
   prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   const providerRef = "openai-agent-plugin-extension-overlay" as const;
-  const fields = [
-    "displayName", "shortDescription", "longDescription", "developerName",
-    "category", "capabilities", "websiteUrl", "privacyPolicyUrl",
-    "termsOfServiceUrl", "defaultPrompt", "brandColor", "composerIcon",
-    "logo", "logoDark", "screenshots",
-  ];
   return [
-    ...checkFieldTypes(file, value, "codex", providerRef, {
-      brandColor: "string", capabilities: "string-array", category: "string",
-      composerIcon: "string", defaultPrompt: "string-array", developerName: "string",
-      displayName: "string", logo: "string", logoDark: "string",
-      longDescription: "string", privacyPolicyUrl: "string", screenshots: "string-array",
-      shortDescription: "string", termsOfServiceUrl: "string", websiteUrl: "string",
-    }, `${prefix}.interface`),
-    ...checkUnknownFields(file, value, "codex", providerRef, fields, `${prefix}.interface`),
+    ...checkFieldTypes(file, value, "codex", providerRef, CHATGPT_INTERFACE_FIELD_TYPES, `${prefix}.interface`),
+    ...checkUnknownFields(file, value, "codex", providerRef, CHATGPT_INTERFACE_FIELDS, `${prefix}.interface`),
   ];
 }
 
@@ -474,31 +469,7 @@ function checkClaudePluginManifest(
     "experimental",
   ]);
   issues.push(...checkRequiredFields(file, parsed.value, "claude", "claude-plugin", format.requiredFields));
-  issues.push(...checkFieldTypes(file, parsed.value, "claude", "claude-plugin-manifest-schema", {
-    $schema: "string",
-    agents: "string",
-    author: "object",
-    commands: "string",
-    dependencies: "object",
-    description: "string",
-    displayName: "string",
-    experimental: "object",
-    homepage: "string",
-    hooks: "string",
-    keywords: "string-array",
-    license: "string",
-    lspServers: "string",
-    mcpServers: "string",
-    monitors: "string",
-    name: "string",
-    outputStyles: "string",
-    repository: "string",
-    settings: "string",
-    skills: "string-or-string-array",
-    themes: "string",
-    userConfig: "object",
-    version: "string",
-  }));
+  issues.push(...checkFieldTypes(file, parsed.value, "claude", "claude-plugin-manifest-schema", CLAUDE_PLUGIN_FIELD_TYPES));
   issues.push(
     ...checkUnknownFields(
       file,
@@ -578,7 +549,9 @@ function checkChatGptPluginManifest(
   const parsed = parseJsonRecord(file, "codex", providerRef);
   if (!parsed.ok) return parsed.issues;
   const issues: ProviderFormatConformanceIssue[] = [];
-  issues.push(...checkRequiredFields(file, parsed.value, "codex", providerRef, ["$schema", "extensions", "name"]));
+  const agentPluginFields = agentPluginManifestFields();
+  // ChatGPT bundles always carry the com.openai extension the portable schema leaves optional.
+  issues.push(...checkRequiredFields(file, parsed.value, "codex", providerRef, [...agentPluginFields.required, "extensions"]));
   issues.push(...checkFieldTypes(file, parsed.value, "codex", providerRef, {
     $schema: "string",
     author: "object",
@@ -591,10 +564,7 @@ function checkChatGptPluginManifest(
     repository: "string",
     version: "string",
   }));
-  issues.push(...checkUnknownFields(file, parsed.value, "codex", providerRef, [
-    "$schema", "author", "description", "extensions", "homepage", "keywords",
-    "license", "name", "repository", "version",
-  ]));
+  issues.push(...checkUnknownFields(file, parsed.value, "codex", providerRef, agentPluginFields.allowed));
   if (
     typeof parsed.value.$schema === "string" &&
     parsed.value.$schema !== AGENT_PLUGIN_MANIFEST_SCHEMA
@@ -641,37 +611,15 @@ function checkChatGptPluginManifest(
         issues.push(issue(file, "codex", providerRef, "invalid-shape", `destination field extensions.com.openai.hooks must use ${hooksPath}`));
       }
       if (isJsonRecord(openAi.interface)) {
-        const interfaceFields = [
-          "displayName", "shortDescription", "longDescription", "developerName",
-          "category", "capabilities", "websiteUrl", "privacyPolicyUrl",
-          "termsOfServiceUrl", "defaultPrompt", "brandColor", "composerIcon",
-          "logo", "logoDark", "screenshots",
-        ];
         issues.push(...checkUnknownFields(
           file,
           openAi.interface,
           "codex",
           providerRef,
-          interfaceFields,
+          CHATGPT_INTERFACE_FIELDS,
           "extensions.com.openai.interface"
         ));
-        issues.push(...checkFieldTypes(file, openAi.interface, "codex", providerRef, {
-          brandColor: "string",
-          capabilities: "string-array",
-          category: "string",
-          composerIcon: "string",
-          defaultPrompt: "string-array",
-          developerName: "string",
-          displayName: "string",
-          logo: "string",
-          logoDark: "string",
-          longDescription: "string",
-          privacyPolicyUrl: "string",
-          screenshots: "string-array",
-          shortDescription: "string",
-          termsOfServiceUrl: "string",
-          websiteUrl: "string",
-        }, "extensions.com.openai.interface"));
+        issues.push(...checkFieldTypes(file, openAi.interface, "codex", providerRef, CHATGPT_INTERFACE_FIELD_TYPES, "extensions.com.openai.interface"));
         for (const [key, value] of Object.entries(openAi.interface)) {
           if (typeof value === "string" && value.trim() === "") {
             issues.push(issue(file, "codex", providerRef, "invalid-shape", `destination field extensions.com.openai.interface.${key} must be non-empty`));
@@ -1393,4 +1341,8 @@ function compareIssues(
     `${left.outputPath}\0${left.providerRef}\0${left.code}\0${left.message}`,
     `${right.outputPath}\0${right.providerRef}\0${right.code}\0${right.message}`
   );
+}
+
+function includesString(values: readonly string[], value: string): boolean {
+  return values.includes(value);
 }
