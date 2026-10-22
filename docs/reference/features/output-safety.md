@@ -7,7 +7,7 @@ description: Skillset output safety distinguishes managed output, protects neigh
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `output-safety` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `output-safety` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

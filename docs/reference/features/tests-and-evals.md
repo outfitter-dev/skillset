@@ -7,7 +7,7 @@ description: Skillset tests and evals define deterministic checks, activation pr
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `activation-probes` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `activation-probes` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

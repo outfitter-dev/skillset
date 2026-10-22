@@ -7,7 +7,7 @@ description: Skillset development mode watches source, previews drift, and optio
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `dev-watch` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `dev-watch` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

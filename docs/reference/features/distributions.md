@@ -7,7 +7,7 @@ description: Skillset distributions plan downstream delivery of built artifacts 
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `distributions` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `distributions` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

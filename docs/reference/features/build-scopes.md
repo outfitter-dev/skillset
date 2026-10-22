@@ -7,7 +7,7 @@ description: Build scopes select generated destinations for preview, writing, in
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Registry feature: `workflows`

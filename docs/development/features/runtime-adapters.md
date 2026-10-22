@@ -7,7 +7,7 @@ description: The runtime-adapter contract defines how maintainers classify, docu
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `runtime-adapters` | `planned` | `not_applicable` | `not_applicable` | `planned` |
+| `runtime-adapters` | `planned` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)

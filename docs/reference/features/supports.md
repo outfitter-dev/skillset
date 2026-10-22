@@ -7,7 +7,7 @@ description: Support constraints define compatibility ranges, mismatch policy, i
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `supports` | `implemented` | `metadata_only` | `metadata_only` | `planned` |
+| `supports` | `implemented` | `metadata_only` | `metadata_only` | `metadata_only` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

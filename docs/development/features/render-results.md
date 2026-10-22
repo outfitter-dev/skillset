@@ -7,7 +7,7 @@ description: The render-result contract defines how maintainers record, enforce,
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `render-results` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `render-results` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Related vocabulary: [Support Vocabulary](../../reference/features/README.md#support-vocabulary)

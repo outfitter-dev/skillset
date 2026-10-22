@@ -7,7 +7,7 @@ description: Skillset CI provides branch-aware readiness checks, bounded output 
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Registry feature: `workflows`

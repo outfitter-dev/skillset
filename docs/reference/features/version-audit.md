@@ -7,7 +7,7 @@ description: Skillset version audit compares current version authority with supp
 <!-- skillset:generated:start feature-support -->
 | Feature | Feature status | claude | codex | cursor |
 | --- | --- | --- | --- | --- |
-| `version-audit` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+| `version-audit` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |
 <!-- skillset:generated:end feature-support -->
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

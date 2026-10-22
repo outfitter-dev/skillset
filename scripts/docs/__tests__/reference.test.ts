@@ -260,7 +260,7 @@ describe("documentation reference artifacts", () => {
       "| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |"
     );
     expect(generatedDevelopment).toContain(
-      "| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |"
+      "| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `not_applicable` |"
     );
     expect(authoredOutsideBlock(generatedPublic, "feature-support")).toBe(
       authoredOutsideBlock(originalPublic, "feature-support")

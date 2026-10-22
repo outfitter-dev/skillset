@@ -25,16 +25,16 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 <!-- skillset:generated:start provider-feature-support -->
 | Feature | Feature status | Target support | Qualification | Docs |
 | --- | --- | --- | --- | --- |
-| Activation Probes | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/tests-and-evals.md) |
+| Activation Probes | `implemented` | `not_applicable` | — | [1](../features/tests-and-evals.md) |
 | Adaptive Hooks | `implemented` | `degraded` | Cursor supports plugin-level command hooks, but has no faithful skill-local or project-agent hook destination and uses provider-native lower-camel event names. | [1](../features/hooks.md) |
-| Changes | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/changes.md) |
+| Changes | `implemented` | `not_applicable` | — | [1](../features/changes.md) |
 | Dependencies | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/dependencies.md) |
-| Dev Watch | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/dev-watch.md) |
-| Distributions | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/distributions.md) |
-| Feature Registry | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../../development/features/feature-registry.md) |
+| Dev Watch | `implemented` | `not_applicable` | — | [1](../features/dev-watch.md) |
+| Distributions | `implemented` | `not_applicable` | — | [1](../features/distributions.md) |
+| Feature Registry | `implemented` | `not_applicable` | — | [1](../../development/features/feature-registry.md) |
 | Future Companion Source Pointers | `planned` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/apps.md), [2](../features/hooks.md), [3](../features/commands.md), [4](../features/settings.md) |
 | Marketplaces | `implemented` | `native` | — | [1](../features/marketplaces.md) |
-| Output Safety | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/output-safety.md) |
+| Output Safety | `implemented` | `not_applicable` | — | [1](../features/output-safety.md) |
 | Plugin Agents | `implemented` | `pass_through` | — | [1](../features/agents.md) |
 | Codex Plugin Apps | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/apps.md) |
 | Plugin Assets | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
@@ -54,18 +54,18 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 | Plugin Themes | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/themes.md), [2](../features/plugins.md) |
 | Project Agents | `implemented` | `native` | — | [1](../features/agents.md) |
 | Project Instructions | `implemented` | `transformed` | — | [1](../features/rules.md) |
-| Releases | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/releases.md) |
-| Render Results | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../../development/features/render-results.md) |
+| Releases | `implemented` | `metadata_only` | — | [1](../features/releases.md) |
+| Render Results | `implemented` | `not_applicable` | — | [1](../../development/features/render-results.md) |
 | Resources | `implemented` | `native` | — | [1](../features/resources.md) |
-| Runtime Adapters | `planned` | `planned` | cursor provider support is not registered for this feature yet. | [1](../../development/features/runtime-adapters.md) |
+| Runtime Adapters | `planned` | `not_applicable` | — | [1](../../development/features/runtime-adapters.md) |
 | Runtime Context | `implemented` | `transformed` | Normalized fields are provider, hook.event, and session.id; raw Cursor environment remains available to the hook command. | [1](../features/hooks.md), [2](../../development/features/hook-guardrails.md) |
 | Skill Invocation Policy | `implemented` | `transformed` | — | [1](../features/skills.md) |
 | Standalone Skills | `implemented` | `native` | — | [1](../features/skills.md) |
-| Supports | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/supports.md) |
+| Supports | `implemented` | `metadata_only` | — | [1](../features/supports.md) |
 | Provider Source | `implemented` | `pass_through` | — | [1](../features/target-native-islands.md) |
 | Tools Policy | `implemented` | `metadata_only` | Recorded as .skillset.tools.yaml metadata; no proven skill-local enforcement surface. | [1](../features/tools-policy.md) |
-| Version Audit | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/version-audit.md) |
-| Workflows | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/ci.md), [2](../features/build-scopes.md), [3](../../development/features/workbench.md) |
+| Version Audit | `implemented` | `not_applicable` | — | [1](../features/version-audit.md) |
+| Workflows | `implemented` | `not_applicable` | — | [1](../features/ci.md), [2](../features/build-scopes.md), [3](../../development/features/workbench.md) |
 <!-- skillset:generated:end provider-feature-support -->
 
 ## Runtime Evidence Boundary

@@ -625,14 +625,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-readme",
     sourceShape: "plugin README.md",
     summary: "Copies plugin README companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
+    targetSupport: bothTargetsWithTargetEvidence("pass_through", [docs("docs/reference/features/plugins.md")], {}),
     title: "Plugin README",
   }),
   pluginCompanionFeature({
     id: "plugin-scripts",
     sourceShape: "plugin scripts/",
     summary: "Copies plugin script companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
+    targetSupport: bothTargetsWithTargetEvidence("pass_through", [docs("docs/reference/features/plugins.md")], {}),
     title: "Plugin Scripts",
   }),
   feature({
@@ -672,7 +672,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-src",
     sourceShape: "plugin src/",
     summary: "Copies plugin source companions into generated provider plugin outputs.",
-    targetSupport: bothTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
+    targetSupport: bothTargetsWithTargetEvidence("pass_through", [docs("docs/reference/features/plugins.md")], {}),
     title: "Plugin Source",
   }),
   pluginCompanionFeature({
@@ -916,7 +916,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: "workspace changes/releases.jsonl, changes/state.json, generated changelogs",
     status: "implemented",
     summary: "Applies pending changes into versions, release history, changelogs, and generated metadata.",
-    targetSupport: bothTargets("metadata_only"),
+    targetSupport: allTargets("metadata_only"),
     title: "Releases",
     validationOwner: "apps/skillset/src/release.ts",
   }),
@@ -1012,7 +1012,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: "supports frontmatter metadata",
     status: "implemented",
     summary: "Records compatibility claims as source-significant metadata without target-frontmatter leakage.",
-    targetSupport: bothTargets("metadata_only"),
+    targetSupport: allTargets("metadata_only"),
     title: "Supports",
     validationOwner: "packages/core/src/supports.ts",
   }),
@@ -1277,15 +1277,12 @@ function withDefaultEvidence(
   return { ...support, evidence };
 }
 
-function bothTargets(
+function allTargets(
   status: SkillsetTargetSupportStatus,
   evidence?: readonly SkillsetFeatureEvidence[]
 ): FeatureTargetSupportInput {
   const support = { ...(evidence === undefined ? {} : { evidence }), status };
-  return {
-    claude: support,
-    codex: support,
-  };
+  return targetRecord(() => support);
 }
 
 function bothTargetsWithTargetEvidence(
@@ -1309,7 +1306,7 @@ function bothTargetsWithTargetEvidence(
 }
 
 function notTargetRuntime(): FeatureTargetSupportInput {
-  return bothTargets("not_applicable");
+  return allTargets("not_applicable");
 }
 
 function plannedProviderSupport(target: TargetName): SkillsetTargetSupport {
