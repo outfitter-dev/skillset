@@ -5,6 +5,7 @@ import {
   type ReleasePolicyInput,
   ciStateFromCheckRuns,
   evaluateReleasePolicy,
+  fetchWithRetry,
   planReleasePullRequestLabels,
   readReleaseLabelVersions,
   shouldReadExactShaCi,
@@ -391,5 +392,89 @@ describe("release policy CI state", () => {
   test("skips exact-SHA CI polling when the registry already has the current version and tag", () => {
     expect(shouldReadExactShaCi(false)).toBe(true);
     expect(shouldReadExactShaCi(true)).toBe(false);
+  });
+});
+
+describe("fetchWithRetry", () => {
+  const noSleep = async () => {};
+
+  const scripted = (outcomes: readonly (number | Error)[]) => {
+    const calls: string[] = [];
+    let index = 0;
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      const outcome = outcomes[Math.min(index, outcomes.length - 1)];
+      index += 1;
+      if (outcome === undefined) throw new Error("no scripted fetch outcome");
+      if (outcome instanceof Error) throw outcome;
+      return new Response("{}", { status: outcome });
+    };
+    return { calls, fetchImpl };
+  };
+
+  test("retries a transient GitHub 500 and returns the later success", async () => {
+    const { calls, fetchImpl } = scripted([500, 200]);
+    const response = await fetchWithRetry(
+      "https://api.github.com/repos/o/r/commits/abc/pulls",
+      {},
+      { fetchImpl, sleep: noSleep }
+    );
+    expect(response.status).toBe(200);
+    expect(calls).toHaveLength(2);
+  });
+
+  test("retries network errors and 429", async () => {
+    const { calls, fetchImpl } = scripted([
+      new Error("socket hang up"),
+      429,
+      200,
+    ]);
+    const response = await fetchWithRetry(
+      "https://registry.npmjs.org/skillset",
+      {},
+      { fetchImpl, sleep: noSleep }
+    );
+    expect(response.status).toBe(200);
+    expect(calls).toHaveLength(3);
+  });
+
+  test("returns non-transient statuses without retrying", async () => {
+    const { calls, fetchImpl } = scripted([404]);
+    const response = await fetchWithRetry(
+      "https://registry.npmjs.org/skillset",
+      {},
+      { fetchImpl, sleep: noSleep }
+    );
+    expect(response.status).toBe(404);
+    expect(calls).toHaveLength(1);
+  });
+
+  test("gives up after the attempt budget with the last response", async () => {
+    const waits: number[] = [];
+    const { calls, fetchImpl } = scripted([502]);
+    const response = await fetchWithRetry(
+      "https://api.github.com/repos/o/r/pulls",
+      {},
+      {
+        attempts: 3,
+        delayMs: 100,
+        fetchImpl,
+        sleep: async (ms) => void waits.push(ms),
+      }
+    );
+    expect(response.status).toBe(502);
+    expect(calls).toHaveLength(3);
+    expect(waits).toEqual([100, 200]);
+  });
+
+  test("rethrows the last network error once attempts run out", async () => {
+    const { fetchImpl } = scripted([new Error("ECONNRESET")]);
+    await expect(
+      fetchWithRetry(
+        "https://api.github.com/repos/o/r/pulls",
+        {},
+        { attempts: 2, fetchImpl, sleep: noSleep }
+      )
+    ).rejects.toThrow("ECONNRESET");
   });
 });
