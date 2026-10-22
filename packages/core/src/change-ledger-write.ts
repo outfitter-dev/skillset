@@ -50,7 +50,8 @@ export interface RollbackOwnedJsonlOptions {
 /**
  * Remove exactly the JSONL records this transaction appended, one occurrence
  * per owned line, scanning from the end so an earlier identical line (for
- * example a trunk record) is kept. Foreign lines stay in file order. The
+ * example a trunk record) is kept. Foreign lines, blank ones included, stay in
+ * file order. The
  * remainder is published atomically with the stream's current mode; a stream
  * left with no records is removed. Callers hold the stream's writer lock (see
  * the contract above).
@@ -99,7 +100,11 @@ function withoutOwnedLines(content: string, ownedLines: readonly string[]): read
   const owed = new Map<string, number>();
   for (const line of ownedLines) owed.set(line, (owed.get(line) ?? 0) + 1);
   const kept: string[] = [];
-  const lines = content.split("\n").filter((line) => line.length > 0);
+  // Only the split artifact after the final newline is dropped: a foreign
+  // blank line is part of the stream's bytes, and trunk-prefix checks compare
+  // line by line.
+  const lines = content.split("\n");
+  if (lines.at(-1) === "") lines.pop();
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index] ?? "";
     const count = owed.get(line) ?? 0;

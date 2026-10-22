@@ -13,6 +13,17 @@ import {
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("change ledger JSONL write", () => {
+  test("rollback keeps foreign blank lines where they were", async () => {
+    const path = await streamPath("blank-lines");
+    const existing = JSON.stringify({ createdAt: "2026-09-22T00:00:00.000Z", id: "existing" });
+    await writeFile(path, `${existing}\n\n`, "utf8");
+
+    const owned = await appendOwnedJsonlRecords(path, [{ createdAt: "2026-09-22T00:00:01.000Z", id: "owned" }]);
+    await rollbackOwnedJsonlRecords(path, owned);
+
+    expect(await readFile(path, "utf8")).toBe(`${existing}\n\n`);
+  });
+
   test("appends records and rolls back only the owned lines", async () => {
     const path = await streamPath("owned-rollback");
     await writeFile(
