@@ -20,19 +20,23 @@ Then authorize the reviewed addition:
 skillset init --include ci --yes
 ```
 
-This creates `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: later `init` runs report it as existing and do not replace your edits. Review its permissions and consider pinning the Skillset version before relying on it as a required check.
+When you start a new workspace instead, `skillset create <name> --include ci --yes` writes the same workflow as part of the new scaffold.
+
+Either route creates `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: later `init` runs report it as existing and do not replace your edits. Review its permissions and consider pinning the Skillset version before relying on it as a required check.
 
 The scaffold comments preserve the configuration boundary: `compile.targets` selects providers, adopted applicable Agent standards render inherently, `.skillset/subagents/` is project-agent source, and `defaults.<provider>.agents` is provider configuration. CI validates the resulting source and generated state; it does not introduce a standards opt-out.
 
-The generated [`init` reference](../reference/cli/init.md) owns the complete option inventory.
+The generated [`init`](../reference/cli/init.md) and [`create`](../reference/cli/create.md) references own the complete option inventories.
 
 ## Choose the CI Distribution
 
-The scaffold uses the complete `@skillset/cli` Bun distribution because its JavaScript payload is smaller than the native executable package:
+The scaffold uses the complete `@skillset/cli` Bun distribution because its JavaScript payload is smaller than the native executable package. Its check step runs:
 
 ```bash
-bunx @skillset/cli check --ci --since origin/main
+bunx @skillset/cli check --ci --report "$RUNNER_TEMP/skillset-ci-report.md"
 ```
+
+Same-repository pull requests add `--fix`. The scaffold passes no `--since`, so the check selects its baselines automatically: source-change coverage starts from the committed `skillset.lock` and release state when they exist and otherwise falls back to the merge base with `origin/main`, then `main`; package Changesets compare against the merge base with `origin/HEAD`, then `origin/main`, then `main`. If none of those refs exist, the Changesets comparison falls back to `HEAD` and sees no package changes, so make sure CI fetches the trunk. Pass `--since <ref>` to name the baseline explicitly.
 
 This route requires Bun 1.4.0 or newer at command runtime. It exposes the same command surface as the native distribution; it is not a reduced CI product.
 
@@ -75,7 +79,7 @@ Use [troubleshooting](../troubleshooting.md) for recovery by symptom. The exhaus
 
 ## Understand the Scaffolded Job
 
-The GitHub Actions scaffold checks out full history so `origin/main` can be resolved. On a same-repository pull request it may run `--fix`, commit a mechanical rebuild, push it to the pull-request branch, and update a report comment. On a fork pull request it remains read-only and writes the report only to the job summary because the default token cannot push to or comment on the fork.
+The GitHub Actions scaffold checks out full history so its default baselines can be resolved. On a same-repository pull request it may run `--fix`, commit a mechanical rebuild, push it to the pull-request branch, and update a report comment. On a fork pull request it remains read-only and writes the report only to the job summary because the default token cannot push to or comment on the fork.
 
 A fix pushed with `GITHUB_TOKEN` does not retrigger workflows automatically. If branch protection requires checks on that new commit, choose and review an authentication policy appropriate for the repository rather than adding credentials to Skillset source.
 

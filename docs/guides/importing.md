@@ -63,7 +63,7 @@ Import preserves recognized source frontmatter, provider-native fields, and unkn
 After either workflow:
 
 1. Inspect the new `.skillset/` files and any reported transformations or preserved [target-native islands](../glossary.md#target-native-island).
-2. Resolve lint, identity, reference, or [unsupported-destination diagnostics](../development/features/render-results.md#diagnostics).
+2. Resolve lint, identity, reference, or [unsupported-destination diagnostics](../configuration/project-configuration.md#handle-unsupported-destinations).
 3. Preview the first build with `skillset build`.
 4. Confirm it with `skillset build --yes`.
 5. Run `skillset check --only outputs` and review the generated diff.
