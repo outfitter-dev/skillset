@@ -11,11 +11,43 @@ import {
   planSourcePromotion,
   promoteSource,
 } from "../source-draft";
+import { sourceLifecycleLedgerRecord, type SourceLifecycleLedgerEvent } from "../source-lifecycle-ledger";
 import { moveSource, planSourceMove } from "../source-move";
 import { applyWorkspaceTransaction } from "../workspace-transaction";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const LEDGER = ".skillset/changes/ledger.jsonl";
+
+describe("sourceLifecycleLedgerRecord", () => {
+  const drafted: SourceLifecycleLedgerEvent = {
+    payload: { draft: "skill:demo#draft", shipped: "skill:demo", sourceHash: "a".repeat(64) },
+    type: "source.drafted",
+  };
+
+  test("builds a schema-versioned record for the event", () => {
+    expect(sourceLifecycleLedgerRecord("", drafted, Date.parse("2026-01-02T03:04:05.000Z"))).toMatchObject({
+      createdAt: "2026-01-02T03:04:05.000Z",
+      id: expect.stringMatching(/^source-drafted-/),
+      payload: drafted.payload,
+      schemaVersion: 1,
+      type: "source.drafted",
+    });
+  });
+
+  test("never stamps before the ledger tail", () => {
+    const tail = `${foreignEvent("evt-tail", "2030-01-01T00:00:00.000Z")}\n`;
+    expect(sourceLifecycleLedgerRecord(tail, drafted, 0)).toMatchObject({ createdAt: "2030-01-01T00:00:00.000Z" });
+  });
+
+  // TF-001: two branches running the same lifecycle command from the same trunk
+  // ledger must not mint the same id, or the union-merged ledger is unreadable.
+  test("gives the same event on the same ledger a distinct id per invocation", () => {
+    const trunk = `${foreignEvent("evt-trunk", "2026-01-01T00:00:00.000Z")}\n`;
+    const first = sourceLifecycleLedgerRecord(trunk, drafted, 1);
+    const second = sourceLifecycleLedgerRecord(trunk, drafted, 1);
+    expect(Reflect.get(first, "id")).not.toBe(Reflect.get(second, "id"));
+  });
+});
 
 describe("SET-660 lifecycle ledger appends", () => {
   test("a draft keeps a foreign ledger line appended between plan and apply", async () => {
