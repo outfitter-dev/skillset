@@ -738,7 +738,35 @@ test("SET-165/310: new supports project agents and requires complete hook intent
 
   const hook = await runSkillsetCli("new", "hook", "source-change-guard", "--root", root);
   expect(hook.exitCode).toBe(2);
-  expect(hook.stderr).toContain("new hook requires --attach <source-unit>");
+  expect(hook.stderr).toContain("new hook requires --event");
+});
+
+test("SET-695: new hook without --attach writes a shared hook definition into .skillset/hooks", async () => {
+  const root = await createTestFixtureRoot("skillset-new-root-hook-");
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  const rulesPath = join(root, ".skillset/RULES.md");
+  const rules = await readFile(rulesPath, "utf8");
+
+  const written = await runSkillsetCli(
+    "new", "hook", "Session Banner", "--event", "SessionStart", "--command", "echo hello",
+    "--root", root, "--yes", "--json"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(JSON.parse(written.stdout).data.writes).toEqual([".skillset/hooks/session-banner.json"]);
+  expect(JSON.parse(await readFile(join(root, ".skillset/hooks/session-banner.json"), "utf8"))).toMatchObject({
+    events: ["SessionStart"],
+    name: "session-banner",
+    run: { command: "echo hello" },
+  });
+  expect(await readFile(rulesPath, "utf8")).toBe(rules);
+
+
+  const preview = await runSkillsetCli(
+    "new", "hook", "Second Banner", "--event", "SessionStart", "--command", "echo again", "--root", root
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("+ .skillset/hooks/second-banner.json");
+  expect(preview.stdout).toContain("attach: list second-banner under hooks.auto");
 });
 
 test("SET-165: new rejects import-only flags", async () => {

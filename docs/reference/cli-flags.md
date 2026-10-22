@@ -27,7 +27,7 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--agent-runtime` | `mode` | `boolean` | Render provider agent-runtime hook guidance. |
 | `--all` | `selection` | `boolean` | Select every configured generated output rather than updated output. |
 | `--append` | `mutation` | `boolean` | Append to an existing pending change reason. |
-| `--attach <value>` | `selection` | `value` | Attach a new adaptive hook to an existing source-unit selector. |
+| `--attach <value>` | `selection` | `value` | Attach a new adaptive hook to an existing source-unit selector; without it, new hook writes a shared definition to the source root hooks/ folder. |
 | `--background` | `mode` | `boolean` | Queue an ad hoc test and return after recording it. |
 | `--bump <value>` | `input` | `value` | Set the release impact of a change entry. |
 | `--ci` | `mode` | `boolean` | Run check with strict non-interactive CI policy and reporting. |
