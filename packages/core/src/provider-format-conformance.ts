@@ -2,6 +2,7 @@ import {
   CURSOR_VARIABLES_REQUIRED_FIELDS,
   CURSOR_VARIABLES_TYPE,
   getProviderDestinationFormatSnapshot,
+  isCodexAgentsMdPath,
   isCursorSemver,
 } from "@skillset/registry";
 
@@ -144,7 +145,7 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (isClaudeHookPath(file.path)) return true;
   if (isCodexHookPath(file.path)) return true;
   if (isCursorHookPath(file.path)) return true;
-  if (file.path === "AGENTS.md" || file.path.endsWith("/AGENTS.md")) return true;
+  if (isCodexAgentsMdPath(file.path)) return true;
   if (file.path.endsWith("/SKILL.md") && skillTarget(file.path) !== undefined) return true;
   if (isClaudeSubagentPath(file.path)) return true;
   if (isCodexSubagentPath(file.path)) return true;
@@ -193,7 +194,7 @@ function checkProviderFormatConformanceFile(
   if (isCursorHookFile(file)) {
     return checkCursorHooks(file);
   }
-  if (file.path === "AGENTS.md" || file.path.endsWith("/AGENTS.md")) {
+  if (isCodexAgentsMdPath(file.path)) {
     return checkAgentsMarkdown(file);
   }
   if (isClaudeSubagentFile(file)) {

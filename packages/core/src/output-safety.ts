@@ -3,6 +3,7 @@ import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, wr
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative } from "node:path";
+import { codexAgentsMdFormat } from "@skillset/registry";
 
 import {
   type AtomicFilePublicationTestHooks,
@@ -1193,7 +1194,7 @@ function rootRulesGuidance(
   record: Pick<OutputBackupPlanRecord, "reason" | "sourcePath" | "targetPath">
 ): string {
   return record.reason === "unmanaged-collision" &&
-    record.targetPath === "AGENTS.md" &&
+    record.targetPath === codexAgentsMdFormat().fileName &&
     record.sourcePath?.endsWith("/RULES.md") === true
     ? "; move authored root instructions to .skillset/RULES.md"
     : "";

@@ -2,8 +2,10 @@ import { lstatSync, readdirSync } from "node:fs";
 import { join, posix, relative } from "node:path";
 
 import {
+  codexAgentsMdFormat,
   getStandardProfile,
   getStandardProfileSupportEnvelope,
+  isCodexAgentsMdPath,
   listProviderPluginManifestFields,
   type StandardProfileId,
 } from "@skillset/registry";
@@ -422,7 +424,7 @@ function unsupportedCursorRootRulesOutcomes(
   if (rootRule === undefined || !rootRule.targets.cursor.enabled) return [];
   return [
     defineRenderResult({
-      destination: "AGENTS.md",
+      destination: codexAgentsMdFormat().fileName,
       featureId: "cursor-agents-md-root",
       policy: "unsupported:error",
       reason:
@@ -2305,7 +2307,7 @@ function targetForLockItem(
   outputPaths: readonly string[]
 ): TargetName | undefined {
   if (lock.target !== "workspace") return lock.target;
-  if (item.kind === "rule" && outputPaths.some((path) => path === "AGENTS.md" || path.endsWith("/AGENTS.md"))) {
+  if (item.kind === "rule" && outputPaths.some(isCodexAgentsMdPath)) {
     return "codex";
   }
   for (const path of outputPaths) {

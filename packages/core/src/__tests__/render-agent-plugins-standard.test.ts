@@ -7,7 +7,10 @@ import {
   type StandardProfileId,
 } from "@skillset/registry";
 
+import { listStandardProfileSchemaSnapshots } from "@skillset/registry";
+
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { AGENT_PLUGIN_MANIFEST_SCHEMA } from "../agent-plugin-manifest";
 import { renderBuildGraph } from "../render";
 import { validateAgentPluginManifest } from "../render-agent-plugins-standard";
 import { collectRenderResults } from "../render-result-collector";
@@ -1150,3 +1153,11 @@ async function fixtureRoot(files: Record<string, string>): Promise<string> {
   }
   return root;
 }
+
+test("SET-544: the manifest $schema is the pinned Agent Plugins plugin schema's own $id", () => {
+  const ids = listStandardProfileSchemaSnapshots("agent-plugins-1.0").map(
+    (snapshot) => (JSON.parse(snapshot.body) as { readonly $id?: unknown }).$id
+  );
+  expect(ids).toContain(AGENT_PLUGIN_MANIFEST_SCHEMA);
+  expect(AGENT_PLUGIN_MANIFEST_SCHEMA).toMatch(/\/plugin\.schema\.json$/u);
+});
