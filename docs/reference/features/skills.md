@@ -55,7 +55,7 @@ Every enabled [target](../../glossary.md#target) receives its native `SKILL.md` 
 
 Release state supplies generated version metadata after `skillset release apply`; inline versions remain the fallback before release state exists. Disabling generated Skillset metadata does not remove lock provenance.
 
-`{{$ARGUMENTS...}}` expressions become native Claude placeholders. Codex preserves the marker and adds replacement guidance; Cursor preserves the marker without the Codex notice.
+`{{$ARGUMENTS...}}` expressions become native Claude placeholders. The Agent Skills baseline preserves the marker and adds a one-line replacement notice, and Codex reuses that same `.agents/skills/<skill>/SKILL.md`. Codex output rendered outside the shared baseline carries the same notice. Cursor preserves the marker without the notice.
 
 ## Standalone Agent Skills Publication
 

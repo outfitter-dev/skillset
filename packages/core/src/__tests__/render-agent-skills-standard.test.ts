@@ -552,6 +552,38 @@ Guide the task.
     );
   });
 
+  test("carries prompt-argument guidance in the shared baseline Codex reuses", async () => {
+    const graph = adopted(
+      await fixtureGraph({
+        "skillset.yaml": `
+skillset:
+  name: prompt-argument-skills
+claude: false
+codex: true
+cursor: false
+`,
+        ".skillset/skills/review/SKILL.md": `
+---
+name: review
+description: Review a change.
+---
+
+Run {{$ARGUMENTS.topic}}.
+`,
+      }),
+      ["agent-skills"]
+    );
+
+    const rendered = await renderBuildGraph(graph);
+    const skills = rendered.filter(
+      (file) => file.path === ".agents/skills/review/SKILL.md"
+    );
+    expect(skills).toHaveLength(1);
+    expect(new TextDecoder().decode(skills[0]?.content)).toMatch(
+      /\nBefore using commands, replace `\{\{\$ARGUMENTS\.\.\.\}\}` placeholders with the user's supplied arguments\.\n+Run \{\{\$ARGUMENTS\.topic\}\}\.\n$/u
+    );
+  });
+
   test("keeps plugin-owned skills in their standard package without a root copy", async () => {
     const graph = adopted(
       await fixtureGraph({
@@ -643,7 +675,6 @@ codex:
 `,
       "Review the change.",
     ],
-    ["Codex prompt-argument guidance", "", "Run {{$ARGUMENTS}}."],
     [
       "Claude-dialect translation",
       "dialect: claude",

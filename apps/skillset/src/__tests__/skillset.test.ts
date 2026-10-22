@@ -2578,9 +2578,15 @@ claude: true
 codex: true
 `
   );
-  await expect(buildSkillset(root)).rejects.toThrow(
-    "generated output collision at .agents/skills/argument-runner/SKILL.md requires incompatible bytes"
+  await buildSkillset(root);
+
+  const sharedSkill = await readFile(join(root, ".agents/skills/argument-runner/SKILL.md"), "utf8");
+  expect(sharedSkill).toContain(
+    "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments."
   );
+  expect(sharedSkill).toContain('docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS.limit}}');
+  expect(sharedSkill).toContain("All args: {{$ARGUMENTS}}");
+  expect(sharedSkill.match(/Before using commands/gu)).toHaveLength(1);
 });
 
 test("preprocessing preserves unrelated double-brace expressions in Markdown", async () => {
