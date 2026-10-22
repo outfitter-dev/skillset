@@ -36,7 +36,7 @@ Claude and Cursor [destinations](../../glossary.md#destination) follow the enabl
 | Authored source | Destination | Behavior |
 | --- | --- | --- |
 | `.skillset/RULES.md` | `.claude/CLAUDE.md` (default) or root `CLAUDE.md` | Renders the front page in its authored dialect with a generated-by header and source-boundary comment. `compile.instruction_front_page` selects `claude-dir` or `repo-root`. |
-| `.skillset/RULES.md` | root `AGENTS.md` (Agent Instructions baseline) | Becomes a bare section of the root `AGENTS.md`, without a source-boundary comment. Sections follow source-path order, so an unscoped rule whose path sorts before `RULES.md` (such as `01-basics.md`) currently renders above it. |
+| `.skillset/RULES.md` | root `AGENTS.md` (Agent Instructions baseline) | Becomes the bare first section of the root `AGENTS.md`, without a source-boundary comment, ahead of unscoped rules. |
 | `.skillset/RULES.md` | none for Cursor | Unsupported for Cursor (`cursor-agents-md-root`); Cursor receives only `.skillset/rules/**`. |
 | `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | Preserves the relative hierarchy and `paths` frontmatter. Unscoped rules render without frontmatter. |
 | `.skillset/rules/**/*.md` | `.cursor/rules/**/*.mdc` | Preserves the relative hierarchy and translates path scope into Cursor rule frontmatter. |

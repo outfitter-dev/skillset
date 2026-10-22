@@ -124,6 +124,19 @@ describe("SET-580 Claude project instructions", () => {
     expect(agents).not.toContain("Keep CLAUDE.md current.");
   });
 
+  it("renders the RULES.md front page first in root AGENTS.md [SET-742]", async () => {
+    const root = await authoringFixture({
+      ".skillset/RULES.md": "# Front page\n",
+      ".skillset/rules/01-basics.md": "# Basics\n",
+    });
+
+    await buildSkillset(root);
+
+    const agents = await readFile(join(root, "AGENTS.md"), "utf8");
+    expect(agents.startsWith("# Front page\n")).toBe(true);
+    expect(agents.indexOf("# Front page")).toBeLessThan(agents.indexOf("# Basics"));
+  });
+
   it("renders root CLAUDE.md instead when instruction_front_page is repo-root", async () => {
     const root = await authoringFixture();
     await withFrontPage(root, "repo-root");

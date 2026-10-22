@@ -364,12 +364,17 @@ async function renderCodexAgentsMarkdown(
   // Each concatenated source gets a deterministic boundary comment naming its
   // source instruction path. Comments carry the path only — source-only
   // frontmatter never reaches the generated AGENTS.md. Ordering follows the
-  // already-sorted rule list, so concatenation is stable. Claude-dialect
-  // sources lower through the transform engine for this codex projection;
-  // the .claude/rules projection of the same sources stays untouched.
+  // already-sorted rule list, except that the RULES.md front page always
+  // leads, so concatenation is stable. Claude-dialect sources lower through
+  // the transform engine for this codex projection; the .claude/rules
+  // projection of the same sources stays untouched.
   const counts = new Map<string, number>();
   const preprocessDependencies = new Set<string>();
-  const sections = rules.map(async (rule) => {
+  const ordered = [
+    ...rules.filter((rule) => rule.rootFrontPage),
+    ...rules.filter((rule) => !rule.rootFrontPage),
+  ];
+  const sections = ordered.map(async (rule) => {
     const body = await renderRuleBody(
       graph,
       rule,
