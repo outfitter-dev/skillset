@@ -36,7 +36,7 @@ The scaffold uses the complete `@skillset/cli` Bun distribution because its Java
 bunx @skillset/cli check --ci --report "$RUNNER_TEMP/skillset-ci-report.md"
 ```
 
-Same-repository pull requests add `--fix`. The scaffold passes no `--since`, so the check selects its baselines automatically: source-change coverage starts from the committed `skillset.lock` and release state when they exist and otherwise falls back to the merge base with `origin/main`, then `main`; package Changesets compare against the merge base with `origin/HEAD`, then `origin/main`, then `main`. Pass `--since <ref>` to name the baseline explicitly.
+Same-repository pull requests add `--fix`. The scaffold passes no `--since`, so the check selects its baselines automatically: source-change coverage starts from the committed `skillset.lock` and release state when they exist and otherwise falls back to the merge base with `origin/main`, then `main`; package Changesets compare against the merge base with `origin/HEAD`, then `origin/main`, then `main`. If none of those refs exist, both fall back to `HEAD` itself, which compares the tree with itself and finds nothing, so make sure CI fetches the trunk. Pass `--since <ref>` to name the baseline explicitly.
 
 This route requires Bun 1.4.0 or newer at command runtime. It exposes the same command surface as the native distribution; it is not a reduced CI product.
 
