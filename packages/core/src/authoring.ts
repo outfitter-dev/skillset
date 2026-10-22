@@ -10,6 +10,7 @@ import {
 import { parseGeneratedLock } from "./generated-lock";
 import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
 import { collectRenderResults } from "./render-result-collector";
+import { exists } from "./render-support";
 import {
   SkillsetFeatureDiagnosticError,
   skillsetDiagnostic,
@@ -19,6 +20,7 @@ import {
 import {
   diffSkillsetResult,
   includesProjectScope,
+  renderPolicyBlockingResults,
   ISOLATED_OUT_ROOT,
   scopedOutputRoots,
   scopedRenderedFiles,
@@ -36,7 +38,7 @@ import {
   readManagedOutputState,
 } from "./output-safety";
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
-import { compareStrings } from "./path";
+import { compareStrings, resolveInside } from "./path";
 import {
   projectUseStatusEntries,
   type ProjectUseStatusEntry,
@@ -67,6 +69,8 @@ export type ExplainKind =
   | "unknown";
 
 export interface ExplainResult {
+  /** Policy-blocking render results that share a source unit with this path. */
+  readonly blockingRenderResults: readonly SkillsetRenderResult[];
   readonly entries: readonly GeneratedEntry[];
   readonly features: readonly FeatureCapability[];
   readonly kind: ExplainKind;
@@ -75,8 +79,14 @@ export interface ExplainResult {
   readonly path: string;
   readonly sourceSkill?: SourceSkillInspection;
   readonly standardProfiles: readonly StandardProfileStatus[];
+  /** Targets enabled in `compile.targets`; feature support is reported for these. */
+  readonly targets: readonly TargetName[];
   readonly toolsRealization: readonly ExplainToolsRealization[];
+  /** Planned output paths for this explanation that are not on disk. */
+  readonly unwrittenOutputs: readonly string[];
 }
+
+type ExplainMatch = Omit<ExplainResult, "blockingRenderResults" | "targets" | "unwrittenOutputs">;
 
 export interface SourceSkillInspection {
   readonly container: "workspace" | string;
@@ -155,17 +165,36 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  const allRendered = await renderBuildGraph(graph);
+  const renderResults = collectRenderResults(graph, allRendered, {
+    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
+    includedPaths: new Set(
+      scopedRenderedFiles(graph, allRendered, options.scopes).map((file) => file.path)
+    ),
+    scopes: options.scopes,
+  });
+  const match = explainMatch(graph, allRendered, renderResults, rootPath, inputPath, options);
+  const blocking = renderPolicyBlockingResults(
+    scopedRenderedFiles(graph, allRendered, options.scopes),
+    renderResults,
+    graph.root.compile.unsupportedDestination
+  );
+  return withOutputState(graph, match, blocking);
+}
+
+function explainMatch(
+  graph: BuildGraph,
+  allRendered: Awaited<ReturnType<typeof renderBuildGraph>>,
+  renderResults: readonly SkillsetRenderResult[],
+  rootPath: string,
+  inputPath: string,
+  options: SkillsetOptions
+): ExplainMatch {
   const standardProfiles = standardProfileStatuses(
     graph.standardProjections,
     options.scopes
   );
-  const allRendered = await renderBuildGraph(graph);
   const rendered = scopedRenderedFiles(graph, allRendered, options.scopes);
-  const renderResults = collectRenderResults(graph, allRendered, {
-    claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
-    includedPaths: new Set(rendered.map((file) => file.path)),
-    scopes: options.scopes,
-  });
   const target = normalizeRepoPath(rootPath, inputPath);
   const items = collectLockItems(rendered);
 
@@ -192,9 +221,16 @@ export async function explainPath(
       item.files.some((file) => joinOutputRoot(item.outputRoot, file) === target)
   );
   if (asGenerated.length > 0) {
-    const matchedRenderResults = explainRenderResults(target, asGenerated, renderResults, {
+    const relatedRenderResults = explainRenderResults(target, asGenerated, renderResults, {
       includeSourcePaths: false,
     });
+    // Prefer the writers of this exact path over results for sibling bundle files.
+    const writers = relatedRenderResults.filter((outcome) =>
+      outcome.outputs?.some((output) => output.path === target) === true
+    );
+    const matchedRenderResults = writers.length > 0 ? writers : relatedRenderResults;
+    const bundleMember = asGenerated.every((item) => item.outputPath !== target);
+    const renderedSourcePath = rendered.find((file) => file.path === target)?.sourcePath;
     return {
       path: target,
       standardProfiles,
@@ -204,6 +240,11 @@ export async function explainPath(
       renderResults: matchedRenderResults,
       notes: [
         `Generated output; rebuild with skillset build, verify with skillset check --only outputs.`,
+        ...(bundleMember
+          ? [
+              `Bundle file listed by the entries above${renderedSourcePath === undefined ? "" : `; rendered from ${normalizeRepoPath(rootPath, renderedSourcePath)}`}.`,
+            ]
+          : []),
         ...asGenerated.flatMap((item) => providerFrontmatterNotes(graph, item.sourcePath)),
       ],
       toolsRealization: toolsRealizationForPath(graph, target, asGenerated),
@@ -258,6 +299,43 @@ export async function explainPath(
     ],
     toolsRealization: [],
   };
+}
+
+/**
+ * Add on-disk and policy facts: explain derives entries from the planned
+ * render, so a planned entry is not evidence that its output was written.
+ */
+async function withOutputState(
+  graph: BuildGraph,
+  match: ExplainMatch,
+  blocking: readonly SkillsetRenderResult[]
+): Promise<ExplainResult> {
+  const targets = targetNames().filter((target) => graph.root.targets[target].enabled);
+  if (match.kind === "unknown") {
+    return { ...match, blockingRenderResults: [], targets, unwrittenOutputs: [] };
+  }
+  const plannedPaths = [
+    ...new Set([
+      ...(match.kind === "generated" ? [match.path] : []),
+      ...match.entries.map((entry) => entry.outputPath),
+    ]),
+  ].filter((path) => path !== "");
+  const unwrittenOutputs: string[] = [];
+  for (const path of plannedPaths) {
+    if (!(await exists(resolveInside(graph.rootPath, path)))) unwrittenOutputs.push(path);
+  }
+  const sourceUnits = new Set(match.renderResults.map((outcome) => outcome.sourceUnit));
+  const blockingRenderResults = blocking.filter((outcome) => sourceUnits.has(outcome.sourceUnit));
+  const notes = [...match.notes];
+  if (blocking.length > 0) {
+    notes.push(
+      `Output derivation is blocked by ${blocking.length} render result${blocking.length === 1 ? "" : "s"}; skillset build writes nothing until ${blocking.length === 1 ? "it is" : "they are"} resolved.`
+    );
+  }
+  if (unwrittenOutputs.length > 0) {
+    notes.push(`Not written: ${unwrittenOutputs.join(", ")} (planned output; run skillset build to write ${unwrittenOutputs.length === 1 ? "it" : "them"}).`);
+  }
+  return { ...match, blockingRenderResults, notes, targets, unwrittenOutputs };
 }
 
 /**
