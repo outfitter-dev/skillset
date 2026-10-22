@@ -7,6 +7,7 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { RETIRED_RULE_DEFAULTS_SURFACE } from "@skillset/schema";
 
 import { seedReleaseBaselines } from "../adoption";
+import { withChangeLedgerLock } from "../change-ledger-lock";
 import { explainPath, listGeneratedEntries } from "@skillset/core/internal/authoring";
 import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, SkillsetBuildBlockedError } from "@skillset/core";
 import { changeStatus, collectSourceInventory } from "../change-status";
@@ -555,6 +556,21 @@ Demo dedicated workspace skill.
   expect(report.path).toBe(".skillset/changes/state.json");
   expect(report.entries.map((entry) => entry.scope)).toContain("skill:demo");
   expect(await exists(join(root, ".skillset/changes/state.json"))).toBe(true);
+});
+
+test("SET-677 release baseline seeding writes state.json under the change-ledger lock", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: locked-seed\nclaude: true\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo skill.\nversion: 0.1.0\n---\n\nDemo skill.\n",
+  });
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+
+  await withChangeLedgerLock(root, undefined, undefined, async () => {
+    await expect(
+      seedReleaseBaselines(root, {}, { lock: { pollMs: 5, timeoutMs: 50 }, write: true })
+    ).rejects.toThrow("timed out waiting for change ledger lock");
+  });
+  expect(await exists(join(root, ".skillset/changes/state.json"))).toBe(false);
 });
 
 test("release baseline seeding fails loudly for malformed workspace metadata", async () => {

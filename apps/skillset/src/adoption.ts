@@ -1,3 +1,4 @@
+import { withChangeLedgerLock, type ChangeLedgerLockOptions } from "./change-ledger-lock";
 import { collectSourceInventory } from "./change-status";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings } from "@skillset/core/internal/path";
@@ -36,6 +37,8 @@ export interface ReleaseBaselineReport {
 
 export interface SeedReleaseBaselinesOptions {
   readonly includeScope?: (scope: string) => boolean;
+  /** Change-ledger lock settings; a writing seed holds the lock across read and write. */
+  readonly lock?: ChangeLedgerLockOptions;
   readonly scopes?: readonly string[];
   readonly sourceVersion?: (
     scope: string,
@@ -76,6 +79,20 @@ export async function seedReleaseBaselines(
   }
 
   const resolvedOptions = { ...options, sourceDir: graph.sourceDir };
+  // state.json is shared with release and change writers (ADR-0038): a writing
+  // seed reads and replaces it under the same lock so no write is lost.
+  return seedOptions.write === true
+    ? withChangeLedgerLock(rootPath, graph.sourceDir, seedOptions.lock, () =>
+        seedFromReleaseState(rootPath, graph, resolvedOptions, seedOptions))
+    : seedFromReleaseState(rootPath, graph, resolvedOptions, seedOptions);
+}
+
+async function seedFromReleaseState(
+  rootPath: string,
+  graph: BuildGraph,
+  resolvedOptions: SkillsetOptions,
+  seedOptions: SeedReleaseBaselinesOptions
+): Promise<ReleaseBaselineReport> {
   const inventory = await collectSourceInventory(rootPath, resolvedOptions);
   const state = await readReleaseState(rootPath, resolvedOptions);
   const scopeFilter = seedOptions.scopes === undefined
