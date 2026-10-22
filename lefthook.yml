@@ -20,7 +20,9 @@ pre-commit:
     - name: skillset
       env:
         GIT_PAGER: cat
-      glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins/**,AGENTS.md}"
+      # Every generated root plus the source and config that feed them. Keep in
+      # step with the paths the committed skillset.lock files record.
+      glob: "{.skillset/**,skillset.yaml,skillset.lock,.agents/**,.claude/**,.codex/**,.cursor/**,.claude-plugin/**,.cursor-plugin/**,plugins/**,AGENTS.md,**/AGENTS.md}"
       run: bun run skillset:check:outputs
     - name: workflows
       env:
