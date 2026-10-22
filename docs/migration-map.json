@@ -188,7 +188,7 @@
     },
     {
       "from": "docs/features/source-suggestions.md",
-      "primary": "docs/reference/features/source-suggestions.md",
+      "primary": "docs/reference/features/reconcile.md",
       "status": "moved"
     },
     {
@@ -292,6 +292,11 @@
     {
       "from": "docs/reference/source/instructions.md",
       "primary": "docs/reference/source/rules.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/reference/features/source-suggestions.md",
+      "primary": "docs/reference/features/reconcile.md",
       "status": "moved"
     }
   ]

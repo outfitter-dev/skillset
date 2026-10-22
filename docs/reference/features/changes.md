@@ -85,7 +85,7 @@ The first command previews conversion to reason-only Markdown and equivalent led
 | Two stacked reasons cover one current hash | Both remain valid and a stacked-evidence note is shown | Keep both when attribution is intentional |
 | One stacked reason has an old hash | That reason remains stale | Refresh it; evidence is never borrowed from another reason |
 | `bump: none` covers a structural or severity-bearing change | Check warns | Choose the intended bump or explicitly review the warning |
-| Generated file was edited | Change commands do not reverse-map it | Use [reconciliation](source-suggestions.md) |
+| Generated file was edited | Change commands do not reverse-map it | Use [reconciliation](reconcile.md) |
 
 Build `--scope` is rejected for change status/check because a [destination](../../glossary.md#destination) filter cannot safely limit source coverage.
 
