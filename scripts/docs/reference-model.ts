@@ -12,6 +12,7 @@ import {
   CLI_PRESENTATION_CATALOG,
   flagPresentation,
   type CliPresentationGroup,
+  type CliRoutePresentation,
 } from "../../apps/skillset/src/cli-presentation";
 import {
   listSkillsetFeatures,
@@ -126,7 +127,7 @@ export function buildDocsReferenceModel(): DocsReferenceModel {
 }
 
 export function buildCliFlagReferences(): readonly CliFlagReference[] {
-  return (Object.keys(CLI_FLAGS) as CliFlag[]).map(flagReference);
+  return (Object.keys(CLI_FLAGS) as CliFlag[]).map((flag) => flagReference(flag));
 }
 
 export function buildCliEnvironmentReferences(): readonly CliEnvironmentReference[] {
@@ -156,7 +157,7 @@ export function buildCliCommandReferences(): readonly CliCommandReference[] {
       group: first.group,
       routes: sourceRoutes.map((route) => ({
         examples: [...(route.examples ?? [])],
-        flags: route.flags.map(flagReference),
+        flags: route.flags.map((flag) => flagReference(flag, route)),
         route: route.route,
         summary: route.summary,
         synopses: [...route.synopses],
@@ -236,13 +237,17 @@ export function buildProviderReferences(
   }));
 }
 
-function flagReference(name: CliFlag): CliFlagReference {
+function flagReference(
+  name: CliFlag,
+  route?: Pick<CliRoutePresentation, "flagMeanings">
+): CliFlagReference {
   const contract = CLI_FLAGS[name];
+  const presentation = flagPresentation(name, route);
   return {
     family: contract.family,
-    meaning: contract.meaning,
+    meaning: presentation.meaning,
     name,
-    syntax: flagPresentation(name).syntax,
+    syntax: presentation.syntax,
     value: contract.value,
   };
 }

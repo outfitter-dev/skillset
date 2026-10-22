@@ -238,7 +238,7 @@ function runtimeRouteSeed(route: string, flag?: CliFlag): readonly string[] {
       if (flag === "--fix" || flag === "--report" || flag === "--since") {
         return ["check", "--ci"];
       }
-      return ["check"];
+      return flag === "--isolated" ? ["check", "--only", "outputs"] : ["check"];
     case "hooks print":
       return flag === "--target" || flag === "--agent-runtime"
         ? ["hooks", "print", "--target", "codex", "--agent-runtime"]

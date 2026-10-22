@@ -116,7 +116,7 @@ function renderRouteHelp(
   route: CliRoutePresentation
 ): string {
   const options = route.flags.map((flag) => {
-    const presentation = flagPresentation(flag);
+    const presentation = flagPresentation(flag, route);
     return {
       label: renderer.accent(presentation.syntax),
       value: presentation.meaning,

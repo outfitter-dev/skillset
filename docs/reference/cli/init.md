@@ -20,10 +20,10 @@ skillset init [directory] [--adopt <all|candidate-id>] [--yes] [--targets claude
 | Option | Meaning |
 | --- | --- |
 | `--adopt <value>...` | Select detected adoption candidates by stable id, or all. |
-| `--include <value>...` | Include an optional init scaffold component. |
+| `--include <value>...` | Include an optional setup scaffold component; `ci` is the only component. |
 | `--json` | Emit exactly one versioned finite JSON result document. |
 | `--root <value>` | Select the repository root; defaults to cwd or Git root according to the route. |
-| `--targets <value>` | Select the initial provider set written by init. |
+| `--targets <value>` | Select the initial provider set for the new workspace. |
 | `--yes` | Confirm a fully specified plan-first mutation without prompting. |
 
 ## Examples

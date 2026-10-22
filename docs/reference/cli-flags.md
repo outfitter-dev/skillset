@@ -50,20 +50,20 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--help` | `output` | `boolean` | Print help for the selected command route. |
 | `--id <value>` | `input` | `value` | Set an explicit stable source-unit id. |
 | `--in <value>` | `selection` | `value` | Select the containing plugin for a new source unit. |
-| `--include <value>...` | `selection` | `repeatable-value` | Include an optional init scaffold component. |
+| `--include <value>...` | `selection` | `repeatable-value` | Include an optional setup scaffold component; `ci` is the only component. |
 | `--discard-edits` | `mutation` | `boolean` | Overwrite hand-edited generated output during a repair instead of preserving it. |
 | `--isolated` | `mode` | `boolean` | Use the isolated generated-output mirror instead of live output roots. |
 | `--json` | `output` | `boolean` | Emit exactly one versioned finite JSON result document. |
 | `--jsonl` | `output` | `boolean` | Emit a versioned newline-delimited event stream. |
 | `--kind <value>` | `selection` | `value` | Select the import source kind. |
-| `--lines <value>` | `selection` | `value` | Limit retained test output lines. |
+| `--lines <value>` | `selection` | `value` | Limit retained run output lines. |
 | `--list` | `output` | `boolean` | List integrity-checked generated-output backups without restoring them. |
 | `--name <value>` | `input` | `value` | Set a route-specific human or stable name where the route permits it. |
 | `--only <value>` | `selection` | `value` | Restrict check to one named readiness component. |
 | `--plugin <value>...` | `selection` | `repeatable-value` | Select plugins for an ad hoc test rendering. |
 | `--pre-commit` | `selection` | `boolean` | Select the pre-commit hook snippet. |
 | `--pre-push` | `selection` | `boolean` | Select the pre-push hook snippet. |
-| `--preset <value>...` | `input` | `repeatable-value` | Apply a named new-source preset. |
+| `--preset <value>...` | `input` | `repeatable-value` | Apply a named skill preset: assets, evals, examples-file, minimal, reference-file, references, scripts, or support. |
 | `--prompt <value>` | `input` | `value` | Provide an inline ad hoc test prompt. |
 | `--prompt-file <value>` | `input` | `value` | Provide a source-local ad hoc test prompt file. |
 | `--provider <value>...` | `selection` | `repeatable-value` | Constrain a new adaptive hook to a compatible provider. |
@@ -79,8 +79,8 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--since <value>` | `selection` | `value` | Select the Git baseline for change-aware checks or ledgers. |
 | `--staged` | `selection` | `boolean` | Restrict a change check or status read to staged changes. |
 | `--target <value>` | `selection` | `value` | Select one provider target for a route. |
-| `--targets <value>` | `selection` | `value` | Select the initial provider set written by init. |
-| `--timeout-ms <value>` | `mode` | `value` | Set the explicit ad hoc provider test timeout in milliseconds. |
+| `--targets <value>` | `selection` | `value` | Select the initial provider set for the new workspace. |
+| `--timeout-ms <value>` | `mode` | `value` | Set the run timeout in milliseconds. |
 | `--updated` | `selection` | `boolean` | Select only generated output affected by current source, the default build mode. |
 | `--use <value>` | `mode` | `value` | Select source or output as the authority for a reconciliation plan. |
 | `--values` | `selection` | `boolean` | Show lookup finite-value facts. |

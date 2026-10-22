@@ -558,7 +558,7 @@ function sourceReadinessError(
 export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";
 
 /**
- * GitHub Actions workflow scaffolded by `skillset init --include ci` and
+ * GitHub Actions workflow scaffolded by `skillset create --include ci` and
  * `skillset init --include ci`. Mechanical drift is rebuilt and pushed back to
  * same-repo pull-request branches; non-mechanical problems become an updated
  * PR comment and a failing check. Fork PRs run read-only because they cannot
@@ -567,7 +567,7 @@ export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";
  */
 export function renderCiWorkflow(): string {
   return [
-    "# Scaffolded by skillset init --include ci. Skillset does not manage this file; edit freely.",
+    "# Scaffolded by skillset create/init --include ci. Skillset does not manage this file; edit freely.",
     "# Consider pinning skillset to an exact version for reproducible CI runs.",
     "# @skillset/cli is the complete, smaller Bun distribution; use the native skillset package when the runner should not require Bun.",
     "# Agent standards are inherent for applicable source when their registry profiles are adopted; compile.targets selects providers only.",

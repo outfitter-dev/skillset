@@ -64,7 +64,8 @@ describe("documentation reference model", () => {
       for (const flag of route.flags) {
         expect(flag).toMatchObject({
           family: CLI_FLAGS[flag.name].family,
-          meaning: CLI_FLAGS[flag.name].meaning,
+          meaning:
+            source.flagMeanings?.[flag.name] ?? CLI_FLAGS[flag.name].meaning,
           value: CLI_FLAGS[flag.name].value,
         });
       }

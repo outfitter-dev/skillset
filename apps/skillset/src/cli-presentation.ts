@@ -16,6 +16,8 @@ export type CliPublicRoute = keyof typeof CLI_ROUTE_FLAGS;
 interface CliRoutePresentationSource {
   readonly commandSummary?: string;
   readonly examples?: readonly string[];
+  /** Route-specific meanings for shared flags whose contract meaning does not fit. */
+  readonly flagMeanings?: Partial<Record<CliFlag, string>>;
   readonly group: CliPresentationGroup;
   readonly summary: string;
   readonly synopses: readonly string[];
@@ -33,7 +35,7 @@ const PRESENTATION = {
     summary: "Preview or write generated provider outputs.",
     synopses: [
       "build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
-      "build --repair [path...] [--discard-edits]",
+      "build --repair [path...] [--discard-edits] [--yes]",
     ],
     examples: [
       "skillset build",
@@ -111,9 +113,9 @@ const PRESENTATION = {
     group: "Build",
     summary: "Validate source, generated outputs, and CI readiness.",
     synopses: [
-      "check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
+      "check [--write|--only outputs [--isolated]|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
     ],
-    examples: ["skillset check", "skillset check --ci"],
+    examples: ["skillset check", "skillset check --only outputs --isolated", "skillset check --ci"],
   },
   dev: {
     group: "Build",
@@ -137,6 +139,7 @@ const PRESENTATION = {
     synopses: ["draft <shipped-path> [--yes] [--json] [--root <path>]"],
   },
   "eval list": {
+    commandSummary: "List, run, and inspect portable skill evals.",
     group: "Inspect",
     summary: "List portable skill eval cases and their resolved target matrix.",
     synopses: ["eval list [--json] [--root <path>]"],
@@ -204,6 +207,9 @@ const PRESENTATION = {
       "create [name] [--root <parent-directory>] [--yes] [--targets claude,codex,cursor] [--include ci] [--json]",
     ],
     examples: ["skillset create", "skillset create team-loadout --yes"],
+    flagMeanings: {
+      "--root": "Select the parent directory for the new repository; defaults to cwd.",
+    },
   },
   init: {
     group: "Author",
@@ -262,6 +268,15 @@ const PRESENTATION = {
   new: {
     group: "Author",
     summary: "Create a new plugin, skill, project agent, rule, or hook in source.",
+    examples: [
+      "skillset new skill release-notes",
+      "skillset new skill release-notes --preset support --yes",
+      "skillset new rule testing --yes",
+      "skillset new hook session-banner --event SessionStart --command \"echo ready\" --attach plugin:tools",
+    ],
+    flagMeanings: {
+      "--scope": "Select the source scope; only `repo` is accepted.",
+    },
     synopses: [
       "new [plugin|skill|agent|rule|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--draft] [--scope repo] [--preset <preset>] [--event <event>] [--command <command> | --script <path>] [--attach <source-unit>] [--provider <provider>] [--yes] [--json] [--root <path>]",
     ],
@@ -285,6 +300,12 @@ const PRESENTATION = {
     synopses: [
       "reconcile [managed-path] [--use <source|output>] [--yes] [--json] [--root <path>]",
     ],
+  },
+  resolve: {
+    group: "Changes",
+    summary: "Repair and stage generated-output conflicts during a rebase or merge.",
+    synopses: ["resolve [--yes] [--json] [--root <path>]"],
+    examples: ["skillset resolve", "skillset resolve --yes"],
   },
   rename: {
     group: "Author",
@@ -312,12 +333,6 @@ const PRESENTATION = {
     group: "Changes",
     summary: "Audit release and changelog state.",
     synopses: ["release audit [--json] [--root <path>]"],
-  },
-  resolve: {
-    group: "Changes",
-    summary: "Repair and stage generated-output conflicts during a rebase or merge.",
-    synopses: ["resolve [--yes] [--json] [--root <path>]"],
-    examples: ["skillset resolve", "skillset resolve --yes"],
   },
   "release plan": {
     group: "Changes",
@@ -423,7 +438,10 @@ export function allCommandPresentations(): readonly {
   }));
 }
 
-export function flagPresentation(flag: CliFlag): {
+export function flagPresentation(
+  flag: CliFlag,
+  route?: Pick<CliRoutePresentation, "flagMeanings">
+): {
   readonly meaning: string;
   readonly syntax: string;
 } {
@@ -436,5 +454,8 @@ export function flagPresentation(flag: CliFlag): {
         : contract.value === "repeatable-value"
           ? " <value>..."
           : " <value>";
-  return { meaning: contract.meaning, syntax: `${flag}${suffix}` };
+  return {
+    meaning: route?.flagMeanings?.[flag] ?? contract.meaning,
+    syntax: `${flag}${suffix}`,
+  };
 }
