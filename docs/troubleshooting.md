@@ -46,6 +46,34 @@ skillset build
 
 If the plan is correct, run `skillset build --yes`, then `skillset check --only outputs`. See [Output Safety](reference/features/output-safety.md) when the plan includes a collision, removal, or backup.
 
+If the check prints `next: skillset check --write`, generated output is the only blocking condition and can be rebuilt from current source. `skillset check --write` performs that ordinary rebuild; prefer the preview above when you have not reviewed the drift yet.
+
+## A generated file is missing or was edited by hand
+
+Use repair when generated output on disk no longer matches what the lock recorded, for example after a deleted file or a stray edit:
+
+```bash
+skillset build --repair
+skillset build --repair --yes
+```
+
+Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
+
+## A rebase or merge conflicts in generated output
+
+Generated-output conflicts carry no information of their own: the answer is always to regenerate from the merged source. Resolve authored source conflicts first, then preview and confirm:
+
+```bash
+skillset resolve
+skillset resolve --yes
+```
+
+`resolve` regenerates conflicted generated paths and stages only paths the lock confirms as generated. It names authored conflicts for you to fix by hand and refuses to render source that still carries conflict markers. It works inside a linked Git worktree. See the [`resolve` reference](reference/cli/resolve.md).
+
+## A lock is reported as rebuild-only
+
+Locks older than schema v4 cannot prove ownership or authorize cleanup, so Skillset stops instead of rewriting them. Preserve canonical source and user edits, back up only owner-reviewed generated paths, and rebuild with the current release. Follow [Rebuild Generated State](guides/generated-state-rebuild.md) step by step.
+
 ## Build shows output I did not expect
 
 Do not confirm it yet. Run `skillset diff`, `skillset status`, and `skillset explain <path>`. Check the enabled targets, source defaults, and current support before changing configuration.

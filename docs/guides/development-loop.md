@@ -52,6 +52,17 @@ Confirm only a clean, understandable mapping with `--yes`. Use `--use source` wh
 
 Provider-format migrations belong to `skillset update`, not ordinary build or reconciliation. Recoverable collision and target-edit backups belong to `skillset restore`; list and preview a restore before confirming it. See [Output Safety](../reference/features/output-safety.md).
 
+## Recover generated output
+
+When generated output itself is damaged rather than edited on purpose, use the dedicated recovery routes instead of rebuilding by hand:
+
+- `skillset check --write` rebuilds output when drift from current source is the only blocking condition.
+- `skillset build --repair [path...]` restores deleted output and reports hand edits without discarding them; add `--discard-edits` only when those edits should be dropped.
+- `skillset resolve` regenerates and stages generated-output conflicts during a rebase or merge.
+- A rebuild-only (pre-v4) lock needs the one-time [generated-state rebuild](generated-state-rebuild.md).
+
+`build --repair` and `resolve` preview first and write only with `--yes`; `check --write` writes directly, so review `skillset diff` before using it. [Troubleshooting](../troubleshooting.md) covers the symptoms that lead to each one.
+
 ## Record meaningful source changes
 
 When the workspace uses Skillset's change ledger, run `skillset change status` after a source change and add the required reason before shipping. The [Changes reference](../reference/features/changes.md) owns ledger and release details.
