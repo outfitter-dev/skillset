@@ -83,7 +83,7 @@ Options:
   --slug <slug>             URL slug (create, update)
   --created <YYYY-MM-DD>    Override creation date (create)
   --status <status>         Status (promote, update)
-  --supersedes <ref>        Mark another ADR as superseded (promote)
+  --supersedes <ref>        Mark another ADR as superseded by this one (promote)
   --renumber <NNNN>         Change ADR number (update)
   --yes, -y                 Apply changes (default: preview only)
   --help                    Show this help
@@ -95,8 +95,8 @@ Examples:
   bun scripts/adr.ts update 013 --renumber 0013
   bun scripts/adr.ts update source-first-loadouts --title "Source-First Loadouts"
   bun scripts/adr.ts update compile-target-selection --slug compile-targets
-  bun scripts/adr.ts fix --dry-run
   bun scripts/adr.ts fix
+  bun scripts/adr.ts fix --yes
   bun scripts/adr.ts check
 `);
 };
