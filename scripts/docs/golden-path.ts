@@ -5,6 +5,8 @@ import { createTestGitFixtureRoot } from "../test-helpers/git-remote";
 
 const EDIT_MARKER = "Golden path second-pass edit.";
 const MANAGED_OUTPUTS = [".agents", ".claude", "AGENTS.md", "skillset.lock"];
+// Mirrors examples/first-author/.gitignore so local runtime state never leaks in.
+const IGNORED_EXAMPLE_PATHS = [".skillset/cache", ".skillset/snapshots"];
 
 export interface GoldenPathReport {
   readonly commands: number;
@@ -17,29 +19,40 @@ export async function runDocsGoldenPath(
   const sandbox = await createTestGitFixtureRoot("skillset-docs-golden-");
   try {
     const exampleRoot = path.join(repoRoot, "examples", "first-author");
-    await cp(
-      path.join(exampleRoot, "skillset.yaml"),
-      path.join(sandbox, "skillset.yaml")
-    );
-    await cp(
-      path.join(exampleRoot, ".skillset"),
-      path.join(sandbox, ".skillset"),
-      { recursive: true }
-    );
+    await cp(exampleRoot, sandbox, {
+      filter: (source) => !isIgnoredExamplePath(exampleRoot, source),
+      recursive: true,
+    });
 
+    // The README promises the checked-in example passes check as cloned.
     let commands = 0;
+    await runCli(repoRoot, sandbox, ["check"]);
+    commands += 1;
+    await runCli(repoRoot, sandbox, ["check", "--only", "outputs"]);
+    commands += 1;
+    const checkedIn = await managedOutputSnapshot(sandbox);
+    if (checkedIn.size === 0) {
+      throw new Error("skillset: docs golden path example has no output");
+    }
+
     await runCli(repoRoot, sandbox, ["build"]);
     commands += 1;
-    assertEmpty(await managedOutputSnapshot(sandbox), "preview wrote output");
+    assertSnapshotsEqual(
+      checkedIn,
+      await managedOutputSnapshot(sandbox),
+      "preview changed checked-in output"
+    );
 
     await runCli(repoRoot, sandbox, ["build", "--yes"]);
     commands += 1;
     await runCli(repoRoot, sandbox, ["check", "--only", "outputs"]);
     commands += 1;
     const firstBuild = await managedOutputSnapshot(sandbox);
-    if (firstBuild.size === 0) {
-      throw new Error("skillset: docs golden path generated no output");
-    }
+    assertSnapshotsEqual(
+      checkedIn,
+      firstBuild,
+      "a rebuild changed checked-in output"
+    );
 
     const sourcePath = path.join(
       sandbox,
@@ -91,6 +104,14 @@ export async function runDocsGoldenPath(
   } finally {
     await rm(sandbox, { force: true, recursive: true });
   }
+}
+
+function isIgnoredExamplePath(exampleRoot: string, source: string): boolean {
+  const relativePath = path.relative(exampleRoot, source).replaceAll("\\", "/");
+  return IGNORED_EXAMPLE_PATHS.some(
+    (ignored) =>
+      relativePath === ignored || relativePath.startsWith(`${ignored}/`)
+  );
 }
 
 async function runCli(

@@ -16,20 +16,21 @@
       "name": "team-guidance",
       "outputHash": "sha256:4da54604a6fcfa28044619261ecc87aa11251def772e62060495b6ac13c565dc",
       "outputPath": "team-guidance.md",
+      "role": "bundle",
       "sourceHash": "sha256:799395d3e21c9c0360d17cb9b0d5432a7d11e0d3164f9648e8c03b146ad51df0",
       "sourcePath": ".skillset/rules/team-guidance.md",
       "version": "0.1.0"
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:6e469b0c88424c84eb8fb0501e323f166d52b2519e41f310f859833be69091e5",
+  "provenanceHash": "sha256:603b6f6df99bbcf8551eb5c452de683507864270385af9c72f23d5ac95cfeae0",
   "renderResults": [
     {
-      "destination": "instruction",
+      "destination": "rule",
       "evidence": [
         {
           "kind": "docs",
-          "ref": "docs/reference/features/instructions.md"
+          "ref": "docs/reference/features/rules.md"
         }
       ],
       "featureId": "project-instructions",
@@ -39,19 +40,27 @@
           "path": ".claude/rules/team-guidance.md"
         }
       ],
-      "schema": "skillset-render-result@1",
+      "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/rules/team-guidance.md",
-      "sourceUnit": "instruction:team-guidance",
+      "sourceUnit": "rule:team-guidance",
       "status": "transformed",
       "target": "claude"
     }
   ],
-  "schemaVersion": 2,
+  "schemaVersion": 4,
+  "selectedStandards": [
+    "agent-instructions",
+    "agent-skills"
+  ],
   "selectedTargets": [
     "claude",
     "codex"
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
+  "standardProfileEvidence": {
+    "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
+    "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
+  },
   "target": "claude"
 }
