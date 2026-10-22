@@ -75,6 +75,7 @@ Prettier (`.prettierignore`):
 .claude/agents/
 .claude/rules/
 .claude/CLAUDE.md
+CLAUDE.md
 .codex/agents/
 .cursor/skills/
 .cursor/rules/
@@ -96,6 +97,7 @@ oxfmt (`.oxfmtrc.json`), with the same list as globs:
     ".claude/agents/**",
     ".claude/rules/**",
     ".claude/CLAUDE.md",
+    "CLAUDE.md",
     ".codex/agents/**",
     ".cursor/skills/**",
     ".cursor/rules/**",
@@ -120,6 +122,7 @@ Biome 2 (`biome.json`), as negated `files.includes` entries:
       "!.claude/agents/**",
       "!.claude/rules/**",
       "!.claude/CLAUDE.md",
+      "!CLAUDE.md",
       "!.codex/agents/**",
       "!.cursor/skills/**",
       "!.cursor/rules/**",
